@@ -55,6 +55,7 @@ the-abby-project/
 ├── apps/
 │   ├── projects/            # User, SkillCategory, Project, Milestone, MaterialItem, Notification
 │   │   ├── scraper.py       # Instructables URL preview scraper
+│   │   ├── suggestions.py   # AI project suggestions (Claude API + fallback)
 │   │   ├── notifications.py # Notification helper
 │   │   └── signals.py       # Status change, milestone, and notification triggers
 │   ├── timecards/           # TimeEntry, Timecard, ClockService, TimecardService
@@ -260,10 +261,63 @@ When creating a project, pasting an Instructables URL triggers a backend scraper
 - Results cached in Redis for 24 hours
 - Frontend shows a live preview card with the extracted metadata
 
+## v2 Features
+
+### Project Templates
+- Save any completed project as a reusable template (with milestones and materials)
+- Create new projects from templates with one click
+- Public templates enable parent co-op sharing between families
+- API: `GET /api/templates/`, `POST /api/templates/from-project/`, `POST /api/templates/{id}/create-project/`, `GET /api/templates/shared/`
+
+### Collaborative Projects
+- Add multiple children to a project with configurable pay split percentages
+- `ProjectCollaborator` model tracks per-child participation
+- API: `GET/POST /api/projects/{id}/collaborators/`
+
+### Savings Goals
+- Children set savings targets (e.g., "New bike - $200") with custom icons
+- Progress bar on dashboard auto-updates from current balance
+- Completion tracking with timestamps
+- API: `GET/POST /api/savings-goals/`, `POST /api/savings-goals/{id}/update_amount/`
+
+### AI Project Suggestions
+- Claude API (Haiku) analyzes completed projects and skill levels to recommend next projects
+- Considers skill gaps, category breadth, and difficulty progression
+- Curated fallback suggestions when `ANTHROPIC_API_KEY` is not set
+- Frontend: suggestions section on Projects page with category tags and rationale
+- API: `GET /api/projects/suggestions/`
+
+### QR Code Clock-In
+- Generate printable QR codes for each project (amber on black, workshop themed)
+- Scan with phone camera to quick-clock-in from the workshop
+- QR data includes project ID and title as JSON
+- API: `GET /api/projects/{id}/qr/` returns PNG image
+
+### Time-Lapse Integration
+- `video_url` field on ProjectPhoto supports YouTube/external video links
+- `is_timelapse` flag for marking time-lapse recordings
+- Encourages capturing the making process on camera
+
+### Seasonal Themes
+- 4 color themes: Summer (amber), Winter Break (blue), Spring Break (green), Autumn (orange)
+- Theme preference saved per-user on the backend
+- CSS custom properties swapped at runtime for instant switching
+- Theme picker with color swatches on Settings page
+
+### Greenlight CSV Import
+- Import Greenlight transaction CSV data for payout reconciliation
+- Parses Amount and Description columns, creates payout ledger entries
+- API: `POST /api/greenlight/import/` with `user_id` and `csv_data`
+
+### Parent Co-Op Mode
+- Public project templates shared between families
+- Browse community templates via `GET /api/templates/shared/`
+- One-click create project from any shared template
+
 ## Frontend
 
 ### Design
-- Dark mode workshop aesthetic (#0a0a0a background, amber/copper accents)
+- Dark mode workshop aesthetic with seasonal theme switching
 - Space Mono for headings/numbers, DM Sans for body text
 - Framer Motion micro-animations on interactions
 - Mobile-first with sidebar nav (desktop) and bottom nav (mobile)
@@ -271,17 +325,17 @@ When creating a project, pasting an Instructables URL triggers a backend scraper
 ### Pages
 | Page | Route | Description |
 |------|-------|-------------|
-| Login | — | Session auth form |
-| Dashboard | `/` | Active timer hero, balance, weekly stats, projects, badges, streak |
-| Projects | `/projects` | Card grid with status badges, progress bars, difficulty stars |
-| Project Detail | `/projects/:id` | Tabbed view (Overview, Milestones, Materials) with workflow actions |
+| Login | -- | Session auth form |
+| Dashboard | `/` | Active timer hero, balance, weekly stats, projects, badges, streak, savings goals |
+| Projects | `/projects` | Card grid with status badges, progress bars, AI suggestions section |
+| Project Detail | `/projects/:id` | Tabbed view with workflow actions, QR code, save-as-template |
 | New Project | `/projects/new` | Create form with Instructables URL preview (parent only) |
 | Clock | `/clock` | Large circular timer, project selector, one-tap clock in/out |
 | Timecards | `/timecards` | Weekly cards, expandable detail, approve/dispute/pay, CSV export |
 | Payments | `/payments` | Large balance, breakdown by type, transaction history |
 | Achievements | `/achievements` | Badge collection grid + interactive skill tree by category |
-| Portfolio | `/portfolio` | Photo gallery grouped by project, ZIP download |
-| Settings | `/settings` | Profile info display |
+| Portfolio | `/portfolio` | Photo + video gallery grouped by project, ZIP download |
+| Settings | `/settings` | Profile info, theme picker (4 seasonal themes) |
 
 ## Development
 
@@ -315,3 +369,4 @@ docker compose down -v
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` | CORS origins |
 | `PARENT_PASSWORD` | `summerforge2025` | Seed data parent password |
 | `CHILD_PASSWORD` | `summerforge2025` | Seed data child password |
+| `ANTHROPIC_API_KEY` | (empty) | Optional — enables AI project suggestions via Claude API |
