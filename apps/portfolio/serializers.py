@@ -10,6 +10,6 @@ class ProjectPhotoSerializer(serializers.ModelSerializer):
         model = ProjectPhoto
         fields = [
             "id", "project", "project_title", "user", "image",
-            "caption", "uploaded_at",
+            "video_url", "caption", "is_timelapse", "uploaded_at",
         ]
         read_only_fields = ["user", "uploaded_at"]

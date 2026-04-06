@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Clock, DollarSign, Flame, FolderKanban, Trophy, Timer } from 'lucide-react';
+import { Clock, DollarSign, Flame, FolderKanban, Trophy, Timer, Target } from 'lucide-react';
 import { getDashboard } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
@@ -14,7 +14,7 @@ export default function Dashboard() {
   if (loading) return <Loader />;
   if (!data) return null;
 
-  const { active_timer, current_balance, this_week, active_projects, recent_badges, streak_days } = data;
+  const { active_timer, current_balance, this_week, active_projects, recent_badges, streak_days, savings_goals } = data;
 
   return (
     <div className="space-y-6">
@@ -116,6 +116,37 @@ export default function Dashboard() {
                   )}
                 </Card>
               </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Savings Goals */}
+      {savings_goals?.length > 0 && (
+        <div>
+          <h2 className="font-heading text-lg font-bold mb-3 flex items-center gap-2">
+            <Target size={18} /> Savings Goals
+          </h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {savings_goals.map((goal) => (
+              <Card key={goal.id}>
+                <div className="flex items-center gap-2 mb-2">
+                  {goal.icon && <span className="text-xl">{goal.icon}</span>}
+                  <span className="font-medium text-sm">{goal.title}</span>
+                </div>
+                <div className="flex justify-between text-xs text-forge-text-dim mb-1">
+                  <span>${parseFloat(goal.current_amount).toFixed(2)}</span>
+                  <span>${parseFloat(goal.target_amount).toFixed(2)}</span>
+                </div>
+                <div className="h-2 bg-forge-muted rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-green-500 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${goal.percent_complete}%` }}
+                  />
+                </div>
+                <div className="text-xs text-forge-text-dim mt-1 text-right">{goal.percent_complete}%</div>
+              </Card>
             ))}
           </div>
         </div>

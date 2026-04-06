@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ExternalLink, ArrowLeft, DollarSign } from 'lucide-react';
-import { getProject, submitProject, approveProject, requestChanges, completeMilestone, markPurchased } from '../api';
+import { Check, ExternalLink, ArrowLeft, DollarSign, QrCode, Copy } from 'lucide-react';
+import { getProject, submitProject, approveProject, requestChanges, completeMilestone, markPurchased, saveProjectAsTemplate } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
@@ -78,6 +78,25 @@ export default function ProjectDetail({ user }) {
               </button>
             </>
           )}
+          {isParent && project.status === 'completed' && (
+            <button
+              onClick={async () => {
+                await saveProjectAsTemplate(project.id, false);
+                alert('Saved as template!');
+              }}
+              className="bg-forge-muted hover:bg-forge-border text-forge-text px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1"
+            >
+              <Copy size={14} /> Save as Template
+            </button>
+          )}
+          <a
+            href={`/api/projects/${id}/qr/`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-forge-muted hover:bg-forge-border text-forge-text px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1"
+          >
+            <QrCode size={14} /> QR
+          </a>
         </div>
       </div>
 

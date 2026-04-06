@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Plus } from 'lucide-react';
-import { getProjects } from '../api';
+import { Plus, Sparkles } from 'lucide-react';
+import { getProjects, getProjectSuggestions } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
@@ -9,6 +9,7 @@ import Loader from '../components/Loader';
 
 export default function Projects({ user }) {
   const { data, loading } = useApi(getProjects);
+  const { data: suggestions } = useApi(getProjectSuggestions);
   const navigate = useNavigate();
 
   if (loading) return <Loader />;
@@ -82,6 +83,36 @@ export default function Projects({ user }) {
               </Card>
             </motion.div>
           ))}
+        </div>
+      )}
+
+      {/* AI Suggestions */}
+      {suggestions?.length > 0 && (
+        <div>
+          <h2 className="font-heading text-lg font-bold mb-3 flex items-center gap-2">
+            <Sparkles size={18} className="text-amber-highlight" /> Suggested Next Projects
+          </h2>
+          <div className="grid md:grid-cols-3 gap-3">
+            {suggestions.map((s, i) => (
+              <motion.div
+                key={i}
+                initial={{ y: 10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: i * 0.1 }}
+              >
+                <Card className="border-amber-primary/20">
+                  <div className="font-semibold text-sm mb-1">{s.title}</div>
+                  <div className="text-xs text-forge-text-dim mb-2">{s.description}</div>
+                  <div className="flex items-center gap-2 text-[10px] text-forge-text-dim">
+                    {s.category && <span className="bg-forge-muted px-1.5 py-0.5 rounded">{s.category}</span>}
+                    <span>{'★'.repeat(s.difficulty || 1)}</span>
+                    {s.estimated_hours && <span>{s.estimated_hours}h est.</span>}
+                  </div>
+                  {s.why && <div className="text-[10px] text-amber-highlight mt-2">{s.why}</div>}
+                </Card>
+              </motion.div>
+            ))}
+          </div>
         </div>
       )}
     </div>

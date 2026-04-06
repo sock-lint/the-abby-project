@@ -83,3 +83,29 @@ export const markNotificationRead = (id) => api.post(`/notifications/${id}/mark_
 // Instructables
 export const getInstructablesPreview = (url) =>
   api.get(`/instructables/preview/?url=${encodeURIComponent(url)}`);
+
+// Project Templates
+export const getTemplates = () => api.get('/templates/');
+export const getTemplate = (id) => api.get(`/templates/${id}/`);
+export const createProjectFromTemplate = (id, assigned_to_id) =>
+  api.post(`/templates/${id}/create-project/`, { assigned_to_id });
+export const saveProjectAsTemplate = (project_id, is_public = false) =>
+  api.post('/templates/from-project/', { project_id, is_public });
+
+// Savings Goals
+export const getSavingsGoals = () => api.get('/savings-goals/');
+export const createSavingsGoal = (data) => api.post('/savings-goals/', data);
+export const deleteSavingsGoal = (id) => api.delete(`/savings-goals/${id}/`);
+export const updateGoalAmount = (id) => api.post(`/savings-goals/${id}/update_amount/`);
+
+// AI Suggestions
+export const getProjectSuggestions = () => api.get('/projects/suggestions/');
+
+// Collaborators
+export const getCollaborators = (projectId) => api.get(`/projects/${projectId}/collaborators/`);
+export const addCollaborator = (projectId, user_id, pay_split_percent) =>
+  api.post(`/projects/${projectId}/collaborators/`, { user_id, pay_split_percent });
+
+// Greenlight Import
+export const importGreenlight = (user_id, csv_data) =>
+  api.post('/greenlight/import/', { user_id, csv_data });

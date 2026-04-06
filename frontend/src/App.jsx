@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useAuth } from './hooks/useApi';
+import { applyTheme } from './themes';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -16,6 +18,10 @@ import Loader from './components/Loader';
 
 export default function App() {
   const { user, loading, login, logout } = useAuth();
+
+  useEffect(() => {
+    if (user?.theme) applyTheme(user.theme);
+  }, [user?.theme]);
 
   if (loading) {
     return (

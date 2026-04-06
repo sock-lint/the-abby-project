@@ -7,6 +7,8 @@ router = DefaultRouter()
 router.register(r"projects", views.ProjectViewSet, basename="project")
 router.register(r"categories", views.SkillCategoryViewSet, basename="category")
 router.register(r"notifications", views.NotificationViewSet, basename="notification")
+router.register(r"templates", views.ProjectTemplateViewSet, basename="template")
+router.register(r"savings-goals", views.SavingsGoalViewSet, basename="savings-goal")
 
 urlpatterns = [
     path("auth/", views.AuthView.as_view(), name="auth"),
@@ -47,5 +49,18 @@ urlpatterns = [
         name="project-material-purchased",
     ),
     path("instructables/preview/", views.InstructablesPreviewView.as_view(), name="instructables-preview"),
+    path("projects/suggestions/", views.ProjectSuggestionsView.as_view(), name="project-suggestions"),
+    path("projects/<int:pk>/qr/", views.ProjectQRCodeView.as_view(), name="project-qr"),
+    path(
+        "projects/<int:project_pk>/collaborators/",
+        views.ProjectCollaboratorViewSet.as_view({"get": "list", "post": "create"}),
+        name="project-collaborators",
+    ),
+    path(
+        "projects/<int:project_pk>/collaborators/<int:pk>/",
+        views.ProjectCollaboratorViewSet.as_view({"delete": "destroy"}),
+        name="project-collaborator-detail",
+    ),
+    path("greenlight/import/", views.GreenlightImportView.as_view(), name="greenlight-import"),
     path("", include(router.urls)),
 ]

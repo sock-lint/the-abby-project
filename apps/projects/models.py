@@ -18,6 +18,15 @@ class User(AbstractUser):
     )
     display_name = models.CharField(max_length=100, blank=True)
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
+    theme = models.CharField(
+        max_length=20, default="summer",
+        choices=[
+            ("summer", "Summer"),
+            ("winter", "Winter Break"),
+            ("spring", "Spring Break"),
+            ("autumn", "Autumn"),
+        ],
+    )
 
     objects = CustomUserManager()
 
@@ -173,3 +182,122 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"{self.user} — {self.title}"
+
+
+class ProjectTemplate(models.Model):
+    """A reusable project template created from a completed project."""
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    instructables_url = models.URLField(blank=True, null=True)
+    difficulty = models.IntegerField(
+        choices=[(i, str(i)) for i in range(1, 6)], default=1
+    )
+    category = models.ForeignKey(
+        SkillCategory, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="templates",
+    )
+    bonus_amount = models.DecimalField(
+        max_digits=8, decimal_places=2, default=Decimal("0.00")
+    )
+    materials_budget = models.DecimalField(
+        max_digits=8, decimal_places=2, default=Decimal("0.00")
+    )
+    source_project = models.ForeignKey(
+        Project, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="templates_created",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="created_templates",
+    )
+    is_public = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Template: {self.title}"
+
+
+class TemplateMilestone(models.Model):
+    template = models.ForeignKey(
+        ProjectTemplate, on_delete=models.CASCADE, related_name="milestones"
+    )
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+    bonus_amount = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True
+    )
+
+    class Meta:
+        ordering = ["order"]
+
+    def __str__(self):
+        return f"{self.template.title} — {self.title}"
+
+
+class TemplateMaterial(models.Model):
+    template = models.ForeignKey(
+        ProjectTemplate, on_delete=models.CASCADE, related_name="materials"
+    )
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    estimated_cost = models.DecimalField(
+        max_digits=8, decimal_places=2, default=Decimal("0.00")
+    )
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.template.title})"
+
+
+class ProjectCollaborator(models.Model):
+    """Tracks additional children assigned to a collaborative project."""
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, related_name="collaborators"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="collaborated_projects",
+    )
+    pay_split_percent = models.IntegerField(default=50)
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("project", "user")]
+
+    def __str__(self):
+        return f"{self.user} on {self.project.title} ({self.pay_split_percent}%)"
+
+
+class SavingsGoal(models.Model):
+    """A savings target set by the child."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="savings_goals",
+    )
+    title = models.CharField(max_length=200)
+    target_amount = models.DecimalField(max_digits=8, decimal_places=2)
+    current_amount = models.DecimalField(
+        max_digits=8, decimal_places=2, default=Decimal("0.00")
+    )
+    icon = models.CharField(max_length=50, blank=True)
+    is_completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user} — {self.title} (${self.current_amount}/${self.target_amount})"
+
+    @property
+    def percent_complete(self):
+        if self.target_amount <= 0:
+            return 100
+        return min(100, round(float(self.current_amount / self.target_amount) * 100))

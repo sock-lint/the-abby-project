@@ -4,10 +4,14 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import MaterialItem, Project, ProjectMilestone, SkillCategory, User
+from .models import (
+    MaterialItem, Project, ProjectCollaborator, ProjectMilestone, ProjectTemplate,
+    SavingsGoal, SkillCategory, TemplateMaterial, TemplateMilestone, User,
+)
 from .serializers import (
-    MaterialItemSerializer, NotificationSerializer, ProjectDetailSerializer,
-    ProjectListSerializer, ProjectMilestoneSerializer, SkillCategorySerializer,
+    MaterialItemSerializer, NotificationSerializer, ProjectCollaboratorSerializer,
+    ProjectDetailSerializer, ProjectListSerializer, ProjectMilestoneSerializer,
+    ProjectTemplateSerializer, SavingsGoalSerializer, SkillCategorySerializer,
     UserSerializer,
 )
 
@@ -43,6 +47,13 @@ class AuthView(APIView):
 class MeView(APIView):
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+
+    def patch(self, request):
+        user = request.user
+        if "theme" in request.data:
+            user.theme = request.data["theme"]
+            user.save(update_fields=["theme"])
+        return Response(UserSerializer(user).data)
 
 
 class DashboardView(APIView):
@@ -116,6 +127,12 @@ class DashboardView(APIView):
                 else:
                     break
 
+        # Savings goals
+        goals = SavingsGoalSerializer(
+            SavingsGoal.objects.filter(user=user, is_completed=False)[:3],
+            many=True,
+        ).data
+
         return Response({
             "role": user.role,
             "active_timer": active_timer,
@@ -129,6 +146,7 @@ class DashboardView(APIView):
             "pending_timecards": pending_timecards,
             "recent_badges": recent_badges,
             "streak_days": streak,
+            "savings_goals": goals,
         })
 
 
@@ -270,3 +288,240 @@ class NotificationViewSet(viewsets.ModelViewSet):
         notification.is_read = True
         notification.save()
         return Response(NotificationSerializer(notification).data)
+
+
+class ProjectSuggestionsView(APIView):
+    def get(self, request):
+        from .suggestions import get_project_suggestions
+        suggestions = get_project_suggestions(request.user)
+        return Response(suggestions)
+
+
+class ProjectQRCodeView(APIView):
+    """Generate a QR code for quick clock-in to a project."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk=None):
+        import qrcode
+        import io
+        from django.http import HttpResponse
+
+        try:
+            project = Project.objects.get(pk=pk)
+        except Project.DoesNotExist:
+            return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # QR data is a JSON payload with project ID and action
+        import json
+        qr_data = json.dumps({
+            "app": "summerforge",
+            "action": "clock_in",
+            "project_id": project.id,
+            "project_title": project.title,
+        })
+
+        qr = qrcode.QRCode(version=1, box_size=10, border=4)
+        qr.add_data(qr_data)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="#d97706", back_color="#0a0a0a")
+
+        buffer = io.BytesIO()
+        img.save(buffer, format="PNG")
+        buffer.seek(0)
+
+        response = HttpResponse(buffer.getvalue(), content_type="image/png")
+        response["Content-Disposition"] = f'inline; filename="project-{pk}-qr.png"'
+        return response
+
+
+class ProjectTemplateViewSet(viewsets.ModelViewSet):
+    serializer_class = ProjectTemplateSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == "parent":
+            return ProjectTemplate.objects.all()
+        return ProjectTemplate.objects.filter(is_public=True)
+
+    def get_permissions(self):
+        if self.action in ("create", "update", "partial_update", "destroy"):
+            return [IsParent()]
+        return [permissions.IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=False, methods=["get"])
+    def shared(self, request):
+        """Browse public templates from all families (parent co-op)."""
+        templates = ProjectTemplate.objects.filter(is_public=True)
+        serializer = ProjectTemplateSerializer(templates, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="create-project")
+    def create_project_from_template(self, request, pk=None):
+        """Create a new project from this template."""
+        template = self.get_object()
+        assigned_to_id = request.data.get("assigned_to_id")
+
+        project = Project.objects.create(
+            title=template.title,
+            description=template.description,
+            instructables_url=template.instructables_url,
+            difficulty=template.difficulty,
+            category=template.category,
+            bonus_amount=template.bonus_amount,
+            materials_budget=template.materials_budget,
+            created_by=request.user,
+            assigned_to_id=assigned_to_id,
+            status="active",
+        )
+
+        for ms in template.milestones.all():
+            ProjectMilestone.objects.create(
+                project=project, title=ms.title,
+                description=ms.description, order=ms.order,
+                bonus_amount=ms.bonus_amount,
+            )
+
+        for mat in template.materials.all():
+            MaterialItem.objects.create(
+                project=project, name=mat.name,
+                description=mat.description,
+                estimated_cost=mat.estimated_cost,
+            )
+
+        return Response(ProjectDetailSerializer(project).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="from-project")
+    def create_from_project(self, request):
+        """Save a completed project as a template."""
+        project_id = request.data.get("project_id")
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        template = ProjectTemplate.objects.create(
+            title=project.title,
+            description=project.description,
+            instructables_url=project.instructables_url,
+            difficulty=project.difficulty,
+            category=project.category,
+            bonus_amount=project.bonus_amount,
+            materials_budget=project.materials_budget,
+            source_project=project,
+            created_by=request.user,
+            is_public=request.data.get("is_public", False),
+        )
+
+        for ms in project.milestones.all():
+            TemplateMilestone.objects.create(
+                template=template, title=ms.title,
+                description=ms.description, order=ms.order,
+                bonus_amount=ms.bonus_amount,
+            )
+
+        for mat in project.materials.all():
+            TemplateMaterial.objects.create(
+                template=template, name=mat.name,
+                description=mat.description,
+                estimated_cost=mat.estimated_cost,
+            )
+
+        return Response(ProjectTemplateSerializer(template).data, status=status.HTTP_201_CREATED)
+
+
+class ProjectCollaboratorViewSet(viewsets.ModelViewSet):
+    serializer_class = ProjectCollaboratorSerializer
+
+    def get_queryset(self):
+        return ProjectCollaborator.objects.filter(
+            project_id=self.kwargs.get("project_pk")
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(project_id=self.kwargs["project_pk"])
+
+    def get_permissions(self):
+        if self.action in ("create", "destroy"):
+            return [IsParent()]
+        return [permissions.IsAuthenticated()]
+
+
+class SavingsGoalViewSet(viewsets.ModelViewSet):
+    serializer_class = SavingsGoalSerializer
+
+    def get_queryset(self):
+        return SavingsGoal.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def update_amount(self, request, pk=None):
+        """Update the current saved amount (recalculated from balance)."""
+        from apps.payments.services import PaymentService
+        goal = self.get_object()
+        balance = PaymentService.get_balance(request.user)
+        goal.current_amount = max(balance, 0)
+        if goal.current_amount >= goal.target_amount and not goal.is_completed:
+            goal.is_completed = True
+            from django.utils import timezone
+            goal.completed_at = timezone.now()
+        goal.save()
+        return Response(SavingsGoalSerializer(goal).data)
+
+
+class GreenlightImportView(APIView):
+    """Import Greenlight CSV transaction data for reconciliation."""
+
+    def post(self, request):
+        if request.user.role != "parent":
+            return Response({"error": "Parents only"}, status=status.HTTP_403_FORBIDDEN)
+
+        import csv
+        import io
+        from decimal import Decimal, InvalidOperation
+        from apps.payments.models import PaymentLedger
+
+        csv_file = request.data.get("csv_data", "")
+        if not csv_file:
+            return Response({"error": "csv_data required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        child_id = request.data.get("user_id")
+        if not child_id:
+            return Response({"error": "user_id required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            child = User.objects.get(id=child_id, role="child")
+        except User.DoesNotExist:
+            return Response({"error": "Child not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        reader = csv.DictReader(io.StringIO(csv_file))
+        imported = 0
+        errors = []
+
+        for i, row in enumerate(reader):
+            try:
+                amount_str = row.get("Amount", row.get("amount", "")).replace("$", "").replace(",", "").strip()
+                if not amount_str:
+                    continue
+                amount = Decimal(amount_str)
+                description = row.get("Description", row.get("description", row.get("Memo", "")))
+
+                PaymentLedger.objects.create(
+                    user=child,
+                    amount=-abs(amount),
+                    entry_type="payout",
+                    description=f"Greenlight import: {description}".strip(),
+                    created_by=request.user,
+                )
+                imported += 1
+            except (InvalidOperation, KeyError, ValueError) as e:
+                errors.append(f"Row {i + 1}: {str(e)}")
+
+        return Response({
+            "imported": imported,
+            "errors": errors,
+        })

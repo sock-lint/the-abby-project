@@ -1,13 +1,17 @@
 from rest_framework import serializers
 
-from .models import MaterialItem, Notification, Project, ProjectMilestone, SkillCategory, User
+from .models import (
+    MaterialItem, Notification, Project, ProjectCollaborator, ProjectMilestone,
+    ProjectTemplate, SavingsGoal, SkillCategory, TemplateMaterial,
+    TemplateMilestone, User,
+)
 
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            "id", "username", "display_name", "role", "hourly_rate", "avatar",
+            "id", "username", "display_name", "role", "hourly_rate", "avatar", "theme",
         ]
         read_only_fields = fields
 
@@ -96,3 +100,60 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = ["id", "title", "message", "notification_type", "is_read", "created_at"]
         read_only_fields = ["title", "message", "notification_type", "created_at"]
+
+
+class TemplateMilestoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TemplateMilestone
+        fields = ["id", "title", "description", "order", "bonus_amount"]
+
+
+class TemplateMaterialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TemplateMaterial
+        fields = ["id", "name", "description", "estimated_cost"]
+
+
+class ProjectTemplateSerializer(serializers.ModelSerializer):
+    milestones = TemplateMilestoneSerializer(many=True, read_only=True)
+    materials = TemplateMaterialSerializer(many=True, read_only=True)
+    category = SkillCategorySerializer(read_only=True)
+    created_by = UserSerializer(read_only=True)
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=SkillCategory.objects.all(), source="category",
+        write_only=True, required=False, allow_null=True,
+    )
+
+    class Meta:
+        model = ProjectTemplate
+        fields = [
+            "id", "title", "description", "instructables_url", "difficulty",
+            "category", "category_id", "bonus_amount", "materials_budget",
+            "source_project", "created_by", "is_public", "created_at",
+            "milestones", "materials",
+        ]
+        read_only_fields = ["created_by", "created_at"]
+
+
+class ProjectCollaboratorSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    user_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="user", write_only=True,
+    )
+
+    class Meta:
+        model = ProjectCollaborator
+        fields = ["id", "project", "user", "user_id", "pay_split_percent", "joined_at"]
+        read_only_fields = ["joined_at"]
+
+
+class SavingsGoalSerializer(serializers.ModelSerializer):
+    percent_complete = serializers.ReadOnlyField()
+
+    class Meta:
+        model = SavingsGoal
+        fields = [
+            "id", "title", "target_amount", "current_amount", "icon",
+            "is_completed", "completed_at", "created_at", "percent_complete",
+        ]
+        read_only_fields = ["is_completed", "completed_at", "created_at"]

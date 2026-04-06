@@ -1,7 +1,11 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import MaterialItem, Notification, Project, ProjectMilestone, SkillCategory, User
+from .models import (
+    MaterialItem, Notification, Project, ProjectCollaborator, ProjectMilestone,
+    ProjectTemplate, SavingsGoal, SkillCategory, TemplateMaterial,
+    TemplateMilestone, User,
+)
 
 
 @admin.register(User)
@@ -58,3 +62,32 @@ class MaterialItemAdmin(admin.ModelAdmin):
 class NotificationAdmin(admin.ModelAdmin):
     list_display = ["user", "title", "notification_type", "is_read", "created_at"]
     list_filter = ["notification_type", "is_read"]
+
+
+class TemplateMilestoneInline(admin.TabularInline):
+    model = TemplateMilestone
+    extra = 0
+
+
+class TemplateMaterialInline(admin.TabularInline):
+    model = TemplateMaterial
+    extra = 0
+
+
+@admin.register(ProjectTemplate)
+class ProjectTemplateAdmin(admin.ModelAdmin):
+    list_display = ["title", "category", "difficulty", "is_public", "created_by", "created_at"]
+    list_filter = ["is_public", "category", "difficulty"]
+    search_fields = ["title"]
+    inlines = [TemplateMilestoneInline, TemplateMaterialInline]
+
+
+@admin.register(ProjectCollaborator)
+class ProjectCollaboratorAdmin(admin.ModelAdmin):
+    list_display = ["project", "user", "pay_split_percent", "joined_at"]
+
+
+@admin.register(SavingsGoal)
+class SavingsGoalAdmin(admin.ModelAdmin):
+    list_display = ["user", "title", "target_amount", "current_amount", "is_completed"]
+    list_filter = ["is_completed"]
