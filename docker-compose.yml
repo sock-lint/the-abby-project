@@ -54,6 +54,16 @@ services:
       - db
       - redis
 
+  react:
+    build: ./frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - django
+
   nginx:
     image: nginx:alpine
     ports:
@@ -64,6 +74,7 @@ services:
       - static_data:/app/staticfiles
     depends_on:
       - django
+      - react
 
 volumes:
   postgres_data:

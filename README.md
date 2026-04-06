@@ -7,6 +7,7 @@ A project management, timecard, and payment tracking system for summer maker pro
 | Layer | Technology |
 |-------|-----------|
 | Backend | Django 5.1 + Django REST Framework |
+| Frontend | React 18 (Vite) + Tailwind CSS + Framer Motion |
 | Database | PostgreSQL 16 |
 | Cache/Broker | Redis 7 |
 | Task Queue | Celery (with django-celery-beat) |
@@ -32,6 +33,7 @@ docker compose exec django python manage.py createsuperuser
 ```
 
 The app will be available at:
+- **Frontend**: http://localhost/ (via nginx) or http://localhost:3000/ (Vite dev)
 - **API**: http://localhost/api/
 - **Admin**: http://localhost/admin/
 - **Django direct**: http://localhost:8000/
@@ -56,6 +58,13 @@ the-abby-project/
 │   ├── payments/            # PaymentLedger, PaymentService
 │   ├── achievements/        # Skill tree, Badges, SkillService, BadgeService
 │   └── portfolio/           # ProjectPhoto
+├── frontend/                # React 18 + Vite + Tailwind CSS frontend
+│   ├── src/
+│   │   ├── api/             # API client and endpoint functions
+│   │   ├── components/      # Layout, Card, StatusBadge, Loader
+│   │   ├── hooks/           # useApi, useAuth
+│   │   └── pages/           # Dashboard, Projects, Clock, Timecards, Payments, Achievements, Portfolio, Settings
+│   └── Dockerfile
 ├── Dockerfile
 ├── docker-compose.yml
 ├── nginx.conf
