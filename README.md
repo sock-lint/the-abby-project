@@ -53,17 +53,22 @@ Passwords are configurable via `PARENT_PASSWORD` and `CHILD_PASSWORD` env vars.
 the-abby-project/
 ├── config/                  # Django project settings, URLs, WSGI/ASGI, Celery
 ├── apps/
-│   ├── projects/            # User, SkillCategory, Project, Milestone, MaterialItem
+│   ├── projects/            # User, SkillCategory, Project, Milestone, MaterialItem, Notification
+│   │   ├── scraper.py       # Instructables URL preview scraper
+│   │   ├── notifications.py # Notification helper
+│   │   └── signals.py       # Status change, milestone, and notification triggers
 │   ├── timecards/           # TimeEntry, Timecard, ClockService, TimecardService
+│   │   ├── export.py        # CSV export for timecards and time entries
+│   │   └── tasks.py         # Celery tasks (auto clock-out, weekly timecards, email summaries)
 │   ├── payments/            # PaymentLedger, PaymentService
 │   ├── achievements/        # Skill tree, Badges, SkillService, BadgeService
-│   └── portfolio/           # ProjectPhoto
+│   └── portfolio/           # ProjectPhoto, ZIP export
 ├── frontend/                # React 18 + Vite + Tailwind CSS frontend
 │   ├── src/
 │   │   ├── api/             # API client and endpoint functions
-│   │   ├── components/      # Layout, Card, StatusBadge, Loader
+│   │   ├── components/      # Layout, Card, StatusBadge, Loader, NotificationBell
 │   │   ├── hooks/           # useApi, useAuth
-│   │   └── pages/           # Dashboard, Projects, Clock, Timecards, Payments, Achievements, Portfolio, Settings
+│   │   └── pages/           # Dashboard, Projects, Clock, Timecards, Payments, Achievements, Portfolio, Settings, Login
 │   └── Dockerfile
 ├── Dockerfile
 ├── docker-compose.yml
@@ -77,9 +82,10 @@ the-abby-project/
 
 - **User** — Custom auth user with `parent`/`child` roles, hourly rate, avatar
 - **SkillCategory** — Woodworking, Electronics, Cooking, Art & Crafts, Coding, Outdoors, Sewing & Textiles, Science
-- **Project** — Assigned work with status workflow (draft → active → in_progress → in_review → completed → archived), difficulty, bonuses, materials budget
+- **Project** — Assigned work with status workflow (draft -> active -> in_progress -> in_review -> completed -> archived), difficulty, bonuses, materials budget
 - **ProjectMilestone** — Ordered subtasks within a project, each with optional bonus
 - **MaterialItem** — Tracked materials with estimated/actual costs and receipt photos
+- **Notification** — In-app notifications (8 types: timecard_ready, timecard_approved, badge_earned, project_approved, project_changes, payout_recorded, skill_unlocked, milestone_completed)
 
 ### Time & Pay
 
@@ -96,7 +102,7 @@ the-abby-project/
 
 ### Achievements
 
-- **Badge** — 35+ badges with 16 criteria types and 5 rarity levels (common → legendary)
+- **Badge** — 35+ badges with 16 criteria types and 5 rarity levels (common -> legendary)
 - **UserBadge** — Earned badges per user
 
 ### XP / Level Thresholds
@@ -132,12 +138,20 @@ XP is earned through hours worked (10 XP/hr), project completion (50 x difficult
 | GET/POST | `/api/projects/` | List / create projects |
 | GET/PATCH/DELETE | `/api/projects/{id}/` | Project detail |
 | POST | `/api/projects/{id}/submit/` | Child submits for review |
-| POST | `/api/projects/{id}/approve/` | Parent approves (→ completed) |
+| POST | `/api/projects/{id}/approve/` | Parent approves (-> completed) |
 | POST | `/api/projects/{id}/request-changes/` | Parent sends back |
 | GET/POST | `/api/projects/{id}/milestones/` | List / create milestones |
 | POST | `/api/projects/{id}/milestones/{id}/complete/` | Mark milestone complete |
 | GET/POST | `/api/projects/{id}/materials/` | List / create materials |
 | POST | `/api/projects/{id}/materials/{id}/mark-purchased/` | Mark material purchased |
+
+### Notifications
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/notifications/` | List all notifications |
+| GET | `/api/notifications/unread_count/` | Unread notification count |
+| POST | `/api/notifications/mark_all_read/` | Mark all as read |
+| POST | `/api/notifications/{id}/mark_read/` | Mark one as read |
 
 ### Time Tracking
 | Method | Endpoint | Description |
@@ -179,11 +193,23 @@ XP is earned through hours worked (10 XP/hr), project completion (50 x difficult
 | GET/POST | `/api/photos/` | List / upload photos |
 | GET | `/api/portfolio/` | Photos grouped by project |
 
+### Instructables
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/instructables/preview/?url=...` | Scrape Instructables URL for title, thumbnail, steps (cached 24h in Redis) |
+
+### Data Export
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/export/timecards/` | Download timecards as CSV |
+| GET | `/api/export/time-entries/` | Download time entries as CSV |
+| GET | `/api/export/portfolio/` | Download all project photos as ZIP |
+
 ## Business Logic
 
 ### Clock In/Out
 - One active clock-in at a time (enforced by DB constraint)
-- Quiet hours: 10 PM – 7 AM (no clock-in allowed)
+- Quiet hours: 10 PM - 7 AM (no clock-in allowed)
 - Auto clock-out after 8 hours (Celery task, runs every 30 min)
 - Entries > 4 hours flagged for parent review
 
@@ -191,7 +217,7 @@ XP is earned through hours worked (10 XP/hr), project completion (50 x difficult
 - Auto-generated every Sunday at midnight via Celery Beat
 - Calculates hourly earnings per project (hours x rate, respecting per-project rate overrides)
 - Includes any bonuses earned that week
-- Parent approval workflow: pending → approved → paid
+- Parent approval workflow: pending -> approved -> paid
 
 ### Pay Calculation
 ```
@@ -212,14 +238,62 @@ balance = sum(all ledger entries)  # positive = owed, negative = paid out
 ### Badge Evaluation
 Triggered on: project completion, milestone completion, clock-out, timecard approval. Checks all unearned badges against current stats.
 
+### Notifications
+Auto-created via Django signals on:
+- Project approved / changes requested
+- Milestone completed
+- Badge earned
+- Payout recorded
+
+Frontend polls for unread count every 30 seconds. Bell icon in the top bar shows unread badge with dropdown panel.
+
+### Weekly Email Summary
+Celery task (`send_weekly_email_summaries`) sends:
+- **Child**: hours worked, badges earned, current balance
+- **Parent**: per-child activity summary, pending timecard count
+
+Uses console email backend in development.
+
+### Instructables Integration
+When creating a project, pasting an Instructables URL triggers a backend scraper that extracts:
+- Title, author, thumbnail URL, step count, category
+- Results cached in Redis for 24 hours
+- Frontend shows a live preview card with the extracted metadata
+
+## Frontend
+
+### Design
+- Dark mode workshop aesthetic (#0a0a0a background, amber/copper accents)
+- Space Mono for headings/numbers, DM Sans for body text
+- Framer Motion micro-animations on interactions
+- Mobile-first with sidebar nav (desktop) and bottom nav (mobile)
+
+### Pages
+| Page | Route | Description |
+|------|-------|-------------|
+| Login | — | Session auth form |
+| Dashboard | `/` | Active timer hero, balance, weekly stats, projects, badges, streak |
+| Projects | `/projects` | Card grid with status badges, progress bars, difficulty stars |
+| Project Detail | `/projects/:id` | Tabbed view (Overview, Milestones, Materials) with workflow actions |
+| New Project | `/projects/new` | Create form with Instructables URL preview (parent only) |
+| Clock | `/clock` | Large circular timer, project selector, one-tap clock in/out |
+| Timecards | `/timecards` | Weekly cards, expandable detail, approve/dispute/pay, CSV export |
+| Payments | `/payments` | Large balance, breakdown by type, transaction history |
+| Achievements | `/achievements` | Badge collection grid + interactive skill tree by category |
+| Portfolio | `/portfolio` | Photo gallery grouped by project, ZIP download |
+| Settings | `/settings` | Profile info display |
+
 ## Development
 
 ```bash
-# Start services
+# Start all services
 docker compose up
 
 # Tail Django logs
 docker compose logs -f django
+
+# Frontend only (with API proxy to Django)
+cd frontend && npm run dev
 
 # Django shell
 docker compose exec django python manage.py shell_plus
