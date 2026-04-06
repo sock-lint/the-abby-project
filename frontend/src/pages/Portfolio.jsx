@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Image } from 'lucide-react';
+import { Image, Download } from 'lucide-react';
 import { getPortfolio } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
@@ -13,7 +13,17 @@ export default function Portfolio() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold">Portfolio</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-heading text-2xl font-bold">Portfolio</h1>
+        {groups.length > 0 && (
+          <a
+            href="/api/export/portfolio/"
+            className="flex items-center gap-1.5 text-sm text-forge-text-dim hover:text-amber-highlight transition-colors"
+          >
+            <Download size={14} /> Download All
+          </a>
+        )}
+      </div>
 
       {groups.length === 0 ? (
         <Card className="text-center py-12 text-forge-text-dim">

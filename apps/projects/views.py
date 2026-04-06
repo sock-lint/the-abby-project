@@ -6,8 +6,9 @@ from rest_framework.views import APIView
 
 from .models import MaterialItem, Project, ProjectMilestone, SkillCategory, User
 from .serializers import (
-    MaterialItemSerializer, ProjectDetailSerializer, ProjectListSerializer,
-    ProjectMilestoneSerializer, SkillCategorySerializer, UserSerializer,
+    MaterialItemSerializer, NotificationSerializer, ProjectDetailSerializer,
+    ProjectListSerializer, ProjectMilestoneSerializer, SkillCategorySerializer,
+    UserSerializer,
 )
 
 
@@ -232,3 +233,40 @@ class MaterialItemViewSet(viewsets.ModelViewSet):
         item.actual_cost = request.data.get("actual_cost", item.estimated_cost)
         item.save()
         return Response(MaterialItemSerializer(item).data)
+
+
+class InstructablesPreviewView(APIView):
+    def get(self, request):
+        url = request.query_params.get('url')
+        if not url:
+            return Response({'error': 'url parameter required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            from .scraper import scrape_instructables
+            data = scrape_instructables(url)
+            return Response(data)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = NotificationSerializer
+
+    def get_queryset(self):
+        return self.request.user.notifications.all()
+
+    @action(detail=False, methods=["get"])
+    def unread_count(self, request):
+        count = request.user.notifications.filter(is_read=False).count()
+        return Response({"count": count})
+
+    @action(detail=False, methods=["post"])
+    def mark_all_read(self, request):
+        request.user.notifications.filter(is_read=False).update(is_read=True)
+        return Response({"ok": True})
+
+    @action(detail=True, methods=["post"])
+    def mark_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save()
+        return Response(NotificationSerializer(notification).data)

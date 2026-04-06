@@ -9,5 +9,7 @@ router.register(r"timecards", views.TimecardViewSet, basename="timecard")
 
 urlpatterns = [
     path("clock/", views.ClockView.as_view(), name="clock"),
+    path("export/timecards/", views.ExportTimecardsView.as_view(), name="export-timecards"),
+    path("export/time-entries/", views.ExportTimeEntriesView.as_view(), name="export-time-entries"),
     path("", include(router.urls)),
 ]

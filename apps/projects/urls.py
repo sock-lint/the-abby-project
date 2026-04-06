@@ -6,6 +6,7 @@ from . import views
 router = DefaultRouter()
 router.register(r"projects", views.ProjectViewSet, basename="project")
 router.register(r"categories", views.SkillCategoryViewSet, basename="category")
+router.register(r"notifications", views.NotificationViewSet, basename="notification")
 
 urlpatterns = [
     path("auth/", views.AuthView.as_view(), name="auth"),
@@ -45,5 +46,6 @@ urlpatterns = [
         views.MaterialItemViewSet.as_view({"post": "mark_purchased"}),
         name="project-material-purchased",
     ),
+    path("instructables/preview/", views.InstructablesPreviewView.as_view(), name="instructables-preview"),
     path("", include(router.urls)),
 ]

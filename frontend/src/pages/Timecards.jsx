@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { getTimecards, getTimecard, approveTimecard, disputeTimecard, markTimecardPaid } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
@@ -44,7 +44,15 @@ export default function Timecards({ user }) {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold">Timecards</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-heading text-2xl font-bold">Timecards</h1>
+        <a
+          href="/api/export/timecards/"
+          className="flex items-center gap-1.5 text-sm text-forge-text-dim hover:text-amber-highlight transition-colors"
+        >
+          <Download size={14} /> Export CSV
+        </a>
+      </div>
 
       {timecards.length === 0 ? (
         <Card className="text-center py-12 text-forge-text-dim">No timecards yet</Card>

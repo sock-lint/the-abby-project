@@ -120,3 +120,23 @@ class TimecardViewSet(viewsets.ReadOnlyModelViewSet):
         amount = request.data.get("amount", timecard.total_earnings)
         TimecardService.mark_paid(timecard, request.user, amount)
         return Response(TimecardSerializer(timecard).data)
+
+
+class ExportTimecardsView(APIView):
+    def get(self, request):
+        from django.http import HttpResponse
+        from .export import export_timecards_csv
+        csv_content = export_timecards_csv(request.user, request.user.role == "parent")
+        response = HttpResponse(csv_content, content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="timecards.csv"'
+        return response
+
+
+class ExportTimeEntriesView(APIView):
+    def get(self, request):
+        from django.http import HttpResponse
+        from .export import export_time_entries_csv
+        csv_content = export_time_entries_csv(request.user, request.user.role == "parent")
+        response = HttpResponse(csv_content, content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="time_entries.csv"'
+        return response

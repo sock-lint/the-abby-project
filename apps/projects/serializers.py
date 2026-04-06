@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import MaterialItem, Project, ProjectMilestone, SkillCategory, User
+from .models import MaterialItem, Notification, Project, ProjectMilestone, SkillCategory, User
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -89,3 +89,10 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             "milestones", "materials",
         ]
         read_only_fields = ["created_by", "started_at", "completed_at", "xp_reward"]
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ["id", "title", "message", "notification_type", "is_read", "created_at"]
+        read_only_fields = ["title", "message", "notification_type", "created_at"]

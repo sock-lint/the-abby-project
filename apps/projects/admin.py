@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import MaterialItem, Project, ProjectMilestone, SkillCategory, User
+from .models import MaterialItem, Notification, Project, ProjectMilestone, SkillCategory, User
 
 
 @admin.register(User)
@@ -52,3 +52,9 @@ class ProjectMilestoneAdmin(admin.ModelAdmin):
 class MaterialItemAdmin(admin.ModelAdmin):
     list_display = ["name", "project", "estimated_cost", "actual_cost", "is_purchased", "reimbursed"]
     list_filter = ["is_purchased", "reimbursed"]
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ["user", "title", "notification_type", "is_read", "created_at"]
+    list_filter = ["notification_type", "is_read"]

@@ -42,3 +42,20 @@ body {
   background: var(--color-forge-muted);
   border-radius: 3px;
 }
+
+/* Mobile touch optimizations */
+@media (max-width: 768px) {
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent horizontal overflow on mobile */
+  main {
+    overflow-x: hidden;
+  }
+
+  /* Slightly larger tap targets on mobile */
+  input, select, textarea {
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+}

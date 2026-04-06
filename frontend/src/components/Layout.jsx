@@ -3,6 +3,7 @@ import {
   LayoutDashboard, FolderKanban, Clock, FileText,
   DollarSign, Trophy, Camera, Settings, LogOut,
 } from 'lucide-react';
+import NotificationBell from './NotificationBell';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -84,8 +85,16 @@ export default function Layout({ user, onLogout }) {
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 ml-0 md:ml-56 p-4 md:p-6 pb-20 md:pb-6">
-        <Outlet />
+      <main className="flex-1 ml-0 md:ml-56 pb-20 md:pb-6">
+        <div className="flex items-center justify-end p-3 md:p-4 md:hidden">
+          <NotificationBell />
+        </div>
+        <div className="hidden md:flex items-center justify-end px-6 pt-4">
+          <NotificationBell />
+        </div>
+        <div className="px-4 md:px-6 pb-4 md:pb-6">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

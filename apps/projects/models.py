@@ -143,3 +143,33 @@ class MaterialItem(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.project.title})"
+
+
+class Notification(models.Model):
+    class NotificationType(models.TextChoices):
+        TIMECARD_READY = "timecard_ready", "Timecard Ready"
+        TIMECARD_APPROVED = "timecard_approved", "Timecard Approved"
+        BADGE_EARNED = "badge_earned", "Badge Earned"
+        PROJECT_APPROVED = "project_approved", "Project Approved"
+        PROJECT_CHANGES = "project_changes", "Changes Requested"
+        PAYOUT_RECORDED = "payout_recorded", "Payout Recorded"
+        SKILL_UNLOCKED = "skill_unlocked", "Skill Unlocked"
+        MILESTONE_COMPLETED = "milestone_completed", "Milestone Completed"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    title = models.CharField(max_length=200)
+    message = models.TextField(blank=True)
+    notification_type = models.CharField(
+        max_length=25, choices=NotificationType.choices
+    )
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user} — {self.title}"

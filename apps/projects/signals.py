@@ -31,6 +31,11 @@ def handle_project_status_change(sender, instance, created, **kwargs):
     elif instance.status == "completed" and previous != "completed":
         from apps.payments.models import PaymentLedger
         from apps.achievements.services import BadgeService, SkillService
+        from .notifications import notify
+
+        if instance.assigned_to:
+            notify(instance.assigned_to, f"Project approved: {instance.title}",
+                   "Your project has been approved! Great work!", "project_approved")
 
         sender.objects.filter(pk=instance.pk).update(completed_at=timezone.now())
 
@@ -73,6 +78,12 @@ def handle_milestone_completed(sender, instance, created, **kwargs):
     sender.objects.filter(pk=instance.pk).update(completed_at=timezone.now())
 
     user = instance.project.assigned_to
+
+    from .notifications import notify
+    if user:
+        notify(user, f"Milestone completed: {instance.title}",
+               f"You completed a milestone on {instance.project.title}!", "milestone_completed")
+
     if not user:
         return
 

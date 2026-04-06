@@ -155,3 +155,7 @@ CELERY_TIMEZONE = TIME_ZONE
 
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
+
+# Email (console backend for development)
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "noreply@summerforge.local"

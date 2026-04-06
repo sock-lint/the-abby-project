@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { createProject, getCategories } from '../api';
+import { api } from '../api/client';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 
@@ -15,6 +16,19 @@ export default function ProjectNew() {
     category_id: '', bonus_amount: '0', materials_budget: '0', due_date: '',
   });
   const [error, setError] = useState('');
+  const [preview, setPreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const fetchPreview = async (url) => {
+    if (!url || !url.includes('instructables.com')) { setPreview(null); return; }
+    setPreviewLoading(true);
+    try {
+      const data = await api.get(`/instructables/preview/?url=${encodeURIComponent(url)}`);
+      setPreview(data);
+      if (data.title && !form.title) setForm(prev => ({ ...prev, title: data.title }));
+    } catch { setPreview(null); }
+    setPreviewLoading(false);
+  };
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
@@ -59,7 +73,27 @@ export default function ProjectNew() {
           </div>
           <div>
             <label className="block text-sm text-forge-text-dim mb-1">Instructables URL</label>
-            <input value={form.instructables_url} onChange={set('instructables_url')} className={inputClass} type="url" placeholder="https://www.instructables.com/..." />
+            <input
+              value={form.instructables_url}
+              onChange={set('instructables_url')}
+              onBlur={(e) => fetchPreview(e.target.value)}
+              className={inputClass}
+              type="url"
+              placeholder="https://www.instructables.com/..."
+            />
+            {previewLoading && <div className="text-xs text-forge-text-dim mt-1">Loading preview...</div>}
+            {preview && (
+              <div className="mt-2 flex gap-3 bg-forge-bg rounded-lg p-3 border border-forge-border">
+                {preview.thumbnail_url && (
+                  <img src={preview.thumbnail_url} alt="" className="w-16 h-16 rounded object-cover shrink-0" />
+                )}
+                <div className="text-xs">
+                  <div className="font-medium text-forge-text">{preview.title}</div>
+                  {preview.author && <div className="text-forge-text-dim">by {preview.author}</div>}
+                  {preview.step_count > 0 && <div className="text-forge-text-dim">{preview.step_count} steps</div>}
+                </div>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
