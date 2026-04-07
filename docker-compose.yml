@@ -43,7 +43,9 @@ services:
 
   # Application — rebuilt on deploy
   django:
-    image: ${IMAGE_TAG:-ghcr.io/matt-b-inc/the-abby-project:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
     command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120
     volumes:
       - media_data:/app/media
@@ -71,7 +73,9 @@ services:
         max-file: "5"
 
   celery_worker:
-    image: ${IMAGE_TAG:-ghcr.io/matt-b-inc/the-abby-project:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
     command: celery -A config worker -l info --concurrency 4
     env_file:
       - .env
@@ -88,7 +92,9 @@ services:
         max-file: "5"
 
   celery_beat:
-    image: ${IMAGE_TAG:-ghcr.io/matt-b-inc/the-abby-project:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
     command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     env_file:
       - .env
@@ -105,7 +111,9 @@ services:
         max-file: "5"
 
   react:
-    image: ${FRONTEND_IMAGE_TAG:-ghcr.io/matt-b-inc/the-abby-project-frontend:latest}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     depends_on:
