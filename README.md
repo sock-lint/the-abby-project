@@ -73,7 +73,6 @@ the-abby-project/
 │   └── Dockerfile
 ├── Dockerfile
 ├── docker-compose.yml
-├── nginx.conf
 └── requirements.txt
 ```
 
