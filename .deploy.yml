@@ -1,0 +1,53 @@
+project:
+  name: "the-abby-project"
+  registry: "ghcr.io"
+  registry_project: "matt-b-inc"
+
+build:
+  dockerfile: "Dockerfile"
+  context: "."
+
+test:
+  enabled: false
+
+scan:
+  enabled: true
+  severity_gate: "CRITICAL,HIGH"
+  ignore_unfixed: true
+
+deploy:
+  app_services:
+    - django
+    - celery_worker
+    - celery_beat
+    - react
+    - nginx
+
+  migrate:
+    enabled: true
+    command: "python manage.py migrate --noinput"
+
+  collectstatic:
+    enabled: true
+    command: "python manage.py collectstatic --noinput"
+
+  environments:
+    production:
+      branch: "main"
+      host: "192.168.4.67"
+      user: "root"
+      project_dir: "/opt/the-abby-project"
+      compose_file: "docker-compose.yml"
+      service: "django"
+      app_port: 8000
+      health_check:
+        path: "/health"
+        retries: 30
+      notify: true
+
+notifications:
+  discord:
+    enabled: true
+    on_success: true
+    on_failure: true
+    on_rollback: true

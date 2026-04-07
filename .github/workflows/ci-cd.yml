@@ -1,0 +1,141 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: [self-hosted, deploy-platform]
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: tag
+        run: echo "tag=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build Django image
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }} \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            -f Dockerfile .
+
+      - name: Build Frontend image
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ steps.tag.outputs.tag }} \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            -f frontend/Dockerfile frontend/
+
+      - name: Push images
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ steps.tag.outputs.tag }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
+
+  scan:
+    needs: build
+    runs-on: [self-hosted, deploy-platform]
+    continue-on-error: true
+    steps:
+      - name: Trivy scan
+        run: |
+          trivy image --severity "CRITICAL,HIGH" --ignore-unfixed --exit-code 1 --format table \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_tag }}
+
+  deploy:
+    needs: [build, scan]
+    runs-on: [self-hosted, deploy-platform]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          TAG="${{ needs.build.outputs.image_tag }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
+          FRONTEND="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${TAG}"
+          TARGET="root@192.168.4.67"
+          DIR="/opt/the-abby-project"
+          SSH="ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
+
+          echo "=== Pulling images ==="
+          ${SSH} ${TARGET} "docker pull ${IMAGE} && docker pull ${FRONTEND}"
+
+          echo "=== Capturing rollback state ==="
+          PREV=$(${SSH} ${TARGET} "cd ${DIR} && docker compose ps django --format json 2>/dev/null | head -1 | jq -r '.Image' 2>/dev/null" || echo "none")
+          echo "Previous: ${PREV}"
+
+          echo "=== Starting infrastructure ==="
+          ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} FRONTEND_IMAGE_TAG=${FRONTEND} docker compose up -d --no-recreate db redis"
+          sleep 8
+
+          echo "=== Running migrations ==="
+          ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} FRONTEND_IMAGE_TAG=${FRONTEND} docker compose run --rm django python manage.py migrate --noinput" || {
+            echo "::error::Migrations failed — aborting"
+            exit 1
+          }
+
+          echo "=== Collecting static files ==="
+          ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} FRONTEND_IMAGE_TAG=${FRONTEND} docker compose run --rm django python manage.py collectstatic --noinput" || true
+
+          echo "=== Deploying app services ==="
+          for svc in django celery_worker celery_beat react nginx; do
+            echo "  → ${svc}"
+            ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} FRONTEND_IMAGE_TAG=${FRONTEND} docker compose up -d --no-deps --force-recreate ${svc}"
+            sleep 5
+          done
+
+          echo "=== Health check ==="
+          HEALTHY=false
+          for i in $(seq 1 30); do
+            if ${SSH} ${TARGET} "curl -sf -o /dev/null --max-time 5 http://localhost:8000/health"; then
+              HEALTHY=true
+              echo "Health check passed on attempt ${i}"
+              break
+            fi
+            echo "Attempt ${i}/30..."
+            sleep 5
+          done
+
+          if [ "${HEALTHY}" = "true" ]; then
+            echo "✅ Deploy successful!"
+            ${SSH} ${TARGET} "docker image prune -f --filter 'until=24h'" || true
+            if [ -n "${DISCORD_WEBHOOK_URL}" ]; then
+              curl -sf -X POST -H "Content-Type: application/json" \
+                -d "{\"embeds\":[{\"description\":\"✅ **the-abby-project** deployed\nImage: \`${TAG}\`\",\"color\":3066993,\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}]}" \
+                "${DISCORD_WEBHOOK_URL}" || true
+            fi
+          else
+            echo "::error::Health check failed!"
+            ${SSH} ${TARGET} "cd ${DIR} && docker compose logs --tail 50 django" || true
+            if [ "${PREV}" != "none" ] && [ -n "${PREV}" ]; then
+              echo "Rolling back to ${PREV}..."
+              for svc in django celery_worker celery_beat; do
+                ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${PREV} FRONTEND_IMAGE_TAG=${FRONTEND} docker compose up -d --no-deps --force-recreate ${svc}"
+              done
+            fi
+            if [ -n "${DISCORD_WEBHOOK_URL}" ]; then
+              curl -sf -X POST -H "Content-Type: application/json" \
+                -d "{\"embeds\":[{\"description\":\"❌ **the-abby-project** deploy failed — rolled back\nBad: \`${TAG}\`\",\"color\":15158332}]}" \
+                "${DISCORD_WEBHOOK_URL}" || true
+            fi
+            exit 1
+          fi

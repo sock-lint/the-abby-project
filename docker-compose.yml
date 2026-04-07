@@ -1,27 +1,51 @@
 services:
+  # Infrastructure — long-lived
   db:
-    image: postgres:16
+    image: postgres:16-alpine
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: summerforge
-      POSTGRES_USER: summerforge
-      POSTGRES_PASSWORD: summerforge
+      POSTGRES_DB: ${POSTGRES_DB:-summerforge}
+      POSTGRES_USER: ${POSTGRES_USER:-summerforge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-summerforge}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
-
-  django:
-    build: .
-    command: >
-      sh -c "python manage.py migrate &&
-             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --reload"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
-      - .:/app
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Application — rebuilt on deploy
+  django:
+    image: ${IMAGE_TAG:-ghcr.io/matt-b-inc/the-abby-project:latest}
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120
+    volumes:
       - media_data:/app/media
       - static_data:/app/staticfiles
     ports:
@@ -29,54 +53,90 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   celery_worker:
-    build: .
-    command: celery -A config worker -l info
-    volumes:
-      - .:/app
+    image: ${IMAGE_TAG:-ghcr.io/matt-b-inc/the-abby-project:latest}
+    command: celery -A config worker -l info --concurrency 4
     env_file:
       - .env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   celery_beat:
-    build: .
+    image: ${IMAGE_TAG:-ghcr.io/matt-b-inc/the-abby-project:latest}
     command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
-    volumes:
-      - .:/app
     env_file:
       - .env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   react:
-    build: ./frontend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    image: ${FRONTEND_IMAGE_TAG:-ghcr.io/matt-b-inc/the-abby-project-frontend:latest}
     ports:
       - "3000:3000"
     depends_on:
       - django
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   nginx:
     image: nginx:alpine
     ports:
       - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - media_data:/app/media
       - static_data:/app/staticfiles
     depends_on:
       - django
       - react
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:
+  redis_data:
   media_data:
   static_data:
