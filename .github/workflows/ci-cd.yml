@@ -83,6 +83,9 @@ jobs:
           PREV=$(${SSH} ${TARGET} "cd ${DIR} && docker compose ps django --format json 2>/dev/null | head -1 | jq -r '.Image' 2>/dev/null" || echo "none")
           echo "Previous: ${PREV}"
 
+          echo "=== Syncing compose files ==="
+          scp ${SSH} ${TARGET} docker-compose.yml nginx.conf || true
+          scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 docker-compose.yml nginx.conf ${TARGET}:${DIR}/
           echo "=== Starting infrastructure ==="
           ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} FRONTEND_IMAGE_TAG=${FRONTEND} docker compose up -d --no-recreate db redis"
           sleep 8
