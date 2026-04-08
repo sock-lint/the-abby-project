@@ -1,12 +1,18 @@
-import { api } from './client';
+import { api, setToken } from './client';
 
 // Auth
-export const fetchCsrfToken = () => api.get('/auth/');
 export const login = async (username, password) => {
-  await fetchCsrfToken(); // seeds csrftoken cookie before the POST
-  return api.post('/auth/', { action: 'login', username, password });
+  const data = await api.post('/auth/', { action: 'login', username, password });
+  if (data && data.token) setToken(data.token);
+  return data;
 };
-export const logout = () => api.post('/auth/', { action: 'logout' });
+export const logout = async () => {
+  try {
+    await api.post('/auth/', { action: 'logout' });
+  } finally {
+    setToken(null);
+  }
+};
 export const getMe = () => api.get('/auth/me/');
 
 // Dashboard

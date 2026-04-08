@@ -33,10 +33,46 @@ docker compose exec django python manage.py createsuperuser
 ```
 
 The app will be available at:
-- **Frontend**: http://localhost/ (via nginx) or http://localhost:3000/ (Vite dev)
-- **API**: http://localhost/api/
-- **Admin**: http://localhost/admin/
-- **Django direct**: http://localhost:8000/
+- **Frontend** (React, static nginx build): http://localhost:3000/
+- **API**: http://localhost:8000/api/
+- **Admin**: http://localhost:8000/admin/
+
+## Deployment (Coolify)
+
+Both images are built by Coolify from this repo — no external CI or registry.
+The deployable `docker-compose.yml` uses `build:` directives for `django`,
+`celery_worker`, `celery_beat`, and `react`. `db`, `redis`, and `nginx` (for the
+React static bundle, inside the frontend image) are the only upstream images.
+
+TLS and routing are handled by Coolify's built-in Traefik. In Coolify, give
+each public service its own domain:
+
+| Service | Domain | Container port |
+|---|---|---|
+| `django` | `abby-api.bos.lol` | 8000 |
+| `react`  | `abby.bos.lol`     | 80   |
+
+Celery workers are background-only and should have no public domain.
+
+### Required Coolify environment variables
+
+See `.env.example` for the full list. At minimum:
+
+- `SECRET_KEY`, `DEBUG=False`
+- `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
+- `DATABASE_URL` — URL-encode special chars in the password (`@` → `%40`, etc.)
+- `REDIS_URL=redis://redis:6379/0`
+- `CELERY_BROKER_URL=redis://redis:6379/1`
+- `VITE_API_URL` — **must be marked as a build-time variable in Coolify** so
+  Vite can inline it into the static bundle during `docker build`
+
+After a first deploy, run migrations once from the Coolify host:
+
+```bash
+docker exec <django-container> python manage.py migrate
+docker exec <django-container> python manage.py seed_data --noinput  # optional
+```
 
 ## Default Accounts (from seed data)
 
@@ -122,10 +158,22 @@ XP is earned through hours worked (10 XP/hr), project completion (50 x difficult
 ## API Endpoints
 
 ### Auth
+
+Authentication uses DRF **TokenAuthentication**. Login returns a token which
+the frontend stores in `localStorage` and sends on every request as:
+
+```
+Authorization: Token <key>
+```
+
+This works cross-origin over plain HTTP without cookies or CSRF. The Django
+admin panel still uses session auth (same-origin on the API host), so
+superusers can log into `/admin/` normally.
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/auth/` | Login (`{"action": "login", "username": "...", "password": "..."}`) or logout (`{"action": "logout"}`) |
-| GET | `/api/auth/me/` | Current user info |
+| POST | `/api/auth/` | Login (`{"action": "login", "username": "...", "password": "..."}`) — returns `{...user, "token": "<key>"}`. Logout (`{"action": "logout"}`) — revokes the caller's token. |
+| GET | `/api/auth/me/` | Current user info (requires `Authorization: Token <key>`) |
 
 ### Dashboard
 | Method | Endpoint | Description |

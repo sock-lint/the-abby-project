@@ -1,7 +1,6 @@
 from django.contrib.auth import authenticate, login, logout
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import permissions, status, viewsets
+from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -23,13 +22,8 @@ class IsParent(permissions.BasePermission):
         return request.user.is_authenticated and request.user.role == "parent"
 
 
-@method_decorator(ensure_csrf_cookie, name="dispatch")
 class AuthView(APIView):
     permission_classes = [permissions.AllowAny]
-
-    def get(self, request):
-        # Called on app load to seed the csrftoken cookie before the first POST
-        return Response({"ok": True})
 
     def post(self, request):
         action = request.data.get("action")
@@ -38,13 +32,16 @@ class AuthView(APIView):
             password = request.data.get("password")
             user = authenticate(request, username=username, password=password)
             if user:
-                login(request, user)
-                return Response(UserSerializer(user).data)
+                token, _ = Token.objects.get_or_create(user=user)
+                data = UserSerializer(user).data
+                data["token"] = token.key
+                return Response(data)
             return Response(
                 {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
             )
         elif action == "logout":
-            logout(request)
+            if request.user.is_authenticated:
+                Token.objects.filter(user=request.user).delete()
             return Response({"ok": True})
         return Response(
             {"error": "Invalid action"}, status=status.HTTP_400_BAD_REQUEST

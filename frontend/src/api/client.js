@@ -1,19 +1,25 @@
 const BASE = `${import.meta.env.VITE_API_URL || ''}/api`;
 
-function getCsrfToken() {
-  const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
-  return m ? decodeURIComponent(m[1]) : '';
+const TOKEN_KEY = 'abby_auth_token';
+
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY) || '';
+}
+
+export function setToken(token) {
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+  }
 }
 
 async function request(path, options = {}) {
   const url = `${BASE}${path}`;
-  const method = (options.method || 'GET').toUpperCase();
-  const csrfHeaders = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
-    ? { 'X-CSRFToken': getCsrfToken() }
-    : {};
+  const token = getToken();
+  const authHeader = token ? { Authorization: `Token ${token}` } : {};
   const config = {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...csrfHeaders, ...options.headers },
+    headers: { 'Content-Type': 'application/json', ...authHeader, ...options.headers },
     ...options,
   };
   if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
