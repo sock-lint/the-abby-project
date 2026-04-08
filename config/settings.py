@@ -167,6 +167,24 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    "auto-clock-out": {
+        "task": "apps.timecards.tasks.auto_clock_out_task",
+        "schedule": crontab(minute="*/30"),
+    },
+    "weekly-timecards": {
+        "task": "apps.timecards.tasks.generate_weekly_timecards_task",
+        # Sunday 23:55 local — runs at the end of the just-finished week.
+        "schedule": crontab(hour=23, minute=55, day_of_week="sun"),
+    },
+    "weekly-email-summaries": {
+        "task": "apps.timecards.tasks.send_weekly_email_summaries",
+        "schedule": crontab(hour=8, minute=0, day_of_week="sun"),
+    },
+}
+
 # Session
 
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"

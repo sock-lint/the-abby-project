@@ -19,7 +19,7 @@ def generate_weekly_timecards_task():
     from .services import TimecardService
 
     today = timezone.localdate()
-    week_start = today - timedelta(days=today.weekday() + 7)
+    week_start = today - timedelta(days=today.weekday())
 
     children = User.objects.filter(role="child")
     created = 0
@@ -43,7 +43,7 @@ def send_weekly_email_summaries():
     from datetime import timedelta
 
     today = timezone.localdate()
-    week_start = today - timedelta(days=today.weekday() + 7)
+    week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
 
     for child in User.objects.filter(role="child"):

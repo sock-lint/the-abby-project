@@ -183,6 +183,25 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
 
     @action(detail=True, methods=["post"])
+    def activate(self, request, pk=None):
+        if request.user.role != "parent":
+            return Response(
+                {"error": "Parents only"}, status=status.HTTP_403_FORBIDDEN
+            )
+        from django.utils import timezone
+        project = self.get_object()
+        if project.status not in ("draft", "in_review"):
+            return Response(
+                {"error": f"cannot activate from status {project.status}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        project.status = "in_progress"
+        if project.started_at is None:
+            project.started_at = timezone.now()
+        project.save()
+        return Response(ProjectDetailSerializer(project).data)
+
+    @action(detail=True, methods=["post"])
     def submit(self, request, pk=None):
         project = self.get_object()
         if project.assigned_to != request.user:
@@ -199,8 +218,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(
                 {"error": "Parents only"}, status=status.HTTP_403_FORBIDDEN
             )
+        from django.utils import timezone
         project = self.get_object()
         project.status = "completed"
+        if project.completed_at is None:
+            project.completed_at = timezone.now()
         project.save()
         return Response(ProjectDetailSerializer(project).data)
 
@@ -210,8 +232,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(
                 {"error": "Parents only"}, status=status.HTTP_403_FORBIDDEN
             )
+        from django.utils import timezone
         project = self.get_object()
         project.status = "in_progress"
+        if project.started_at is None:
+            project.started_at = timezone.now()
         project.parent_notes = request.data.get("notes", "")
         project.save()
         return Response(ProjectDetailSerializer(project).data)
@@ -379,7 +404,7 @@ class ProjectTemplateViewSet(viewsets.ModelViewSet):
             materials_budget=template.materials_budget,
             created_by=request.user,
             assigned_to_id=assigned_to_id,
-            status="active",
+            status="in_progress",
         )
 
         for ms in template.milestones.all():

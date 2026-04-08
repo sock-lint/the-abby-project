@@ -23,6 +23,7 @@ export const getProjects = () => api.get('/projects/');
 export const getProject = (id) => api.get(`/projects/${id}/`);
 export const createProject = (data) => api.post('/projects/', data);
 export const updateProject = (id, data) => api.patch(`/projects/${id}/`, data);
+export const activateProject = (id) => api.post(`/projects/${id}/activate/`);
 export const submitProject = (id) => api.post(`/projects/${id}/submit/`);
 export const approveProject = (id) => api.post(`/projects/${id}/approve/`);
 export const requestChanges = (id, notes) =>

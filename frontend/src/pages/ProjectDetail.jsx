@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ExternalLink, ArrowLeft, DollarSign, QrCode, Copy } from 'lucide-react';
-import { getProject, submitProject, approveProject, requestChanges, completeMilestone, markPurchased, saveProjectAsTemplate } from '../api';
+import { getProject, submitProject, approveProject, requestChanges, completeMilestone, markPurchased, saveProjectAsTemplate, activateProject } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
@@ -24,7 +24,8 @@ export default function ProjectDetail({ user }) {
 
   const handleAction = async (action) => {
     try {
-      if (action === 'submit') await submitProject(id);
+      if (action === 'activate') await activateProject(id);
+      else if (action === 'submit') await submitProject(id);
       else if (action === 'approve') await approveProject(id);
       else if (action === 'request-changes') {
         const notes = prompt('Notes for changes:');
@@ -63,6 +64,11 @@ export default function ProjectDetail({ user }) {
           </div>
         </div>
         <div className="flex gap-2">
+          {isParent && (project.status === 'draft' || project.status === 'active') && (
+            <button onClick={() => handleAction('activate')} className="bg-amber-primary hover:bg-amber-highlight text-forge-bg px-4 py-2 rounded-lg text-sm font-medium">
+              Activate Project
+            </button>
+          )}
           {isAssigned && project.status === 'in_progress' && (
             <button onClick={() => handleAction('submit')} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-medium">
               Submit for Review
