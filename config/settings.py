@@ -21,6 +21,15 @@ CSRF_TRUSTED_ORIGINS = [
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
 
+# Cross-site cookies — frontend and API are on different hosts
+# "None" requires Secure=True, which requires HTTPS. On plain HTTP use "Lax".
+_cross_site = os.environ.get("CROSS_SITE_COOKIES", "false").lower() in ("true", "1", "yes")
+SESSION_COOKIE_SAMESITE = "None" if _cross_site else "Lax"
+CSRF_COOKIE_SAMESITE = "None" if _cross_site else "Lax"
+SESSION_COOKIE_SECURE = _cross_site
+CSRF_COOKIE_SECURE = _cross_site
+CSRF_COOKIE_HTTPONLY = False  # JS needs to read it to set X-CSRFToken header
+
 # Application definition
 
 INSTALLED_APPS = [

@@ -1,4 +1,6 @@
 from django.contrib.auth import authenticate, login, logout
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -21,8 +23,13 @@ class IsParent(permissions.BasePermission):
         return request.user.is_authenticated and request.user.role == "parent"
 
 
+@method_decorator(ensure_csrf_cookie, name="dispatch")
 class AuthView(APIView):
     permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        # Called on app load to seed the csrftoken cookie before the first POST
+        return Response({"ok": True})
 
     def post(self, request):
         action = request.data.get("action")

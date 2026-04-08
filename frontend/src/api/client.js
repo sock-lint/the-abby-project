@@ -1,10 +1,19 @@
 const BASE = `${import.meta.env.VITE_API_URL || ''}/api`;
 
+function getCsrfToken() {
+  const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
 async function request(path, options = {}) {
   const url = `${BASE}${path}`;
+  const method = (options.method || 'GET').toUpperCase();
+  const csrfHeaders = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
+    ? { 'X-CSRFToken': getCsrfToken() }
+    : {};
   const config = {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders, ...options.headers },
     ...options,
   };
   if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
