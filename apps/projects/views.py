@@ -6,14 +6,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import (
-    MaterialItem, Project, ProjectCollaborator, ProjectMilestone, ProjectTemplate,
-    SavingsGoal, SkillCategory, TemplateMaterial, TemplateMilestone, User,
+    MaterialItem, Project, ProjectCollaborator, ProjectIngestionJob,
+    ProjectMilestone, ProjectTemplate, SavingsGoal, SkillCategory,
+    TemplateMaterial, TemplateMilestone, User,
 )
 from .serializers import (
     MaterialItemSerializer, NotificationSerializer, ProjectCollaboratorSerializer,
-    ProjectDetailSerializer, ProjectListSerializer, ProjectMilestoneSerializer,
-    ProjectTemplateSerializer, SavingsGoalSerializer, SkillCategorySerializer,
-    UserSerializer,
+    ProjectDetailSerializer, ProjectIngestionJobSerializer, ProjectListSerializer,
+    ProjectMilestoneSerializer, ProjectTemplateSerializer, SavingsGoalSerializer,
+    SkillCategorySerializer, UserSerializer,
 )
 
 
@@ -475,6 +476,149 @@ class SavingsGoalViewSet(viewsets.ModelViewSet):
             goal.completed_at = timezone.now()
         goal.save()
         return Response(SavingsGoalSerializer(goal).data)
+
+
+class ProjectIngestViewSet(viewsets.ModelViewSet):
+    """Staging flow for auto-ingested projects.
+
+    POST   /projects/ingest/            -> create job + enqueue Celery task
+    GET    /projects/ingest/{id}/       -> poll status / read staged result
+    PATCH  /projects/ingest/{id}/       -> parent edits the staged result_json
+    POST   /projects/ingest/{id}/commit/ -> materialize Project + milestones + materials
+    DELETE /projects/ingest/{id}/       -> mark discarded
+    """
+
+    serializer_class = ProjectIngestionJobSerializer
+    permission_classes = [IsParent]
+
+    def get_queryset(self):
+        return ProjectIngestionJob.objects.filter(created_by=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        source_type = request.data.get("source_type") or "url"
+        source_url = request.data.get("source_url") or None
+        source_file = request.FILES.get("source_file")
+
+        if source_type == "pdf" and not source_file:
+            return Response(
+                {"error": "source_file required for pdf ingestion"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if source_type != "pdf" and not source_url:
+            return Response(
+                {"error": "source_url required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        job = ProjectIngestionJob.objects.create(
+            created_by=request.user,
+            source_type=source_type,
+            source_url=source_url,
+            source_file=source_file,
+        )
+
+        # Enqueue via Celery; fall back to inline execution if the broker
+        # is unavailable (e.g. local dev without a worker running).
+        from .tasks import run_ingestion_job
+        try:
+            run_ingestion_job.delay(str(job.id))
+        except Exception:  # noqa: BLE001 - broker may be down in dev
+            run_ingestion_job(str(job.id))
+
+        return Response(
+            ProjectIngestionJobSerializer(job).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        job = self.get_object()
+        job.status = ProjectIngestionJob.Status.DISCARDED
+        job.save(update_fields=["status", "updated_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"])
+    def commit(self, request, pk=None):
+        """Create the real Project from the (possibly edited) staged result."""
+        from django.db import transaction
+        from .ingestion.base import IngestionResult
+        from .ingestion.category import resolve_category_id
+
+        job = self.get_object()
+        if job.status != ProjectIngestionJob.Status.READY:
+            return Response(
+                {"error": f"job is {job.status}, not ready"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not job.result_json:
+            return Response(
+                {"error": "no staged result"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        staged = IngestionResult.from_dict(job.result_json)
+
+        # Overrides from request body let the frontend preview pass final values
+        # (category_id, difficulty, assigned_to_id, bonus/budget) that don't
+        # live on the ingestion result itself.
+        overrides = request.data or {}
+
+        category_id = overrides.get("category_id")
+        if category_id is None:
+            category_id = resolve_category_id(staged.category_hint)
+
+        payload = {
+            "title": overrides.get("title") or staged.title or "Untitled Project",
+            "description": overrides.get("description", staged.description),
+            "instructables_url": staged.source_url if staged.source_type == "instructables" else None,
+            "difficulty": int(overrides.get("difficulty") or staged.difficulty_hint or 2),
+            "category_id": category_id,
+            "assigned_to_id": overrides.get("assigned_to_id"),
+            "bonus_amount": overrides.get("bonus_amount", "0.00"),
+            "materials_budget": overrides.get("materials_budget", "0.00"),
+            "due_date": overrides.get("due_date") or None,
+        }
+
+        with transaction.atomic():
+            serializer = ProjectDetailSerializer(data=payload)
+            serializer.is_valid(raise_exception=True)
+            project = serializer.save(created_by=request.user)
+
+            milestones = overrides.get("milestones") or [m.to_dict() for m in staged.milestones]
+            ProjectMilestone.objects.bulk_create([
+                ProjectMilestone(
+                    project=project,
+                    title=(m.get("title") or "")[:200] or f"Step {i + 1}",
+                    description=m.get("description") or "",
+                    order=m.get("order", i),
+                )
+                for i, m in enumerate(milestones)
+            ])
+
+            materials = overrides.get("materials") or [m.to_dict() for m in staged.materials]
+            from decimal import Decimal, InvalidOperation
+
+            material_rows = []
+            for m in materials:
+                raw_cost = m.get("estimated_cost")
+                try:
+                    cost = Decimal(str(raw_cost)) if raw_cost not in (None, "") else Decimal("0.00")
+                except (InvalidOperation, TypeError):
+                    cost = Decimal("0.00")
+                material_rows.append(MaterialItem(
+                    project=project,
+                    name=(m.get("name") or "")[:200],
+                    description=m.get("description") or "",
+                    estimated_cost=cost,
+                ))
+            MaterialItem.objects.bulk_create(material_rows)
+
+            job.project = project
+            job.status = ProjectIngestionJob.Status.COMMITTED
+            job.save(update_fields=["project", "status", "updated_at"])
+
+        return Response(
+            ProjectDetailSerializer(project).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class GreenlightImportView(APIView):

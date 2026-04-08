@@ -1,8 +1,8 @@
 from rest_framework import serializers
 
 from .models import (
-    MaterialItem, Notification, Project, ProjectCollaborator, ProjectMilestone,
-    ProjectTemplate, SavingsGoal, SkillCategory, TemplateMaterial,
+    MaterialItem, Notification, Project, ProjectCollaborator, ProjectIngestionJob,
+    ProjectMilestone, ProjectTemplate, SavingsGoal, SkillCategory, TemplateMaterial,
     TemplateMilestone, User,
 )
 
@@ -145,6 +145,24 @@ class ProjectCollaboratorSerializer(serializers.ModelSerializer):
         model = ProjectCollaborator
         fields = ["id", "project", "user", "user_id", "pay_split_percent", "joined_at"]
         read_only_fields = ["joined_at"]
+
+
+class ProjectIngestionJobSerializer(serializers.ModelSerializer):
+    """Read/write serializer for the ingest staging job.
+
+    ``result_json`` is writable so the parent can edit the staged draft from
+    the preview screen before committing.
+    """
+
+    class Meta:
+        model = ProjectIngestionJob
+        fields = [
+            "id", "source_type", "source_url", "source_file", "status",
+            "result_json", "error", "project", "created_at", "updated_at",
+        ]
+        read_only_fields = [
+            "id", "status", "error", "project", "created_at", "updated_at",
+        ]
 
 
 class SavingsGoalSerializer(serializers.ModelSerializer):

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Sparkles } from 'lucide-react';
 import { createProject, getCategories } from '../api';
 import { api } from '../api/client';
 import { useApi } from '../hooks/useApi';
@@ -58,6 +58,19 @@ export default function ProjectNew() {
         <ArrowLeft size={16} /> Back
       </button>
       <h1 className="font-heading text-2xl font-bold">New Project</h1>
+
+      <button
+        type="button"
+        onClick={() => navigate('/projects/ingest')}
+        className="w-full flex items-center gap-3 bg-amber-primary/10 hover:bg-amber-primary/20 border border-amber-primary/40 rounded-lg px-4 py-3 text-left transition-colors"
+      >
+        <Sparkles size={20} className="text-amber-primary shrink-0" />
+        <div className="flex-1">
+          <div className="text-sm font-semibold text-forge-text">Have a link or PDF?</div>
+          <div className="text-xs text-forge-text-dim">Auto-fill milestones, materials, and category from the source.</div>
+        </div>
+        <ExternalLink size={16} className="text-forge-text-dim" />
+      </button>
 
       <form onSubmit={handleSubmit}>
         <Card className="space-y-4">

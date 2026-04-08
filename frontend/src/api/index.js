@@ -44,6 +44,23 @@ export const createMaterial = (projectId, data) =>
 export const markPurchased = (projectId, id, actual_cost) =>
   api.post(`/projects/${projectId}/materials/${id}/mark-purchased/`, { actual_cost });
 
+// Project Ingestion (auto-pull milestones/materials from a source)
+export const startIngest = ({ source_type, source_url, source_file }) => {
+  if (source_type === 'pdf' && source_file) {
+    const fd = new FormData();
+    fd.append('source_type', 'pdf');
+    fd.append('source_file', source_file);
+    return api.upload('/projects/ingest/', fd);
+  }
+  return api.post('/projects/ingest/', { source_type, source_url });
+};
+export const getIngestJob = (id) => api.get(`/projects/ingest/${id}/`);
+export const updateIngestJob = (id, data) =>
+  api.patch(`/projects/ingest/${id}/`, data);
+export const commitIngestJob = (id, overrides) =>
+  api.post(`/projects/ingest/${id}/commit/`, overrides);
+export const discardIngestJob = (id) => api.delete(`/projects/ingest/${id}/`);
+
 // Clock
 export const getClockStatus = () => api.get('/clock/');
 export const clockIn = (project_id) =>
