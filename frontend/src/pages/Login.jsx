@@ -27,7 +27,7 @@ export default function Login({ onLogin }) {
           <div className="w-16 h-16 bg-amber-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Hammer className="text-amber-highlight" size={32} />
           </div>
-          <h1 className="font-heading text-2xl text-amber-highlight font-bold">SummerForge</h1>
+          <h1 className="font-heading text-2xl text-amber-highlight font-bold">The Abby Project</h1>
           <p className="text-forge-text-dim text-sm mt-1">Track projects, earn badges, get paid</p>
         </div>
         <form onSubmit={handleSubmit} className="bg-forge-card border border-forge-border rounded-xl p-6 space-y-4">

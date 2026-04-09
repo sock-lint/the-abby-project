@@ -12,11 +12,39 @@ XP_THRESHOLDS = {
 }
 
 
+class Subject(models.Model):
+    """Intermediate grouping between SkillCategory and Skill.
+
+    Modeled after the SkillTree platform's Project -> Subject -> Skill
+    hierarchy. Categories hold Subjects; Subjects hold Skills.
+    """
+
+    name = models.CharField(max_length=100)
+    category = models.ForeignKey(
+        "projects.SkillCategory", on_delete=models.CASCADE,
+        related_name="subjects",
+    )
+    description = models.TextField(blank=True)
+    icon = models.CharField(max_length=50, blank=True)
+    order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ["category", "order", "name"]
+        unique_together = [("category", "name")]
+
+    def __str__(self):
+        return f"{self.icon} {self.name}"
+
+
 class Skill(models.Model):
     name = models.CharField(max_length=100)
     category = models.ForeignKey(
         "projects.SkillCategory", on_delete=models.CASCADE,
         related_name="skills",
+    )
+    subject = models.ForeignKey(
+        Subject, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="skills",
     )
     description = models.TextField(blank=True)
     icon = models.CharField(max_length=50, blank=True)
@@ -25,7 +53,7 @@ class Skill(models.Model):
     order = models.IntegerField(default=0)
 
     class Meta:
-        ordering = ["category", "order"]
+        ordering = ["category", "subject", "order"]
         unique_together = [("category", "name")]
 
     def __str__(self):
@@ -119,6 +147,7 @@ class Badge(models.Model):
         SKILL_LEVEL_REACHED = "skill_level_reached", "Skill Level Reached"
         SKILLS_UNLOCKED = "skills_unlocked", "Skills Unlocked"
         SKILL_CATEGORIES_BREADTH = "skill_categories_breadth", "Skill Categories Breadth"
+        SUBJECTS_COMPLETED = "subjects_completed", "Subjects Completed"
         HOURS_IN_DAY = "hours_in_day", "Hours in a Day"
         PHOTOS_UPLOADED = "photos_uploaded", "Photos Uploaded"
         TOTAL_EARNED = "total_earned", "Total Earned"
@@ -135,6 +164,10 @@ class Badge(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField()
     icon = models.CharField(max_length=50, blank=True)
+    subject = models.ForeignKey(
+        Subject, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="badges",
+    )
     criteria_type = models.CharField(max_length=30, choices=CriteriaType.choices)
     criteria_value = models.JSONField(default=dict)
     xp_bonus = models.PositiveIntegerField(default=0)

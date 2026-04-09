@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { DollarSign, TrendingUp, TrendingDown, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, ArrowDownRight, ArrowUpRight, Target } from 'lucide-react';
 import { getBalance } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
@@ -8,6 +8,7 @@ import Loader from '../components/Loader';
 const typeIcons = {
   hourly: { icon: TrendingUp, color: 'text-blue-400' },
   project_bonus: { icon: TrendingUp, color: 'text-green-400' },
+  bounty_payout: { icon: Target, color: 'text-fuchsia-400' },
   milestone_bonus: { icon: TrendingUp, color: 'text-emerald-400' },
   materials_reimbursement: { icon: ArrowUpRight, color: 'text-cyan-400' },
   payout: { icon: ArrowDownRight, color: 'text-red-400' },
@@ -17,6 +18,7 @@ const typeIcons = {
 const typeLabels = {
   hourly: 'Hourly',
   project_bonus: 'Project Bonus',
+  bounty_payout: 'Bounty',
   milestone_bonus: 'Milestone Bonus',
   materials_reimbursement: 'Reimbursement',
   payout: 'Payout',

@@ -1,7 +1,11 @@
-"""Route a source (URL or uploaded file) to the right ingestor."""
+"""Route a source (URL or uploaded file) to the right ingestor.
+
+Pipeline assembly and execution now live in :mod:`runner` /
+:mod:`pipeline`. This module only dispatches to a per-source parser.
+"""
 from __future__ import annotations
 
-from .base import BaseIngestor, IngestionResult
+from .base import BaseIngestor
 from .generic_url import GenericUrlIngestor
 from .instructables import InstructablesIngestor
 from .pdf import PdfIngestor
@@ -26,8 +30,3 @@ def route_source(source_type: str, source_url: str | None, file_field) -> BaseIn
         return InstructablesIngestor(source_url)
 
     return GenericUrlIngestor(source_url)
-
-
-def run_ingestion(source_type: str, source_url: str | None, file_field) -> IngestionResult:
-    ingestor = route_source(source_type, source_url, file_field)
-    return ingestor.ingest()

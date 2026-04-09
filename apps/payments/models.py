@@ -6,6 +6,7 @@ class PaymentLedger(models.Model):
     class EntryType(models.TextChoices):
         HOURLY = "hourly", "Hourly"
         PROJECT_BONUS = "project_bonus", "Project Bonus"
+        BOUNTY_PAYOUT = "bounty_payout", "Bounty Payout"
         MILESTONE_BONUS = "milestone_bonus", "Milestone Bonus"
         MATERIALS_REIMBURSEMENT = "materials_reimbursement", "Materials Reimbursement"
         PAYOUT = "payout", "Payout"

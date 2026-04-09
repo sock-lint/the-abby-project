@@ -14,6 +14,7 @@ export default function ProjectNew() {
   const [form, setForm] = useState({
     title: '', description: '', instructables_url: '', difficulty: 2,
     category_id: '', bonus_amount: '0', materials_budget: '0', due_date: '',
+    payment_kind: 'required',
   });
   const [error, setError] = useState('');
   const [preview, setPreview] = useState(null);
@@ -123,9 +124,23 @@ export default function ProjectNew() {
               </select>
             </div>
           </div>
+          <div>
+            <label className="block text-sm text-forge-text-dim mb-1">Payment Kind</label>
+            <select value={form.payment_kind} onChange={set('payment_kind')} className={inputClass}>
+              <option value="required">Required (part of allowance)</option>
+              <option value="bounty">Bounty (up for grabs, cash reward)</option>
+            </select>
+            <p className="text-xs text-forge-text-dim mt-1">
+              {form.payment_kind === 'bounty'
+                ? 'Completing this project pays out the bonus as a bounty.'
+                : 'Counts toward normal allowance; bonus is a standard project bonus.'}
+            </p>
+          </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm text-forge-text-dim mb-1">Bonus ($)</label>
+              <label className="block text-sm text-forge-text-dim mb-1">
+                {form.payment_kind === 'bounty' ? 'Bounty ($)' : 'Bonus ($)'}
+              </label>
               <input value={form.bonus_amount} onChange={set('bonus_amount')} className={inputClass} type="number" step="0.01" min="0" />
             </div>
             <div>

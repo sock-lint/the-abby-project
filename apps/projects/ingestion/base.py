@@ -9,7 +9,7 @@ import requests
 from django.core.cache import cache
 
 
-USER_AGENT = "Mozilla/5.0 (compatible; SummerForge/1.0)"
+USER_AGENT = "Mozilla/5.0 (compatible; TheAbbyProject/1.0)"
 FETCH_TIMEOUT = 15
 CACHE_TTL_SECONDS = 86400  # 24h
 
@@ -48,6 +48,10 @@ class IngestionResult:
     milestones: list[MilestoneDraft] = field(default_factory=list)
     materials: list[MaterialDraft] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    raw_html: str | None = None
+    markdown: str | None = None
+    ai_suggestions: dict[str, Any] | None = None
+    pipeline_warnings: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -61,6 +65,10 @@ class IngestionResult:
             "milestones": [m.to_dict() for m in self.milestones],
             "materials": [m.to_dict() for m in self.materials],
             "warnings": list(self.warnings),
+            # Additive fields — safe for existing frontend consumers.
+            "markdown": self.markdown,
+            "ai_suggestions": self.ai_suggestions,
+            "pipeline_warnings": list(self.pipeline_warnings),
         }
 
     @classmethod
@@ -77,6 +85,10 @@ class IngestionResult:
             materials=[MaterialDraft(**m) for m in data.get("materials", [])],
             warnings=list(data.get("warnings", [])),
         )
+
+
+# Alias: pipeline stages operate on an "item" regardless of source.
+IngestionItem = IngestionResult
 
 
 class BaseIngestor:

@@ -59,6 +59,18 @@ class ClockService:
         xp = round(hours * 10)
         if xp > 0:
             SkillService.distribute_project_xp(user, entry.project, xp)
+
+        # Coin reward — parallel to XP, funds the ChoreQuest-style reward shop.
+        from django.conf import settings
+        from apps.rewards.services import CoinService
+        from apps.rewards.models import CoinLedger
+        coins = round(hours * getattr(settings, "COINS_PER_HOUR", 5))
+        if coins > 0:
+            CoinService.award_coins(
+                user, coins, CoinLedger.Reason.HOURLY,
+                description=f"Hourly coins: {entry.project.title}",
+            )
+
         BadgeService.evaluate_badges(user)
 
         return entry

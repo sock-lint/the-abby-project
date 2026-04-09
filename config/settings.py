@@ -41,7 +41,20 @@ INSTALLED_APPS = [
     "apps.payments",
     "apps.achievements",
     "apps.portfolio",
+    "apps.rewards",
 ]
+
+# --- Rewards / Coins economy ----------------------------------------------
+# How many Coins a child earns per hour of tracked time.
+COINS_PER_HOUR = 5
+# Per-rarity coin bonus when a Badge is earned.
+COINS_PER_BADGE_RARITY = {
+    "common": 5,
+    "uncommon": 15,
+    "rare": 35,
+    "epic": 75,
+    "legendary": 150,
+}
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

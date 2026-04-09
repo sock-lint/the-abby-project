@@ -102,8 +102,57 @@ class SkillService:
         }
 
     @staticmethod
-    def get_skill_tree(user, category):
-        """Return all skills in a category with user progress."""
+    def _serialize_skill(skill, sp, user):
+        prereqs = [
+            {
+                "skill_id": p.required_skill_id,
+                "skill_name": p.required_skill.name,
+                "required_level": p.required_level,
+                "met": SkillProgress.objects.filter(
+                    user=user,
+                    skill=p.required_skill,
+                    level__gte=p.required_level,
+                ).exists() if sp and not sp.unlocked else True,
+            }
+            for p in skill.prerequisites.all()
+        ]
+        return {
+            "id": skill.id,
+            "name": skill.name,
+            "icon": skill.icon,
+            "description": skill.description,
+            "is_locked_by_default": skill.is_locked_by_default,
+            "level_names": skill.level_names,
+            "xp_points": sp.xp_points if sp else 0,
+            "level": sp.level if sp else 0,
+            "unlocked": sp.unlocked if sp else not skill.is_locked_by_default,
+            "xp_to_next_level": sp.xp_to_next_level if sp else XP_THRESHOLDS.get(1, 100),
+            "prerequisites": prereqs,
+        }
+
+    @staticmethod
+    def get_subject_summary(user, subject):
+        """Get aggregated level and total XP for a subject."""
+        progress = SkillProgress.objects.filter(
+            user=user, skill__subject=subject, unlocked=True,
+        )
+        if not progress.exists():
+            return {"level": 0, "total_xp": 0}
+        agg = progress.aggregate(
+            avg_level=models.Avg("level"),
+            total_xp=models.Sum("xp_points"),
+        )
+        return {
+            "level": round(agg["avg_level"] or 0),
+            "total_xp": agg["total_xp"] or 0,
+        }
+
+    @classmethod
+    def get_skill_tree(cls, user, category):
+        """Return subjects nested with skills + user progress for a category."""
+        from .models import Subject
+
+        subjects = Subject.objects.filter(category=category).order_by("order", "name")
         skills = Skill.objects.filter(category=category).prefetch_related(
             "prerequisites__required_skill",
         )
@@ -112,34 +161,35 @@ class SkillService:
             for sp in SkillProgress.objects.filter(user=user, skill__category=category)
         }
 
-        tree = []
+        skills_by_subject = {}
+        orphan_skills = []
         for skill in skills:
-            sp = progress_map.get(skill.id)
-            prereqs = [
-                {
-                    "skill_id": p.required_skill_id,
-                    "skill_name": p.required_skill.name,
-                    "required_level": p.required_level,
-                    "met": SkillProgress.objects.filter(
-                        user=user,
-                        skill=p.required_skill,
-                        level__gte=p.required_level,
-                    ).exists() if sp and not sp.unlocked else True,
-                }
-                for p in skill.prerequisites.all()
-            ]
+            entry = cls._serialize_skill(skill, progress_map.get(skill.id), user)
+            if skill.subject_id:
+                skills_by_subject.setdefault(skill.subject_id, []).append(entry)
+            else:
+                orphan_skills.append(entry)
+
+        tree = []
+        for subject in subjects:
             tree.append({
-                "id": skill.id,
-                "name": skill.name,
-                "icon": skill.icon,
-                "description": skill.description,
-                "is_locked_by_default": skill.is_locked_by_default,
-                "level_names": skill.level_names,
-                "xp_points": sp.xp_points if sp else 0,
-                "level": sp.level if sp else 0,
-                "unlocked": sp.unlocked if sp else not skill.is_locked_by_default,
-                "xp_to_next_level": sp.xp_to_next_level if sp else XP_THRESHOLDS.get(1, 100),
-                "prerequisites": prereqs,
+                "id": subject.id,
+                "name": subject.name,
+                "icon": subject.icon,
+                "description": subject.description,
+                "order": subject.order,
+                "summary": cls.get_subject_summary(user, subject),
+                "skills": skills_by_subject.get(subject.id, []),
+            })
+        if orphan_skills:
+            tree.append({
+                "id": None,
+                "name": "Other",
+                "icon": "",
+                "description": "",
+                "order": 9999,
+                "summary": {"level": 0, "total_xp": 0},
+                "skills": orphan_skills,
             })
         return tree
 
@@ -159,9 +209,26 @@ class BadgeService:
                 UserBadge.objects.create(user=user, badge=badge)
                 if badge.xp_bonus > 0:
                     cls._award_badge_xp(user, badge)
+                cls._award_badge_coins(user, badge)
                 newly_earned.append(badge)
 
         return newly_earned
+
+    @staticmethod
+    def _award_badge_coins(user, badge):
+        """Award coins scaled by badge rarity."""
+        from django.conf import settings
+        from apps.rewards.services import CoinService
+        from apps.rewards.models import CoinLedger
+
+        rarity_map = getattr(settings, "COINS_PER_BADGE_RARITY", {})
+        amount = int(rarity_map.get(badge.rarity, 0))
+        if amount <= 0:
+            return
+        CoinService.award_coins(
+            user, amount, CoinLedger.Reason.BADGE_BONUS,
+            description=f"Badge earned: {badge.name}",
+        )
 
     @classmethod
     def _check_criteria(cls, user, badge):
@@ -257,6 +324,14 @@ class BadgeService:
                 user=user, unlocked=True, skill__is_locked_by_default=True,
             ).count()
             return unlocked >= count
+
+        elif ct == Badge.CriteriaType.SUBJECTS_COMPLETED:
+            min_level = criteria.get("min_level", 2)
+            count = criteria.get("count", 1)
+            completed = SkillProgress.objects.filter(
+                user=user, level__gte=min_level, skill__subject__isnull=False,
+            ).values("skill__subject").distinct().count()
+            return completed >= count
 
         elif ct == Badge.CriteriaType.SKILL_CATEGORIES_BREADTH:
             min_level = criteria.get("min_level", 1)

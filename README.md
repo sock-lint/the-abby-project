@@ -1,4 +1,4 @@
-# SummerForge
+# The Abby Project
 
 A project management, timecard, and payment tracking system for summer maker projects. Ties Instructables project guides to tracked work hours and earnings, paid out via Greenlight.
 

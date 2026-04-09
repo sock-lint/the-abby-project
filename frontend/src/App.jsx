@@ -12,6 +12,7 @@ import ProjectIngest from './pages/ProjectIngest';
 import ClockPage from './pages/ClockPage';
 import Timecards from './pages/Timecards';
 import Payments from './pages/Payments';
+import Rewards from './pages/Rewards';
 import Achievements from './pages/Achievements';
 import Portfolio from './pages/Portfolio';
 import SettingsPage from './pages/SettingsPage';
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/clock" element={<ClockPage />} />
           <Route path="/timecards" element={<Timecards user={user} />} />
           <Route path="/payments" element={<Payments />} />
+          <Route path="/rewards" element={<Rewards />} />
           <Route path="/achievements" element={<Achievements />} />
           <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/settings" element={<SettingsPage user={user} />} />

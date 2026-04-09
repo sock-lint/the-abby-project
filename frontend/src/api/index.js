@@ -94,6 +94,16 @@ export const getSkillTree = (categoryId) => api.get(`/skills/tree/${categoryId}/
 export const getSkillProgress = () => api.get('/skill-progress/');
 export const getAchievementsSummary = () => api.get('/achievements/summary/');
 
+// Rewards / Coins
+export const getRewards = () => api.get('/rewards/');
+export const redeemReward = (id) => api.post(`/rewards/${id}/redeem/`, {});
+export const getRedemptions = () => api.get('/redemptions/');
+export const approveRedemption = (id, notes = '') =>
+  api.post(`/redemptions/${id}/approve/`, { notes });
+export const denyRedemption = (id, notes = '') =>
+  api.post(`/redemptions/${id}/deny/`, { notes });
+export const getCoinBalance = () => api.get('/coins/');
+
 // Portfolio
 export const getPortfolio = () => api.get('/portfolio/');
 export const getPhotos = () => api.get('/photos/');

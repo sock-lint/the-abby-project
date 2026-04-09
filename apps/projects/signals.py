@@ -40,11 +40,14 @@ def handle_project_status_change(sender, instance, created, **kwargs):
         sender.objects.filter(pk=instance.pk).update(completed_at=timezone.now())
 
         if instance.bonus_amount and instance.assigned_to:
+            is_bounty = getattr(instance, "payment_kind", "required") == "bounty"
+            entry_type = "bounty_payout" if is_bounty else "project_bonus"
+            label = "Bounty payout" if is_bounty else "Project bonus"
             PaymentLedger.objects.create(
                 user=instance.assigned_to,
                 amount=instance.bonus_amount,
-                entry_type="project_bonus",
-                description=f"Project bonus: {instance.title}",
+                entry_type=entry_type,
+                description=f"{label}: {instance.title}",
                 project=instance,
                 created_by=instance.created_by,
             )
@@ -52,6 +55,20 @@ def handle_project_status_change(sender, instance, created, **kwargs):
         if instance.assigned_to:
             xp = instance.xp_reward or (50 * instance.difficulty)
             SkillService.distribute_project_xp(instance.assigned_to, instance, xp)
+
+            # Coin bonus on project completion. Bounty projects pay a
+            # higher coin bonus scaled to difficulty.
+            from apps.rewards.services import CoinService
+            from apps.rewards.models import CoinLedger
+            is_bounty = getattr(instance, "payment_kind", "required") == "bounty"
+            coin_bonus = (25 if is_bounty else 10) * max(1, instance.difficulty)
+            CoinService.award_coins(
+                instance.assigned_to, coin_bonus,
+                CoinLedger.Reason.BOUNTY_BONUS if is_bounty else CoinLedger.Reason.PROJECT_BONUS,
+                description=f"{'Bounty' if is_bounty else 'Project'} complete: {instance.title}",
+                created_by=instance.created_by,
+            )
+
             BadgeService.evaluate_badges(instance.assigned_to)
 
 

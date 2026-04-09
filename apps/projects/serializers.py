@@ -53,7 +53,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
         model = Project
         fields = [
             "id", "title", "description", "cover_photo", "difficulty",
-            "category", "status", "assigned_to", "bonus_amount",
+            "category", "status", "assigned_to", "bonus_amount", "payment_kind",
             "materials_budget", "due_date", "created_at",
             "milestones_total", "milestones_completed",
         ]
@@ -87,7 +87,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             "id", "title", "description", "cover_photo", "instructables_url",
             "difficulty", "category", "category_id", "status",
             "assigned_to", "assigned_to_id", "created_by",
-            "bonus_amount", "hourly_rate_override", "materials_budget",
+            "bonus_amount", "payment_kind", "hourly_rate_override", "materials_budget",
             "due_date", "started_at", "completed_at", "xp_reward",
             "parent_notes", "created_at", "updated_at",
             "milestones", "materials",

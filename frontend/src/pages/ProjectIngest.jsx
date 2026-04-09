@@ -251,6 +251,52 @@ export default function ProjectIngest() {
             </div>
           )}
 
+          {draft.ai_suggestions && (
+            <Card className="border-fuchsia-400/30 bg-fuchsia-400/5 space-y-2">
+              <div className="text-xs font-semibold text-fuchsia-300 uppercase tracking-wide">
+                ✨ Claude suggestions
+              </div>
+              {draft.ai_suggestions.summary && (
+                <div className="text-sm text-forge-text">{draft.ai_suggestions.summary}</div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {draft.ai_suggestions.category && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const match = categories.find(
+                        (c) => c.name.toLowerCase() === String(draft.ai_suggestions.category).toLowerCase()
+                      );
+                      if (match) setOverrides({ ...overrides, category_id: match.id });
+                    }}
+                    className="text-xs px-2 py-1 rounded-full border border-fuchsia-400/40 text-fuchsia-200 hover:bg-fuchsia-400/10"
+                  >
+                    Category: {draft.ai_suggestions.category}
+                  </button>
+                )}
+                {draft.ai_suggestions.difficulty && (
+                  <button
+                    type="button"
+                    onClick={() => setOverrides({ ...overrides, difficulty: draft.ai_suggestions.difficulty })}
+                    className="text-xs px-2 py-1 rounded-full border border-fuchsia-400/40 text-fuchsia-200 hover:bg-fuchsia-400/10"
+                  >
+                    Difficulty: {'★'.repeat(draft.ai_suggestions.difficulty)}
+                  </button>
+                )}
+                {(draft.ai_suggestions.skill_tags || []).map((tag, i) => (
+                  <span key={i} className="text-xs px-2 py-1 rounded-full border border-fuchsia-400/40 text-fuchsia-200">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+              {draft.ai_suggestions.extra_materials?.length > 0 && (
+                <div className="text-xs text-forge-text-dim">
+                  Suggested extras: {draft.ai_suggestions.extra_materials.map((m) => m.name).join(', ')}
+                </div>
+              )}
+            </Card>
+          )}
+
           <Card className="space-y-4">
             <h2 className="font-heading text-lg font-bold">Review &amp; Edit</h2>
 

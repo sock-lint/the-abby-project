@@ -69,7 +69,7 @@ def send_weekly_email_summaries():
             )
 
         send_mail(
-            subject=f"SummerForge Weekly Summary — {week_start.strftime('%b %d')}",
+            subject=f"The Abby Project Weekly Summary — {week_start.strftime('%b %d')}",
             message=(
                 f"Hi {child.display_name or child.username}!\n\n"
                 f"This week you worked {hours} hours.{badge_text}\n"
@@ -103,7 +103,7 @@ def send_weekly_email_summaries():
         pending = Timecard.objects.filter(status="pending").count()
 
         send_mail(
-            subject=f"SummerForge Parent Summary — {week_start.strftime('%b %d')}",
+            subject=f"The Abby Project Parent Summary — {week_start.strftime('%b %d')}",
             message=(
                 f"Hi {parent.display_name or parent.username}!\n\n"
                 f"This week:\n" + "\n".join(child_summaries) + "\n\n"

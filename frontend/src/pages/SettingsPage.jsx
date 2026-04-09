@@ -69,7 +69,7 @@ export default function SettingsPage({ user }) {
       </Card>
 
       <Card>
-        <h2 className="font-heading text-lg font-bold mb-2">About SummerForge</h2>
+        <h2 className="font-heading text-lg font-bold mb-2">About The Abby Project</h2>
         <p className="text-sm text-forge-text-dim">
           Track projects, log hours, earn XP, unlock skills, and get paid
           for your summer maker projects.

@@ -46,8 +46,12 @@ class SkillTreeView(APIView):
         except SkillCategory.DoesNotExist:
             return Response({"error": "Category not found"}, status=404)
 
-        tree = SkillService.get_skill_tree(request.user, category)
+        subjects = SkillService.get_skill_tree(request.user, category)
         summary = SkillService.get_category_summary(request.user, category)
+
+        # Flattened skill list kept for backward compatibility with any
+        # existing clients; new shape is under `subjects`.
+        flat_skills = [s for subj in subjects for s in subj["skills"]]
 
         return Response({
             "category": {
@@ -57,7 +61,8 @@ class SkillTreeView(APIView):
                 "color": category.color,
             },
             "summary": summary,
-            "skills": tree,
+            "subjects": subjects,
+            "skills": flat_skills,
         })
 
 

@@ -58,6 +58,10 @@ class Project(models.Model):
         COMPLETED = "completed", "Completed"
         ARCHIVED = "archived", "Archived"
 
+    class PaymentKind(models.TextChoices):
+        REQUIRED = "required", "Required (allowance)"
+        BOUNTY = "bounty", "Bounty (up for grabs)"
+
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     cover_photo = models.ImageField(upload_to="projects/covers/", blank=True, null=True)
@@ -82,6 +86,10 @@ class Project(models.Model):
     )
     bonus_amount = models.DecimalField(
         max_digits=8, decimal_places=2, default=Decimal("0.00")
+    )
+    payment_kind = models.CharField(
+        max_length=10, choices=PaymentKind.choices, default=PaymentKind.REQUIRED,
+        help_text="Required projects are part of normal allowance; bounty projects are up-for-grabs with a cash reward.",
     )
     hourly_rate_override = models.DecimalField(
         max_digits=5, decimal_places=2, null=True, blank=True

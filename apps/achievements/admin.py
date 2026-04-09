@@ -2,14 +2,21 @@ from django.contrib import admin
 
 from .models import (
     Badge, MilestoneSkillTag, ProjectSkillTag, Skill,
-    SkillPrerequisite, SkillProgress, UserBadge,
+    SkillPrerequisite, SkillProgress, Subject, UserBadge,
 )
+
+
+@admin.register(Subject)
+class SubjectAdmin(admin.ModelAdmin):
+    list_display = ["name", "icon", "category", "order"]
+    list_filter = ["category"]
+    search_fields = ["name"]
 
 
 @admin.register(Skill)
 class SkillAdmin(admin.ModelAdmin):
-    list_display = ["name", "icon", "category", "is_locked_by_default", "order"]
-    list_filter = ["category", "is_locked_by_default"]
+    list_display = ["name", "icon", "category", "subject", "is_locked_by_default", "order"]
+    list_filter = ["category", "subject", "is_locked_by_default"]
     search_fields = ["name"]
 
 
@@ -36,8 +43,8 @@ class MilestoneSkillTagAdmin(admin.ModelAdmin):
 
 @admin.register(Badge)
 class BadgeAdmin(admin.ModelAdmin):
-    list_display = ["name", "icon", "criteria_type", "rarity", "xp_bonus"]
-    list_filter = ["rarity", "criteria_type"]
+    list_display = ["name", "icon", "subject", "criteria_type", "rarity", "xp_bonus"]
+    list_filter = ["rarity", "criteria_type", "subject"]
     search_fields = ["name"]
 
 

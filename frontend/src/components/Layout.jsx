@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, FolderKanban, Clock, FileText,
-  DollarSign, Trophy, Camera, Settings, LogOut,
+  DollarSign, Gift, Trophy, Camera, Settings, LogOut,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 
@@ -11,6 +11,7 @@ const navItems = [
   { to: '/clock', icon: Clock, label: 'Clock' },
   { to: '/timecards', icon: FileText, label: 'Timecards' },
   { to: '/payments', icon: DollarSign, label: 'Payments' },
+  { to: '/rewards', icon: Gift, label: 'Rewards' },
   { to: '/achievements', icon: Trophy, label: 'Achievements' },
   { to: '/portfolio', icon: Camera, label: 'Portfolio' },
   { to: '/settings', icon: Settings, label: 'Settings' },
@@ -24,7 +25,7 @@ export default function Layout({ user, onLogout }) {
                          max-md:hidden">
         <div className="p-4 border-b border-forge-border">
           <h1 className="font-heading text-lg text-amber-highlight font-bold tracking-tight">
-            SummerForge
+            The Abby Project
           </h1>
         </div>
         <nav className="flex-1 p-2 space-y-1">

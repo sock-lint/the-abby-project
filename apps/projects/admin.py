@@ -13,10 +13,10 @@ class UserAdmin(BaseUserAdmin):
     list_display = ["username", "display_name", "role", "hourly_rate", "is_active"]
     list_filter = ["role", "is_active"]
     fieldsets = BaseUserAdmin.fieldsets + (
-        ("SummerForge", {"fields": ("role", "hourly_rate", "display_name", "avatar")}),
+        ("The Abby Project", {"fields": ("role", "hourly_rate", "display_name", "avatar")}),
     )
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
-        ("SummerForge", {"fields": ("role", "hourly_rate", "display_name")}),
+        ("The Abby Project", {"fields": ("role", "hourly_rate", "display_name")}),
     )
 
 

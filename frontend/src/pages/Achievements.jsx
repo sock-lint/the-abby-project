@@ -117,8 +117,23 @@ export default function Achievements() {
               </div>
             </Card>
 
-            <div className="grid md:grid-cols-2 gap-3">
-              {tree.skills.map((skill) => {
+            {(tree.subjects || [{ id: null, name: '', skills: tree.skills, summary: tree.summary }]).map((subject) => (
+              <div key={subject.id ?? 'flat'} className="space-y-2">
+                {subject.name && (
+                  <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2">
+                      {subject.icon && <span>{subject.icon}</span>}
+                      <span className="font-heading text-sm font-bold text-forge-text">{subject.name}</span>
+                    </div>
+                    {subject.summary && (
+                      <span className="text-[10px] text-forge-text-dim">
+                        L{subject.summary.level} · {subject.summary.total_xp} XP
+                      </span>
+                    )}
+                  </div>
+                )}
+                <div className="grid md:grid-cols-2 gap-3">
+                  {subject.skills.map((skill) => {
                 const nextThreshold = XP_THRESHOLDS[skill.level + 1] || XP_THRESHOLDS[6];
                 const currentThreshold = XP_THRESHOLDS[skill.level] || 0;
                 const progress = nextThreshold > currentThreshold
@@ -175,8 +190,10 @@ export default function Achievements() {
                     </Card>
                   </motion.div>
                 );
-              })}
-            </div>
+                  })}
+                </div>
+              </div>
+            ))}
           </motion.div>
         )}
       </div>
