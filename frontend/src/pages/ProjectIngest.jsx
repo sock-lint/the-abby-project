@@ -245,9 +245,10 @@ export default function ProjectIngest() {
 
       {phase === 'preview' && draft && (
         <div className="space-y-4">
-          {draft.warnings?.length > 0 && (
+          {(draft.warnings?.length > 0 || draft.pipeline_warnings?.length > 0) && (
             <div className="text-xs text-amber-highlight bg-amber-highlight/10 border border-amber-highlight/30 rounded-lg p-3 space-y-1">
-              {draft.warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
+              {draft.warnings?.map((w, i) => <div key={`w-${i}`}>⚠ {w}</div>)}
+              {draft.pipeline_warnings?.map((w, i) => <div key={`pw-${i}`} className="opacity-70">⚙ {w}</div>)}
             </div>
           )}
 

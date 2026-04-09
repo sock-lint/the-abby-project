@@ -22,6 +22,7 @@ class InstructablesIngestor(BaseIngestor):
         result = IngestionResult(
             source_url=self.url,
             source_type=self.source_type,
+            raw_html=html,
         )
 
         # Title

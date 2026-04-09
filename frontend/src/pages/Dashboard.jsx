@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Clock, DollarSign, Flame, FolderKanban, Trophy, Timer, Target } from 'lucide-react';
+import { Clock, Coins, DollarSign, Flame, FolderKanban, Trophy, Timer, Target } from 'lucide-react';
 import { getDashboard } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
@@ -14,7 +14,7 @@ export default function Dashboard() {
   if (loading) return <Loader />;
   if (!data) return null;
 
-  const { active_timer, current_balance, this_week, active_projects, recent_badges, streak_days, savings_goals } = data;
+  const { active_timer, current_balance, coin_balance, this_week, active_projects, recent_badges, streak_days, savings_goals } = data;
 
   return (
     <div className="space-y-6">
@@ -46,12 +46,25 @@ export default function Dashboard() {
       )}
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.05 }}>
           <Card>
             <DollarSign className="text-green-400 mb-1" size={20} />
             <div className="font-heading text-2xl font-bold">${current_balance?.toFixed(2)}</div>
             <div className="text-xs text-forge-text-dim">Balance</div>
+          </Card>
+        </motion.div>
+        <motion.div
+          initial={{ y: 10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.08 }}
+          className="cursor-pointer"
+          onClick={() => navigate('/rewards')}
+        >
+          <Card>
+            <Coins className="text-amber-highlight mb-1" size={20} />
+            <div className="font-heading text-2xl font-bold">{coin_balance ?? 0}</div>
+            <div className="text-xs text-forge-text-dim">Coins</div>
           </Card>
         </motion.div>
         <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}>

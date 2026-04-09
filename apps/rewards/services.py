@@ -99,6 +99,18 @@ class RewardService:
             redemption.status = RewardRedemption.Status.FULFILLED
             redemption.decided_at = timezone.now()
             redemption.save(update_fields=["status", "decided_at"])
+        else:
+            # Notify every parent so the bell lights up without them having
+            # to visit /rewards.
+            from apps.projects.models import Notification, User
+            display = getattr(user, "display_name", None) or user.username
+            for parent in User.objects.filter(role="parent"):
+                Notification.objects.create(
+                    user=parent,
+                    title=f"Reward request: {reward.name}",
+                    message=f"{display} wants to redeem {reward.name} for {reward.cost_coins} coins.",
+                    notification_type=Notification.NotificationType.REDEMPTION_REQUESTED,
+                )
         return redemption
 
     @staticmethod

@@ -173,6 +173,7 @@ class Notification(models.Model):
         PAYOUT_RECORDED = "payout_recorded", "Payout Recorded"
         SKILL_UNLOCKED = "skill_unlocked", "Skill Unlocked"
         MILESTONE_COMPLETED = "milestone_completed", "Milestone Completed"
+        REDEMPTION_REQUESTED = "redemption_requested", "Redemption Requested"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,

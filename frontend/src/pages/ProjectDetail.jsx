@@ -59,6 +59,11 @@ export default function ProjectDetail({ user }) {
           <h1 className="font-heading text-2xl font-bold">{project.title}</h1>
           <div className="flex items-center gap-3 mt-1 text-sm text-forge-text-dim">
             <StatusBadge status={project.status} />
+            {project.payment_kind === 'bounty' && (
+              <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded bg-fuchsia-400/15 text-fuchsia-300 border border-fuchsia-400/30">
+                🎯 Bounty
+              </span>
+            )}
             {project.category && <span>{project.category.icon} {project.category.name}</span>}
             <span>{'★'.repeat(project.difficulty)}{'☆'.repeat(5 - project.difficulty)}</span>
           </div>
@@ -142,8 +147,12 @@ export default function ProjectDetail({ user }) {
               )}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <Card>
-                  <div className="text-xs text-forge-text-dim">Bonus</div>
-                  <div className="font-heading font-bold text-lg">${project.bonus_amount}</div>
+                  <div className="text-xs text-forge-text-dim">
+                    {project.payment_kind === 'bounty' ? 'Bounty' : 'Bonus'}
+                  </div>
+                  <div className={`font-heading font-bold text-lg ${project.payment_kind === 'bounty' ? 'text-fuchsia-300' : ''}`}>
+                    ${project.bonus_amount}
+                  </div>
                 </Card>
                 <Card>
                   <div className="text-xs text-forge-text-dim">Budget</div>

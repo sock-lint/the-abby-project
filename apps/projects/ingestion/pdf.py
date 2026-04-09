@@ -43,6 +43,12 @@ class PdfIngestor(BaseIngestor):
         full_text = "\n".join(text_pages)
         lines = [line.rstrip() for line in full_text.splitlines()]
 
+        # Stash the full extracted text so the MarkdownStage has substantive
+        # content to feed Claude. We wrap it in a <pre> so downstream HTML
+        # converters treat it as literal text.
+        if full_text.strip():
+            result.raw_html = f"<pre>{full_text}</pre>"
+
         # Title: PDF metadata > first non-empty line
         if not title:
             for line in lines:

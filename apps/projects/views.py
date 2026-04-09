@@ -138,10 +138,14 @@ class DashboardView(APIView):
             many=True,
         ).data
 
+        from apps.rewards.services import CoinService
+        coin_balance = CoinService.get_balance(user)
+
         return Response({
             "role": user.role,
             "active_timer": active_timer,
             "current_balance": balance,
+            "coin_balance": coin_balance,
             "this_week": {
                 "hours_worked": week_hours,
                 "earnings": float(week_hours * float(user.hourly_rate)),

@@ -51,7 +51,14 @@ export default function Projects({ user }) {
                 )}
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-semibold text-forge-text">{p.title}</h3>
-                  <StatusBadge status={p.status} />
+                  <div className="flex items-center gap-1">
+                    {p.payment_kind === 'bounty' && (
+                      <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-fuchsia-400/15 text-fuchsia-300 border border-fuchsia-400/30">
+                        🎯 Bounty
+                      </span>
+                    )}
+                    <StatusBadge status={p.status} />
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-forge-text-dim mb-3">
                   {p.category && (
