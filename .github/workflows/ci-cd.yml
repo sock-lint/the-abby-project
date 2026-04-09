@@ -34,20 +34,10 @@ jobs:
             --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
             -f Dockerfile .
 
-      - name: Build Frontend image
-        run: |
-          docker build \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ steps.tag.outputs.tag }} \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest \
-            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
-            -f frontend/Dockerfile frontend/
-
       - name: Push images
         run: |
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ steps.tag.outputs.tag }}
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
 
   scan:
     needs: build
@@ -71,38 +61,37 @@ jobs:
         run: |
           TAG="${{ needs.build.outputs.image_tag }}"
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
-          FRONTEND="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${TAG}"
           TARGET="root@192.168.4.67"
           DIR="/opt/the-abby-project"
           SSH="ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
 
-          echo "=== Pulling images ==="
-          ${SSH} ${TARGET} "docker pull ${IMAGE} && docker pull ${FRONTEND}"
+          echo "=== Pulling image ==="
+          ${SSH} ${TARGET} "docker pull ${IMAGE}"
 
           echo "=== Capturing rollback state ==="
           PREV=$(${SSH} ${TARGET} "cd ${DIR} && docker compose ps django --format json 2>/dev/null | head -1 | jq -r '.Image' 2>/dev/null" || echo "none")
           echo "Previous: ${PREV}"
 
-          echo "=== Syncing compose files ==="
-          scp ${SSH} ${TARGET} docker-compose.yml nginx.conf || true
-          scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 docker-compose.yml nginx.conf ${TARGET}:${DIR}/
+          echo "=== Syncing compose file ==="
+          scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 docker-compose.yml ${TARGET}:${DIR}/
+
           echo "=== Starting infrastructure ==="
-          ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} FRONTEND_IMAGE_TAG=${FRONTEND} docker compose up -d --no-recreate db redis"
+          ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} docker compose up -d --no-recreate db redis"
           sleep 8
 
           echo "=== Running migrations ==="
-          ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} FRONTEND_IMAGE_TAG=${FRONTEND} docker compose run --rm django python manage.py migrate --noinput" || {
+          ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} docker compose run --rm django python manage.py migrate --noinput" || {
             echo "::error::Migrations failed — aborting"
             exit 1
           }
 
           echo "=== Collecting static files ==="
-          ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} FRONTEND_IMAGE_TAG=${FRONTEND} docker compose run --rm django python manage.py collectstatic --noinput" || true
+          ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} docker compose run --rm django python manage.py collectstatic --noinput" || true
 
           echo "=== Deploying app services ==="
-          for svc in django celery_worker celery_beat react nginx; do
+          for svc in django celery_worker celery_beat; do
             echo "  → ${svc}"
-            ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} FRONTEND_IMAGE_TAG=${FRONTEND} docker compose up -d --no-deps --force-recreate ${svc}"
+            ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} docker compose up -d --no-deps --force-recreate ${svc}"
             sleep 5
           done
 
@@ -132,7 +121,7 @@ jobs:
             if [ "${PREV}" != "none" ] && [ -n "${PREV}" ]; then
               echo "Rolling back to ${PREV}..."
               for svc in django celery_worker celery_beat; do
-                ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${PREV} FRONTEND_IMAGE_TAG=${FRONTEND} docker compose up -d --no-deps --force-recreate ${svc}"
+                ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${PREV} docker compose up -d --no-deps --force-recreate ${svc}"
               done
             fi
             if [ -n "${DISCORD_WEBHOOK_URL}" ]; then

@@ -6,7 +6,7 @@ The Abby Project — Django + React app for tracking summer maker projects: time
 ## Stack
 - **Backend:** Django 5.1, DRF 3.15, PostgreSQL 16, Redis 7, Celery 5.4 + Beat, Gunicorn, Python 3.12
 - **Frontend:** React 19, Vite 8, Tailwind 4, Framer Motion, React Router 7
-- **Deploy:** Docker Compose (db, redis, django, celery_worker, celery_beat, react/nginx); Coolify via `.deploy.yml`
+- **Deploy:** Single multi-stage Docker image — Node builds the React bundle, Django serves it + the API via WhiteNoise from one origin. Compose services: `db`, `redis`, `django`, `celery_worker`, `celery_beat`. Coolify via `.deploy.yml`.
 
 ## Commands
 ```bash
@@ -52,7 +52,7 @@ frontend/src/
 - Django admin still uses session auth at `/admin/`.
 
 ## Gotchas
-- **`VITE_API_URL` is build-time only** — baked into the React bundle via Docker `ARG`. In Coolify, set it as a BUILD variable. No trailing slash. Defaults to empty (relative URLs).
+- **Single-origin frontend:** The multi-stage `Dockerfile` builds the React bundle with Node, copies `frontend/dist` into `/app/frontend_dist`, and `collectstatic` pulls it into `STATIC_ROOT` via `STATICFILES_DIRS`. `config/urls.py` ends with a `re_path(r"^.*$", spa_view)` catch-all that returns the built `index.html` for any non-API route — React Router handles the rest in the browser. `frontend/vite.config.js` sets `base: '/static/'` for build mode so bundled asset references resolve through WhiteNoise. The API client in `frontend/src/api/client.js` uses relative `/api` URLs. No `VITE_API_URL` env var; no separate frontend container.
 - **CSRF/proxy:** `SECURE_PROXY_SSL_HEADER`, `USE_X_FORWARDED_HOST=True`, and `CSRF_TRUSTED_ORIGINS` needed behind Traefik/Caddy.
 - **Ingestion pipeline** (`apps/projects/ingestion/`): Scrapy-style `Pipeline` of ordered `Stage`s assembled by `default_pipeline()` in `pipeline.py` and executed from `runner.py` (which `tasks.run_ingestion_job` calls). `detect.route_source` picks the per-source ingestor (`instructables.py`, `pdf.py`, `generic_url.py`) which becomes the `ParseStage`. Default stages: `ParseStage → NormalizeStage → MarkdownStage → EnrichStage`. `IngestionItem` (alias of `IngestionResult`) carries additive `raw_html`, `markdown`, `ai_suggestions`, `pipeline_warnings` fields — `result_json` shape is additive-only so the frontend poller is unchanged. Instructables scrapes cached in Redis 24h via `fetch_cached()`. Async job tracked in `ProjectIngestionJob`.
 - **AI enrichment** (`ingestion/enrich.py`): `EnrichStage` is a no-op without `ANTHROPIC_API_KEY`. When set, calls Claude Haiku with the item's markdown and writes `{category, difficulty, skill_tags, extra_materials, summary}` to `item.ai_suggestions`. Rendered as opt-in chips on the `ProjectIngest` preview — never mutates title/description/milestones/materials automatically. Markdown conversion (`ingestion/markdown.py`) prefers `crawl4ai`, falls back to `markdownify`, then synthesizes from title+description.
@@ -67,7 +67,7 @@ frontend/src/
 - **Timezone:** America/Phoenix.
 
 ## Env vars (see `.env.example`)
-`SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, `DATABASE_URL`, `REDIS_URL`, `CELERY_BROKER_URL`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS`, `VITE_API_URL` (build-time), `PARENT_PASSWORD`, `CHILD_PASSWORD`, `ANTHROPIC_API_KEY` (optional — enables Claude-based project suggestions AND the ingestion `EnrichStage`).
+`SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `DATABASE_URL`, `REDIS_URL`, `CELERY_BROKER_URL`, `CORS_ALLOWED_ORIGINS` (dev-server only), `PARENT_PASSWORD`, `CHILD_PASSWORD`, `ANTHROPIC_API_KEY` (optional — enables Claude-based project suggestions AND the ingestion `EnrichStage`).
 
 ### Tunable settings (`config/settings.py`)
 - `COINS_PER_HOUR` (default `5`) — coins awarded per clock-out hour.
