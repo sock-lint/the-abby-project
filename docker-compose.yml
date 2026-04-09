@@ -127,7 +127,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL}
+        # Default to empty so the bundle uses same-origin /api URLs that the
+        # nginx container proxies to the django service. Only override this
+        # if you intentionally want the API on a separate public domain.
+        VITE_API_URL: ${VITE_API_URL:-}
     ports:
       - "3000:80"
     depends_on:
