@@ -20,8 +20,6 @@ deploy:
     - django
     - celery_worker
     - celery_beat
-    - react
-    - nginx
 
   migrate:
     enabled: true

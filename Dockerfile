@@ -1,3 +1,15 @@
+# ─── Stage 1: build the React bundle ────────────────────────────────────────
+FROM node:20-alpine AS frontend-build
+
+WORKDIR /app/frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
+# ─── Stage 2: Django + gunicorn, with the built bundle baked in ─────────────
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -13,6 +25,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+# Pull the built SPA into a directory that STATICFILES_DIRS picks up.
+# collectstatic (below) then copies it into STATIC_ROOT for WhiteNoise.
+COPY --from=frontend-build /app/frontend/dist /app/frontend_dist
 
 RUN python manage.py collectstatic --noinput || true
 

@@ -61,7 +61,6 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
-    "config.middleware.PrivateNetworkAccessMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -115,18 +114,30 @@ USE_I18N = True
 USE_TZ = True
 
 # Static files
+#
+# The React bundle is built into /app/frontend_dist by the Docker build
+# and picked up here so collectstatic copies it into STATIC_ROOT. Vite
+# already content-hashes filenames, so we use CompressedStaticFilesStorage
+# (no Manifest layer) — WhiteNoise gzips/brotlis at collectstatic time and
+# serves Vite's original hashed filenames directly.
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "frontend_dist"]
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
 
 # Media files
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# Allow larger bodies for PDF ingestion and photo uploads now that gunicorn
+# handles uploads directly (no nginx in front).
+DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024  # 25 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024  # 25 MB
 
 # Default primary key field type
 
@@ -151,6 +162,11 @@ REST_FRAMEWORK = {
 }
 
 # CORS
+#
+# In production the React bundle is served by Django from the same origin as
+# the API, so no cross-origin requests happen. These defaults exist only for
+# the local Vite dev server (npm run dev at :3000 / :5173) which proxies /api
+# to the Django dev server on :8000.
 
 CORS_ALLOWED_ORIGINS = os.environ.get(
     "CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000"

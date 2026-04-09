@@ -39,18 +39,18 @@ The app will be available at:
 
 ## Deployment (Coolify)
 
-Both images are built by Coolify from this repo — no external CI or registry.
-The deployable `docker-compose.yml` uses `build:` directives for `django`,
-`celery_worker`, `celery_beat`, and `react`. `db`, `redis`, and `nginx` (for the
-React static bundle, inside the frontend image) are the only upstream images.
+Everything ships as a single image. The multi-stage `Dockerfile` builds the
+React bundle with Node, then copies it into a Django image that serves both
+the SPA and the API from the same origin via WhiteNoise. The deployable
+`docker-compose.yml` has just `django`, `celery_worker`, `celery_beat`, `db`,
+and `redis`.
 
-TLS and routing are handled by Coolify's built-in Traefik. In Coolify, give
-each public service its own domain:
+TLS and routing are handled by Coolify's built-in Traefik. Point one
+domain at the `django` service:
 
 | Service | Domain | Container port |
 |---|---|---|
-| `django` | `abby-api.bos.lol` | 8000 |
-| `react`  | `abby.bos.lol`     | 80   |
+| `django` | `abby.bos.lol` | 8000 |
 
 Celery workers are background-only and should have no public domain.
 
@@ -59,13 +59,12 @@ Celery workers are background-only and should have no public domain.
 See `.env.example` for the full list. At minimum:
 
 - `SECRET_KEY`, `DEBUG=False`
-- `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`
+- `ALLOWED_HOSTS=abby.bos.lol,...`
+- `CSRF_TRUSTED_ORIGINS=https://abby.bos.lol`
 - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
 - `DATABASE_URL` — URL-encode special chars in the password (`@` → `%40`, etc.)
 - `REDIS_URL=redis://redis:6379/0`
 - `CELERY_BROKER_URL=redis://redis:6379/1`
-- `VITE_API_URL` — **must be marked as a build-time variable in Coolify** so
-  Vite can inline it into the static bundle during `docker build`
 
 After a first deploy, run migrations once from the Coolify host:
 
