@@ -86,16 +86,33 @@ export const getBalance = () => api.get('/balance/');
 export const getPayments = () => api.get('/payments/');
 export const recordPayout = (user_id, amount) =>
   api.post('/payments/payout/', { user_id, amount });
+export const adjustPayment = (user_id, amount, description = '') =>
+  api.post('/payments/adjust/', { user_id, amount, description });
 
 // Achievements
 export const getBadges = () => api.get('/badges/');
+export const createBadge = (data) => api.post('/badges/', data);
+export const updateBadge = (id, data) => api.patch(`/badges/${id}/`, data);
+export const deleteBadge = (id) => api.delete(`/badges/${id}/`);
 export const getEarnedBadges = () => api.get('/badges/earned/');
+export const getSubjects = () => api.get('/subjects/');
+export const createSubject = (data) => api.post('/subjects/', data);
+export const updateSubject = (id, data) => api.patch(`/subjects/${id}/`, data);
+export const deleteSubject = (id) => api.delete(`/subjects/${id}/`);
+export const getSkills = () => api.get('/skills/');
+export const createSkill = (data) => api.post('/skills/', data);
+export const updateSkill = (id, data) => api.patch(`/skills/${id}/`, data);
+export const deleteSkill = (id) => api.delete(`/skills/${id}/`);
 export const getSkillTree = (categoryId) => api.get(`/skills/tree/${categoryId}/`);
 export const getSkillProgress = () => api.get('/skill-progress/');
 export const getAchievementsSummary = () => api.get('/achievements/summary/');
 
 // Rewards / Coins
 export const getRewards = () => api.get('/rewards/');
+export const createReward = (formData) => api.upload('/rewards/', formData);
+export const updateReward = (id, formData) =>
+  api.patch(`/rewards/${id}/`, formData);
+export const deleteReward = (id) => api.delete(`/rewards/${id}/`);
 export const redeemReward = (id) => api.post(`/rewards/${id}/redeem/`, {});
 export const getRedemptions = () => api.get('/redemptions/');
 export const approveRedemption = (id, notes = '') =>
@@ -103,6 +120,8 @@ export const approveRedemption = (id, notes = '') =>
 export const denyRedemption = (id, notes = '') =>
   api.post(`/redemptions/${id}/deny/`, { notes });
 export const getCoinBalance = () => api.get('/coins/');
+export const adjustCoins = (user_id, amount, description = '') =>
+  api.post('/coins/adjust/', { user_id, amount, description });
 
 // Portfolio
 export const getPortfolio = () => api.get('/portfolio/');
@@ -117,6 +136,9 @@ export const uploadPhoto = (projectId, file, caption = '') => {
 
 // Categories
 export const getCategories = () => api.get('/categories/');
+export const createCategory = (data) => api.post('/categories/', data);
+export const updateCategory = (id, data) => api.patch(`/categories/${id}/`, data);
+export const deleteCategory = (id) => api.delete(`/categories/${id}/`);
 
 // Notifications
 export const getNotifications = () => api.get('/notifications/');

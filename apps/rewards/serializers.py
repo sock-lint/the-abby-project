@@ -12,6 +12,15 @@ class RewardSerializer(serializers.ModelSerializer):
         ]
 
 
+class RewardWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Reward
+        fields = [
+            "name", "description", "icon", "image", "cost_coins",
+            "rarity", "stock", "requires_parent_approval", "is_active", "order",
+        ]
+
+
 class RewardRedemptionSerializer(serializers.ModelSerializer):
     reward = RewardSerializer(read_only=True)
     user_name = serializers.CharField(source="user.username", read_only=True)

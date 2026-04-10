@@ -140,9 +140,14 @@ class DashboardView(APIView):
         })
 
 
-class SkillCategoryViewSet(viewsets.ReadOnlyModelViewSet):
+class SkillCategoryViewSet(viewsets.ModelViewSet):
     queryset = SkillCategory.objects.all()
     serializer_class = SkillCategorySerializer
+
+    def get_permissions(self):
+        if self.action in ("create", "update", "partial_update", "destroy"):
+            return [IsParent()]
+        return [permissions.IsAuthenticated()]
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
