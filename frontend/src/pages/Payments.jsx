@@ -1,10 +1,14 @@
-import { motion } from 'framer-motion';
-import { DollarSign, TrendingUp, TrendingDown, ArrowDownRight, ArrowUpRight, Target } from 'lucide-react';
-import { getBalance } from '../api';
-import { useApi } from '../hooks/useApi';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { DollarSign, TrendingUp, TrendingDown, ArrowDownRight, ArrowUpRight, Target, Plus, X } from 'lucide-react';
+import { getBalance, adjustPayment } from '../api';
+import { useApi, useAuth } from '../hooks/useApi';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
+import ErrorAlert from '../components/ErrorAlert';
 import { formatCurrency } from '../utils/format';
+
+const inputClass = 'w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-base focus:outline-none focus:border-amber-primary';
 
 const typeIcons = {
   hourly: { icon: TrendingUp, color: 'text-blue-400' },
@@ -26,8 +30,69 @@ const typeLabels = {
   adjustment: 'Adjustment',
 };
 
+function PaymentAdjustModal({ onClose, onSaved }) {
+  const [form, setForm] = useState({ user_id: '', amount: '', description: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true); setError('');
+    try {
+      await adjustPayment(parseInt(form.user_id), parseFloat(form.amount), form.description);
+      onSaved();
+    } catch (err) { setError(err.message); } finally { setSaving(false); }
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      >
+        <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+        <motion.div
+          className="relative w-full md:max-w-md bg-forge-card border border-forge-border rounded-t-2xl md:rounded-2xl p-5"
+          initial={{ y: '100%' }} animate={{ y: 0 }}
+          transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-heading text-lg font-bold">Adjust Balance</h3>
+            <button onClick={onClose} className="text-forge-text-dim hover:text-forge-text"><X size={20} /></button>
+          </div>
+          <ErrorAlert message={error} />
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <label className="text-xs text-forge-text-dim mb-1 block">Child User ID</label>
+              <input className={inputClass} type="number" value={form.user_id} onChange={set('user_id')} required placeholder="Enter child user ID" />
+            </div>
+            <div>
+              <label className="text-xs text-forge-text-dim mb-1 block">Amount (positive to credit, negative to debit)</label>
+              <input className={inputClass} type="number" step="0.01" value={form.amount} onChange={set('amount')} required />
+            </div>
+            <div>
+              <label className="text-xs text-forge-text-dim mb-1 block">Description</label>
+              <input className={inputClass} value={form.description} onChange={set('description')} placeholder="Reason for adjustment" />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-forge-text-dim hover:text-forge-text">Cancel</button>
+              <button type="submit" disabled={saving} className="px-4 py-2 bg-amber-primary hover:bg-amber-highlight text-black text-sm font-semibold rounded-lg disabled:opacity-50">
+                {saving ? 'Adjusting...' : 'Adjust'}
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 export default function Payments() {
-  const { data, loading } = useApi(getBalance);
+  const { user } = useAuth();
+  const isParent = user?.role === 'parent';
+  const { data, loading, reload } = useApi(getBalance);
+  const [showAdjust, setShowAdjust] = useState(false);
 
   if (loading) return <Loader />;
   if (!data) return null;
@@ -36,7 +101,17 @@ export default function Payments() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold">Payments</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-heading text-2xl font-bold">Payments</h1>
+        {isParent && (
+          <button
+            onClick={() => setShowAdjust(true)}
+            className="flex items-center gap-1 bg-amber-primary hover:bg-amber-highlight text-black text-xs font-semibold px-3 py-1.5 rounded-lg"
+          >
+            <Plus size={14} /> Adjust Balance
+          </button>
+        )}
+      </div>
 
       {/* Balance Card */}
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
@@ -98,6 +173,13 @@ export default function Payments() {
             })}
           </div>
         </div>
+      )}
+
+      {showAdjust && (
+        <PaymentAdjustModal
+          onClose={() => setShowAdjust(false)}
+          onSaved={() => { setShowAdjust(false); reload(); }}
+        />
       )}
     </div>
   );

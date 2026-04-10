@@ -56,3 +56,40 @@ class PayoutView(APIView):
             return child_not_found_response()
         entry = PaymentService.record_payout(child, amount, request.user)
         return Response(PaymentLedgerSerializer(entry).data, status=status.HTTP_201_CREATED)
+
+
+class PaymentAdjustmentView(APIView):
+    permission_classes = [IsParent]
+
+    def post(self, request):
+        from decimal import Decimal, InvalidOperation
+        child_id = request.data.get("user_id")
+        amount = request.data.get("amount")
+        description = request.data.get("description", "")
+        if not child_id or amount is None:
+            return Response(
+                {"error": "user_id and amount required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        child = get_child_or_404(child_id)
+        if child is None:
+            return child_not_found_response()
+        try:
+            amount = Decimal(str(amount))
+        except (InvalidOperation, TypeError):
+            return Response(
+                {"error": "Invalid amount"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        if amount == 0:
+            return Response(
+                {"error": "Amount must not be zero"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        entry = PaymentService.record_entry(
+            child, amount, PaymentLedger.EntryType.ADJUSTMENT,
+            description=description, created_by=request.user,
+        )
+        return Response(
+            PaymentLedgerSerializer(entry).data,
+            status=status.HTTP_201_CREATED,
+        )

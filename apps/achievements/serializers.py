@@ -9,6 +9,12 @@ class SubjectSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "category", "description", "icon", "order"]
 
 
+class SubjectWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subject
+        fields = ["name", "category", "description", "icon", "order"]
+
+
 class SkillSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True)
     subject_name = serializers.CharField(source="subject.name", read_only=True, default=None)
@@ -18,6 +24,15 @@ class SkillSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "category", "category_name",
             "subject", "subject_name", "description",
+            "icon", "level_names", "is_locked_by_default", "order",
+        ]
+
+
+class SkillWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Skill
+        fields = [
+            "name", "category", "subject", "description",
             "icon", "level_names", "is_locked_by_default", "order",
         ]
 
@@ -43,6 +58,15 @@ class BadgeSerializer(serializers.ModelSerializer):
         model = Badge
         fields = [
             "id", "name", "description", "icon", "subject", "criteria_type",
+            "criteria_value", "xp_bonus", "rarity",
+        ]
+
+
+class BadgeWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Badge
+        fields = [
+            "name", "description", "icon", "subject", "criteria_type",
             "criteria_value", "xp_bonus", "rarity",
         ]
 
