@@ -5,6 +5,8 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from config.base_models import CreatedAtModel, TimestampedModel
+
 from .managers import CustomUserManager
 
 
@@ -49,7 +51,7 @@ class SkillCategory(models.Model):
         return f"{self.icon} {self.name}"
 
 
-class Project(models.Model):
+class Project(TimestampedModel):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
         ACTIVE = "active", "Active"
@@ -102,8 +104,6 @@ class Project(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     xp_reward = models.PositiveIntegerField(default=0)
     parent_notes = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -163,7 +163,7 @@ class MaterialItem(models.Model):
         return f"{self.name} ({self.project.title})"
 
 
-class Notification(models.Model):
+class Notification(CreatedAtModel):
     class NotificationType(models.TextChoices):
         TIMECARD_READY = "timecard_ready", "Timecard Ready"
         TIMECARD_APPROVED = "timecard_approved", "Timecard Approved"
@@ -185,7 +185,6 @@ class Notification(models.Model):
         max_length=25, choices=NotificationType.choices
     )
     is_read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -194,7 +193,7 @@ class Notification(models.Model):
         return f"{self.user} — {self.title}"
 
 
-class ProjectTemplate(models.Model):
+class ProjectTemplate(CreatedAtModel):
     """A reusable project template created from a completed project."""
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
@@ -221,7 +220,6 @@ class ProjectTemplate(models.Model):
         related_name="created_templates",
     )
     is_public = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -284,7 +282,7 @@ class ProjectCollaborator(models.Model):
         return f"{self.user} on {self.project.title} ({self.pay_split_percent}%)"
 
 
-class SavingsGoal(models.Model):
+class SavingsGoal(CreatedAtModel):
     """A savings target set by the child."""
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
@@ -298,7 +296,6 @@ class SavingsGoal(models.Model):
     icon = models.CharField(max_length=50, blank=True)
     is_completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -313,7 +310,7 @@ class SavingsGoal(models.Model):
         return min(100, round(float(self.current_amount / self.target_amount) * 100))
 
 
-class ProjectIngestionJob(models.Model):
+class ProjectIngestionJob(TimestampedModel):
     """Staging row for project auto-ingestion from a URL or uploaded file.
 
     A job is created when a parent submits a source; a Celery task runs the
@@ -354,8 +351,6 @@ class ProjectIngestionJob(models.Model):
         Project, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="ingestion_jobs",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-created_at"]

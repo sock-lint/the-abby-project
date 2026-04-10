@@ -6,6 +6,7 @@ import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
 import Loader from '../components/Loader';
+import { normalizeList } from '../utils/api';
 
 export default function Projects({ user }) {
   const { data, loading } = useApi(getProjects);
@@ -13,7 +14,7 @@ export default function Projects({ user }) {
   const navigate = useNavigate();
 
   if (loading) return <Loader />;
-  const projects = data?.results || data || [];
+  const projects = normalizeList(data);
 
   return (
     <div className="space-y-6">

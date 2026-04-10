@@ -1,10 +1,71 @@
 from decimal import Decimal
 
+from django.db.models import Sum
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 
-from apps.payments.models import PaymentLedger
+from apps.payments.services import PaymentService
 
 from .models import Timecard, TimeEntry
+
+
+class TimeEntryService:
+    """Shared read-side helpers for completed time entries."""
+
+    @staticmethod
+    def completed_entries(user):
+        return TimeEntry.objects.filter(user=user, status="completed")
+
+    @classmethod
+    def daily_minute_totals(cls, user):
+        """Return a queryset of {'day': date, 'total': minutes} for the user."""
+        return (
+            cls.completed_entries(user)
+            .annotate(day=TruncDate("clock_in"))
+            .values("day")
+            .annotate(total=Sum("duration_minutes"))
+        )
+
+    @classmethod
+    def distinct_days(cls, user):
+        """Return a list of distinct dates the user has worked, newest first."""
+        return list(
+            cls.completed_entries(user)
+            .annotate(day=TruncDate("clock_in"))
+            .values_list("day", flat=True)
+            .distinct()
+            .order_by("-day")
+        )
+
+    @classmethod
+    def current_streak(cls, user):
+        """Number of consecutive days (ending today or most recent) worked."""
+        days = cls.distinct_days(user)
+        if not days:
+            return 0
+        streak = 1
+        for i in range(1, len(days)):
+            if (days[i - 1] - days[i]).days == 1:
+                streak += 1
+            else:
+                break
+        return streak
+
+    @classmethod
+    def longest_streak_at_least(cls, user, target_days):
+        """True if the user has *any* consecutive-day streak >= target_days."""
+        days = cls.distinct_days(user)
+        if not days:
+            return False
+        streak = 1
+        for i in range(1, len(days)):
+            if (days[i - 1] - days[i]).days == 1:
+                streak += 1
+                if streak >= target_days:
+                    return True
+            else:
+                streak = 1
+        return streak >= target_days
 
 
 class ClockService:
@@ -54,24 +115,19 @@ class ClockService:
         entry.status = "completed"
         entry.save()
 
-        from apps.achievements.services import SkillService, BadgeService
-        hours = entry.duration_minutes / 60
-        xp = round(hours * 10)
-        if xp > 0:
-            SkillService.distribute_project_xp(user, entry.project, xp)
-
-        # Coin reward — parallel to XP, funds the ChoreQuest-style reward shop.
         from django.conf import settings
-        from apps.rewards.services import CoinService
+        from apps.achievements.services import AwardService
         from apps.rewards.models import CoinLedger
-        coins = round(hours * getattr(settings, "COINS_PER_HOUR", 5))
-        if coins > 0:
-            CoinService.award_coins(
-                user, coins, CoinLedger.Reason.HOURLY,
-                description=f"Hourly coins: {entry.project.title}",
-            )
 
-        BadgeService.evaluate_badges(user)
+        hours = entry.duration_minutes / 60
+        AwardService.grant(
+            user,
+            project=entry.project,
+            xp=round(hours * 10),
+            coins=round(hours * getattr(settings, "COINS_PER_HOUR", 5)),
+            coin_reason=CoinLedger.Reason.HOURLY,
+            coin_description=f"Hourly coins: {entry.project.title}",
+        )
 
         return entry
 
@@ -147,10 +203,10 @@ class TimecardService:
                 rate = entry.project.hourly_rate_override or user.hourly_rate
                 hours = Decimal(str(round(entry.duration_minutes / 60, 2)))
                 amount = hours * rate
-                PaymentLedger.objects.create(
-                    user=user,
-                    amount=amount,
-                    entry_type="hourly",
+                PaymentService.record_entry(
+                    user,
+                    amount,
+                    "hourly",
                     description=f"Hourly: {entry.project.title} ({hours}h @ ${rate}/hr)",
                     project=entry.project,
                     timecard=timecard,
@@ -161,11 +217,7 @@ class TimecardService:
     @staticmethod
     def approve_timecard(timecard, parent_user, notes=""):
         """Approve a timecard."""
-        timecard.status = "approved"
-        timecard.approved_by = parent_user
-        timecard.approved_at = timezone.now()
-        timecard.parent_notes = notes
-        timecard.save()
+        timecard.mark_approved(parent_user, notes)
 
         from apps.achievements.services import BadgeService
         BadgeService.evaluate_badges(timecard.user)
@@ -178,10 +230,10 @@ class TimecardService:
         timecard.status = "paid"
         timecard.save()
 
-        PaymentLedger.objects.create(
-            user=timecard.user,
-            amount=-abs(payout_amount),
-            entry_type="payout",
+        PaymentService.record_entry(
+            timecard.user,
+            -abs(payout_amount),
+            "payout",
             description=f"Payout for week of {timecard.week_start}",
             timecard=timecard,
             created_by=parent_user,

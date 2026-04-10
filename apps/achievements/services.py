@@ -194,6 +194,42 @@ class SkillService:
         return tree
 
 
+class AwardService:
+    """Unified XP + coin + badge awarding pipeline.
+
+    The same three-step sequence (award XP → award coins → re-evaluate badges)
+    runs from clock-out, project completion, and milestone completion. Routing
+    it through one call site keeps those hooks consistent and makes it trivial
+    to add a new award trigger later.
+    """
+
+    @staticmethod
+    def grant(
+        user,
+        *,
+        project=None,
+        xp=0,
+        coins=0,
+        coin_reason=None,
+        coin_description="",
+        created_by=None,
+    ):
+        if project is not None and xp > 0:
+            SkillService.distribute_project_xp(user, project, xp)
+
+        if coins > 0 and coin_reason is not None:
+            from apps.rewards.services import CoinService
+            CoinService.award_coins(
+                user,
+                coins,
+                coin_reason,
+                description=coin_description,
+                created_by=created_by,
+            )
+
+        BadgeService.evaluate_badges(user)
+
+
 class BadgeService:
     @classmethod
     def evaluate_badges(cls, user):
@@ -232,163 +268,10 @@ class BadgeService:
 
     @classmethod
     def _check_criteria(cls, user, badge):
-        criteria = badge.criteria_value
-        ct = badge.criteria_type
-
-        if ct == Badge.CriteriaType.FIRST_CLOCK_IN:
-            return user.time_entries.filter(status="completed").exists()
-
-        elif ct == Badge.CriteriaType.FIRST_PROJECT:
-            return user.assigned_projects.filter(status="completed").exists()
-
-        elif ct == Badge.CriteriaType.PROJECTS_COMPLETED:
-            count = criteria.get("count", 1)
-            return user.assigned_projects.filter(status="completed").count() >= count
-
-        elif ct == Badge.CriteriaType.HOURS_WORKED:
-            target = criteria.get("hours", 0)
-            total = user.time_entries.filter(
-                status="completed"
-            ).aggregate(
-                total=Sum("duration_minutes")
-            )["total"] or 0
-            return (total / 60) >= target
-
-        elif ct == Badge.CriteriaType.HOURS_IN_DAY:
-            target = criteria.get("hours", 4)
-            from django.db.models.functions import TruncDate
-            daily = user.time_entries.filter(
-                status="completed"
-            ).annotate(
-                day=TruncDate("clock_in")
-            ).values("day").annotate(
-                total=Sum("duration_minutes")
-            ).filter(total__gte=target * 60)
-            return daily.exists()
-
-        elif ct == Badge.CriteriaType.DAYS_WORKED:
-            target = criteria.get("count", 5)
-            from django.db.models.functions import TruncDate
-            days = user.time_entries.filter(
-                status="completed"
-            ).annotate(
-                day=TruncDate("clock_in")
-            ).values("day").distinct().count()
-            return days >= target
-
-        elif ct == Badge.CriteriaType.STREAK_DAYS:
-            target = criteria.get("days", 7)
-            return cls._check_streak(user, target)
-
-        elif ct == Badge.CriteriaType.CATEGORY_PROJECTS:
-            count = criteria.get("count", 3)
-            category_count = criteria.get("categories", None)
-            if category_count:
-                cats = user.assigned_projects.filter(
-                    status="completed", category__isnull=False,
-                ).values("category").annotate(
-                    c=Count("id")
-                ).filter(c__gte=1)
-                return cats.count() >= category_count
-            else:
-                category_name = criteria.get("category")
-                return user.assigned_projects.filter(
-                    status="completed",
-                    category__name__iexact=category_name,
-                ).count() >= count
-
-        elif ct == Badge.CriteriaType.MATERIALS_UNDER_BUDGET:
-            from apps.projects.models import Project
-            return Project.objects.filter(
-                assigned_to=user, status="completed",
-                materials_budget__gt=0,
-            ).annotate(
-                actual_total=Sum("materials__actual_cost")
-            ).filter(
-                actual_total__lt=models.F("materials_budget") * models.Value(0.9)
-            ).exists()
-
-        elif ct == Badge.CriteriaType.PERFECT_TIMECARD:
-            return user.timecards.filter(status="approved").exists()
-
-        elif ct == Badge.CriteriaType.SKILL_LEVEL_REACHED:
-            target_level = criteria.get("level", 2)
-            count = criteria.get("count", 1)
-            return SkillProgress.objects.filter(
-                user=user, level__gte=target_level,
-            ).count() >= count
-
-        elif ct == Badge.CriteriaType.SKILLS_UNLOCKED:
-            count = criteria.get("count", 1)
-            unlocked = SkillProgress.objects.filter(
-                user=user, unlocked=True, skill__is_locked_by_default=True,
-            ).count()
-            return unlocked >= count
-
-        elif ct == Badge.CriteriaType.SUBJECTS_COMPLETED:
-            min_level = criteria.get("min_level", 2)
-            count = criteria.get("count", 1)
-            completed = SkillProgress.objects.filter(
-                user=user, level__gte=min_level, skill__subject__isnull=False,
-            ).values("skill__subject").distinct().count()
-            return completed >= count
-
-        elif ct == Badge.CriteriaType.SKILL_CATEGORIES_BREADTH:
-            min_level = criteria.get("min_level", 1)
-            category_count = criteria.get("categories", 4)
-            cats = SkillProgress.objects.filter(
-                user=user, level__gte=min_level,
-            ).values("skill__category").distinct().count()
-            return cats >= category_count
-
-        elif ct == Badge.CriteriaType.PHOTOS_UPLOADED:
-            count = criteria.get("count", 10)
-            return user.photos.count() >= count
-
-        elif ct == Badge.CriteriaType.TOTAL_EARNED:
-            target = criteria.get("amount", 500)
-            from apps.payments.models import PaymentLedger
-            total = PaymentLedger.objects.filter(
-                user=user, amount__gt=0,
-            ).aggregate(total=Sum("amount"))["total"] or 0
-            return total >= target
-
-        elif ct == Badge.CriteriaType.CROSS_CATEGORY_UNLOCK:
-            from apps.achievements.models import SkillPrerequisite
-            unlocked_skills = SkillProgress.objects.filter(
-                user=user, unlocked=True, skill__is_locked_by_default=True,
-            ).values_list("skill_id", flat=True)
-            return SkillPrerequisite.objects.filter(
-                skill_id__in=unlocked_skills,
-            ).exclude(
-                required_skill__category=models.F("skill__category"),
-            ).exists()
-
-        return False
-
-    @staticmethod
-    def _check_streak(user, target_days):
-        """Check if user has a consecutive day streak of at least target_days."""
-        from django.db.models.functions import TruncDate
-        days = list(
-            user.time_entries.filter(
-                status="completed"
-            ).annotate(
-                day=TruncDate("clock_in")
-            ).values_list("day", flat=True).distinct().order_by("-day")
-        )
-        if not days:
+        checker = _CRITERIA_CHECKERS.get(badge.criteria_type)
+        if checker is None:
             return False
-
-        streak = 1
-        for i in range(1, len(days)):
-            if (days[i - 1] - days[i]).days == 1:
-                streak += 1
-                if streak >= target_days:
-                    return True
-            else:
-                streak = 1
-        return streak >= target_days
+        return checker(user, badge.criteria_value or {})
 
     @staticmethod
     def _award_badge_xp(user, badge):
@@ -403,3 +286,150 @@ class BadgeService:
             sp.xp_points += xp_each
             sp.level = SkillService.level_for_xp(sp.xp_points)
             sp.save()
+
+
+# ---------------------------------------------------------------------------
+# Badge criteria checker registry
+# ---------------------------------------------------------------------------
+#
+# Each checker is a pure function ``(user, criteria: dict) -> bool``. The
+# registry keeps the dispatch in BadgeService._check_criteria trivial and makes
+# every criterion testable on its own.
+
+
+def _check_first_clock_in(user, _c):
+    from apps.timecards.services import TimeEntryService
+    return TimeEntryService.completed_entries(user).exists()
+
+
+def _check_first_project(user, _c):
+    return user.assigned_projects.filter(status="completed").exists()
+
+
+def _check_projects_completed(user, c):
+    return user.assigned_projects.filter(status="completed").count() >= c.get("count", 1)
+
+
+def _check_hours_worked(user, c):
+    from apps.timecards.services import TimeEntryService
+    total = TimeEntryService.completed_entries(user).aggregate(
+        total=Sum("duration_minutes")
+    )["total"] or 0
+    return (total / 60) >= c.get("hours", 0)
+
+
+def _check_hours_in_day(user, c):
+    from apps.timecards.services import TimeEntryService
+    target = c.get("hours", 4)
+    return TimeEntryService.daily_minute_totals(user).filter(
+        total__gte=target * 60
+    ).exists()
+
+
+def _check_days_worked(user, c):
+    from apps.timecards.services import TimeEntryService
+    return len(TimeEntryService.distinct_days(user)) >= c.get("count", 5)
+
+
+def _check_streak_days(user, c):
+    from apps.timecards.services import TimeEntryService
+    return TimeEntryService.longest_streak_at_least(user, c.get("days", 7))
+
+
+def _check_category_projects(user, c):
+    count = c.get("count", 3)
+    category_count = c.get("categories")
+    if category_count:
+        cats = user.assigned_projects.filter(
+            status="completed", category__isnull=False,
+        ).values("category").annotate(n=Count("id")).filter(n__gte=1)
+        return cats.count() >= category_count
+    return user.assigned_projects.filter(
+        status="completed", category__name__iexact=c.get("category"),
+    ).count() >= count
+
+
+def _check_materials_under_budget(user, _c):
+    from apps.projects.models import Project
+    return Project.objects.filter(
+        assigned_to=user, status="completed", materials_budget__gt=0,
+    ).annotate(
+        actual_total=Sum("materials__actual_cost")
+    ).filter(
+        actual_total__lt=models.F("materials_budget") * models.Value(0.9)
+    ).exists()
+
+
+def _check_perfect_timecard(user, _c):
+    return user.timecards.filter(status="approved").exists()
+
+
+def _check_skill_level_reached(user, c):
+    return SkillProgress.objects.filter(
+        user=user, level__gte=c.get("level", 2),
+    ).count() >= c.get("count", 1)
+
+
+def _check_skills_unlocked(user, c):
+    return SkillProgress.objects.filter(
+        user=user, unlocked=True, skill__is_locked_by_default=True,
+    ).count() >= c.get("count", 1)
+
+
+def _check_subjects_completed(user, c):
+    return SkillProgress.objects.filter(
+        user=user,
+        level__gte=c.get("min_level", 2),
+        skill__subject__isnull=False,
+    ).values("skill__subject").distinct().count() >= c.get("count", 1)
+
+
+def _check_skill_categories_breadth(user, c):
+    return SkillProgress.objects.filter(
+        user=user, level__gte=c.get("min_level", 1),
+    ).values("skill__category").distinct().count() >= c.get("categories", 4)
+
+
+def _check_photos_uploaded(user, c):
+    return user.photos.count() >= c.get("count", 10)
+
+
+def _check_total_earned(user, c):
+    from apps.payments.models import PaymentLedger
+    total = PaymentLedger.objects.filter(
+        user=user, amount__gt=0,
+    ).aggregate(total=Sum("amount"))["total"] or 0
+    return total >= c.get("amount", 500)
+
+
+def _check_cross_category_unlock(user, _c):
+    from apps.achievements.models import SkillPrerequisite
+    unlocked_skills = SkillProgress.objects.filter(
+        user=user, unlocked=True, skill__is_locked_by_default=True,
+    ).values_list("skill_id", flat=True)
+    return SkillPrerequisite.objects.filter(
+        skill_id__in=unlocked_skills,
+    ).exclude(
+        required_skill__category=models.F("skill__category"),
+    ).exists()
+
+
+_CRITERIA_CHECKERS = {
+    Badge.CriteriaType.FIRST_CLOCK_IN: _check_first_clock_in,
+    Badge.CriteriaType.FIRST_PROJECT: _check_first_project,
+    Badge.CriteriaType.PROJECTS_COMPLETED: _check_projects_completed,
+    Badge.CriteriaType.HOURS_WORKED: _check_hours_worked,
+    Badge.CriteriaType.HOURS_IN_DAY: _check_hours_in_day,
+    Badge.CriteriaType.DAYS_WORKED: _check_days_worked,
+    Badge.CriteriaType.STREAK_DAYS: _check_streak_days,
+    Badge.CriteriaType.CATEGORY_PROJECTS: _check_category_projects,
+    Badge.CriteriaType.MATERIALS_UNDER_BUDGET: _check_materials_under_budget,
+    Badge.CriteriaType.PERFECT_TIMECARD: _check_perfect_timecard,
+    Badge.CriteriaType.SKILL_LEVEL_REACHED: _check_skill_level_reached,
+    Badge.CriteriaType.SKILLS_UNLOCKED: _check_skills_unlocked,
+    Badge.CriteriaType.SUBJECTS_COMPLETED: _check_subjects_completed,
+    Badge.CriteriaType.SKILL_CATEGORIES_BREADTH: _check_skill_categories_breadth,
+    Badge.CriteriaType.PHOTOS_UPLOADED: _check_photos_uploaded,
+    Badge.CriteriaType.TOTAL_EARNED: _check_total_earned,
+    Badge.CriteriaType.CROSS_CATEGORY_UNLOCK: _check_cross_category_unlock,
+}

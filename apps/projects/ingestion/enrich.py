@@ -9,7 +9,6 @@ accept or ignore them.
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -47,7 +46,8 @@ class EnrichStage:
     max_content_chars: int = 12_000
 
     def __call__(self, item: IngestionItem, context: dict[str, Any]) -> IngestionItem:
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        from django.conf import settings
+        api_key = getattr(settings, "ANTHROPIC_API_KEY", "")
         if not api_key:
             return item
 
@@ -73,7 +73,7 @@ class EnrichStage:
                 markdown=content[: self.max_content_chars],
             )
             message = client.messages.create(
-                model="claude-haiku-4-5-20251001",
+                model=getattr(settings, "CLAUDE_MODEL", "claude-haiku-4-5-20251001"),
                 max_tokens=1024,
                 messages=[{"role": "user", "content": prompt}],
             )

@@ -2,6 +2,8 @@ from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config.permissions import IsParent
+
 from .models import PaymentLedger
 from .serializers import PaymentLedgerSerializer
 from .services import PaymentService
@@ -45,11 +47,9 @@ class BalanceView(APIView):
 
 
 class PayoutView(APIView):
+    permission_classes = [IsParent]
+
     def post(self, request):
-        if request.user.role != "parent":
-            return Response(
-                {"error": "Parents only"}, status=status.HTTP_403_FORBIDDEN
-            )
         child_id = request.data.get("user_id")
         amount = request.data.get("amount")
         if not child_id or not amount:

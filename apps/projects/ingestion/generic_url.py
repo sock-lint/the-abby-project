@@ -52,12 +52,7 @@ class GenericUrlIngestor(BaseIngestor):
             result.warnings.append(
                 "No structured HowTo data — parsed with best-effort heuristics."
             )
-        if not result.milestones:
-            result.warnings.append("No steps found — add milestones manually.")
-        if not result.materials:
-            result.warnings.append(
-                "No materials list found — add materials manually."
-            )
+        self.add_missing_section_warnings(result)
 
         result.category_hint = guess_category(result.title, result.description)
         return result

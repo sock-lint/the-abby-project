@@ -5,6 +5,9 @@ import { getClockStatus, clockIn, clockOut, getProjects, getTimeEntries } from '
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
+import ErrorAlert from '../components/ErrorAlert';
+import { formatDate, formatDuration } from '../utils/format';
+import { normalizeList } from '../utils/api';
 
 export default function ClockPage() {
   const { data: status, reload: reloadStatus } = useApi(getClockStatus);
@@ -15,8 +18,8 @@ export default function ClockPage() {
   const [error, setError] = useState('');
   const [elapsed, setElapsed] = useState(0);
 
-  const projects = projectsData?.results || projectsData || [];
-  const entries = entriesData?.results || entriesData || [];
+  const projects = normalizeList(projectsData);
+  const entries = normalizeList(entriesData);
   const isClocked = status && status.status === 'active';
 
   useEffect(() => {
@@ -124,7 +127,7 @@ export default function ClockPage() {
         </Card>
       </motion.div>
 
-      {error && <div className="text-red-400 text-sm bg-red-400/10 px-3 py-2 rounded-lg">{error}</div>}
+      <ErrorAlert message={error} />
 
       {/* Recent Entries */}
       {entries.length > 0 && (
@@ -136,11 +139,11 @@ export default function ClockPage() {
                 <div>
                   <div className="font-medium">{e.project_title}</div>
                   <div className="text-xs text-forge-text-dim">
-                    {new Date(e.clock_in).toLocaleDateString()} {e.notes && `— ${e.notes}`}
+                    {formatDate(e.clock_in)} {e.notes && `— ${e.notes}`}
                   </div>
                 </div>
                 <div className="font-heading font-bold text-forge-text-dim">
-                  {e.duration_minutes ? `${Math.floor(e.duration_minutes / 60)}h ${e.duration_minutes % 60}m` : '...'}
+                  {e.duration_minutes ? formatDuration(e.duration_minutes) : '...'}
                 </div>
               </Card>
             ))}

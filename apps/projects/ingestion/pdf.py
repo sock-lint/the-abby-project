@@ -74,10 +74,7 @@ class PdfIngestor(BaseIngestor):
                 result.description = stripped[:500]
                 break
 
-        if not result.milestones:
-            result.warnings.append("No steps found in PDF — add milestones manually.")
-        if not result.materials:
-            result.warnings.append("No materials list found in PDF — add materials manually.")
+        self.add_missing_section_warnings(result, source_label="in PDF")
 
         result.category_hint = guess_category(result.title, result.description, full_text[:2000])
         return result

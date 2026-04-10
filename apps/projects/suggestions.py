@@ -1,5 +1,6 @@
-import os
 import json
+
+from django.conf import settings
 
 
 def get_project_suggestions(user):
@@ -23,7 +24,7 @@ def get_project_suggestions(user):
     )
     categories = list(SkillCategory.objects.values_list("name", flat=True))
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    api_key = getattr(settings, "ANTHROPIC_API_KEY", "")
     if not api_key:
         return _fallback_suggestions(completed, skills, categories)
 
@@ -42,7 +43,7 @@ def get_project_suggestions(user):
         ) or "No skills leveled yet"
 
         message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=getattr(settings, "CLAUDE_MODEL", "claude-haiku-4-5-20251001"),
             max_tokens=1024,
             messages=[{
                 "role": "user",

@@ -5,6 +5,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config.permissions import IsParent
+
 from .models import (
     MaterialItem, Project, ProjectCollaborator, ProjectIngestionJob,
     ProjectMilestone, ProjectTemplate, SavingsGoal, SkillCategory,
@@ -16,11 +18,6 @@ from .serializers import (
     ProjectMilestoneSerializer, ProjectTemplateSerializer, SavingsGoalSerializer,
     SkillCategorySerializer, UserSerializer,
 )
-
-
-class IsParent(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == "parent"
 
 
 class AuthView(APIView):
@@ -64,13 +61,12 @@ class MeView(APIView):
 class DashboardView(APIView):
     def get(self, request):
         user = request.user
-        from apps.timecards.services import ClockService
+        from apps.timecards.services import ClockService, TimeEntryService
         from apps.payments.services import PaymentService
         from apps.timecards.models import TimeEntry, Timecard
         from apps.achievements.models import UserBadge
         from django.utils import timezone
         from django.db.models import Sum
-        from django.db.models.functions import TruncDate
         from datetime import timedelta
 
         active_entry = ClockService.get_active_entry(user)
@@ -115,22 +111,7 @@ class DashboardView(APIView):
             .values("badge__name", "badge__icon", "earned_at")
         )
 
-        # Streak calculation
-        days = list(
-            TimeEntry.objects.filter(user=user, status="completed")
-            .annotate(day=TruncDate("clock_in"))
-            .values_list("day", flat=True)
-            .distinct()
-            .order_by("-day")
-        )
-        streak = 0
-        if days:
-            streak = 1
-            for i in range(1, len(days)):
-                if (days[i - 1] - days[i]).days == 1:
-                    streak += 1
-                else:
-                    break
+        streak = TimeEntryService.current_streak(user)
 
         # Savings goals
         goals = SavingsGoalSerializer(
@@ -186,12 +167,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return [IsParent()]
         return [permissions.IsAuthenticated()]
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def activate(self, request, pk=None):
-        if request.user.role != "parent":
-            return Response(
-                {"error": "Parents only"}, status=status.HTTP_403_FORBIDDEN
-            )
         from django.utils import timezone
         project = self.get_object()
         if project.status not in ("draft", "in_review"):
@@ -216,12 +193,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project.save()
         return Response(ProjectDetailSerializer(project).data)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def approve(self, request, pk=None):
-        if request.user.role != "parent":
-            return Response(
-                {"error": "Parents only"}, status=status.HTTP_403_FORBIDDEN
-            )
         from django.utils import timezone
         project = self.get_object()
         project.status = "completed"
@@ -230,12 +203,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project.save()
         return Response(ProjectDetailSerializer(project).data)
 
-    @action(detail=True, methods=["post"], url_path="request-changes")
+    @action(detail=True, methods=["post"], url_path="request-changes", permission_classes=[IsParent])
     def request_changes(self, request, pk=None):
-        if request.user.role != "parent":
-            return Response(
-                {"error": "Parents only"}, status=status.HTTP_403_FORBIDDEN
-            )
         from django.utils import timezone
         project = self.get_object()
         project.status = "in_progress"
@@ -653,14 +622,13 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
 class GreenlightImportView(APIView):
     """Import Greenlight CSV transaction data for reconciliation."""
 
-    def post(self, request):
-        if request.user.role != "parent":
-            return Response({"error": "Parents only"}, status=status.HTTP_403_FORBIDDEN)
+    permission_classes = [IsParent]
 
+    def post(self, request):
         import csv
         import io
         from decimal import Decimal, InvalidOperation
-        from apps.payments.models import PaymentLedger
+        from apps.payments.services import PaymentService
 
         csv_file = request.data.get("csv_data", "")
         if not csv_file:
@@ -687,10 +655,10 @@ class GreenlightImportView(APIView):
                 amount = Decimal(amount_str)
                 description = row.get("Description", row.get("description", row.get("Memo", "")))
 
-                PaymentLedger.objects.create(
-                    user=child,
-                    amount=-abs(amount),
-                    entry_type="payout",
+                PaymentService.record_entry(
+                    child,
+                    -abs(amount),
+                    "payout",
                     description=f"Greenlight import: {description}".strip(),
                     created_by=request.user,
                 )

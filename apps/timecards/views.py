@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.projects.models import Project
+from config.permissions import IsParent
 
 from .models import Timecard, TimeEntry
 from .serializers import (
@@ -66,12 +67,8 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             qs = qs.filter(user=user)
         return qs
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def void(self, request, pk=None):
-        if request.user.role != "parent":
-            return Response(
-                {"error": "Parents only"}, status=status.HTTP_403_FORBIDDEN
-            )
         entry = self.get_object()
         entry.status = "voided"
         entry.save()
@@ -92,12 +89,8 @@ class TimecardViewSet(viewsets.ReadOnlyModelViewSet):
             return TimecardDetailSerializer
         return TimecardSerializer
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def approve(self, request, pk=None):
-        if request.user.role != "parent":
-            return Response(
-                {"error": "Parents only"}, status=status.HTTP_403_FORBIDDEN
-            )
         timecard = self.get_object()
         notes = request.data.get("notes", "")
         TimecardService.approve_timecard(timecard, request.user, notes)
@@ -110,12 +103,8 @@ class TimecardViewSet(viewsets.ReadOnlyModelViewSet):
         timecard.save()
         return Response(TimecardSerializer(timecard).data)
 
-    @action(detail=True, methods=["post"], url_path="mark-paid")
+    @action(detail=True, methods=["post"], url_path="mark-paid", permission_classes=[IsParent])
     def mark_paid(self, request, pk=None):
-        if request.user.role != "parent":
-            return Response(
-                {"error": "Parents only"}, status=status.HTTP_403_FORBIDDEN
-            )
         timecard = self.get_object()
         amount = request.data.get("amount", timecard.total_earnings)
         TimecardService.mark_paid(timecard, request.user, amount)

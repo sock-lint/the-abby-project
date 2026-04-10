@@ -5,7 +5,9 @@ import { getPortfolio, getProjects, uploadPhoto } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
+import ErrorAlert from '../components/ErrorAlert';
 import { downscaleImage } from '../utils/image';
+import { normalizeList } from '../utils/api';
 
 export default function Portfolio() {
   const { data, loading, reload } = useApi(getPortfolio);
@@ -14,7 +16,7 @@ export default function Portfolio() {
 
   if (loading) return <Loader />;
   const groups = data || [];
-  const projects = projectsData?.results || projectsData || [];
+  const projects = normalizeList(projectsData);
 
   return (
     <div className="space-y-6">
@@ -165,9 +167,7 @@ function UploadSheet({ projects, onClose, onUploaded }) {
         </div>
 
         <div className="px-4 pb-4 space-y-3">
-          {error && (
-            <div className="text-red-400 text-sm bg-red-400/10 px-3 py-2 rounded-lg">{error}</div>
-          )}
+          <ErrorAlert message={error} />
 
           <div>
             <label className="block text-sm text-forge-text-dim mb-1">Project</label>

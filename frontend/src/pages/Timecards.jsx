@@ -6,13 +6,15 @@ import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
 import Loader from '../components/Loader';
+import { formatCurrency, formatDate, formatDuration } from '../utils/format';
+import { normalizeList } from '../utils/api';
 
 export default function Timecards({ user }) {
   const { data, loading, reload } = useApi(getTimecards);
   const [expandedId, setExpandedId] = useState(null);
   const [detail, setDetail] = useState(null);
 
-  const timecards = data?.results || data || [];
+  const timecards = normalizeList(data);
   const isParent = user?.role === 'parent';
 
   const toggleExpand = async (id) => {
@@ -67,7 +69,7 @@ export default function Timecards({ user }) {
                 >
                   <div>
                     <div className="font-medium text-sm">
-                      Week of {new Date(tc.week_start).toLocaleDateString()}
+                      Week of {formatDate(tc.week_start)}
                     </div>
                     {isParent && tc.username && (
                       <div className="text-xs text-forge-text-dim">{tc.username}</div>
@@ -76,7 +78,7 @@ export default function Timecards({ user }) {
                   <div className="flex items-center gap-4">
                     <div className="text-right">
                       <div className="font-heading font-bold text-sm">{tc.total_hours}h</div>
-                      <div className="font-heading text-green-400 text-sm font-bold">${tc.total_earnings}</div>
+                      <div className="font-heading text-green-400 text-sm font-bold">{formatCurrency(tc.total_earnings)}</div>
                     </div>
                     <StatusBadge status={tc.status} />
                     {expandedId === tc.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -95,15 +97,15 @@ export default function Timecards({ user }) {
                         <div className="grid grid-cols-3 gap-2 text-center text-xs mb-3">
                           <div>
                             <div className="text-forge-text-dim">Hourly</div>
-                            <div className="font-heading font-bold">${detail.hourly_earnings}</div>
+                            <div className="font-heading font-bold">{formatCurrency(detail.hourly_earnings)}</div>
                           </div>
                           <div>
                             <div className="text-forge-text-dim">Bonuses</div>
-                            <div className="font-heading font-bold">${detail.bonus_earnings}</div>
+                            <div className="font-heading font-bold">{formatCurrency(detail.bonus_earnings)}</div>
                           </div>
                           <div>
                             <div className="text-forge-text-dim">Total</div>
-                            <div className="font-heading font-bold text-green-400">${detail.total_earnings}</div>
+                            <div className="font-heading font-bold text-green-400">{formatCurrency(detail.total_earnings)}</div>
                           </div>
                         </div>
                         {detail.entries?.map((e) => (
@@ -111,11 +113,11 @@ export default function Timecards({ user }) {
                             <div>
                               <span className="font-medium">{e.project_title}</span>
                               <span className="text-forge-text-dim ml-2">
-                                {new Date(e.clock_in).toLocaleDateString()}
+                                {formatDate(e.clock_in)}
                               </span>
                             </div>
                             <span className="font-heading">
-                              {e.duration_minutes ? `${Math.floor(e.duration_minutes / 60)}h ${e.duration_minutes % 60}m` : '—'}
+                              {e.duration_minutes ? formatDuration(e.duration_minutes) : '—'}
                             </span>
                           </div>
                         ))}
@@ -131,7 +133,7 @@ export default function Timecards({ user }) {
                         )}
                         {isParent && tc.status === 'approved' && (
                           <button onClick={() => handleAction(tc.id, 'pay')} className="w-full bg-amber-primary hover:bg-amber-highlight text-black py-2 rounded-lg text-sm font-semibold">
-                            Mark as Paid (${tc.total_earnings})
+                            Mark as Paid ({formatCurrency(tc.total_earnings)})
                           </button>
                         )}
                       </div>

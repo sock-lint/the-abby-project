@@ -5,11 +5,13 @@ import { createProject, getCategories } from '../api';
 import { api } from '../api/client';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
+import ErrorAlert from '../components/ErrorAlert';
+import { normalizeList } from '../utils/api';
 
 export default function ProjectNew() {
   const navigate = useNavigate();
   const { data: categoriesData } = useApi(getCategories);
-  const categories = categoriesData?.results || categoriesData || [];
+  const categories = normalizeList(categoriesData);
 
   const [form, setForm] = useState({
     title: '', description: '', instructables_url: '', difficulty: 2,
@@ -75,7 +77,7 @@ export default function ProjectNew() {
 
       <form onSubmit={handleSubmit}>
         <Card className="space-y-4">
-          {error && <div className="text-red-400 text-sm bg-red-400/10 px-3 py-2 rounded-lg">{error}</div>}
+          <ErrorAlert message={error} />
 
           <div>
             <label className="block text-sm text-forge-text-dim mb-1">Title</label>
