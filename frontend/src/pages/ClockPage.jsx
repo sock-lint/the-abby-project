@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Square, Clock } from 'lucide-react';
-import { getClockStatus, clockIn, clockOut, getProjects, getTimeEntries } from '../api';
-import { useApi } from '../hooks/useApi';
+import { Play, Square, Clock, Ban } from 'lucide-react';
+import { getClockStatus, clockIn, clockOut, getProjects, getTimeEntries, voidTimeEntry } from '../api';
+import { useApi, useAuth } from '../hooks/useApi';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
@@ -10,6 +10,7 @@ import { formatDate, formatDuration } from '../utils/format';
 import { normalizeList } from '../utils/api';
 
 export default function ClockPage() {
+  const { user } = useAuth();
   const { data: status, reload: reloadStatus } = useApi(getClockStatus);
   const { data: projectsData } = useApi(getProjects);
   const { data: entriesData, reload: reloadEntries } = useApi(getTimeEntries);
@@ -21,6 +22,7 @@ export default function ClockPage() {
   const projects = normalizeList(projectsData);
   const entries = normalizeList(entriesData);
   const isClocked = status && status.status === 'active';
+  const isParent = user?.role === 'parent';
 
   useEffect(() => {
     if (!isClocked || !status?.clock_in) return;
@@ -55,6 +57,16 @@ export default function ClockPage() {
       await clockOut(notes);
       setNotes('');
       reloadStatus();
+      reloadEntries();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleVoid = async (entryId) => {
+    if (!confirm('Void this time entry? This cannot be undone.')) return;
+    try {
+      await voidTimeEntry(entryId);
       reloadEntries();
     } catch (err) {
       setError(err.message);
@@ -135,15 +147,27 @@ export default function ClockPage() {
           <h2 className="font-heading text-lg font-bold mb-3">Recent Entries</h2>
           <div className="space-y-2">
             {entries.slice(0, 10).map((e) => (
-              <Card key={e.id} className="flex items-center justify-between text-sm">
+              <Card key={e.id} className={`flex items-center justify-between text-sm ${e.status === 'voided' ? 'opacity-50' : ''}`}>
                 <div>
-                  <div className="font-medium">{e.project_title}</div>
+                  <div className={`font-medium ${e.status === 'voided' ? 'line-through' : ''}`}>{e.project_title}</div>
                   <div className="text-xs text-forge-text-dim">
                     {formatDate(e.clock_in)} {e.notes && `— ${e.notes}`}
+                    {e.status === 'voided' && <span className="text-red-400 ml-1">(voided)</span>}
                   </div>
                 </div>
-                <div className="font-heading font-bold text-forge-text-dim">
-                  {e.duration_minutes ? formatDuration(e.duration_minutes) : '...'}
+                <div className="flex items-center gap-2">
+                  <div className="font-heading font-bold text-forge-text-dim">
+                    {e.duration_minutes ? formatDuration(e.duration_minutes) : '...'}
+                  </div>
+                  {isParent && e.status !== 'voided' && e.status !== 'active' && (
+                    <button
+                      onClick={() => handleVoid(e.id)}
+                      title="Void entry"
+                      className="text-forge-text-dim hover:text-red-400 p-1 transition-colors"
+                    >
+                      <Ban size={14} />
+                    </button>
+                  )}
                 </div>
               </Card>
             ))}

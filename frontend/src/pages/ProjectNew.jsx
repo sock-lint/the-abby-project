@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Sparkles } from 'lucide-react';
-import { createProject, getCategories } from '../api';
+import { createProject, getCategories, getChildren } from '../api';
 import { api } from '../api/client';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
@@ -13,12 +13,15 @@ import { normalizeList } from '../utils/api';
 export default function ProjectNew() {
   const navigate = useNavigate();
   const { data: categoriesData } = useApi(getCategories);
+  const { data: childrenData } = useApi(getChildren);
   const categories = normalizeList(categoriesData);
+  const children = normalizeList(childrenData);
 
   const [form, setForm] = useState({
     title: '', description: '', instructables_url: '', difficulty: 2,
     category_id: '', bonus_amount: '0', materials_budget: '0', due_date: '',
-    payment_kind: 'required',
+    payment_kind: 'required', assigned_to_id: '', hourly_rate_override: '',
+    parent_notes: '',
   });
   const [error, setError] = useState('');
   const [preview, setPreview] = useState(null);
@@ -47,6 +50,8 @@ export default function ProjectNew() {
         category_id: form.category_id || null,
         due_date: form.due_date || null,
         instructables_url: form.instructables_url || null,
+        assigned_to_id: form.assigned_to_id || null,
+        hourly_rate_override: form.hourly_rate_override || null,
       };
       const project = await createProject(data);
       navigate(`/projects/${project.id}`);
@@ -126,6 +131,35 @@ export default function ProjectNew() {
               </select>
             </div>
           </div>
+
+          {/* Assignment */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-forge-text-dim mb-1">Assign To</label>
+              <select value={form.assigned_to_id} onChange={set('assigned_to_id')} className={inputClass}>
+                <option value="">{form.payment_kind === 'bounty' ? 'Unassigned (open bounty)' : 'Select a child...'}</option>
+                {children.map((c) => (
+                  <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-forge-text-dim mb-1">Hourly Rate Override ($)</label>
+              <input
+                value={form.hourly_rate_override}
+                onChange={set('hourly_rate_override')}
+                className={inputClass}
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                placeholder={form.assigned_to_id
+                  ? `Default: $${children.find(c => c.id === parseInt(form.assigned_to_id))?.hourly_rate || '—'}/hr`
+                  : 'Select child first'}
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm text-forge-text-dim mb-1">Payment Kind</label>
             <select value={form.payment_kind} onChange={set('payment_kind')} className={inputClass}>
@@ -153,6 +187,17 @@ export default function ProjectNew() {
               <label className="block text-sm text-forge-text-dim mb-1">Due Date</label>
               <input value={form.due_date} onChange={set('due_date')} className={inputClass} type="date" />
             </div>
+          </div>
+
+          {/* Parent Notes */}
+          <div>
+            <label className="block text-sm text-forge-text-dim mb-1">Parent Notes</label>
+            <textarea
+              value={form.parent_notes}
+              onChange={set('parent_notes')}
+              className={`${inputClass} h-20 resize-none`}
+              placeholder="Private notes (only visible to parents)"
+            />
           </div>
 
           <button type="submit" className="w-full bg-amber-primary hover:bg-amber-highlight text-black font-semibold py-2.5 rounded-lg transition-colors">

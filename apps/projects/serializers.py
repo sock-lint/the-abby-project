@@ -16,6 +16,15 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class ChildSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "id", "username", "display_name", "role", "hourly_rate", "avatar", "theme",
+        ]
+        read_only_fields = ["id", "username", "role", "theme"]
+
+
 class SkillCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SkillCategory
