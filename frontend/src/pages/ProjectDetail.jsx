@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ExternalLink, ArrowLeft, DollarSign, QrCode, Copy } from 'lucide-react';
+import { Check, ExternalLink, ArrowLeft, DollarSign, QrCode, Copy, X } from 'lucide-react';
 import { getProject, submitProject, approveProject, requestChanges, completeMilestone, markPurchased, saveProjectAsTemplate, activateProject } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
@@ -15,6 +15,7 @@ export default function ProjectDetail({ user }) {
   const navigate = useNavigate();
   const { data: project, loading, reload } = useApi(() => getProject(id), [id]);
   const [activeTab, setActiveTab] = useState('Overview');
+  const [changesOpen, setChangesOpen] = useState(false);
 
   if (loading) return <Loader />;
   if (!project) return <div className="text-forge-text-dim">Project not found</div>;
@@ -28,10 +29,19 @@ export default function ProjectDetail({ user }) {
       else if (action === 'submit') await submitProject(id);
       else if (action === 'approve') await approveProject(id);
       else if (action === 'request-changes') {
-        const notes = prompt('Notes for changes:');
-        if (notes !== null) await requestChanges(id, notes);
-        else return;
+        setChangesOpen(true);
+        return;
       }
+      reload();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const submitRequestChanges = async (notes) => {
+    try {
+      await requestChanges(id, notes);
+      setChangesOpen(false);
       reload();
     } catch (err) {
       alert(err.message);
@@ -267,6 +277,96 @@ export default function ProjectDetail({ user }) {
           )}
         </motion.div>
       </AnimatePresence>
+
+      <AnimatePresence>
+        {changesOpen && (
+          <RequestChangesModal
+            onClose={() => setChangesOpen(false)}
+            onSubmit={submitRequestChanges}
+          />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function RequestChangesModal({ onClose, onSubmit }) {
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!notes.trim()) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(notes.trim());
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={submitting ? undefined : onClose}
+        className="fixed inset-0 bg-black/60 z-40"
+      />
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        className="fixed bottom-0 left-0 right-0 bg-forge-card border-t border-forge-border rounded-t-2xl z-50 pb-[env(safe-area-inset-bottom)] md:left-1/2 md:right-auto md:bottom-auto md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md md:rounded-2xl md:border"
+      >
+        <div className="flex justify-center pt-2 md:hidden">
+          <div className="w-10 h-1 rounded-full bg-forge-muted" />
+        </div>
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          <h2 className="font-heading text-lg font-bold">Request Changes</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            aria-label="Close"
+            className="text-forge-text-dim hover:text-forge-text min-h-10 min-w-10 flex items-center justify-center rounded-lg"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className="px-4 pb-4 space-y-3">
+          <p className="text-sm text-forge-text-dim">
+            Tell the maker what needs to change before you approve this project.
+          </p>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="What should they fix or add?"
+            autoFocus
+            rows={4}
+            className="w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-base resize-none focus:outline-none focus:border-amber-primary"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="flex-1 bg-forge-muted hover:bg-forge-border text-forge-text font-medium py-3 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting || !notes.trim()}
+              className="flex-1 bg-amber-primary hover:bg-amber-highlight disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold py-3 rounded-lg transition-colors"
+            >
+              {submitting ? 'Sending…' : 'Send'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
   );
 }

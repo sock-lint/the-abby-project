@@ -53,7 +53,7 @@ export default function Projects({ user }) {
                   <h3 className="font-semibold text-forge-text">{p.title}</h3>
                   <div className="flex items-center gap-1">
                     {p.payment_kind === 'bounty' && (
-                      <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-fuchsia-400/15 text-fuchsia-300 border border-fuchsia-400/30">
+                      <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-fuchsia-400/15 text-fuchsia-300 border border-fuchsia-400/30">
                         🎯 Bounty
                       </span>
                     )}
@@ -110,12 +110,12 @@ export default function Projects({ user }) {
                 <Card className="border-amber-primary/20">
                   <div className="font-semibold text-sm mb-1">{s.title}</div>
                   <div className="text-xs text-forge-text-dim mb-2">{s.description}</div>
-                  <div className="flex items-center gap-2 text-[10px] text-forge-text-dim">
+                  <div className="flex items-center gap-2 text-xs text-forge-text-dim">
                     {s.category && <span className="bg-forge-muted px-1.5 py-0.5 rounded">{s.category}</span>}
                     <span>{'★'.repeat(s.difficulty || 1)}</span>
                     {s.estimated_hours && <span>{s.estimated_hours}h est.</span>}
                   </div>
-                  {s.why && <div className="text-[10px] text-amber-highlight mt-2">{s.why}</div>}
+                  {s.why && <div className="text-xs text-amber-highlight mt-2">{s.why}</div>}
                 </Card>
               </motion.div>
             ))}

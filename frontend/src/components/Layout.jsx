@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, FolderKanban, Clock, FileText,
-  DollarSign, Gift, Trophy, Camera, Settings, LogOut,
+  DollarSign, Gift, Trophy, Camera, Settings, LogOut, MoreHorizontal,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 
@@ -17,7 +19,14 @@ const navItems = [
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
+// Mobile bottom nav: 5 primary tabs + a "More" button that opens a sheet with the rest.
+const mobilePrimary = ['/', '/projects', '/clock', '/timecards', '/rewards'];
+const primaryNavItems = navItems.filter((n) => mobilePrimary.includes(n.to));
+const overflowNavItems = navItems.filter((n) => !mobilePrimary.includes(n.to));
+
 export default function Layout({ user, onLogout }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
@@ -67,14 +76,14 @@ export default function Layout({ user, onLogout }) {
       </aside>
 
       {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-forge-card border-t border-forge-border flex justify-around py-2 z-10">
-        {navItems.slice(0, 6).map(({ to, icon: Icon, label }) => (
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-forge-card border-t border-forge-border flex justify-around z-10">
+        {primaryNavItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             end={to === '/'}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-0.5 text-[10px] ${
+              `flex flex-col items-center justify-center gap-0.5 text-xs min-h-14 flex-1 ${
                 isActive ? 'text-amber-highlight' : 'text-forge-text-dim'
               }`
             }
@@ -83,7 +92,74 @@ export default function Layout({ user, onLogout }) {
             {label}
           </NavLink>
         ))}
+        <button
+          type="button"
+          onClick={() => setMoreOpen(true)}
+          className={`flex flex-col items-center justify-center gap-0.5 text-xs min-h-14 flex-1 ${
+            moreOpen ? 'text-amber-highlight' : 'text-forge-text-dim'
+          }`}
+        >
+          <MoreHorizontal size={20} />
+          More
+        </button>
       </nav>
+
+      {/* Mobile "More" bottom sheet */}
+      <AnimatePresence>
+        {moreOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMoreOpen(false)}
+              className="md:hidden fixed inset-0 bg-black/60 z-20"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="md:hidden fixed bottom-0 left-0 right-0 bg-forge-card border-t border-forge-border rounded-t-2xl z-30 pb-[env(safe-area-inset-bottom)]"
+            >
+              <div className="flex justify-center pt-2">
+                <div className="w-10 h-1 rounded-full bg-forge-muted" />
+              </div>
+              <div className="p-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {overflowNavItems.map(({ to, icon: Icon, label }) => (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      end={to === '/'}
+                      onClick={() => setMoreOpen(false)}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-4 min-h-14 rounded-xl transition-colors ${
+                          isActive
+                            ? 'bg-amber-primary/15 text-amber-highlight'
+                            : 'bg-forge-bg text-forge-text hover:bg-forge-muted/50'
+                        }`
+                      }
+                    >
+                      <Icon size={20} />
+                      <span className="text-sm font-medium">{label}</span>
+                    </NavLink>
+                  ))}
+                </div>
+                <button
+                  onClick={() => {
+                    setMoreOpen(false);
+                    onLogout();
+                  }}
+                  className="mt-3 w-full flex items-center justify-center gap-2 min-h-12 rounded-xl bg-forge-bg text-red-400 hover:bg-red-500/10 transition-colors text-sm font-medium"
+                >
+                  <LogOut size={18} /> Log out
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Main content */}
       <main className="flex-1 ml-0 md:ml-56 pb-20 md:pb-6">

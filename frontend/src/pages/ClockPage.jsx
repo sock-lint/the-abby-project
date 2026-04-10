@@ -79,7 +79,8 @@ export default function ClockPage() {
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="What did you work on?"
-                    className="w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-sm text-forge-text resize-none h-16 focus:outline-none focus:border-amber-primary"
+                    inputMode="text"
+                    className="w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-base text-forge-text resize-none h-20 focus:outline-none focus:border-amber-primary"
                   />
                 </div>
                 <motion.button
@@ -101,7 +102,7 @@ export default function ClockPage() {
                   <select
                     value={selectedProject}
                     onChange={(e) => setSelectedProject(e.target.value)}
-                    className="w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-sm text-forge-text focus:outline-none focus:border-amber-primary"
+                    className="w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-base text-forge-text focus:outline-none focus:border-amber-primary"
                   >
                     <option value="">Select a project...</option>
                     {projects.filter(p => ['active', 'in_progress'].includes(p.status)).map((p) => (

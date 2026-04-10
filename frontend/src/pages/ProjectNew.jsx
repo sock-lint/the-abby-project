@@ -51,7 +51,7 @@ export default function ProjectNew() {
     }
   };
 
-  const inputClass = 'w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-sm focus:outline-none focus:border-amber-primary';
+  const inputClass = 'w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-base focus:outline-none focus:border-amber-primary';
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -109,7 +109,7 @@ export default function ProjectNew() {
               </div>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-forge-text-dim mb-1">Category</label>
               <select value={form.category_id} onChange={set('category_id')} className={inputClass}>
@@ -136,16 +136,16 @@ export default function ProjectNew() {
                 : 'Counts toward normal allowance; bonus is a standard project bonus.'}
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm text-forge-text-dim mb-1">
                 {form.payment_kind === 'bounty' ? 'Bounty ($)' : 'Bonus ($)'}
               </label>
-              <input value={form.bonus_amount} onChange={set('bonus_amount')} className={inputClass} type="number" step="0.01" min="0" />
+              <input value={form.bonus_amount} onChange={set('bonus_amount')} className={inputClass} type="number" step="0.01" min="0" inputMode="decimal" />
             </div>
             <div>
               <label className="block text-sm text-forge-text-dim mb-1">Materials Budget ($)</label>
-              <input value={form.materials_budget} onChange={set('materials_budget')} className={inputClass} type="number" step="0.01" min="0" />
+              <input value={form.materials_budget} onChange={set('materials_budget')} className={inputClass} type="number" step="0.01" min="0" inputMode="decimal" />
             </div>
             <div>
               <label className="block text-sm text-forge-text-dim mb-1">Due Date</label>

@@ -1,0 +1,19 @@
+{
+  "name": "The Abby Project",
+  "short_name": "Abby",
+  "description": "Track summer maker projects, earn coins, unlock badges.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

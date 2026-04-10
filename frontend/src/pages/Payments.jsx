@@ -79,17 +79,17 @@ export default function Payments() {
               const { icon: Icon, color } = typeIcons[tx.entry_type] || typeIcons.adjustment;
               const isPositive = parseFloat(tx.amount) >= 0;
               return (
-                <Card key={tx.id} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full bg-forge-muted flex items-center justify-center ${color}`}>
+                <Card key={tx.id} className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={`w-8 h-8 shrink-0 rounded-full bg-forge-muted flex items-center justify-center ${color}`}>
                       <Icon size={16} />
                     </div>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium">{typeLabels[tx.entry_type] || tx.entry_type}</div>
-                      <div className="text-xs text-forge-text-dim truncate max-w-48">{tx.description}</div>
+                      <div className="text-xs text-forge-text-dim truncate">{tx.description}</div>
                     </div>
                   </div>
-                  <div className={`font-heading font-bold text-sm ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                  <div className={`font-heading font-bold text-sm shrink-0 ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
                     {isPositive ? '+' : ''}${parseFloat(tx.amount).toFixed(2)}
                   </div>
                 </Card>
