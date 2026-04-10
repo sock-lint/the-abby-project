@@ -3,6 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config.permissions import IsParent
+
 from .models import CoinLedger, Reward, RewardRedemption
 from .serializers import (
     CoinLedgerSerializer, RewardRedemptionSerializer, RewardSerializer,
@@ -44,18 +46,14 @@ class RewardRedemptionViewSet(viewsets.ReadOnlyModelViewSet):
             return qs
         return qs.filter(user=self.request.user)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def approve(self, request, pk=None):
-        if not _is_parent(request.user):
-            return Response({"error": "Parents only"}, status=status.HTTP_403_FORBIDDEN)
         redemption = self.get_object()
         RewardService.approve(redemption, request.user, notes=request.data.get("notes", ""))
         return Response(RewardRedemptionSerializer(redemption).data)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def deny(self, request, pk=None):
-        if not _is_parent(request.user):
-            return Response({"error": "Parents only"}, status=status.HTTP_403_FORBIDDEN)
         redemption = self.get_object()
         RewardService.deny(redemption, request.user, notes=request.data.get("notes", ""))
         return Response(RewardRedemptionSerializer(redemption).data)

@@ -3,6 +3,8 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import models
 
+from config.base_models import TimestampedModel
+
 
 class TimeEntry(models.Model):
     class Status(models.TextChoices):
@@ -47,7 +49,7 @@ class TimeEntry(models.Model):
         super().save(*args, **kwargs)
 
 
-class Timecard(models.Model):
+class Timecard(TimestampedModel):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         APPROVED = "approved", "Approved"
@@ -81,8 +83,6 @@ class Timecard(models.Model):
     )
     approved_at = models.DateTimeField(null=True, blank=True)
     parent_notes = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-week_start"]
@@ -90,3 +90,14 @@ class Timecard(models.Model):
 
     def __str__(self):
         return f"{self.user} — Week of {self.week_start}"
+
+    def mark_approved(self, by_user, notes=""):
+        """Transition to approved and stamp audit fields atomically."""
+        from django.utils import timezone
+        self.status = self.Status.APPROVED
+        self.approved_by = by_user
+        self.approved_at = timezone.now()
+        self.parent_notes = notes
+        self.save(update_fields=[
+            "status", "approved_by", "approved_at", "parent_notes", "updated_at",
+        ])

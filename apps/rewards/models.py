@@ -1,8 +1,10 @@
 from django.conf import settings
 from django.db import models
 
+from config.base_models import CreatedAtModel
 
-class CoinLedger(models.Model):
+
+class CoinLedger(CreatedAtModel):
     """Append-only ledger of Coin transactions.
 
     Coins are a non-monetary progression currency, parallel to PaymentLedger.
@@ -30,7 +32,6 @@ class CoinLedger(models.Model):
         "rewards.RewardRedemption", on_delete=models.SET_NULL,
         null=True, blank=True, related_name="coin_entries",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name="created_coin_entries",
@@ -43,7 +44,7 @@ class CoinLedger(models.Model):
         return f"{self.user} {self.amount:+d} ({self.reason})"
 
 
-class Reward(models.Model):
+class Reward(CreatedAtModel):
     """A non-monetary reward that can be redeemed with Coins."""
 
     class Rarity(models.TextChoices):
@@ -68,7 +69,6 @@ class Reward(models.Model):
     requires_parent_approval = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
     order = models.IntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["order", "cost_coins", "name"]

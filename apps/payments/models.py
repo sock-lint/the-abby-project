@@ -1,8 +1,10 @@
 from django.conf import settings
 from django.db import models
 
+from config.base_models import CreatedAtModel
 
-class PaymentLedger(models.Model):
+
+class PaymentLedger(CreatedAtModel):
     class EntryType(models.TextChoices):
         HOURLY = "hourly", "Hourly"
         PROJECT_BONUS = "project_bonus", "Project Bonus"
@@ -27,7 +29,6 @@ class PaymentLedger(models.Model):
         "timecards.Timecard", on_delete=models.SET_NULL,
         null=True, blank=True, related_name="payment_entries",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name="created_payments",
