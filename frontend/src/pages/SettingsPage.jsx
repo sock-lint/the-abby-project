@@ -1,9 +1,10 @@
 import { useState } from 'react';
+import { LogOut } from 'lucide-react';
 import { api } from '../api/client';
 import Card from '../components/Card';
 import { themes, applyTheme } from '../themes';
 
-export default function SettingsPage({ user }) {
+export default function SettingsPage({ user, onLogout }) {
   const [currentTheme, setCurrentTheme] = useState(user?.theme || 'summer');
 
   const handleThemeChange = async (themeName) => {
@@ -74,6 +75,16 @@ export default function SettingsPage({ user }) {
           Track projects, log hours, earn XP, unlock skills, and get paid
           for your summer maker projects.
         </p>
+      </Card>
+
+      <Card>
+        <h2 className="font-heading text-lg font-bold mb-4">Account</h2>
+        <button
+          onClick={onLogout}
+          className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg border border-forge-border text-forge-text-dim hover:text-red-400 hover:border-red-400/50 transition-colors text-sm"
+        >
+          <LogOut size={16} /> Log out
+        </button>
       </Card>
     </div>
   );

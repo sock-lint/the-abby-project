@@ -52,7 +52,7 @@ export default function App() {
           <Route path="/rewards" element={<Rewards />} />
           <Route path="/achievements" element={<Achievements />} />
           <Route path="/portfolio" element={<Portfolio />} />
-          <Route path="/settings" element={<SettingsPage user={user} />} />
+          <Route path="/settings" element={<SettingsPage user={user} onLogout={logout} />} />
         </Route>
       </Routes>
     </BrowserRouter>
