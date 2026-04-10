@@ -4,6 +4,7 @@ import { getBalance } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
+import { formatCurrency } from '../utils/format';
 
 const typeIcons = {
   hourly: { icon: TrendingUp, color: 'text-blue-400' },
@@ -42,7 +43,7 @@ export default function Payments() {
         <Card className="text-center py-6">
           <div className="text-sm text-forge-text-dim mb-1">Current Balance</div>
           <div className={`font-heading text-5xl font-bold ${balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            ${balance?.toFixed(2)}
+            {formatCurrency(balance)}
           </div>
         </Card>
       </motion.div>
@@ -61,7 +62,7 @@ export default function Payments() {
                     <span className="text-xs text-forge-text-dim">{typeLabels[type] || type}</span>
                   </div>
                   <div className={`font-heading font-bold ${amount >= 0 ? 'text-forge-text' : 'text-red-400'}`}>
-                    ${amount?.toFixed(2)}
+                    {formatCurrency(amount)}
                   </div>
                 </Card>
               );
@@ -90,7 +91,7 @@ export default function Payments() {
                     </div>
                   </div>
                   <div className={`font-heading font-bold text-sm shrink-0 ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-                    {isPositive ? '+' : ''}${parseFloat(tx.amount).toFixed(2)}
+                    {isPositive ? '+' : ''}{formatCurrency(tx.amount)}
                   </div>
                 </Card>
               );

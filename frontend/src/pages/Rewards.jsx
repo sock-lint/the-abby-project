@@ -1,80 +1,58 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Coins, Check, X, Clock, Gift } from 'lucide-react';
 import {
   getRewards, redeemReward, getRedemptions, getCoinBalance,
   approveRedemption, denyRedemption,
 } from '../api';
-import { useAuth } from '../hooks/useApi';
+import { useApi, useAuth } from '../hooks/useApi';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
-
-const rarityColors = {
-  common: 'border-rarity-common/30 bg-rarity-common/5',
-  uncommon: 'border-rarity-uncommon/30 bg-rarity-uncommon/5',
-  rare: 'border-rarity-rare/30 bg-rarity-rare/5',
-  epic: 'border-rarity-epic/30 bg-rarity-epic/5',
-  legendary: 'border-rarity-legendary/30 bg-rarity-legendary/5',
-};
-
-const statusStyles = {
-  pending: 'bg-yellow-400/10 text-yellow-300 border-yellow-400/30',
-  approved: 'bg-blue-400/10 text-blue-300 border-blue-400/30',
-  fulfilled: 'bg-green-400/10 text-green-300 border-green-400/30',
-  denied: 'bg-red-400/10 text-red-300 border-red-400/30',
-  canceled: 'bg-gray-400/10 text-gray-300 border-gray-400/30',
-};
+import ErrorAlert from '../components/ErrorAlert';
+import { RARITY_COLORS, STATUS_COLORS } from '../constants/colors';
+import { formatDate, formatDateTime } from '../utils/format';
+import { normalizeList } from '../utils/api';
 
 export default function Rewards() {
   const { user } = useAuth();
   const isParent = user?.role === 'parent';
 
-  const [rewards, setRewards] = useState([]);
-  const [redemptions, setRedemptions] = useState([]);
-  const [balance, setBalance] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data: rewardsData, loading: loadingRewards, reload: reloadRewards } = useApi(getRewards);
+  const { data: redemptionsData, loading: loadingRedemptions, reload: reloadRedemptions } = useApi(getRedemptions);
+  const { data: balanceData, loading: loadingBalance, reload: reloadBalance } = useApi(getCoinBalance);
   const [error, setError] = useState('');
 
-  const refresh = async () => {
-    setLoading(true);
-    try {
-      const [r, red, bal] = await Promise.all([
-        getRewards(), getRedemptions(), getCoinBalance(),
-      ]);
-      setRewards(r?.results || r || []);
-      setRedemptions(red?.results || red || []);
-      setBalance(bal);
-    } catch (e) {
-      setError(e.message);
-    }
-    setLoading(false);
-  };
+  const loading = loadingRewards || loadingRedemptions || loadingBalance;
 
-  useEffect(() => { refresh(); }, []);
+  const refresh = () => {
+    reloadRewards();
+    reloadRedemptions();
+    reloadBalance();
+  };
 
   const handleRedeem = async (reward) => {
     setError('');
     try {
       await redeemReward(reward.id);
-      await refresh();
+      refresh();
     } catch (e) { setError(e.message); }
   };
 
-  const handleApprove = async (id) => { await approveRedemption(id); await refresh(); };
-  const handleDeny = async (id) => { await denyRedemption(id); await refresh(); };
+  const handleApprove = async (id) => { await approveRedemption(id); refresh(); };
+  const handleDeny = async (id) => { await denyRedemption(id); refresh(); };
 
   if (loading) return <Loader />;
 
-  const coinBalance = balance?.balance ?? 0;
+  const rewards = normalizeList(rewardsData);
+  const redemptions = normalizeList(redemptionsData);
+  const coinBalance = balanceData?.balance ?? 0;
   const pending = redemptions.filter((r) => r.status === 'pending');
 
   return (
     <div className="space-y-6">
       <h1 className="font-heading text-2xl font-bold">Reward Shop</h1>
 
-      {error && (
-        <Card className="border-red-400/30 bg-red-400/5 text-red-300 text-sm">{error}</Card>
-      )}
+      <ErrorAlert message={error} />
 
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
         <Card className="text-center py-5">
@@ -98,7 +76,7 @@ export default function Rewards() {
                     {r.user_name} → {r.reward.icon} {r.reward.name}
                   </div>
                   <div className="text-xs text-forge-text-dim">
-                    {r.coin_cost_snapshot} coins • {new Date(r.requested_at).toLocaleString()}
+                    {r.coin_cost_snapshot} coins • {formatDateTime(r.requested_at)}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -130,7 +108,7 @@ export default function Rewards() {
             const affordable = coinBalance >= r.cost_coins;
             const outOfStock = r.stock !== null && r.stock !== undefined && r.stock <= 0;
             return (
-              <Card key={r.id} className={`${rarityColors[r.rarity]} flex flex-col`}>
+              <Card key={r.id} className={`${RARITY_COLORS[r.rarity]} flex flex-col`}>
                 <div className="text-3xl mb-1 text-center">{r.icon || '🎁'}</div>
                 <div className="text-sm font-medium text-center">{r.name}</div>
                 {r.description && (
@@ -175,11 +153,11 @@ export default function Rewards() {
                     <div className="text-sm font-medium">{r.reward.name}</div>
                     <div className="text-xs text-forge-text-dim">
                       {isParent && `${r.user_name} • `}
-                      {new Date(r.requested_at).toLocaleDateString()} • {r.coin_cost_snapshot} coins
+                      {formatDate(r.requested_at)} • {r.coin_cost_snapshot} coins
                     </div>
                   </div>
                 </div>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full border uppercase ${statusStyles[r.status] || statusStyles.pending}`}>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full border uppercase ${STATUS_COLORS[r.status] || STATUS_COLORS.pending}`}>
                   {r.status}
                 </span>
               </Card>

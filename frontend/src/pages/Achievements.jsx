@@ -5,14 +5,9 @@ import { getAchievementsSummary, getCategories, getSkillTree } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
-
-const rarityColors = {
-  common: 'border-rarity-common/30 bg-rarity-common/5',
-  uncommon: 'border-rarity-uncommon/30 bg-rarity-uncommon/5',
-  rare: 'border-rarity-rare/30 bg-rarity-rare/5',
-  epic: 'border-rarity-epic/30 bg-rarity-epic/5',
-  legendary: 'border-rarity-legendary/30 bg-rarity-legendary/5',
-};
+import TabButton from '../components/TabButton';
+import { RARITY_COLORS } from '../constants/colors';
+import { normalizeList } from '../utils/api';
 
 const rarityText = {
   common: 'text-rarity-common',
@@ -31,7 +26,7 @@ export default function Achievements() {
   const [tree, setTree] = useState(null);
   const [treeLoading, setTreeLoading] = useState(false);
 
-  const categories = categoriesData?.results || categoriesData || [];
+  const categories = normalizeList(categoriesData);
 
   const loadTree = async (catId) => {
     if (selectedCategory === catId) {
@@ -71,7 +66,7 @@ export default function Achievements() {
               animate={{ scale: 1 }}
               transition={{ delay: i * 0.03 }}
             >
-              <Card className={`text-center ${rarityColors[ub.badge.rarity]}`}>
+              <Card className={`text-center ${RARITY_COLORS[ub.badge.rarity]}`}>
                 <div className="text-3xl mb-1">{ub.badge.icon}</div>
                 <div className="text-xs font-medium leading-tight">{ub.badge.name}</div>
                 <div className={`text-[10px] capitalize ${rarityText[ub.badge.rarity]}`}>{ub.badge.rarity}</div>
@@ -86,18 +81,17 @@ export default function Achievements() {
         <h2 className="font-heading text-lg font-bold mb-3">Skill Tree</h2>
         <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
           {categories.map((cat) => (
-            <button
+            <TabButton
               key={cat.id}
+              active={selectedCategory === cat.id}
               onClick={() => loadTree(cat.id)}
-              className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors border ${
-                selectedCategory === cat.id
-                  ? 'border-amber-primary bg-amber-primary/10 text-amber-highlight'
-                  : 'border-forge-border bg-forge-card text-forge-text-dim hover:text-forge-text'
-              }`}
+              className="shrink-0"
             >
-              <span>{cat.icon}</span>
-              <span>{cat.name}</span>
-            </button>
+              <span className="flex items-center gap-1.5">
+                <span>{cat.icon}</span>
+                <span>{cat.name}</span>
+              </span>
+            </TabButton>
           ))}
         </div>
 

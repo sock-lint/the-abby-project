@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Hammer } from 'lucide-react';
+import ErrorAlert from '../components/ErrorAlert';
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState('');
@@ -31,9 +32,7 @@ export default function Login({ onLogin }) {
           <p className="text-forge-text-dim text-sm mt-1">Track projects, earn badges, get paid</p>
         </div>
         <form onSubmit={handleSubmit} className="bg-forge-card border border-forge-border rounded-xl p-6 space-y-4">
-          {error && (
-            <div className="text-red-400 text-sm bg-red-400/10 px-3 py-2 rounded-lg">{error}</div>
-          )}
+          <ErrorAlert message={error} />
           <div>
             <label className="block text-sm text-forge-text-dim mb-1">Username</label>
             <input

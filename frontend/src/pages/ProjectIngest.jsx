@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Link as LinkIcon, FileText, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Link as LinkIcon, FileText, Plus, Trash2 } from 'lucide-react';
 import {
   commitIngestJob,
   discardIngestJob,
@@ -12,6 +12,9 @@ import {
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
+import ErrorAlert from '../components/ErrorAlert';
+import TabButton from '../components/TabButton';
+import { normalizeList } from '../utils/api';
 
 const POLL_INTERVAL_MS = 1500;
 const POLL_MAX_MS = 60000;
@@ -19,7 +22,7 @@ const POLL_MAX_MS = 60000;
 export default function ProjectIngest() {
   const navigate = useNavigate();
   const { data: categoriesData } = useApi(getCategories);
-  const categories = categoriesData?.results || categoriesData || [];
+  const categories = normalizeList(categoriesData);
 
   const [phase, setPhase] = useState('source'); // source | polling | preview | error
   const [sourceTab, setSourceTab] = useState('url'); // url | pdf
@@ -162,30 +165,17 @@ export default function ProjectIngest() {
         </p>
       </div>
 
-      {error && (
-        <div className="text-red-400 text-sm bg-red-400/10 px-3 py-2 rounded-lg flex items-start gap-2">
-          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
+      <ErrorAlert message={error} />
 
       {phase === 'source' && (
         <Card className="space-y-4">
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setSourceTab('url')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${sourceTab === 'url' ? 'bg-amber-primary text-black' : 'bg-forge-bg border border-forge-border text-forge-text-dim'}`}
-            >
-              <LinkIcon size={16} /> URL
-            </button>
-            <button
-              type="button"
-              onClick={() => setSourceTab('pdf')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${sourceTab === 'pdf' ? 'bg-amber-primary text-black' : 'bg-forge-bg border border-forge-border text-forge-text-dim'}`}
-            >
-              <FileText size={16} /> PDF
-            </button>
+            <TabButton active={sourceTab === 'url'} onClick={() => setSourceTab('url')}>
+              <span className="flex items-center gap-2"><LinkIcon size={14} /> URL</span>
+            </TabButton>
+            <TabButton active={sourceTab === 'pdf'} onClick={() => setSourceTab('pdf')}>
+              <span className="flex items-center gap-2"><FileText size={14} /> PDF</span>
+            </TabButton>
           </div>
 
           {sourceTab === 'url' ? (

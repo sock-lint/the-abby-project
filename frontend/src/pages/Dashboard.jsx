@@ -6,6 +6,7 @@ import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
 import StatusBadge from '../components/StatusBadge';
+import { formatCurrency, formatDuration } from '../utils/format';
 
 export default function Dashboard() {
   const { data, loading } = useApi(getDashboard);
@@ -38,7 +39,7 @@ export default function Dashboard() {
                 <div className="text-lg font-heading font-bold">{active_timer.project_title}</div>
               </div>
               <div className="font-heading text-2xl text-amber-highlight font-bold">
-                {Math.floor(active_timer.elapsed_minutes / 60)}h {active_timer.elapsed_minutes % 60}m
+                {formatDuration(active_timer.elapsed_minutes)}
               </div>
             </div>
           </Card>
@@ -50,7 +51,7 @@ export default function Dashboard() {
         <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.05 }}>
           <Card>
             <DollarSign className="text-green-400 mb-1" size={20} />
-            <div className="font-heading text-2xl font-bold">${current_balance?.toFixed(2)}</div>
+            <div className="font-heading text-2xl font-bold">{formatCurrency(current_balance)}</div>
             <div className="text-xs text-forge-text-dim">Balance</div>
           </Card>
         </motion.div>
@@ -77,7 +78,7 @@ export default function Dashboard() {
         <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}>
           <Card>
             <DollarSign className="text-amber-highlight mb-1" size={20} />
-            <div className="font-heading text-2xl font-bold">${this_week?.earnings?.toFixed(2)}</div>
+            <div className="font-heading text-2xl font-bold">{formatCurrency(this_week?.earnings)}</div>
             <div className="text-xs text-forge-text-dim">Earned This Week</div>
           </Card>
         </motion.div>
@@ -148,8 +149,8 @@ export default function Dashboard() {
                   <span className="font-medium text-sm">{goal.title}</span>
                 </div>
                 <div className="flex justify-between text-xs text-forge-text-dim mb-1">
-                  <span>${parseFloat(goal.current_amount).toFixed(2)}</span>
-                  <span>${parseFloat(goal.target_amount).toFixed(2)}</span>
+                  <span>{formatCurrency(goal.current_amount)}</span>
+                  <span>{formatCurrency(goal.target_amount)}</span>
                 </div>
                 <div className="h-2 bg-forge-muted rounded-full overflow-hidden">
                   <motion.div
