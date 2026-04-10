@@ -12,6 +12,7 @@ import {
 import { useApi, useAuth } from '../hooks/useApi';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
+import ProgressBar from '../components/ProgressBar';
 import TabButton from '../components/TabButton';
 import ErrorAlert from '../components/ErrorAlert';
 import { RARITY_COLORS } from '../constants/colors';
@@ -577,13 +578,7 @@ export default function Achievements() {
                                 <span>{skill.xp_points} XP</span>
                                 <span>{nextThreshold} XP</span>
                               </div>
-                              <div className="h-1.5 bg-forge-muted rounded-full overflow-hidden">
-                                <motion.div
-                                  className="h-full bg-amber-primary rounded-full"
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${Math.min(100, progress)}%` }}
-                                />
-                              </div>
+                              <ProgressBar value={Math.min(100, progress)} />
                             </div>
                           )}
                           {!skill.unlocked && skill.prerequisites?.length > 0 && (

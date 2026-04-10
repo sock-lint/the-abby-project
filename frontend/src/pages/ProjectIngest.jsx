@@ -11,8 +11,10 @@ import {
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
+import DifficultyStars from '../components/DifficultyStars';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
+import { inputClass } from '../constants/styles';
 import TabButton from '../components/TabButton';
 import { normalizeList } from '../utils/api';
 
@@ -151,8 +153,6 @@ export default function ProjectIngest() {
     navigate('/projects');
   };
 
-  const inputClass = 'w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-base focus:outline-none focus:border-amber-primary';
-
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <button onClick={() => navigate('/projects')} className="flex items-center gap-1 text-sm text-forge-text-dim hover:text-forge-text">
@@ -271,7 +271,7 @@ export default function ProjectIngest() {
                     onClick={() => setOverrides({ ...overrides, difficulty: draft.ai_suggestions.difficulty })}
                     className="text-xs px-2 py-1 rounded-full border border-fuchsia-400/40 text-fuchsia-200 hover:bg-fuchsia-400/10"
                   >
-                    Difficulty: {'★'.repeat(draft.ai_suggestions.difficulty)}
+                    Difficulty: <DifficultyStars difficulty={draft.ai_suggestions.difficulty} />
                   </button>
                 )}
                 {(draft.ai_suggestions.skill_tags || []).map((tag, i) => (
@@ -327,7 +327,7 @@ export default function ProjectIngest() {
                   onChange={(e) => setOverrides({ ...overrides, difficulty: e.target.value })}
                   className={inputClass}
                 >
-                  {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'★'.repeat(d)} ({d})</option>)}
+                  {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
                 </select>
               </div>
             </div>

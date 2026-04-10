@@ -4,8 +4,11 @@ import { Plus, Sparkles } from 'lucide-react';
 import { getProjects, getProjectSuggestions } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
-import StatusBadge from '../components/StatusBadge';
+import DifficultyStars from '../components/DifficultyStars';
+import EmptyState from '../components/EmptyState';
 import Loader from '../components/Loader';
+import ProgressBar from '../components/ProgressBar';
+import StatusBadge from '../components/StatusBadge';
 import { normalizeList } from '../utils/api';
 
 export default function Projects({ user }) {
@@ -31,9 +34,9 @@ export default function Projects({ user }) {
       </div>
 
       {projects.length === 0 ? (
-        <Card className="text-center py-12 text-forge-text-dim">
+        <EmptyState>
           No projects yet. {user?.role === 'parent' ? 'Create one to get started!' : 'Ask a parent to create one!'}
-        </Card>
+        </EmptyState>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((p, i) => (
@@ -67,7 +70,7 @@ export default function Projects({ user }) {
                       {p.category.icon} {p.category.name}
                     </span>
                   )}
-                  <span>{'★'.repeat(p.difficulty)}{'☆'.repeat(5 - p.difficulty)}</span>
+                  <DifficultyStars difficulty={p.difficulty} />
                 </div>
                 {p.milestones_total > 0 && (
                   <div className="mb-2">
@@ -75,12 +78,7 @@ export default function Projects({ user }) {
                       <span>Progress</span>
                       <span>{p.milestones_completed}/{p.milestones_total}</span>
                     </div>
-                    <div className="h-1.5 bg-forge-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-amber-primary rounded-full transition-all"
-                        style={{ width: `${(p.milestones_completed / p.milestones_total) * 100}%` }}
-                      />
-                    </div>
+                    <ProgressBar value={p.milestones_completed} max={p.milestones_total} />
                   </div>
                 )}
                 {p.assigned_to && (
@@ -113,7 +111,7 @@ export default function Projects({ user }) {
                   <div className="text-xs text-forge-text-dim mb-2">{s.description}</div>
                   <div className="flex items-center gap-2 text-xs text-forge-text-dim">
                     {s.category && <span className="bg-forge-muted px-1.5 py-0.5 rounded">{s.category}</span>}
-                    <span>{'★'.repeat(s.difficulty || 1)}</span>
+                    <DifficultyStars difficulty={s.difficulty || 1} />
                     {s.estimated_hours && <span>{s.estimated_hours}h est.</span>}
                   </div>
                   {s.why && <div className="text-xs text-amber-highlight mt-2">{s.why}</div>}
