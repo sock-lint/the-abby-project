@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-summerforge}
       POSTGRES_USER: ${POSTGRES_USER:-summerforge}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-summerforge}"]
       interval: 10s
@@ -54,6 +54,18 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-dev-key-change-me-in-production}
+      DEBUG: ${DEBUG:-False}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-summerforge}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-summerforge}}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
+      PARENT_PASSWORD: ${PARENT_PASSWORD:-}
+      CHILD_PASSWORD: ${CHILD_PASSWORD:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
     depends_on:
       db:
         condition: service_healthy
@@ -79,6 +91,13 @@ services:
     command: celery -A config worker -l info --concurrency 4
     env_file:
       - .env
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-dev-key-change-me-in-production}
+      DEBUG: ${DEBUG:-False}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-summerforge}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-summerforge}}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
@@ -104,6 +123,12 @@ services:
     command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     env_file:
       - .env
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-dev-key-change-me-in-production}
+      DEBUG: ${DEBUG:-False}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-summerforge}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-summerforge}}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
     depends_on:
       db:
         condition: service_healthy

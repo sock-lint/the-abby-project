@@ -12,6 +12,15 @@ RUN npm run build
 # ─── Stage 2: Django + gunicorn, with the built bundle baked in ─────────────
 FROM python:3.12-slim
 
+# Coolify injects these build-args automatically; declare so BuildKit doesn't error
+ARG COOLIFY_FQDN
+ARG POSTGRES_USER
+ARG POSTGRES_PASSWORD
+ARG POSTGRES_DB
+ARG SERVICE_URL_DJANGO
+ARG SERVICE_FQDN_DJANGO
+ARG COOLIFY_BUILD_SECRETS_HASH
+
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
