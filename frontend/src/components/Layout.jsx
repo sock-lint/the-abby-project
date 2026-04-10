@@ -87,7 +87,27 @@ export default function Layout({ user, onLogout }) {
 
       {/* Main content */}
       <main className="flex-1 ml-0 md:ml-56 pb-20 md:pb-6">
-        <div className="flex items-center justify-end p-3 md:p-4 md:hidden">
+        <div className="flex items-center justify-between p-3 md:hidden">
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              `flex items-center gap-2 min-w-0 rounded-lg px-2 py-1 -ml-2 transition-colors ${
+                isActive ? 'bg-amber-primary/15' : 'hover:bg-forge-muted/50'
+              }`
+            }
+          >
+            <div className="w-9 h-9 shrink-0 rounded-full bg-amber-primary/20 flex items-center justify-center text-amber-highlight text-sm font-bold">
+              {(user?.display_name || user?.username || '?')[0].toUpperCase()}
+            </div>
+            <div className="text-sm min-w-0">
+              <div className="text-forge-text truncate leading-tight">
+                {user?.display_name || user?.username}
+              </div>
+              <div className="text-forge-text-dim text-xs capitalize leading-tight">
+                {user?.role}
+              </div>
+            </div>
+          </NavLink>
           <NotificationBell />
         </div>
         <div className="hidden md:flex items-center justify-end px-6 pt-4">
