@@ -3,20 +3,19 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
+from config.viewsets import RoleFilteredQuerySetMixin, get_child_or_404, child_not_found_response
 
 from .models import PaymentLedger
 from .serializers import PaymentLedgerSerializer
 from .services import PaymentService
 
 
-class PaymentLedgerViewSet(viewsets.ReadOnlyModelViewSet):
+class PaymentLedgerViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = PaymentLedgerSerializer
+    queryset = PaymentLedger.objects.all()
 
     def get_queryset(self):
-        user = self.request.user
-        if user.role == "parent":
-            return PaymentLedger.objects.all()
-        return PaymentLedger.objects.filter(user=user)
+        return self.get_role_filtered_queryset(super().get_queryset())
 
 
 class BalanceView(APIView):
@@ -26,14 +25,9 @@ class BalanceView(APIView):
         if user.role == "parent":
             child_id = request.query_params.get("user_id")
             if child_id:
-                from apps.projects.models import User
-                try:
-                    target_user = User.objects.get(id=child_id, role="child")
-                except User.DoesNotExist:
-                    return Response(
-                        {"error": "Child not found"},
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
+                target_user = get_child_or_404(child_id)
+                if target_user is None:
+                    return child_not_found_response()
 
         balance = PaymentService.get_balance(target_user)
         breakdown = PaymentService.get_breakdown(target_user)
@@ -57,12 +51,8 @@ class PayoutView(APIView):
                 {"error": "user_id and amount required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        from apps.projects.models import User
-        try:
-            child = User.objects.get(id=child_id, role="child")
-        except User.DoesNotExist:
-            return Response(
-                {"error": "Child not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+        child = get_child_or_404(child_id)
+        if child is None:
+            return child_not_found_response()
         entry = PaymentService.record_payout(child, amount, request.user)
         return Response(PaymentLedgerSerializer(entry).data, status=status.HTTP_201_CREATED)

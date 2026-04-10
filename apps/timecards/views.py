@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from apps.projects.models import Project
 from config.permissions import IsParent
+from config.viewsets import RoleFilteredQuerySetMixin
 
 from .models import Timecard, TimeEntry
 from .serializers import (
@@ -57,15 +58,12 @@ class ClockView(APIView):
         )
 
 
-class TimeEntryViewSet(viewsets.ModelViewSet):
+class TimeEntryViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
     serializer_class = TimeEntrySerializer
+    queryset = TimeEntry.objects.select_related("project")
 
     def get_queryset(self):
-        user = self.request.user
-        qs = TimeEntry.objects.select_related("project")
-        if user.role == "child":
-            qs = qs.filter(user=user)
-        return qs
+        return self.get_role_filtered_queryset(super().get_queryset())
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def void(self, request, pk=None):
@@ -75,14 +73,12 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         return Response(TimeEntrySerializer(entry).data)
 
 
-class TimecardViewSet(viewsets.ReadOnlyModelViewSet):
+class TimecardViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = TimecardSerializer
+    queryset = Timecard.objects.all()
 
     def get_queryset(self):
-        user = self.request.user
-        if user.role == "parent":
-            return Timecard.objects.all()
-        return Timecard.objects.filter(user=user)
+        return self.get_role_filtered_queryset(super().get_queryset())
 
     def get_serializer_class(self):
         if self.action == "retrieve":
@@ -111,21 +107,22 @@ class TimecardViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(TimecardSerializer(timecard).data)
 
 
+def _csv_response(content, filename):
+    from django.http import HttpResponse
+    response = HttpResponse(content, content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
 class ExportTimecardsView(APIView):
     def get(self, request):
-        from django.http import HttpResponse
         from .export import export_timecards_csv
         csv_content = export_timecards_csv(request.user, request.user.role == "parent")
-        response = HttpResponse(csv_content, content_type="text/csv")
-        response["Content-Disposition"] = 'attachment; filename="timecards.csv"'
-        return response
+        return _csv_response(csv_content, "timecards.csv")
 
 
 class ExportTimeEntriesView(APIView):
     def get(self, request):
-        from django.http import HttpResponse
         from .export import export_time_entries_csv
         csv_content = export_time_entries_csv(request.user, request.user.role == "parent")
-        response = HttpResponse(csv_content, content_type="text/csv")
-        response["Content-Disposition"] = 'attachment; filename="time_entries.csv"'
-        return response
+        return _csv_response(csv_content, "time_entries.csv")

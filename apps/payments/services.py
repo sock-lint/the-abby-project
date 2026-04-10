@@ -1,26 +1,14 @@
 from decimal import Decimal
 
-from django.db.models import Sum
+from config.services import BaseLedgerService
 
 from .models import PaymentLedger
 
 
-class PaymentService:
-    @staticmethod
-    def get_balance(user):
-        """Get the current balance for a user."""
-        total = PaymentLedger.objects.filter(user=user).aggregate(
-            total=Sum("amount")
-        )["total"]
-        return total or Decimal("0.00")
-
-    @staticmethod
-    def get_breakdown(user):
-        """Get balance breakdown by entry type."""
-        entries = PaymentLedger.objects.filter(user=user).values(
-            "entry_type"
-        ).annotate(total=Sum("amount")).order_by("entry_type")
-        return {e["entry_type"]: e["total"] for e in entries}
+class PaymentService(BaseLedgerService):
+    ledger_model = PaymentLedger
+    category_field = "entry_type"
+    default_value = Decimal("0.00")
 
     @staticmethod
     def record_entry(

@@ -6,6 +6,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
+from config.viewsets import (
+    NestedProjectResourceMixin, RoleFilteredQuerySetMixin,
+    get_child_or_404, child_not_found_response,
+)
 
 from .models import (
     MaterialItem, Project, ProjectCollaborator, ProjectIngestionJob,
@@ -145,14 +149,13 @@ class SkillCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = SkillCategorySerializer
 
 
-class ProjectViewSet(viewsets.ModelViewSet):
+class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
     serializer_class = ProjectDetailSerializer
+    queryset = Project.objects.all()
+    role_filter_field = "assigned_to"
 
     def get_queryset(self):
-        user = self.request.user
-        if user.role == "parent":
-            return Project.objects.all()
-        return Project.objects.filter(assigned_to=user)
+        return self.get_role_filtered_queryset(super().get_queryset())
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -215,16 +218,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Response(ProjectDetailSerializer(project).data)
 
 
-class ProjectMilestoneViewSet(viewsets.ModelViewSet):
+class ProjectMilestoneViewSet(NestedProjectResourceMixin, viewsets.ModelViewSet):
     serializer_class = ProjectMilestoneSerializer
-
-    def get_queryset(self):
-        return ProjectMilestone.objects.filter(
-            project_id=self.kwargs.get("project_pk")
-        )
-
-    def perform_create(self, serializer):
-        serializer.save(project_id=self.kwargs["project_pk"])
+    queryset = ProjectMilestone.objects.all()
 
     @action(detail=True, methods=["post"])
     def complete(self, request, project_pk=None, pk=None):
@@ -234,16 +230,9 @@ class ProjectMilestoneViewSet(viewsets.ModelViewSet):
         return Response(ProjectMilestoneSerializer(milestone).data)
 
 
-class MaterialItemViewSet(viewsets.ModelViewSet):
+class MaterialItemViewSet(NestedProjectResourceMixin, viewsets.ModelViewSet):
     serializer_class = MaterialItemSerializer
-
-    def get_queryset(self):
-        return MaterialItem.objects.filter(
-            project_id=self.kwargs.get("project_pk")
-        )
-
-    def perform_create(self, serializer):
-        serializer.save(project_id=self.kwargs["project_pk"])
+    queryset = MaterialItem.objects.all()
 
     @action(detail=True, methods=["post"], url_path="mark-purchased")
     def mark_purchased(self, request, project_pk=None, pk=None):
@@ -435,16 +424,9 @@ class ProjectTemplateViewSet(viewsets.ModelViewSet):
         return Response(ProjectTemplateSerializer(template).data, status=status.HTTP_201_CREATED)
 
 
-class ProjectCollaboratorViewSet(viewsets.ModelViewSet):
+class ProjectCollaboratorViewSet(NestedProjectResourceMixin, viewsets.ModelViewSet):
     serializer_class = ProjectCollaboratorSerializer
-
-    def get_queryset(self):
-        return ProjectCollaborator.objects.filter(
-            project_id=self.kwargs.get("project_pk")
-        )
-
-    def perform_create(self, serializer):
-        serializer.save(project_id=self.kwargs["project_pk"])
+    queryset = ProjectCollaborator.objects.all()
 
     def get_permissions(self):
         if self.action in ("create", "destroy"):
@@ -638,10 +620,9 @@ class GreenlightImportView(APIView):
         if not child_id:
             return Response({"error": "user_id required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            child = User.objects.get(id=child_id, role="child")
-        except User.DoesNotExist:
-            return Response({"error": "Child not found"}, status=status.HTTP_404_NOT_FOUND)
+        child = get_child_or_404(child_id)
+        if child is None:
+            return child_not_found_response()
 
         reader = csv.DictReader(io.StringIO(csv_file))
         imported = 0
