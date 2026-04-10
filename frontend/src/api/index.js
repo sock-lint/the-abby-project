@@ -34,6 +34,10 @@ export const getMilestones = (projectId) =>
   api.get(`/projects/${projectId}/milestones/`);
 export const createMilestone = (projectId, data) =>
   api.post(`/projects/${projectId}/milestones/`, data);
+export const updateMilestone = (projectId, id, data) =>
+  api.patch(`/projects/${projectId}/milestones/${id}/`, data);
+export const deleteMilestone = (projectId, id) =>
+  api.delete(`/projects/${projectId}/milestones/${id}/`);
 export const completeMilestone = (projectId, id) =>
   api.post(`/projects/${projectId}/milestones/${id}/complete/`);
 
@@ -42,6 +46,10 @@ export const getMaterials = (projectId) =>
   api.get(`/projects/${projectId}/materials/`);
 export const createMaterial = (projectId, data) =>
   api.post(`/projects/${projectId}/materials/`, data);
+export const updateMaterial = (projectId, id, data) =>
+  api.patch(`/projects/${projectId}/materials/${id}/`, data);
+export const deleteMaterial = (projectId, id) =>
+  api.delete(`/projects/${projectId}/materials/${id}/`);
 export const markPurchased = (projectId, id, actual_cost) =>
   api.post(`/projects/${projectId}/materials/${id}/mark-purchased/`, { actual_cost });
 
@@ -71,6 +79,7 @@ export const clockOut = (notes) =>
 
 // Time Entries
 export const getTimeEntries = () => api.get('/time-entries/');
+export const voidTimeEntry = (id) => api.post(`/time-entries/${id}/void/`);
 
 // Timecards
 export const getTimecards = () => api.get('/timecards/');
@@ -153,6 +162,8 @@ export const getInstructablesPreview = (url) =>
 // Project Templates
 export const getTemplates = () => api.get('/templates/');
 export const getTemplate = (id) => api.get(`/templates/${id}/`);
+export const updateTemplate = (id, data) => api.patch(`/templates/${id}/`, data);
+export const deleteTemplate = (id) => api.delete(`/templates/${id}/`);
 export const createProjectFromTemplate = (id, assigned_to_id) =>
   api.post(`/templates/${id}/create-project/`, { assigned_to_id });
 export const saveProjectAsTemplate = (project_id, is_public = false) =>
@@ -171,6 +182,10 @@ export const getProjectSuggestions = () => api.get('/projects/suggestions/');
 export const getCollaborators = (projectId) => api.get(`/projects/${projectId}/collaborators/`);
 export const addCollaborator = (projectId, user_id, pay_split_percent) =>
   api.post(`/projects/${projectId}/collaborators/`, { user_id, pay_split_percent });
+
+// Children (parent-only)
+export const getChildren = () => api.get('/children/');
+export const updateChild = (id, data) => api.patch(`/children/${id}/`, data);
 
 // Greenlight Import
 export const importGreenlight = (user_id, csv_data) =>

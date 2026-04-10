@@ -17,8 +17,9 @@ from .models import (
     TemplateMaterial, TemplateMilestone, User,
 )
 from .serializers import (
-    MaterialItemSerializer, NotificationSerializer, ProjectCollaboratorSerializer,
-    ProjectDetailSerializer, ProjectIngestionJobSerializer, ProjectListSerializer,
+    ChildSerializer, MaterialItemSerializer, NotificationSerializer,
+    ProjectCollaboratorSerializer, ProjectDetailSerializer,
+    ProjectIngestionJobSerializer, ProjectListSerializer,
     ProjectMilestoneSerializer, ProjectTemplateSerializer, SavingsGoalSerializer,
     SkillCategorySerializer, UserSerializer,
 )
@@ -60,6 +61,15 @@ class MeView(APIView):
             user.theme = request.data["theme"]
             user.save(update_fields=["theme"])
         return Response(UserSerializer(user).data)
+
+
+class ChildViewSet(viewsets.ModelViewSet):
+    serializer_class = ChildSerializer
+    permission_classes = [IsParent]
+    http_method_names = ["get", "patch", "head", "options"]
+
+    def get_queryset(self):
+        return User.objects.filter(role="child")
 
 
 class DashboardView(APIView):

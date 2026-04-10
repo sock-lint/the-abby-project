@@ -15,6 +15,7 @@ import Payments from './pages/Payments';
 import Rewards from './pages/Rewards';
 import Achievements from './pages/Achievements';
 import Portfolio from './pages/Portfolio';
+import Manage from './pages/Manage';
 import SettingsPage from './pages/SettingsPage';
 import Loader from './components/Loader';
 
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="/rewards" element={<Rewards />} />
           <Route path="/achievements" element={<Achievements />} />
           <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/manage" element={<Manage />} />
           <Route path="/settings" element={<SettingsPage user={user} onLogout={logout} />} />
         </Route>
       </Routes>

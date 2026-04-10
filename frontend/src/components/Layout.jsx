@@ -4,10 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, FolderKanban, Clock, FileText,
   DollarSign, Gift, Trophy, Camera, Settings, LogOut, MoreHorizontal,
+  SlidersHorizontal,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 
-const navItems = [
+const allNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/clock', icon: Clock, label: 'Clock' },
@@ -16,16 +17,18 @@ const navItems = [
   { to: '/rewards', icon: Gift, label: 'Rewards' },
   { to: '/achievements', icon: Trophy, label: 'Achievements' },
   { to: '/portfolio', icon: Camera, label: 'Portfolio' },
+  { to: '/manage', icon: SlidersHorizontal, label: 'Manage', parentOnly: true },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 // Mobile bottom nav: 5 primary tabs + a "More" button that opens a sheet with the rest.
 const mobilePrimary = ['/', '/projects', '/clock', '/timecards', '/rewards'];
-const primaryNavItems = navItems.filter((n) => mobilePrimary.includes(n.to));
-const overflowNavItems = navItems.filter((n) => !mobilePrimary.includes(n.to));
 
 export default function Layout({ user, onLogout }) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const navItems = allNavItems.filter((n) => !n.parentOnly || user?.role === 'parent');
+  const primaryNavItems = navItems.filter((n) => mobilePrimary.includes(n.to));
+  const overflowNavItems = navItems.filter((n) => !mobilePrimary.includes(n.to));
 
   return (
     <div className="flex min-h-screen">
