@@ -134,7 +134,7 @@ export default function Rewards() {
                 <div className="text-3xl mb-1 text-center">{r.icon || '🎁'}</div>
                 <div className="text-sm font-medium text-center">{r.name}</div>
                 {r.description && (
-                  <div className="text-[10px] text-forge-text-dim text-center mt-1 line-clamp-2">
+                  <div className="text-xs text-forge-text-dim text-center mt-1 line-clamp-2">
                     {r.description}
                   </div>
                 )}
@@ -142,7 +142,7 @@ export default function Rewards() {
                   <Coins size={12} /> {r.cost_coins}
                 </div>
                 {r.stock !== null && r.stock !== undefined && (
-                  <div className="text-[10px] text-forge-text-dim text-center">
+                  <div className="text-xs text-forge-text-dim text-center">
                     {r.stock} left
                   </div>
                 )}
@@ -173,7 +173,7 @@ export default function Rewards() {
                   <div className="text-xl">{r.reward.icon || '🎁'}</div>
                   <div>
                     <div className="text-sm font-medium">{r.reward.name}</div>
-                    <div className="text-[11px] text-forge-text-dim">
+                    <div className="text-xs text-forge-text-dim">
                       {isParent && `${r.user_name} • `}
                       {new Date(r.requested_at).toLocaleDateString()} • {r.coin_cost_snapshot} coins
                     </div>

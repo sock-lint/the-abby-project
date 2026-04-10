@@ -148,7 +148,7 @@ export default function ProjectIngest() {
     navigate('/projects');
   };
 
-  const inputClass = 'w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-sm focus:outline-none focus:border-amber-primary';
+  const inputClass = 'w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-base focus:outline-none focus:border-amber-primary';
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -314,7 +314,7 @@ export default function ProjectIngest() {
               <textarea value={draft.description || ''} onChange={(e) => setDraft({ ...draft, description: e.target.value })} className={`${inputClass} h-20 resize-none`} />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-forge-text-dim mb-1">Category</label>
                 <select
@@ -342,14 +342,14 @@ export default function ProjectIngest() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm text-forge-text-dim mb-1">Bonus ($)</label>
-                <input value={overrides.bonus_amount} onChange={(e) => setOverrides({ ...overrides, bonus_amount: e.target.value })} className={inputClass} type="number" step="0.01" min="0" />
+                <input value={overrides.bonus_amount} onChange={(e) => setOverrides({ ...overrides, bonus_amount: e.target.value })} className={inputClass} type="number" step="0.01" min="0" inputMode="decimal" />
               </div>
               <div>
                 <label className="block text-sm text-forge-text-dim mb-1">Materials Budget ($)</label>
-                <input value={overrides.materials_budget} onChange={(e) => setOverrides({ ...overrides, materials_budget: e.target.value })} className={inputClass} type="number" step="0.01" min="0" />
+                <input value={overrides.materials_budget} onChange={(e) => setOverrides({ ...overrides, materials_budget: e.target.value })} className={inputClass} type="number" step="0.01" min="0" inputMode="decimal" />
               </div>
               <div>
                 <label className="block text-sm text-forge-text-dim mb-1">Due Date</label>
@@ -372,8 +372,13 @@ export default function ProjectIngest() {
                     value={m.title} onChange={(e) => updateMilestone(i, { title: e.target.value })}
                     className={inputClass} placeholder={`Step ${i + 1}`}
                   />
-                  <button onClick={() => removeMilestone(i)} className="text-forge-text-dim hover:text-red-400 px-2">
-                    <Trash2 size={16} />
+                  <button
+                    type="button"
+                    onClick={() => removeMilestone(i)}
+                    aria-label="Remove milestone"
+                    className="text-forge-text-dim hover:text-red-400 shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
+                  >
+                    <Trash2 size={18} />
                   </button>
                 </div>
                 <textarea
@@ -402,10 +407,15 @@ export default function ProjectIngest() {
                 <input
                   value={m.estimated_cost ?? ''}
                   onChange={(e) => updateMaterial(i, { estimated_cost: e.target.value })}
-                  className={`${inputClass} w-24`} type="number" step="0.01" min="0" placeholder="$ est."
+                  className={`${inputClass} w-24`} type="number" step="0.01" min="0" inputMode="decimal" placeholder="$ est."
                 />
-                <button onClick={() => removeMaterial(i)} className="text-forge-text-dim hover:text-red-400 px-2">
-                  <Trash2 size={16} />
+                <button
+                  type="button"
+                  onClick={() => removeMaterial(i)}
+                  aria-label="Remove material"
+                  className="text-forge-text-dim hover:text-red-400 shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
+                >
+                  <Trash2 size={18} />
                 </button>
               </div>
             ))}

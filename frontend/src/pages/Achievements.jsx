@@ -73,8 +73,8 @@ export default function Achievements() {
             >
               <Card className={`text-center ${rarityColors[ub.badge.rarity]}`}>
                 <div className="text-3xl mb-1">{ub.badge.icon}</div>
-                <div className="text-[10px] font-medium leading-tight">{ub.badge.name}</div>
-                <div className={`text-[9px] capitalize ${rarityText[ub.badge.rarity]}`}>{ub.badge.rarity}</div>
+                <div className="text-xs font-medium leading-tight">{ub.badge.name}</div>
+                <div className={`text-[10px] capitalize ${rarityText[ub.badge.rarity]}`}>{ub.badge.rarity}</div>
               </Card>
             </motion.div>
           ))}
@@ -126,7 +126,7 @@ export default function Achievements() {
                       <span className="font-heading text-sm font-bold text-forge-text">{subject.name}</span>
                     </div>
                     {subject.summary && (
-                      <span className="text-[10px] text-forge-text-dim">
+                      <span className="text-xs text-forge-text-dim">
                         L{subject.summary.level} · {subject.summary.total_xp} XP
                       </span>
                     )}
@@ -167,7 +167,7 @@ export default function Achievements() {
                       </div>
                       {skill.unlocked && (
                         <div>
-                          <div className="flex justify-between text-[10px] text-forge-text-dim mb-1">
+                          <div className="flex justify-between text-xs text-forge-text-dim mb-1">
                             <span>{skill.xp_points} XP</span>
                             <span>{nextThreshold} XP</span>
                           </div>
@@ -181,7 +181,7 @@ export default function Achievements() {
                         </div>
                       )}
                       {!skill.unlocked && skill.prerequisites?.length > 0 && (
-                        <div className="text-[10px] text-forge-text-dim mt-1">
+                        <div className="text-xs text-forge-text-dim mt-1">
                           Requires: {skill.prerequisites.map(p =>
                             `${p.skill_name} L${p.required_level}${p.met ? ' ✓' : ''}`
                           ).join(', ')}

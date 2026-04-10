@@ -107,6 +107,13 @@ export const getCoinBalance = () => api.get('/coins/');
 // Portfolio
 export const getPortfolio = () => api.get('/portfolio/');
 export const getPhotos = () => api.get('/photos/');
+export const uploadPhoto = (projectId, file, caption = '') => {
+  const fd = new FormData();
+  fd.append('project', projectId);
+  fd.append('image', file);
+  if (caption) fd.append('caption', caption);
+  return api.upload('/photos/', fd);
+};
 
 // Categories
 export const getCategories = () => api.get('/categories/');
