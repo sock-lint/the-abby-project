@@ -4,7 +4,9 @@ import { Clock, Coins, DollarSign, Flame, FolderKanban, Trophy, Timer, Target } 
 import { getDashboard } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
+import DifficultyStars from '../components/DifficultyStars';
 import Loader from '../components/Loader';
+import ProgressBar from '../components/ProgressBar';
 import StatusBadge from '../components/StatusBadge';
 import { formatCurrency, formatDuration } from '../utils/format';
 
@@ -111,8 +113,7 @@ export default function Dashboard() {
                     <StatusBadge status={p.status} />
                   </div>
                   <div className="flex items-center gap-2 text-xs text-forge-text-dim mb-2">
-                    <span>{'*'.repeat(p.difficulty)}{'*' === '' ? '' : ''}</span>
-                    <span>{'★'.repeat(p.difficulty)}{'☆'.repeat(5 - p.difficulty)}</span>
+                    <DifficultyStars difficulty={p.difficulty} />
                   </div>
                   {p.milestones_total > 0 && (
                     <div>
@@ -120,12 +121,7 @@ export default function Dashboard() {
                         <span>Milestones</span>
                         <span>{p.milestones_completed}/{p.milestones_total}</span>
                       </div>
-                      <div className="h-1.5 bg-forge-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-amber-primary rounded-full transition-all"
-                          style={{ width: `${(p.milestones_completed / p.milestones_total) * 100}%` }}
-                        />
-                      </div>
+                      <ProgressBar value={p.milestones_completed} max={p.milestones_total} />
                     </div>
                   )}
                 </Card>
@@ -152,13 +148,7 @@ export default function Dashboard() {
                   <span>{formatCurrency(goal.current_amount)}</span>
                   <span>{formatCurrency(goal.target_amount)}</span>
                 </div>
-                <div className="h-2 bg-forge-muted rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-green-500 rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${goal.percent_complete}%` }}
-                  />
-                </div>
+                <ProgressBar value={goal.percent_complete} max={100} color="bg-green-500" className="h-2" />
                 <div className="text-xs text-forge-text-dim mt-1 text-right">{goal.percent_complete}%</div>
               </Card>
             ))}

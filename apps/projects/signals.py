@@ -3,16 +3,20 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 
+def _track_previous_value(instance, sender, field, default=None):
+    """Read a field's DB value before save for post_save comparison."""
+    if instance.pk:
+        try:
+            return getattr(sender.objects.get(pk=instance.pk), field)
+        except sender.DoesNotExist:
+            return default
+    return default
+
+
 @receiver(pre_save, sender="projects.Project")
 def track_project_status_change(sender, instance, **kwargs):
     """Track the previous status for post_save comparison."""
-    if instance.pk:
-        try:
-            instance._previous_status = sender.objects.get(pk=instance.pk).status
-        except sender.DoesNotExist:
-            instance._previous_status = None
-    else:
-        instance._previous_status = None
+    instance._previous_status = _track_previous_value(instance, sender, "status")
 
 
 @receiver(post_save, sender="projects.Project")
@@ -73,13 +77,9 @@ def handle_project_status_change(sender, instance, created, **kwargs):
 @receiver(pre_save, sender="projects.ProjectMilestone")
 def track_milestone_completion(sender, instance, **kwargs):
     """Track previous completion state."""
-    if instance.pk:
-        try:
-            instance._was_completed = sender.objects.get(pk=instance.pk).is_completed
-        except sender.DoesNotExist:
-            instance._was_completed = False
-    else:
-        instance._was_completed = False
+    instance._was_completed = _track_previous_value(
+        instance, sender, "is_completed", default=False,
+    )
 
 
 @receiver(post_save, sender="projects.ProjectMilestone")

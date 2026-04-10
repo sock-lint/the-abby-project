@@ -5,7 +5,9 @@ import { createProject, getCategories } from '../api';
 import { api } from '../api/client';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
+import DifficultyStars from '../components/DifficultyStars';
 import ErrorAlert from '../components/ErrorAlert';
+import { inputClass } from '../constants/styles';
 import { normalizeList } from '../utils/api';
 
 export default function ProjectNew() {
@@ -52,8 +54,6 @@ export default function ProjectNew() {
       setError(err.message);
     }
   };
-
-  const inputClass = 'w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-base focus:outline-none focus:border-amber-primary';
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -122,7 +122,7 @@ export default function ProjectNew() {
             <div>
               <label className="block text-sm text-forge-text-dim mb-1">Difficulty</label>
               <select value={form.difficulty} onChange={set('difficulty')} className={inputClass}>
-                {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'★'.repeat(d)} ({d})</option>)}
+                {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
               </select>
             </div>
           </div>

@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
+from config.viewsets import RoleFilteredQuerySetMixin, get_child_or_404, child_not_found_response
 
 from .models import CoinLedger, Reward, RewardRedemption
 from .serializers import (
@@ -12,10 +13,6 @@ from .serializers import (
 from .services import (
     CoinService, InsufficientCoinsError, RewardService, RewardUnavailableError,
 )
-
-
-def _is_parent(user):
-    return getattr(user, "role", None) == "parent"
 
 
 class RewardViewSet(viewsets.ReadOnlyModelViewSet):
@@ -37,14 +34,12 @@ class RewardViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
 
-class RewardRedemptionViewSet(viewsets.ReadOnlyModelViewSet):
+class RewardRedemptionViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = RewardRedemptionSerializer
+    queryset = RewardRedemption.objects.select_related("reward", "user")
 
     def get_queryset(self):
-        qs = RewardRedemption.objects.select_related("reward", "user")
-        if _is_parent(self.request.user):
-            return qs
-        return qs.filter(user=self.request.user)
+        return self.get_role_filtered_queryset(super().get_queryset())
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def approve(self, request, pk=None):
@@ -63,16 +58,12 @@ class CoinBalanceView(APIView):
     def get(self, request):
         user = request.user
         target_user = user
-        if _is_parent(user):
+        if user.role == "parent":
             child_id = request.query_params.get("user_id")
             if child_id:
-                from apps.projects.models import User
-                try:
-                    target_user = User.objects.get(id=child_id, role="child")
-                except User.DoesNotExist:
-                    return Response(
-                        {"error": "Child not found"}, status=status.HTTP_404_NOT_FOUND
-                    )
+                target_user = get_child_or_404(child_id)
+                if target_user is None:
+                    return child_not_found_response()
 
         balance = CoinService.get_balance(target_user)
         breakdown = CoinService.get_breakdown(target_user)

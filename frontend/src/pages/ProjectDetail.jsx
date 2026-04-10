@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ExternalLink, ArrowLeft, DollarSign, QrCode, Copy, X } from 'lucide-react';
+import { Check, ExternalLink, ArrowLeft, DollarSign, QrCode, Copy } from 'lucide-react';
 import { getProject, submitProject, approveProject, requestChanges, completeMilestone, markPurchased, saveProjectAsTemplate, activateProject } from '../api';
 import { useApi } from '../hooks/useApi';
+import BottomSheet from '../components/BottomSheet';
 import Card from '../components/Card';
-import StatusBadge from '../components/StatusBadge';
+import DifficultyStars from '../components/DifficultyStars';
+import EmptyState from '../components/EmptyState';
 import Loader from '../components/Loader';
+import StatusBadge from '../components/StatusBadge';
 
 const tabs = ['Overview', 'Milestones', 'Materials'];
 
@@ -75,7 +78,7 @@ export default function ProjectDetail({ user }) {
               </span>
             )}
             {project.category && <span>{project.category.icon} {project.category.name}</span>}
-            <span>{'★'.repeat(project.difficulty)}{'☆'.repeat(5 - project.difficulty)}</span>
+            <DifficultyStars difficulty={project.difficulty} />
           </div>
         </div>
         <div className="flex gap-2">
@@ -191,7 +194,7 @@ export default function ProjectDetail({ user }) {
           {activeTab === 'Milestones' && (
             <div className="space-y-2">
               {project.milestones?.length === 0 && (
-                <Card className="text-center py-8 text-forge-text-dim">No milestones</Card>
+                <EmptyState className="py-8">No milestones</EmptyState>
               )}
               {project.milestones?.map((ms) => (
                 <motion.div key={ms.id} layout>
@@ -246,7 +249,7 @@ export default function ProjectDetail({ user }) {
                 </Card>
               )}
               {project.materials?.length === 0 && (
-                <Card className="text-center py-8 text-forge-text-dim">No materials</Card>
+                <EmptyState className="py-8">No materials</EmptyState>
               )}
               {project.materials?.map((mat) => (
                 <Card key={mat.id} className="flex items-center justify-between">
@@ -305,68 +308,36 @@ function RequestChangesModal({ onClose, onSubmit }) {
   };
 
   return (
-    <>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={submitting ? undefined : onClose}
-        className="fixed inset-0 bg-black/60 z-40"
+    <BottomSheet title="Request Changes" onClose={onClose} disabled={submitting}>
+      <p className="text-sm text-forge-text-dim">
+        Tell the maker what needs to change before you approve this project.
+      </p>
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="What should they fix or add?"
+        autoFocus
+        rows={4}
+        className="w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-base resize-none focus:outline-none focus:border-amber-primary"
       />
-      <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        className="fixed bottom-0 left-0 right-0 bg-forge-card border-t border-forge-border rounded-t-2xl z-50 pb-[env(safe-area-inset-bottom)] md:left-1/2 md:right-auto md:bottom-auto md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md md:rounded-2xl md:border"
-      >
-        <div className="flex justify-center pt-2 md:hidden">
-          <div className="w-10 h-1 rounded-full bg-forge-muted" />
-        </div>
-        <div className="flex items-center justify-between px-4 pt-3 pb-2">
-          <h2 className="font-heading text-lg font-bold">Request Changes</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            aria-label="Close"
-            className="text-forge-text-dim hover:text-forge-text min-h-10 min-w-10 flex items-center justify-center rounded-lg"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <div className="px-4 pb-4 space-y-3">
-          <p className="text-sm text-forge-text-dim">
-            Tell the maker what needs to change before you approve this project.
-          </p>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="What should they fix or add?"
-            autoFocus
-            rows={4}
-            className="w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-base resize-none focus:outline-none focus:border-amber-primary"
-          />
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="flex-1 bg-forge-muted hover:bg-forge-border text-forge-text font-medium py-3 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={submitting || !notes.trim()}
-              className="flex-1 bg-amber-primary hover:bg-amber-highlight disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold py-3 rounded-lg transition-colors"
-            >
-              {submitting ? 'Sending…' : 'Send'}
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={submitting}
+          className="flex-1 bg-forge-muted hover:bg-forge-border text-forge-text font-medium py-3 rounded-lg transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={submitting || !notes.trim()}
+          className="flex-1 bg-amber-primary hover:bg-amber-highlight disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold py-3 rounded-lg transition-colors"
+        >
+          {submitting ? 'Sending…' : 'Send'}
+        </button>
+      </div>
+    </BottomSheet>
   );
 }

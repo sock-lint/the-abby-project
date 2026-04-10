@@ -4,8 +4,9 @@ import { ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { getTimecards, getTimecard, approveTimecard, disputeTimecard, markTimecardPaid } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
-import StatusBadge from '../components/StatusBadge';
+import EmptyState from '../components/EmptyState';
 import Loader from '../components/Loader';
+import StatusBadge from '../components/StatusBadge';
 import { formatCurrency, formatDate, formatDuration } from '../utils/format';
 import { normalizeList } from '../utils/api';
 
@@ -57,7 +58,7 @@ export default function Timecards({ user }) {
       </div>
 
       {timecards.length === 0 ? (
-        <Card className="text-center py-12 text-forge-text-dim">No timecards yet</Card>
+        <EmptyState>No timecards yet</EmptyState>
       ) : (
         <div className="space-y-3">
           {timecards.map((tc) => (

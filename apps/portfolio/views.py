@@ -4,19 +4,19 @@ from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config.viewsets import RoleFilteredQuerySetMixin
+
 from .models import ProjectPhoto
 from .serializers import ProjectPhotoSerializer
 
 
-class ProjectPhotoViewSet(viewsets.ModelViewSet):
+class ProjectPhotoViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
     serializer_class = ProjectPhotoSerializer
+    queryset = ProjectPhoto.objects.select_related("project")
+    role_filter_field = "project__assigned_to"
 
     def get_queryset(self):
-        user = self.request.user
-        qs = ProjectPhoto.objects.select_related("project")
-        if user.role == "child":
-            qs = qs.filter(project__assigned_to=user)
-        return qs
+        return self.get_role_filtered_queryset(super().get_queryset())
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -26,7 +26,7 @@ class PortfolioView(APIView):
     def get(self, request):
         user = request.user
         photos = ProjectPhoto.objects.select_related("project")
-        if user.role == "child":
+        if user.role != "parent":
             photos = photos.filter(project__assigned_to=user)
 
         grouped = {}

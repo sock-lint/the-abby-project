@@ -1,6 +1,7 @@
 from django.db import transaction
-from django.db.models import Sum
 from django.utils import timezone
+
+from config.services import BaseLedgerService
 
 from .models import CoinLedger, Reward, RewardRedemption
 
@@ -13,20 +14,10 @@ class RewardUnavailableError(Exception):
     pass
 
 
-class CoinService:
-    @staticmethod
-    def get_balance(user):
-        total = CoinLedger.objects.filter(user=user).aggregate(
-            total=Sum("amount"),
-        )["total"]
-        return int(total or 0)
-
-    @staticmethod
-    def get_breakdown(user):
-        entries = CoinLedger.objects.filter(user=user).values(
-            "reason"
-        ).annotate(total=Sum("amount")).order_by("reason")
-        return {e["reason"]: int(e["total"] or 0) for e in entries}
+class CoinService(BaseLedgerService):
+    ledger_model = CoinLedger
+    category_field = "reason"
+    default_value = 0
 
     @staticmethod
     def award_coins(user, amount, reason, *, description="", created_by=None, redemption=None):
@@ -114,16 +105,22 @@ class RewardService:
         return redemption
 
     @staticmethod
-    @transaction.atomic
-    def approve(redemption, parent, notes=""):
-        if redemption.status != RewardRedemption.Status.PENDING:
-            return redemption
-        redemption.status = RewardRedemption.Status.FULFILLED
+    def _finalize_decision(redemption, new_status, parent, notes):
+        redemption.status = new_status
         redemption.decided_at = timezone.now()
         redemption.decided_by = parent
         if notes:
             redemption.parent_notes = notes
         redemption.save(update_fields=["status", "decided_at", "decided_by", "parent_notes"])
+
+    @staticmethod
+    @transaction.atomic
+    def approve(redemption, parent, notes=""):
+        if redemption.status != RewardRedemption.Status.PENDING:
+            return redemption
+        RewardService._finalize_decision(
+            redemption, RewardRedemption.Status.FULFILLED, parent, notes,
+        )
         return redemption
 
     @staticmethod
@@ -144,10 +141,7 @@ class RewardService:
         reward = redemption.reward
         if reward.stock is not None:
             Reward.objects.filter(pk=reward.pk).update(stock=reward.stock + 1)
-        redemption.status = RewardRedemption.Status.DENIED
-        redemption.decided_at = timezone.now()
-        redemption.decided_by = parent
-        if notes:
-            redemption.parent_notes = notes
-        redemption.save(update_fields=["status", "decided_at", "decided_by", "parent_notes"])
+        RewardService._finalize_decision(
+            redemption, RewardRedemption.Status.DENIED, parent, notes,
+        )
         return redemption
