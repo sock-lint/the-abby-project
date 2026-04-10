@@ -64,9 +64,6 @@ class InstructablesIngestor(BaseIngestor):
                 MilestoneDraft(title=step_title, description=step_desc, order=i)
             )
 
-        if not result.milestones:
-            result.warnings.append("No steps found — add milestones manually.")
-
         # Supplies list -> materials
         supplies_section = (
             soup.find(id="supplies")
@@ -78,10 +75,8 @@ class InstructablesIngestor(BaseIngestor):
                 text = li.get_text(" ", strip=True)
                 if text:
                     result.materials.append(MaterialDraft(name=text[:200]))
-        if not result.materials:
-            result.warnings.append(
-                "No supplies list found — add materials manually."
-            )
+
+        self.add_missing_section_warnings(result)
 
         # Category hint
         og_section = soup.find("meta", property="article:section")

@@ -56,6 +56,13 @@ COINS_PER_BADGE_RARITY = {
     "legendary": 150,
 }
 
+# --- Anthropic / Claude ---------------------------------------------------
+# Optional. When set, enables Claude-powered ingestion enrichment and
+# project suggestion flows. Both call sites should import these names
+# from django.conf.settings (never re-read os.environ).
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",

@@ -117,3 +117,24 @@ class BaseIngestor:
             raise ValueError(f"Failed to fetch URL: {exc}") from exc
         cache.set(key, resp.text, timeout=CACHE_TTL_SECONDS)
         return resp.text
+
+    @staticmethod
+    def add_missing_section_warnings(
+        result: IngestionResult,
+        *,
+        source_label: str = "",
+    ) -> None:
+        """Append standard warnings when steps / materials were not parsed.
+
+        ``source_label`` (e.g. ``"in PDF"``) is interpolated so each ingestor
+        can produce a source-appropriate message without cloning the logic.
+        """
+        suffix = f" {source_label}" if source_label else ""
+        if not result.milestones:
+            result.warnings.append(
+                f"No steps found{suffix} — add milestones manually."
+            )
+        if not result.materials:
+            result.warnings.append(
+                f"No materials list found{suffix} — add materials manually."
+            )
