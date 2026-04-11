@@ -88,7 +88,7 @@ Passwords are configurable via `PARENT_PASSWORD` and `CHILD_PASSWORD` env vars.
 the-abby-project/
 ├── config/                  # Django project settings, URLs, WSGI/ASGI, Celery
 ├── apps/
-│   ├── projects/            # User, SkillCategory, Project, Milestone, MaterialItem, Notification
+│   ├── projects/            # User, SkillCategory, Project, Milestone, Step, Resource, MaterialItem, Notification
 │   │   ├── scraper.py       # Instructables URL preview scraper
 │   │   ├── suggestions.py   # AI project suggestions (Claude API + fallback)
 │   │   ├── notifications.py # Notification helper
@@ -118,7 +118,9 @@ the-abby-project/
 - **User** — Custom auth user with `parent`/`child` roles, hourly rate, avatar
 - **SkillCategory** — Woodworking, Electronics, Cooking, Art & Crafts, Coding, Outdoors, Sewing & Textiles, Science
 - **Project** — Assigned work with status workflow (draft -> active -> in_progress -> in_review -> completed -> archived), difficulty, bonuses, materials budget
-- **ProjectMilestone** — Ordered subtasks within a project, each with optional bonus
+- **ProjectMilestone** — Ordered "chapters" within a project (parent-authored, optional bonus → PaymentLedger). Completion is parent-controlled.
+- **ProjectStep** — Ordered walkthrough instructions ("do this next") inside a project, optionally grouped under a `ProjectMilestone` via a nullable FK (`SET_NULL`). Steps never award XP, coins, or money — they only signal progress. Loose (ungrouped) steps are valid for simple projects.
+- **ProjectResource** — Reference link (video / doc / image / link) attached either to the project or to a specific `ProjectStep`.
 - **MaterialItem** — Tracked materials with estimated/actual costs and receipt photos
 - **Notification** — In-app notifications (8 types: timecard_ready, timecard_approved, badge_earned, project_approved, project_changes, payout_recorded, skill_unlocked, milestone_completed)
 
@@ -187,8 +189,13 @@ superusers can log into `/admin/` normally.
 | POST | `/api/projects/{id}/submit/` | Child submits for review |
 | POST | `/api/projects/{id}/approve/` | Parent approves (-> completed) |
 | POST | `/api/projects/{id}/request-changes/` | Parent sends back |
-| GET/POST | `/api/projects/{id}/milestones/` | List / create milestones |
-| POST | `/api/projects/{id}/milestones/{id}/complete/` | Mark milestone complete |
+| GET/POST | `/api/projects/{id}/milestones/` | List / create milestones (chapters with optional bonus) |
+| POST | `/api/projects/{id}/milestones/{id}/complete/` | Mark milestone complete (posts `milestone_bonus` to PaymentLedger) |
+| GET/POST/PATCH | `/api/projects/{id}/steps/` | List / create / update walkthrough steps. PATCH `{milestone: <id\|null>}` to move a step between milestones. |
+| POST | `/api/projects/{id}/steps/{id}/complete/` | Mark walkthrough step complete (no payout) |
+| POST | `/api/projects/{id}/steps/{id}/uncomplete/` | Reopen a completed step |
+| POST | `/api/projects/{id}/steps/reorder/` | Atomically renumber steps |
+| GET/POST | `/api/projects/{id}/resources/` | List / create reference links (project- or step-scoped) |
 | GET/POST | `/api/projects/{id}/materials/` | List / create materials |
 | POST | `/api/projects/{id}/materials/{id}/mark-purchased/` | Mark material purchased |
 
