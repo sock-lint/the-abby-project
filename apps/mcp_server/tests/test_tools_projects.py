@@ -6,17 +6,21 @@ from decimal import Decimal
 from django.test import TestCase
 
 from apps.mcp_server.context import override_user
-from apps.mcp_server.errors import MCPPermissionDenied
+from apps.mcp_server.errors import MCPPermissionDenied, MCPValidationError
 from apps.mcp_server.schemas import (
     CreateProjectIn,
     GetProjectIn,
     ListProjectsIn,
     NewMilestone,
     NewProjectSkillTag,
+    NewResource,
+    NewStep,
     UpdateProjectStatusIn,
 )
 from apps.mcp_server.tools import projects as project_tools
-from apps.projects.models import Project, SkillCategory, User
+from apps.projects.models import (
+    Project, ProjectResource, ProjectStep, SkillCategory, User,
+)
 from apps.achievements.models import ProjectSkillTag, Skill, Subject
 
 
@@ -68,6 +72,63 @@ class CreateProjectTests(TestCase):
         )
         with override_user(self.child), self.assertRaises(MCPPermissionDenied):
             project_tools.create_project(payload)
+
+    def test_create_project_with_steps_and_resources(self) -> None:
+        """Steps and resources should materialize as rows; step_index should
+        resolve to the real ``ProjectStep.pk`` the loop just created."""
+        payload = CreateProjectIn(
+            title="Rocket",
+            assigned_to_id=self.child.id,
+            steps=[
+                NewStep(title="Gather", description="Parts"),
+                NewStep(title="Assemble", description="Glue pieces"),
+                NewStep(title="Launch", description="Countdown"),
+            ],
+            resources=[
+                NewResource(
+                    url="https://example.com/overview.mp4",
+                    title="Overview",
+                    resource_type="video",
+                ),  # project-level
+                NewResource(
+                    url="https://example.com/assemble.mp4",
+                    title="Assemble walkthrough",
+                    resource_type="video",
+                    step_index=1,
+                ),
+            ],
+        )
+        with override_user(self.parent):
+            result = project_tools.create_project(payload)
+
+        project = Project.objects.get(pk=result["id"])
+        steps = list(ProjectStep.objects.filter(project=project).order_by("order"))
+        self.assertEqual([s.title for s in steps], ["Gather", "Assemble", "Launch"])
+
+        resources = list(ProjectResource.objects.filter(project=project))
+        self.assertEqual(len(resources), 2)
+        project_level = [r for r in resources if r.step_id is None]
+        step_scoped = [r for r in resources if r.step_id == steps[1].id]
+        self.assertEqual(len(project_level), 1)
+        self.assertEqual(project_level[0].url, "https://example.com/overview.mp4")
+        self.assertEqual(len(step_scoped), 1)
+        self.assertEqual(step_scoped[0].url, "https://example.com/assemble.mp4")
+
+    def test_create_project_rejects_out_of_range_step_index(self) -> None:
+        """step_index validation must happen BEFORE any DB writes so a bad
+        payload can't half-create a project."""
+        payload = CreateProjectIn(
+            title="Bad",
+            assigned_to_id=self.child.id,
+            steps=[NewStep(title="only step")],
+            resources=[
+                NewResource(url="https://example.com/oops", step_index=5),
+            ],
+        )
+        with override_user(self.parent), self.assertRaises(MCPValidationError):
+            project_tools.create_project(payload)
+        # No project row should have been created.
+        self.assertFalse(Project.objects.filter(title="Bad").exists())
 
 
 class ListAndGetProjectTests(TestCase):

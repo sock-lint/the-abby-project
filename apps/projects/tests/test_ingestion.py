@@ -10,8 +10,10 @@ from apps.projects.ingestion.category import guess_category
 from apps.projects.ingestion.generic_url import GenericUrlIngestor
 from apps.projects.ingestion.instructables import InstructablesIngestor
 from apps.projects.models import (
-    MaterialItem, Project, ProjectIngestionJob, ProjectMilestone, SkillCategory, User,
+    MaterialItem, Project, ProjectIngestionJob, ProjectMilestone,
+    ProjectResource, ProjectStep, SkillCategory, User,
 )
+from apps.projects.ingestion.base import IngestionResult
 
 
 # ---------- ingestor unit tests --------------------------------------------
@@ -86,9 +88,12 @@ class InstructablesIngestorTests(TestCase):
         self.assertEqual(result.title, "DIY Bird Feeder")
         self.assertEqual(result.source_type, "instructables")
         self.assertEqual(result.cover_photo_url, "https://example.com/cover.jpg")
-        self.assertEqual(len(result.milestones), 3)
-        self.assertEqual(result.milestones[0].title, "Cut the wood")
-        self.assertEqual(result.milestones[0].order, 0)
+        # Ingestors populate ``steps`` now (walkthrough surface); ``milestones``
+        # is reserved for parent-authored payment goals and stays empty.
+        self.assertEqual(len(result.steps), 3)
+        self.assertEqual(result.steps[0].title, "Cut the wood")
+        self.assertEqual(result.steps[0].order, 0)
+        self.assertEqual(result.milestones, [])
         self.assertEqual(len(result.materials), 3)
         self.assertIn("Wood plank", result.materials[0].name)
         # category hint should match Woodworking keyword map
@@ -99,15 +104,45 @@ class InstructablesIngestorTests(TestCase):
             InstructablesIngestor("https://example.com/foo")
 
 
+JSONLD_WITH_MEDIA_HTML = """
+<html><head>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Paper Plane",
+  "description": "Make a plane.",
+  "video": {"@type": "VideoObject", "contentUrl": "https://example.com/overview.mp4", "name": "Overview"},
+  "step": [
+    {
+      "@type": "HowToStep",
+      "name": "Fold",
+      "text": "Fold the paper in half",
+      "video": "https://example.com/fold.mp4",
+      "image": "https://example.com/fold.jpg"
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Throw",
+      "text": "Throw it"
+    }
+  ]
+}
+</script>
+</head><body></body></html>
+"""
+
+
 class GenericUrlIngestorTests(TestCase):
     def test_prefers_jsonld_howto(self):
         ingestor = GenericUrlIngestor("https://example.com/howto")
         with patch.object(GenericUrlIngestor, "fetch_cached", return_value=JSONLD_HTML):
             result = ingestor.ingest()
         self.assertEqual(result.title, "No-Sew Felt Bookmark")
-        self.assertEqual(len(result.milestones), 3)
-        self.assertEqual(result.milestones[0].title, "Cut the felt")
-        self.assertEqual(result.milestones[1].order, 1)
+        self.assertEqual(len(result.steps), 3)
+        self.assertEqual(result.steps[0].title, "Cut the felt")
+        self.assertEqual(result.steps[1].order, 1)
+        self.assertEqual(result.milestones, [])
         self.assertEqual(len(result.materials), 2)
         self.assertEqual(result.materials[0].name, "Felt sheet")
         self.assertEqual(result.cover_photo_url, "https://example.com/bookmark.jpg")
@@ -116,10 +151,63 @@ class GenericUrlIngestorTests(TestCase):
         ingestor = GenericUrlIngestor("https://example.com/plane")
         with patch.object(GenericUrlIngestor, "fetch_cached", return_value=HEURISTIC_HTML):
             result = ingestor.ingest()
-        self.assertEqual(len(result.milestones), 4)
+        self.assertEqual(len(result.steps), 4)
+        self.assertEqual(result.milestones, [])
         self.assertTrue(any("best-effort heuristics" in w for w in result.warnings))
         self.assertEqual(len(result.materials), 2)
         self.assertEqual(result.cover_photo_url, "https://example.com/plane.jpg")
+
+    def test_howto_extracts_resources_per_step(self):
+        """JSON-LD step-level media should land as ResourceDraft with step_index."""
+        ingestor = GenericUrlIngestor("https://example.com/plane-media")
+        with patch.object(GenericUrlIngestor, "fetch_cached", return_value=JSONLD_WITH_MEDIA_HTML):
+            result = ingestor.ingest()
+        self.assertEqual(len(result.steps), 2)
+        # Expect at least 3 resources: 1 project-level (top-level video) and
+        # 2 attached to step 0 (fold video + fold image).
+        self.assertGreaterEqual(len(result.resources), 3)
+        project_level = [r for r in result.resources if r.step_index is None]
+        step0 = [r for r in result.resources if r.step_index == 0]
+        self.assertTrue(any(r.url == "https://example.com/overview.mp4" for r in project_level))
+        self.assertTrue(any(r.url == "https://example.com/fold.mp4" for r in step0))
+        self.assertTrue(any(r.url == "https://example.com/fold.jpg" for r in step0))
+
+
+class IngestionResultShimTests(TestCase):
+    def test_from_dict_legacy_milestones_shim(self):
+        """Staging rows that predate the steps/resources split still rehydrate."""
+        legacy = {
+            "title": "Legacy",
+            "description": "",
+            "source_type": "url",
+            "milestones": [
+                {"title": "Old step 1", "description": "a", "order": 0},
+                {"title": "Old step 2", "description": "b", "order": 1},
+            ],
+            "materials": [],
+        }
+        result = IngestionResult.from_dict(legacy)
+        # Legacy ``milestones`` should rehydrate into ``steps``; new
+        # milestones should be empty (no payment goals in old data).
+        self.assertEqual(len(result.steps), 2)
+        self.assertEqual(result.steps[0].title, "Old step 1")
+        self.assertEqual(result.milestones, [])
+
+    def test_from_dict_new_shape_keeps_both(self):
+        data = {
+            "title": "New",
+            "description": "",
+            "source_type": "url",
+            "steps": [{"title": "S1", "description": "", "order": 0}],
+            "milestones": [{"title": "M1", "description": "", "order": 0}],
+            "materials": [],
+            "resources": [{"url": "https://x/y", "title": "", "resource_type": "link", "order": 0, "step_index": 0}],
+        }
+        result = IngestionResult.from_dict(data)
+        self.assertEqual(len(result.steps), 1)
+        self.assertEqual(len(result.milestones), 1)
+        self.assertEqual(len(result.resources), 1)
+        self.assertEqual(result.resources[0].step_index, 0)
 
 
 class CategoryMapperTests(TestCase):
@@ -150,7 +238,7 @@ class IngestCommitFlowTests(TestCase):
             result_json=result_json,
         )
 
-    def test_commit_creates_project_with_milestones_and_materials(self):
+    def test_commit_creates_project_with_steps_and_materials(self):
         job = self._make_ready_job({
             "title": "Birdhouse",
             "description": "Build a simple birdhouse.",
@@ -159,15 +247,17 @@ class IngestCommitFlowTests(TestCase):
             "source_type": "instructables",
             "category_hint": "Woodworking",
             "difficulty_hint": 3,
-            "milestones": [
+            "steps": [
                 {"title": "Cut", "description": "Cut wood", "order": 0},
                 {"title": "Sand", "description": "Smooth edges", "order": 1},
                 {"title": "Assemble", "description": "Glue pieces", "order": 2},
             ],
+            "milestones": [],
             "materials": [
                 {"name": "Wood", "description": "", "estimated_cost": "5.00"},
                 {"name": "Glue", "description": "", "estimated_cost": None},
             ],
+            "resources": [],
             "warnings": [],
         })
 
@@ -182,12 +272,76 @@ class IngestCommitFlowTests(TestCase):
         self.assertEqual(project.created_by, self.parent)
         self.assertEqual(project.category_id, self.category.id)
         self.assertEqual(project.difficulty, 3)
-        self.assertEqual(ProjectMilestone.objects.filter(project=project).count(), 3)
+        # Ingestors now populate ``steps`` instead of ``milestones``.
+        self.assertEqual(ProjectStep.objects.filter(project=project).count(), 3)
+        self.assertEqual(ProjectMilestone.objects.filter(project=project).count(), 0)
         self.assertEqual(MaterialItem.objects.filter(project=project).count(), 2)
 
         job.refresh_from_db()
         self.assertEqual(job.status, ProjectIngestionJob.Status.COMMITTED)
         self.assertEqual(job.project_id, project.id)
+
+    def test_commit_creates_steps_and_resources_with_step_index(self):
+        """Step-scoped resources should resolve step_index to the right ProjectStep."""
+        job = self._make_ready_job({
+            "title": "Rocket",
+            "description": "",
+            "cover_photo_url": None,
+            "source_url": "https://example.com/rocket",
+            "source_type": "url",
+            "steps": [
+                {"title": "Gather", "description": "Get parts", "order": 0},
+                {"title": "Build", "description": "Assemble", "order": 1},
+            ],
+            "milestones": [],
+            "materials": [],
+            "resources": [
+                {"url": "https://example.com/overview.mp4", "title": "Overview",
+                 "resource_type": "video", "order": 0, "step_index": None},
+                {"url": "https://example.com/build.mp4", "title": "Build walkthrough",
+                 "resource_type": "video", "order": 0, "step_index": 1},
+            ],
+            "warnings": [],
+        })
+
+        resp = self.client.post(
+            f"/api/projects/ingest/{job.id}/commit/", {}, format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        project = Project.objects.get(pk=resp.json()["id"])
+
+        steps = list(ProjectStep.objects.filter(project=project).order_by("order"))
+        self.assertEqual(len(steps), 2)
+
+        resources = list(ProjectResource.objects.filter(project=project))
+        self.assertEqual(len(resources), 2)
+        project_level = [r for r in resources if r.step_id is None]
+        step_scoped = [r for r in resources if r.step_id == steps[1].id]
+        self.assertEqual(len(project_level), 1)
+        self.assertEqual(project_level[0].url, "https://example.com/overview.mp4")
+        self.assertEqual(len(step_scoped), 1)
+        self.assertEqual(step_scoped[0].url, "https://example.com/build.mp4")
+
+    def test_commit_skips_resource_with_empty_url(self):
+        """Empty URLs should be silently skipped rather than causing DB errors."""
+        job = self._make_ready_job({
+            "title": "X",
+            "source_type": "url",
+            "steps": [],
+            "milestones": [],
+            "materials": [],
+            "resources": [
+                {"url": "  ", "title": "blank", "resource_type": "link",
+                 "order": 0, "step_index": None},
+            ],
+            "warnings": [],
+        })
+        resp = self.client.post(
+            f"/api/projects/ingest/{job.id}/commit/", {}, format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        project = Project.objects.get(pk=resp.json()["id"])
+        self.assertEqual(ProjectResource.objects.filter(project=project).count(), 0)
 
     def test_commit_rejects_non_ready_job(self):
         job = ProjectIngestionJob.objects.create(

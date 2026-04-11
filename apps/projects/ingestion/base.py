@@ -15,10 +15,40 @@ CACHE_TTL_SECONDS = 86400  # 24h
 
 
 @dataclass
-class MilestoneDraft:
+class StepDraft:
+    """An ordered walkthrough instruction ('do this next').
+
+    Distinct from ``MilestoneDraft``: steps are instructional, not tied to
+    payments. Ingestors populate ``IngestionResult.steps`` with these; the
+    commit path materializes them as ``ProjectStep`` rows.
+    """
     title: str
     description: str = ""
     order: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+# Backwards-compat alias for the pre-steps naming. Still exported so any
+# external code referencing ``MilestoneDraft`` continues to work, but new
+# ingestors should construct ``StepDraft`` explicitly.
+MilestoneDraft = StepDraft
+
+
+@dataclass
+class ResourceDraft:
+    """A reference link (video, doc, inspiration) for a project or step.
+
+    ``step_index`` is a 0-based index into ``IngestionResult.steps`` — the
+    commit path resolves it to a real ``ProjectStep.pk``. Leave as ``None``
+    to produce a project-level resource.
+    """
+    url: str
+    title: str = ""
+    resource_type: str = "link"  # link | video | doc | image
+    order: int = 0
+    step_index: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -45,8 +75,15 @@ class IngestionResult:
     source_type: str = "url"  # instructables | url | pdf
     category_hint: str | None = None
     difficulty_hint: int | None = None
-    milestones: list[MilestoneDraft] = field(default_factory=list)
+    # Walkthrough steps (ordered "do this next" instructions). Populated by
+    # ingestors; previously known as ``milestones`` — see ``from_dict`` shim.
+    steps: list[StepDraft] = field(default_factory=list)
+    # Goal-based milestones with optional ``bonus_amount``. Ingestors no
+    # longer populate these — they stay empty unless a parent adds them from
+    # the preview. The key remains in ``to_dict`` for frontend compatibility.
+    milestones: list[StepDraft] = field(default_factory=list)
     materials: list[MaterialDraft] = field(default_factory=list)
+    resources: list[ResourceDraft] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     raw_html: str | None = None
     markdown: str | None = None
@@ -62,8 +99,10 @@ class IngestionResult:
             "source_type": self.source_type,
             "category_hint": self.category_hint,
             "difficulty_hint": self.difficulty_hint,
+            "steps": [s.to_dict() for s in self.steps],
             "milestones": [m.to_dict() for m in self.milestones],
             "materials": [m.to_dict() for m in self.materials],
+            "resources": [r.to_dict() for r in self.resources],
             "warnings": list(self.warnings),
             # Additive fields — safe for existing frontend consumers.
             "markdown": self.markdown,
@@ -73,6 +112,18 @@ class IngestionResult:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "IngestionResult":
+        # Legacy shim: staging rows written before the steps/resources split
+        # only have ``milestones``. Rehydrate them into ``steps`` so in-flight
+        # jobs don't lose their walkthrough content across the deploy.
+        raw_steps = data.get("steps")
+        raw_milestones = data.get("milestones") or []
+        if raw_steps is None:
+            steps = [StepDraft(**m) for m in raw_milestones]
+            milestones: list[StepDraft] = []
+        else:
+            steps = [StepDraft(**s) for s in raw_steps]
+            milestones = [StepDraft(**m) for m in raw_milestones]
+
         return cls(
             title=data.get("title", "") or "",
             description=data.get("description", "") or "",
@@ -81,8 +132,10 @@ class IngestionResult:
             source_type=data.get("source_type", "url"),
             category_hint=data.get("category_hint"),
             difficulty_hint=data.get("difficulty_hint"),
-            milestones=[MilestoneDraft(**m) for m in data.get("milestones", [])],
+            steps=steps,
+            milestones=milestones,
             materials=[MaterialDraft(**m) for m in data.get("materials", [])],
+            resources=[ResourceDraft(**r) for r in data.get("resources", [])],
             warnings=list(data.get("warnings", [])),
         )
 
@@ -130,9 +183,9 @@ class BaseIngestor:
         can produce a source-appropriate message without cloning the logic.
         """
         suffix = f" {source_label}" if source_label else ""
-        if not result.milestones:
+        if not result.steps:
             result.warnings.append(
-                f"No steps found{suffix} — add milestones manually."
+                f"No walkthrough steps found{suffix} — add steps manually."
             )
         if not result.materials:
             result.warnings.append(

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Link as LinkIcon, FileText, Plus, Trash2 } from 'lucide-react';
+// Note: `LinkIcon` is reused as a generic "URL" icon in the source picker and
+// as the default resource type icon in the Resources card below.
 import {
   commitIngestJob,
   discardIngestJob,
@@ -67,11 +69,20 @@ export default function ProjectIngest() {
       try {
         const job = await getIngestJob(id);
         if (job.status === 'ready') {
-          setDraft(job.result_json);
+          // Defend against in-flight staging rows that predate the steps/
+          // resources fields — rehydrate empty arrays so the editors render.
+          const rj = job.result_json || {};
+          setDraft({
+            ...rj,
+            milestones: rj.milestones || [],
+            materials: rj.materials || [],
+            steps: rj.steps || [],
+            resources: rj.resources || [],
+          });
           // Seed override defaults from staged draft where possible
           setOverrides((o) => ({
             ...o,
-            difficulty: job.result_json?.difficulty_hint || o.difficulty,
+            difficulty: rj.difficulty_hint || o.difficulty,
           }));
           setPhase('preview');
           return;
@@ -123,6 +134,47 @@ export default function ProjectIngest() {
     ...d, materials: d.materials.filter((_, idx) => idx !== i),
   }));
 
+  const updateStep = (i, patch) => {
+    setDraft((d) => {
+      const steps = d.steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s));
+      return { ...d, steps };
+    });
+  };
+  const addStep = () => setDraft((d) => ({
+    ...d,
+    steps: [...d.steps, { title: '', description: '', order: d.steps.length }],
+  }));
+  const removeStep = (i) => setDraft((d) => ({
+    ...d,
+    // Drop the step, reindex ordering, and reshuffle resources attached to
+    // later steps so step_index stays valid post-removal.
+    steps: d.steps.filter((_, idx) => idx !== i).map((s, idx) => ({ ...s, order: idx })),
+    resources: (d.resources || []).flatMap((r) => {
+      if (r.step_index == null) return [r];
+      if (r.step_index === i) return [{ ...r, step_index: null }];
+      if (r.step_index > i) return [{ ...r, step_index: r.step_index - 1 }];
+      return [r];
+    }),
+  }));
+
+  const updateResource = (i, patch) => {
+    setDraft((d) => {
+      const resources = d.resources.map((r, idx) => (idx === i ? { ...r, ...patch } : r));
+      return { ...d, resources };
+    });
+  };
+  const addResource = () => setDraft((d) => ({
+    ...d,
+    resources: [
+      ...(d.resources || []),
+      { url: '', title: '', resource_type: 'link', order: (d.resources || []).length, step_index: null },
+    ],
+  }));
+  const removeResource = (i) => setDraft((d) => ({
+    ...d,
+    resources: (d.resources || []).filter((_, idx) => idx !== i),
+  }));
+
   const commit = async () => {
     setCommitting(true);
     setError('');
@@ -140,6 +192,8 @@ export default function ProjectIngest() {
         due_date: overrides.due_date || null,
         milestones: draft.milestones,
         materials: draft.materials,
+        steps: draft.steps,
+        resources: draft.resources,
       });
       navigate(`/projects/${project.id}`);
     } catch (err) {
@@ -285,6 +339,66 @@ export default function ProjectIngest() {
                   Suggested extras: {draft.ai_suggestions.extra_materials.map((m) => m.name).join(', ')}
                 </div>
               )}
+              {draft.ai_suggestions.steps?.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-xs text-fuchsia-300 font-medium">Suggested walkthrough steps</div>
+                  <div className="flex flex-wrap gap-2">
+                    {draft.ai_suggestions.steps.map((s, i) => (
+                      <button
+                        key={`ais-${i}`}
+                        type="button"
+                        onClick={() =>
+                          setDraft((d) => ({
+                            ...d,
+                            steps: [
+                              ...d.steps,
+                              {
+                                title: s.title || `Step ${d.steps.length + 1}`,
+                                description: s.description || '',
+                                order: d.steps.length,
+                              },
+                            ],
+                          }))
+                        }
+                        className="text-xs px-2 py-1 rounded-full border border-fuchsia-400/40 text-fuchsia-200 hover:bg-fuchsia-400/10 text-left"
+                      >
+                        + {s.title?.slice(0, 40) || `Step ${i + 1}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {draft.ai_suggestions.resources?.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-xs text-fuchsia-300 font-medium">Suggested resources</div>
+                  <div className="flex flex-wrap gap-2">
+                    {draft.ai_suggestions.resources.map((r, i) => (
+                      <button
+                        key={`air-${i}`}
+                        type="button"
+                        onClick={() =>
+                          setDraft((d) => ({
+                            ...d,
+                            resources: [
+                              ...(d.resources || []),
+                              {
+                                title: r.title || '',
+                                url: r.url || '',
+                                resource_type: r.resource_type || 'link',
+                                order: (d.resources || []).length,
+                                step_index: Number.isInteger(r.step_index) ? r.step_index : null,
+                              },
+                            ],
+                          }))
+                        }
+                        className="text-xs px-2 py-1 rounded-full border border-fuchsia-400/40 text-fuchsia-200 hover:bg-fuchsia-400/10"
+                      >
+                        + {r.title?.slice(0, 30) || r.url?.slice(0, 30) || 'link'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Card>
           )}
 
@@ -350,11 +464,124 @@ export default function ProjectIngest() {
 
           <Card className="space-y-3">
             <div className="flex items-center justify-between">
+              <h2 className="font-heading text-lg font-bold">Steps ({draft.steps.length})</h2>
+              <button onClick={addStep} className="text-xs text-amber-primary hover:text-amber-highlight flex items-center gap-1">
+                <Plus size={14} /> Add
+              </button>
+            </div>
+            <p className="text-xs text-forge-text-dim">
+              Ordered walkthrough instructions. No coins, XP, or money — the kid checks these off as they go.
+            </p>
+            {draft.steps.length === 0 && (
+              <div className="text-xs text-forge-text-dim italic">
+                No walkthrough steps parsed. Add some manually or accept an AI suggestion above.
+              </div>
+            )}
+            {draft.steps.map((s, i) => (
+              <div key={`s-${i}`} className="bg-forge-bg border border-forge-border rounded-lg p-3 space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    value={s.title}
+                    onChange={(e) => updateStep(i, { title: e.target.value })}
+                    className={inputClass}
+                    placeholder={`Step ${i + 1}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeStep(i)}
+                    aria-label="Remove step"
+                    className="text-forge-text-dim hover:text-red-400 shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+                <textarea
+                  value={s.description || ''}
+                  onChange={(e) => updateStep(i, { description: e.target.value })}
+                  className={`${inputClass} h-20 resize-none text-xs`}
+                  placeholder="What does the maker do in this step?"
+                />
+              </div>
+            ))}
+          </Card>
+
+          <Card className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-lg font-bold">Resources ({(draft.resources || []).length})</h2>
+              <button onClick={addResource} className="text-xs text-amber-primary hover:text-amber-highlight flex items-center gap-1">
+                <Plus size={14} /> Add
+              </button>
+            </div>
+            <p className="text-xs text-forge-text-dim">
+              Reference videos, docs, or inspiration links. Attach to a step or leave project-level.
+            </p>
+            {(draft.resources || []).map((r, i) => (
+              <div key={`r-${i}`} className="bg-forge-bg border border-forge-border rounded-lg p-3 space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    value={r.url}
+                    onChange={(e) => updateResource(i, { url: e.target.value })}
+                    className={inputClass}
+                    type="url"
+                    placeholder="https://..."
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeResource(i)}
+                    aria-label="Remove resource"
+                    className="text-forge-text-dim hover:text-red-400 shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+                <input
+                  value={r.title || ''}
+                  onChange={(e) => updateResource(i, { title: e.target.value })}
+                  className={`${inputClass} text-xs`}
+                  placeholder="Title (optional)"
+                />
+                <div className="flex gap-2">
+                  <select
+                    value={r.resource_type || 'link'}
+                    onChange={(e) => updateResource(i, { resource_type: e.target.value })}
+                    className={`${inputClass} text-xs`}
+                  >
+                    <option value="link">Link</option>
+                    <option value="video">Video</option>
+                    <option value="doc">Document</option>
+                    <option value="image">Image</option>
+                  </select>
+                  <select
+                    value={r.step_index == null ? '' : String(r.step_index)}
+                    onChange={(e) =>
+                      updateResource(i, {
+                        step_index: e.target.value === '' ? null : parseInt(e.target.value, 10),
+                      })
+                    }
+                    className={`${inputClass} text-xs`}
+                  >
+                    <option value="">(Project-level)</option>
+                    {draft.steps.map((s, idx) => (
+                      <option key={idx} value={idx}>
+                        {idx + 1}. {(s.title || '').slice(0, 30) || `Step ${idx + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ))}
+          </Card>
+
+          <Card className="space-y-3">
+            <div className="flex items-center justify-between">
               <h2 className="font-heading text-lg font-bold">Milestones ({draft.milestones.length})</h2>
               <button onClick={addMilestone} className="text-xs text-amber-primary hover:text-amber-highlight flex items-center gap-1">
                 <Plus size={14} /> Add
               </button>
             </div>
+            <p className="text-xs text-forge-text-dim">
+              Optional payment goals (separate from walkthrough steps). Parents author these for bonuses.
+            </p>
             {draft.milestones.map((m, i) => (
               <div key={i} className="bg-forge-bg border border-forge-border rounded-lg p-3 space-y-2">
                 <div className="flex gap-2">
