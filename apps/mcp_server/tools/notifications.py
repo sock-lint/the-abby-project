@@ -1,0 +1,47 @@
+"""Notification MCP tools."""
+from __future__ import annotations
+
+from typing import Any
+
+from apps.projects.models import Notification
+
+from ..context import get_current_user
+from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
+from ..schemas import ListNotificationsIn, MarkNotificationReadIn
+from ..server import mcp
+from ..shapes import notification_to_dict
+
+
+@mcp.tool()
+@safe_tool
+def list_notifications(params: ListNotificationsIn) -> dict[str, Any]:
+    """List notifications for the current user."""
+    user = get_current_user()
+    qs = Notification.objects.filter(user=user)
+    unread_count = qs.filter(is_read=False).count()
+    if params.unread_only:
+        qs = qs.filter(is_read=False)
+    qs = qs.order_by("-created_at")[: params.limit]
+    return {
+        "notifications": [notification_to_dict(n) for n in qs],
+        "unread_count": unread_count,
+    }
+
+
+@mcp.tool()
+@safe_tool
+def mark_notification_read(params: MarkNotificationReadIn) -> dict[str, Any]:
+    """Mark a single notification as read."""
+    user = get_current_user()
+    try:
+        notification = Notification.objects.get(pk=params.notification_id)
+    except Notification.DoesNotExist:
+        raise MCPNotFoundError(f"Notification {params.notification_id} not found.")
+
+    if notification.user_id != user.id:
+        raise MCPPermissionDenied("Cannot modify another user's notifications.")
+
+    if not notification.is_read:
+        notification.is_read = True
+        notification.save(update_fields=["is_read"])
+    return notification_to_dict(notification)

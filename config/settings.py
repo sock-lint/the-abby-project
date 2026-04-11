@@ -42,7 +42,16 @@ INSTALLED_APPS = [
     "apps.achievements",
     "apps.portfolio",
     "apps.rewards",
+    "apps.mcp_server",
 ]
+
+# --- MCP server -----------------------------------------------------------
+# Exposed via ``python manage.py runmcp`` and the ``mcp`` compose service.
+# Values are read by ``apps.mcp_server.server``.
+MCP_SERVER_NAME = "abby"
+MCP_PUBLIC_BASE_URL = os.environ.get("MCP_PUBLIC_BASE_URL", "")
+# Allow --as-user pinning only outside production.
+MCP_DEV_ALLOW_USER_PIN = DEBUG
 
 # --- Rewards / Coins economy ----------------------------------------------
 # How many Coins a child earns per hour of tracked time.
