@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Check, ExternalLink, ArrowLeft, DollarSign, QrCode, Copy,
+  Check, ChevronDown, ExternalLink, ArrowLeft, DollarSign, QrCode, Copy,
   Pencil, Plus, Trash2, Video, FileText, Image as ImageIcon, Link as LinkIcon,
 } from 'lucide-react';
 import {
@@ -10,7 +10,7 @@ import {
   completeMilestone, createMilestone, deleteMilestone,
   markPurchased, createMaterial, deleteMaterial,
   saveProjectAsTemplate, activateProject, getCategories, getChildren,
-  completeStep, uncompleteStep, createStep, deleteStep,
+  completeStep, uncompleteStep, createStep, updateStep, deleteStep,
   createResource, deleteResource,
 } from '../api';
 import { useApi } from '../hooks/useApi';
@@ -20,11 +20,14 @@ import DifficultyStars from '../components/DifficultyStars';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
+import ProgressBar from '../components/ProgressBar';
 import StatusBadge from '../components/StatusBadge';
 import { inputClass } from '../constants/styles';
 import { normalizeList } from '../utils/api';
 
-const tabs = ['Overview', 'Steps', 'Milestones', 'Materials'];
+const tabs = ['Overview', 'Plan', 'Materials'];
+
+const LOOSE_KEY = '__loose__';
 
 const RESOURCE_ICONS = {
   video: Video,
@@ -48,6 +51,73 @@ function ResourcePill({ resource }) {
   );
 }
 
+function StepCard({
+  step, isParent, milestones, onToggle, onDelete, onMove,
+}) {
+  return (
+    <motion.div layout>
+      <Card className={step.is_completed ? 'opacity-60' : ''}>
+        <div className="flex items-start gap-3">
+          <button
+            onClick={() => onToggle(step)}
+            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+              step.is_completed
+                ? 'bg-green-500 border-green-500'
+                : 'border-forge-muted hover:border-amber-primary'
+            }`}
+          >
+            {step.is_completed && <Check size={14} className="text-white" />}
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className={`font-medium text-sm ${step.is_completed ? 'line-through' : ''}`}>
+              {step.title}
+            </div>
+            {step.description && (
+              <div className="text-xs text-forge-text-dim mt-1 whitespace-pre-wrap">
+                {step.description}
+              </div>
+            )}
+            {step.resources?.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {step.resources.map((r) => (
+                  <ResourcePill key={r.id} resource={r} />
+                ))}
+              </div>
+            )}
+            {isParent && milestones.length > 0 && (
+              <div className="mt-2 flex items-center gap-1.5">
+                <span className="text-[10px] uppercase tracking-wide text-forge-text-dim">
+                  Move to
+                </span>
+                <select
+                  value={step.milestone ?? ''}
+                  onChange={(e) => onMove(step, e.target.value)}
+                  className="text-xs bg-forge-bg border border-forge-border rounded px-1.5 py-0.5 text-forge-text"
+                >
+                  <option value="">(No milestone)</option>
+                  {milestones.map((m, idx) => (
+                    <option key={m.id} value={m.id}>
+                      {idx + 1}. {(m.title || `Milestone ${idx + 1}`).slice(0, 30)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          {isParent && (
+            <button
+              onClick={() => onDelete(step.id)}
+              className="text-forge-text-dim hover:text-red-400 p-1 transition-colors shrink-0"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
+      </Card>
+    </motion.div>
+  );
+}
+
 export default function ProjectDetail({ user }) {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -58,13 +128,50 @@ export default function ProjectDetail({ user }) {
   const [addMilestoneOpen, setAddMilestoneOpen] = useState(false);
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
   const [addStepOpen, setAddStepOpen] = useState(false);
+  const [addStepMilestoneId, setAddStepMilestoneId] = useState(null);
   const [addResourceOpen, setAddResourceOpen] = useState(false);
+  const [collapsedMilestones, setCollapsedMilestones] = useState(() => new Set());
+
+  // Group steps by milestone id (or LOOSE_KEY for unassigned). Memoized so
+  // expanding/collapsing accordions doesn't re-run the partition.
+  const stepsByMilestone = useMemo(() => {
+    const map = new Map();
+    for (const s of project?.steps || []) {
+      const key = s.milestone ?? LOOSE_KEY;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(s);
+    }
+    return map;
+  }, [project?.steps]);
 
   if (loading) return <Loader />;
   if (!project) return <div className="text-forge-text-dim">Project not found</div>;
 
   const isParent = user?.role === 'parent';
   const isAssigned = project.assigned_to?.id === user?.id;
+  const milestones = project.milestones || [];
+  const looseSteps = stepsByMilestone.get(LOOSE_KEY) || [];
+
+  const toggleMilestone = (msId) => {
+    setCollapsedMilestones((prev) => {
+      const next = new Set(prev);
+      if (next.has(msId)) next.delete(msId);
+      else next.add(msId);
+      return next;
+    });
+  };
+
+  const openAddStep = (milestoneId = null) => {
+    setAddStepMilestoneId(milestoneId);
+    setAddStepOpen(true);
+  };
+
+  const handleMoveStep = async (step, newMilestoneId) => {
+    const value = newMilestoneId === '' ? null : Number(newMilestoneId);
+    if (value === (step.milestone ?? null)) return;
+    await updateStep(id, step.id, { milestone: value });
+    reload();
+  };
 
   const handleAction = async (action) => {
     try {
@@ -299,72 +406,164 @@ export default function ProjectDetail({ user }) {
             </div>
           )}
 
-          {activeTab === 'Steps' && (
-            <div className="space-y-2">
+          {activeTab === 'Plan' && (
+            <div className="space-y-3">
               {isParent && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button
-                    onClick={() => setAddStepOpen(true)}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-forge-border text-sm text-forge-text-dim hover:text-forge-text hover:border-amber-primary transition-colors"
+                    onClick={() => setAddMilestoneOpen(true)}
+                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-forge-border text-sm text-forge-text-dim hover:text-forge-text hover:border-amber-primary transition-colors"
+                  >
+                    <Plus size={16} /> Add Milestone
+                  </button>
+                  <button
+                    onClick={() => openAddStep(null)}
+                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-forge-border text-sm text-forge-text-dim hover:text-forge-text hover:border-amber-primary transition-colors"
                   >
                     <Plus size={16} /> Add Step
                   </button>
                   <button
                     onClick={() => setAddResourceOpen(true)}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-forge-border text-sm text-forge-text-dim hover:text-forge-text hover:border-amber-primary transition-colors"
+                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-forge-border text-sm text-forge-text-dim hover:text-forge-text hover:border-amber-primary transition-colors"
                   >
                     <Plus size={16} /> Add Resource
                   </button>
                 </div>
               )}
-              {project.steps?.length === 0 && (
+
+              {milestones.length === 0 && (project.steps || []).length === 0 && (
                 <EmptyState className="py-8">
-                  No walkthrough steps yet — add some to guide through this project.
+                  No plan yet — add a milestone or a step to break this project down.
                 </EmptyState>
               )}
-              {project.steps?.map((step) => (
-                <motion.div key={step.id} layout>
-                  <Card className={step.is_completed ? 'opacity-60' : ''}>
-                    <div className="flex items-start gap-3">
-                      <button
-                        onClick={() => handleToggleStep(step)}
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
-                          step.is_completed
-                            ? 'bg-green-500 border-green-500'
-                            : 'border-forge-muted hover:border-amber-primary'
-                        }`}
-                      >
-                        {step.is_completed && <Check size={14} className="text-white" />}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <div className={`font-medium text-sm ${step.is_completed ? 'line-through' : ''}`}>
-                          {step.title}
-                        </div>
-                        {step.description && (
-                          <div className="text-xs text-forge-text-dim mt-1 whitespace-pre-wrap">
-                            {step.description}
+
+              {/* Milestones with their nested steps. */}
+              {milestones.map((ms) => {
+                const childSteps = stepsByMilestone.get(ms.id) || [];
+                const done = childSteps.filter((s) => s.is_completed).length;
+                const total = childSteps.length;
+                const collapsed = collapsedMilestones.has(ms.id);
+                const allDone = total > 0 && done === total;
+                return (
+                  <motion.div key={ms.id} layout>
+                    <Card className={ms.is_completed ? 'opacity-60' : ''}>
+                      <div className="flex items-start gap-3">
+                        <button
+                          onClick={() => !ms.is_completed && handleCompleteMilestone(ms.id)}
+                          disabled={ms.is_completed}
+                          aria-label={ms.is_completed ? 'Milestone completed' : 'Mark milestone complete'}
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                            ms.is_completed
+                              ? 'bg-green-500 border-green-500'
+                              : 'border-forge-muted hover:border-amber-primary'
+                          }`}
+                        >
+                          {ms.is_completed && <Check size={14} className="text-white" />}
+                        </button>
+                        <button
+                          onClick={() => toggleMilestone(ms.id)}
+                          className="flex-1 min-w-0 text-left"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`font-heading font-bold text-sm ${ms.is_completed ? 'line-through' : ''}`}>
+                              {ms.title}
+                            </div>
+                            {ms.bonus_amount && (
+                              <span className="text-xs text-green-400 flex items-center gap-0.5">
+                                <DollarSign size={12} />{ms.bonus_amount}
+                              </span>
+                            )}
+                            <ChevronDown
+                              size={14}
+                              className={`text-forge-text-dim ml-auto transition-transform ${collapsed ? '-rotate-90' : ''}`}
+                            />
                           </div>
-                        )}
-                        {step.resources?.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {step.resources.map((r) => (
-                              <ResourcePill key={r.id} resource={r} />
-                            ))}
-                          </div>
+                          {ms.description && (
+                            <div className="text-xs text-forge-text-dim mt-0.5">{ms.description}</div>
+                          )}
+                          {total > 0 && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <ProgressBar value={done} max={total} className="flex-1" />
+                              <span className="text-[10px] text-forge-text-dim shrink-0">
+                                {done}/{total}
+                              </span>
+                            </div>
+                          )}
+                        </button>
+                        {isParent && (
+                          <button
+                            onClick={() => handleDeleteMilestone(ms.id)}
+                            className="text-forge-text-dim hover:text-red-400 p-1 transition-colors shrink-0"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         )}
                       </div>
-                      {isParent && (
-                        <button
-                          onClick={() => handleDeleteStep(step.id)}
-                          className="text-forge-text-dim hover:text-red-400 p-1 transition-colors shrink-0"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+
+                      {!collapsed && (
+                        <div className="mt-3 ml-9 space-y-2">
+                          {allDone && !ms.is_completed && (
+                            <button
+                              onClick={() => handleCompleteMilestone(ms.id)}
+                              className="w-full text-xs bg-amber-primary/15 hover:bg-amber-primary/25 text-amber-highlight border border-amber-primary/30 rounded-lg py-2 transition-colors"
+                            >
+                              All steps done — mark milestone complete?
+                            </button>
+                          )}
+                          {childSteps.map((step) => (
+                            <StepCard
+                              key={step.id}
+                              step={step}
+                              isParent={isParent}
+                              milestones={milestones}
+                              onToggle={handleToggleStep}
+                              onDelete={handleDeleteStep}
+                              onMove={handleMoveStep}
+                            />
+                          ))}
+                          {childSteps.length === 0 && (
+                            <div className="text-xs text-forge-text-dim italic">
+                              No steps in this milestone yet.
+                            </div>
+                          )}
+                          {isParent && (
+                            <button
+                              onClick={() => openAddStep(ms.id)}
+                              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-forge-border text-xs text-forge-text-dim hover:text-forge-text hover:border-amber-primary transition-colors"
+                            >
+                              <Plus size={12} /> Add step here
+                            </button>
+                          )}
+                        </div>
                       )}
+                    </Card>
+                  </motion.div>
+                );
+              })}
+
+              {/* Loose / unassigned steps. When there are no milestones, this is
+                  the only section and acts as a flat step list (current behavior). */}
+              {looseSteps.length > 0 && (
+                <div className="space-y-2">
+                  {milestones.length > 0 && (
+                    <div className="text-xs text-forge-text-dim font-medium uppercase tracking-wide pt-2">
+                      Other Steps
                     </div>
-                  </Card>
-                </motion.div>
-              ))}
+                  )}
+                  {looseSteps.map((step) => (
+                    <StepCard
+                      key={step.id}
+                      step={step}
+                      isParent={isParent}
+                      milestones={milestones}
+                      onToggle={handleToggleStep}
+                      onDelete={handleDeleteStep}
+                      onMove={handleMoveStep}
+                    />
+                  ))}
+                </div>
+              )}
+
               {isParent && project.resources?.length > 0 && (
                 <div className="pt-4">
                   <div className="text-xs text-forge-text-dim mb-2 font-medium uppercase tracking-wide">
@@ -385,58 +584,6 @@ export default function ProjectDetail({ user }) {
                   </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {activeTab === 'Milestones' && (
-            <div className="space-y-2">
-              {isParent && (
-                <button
-                  onClick={() => setAddMilestoneOpen(true)}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-forge-border text-sm text-forge-text-dim hover:text-forge-text hover:border-amber-primary transition-colors"
-                >
-                  <Plus size={16} /> Add Milestone
-                </button>
-              )}
-              {project.milestones?.length === 0 && (
-                <EmptyState className="py-8">No milestones</EmptyState>
-              )}
-              {project.milestones?.map((ms) => (
-                <motion.div key={ms.id} layout>
-                  <Card className={`flex items-center gap-3 ${ms.is_completed ? 'opacity-60' : ''}`}>
-                    <button
-                      onClick={() => !ms.is_completed && handleCompleteMilestone(ms.id)}
-                      disabled={ms.is_completed}
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                        ms.is_completed
-                          ? 'bg-green-500 border-green-500'
-                          : 'border-forge-muted hover:border-amber-primary'
-                      }`}
-                    >
-                      {ms.is_completed && <Check size={14} className="text-white" />}
-                    </button>
-                    <div className="flex-1">
-                      <div className={`font-medium text-sm ${ms.is_completed ? 'line-through' : ''}`}>
-                        {ms.title}
-                      </div>
-                      {ms.description && <div className="text-xs text-forge-text-dim">{ms.description}</div>}
-                    </div>
-                    {ms.bonus_amount && (
-                      <span className="text-xs text-green-400 flex items-center gap-0.5">
-                        <DollarSign size={12} />{ms.bonus_amount}
-                      </span>
-                    )}
-                    {isParent && (
-                      <button
-                        onClick={() => handleDeleteMilestone(ms.id)}
-                        className="text-forge-text-dim hover:text-red-400 p-1 transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
-                  </Card>
-                </motion.div>
-              ))}
             </div>
           )}
 
@@ -541,6 +688,8 @@ export default function ProjectDetail({ user }) {
         {addStepOpen && (
           <AddStepModal
             projectId={id}
+            milestones={milestones}
+            initialMilestoneId={addStepMilestoneId}
             onClose={() => setAddStepOpen(false)}
             onSaved={() => { setAddStepOpen(false); reload(); }}
           />
@@ -803,8 +952,12 @@ function AddMaterialModal({ projectId, onClose, onSaved }) {
 
 /* ── Add Step Modal ─────────────────────────────────────────────── */
 
-function AddStepModal({ projectId, onClose, onSaved }) {
-  const [form, setForm] = useState({ title: '', description: '' });
+function AddStepModal({ projectId, milestones = [], initialMilestoneId = null, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    milestone: initialMilestoneId == null ? '' : String(initialMilestoneId),
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -819,6 +972,7 @@ function AddStepModal({ projectId, onClose, onSaved }) {
         project: projectId,
         title: form.title,
         description: form.description,
+        milestone: form.milestone === '' ? null : Number(form.milestone),
       });
       onSaved();
     } catch (err) {
@@ -848,6 +1002,19 @@ function AddStepModal({ projectId, onClose, onSaved }) {
             placeholder="What does the maker do next?"
           />
         </div>
+        {milestones.length > 0 && (
+          <div>
+            <label className="block text-xs text-forge-text-dim mb-1">Milestone</label>
+            <select value={form.milestone} onChange={set('milestone')} className={inputClass}>
+              <option value="">(No milestone — loose step)</option>
+              {milestones.map((m, idx) => (
+                <option key={m.id} value={m.id}>
+                  {idx + 1}. {m.title || `Milestone ${idx + 1}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="flex gap-2">
           <button type="button" onClick={onClose} disabled={saving} className="flex-1 bg-forge-muted hover:bg-forge-border text-forge-text font-medium py-3 rounded-lg transition-colors">
             Cancel

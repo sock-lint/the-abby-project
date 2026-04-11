@@ -119,6 +119,15 @@ export default function ProjectIngest() {
   const removeMilestone = (i) => setDraft((d) => ({
     ...d,
     milestones: d.milestones.filter((_, idx) => idx !== i).map((m, idx) => ({ ...m, order: idx })),
+    // Shift step.milestone_index so steps stay pointing at the right milestone
+    // after the removal. Steps that were attached to the removed milestone
+    // become loose (null).
+    steps: (d.steps || []).map((s) => {
+      if (s.milestone_index == null) return s;
+      if (s.milestone_index === i) return { ...s, milestone_index: null };
+      if (s.milestone_index > i) return { ...s, milestone_index: s.milestone_index - 1 };
+      return s;
+    }),
   }));
 
   const updateMaterial = (i, patch) => {
@@ -142,7 +151,10 @@ export default function ProjectIngest() {
   };
   const addStep = () => setDraft((d) => ({
     ...d,
-    steps: [...d.steps, { title: '', description: '', order: d.steps.length }],
+    steps: [
+      ...d.steps,
+      { title: '', description: '', order: d.steps.length, milestone_index: null },
+    ],
   }));
   const removeStep = (i) => setDraft((d) => ({
     ...d,
@@ -464,13 +476,49 @@ export default function ProjectIngest() {
 
           <Card className="space-y-3">
             <div className="flex items-center justify-between">
+              <h2 className="font-heading text-lg font-bold">Milestones ({draft.milestones.length})</h2>
+              <button onClick={addMilestone} className="text-xs text-amber-primary hover:text-amber-highlight flex items-center gap-1">
+                <Plus size={14} /> Add
+              </button>
+            </div>
+            <p className="text-xs text-forge-text-dim">
+              Optional payment goals — chapters of the project. Each one can hold a $ bonus and group its own steps below.
+            </p>
+            {draft.milestones.map((m, i) => (
+              <div key={i} className="bg-forge-bg border border-forge-border rounded-lg p-3 space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    value={m.title} onChange={(e) => updateMilestone(i, { title: e.target.value })}
+                    className={inputClass} placeholder={`Milestone ${i + 1}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeMilestone(i)}
+                    aria-label="Remove milestone"
+                    className="text-forge-text-dim hover:text-red-400 shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+                <textarea
+                  value={m.description || ''}
+                  onChange={(e) => updateMilestone(i, { description: e.target.value })}
+                  className={`${inputClass} h-16 resize-none text-xs`}
+                  placeholder="Description (optional)"
+                />
+              </div>
+            ))}
+          </Card>
+
+          <Card className="space-y-3">
+            <div className="flex items-center justify-between">
               <h2 className="font-heading text-lg font-bold">Steps ({draft.steps.length})</h2>
               <button onClick={addStep} className="text-xs text-amber-primary hover:text-amber-highlight flex items-center gap-1">
                 <Plus size={14} /> Add
               </button>
             </div>
             <p className="text-xs text-forge-text-dim">
-              Ordered walkthrough instructions. No coins, XP, or money — the kid checks these off as they go.
+              Ordered walkthrough instructions. Assign a step to a milestone above to group it under that chapter — leave loose if it's a one-off.
             </p>
             {draft.steps.length === 0 && (
               <div className="text-xs text-forge-text-dim italic">
@@ -501,6 +549,24 @@ export default function ProjectIngest() {
                   className={`${inputClass} h-20 resize-none text-xs`}
                   placeholder="What does the maker do in this step?"
                 />
+                {draft.milestones.length > 0 && (
+                  <select
+                    value={s.milestone_index == null ? '' : String(s.milestone_index)}
+                    onChange={(e) =>
+                      updateStep(i, {
+                        milestone_index: e.target.value === '' ? null : parseInt(e.target.value, 10),
+                      })
+                    }
+                    className={`${inputClass} text-xs`}
+                  >
+                    <option value="">(No milestone — loose step)</option>
+                    {draft.milestones.map((m, idx) => (
+                      <option key={idx} value={idx}>
+                        {idx + 1}. {(m.title || '').slice(0, 30) || `Milestone ${idx + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             ))}
           </Card>

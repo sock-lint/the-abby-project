@@ -478,12 +478,16 @@ class ProjectTemplateViewSet(viewsets.ModelViewSet):
             status="in_progress",
         )
 
+        # Map template-milestone pk -> real ProjectMilestone so steps can
+        # rebind their FK to the new project's milestones (not the template's).
+        ms_id_map = {}
         for ms in template.milestones.all():
-            ProjectMilestone.objects.create(
+            pm = ProjectMilestone.objects.create(
                 project=project, title=ms.title,
                 description=ms.description, order=ms.order,
                 bonus_amount=ms.bonus_amount,
             )
+            ms_id_map[ms.id] = pm
 
         for mat in template.materials.all():
             MaterialItem.objects.create(
@@ -493,12 +497,14 @@ class ProjectTemplateViewSet(viewsets.ModelViewSet):
             )
 
         # Clone steps first so we can map template-step ids to real step pks
-        # when copying step-scoped resources.
+        # when copying step-scoped resources. Preserve the step→milestone
+        # linkage by resolving through ms_id_map.
         step_id_map = {}
         for ts in template.steps.all():
             ps = ProjectStep.objects.create(
                 project=project, title=ts.title,
                 description=ts.description, order=ts.order,
+                milestone=ms_id_map.get(ts.milestone_id) if ts.milestone_id else None,
             )
             step_id_map[ts.id] = ps
 
@@ -536,12 +542,16 @@ class ProjectTemplateViewSet(viewsets.ModelViewSet):
             is_public=request.data.get("is_public", False),
         )
 
+        # Map project-milestone pk -> TemplateMilestone so cloned steps point
+        # at the template's milestones, not the source project's.
+        ms_id_map = {}
         for ms in project.milestones.all():
-            TemplateMilestone.objects.create(
+            tm = TemplateMilestone.objects.create(
                 template=template, title=ms.title,
                 description=ms.description, order=ms.order,
                 bonus_amount=ms.bonus_amount,
             )
+            ms_id_map[ms.id] = tm
 
         for mat in project.materials.all():
             TemplateMaterial.objects.create(
@@ -555,6 +565,7 @@ class ProjectTemplateViewSet(viewsets.ModelViewSet):
             ts = TemplateStep.objects.create(
                 template=template, title=ps.title,
                 description=ps.description, order=ps.order,
+                milestone=ms_id_map.get(ps.milestone_id) if ps.milestone_id else None,
             )
             step_id_map[ps.id] = ts
 
@@ -711,17 +722,18 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
 
             # Milestones: ingestors no longer populate these by default (walkthrough
             # content now lives on ``steps``). Parents can still override with an
-            # explicit milestones list from the preview.
+            # explicit milestones list from the preview. We use a loop instead of
+            # bulk_create so we get pks back on every backend (SQLite included)
+            # and can resolve ``milestone_index`` on each step below.
             milestones = overrides.get("milestones") or []
-            ProjectMilestone.objects.bulk_create([
-                ProjectMilestone(
+            created_milestones: list[ProjectMilestone] = []
+            for i, m in enumerate(milestones):
+                created_milestones.append(ProjectMilestone.objects.create(
                     project=project,
                     title=(m.get("title") or "")[:200] or f"Milestone {i + 1}",
                     description=m.get("description") or "",
                     order=m.get("order", i),
-                )
-                for i, m in enumerate(milestones)
-            ])
+                ))
 
             materials = overrides.get("materials") or [m.to_dict() for m in staged.materials]
             from decimal import Decimal, InvalidOperation
@@ -742,11 +754,19 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
             MaterialItem.objects.bulk_create(material_rows)
 
             # Steps — the real home for walkthrough content going forward.
+            # ``milestone_index`` (when present) is a 0-based index into the
+            # milestones list above; out-of-range or missing values fall back
+            # to a "loose" (unassigned) step rather than raising.
             steps_input = overrides.get("steps") or [s.to_dict() for s in staged.steps]
             created_steps = []
             for i, s in enumerate(steps_input):
+                ms_idx = s.get("milestone_index")
+                step_milestone = None
+                if isinstance(ms_idx, int) and 0 <= ms_idx < len(created_milestones):
+                    step_milestone = created_milestones[ms_idx]
                 created_steps.append(ProjectStep.objects.create(
                     project=project,
+                    milestone=step_milestone,
                     title=(s.get("title") or "")[:200] or f"Step {i + 1}",
                     description=s.get("description") or "",
                     order=s.get("order", i),

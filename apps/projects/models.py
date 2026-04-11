@@ -169,9 +169,19 @@ class ProjectStep(TimestampedModel):
     Distinct from ``ProjectMilestone`` (which is goal-based with an optional
     ``bonus_amount`` tied to the ledger). Steps are purely instructional —
     completing one just marks progress; no coins, no XP, no payments.
+
+    Steps may optionally belong to a ``ProjectMilestone`` (chapter / phase),
+    in which case the UI groups them under that milestone with a progress
+    rollup. Steps with ``milestone=None`` are "loose" — rendered in an "Other
+    Steps" bucket. Deleting a milestone un-groups its steps via SET_NULL
+    rather than cascading.
     """
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, related_name="steps"
+    )
+    milestone = models.ForeignKey(
+        ProjectMilestone, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="steps",
     )
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
@@ -324,6 +334,10 @@ class TemplateMaterial(models.Model):
 class TemplateStep(models.Model):
     template = models.ForeignKey(
         ProjectTemplate, on_delete=models.CASCADE, related_name="steps"
+    )
+    milestone = models.ForeignKey(
+        TemplateMilestone, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="steps",
     )
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)

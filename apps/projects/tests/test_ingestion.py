@@ -322,6 +322,72 @@ class IngestCommitFlowTests(TestCase):
         self.assertEqual(len(step_scoped), 1)
         self.assertEqual(step_scoped[0].url, "https://example.com/build.mp4")
 
+    def test_commit_links_steps_to_milestones_via_index(self):
+        """``milestone_index`` on a staged step should resolve to the FK on the
+        materialized ``ProjectStep`` row, grouping it under the right phase."""
+        job = self._make_ready_job({
+            "title": "Birdhouse",
+            "source_type": "url",
+            "steps": [
+                {"title": "Gather", "description": "", "order": 0, "milestone_index": 0},
+                {"title": "Saw", "description": "", "order": 1, "milestone_index": 1},
+                {"title": "Admire", "description": "", "order": 2, "milestone_index": None},
+            ],
+            "milestones": [],
+            "materials": [],
+            "resources": [],
+            "warnings": [],
+        })
+        # Parents add milestones from the preview screen, so they ride along
+        # in the override body rather than the staged result_json.
+        resp = self.client.post(
+            f"/api/projects/ingest/{job.id}/commit/",
+            {
+                "milestones": [
+                    {"title": "Prep", "order": 0},
+                    {"title": "Build", "order": 1},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        project = Project.objects.get(pk=resp.json()["id"])
+
+        prep, build = list(
+            ProjectMilestone.objects.filter(project=project).order_by("order")
+        )
+        steps = {
+            s.title: s
+            for s in ProjectStep.objects.filter(project=project)
+        }
+        self.assertEqual(steps["Gather"].milestone_id, prep.id)
+        self.assertEqual(steps["Saw"].milestone_id, build.id)
+        self.assertIsNone(steps["Admire"].milestone_id)
+
+    def test_commit_falls_back_to_loose_step_on_invalid_milestone_index(self):
+        """Out-of-range ``milestone_index`` should NOT 500 — the step lands as
+        loose (milestone=None) so a malformed payload can't break the commit."""
+        job = self._make_ready_job({
+            "title": "X",
+            "source_type": "url",
+            "steps": [
+                {"title": "Solo", "description": "", "order": 0, "milestone_index": 99},
+            ],
+            "milestones": [],
+            "materials": [],
+            "resources": [],
+            "warnings": [],
+        })
+        resp = self.client.post(
+            f"/api/projects/ingest/{job.id}/commit/",
+            {"milestones": [{"title": "Only", "order": 0}]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        project = Project.objects.get(pk=resp.json()["id"])
+        step = ProjectStep.objects.get(project=project)
+        self.assertIsNone(step.milestone_id)
+
     def test_commit_skips_resource_with_empty_url(self):
         """Empty URLs should be silently skipped rather than causing DB errors."""
         job = self._make_ready_job({

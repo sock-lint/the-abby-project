@@ -19,7 +19,7 @@ from apps.mcp_server.schemas import (
 )
 from apps.mcp_server.tools import projects as project_tools
 from apps.projects.models import (
-    Project, ProjectResource, ProjectStep, SkillCategory, User,
+    Project, ProjectMilestone, ProjectResource, ProjectStep, SkillCategory, User,
 )
 from apps.achievements.models import ProjectSkillTag, Skill, Subject
 
@@ -113,6 +113,47 @@ class CreateProjectTests(TestCase):
         self.assertEqual(project_level[0].url, "https://example.com/overview.mp4")
         self.assertEqual(len(step_scoped), 1)
         self.assertEqual(step_scoped[0].url, "https://example.com/assemble.mp4")
+
+    def test_create_project_links_steps_to_milestones_via_index(self) -> None:
+        """``milestone_index`` on a NewStep should resolve to the matching
+        ``ProjectMilestone.pk`` so steps render under the right phase."""
+        payload = CreateProjectIn(
+            title="Birdhouse",
+            assigned_to_id=self.child.id,
+            milestones=[
+                NewMilestone(title="Prep"),
+                NewMilestone(title="Build"),
+            ],
+            steps=[
+                NewStep(title="Gather", milestone_index=0),
+                NewStep(title="Saw", milestone_index=1),
+                NewStep(title="Admire", milestone_index=None),
+            ],
+        )
+        with override_user(self.parent):
+            result = project_tools.create_project(payload)
+
+        project = Project.objects.get(pk=result["id"])
+        prep, build = list(
+            ProjectMilestone.objects.filter(project=project).order_by("order")
+        )
+        steps = {s.title: s for s in ProjectStep.objects.filter(project=project)}
+        self.assertEqual(steps["Gather"].milestone_id, prep.id)
+        self.assertEqual(steps["Saw"].milestone_id, build.id)
+        self.assertIsNone(steps["Admire"].milestone_id)
+
+    def test_create_project_rejects_out_of_range_milestone_index(self) -> None:
+        """A ``milestone_index`` outside the milestones list should fail
+        validation BEFORE any DB writes — no half-created project."""
+        payload = CreateProjectIn(
+            title="Bad ms idx",
+            assigned_to_id=self.child.id,
+            milestones=[NewMilestone(title="only")],
+            steps=[NewStep(title="solo", milestone_index=5)],
+        )
+        with override_user(self.parent), self.assertRaises(MCPValidationError):
+            project_tools.create_project(payload)
+        self.assertFalse(Project.objects.filter(title="Bad ms idx").exists())
 
     def test_create_project_rejects_out_of_range_step_index(self) -> None:
         """step_index validation must happen BEFORE any DB writes so a bad

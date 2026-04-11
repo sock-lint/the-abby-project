@@ -67,7 +67,7 @@ class ProjectStepSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProjectStep
         fields = [
-            "id", "project", "title", "description", "order",
+            "id", "project", "milestone", "title", "description", "order",
             "is_completed", "completed_at", "resources",
         ]
         read_only_fields = ["completed_at"]
@@ -226,7 +226,7 @@ class TemplateStepSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TemplateStep
-        fields = ["id", "title", "description", "order", "resources"]
+        fields = ["id", "milestone", "title", "description", "order", "resources"]
 
 
 class ProjectTemplateSerializer(serializers.ModelSerializer):
