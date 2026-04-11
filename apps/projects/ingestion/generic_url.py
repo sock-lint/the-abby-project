@@ -6,11 +6,45 @@ from typing import Any, Iterable
 
 from bs4 import BeautifulSoup
 
-from .base import BaseIngestor, IngestionResult, MaterialDraft, MilestoneDraft
+from .base import BaseIngestor, IngestionResult, MaterialDraft, ResourceDraft, StepDraft
 from .category import guess_category
 
 
 MATERIAL_HEADING_KEYWORDS = ("materials", "supplies", "you'll need", "you will need", "what you need", "tools")
+
+
+def _extract_media_url(media: Any) -> str | None:
+    """Normalize a JSON-LD media field to a single absolute URL string.
+
+    ``media`` may be a plain string, a single ``VideoObject``/``ImageObject``
+    dict (``url`` or ``contentUrl``), or a list of either. Only returns
+    absolute URLs — skips anything that doesn't start with ``http``.
+    """
+    if not media:
+        return None
+    if isinstance(media, list):
+        for item in media:
+            url = _extract_media_url(item)
+            if url:
+                return url
+        return None
+    if isinstance(media, str):
+        return media if media.startswith("http") else None
+    if isinstance(media, dict):
+        for key in ("contentUrl", "url", "embedUrl"):
+            val = media.get(key)
+            if isinstance(val, str) and val.startswith("http"):
+                return val
+    return None
+
+
+def _extract_media_name(media: Any) -> str | None:
+    """Return a display title from a JSON-LD media field, or None."""
+    if isinstance(media, dict):
+        name = media.get("name") or media.get("caption")
+        if isinstance(name, str):
+            return name
+    return None
 
 
 class GenericUrlIngestor(BaseIngestor):
@@ -37,9 +71,9 @@ class GenericUrlIngestor(BaseIngestor):
         # 2) OpenGraph fallback for title/description/cover
         self._apply_opengraph(soup, result)
 
-        # 3) Heuristic fallback when JSON-LD did not supply milestones/materials
-        if not result.milestones:
-            self._apply_heuristic_milestones(soup, result)
+        # 3) Heuristic fallback when JSON-LD did not supply steps/materials
+        if not result.steps:
+            self._apply_heuristic_steps(soup, result)
         if not result.materials:
             self._apply_heuristic_materials(soup, result)
 
@@ -130,6 +164,21 @@ class GenericUrlIngestor(BaseIngestor):
                 if name:
                     result.materials.append(MaterialDraft(name=name[:200]))
 
+        # Top-level video (if HowTo node has one) becomes a project-level
+        # resource. JSON-LD may express this as a string or a VideoObject dict.
+        video = node.get("video")
+        video_url = _extract_media_url(video)
+        if video_url:
+            result.resources.append(
+                ResourceDraft(
+                    url=video_url[:1000],
+                    title=_extract_media_name(video) or "",
+                    resource_type="video",
+                    order=len(result.resources),
+                    step_index=None,
+                )
+            )
+
     @staticmethod
     def _append_howto_step(
         step: dict, result: IngestionResult, order: int
@@ -138,9 +187,41 @@ class GenericUrlIngestor(BaseIngestor):
         desc = step.get("text") or ""
         if isinstance(desc, list):
             desc = " ".join(str(x) for x in desc)
-        result.milestones.append(
-            MilestoneDraft(title=str(title)[:200], description=str(desc)[:500], order=order)
+        result.steps.append(
+            StepDraft(
+                title=str(title)[:200],
+                description=str(desc)[:2000],
+                order=order,
+            )
         )
+
+        # Per-step media (image / video) becomes a ResourceDraft attached to
+        # this step via step_index. HowToStep ``image`` / ``video`` can be a
+        # string URL or a {"url": ...} / {"contentUrl": ...} dict.
+        step_video = step.get("video")
+        step_video_url = _extract_media_url(step_video)
+        if step_video_url:
+            result.resources.append(
+                ResourceDraft(
+                    url=step_video_url[:1000],
+                    title=_extract_media_name(step_video) or "",
+                    resource_type="video",
+                    order=len(result.resources),
+                    step_index=order,
+                )
+            )
+        step_image = step.get("image")
+        step_image_url = _extract_media_url(step_image)
+        if step_image_url and step_image_url != step_video_url:
+            result.resources.append(
+                ResourceDraft(
+                    url=step_image_url[:1000],
+                    title="",
+                    resource_type="image",
+                    order=len(result.resources),
+                    step_index=order,
+                )
+            )
 
     # ---- OpenGraph fallbacks -------------------------------------------
 
@@ -162,7 +243,7 @@ class GenericUrlIngestor(BaseIngestor):
     # ---- Heuristic fallbacks --------------------------------------------
 
     @staticmethod
-    def _apply_heuristic_milestones(
+    def _apply_heuristic_steps(
         soup: BeautifulSoup, result: IngestionResult
     ) -> None:
         # First <ol> with 3+ items inside <article>/<main>/body counts as steps.
@@ -178,10 +259,10 @@ class GenericUrlIngestor(BaseIngestor):
                         continue
                     # First sentence as title, rest as description.
                     head, _, rest = text.partition(". ")
-                    result.milestones.append(
-                        MilestoneDraft(
+                    result.steps.append(
+                        StepDraft(
                             title=head[:200] or f"Step {i + 1}",
-                            description=rest[:500],
+                            description=rest[:2000],
                             order=i,
                         )
                     )

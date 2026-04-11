@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from bs4 import BeautifulSoup
 
-from .base import BaseIngestor, IngestionResult, MaterialDraft, MilestoneDraft
+from .base import BaseIngestor, IngestionResult, MaterialDraft, StepDraft
 from .category import guess_category
 
 
@@ -40,28 +40,29 @@ class InstructablesIngestor(BaseIngestor):
         if og_desc and og_desc.get("content"):
             result.description = og_desc.get("content", "").strip()
 
-        # Steps -> milestones. Instructables step sections have class names
+        # Walkthrough steps. Instructables step sections have class names
         # containing "step" (the exact markup has changed over time).
-        steps = soup.find_all(
+        step_sections = soup.find_all(
             "section", class_=lambda c: bool(c) and "step" in " ".join(
                 c if isinstance(c, list) else [c]
             ).lower()
         )
-        if not steps:
+        if not step_sections:
             # Fallback: heading tags starting with "Step"
-            steps = [
+            step_sections = [
                 h for h in soup.find_all(["h2", "h3"])
                 if h.get_text(strip=True).lower().startswith("step")
             ]
 
-        for i, step in enumerate(steps):
+        for i, step in enumerate(step_sections):
             title_el = step.find(["h2", "h3"]) if hasattr(step, "find") else None
             step_title = (title_el.get_text(strip=True) if title_el else "") or f"Step {i + 1}"
-            # Grab first paragraph as description, truncated.
+            # Grab first paragraph as description, capped at 2000 chars — steps
+            # legitimately need more room than the old 500-char milestone cap.
             desc_el = step.find("p") if hasattr(step, "find") else None
-            step_desc = desc_el.get_text(" ", strip=True)[:500] if desc_el else ""
-            result.milestones.append(
-                MilestoneDraft(title=step_title, description=step_desc, order=i)
+            step_desc = desc_el.get_text(" ", strip=True)[:2000] if desc_el else ""
+            result.steps.append(
+                StepDraft(title=step_title, description=step_desc, order=i)
             )
 
         # Supplies list -> materials

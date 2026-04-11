@@ -21,6 +21,8 @@ from apps.projects.models import (
     MaterialItem,
     Project,
     ProjectMilestone,
+    ProjectResource,
+    ProjectStep,
     SkillCategory,
     User,
 )
@@ -149,11 +151,18 @@ def get_project(params: GetProjectIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def create_project(params: CreateProjectIn) -> dict[str, Any]:
-    """Create a new project with optional inline milestones and skill tags.
+    """Create a new project with optional inline steps, milestones, resources,
+    and skill tags.
 
     Parent-only. Inline ``skill_tags`` are required for clock-out XP to
     actually distribute to skills — pass at least one unless the project
     is intentionally XP-less.
+
+    When creating a project without an Instructables URL, populate ``steps``
+    with 4-10 short walkthrough instructions so the child has "do this next"
+    guidance. Attach videos/docs to a step via a ``NewResource`` with
+    ``step_index`` pointing at the step's 0-based position, or leave
+    ``step_index`` as ``None`` for a project-level reference.
     """
     parent = require_parent()
 
@@ -171,6 +180,18 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
         except SkillCategory.DoesNotExist:
             raise MCPValidationError(
                 f"category_id {params.category_id} does not match any category.",
+            )
+
+    # Validate step_index references BEFORE any DB writes so a bad payload
+    # can't half-create a project.
+    step_count = len(params.steps)
+    for r_idx, res in enumerate(params.resources):
+        if res.step_index is None:
+            continue
+        if not (0 <= res.step_index < step_count):
+            raise MCPValidationError(
+                f"resources[{r_idx}].step_index={res.step_index} is out of range "
+                f"(there are {step_count} steps).",
             )
 
     with transaction.atomic():
@@ -206,6 +227,30 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
             project,
             [t.model_dump() for t in params.skill_tags],
         )
+
+        # Steps — the walkthrough surface. Order matches the input list.
+        created_steps: list[ProjectStep] = []
+        for idx, s in enumerate(params.steps):
+            created_steps.append(ProjectStep.objects.create(
+                project=project,
+                title=s.title,
+                description=s.description,
+                order=s.order or idx,
+            ))
+
+        # Resources — resolve step_index to a real FK (or None).
+        for r_idx, res in enumerate(params.resources):
+            step_fk = None
+            if res.step_index is not None:
+                step_fk = created_steps[res.step_index]
+            ProjectResource.objects.create(
+                project=project,
+                step=step_fk,
+                title=res.title,
+                url=res.url,
+                resource_type=res.resource_type,
+                order=res.order or r_idx,
+            )
 
     project.refresh_from_db()
     return project_detail_to_dict(project)

@@ -163,6 +163,64 @@ class MaterialItem(models.Model):
         return f"{self.name} ({self.project.title})"
 
 
+class ProjectStep(TimestampedModel):
+    """An ordered walkthrough instruction for a project.
+
+    Distinct from ``ProjectMilestone`` (which is goal-based with an optional
+    ``bonus_amount`` tied to the ledger). Steps are purely instructional —
+    completing one just marks progress; no coins, no XP, no payments.
+    """
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, related_name="steps"
+    )
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+    is_completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return f"{self.project.title} — Step {self.order + 1}: {self.title}"
+
+
+class ProjectResource(TimestampedModel):
+    """A reference link (video, doc, inspiration URL) for a project or step.
+
+    If ``step`` is set, the resource is displayed inline under that step. If
+    ``step`` is null, the resource is a project-level reference shown in the
+    Overview tab.
+    """
+    class ResourceType(models.TextChoices):
+        LINK = "link", "Link"
+        VIDEO = "video", "Video"
+        DOC = "doc", "Document"
+        IMAGE = "image", "Image"
+
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, related_name="resources"
+    )
+    step = models.ForeignKey(
+        ProjectStep, on_delete=models.CASCADE, related_name="resources",
+        null=True, blank=True,
+    )
+    title = models.CharField(max_length=200, blank=True)
+    url = models.URLField(max_length=1000)
+    resource_type = models.CharField(
+        max_length=10, choices=ResourceType.choices, default=ResourceType.LINK,
+    )
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["step_id", "order", "id"]
+
+    def __str__(self):
+        label = self.title or self.url
+        return f"{self.project.title} — {label}"
+
+
 class Notification(CreatedAtModel):
     class NotificationType(models.TextChoices):
         TIMECARD_READY = "timecard_ready", "Timecard Ready"
@@ -261,6 +319,46 @@ class TemplateMaterial(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.template.title})"
+
+
+class TemplateStep(models.Model):
+    template = models.ForeignKey(
+        ProjectTemplate, on_delete=models.CASCADE, related_name="steps"
+    )
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return f"{self.template.title} — Step {self.order + 1}: {self.title}"
+
+
+class TemplateResource(models.Model):
+    template = models.ForeignKey(
+        ProjectTemplate, on_delete=models.CASCADE, related_name="resources"
+    )
+    step = models.ForeignKey(
+        TemplateStep, on_delete=models.CASCADE, related_name="resources",
+        null=True, blank=True,
+    )
+    title = models.CharField(max_length=200, blank=True)
+    url = models.URLField(max_length=1000)
+    resource_type = models.CharField(
+        max_length=10,
+        choices=ProjectResource.ResourceType.choices,
+        default=ProjectResource.ResourceType.LINK,
+    )
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["step_id", "order", "id"]
+
+    def __str__(self):
+        label = self.title or self.url
+        return f"{self.template.title} — {label}"
 
 
 class ProjectCollaborator(models.Model):

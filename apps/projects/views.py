@@ -13,15 +13,17 @@ from config.viewsets import (
 
 from .models import (
     MaterialItem, Project, ProjectCollaborator, ProjectIngestionJob,
-    ProjectMilestone, ProjectTemplate, SavingsGoal, SkillCategory,
-    TemplateMaterial, TemplateMilestone, User,
+    ProjectMilestone, ProjectResource, ProjectStep, ProjectTemplate, SavingsGoal,
+    SkillCategory, TemplateMaterial, TemplateMilestone, TemplateResource,
+    TemplateStep, User,
 )
 from .serializers import (
     ChildSerializer, MaterialItemSerializer, NotificationSerializer,
     ProjectCollaboratorSerializer, ProjectDetailSerializer,
     ProjectIngestionJobSerializer, ProjectListSerializer,
-    ProjectMilestoneSerializer, ProjectTemplateSerializer, SavingsGoalSerializer,
-    SkillCategorySerializer, UserSerializer,
+    ProjectMilestoneSerializer, ProjectResourceSerializer, ProjectStepSerializer,
+    ProjectTemplateSerializer, SavingsGoalSerializer, SkillCategorySerializer,
+    UserSerializer,
 )
 
 
@@ -260,6 +262,98 @@ class MaterialItemViewSet(NestedProjectResourceMixin, viewsets.ModelViewSet):
         return Response(MaterialItemSerializer(item).data)
 
 
+def _can_edit_project_step(user, project):
+    """Child can toggle steps on projects they're assigned to or collaborating on."""
+    if user.role == "parent":
+        return True
+    if project.assigned_to_id == user.id:
+        return True
+    return project.collaborators.filter(user=user).exists()
+
+
+class ProjectStepViewSet(NestedProjectResourceMixin, viewsets.ModelViewSet):
+    """Walkthrough steps — purely instructional, no ledger/XP hooks.
+
+    Parents can CRUD steps. Children assigned to (or collaborating on) a
+    project can ``complete`` / ``uncomplete`` their own steps.
+    """
+    serializer_class = ProjectStepSerializer
+    queryset = ProjectStep.objects.all()
+
+    def get_permissions(self):
+        # Children use complete/uncomplete/reorder; parents can CRUD freely.
+        if self.action in ("create", "update", "partial_update", "destroy"):
+            return [IsParent()]
+        return [permissions.IsAuthenticated()]
+
+    @action(detail=True, methods=["post"])
+    def complete(self, request, project_pk=None, pk=None):
+        from django.utils import timezone
+        step = self.get_object()
+        if not _can_edit_project_step(request.user, step.project):
+            return Response(
+                {"error": "Not allowed"}, status=status.HTTP_403_FORBIDDEN
+            )
+        step.is_completed = True
+        step.completed_at = timezone.now()
+        step.save(update_fields=["is_completed", "completed_at", "updated_at"])
+        return Response(ProjectStepSerializer(step).data)
+
+    @action(detail=True, methods=["post"])
+    def uncomplete(self, request, project_pk=None, pk=None):
+        step = self.get_object()
+        if not _can_edit_project_step(request.user, step.project):
+            return Response(
+                {"error": "Not allowed"}, status=status.HTTP_403_FORBIDDEN
+            )
+        step.is_completed = False
+        step.completed_at = None
+        step.save(update_fields=["is_completed", "completed_at", "updated_at"])
+        return Response(ProjectStepSerializer(step).data)
+
+    @action(detail=False, methods=["post"])
+    def reorder(self, request, project_pk=None):
+        """Accepts ``[{id, order}, ...]``; renumbers all project steps atomically."""
+        from django.db import transaction
+        items = request.data if isinstance(request.data, list) else request.data.get("items", [])
+        if not isinstance(items, list):
+            return Response(
+                {"error": "expected a list"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        with transaction.atomic():
+            steps_by_id = {
+                s.id: s
+                for s in ProjectStep.objects.select_for_update().filter(project_id=project_pk)
+            }
+            for idx, entry in enumerate(items):
+                step = steps_by_id.get(entry.get("id"))
+                if step is None:
+                    continue
+                step.order = entry.get("order", idx)
+                step.save(update_fields=["order", "updated_at"])
+        qs = ProjectStep.objects.filter(project_id=project_pk)
+        return Response(ProjectStepSerializer(qs, many=True).data)
+
+
+class ProjectResourceViewSet(NestedProjectResourceMixin, viewsets.ModelViewSet):
+    """Reference links (videos, docs, inspiration) attached to a project/step.
+
+    Reference material is parent-authored; children can view but not edit.
+    """
+    serializer_class = ProjectResourceSerializer
+    queryset = ProjectResource.objects.all()
+    permission_classes = [IsParent]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        step_id = self.request.query_params.get("step")
+        if step_id == "null":
+            qs = qs.filter(step__isnull=True)
+        elif step_id:
+            qs = qs.filter(step_id=step_id)
+        return qs
+
+
 class InstructablesPreviewView(APIView):
     def get(self, request):
         url = request.query_params.get('url')
@@ -398,6 +492,26 @@ class ProjectTemplateViewSet(viewsets.ModelViewSet):
                 estimated_cost=mat.estimated_cost,
             )
 
+        # Clone steps first so we can map template-step ids to real step pks
+        # when copying step-scoped resources.
+        step_id_map = {}
+        for ts in template.steps.all():
+            ps = ProjectStep.objects.create(
+                project=project, title=ts.title,
+                description=ts.description, order=ts.order,
+            )
+            step_id_map[ts.id] = ps
+
+        for tr in template.resources.all():
+            ProjectResource.objects.create(
+                project=project,
+                step=step_id_map.get(tr.step_id) if tr.step_id else None,
+                title=tr.title,
+                url=tr.url,
+                resource_type=tr.resource_type,
+                order=tr.order,
+            )
+
         return Response(ProjectDetailSerializer(project).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="from-project")
@@ -434,6 +548,24 @@ class ProjectTemplateViewSet(viewsets.ModelViewSet):
                 template=template, name=mat.name,
                 description=mat.description,
                 estimated_cost=mat.estimated_cost,
+            )
+
+        step_id_map = {}
+        for ps in project.steps.all():
+            ts = TemplateStep.objects.create(
+                template=template, title=ps.title,
+                description=ps.description, order=ps.order,
+            )
+            step_id_map[ps.id] = ts
+
+        for pr in project.resources.all():
+            TemplateResource.objects.create(
+                template=template,
+                step=step_id_map.get(pr.step_id) if pr.step_id else None,
+                title=pr.title,
+                url=pr.url,
+                resource_type=pr.resource_type,
+                order=pr.order,
             )
 
         return Response(ProjectTemplateSerializer(template).data, status=status.HTTP_201_CREATED)
@@ -577,11 +709,14 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             project = serializer.save(created_by=request.user)
 
-            milestones = overrides.get("milestones") or [m.to_dict() for m in staged.milestones]
+            # Milestones: ingestors no longer populate these by default (walkthrough
+            # content now lives on ``steps``). Parents can still override with an
+            # explicit milestones list from the preview.
+            milestones = overrides.get("milestones") or []
             ProjectMilestone.objects.bulk_create([
                 ProjectMilestone(
                     project=project,
-                    title=(m.get("title") or "")[:200] or f"Step {i + 1}",
+                    title=(m.get("title") or "")[:200] or f"Milestone {i + 1}",
                     description=m.get("description") or "",
                     order=m.get("order", i),
                 )
@@ -605,6 +740,38 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
                     estimated_cost=cost,
                 ))
             MaterialItem.objects.bulk_create(material_rows)
+
+            # Steps — the real home for walkthrough content going forward.
+            steps_input = overrides.get("steps") or [s.to_dict() for s in staged.steps]
+            created_steps = []
+            for i, s in enumerate(steps_input):
+                created_steps.append(ProjectStep.objects.create(
+                    project=project,
+                    title=(s.get("title") or "")[:200] or f"Step {i + 1}",
+                    description=s.get("description") or "",
+                    order=s.get("order", i),
+                ))
+
+            # Resources — resolve optional step_index to the just-created step pk.
+            resources_input = overrides.get("resources") or [r.to_dict() for r in staged.resources]
+            for r_idx, res in enumerate(resources_input):
+                step_index = res.get("step_index")
+                step_fk = None
+                if step_index is not None and isinstance(step_index, int) and (
+                    0 <= step_index < len(created_steps)
+                ):
+                    step_fk = created_steps[step_index]
+                url = (res.get("url") or "").strip()
+                if not url:
+                    continue
+                ProjectResource.objects.create(
+                    project=project,
+                    step=step_fk,
+                    title=(res.get("title") or "")[:200],
+                    url=url[:1000],
+                    resource_type=res.get("resource_type") or ProjectResource.ResourceType.LINK,
+                    order=res.get("order", r_idx),
+                )
 
             job.project = project
             job.status = ProjectIngestionJob.Status.COMMITTED

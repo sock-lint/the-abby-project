@@ -41,6 +41,34 @@ export const deleteMilestone = (projectId, id) =>
 export const completeMilestone = (projectId, id) =>
   api.post(`/projects/${projectId}/milestones/${id}/complete/`);
 
+// Steps (walkthrough instructions — no XP, no coins, no ledger)
+export const getSteps = (projectId) =>
+  api.get(`/projects/${projectId}/steps/`);
+export const createStep = (projectId, data) =>
+  api.post(`/projects/${projectId}/steps/`, data);
+export const updateStep = (projectId, id, data) =>
+  api.patch(`/projects/${projectId}/steps/${id}/`, data);
+export const deleteStep = (projectId, id) =>
+  api.delete(`/projects/${projectId}/steps/${id}/`);
+export const completeStep = (projectId, id) =>
+  api.post(`/projects/${projectId}/steps/${id}/complete/`);
+export const uncompleteStep = (projectId, id) =>
+  api.post(`/projects/${projectId}/steps/${id}/uncomplete/`);
+export const reorderSteps = (projectId, order) =>
+  api.post(`/projects/${projectId}/steps/reorder/`, { order });
+
+// Resources (reference links — project-level or attached to a step)
+export const getResources = (projectId, stepId) => {
+  const qs = stepId === undefined ? '' : `?step=${stepId === null ? 'null' : stepId}`;
+  return api.get(`/projects/${projectId}/resources/${qs}`);
+};
+export const createResource = (projectId, data) =>
+  api.post(`/projects/${projectId}/resources/`, data);
+export const updateResource = (projectId, id, data) =>
+  api.patch(`/projects/${projectId}/resources/${id}/`, data);
+export const deleteResource = (projectId, id) =>
+  api.delete(`/projects/${projectId}/resources/${id}/`);
+
 // Materials
 export const getMaterials = (projectId) =>
   api.get(`/projects/${projectId}/materials/`);

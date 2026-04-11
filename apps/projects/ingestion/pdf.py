@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 
-from .base import BaseIngestor, IngestionResult, MaterialDraft, MilestoneDraft
+from .base import BaseIngestor, IngestionResult, MaterialDraft, StepDraft
 from .category import guess_category
 
 
@@ -58,7 +58,7 @@ class PdfIngestor(BaseIngestor):
                     break
         result.title = (title or "")[:200]
 
-        self._extract_milestones(lines, result)
+        self._extract_steps(lines, result)
         self._extract_materials(lines, result)
 
         # Description: first paragraph that isn't the title and isn't a heading
@@ -80,16 +80,16 @@ class PdfIngestor(BaseIngestor):
         return result
 
     @staticmethod
-    def _extract_milestones(lines: list[str], result: IngestionResult) -> None:
-        current: MilestoneDraft | None = None
+    def _extract_steps(lines: list[str], result: IngestionResult) -> None:
+        current: StepDraft | None = None
         order = 0
         for line in lines:
             match = STEP_PATTERN.match(line)
             if match:
                 if current is not None:
-                    result.milestones.append(current)
+                    result.steps.append(current)
                 head = match.group(1).strip() or f"Step {order + 1}"
-                current = MilestoneDraft(
+                current = StepDraft(
                     title=head[:200], description="", order=order
                 )
                 order += 1
@@ -97,14 +97,14 @@ class PdfIngestor(BaseIngestor):
                 stripped = line.strip()
                 if not stripped:
                     # blank line closes the step
-                    result.milestones.append(current)
+                    result.steps.append(current)
                     current = None
                 else:
-                    # append continuation text, capped
-                    if len(current.description) < 500:
-                        current.description = (current.description + " " + stripped).strip()[:500]
+                    # append continuation text, capped at 2000 chars
+                    if len(current.description) < 2000:
+                        current.description = (current.description + " " + stripped).strip()[:2000]
         if current is not None:
-            result.milestones.append(current)
+            result.steps.append(current)
 
     @staticmethod
     def _extract_materials(lines: list[str], result: IngestionResult) -> None:

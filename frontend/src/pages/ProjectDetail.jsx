@@ -3,13 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Check, ExternalLink, ArrowLeft, DollarSign, QrCode, Copy,
-  Pencil, Plus, Trash2,
+  Pencil, Plus, Trash2, Video, FileText, Image as ImageIcon, Link as LinkIcon,
 } from 'lucide-react';
 import {
   getProject, updateProject, submitProject, approveProject, requestChanges,
   completeMilestone, createMilestone, deleteMilestone,
   markPurchased, createMaterial, deleteMaterial,
   saveProjectAsTemplate, activateProject, getCategories, getChildren,
+  completeStep, uncompleteStep, createStep, deleteStep,
+  createResource, deleteResource,
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import BottomSheet from '../components/BottomSheet';
@@ -22,7 +24,29 @@ import StatusBadge from '../components/StatusBadge';
 import { inputClass } from '../constants/styles';
 import { normalizeList } from '../utils/api';
 
-const tabs = ['Overview', 'Milestones', 'Materials'];
+const tabs = ['Overview', 'Steps', 'Milestones', 'Materials'];
+
+const RESOURCE_ICONS = {
+  video: Video,
+  doc: FileText,
+  image: ImageIcon,
+  link: LinkIcon,
+};
+
+function ResourcePill({ resource }) {
+  const Icon = RESOURCE_ICONS[resource.resource_type] || LinkIcon;
+  return (
+    <a
+      href={resource.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 text-xs bg-forge-muted hover:bg-forge-border text-forge-text px-2.5 py-1 rounded-full border border-forge-border transition-colors"
+    >
+      <Icon size={12} />
+      <span className="truncate max-w-[180px]">{resource.title || resource.url}</span>
+    </a>
+  );
+}
 
 export default function ProjectDetail({ user }) {
   const { id } = useParams();
@@ -33,6 +57,8 @@ export default function ProjectDetail({ user }) {
   const [editOpen, setEditOpen] = useState(false);
   const [addMilestoneOpen, setAddMilestoneOpen] = useState(false);
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
+  const [addStepOpen, setAddStepOpen] = useState(false);
+  const [addResourceOpen, setAddResourceOpen] = useState(false);
 
   if (loading) return <Loader />;
   if (!project) return <div className="text-forge-text-dim">Project not found</div>;
@@ -84,6 +110,27 @@ export default function ProjectDetail({ user }) {
   const handleDeleteMaterial = async (matId) => {
     if (!confirm('Delete this material?')) return;
     await deleteMaterial(id, matId);
+    reload();
+  };
+
+  const handleToggleStep = async (step) => {
+    if (step.is_completed) {
+      await uncompleteStep(id, step.id);
+    } else {
+      await completeStep(id, step.id);
+    }
+    reload();
+  };
+
+  const handleDeleteStep = async (stepId) => {
+    if (!confirm('Delete this step? Any attached resources will also be removed.')) return;
+    await deleteStep(id, stepId);
+    reload();
+  };
+
+  const handleDeleteResource = async (resId) => {
+    if (!confirm('Delete this resource?')) return;
+    await deleteResource(id, resId);
     reload();
   };
 
@@ -237,6 +284,107 @@ export default function ProjectDetail({ user }) {
                   <p className="text-sm">{project.parent_notes}</p>
                 </Card>
               )}
+              {project.resources?.length > 0 && (
+                <Card>
+                  <div className="text-xs text-forge-text-dim mb-2 font-medium uppercase tracking-wide">
+                    Resources
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {project.resources.map((r) => (
+                      <ResourcePill key={r.id} resource={r} />
+                    ))}
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'Steps' && (
+            <div className="space-y-2">
+              {isParent && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setAddStepOpen(true)}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-forge-border text-sm text-forge-text-dim hover:text-forge-text hover:border-amber-primary transition-colors"
+                  >
+                    <Plus size={16} /> Add Step
+                  </button>
+                  <button
+                    onClick={() => setAddResourceOpen(true)}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-forge-border text-sm text-forge-text-dim hover:text-forge-text hover:border-amber-primary transition-colors"
+                  >
+                    <Plus size={16} /> Add Resource
+                  </button>
+                </div>
+              )}
+              {project.steps?.length === 0 && (
+                <EmptyState className="py-8">
+                  No walkthrough steps yet — add some to guide through this project.
+                </EmptyState>
+              )}
+              {project.steps?.map((step) => (
+                <motion.div key={step.id} layout>
+                  <Card className={step.is_completed ? 'opacity-60' : ''}>
+                    <div className="flex items-start gap-3">
+                      <button
+                        onClick={() => handleToggleStep(step)}
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                          step.is_completed
+                            ? 'bg-green-500 border-green-500'
+                            : 'border-forge-muted hover:border-amber-primary'
+                        }`}
+                      >
+                        {step.is_completed && <Check size={14} className="text-white" />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-medium text-sm ${step.is_completed ? 'line-through' : ''}`}>
+                          {step.title}
+                        </div>
+                        {step.description && (
+                          <div className="text-xs text-forge-text-dim mt-1 whitespace-pre-wrap">
+                            {step.description}
+                          </div>
+                        )}
+                        {step.resources?.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {step.resources.map((r) => (
+                              <ResourcePill key={r.id} resource={r} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {isParent && (
+                        <button
+                          onClick={() => handleDeleteStep(step.id)}
+                          className="text-forge-text-dim hover:text-red-400 p-1 transition-colors shrink-0"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
+              {isParent && project.resources?.length > 0 && (
+                <div className="pt-4">
+                  <div className="text-xs text-forge-text-dim mb-2 font-medium uppercase tracking-wide">
+                    Project-level Resources
+                  </div>
+                  <div className="space-y-1.5">
+                    {project.resources.map((r) => (
+                      <Card key={r.id} className="flex items-center justify-between py-2">
+                        <ResourcePill resource={r} />
+                        <button
+                          onClick={() => handleDeleteResource(r.id)}
+                          className="text-forge-text-dim hover:text-red-400 p-1 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -388,6 +536,21 @@ export default function ProjectDetail({ user }) {
             projectId={id}
             onClose={() => setAddMaterialOpen(false)}
             onSaved={() => { setAddMaterialOpen(false); reload(); }}
+          />
+        )}
+        {addStepOpen && (
+          <AddStepModal
+            projectId={id}
+            onClose={() => setAddStepOpen(false)}
+            onSaved={() => { setAddStepOpen(false); reload(); }}
+          />
+        )}
+        {addResourceOpen && (
+          <AddResourceModal
+            projectId={id}
+            steps={project.steps || []}
+            onClose={() => setAddResourceOpen(false)}
+            onSaved={() => { setAddResourceOpen(false); reload(); }}
           />
         )}
       </AnimatePresence>
@@ -631,6 +794,155 @@ function AddMaterialModal({ projectId, onClose, onSaved }) {
           </button>
           <button type="submit" disabled={saving || !form.name.trim()} className="flex-1 bg-amber-primary hover:bg-amber-highlight disabled:opacity-50 text-black font-semibold py-3 rounded-lg transition-colors">
             {saving ? 'Adding...' : 'Add Material'}
+          </button>
+        </div>
+      </form>
+    </BottomSheet>
+  );
+}
+
+/* ── Add Step Modal ─────────────────────────────────────────────── */
+
+function AddStepModal({ projectId, onClose, onSaved }) {
+  const [form, setForm] = useState({ title: '', description: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await createStep(projectId, {
+        project: projectId,
+        title: form.title,
+        description: form.description,
+      });
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <BottomSheet title="Add Step" onClose={onClose} disabled={saving}>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <ErrorAlert message={error} />
+        <p className="text-xs text-forge-text-dim">
+          Steps are walkthrough instructions — no coins, XP, or ledger impact.
+        </p>
+        <div>
+          <label className="block text-xs text-forge-text-dim mb-1">Title</label>
+          <input value={form.title} onChange={set('title')} className={inputClass} required autoFocus />
+        </div>
+        <div>
+          <label className="block text-xs text-forge-text-dim mb-1">Description</label>
+          <textarea
+            value={form.description}
+            onChange={set('description')}
+            className={`${inputClass} h-24 resize-none`}
+            placeholder="What does the maker do next?"
+          />
+        </div>
+        <div className="flex gap-2">
+          <button type="button" onClick={onClose} disabled={saving} className="flex-1 bg-forge-muted hover:bg-forge-border text-forge-text font-medium py-3 rounded-lg transition-colors">
+            Cancel
+          </button>
+          <button type="submit" disabled={saving || !form.title.trim()} className="flex-1 bg-amber-primary hover:bg-amber-highlight disabled:opacity-50 text-black font-semibold py-3 rounded-lg transition-colors">
+            {saving ? 'Adding...' : 'Add Step'}
+          </button>
+        </div>
+      </form>
+    </BottomSheet>
+  );
+}
+
+/* ── Add Resource Modal ─────────────────────────────────────────── */
+
+function AddResourceModal({ projectId, steps, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    title: '',
+    url: '',
+    resource_type: 'link',
+    step: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await createResource(projectId, {
+        project: projectId,
+        title: form.title,
+        url: form.url,
+        resource_type: form.resource_type,
+        step: form.step || null,
+      });
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <BottomSheet title="Add Resource" onClose={onClose} disabled={saving}>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <ErrorAlert message={error} />
+        <div>
+          <label className="block text-xs text-forge-text-dim mb-1">URL</label>
+          <input
+            value={form.url}
+            onChange={set('url')}
+            className={inputClass}
+            type="url"
+            placeholder="https://..."
+            required
+            autoFocus
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-forge-text-dim mb-1">Title (optional)</label>
+          <input value={form.title} onChange={set('title')} className={inputClass} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-forge-text-dim mb-1">Type</label>
+            <select value={form.resource_type} onChange={set('resource_type')} className={inputClass}>
+              <option value="link">Link</option>
+              <option value="video">Video</option>
+              <option value="doc">Document</option>
+              <option value="image">Image</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-forge-text-dim mb-1">Attach to Step</label>
+            <select value={form.step} onChange={set('step')} className={inputClass}>
+              <option value="">(Project-level)</option>
+              {steps.map((s, idx) => (
+                <option key={s.id} value={s.id}>
+                  {idx + 1}. {s.title.slice(0, 40)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button type="button" onClick={onClose} disabled={saving} className="flex-1 bg-forge-muted hover:bg-forge-border text-forge-text font-medium py-3 rounded-lg transition-colors">
+            Cancel
+          </button>
+          <button type="submit" disabled={saving || !form.url.trim()} className="flex-1 bg-amber-primary hover:bg-amber-highlight disabled:opacity-50 text-black font-semibold py-3 rounded-lg transition-colors">
+            {saving ? 'Adding...' : 'Add Resource'}
           </button>
         </div>
       </form>

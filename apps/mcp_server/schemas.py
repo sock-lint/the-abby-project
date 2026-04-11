@@ -61,6 +61,33 @@ class NewProjectSkillTag(_Base):
     xp_weight: int = Field(default=1, ge=1)
 
 
+ResourceType = Literal["link", "video", "doc", "image"]
+
+
+class NewStep(_Base):
+    """An ordered walkthrough instruction (not a payment milestone).
+
+    Marked complete to signal progress; never awards XP, coins, or money.
+    """
+    title: str = Field(min_length=1, max_length=200)
+    description: str = ""
+    order: int = 0
+
+
+class NewResource(_Base):
+    """A reference link attached to a project, or to a specific step.
+
+    ``step_index`` is a 0-based index into the ``steps`` array on the same
+    ``create_project`` call. Leave as ``None`` for a project-level reference
+    shown on the project Overview.
+    """
+    title: str = ""
+    url: str = Field(min_length=1, max_length=1000)
+    resource_type: ResourceType = "link"
+    order: int = 0
+    step_index: Optional[int] = None
+
+
 class CreateProjectIn(_Base):
     title: str = Field(min_length=1, max_length=200)
     description: str = ""
@@ -75,6 +102,11 @@ class CreateProjectIn(_Base):
     status: ProjectStatus = "active"
     milestones: list[NewMilestone] = Field(default_factory=list)
     skill_tags: list[NewProjectSkillTag] = Field(default_factory=list)
+    # Walkthrough content. Projects created via MCP without an Instructables
+    # URL should populate ``steps`` so the child has "do this next" guidance;
+    # ``resources`` can attach per-step videos or project-level references.
+    steps: list[NewStep] = Field(default_factory=list)
+    resources: list[NewResource] = Field(default_factory=list)
 
 
 class UpdateProjectStatusIn(_Base):

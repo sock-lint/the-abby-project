@@ -76,7 +76,7 @@ class ParseStage:
 
 @dataclass
 class NormalizeStage:
-    """Deduplicate materials/milestones and clamp obvious overflows."""
+    """Deduplicate materials/steps and clamp obvious overflows."""
 
     name: str = "normalize"
     max_title: int = 200
@@ -99,10 +99,10 @@ class NormalizeStage:
             deduped_materials.append(mat)
         item.materials = deduped_materials
 
-        # Reindex milestone order if missing.
-        for idx, ms in enumerate(item.milestones):
-            if not ms.order:
-                ms.order = idx
+        # Reindex step order if missing.
+        for idx, s in enumerate(item.steps):
+            if not s.order:
+                s.order = idx
         return item
 
 
