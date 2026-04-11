@@ -1,8 +1,10 @@
 """FastMCP server wiring for the-abby-project.
 
 Exposes a module-level ``mcp`` instance that tool modules decorate; also
-provides ``build_http_app()`` (Starlette app with token auth middleware)
-and ``run_stdio()`` for local development.
+provides ``build_http_app()`` (self-contained Starlette app with token auth
+middleware, used by ``runmcp --transport http``), ``build_mounted_mcp_app()``
+(same Starlette app minus the ``/health`` route, for mounting inside the
+Django ASGI application), and ``run_stdio()`` for local development.
 """
 from __future__ import annotations
 
@@ -79,14 +81,13 @@ _load_tool_modules()
 # ---------------------------------------------------------------------------
 
 
-def build_http_app() -> Any:
-    """Return a Starlette ASGI app for the Streamable HTTP transport.
+def _build_mcp_starlette_app(include_health: bool) -> Any:
+    """Shared builder for the token-authed Starlette wrapper around FastMCP.
 
-    The returned app:
-      * mounts FastMCP's streamable-HTTP handler at the configured path,
-      * wraps it in ``TokenAuthMiddleware`` so every request is authenticated
-        against DRF tokens,
-      * exposes an unauthenticated ``/health`` endpoint for Docker healthchecks.
+    ``include_health`` controls whether the outer app exposes ``/health``;
+    the standalone HTTP transport ships it for Docker healthchecks, but the
+    Django-mounted variant doesn't need a second one (``/health`` is already
+    served by Django itself).
     """
     from starlette.applications import Starlette
     from starlette.responses import JSONResponse
@@ -109,23 +110,54 @@ def build_http_app() -> Any:
     # ``RuntimeError: Task group is not initialized. Make sure to use run().``.
     mcp_app = mcp.streamable_http_app()
 
-    async def health(_request):
-        return JSONResponse({"status": "ok"})
-
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
         async with mcp.session_manager.run():
             yield
 
-    outer = Starlette(
-        routes=[
-            Route("/health", health, methods=["GET"]),
-            Mount("/", app=mcp_app),
-        ],
-        lifespan=lifespan,
-    )
+    routes: list = []
+    if include_health:
+        async def health(_request):
+            return JSONResponse({"status": "ok"})
+
+        routes.append(Route("/health", health, methods=["GET"]))
+    routes.append(Mount("/", app=mcp_app))
+
+    outer = Starlette(routes=routes, lifespan=lifespan)
     outer.add_middleware(TokenAuthMiddleware)
     return outer
+
+
+def build_http_app() -> Any:
+    """Return a standalone Starlette ASGI app for the Streamable HTTP transport.
+
+    The returned app:
+      * mounts FastMCP's streamable-HTTP handler at the configured path,
+      * wraps it in ``TokenAuthMiddleware`` so every request is authenticated
+        against DRF tokens,
+      * exposes an unauthenticated ``/health`` endpoint for Docker healthchecks.
+
+    Used by ``python manage.py runmcp --transport http`` when running MCP
+    as its own uvicorn process. The in-Django ASGI mount uses
+    ``build_mounted_mcp_app()`` instead.
+    """
+    return _build_mcp_starlette_app(include_health=True)
+
+
+def build_mounted_mcp_app() -> Any:
+    """Return a Starlette ASGI sub-app for mounting inside Django's ASGI app.
+
+    Identical to ``build_http_app()`` except it omits the ``/health`` route
+    (Django already exposes one at the same path) so the Django-hosted
+    MCP endpoint stays on a single origin (port 8000) with no reverse-proxy
+    changes.
+
+    Dispatched to from ``config.asgi`` when the request path begins with
+    ``/mcp``. The sub-app is NOT a Starlette ``Mount`` with a prefix — it's
+    invoked directly so FastMCP's internal ``/mcp`` route still matches
+    without path rewriting.
+    """
+    return _build_mcp_starlette_app(include_health=False)
 
 
 def run_stdio() -> None:
