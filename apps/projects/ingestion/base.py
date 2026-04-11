@@ -21,10 +21,16 @@ class StepDraft:
     Distinct from ``MilestoneDraft``: steps are instructional, not tied to
     payments. Ingestors populate ``IngestionResult.steps`` with these; the
     commit path materializes them as ``ProjectStep`` rows.
+
+    ``milestone_index`` is an optional 0-based index into
+    ``IngestionResult.milestones`` — the commit path resolves it to a real
+    ``ProjectMilestone.pk`` so steps can be grouped under their phase. Leave
+    ``None`` for a loose / unassigned step.
     """
     title: str
     description: str = ""
     order: int = 0
+    milestone_index: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

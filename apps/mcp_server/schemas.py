@@ -68,10 +68,16 @@ class NewStep(_Base):
     """An ordered walkthrough instruction (not a payment milestone).
 
     Marked complete to signal progress; never awards XP, coins, or money.
+
+    ``milestone_index`` (when set) is a 0-based index into the ``milestones``
+    array on the same ``create_project`` call — the step is grouped under
+    that milestone in the UI's Plan view. Leave as ``None`` for a loose /
+    ungrouped step.
     """
     title: str = Field(min_length=1, max_length=200)
     description: str = ""
     order: int = 0
+    milestone_index: Optional[int] = None
 
 
 class NewResource(_Base):

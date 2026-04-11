@@ -182,9 +182,10 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
                 f"category_id {params.category_id} does not match any category.",
             )
 
-    # Validate step_index references BEFORE any DB writes so a bad payload
-    # can't half-create a project.
+    # Validate step_index and milestone_index references BEFORE any DB writes
+    # so a bad payload can't half-create a project.
     step_count = len(params.steps)
+    milestone_count = len(params.milestones)
     for r_idx, res in enumerate(params.resources):
         if res.step_index is None:
             continue
@@ -192,6 +193,14 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
             raise MCPValidationError(
                 f"resources[{r_idx}].step_index={res.step_index} is out of range "
                 f"(there are {step_count} steps).",
+            )
+    for s_idx, step in enumerate(params.steps):
+        if step.milestone_index is None:
+            continue
+        if not (0 <= step.milestone_index < milestone_count):
+            raise MCPValidationError(
+                f"steps[{s_idx}].milestone_index={step.milestone_index} is out of "
+                f"range (there are {milestone_count} milestones).",
             )
 
     with transaction.atomic():
@@ -210,6 +219,9 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
             status=params.status,
         )
 
+        # Keep created milestones indexed so steps can resolve their
+        # ``milestone_index`` to a real FK below.
+        created_milestones: list[ProjectMilestone] = []
         for idx, ms in enumerate(params.milestones):
             milestone = ProjectMilestone.objects.create(
                 project=project,
@@ -218,6 +230,7 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
                 order=ms.order or idx,
                 bonus_amount=ms.bonus_amount,
             )
+            created_milestones.append(milestone)
             _create_milestone_skill_tags(
                 milestone,
                 [t.model_dump() for t in ms.skill_tags],
@@ -229,10 +242,18 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
         )
 
         # Steps — the walkthrough surface. Order matches the input list.
+        # ``milestone_index`` was validated above; resolve it to a real FK
+        # so steps render under the right milestone in the Plan tab.
         created_steps: list[ProjectStep] = []
         for idx, s in enumerate(params.steps):
+            step_milestone = (
+                created_milestones[s.milestone_index]
+                if s.milestone_index is not None
+                else None
+            )
             created_steps.append(ProjectStep.objects.create(
                 project=project,
+                milestone=step_milestone,
                 title=s.title,
                 description=s.description,
                 order=s.order or idx,

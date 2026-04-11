@@ -189,7 +189,8 @@ function TemplatesSection() {
               <div className="flex items-center gap-3 text-xs text-forge-text-dim mt-1">
                 {t.category && <span>{t.category.icon} {t.category.name}</span>}
                 <DifficultyStars difficulty={t.difficulty} />
-                {t.milestones?.length > 0 && <span>{t.milestones.length} steps</span>}
+                {t.milestones?.length > 0 && <span>{t.milestones.length} milestones</span>}
+                {t.steps?.length > 0 && <span>{t.steps.length} steps</span>}
                 {t.materials?.length > 0 && <span>{t.materials.length} materials</span>}
                 {t.is_public && (
                   <span className="flex items-center gap-0.5 text-blue-400">
