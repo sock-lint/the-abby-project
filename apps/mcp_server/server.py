@@ -11,14 +11,45 @@ from typing import Any, AsyncIterator
 
 from django.conf import settings
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
+
+
+def _build_transport_security() -> TransportSecuritySettings:
+    """Build DNS-rebinding-protection settings from Django settings.
+
+    The MCP SDK ships ``TransportSecurityMiddleware`` which validates the
+    incoming ``Host`` header against an allow-list. If a ``transport_security``
+    instance isn't passed, the SDK auto-enables protection with loopback-only
+    hosts, so every request reaching the server through a reverse proxy
+    (Traefik/Caddy/Cloudflare) is rejected with HTTP 421.
+
+    ``MCP_ALLOWED_HOSTS`` / ``MCP_ALLOWED_ORIGINS`` are sourced in
+    ``config.settings`` from env vars, falling back to Django's
+    ``ALLOWED_HOSTS`` + ``CSRF_TRUSTED_ORIGINS``. A single ``*`` entry in
+    either list is interpreted as "disable DNS rebinding protection".
+    """
+    allowed_hosts = list(getattr(settings, "MCP_ALLOWED_HOSTS", []) or [])
+    allowed_origins = list(getattr(settings, "MCP_ALLOWED_ORIGINS", []) or [])
+    if "*" in allowed_hosts or "*" in allowed_origins:
+        return TransportSecuritySettings(enable_dns_rebinding_protection=False)
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=allowed_hosts,
+        allowed_origins=allowed_origins,
+    )
 
 
 # Single FastMCP instance. ``stateless_http=True`` avoids per-session state
 # so the mcp service can scale horizontally without shared storage. Tool
 # modules register themselves on import via the @mcp.tool() decorator.
+#
+# ``transport_security`` is computed from Django settings so the MCP SDK's
+# DNS rebinding middleware whitelists the public hostname this service runs
+# behind. Without it the SDK auto-enables a loopback-only allow-list.
 mcp = FastMCP(
     name=getattr(settings, "MCP_SERVER_NAME", "abby"),
     stateless_http=True,
+    transport_security=_build_transport_security(),
 )
 
 
@@ -62,6 +93,12 @@ def build_http_app() -> Any:
     from starlette.routing import Mount, Route
 
     from .auth import TokenAuthMiddleware
+
+    # Refresh transport_security from current Django settings so that
+    # ``@override_settings(MCP_ALLOWED_HOSTS=...)`` in tests takes effect.
+    # FastMCP reads ``mcp.settings.transport_security`` when it lazily
+    # builds the session manager inside ``streamable_http_app()``.
+    mcp.settings.transport_security = _build_transport_security()
 
     # The FastMCP SDK builds its own Starlette sub-app that handles the MCP
     # JSON-RPC 2.0 protocol over Streamable HTTP. Calling ``streamable_http_app``

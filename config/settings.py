@@ -53,6 +53,77 @@ MCP_PUBLIC_BASE_URL = os.environ.get("MCP_PUBLIC_BASE_URL", "")
 # Allow --as-user pinning only outside production.
 MCP_DEV_ALLOW_USER_PIN = DEBUG
 
+# DNS rebinding protection for the MCP Streamable HTTP transport.
+#
+# The MCP SDK (>=1.9) ships ``TransportSecurityMiddleware`` which rejects any
+# request whose ``Host`` header is not in ``allowed_hosts`` (returns HTTP 421
+# "Misdirected Request"). If no ``transport_security`` is passed to
+# ``FastMCP(...)``, the SDK auto-enables protection with loopback-only hosts,
+# which breaks every request reaching the server through a reverse proxy.
+#
+# ``MCP_ALLOWED_HOSTS`` / ``MCP_ALLOWED_ORIGINS`` accept a comma-separated
+# env override. When unset, we derive sensible defaults from Django's
+# ``ALLOWED_HOSTS`` + ``CSRF_TRUSTED_ORIGINS`` so a site whose public
+# hostname is already listed there "just works" without a second env var.
+# Setting either value to ``*`` disables DNS rebinding protection entirely
+# (escape hatch — not recommended for production).
+def _expand_mcp_host(host: str) -> list[str]:
+    """Return ``[host, host:*]`` — matches both default-port and any-port."""
+    host = host.strip()
+    # Django wildcards like ``.sslip.io`` and ``*`` can't be expressed in the
+    # MCP SDK's simple host match, so skip them. Operators who need those
+    # should set ``MCP_ALLOWED_HOSTS`` explicitly.
+    if not host or host == "*" or host.startswith("."):
+        return []
+    if ":" in host:
+        return [host]
+    return [host, f"{host}:*"]
+
+
+_mcp_allowed_hosts_env = os.environ.get("MCP_ALLOWED_HOSTS", "").strip()
+if _mcp_allowed_hosts_env:
+    MCP_ALLOWED_HOSTS = [
+        h.strip() for h in _mcp_allowed_hosts_env.split(",") if h.strip()
+    ]
+else:
+    MCP_ALLOWED_HOSTS = [
+        "127.0.0.1",
+        "127.0.0.1:*",
+        "localhost",
+        "localhost:*",
+        "[::1]",
+        "[::1]:*",
+    ]
+    for _h in ALLOWED_HOSTS:
+        for _entry in _expand_mcp_host(_h):
+            if _entry not in MCP_ALLOWED_HOSTS:
+                MCP_ALLOWED_HOSTS.append(_entry)
+
+_mcp_allowed_origins_env = os.environ.get("MCP_ALLOWED_ORIGINS", "").strip()
+if _mcp_allowed_origins_env:
+    MCP_ALLOWED_ORIGINS = [
+        o.strip() for o in _mcp_allowed_origins_env.split(",") if o.strip()
+    ]
+else:
+    MCP_ALLOWED_ORIGINS = [
+        "http://127.0.0.1",
+        "http://127.0.0.1:*",
+        "http://localhost",
+        "http://localhost:*",
+        "http://[::1]",
+        "http://[::1]:*",
+    ]
+    for _h in ALLOWED_HOSTS:
+        for _entry in _expand_mcp_host(_h):
+            for _scheme in ("http", "https"):
+                _origin = f"{_scheme}://{_entry}"
+                if _origin not in MCP_ALLOWED_ORIGINS:
+                    MCP_ALLOWED_ORIGINS.append(_origin)
+    # Preserve any explicit CSRF_TRUSTED_ORIGINS (they already include scheme).
+    for _origin in CSRF_TRUSTED_ORIGINS:
+        if _origin and _origin not in MCP_ALLOWED_ORIGINS:
+            MCP_ALLOWED_ORIGINS.append(_origin)
+
 # --- Rewards / Coins economy ----------------------------------------------
 # How many Coins a child earns per hour of tracked time.
 COINS_PER_HOUR = 5
