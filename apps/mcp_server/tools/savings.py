@@ -15,7 +15,7 @@ from ..schemas import (
     CreateSavingsGoalIn,
     ListSavingsGoalsIn,
 )
-from ..server import mcp
+from ..server import tool
 from ..shapes import savings_goal_to_dict
 
 
@@ -30,7 +30,7 @@ def _resolve_target(user, requested_id: int | None) -> User:
         raise MCPNotFoundError(f"User {requested_id} not found.")
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def list_savings_goals(params: ListSavingsGoalsIn) -> dict[str, Any]:
     """List a user's savings goals (children forced to self)."""
@@ -43,7 +43,7 @@ def list_savings_goals(params: ListSavingsGoalsIn) -> dict[str, Any]:
     return {"goals": [savings_goal_to_dict(g) for g in qs.order_by("-created_at")]}
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def create_savings_goal(params: CreateSavingsGoalIn) -> dict[str, Any]:
     """Create a savings goal for the current user."""
@@ -57,7 +57,7 @@ def create_savings_goal(params: CreateSavingsGoalIn) -> dict[str, Any]:
     return savings_goal_to_dict(goal)
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def contribute_to_goal(params: ContributeToGoalIn) -> dict[str, Any]:
     """Add to the current amount on a savings goal.

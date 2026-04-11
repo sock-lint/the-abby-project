@@ -46,6 +46,23 @@ services:
   # Streamable HTTP endpoint at /mcp — all on the same origin (:8000).
   # MCP is mounted inside ``config.asgi`` so there's no separate process
   # and no reverse-proxy changes are needed.
+  #
+  # Routing note for Traefik/Coolify:
+  #   The Coolify-auto-generated router for this service (Host rule on the
+  #   public FQDN, e.g. ``abby.bos.lol``) already forwards ``/mcp`` and
+  #   ``/mcp/...`` to this container unmodified. DO NOT:
+  #     * add a separate ``mcp`` service to this file — there is no second
+  #       process serving MCP,
+  #     * add a ``stripprefix`` middleware that removes ``/mcp`` — the ASGI
+  #       dispatcher in ``config/asgi.py`` checks for the literal ``/mcp``
+  #       prefix, and FastMCP's internal router also expects it intact.
+  #       Stripping it turns every MCP request into a SPA catch-all HTML
+  #       response.
+  #   If a custom Traefik dynamic-config file for ``/mcp`` exists on the
+  #   production host (e.g. ``/data/coolify/proxy/dynamic/abby-mcp.yaml``),
+  #   it is a leftover from an earlier architecture and should be removed;
+  #   it hard-codes the container name, which Coolify regenerates on every
+  #   deploy.
   django:
     build:
       context: .

@@ -22,7 +22,7 @@ from ..schemas import (
     ListTimeEntriesIn,
     ListTimecardsIn,
 )
-from ..server import mcp
+from ..server import tool
 from ..shapes import time_entry_to_dict, timecard_to_dict
 
 
@@ -37,7 +37,7 @@ def _resolve_target(user, requested_id: int | None) -> User:
         raise MCPNotFoundError(f"User {requested_id} not found.")
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def list_time_entries(params: ListTimeEntriesIn) -> dict[str, Any]:
     """List TimeEntry rows for a user (children forced to self)."""
@@ -54,7 +54,7 @@ def list_time_entries(params: ListTimeEntriesIn) -> dict[str, Any]:
     return {"entries": [time_entry_to_dict(e) for e in qs]}
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def get_active_entry(params: GetActiveEntryIn) -> dict[str, Any]:
     """Return the user's current active TimeEntry, or null if not clocked in."""
@@ -64,7 +64,7 @@ def get_active_entry(params: GetActiveEntryIn) -> dict[str, Any]:
     return {"entry": time_entry_to_dict(entry) if entry else None}
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def list_timecards(params: ListTimecardsIn) -> dict[str, Any]:
     """List weekly timecards for a user (children forced to self)."""
@@ -79,7 +79,7 @@ def list_timecards(params: ListTimecardsIn) -> dict[str, Any]:
     return {"timecards": [timecard_to_dict(tc) for tc in qs]}
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def approve_timecard(params: ApproveTimecardIn) -> dict[str, Any]:
     """Approve a weekly timecard (parent-only).
