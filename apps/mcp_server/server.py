@@ -6,7 +6,8 @@ and ``run_stdio()`` for local development.
 """
 from __future__ import annotations
 
-from typing import Any
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator
 
 from django.conf import settings
 from mcp.server.fastmcp import FastMCP
@@ -58,25 +59,34 @@ def build_http_app() -> Any:
     """
     from starlette.applications import Starlette
     from starlette.responses import JSONResponse
-    from starlette.routing import Route
+    from starlette.routing import Mount, Route
 
     from .auth import TokenAuthMiddleware
 
     # The FastMCP SDK builds its own Starlette sub-app that handles the MCP
-    # JSON-RPC 2.0 protocol over Streamable HTTP. Mount it under "/" of our
-    # outer app; the reverse proxy or `--path` flag handles prefixing.
+    # JSON-RPC 2.0 protocol over Streamable HTTP. Calling ``streamable_http_app``
+    # also lazily creates ``mcp.session_manager``; we must run its async context
+    # manager as part of the outer app's lifespan so the underlying anyio task
+    # group is initialized before any request is dispatched. Without this the
+    # first MCP request fails with
+    # ``RuntimeError: Task group is not initialized. Make sure to use run().``.
     mcp_app = mcp.streamable_http_app()
 
     async def health(_request):
         return JSONResponse({"status": "ok"})
 
+    @asynccontextmanager
+    async def lifespan(_app: Starlette) -> AsyncIterator[None]:
+        async with mcp.session_manager.run():
+            yield
+
     outer = Starlette(
         routes=[
             Route("/health", health, methods=["GET"]),
+            Mount("/", app=mcp_app),
         ],
-        lifespan=getattr(mcp_app, "lifespan", None),
+        lifespan=lifespan,
     )
-    outer.mount("/", mcp_app)
     outer.add_middleware(TokenAuthMiddleware)
     return outer
 
