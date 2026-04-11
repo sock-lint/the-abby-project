@@ -12,7 +12,7 @@ from apps.timecards.models import TimeEntry
 from ..context import get_current_user
 from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
 from ..schemas import GetPortfolioSummaryIn, ListProjectPhotosIn
-from ..server import mcp
+from ..server import tool
 from ..shapes import project_photo_to_dict
 
 
@@ -27,7 +27,7 @@ def _resolve_target(user, requested_id: int | None) -> User:
         raise MCPNotFoundError(f"User {requested_id} not found.")
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def list_project_photos(params: ListProjectPhotosIn) -> dict[str, Any]:
     """List ProjectPhoto rows attached to a project (read-only)."""
@@ -49,7 +49,7 @@ def list_project_photos(params: ListProjectPhotosIn) -> dict[str, Any]:
     return {"photos": [project_photo_to_dict(p) for p in photos]}
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def get_portfolio_summary(params: GetPortfolioSummaryIn) -> dict[str, Any]:
     """Aggregate counts for a user's portfolio: projects, photos, hours."""

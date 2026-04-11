@@ -8,11 +8,11 @@ from apps.projects.models import User
 from ..context import get_current_user, require_parent
 from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
 from ..schemas import GetUserIn, ListChildrenIn
-from ..server import mcp
+from ..server import tool
 from ..shapes import child_to_dict, user_to_dict
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def list_children(params: ListChildrenIn) -> dict[str, Any]:
     """Return every child user in the family (parent-only).
@@ -26,7 +26,7 @@ def list_children(params: ListChildrenIn) -> dict[str, Any]:
     return {"children": [child_to_dict(c) for c in children]}
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def get_user(params: GetUserIn) -> dict[str, Any]:
     """Return a user profile. Children may only look up themselves."""

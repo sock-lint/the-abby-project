@@ -18,7 +18,7 @@ from ..schemas import (
     ListSkillCategoriesIn,
     ListSkillsIn,
 )
-from ..server import mcp
+from ..server import tool
 from ..shapes import (
     badge_to_dict,
     skill_category_to_dict,
@@ -38,7 +38,7 @@ def _resolve_target(user, requested_id: int | None) -> User:
         raise MCPNotFoundError(f"User {requested_id} not found.")
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def list_skill_categories(params: ListSkillCategoriesIn) -> dict[str, Any]:
     """List all top-level skill categories."""
@@ -48,7 +48,7 @@ def list_skill_categories(params: ListSkillCategoriesIn) -> dict[str, Any]:
     return {"categories": [skill_category_to_dict(c) for c in categories]}
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def list_skills(params: ListSkillsIn) -> dict[str, Any]:
     """Flat list of skills, optionally filtered by category/subject/name."""
@@ -64,7 +64,7 @@ def list_skills(params: ListSkillsIn) -> dict[str, Any]:
     return {"skills": [skill_to_dict(s) for s in qs]}
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def get_skill_tree(params: GetSkillTreeIn) -> dict[str, Any]:
     """Full nested skill tree for a category with the target user's progress."""
@@ -84,7 +84,7 @@ def get_skill_tree(params: GetSkillTreeIn) -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def list_badges(params: ListBadgesIn) -> dict[str, Any]:
     """List all defined badges, optionally filtered by rarity."""
@@ -95,7 +95,7 @@ def list_badges(params: ListBadgesIn) -> dict[str, Any]:
     return {"badges": [badge_to_dict(b) for b in qs.order_by("rarity", "name")]}
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def list_earned_badges(params: ListEarnedBadgesIn) -> dict[str, Any]:
     """List badges the target user has earned, newest first."""

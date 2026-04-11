@@ -15,7 +15,7 @@ from ..schemas import (
     ListRewardsIn,
     RequestRedemptionIn,
 )
-from ..server import mcp
+from ..server import tool
 from ..shapes import (
     coin_ledger_entry_to_dict,
     redemption_to_dict,
@@ -36,7 +36,7 @@ def _resolve_user_id(user, requested_id: int | None) -> User:
         raise MCPNotFoundError(f"User {requested_id} not found.")
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def list_rewards(params: ListRewardsIn) -> dict[str, Any]:
     """List rewards in the shop along with the current user's coin balance."""
@@ -51,7 +51,7 @@ def list_rewards(params: ListRewardsIn) -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def get_coin_balance(params: GetCoinBalanceIn) -> dict[str, Any]:
     """Return coin balance, per-reason breakdown, and recent ledger entries."""
@@ -70,7 +70,7 @@ def get_coin_balance(params: GetCoinBalanceIn) -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def request_redemption(params: RequestRedemptionIn) -> dict[str, Any]:
     """Request a reward redemption on behalf of the current user.
@@ -98,7 +98,7 @@ def _get_pending_redemption(redemption_id: int) -> RewardRedemption:
         raise MCPNotFoundError(f"Redemption {redemption_id} not found.")
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def approve_redemption(params: DecideRedemptionIn) -> dict[str, Any]:
     """Approve a pending redemption (parent-only)."""
@@ -108,7 +108,7 @@ def approve_redemption(params: DecideRedemptionIn) -> dict[str, Any]:
     return redemption_to_dict(updated)
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def deny_redemption(params: DecideRedemptionIn) -> dict[str, Any]:
     """Deny a pending redemption and refund the held coins (parent-only)."""

@@ -27,11 +27,11 @@ from ..schemas import (
     ListIngestionJobsIn,
     SubmitIngestionJobIn,
 )
-from ..server import mcp
+from ..server import tool
 from ..shapes import ingestion_job_to_dict, project_detail_to_dict
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def submit_ingestion_job(params: SubmitIngestionJobIn) -> dict[str, Any]:
     """Create an ingestion job for an Instructables/URL source and enqueue it.
@@ -67,7 +67,7 @@ def submit_ingestion_job(params: SubmitIngestionJobIn) -> dict[str, Any]:
     return ingestion_job_to_dict(job)
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def get_ingestion_job(params: GetIngestionJobIn) -> dict[str, Any]:
     """Fetch a single ingestion job by UUID (parent-only)."""
@@ -79,7 +79,7 @@ def get_ingestion_job(params: GetIngestionJobIn) -> dict[str, Any]:
     return ingestion_job_to_dict(job)
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def list_ingestion_jobs(params: ListIngestionJobsIn) -> dict[str, Any]:
     """List the current parent's recent ingestion jobs."""
@@ -91,7 +91,7 @@ def list_ingestion_jobs(params: ListIngestionJobsIn) -> dict[str, Any]:
     return {"jobs": [ingestion_job_to_dict(j) for j in qs]}
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def commit_ingestion_job(params: CommitIngestionJobIn) -> dict[str, Any]:
     """Materialize a staged ingestion job into a real Project (parent-only).

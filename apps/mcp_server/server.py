@@ -1,16 +1,20 @@
 """FastMCP server wiring for the-abby-project.
 
-Exposes a module-level ``mcp`` instance that tool modules decorate; also
-provides ``build_http_app()`` (self-contained Starlette app with token auth
-middleware, used by ``runmcp --transport http``), ``build_mounted_mcp_app()``
-(same Starlette app minus the ``/health`` route, for mounting inside the
-Django ASGI application), and ``run_stdio()`` for local development.
+Exposes a module-level ``mcp`` instance plus a ``tool`` decorator that tool
+modules use for registration; also provides ``build_http_app()`` (self-
+contained Starlette app with token auth middleware, used by
+``runmcp --transport http``), ``build_mounted_mcp_app()`` (same Starlette
+app minus the ``/health`` route, for mounting inside the Django ASGI
+application), and ``run_stdio()`` for local development.
 """
 from __future__ import annotations
 
+import functools
+import inspect
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Callable
 
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -43,7 +47,9 @@ def _build_transport_security() -> TransportSecuritySettings:
 
 # Single FastMCP instance. ``stateless_http=True`` avoids per-session state
 # so the mcp service can scale horizontally without shared storage. Tool
-# modules register themselves on import via the @mcp.tool() decorator.
+# modules register themselves on import via the @tool() decorator defined
+# below (NOT @mcp.tool() directly — that would register sync handlers that
+# crash under Django's async-safety guard; see the ``tool`` docstring).
 #
 # ``transport_security`` is computed from Django settings so the MCP SDK's
 # DNS rebinding middleware whitelists the public hostname this service runs
@@ -55,8 +61,65 @@ mcp = FastMCP(
 )
 
 
+def tool(*tool_args: Any, **tool_kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Register an MCP tool, adapting sync Django-ORM handlers to async.
+
+    Use this in place of ``@mcp.tool()`` for every tool module. Purpose:
+
+    FastMCP's ``FuncMetadata.call_fn_with_arg_validation`` (see
+    ``mcp/server/fastmcp/utilities/func_metadata.py``) calls sync handlers
+    **inline** from inside the asyncio event loop::
+
+        if fn_is_async:
+            return await fn(**arguments_parsed_dict)
+        else:
+            return fn(**arguments_parsed_dict)  # runs on the event-loop thread
+
+    Every MCP tool in this project is a plain ``def`` that hits the Django
+    ORM, so that inline call triggers Django's async-safety guard and the
+    tool raises ``SynchronousOnlyOperation`` ("You cannot call this from an
+    async context - use a thread or sync_to_async.") the first time it
+    touches the database.
+
+    This decorator wraps the handler with
+    ``asgiref.sync.sync_to_async(fn, thread_sensitive=True)`` and registers
+    a true ``async def`` adapter with ``mcp.tool()``. Because
+    ``inspect.iscoroutinefunction`` returns True for the adapter, FastMCP
+    dispatches via ``await fn(...)``, asgiref runs the sync body on the
+    shared sync thread (so Django's per-thread DB connection and
+    ``transaction.atomic()`` work normally), and contextvars set earlier by
+    the auth middleware (``mcp_current_user``) propagate into that thread.
+
+    The *original* sync function is returned to the calling namespace
+    unchanged, so existing synchronous unit tests that call tool handlers
+    directly (``tool_module.list_children(ListChildrenIn())``) continue to
+    work without an event loop.
+
+    Signature preservation: the adapter uses ``@functools.wraps(fn)`` and
+    ``**kwargs``. ``inspect.signature`` follows ``__wrapped__`` by default,
+    so FastMCP's ``func_metadata`` sees the *original* function's
+    ``(params: SomeSchema)`` signature and builds the argument model
+    correctly, while the adapter still accepts any kwargs at runtime.
+    """
+
+    def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+        if inspect.iscoroutinefunction(fn):
+            adapted: Callable[..., Any] = fn
+        else:
+            sync_runner = sync_to_async(fn, thread_sensitive=True)
+
+            @functools.wraps(fn)
+            async def adapted(**kwargs: Any) -> Any:  # type: ignore[no-redef]
+                return await sync_runner(**kwargs)
+
+        mcp.tool(*tool_args, **tool_kwargs)(adapted)
+        return fn
+
+    return decorator
+
+
 def _load_tool_modules() -> None:
-    """Import every tool module so its @mcp.tool() decorators fire."""
+    """Import every tool module so its @tool() decorators fire."""
     # noqa: F401 - imports-for-side-effects
     from .tools import (  # noqa: F401
         achievements,

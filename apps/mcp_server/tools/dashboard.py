@@ -18,7 +18,7 @@ from apps.timecards.services import ClockService, TimeEntryService
 from ..context import get_current_user
 from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
 from ..schemas import GetDashboardIn
-from ..server import mcp
+from ..server import tool
 from ..shapes import (
     project_list_to_dict,
     time_entry_to_dict,
@@ -65,7 +65,7 @@ def _build_user_dashboard(target: User) -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def get_dashboard(params: GetDashboardIn) -> dict[str, Any]:
     """Return an aggregated dashboard view.

@@ -37,7 +37,7 @@ from ..schemas import (
     SetProjectSkillTagsIn,
     UpdateProjectStatusIn,
 )
-from ..server import mcp
+from ..server import tool
 from ..shapes import (
     material_to_dict,
     milestone_to_dict,
@@ -108,7 +108,7 @@ def _create_milestone_skill_tags(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def list_projects(params: ListProjectsIn) -> dict[str, Any]:
     """List projects visible to the current user.
@@ -137,7 +137,7 @@ def list_projects(params: ListProjectsIn) -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def get_project(params: GetProjectIn) -> dict[str, Any]:
     """Get a single project's full detail (milestones, materials, skill tags)."""
@@ -146,7 +146,7 @@ def get_project(params: GetProjectIn) -> dict[str, Any]:
     return project_detail_to_dict(project)
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def create_project(params: CreateProjectIn) -> dict[str, Any]:
     """Create a new project with optional inline milestones and skill tags.
@@ -211,7 +211,7 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
     return project_detail_to_dict(project)
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def update_project_status(params: UpdateProjectStatusIn) -> dict[str, Any]:
     """Transition a project's status.
@@ -261,7 +261,7 @@ def update_project_status(params: UpdateProjectStatusIn) -> dict[str, Any]:
     return project_detail_to_dict(project)
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def complete_milestone(params: CompleteMilestoneIn) -> dict[str, Any]:
     """Mark a milestone as complete and award its bonus + skill XP."""
@@ -317,7 +317,7 @@ def complete_milestone(params: CompleteMilestoneIn) -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def set_project_skill_tags(params: SetProjectSkillTagsIn) -> dict[str, Any]:
     """Replace the full skill-tag set on a project (parent-only).
@@ -337,7 +337,7 @@ def set_project_skill_tags(params: SetProjectSkillTagsIn) -> dict[str, Any]:
     return project_detail_to_dict(project)
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def mark_material_purchased(params: MarkMaterialPurchasedIn) -> dict[str, Any]:
     """Mark a material as purchased; children may only modify their own projects."""

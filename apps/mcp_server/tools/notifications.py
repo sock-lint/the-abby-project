@@ -8,11 +8,11 @@ from apps.projects.models import Notification
 from ..context import get_current_user
 from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
 from ..schemas import ListNotificationsIn, MarkNotificationReadIn
-from ..server import mcp
+from ..server import tool
 from ..shapes import notification_to_dict
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def list_notifications(params: ListNotificationsIn) -> dict[str, Any]:
     """List notifications for the current user."""
@@ -28,7 +28,7 @@ def list_notifications(params: ListNotificationsIn) -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@tool()
 @safe_tool
 def mark_notification_read(params: MarkNotificationReadIn) -> dict[str, Any]:
     """Mark a single notification as read."""
