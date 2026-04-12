@@ -1,9 +1,12 @@
-from rest_framework import permissions, status, viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from config.permissions import IsParent
-from config.viewsets import RoleFilteredQuerySetMixin
+from config.viewsets import (
+    ParentWritePermissionMixin, RoleFilteredQuerySetMixin,
+    WriteReadSerializerMixin,
+)
 
 from .models import Chore, ChoreCompletion
 from .serializers import (
@@ -12,24 +15,15 @@ from .serializers import (
 from .services import ChoreNotAvailableError, ChoreService
 
 
-class ChoreViewSet(viewsets.ModelViewSet):
+class ChoreViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewsets.ModelViewSet):
     serializer_class = ChoreSerializer
+    write_serializer_class = ChoreWriteSerializer
 
     def get_queryset(self):
         user = self.request.user
         if user.role == "parent":
             return Chore.objects.all()
         return Chore.objects.filter(is_active=True)
-
-    def get_serializer_class(self):
-        if self.action in ("create", "update", "partial_update"):
-            return ChoreWriteSerializer
-        return ChoreSerializer
-
-    def get_permissions(self):
-        if self.action in ("create", "update", "partial_update", "destroy"):
-            return [IsParent()]
-        return [permissions.IsAuthenticated()]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

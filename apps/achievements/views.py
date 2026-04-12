@@ -1,9 +1,9 @@
-from rest_framework import permissions, viewsets
+from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.projects.models import SkillCategory
-from config.permissions import IsParent
+from config.viewsets import ParentWritePermissionMixin, WriteReadSerializerMixin
 
 from .models import Badge, Skill, SkillProgress, Subject, UserBadge
 from .serializers import (
@@ -14,19 +14,10 @@ from .serializers import (
 from .services import SkillService
 
 
-class BadgeViewSet(viewsets.ModelViewSet):
+class BadgeViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewsets.ModelViewSet):
     queryset = Badge.objects.all()
     serializer_class = BadgeSerializer
-
-    def get_serializer_class(self):
-        if self.action in ("create", "update", "partial_update"):
-            return BadgeWriteSerializer
-        return BadgeSerializer
-
-    def get_permissions(self):
-        if self.action in ("create", "update", "partial_update", "destroy"):
-            return [IsParent()]
-        return [permissions.IsAuthenticated()]
+    write_serializer_class = BadgeWriteSerializer
 
 
 class UserBadgeViewSet(viewsets.ReadOnlyModelViewSet):
@@ -38,34 +29,16 @@ class UserBadgeViewSet(viewsets.ReadOnlyModelViewSet):
         ).select_related("badge")
 
 
-class SubjectViewSet(viewsets.ModelViewSet):
+class SubjectViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewsets.ModelViewSet):
     queryset = Subject.objects.select_related("category").all()
     serializer_class = SubjectSerializer
-
-    def get_serializer_class(self):
-        if self.action in ("create", "update", "partial_update"):
-            return SubjectWriteSerializer
-        return SubjectSerializer
-
-    def get_permissions(self):
-        if self.action in ("create", "update", "partial_update", "destroy"):
-            return [IsParent()]
-        return [permissions.IsAuthenticated()]
+    write_serializer_class = SubjectWriteSerializer
 
 
-class SkillViewSet(viewsets.ModelViewSet):
+class SkillViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewsets.ModelViewSet):
     queryset = Skill.objects.select_related("category").all()
     serializer_class = SkillSerializer
-
-    def get_serializer_class(self):
-        if self.action in ("create", "update", "partial_update"):
-            return SkillWriteSerializer
-        return SkillSerializer
-
-    def get_permissions(self):
-        if self.action in ("create", "update", "partial_update", "destroy"):
-            return [IsParent()]
-        return [permissions.IsAuthenticated()]
+    write_serializer_class = SkillWriteSerializer
 
 
 class SkillProgressViewSet(viewsets.ReadOnlyModelViewSet):

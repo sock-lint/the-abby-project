@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell } from 'lucide-react';
-import { api } from '../api/client';
+import { getNotifications, getUnreadCount, markAllRead as markAllReadApi } from '../api';
+import { formatDate } from '../utils/format';
 
 export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -11,20 +12,20 @@ export default function NotificationBell() {
 
   const loadCount = async () => {
     try {
-      const data = await api.get('/notifications/unread_count/');
+      const data = await getUnreadCount();
       setUnreadCount(data.count);
     } catch {}
   };
 
   const loadNotifications = async () => {
     try {
-      const data = await api.get('/notifications/');
+      const data = await getNotifications();
       setNotifications(data.results || data || []);
     } catch {}
   };
 
-  const markAllRead = async () => {
-    await api.post('/notifications/mark_all_read/');
+  const handleMarkAllRead = async () => {
+    await markAllReadApi();
     setUnreadCount(0);
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };
@@ -77,7 +78,7 @@ export default function NotificationBell() {
               <span className="font-heading font-bold text-sm">Notifications</span>
               {unreadCount > 0 && (
                 <button
-                  onClick={markAllRead}
+                  onClick={handleMarkAllRead}
                   className="text-xs text-amber-highlight hover:underline"
                 >
                   Mark all read
@@ -107,7 +108,7 @@ export default function NotificationBell() {
                           <div className="text-xs text-forge-text-dim mt-0.5">{n.message}</div>
                         )}
                         <div className="text-[10px] text-forge-text-dim mt-1">
-                          {new Date(n.created_at).toLocaleDateString()}
+                          {formatDate(n.created_at)}
                         </div>
                       </div>
                     </div>

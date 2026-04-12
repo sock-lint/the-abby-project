@@ -1,5 +1,7 @@
-from rest_framework import status
+from rest_framework import permissions, status
 from rest_framework.response import Response
+
+from config.permissions import IsParent
 
 
 class RoleFilteredQuerySetMixin:
@@ -49,3 +51,47 @@ def child_not_found_response():
         {"error": "Child not found"},
         status=status.HTTP_404_NOT_FOUND,
     )
+
+
+class ParentWritePermissionMixin:
+    """Return IsParent for write actions, IsAuthenticated for read actions."""
+
+    def get_permissions(self):
+        if self.action in ("create", "update", "partial_update", "destroy"):
+            return [IsParent()]
+        return [permissions.IsAuthenticated()]
+
+
+class WriteReadSerializerMixin:
+    """Switch serializer class based on action.
+
+    Set ``write_serializer_class`` on the viewset; the default
+    ``serializer_class`` is used for read actions.
+    """
+
+    write_serializer_class = None
+
+    def get_serializer_class(self):
+        if self.action in ("create", "update", "partial_update"):
+            return self.write_serializer_class
+        return self.serializer_class
+
+
+def resolve_target_user(request, source="query_params"):
+    """Resolve a target child user from the request.
+
+    For parents, looks up ``user_id`` from *source* (``"query_params"``
+    or ``"data"``).  Children are always the target themselves.
+
+    Returns ``(user, None)`` on success or ``(None, Response)`` on error.
+    """
+    user = request.user
+    target_user = user
+    if user.role == "parent":
+        bucket = request.query_params if source == "query_params" else request.data
+        child_id = bucket.get("user_id")
+        if child_id:
+            target_user = get_child_or_404(child_id)
+            if target_user is None:
+                return None, child_not_found_response()
+    return target_user, None

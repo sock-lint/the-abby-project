@@ -7,7 +7,8 @@ from rest_framework.views import APIView
 
 from config.permissions import IsParent
 from config.viewsets import (
-    NestedProjectResourceMixin, RoleFilteredQuerySetMixin,
+    NestedProjectResourceMixin, ParentWritePermissionMixin,
+    RoleFilteredQuerySetMixin,
     get_child_or_404, child_not_found_response,
 )
 
@@ -180,14 +181,9 @@ class DashboardView(APIView):
         })
 
 
-class SkillCategoryViewSet(viewsets.ModelViewSet):
+class SkillCategoryViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
     queryset = SkillCategory.objects.all()
     serializer_class = SkillCategorySerializer
-
-    def get_permissions(self):
-        if self.action in ("create", "update", "partial_update", "destroy"):
-            return [IsParent()]
-        return [permissions.IsAuthenticated()]
 
 
 class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
@@ -459,7 +455,7 @@ class ProjectQRCodeView(APIView):
         return response
 
 
-class ProjectTemplateViewSet(viewsets.ModelViewSet):
+class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
     serializer_class = ProjectTemplateSerializer
 
     def get_queryset(self):
@@ -467,11 +463,6 @@ class ProjectTemplateViewSet(viewsets.ModelViewSet):
         if user.role == "parent":
             return ProjectTemplate.objects.all()
         return ProjectTemplate.objects.filter(is_public=True)
-
-    def get_permissions(self):
-        if self.action in ("create", "update", "partial_update", "destroy"):
-            return [IsParent()]
-        return [permissions.IsAuthenticated()]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
