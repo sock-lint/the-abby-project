@@ -67,6 +67,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: ${IMAGE_TAG:-the-abby-project-app}
     command: sh -c "python manage.py migrate --noinput && gunicorn config.asgi:application --bind 0.0.0.0:8000 --workers 3 --worker-class uvicorn.workers.UvicornWorker --timeout 120"
     volumes:
       - media_data:/app/media
@@ -108,9 +109,7 @@ services:
         max-file: "5"
 
   celery_worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${IMAGE_TAG:-the-abby-project-app}
     command: celery -A config worker -l info --concurrency 4
     env_file:
       - .env
@@ -140,9 +139,7 @@ services:
         max-file: "5"
 
   celery_beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${IMAGE_TAG:-the-abby-project-app}
     command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     env_file:
       - .env
