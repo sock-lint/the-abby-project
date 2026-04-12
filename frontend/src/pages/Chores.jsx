@@ -189,8 +189,9 @@ export default function Chores() {
   const { data: choresData, loading: loadingChores, reload: reloadChores } = useApi(getChores);
   const { data: completionsData, loading: loadingCompletions, reload: reloadCompletions } = useApi(
     isParent ? () => getChoreCompletions('pending') : () => getChoreCompletions(),
+    [isParent],
   );
-  const { data: childrenData } = useApi(isParent ? getChildren : () => Promise.resolve([]));
+  const { data: childrenData } = useApi(isParent ? getChildren : () => Promise.resolve([]), [isParent]);
 
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
