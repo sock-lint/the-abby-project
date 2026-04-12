@@ -208,7 +208,7 @@ USE_TZ = True
 # (no Manifest layer) — WhiteNoise gzips/brotlis at collectstatic time and
 # serves Vite's original hashed filenames directly.
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "frontend_dist"]
 STORAGES = {
