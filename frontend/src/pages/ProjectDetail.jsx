@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Check, ChevronDown, ExternalLink, ArrowLeft, DollarSign, QrCode, Copy,
   Pencil, Plus, Trash2, Video, FileText, Image as ImageIcon, Link as LinkIcon,
+  Download,
 } from 'lucide-react';
 import {
   getProject, updateProject, submitProject, approveProject, requestChanges,
@@ -11,7 +12,7 @@ import {
   markPurchased, createMaterial, deleteMaterial,
   saveProjectAsTemplate, activateProject, getCategories, getChildren,
   completeStep, uncompleteStep, createStep, updateStep, deleteStep,
-  createResource, deleteResource,
+  createResource, deleteResource, getProjectQR,
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import BottomSheet from '../components/BottomSheet';
@@ -130,6 +131,9 @@ export default function ProjectDetail({ user }) {
   const [addStepOpen, setAddStepOpen] = useState(false);
   const [addStepMilestoneId, setAddStepMilestoneId] = useState(null);
   const [addResourceOpen, setAddResourceOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrUrl, setQrUrl] = useState(null);
+  const [qrLoading, setQrLoading] = useState(false);
   const [collapsedMilestones, setCollapsedMilestones] = useState(() => new Set());
 
   // Group steps by milestone id (or LOOSE_KEY for unassigned). Memoized so
@@ -143,6 +147,27 @@ export default function ProjectDetail({ user }) {
     }
     return map;
   }, [project?.steps]);
+
+  const handleQrOpen = async () => {
+    setQrOpen(true);
+    setQrLoading(true);
+    try {
+      const blob = await getProjectQR(id);
+      setQrUrl(URL.createObjectURL(blob));
+    } catch {
+      setQrUrl(null);
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  const handleQrClose = () => {
+    setQrOpen(false);
+    if (qrUrl) {
+      URL.revokeObjectURL(qrUrl);
+      setQrUrl(null);
+    }
+  };
 
   if (loading) return <Loader />;
   if (!project) return <div className="text-forge-text-dim">Project not found</div>;
@@ -301,14 +326,12 @@ export default function ProjectDetail({ user }) {
               <Pencil size={14} /> Edit
             </button>
           )}
-          <a
-            href={`/api/projects/${id}/qr/`}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={handleQrOpen}
             className="bg-forge-muted hover:bg-forge-border text-forge-text px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1"
           >
             <QrCode size={14} /> QR
-          </a>
+          </button>
         </div>
       </div>
 
@@ -701,6 +724,32 @@ export default function ProjectDetail({ user }) {
             onClose={() => setAddResourceOpen(false)}
             onSaved={() => { setAddResourceOpen(false); reload(); }}
           />
+        )}
+        {qrOpen && (
+          <BottomSheet title="Project QR Code" onClose={handleQrClose}>
+            <div className="flex flex-col items-center gap-4">
+              {qrLoading ? (
+                <Loader />
+              ) : qrUrl ? (
+                <>
+                  <img
+                    src={qrUrl}
+                    alt={`QR code for ${project.title}`}
+                    className="w-64 h-64 rounded-lg"
+                  />
+                  <a
+                    href={qrUrl}
+                    download={`project-${id}-qr.png`}
+                    className="flex items-center gap-1.5 text-sm text-amber-500 hover:underline"
+                  >
+                    <Download size={16} /> Save Image
+                  </a>
+                </>
+              ) : (
+                <p className="text-forge-text-dim text-sm">Failed to load QR code.</p>
+              )}
+            </div>
+          </BottomSheet>
         )}
       </AnimatePresence>
     </div>
