@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Clock, Coins, DollarSign, Flame, FolderKanban, Trophy, Timer, Target } from 'lucide-react';
+import { Check, ClipboardCheck, Clock, Coins, DollarSign, Flame, FolderKanban, Trophy, Timer, Target } from 'lucide-react';
 import { getDashboard } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
@@ -17,7 +17,7 @@ export default function Dashboard() {
   if (loading) return <Loader />;
   if (!data) return null;
 
-  const { active_timer, current_balance, coin_balance, this_week, active_projects, recent_badges, streak_days, savings_goals } = data;
+  const { active_timer, current_balance, coin_balance, this_week, active_projects, recent_badges, streak_days, savings_goals, chores_today, pending_chore_approvals } = data;
 
   return (
     <div className="space-y-6">
@@ -92,6 +92,47 @@ export default function Dashboard() {
           </Card>
         </motion.div>
       </div>
+
+      {/* Today's Chores */}
+      {chores_today?.length > 0 && (
+        <div>
+          <h2 className="font-heading text-lg font-bold mb-3 flex items-center gap-2 cursor-pointer" onClick={() => navigate('/chores')}>
+            <ClipboardCheck size={18} /> Today&apos;s Chores
+          </h2>
+          <div className="space-y-1.5">
+            {chores_today.map((c) => (
+              <Card key={c.id} className={`flex items-center gap-3 py-2 ${c.is_done ? 'opacity-50' : ''}`} onClick={() => navigate('/chores')}>
+                <span className="text-lg shrink-0">{c.icon || '📋'}</span>
+                <span className={`text-sm flex-1 ${c.is_done ? 'line-through text-forge-text-dim' : 'font-medium'}`}>{c.title}</span>
+                {c.is_done ? (
+                  <Check size={16} className="text-green-400 shrink-0" />
+                ) : (
+                  <span className="text-xs text-forge-text-dim shrink-0">${c.reward_amount}</span>
+                )}
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Parent: pending chore approvals */}
+      {pending_chore_approvals > 0 && (
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="cursor-pointer"
+          onClick={() => navigate('/chores')}
+        >
+          <Card className="border-yellow-500/30 bg-yellow-500/5">
+            <div className="flex items-center gap-3">
+              <ClipboardCheck size={20} className="text-yellow-400" />
+              <div className="flex-1">
+                <div className="text-sm font-medium">{pending_chore_approvals} chore{pending_chore_approvals !== 1 ? 's' : ''} awaiting approval</div>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Active Projects */}
       {active_projects?.length > 0 && (

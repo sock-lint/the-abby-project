@@ -231,6 +231,23 @@ def project_photo_to_dict(photo) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Chores
+# ---------------------------------------------------------------------------
+
+
+def chore_to_dict(chore) -> dict[str, Any]:
+    from apps.chores.serializers import ChoreSerializer
+
+    return to_plain(ChoreSerializer(chore).data)
+
+
+def chore_completion_to_dict(completion) -> dict[str, Any]:
+    from apps.chores.serializers import ChoreCompletionSerializer
+
+    return to_plain(ChoreCompletionSerializer(completion).data)
+
+
+# ---------------------------------------------------------------------------
 # Collection helpers
 # ---------------------------------------------------------------------------
 

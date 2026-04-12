@@ -47,6 +47,7 @@ urlpatterns = [
     path("api/", include("apps.achievements.urls")),
     path("api/", include("apps.portfolio.urls")),
     path("api/", include("apps.rewards.urls")),
+    path("api/", include("apps.chores.urls")),
 ]
 
 # Serve /media/ through Django in all environments. Fine at home-app scale;

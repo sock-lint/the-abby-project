@@ -13,6 +13,7 @@ class PaymentLedger(CreatedAtModel):
         MATERIALS_REIMBURSEMENT = "materials_reimbursement", "Materials Reimbursement"
         PAYOUT = "payout", "Payout"
         ADJUSTMENT = "adjustment", "Adjustment"
+        CHORE_REWARD = "chore_reward", "Chore Reward"
         COIN_EXCHANGE = "coin_exchange", "Coin Exchange"
 
     user = models.ForeignKey(

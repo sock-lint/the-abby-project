@@ -50,8 +50,8 @@ apps/
                      ClockService, TimeEntryService, TimecardService,
                      Celery tasks, CSV export
   payments/          PaymentLedger (hourly/project_bonus/bounty_payout/
-                     milestone_bonus/materials_reimbursement/payout/
-                     adjustment/coin_exchange),
+                     milestone_bonus/materials_reimbursement/payout/adjustment/
+                     chore_reward/coin_exchange),
                      PaymentService (extends BaseLedgerService),
                      Greenlight CSV import, PaymentAdjustmentView
   achievements/      Subject → Skill → Badge models (17 criterion types incl.
@@ -62,6 +62,9 @@ apps/
                      CoinService (extends BaseLedgerService), RewardService,
                      ExchangeService (money→coins with parent approval),
                      CoinAdjustmentView (parent-only manual adjust)
+  chores/            Chore (recurring task definitions), ChoreCompletion
+                     (submit→approve workflow), ChoreService,
+                     supports alternating-week schedules (shared custody)
   portfolio/         ProjectPhoto, ZIP export
 frontend/src/
   api/
@@ -74,8 +77,8 @@ frontend/src/
   constants/         colors.js, styles.js (shared Tailwind class helpers)
   utils/             format.js, api.js (normalizeList), image.js
   pages/             Dashboard, Projects, ProjectDetail, ProjectNew,
-                     ProjectIngest, ClockPage, Timecards, Payments, Rewards,
-                     Achievements, Portfolio, Manage (parent CRUD),
+                     ProjectIngest, ClockPage, Chores, Timecards, Payments,
+                     Rewards, Achievements, Portfolio, Manage (parent CRUD),
                      SettingsPage, Login
   themes.js          Seasonal theme switching
 ```
@@ -106,9 +109,10 @@ frontend/src/
 - **Steps vs. Milestones:** `ProjectMilestone` are the *chapters* of a project — parent-authored, optional `bonus_amount` that hits `PaymentLedger.milestone_bonus` via `apps/projects/signals.py:85-125` on completion, optional `MilestoneSkillTag` XP. `ProjectStep` are the *tasks inside a chapter* — instructional walkthrough rows that never award XP, coins, or money. `ProjectStep.milestone` is a nullable FK (`SET_NULL`) so a step can either be grouped under a milestone or "loose" (ungrouped). Deleting a milestone un-groups its steps rather than cascading. The frontend's unified **Plan** tab (`frontend/src/pages/ProjectDetail.jsx`) renders milestones as accordions with their nested steps + a per-phase progress bar; projects with zero milestones fall back to a flat step list. **Milestone completion is not auto-triggered** when the last step is checked — parents control bonus payouts manually because the milestone-complete signal posts to PaymentLedger. Templates mirror the same shape (`TemplateStep.milestone` → `TemplateMilestone`); both clone directions (`POST /api/templates/from-project/`, `POST /api/templates/{id}/create-project/`) preserve the step→milestone linkage by rebuilding `ms_id_map` on each side.
 - **Project resources:** `ProjectResource` is a reference link (video / doc / image / link) attached either to a project (`step__isnull=True`) or to a specific `ProjectStep` via FK. The detail serializer's top-level `resources` only returns project-level rows; step-scoped resources are nested inside each step to avoid double-counting. Ingestion `ResourceDraft.step_index` (and the MCP `NewResource.step_index`) are 0-based indices into the same payload's `steps` list — both `ProjectIngestViewSet.commit` and the MCP `create_project` tool resolve them to real FKs after creating the steps.
 - **Project ingestion preview:** `frontend/src/pages/ProjectIngest.jsx` lets parents author **Milestones** (chapters) above **Steps** (tasks) before commit. Each step row carries a milestone dropdown that writes `milestone_index` (0-based) into the staged payload; deleting a milestone shifts every step's `milestone_index` down so post-commit FKs don't dangle. The commit endpoint silently falls back to `milestone=None` when an index is out of range — never 500.
-- **Coins economy** (`apps/rewards/`): non-monetary progression currency parallel to `PaymentLedger`. `CoinLedger` is append-only with reasons `hourly|project_bonus|bounty_bonus|milestone_bonus|badge_bonus|redemption|refund|adjustment|exchange`. Earn hooks: clock-out awards `settings.COINS_PER_HOUR × hours` (default 5), project completion awards flat×difficulty (bounty pays 2.5×), badge earn awards `settings.COINS_PER_BADGE_RARITY[rarity]`. Spend happens through `RewardService.request_redemption`, which deducts coins immediately into a "held" debit tied to the `RewardRedemption` row. Parents can make manual adjustments through `POST /api/coins/adjust/` (validates balance on negative amounts).
+- **Coins economy** (`apps/rewards/`): non-monetary progression currency parallel to `PaymentLedger`. `CoinLedger` is append-only with reasons `hourly|project_bonus|bounty_bonus|milestone_bonus|badge_bonus|redemption|refund|adjustment|chore_reward|exchange`. Earn hooks: clock-out awards `settings.COINS_PER_HOUR × hours` (default 5), project completion awards flat×difficulty (bounty pays 2.5×), badge earn awards `settings.COINS_PER_BADGE_RARITY[rarity]`. Spend happens through `RewardService.request_redemption`, which deducts coins immediately into a "held" debit tied to the `RewardRedemption` row. Parents can make manual adjustments through `POST /api/coins/adjust/` (validates balance on negative amounts).
 - **Money→Coins exchange** (`apps/rewards/`): Children can exchange earned money for coins at a configurable rate (`settings.COINS_PER_DOLLAR`, default 10). `ExchangeRequest` tracks the lifecycle (pending → approved/denied). `ExchangeService.request_exchange` validates balance, snapshots the rate, and notifies parents. On approval, `ExchangeService.approve` atomically debits `PaymentLedger` (`coin_exchange`, negative) and credits `CoinLedger` (`exchange`, positive). Money is **not held** at request time — balance is re-verified at approval. Denial has no ledger side-effects. Routes: `POST /api/coins/exchange/` (create), `GET /api/coins/exchange/rate/` (current rate), `GET /api/coins/exchange/list/` (role-filtered), `POST /api/coins/exchange/{id}/approve/` and `.../deny/` (parent-only). Frontend: exchange button on `/rewards` (child-only), pending exchange queue (parent-only), exchange history with status badges.
 - **Reward shop** (`apps/rewards/`): Parent-approved redemption flow mirroring timecard approval. Child requests a `Reward` → `RewardRedemption` status `pending` + coins held → parent approves (`fulfilled`) or denies (refund via `CoinLedger.Reason.REFUND`, stock restored). Rewards have rarity tiers and optional stock. Parents can CRUD `Reward` rows (uses `RewardWriteSerializer` + multipart for image upload). Routes: `/api/rewards/`, `/api/rewards/{id}/redeem/`, `/api/redemptions/` with `approve`/`deny` actions, `/api/coins/` for balance + recent ledger, `/api/coins/adjust/` for parent adjustments. Frontend page: `/rewards`. Parent approval queue rendered inline.
+- **Chores** (`apps/chores/`): recurring household tasks with a submit-then-approve workflow. `Chore` defines the task (title, icon, `reward_amount`, `coin_reward`, recurrence `daily|weekly|one_time`). `ChoreCompletion` tracks each instance (status `pending|approved|rejected`, snapshots reward values at submission). **Shared-custody support:** `Chore.week_schedule` is `every_week` (default) or `alternating`; when alternating, `schedule_start_date` sets the reference "on" week and `ChoreService.is_active_this_week()` compares ISO week parity. Availability is computed on-the-fly — no pre-generated instances, no Celery. On approval, `ChoreService.approve_completion()` posts `PaymentLedger.EntryType.CHORE_REWARD` and `CoinLedger.Reason.CHORE_REWARD`. `ChoreCompletion.completed_date` is a `DateField` — for daily chores it equals today; for weekly it equals Monday of the week. A `UniqueConstraint` on `(chore, user, completed_date)` excluding rejected completions prevents duplicates. Routes: `/api/chores/` (CRUD + `complete` action), `/api/chore-completions/` (read-only + `approve`/`reject` actions). Frontend page: `/chores`. MCP tools: `list_chores`, `get_chore`, `create_chore`, `update_chore`, `complete_chore`, `list_chore_completions`, `approve_chore_completion`, `reject_chore_completion`.
 - **Parent data management:** The `/manage` page (`frontend/src/pages/Manage.jsx`) houses parent CRUD for Children, Project Templates, Rewards, Categories, Subjects, Skills, and Badges. Parents can also:
   - edit child hourly rate via `PATCH /api/children/{id}/` (`ChildViewSet`, `IsParent`, `get/patch` only).
   - adjust coin balances (`POST /api/coins/adjust/`) and payment ledger (`POST /api/payments/adjust/`).
@@ -117,7 +121,7 @@ frontend/src/
 - **Project templates** (`apps/projects/models.py`: `ProjectTemplate`, `TemplateMilestone`, `TemplateMaterial`): cloned from a completed project via `POST /api/templates/from-project/`; materialized into a new `Project` via `POST /api/templates/{id}/create-project/` with `assigned_to_id`. Optional `is_public` flag.
 - **Savings goals** (`apps/projects/models.py`: `SavingsGoal`): child-set targets with `target_amount`/`current_amount` and `percent_complete` property. Endpoints under `/api/savings-goals/`; `update_amount` action recomputes against current balance.
 - **Collaborators** (`apps/projects/models.py`: `ProjectCollaborator`): additional child assigned to a project with a `pay_split_percent`. Managed via `/api/projects/{project_pk}/collaborators/`.
-- **Notifications:** `apps.projects.Notification` with 12 `NotificationType`s (incl. `redemption_requested`, `exchange_requested`, `exchange_approved`, `exchange_denied`). Routes under `/api/notifications/` with `unread_count`, `mark_all_read`, and per-item `mark_read` actions.
+- **Notifications:** `apps.projects.Notification` with 14 `NotificationType`s (incl. `redemption_requested`, `chore_submitted`, `chore_approved`, `exchange_requested`, `exchange_approved`, `exchange_denied`). Routes under `/api/notifications/` with `unread_count`, `mark_all_read`, and per-item `mark_read` actions.
 - **Email:** console backend in dev; `DEFAULT_FROM_EMAIL=noreply@summerforge.local`.
 - **Timezone:** `America/Phoenix`.
 

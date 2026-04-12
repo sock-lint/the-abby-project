@@ -350,6 +350,69 @@ class MarkNotificationReadIn(_Base):
 
 
 # ---------------------------------------------------------------------------
+# Chores
+# ---------------------------------------------------------------------------
+
+
+ChoreRecurrence = Literal["daily", "weekly", "one_time"]
+ChoreWeekSchedule = Literal["every_week", "alternating"]
+ChoreCompletionStatus = Literal["pending", "approved", "rejected"]
+
+
+class ListChoresIn(_Base):
+    assigned_to_id: Optional[int] = None
+    limit: int = Field(default=50, ge=1, le=200)
+
+
+class GetChoreIn(_Base):
+    chore_id: int
+
+
+class CreateChoreIn(_Base):
+    title: str = Field(min_length=1, max_length=200)
+    description: str = ""
+    icon: str = ""
+    reward_amount: Decimal = Field(default=Decimal("0.00"), ge=Decimal("0"))
+    coin_reward: int = Field(default=0, ge=0)
+    recurrence: ChoreRecurrence = "daily"
+    week_schedule: ChoreWeekSchedule = "every_week"
+    schedule_start_date: Optional[date] = None
+    assigned_to_id: Optional[int] = None
+    is_active: bool = True
+    order: int = 0
+
+
+class UpdateChoreIn(_Base):
+    chore_id: int
+    title: Optional[str] = None
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    reward_amount: Optional[Decimal] = None
+    coin_reward: Optional[int] = None
+    recurrence: Optional[ChoreRecurrence] = None
+    week_schedule: Optional[ChoreWeekSchedule] = None
+    schedule_start_date: Optional[date] = None
+    assigned_to_id: Optional[int] = None
+    is_active: Optional[bool] = None
+    order: Optional[int] = None
+
+
+class CompleteChoreIn(_Base):
+    chore_id: int
+    notes: str = ""
+
+
+class ListChoreCompletionsIn(_Base):
+    user_id: Optional[int] = None
+    status: Optional[ChoreCompletionStatus] = None
+    limit: int = Field(default=50, ge=1, le=200)
+
+
+class DecideChoreCompletionIn(_Base):
+    completion_id: int
+
+
+# ---------------------------------------------------------------------------
 # Dashboard
 # ---------------------------------------------------------------------------
 
