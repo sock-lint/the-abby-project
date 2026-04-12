@@ -433,6 +433,7 @@ export default function Achievements() {
   const [treeLoading, setTreeLoading] = useState(false);
   const [topTab, setTopTab] = useState('view');
   const [selectedBadge, setSelectedBadge] = useState(null);
+  const [selectedSkill, setSelectedSkill] = useState(null);
 
   const categories = normalizeList(categoriesData);
 
@@ -565,7 +566,13 @@ export default function Achievements() {
           {/* Skill Tree */}
           <div>
             <h2 className="font-heading text-lg font-bold mb-3">Skill Tree</h2>
-            <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
+            <div
+              className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide"
+              style={{
+                maskImage: 'linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent)',
+                WebkitMaskImage: 'linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent)',
+              }}
+            >
               {categories.map((cat) => (
                 <TabButton
                   key={cat.id}
@@ -583,24 +590,31 @@ export default function Achievements() {
 
             {treeLoading && <Loader />}
 
+            {!tree && !treeLoading && (
+              <EmptyState>
+                <div className="text-sm font-medium text-forge-text mb-1">Pick a category above</div>
+                <div className="text-xs">Tap a category to explore your skill tree</div>
+              </EmptyState>
+            )}
+
             {tree && !treeLoading && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                <Card className="flex items-center justify-between">
+                <Card className="flex items-center justify-between !p-3 md:!p-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl">{tree.category.icon}</span>
+                    <span className="text-xl md:text-2xl">{tree.category.icon}</span>
                     <div>
-                      <div className="font-bold">{tree.category.name}</div>
+                      <div className="font-bold text-sm md:text-base">{tree.category.name}</div>
                       <div className="text-xs text-forge-text-dim">
-                        Level {tree.summary.level} | {tree.summary.total_xp} XP
+                        Level {tree.summary.level} · {tree.summary.total_xp} XP
                       </div>
                     </div>
                   </div>
                 </Card>
 
                 {(tree.subjects || [{ id: null, name: '', skills: tree.skills, summary: tree.summary }]).map((subject) => (
-                  <div key={subject.id ?? 'flat'} className="space-y-2">
+                  <div key={subject.id ?? 'flat'} className="space-y-2 border-l-2 border-amber-primary/30 pl-3">
                     {subject.name && (
-                      <div className="flex items-center justify-between px-1">
+                      <div className="flex items-center justify-between py-2 sticky top-0 bg-forge-bg/95 backdrop-blur-sm z-10 -ml-3 pl-4 pr-1 rounded-r-lg">
                         <div className="flex items-center gap-2">
                           {subject.icon && <span>{subject.icon}</span>}
                           <span className="font-heading text-sm font-bold text-forge-text">{subject.name}</span>
@@ -613,7 +627,7 @@ export default function Achievements() {
                       </div>
                     )}
                     <div className="grid md:grid-cols-2 gap-3">
-                      {subject.skills.map((skill) => {
+                      {subject.skills.map((skill, i) => {
                     const nextThreshold = XP_THRESHOLDS[skill.level + 1] || XP_THRESHOLDS[6];
                     const currentThreshold = XP_THRESHOLDS[skill.level] || 0;
                     const progress = nextThreshold > currentThreshold
@@ -622,16 +636,25 @@ export default function Achievements() {
                     const levelName = skill.level_names[String(skill.level)] || '';
 
                     return (
-                      <motion.div key={skill.id} layout>
-                        <Card className={`${!skill.unlocked ? 'opacity-40' : ''}`}>
+                      <motion.div
+                        key={skill.id}
+                        layout
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.04 }}
+                      >
+                        <Card
+                          className={`${!skill.unlocked ? 'opacity-40' : ''} cursor-pointer active:scale-[0.98] transition-transform`}
+                          onClick={() => setSelectedSkill(skill)}
+                        >
                           <div className="flex items-center gap-3 mb-2">
                             <div className="text-2xl">{skill.icon}</div>
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm">{skill.name}</span>
-                                {!skill.unlocked && <Lock size={12} className="text-forge-text-dim" />}
+                                <span className="font-medium text-sm truncate">{skill.name}</span>
+                                {!skill.unlocked && <Lock size={12} className="text-forge-text-dim shrink-0" />}
                                 {skill.unlocked && skill.is_locked_by_default && (
-                                  <Unlock size={12} className="text-amber-highlight" />
+                                  <Unlock size={12} className="text-amber-highlight shrink-0" />
                                 )}
                               </div>
                               <div className="text-xs text-forge-text-dim">
@@ -641,7 +664,7 @@ export default function Achievements() {
                                 }
                               </div>
                             </div>
-                            <div className="font-heading text-sm font-bold text-forge-text-dim">
+                            <div className="font-heading text-sm font-bold text-forge-text-dim shrink-0">
                               L{skill.level}
                             </div>
                           </div>
@@ -671,6 +694,97 @@ export default function Achievements() {
               </motion.div>
             )}
           </div>
+
+          <AnimatePresence>
+            {selectedSkill && (
+              <BottomSheet
+                title={selectedSkill.name}
+                onClose={() => setSelectedSkill(null)}
+              >
+                <div className="text-center">
+                  <div className="text-5xl mb-3">{selectedSkill.icon}</div>
+                  <div className="text-sm text-forge-text-dim mb-3">
+                    {selectedSkill.description || 'No description yet.'}
+                  </div>
+
+                  <div className="flex justify-center gap-6 mb-4">
+                    <div className="text-center">
+                      <div className="font-heading text-2xl font-bold text-amber-highlight">
+                        {selectedSkill.level}
+                      </div>
+                      <div className="text-xs text-forge-text-dim">Level</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-heading text-2xl font-bold text-forge-text">
+                        {selectedSkill.xp_points}
+                      </div>
+                      <div className="text-xs text-forge-text-dim">XP</div>
+                    </div>
+                  </div>
+
+                  {selectedSkill.level_names[String(selectedSkill.level)] && (
+                    <div className="text-sm font-medium text-amber-highlight mb-3">
+                      {selectedSkill.level_names[String(selectedSkill.level)]}
+                    </div>
+                  )}
+
+                  {selectedSkill.unlocked && (() => {
+                    const nextThreshold = XP_THRESHOLDS[selectedSkill.level + 1] || XP_THRESHOLDS[6];
+                    const currentThreshold = XP_THRESHOLDS[selectedSkill.level] || 0;
+                    const xpInLevel = selectedSkill.xp_points - currentThreshold;
+                    const xpNeeded = nextThreshold - currentThreshold;
+                    const progress = xpNeeded > 0
+                      ? (xpInLevel / xpNeeded) * 100
+                      : 100;
+                    return (
+                      <div className="mb-4">
+                        <div className="flex justify-between text-xs text-forge-text-dim mb-1">
+                          <span>{xpInLevel} / {xpNeeded} XP to next level</span>
+                        </div>
+                        <ProgressBar value={Math.min(100, progress)} />
+                      </div>
+                    );
+                  })()}
+
+                  {Object.keys(selectedSkill.level_names).length > 0 && (
+                    <div className="text-left space-y-1 mb-3">
+                      <div className="text-xs font-medium text-forge-text-dim uppercase tracking-wide mb-2">Level Roadmap</div>
+                      {Object.entries(selectedSkill.level_names)
+                        .sort(([a], [b]) => Number(a) - Number(b))
+                        .map(([lvl, name]) => (
+                          <div key={lvl} className={`flex items-center gap-2 text-sm ${
+                            Number(lvl) <= selectedSkill.level ? 'text-amber-highlight' : 'text-forge-text-dim'
+                          }`}>
+                            <span className="font-heading text-xs w-6">L{lvl}</span>
+                            <span>{name}</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+
+                  {selectedSkill.prerequisites?.length > 0 && (
+                    <div className="text-left space-y-1">
+                      <div className="text-xs font-medium text-forge-text-dim uppercase tracking-wide mb-2">Prerequisites</div>
+                      {selectedSkill.prerequisites.map((p, i) => (
+                        <div key={i} className={`flex items-center justify-between text-sm ${
+                          p.met ? 'text-green-400' : 'text-forge-text-dim'
+                        }`}>
+                          <span>{p.skill_name} Level {p.required_level}</span>
+                          <span>{p.met ? '✓' : '✗'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {!selectedSkill.unlocked && (
+                    <div className="mt-3 text-xs text-forge-text-dim italic">
+                      This skill is locked
+                    </div>
+                  )}
+                </div>
+              </BottomSheet>
+            )}
+          </AnimatePresence>
         </>
       )}
     </div>
