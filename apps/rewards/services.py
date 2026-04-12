@@ -1,12 +1,19 @@
+from decimal import Decimal, InvalidOperation
+
+from django.conf import settings as django_settings
 from django.db import transaction
 from django.utils import timezone
 
 from config.services import BaseLedgerService
 
-from .models import CoinLedger, Reward, RewardRedemption
+from .models import CoinLedger, ExchangeRequest, Reward, RewardRedemption
 
 
 class InsufficientCoinsError(Exception):
+    pass
+
+
+class InsufficientFundsError(Exception):
     pass
 
 
@@ -145,3 +152,136 @@ class RewardService:
             redemption, RewardRedemption.Status.DENIED, parent, notes,
         )
         return redemption
+
+
+class ExchangeService:
+    """Handles money → coins exchange requests and parent approval."""
+
+    @staticmethod
+    @transaction.atomic
+    def request_exchange(user, dollar_amount):
+        from apps.payments.services import PaymentService
+
+        try:
+            dollar_amount = Decimal(str(dollar_amount))
+        except (InvalidOperation, TypeError):
+            raise ValueError("Invalid dollar amount.")
+
+        if dollar_amount < Decimal("1.00"):
+            raise ValueError("Minimum exchange is $1.00.")
+
+        balance = PaymentService.get_balance(user)
+        if balance < dollar_amount:
+            raise InsufficientFundsError(
+                f"Need ${dollar_amount}, have ${balance}."
+            )
+
+        rate = django_settings.COINS_PER_DOLLAR
+        coin_amount = int(dollar_amount * rate)
+
+        exchange = ExchangeRequest.objects.create(
+            user=user,
+            dollar_amount=dollar_amount,
+            coin_amount=coin_amount,
+            exchange_rate=rate,
+        )
+
+        from apps.projects.models import Notification, User
+        display = getattr(user, "display_name", None) or user.username
+        for parent in User.objects.filter(role="parent"):
+            Notification.objects.create(
+                user=parent,
+                title=f"Exchange request: ${dollar_amount}",
+                message=(
+                    f"{display} wants to exchange ${dollar_amount} "
+                    f"for {coin_amount} coins."
+                ),
+                notification_type=Notification.NotificationType.EXCHANGE_REQUESTED,
+            )
+
+        return exchange
+
+    @staticmethod
+    @transaction.atomic
+    def approve(exchange, parent, notes=""):
+        if exchange.status != ExchangeRequest.Status.PENDING:
+            return exchange
+
+        from apps.payments.models import PaymentLedger
+        from apps.payments.services import PaymentService
+
+        user = exchange.user
+        dollar_amount = exchange.dollar_amount
+        coin_amount = exchange.coin_amount
+
+        balance = PaymentService.get_balance(user)
+        if balance < dollar_amount:
+            raise InsufficientFundsError(
+                f"Insufficient balance: need ${dollar_amount}, have ${balance}."
+            )
+
+        PaymentService.record_entry(
+            user,
+            -dollar_amount,
+            PaymentLedger.EntryType.COIN_EXCHANGE,
+            description=f"Coin exchange: ${dollar_amount} → {coin_amount} coins",
+            created_by=parent,
+        )
+
+        CoinService.award_coins(
+            user,
+            coin_amount,
+            CoinLedger.Reason.EXCHANGE,
+            description=f"Exchange: ${dollar_amount} → {coin_amount} coins",
+            created_by=parent,
+        )
+
+        exchange.status = ExchangeRequest.Status.APPROVED
+        exchange.decided_at = timezone.now()
+        exchange.decided_by = parent
+        if notes:
+            exchange.parent_notes = notes
+        exchange.save(update_fields=[
+            "status", "decided_at", "decided_by", "parent_notes",
+        ])
+
+        from apps.projects.models import Notification
+        Notification.objects.create(
+            user=user,
+            title="Exchange approved!",
+            message=(
+                f"Your exchange of ${dollar_amount} for "
+                f"{coin_amount} coins was approved."
+            ),
+            notification_type=Notification.NotificationType.EXCHANGE_APPROVED,
+        )
+
+        return exchange
+
+    @staticmethod
+    @transaction.atomic
+    def deny(exchange, parent, notes=""):
+        if exchange.status != ExchangeRequest.Status.PENDING:
+            return exchange
+
+        exchange.status = ExchangeRequest.Status.DENIED
+        exchange.decided_at = timezone.now()
+        exchange.decided_by = parent
+        if notes:
+            exchange.parent_notes = notes
+        exchange.save(update_fields=[
+            "status", "decided_at", "decided_by", "parent_notes",
+        ])
+
+        from apps.projects.models import Notification
+        msg = f"Your exchange of ${exchange.dollar_amount} was denied."
+        if notes:
+            msg += f" Note: {notes}"
+        Notification.objects.create(
+            user=exchange.user,
+            title="Exchange denied",
+            message=msg,
+            notification_type=Notification.NotificationType.EXCHANGE_DENIED,
+        )
+
+        return exchange

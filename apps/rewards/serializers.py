@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import CoinLedger, Reward, RewardRedemption
+from .models import CoinLedger, ExchangeRequest, Reward, RewardRedemption
 
 
 class RewardSerializer(serializers.ModelSerializer):
@@ -39,4 +39,17 @@ class CoinLedgerSerializer(serializers.ModelSerializer):
     class Meta:
         model = CoinLedger
         fields = ["id", "user", "amount", "reason", "description", "created_at"]
+        read_only_fields = fields
+
+
+class ExchangeRequestSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.username", read_only=True)
+
+    class Meta:
+        model = ExchangeRequest
+        fields = [
+            "id", "user", "user_name", "dollar_amount", "coin_amount",
+            "exchange_rate", "status", "created_at", "decided_at",
+            "decided_by", "parent_notes",
+        ]
         read_only_fields = fields

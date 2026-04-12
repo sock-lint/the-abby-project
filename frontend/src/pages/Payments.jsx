@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DollarSign, TrendingUp, TrendingDown, ArrowDownRight, ArrowUpRight, Target, Plus, X } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, ArrowDownRight, ArrowUpRight, ArrowRightLeft, Target, Plus, X } from 'lucide-react';
 import { getBalance, adjustPayment } from '../api';
 import { useApi, useAuth } from '../hooks/useApi';
 import Card from '../components/Card';
@@ -18,6 +18,7 @@ const typeIcons = {
   materials_reimbursement: { icon: ArrowUpRight, color: 'text-cyan-400' },
   payout: { icon: ArrowDownRight, color: 'text-red-400' },
   adjustment: { icon: DollarSign, color: 'text-yellow-400' },
+  coin_exchange: { icon: ArrowRightLeft, color: 'text-amber-400' },
 };
 
 const typeLabels = {
@@ -28,6 +29,7 @@ const typeLabels = {
   materials_reimbursement: 'Reimbursement',
   payout: 'Payout',
   adjustment: 'Adjustment',
+  coin_exchange: 'Coin Exchange',
 };
 
 function PaymentAdjustModal({ onClose, onSaved }) {

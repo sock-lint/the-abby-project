@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CoinLedger, Reward, RewardRedemption
+from .models import CoinLedger, ExchangeRequest, Reward, RewardRedemption
 
 
 @admin.register(Reward)
@@ -22,3 +22,10 @@ class CoinLedgerAdmin(admin.ModelAdmin):
     list_display = ["user", "amount", "reason", "description", "created_at"]
     list_filter = ["reason"]
     search_fields = ["user__username", "description"]
+
+
+@admin.register(ExchangeRequest)
+class ExchangeRequestAdmin(admin.ModelAdmin):
+    list_display = ["user", "dollar_amount", "coin_amount", "status", "created_at"]
+    list_filter = ["status"]
+    readonly_fields = ["created_at"]

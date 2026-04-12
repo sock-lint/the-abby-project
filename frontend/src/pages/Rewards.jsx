@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Coins, Check, X, Clock, Gift, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Coins, Check, X, Clock, Gift, Plus, Pencil, Trash2, ArrowRightLeft, DollarSign } from 'lucide-react';
 import {
   getRewards, redeemReward, getRedemptions, getCoinBalance,
   approveRedemption, denyRedemption,
   createReward, updateReward, deleteReward, adjustCoins,
+  getExchangeRate, requestExchange, getExchangeRequests,
+  approveExchange, denyExchange, getBalance,
 } from '../api';
 import { useApi, useAuth } from '../hooks/useApi';
 import Card from '../components/Card';
@@ -213,6 +215,102 @@ function CoinAdjustModal({ onClose, onSaved }) {
   );
 }
 
+function CoinExchangeModal({ exchangeRate, onClose, onSaved }) {
+  const [dollarAmount, setDollarAmount] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const { data: balData } = useApi(getBalance);
+  const moneyBalance = balData?.balance ?? 0;
+  const rate = exchangeRate ?? 10;
+  const coins = dollarAmount ? Math.floor(parseFloat(dollarAmount) * rate) : 0;
+  const valid = parseFloat(dollarAmount) >= 1 && parseFloat(dollarAmount) <= moneyBalance;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await requestExchange(parseFloat(dollarAmount));
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      >
+        <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+        <motion.div
+          className="relative w-full md:max-w-md bg-forge-card border border-forge-border rounded-t-2xl md:rounded-2xl p-5"
+          initial={{ y: '100%' }} animate={{ y: 0 }}
+          transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-heading text-lg font-bold">Exchange Money for Coins</h3>
+            <button onClick={onClose} className="text-forge-text-dim hover:text-forge-text"><X size={20} /></button>
+          </div>
+          <ErrorAlert message={error} />
+
+          <div className="flex items-center justify-between text-sm mb-4 p-3 bg-forge-bg rounded-lg border border-forge-border">
+            <span className="text-forge-text-dim">Exchange Rate</span>
+            <span className="font-bold text-amber-highlight">$1.00 = {rate} coins</span>
+          </div>
+
+          <div className="flex items-center justify-between text-sm mb-4 p-3 bg-forge-bg rounded-lg border border-forge-border">
+            <span className="text-forge-text-dim">Your Balance</span>
+            <span className="font-bold text-green-400">${Number(moneyBalance).toFixed(2)}</span>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <label className="text-xs text-forge-text-dim mb-1 block">Dollar Amount (min $1.00)</label>
+              <input
+                className={inputClass}
+                type="number"
+                min="1"
+                step="0.01"
+                value={dollarAmount}
+                onChange={(e) => setDollarAmount(e.target.value)}
+                required
+                placeholder="0.00"
+              />
+            </div>
+            {dollarAmount && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+                className="flex items-center justify-center gap-2 p-3 bg-amber-primary/10 border border-amber-primary/30 rounded-lg"
+              >
+                <DollarSign size={16} className="text-green-400" />
+                <span className="text-sm">${parseFloat(dollarAmount || 0).toFixed(2)}</span>
+                <ArrowRightLeft size={14} className="text-forge-text-dim" />
+                <Coins size={16} className="text-amber-highlight" />
+                <span className="text-sm font-bold text-amber-highlight">{coins} coins</span>
+              </motion.div>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-forge-text-dim hover:text-forge-text">Cancel</button>
+              <button
+                type="submit"
+                disabled={saving || !valid}
+                className="px-4 py-2 bg-amber-primary hover:bg-amber-highlight text-black text-sm font-semibold rounded-lg disabled:opacity-50"
+              >
+                {saving ? 'Requesting...' : 'Request Exchange'}
+              </button>
+            </div>
+            <p className="text-[10px] text-forge-text-dim text-center">Requires parent approval</p>
+          </form>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 export default function Rewards() {
   const { user } = useAuth();
   const isParent = user?.role === 'parent';
@@ -224,14 +322,19 @@ export default function Rewards() {
   const [showRewardForm, setShowRewardForm] = useState(false);
   const [editingReward, setEditingReward] = useState(null);
   const [showCoinAdjust, setShowCoinAdjust] = useState(false);
+  const [showExchange, setShowExchange] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  const loading = loadingRewards || loadingRedemptions || loadingBalance;
+  const { data: exchangeData, loading: loadingExchanges, reload: reloadExchanges } = useApi(getExchangeRequests);
+  const { data: rateData } = useApi(getExchangeRate);
+
+  const loading = loadingRewards || loadingRedemptions || loadingBalance || loadingExchanges;
 
   const refresh = () => {
     reloadRewards();
     reloadRedemptions();
     reloadBalance();
+    reloadExchanges();
   };
 
   const handleRedeem = async (reward) => {
@@ -244,6 +347,8 @@ export default function Rewards() {
 
   const handleApprove = async (id) => { await approveRedemption(id); refresh(); };
   const handleDeny = async (id) => { await denyRedemption(id); refresh(); };
+  const handleExchangeApprove = async (id) => { await approveExchange(id); refresh(); };
+  const handleExchangeDeny = async (id) => { await denyExchange(id); refresh(); };
 
   const handleDelete = async (id) => {
     try {
@@ -259,6 +364,9 @@ export default function Rewards() {
   const redemptions = normalizeList(redemptionsData);
   const coinBalance = balanceData?.balance ?? 0;
   const pending = redemptions.filter((r) => r.status === 'pending');
+  const exchanges = normalizeList(exchangeData);
+  const pendingExchanges = exchanges.filter((e) => e.status === 'pending');
+  const exchangeRate = rateData?.coins_per_dollar;
 
   return (
     <div className="space-y-6">
@@ -292,6 +400,14 @@ export default function Rewards() {
           <div className="font-heading text-4xl font-bold text-amber-highlight">
             {coinBalance}
           </div>
+          {!isParent && (
+            <button
+              onClick={() => setShowExchange(true)}
+              className="mt-3 inline-flex items-center gap-1.5 bg-amber-primary/20 hover:bg-amber-primary/30 text-amber-highlight text-xs font-semibold px-4 py-2 rounded-lg border border-amber-primary/30"
+            >
+              <ArrowRightLeft size={14} /> Exchange Money for Coins
+            </button>
+          )}
         </Card>
       </motion.div>
 
@@ -318,6 +434,42 @@ export default function Rewards() {
                   </button>
                   <button
                     onClick={() => handleDeny(r.id)}
+                    className="flex items-center gap-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs px-3 py-1.5 rounded-lg border border-red-500/30"
+                  >
+                    <X size={14} /> Deny
+                  </button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isParent && pendingExchanges.length > 0 && (
+        <div>
+          <h2 className="font-heading text-lg font-bold mb-3 flex items-center gap-2">
+            <ArrowRightLeft size={18} /> Pending Exchanges
+          </h2>
+          <div className="space-y-2">
+            {pendingExchanges.map((ex) => (
+              <Card key={ex.id} className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium">
+                    {ex.user_name} — ${Number(ex.dollar_amount).toFixed(2)} → {ex.coin_amount} coins
+                  </div>
+                  <div className="text-xs text-forge-text-dim">
+                    Rate: {ex.exchange_rate} coins/$1 • {formatDateTime(ex.created_at)}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleExchangeApprove(ex.id)}
+                    className="flex items-center gap-1 bg-green-500/20 hover:bg-green-500/30 text-green-300 text-xs px-3 py-1.5 rounded-lg border border-green-500/30"
+                  >
+                    <Check size={14} /> Approve
+                  </button>
+                  <button
+                    onClick={() => handleExchangeDeny(ex.id)}
                     className="flex items-center gap-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs px-3 py-1.5 rounded-lg border border-red-500/30"
                   >
                     <X size={14} /> Deny
@@ -415,6 +567,37 @@ export default function Rewards() {
         </div>
       )}
 
+      {exchanges.length > 0 && (
+        <div>
+          <h2 className="font-heading text-lg font-bold mb-3 flex items-center gap-2">
+            <ArrowRightLeft size={18} /> {isParent ? 'All Exchanges' : 'My Exchanges'}
+          </h2>
+          <div className="space-y-2">
+            {exchanges.map((ex) => (
+              <Card key={ex.id} className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-primary/20 flex items-center justify-center">
+                    <ArrowRightLeft size={14} className="text-amber-highlight" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium">
+                      ${Number(ex.dollar_amount).toFixed(2)} → {ex.coin_amount} coins
+                    </div>
+                    <div className="text-xs text-forge-text-dim">
+                      {isParent && `${ex.user_name} • `}
+                      {formatDate(ex.created_at)} • {ex.exchange_rate} coins/$1
+                    </div>
+                  </div>
+                </div>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full border uppercase ${STATUS_COLORS[ex.status] || STATUS_COLORS.pending}`}>
+                  {ex.status}
+                </span>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       {showRewardForm && (
         <RewardFormModal
           reward={editingReward}
@@ -427,6 +610,14 @@ export default function Rewards() {
         <CoinAdjustModal
           onClose={() => setShowCoinAdjust(false)}
           onSaved={() => { setShowCoinAdjust(false); refresh(); }}
+        />
+      )}
+
+      {showExchange && (
+        <CoinExchangeModal
+          exchangeRate={exchangeRate}
+          onClose={() => setShowExchange(false)}
+          onSaved={() => { setShowExchange(false); refresh(); }}
         />
       )}
 
