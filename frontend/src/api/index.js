@@ -160,6 +160,16 @@ export const getCoinBalance = () => api.get('/coins/');
 export const adjustCoins = (user_id, amount, description = '') =>
   api.post('/coins/adjust/', { user_id, amount, description });
 
+// Coin Exchange
+export const getExchangeRate = () => api.get('/coins/exchange/rate/');
+export const requestExchange = (dollar_amount) =>
+  api.post('/coins/exchange/', { dollar_amount });
+export const getExchangeRequests = () => api.get('/coins/exchange/list/');
+export const approveExchange = (id, notes = '') =>
+  api.post(`/coins/exchange/${id}/approve/`, { notes });
+export const denyExchange = (id, notes = '') =>
+  api.post(`/coins/exchange/${id}/deny/`, { notes });
+
 // Portfolio
 export const getPortfolio = () => api.get('/portfolio/');
 export const getPhotos = () => api.get('/photos/');

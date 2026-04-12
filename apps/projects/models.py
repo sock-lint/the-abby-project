@@ -244,6 +244,9 @@ class Notification(CreatedAtModel):
         REDEMPTION_REQUESTED = "redemption_requested", "Redemption Requested"
         CHORE_SUBMITTED = "chore_submitted", "Chore Submitted"
         CHORE_APPROVED = "chore_approved", "Chore Approved"
+        EXCHANGE_REQUESTED = "exchange_requested", "Exchange Requested"
+        EXCHANGE_APPROVED = "exchange_approved", "Exchange Approved"
+        EXCHANGE_DENIED = "exchange_denied", "Exchange Denied"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,

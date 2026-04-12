@@ -21,6 +21,7 @@ class CoinLedger(CreatedAtModel):
         REFUND = "refund", "Refund"
         ADJUSTMENT = "adjustment", "Adjustment"
         CHORE_REWARD = "chore_reward", "Chore Reward"
+        EXCHANGE = "exchange", "Exchange"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
@@ -112,3 +113,37 @@ class RewardRedemption(models.Model):
 
     def __str__(self):
         return f"{self.user} → {self.reward.name} ({self.status})"
+
+
+class ExchangeRequest(CreatedAtModel):
+    """A request to exchange money for coins, pending parent approval."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        DENIED = "denied", "Denied"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="exchange_requests",
+    )
+    dollar_amount = models.DecimalField(max_digits=8, decimal_places=2)
+    coin_amount = models.PositiveIntegerField()
+    exchange_rate = models.PositiveIntegerField(
+        help_text="COINS_PER_DOLLAR at time of request — authoritative for fulfillment.",
+    )
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.PENDING,
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="decided_exchanges",
+    )
+    parent_notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user} ${self.dollar_amount} → {self.coin_amount}c ({self.status})"
