@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "apps.rewards",
     "apps.chores",
     "apps.mcp_server",
+    "apps.google_integration",
 ]
 
 # --- MCP server -----------------------------------------------------------
@@ -145,6 +146,12 @@ COINS_PER_DOLLAR = 10
 # from django.conf.settings (never re-read os.environ).
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+
+# --- Google OAuth / Calendar ------------------------------------------------
+# Optional. When set, enables "Sign in with Google" and Google Calendar sync.
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "")
 
 MIDDLEWARE = [
     "config.middleware.HealthCheckMiddleware",
@@ -301,6 +308,11 @@ CELERY_BEAT_SCHEDULE = {
     "weekly-email-summaries": {
         "task": "apps.timecards.tasks.send_weekly_email_summaries",
         "schedule": crontab(hour=8, minute=0, day_of_week="sun"),
+    },
+    "daily-reminders": {
+        "task": "apps.google_integration.tasks.send_daily_reminders_task",
+        # 7:00 AM daily — just after quiet hours end.
+        "schedule": crontab(hour=7, minute=0),
     },
 }
 

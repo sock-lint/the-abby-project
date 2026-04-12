@@ -248,3 +248,23 @@ export const rejectChoreCompletion = (id) =>
 // Greenlight Import
 export const importGreenlight = (user_id, csv_data) =>
   api.post('/greenlight/import/', { user_id, csv_data });
+
+// Google OAuth
+export const getGoogleAuthUrl = (forUserId) => {
+  const qs = forUserId ? `?for_user=${forUserId}` : '';
+  return api.get(`/auth/google/${qs}`);
+};
+export const getGoogleLoginUrl = () => api.get('/auth/google/login/');
+export const getGoogleAccount = (forUserId) => {
+  const qs = forUserId ? `?for_user=${forUserId}` : '';
+  return api.get(`/auth/google/account/${qs}`);
+};
+export const unlinkGoogleAccount = (forUserId) => {
+  const qs = forUserId ? `?for_user=${forUserId}` : '';
+  return api.delete(`/auth/google/account/${qs}`);
+};
+
+// Google Calendar
+export const getCalendarSettings = () => api.get('/auth/google/calendar/');
+export const updateCalendarSettings = (data) => api.patch('/auth/google/calendar/', data);
+export const triggerCalendarSync = () => api.post('/auth/google/calendar/sync/');
