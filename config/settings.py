@@ -135,6 +135,8 @@ COINS_PER_BADGE_RARITY = {
     "epic": 75,
     "legendary": 150,
 }
+# How many Coins a child receives per $1.00 exchanged (money → coins).
+COINS_PER_DOLLAR = 10
 
 # --- Anthropic / Claude ---------------------------------------------------
 # Optional. When set, enables Claude-powered ingestion enrichment and

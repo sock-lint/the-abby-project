@@ -6,13 +6,16 @@ from rest_framework.views import APIView
 from config.permissions import IsParent
 from config.viewsets import RoleFilteredQuerySetMixin, get_child_or_404, child_not_found_response
 
-from .models import CoinLedger, Reward, RewardRedemption
+from django.conf import settings as django_settings
+
+from .models import CoinLedger, ExchangeRequest, Reward, RewardRedemption
 from .serializers import (
-    CoinLedgerSerializer, RewardRedemptionSerializer, RewardSerializer,
-    RewardWriteSerializer,
+    CoinLedgerSerializer, ExchangeRequestSerializer,
+    RewardRedemptionSerializer, RewardSerializer, RewardWriteSerializer,
 )
 from .services import (
-    CoinService, InsufficientCoinsError, RewardService, RewardUnavailableError,
+    CoinService, ExchangeService, InsufficientCoinsError,
+    InsufficientFundsError, RewardService, RewardUnavailableError,
 )
 
 
@@ -126,3 +129,77 @@ class CoinAdjustmentView(APIView):
             CoinLedgerSerializer(entry).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class ExchangeRateView(APIView):
+    def get(self, request):
+        return Response({"coins_per_dollar": django_settings.COINS_PER_DOLLAR})
+
+
+class ExchangeRequestView(APIView):
+    def post(self, request):
+        dollar_amount = request.data.get("dollar_amount")
+        if dollar_amount is None:
+            return Response(
+                {"error": "dollar_amount required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            exchange = ExchangeService.request_exchange(
+                request.user, dollar_amount,
+            )
+        except ValueError as exc:
+            return Response(
+                {"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST,
+            )
+        except InsufficientFundsError as exc:
+            return Response(
+                {"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(
+            ExchangeRequestSerializer(exchange).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ExchangeRequestListView(APIView):
+    def get(self, request):
+        qs = ExchangeRequest.objects.select_related("user")
+        if request.user.role != "parent":
+            qs = qs.filter(user=request.user)
+        return Response(
+            ExchangeRequestSerializer(qs[:50], many=True).data,
+        )
+
+
+class ExchangeApprovalView(APIView):
+    permission_classes = [IsParent]
+
+    def post(self, request, pk, action):
+        try:
+            exchange = ExchangeRequest.objects.get(pk=pk)
+        except ExchangeRequest.DoesNotExist:
+            return Response(
+                {"error": "Exchange request not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        notes = request.data.get("notes", "")
+        try:
+            if action == "approve":
+                exchange = ExchangeService.approve(
+                    exchange, request.user, notes,
+                )
+            elif action == "deny":
+                exchange = ExchangeService.deny(
+                    exchange, request.user, notes,
+                )
+            else:
+                return Response(
+                    {"error": "Invalid action"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except InsufficientFundsError as exc:
+            return Response(
+                {"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(ExchangeRequestSerializer(exchange).data)

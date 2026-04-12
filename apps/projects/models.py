@@ -242,6 +242,9 @@ class Notification(CreatedAtModel):
         SKILL_UNLOCKED = "skill_unlocked", "Skill Unlocked"
         MILESTONE_COMPLETED = "milestone_completed", "Milestone Completed"
         REDEMPTION_REQUESTED = "redemption_requested", "Redemption Requested"
+        EXCHANGE_REQUESTED = "exchange_requested", "Exchange Requested"
+        EXCHANGE_APPROVED = "exchange_approved", "Exchange Approved"
+        EXCHANGE_DENIED = "exchange_denied", "Exchange Denied"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
