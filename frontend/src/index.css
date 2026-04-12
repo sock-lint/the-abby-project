@@ -43,6 +43,10 @@ body {
   border-radius: 3px;
 }
 
+/* Hide scrollbar for horizontal scroll containers */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* Mobile touch optimizations */
 @media (max-width: 768px) {
   button, a, [role="button"] {
