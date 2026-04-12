@@ -39,7 +39,7 @@ COPY . .
 # collectstatic (below) then copies it into STATIC_ROOT for WhiteNoise.
 COPY --from=frontend-build /app/frontend/dist /app/frontend_dist
 
-RUN python manage.py collectstatic --noinput || true
+RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
 

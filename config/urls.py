@@ -49,4 +49,7 @@ urlpatterns += [
 ]
 
 # SPA catch-all — MUST be last. React Router owns every other path.
-urlpatterns += [re_path(r"^.*$", spa_view, name="spa")]
+# Exclude static/ so missing assets get a proper 404 instead of index.html
+# served as text/html (WhiteNoise handles real static files at the middleware
+# layer before the URL resolver runs).
+urlpatterns += [re_path(r"^(?!static/).*$", spa_view, name="spa")]
