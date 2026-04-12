@@ -85,9 +85,6 @@ jobs:
             exit 1
           }
 
-          echo "=== Collecting static files ==="
-          ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} docker compose run --rm django python manage.py collectstatic --noinput" || true
-
           echo "=== Deploying app services ==="
           for svc in django celery_worker celery_beat; do
             echo "  → ${svc}"
