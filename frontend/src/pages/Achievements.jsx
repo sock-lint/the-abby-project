@@ -15,8 +15,11 @@ import Loader from '../components/Loader';
 import ProgressBar from '../components/ProgressBar';
 import TabButton from '../components/TabButton';
 import ErrorAlert from '../components/ErrorAlert';
+import EmptyState from '../components/EmptyState';
+import BottomSheet from '../components/BottomSheet';
 import { RARITY_COLORS } from '../constants/colors';
 import { normalizeList } from '../utils/api';
+import { formatDate } from '../utils/format';
 
 const rarityText = {
   common: 'text-rarity-common',
@@ -28,6 +31,7 @@ const rarityText = {
 
 const XP_THRESHOLDS = { 0: 0, 1: 100, 2: 300, 3: 600, 4: 1000, 5: 1500, 6: 2500 };
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+const RARITY_ORDER = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
 const inputClass = 'w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-base focus:outline-none focus:border-amber-primary';
 
 const CRITERIA_TYPES = [
@@ -422,11 +426,13 @@ export default function Achievements() {
   const { user } = useAuth();
   const isParent = user?.role === 'parent';
   const { data: summary, loading } = useApi(getAchievementsSummary);
+  const { data: allBadgesData, loading: badgesLoading } = useApi(getBadges);
   const { data: categoriesData, reload: reloadCategories } = useApi(getCategories);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [tree, setTree] = useState(null);
   const [treeLoading, setTreeLoading] = useState(false);
   const [topTab, setTopTab] = useState('view');
+  const [selectedBadge, setSelectedBadge] = useState(null);
 
   const categories = normalizeList(categoriesData);
 
@@ -445,10 +451,29 @@ export default function Achievements() {
     setTreeLoading(false);
   };
 
-  if (loading) return <Loader />;
+  if (loading || badgesLoading) return <Loader />;
   if (!summary) return null;
 
-  const earnedBadges = summary.badges_earned || [];
+  const allBadges = normalizeList(allBadgesData);
+  const earnedBadgeIds = new Set(
+    (summary.badges_earned || []).map(ub => ub.badge.id)
+  );
+  const earnedBadgeMap = Object.fromEntries(
+    (summary.badges_earned || []).map(ub => [ub.badge.id, ub])
+  );
+  const sortedBadges = allBadges
+    .map(badge => ({
+      badge,
+      earned: earnedBadgeIds.has(badge.id),
+      earnedAt: earnedBadgeMap[badge.id]?.earned_at || null,
+    }))
+    .sort((a, b) => {
+      if (a.earned && !b.earned) return -1;
+      if (!a.earned && b.earned) return 1;
+      if (a.earned && b.earned) return new Date(b.earnedAt) - new Date(a.earnedAt);
+      return (RARITY_ORDER[a.badge.rarity] - RARITY_ORDER[b.badge.rarity])
+        || a.badge.name.localeCompare(b.badge.name);
+    });
 
   return (
     <div className="space-y-6">
@@ -469,25 +494,73 @@ export default function Achievements() {
           {/* Badge Collection */}
           <div>
             <h2 className="font-heading text-lg font-bold mb-3">
-              Badges ({earnedBadges.length}/{summary.total_badges})
+              Badges ({earnedBadgeIds.size}/{allBadges.length})
             </h2>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-              {earnedBadges.map((ub, i) => (
-                <motion.div
-                  key={ub.id}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: i * 0.03 }}
-                >
-                  <Card className={`text-center ${RARITY_COLORS[ub.badge.rarity]}`}>
-                    <div className="text-3xl mb-1">{ub.badge.icon}</div>
-                    <div className="text-xs font-medium leading-tight">{ub.badge.name}</div>
-                    <div className={`text-[10px] capitalize ${rarityText[ub.badge.rarity]}`}>{ub.badge.rarity}</div>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
+            {allBadges.length === 0 ? (
+              <EmptyState>No badges have been created yet.</EmptyState>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                {sortedBadges.map((item, i) => (
+                  <motion.div
+                    key={item.badge.id}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: i * 0.03 }}
+                  >
+                    <div
+                      className={`rounded-xl p-4 text-center border cursor-pointer transition-colors ${
+                        item.earned
+                          ? RARITY_COLORS[item.badge.rarity]
+                          : 'bg-forge-card/50 border-forge-border opacity-40 grayscale'
+                      }`}
+                      onClick={() => setSelectedBadge(item)}
+                    >
+                      <div className="text-3xl mb-1">{item.badge.icon || '🔒'}</div>
+                      <div className="text-xs font-medium leading-tight">{item.badge.name}</div>
+                      <div className={`text-[10px] capitalize ${
+                        item.earned ? rarityText[item.badge.rarity] : 'text-forge-text-dim'
+                      }`}>
+                        {item.badge.rarity}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </div>
+
+          <AnimatePresence>
+            {selectedBadge && (
+              <BottomSheet
+                title={selectedBadge.badge.name}
+                onClose={() => setSelectedBadge(null)}
+              >
+                <div className="text-center">
+                  <div className="text-5xl mb-3">{selectedBadge.badge.icon}</div>
+                  <div className={`text-sm capitalize font-medium mb-2 ${rarityText[selectedBadge.badge.rarity]}`}>
+                    {selectedBadge.badge.rarity}
+                  </div>
+                  <p className="text-sm text-forge-text-dim mb-3">
+                    {selectedBadge.badge.description}
+                  </p>
+                  {selectedBadge.badge.xp_bonus > 0 && (
+                    <div className="text-xs text-amber-highlight">
+                      +{selectedBadge.badge.xp_bonus} XP bonus
+                    </div>
+                  )}
+                  {selectedBadge.earned ? (
+                    <div className="mt-3 text-xs text-forge-text-dim">
+                      Earned {formatDate(selectedBadge.earnedAt)}
+                    </div>
+                  ) : (
+                    <div className="mt-3 text-xs text-forge-text-dim italic">
+                      Not yet earned
+                    </div>
+                  )}
+                </div>
+              </BottomSheet>
+            )}
+          </AnimatePresence>
 
           {/* Skill Tree */}
           <div>
