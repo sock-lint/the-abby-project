@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import {
-  Users, BookTemplate, Pencil, Trash2, Play, DollarSign, Globe,
+  Users, BookTemplate, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink,
 } from 'lucide-react';
 import {
   getChildren, updateChild,
   getTemplates, updateTemplate, deleteTemplate, createProjectFromTemplate,
-  getCategories,
+  getCategories, getGoogleAuthUrl, unlinkGoogleAccount,
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import BottomSheet from '../components/BottomSheet';
@@ -77,6 +77,11 @@ function ChildrenSection() {
             <div className="text-xs text-forge-text-dim">@{child.username}</div>
             <div className="text-sm text-forge-text-dim flex items-center gap-1 mt-0.5">
               <DollarSign size={12} />{child.hourly_rate}/hr
+              {child.google_linked && (
+                <span className="ml-2 text-xs text-green-400 flex items-center gap-0.5">
+                  <Link2 size={10} /> Google
+                </span>
+              )}
             </div>
           </div>
           <button
@@ -128,6 +133,26 @@ function EditChildModal({ child, onClose, onSaved }) {
     }
   };
 
+  const handleLinkGoogle = async () => {
+    try {
+      const data = await getGoogleAuthUrl(child.id);
+      if (data?.authorization_url) {
+        window.location.href = data.authorization_url;
+      }
+    } catch {
+      setError('Could not start Google linking.');
+    }
+  };
+
+  const handleUnlinkGoogle = async () => {
+    try {
+      await unlinkGoogleAccount(child.id);
+      onSaved();
+    } catch {
+      setError('Failed to unlink Google account.');
+    }
+  };
+
   return (
     <BottomSheet title={`Edit ${child.display_name || child.username}`} onClose={onClose} disabled={saving}>
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -139,6 +164,26 @@ function EditChildModal({ child, onClose, onSaved }) {
         <div>
           <label className="block text-xs text-forge-text-dim mb-1">Hourly Rate ($)</label>
           <input value={form.hourly_rate} onChange={set('hourly_rate')} className={inputClass} type="number" step="0.01" min="0" required />
+        </div>
+        <div>
+          <label className="block text-xs text-forge-text-dim mb-1">Google Account</label>
+          {child.google_linked ? (
+            <button
+              type="button"
+              onClick={handleUnlinkGoogle}
+              className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+            >
+              <Unlink size={14} /> Unlink Google Account
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleLinkGoogle}
+              className="flex items-center gap-2 text-sm text-forge-text-dim hover:text-amber-highlight transition-colors"
+            >
+              <Link2 size={14} /> Link Google Account
+            </button>
+          )}
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={onClose} disabled={saving} className="flex-1 bg-forge-muted hover:bg-forge-border text-forge-text font-medium py-3 rounded-lg transition-colors">

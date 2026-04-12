@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getMe, login as apiLogin, logout as apiLogout } from '../api';
+import { setToken } from '../api/client';
 
 export function useApi(apiFn, deps = []) {
   const [data, setData] = useState(null);
@@ -29,6 +30,15 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Handle token from Google OAuth callback redirect
+    const params = new URLSearchParams(window.location.search);
+    const oauthToken = params.get('token');
+    if (oauthToken) {
+      setToken(oauthToken);
+      // Clean the URL so the token isn't visible / bookmarkable
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
     getMe().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false));
   }, []);
 

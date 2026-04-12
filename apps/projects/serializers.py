@@ -9,21 +9,39 @@ from .models import (
 
 
 class UserSerializer(serializers.ModelSerializer):
+    google_linked = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
             "id", "username", "display_name", "role", "hourly_rate", "avatar", "theme",
+            "google_linked",
         ]
         read_only_fields = fields
 
+    def get_google_linked(self, obj):
+        try:
+            return obj.google_account is not None
+        except Exception:
+            return False
+
 
 class ChildSerializer(serializers.ModelSerializer):
+    google_linked = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
             "id", "username", "display_name", "role", "hourly_rate", "avatar", "theme",
+            "google_linked",
         ]
         read_only_fields = ["id", "username", "role", "theme"]
+
+    def get_google_linked(self, obj):
+        try:
+            return obj.google_account is not None
+        except Exception:
+            return False
 
 
 class SkillCategorySerializer(serializers.ModelSerializer):

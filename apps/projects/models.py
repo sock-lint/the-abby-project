@@ -247,6 +247,9 @@ class Notification(CreatedAtModel):
         EXCHANGE_REQUESTED = "exchange_requested", "Exchange Requested"
         EXCHANGE_APPROVED = "exchange_approved", "Exchange Approved"
         EXCHANGE_DENIED = "exchange_denied", "Exchange Denied"
+        PROJECT_DUE_SOON = "project_due_soon", "Project Due Soon"
+        CHORE_REMINDER = "chore_reminder", "Chore Reminder"
+        APPROVAL_REMINDER = "approval_reminder", "Approval Reminder"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
