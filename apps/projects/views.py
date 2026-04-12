@@ -138,6 +138,28 @@ class DashboardView(APIView):
         from apps.rewards.services import CoinService
         coin_balance = CoinService.get_balance(user)
 
+        # Chores summary
+        from apps.chores.services import ChoreService
+        from apps.chores.models import ChoreCompletion
+        chores_today = []
+        pending_chore_approvals = 0
+        if user.role == "child":
+            available = ChoreService.get_available_chores(user)
+            for c in available:
+                chores_today.append({
+                    "id": c.pk,
+                    "title": c.title,
+                    "icon": c.icon,
+                    "reward_amount": str(c.reward_amount),
+                    "coin_reward": c.coin_reward,
+                    "is_done": c.is_done_today,
+                    "status": c.today_completion_status,
+                })
+        elif user.role == "parent":
+            pending_chore_approvals = ChoreCompletion.objects.filter(
+                status=ChoreCompletion.Status.PENDING,
+            ).count()
+
         return Response({
             "role": user.role,
             "active_timer": active_timer,
@@ -153,6 +175,8 @@ class DashboardView(APIView):
             "recent_badges": recent_badges,
             "streak_days": streak,
             "savings_goals": goals,
+            "chores_today": chores_today,
+            "pending_chore_approvals": pending_chore_approvals,
         })
 
 

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "apps.achievements",
     "apps.portfolio",
     "apps.rewards",
+    "apps.chores",
     "apps.mcp_server",
 ]
 

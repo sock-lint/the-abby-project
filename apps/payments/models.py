@@ -13,6 +13,7 @@ class PaymentLedger(CreatedAtModel):
         MATERIALS_REIMBURSEMENT = "materials_reimbursement", "Materials Reimbursement"
         PAYOUT = "payout", "Payout"
         ADJUSTMENT = "adjustment", "Adjustment"
+        CHORE_REWARD = "chore_reward", "Chore Reward"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,

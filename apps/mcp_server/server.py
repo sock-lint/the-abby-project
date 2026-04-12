@@ -123,6 +123,7 @@ def _load_tool_modules() -> None:
     # noqa: F401 - imports-for-side-effects
     from .tools import (  # noqa: F401
         achievements,
+        chores,
         dashboard,
         ingestion,
         notifications,

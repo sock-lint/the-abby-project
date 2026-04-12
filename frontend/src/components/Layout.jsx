@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, FolderKanban, Clock, FileText,
+  LayoutDashboard, FolderKanban, ClipboardCheck, Clock, FileText,
   DollarSign, Gift, Trophy, Camera, Settings, LogOut, MoreHorizontal,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -11,6 +11,7 @@ import NotificationBell from './NotificationBell';
 const allNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
+  { to: '/chores', icon: ClipboardCheck, label: 'Chores' },
   { to: '/clock', icon: Clock, label: 'Clock' },
   { to: '/timecards', icon: FileText, label: 'Timecards' },
   { to: '/payments', icon: DollarSign, label: 'Payments' },
@@ -22,7 +23,7 @@ const allNavItems = [
 ];
 
 // Mobile bottom nav: 5 primary tabs + a "More" button that opens a sheet with the rest.
-const mobilePrimary = ['/', '/projects', '/clock', '/timecards', '/rewards'];
+const mobilePrimary = ['/', '/projects', '/chores', '/clock', '/rewards'];
 
 export default function Layout({ user, onLogout }) {
   const [moreOpen, setMoreOpen] = useState(false);

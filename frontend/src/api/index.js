@@ -218,6 +218,23 @@ export const addCollaborator = (projectId, user_id, pay_split_percent) =>
 export const getChildren = () => api.get('/children/');
 export const updateChild = (id, data) => api.patch(`/children/${id}/`, data);
 
+// Chores
+export const getChores = () => api.get('/chores/');
+export const getChore = (id) => api.get(`/chores/${id}/`);
+export const createChore = (data) => api.post('/chores/', data);
+export const updateChore = (id, data) => api.patch(`/chores/${id}/`, data);
+export const deleteChore = (id) => api.delete(`/chores/${id}/`);
+export const completeChore = (id, notes = '') =>
+  api.post(`/chores/${id}/complete/`, { notes });
+export const getChoreCompletions = (status) => {
+  const qs = status ? `?status=${status}` : '';
+  return api.get(`/chore-completions/${qs}`);
+};
+export const approveChoreCompletion = (id) =>
+  api.post(`/chore-completions/${id}/approve/`);
+export const rejectChoreCompletion = (id) =>
+  api.post(`/chore-completions/${id}/reject/`);
+
 // Greenlight Import
 export const importGreenlight = (user_id, csv_data) =>
   api.post('/greenlight/import/', { user_id, csv_data });

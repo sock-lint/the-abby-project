@@ -260,6 +260,7 @@ class Command(BaseCommand):
         self._create_prerequisites(skill_map)
         self._create_badges()
         self._create_sample_projects(categories, skill_map)
+        self._create_sample_chores()
 
         self.stdout.write(self.style.SUCCESS("Seeding complete!"))
 
@@ -436,3 +437,58 @@ class Command(BaseCommand):
                         project=project, skill=skill,
                         defaults={"xp_weight": weight},
                     )
+
+    def _create_sample_chores(self):
+        from apps.chores.models import Chore
+        from apps.projects.models import User
+        from datetime import date
+
+        parent = User.objects.filter(role="parent").first()
+        child = User.objects.filter(role="child").first()
+        if not parent:
+            return
+
+        today = date.today()
+
+        SAMPLE_CHORES = [
+            {"title": "Wash Dishes", "icon": "\U0001f37d\ufe0f", "description": "Wash, dry, and put away all dishes from the sink.",
+             "reward_amount": "1.00", "coin_reward": 2, "recurrence": "daily",
+             "week_schedule": "every_week"},
+            {"title": "Clean Room", "icon": "\U0001f9f9", "description": "Make bed, pick up floor, organize desk.",
+             "reward_amount": "1.50", "coin_reward": 3, "recurrence": "daily",
+             "week_schedule": "every_week"},
+            {"title": "Take Out Trash", "icon": "\U0001f5d1\ufe0f", "description": "Empty all trash cans and replace bags. Take bins to curb on collection day.",
+             "reward_amount": "0.75", "coin_reward": 1, "recurrence": "daily",
+             "week_schedule": "every_week"},
+            {"title": "Feed Pets", "icon": "\U0001f43e", "description": "Fresh food and water for all pets.",
+             "reward_amount": "0.50", "coin_reward": 1, "recurrence": "daily",
+             "week_schedule": "alternating", "schedule_start_date": today},
+            {"title": "Vacuum Common Areas", "icon": "\U0001f3e0", "description": "Vacuum living room, hallway, and stairs.",
+             "reward_amount": "2.00", "coin_reward": 3, "recurrence": "weekly",
+             "week_schedule": "every_week"},
+            {"title": "Mow the Lawn", "icon": "\U0001f33f", "description": "Mow front and back yard, edge sidewalks.",
+             "reward_amount": "5.00", "coin_reward": 5, "recurrence": "weekly",
+             "week_schedule": "every_week"},
+            {"title": "Organize Garage Workbench", "icon": "\U0001f527", "description": "Clean up the workbench, return all tools to their places, sweep the floor.",
+             "reward_amount": "3.00", "coin_reward": 5, "recurrence": "one_time",
+             "week_schedule": "every_week"},
+        ]
+
+        for i, chore_data in enumerate(SAMPLE_CHORES):
+            chore, created = Chore.objects.get_or_create(
+                title=chore_data["title"],
+                defaults={
+                    "description": chore_data["description"],
+                    "icon": chore_data["icon"],
+                    "reward_amount": Decimal(chore_data["reward_amount"]),
+                    "coin_reward": chore_data["coin_reward"],
+                    "recurrence": chore_data["recurrence"],
+                    "week_schedule": chore_data["week_schedule"],
+                    "schedule_start_date": chore_data.get("schedule_start_date"),
+                    "assigned_to": child,
+                    "created_by": parent,
+                    "order": i,
+                },
+            )
+            if created:
+                self.stdout.write(f"  Created chore: {chore.title}")
