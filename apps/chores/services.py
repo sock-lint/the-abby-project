@@ -6,7 +6,8 @@ from django.utils import timezone
 
 from apps.payments.models import PaymentLedger
 from apps.payments.services import PaymentService
-from apps.projects.models import Notification, User
+from apps.projects.models import Notification
+from apps.projects.notifications import get_display_name, notify, notify_parents
 from apps.rewards.models import CoinLedger
 from apps.rewards.services import CoinService
 
@@ -155,14 +156,12 @@ class ChoreService:
         )
 
         # Notify parents.
-        display = getattr(user, "display_name", None) or user.username
-        for parent in User.objects.filter(role="parent"):
-            Notification.objects.create(
-                user=parent,
-                title=f"Chore completed: {chore.title}",
-                message=f"{display} completed \"{chore.title}\" and is waiting for approval.",
-                notification_type=Notification.NotificationType.CHORE_SUBMITTED,
-            )
+        display = get_display_name(user)
+        notify_parents(
+            title=f"Chore completed: {chore.title}",
+            message=f'{display} completed "{chore.title}" and is waiting for approval.',
+            notification_type=Notification.NotificationType.CHORE_SUBMITTED,
+        )
 
         return completion
 
@@ -199,11 +198,13 @@ class ChoreService:
             )
 
         # Notify child.
-        Notification.objects.create(
-            user=completion.user,
+        notify(
+            completion.user,
             title=f"Chore approved: {completion.chore.title}",
-            message=f"Your chore \"{completion.chore.title}\" was approved! "
-                    f"You earned ${completion.reward_amount_snapshot} and {completion.coin_reward_snapshot} coins.",
+            message=(
+                f'Your chore "{completion.chore.title}" was approved! '
+                f"You earned ${completion.reward_amount_snapshot} and {completion.coin_reward_snapshot} coins."
+            ),
             notification_type=Notification.NotificationType.CHORE_APPROVED,
         )
 

@@ -1,10 +1,14 @@
-from rest_framework import permissions, status, viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
-from config.viewsets import RoleFilteredQuerySetMixin, get_child_or_404, child_not_found_response
+from config.viewsets import (
+    ParentWritePermissionMixin, RoleFilteredQuerySetMixin,
+    WriteReadSerializerMixin, get_child_or_404, child_not_found_response,
+    resolve_target_user,
+)
 
 from django.conf import settings as django_settings
 
@@ -19,23 +23,14 @@ from .services import (
 )
 
 
-class RewardViewSet(viewsets.ModelViewSet):
+class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewsets.ModelViewSet):
     serializer_class = RewardSerializer
+    write_serializer_class = RewardWriteSerializer
 
     def get_queryset(self):
         if self.request.user.role == "parent":
             return Reward.objects.all()
         return Reward.objects.filter(is_active=True)
-
-    def get_serializer_class(self):
-        if self.action in ("create", "update", "partial_update"):
-            return RewardWriteSerializer
-        return RewardSerializer
-
-    def get_permissions(self):
-        if self.action in ("create", "update", "partial_update", "destroy"):
-            return [IsParent()]
-        return [permissions.IsAuthenticated()]
 
     @action(detail=True, methods=["post"])
     def redeem(self, request, pk=None):
@@ -74,14 +69,9 @@ class RewardRedemptionViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelV
 
 class CoinBalanceView(APIView):
     def get(self, request):
-        user = request.user
-        target_user = user
-        if user.role == "parent":
-            child_id = request.query_params.get("user_id")
-            if child_id:
-                target_user = get_child_or_404(child_id)
-                if target_user is None:
-                    return child_not_found_response()
+        target_user, err = resolve_target_user(request)
+        if err:
+            return err
 
         balance = CoinService.get_balance(target_user)
         breakdown = CoinService.get_breakdown(target_user)
@@ -97,17 +87,16 @@ class CoinAdjustmentView(APIView):
     permission_classes = [IsParent]
 
     def post(self, request):
-        child_id = request.data.get("user_id")
         amount = request.data.get("amount")
         description = request.data.get("description", "")
-        if not child_id or amount is None:
+        child, err = resolve_target_user(request, source="data")
+        if err:
+            return err
+        if amount is None:
             return Response(
                 {"error": "user_id and amount required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        child = get_child_or_404(child_id)
-        if child is None:
-            return child_not_found_response()
         amount = int(amount)
         if amount == 0:
             return Response(

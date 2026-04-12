@@ -7,8 +7,7 @@ import Card from '../components/Card';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import { formatCurrency } from '../utils/format';
-
-const inputClass = 'w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-base focus:outline-none focus:border-amber-primary';
+import { inputClass } from '../constants/styles';
 
 const typeIcons = {
   hourly: { icon: TrendingUp, color: 'text-blue-400' },

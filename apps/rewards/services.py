@@ -4,6 +4,7 @@ from django.conf import settings as django_settings
 from django.db import transaction
 from django.utils import timezone
 
+from apps.projects.notifications import get_display_name, notify, notify_parents
 from config.services import BaseLedgerService
 
 from .models import CoinLedger, ExchangeRequest, Reward, RewardRedemption
@@ -57,6 +58,16 @@ class CoinService(BaseLedgerService):
         )
 
 
+def _finalize_decision(instance, new_status, parent, notes):
+    """Stamp approval/denial fields on a pending-decision model instance."""
+    instance.status = new_status
+    instance.decided_at = timezone.now()
+    instance.decided_by = parent
+    if notes:
+        instance.parent_notes = notes
+    instance.save(update_fields=["status", "decided_at", "decided_by", "parent_notes"])
+
+
 class RewardService:
     @staticmethod
     @transaction.atomic
@@ -98,36 +109,21 @@ class RewardService:
             redemption.decided_at = timezone.now()
             redemption.save(update_fields=["status", "decided_at"])
         else:
-            # Notify every parent so the bell lights up without them having
-            # to visit /rewards.
-            from apps.projects.models import Notification, User
-            display = getattr(user, "display_name", None) or user.username
-            for parent in User.objects.filter(role="parent"):
-                Notification.objects.create(
-                    user=parent,
-                    title=f"Reward request: {reward.name}",
-                    message=f"{display} wants to redeem {reward.name} for {reward.cost_coins} coins.",
-                    notification_type=Notification.NotificationType.REDEMPTION_REQUESTED,
-                )
+            from apps.projects.models import Notification
+            display = get_display_name(user)
+            notify_parents(
+                title=f"Reward request: {reward.name}",
+                message=f"{display} wants to redeem {reward.name} for {reward.cost_coins} coins.",
+                notification_type=Notification.NotificationType.REDEMPTION_REQUESTED,
+            )
         return redemption
-
-    @staticmethod
-    def _finalize_decision(redemption, new_status, parent, notes):
-        redemption.status = new_status
-        redemption.decided_at = timezone.now()
-        redemption.decided_by = parent
-        if notes:
-            redemption.parent_notes = notes
-        redemption.save(update_fields=["status", "decided_at", "decided_by", "parent_notes"])
 
     @staticmethod
     @transaction.atomic
     def approve(redemption, parent, notes=""):
         if redemption.status != RewardRedemption.Status.PENDING:
             return redemption
-        RewardService._finalize_decision(
-            redemption, RewardRedemption.Status.FULFILLED, parent, notes,
-        )
+        _finalize_decision(redemption, RewardRedemption.Status.FULFILLED, parent, notes)
         return redemption
 
     @staticmethod
@@ -148,9 +144,7 @@ class RewardService:
         reward = redemption.reward
         if reward.stock is not None:
             Reward.objects.filter(pk=reward.pk).update(stock=reward.stock + 1)
-        RewardService._finalize_decision(
-            redemption, RewardRedemption.Status.DENIED, parent, notes,
-        )
+        _finalize_decision(redemption, RewardRedemption.Status.DENIED, parent, notes)
         return redemption
 
 
@@ -186,18 +180,13 @@ class ExchangeService:
             exchange_rate=rate,
         )
 
-        from apps.projects.models import Notification, User
-        display = getattr(user, "display_name", None) or user.username
-        for parent in User.objects.filter(role="parent"):
-            Notification.objects.create(
-                user=parent,
-                title=f"Exchange request: ${dollar_amount}",
-                message=(
-                    f"{display} wants to exchange ${dollar_amount} "
-                    f"for {coin_amount} coins."
-                ),
-                notification_type=Notification.NotificationType.EXCHANGE_REQUESTED,
-            )
+        from apps.projects.models import Notification
+        display = get_display_name(user)
+        notify_parents(
+            title=f"Exchange request: ${dollar_amount}",
+            message=f"{display} wants to exchange ${dollar_amount} for {coin_amount} coins.",
+            notification_type=Notification.NotificationType.EXCHANGE_REQUESTED,
+        )
 
         return exchange
 
@@ -236,23 +225,13 @@ class ExchangeService:
             created_by=parent,
         )
 
-        exchange.status = ExchangeRequest.Status.APPROVED
-        exchange.decided_at = timezone.now()
-        exchange.decided_by = parent
-        if notes:
-            exchange.parent_notes = notes
-        exchange.save(update_fields=[
-            "status", "decided_at", "decided_by", "parent_notes",
-        ])
+        _finalize_decision(exchange, ExchangeRequest.Status.APPROVED, parent, notes)
 
         from apps.projects.models import Notification
-        Notification.objects.create(
-            user=user,
+        notify(
+            user,
             title="Exchange approved!",
-            message=(
-                f"Your exchange of ${dollar_amount} for "
-                f"{coin_amount} coins was approved."
-            ),
+            message=f"Your exchange of ${dollar_amount} for {coin_amount} coins was approved.",
             notification_type=Notification.NotificationType.EXCHANGE_APPROVED,
         )
 
@@ -264,21 +243,14 @@ class ExchangeService:
         if exchange.status != ExchangeRequest.Status.PENDING:
             return exchange
 
-        exchange.status = ExchangeRequest.Status.DENIED
-        exchange.decided_at = timezone.now()
-        exchange.decided_by = parent
-        if notes:
-            exchange.parent_notes = notes
-        exchange.save(update_fields=[
-            "status", "decided_at", "decided_by", "parent_notes",
-        ])
+        _finalize_decision(exchange, ExchangeRequest.Status.DENIED, parent, notes)
 
         from apps.projects.models import Notification
         msg = f"Your exchange of ${exchange.dollar_amount} was denied."
         if notes:
             msg += f" Note: {notes}"
-        Notification.objects.create(
-            user=exchange.user,
+        notify(
+            exchange.user,
             title="Exchange denied",
             message=msg,
             notification_type=Notification.NotificationType.EXCHANGE_DENIED,

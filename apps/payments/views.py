@@ -3,7 +3,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
-from config.viewsets import RoleFilteredQuerySetMixin, get_child_or_404, child_not_found_response
+from config.viewsets import (
+    RoleFilteredQuerySetMixin, get_child_or_404, child_not_found_response,
+    resolve_target_user,
+)
 
 from .models import PaymentLedger
 from .serializers import PaymentLedgerSerializer
@@ -20,14 +23,9 @@ class PaymentLedgerViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelView
 
 class BalanceView(APIView):
     def get(self, request):
-        user = request.user
-        target_user = user
-        if user.role == "parent":
-            child_id = request.query_params.get("user_id")
-            if child_id:
-                target_user = get_child_or_404(child_id)
-                if target_user is None:
-                    return child_not_found_response()
+        target_user, err = resolve_target_user(request)
+        if err:
+            return err
 
         balance = PaymentService.get_balance(target_user)
         breakdown = PaymentService.get_breakdown(target_user)
@@ -44,16 +42,15 @@ class PayoutView(APIView):
     permission_classes = [IsParent]
 
     def post(self, request):
-        child_id = request.data.get("user_id")
         amount = request.data.get("amount")
-        if not child_id or not amount:
+        child, err = resolve_target_user(request, source="data")
+        if err:
+            return err
+        if not amount:
             return Response(
                 {"error": "user_id and amount required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        child = get_child_or_404(child_id)
-        if child is None:
-            return child_not_found_response()
         entry = PaymentService.record_payout(child, amount, request.user)
         return Response(PaymentLedgerSerializer(entry).data, status=status.HTTP_201_CREATED)
 
@@ -63,17 +60,16 @@ class PaymentAdjustmentView(APIView):
 
     def post(self, request):
         from decimal import Decimal, InvalidOperation
-        child_id = request.data.get("user_id")
         amount = request.data.get("amount")
         description = request.data.get("description", "")
-        if not child_id or amount is None:
+        child, err = resolve_target_user(request, source="data")
+        if err:
+            return err
+        if amount is None:
             return Response(
                 {"error": "user_id and amount required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        child = get_child_or_404(child_id)
-        if child is None:
-            return child_not_found_response()
         try:
             amount = Decimal(str(amount))
         except (InvalidOperation, TypeError):

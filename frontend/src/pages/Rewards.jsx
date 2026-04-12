@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Coins, Check, X, Clock, Gift, Plus, Pencil, Trash2, ArrowRightLeft, DollarSign } from 'lucide-react';
+import { Coins, X, Clock, Gift, Plus, Pencil, Trash2, ArrowRightLeft, DollarSign } from 'lucide-react';
 import {
   getRewards, redeemReward, getRedemptions, getCoinBalance,
   approveRedemption, denyRedemption,
@@ -9,14 +9,16 @@ import {
   approveExchange, denyExchange, getBalance,
 } from '../api';
 import { useApi, useAuth } from '../hooks/useApi';
+import ApprovalButtons from '../components/ApprovalButtons';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { RARITY_COLORS, STATUS_COLORS } from '../constants/colors';
 import { formatDate, formatDateTime } from '../utils/format';
 import { normalizeList } from '../utils/api';
+import { inputClass } from '../constants/styles';
 
-const inputClass = 'w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-base focus:outline-none focus:border-amber-primary';
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 
 function RewardFormModal({ reward, onClose, onSaved }) {
@@ -425,20 +427,7 @@ export default function Rewards() {
                     {r.coin_cost_snapshot} coins • {formatDateTime(r.requested_at)}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleApprove(r.id)}
-                    className="flex items-center gap-1 bg-green-500/20 hover:bg-green-500/30 text-green-300 text-xs px-3 py-1.5 rounded-lg border border-green-500/30"
-                  >
-                    <Check size={14} /> Approve
-                  </button>
-                  <button
-                    onClick={() => handleDeny(r.id)}
-                    className="flex items-center gap-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs px-3 py-1.5 rounded-lg border border-red-500/30"
-                  >
-                    <X size={14} /> Deny
-                  </button>
-                </div>
+                <ApprovalButtons onApprove={() => handleApprove(r.id)} onDeny={() => handleDeny(r.id)} />
               </Card>
             ))}
           </div>
@@ -461,20 +450,7 @@ export default function Rewards() {
                     Rate: {ex.exchange_rate} coins/$1 • {formatDateTime(ex.created_at)}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleExchangeApprove(ex.id)}
-                    className="flex items-center gap-1 bg-green-500/20 hover:bg-green-500/30 text-green-300 text-xs px-3 py-1.5 rounded-lg border border-green-500/30"
-                  >
-                    <Check size={14} /> Approve
-                  </button>
-                  <button
-                    onClick={() => handleExchangeDeny(ex.id)}
-                    className="flex items-center gap-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs px-3 py-1.5 rounded-lg border border-red-500/30"
-                  >
-                    <X size={14} /> Deny
-                  </button>
-                </div>
+                <ApprovalButtons onApprove={() => handleExchangeApprove(ex.id)} onDeny={() => handleExchangeDeny(ex.id)} />
               </Card>
             ))}
           </div>
@@ -622,30 +598,12 @@ export default function Rewards() {
       )}
 
       {deleteConfirm && (
-        <AnimatePresence>
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          >
-            <div className="absolute inset-0 bg-black/60" onClick={() => setDeleteConfirm(null)} />
-            <motion.div
-              className="relative bg-forge-card border border-forge-border rounded-2xl p-5 max-w-sm w-full mx-4"
-              initial={{ scale: 0.9 }} animate={{ scale: 1 }}
-            >
-              <h3 className="font-heading font-bold mb-2">Delete Reward?</h3>
-              <p className="text-sm text-forge-text-dim mb-4">This cannot be undone. Existing redemptions will be preserved.</p>
-              <div className="flex justify-end gap-2">
-                <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 text-sm text-forge-text-dim hover:text-forge-text">Cancel</button>
-                <button
-                  onClick={() => handleDelete(deleteConfirm)}
-                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-sm font-semibold rounded-lg border border-red-500/30"
-                >
-                  Delete
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        </AnimatePresence>
+        <ConfirmDialog
+          title="Delete Reward?"
+          message="This cannot be undone. Existing redemptions will be preserved."
+          onConfirm={() => handleDelete(deleteConfirm)}
+          onCancel={() => setDeleteConfirm(null)}
+        />
       )}
     </div>
   );

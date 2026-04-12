@@ -20,6 +20,7 @@ import BottomSheet from '../components/BottomSheet';
 import { RARITY_COLORS } from '../constants/colors';
 import { normalizeList } from '../utils/api';
 import { formatDate } from '../utils/format';
+import { inputClass } from '../constants/styles';
 
 const rarityText = {
   common: 'text-rarity-common',
@@ -32,7 +33,6 @@ const rarityText = {
 const XP_THRESHOLDS = { 0: 0, 1: 100, 2: 300, 3: 600, 4: 1000, 5: 1500, 6: 2500 };
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 const RARITY_ORDER = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
-const inputClass = 'w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-base focus:outline-none focus:border-amber-primary';
 
 const CRITERIA_TYPES = [
   'projects_completed', 'hours_worked', 'category_projects', 'streak_days',
