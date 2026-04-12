@@ -1,4 +1,4 @@
-import { api, setToken } from './client';
+import { api, setToken, getBlob } from './client';
 
 // Auth
 export const login = async (username, password) => {
@@ -205,6 +205,9 @@ export const updateGoalAmount = (id) => api.post(`/savings-goals/${id}/update_am
 
 // AI Suggestions
 export const getProjectSuggestions = () => api.get('/projects/suggestions/');
+
+// QR Code
+export const getProjectQR = (id) => getBlob(`/projects/${id}/qr/`);
 
 // Collaborators
 export const getCollaborators = (projectId) => api.get(`/projects/${projectId}/collaborators/`);

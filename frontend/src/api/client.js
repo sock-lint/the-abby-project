@@ -44,3 +44,15 @@ export const api = {
   delete: (path) => request(path, { method: 'DELETE' }),
   upload: (path, formData) => request(path, { method: 'POST', body: formData }),
 };
+
+export async function getBlob(path) {
+  const url = `${BASE}${path}`;
+  const token = getToken();
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Token ${token}` } : {},
+  });
+  if (!res.ok) {
+    throw new Error(res.statusText || `HTTP ${res.status}`);
+  }
+  return res.blob();
+}
