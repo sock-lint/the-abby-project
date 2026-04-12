@@ -4,8 +4,6 @@ from django.http import HttpResponse
 from django.urls import include, path, re_path
 from django.views.static import serve as static_serve
 
-from config.health import health_check
-
 # Load the built SPA entry point once at import time. In production the
 # Docker build copies frontend/dist into BASE_DIR/frontend_dist. In local
 # dev (python manage.py runserver) the file won't exist — React is served
@@ -28,7 +26,6 @@ def spa_view(request):
 
 
 urlpatterns = [
-    path("health", health_check, name="health-check"),
     path("admin/", admin.site.urls),
     path("api/", include("apps.projects.urls")),
     path("api/", include("apps.timecards.urls")),
