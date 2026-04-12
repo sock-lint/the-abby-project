@@ -1,3 +1,5 @@
+import hashlib
+
 from django.conf import settings
 from django.contrib import admin
 from django.http import HttpResponse
@@ -21,10 +23,22 @@ except FileNotFoundError:
         "and visit <a href='http://localhost:3000'>http://localhost:3000</a>.</p>"
     )
 
+# Content-based ETag computed once at import time. Changes automatically on
+# each redeployment (new Vite build → new asset hashes in the HTML → new ETag).
+_INDEX_HTML_ETAG = hashlib.md5(_INDEX_HTML.encode()).hexdigest()
+
 
 def spa_view(request):
     """Serve the built React index.html for any non-API, non-admin route."""
-    return HttpResponse(_INDEX_HTML, content_type="text/html; charset=utf-8")
+    # Return 304 if the browser already has the current version.
+    if request.META.get("HTTP_IF_NONE_MATCH") == _INDEX_HTML_ETAG:
+        return HttpResponse(status=304)
+    response = HttpResponse(_INDEX_HTML, content_type="text/html; charset=utf-8")
+    # Force revalidation so browsers never serve a stale index.html whose
+    # hashed asset references (CSS/JS) no longer exist after a redeploy.
+    response["Cache-Control"] = "no-cache"
+    response["ETag"] = _INDEX_HTML_ETAG
+    return response
 
 
 urlpatterns = [
