@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 
 from django.db import models
 from django.db.models import Count, Sum
@@ -359,7 +360,7 @@ def _check_materials_under_budget(user, _c):
     ).annotate(
         actual_total=Sum("materials__actual_cost")
     ).filter(
-        actual_total__lt=models.F("materials_budget") * models.Value(0.9)
+        actual_total__lt=models.F("materials_budget") * models.Value(Decimal("0.9"))
     ).exists()
 
 
