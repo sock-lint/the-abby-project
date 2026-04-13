@@ -33,6 +33,10 @@ jobs:
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
             --build-arg VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }} \
             --build-arg VITE_SENTRY_ENVIRONMENT=production \
+            --build-arg VITE_SENTRY_RELEASE=${{ steps.tag.outputs.tag }} \
+            --build-arg SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }} \
+            --build-arg SENTRY_ORG=${{ secrets.SENTRY_ORG }} \
+            --build-arg SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }} \
             --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
             -f Dockerfile .
 
@@ -60,6 +64,9 @@ jobs:
       - name: Deploy
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         run: |
           TAG="${{ needs.build.outputs.image_tag }}"
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
@@ -112,6 +119,25 @@ jobs:
           if [ "${HEALTHY}" = "true" ]; then
             echo "✅ Deploy successful!"
             ${SSH} ${TARGET} "docker image prune -f --filter 'until=24h'" || true
+
+            # Notify Sentry of the deployment
+            if [ -n "${SENTRY_AUTH_TOKEN}" ]; then
+              SENTRY_URL="https://logs.neato.digital"
+              echo "=== Notifying Sentry of deployment ==="
+              # Associate commits with the release
+              curl -sf -X PUT \
+                -H "Authorization: Bearer ${SENTRY_AUTH_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "{\"version\":\"${TAG}\",\"refs\":[{\"repository\":\"${{ github.repository }}\",\"commit\":\"${{ github.sha }}\"}],\"projects\":[\"${SENTRY_PROJECT}\"]}" \
+                "${SENTRY_URL}/api/0/organizations/${SENTRY_ORG}/releases/" || true
+              # Create deploy record
+              curl -sf -X POST \
+                -H "Authorization: Bearer ${SENTRY_AUTH_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "{\"environment\":\"production\",\"name\":\"${TAG}\"}" \
+                "${SENTRY_URL}/api/0/organizations/${SENTRY_ORG}/releases/${TAG}/deploys/" || true
+            fi
+
             if [ -n "${DISCORD_WEBHOOK_URL}" ]; then
               curl -sf -X POST -H "Content-Type: application/json" \
                 -d "{\"embeds\":[{\"description\":\"✅ **the-abby-project** deployed\nImage: \`${TAG}\`\",\"color\":3066993,\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}]}" \
