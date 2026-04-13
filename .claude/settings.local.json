@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(curl -sI https://abby.bos.lol/health)",
-      "Bash(curl -sI https://abby.bos.lol/)"
+      "Bash(curl -sI https://abby.bos.lol/)",
+      "Bash(git check-ignore:*)",
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }
