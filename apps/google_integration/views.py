@@ -1,3 +1,4 @@
+import logging
 import secrets
 
 from django.core.cache import cache
@@ -11,6 +12,8 @@ from config.viewsets import get_child_or_404, child_not_found_response
 
 from .models import GoogleAccount
 from .services import GoogleAuthService
+
+logger = logging.getLogger(__name__)
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
@@ -126,6 +129,7 @@ class GoogleCallbackView(APIView):
         try:
             google_id, email, credentials_json = GoogleAuthService.exchange_code(code)
         except Exception:
+            logger.exception("Google OAuth code exchange failed")
             return HttpResponseRedirect(f"{base_url}settings?google=error&detail=exchange_failed")
 
         mode = state_data.get("mode", "link")
