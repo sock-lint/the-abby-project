@@ -40,3 +40,6 @@ frontend/dist/
 
 # Docker
 docker-compose.override.yml
+
+# Worktrees
+.worktrees/
