@@ -24,3 +24,35 @@ class HealthCheckMiddleware:
                 )
             return JsonResponse({"status": "ok", "db": "up"})
         return self.get_response(request)
+
+
+class SentryUserMiddleware:
+    """Set Sentry user context from the authenticated Django user.
+
+    Placed after AuthenticationMiddleware so ``request.user`` is available
+    for session-authenticated requests (e.g. admin).  For DRF
+    TokenAuthentication the SDK captures the user automatically at
+    request-end via ``send_default_pii=True``.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        try:
+            import sentry_sdk
+        except ImportError:
+            return self.get_response(request)
+
+        if hasattr(request, "user") and request.user.is_authenticated:
+            sentry_sdk.set_user(
+                {
+                    "id": request.user.id,
+                    "username": request.user.username,
+                    "role": getattr(request.user, "role", "unknown"),
+                }
+            )
+        else:
+            sentry_sdk.set_user(None)
+
+        return self.get_response(request)

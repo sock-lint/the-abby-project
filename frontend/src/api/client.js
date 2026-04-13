@@ -1,3 +1,5 @@
+import * as Sentry from '@sentry/react';
+
 const BASE = `${import.meta.env.VITE_API_URL || ''}/api`;
 
 const TOKEN_KEY = 'abby_auth_token';
@@ -31,7 +33,23 @@ async function request(path, options = {}) {
   const res = await fetch(url, config);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || err.detail || JSON.stringify(err));
+    const errorMessage = err.error || err.detail || JSON.stringify(err);
+
+    Sentry.addBreadcrumb({
+      category: 'api',
+      message: `${options.method || 'GET'} ${path} -> ${res.status}`,
+      level: 'error',
+      data: { status: res.status, url, response: errorMessage },
+    });
+
+    if (res.status >= 500) {
+      Sentry.captureException(
+        new Error(`API ${res.status}: ${options.method || 'GET'} ${path}`),
+        { extra: { response: errorMessage, status: res.status } },
+      );
+    }
+
+    throw new Error(errorMessage);
   }
   if (res.status === 204) return null;
   return res.json();

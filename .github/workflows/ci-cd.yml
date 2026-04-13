@@ -31,6 +31,8 @@ jobs:
           docker build \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }} \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            --build-arg VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }} \
+            --build-arg VITE_SENTRY_ENVIRONMENT=production \
             --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
             -f Dockerfile .
 
@@ -84,6 +86,9 @@ jobs:
             echo "::error::Migrations failed — aborting"
             exit 1
           }
+
+          echo "=== Setting Sentry release ==="
+          ${SSH} ${TARGET} "cd ${DIR} && grep -q '^SENTRY_RELEASE=' .env 2>/dev/null && sed -i 's/^SENTRY_RELEASE=.*/SENTRY_RELEASE=${TAG}/' .env || echo 'SENTRY_RELEASE=${TAG}' >> .env" || true
 
           echo "=== Deploying app services ==="
           for svc in django celery_worker celery_beat; do

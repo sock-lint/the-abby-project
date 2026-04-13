@@ -4,8 +4,7 @@ from rest_framework.views import APIView
 
 from config.permissions import IsParent
 from config.viewsets import (
-    RoleFilteredQuerySetMixin, get_child_or_404, child_not_found_response,
-    resolve_target_user,
+    RoleFilteredQuerySetMixin, resolve_target_user,
 )
 
 from .models import PaymentLedger

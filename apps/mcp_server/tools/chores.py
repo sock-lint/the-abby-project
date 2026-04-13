@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.db.models import Q
 
 from apps.chores.models import Chore, ChoreCompletion
 from apps.chores.services import ChoreService

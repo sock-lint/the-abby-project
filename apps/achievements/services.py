@@ -1,6 +1,5 @@
 from django.db import models
-from django.db.models import Count, Q, Sum
-from django.utils import timezone
+from django.db.models import Count, Sum
 
 from .models import (
     Badge, ProjectSkillTag, Skill, SkillProgress, UserBadge, XP_THRESHOLDS,

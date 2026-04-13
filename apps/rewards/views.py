@@ -6,8 +6,7 @@ from rest_framework.views import APIView
 from config.permissions import IsParent
 from config.viewsets import (
     ParentWritePermissionMixin, RoleFilteredQuerySetMixin,
-    WriteReadSerializerMixin, get_child_or_404, child_not_found_response,
-    resolve_target_user,
+    WriteReadSerializerMixin, resolve_target_user,
 )
 
 from django.conf import settings as django_settings
