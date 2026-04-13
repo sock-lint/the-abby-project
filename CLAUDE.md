@@ -66,6 +66,12 @@ apps/
   chores/            Chore (recurring task definitions), ChoreCompletion
                      (submit→approve workflow), ChoreService,
                      supports alternating-week schedules (shared custody)
+  homework/          HomeworkAssignment (one-off tasks with due dates,
+                     effort-scaled rewards, timeliness bonuses),
+                     HomeworkSubmission (submit→approve with proof photos),
+                     HomeworkProof (required image uploads), HomeworkTemplate,
+                     HomeworkSkillTag (XP distribution), HomeworkService,
+                     AI-planned long-form homework via MCP create_project
   portfolio/         ProjectPhoto, ZIP export
 frontend/src/
   api/
@@ -115,6 +121,7 @@ frontend/src/
 - **Money→Coins exchange** (`apps/rewards/`): Children can exchange earned money for coins at a configurable rate (`settings.COINS_PER_DOLLAR`, default 10). `ExchangeRequest` tracks the lifecycle (pending → approved/denied). `ExchangeService.request_exchange` validates balance, snapshots the rate, and notifies parents. On approval, `ExchangeService.approve` atomically debits `PaymentLedger` (`coin_exchange`, negative) and credits `CoinLedger` (`exchange`, positive). Money is **not held** at request time — balance is re-verified at approval. Denial has no ledger side-effects. Routes: `POST /api/coins/exchange/` (create), `GET /api/coins/exchange/rate/` (current rate), `GET /api/coins/exchange/list/` (role-filtered), `POST /api/coins/exchange/{id}/approve/` and `.../deny/` (parent-only). Frontend: exchange button on `/rewards` (child-only), pending exchange queue (parent-only), exchange history with status badges.
 - **Reward shop** (`apps/rewards/`): Parent-approved redemption flow mirroring timecard approval. Child requests a `Reward` → `RewardRedemption` status `pending` + coins held → parent approves (`fulfilled`) or denies (refund via `CoinLedger.Reason.REFUND`, stock restored). Rewards have rarity tiers and optional stock. Parents can CRUD `Reward` rows (uses `RewardWriteSerializer` + multipart for image upload). Routes: `/api/rewards/`, `/api/rewards/{id}/redeem/`, `/api/redemptions/` with `approve`/`deny` actions, `/api/coins/` for balance + recent ledger, `/api/coins/adjust/` for parent adjustments. Frontend page: `/rewards`. Parent approval queue rendered inline.
 - **Chores** (`apps/chores/`): recurring household tasks with a submit-then-approve workflow. `Chore` defines the task (title, icon, `reward_amount`, `coin_reward`, recurrence `daily|weekly|one_time`). `ChoreCompletion` tracks each instance (status `pending|approved|rejected`, snapshots reward values at submission). **Shared-custody support:** `Chore.week_schedule` is `every_week` (default) or `alternating`; when alternating, `schedule_start_date` sets the reference "on" week and `ChoreService.is_active_this_week()` compares ISO week parity. Availability is computed on-the-fly — no pre-generated instances, no Celery. On approval, `ChoreService.approve_completion()` posts `PaymentLedger.EntryType.CHORE_REWARD` and `CoinLedger.Reason.CHORE_REWARD`. `ChoreCompletion.completed_date` is a `DateField` — for daily chores it equals today; for weekly it equals Monday of the week. A `UniqueConstraint` on `(chore, user, completed_date)` excluding rejected completions prevents duplicates. Routes: `/api/chores/` (CRUD + `complete` action), `/api/chore-completions/` (read-only + `approve`/`reject` actions). Frontend page: `/chores`. MCP tools: `list_chores`, `get_chore`, `create_chore`, `update_chore`, `complete_chore`, `list_chore_completions`, `approve_chore_completion`, `reject_chore_completion`.
+- **Homework** (`apps/homework/`): one-off homework assignments with a submit-then-approve workflow requiring proof image uploads. Both parents and children can create assignments (child-created auto-assigns to self). Rewards are effort-scaled (`HOMEWORK_EFFORT_MULTIPLIERS`, 1-5 levels mapping to 0.5x-2.0x) with timeliness bonuses (`HOMEWORK_EARLY_BONUS` 1.25x for early, `HOMEWORK_LATE_PENALTY` 0.5x for late, zero beyond `HOMEWORK_LATE_CUTOFF_DAYS`). Rewards are computed and snapshotted at submission time. `HomeworkSkillTag` awards XP on approval, triggering badge evaluation. `HomeworkTemplate` stores reusable assignment configs with skill tags as JSON. **AI-planned long-form homework:** `HomeworkAssignment.project` (nullable FK to `Project`) links to a full project generated via Claude + MCP `create_project` tool use for complex multi-step assignments. `POST /api/homework/{id}/plan/` triggers AI planning. Routes: `/api/homework/` (CRUD + `submit` + `save-template` + `plan`), `/api/homework-submissions/` (read-only + `approve`/`reject`), `/api/homework-templates/` (CRUD + `create-assignment`), `/api/homework/dashboard/`. Frontend page: `/homework`. Portfolio integration: approved homework proofs appear alongside project photos with filter tabs. MCP tools: `list_homework`, `get_homework`, `create_homework`, `submit_homework`, `list_homework_submissions`, `approve_homework_submission`, `reject_homework_submission`.
 - **Parent data management:** The `/manage` page (`frontend/src/pages/Manage.jsx`) houses parent CRUD for Children, Project Templates, Rewards, Categories, Subjects, Skills, and Badges. Parents can also:
   - edit child hourly rate via `PATCH /api/children/{id}/` (`ChildViewSet`, `IsParent`, `get/patch` only).
   - adjust coin balances (`POST /api/coins/adjust/`) and payment ledger (`POST /api/payments/adjust/`).
@@ -135,6 +142,11 @@ frontend/src/
 - `COINS_PER_BADGE_RARITY` — per-rarity coin bonus map (common 5 → legendary 150).
 - `COINS_PER_DOLLAR` (default `10`) — coins received per $1.00 in money→coins exchange.
 - `DATA_UPLOAD_MAX_MEMORY_SIZE` / `FILE_UPLOAD_MAX_MEMORY_SIZE` — 25 MB each, sized for PDF ingestion and photo uploads.
+- `HOMEWORK_EFFORT_MULTIPLIERS` — per-effort-level reward scaling (1→0.5x to 5→2.0x).
+- `HOMEWORK_EARLY_BONUS` (default `1.25`) — multiplier for submitting before due date.
+- `HOMEWORK_ON_TIME_MULTIPLIER` (default `1.0`) — multiplier for same-day submission.
+- `HOMEWORK_LATE_PENALTY` (default `0.5`) — multiplier for late submission.
+- `HOMEWORK_LATE_CUTOFF_DAYS` (default `3`) — beyond this many days late, rewards are zero.
 - `CELERY_BEAT_SCHEDULE`: `auto-clock-out` every 30 min; `weekly-timecards` Sun 23:55; `weekly-email-summaries` Sun 08:00.
 
 ## Conventions
