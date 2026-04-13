@@ -7,6 +7,7 @@ import App from './App.jsx'
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN || '',
   environment: import.meta.env.VITE_SENTRY_ENVIRONMENT || 'development',
+  release: import.meta.env.VITE_SENTRY_RELEASE || undefined,
   enabled: !!import.meta.env.VITE_SENTRY_DSN,
   tracesSampleRate: parseFloat(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE || '0.2'),
   tracePropagationTargets: [/^\/api\//],
