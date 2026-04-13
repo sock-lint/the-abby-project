@@ -114,6 +114,7 @@ def send_daily_reminders_task():
                 f"{project.title} is due tomorrow!",
                 message=f"Your project \"{project.title}\" is due {tomorrow.strftime('%A, %b %d')}.",
                 notification_type="project_due_soon",
+                link=f"/projects/{project.id}",
             )
             reminders_sent += 1
 
@@ -127,6 +128,7 @@ def send_daily_reminders_task():
                 f"{project.title} is due today!",
                 message=f"Your project \"{project.title}\" is due today.",
                 notification_type="project_due_soon",
+                link=f"/projects/{project.id}",
             )
             reminders_sent += 1
 
@@ -164,6 +166,7 @@ def send_daily_reminders_task():
                 f"Don't forget: {chore.title}",
                 message=f"You have a chore to do today: {chore.title}",
                 notification_type="chore_reminder",
+                link="/chores",
             )
             reminders_sent += 1
 
@@ -194,6 +197,7 @@ def send_daily_reminders_task():
                 f"{total_pending} item{'s' if total_pending != 1 else ''} awaiting approval",
                 message=message,
                 notification_type="approval_reminder",
+                link="/chores",
             )
             reminders_sent += 1
 

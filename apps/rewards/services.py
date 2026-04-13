@@ -118,6 +118,7 @@ class RewardService:
                 title=f"Reward request: {reward.name}",
                 message=f"{display} wants to redeem {reward.name} for {reward.cost_coins} coins.",
                 notification_type=Notification.NotificationType.REDEMPTION_REQUESTED,
+                link="/rewards",
             )
         return redemption
 
@@ -189,6 +190,7 @@ class ExchangeService:
             title=f"Exchange request: ${dollar_amount}",
             message=f"{display} wants to exchange ${dollar_amount} for {coin_amount} coins.",
             notification_type=Notification.NotificationType.EXCHANGE_REQUESTED,
+            link="/rewards",
         )
 
         return exchange
@@ -237,6 +239,7 @@ class ExchangeService:
             title="Exchange approved!",
             message=f"Your exchange of ${dollar_amount} for {coin_amount} coins was approved.",
             notification_type=Notification.NotificationType.EXCHANGE_APPROVED,
+            link="/rewards",
         )
 
         return exchange
@@ -258,6 +261,7 @@ class ExchangeService:
             title="Exchange denied",
             message=msg,
             notification_type=Notification.NotificationType.EXCHANGE_DENIED,
+            link="/rewards",
         )
 
         return exchange

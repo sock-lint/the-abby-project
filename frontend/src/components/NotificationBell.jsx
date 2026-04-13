@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell } from 'lucide-react';
-import { getNotifications, getUnreadCount, markAllRead as markAllReadApi } from '../api';
+import { getNotifications, getUnreadCount, markAllRead as markAllReadApi, markNotificationRead } from '../api';
 import { formatDate } from '../utils/format';
 
 export default function NotificationBell() {
@@ -9,6 +10,7 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const navigate = useNavigate();
 
   const loadCount = async () => {
     try {
@@ -22,6 +24,22 @@ export default function NotificationBell() {
       const data = await getNotifications();
       setNotifications(data.results || data || []);
     } catch {}
+  };
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification.is_read) {
+      try {
+        await markNotificationRead(notification.id);
+        setNotifications(prev =>
+          prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      } catch {}
+    }
+    if (notification.link) {
+      setOpen(false);
+      navigate(notification.link);
+    }
   };
 
   const handleMarkAllRead = async () => {
@@ -94,9 +112,10 @@ export default function NotificationBell() {
                 notifications.slice(0, 20).map((n) => (
                   <div
                     key={n.id}
-                    className={`p-3 border-b border-forge-border/50 last:border-0 ${
+                    onClick={() => handleNotificationClick(n)}
+                    className={`p-3 border-b border-forge-border/50 last:border-0 transition-colors ${
                       !n.is_read ? 'bg-amber-primary/5' : ''
-                    }`}
+                    } ${n.link ? 'cursor-pointer hover:bg-forge-muted/30' : ''}`}
                   >
                     <div className="flex items-start gap-2">
                       {!n.is_read && (

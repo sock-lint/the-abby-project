@@ -261,6 +261,7 @@ class Notification(CreatedAtModel):
         max_length=25, choices=NotificationType.choices
     )
     is_read = models.BooleanField(default=False)
+    link = models.CharField(max_length=255, blank=True, default="")
 
     class Meta:
         ordering = ["-created_at"]

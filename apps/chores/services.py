@@ -163,6 +163,7 @@ class ChoreService:
             title=f"Chore completed: {chore.title}",
             message=f'{display} completed "{chore.title}" and is waiting for approval.',
             notification_type=Notification.NotificationType.CHORE_SUBMITTED,
+            link="/chores",
         )
 
         return completion
@@ -208,6 +209,7 @@ class ChoreService:
                 f"You earned ${completion.reward_amount_snapshot} and {completion.coin_reward_snapshot} coins."
             ),
             notification_type=Notification.NotificationType.CHORE_APPROVED,
+            link="/chores",
         )
 
         return completion
