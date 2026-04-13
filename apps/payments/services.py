@@ -1,8 +1,11 @@
+import logging
 from decimal import Decimal
 
 from config.services import BaseLedgerService
 
 from .models import PaymentLedger
+
+logger = logging.getLogger(__name__)
 
 
 class PaymentService(BaseLedgerService):

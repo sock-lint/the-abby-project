@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 from django.db import transaction
 from django.db.models import Exists, OuterRef, Q
@@ -12,6 +13,8 @@ from apps.rewards.models import CoinLedger
 from apps.rewards.services import CoinService
 
 from .models import Chore, ChoreCompletion
+
+logger = logging.getLogger(__name__)
 
 
 class ChoreNotAvailableError(Exception):

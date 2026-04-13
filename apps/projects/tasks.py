@@ -1,9 +1,12 @@
 """Celery tasks for the projects app."""
 from __future__ import annotations
 
+import logging
 import traceback
 
 from celery import shared_task
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task
@@ -33,6 +36,7 @@ def run_ingestion_job(job_id: str) -> str:
         job.save(update_fields=["result_json", "status", "updated_at"])
         return f"Job {job_id} ready"
     except Exception as exc:  # noqa: BLE001 - record any failure
+        logger.exception("Ingestion job %s failed", job_id)
         job.error = f"{exc}\n{traceback.format_exc()}"[:5000]
         job.status = ProjectIngestionJob.Status.FAILED
         job.save(update_fields=["error", "status", "updated_at"])

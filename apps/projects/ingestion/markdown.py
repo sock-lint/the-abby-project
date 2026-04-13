@@ -6,10 +6,13 @@ available, the stage is a no-op and records a pipeline warning.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
 from .base import IngestionItem
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -51,11 +54,12 @@ def _html_to_markdown(html: str) -> str | None:
             if value:
                 return str(value)
     except Exception:  # noqa: BLE001 - fall through to next strategy
-        pass
+        logger.warning("crawl4ai markdown conversion failed, trying fallback", exc_info=True)
 
     # Fallback: markdownify
     try:
         from markdownify import markdownify as md  # type: ignore
         return md(html, heading_style="ATX")
     except Exception:  # noqa: BLE001
+        logger.warning("markdownify conversion failed", exc_info=True)
         return None

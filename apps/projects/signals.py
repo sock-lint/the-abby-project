@@ -1,6 +1,10 @@
+import logging
+
 from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 
 def _track_previous_value(instance, sender, field, default=None):
@@ -33,6 +37,10 @@ def handle_project_status_change(sender, instance, created, **kwargs):
         sender.objects.filter(pk=instance.pk).update(started_at=timezone.now())
 
     elif instance.status == "completed" and previous != "completed":
+        logger.info(
+            "Project completed: '%s' by user %s (payment_kind=%s)",
+            instance.title, instance.assigned_to, getattr(instance, "payment_kind", "required"),
+        )
         from apps.payments.services import PaymentService
         from apps.achievements.services import AwardService
         from apps.rewards.models import CoinLedger
@@ -90,6 +98,7 @@ def handle_milestone_completed(sender, instance, created, **kwargs):
     if getattr(instance, "_was_completed", False):
         return
 
+    logger.info("Milestone completed: '%s' on project %s", instance.title, instance.project_id)
     sender.objects.filter(pk=instance.pk).update(completed_at=timezone.now())
 
     user = instance.project.assigned_to

@@ -1,7 +1,10 @@
+import logging
 from datetime import timedelta
 
 from celery import shared_task
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task
@@ -68,18 +71,20 @@ def send_weekly_email_summaries():
                 f"{ub.badge.icon} {ub.badge.name}" for ub in badges
             )
 
-        send_mail(
-            subject=f"The Abby Project Weekly Summary — {week_start.strftime('%b %d')}",
-            message=(
-                f"Hi {child.display_name or child.username}!\n\n"
-                f"This week you worked {hours} hours.{badge_text}\n"
-                f"Current balance: ${balance}\n\n"
-                f"Keep up the great work!"
-            ),
-            from_email=django_settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[child.email] if child.email else [],
-            fail_silently=True,
-        )
+        try:
+            send_mail(
+                subject=f"The Abby Project Weekly Summary — {week_start.strftime('%b %d')}",
+                message=(
+                    f"Hi {child.display_name or child.username}!\n\n"
+                    f"This week you worked {hours} hours.{badge_text}\n"
+                    f"Current balance: ${balance}\n\n"
+                    f"Keep up the great work!"
+                ),
+                from_email=django_settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[child.email] if child.email else [],
+            )
+        except Exception:
+            logger.exception("Failed to send weekly summary email to child %s", child.pk)
 
     # Parent summary
     for parent in User.objects.filter(role="parent"):
@@ -102,16 +107,18 @@ def send_weekly_email_summaries():
         from apps.timecards.models import Timecard
         pending = Timecard.objects.filter(status="pending").count()
 
-        send_mail(
-            subject=f"The Abby Project Parent Summary — {week_start.strftime('%b %d')}",
-            message=(
-                f"Hi {parent.display_name or parent.username}!\n\n"
-                f"This week:\n" + "\n".join(child_summaries) + "\n\n"
-                f"Pending timecards: {pending}\n"
-            ),
-            from_email=django_settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[parent.email] if parent.email else [],
-            fail_silently=True,
-        )
+        try:
+            send_mail(
+                subject=f"The Abby Project Parent Summary — {week_start.strftime('%b %d')}",
+                message=(
+                    f"Hi {parent.display_name or parent.username}!\n\n"
+                    f"This week:\n" + "\n".join(child_summaries) + "\n\n"
+                    f"Pending timecards: {pending}\n"
+                ),
+                from_email=django_settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[parent.email] if parent.email else [],
+            )
+        except Exception:
+            logger.exception("Failed to send weekly summary email to parent %s", parent.pk)
 
     return "Weekly emails sent"

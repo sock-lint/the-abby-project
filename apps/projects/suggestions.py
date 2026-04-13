@@ -1,6 +1,9 @@
 import json
+import logging
 
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_project_suggestions(user):
@@ -81,6 +84,7 @@ def get_project_suggestions(user):
         return suggestions[:3]
 
     except Exception:
+        logger.exception("AI project suggestions failed for user %s", user)
         return _fallback_suggestions(completed, skills, categories)
 
 
