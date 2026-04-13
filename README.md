@@ -1,17 +1,18 @@
 # The Abby Project
 
-A project management, timecard, and payment tracking system for summer maker projects. Ties Instructables project guides to tracked work hours and earnings, paid out via Greenlight.
+A family-focused Django + React app for managing kids' projects, chores, and homework with real-money allowance tracking, a non-monetary Coins economy with a reward shop, a skill tree with badges, AI-powered project ingestion from Instructables/PDFs, and an MCP server for Claude tool use.
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Django 5.1 + Django REST Framework |
-| Frontend | React 18 (Vite) + Tailwind CSS + Framer Motion |
+| Backend | Django 5.1 + Django REST Framework 3.15 |
+| Frontend | React 19 (Vite 8) + Tailwind 4 + Framer Motion |
 | Database | PostgreSQL 16 |
 | Cache/Broker | Redis 7 |
-| Task Queue | Celery (with django-celery-beat) |
-| Reverse Proxy | Nginx |
+| Task Queue | Celery 5.4 (with django-celery-beat) |
+| MCP Server | FastMCP (Streamable HTTP, mounted inside Django ASGI at `/mcp`) |
+| Observability | Sentry (self-hosted) — error tracking, performance, release automation |
 | Containerization | Docker Compose |
 
 ## Quick Start
@@ -33,17 +34,20 @@ docker compose exec django python manage.py createsuperuser
 ```
 
 The app will be available at:
-- **Frontend** (React, static nginx build): http://localhost:3000/
+- **App** (Django + React SPA): http://localhost:8000/ — single origin via WhiteNoise
 - **API**: http://localhost:8000/api/
+- **MCP endpoint**: http://localhost:8000/mcp/
 - **Admin**: http://localhost:8000/admin/
+- **Frontend dev server** (optional): http://localhost:3000/ — Vite with `/api` proxy to :8000
 
 ## Deployment (Coolify)
 
 Everything ships as a single image. The multi-stage `Dockerfile` builds the
 React bundle with Node, then copies it into a Django image that serves both
-the SPA and the API from the same origin via WhiteNoise. The deployable
-`docker-compose.yml` has just `django`, `celery_worker`, `celery_beat`, `db`,
-and `redis`.
+the SPA and the API from the same origin via WhiteNoise. The MCP server is
+mounted inside Django ASGI at `/mcp` — no additional container or port. The
+deployable `docker-compose.yml` has `django`, `celery_worker`, `celery_beat`,
+`db`, and `redis`.
 
 TLS and routing are handled by Coolify's built-in Traefik. Point one
 domain at the `django` service:
@@ -87,27 +91,40 @@ Passwords are configurable via `PARENT_PASSWORD` and `CHILD_PASSWORD` env vars.
 ```
 the-abby-project/
 ├── config/                  # Django project settings, URLs, WSGI/ASGI, Celery
+│   ├── settings.py          # Single settings module, env-driven
+│   ├── urls.py              # API includes + SPA catch-all
+│   ├── asgi.py              # ASGI app (MCP mounted here)
+│   ├── celery.py            # Celery app factory
+│   ├── base_models.py       # Abstract CreatedAtModel, TimestampedModel
+│   ├── permissions.py       # Shared IsParent DRF permission
+│   ├── services.py          # BaseLedgerService (PaymentService, CoinService)
+│   └── viewsets.py          # RoleFilteredQuerySetMixin, NestedProjectResourceMixin
 ├── apps/
-│   ├── projects/            # User, SkillCategory, Project, Milestone, Step, Resource, MaterialItem, Notification
-│   │   ├── scraper.py       # Instructables URL preview scraper
+│   ├── projects/            # User, Project, Milestone, Step, Resource, MaterialItem,
+│   │   │                    #   Notification, ProjectTemplate, SavingsGoal, Collaborator
+│   │   ├── ingestion/       # Scrapy-style pipeline (parse → normalize → markdown → enrich)
+│   │   ├── scraper.py       # Instructables URL preview
 │   │   ├── suggestions.py   # AI project suggestions (Claude API + fallback)
-│   │   ├── notifications.py # Notification helper
 │   │   └── signals.py       # Status change, milestone, and notification triggers
-│   ├── timecards/           # TimeEntry, Timecard, ClockService, TimecardService
-│   │   ├── export.py        # CSV export for timecards and time entries
-│   │   └── tasks.py         # Celery tasks (auto clock-out, weekly timecards, email summaries)
-│   ├── payments/            # PaymentLedger, PaymentService
-│   ├── achievements/        # Skill tree, Badges, SkillService, BadgeService
-│   └── portfolio/           # ProjectPhoto, ZIP export
-├── frontend/                # React 18 + Vite + Tailwind CSS frontend
-│   ├── src/
-│   │   ├── api/             # API client and endpoint functions
-│   │   ├── components/      # Layout, Card, StatusBadge, Loader, NotificationBell
-│   │   ├── hooks/           # useApi, useAuth
-│   │   └── pages/           # Dashboard, Projects, Clock, Timecards, Payments, Achievements, Portfolio, Settings, Login
-│   └── Dockerfile
-├── Dockerfile
-├── docker-compose.yml
+│   ├── timecards/           # TimeEntry, Timecard, ClockService, CSV export, Celery tasks
+│   ├── payments/            # PaymentLedger (10 entry types), PaymentService
+│   ├── achievements/        # SkillCategory → Subject → Skill → Badge, SkillProgress
+│   ├── rewards/             # CoinLedger, Reward, RewardRedemption, ExchangeRequest
+│   ├── chores/              # Chore (recurring tasks), ChoreCompletion (submit→approve)
+│   ├── homework/            # HomeworkAssignment, Submission, Proof, Template
+│   ├── portfolio/           # ProjectPhoto, ZIP export
+│   ├── google_integration/  # OAuth2, GoogleAccount, CalendarEventMapping
+│   └── mcp_server/          # FastMCP server with 14 tool modules
+├── frontend/                # React 19 + Vite 8 + Tailwind 4 frontend
+│   └── src/
+│       ├── api/             # API client and endpoint functions
+│       ├── components/      # Layout, Card, StatusBadge, Loader, NotificationBell, etc.
+│       ├── hooks/           # useApi, useAuth
+│       └── pages/           # Dashboard, Projects, ProjectDetail, ProjectNew, ProjectIngest,
+│                            #   Chores, Homework, ClockPage, Timecards, Payments, Rewards,
+│                            #   Achievements, Portfolio, Manage, SettingsPage, Login
+├── Dockerfile               # Multi-stage: Node build → Python + Django + WhiteNoise
+├── docker-compose.yml       # db, redis, django, celery_worker, celery_beat
 └── requirements.txt
 ```
 
@@ -115,32 +132,57 @@ the-abby-project/
 
 ### Core Models
 
-- **User** — Custom auth user with `parent`/`child` roles, hourly rate, avatar
-- **SkillCategory** — Woodworking, Electronics, Cooking, Art & Crafts, Coding, Outdoors, Sewing & Textiles, Science
-- **Project** — Assigned work with status workflow (draft -> active -> in_progress -> in_review -> completed -> archived), difficulty, bonuses, materials budget
-- **ProjectMilestone** — Ordered "chapters" within a project (parent-authored, optional bonus → PaymentLedger). Completion is parent-controlled.
-- **ProjectStep** — Ordered walkthrough instructions ("do this next") inside a project, optionally grouped under a `ProjectMilestone` via a nullable FK (`SET_NULL`). Steps never award XP, coins, or money — they only signal progress. Loose (ungrouped) steps are valid for simple projects.
-- **ProjectResource** — Reference link (video / doc / image / link) attached either to the project or to a specific `ProjectStep`.
+- **User** — Custom auth user with `parent`/`child` roles, hourly rate, avatar, theme
+- **SkillCategory** — Top-level groupings (Woodworking, Electronics, Cooking, etc.)
+- **Project** — Assigned work with status workflow (draft → active → in_progress → in_review → completed → archived), difficulty (1-5), payment kind (`required` or `bounty`)
+- **ProjectMilestone** — Ordered "chapters" within a project (parent-authored, optional `bonus_amount` → PaymentLedger). Completion is parent-controlled.
+- **ProjectStep** — Ordered walkthrough instructions inside a project, optionally grouped under a `ProjectMilestone` via nullable FK. Steps never award XP, coins, or money.
+- **ProjectResource** — Reference link (video / doc / image / link) attached to a project or a specific step
 - **MaterialItem** — Tracked materials with estimated/actual costs and receipt photos
-- **Notification** — In-app notifications (8 types: timecard_ready, timecard_approved, badge_earned, project_approved, project_changes, payout_recorded, skill_unlocked, milestone_completed)
+- **ProjectTemplate** — Reusable templates created from completed projects (with milestones + materials)
+- **ProjectCollaborator** — Additional child on a project with configurable `pay_split_percent`
+- **SavingsGoal** — Child-set targets with `target_amount` / `current_amount` and progress tracking
+- **ProjectIngestionJob** — Async job for importing projects from URLs or PDFs via AI pipeline
+- **Notification** — In-app notifications with 22 types: timecard_ready, timecard_approved, badge_earned, project_approved, project_changes, payout_recorded, skill_unlocked, milestone_completed, redemption_requested, chore_submitted, chore_approved, exchange_requested, exchange_approved, exchange_denied, project_due_soon, chore_reminder, approval_reminder, homework_created, homework_submitted, homework_approved, homework_rejected, homework_due_soon
 
 ### Time & Pay
 
-- **TimeEntry** — Clock in/out records with a DB constraint ensuring one active entry per user
-- **Timecard** — Weekly aggregation of time entries with hourly + bonus earnings
-- **PaymentLedger** — Full financial ledger (hourly, project_bonus, milestone_bonus, materials_reimbursement, payout, adjustment)
+- **TimeEntry** — Clock in/out records with a DB constraint ensuring one active entry per user. Supports `voided` status.
+- **Timecard** — Weekly aggregation of time entries with hourly + bonus earnings and approval workflow
+- **PaymentLedger** — Append-only financial ledger with 10 entry types: hourly, project_bonus, bounty_payout, milestone_bonus, materials_reimbursement, payout, adjustment, chore_reward, coin_exchange, homework_reward
 
 ### Skill Tree
 
-- **Skill** — ~50 specific skills (e.g., "Through-Hole Soldering") within categories, with level names and lock/unlock mechanics
-- **SkillPrerequisite** — Prerequisites between skills (including cross-category, e.g., Building & Construction requires Woodworking's Measuring & Marking)
+- **Subject** — Intermediate grouping between SkillCategory and Skill (e.g., "Soldering" under "Electronics")
+- **Skill** — Specific skills with level names and lock/unlock mechanics
+- **SkillPrerequisite** — Prerequisites between skills (including cross-category)
 - **SkillProgress** — Per-user, per-skill XP and level tracking
-- **ProjectSkillTag** / **MilestoneSkillTag** — Tag projects/milestones with skills and XP weights
+- **ProjectSkillTag** / **MilestoneSkillTag** / **HomeworkSkillTag** — Tag projects, milestones, and homework with skills and XP weights
 
 ### Achievements
 
-- **Badge** — 35+ badges with 16 criteria types and 5 rarity levels (common -> legendary)
+- **Badge** — 35+ badges with 17 criteria types and 5 rarity levels (common → legendary)
 - **UserBadge** — Earned badges per user
+
+### Rewards / Coins
+
+- **CoinLedger** — Append-only non-monetary currency ledger with 10 reason types: hourly, project_bonus, bounty_bonus, milestone_bonus, badge_bonus, redemption, refund, adjustment, chore_reward, exchange
+- **Reward** — Items/privileges in the reward shop with rarity, coin cost, optional stock limits, and optional parent approval
+- **RewardRedemption** — Submit-then-approve workflow: coins held at request, refunded on denial, consumed on fulfillment
+- **ExchangeRequest** — Money-to-coins conversion at `COINS_PER_DOLLAR` rate (default 10) with parent approval. Balance re-verified at approval time.
+
+### Chores
+
+- **Chore** — Recurring household tasks (daily / weekly / one_time) with money + coin rewards. Supports shared-custody alternating-week schedules via `week_schedule` and ISO week parity.
+- **ChoreCompletion** — Submit-then-approve workflow. Reward values snapshotted at submission. `UniqueConstraint` prevents duplicate completions per chore per day.
+
+### Homework
+
+- **HomeworkAssignment** — School assignments with subject, effort level (1-5), due date, money + coin rewards. Both parents and children can create assignments.
+- **HomeworkSubmission** — Submit-then-approve with effort-scaled rewards (0.5x–2.0x) and timeliness bonuses (early 1.25x, on-time 1.0x, late 0.5x, beyond cutoff 0x)
+- **HomeworkProof** — Required image uploads with captions and ordering
+- **HomeworkTemplate** — Reusable assignment configs with skill tag presets
+- **HomeworkSkillTag** — XP awarded on approval, triggering badge evaluation
 
 ### XP / Level Thresholds
 
@@ -154,7 +196,7 @@ the-abby-project/
 | 5 | 1500 | Expert |
 | 6 | 2500 | Master |
 
-XP is earned through hours worked (10 XP/hr), project completion (50 x difficulty), milestone completion (15 XP), and badge bonuses. XP is distributed across tagged skills by weight.
+XP is earned through hours worked (10 XP/hr), project completion (50 x difficulty), milestone completion (15 XP), homework approval (per skill tag), and badge bonuses. XP is distributed across tagged skills by weight.
 
 ## API Endpoints
 
@@ -166,10 +208,6 @@ the frontend stores in `localStorage` and sends on every request as:
 ```
 Authorization: Token <key>
 ```
-
-This works cross-origin over plain HTTP without cookies or CSRF. The Django
-admin panel still uses session auth (same-origin on the API host), so
-superusers can log into `/admin/` normally.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -187,17 +225,41 @@ superusers can log into `/admin/` normally.
 | GET/POST | `/api/projects/` | List / create projects |
 | GET/PATCH/DELETE | `/api/projects/{id}/` | Project detail |
 | POST | `/api/projects/{id}/submit/` | Child submits for review |
-| POST | `/api/projects/{id}/approve/` | Parent approves (-> completed) |
+| POST | `/api/projects/{id}/approve/` | Parent approves (→ completed) |
 | POST | `/api/projects/{id}/request-changes/` | Parent sends back |
-| GET/POST | `/api/projects/{id}/milestones/` | List / create milestones (chapters with optional bonus) |
+| GET/POST | `/api/projects/{id}/milestones/` | List / create milestones |
+| GET/PATCH/DELETE | `/api/projects/{id}/milestones/{id}/` | Milestone detail |
 | POST | `/api/projects/{id}/milestones/{id}/complete/` | Mark milestone complete (posts `milestone_bonus` to PaymentLedger) |
-| GET/POST/PATCH | `/api/projects/{id}/steps/` | List / create / update walkthrough steps. PATCH `{milestone: <id\|null>}` to move a step between milestones. |
-| POST | `/api/projects/{id}/steps/{id}/complete/` | Mark walkthrough step complete (no payout) |
+| GET/POST | `/api/projects/{id}/steps/` | List / create walkthrough steps |
+| GET/PATCH/DELETE | `/api/projects/{id}/steps/{id}/` | Step detail |
+| POST | `/api/projects/{id}/steps/{id}/complete/` | Mark step complete (no payout) |
 | POST | `/api/projects/{id}/steps/{id}/uncomplete/` | Reopen a completed step |
 | POST | `/api/projects/{id}/steps/reorder/` | Atomically renumber steps |
 | GET/POST | `/api/projects/{id}/resources/` | List / create reference links (project- or step-scoped) |
+| GET/PATCH/DELETE | `/api/projects/{id}/resources/{id}/` | Resource detail |
 | GET/POST | `/api/projects/{id}/materials/` | List / create materials |
+| GET/PATCH/DELETE | `/api/projects/{id}/materials/{id}/` | Material detail |
 | POST | `/api/projects/{id}/materials/{id}/mark-purchased/` | Mark material purchased |
+| GET/POST | `/api/projects/{id}/collaborators/` | List / add collaborators |
+| DELETE | `/api/projects/{id}/collaborators/{id}/` | Remove collaborator |
+| GET | `/api/projects/{id}/qr/` | QR code PNG for quick clock-in |
+| GET | `/api/projects/suggestions/` | AI project suggestions (Claude API + fallback) |
+
+### Ingestion
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/projects/ingest/` | Start ingestion job from URL or PDF upload |
+| GET | `/api/projects/ingest/{uuid}/` | Poll job status + preview data |
+| POST | `/api/projects/ingest/{uuid}/commit/` | Commit staged project |
+
+### Templates
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/templates/` | List templates |
+| GET | `/api/templates/{id}/` | Template detail |
+| POST | `/api/templates/from-project/` | Save completed project as template |
+| POST | `/api/templates/{id}/create-project/` | Create new project from template |
+| GET | `/api/templates/shared/` | Browse public templates |
 
 ### Notifications
 | Method | Endpoint | Description |
@@ -210,8 +272,7 @@ superusers can log into `/admin/` normally.
 ### Time Tracking
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/clock/` | Current active timer status |
-| POST | `/api/clock/` | Clock in (`{"action": "in", "project_id": 1}`) or out (`{"action": "out", "notes": "..."}`) |
+| GET/POST | `/api/clock/` | Clock in (`{"action": "in", "project_id": 1}`) or out (`{"action": "out", "notes": "..."}`) |
 | GET | `/api/time-entries/` | List time entries |
 | POST | `/api/time-entries/{id}/void/` | Parent voids an entry |
 
@@ -230,12 +291,57 @@ superusers can log into `/admin/` normally.
 | GET | `/api/balance/` | Current balance + breakdown |
 | GET | `/api/payments/` | Full ledger |
 | POST | `/api/payments/payout/` | Parent records Greenlight payout |
+| POST | `/api/payments/adjust/` | Parent adjusts payment ledger |
+
+### Coins & Rewards
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/coins/` | Coin balance + recent ledger |
+| POST | `/api/coins/adjust/` | Parent adjusts coin balance |
+| POST | `/api/coins/exchange/` | Child requests money→coins exchange |
+| GET | `/api/coins/exchange/rate/` | Current exchange rate |
+| GET | `/api/coins/exchange/list/` | Exchange request history (role-filtered) |
+| POST | `/api/coins/exchange/{id}/approve/` | Parent approves exchange |
+| POST | `/api/coins/exchange/{id}/deny/` | Parent denies exchange |
+| GET/POST | `/api/rewards/` | List / create rewards (parent CRUD) |
+| GET/PATCH/DELETE | `/api/rewards/{id}/` | Reward detail |
+| POST | `/api/rewards/{id}/redeem/` | Child requests redemption |
+| GET | `/api/redemptions/` | List redemptions (role-filtered) |
+| POST | `/api/redemptions/{id}/approve/` | Parent approves redemption |
+| POST | `/api/redemptions/{id}/deny/` | Parent denies redemption |
+
+### Chores
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET/POST | `/api/chores/` | List / create chores (parent CRUD) |
+| GET/PATCH/DELETE | `/api/chores/{id}/` | Chore detail |
+| POST | `/api/chores/{id}/complete/` | Child submits completion |
+| GET | `/api/chore-completions/` | List completions (role-filtered) |
+| POST | `/api/chore-completions/{id}/approve/` | Parent approves |
+| POST | `/api/chore-completions/{id}/reject/` | Parent rejects |
+
+### Homework
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET/POST | `/api/homework/` | List / create assignments |
+| GET/PATCH/DELETE | `/api/homework/{id}/` | Assignment detail |
+| POST | `/api/homework/{id}/submit/` | Submit with proof images |
+| POST | `/api/homework/{id}/save-template/` | Save as reusable template |
+| POST | `/api/homework/{id}/plan/` | Trigger AI planning (creates linked Project) |
+| GET | `/api/homework/dashboard/` | Role-aware dashboard (today/upcoming/overdue/stats) |
+| GET | `/api/homework-submissions/` | List submissions (role-filtered) |
+| POST | `/api/homework-submissions/{id}/approve/` | Parent approves |
+| POST | `/api/homework-submissions/{id}/reject/` | Parent rejects |
+| GET/POST | `/api/homework-templates/` | List / create templates |
+| GET/PATCH/DELETE | `/api/homework-templates/{id}/` | Template detail |
+| POST | `/api/homework-templates/{id}/create-assignment/` | Create assignment from template |
 
 ### Achievements
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/badges/` | All available badges |
 | GET | `/api/badges/earned/` | User's earned badges |
+| GET | `/api/subjects/` | All subjects |
 | GET | `/api/skills/` | All skills |
 | GET | `/api/skills/tree/{category_id}/` | Skill tree for a category with user progress |
 | GET | `/api/skill-progress/` | User's skill progress |
@@ -245,12 +351,39 @@ superusers can log into `/admin/` normally.
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET/POST | `/api/photos/` | List / upload photos |
-| GET | `/api/portfolio/` | Photos grouped by project |
+| GET | `/api/portfolio/` | Photos grouped by project (includes homework proofs) |
+
+### Children / Manage
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/children/` | List child users (parent only) |
+| GET/PATCH | `/api/children/{id}/` | Child detail — edit hourly rate |
+| GET/POST | `/api/categories/` | List / create skill categories |
+| GET/PATCH/DELETE | `/api/categories/{id}/` | Category detail |
+| GET/POST | `/api/subjects/` | List / create subjects |
+| GET/PATCH/DELETE | `/api/subjects/{id}/` | Subject detail |
+| GET/POST | `/api/savings-goals/` | List / create savings goals |
+| POST | `/api/savings-goals/{id}/update_amount/` | Update goal progress |
+
+### Google Calendar
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/auth/google/` | Initiate OAuth2 flow (returns auth URL) |
+| POST | `/api/auth/google/login/` | Exchange auth code for tokens |
+| GET | `/api/auth/google/callback/` | OAuth2 callback handler |
+| GET/DELETE | `/api/auth/google/account/` | View / unlink Google account |
+| GET/PATCH | `/api/auth/google/calendar/` | Calendar sync settings |
+| POST | `/api/auth/google/calendar/sync/` | Trigger manual calendar sync |
 
 ### Instructables
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/instructables/preview/?url=...` | Scrape Instructables URL for title, thumbnail, steps (cached 24h in Redis) |
+
+### Greenlight
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/greenlight/import/` | Import Greenlight CSV for payout reconciliation |
 
 ### Data Export
 | Method | Endpoint | Description |
@@ -263,15 +396,15 @@ superusers can log into `/admin/` normally.
 
 ### Clock In/Out
 - One active clock-in at a time (enforced by DB constraint)
-- Quiet hours: 10 PM - 7 AM (no clock-in allowed)
+- Quiet hours: 10 PM – 7 AM (no clock-in allowed)
 - Auto clock-out after 8 hours (Celery task, runs every 30 min)
 - Entries > 4 hours flagged for parent review
 
 ### Weekly Timecards
-- Auto-generated every Sunday at midnight via Celery Beat
+- Auto-generated every Sunday at 23:55 local via Celery Beat
 - Calculates hourly earnings per project (hours x rate, respecting per-project rate overrides)
 - Includes any bonuses earned that week
-- Parent approval workflow: pending -> approved -> paid
+- Parent approval workflow: pending → approved → paid
 
 ### Pay Calculation
 ```
@@ -281,91 +414,98 @@ bonus = project.bonus_amount (on completion)
 balance = sum(all ledger entries)  # positive = owed, negative = paid out
 ```
 
+### Coins Economy
+- Non-monetary progression currency parallel to PaymentLedger
+- **Earning:** clock-out (5 coins/hr), project completion (flat x difficulty, bounty pays 2.5x), badge earn (rarity-scaled: common 5 → legendary 150), chore/homework approval
+- **Spending:** reward shop redemptions (coins held at request, refunded on denial)
+- **Money→Coins exchange:** child requests at `COINS_PER_DOLLAR` rate (default 10), parent approves/denies, balance re-verified at approval time
+
+### Chores
+- Recurring tasks (daily / weekly / one_time) with money + coin rewards
+- Submit-then-approve workflow: child submits completion, parent approves or rejects
+- Shared-custody support: `week_schedule` can be `alternating` with ISO week parity check against a reference date
+- No Celery — availability computed on-the-fly from recurrence rules
+- `UniqueConstraint` prevents duplicate completions per chore per day
+
+### Homework
+- Effort-scaled rewards using 5 levels: 0.5x, 0.75x, 1.0x, 1.5x, 2.0x multiplier
+- Timeliness bonuses: early 1.25x, on-time 1.0x, late 0.5x, beyond cutoff (3 days) 0x
+- Rewards computed and snapshotted at submission time
+- Proof image uploads required — ordered gallery with captions
+- `HomeworkSkillTag` awards XP on approval, triggering badge evaluation
+- AI-planned long-form homework: `POST /api/homework/{id}/plan/` generates a linked Project via Claude + MCP
+
 ### Skill Tree & XP
-- Projects are tagged with skills and XP weights
+- Hierarchy: SkillCategory → Subject → Skill
+- Projects, milestones, and homework are tagged with skills and XP weights
 - On clock-out: time-based XP distributed across project's skill tags by weight
 - On milestone completion: XP from milestone skill tags (or fallback to project tags)
 - On project completion: difficulty-based XP distributed across skill tags
+- On homework approval: XP from homework skill tags
 - Locked skills unlock when all prerequisites are met
 - Cross-category prerequisites create interesting progression paths
 
 ### Badge Evaluation
-Triggered on: project completion, milestone completion, clock-out, timecard approval. Checks all unearned badges against current stats.
+Triggered on: project completion, milestone completion, clock-out, timecard approval, homework approval. Checks all unearned badges against current stats across 17 criteria types. Badges award rarity-scaled Coins.
 
 ### Notifications
-Auto-created via Django signals on:
-- Project approved / changes requested
-- Milestone completed
-- Badge earned
-- Payout recorded
+Auto-created via Django signals on: project approved/changes requested, milestone completed, badge earned, payout recorded, chore submitted/approved, redemption requested, exchange requested/approved/denied, homework created/submitted/approved/rejected, due-soon reminders.
 
 Frontend polls for unread count every 30 seconds. Bell icon in the top bar shows unread badge with dropdown panel.
 
 ### Weekly Email Summary
-Celery task (`send_weekly_email_summaries`) sends:
+Celery task (`send_weekly_email_summaries`) fires Sunday at 08:00 and sends:
 - **Child**: hours worked, badges earned, current balance
 - **Parent**: per-child activity summary, pending timecard count
 
 Uses console email backend in development.
 
-### Instructables Integration
-When creating a project, pasting an Instructables URL triggers a backend scraper that extracts:
-- Title, author, thumbnail URL, step count, category
-- Results cached in Redis for 24 hours
-- Frontend shows a live preview card with the extracted metadata
+### Ingestion Pipeline
+Four-stage Scrapy-style pipeline for importing projects from external sources:
+1. **ParseStage** — source-specific ingestor (Instructables scraper, PDF extractor, generic URL)
+2. **NormalizeStage** — standardizes fields across sources
+3. **MarkdownStage** — converts to markdown (crawl4ai → markdownify → synthesis fallback)
+4. **EnrichStage** — AI enrichment via Claude (category, difficulty, skill tags, extra materials, summary). No-op without `ANTHROPIC_API_KEY`.
 
-## v2 Features
+Async job tracked in `ProjectIngestionJob` (UUID pk). Frontend preview page lets parents edit milestones and steps before committing. Instructables scrapes cached in Redis 24h.
+
+### MCP Server
+FastMCP server mounted inside Django ASGI at `/mcp` with 14 tool modules:
+achievements, chores, dashboard, homework, ingestion, notifications, payments, portfolio, projects, rewards, savings, timecards, users, plus transport configuration.
+
+Uses DRF TokenAuthentication, DNS rebinding protection, stateless HTTP transport for horizontal scaling, and `sync_to_async` for Django ORM access.
+
+### Google Calendar Integration
+OAuth2 flow for linking Google accounts. Syncs app events (project due dates, chores, time entries) to Google Calendar. `CalendarEventMapping` tracks synced events. Encrypted credential storage via Fernet. Parent-initiated linking for child accounts.
 
 ### Project Templates
-- Save any completed project as a reusable template (with milestones and materials)
-- Create new projects from templates with one click
-- Public templates enable parent co-op sharing between families
-- API: `GET /api/templates/`, `POST /api/templates/from-project/`, `POST /api/templates/{id}/create-project/`, `GET /api/templates/shared/`
+- Save any completed project as a reusable template (copies milestones, steps, materials)
+- Create new projects from templates with one click, assigned to any child
+- Public templates enable sharing between families (`GET /api/templates/shared/`)
+
+### Savings Goals
+- Children set savings targets (e.g., "New bike — $200") with custom icons
+- Progress bar auto-updates from current balance
+- API: `/api/savings-goals/` with `update_amount` action
 
 ### Collaborative Projects
 - Add multiple children to a project with configurable pay split percentages
 - `ProjectCollaborator` model tracks per-child participation
-- API: `GET/POST /api/projects/{id}/collaborators/`
-
-### Savings Goals
-- Children set savings targets (e.g., "New bike - $200") with custom icons
-- Progress bar on dashboard auto-updates from current balance
-- Completion tracking with timestamps
-- API: `GET/POST /api/savings-goals/`, `POST /api/savings-goals/{id}/update_amount/`
-
-### AI Project Suggestions
-- Claude API (Haiku) analyzes completed projects and skill levels to recommend next projects
-- Considers skill gaps, category breadth, and difficulty progression
-- Curated fallback suggestions when `ANTHROPIC_API_KEY` is not set
-- Frontend: suggestions section on Projects page with category tags and rationale
-- API: `GET /api/projects/suggestions/`
 
 ### QR Code Clock-In
 - Generate printable QR codes for each project (amber on black, workshop themed)
 - Scan with phone camera to quick-clock-in from the workshop
-- QR data includes project ID and title as JSON
 - API: `GET /api/projects/{id}/qr/` returns PNG image
-
-### Time-Lapse Integration
-- `video_url` field on ProjectPhoto supports YouTube/external video links
-- `is_timelapse` flag for marking time-lapse recordings
-- Encourages capturing the making process on camera
 
 ### Seasonal Themes
 - 4 color themes: Summer (amber), Winter Break (blue), Spring Break (green), Autumn (orange)
 - Theme preference saved per-user on the backend
 - CSS custom properties swapped at runtime for instant switching
-- Theme picker with color swatches on Settings page
 
 ### Greenlight CSV Import
 - Import Greenlight transaction CSV data for payout reconciliation
 - Parses Amount and Description columns, creates payout ledger entries
 - API: `POST /api/greenlight/import/` with `user_id` and `csv_data`
-
-### Parent Co-Op Mode
-- Public project templates shared between families
-- Browse community templates via `GET /api/templates/shared/`
-- One-click create project from any shared template
 
 ## Frontend
 
@@ -378,17 +518,22 @@ When creating a project, pasting an Instructables URL triggers a backend scraper
 ### Pages
 | Page | Route | Description |
 |------|-------|-------------|
-| Login | -- | Session auth form |
+| Login | -- | Token auth form |
 | Dashboard | `/` | Active timer hero, balance, weekly stats, projects, badges, streak, savings goals |
 | Projects | `/projects` | Card grid with status badges, progress bars, AI suggestions section |
-| Project Detail | `/projects/:id` | Tabbed view with workflow actions, QR code, save-as-template |
+| Project Detail | `/projects/:id` | Tabbed view (Plan, Materials, Photos) with workflow actions, QR code, save-as-template |
 | New Project | `/projects/new` | Create form with Instructables URL preview (parent only) |
+| Project Ingest | `/projects/ingest` | AI import preview — edit milestones, steps, materials before commit |
 | Clock | `/clock` | Large circular timer, project selector, one-tap clock in/out |
 | Timecards | `/timecards` | Weekly cards, expandable detail, approve/dispute/pay, CSV export |
 | Payments | `/payments` | Large balance, breakdown by type, transaction history |
-| Achievements | `/achievements` | Badge collection grid + interactive skill tree by category |
-| Portfolio | `/portfolio` | Photo + video gallery grouped by project, ZIP download |
-| Settings | `/settings` | Profile info, theme picker (4 seasonal themes) |
+| Chores | `/chores` | Daily/weekly chore cards, submit completion, parent approval queue |
+| Homework | `/homework` | Assignment list, submit with proof photos, templates, parent approval |
+| Rewards | `/rewards` | Reward shop, coin balance, exchange interface, parent CRUD + approval queues |
+| Achievements | `/achievements` | Badge collection grid + interactive skill tree by category/subject |
+| Portfolio | `/portfolio` | Photo + video gallery grouped by project, homework proofs, ZIP download |
+| Manage | `/manage` | Parent CRUD for children, templates, rewards, categories, subjects, skills, badges |
+| Settings | `/settings` | Profile info, theme picker, Google account linking |
 
 ## Development
 
@@ -405,21 +550,74 @@ cd frontend && npm run dev
 # Django shell
 docker compose exec django python manage.py shell_plus
 
+# Run backend tests
+docker compose exec django python manage.py test
+
 # Reset everything
 docker compose down -v
 ```
 
 ## Environment Variables
 
+### Core
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SECRET_KEY` | (insecure dev key) | Django secret key |
 | `DEBUG` | `True` | Debug mode |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hosts |
+| `CSRF_TRUSTED_ORIGINS` | — | Required behind reverse proxy |
 | `DATABASE_URL` | `postgres://summerforge:summerforge@db:5432/summerforge` | Database connection |
 | `REDIS_URL` | `redis://redis:6379/0` | Redis cache URL |
 | `CELERY_BROKER_URL` | `redis://redis:6379/1` | Celery broker URL |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` | CORS origins |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` | CORS origins (dev only) |
 | `PARENT_PASSWORD` | `summerforge2025` | Seed data parent password |
 | `CHILD_PASSWORD` | `summerforge2025` | Seed data child password |
-| `ANTHROPIC_API_KEY` | (empty) | Optional — enables AI project suggestions via Claude API |
+
+### Optional Features
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | (empty) | Enables AI suggestions + ingestion enrichment |
+| `CLAUDE_MODEL` | `claude-haiku-4-5-20251001` | Claude model for AI features |
+| `GOOGLE_CLIENT_ID` | (empty) | Google OAuth2 client ID |
+| `GOOGLE_CLIENT_SECRET` | (empty) | Google OAuth2 client secret |
+| `GOOGLE_REDIRECT_URI` | (empty) | Google OAuth2 redirect URI |
+
+### MCP Server
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MCP_ALLOWED_HOSTS` | (derived from `ALLOWED_HOSTS`) | DNS rebinding protection allow-list |
+| `MCP_ALLOWED_ORIGINS` | (derived from `CSRF_TRUSTED_ORIGINS`) | Origin allow-list |
+| `MCP_PUBLIC_BASE_URL` | — | Public URL advertised to MCP clients |
+
+### Sentry (Backend)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SENTRY_DSN` | (empty) | Sentry DSN — if blank, error tracking is disabled |
+| `SENTRY_ENVIRONMENT` | (derived from `DEBUG`) | Environment tag |
+| `SENTRY_TRACES_SAMPLE_RATE` | `0.2` | Performance trace sample rate |
+| `SENTRY_RELEASE` | — | Git SHA release tag (auto-set by CI) |
+
+### Sentry (Frontend)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_SENTRY_DSN` | (empty) | Frontend Sentry DSN |
+| `VITE_SENTRY_ENVIRONMENT` | `production` | Frontend environment tag |
+| `VITE_SENTRY_TRACES_SAMPLE_RATE` | `0.2` | Frontend trace sample rate |
+| `VITE_SENTRY_RELEASE` | — | Frontend release tag (auto-set by CI build arg) |
+
+### Tunable Settings (in `config/settings.py`)
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `COINS_PER_HOUR` | `5` | Coins awarded per clock-out hour |
+| `COINS_PER_BADGE_RARITY` | common 5 → legendary 150 | Per-rarity coin bonus |
+| `COINS_PER_DOLLAR` | `10` | Coins per $1.00 in money→coins exchange |
+| `HOMEWORK_EFFORT_MULTIPLIERS` | 1→0.5x to 5→2.0x | Per-effort-level reward scaling |
+| `HOMEWORK_EARLY_BONUS` | `1.25` | Multiplier for submitting before due date |
+| `HOMEWORK_LATE_PENALTY` | `0.5` | Multiplier for late submission |
+| `HOMEWORK_LATE_CUTOFF_DAYS` | `3` | Days after which late rewards are zero |

@@ -4,7 +4,9 @@
       "Bash(curl -sI https://abby.bos.lol/health)",
       "Bash(curl -sI https://abby.bos.lol/)",
       "Bash(git check-ignore:*)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Read(//c/Users/socce/Documents/GitHub/the-abby-project/frontend/**)",
+      "Bash(npx vite:*)"
     ]
   }
 }

@@ -229,8 +229,8 @@ export default function SettingsPage({ user, onLogout }) {
       <Card>
         <h2 className="font-heading text-lg font-bold mb-2">About The Abby Project</h2>
         <p className="text-sm text-forge-text-dim">
-          Track projects, log hours, earn XP, unlock skills, and get paid
-          for your summer maker projects.
+          Track projects, chores, and homework. Log hours, earn XP,
+          unlock skills, collect coins, and get paid.
         </p>
       </Card>
 

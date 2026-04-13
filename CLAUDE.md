@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 ## Project
-The Abby Project — Django + React app for tracking summer maker projects: time tracking, weekly timecards, payment ledger (Greenlight), non-monetary Coins economy + reward shop, skill tree (Category → Subject → Skill) with badges, and Instructables/PDF project ingestion with an AI enrichment pipeline.
+The Abby Project — Django + React app for tracking kids' projects, chores, and homework: time tracking, weekly timecards, payment ledger (Greenlight), non-monetary Coins economy + reward shop, skill tree (Category → Subject → Skill) with badges, and Instructables/PDF project ingestion with an AI enrichment pipeline.
 
 ## Stack
 - **Backend:** Django 5.1, DRF 3.15, PostgreSQL 16, Redis 7, Celery 5.4 + Beat, Gunicorn, Python 3.12

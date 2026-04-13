@@ -1,7 +1,7 @@
 {
   "name": "The Abby Project",
   "short_name": "Abby",
-  "description": "Track summer maker projects, earn coins, unlock badges.",
+  "description": "Track projects, chores, and homework — earn money, coins, and badges.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
