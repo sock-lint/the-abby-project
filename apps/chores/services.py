@@ -69,7 +69,6 @@ class ChoreService:
         )
 
         # Annotate whether a non-rejected completion exists for the current period.
-        period_date = target_date
         # For daily chores, period_date = today; for weekly, period_date = Monday.
         # We need per-chore period_date, but since we query in bulk we'll
         # annotate with the daily check first, then patch weekly in Python.

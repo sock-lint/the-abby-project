@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react';
 import { useState, useEffect, useCallback } from 'react';
 import { getMe, login as apiLogin, logout as apiLogout } from '../api';
 import { setToken } from '../api/client';
@@ -39,18 +40,29 @@ export function useAuth() {
       window.history.replaceState({}, '', window.location.pathname);
     }
 
-    getMe().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false));
+    getMe()
+      .then((u) => {
+        setUser(u);
+        Sentry.setUser(u ? { id: u.id, username: u.username, role: u.role } : null);
+      })
+      .catch(() => {
+        setUser(null);
+        Sentry.setUser(null);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const doLogin = async (username, password) => {
     const u = await apiLogin(username, password);
     setUser(u);
+    Sentry.setUser(u ? { id: u.id, username: u.username, role: u.role } : null);
     return u;
   };
 
   const doLogout = async () => {
     await apiLogout();
     setUser(null);
+    Sentry.setUser(null);
   };
 
   return { user, loading, login: doLogin, logout: doLogout };

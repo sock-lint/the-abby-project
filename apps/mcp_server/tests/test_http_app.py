@@ -15,6 +15,8 @@ would be rejected with HTTP 421 unless we explicitly configure
 """
 from __future__ import annotations
 
+from typing import Any
+
 from django.test import TestCase, TransactionTestCase, override_settings
 from rest_framework.authtoken.models import Token
 from starlette.testclient import TestClient

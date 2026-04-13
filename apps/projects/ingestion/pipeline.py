@@ -16,7 +16,7 @@ and persistence lives in the Celery task (``run_ingestion_job``).
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 
 from .base import IngestionItem

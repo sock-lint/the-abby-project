@@ -1,0 +1,21 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+src = ["apps", "config"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "LOG",    # flake8-logging — proper logging usage
+    "G",      # flake8-logging-format — no f-strings / %-format in logging
+    "T20",    # flake8-print — ban print() in favor of logging
+]
+ignore = [
+    "E501",   # line length (handled by formatter if needed)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"apps/*/management/commands/*.py" = ["T20"]   # management commands may use print()
+"apps/*/migrations/*.py" = ["E", "W", "F"]    # auto-generated migrations

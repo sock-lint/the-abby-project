@@ -1,6 +1,5 @@
 import secrets
 
-from django.conf import settings
 from django.core.cache import cache
 from django.http import HttpResponseRedirect
 from rest_framework import permissions, status
@@ -8,11 +7,10 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from config.permissions import IsParent
 from config.viewsets import get_child_or_404, child_not_found_response
 
 from .models import GoogleAccount
-from .services import GoogleAuthService, GoogleCalendarService
+from .services import GoogleAuthService
 
 
 # ── helpers ──────────────────────────────────────────────────────────────

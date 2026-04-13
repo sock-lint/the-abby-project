@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react';
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useAuth } from './hooks/useApi';
@@ -20,6 +21,21 @@ import Manage from './pages/Manage';
 import SettingsPage from './pages/SettingsPage';
 import Loader from './components/Loader';
 
+function ErrorFallback({ error, resetError }) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-forge-bg p-8 gap-4">
+      <h1 className="text-xl font-bold text-red-400">Something went wrong</h1>
+      <p className="text-forge-muted text-sm">{error?.message}</p>
+      <button
+        onClick={resetError}
+        className="px-4 py-2 bg-forge-accent text-white rounded-lg"
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
   const { user, loading, login, logout } = useAuth();
 
@@ -40,25 +56,27 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Layout user={user} onLogout={logout} />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/projects" element={<Projects user={user} />} />
-          <Route path="/projects/new" element={<ProjectNew />} />
-          <Route path="/projects/ingest" element={<ProjectIngest />} />
-          <Route path="/projects/:id" element={<ProjectDetail user={user} />} />
-          <Route path="/chores" element={<Chores />} />
-          <Route path="/clock" element={<ClockPage />} />
-          <Route path="/timecards" element={<Timecards user={user} />} />
-          <Route path="/payments" element={<Payments />} />
-          <Route path="/rewards" element={<Rewards />} />
-          <Route path="/achievements" element={<Achievements />} />
-          <Route path="/portfolio" element={<Portfolio />} />
-          <Route path="/manage" element={<Manage />} />
-          <Route path="/settings" element={<SettingsPage user={user} onLogout={logout} />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <Sentry.ErrorBoundary fallback={ErrorFallback} showDialog={false}>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<Layout user={user} onLogout={logout} />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/projects" element={<Projects user={user} />} />
+            <Route path="/projects/new" element={<ProjectNew />} />
+            <Route path="/projects/ingest" element={<ProjectIngest />} />
+            <Route path="/projects/:id" element={<ProjectDetail user={user} />} />
+            <Route path="/chores" element={<Chores />} />
+            <Route path="/clock" element={<ClockPage />} />
+            <Route path="/timecards" element={<Timecards user={user} />} />
+            <Route path="/payments" element={<Payments />} />
+            <Route path="/rewards" element={<Rewards />} />
+            <Route path="/achievements" element={<Achievements />} />
+            <Route path="/portfolio" element={<Portfolio />} />
+            <Route path="/manage" element={<Manage />} />
+            <Route path="/settings" element={<SettingsPage user={user} onLogout={logout} />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </Sentry.ErrorBoundary>
   );
 }

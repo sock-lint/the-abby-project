@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 
 from apps.projects.models import (
     Project, ProjectMilestone, ProjectResource, ProjectStep, ProjectTemplate,
-    SkillCategory, TemplateMilestone, TemplateResource, TemplateStep, User,
+    TemplateMilestone, TemplateResource, TemplateStep, User,
 )
 from apps.projects.serializers import ProjectDetailSerializer
 
@@ -116,7 +116,9 @@ class ReorderStepsTests(_Fixture):
             format="json",
         )
         self.assertEqual(resp.status_code, 200, resp.content)
-        s1.refresh_from_db(); s2.refresh_from_db(); s3.refresh_from_db()
+        s1.refresh_from_db()
+        s2.refresh_from_db()
+        s3.refresh_from_db()
         self.assertEqual(s3.order, 0)
         self.assertEqual(s2.order, 1)
         self.assertEqual(s1.order, 2)
