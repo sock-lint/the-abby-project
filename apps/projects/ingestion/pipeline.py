@@ -16,10 +16,13 @@ and persistence lives in the Celery task (``run_ingestion_job``).
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 
 from .base import IngestionItem
+
+logger = logging.getLogger(__name__)
 
 
 class StageSkip(Exception):
@@ -48,6 +51,7 @@ class Pipeline:
             except Exception as exc:  # noqa: BLE001 - non-fatal, record and continue
                 msg = f"{stage_name}: {exc}"
                 item.pipeline_warnings.append(msg)
+                logger.warning("Ingestion pipeline stage failed: %s", msg)
                 if self.on_warning:
                     self.on_warning(msg)
         return item

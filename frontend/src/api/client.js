@@ -70,7 +70,23 @@ export async function getBlob(path) {
     headers: token ? { Authorization: `Token ${token}` } : {},
   });
   if (!res.ok) {
-    throw new Error(res.statusText || `HTTP ${res.status}`);
+    const errorMessage = res.statusText || `HTTP ${res.status}`;
+
+    Sentry.addBreadcrumb({
+      category: 'api',
+      message: `GET blob ${path} -> ${res.status}`,
+      level: 'error',
+      data: { status: res.status, url },
+    });
+
+    if (res.status >= 500) {
+      Sentry.captureException(
+        new Error(`Blob API ${res.status}: GET ${path}`),
+        { extra: { status: res.status } },
+      );
+    }
+
+    throw new Error(errorMessage);
   }
   return res.blob();
 }

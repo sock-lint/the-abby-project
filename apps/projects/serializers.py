@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import serializers
 
 from .models import (
@@ -7,6 +9,7 @@ from .models import (
     User,
 )
 
+logger = logging.getLogger(__name__)
 
 class UserSerializer(serializers.ModelSerializer):
     google_linked = serializers.SerializerMethodField()
@@ -23,6 +26,7 @@ class UserSerializer(serializers.ModelSerializer):
         try:
             return obj.google_account is not None
         except Exception:
+            logger.debug("google_linked check failed for user %s", obj.pk, exc_info=True)
             return False
 
 
@@ -41,6 +45,7 @@ class ChildSerializer(serializers.ModelSerializer):
         try:
             return obj.google_account is not None
         except Exception:
+            logger.debug("google_linked check failed for user %s", obj.pk, exc_info=True)
             return False
 
 

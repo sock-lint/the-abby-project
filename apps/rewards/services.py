@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings as django_settings
@@ -8,6 +9,8 @@ from apps.projects.notifications import get_display_name, notify, notify_parents
 from config.services import BaseLedgerService
 
 from .models import CoinLedger, ExchangeRequest, Reward, RewardRedemption
+
+logger = logging.getLogger(__name__)
 
 
 class InsufficientCoinsError(Exception):
@@ -226,6 +229,7 @@ class ExchangeService:
         )
 
         _finalize_decision(exchange, ExchangeRequest.Status.APPROVED, parent, notes)
+        logger.info("Exchange approved: user=%s $%s -> %d coins", user, dollar_amount, coin_amount)
 
         from apps.projects.models import Notification
         notify(

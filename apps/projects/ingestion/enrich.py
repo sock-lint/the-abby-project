@@ -9,10 +9,13 @@ so the child can accept or ignore them.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any
 
 from .base import IngestionItem
+
+logger = logging.getLogger(__name__)
 
 
 SUGGESTION_SCHEMA = {
@@ -117,4 +120,5 @@ class EnrichStage:
                 item.ai_suggestions = suggestions
         except Exception as exc:  # noqa: BLE001
             item.pipeline_warnings.append(f"enrich: {exc}")
+            logger.exception("AI enrichment failed for item '%s'", item.title)
         return item

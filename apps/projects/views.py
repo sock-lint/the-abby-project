@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth import authenticate
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
@@ -11,6 +13,8 @@ from config.viewsets import (
     RoleFilteredQuerySetMixin,
     get_child_or_404, child_not_found_response,
 )
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     MaterialItem, Project, ProjectCollaborator, ProjectIngestionJob,
@@ -676,6 +680,7 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
         try:
             run_ingestion_job.delay(str(job.id))
         except Exception:  # noqa: BLE001 - broker may be down in dev
+            logger.warning("Celery broker unavailable, running ingestion inline", exc_info=True)
             run_ingestion_job(str(job.id))
 
         return Response(

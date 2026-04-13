@@ -1,4 +1,5 @@
 import io
+import logging
 
 from rest_framework import viewsets
 from rest_framework.response import Response
@@ -8,6 +9,8 @@ from config.viewsets import RoleFilteredQuerySetMixin
 
 from .models import ProjectPhoto
 from .serializers import ProjectPhotoSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectPhotoViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
@@ -64,6 +67,7 @@ class ExportPortfolioView(APIView):
                     try:
                         zf.writestr(filename, photo.image.read())
                     except Exception:
+                        logger.warning("Failed to add photo %s to portfolio export", photo.id, exc_info=True)
                         continue
 
         buffer.seek(0)

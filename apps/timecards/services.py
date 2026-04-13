@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 
 from django.db.models import Sum
@@ -7,6 +8,8 @@ from django.utils import timezone
 from apps.payments.services import PaymentService
 
 from .models import Timecard, TimeEntry
+
+logger = logging.getLogger(__name__)
 
 
 class TimeEntryService:
@@ -149,6 +152,8 @@ class ClockService:
             entry.notes = (entry.notes + "\n[Auto clocked out]").strip()
             entry.save()
             count += 1
+        if count:
+            logger.info("Auto clocked out %d stale time entries", count)
         return count
 
 

@@ -1,9 +1,13 @@
+import logging
+
 from django.db import models
 from django.db.models import Count, Sum
 
 from .models import (
     Badge, ProjectSkillTag, Skill, SkillProgress, UserBadge, XP_THRESHOLDS,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class SkillService:
