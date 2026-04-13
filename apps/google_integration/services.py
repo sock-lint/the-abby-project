@@ -97,10 +97,10 @@ class GoogleAuthService:
             prompt="consent",
             state=state,
         )
-        return authorization_url, state
+        return authorization_url, state, flow.code_verifier
 
     @staticmethod
-    def exchange_code(code):
+    def exchange_code(code, code_verifier=None):
         """Exchange authorization code for credentials.
 
         Returns (google_id, email, credentials_json).
@@ -121,7 +121,7 @@ class GoogleAuthService:
             scopes=SCOPES,
             redirect_uri=settings.GOOGLE_REDIRECT_URI,
         )
-        flow.fetch_token(code=code)
+        flow.fetch_token(code=code, code_verifier=code_verifier)
         credentials = flow.credentials
 
         # Verify the ID token to get user info

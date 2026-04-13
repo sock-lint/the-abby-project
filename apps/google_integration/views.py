@@ -63,17 +63,17 @@ class GoogleAuthInitView(APIView):
             return err
 
         state = secrets.token_urlsafe(32)
+        authorization_url, _, code_verifier = GoogleAuthService.get_authorization_url(state=state)
         cache.set(
             _cache_key(state),
             {
                 "mode": "link",
                 "target_user_id": target.id,
                 "linked_by_id": request.user.id if target != request.user else None,
+                "code_verifier": code_verifier,
             },
             timeout=600,  # 10 minutes
         )
-
-        authorization_url, _ = GoogleAuthService.get_authorization_url(state=state)
         return Response({"authorization_url": authorization_url})
 
 
@@ -92,9 +92,12 @@ class GoogleLoginView(APIView):
             )
 
         state = secrets.token_urlsafe(32)
-        cache.set(_cache_key(state), {"mode": "login"}, timeout=600)
-
-        authorization_url, _ = GoogleAuthService.get_authorization_url(state=state)
+        authorization_url, _, code_verifier = GoogleAuthService.get_authorization_url(state=state)
+        cache.set(
+            _cache_key(state),
+            {"mode": "login", "code_verifier": code_verifier},
+            timeout=600,
+        )
         return Response({"authorization_url": authorization_url})
 
 
@@ -125,9 +128,10 @@ class GoogleCallbackView(APIView):
             return HttpResponseRedirect(f"{base_url}settings?google=error&detail=invalid_state")
         cache.delete(_cache_key(state))
 
-        # Exchange code for credentials
+        # Exchange code for credentials (PKCE: pass the code_verifier stored at auth time)
+        code_verifier = state_data.pop("code_verifier", None)
         try:
-            google_id, email, credentials_json = GoogleAuthService.exchange_code(code)
+            google_id, email, credentials_json = GoogleAuthService.exchange_code(code, code_verifier)
         except Exception:
             logger.exception("Google OAuth code exchange failed")
             return HttpResponseRedirect(f"{base_url}settings?google=error&detail=exchange_failed")
