@@ -261,6 +261,7 @@ class Command(BaseCommand):
         self._create_badges()
         self._create_sample_projects(categories, skill_map)
         self._create_sample_chores()
+        self._create_sample_homework()
 
         self.stdout.write(self.style.SUCCESS("Seeding complete!"))
 
@@ -492,3 +493,94 @@ class Command(BaseCommand):
             )
             if created:
                 self.stdout.write(f"  Created chore: {chore.title}")
+
+    def _create_sample_homework(self):
+        from datetime import timedelta
+
+        from apps.homework.models import HomeworkAssignment, HomeworkTemplate
+        from apps.projects.models import User
+
+        parent = User.objects.filter(role="parent").first()
+        child = User.objects.filter(role="child").first()
+        if not parent or not child:
+            return
+
+        from django.utils import timezone
+
+        today = timezone.localdate()
+
+        SAMPLE_HOMEWORK = [
+            {
+                "title": "Math Worksheet Ch. 7",
+                "subject": "math",
+                "effort_level": 2,
+                "due_date": today + timedelta(days=1),
+                "reward_amount": "2.00",
+                "coin_reward": 5,
+            },
+            {
+                "title": "Read 'Hatchet' Chapters 4-6",
+                "subject": "reading",
+                "effort_level": 3,
+                "due_date": today + timedelta(days=2),
+                "reward_amount": "3.00",
+                "coin_reward": 8,
+            },
+            {
+                "title": "Science Lab Report: Plant Growth",
+                "description": "Write up observations from the bean plant experiment.",
+                "subject": "science",
+                "effort_level": 4,
+                "due_date": today + timedelta(days=5),
+                "reward_amount": "5.00",
+                "coin_reward": 15,
+            },
+            {
+                "title": "Spelling Practice Words",
+                "subject": "writing",
+                "effort_level": 1,
+                "due_date": today,
+                "reward_amount": "1.00",
+                "coin_reward": 3,
+            },
+            {
+                "title": "Social Studies Map Activity",
+                "subject": "social_studies",
+                "effort_level": 3,
+                "due_date": today + timedelta(days=3),
+                "reward_amount": "3.00",
+                "coin_reward": 8,
+            },
+        ]
+
+        for hw in SAMPLE_HOMEWORK:
+            _, created = HomeworkAssignment.objects.get_or_create(
+                title=hw["title"],
+                assigned_to=child,
+                defaults={
+                    "description": hw.get("description", ""),
+                    "subject": hw["subject"],
+                    "effort_level": hw["effort_level"],
+                    "due_date": hw["due_date"],
+                    "created_by": parent,
+                    "reward_amount": Decimal(hw["reward_amount"]),
+                    "coin_reward": hw["coin_reward"],
+                },
+            )
+            if created:
+                self.stdout.write(f"  Created homework: {hw['title']}")
+
+        # Create a template.
+        _, created = HomeworkTemplate.objects.get_or_create(
+            title="Weekly Reading Assignment",
+            defaults={
+                "description": "Read assigned chapters and write a brief summary.",
+                "subject": "reading",
+                "effort_level": 3,
+                "reward_amount": Decimal("3.00"),
+                "coin_reward": 8,
+                "created_by": parent,
+            },
+        )
+        if created:
+            self.stdout.write("  Created homework template: Weekly Reading Assignment")

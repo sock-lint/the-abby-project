@@ -28,6 +28,8 @@ class ProjectPhotoViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
 class PortfolioView(APIView):
     def get(self, request):
         user = request.user
+
+        # Project photos (existing).
         photos = ProjectPhoto.objects.select_related("project")
         if user.role != "parent":
             photos = photos.filter(project__assigned_to=user)
@@ -43,7 +45,35 @@ class PortfolioView(APIView):
                 }
             grouped[pid]["photos"].append(ProjectPhotoSerializer(photo).data)
 
-        return Response(list(grouped.values()))
+        # Homework proofs (approved submissions only).
+        from apps.homework.models import HomeworkProof, HomeworkSubmission
+
+        hw_proofs = HomeworkProof.objects.filter(
+            submission__status=HomeworkSubmission.Status.APPROVED,
+        ).select_related("submission__assignment")
+        if user.role != "parent":
+            hw_proofs = hw_proofs.filter(submission__user=user)
+
+        hw_grouped = {}
+        for proof in hw_proofs:
+            subject = proof.submission.assignment.subject
+            if subject not in hw_grouped:
+                hw_grouped[subject] = {
+                    "subject": subject,
+                    "items": [],
+                }
+            hw_grouped[subject]["items"].append({
+                "id": proof.id,
+                "image": proof.image.url if proof.image else None,
+                "caption": proof.caption,
+                "assignment_title": proof.submission.assignment.title,
+                "submitted_at": proof.submission.created_at.isoformat(),
+            })
+
+        return Response({
+            "projects": list(grouped.values()),
+            "homework": list(hw_grouped.values()),
+        })
 
 
 class ExportPortfolioView(APIView):
@@ -69,6 +99,25 @@ class ExportPortfolioView(APIView):
                     except Exception:
                         logger.warning("Failed to add photo %s to portfolio export", photo.id, exc_info=True)
                         continue
+
+            # Add homework proofs.
+            from apps.homework.models import HomeworkProof, HomeworkSubmission
+
+            hw_proofs = HomeworkProof.objects.filter(
+                submission__status=HomeworkSubmission.Status.APPROVED,
+            ).select_related("submission__assignment")
+            if request.user.role == "child":
+                hw_proofs = hw_proofs.filter(submission__user=request.user)
+
+            for proof in hw_proofs:
+                if proof.image:
+                    subject = proof.submission.assignment.get_subject_display()
+                    folder = f"homework/{subject}".replace("/", "_")
+                    filename = f"{folder}/{proof.id}_{proof.caption or 'proof'}.jpg"
+                    try:
+                        zf.writestr(filename, proof.image.read())
+                    except Exception:
+                        logger.warning("Failed to add homework proof %s to export", proof.id, exc_info=True)
 
         buffer.seek(0)
         response = HttpResponse(buffer.getvalue(), content_type="application/zip")

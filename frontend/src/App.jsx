@@ -11,6 +11,7 @@ import ProjectDetail from './pages/ProjectDetail';
 import ProjectNew from './pages/ProjectNew';
 import ProjectIngest from './pages/ProjectIngest';
 import Chores from './pages/Chores';
+import Homework from './pages/Homework';
 import ClockPage from './pages/ClockPage';
 import Timecards from './pages/Timecards';
 import Payments from './pages/Payments';
@@ -66,6 +67,7 @@ export default function App() {
             <Route path="/projects/ingest" element={<ProjectIngest />} />
             <Route path="/projects/:id" element={<ProjectDetail user={user} />} />
             <Route path="/chores" element={<Chores />} />
+            <Route path="/homework" element={<Homework />} />
             <Route path="/clock" element={<ClockPage />} />
             <Route path="/timecards" element={<Timecards user={user} />} />
             <Route path="/payments" element={<Payments />} />

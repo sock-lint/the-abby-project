@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, FolderKanban, ClipboardCheck, Clock, FileText,
+  LayoutDashboard, FolderKanban, ClipboardCheck, BookOpen, Clock, FileText,
   DollarSign, Gift, Trophy, Camera, Settings, LogOut, MoreHorizontal,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -12,6 +12,7 @@ const allNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/chores', icon: ClipboardCheck, label: 'Chores' },
+  { to: '/homework', icon: BookOpen, label: 'Homework' },
   { to: '/clock', icon: Clock, label: 'Clock' },
   { to: '/timecards', icon: FileText, label: 'Timecards' },
   { to: '/payments', icon: DollarSign, label: 'Payments' },

@@ -247,6 +247,18 @@ def chore_completion_to_dict(completion) -> dict[str, Any]:
     return to_plain(ChoreCompletionSerializer(completion).data)
 
 
+def homework_assignment_to_dict(assignment) -> dict[str, Any]:
+    from apps.homework.serializers import HomeworkAssignmentSerializer
+
+    return to_plain(HomeworkAssignmentSerializer(assignment).data)
+
+
+def homework_submission_to_dict(submission) -> dict[str, Any]:
+    from apps.homework.serializers import HomeworkSubmissionSerializer
+
+    return to_plain(HomeworkSubmissionSerializer(submission).data)
+
+
 # ---------------------------------------------------------------------------
 # Collection helpers
 # ---------------------------------------------------------------------------
