@@ -121,7 +121,11 @@ class GoogleAuthService:
             scopes=SCOPES,
             redirect_uri=settings.GOOGLE_REDIRECT_URI,
         )
-        flow.fetch_token(code=code, code_verifier=code_verifier)
+        os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
+        try:
+            flow.fetch_token(code=code, code_verifier=code_verifier)
+        finally:
+            os.environ.pop("OAUTHLIB_RELAX_TOKEN_SCOPE", None)
         credentials = flow.credentials
 
         # Verify the ID token to get user info
