@@ -250,6 +250,11 @@ class Notification(CreatedAtModel):
         PROJECT_DUE_SOON = "project_due_soon", "Project Due Soon"
         CHORE_REMINDER = "chore_reminder", "Chore Reminder"
         APPROVAL_REMINDER = "approval_reminder", "Approval Reminder"
+        HOMEWORK_CREATED = "homework_created", "Homework Created"
+        HOMEWORK_SUBMITTED = "homework_submitted", "Homework Submitted"
+        HOMEWORK_APPROVED = "homework_approved", "Homework Approved"
+        HOMEWORK_REJECTED = "homework_rejected", "Homework Rejected"
+        HOMEWORK_DUE_SOON = "homework_due_soon", "Homework Due Soon"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,

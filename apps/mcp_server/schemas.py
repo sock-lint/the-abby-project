@@ -413,6 +413,61 @@ class DecideChoreCompletionIn(_Base):
 
 
 # ---------------------------------------------------------------------------
+# Homework
+# ---------------------------------------------------------------------------
+
+HomeworkSubject = Literal[
+    "math", "reading", "writing", "science", "social_studies", "art", "music", "other",
+]
+HomeworkSubmissionStatus = Literal["pending", "approved", "rejected"]
+
+
+class ListHomeworkIn(_Base):
+    assigned_to_id: Optional[int] = None
+    subject: Optional[HomeworkSubject] = None
+    limit: int = Field(default=50, ge=1, le=200)
+
+
+class GetHomeworkIn(_Base):
+    assignment_id: int
+
+
+class CreateHomeworkIn(_Base):
+    title: str = Field(min_length=1, max_length=255)
+    description: str = ""
+    subject: HomeworkSubject = "other"
+    effort_level: int = Field(default=3, ge=1, le=5)
+    due_date: date
+    assigned_to_id: int
+    reward_amount: Decimal = Field(default=Decimal("0.00"), ge=Decimal("0"))
+    coin_reward: int = Field(default=0, ge=0)
+    notes: str = ""
+    skill_tags: list[dict] = Field(
+        default_factory=list,
+        description='[{"skill_id": 1, "xp_amount": 15}, ...]',
+    )
+
+
+class SubmitHomeworkIn(_Base):
+    assignment_id: int
+    notes: str = ""
+
+
+class ListHomeworkSubmissionsIn(_Base):
+    user_id: Optional[int] = None
+    status: Optional[HomeworkSubmissionStatus] = None
+    limit: int = Field(default=50, ge=1, le=200)
+
+
+class DecideHomeworkSubmissionIn(_Base):
+    submission_id: int
+
+
+class PlanHomeworkIn(_Base):
+    assignment_id: int
+
+
+# ---------------------------------------------------------------------------
 # Dashboard
 # ---------------------------------------------------------------------------
 

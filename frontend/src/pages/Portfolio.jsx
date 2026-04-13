@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Image, Download, Plus, Camera } from 'lucide-react';
+import { Image, Download, Plus, Camera, BookOpen } from 'lucide-react';
+import SubjectBadge from '../components/SubjectBadge';
 import { getPortfolio, getProjects, uploadPhoto } from '../api';
 import { useApi } from '../hooks/useApi';
 import BottomSheet from '../components/BottomSheet';
@@ -15,10 +16,16 @@ export default function Portfolio() {
   const { data, loading, reload } = useApi(getPortfolio);
   const { data: projectsData } = useApi(getProjects);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [filter, setFilter] = useState('all'); // all | projects | homework
 
   if (loading) return <Loader />;
-  const groups = data || [];
+  // Support both old (array) and new ({projects, homework}) response shapes.
+  const isNewShape = data && !Array.isArray(data);
+  const projectGroups = isNewShape ? (data.projects || []) : (data || []);
+  const homeworkGroups = isNewShape ? (data.homework || []) : [];
+  const groups = projectGroups;
   const projects = normalizeList(projectsData);
+  const hasContent = projectGroups.length > 0 || homeworkGroups.length > 0;
 
   return (
     <div className="space-y-6">
@@ -43,40 +50,91 @@ export default function Portfolio() {
         </div>
       </div>
 
-      {groups.length === 0 ? (
+      {/* Filter tabs */}
+      {hasContent && homeworkGroups.length > 0 && (
+        <div className="flex gap-1 bg-forge-card rounded-lg p-1 border border-forge-border">
+          {['all', 'projects', 'homework'].map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                filter === f ? 'bg-amber-primary/20 text-amber-highlight' : 'text-forge-text-dim hover:text-white'
+              }`}
+            >
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!hasContent ? (
         <EmptyState>
           <Image className="mx-auto mb-3" size={32} />
           <div>No photos yet. Upload progress photos from your projects!</div>
         </EmptyState>
       ) : (
-        groups.map((group) => (
-          <div key={group.project_id}>
-            <h2 className="font-heading text-lg font-bold mb-3">{group.project_title}</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {group.photos.map((photo, i) => (
-                <motion.div
-                  key={photo.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                >
-                  <div className="relative aspect-square rounded-xl overflow-hidden bg-forge-card border border-forge-border">
-                    <img
-                      src={photo.image}
-                      alt={photo.caption}
-                      className="w-full h-full object-cover"
-                    />
-                    {photo.caption && (
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                        <div className="text-xs text-white truncate">{photo.caption}</div>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
+        <>
+          {/* Project photos */}
+          {(filter === 'all' || filter === 'projects') && projectGroups.map((group) => (
+            <div key={group.project_id}>
+              <h2 className="font-heading text-lg font-bold mb-3">{group.project_title}</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {group.photos.map((photo, i) => (
+                  <motion.div
+                    key={photo.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                  >
+                    <div className="relative aspect-square rounded-xl overflow-hidden bg-forge-card border border-forge-border">
+                      <img
+                        src={photo.image}
+                        alt={photo.caption}
+                        className="w-full h-full object-cover"
+                      />
+                      {photo.caption && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                          <div className="text-xs text-white truncate">{photo.caption}</div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))
+          ))}
+
+          {/* Homework proofs */}
+          {(filter === 'all' || filter === 'homework') && homeworkGroups.map((group) => (
+            <div key={group.subject}>
+              <h2 className="font-heading text-lg font-bold mb-3 flex items-center gap-2">
+                <BookOpen size={18} />
+                <SubjectBadge subject={group.subject} />
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {group.items.map((item, i) => (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                  >
+                    <div className="relative aspect-square rounded-xl overflow-hidden bg-forge-card border border-forge-border">
+                      <img
+                        src={item.image}
+                        alt={item.caption || item.assignment_title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                        <div className="text-xs text-white truncate">{item.assignment_title}</div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
       )}
 
       <AnimatePresence>

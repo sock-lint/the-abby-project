@@ -48,6 +48,7 @@ urlpatterns = [
     path("api/", include("apps.portfolio.urls")),
     path("api/", include("apps.rewards.urls")),
     path("api/", include("apps.chores.urls")),
+    path("api/", include("apps.homework.urls")),
     path("api/", include("apps.google_integration.urls")),
 ]
 

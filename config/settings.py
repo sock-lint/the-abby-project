@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "apps.portfolio",
     "apps.rewards",
     "apps.chores",
+    "apps.homework",
     "apps.mcp_server",
     "apps.google_integration",
 ]
@@ -139,6 +140,15 @@ COINS_PER_BADGE_RARITY = {
 }
 # How many Coins a child receives per $1.00 exchanged (money → coins).
 COINS_PER_DOLLAR = 10
+
+# --- Homework reward scaling ------------------------------------------------
+from decimal import Decimal as _D  # noqa: E402
+
+HOMEWORK_EFFORT_MULTIPLIERS = {1: _D("0.5"), 2: _D("0.75"), 3: _D("1.0"), 4: _D("1.5"), 5: _D("2.0")}
+HOMEWORK_EARLY_BONUS = _D("1.25")
+HOMEWORK_ON_TIME_MULTIPLIER = _D("1.0")
+HOMEWORK_LATE_PENALTY = _D("0.5")
+HOMEWORK_LATE_CUTOFF_DAYS = 3  # 0 rewards beyond this many days late
 
 # --- Anthropic / Claude ---------------------------------------------------
 # Optional. When set, enables Claude-powered ingestion enrichment and

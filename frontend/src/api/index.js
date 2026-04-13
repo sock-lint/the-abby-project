@@ -268,3 +268,30 @@ export const unlinkGoogleAccount = (forUserId) => {
 export const getCalendarSettings = () => api.get('/auth/google/calendar/');
 export const updateCalendarSettings = (data) => api.patch('/auth/google/calendar/', data);
 export const triggerCalendarSync = () => api.post('/auth/google/calendar/sync/');
+
+// Homework
+export const getHomeworkDashboard = () => api.get('/homework/dashboard/');
+export const getHomework = () => api.get('/homework/');
+export const getHomeworkDetail = (id) => api.get(`/homework/${id}/`);
+export const createHomework = (data) => api.post('/homework/', data);
+export const updateHomework = (id, data) => api.patch(`/homework/${id}/`, data);
+export const deleteHomework = (id) => api.delete(`/homework/${id}/`);
+export const submitHomework = (id, formData) =>
+  api.upload(`/homework/${id}/submit/`, formData);
+export const saveHomeworkTemplate = (id) =>
+  api.post(`/homework/${id}/save-template/`);
+export const planHomework = (id) =>
+  api.post(`/homework/${id}/plan/`);
+export const getHomeworkSubmissions = (status) => {
+  const qs = status ? `?status=${status}` : '';
+  return api.get(`/homework-submissions/${qs}`);
+};
+export const approveHomeworkSubmission = (id) =>
+  api.post(`/homework-submissions/${id}/approve/`);
+export const rejectHomeworkSubmission = (id) =>
+  api.post(`/homework-submissions/${id}/reject/`);
+export const getHomeworkTemplates = () => api.get('/homework-templates/');
+export const createHomeworkTemplate = (data) => api.post('/homework-templates/', data);
+export const deleteHomeworkTemplate = (id) => api.delete(`/homework-templates/${id}/`);
+export const createAssignmentFromTemplate = (templateId, data) =>
+  api.post(`/homework-templates/${templateId}/create-assignment/`, data);
