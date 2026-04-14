@@ -16,7 +16,8 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(npm run:*)",
       "Bash(grep -E '\\\\.\\(svg|css\\)$')",
-      "Bash(ls -la src/assets/parchment.svg src/assets/glyphs/*.svg)"
+      "Bash(ls -la src/assets/parchment.svg src/assets/glyphs/*.svg)",
+      "Bash(docker compose:*)"
     ]
   }
 }

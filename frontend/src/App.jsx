@@ -14,6 +14,7 @@ import Manage from './pages/Manage';
 import SettingsPage from './pages/SettingsPage';
 import QuestsHub from './pages/quests';
 import BestiaryHub from './pages/bestiary';
+import Character from './pages/Character';
 import TreasuryHub from './pages/treasury';
 import AtlasHub from './pages/atlas';
 import DesignShowcase from './pages/__design';
@@ -91,6 +92,9 @@ export default function App() {
             {/* Chapter III — Bestiary */}
             <Route path="/bestiary" element={<BestiaryHub />} />
 
+            {/* Sigil — the user's character/identity page, surfaced via the avatar menu */}
+            <Route path="/sigil" element={<Character />} />
+
             {/* Chapter IV — Treasury */}
             <Route path="/treasury" element={<TreasuryHub />} />
 
@@ -112,7 +116,7 @@ export default function App() {
             <Route path="/habits" element={<LegacyRedirect to="/quests?tab=habits" />} />
             <Route path="/inventory" element={<LegacyRedirect to="/bestiary?tab=satchel" />} />
             <Route path="/stable" element={<LegacyRedirect to="/bestiary?tab=party" />} />
-            <Route path="/character" element={<LegacyRedirect to="/bestiary?tab=sigil" />} />
+            <Route path="/character" element={<LegacyRedirect to="/sigil" />} />
             <Route path="/payments" element={<LegacyRedirect to="/treasury?tab=coffers" />} />
             <Route path="/timecards" element={<LegacyRedirect to="/treasury?tab=wages" />} />
             <Route path="/rewards" element={<LegacyRedirect to="/treasury?tab=bazaar" />} />

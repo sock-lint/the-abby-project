@@ -141,7 +141,7 @@ export default function Dashboard() {
           <ParchmentCard
             tone="bright"
             className="h-full cursor-pointer"
-            onClick={() => navigate('/bestiary?tab=sigil')}
+            onClick={() => navigate('/sigil')}
           >
             <div className="flex items-center gap-3">
               <div className="w-14 h-14 rounded-full bg-sheikah-teal/15 border-2 border-sheikah-teal/50 flex items-center justify-center shrink-0">

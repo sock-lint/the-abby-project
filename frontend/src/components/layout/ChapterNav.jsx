@@ -3,6 +3,7 @@ import { SlidersHorizontal, Settings, LogOut } from 'lucide-react';
 import {
   TodayIcon, QuestsIcon, BestiaryIcon, TreasuryIcon, AtlasIcon,
 } from '../icons/JournalIcons';
+import AvatarMenu from '../AvatarMenu';
 
 /**
  * ChapterNav — renders the five-chapter nav in two flavors:
@@ -114,14 +115,8 @@ export function ChapterSidebar({ user, onLogout }) {
         >
           <LogOut size={16} /> Sign off
         </button>
-        <div className="pt-2 mt-2 border-t border-ink-page-shadow/60 flex items-center gap-2 px-2">
-          <div className="w-8 h-8 rounded-full bg-sheikah-teal/20 flex items-center justify-center text-sheikah-teal-deep font-rune text-sm border border-sheikah-teal/40">
-            {(user?.display_name || user?.username || '?')[0].toUpperCase()}
-          </div>
-          <div className="text-sm font-body min-w-0">
-            <div className="text-ink-primary truncate">{user?.display_name || user?.username}</div>
-            <div className="font-script text-ink-whisper text-xs capitalize">{user?.role}</div>
-          </div>
+        <div className="pt-2 mt-2 border-t border-ink-page-shadow/60">
+          <AvatarMenu user={user} align="top" />
         </div>
       </div>
     </aside>
