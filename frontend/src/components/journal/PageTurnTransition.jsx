@@ -13,7 +13,11 @@ export default function PageTurnTransition({ children }) {
   return (
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
-        key={location.pathname + location.search}
+        // Key on pathname only. Changing search params (e.g. ?tab=…) MUST NOT
+        // unmount the outlet — ChapterHub already handles its own tab fade, and
+        // remounting the whole page on every tab click caused every useApi hook
+        // inside to re-fire (the "duplicate API calls on navigation" bug).
+        key={location.pathname}
         initial={{ opacity: 0, y: 10, rotateY: -1.5 }}
         animate={{ opacity: 1, y: 0, rotateY: 0 }}
         exit={{ opacity: 0, y: -6, rotateY: 1.5 }}

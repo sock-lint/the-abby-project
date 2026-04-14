@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react';
 import {
-  createContext, createElement, useCallback, useContext, useEffect, useState,
+  createContext, createElement, useCallback, useContext, useEffect, useRef, useState,
 } from 'react';
 import { getMe, login as apiLogin, logout as apiLogout } from '../api';
 import { setToken } from '../api/client';
@@ -10,25 +10,49 @@ export function useApi(apiFn, deps = []) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Unmount guard + per-request AbortController. Without these, a fetch
+  // that resolves after the caller has navigated away still calls setState
+  // on the gone component and races with the next page's own fetches —
+  // which is how transient errors silently left the content area blank.
+  const mountedRef = useRef(true);
+  const controllerRef = useRef(null);
+
   // ``deps`` is dynamic — callers pass an array literal that changes per
   // call site, so this hook intentionally trusts them rather than statically
   // verifying. ``apiFn`` is captured by closure on each render and re-bound
   // when ``deps`` changes; including it would re-fetch on every render.
   const load = useCallback(async () => {
+    // Abort any prior in-flight request before starting a new one
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+
     setLoading(true);
     setError(null);
     try {
-      const result = await apiFn();
+      // Pass the signal through — endpoint functions that opt in can abort;
+      // those that ignore the argument are unaffected.
+      const result = await apiFn(controller.signal);
+      if (!mountedRef.current || controller.signal.aborted) return;
       setData(result);
     } catch (err) {
+      if (!mountedRef.current || controller.signal.aborted) return;
+      if (err?.name === 'AbortError') return;
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (mountedRef.current && !controller.signal.aborted) setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    mountedRef.current = true;
+    load();
+    return () => {
+      mountedRef.current = false;
+      controllerRef.current?.abort();
+    };
+  }, [load]);
 
   return { data, loading, error, reload: load, setData };
 }

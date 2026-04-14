@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getAchievementsSummary, getBadges, getCategories } from '../api';
 import Loader from '../components/Loader';
+import ErrorAlert from '../components/ErrorAlert';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
 import { normalizeList } from '../utils/api';
@@ -10,13 +11,26 @@ import SkillTreeView from './achievements/SkillTreeView';
 
 export default function Achievements() {
   const { isParent } = useRole();
-  const { data: summary, loading } = useApi(getAchievementsSummary);
+  const { data: summary, loading, error, reload } = useApi(getAchievementsSummary);
   const { data: allBadgesData, loading: badgesLoading } = useApi(getBadges);
   const { data: categoriesData, reload: reloadCategories } = useApi(getCategories);
   const [topTab, setTopTab] = useState('view');
 
   if (loading || badgesLoading) return <Loader />;
-  if (!summary) return null;
+  if (error || !summary) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-3">
+        <ErrorAlert message={error || 'Could not load the atlas.'} />
+        <button
+          type="button"
+          onClick={reload}
+          className="px-4 py-2 text-sm bg-sheikah-teal-deep text-ink-page-rune-glow rounded-lg hover:bg-sheikah-teal transition-colors font-display"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   const categories = normalizeList(categoriesData);
   const allBadges = normalizeList(allBadgesData);

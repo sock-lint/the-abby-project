@@ -8,6 +8,7 @@ import { useApi } from '../hooks/useApi';
 import { useAuth } from '../hooks/useApi';
 import { formatCurrency, formatDuration } from '../utils/format';
 import Loader from '../components/Loader';
+import ErrorAlert from '../components/ErrorAlert';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import QuestLogEntry from '../components/journal/QuestLogEntry';
 import StreakFlame from '../components/journal/StreakFlame';
@@ -35,7 +36,7 @@ import { staggerChildren, staggerItem, inkBleed } from '../motion/variants';
  *   - Recent Badges
  */
 export default function Dashboard() {
-  const { data, loading } = useApi(getDashboard);
+  const { data, loading, error, reload } = useApi(getDashboard);
   const { data: recentDrops } = useApi(getRecentDrops);
   const { data: stableData } = useApi(getStable);
   const { data: activeQuest } = useApi(getActiveQuest);
@@ -43,7 +44,20 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   if (loading) return <Loader />;
-  if (!data) return null;
+  if (error || !data) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-3">
+        <ErrorAlert message={error || 'Could not load today’s entry.'} />
+        <button
+          type="button"
+          onClick={reload}
+          className="px-4 py-2 text-sm bg-sheikah-teal-deep text-ink-page-rune-glow rounded-lg hover:bg-sheikah-teal transition-colors font-display"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   const {
     active_timer, current_balance, coin_balance, this_week, active_projects,

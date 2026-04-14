@@ -93,11 +93,24 @@ function PaymentAdjustModal({ onClose, onSaved }) {
 
 export default function Payments() {
   const { isParent } = useRole();
-  const { data, loading, reload } = useApi(getBalance);
+  const { data, loading, error, reload } = useApi(getBalance);
   const [showAdjust, setShowAdjust] = useState(false);
 
   if (loading) return <Loader />;
-  if (!data) return null;
+  if (error || !data) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-3">
+        <ErrorAlert message={error || 'Could not load the coffers.'} />
+        <button
+          type="button"
+          onClick={reload}
+          className="px-4 py-2 text-sm bg-sheikah-teal-deep text-ink-page-rune-glow rounded-lg hover:bg-sheikah-teal transition-colors font-display"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   const { balance, breakdown, recent_transactions } = data;
 
