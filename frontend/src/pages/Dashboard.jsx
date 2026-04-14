@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, ClipboardCheck, Clock, Coins, DollarSign, Flame, FolderKanban, Trophy, Timer, Target } from 'lucide-react';
+import { Check, ClipboardCheck, Clock, Coins, DollarSign, Flame, FolderKanban, Trophy, Timer, Target, Zap } from 'lucide-react';
 import { getDashboard } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
@@ -17,7 +17,7 @@ export default function Dashboard() {
   if (loading) return <Loader />;
   if (!data) return null;
 
-  const { active_timer, current_balance, coin_balance, this_week, active_projects, recent_badges, streak_days, savings_goals, chores_today, pending_chore_approvals } = data;
+  const { active_timer, current_balance, coin_balance, this_week, active_projects, recent_badges, streak_days, savings_goals, chores_today, pending_chore_approvals, rpg } = data;
 
   return (
     <div className="space-y-6">
@@ -87,8 +87,11 @@ export default function Dashboard() {
         <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
           <Card>
             <Flame className="text-orange-400 mb-1" size={20} />
-            <div className="font-heading text-2xl font-bold">{streak_days}</div>
+            <div className="font-heading text-2xl font-bold">{rpg?.login_streak ?? streak_days}</div>
             <div className="text-xs text-forge-text-dim">Day Streak</div>
+            {rpg?.perfect_days_count > 0 && (
+              <div className="text-xs text-amber-highlight mt-0.5">{rpg.perfect_days_count} perfect days</div>
+            )}
           </Card>
         </motion.div>
       </div>
@@ -132,6 +135,24 @@ export default function Dashboard() {
             </div>
           </Card>
         </motion.div>
+      )}
+
+      {/* Habits Widget */}
+      {rpg?.habits_today?.length > 0 && (
+        <div>
+          <h2 className="font-heading text-lg font-bold mb-3 flex items-center gap-2 cursor-pointer" onClick={() => navigate('/habits')}>
+            <Zap size={18} /> Habits
+          </h2>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {rpg.habits_today.map((h) => (
+              <Card key={h.id} className="shrink-0 text-center w-20 cursor-pointer" onClick={() => navigate('/habits')}>
+                <div className="text-2xl mb-1">{h.icon || '⚡'}</div>
+                <div className="text-xs font-medium truncate">{h.name}</div>
+                <div className="text-xs text-forge-text-dim">{h.taps_today}x today</div>
+              </Card>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Active Projects */}
