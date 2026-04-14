@@ -7,6 +7,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
+import DropToastStack from './DropToastStack';
 
 const allNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -39,6 +40,7 @@ export default function Layout({ user, onLogout }) {
 
   return (
     <div className="flex min-h-screen">
+      <DropToastStack />
       {/* Sidebar */}
       <aside className="w-56 shrink-0 bg-forge-card border-r border-forge-border flex flex-col fixed h-full z-10
                          max-md:hidden">
