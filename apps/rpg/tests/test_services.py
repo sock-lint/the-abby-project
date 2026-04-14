@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from unittest.mock import patch
 
 from django.db import models
 from django.test import TestCase
@@ -184,13 +185,15 @@ class GameLoopServiceTests(TestCase):
             username="loopchild", password="testpass", role="child"
         )
 
-    def test_on_task_completed_first_today(self):
+    @patch("apps.rpg.services.random.random", return_value=1.0)
+    def test_on_task_completed_first_today(self, _mock_random):
         """First task of the day awards check-in bonus coins."""
         from apps.rewards.models import CoinLedger
 
         result = GameLoopService.on_task_completed(self.user, "clock_out")
         self.assertTrue(result["streak"]["is_first_today"])
         self.assertGreater(result["streak"]["check_in_bonus_coins"], 0)
+        self.assertIn("drops", result)
         # Verify CoinLedger has the entry
         self.assertTrue(
             CoinLedger.objects.filter(
@@ -198,7 +201,8 @@ class GameLoopServiceTests(TestCase):
             ).exists()
         )
 
-    def test_on_task_completed_second_today(self):
+    @patch("apps.rpg.services.random.random", return_value=1.0)
+    def test_on_task_completed_second_today(self, _mock_random):
         """Second task same day does not award bonus."""
         from apps.rewards.models import CoinLedger
 
@@ -208,10 +212,14 @@ class GameLoopServiceTests(TestCase):
         result = GameLoopService.on_task_completed(self.user, "clock_out")
         self.assertFalse(result["streak"]["is_first_today"])
         self.assertEqual(result["streak"]["check_in_bonus_coins"], 0)
+        self.assertIn("drops", result)
         self.assertEqual(
             CoinLedger.objects.filter(user=self.user).count(), initial_count
         )
 
-    def test_on_task_completed_returns_trigger_type(self):
+    @patch("apps.rpg.services.random.random", return_value=1.0)
+    def test_on_task_completed_returns_trigger_type(self, _mock_random):
         result = GameLoopService.on_task_completed(self.user, "milestone_complete")
         self.assertEqual(result["trigger_type"], "milestone_complete")
+        self.assertIn("drops", result)
+        self.assertEqual(result["drops"], [])

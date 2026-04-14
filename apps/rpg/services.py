@@ -288,8 +288,28 @@ class GameLoopService:
             )
             notifications.append(f"{streak}-day streak milestone")
 
+        # Step 4: Drop roll
+        streak_bonus = min(
+            streak_result["streak"] * STREAK_DROP_BONUS_PER_DAY,
+            STREAK_DROP_BONUS_CAP,
+        )
+        drops = DropService.process_drops(user, trigger_type, streak_bonus)
+
+        if drops:
+            from apps.projects.notifications import notify
+
+            drop_names = ", ".join(d["item_name"] for d in drops)
+            notify(
+                user,
+                title=f"Item dropped: {drop_names}",
+                message=f"You found {drop_names}!",
+                notification_type="badge_earned",
+                link="/inventory",
+            )
+
         return {
             "trigger_type": trigger_type,
             "streak": streak_result,
             "notifications": notifications,
+            "drops": drops,
         }
