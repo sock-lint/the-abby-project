@@ -1,0 +1,269 @@
+import logging
+from datetime import timedelta
+
+from django.db import transaction
+from django.utils import timezone
+
+logger = logging.getLogger(__name__)
+
+# Damage values per trigger type (for boss fights)
+TRIGGER_DAMAGE = {
+    "clock_out": 10,  # per hour
+    "chore_complete": 15,
+    "homework_complete": 25,
+    "milestone_complete": 50,
+    "badge_earned": 30,
+    "project_complete": 75,
+    "habit_log": 5,
+}
+
+
+class QuestService:
+    """Manages quest lifecycle: start, progress, completion, expiration."""
+
+    @staticmethod
+    @transaction.atomic
+    def start_quest(user, definition_id, use_scroll_item_id=None):
+        """Start a quest for a user. Optionally consumes a quest scroll from inventory.
+
+        Returns the new Quest, or raises ValueError.
+        """
+        from apps.quests.models import QuestDefinition, Quest, QuestParticipant
+
+        # Check no active quest
+        if Quest.objects.filter(
+            participants__user=user, status=Quest.Status.ACTIVE,
+        ).exists():
+            raise ValueError("You already have an active quest")
+
+        try:
+            definition = QuestDefinition.objects.get(pk=definition_id)
+        except QuestDefinition.DoesNotExist:
+            raise ValueError("Quest not found")
+
+        # Check badge requirement
+        if definition.required_badge:
+            from apps.achievements.models import UserBadge
+            if not UserBadge.objects.filter(user=user, badge=definition.required_badge).exists():
+                raise ValueError(f"You need the '{definition.required_badge.name}' badge to start this quest")
+
+        # Consume scroll if provided
+        if use_scroll_item_id:
+            from apps.rpg.models import ItemDefinition, UserInventory
+            try:
+                scroll_inv = UserInventory.objects.select_for_update().get(
+                    user=user, item_id=use_scroll_item_id, quantity__gte=1,
+                )
+            except UserInventory.DoesNotExist:
+                raise ValueError("You don't have that quest scroll")
+            if scroll_inv.item.item_type != ItemDefinition.ItemType.QUEST_SCROLL:
+                raise ValueError("That item is not a quest scroll")
+            scroll_inv.quantity -= 1
+            if scroll_inv.quantity == 0:
+                scroll_inv.delete()
+            else:
+                scroll_inv.save(update_fields=["quantity", "updated_at"])
+
+        now = timezone.now()
+        quest = Quest.objects.create(
+            definition=definition,
+            start_date=now,
+            end_date=now + timedelta(days=definition.duration_days),
+        )
+        QuestParticipant.objects.create(quest=quest, user=user)
+
+        logger.info("User %s started quest: %s", user.username, definition.name)
+        return quest
+
+    @staticmethod
+    @transaction.atomic
+    def record_progress(user, trigger_type, context=None):
+        """Record quest progress from a completed task.
+
+        Returns dict with: quest_id, quest_name, damage_dealt, new_progress, completed (bool), rewards (if completed).
+        Returns None if no active quest or trigger doesn't match filter.
+        """
+        from apps.quests.models import Quest, QuestParticipant
+
+        if context is None:
+            context = {}
+
+        # Find user's active quest
+        try:
+            participant = QuestParticipant.objects.select_for_update().select_related(
+                "quest", "quest__definition",
+            ).get(user=user, quest__status=Quest.Status.ACTIVE)
+        except QuestParticipant.DoesNotExist:
+            return None
+
+        quest = participant.quest
+        definition = quest.definition
+
+        # Check if quest is expired
+        if quest.is_expired:
+            quest.status = Quest.Status.EXPIRED
+            quest.save(update_fields=["status", "updated_at"])
+            return None
+
+        # Check trigger filter
+        trigger_filter = definition.trigger_filter or {}
+        allowed_triggers = trigger_filter.get("allowed_triggers")
+        if allowed_triggers and trigger_type not in allowed_triggers:
+            return None
+
+        # Check project filter
+        if trigger_filter.get("project_id") and context.get("project_id") != trigger_filter["project_id"]:
+            return None
+
+        # Check skill category filter
+        if trigger_filter.get("skill_category_id") and context.get("skill_category_id") != trigger_filter["skill_category_id"]:
+            return None
+
+        # Check chore filter
+        if trigger_filter.get("chore_ids") and context.get("chore_id") not in trigger_filter["chore_ids"]:
+            return None
+
+        # Calculate damage/progress
+        if definition.quest_type == "boss":
+            base_damage = TRIGGER_DAMAGE.get(trigger_type, 10)
+            # Scale by hours for clock_out
+            if trigger_type == "clock_out" and "hours" in context:
+                damage = int(base_damage * context["hours"])
+            else:
+                damage = base_damage
+        else:
+            # Collection quest: each qualifying trigger = 1 item collected
+            damage = 1
+
+        # Apply damage
+        quest.current_progress += damage
+        participant.contribution += damage
+
+        quest.save(update_fields=["current_progress", "updated_at"])
+        participant.save(update_fields=["contribution", "updated_at"])
+
+        # Check completion
+        completed = False
+        rewards = None
+        if quest.current_progress >= quest.effective_target:
+            completed = True
+            rewards = QuestService._complete_quest(quest, user)
+
+        return {
+            "quest_id": quest.pk,
+            "quest_name": definition.name,
+            "damage_dealt": damage,
+            "new_progress": quest.current_progress,
+            "target": quest.effective_target,
+            "completed": completed,
+            "rewards": rewards,
+        }
+
+    @staticmethod
+    @transaction.atomic
+    def _complete_quest(quest, user):
+        """Mark quest as completed and award rewards."""
+        from apps.quests.models import Quest
+        from apps.rewards.models import CoinLedger
+        from apps.rewards.services import CoinService
+        from apps.rpg.models import UserInventory
+        from apps.projects.notifications import notify
+
+        quest.status = Quest.Status.COMPLETED
+        quest.save(update_fields=["status", "updated_at"])
+
+        rewards = {"coins": 0, "xp": 0, "items": []}
+        definition = quest.definition
+
+        # Award coins
+        if definition.coin_reward > 0:
+            CoinService.award_coins(
+                user, definition.coin_reward, CoinLedger.Reason.ADJUSTMENT,
+                description=f"Quest complete: {definition.name}",
+            )
+            rewards["coins"] = definition.coin_reward
+
+        # Award XP
+        if definition.xp_reward > 0:
+            from apps.achievements.services import AwardService
+            AwardService.grant(user, xp=definition.xp_reward)
+            rewards["xp"] = definition.xp_reward
+
+        # Award item rewards
+        for reward_item in definition.reward_items.select_related("item").all():
+            inv, created = UserInventory.objects.get_or_create(
+                user=user, item=reward_item.item,
+                defaults={"quantity": reward_item.quantity},
+            )
+            if not created:
+                inv.quantity += reward_item.quantity
+                inv.save(update_fields=["quantity", "updated_at"])
+            rewards["items"].append({
+                "item_name": reward_item.item.name,
+                "item_icon": reward_item.item.icon,
+                "quantity": reward_item.quantity,
+            })
+
+        notify(
+            user,
+            title=f"Quest complete: {definition.name}!",
+            message=f"Earned {rewards['coins']} coins and {rewards['xp']} XP!",
+            notification_type="badge_earned",
+            link="/quests",
+        )
+
+        logger.info("User %s completed quest: %s", user.username, definition.name)
+        return rewards
+
+    @staticmethod
+    def expire_quests():
+        """Expire all active quests past their end_date. Called by Celery task."""
+        from apps.quests.models import Quest
+
+        expired = Quest.objects.filter(
+            status=Quest.Status.ACTIVE,
+            end_date__lt=timezone.now(),
+        ).update(status=Quest.Status.EXPIRED)
+
+        return expired
+
+    @staticmethod
+    def apply_boss_rage():
+        """Apply rage shield to boss quests where no progress was made today.
+
+        Called by nightly Celery task.
+        """
+        from apps.quests.models import Quest, QuestParticipant
+
+        today = timezone.localdate()
+        active_bosses = Quest.objects.filter(
+            status=Quest.Status.ACTIVE,
+            definition__quest_type="boss",
+        )
+
+        raged = 0
+        for quest in active_bosses:
+            # Check if any participant made progress today
+            had_progress = quest.participants.filter(
+                updated_at__date=today,
+            ).exists()
+
+            if not had_progress:
+                quest.rage_shield += 20
+                quest.save(update_fields=["rage_shield", "updated_at"])
+                raged += 1
+
+        return raged
+
+    @staticmethod
+    def get_active_quest(user):
+        """Get the user's current active quest, or None."""
+        from apps.quests.models import Quest, QuestParticipant
+
+        try:
+            participant = QuestParticipant.objects.select_related(
+                "quest", "quest__definition",
+            ).get(user=user, quest__status=Quest.Status.ACTIVE)
+            return participant.quest
+        except QuestParticipant.DoesNotExist:
+            return None
