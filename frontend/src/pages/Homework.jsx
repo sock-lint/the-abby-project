@@ -227,83 +227,84 @@ export default function Homework() {
       )}
 
       {/* Create assignment */}
-      <BottomSheet open={showCreate} onClose={() => setShowCreate(false)} title="New assignment">
-        <form onSubmit={handleCreate} className="space-y-4">
-          <input
-            type="text" placeholder="Title" required value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            className={inputClass}
-          />
-          <textarea
-            placeholder="Description (optional)" value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className={inputClass}
-            rows={2}
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <select
-              value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })}
-              className={inputClass}
-            >
-              {SUBJECTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
+      {showCreate && (
+        <BottomSheet onClose={() => setShowCreate(false)} title="New assignment">
+          <form onSubmit={handleCreate} className="space-y-4">
             <input
-              type="date" required value={form.due_date}
-              onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+              type="text" placeholder="Title" required value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
               className={inputClass}
             />
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className={labelClass}>Effort (1-5)</label>
-              <input
-                type="number" min={1} max={5} value={form.effort_level}
-                onChange={(e) => setForm({ ...form, effort_level: e.target.value })}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>$ reward</label>
-              <input
-                type="number" step="0.01" min={0} value={form.reward_amount}
-                onChange={(e) => setForm({ ...form, reward_amount: e.target.value })}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Coins</label>
-              <input
-                type="number" min={0} value={form.coin_reward}
-                onChange={(e) => setForm({ ...form, coin_reward: e.target.value })}
-                className={inputClass}
-              />
-            </div>
-          </div>
-          {isParent && children.length > 0 && (
-            <select
-              value={form.assigned_to} required
-              onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+            <textarea
+              placeholder="Description (optional)" value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
               className={inputClass}
-            >
-              <option value="">Assign to…</option>
-              {children.map((c) => (
-                <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
-              ))}
-            </select>
-          )}
-          <button type="submit" className={`w-full py-2.5 text-sm ${buttonPrimary}`}>
-            Create assignment
-          </button>
-        </form>
-      </BottomSheet>
+              rows={2}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <select
+                value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                className={inputClass}
+              >
+                {SUBJECTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+              <input
+                type="date" required value={form.due_date}
+                onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelClass}>Effort (1-5)</label>
+                <input
+                  type="number" min={1} max={5} value={form.effort_level}
+                  onChange={(e) => setForm({ ...form, effort_level: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>$ reward</label>
+                <input
+                  type="number" step="0.01" min={0} value={form.reward_amount}
+                  onChange={(e) => setForm({ ...form, reward_amount: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Coins</label>
+                <input
+                  type="number" min={0} value={form.coin_reward}
+                  onChange={(e) => setForm({ ...form, coin_reward: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+            {isParent && children.length > 0 && (
+              <select
+                value={form.assigned_to} required
+                onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+                className={inputClass}
+              >
+                <option value="">Assign to…</option>
+                {children.map((c) => (
+                  <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
+                ))}
+              </select>
+            )}
+            <button type="submit" className={`w-full py-2.5 text-sm ${buttonPrimary}`}>
+              Create assignment
+            </button>
+          </form>
+        </BottomSheet>
+      )}
 
       {/* Submit homework */}
-      <BottomSheet
-        open={!!showSubmit}
-        onClose={() => { setShowSubmit(null); setSubmitImages([]); setSubmitNotes(''); }}
-        title="Affix photographic evidence"
-      >
-        {showSubmit && (
+      {showSubmit && (
+        <BottomSheet
+          onClose={() => { setShowSubmit(null); setSubmitImages([]); setSubmitNotes(''); }}
+          title="Affix photographic evidence"
+        >
           <div className="space-y-4">
             <div>
               <h3 className="font-display text-lg text-ink-primary">{showSubmit.title}</h3>
@@ -357,8 +358,8 @@ export default function Homework() {
               <Send size={16} /> {submitting ? 'Submitting…' : 'Submit for review'}
             </button>
           </div>
-        )}
-      </BottomSheet>
+        </BottomSheet>
+      )}
     </div>
   );
 }
