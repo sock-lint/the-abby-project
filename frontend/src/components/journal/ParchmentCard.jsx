@@ -1,4 +1,6 @@
 import { forwardRef } from 'react';
+import flourishCornerUrl from '../../assets/glyphs/flourish-corner.svg';
+import waxSealUrl from '../../assets/glyphs/wax-seal.svg';
 
 /**
  * ParchmentCard — the foundation panel of the Hyrule Field Notes system.
@@ -58,28 +60,28 @@ function CornerFlourishes() {
   return (
     <>
       <img
-        src="/glyphs/flourish-corner.svg"
+        src={flourishCornerUrl}
         alt=""
         aria-hidden="true"
         className="absolute top-1 left-1 w-8 h-8 text-ink-secondary opacity-50 pointer-events-none"
         style={{ filter: 'sepia(1) saturate(0.6) brightness(0.6)' }}
       />
       <img
-        src="/glyphs/flourish-corner.svg"
+        src={flourishCornerUrl}
         alt=""
         aria-hidden="true"
         className="absolute top-1 right-1 w-8 h-8 opacity-50 pointer-events-none scale-x-[-1]"
         style={{ filter: 'sepia(1) saturate(0.6) brightness(0.6)' }}
       />
       <img
-        src="/glyphs/flourish-corner.svg"
+        src={flourishCornerUrl}
         alt=""
         aria-hidden="true"
         className="absolute bottom-1 left-1 w-8 h-8 opacity-50 pointer-events-none scale-y-[-1]"
         style={{ filter: 'sepia(1) saturate(0.6) brightness(0.6)' }}
       />
       <img
-        src="/glyphs/flourish-corner.svg"
+        src={flourishCornerUrl}
         alt=""
         aria-hidden="true"
         className="absolute bottom-1 right-1 w-8 h-8 opacity-50 pointer-events-none scale-x-[-1] scale-y-[-1]"
@@ -98,7 +100,7 @@ function WaxSeal({ position = 'top-right' }) {
   };
   return (
     <img
-      src="/glyphs/wax-seal.svg"
+      src={waxSealUrl}
       alt=""
       aria-hidden="true"
       className={`absolute ${positions[position] || positions['top-right']} w-10 h-10 drop-shadow-md pointer-events-none`}

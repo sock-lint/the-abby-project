@@ -12,7 +12,7 @@ import { inkBleed } from '../../motion/variants';
  * Props:
  *   title    : string — chapter title (displayed in Cormorant display)
  *   kicker   : string — hand-lettered label above the title
- *   glyph    : string — glyph name from /glyphs/ for the divider
+ *   glyph    : string — glyph name (see DeckleDivider's GLYPH_URLS) for the divider
  *   tabs     : Array<{ id, label, render: () => JSX }>
  *   defaultTabId? : string — tab to fall back to when ?tab= is missing
  */

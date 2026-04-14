@@ -1,3 +1,5 @@
+import runeOrbUrl from '../../assets/glyphs/rune-orb.svg';
+
 /**
  * RuneBand — shimmering sheikah-teal band displayed across the top of a page
  * while the user is clocked in. Acts as an ever-present reminder that time
@@ -35,7 +37,7 @@ export default function RuneBand({ projectTitle, elapsedLabel, onClick }) {
 
       <div className="relative flex items-center gap-3">
         <img
-          src="/glyphs/rune-orb.svg"
+          src={runeOrbUrl}
           alt=""
           aria-hidden="true"
           className="w-6 h-6 text-sheikah-teal-deep animate-rune-pulse"

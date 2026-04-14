@@ -8,7 +8,15 @@
       "Read(//c/Users/socce/Documents/GitHub/the-abby-project/frontend/**)",
       "Bash(npx vite:*)",
       "Bash(python -c \"import django; print\\(django.__version__\\)\")",
-      "Bash(docker --version)"
+      "Bash(docker --version)",
+      "Bash(mkdir -p frontend/src/assets/glyphs)",
+      "Bash(mv frontend/public/glyphs/*.svg frontend/src/assets/glyphs/)",
+      "Bash(mv frontend/public/parchment.svg frontend/src/assets/parchment.svg)",
+      "Bash(rmdir frontend/public/glyphs)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npm run:*)",
+      "Bash(grep -E '\\\\.\\(svg|css\\)$')",
+      "Bash(ls -la src/assets/parchment.svg src/assets/glyphs/*.svg)"
     ]
   }
 }
