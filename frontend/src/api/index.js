@@ -317,3 +317,13 @@ export const feedPet = (petId, foodItemId) =>
 export const activatePet = (petId) => api.post(`/pets/${petId}/activate/`);
 export const getMounts = () => api.get('/mounts/');
 export const activateMount = (mountId) => api.post(`/mounts/${mountId}/activate/`);
+
+// Quests
+export const getActiveQuest = () => api.get('/quests/active/');
+export const getAvailableQuests = () => api.get('/quests/available/');
+export const startQuest = (definitionId, scrollItemId) =>
+  api.post('/quests/start/', { definition_id: definitionId, scroll_item_id: scrollItemId });
+export const getQuestHistory = () => api.get('/quests/history/');
+export const createQuest = (data) => api.post('/quests/', data);
+export const assignQuest = (definitionId, userId) =>
+  api.post(`/quests/${definitionId}/assign/`, { user_id: userId });
