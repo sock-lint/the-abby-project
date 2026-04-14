@@ -132,6 +132,13 @@ class ClockService:
             coin_description=f"Hourly coins: {entry.project.title}",
         )
 
+        # RPG game loop
+        from apps.rpg.services import GameLoopService
+        GameLoopService.on_task_completed(
+            user, "clock_out",
+            {"project_id": entry.project_id, "hours": hours},
+        )
+
         return entry
 
     @staticmethod

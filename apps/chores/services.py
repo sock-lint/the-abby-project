@@ -212,6 +212,12 @@ class ChoreService:
             link="/chores",
         )
 
+        # RPG game loop
+        from apps.rpg.services import GameLoopService
+        GameLoopService.on_task_completed(
+            completion.user, "chore_complete", {"chore_id": completion.chore_id},
+        )
+
         return completion
 
     @staticmethod

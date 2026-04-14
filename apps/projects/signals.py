@@ -82,6 +82,14 @@ def handle_project_status_change(sender, instance, created, **kwargs):
                 created_by=instance.created_by,
             )
 
+        # RPG game loop
+        from apps.rpg.services import GameLoopService
+        if instance.assigned_to:
+            GameLoopService.on_task_completed(
+                instance.assigned_to, "project_complete",
+                {"project_id": instance.pk},
+            )
+
 
 @receiver(pre_save, sender="projects.ProjectMilestone")
 def track_milestone_completion(sender, instance, **kwargs):
@@ -134,3 +142,11 @@ def handle_milestone_completed(sender, instance, created, **kwargs):
         )
 
     BadgeService.evaluate_badges(user)
+
+    # RPG game loop
+    from apps.rpg.services import GameLoopService
+    if instance.project.assigned_to:
+        GameLoopService.on_task_completed(
+            instance.project.assigned_to, "milestone_complete",
+            {"project_id": instance.project_id, "milestone_id": instance.pk},
+        )
