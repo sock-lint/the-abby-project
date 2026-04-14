@@ -336,6 +336,14 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.rpg.tasks.decay_habit_strength_task",
         "schedule": crontab(hour=0, minute=5),
     },
+    "quest-expire": {
+        "task": "apps.quests.tasks.expire_quests_task",
+        "schedule": crontab(hour=0, minute=10),
+    },
+    "quest-boss-rage": {
+        "task": "apps.quests.tasks.apply_boss_rage_task",
+        "schedule": crontab(hour=0, minute=15),
+    },
 }
 
 # Session

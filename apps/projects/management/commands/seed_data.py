@@ -265,6 +265,7 @@ class Command(BaseCommand):
         self._create_pet_species()
         self._create_item_catalog()
         self._create_sample_habits()
+        self._create_sample_quests()
 
         self.stdout.write(self.style.SUCCESS("Seeding complete!"))
 
@@ -734,3 +735,72 @@ class Command(BaseCommand):
             )
             if created:
                 self.stdout.write(f"  Created habit: {habit.name}")
+
+    def _create_sample_quests(self):
+        from apps.quests.models import QuestDefinition, QuestRewardItem
+        from apps.rpg.models import ItemDefinition
+
+        quests = [
+            {
+                "name": "Dragon Slayer",
+                "description": "Deal 500 damage to the mighty dragon by completing tasks!",
+                "icon": "\U0001f409",
+                "quest_type": "boss",
+                "target_value": 500,
+                "duration_days": 7,
+                "coin_reward": 50,
+                "xp_reward": 100,
+                "is_system": True,
+            },
+            {
+                "name": "Feather Collector",
+                "description": "Collect 10 phoenix feathers by completing any tasks.",
+                "icon": "\U0001fab6",
+                "quest_type": "collection",
+                "target_value": 10,
+                "duration_days": 5,
+                "coin_reward": 25,
+                "xp_reward": 50,
+                "is_system": True,
+            },
+            {
+                "name": "Chore Champion",
+                "description": "Complete 15 chores to prove your household mastery!",
+                "icon": "\U0001f3c6",
+                "quest_type": "collection",
+                "target_value": 15,
+                "duration_days": 7,
+                "coin_reward": 30,
+                "xp_reward": 75,
+                "is_system": True,
+                "trigger_filter": {"allowed_triggers": ["chore_complete"]},
+            },
+            {
+                "name": "Focus Master",
+                "description": "Clock 20 hours of focused project work to defeat the distraction monster!",
+                "icon": "\U0001f9e0",
+                "quest_type": "boss",
+                "target_value": 200,
+                "duration_days": 14,
+                "coin_reward": 75,
+                "xp_reward": 150,
+                "is_system": True,
+                "trigger_filter": {"allowed_triggers": ["clock_out"]},
+            },
+        ]
+
+        for q_data in quests:
+            trigger_filter = q_data.pop("trigger_filter", {})
+            qd, created = QuestDefinition.objects.get_or_create(
+                name=q_data["name"],
+                defaults={**q_data, "trigger_filter": trigger_filter},
+            )
+            if created:
+                self.stdout.write(f"  Created quest: {qd.name}")
+                # Add egg reward to boss quests
+                if qd.quest_type == "boss":
+                    egg = ItemDefinition.objects.filter(item_type="egg").first()
+                    if egg:
+                        QuestRewardItem.objects.get_or_create(
+                            quest_definition=qd, item=egg, defaults={"quantity": 1},
+                        )
