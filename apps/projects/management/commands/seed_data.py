@@ -657,6 +657,24 @@ class Command(BaseCommand):
             {"name": "Small Coin Pouch", "icon": "👛", "item_type": "coin_pouch", "rarity": "common", "coin_value": 5, "metadata": {"coins": 5}},
             {"name": "Medium Coin Pouch", "icon": "💰", "item_type": "coin_pouch", "rarity": "uncommon", "coin_value": 15, "metadata": {"coins": 15}},
             {"name": "Large Coin Pouch", "icon": "💎", "item_type": "coin_pouch", "rarity": "rare", "coin_value": 50, "metadata": {"coins": 50}},
+            # Avatar Frames
+            {"name": "Bronze Frame", "icon": "🟫", "item_type": "cosmetic_frame", "rarity": "common", "coin_value": 5, "metadata": {"border_color": "#CD7F32"}},
+            {"name": "Silver Frame", "icon": "⬜", "item_type": "cosmetic_frame", "rarity": "uncommon", "coin_value": 15, "metadata": {"border_color": "#C0C0C0"}},
+            {"name": "Gold Frame", "icon": "🟨", "item_type": "cosmetic_frame", "rarity": "rare", "coin_value": 30, "metadata": {"border_color": "#FFD700"}},
+            {"name": "Cosmic Frame", "icon": "🌌", "item_type": "cosmetic_frame", "rarity": "legendary", "coin_value": 100, "metadata": {"border_color": "#6A0DAD"}},
+            # Titles
+            {"name": "Apprentice", "icon": "🎓", "item_type": "cosmetic_title", "rarity": "common", "coin_value": 5, "metadata": {"text": "Apprentice"}},
+            {"name": "Artisan", "icon": "🛠️", "item_type": "cosmetic_title", "rarity": "uncommon", "coin_value": 15, "metadata": {"text": "Artisan"}},
+            {"name": "Master Crafter", "icon": "⚒️", "item_type": "cosmetic_title", "rarity": "rare", "coin_value": 30, "metadata": {"text": "Master Crafter"}},
+            {"name": "Legendary Forgemaster", "icon": "👑", "item_type": "cosmetic_title", "rarity": "legendary", "coin_value": 100, "metadata": {"text": "Legendary Forgemaster"}},
+            # Themes
+            {"name": "Ocean Theme", "icon": "🌊", "item_type": "cosmetic_theme", "rarity": "uncommon", "coin_value": 20, "metadata": {"accent": "#0077BE"}},
+            {"name": "Forest Theme", "icon": "🌲", "item_type": "cosmetic_theme", "rarity": "uncommon", "coin_value": 20, "metadata": {"accent": "#228B22"}},
+            {"name": "Sunset Theme", "icon": "🌅", "item_type": "cosmetic_theme", "rarity": "rare", "coin_value": 40, "metadata": {"accent": "#FF6B35"}},
+            # Pet Accessories
+            {"name": "Party Hat", "icon": "🎩", "item_type": "cosmetic_pet_accessory", "rarity": "common", "coin_value": 5, "metadata": {}},
+            {"name": "Bow Tie", "icon": "🎀", "item_type": "cosmetic_pet_accessory", "rarity": "common", "coin_value": 5, "metadata": {}},
+            {"name": "Crown", "icon": "👑", "item_type": "cosmetic_pet_accessory", "rarity": "rare", "coin_value": 30, "metadata": {}},
         ]
 
         item_map = {}
@@ -700,6 +718,16 @@ class Command(BaseCommand):
             # Coin pouches
             for item in ItemDefinition.objects.filter(item_type="coin_pouch"):
                 w = egg_weights.get(item.rarity, 1) * 2
+                DropTable.objects.get_or_create(
+                    trigger_type=trigger, item=item,
+                    defaults={"weight": w},
+                )
+
+        # Cosmetics drop from high-value triggers
+        cosmetic_triggers = ["milestone_complete", "badge_earned", "perfect_day", "quest_complete"]
+        for trigger in cosmetic_triggers:
+            for item in ItemDefinition.objects.filter(item_type__startswith="cosmetic_"):
+                w = egg_weights.get(item.rarity, 1)
                 DropTable.objects.get_or_create(
                     trigger_type=trigger, item=item,
                     defaults={"weight": w},
