@@ -1,4 +1,5 @@
 import logging
+import random
 from datetime import timedelta
 
 from django.db import transaction
@@ -11,6 +12,19 @@ logger = logging.getLogger(__name__)
 BASE_CHECK_IN_COINS = 3
 STREAK_MULTIPLIER_PER_DAY = 0.07
 STREAK_MULTIPLIER_CAP = 2.0
+
+BASE_DROP_RATES = {
+    "clock_out": 0.40,
+    "chore_complete": 0.30,
+    "homework_complete": 0.35,
+    "milestone_complete": 0.80,
+    "badge_earned": 1.00,
+    "quest_complete": 1.00,
+    "perfect_day": 1.00,
+    "habit_log": 0.15,
+}
+STREAK_DROP_BONUS_PER_DAY = 0.05
+STREAK_DROP_BONUS_CAP = 0.50
 
 
 class StreakService:
@@ -143,6 +157,90 @@ class HabitService:
             decayed += 1
 
         return decayed
+
+
+class DropService:
+    """Processes item drops on task completion."""
+
+    @staticmethod
+    @transaction.atomic
+    def process_drops(user, trigger_type, streak_bonus=0):
+        """Roll for drops and award items to user inventory.
+
+        Returns list of dicts: [{item_id, item_name, item_icon, item_type, item_rarity, quantity, was_salvaged}]
+        """
+        from apps.rpg.models import CharacterProfile, DropTable, DropLog, ItemDefinition, UserInventory
+
+        effective_rate = BASE_DROP_RATES.get(trigger_type, 0.20) + streak_bonus
+        effective_rate = min(effective_rate, 1.0)
+
+        if random.random() > effective_rate:
+            return []
+
+        # Get user level
+        profile = CharacterProfile.objects.filter(user=user).first()
+        user_level = profile.level if profile else 0
+
+        # Get eligible drop table entries
+        entries = DropTable.objects.filter(
+            trigger_type=trigger_type,
+            min_level__lte=user_level,
+        ).select_related("item")
+
+        if not entries.exists():
+            return []
+
+        # Weighted random selection
+        items = list(entries)
+        weights = [e.weight for e in items]
+        selected = random.choices(items, weights=weights, k=1)[0]
+        item = selected.item
+
+        # Check for salvage (cosmetics already owned)
+        was_salvaged = False
+        is_cosmetic = item.item_type in (
+            ItemDefinition.ItemType.COSMETIC_FRAME,
+            ItemDefinition.ItemType.COSMETIC_TITLE,
+            ItemDefinition.ItemType.COSMETIC_THEME,
+            ItemDefinition.ItemType.COSMETIC_PET_ACCESSORY,
+        )
+
+        if is_cosmetic:
+            existing = UserInventory.objects.filter(user=user, item=item).first()
+            if existing:
+                was_salvaged = True
+                if item.coin_value > 0:
+                    from apps.rewards.models import CoinLedger
+                    from apps.rewards.services import CoinService
+                    CoinService.award_coins(
+                        user, item.coin_value, CoinLedger.Reason.ADJUSTMENT,
+                        description=f"Salvaged duplicate: {item.name}",
+                    )
+
+        if not was_salvaged:
+            inv, created = UserInventory.objects.get_or_create(
+                user=user, item=item,
+                defaults={"quantity": 1},
+            )
+            if not created:
+                inv.quantity += 1
+                inv.save(update_fields=["quantity", "updated_at"])
+
+        # Log the drop
+        DropLog.objects.create(
+            user=user, item=item, trigger_type=trigger_type,
+            quantity=1, was_salvaged=was_salvaged,
+        )
+
+        return [{
+            "item_id": item.pk,
+            "item_name": item.name,
+            "item_icon": item.icon,
+            "item_type": item.item_type,
+            "item_rarity": item.rarity,
+            "quantity": 1,
+            "was_salvaged": was_salvaged,
+        }]
 
 
 STREAK_MILESTONES = {3, 7, 14, 30, 60, 100}
