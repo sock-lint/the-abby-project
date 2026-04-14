@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "apps.homework",
     "apps.mcp_server",
     "apps.google_integration",
+    "apps.rpg",
 ]
 
 # --- MCP server -----------------------------------------------------------
