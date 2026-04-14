@@ -305,3 +305,5 @@ export const updateHabit = (id, data) => api.patch(`/habits/${id}/`, data);
 export const deleteHabit = (id) => api.delete(`/habits/${id}/`);
 export const logHabitTap = (id, direction) =>
   api.post(`/habits/${id}/log/`, { direction });
+export const getInventory = () => api.get('/inventory/');
+export const getRecentDrops = () => api.get('/drops/recent/');
