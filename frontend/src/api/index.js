@@ -318,6 +318,11 @@ export const activatePet = (petId) => api.post(`/pets/${petId}/activate/`);
 export const getMounts = () => api.get('/mounts/');
 export const activateMount = (mountId) => api.post(`/mounts/${mountId}/activate/`);
 
+// Cosmetics
+export const getCosmetics = () => api.get('/cosmetics/');
+export const equipCosmetic = (itemId) => api.post('/character/equip/', { item_id: itemId });
+export const unequipCosmetic = (slot) => api.post('/character/unequip/', { slot });
+
 // Quests
 export const getActiveQuest = () => api.get('/quests/active/');
 export const getAvailableQuests = () => api.get('/quests/available/');
