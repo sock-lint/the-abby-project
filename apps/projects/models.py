@@ -255,6 +255,9 @@ class Notification(CreatedAtModel):
         HOMEWORK_APPROVED = "homework_approved", "Homework Approved"
         HOMEWORK_REJECTED = "homework_rejected", "Homework Rejected"
         HOMEWORK_DUE_SOON = "homework_due_soon", "Homework Due Soon"
+        STREAK_MILESTONE = "streak_milestone", "Streak Milestone"
+        PERFECT_DAY = "perfect_day", "Perfect Day"
+        DAILY_CHECK_IN = "daily_check_in", "Daily Check-In"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,

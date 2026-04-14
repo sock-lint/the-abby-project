@@ -185,7 +185,7 @@ class GameLoopService:
                 user,
                 title=f"\U0001f525 {streak}-day streak!",
                 message=msg,
-                notification_type="badge_earned",
+                notification_type="streak_milestone",
                 link="/",
             )
             notifications.append(f"{streak}-day streak milestone")

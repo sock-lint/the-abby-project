@@ -48,7 +48,7 @@ def evaluate_perfect_day_task():
             child,
             title="Perfect Day!",
             message="You completed all your daily tasks. +15 coins!",
-            notification_type="badge_earned",
+            notification_type="perfect_day",
             link="/",
         )
         awarded += 1
