@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "apps.mcp_server",
     "apps.google_integration",
     "apps.rpg",
+    "apps.pets",
 ]
 
 # --- MCP server -----------------------------------------------------------
