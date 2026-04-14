@@ -1,4 +1,5 @@
 from rest_framework import permissions, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from config.permissions import IsParent
@@ -86,6 +87,36 @@ class WriteReadSerializerMixin:
         if self.action in ("create", "update", "partial_update"):
             return self.write_serializer_class
         return self.serializer_class
+
+
+class ApprovalActionMixin:
+    """Add parent-gated ``approve`` / ``reject`` actions to a ViewSet.
+
+    Subclasses set :attr:`approval_service` and (optionally) override
+    :attr:`approval_approve_method` / :attr:`approval_reject_method` to
+    point at the service methods. Both actions forward ``notes`` from
+    ``request.data`` — services that don't persist notes can accept and
+    discard the keyword argument (``finalize_decision`` handles this by
+    only writing ``parent_notes`` when the model defines that field).
+    """
+
+    approval_service = None
+    approval_approve_method = "approve"
+    approval_reject_method = "reject"
+
+    def _run_approval_action(self, method_name, request):
+        instance = self.get_object()
+        service_method = getattr(self.approval_service, method_name)
+        service_method(instance, request.user, notes=request.data.get("notes", ""))
+        return Response(self.get_serializer(instance).data)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsParent])
+    def approve(self, request, pk=None):
+        return self._run_approval_action(self.approval_approve_method, request)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsParent])
+    def reject(self, request, pk=None):
+        return self._run_approval_action(self.approval_reject_method, request)
 
 
 def resolve_target_user(request, source="query_params"):

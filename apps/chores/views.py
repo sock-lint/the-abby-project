@@ -2,10 +2,9 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from config.permissions import IsParent
 from config.viewsets import (
-    ParentWritePermissionMixin, RoleFilteredQuerySetMixin,
-    WriteReadSerializerMixin,
+    ApprovalActionMixin, ParentWritePermissionMixin,
+    RoleFilteredQuerySetMixin, WriteReadSerializerMixin,
 )
 
 from .models import Chore, ChoreCompletion
@@ -57,9 +56,14 @@ class ChoreViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewset
         )
 
 
-class ChoreCompletionViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet):
+class ChoreCompletionViewSet(
+    ApprovalActionMixin, RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet,
+):
     serializer_class = ChoreCompletionSerializer
     queryset = ChoreCompletion.objects.select_related("chore", "user")
+    approval_service = ChoreService
+    approval_approve_method = "approve_completion"
+    approval_reject_method = "reject_completion"
 
     def get_queryset(self):
         qs = self.get_role_filtered_queryset(super().get_queryset())
@@ -67,15 +71,3 @@ class ChoreCompletionViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelVi
         if status_filter:
             qs = qs.filter(status=status_filter)
         return qs
-
-    @action(detail=True, methods=["post"], permission_classes=[IsParent])
-    def approve(self, request, pk=None):
-        completion = self.get_object()
-        ChoreService.approve_completion(completion, request.user)
-        return Response(ChoreCompletionSerializer(completion).data)
-
-    @action(detail=True, methods=["post"], permission_classes=[IsParent])
-    def reject(self, request, pk=None):
-        completion = self.get_object()
-        ChoreService.reject_completion(completion, request.user)
-        return Response(ChoreCompletionSerializer(completion).data)

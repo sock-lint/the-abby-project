@@ -171,12 +171,17 @@ class ChoreService:
 
     @staticmethod
     @transaction.atomic
-    def approve_completion(completion, parent):
-        """Parent approves. Posts to PaymentLedger + CoinLedger."""
+    def approve_completion(completion, parent, notes=""):
+        """Parent approves. Posts to PaymentLedger + CoinLedger.
+
+        ``notes`` is accepted for uniform signature with other approval
+        services; ChoreCompletion has no parent_notes field so the value
+        is silently dropped by ``finalize_decision``.
+        """
         if completion.status != ChoreCompletion.Status.PENDING:
             return completion
 
-        finalize_decision(completion, ChoreCompletion.Status.APPROVED, parent)
+        finalize_decision(completion, ChoreCompletion.Status.APPROVED, parent, notes)
 
         # Post payment.
         if completion.reward_amount_snapshot > 0:
@@ -220,10 +225,13 @@ class ChoreService:
 
     @staticmethod
     @transaction.atomic
-    def reject_completion(completion, parent):
-        """Parent rejects. No payment."""
+    def reject_completion(completion, parent, notes=""):
+        """Parent rejects. No payment.
+
+        ``notes`` is accepted for uniform signature; see ``approve_completion``.
+        """
         if completion.status != ChoreCompletion.Status.PENDING:
             return completion
 
-        finalize_decision(completion, ChoreCompletion.Status.REJECTED, parent)
+        finalize_decision(completion, ChoreCompletion.Status.REJECTED, parent, notes)
         return completion

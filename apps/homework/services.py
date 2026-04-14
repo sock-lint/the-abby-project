@@ -203,12 +203,17 @@ class HomeworkService:
     # ------------------------------------------------------------------
     @staticmethod
     @transaction.atomic
-    def approve_submission(submission, parent):
-        """Parent approves. Posts to PaymentLedger + CoinLedger + XP + badges."""
+    def approve_submission(submission, parent, notes=""):
+        """Parent approves. Posts to PaymentLedger + CoinLedger + XP + badges.
+
+        ``notes`` is accepted for uniform signature with other approval
+        services; HomeworkSubmission has no parent_notes field so the value
+        is silently dropped by ``finalize_decision``.
+        """
         if submission.status != HomeworkSubmission.Status.PENDING:
             return submission
 
-        finalize_decision(submission, HomeworkSubmission.Status.APPROVED, parent)
+        finalize_decision(submission, HomeworkSubmission.Status.APPROVED, parent, notes)
 
         assignment = submission.assignment
 
@@ -262,12 +267,15 @@ class HomeworkService:
 
     @staticmethod
     @transaction.atomic
-    def reject_submission(submission, parent):
-        """Parent rejects. No ledger entries. Child can re-submit."""
+    def reject_submission(submission, parent, notes=""):
+        """Parent rejects. No ledger entries. Child can re-submit.
+
+        ``notes`` is accepted for uniform signature; see ``approve_submission``.
+        """
         if submission.status != HomeworkSubmission.Status.PENDING:
             return submission
 
-        finalize_decision(submission, HomeworkSubmission.Status.REJECTED, parent)
+        finalize_decision(submission, HomeworkSubmission.Status.REJECTED, parent, notes)
 
         notify(
             submission.user,

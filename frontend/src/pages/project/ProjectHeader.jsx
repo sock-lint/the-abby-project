@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { saveProjectAsTemplate } from '../../api';
 import StarRating from '../../components/StarRating';
 import StatusBadge from '../../components/StatusBadge';
-import { buttonPrimary, buttonSecondary } from '../../constants/styles';
+import { buttonPrimary, buttonSecondary, buttonSuccess } from '../../constants/styles';
 
 /**
  * Top section of ProjectDetail: back link, title/status row, and the action
@@ -61,7 +61,7 @@ export default function ProjectHeader({
             <>
               <button
                 onClick={() => onAction('approve')}
-                className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                className={`px-4 py-2 text-sm ${buttonSuccess}`}
               >
                 Approve
               </button>

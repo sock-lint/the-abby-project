@@ -12,5 +12,11 @@ export const buttonSecondary =
 export const buttonDanger =
   'bg-red-500/20 hover:bg-red-500/30 disabled:opacity-50 text-red-300 font-medium rounded-lg transition-colors';
 
+// Solid-green CTA — for primary "positive" actions (clock in, submit work,
+// mark complete, approve). Distinct from the tinted green used by
+// `<ApprovalButtons>` for the approve-queue approve button.
+export const buttonSuccess =
+  'bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors';
+
 export const buttonGhost =
   'text-forge-text-dim hover:text-forge-text transition-colors';

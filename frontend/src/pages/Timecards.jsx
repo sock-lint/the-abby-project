@@ -8,7 +8,7 @@ import EmptyState from '../components/EmptyState';
 import Loader from '../components/Loader';
 import StatusBadge from '../components/StatusBadge';
 import { useRole } from '../hooks/useRole';
-import { buttonPrimary, buttonSecondary } from '../constants/styles';
+import { buttonPrimary, buttonSecondary, buttonSuccess } from '../constants/styles';
 import { formatCurrency, formatDate, formatDuration } from '../utils/format';
 import { normalizeList } from '../utils/api';
 
@@ -126,7 +126,7 @@ export default function Timecards() {
                         ))}
                         {isParent && tc.status === 'pending' && (
                           <div className="flex gap-2 pt-2">
-                            <button onClick={() => handleAction(tc.id, 'approve')} className="flex-1 bg-green-600 hover:bg-green-500 text-white py-2 rounded-lg text-sm font-medium">
+                            <button onClick={() => handleAction(tc.id, 'approve')} className={`flex-1 py-2 text-sm ${buttonSuccess}`}>
                               Approve
                             </button>
                             <button onClick={() => handleAction(tc.id, 'dispute')} className={`flex-1 py-2 text-sm ${buttonSecondary}`}>

@@ -12,7 +12,7 @@ import {
 import { useApi } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
 import { useRole } from '../hooks/useRole';
-import ApprovalButtons from '../components/ApprovalButtons';
+import ApprovalQueue from '../components/ApprovalQueue';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
@@ -257,30 +257,30 @@ export default function Chores() {
       )}
 
       {/* Parent: pending approvals */}
-      {isParent && pendingCompletions.length > 0 && (
-        <div>
-          <h2 className="font-heading text-lg font-bold mb-3">Pending Approvals</h2>
-          <div className="space-y-2">
-            {pendingCompletions.map((c) => (
-              <Card key={c.id} className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium">
-                    {c.user_name} — {c.chore_icon} {c.chore_title}
-                  </div>
-                  <div className="text-xs text-forge-text-dim">
-                    {formatDate(c.completed_date)} — ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
-                  </div>
-                  {c.notes && (
-                    <div className="text-xs text-forge-text-dim italic mt-0.5">&ldquo;{c.notes}&rdquo;</div>
-                  )}
+      {isParent && (
+        <ApprovalQueue
+          items={pendingCompletions}
+          title="Pending Approvals"
+          onApprove={handleApprove}
+          onReject={handleReject}
+        >
+          {({ item: c, actions }) => (
+            <Card key={c.id} className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium">
+                  {c.user_name} — {c.chore_icon} {c.chore_title}
                 </div>
-                <div className="shrink-0">
-                  <ApprovalButtons onApprove={() => handleApprove(c.id)} onReject={() => handleReject(c.id)} />
+                <div className="text-xs text-forge-text-dim">
+                  {formatDate(c.completed_date)} — ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
                 </div>
-              </Card>
-            ))}
-          </div>
-        </div>
+                {c.notes && (
+                  <div className="text-xs text-forge-text-dim italic mt-0.5">&ldquo;{c.notes}&rdquo;</div>
+                )}
+              </div>
+              <div className="shrink-0">{actions}</div>
+            </Card>
+          )}
+        </ApprovalQueue>
       )}
 
       {/* Chore list */}

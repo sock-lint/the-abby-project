@@ -8,16 +8,17 @@ import {
   submitHomework, approveHomeworkSubmission,
   rejectHomeworkSubmission, planHomework, getChildren,
 } from '../api';
+import ApprovalQueue from '../components/ApprovalQueue';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
-import EmptyState from '../components/EmptyState';
 import BottomSheet from '../components/BottomSheet';
 import SubjectBadge from '../components/SubjectBadge';
 import StarRating from '../components/StarRating';
 import TimelinessBadge from '../components/TimelinessBadge';
 import ProofGallery from '../components/ProofGallery';
 import StatusBadge from '../components/StatusBadge';
+import { buttonSuccess } from '../constants/styles';
 import { downscaleImage } from '../utils/image';
 
 const SUBJECTS = [
@@ -194,45 +195,37 @@ export default function Homework() {
 
       {/* Parent View */}
       {isParent && (
-        <>
-          {/* Pending approvals */}
-          <Section title="Pending Approval" items={dashboard?.pending_submissions} emptyText="No pending submissions.">
-            {(sub) => (
-              <Card key={sub.id} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-medium">{sub.user_name}</span>
-                    <span className="text-white/50 mx-2">&mdash;</span>
-                    <span>{sub.assignment_title}</span>
-                  </div>
-                  <div className="flex gap-1.5">
-                    <TimelinessBadge timeliness={sub.timeliness} />
-                    <StatusBadge status={sub.status} />
-                  </div>
+        <ApprovalQueue
+          items={dashboard?.pending_submissions}
+          title="Pending Approval"
+          emptyText="No pending submissions."
+          onApprove={handleApprove}
+          onReject={handleReject}
+        >
+          {({ item: sub, actions }) => (
+            <Card key={sub.id} className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-medium">{sub.user_name}</span>
+                  <span className="text-white/50 mx-2">&mdash;</span>
+                  <span>{sub.assignment_title}</span>
                 </div>
-                {sub.notes && <p className="text-sm text-white/60">{sub.notes}</p>}
-                <ProofGallery proofs={sub.proofs} />
+                <div className="flex gap-1.5">
+                  <TimelinessBadge timeliness={sub.timeliness} />
+                  <StatusBadge status={sub.status} />
+                </div>
+              </div>
+              {sub.notes && <p className="text-sm text-white/60">{sub.notes}</p>}
+              <ProofGallery proofs={sub.proofs} />
+              <div className="flex items-center justify-between">
                 <div className="text-sm text-white/50">
                   ${sub.reward_amount_snapshot} + {sub.coin_reward_snapshot}c
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleApprove(sub.id)}
-                    className="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => handleReject(sub.id)}
-                    className="px-3 py-1.5 bg-red-600/50 hover:bg-red-500/50 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    Reject
-                  </button>
-                </div>
-              </Card>
-            )}
-          </Section>
-        </>
+                {actions}
+              </div>
+            </Card>
+          )}
+        </ApprovalQueue>
       )}
 
       {/* Create Assignment Sheet */}
@@ -355,7 +348,7 @@ export default function Homework() {
             <button
               onClick={handleSubmit}
               disabled={!submitImages.length || submitting}
-              className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              className={`w-full py-2 text-sm flex items-center justify-center gap-2 ${buttonSuccess}`}
             >
               <Send size={16} /> {submitting ? 'Submitting...' : 'Submit for Review'}
             </button>

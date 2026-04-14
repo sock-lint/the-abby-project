@@ -5,8 +5,8 @@ from rest_framework.views import APIView
 
 from config.permissions import IsParent
 from config.viewsets import (
-    ParentWritePermissionMixin, RoleFilteredQuerySetMixin,
-    WriteReadSerializerMixin, filter_queryset_by_role, resolve_target_user,
+    ApprovalActionMixin, ParentWritePermissionMixin,
+    RoleFilteredQuerySetMixin, WriteReadSerializerMixin, resolve_target_user,
 )
 
 from django.conf import settings as django_settings
@@ -46,24 +46,15 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
         )
 
 
-class RewardRedemptionViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet):
+class RewardRedemptionViewSet(
+    ApprovalActionMixin, RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet,
+):
     serializer_class = RewardRedemptionSerializer
     queryset = RewardRedemption.objects.select_related("reward", "user")
+    approval_service = RewardService
 
     def get_queryset(self):
         return self.get_role_filtered_queryset(super().get_queryset())
-
-    @action(detail=True, methods=["post"], permission_classes=[IsParent])
-    def approve(self, request, pk=None):
-        redemption = self.get_object()
-        RewardService.approve(redemption, request.user, notes=request.data.get("notes", ""))
-        return Response(RewardRedemptionSerializer(redemption).data)
-
-    @action(detail=True, methods=["post"], permission_classes=[IsParent])
-    def reject(self, request, pk=None):
-        redemption = self.get_object()
-        RewardService.reject(redemption, request.user, notes=request.data.get("notes", ""))
-        return Response(RewardRedemptionSerializer(redemption).data)
 
 
 class CoinBalanceView(APIView):
@@ -150,44 +141,24 @@ class ExchangeRequestView(APIView):
         )
 
 
-class ExchangeRequestListView(APIView):
-    def get(self, request):
-        qs = filter_queryset_by_role(
-            request.user, ExchangeRequest.objects.select_related("user"),
-        )
-        return Response(
-            ExchangeRequestSerializer(qs[:50], many=True).data,
-        )
+class ExchangeRequestViewSet(
+    ApprovalActionMixin, RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet,
+):
+    """List exchange requests (role-filtered) plus parent approve/reject.
 
+    Creation still happens through :class:`ExchangeRequestView` because the
+    POST body and error translation (``InsufficientFundsError`` → 400) are
+    distinctly child-facing and don't fit the generic viewset pattern.
+    """
 
-class ExchangeApprovalView(APIView):
-    permission_classes = [IsParent]
+    serializer_class = ExchangeRequestSerializer
+    queryset = ExchangeRequest.objects.select_related("user")
+    approval_service = ExchangeService
 
-    def post(self, request, pk, action):
-        try:
-            exchange = ExchangeRequest.objects.get(pk=pk)
-        except ExchangeRequest.DoesNotExist:
-            return Response(
-                {"error": "Exchange request not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        notes = request.data.get("notes", "")
-        try:
-            if action == "approve":
-                exchange = ExchangeService.approve(
-                    exchange, request.user, notes,
-                )
-            elif action == "reject":
-                exchange = ExchangeService.reject(
-                    exchange, request.user, notes,
-                )
-            else:
-                return Response(
-                    {"error": "Invalid action"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        except InsufficientFundsError as exc:
-            return Response(
-                {"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST,
-            )
-        return Response(ExchangeRequestSerializer(exchange).data)
+    def get_queryset(self):
+        return self.get_role_filtered_queryset(super().get_queryset())[:50]
+
+    def handle_exception(self, exc):
+        if isinstance(exc, InsufficientFundsError):
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return super().handle_exception(exc)

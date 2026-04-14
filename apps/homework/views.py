@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from config.permissions import IsParent
 from config.viewsets import (
+    ApprovalActionMixin,
     RoleFilteredQuerySetMixin,
     WriteReadSerializerMixin,
     get_child_or_404,
@@ -111,12 +112,15 @@ class HomeworkAssignmentViewSet(
 
 
 class HomeworkSubmissionViewSet(
-    RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet,
+    ApprovalActionMixin, RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet,
 ):
     serializer_class = HomeworkSubmissionSerializer
     queryset = HomeworkSubmission.objects.select_related(
         "assignment", "user",
     ).prefetch_related("proofs")
+    approval_service = HomeworkService
+    approval_approve_method = "approve_submission"
+    approval_reject_method = "reject_submission"
 
     def get_queryset(self):
         qs = self.get_role_filtered_queryset(super().get_queryset())
@@ -124,18 +128,6 @@ class HomeworkSubmissionViewSet(
         if status_filter:
             qs = qs.filter(status=status_filter)
         return qs
-
-    @action(detail=True, methods=["post"], permission_classes=[IsParent])
-    def approve(self, request, pk=None):
-        submission = self.get_object()
-        HomeworkService.approve_submission(submission, request.user)
-        return Response(HomeworkSubmissionSerializer(submission).data)
-
-    @action(detail=True, methods=["post"], permission_classes=[IsParent])
-    def reject(self, request, pk=None):
-        submission = self.get_object()
-        HomeworkService.reject_submission(submission, request.user)
-        return Response(HomeworkSubmissionSerializer(submission).data)
 
 
 class HomeworkTemplateViewSet(viewsets.ModelViewSet):
