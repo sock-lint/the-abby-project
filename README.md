@@ -113,6 +113,12 @@ the-abby-project/
 │   ├── chores/              # Chore (recurring tasks), ChoreCompletion (submit→approve)
 │   ├── homework/            # HomeworkAssignment, Submission, Proof, Template
 │   ├── portfolio/           # ProjectPhoto, ZIP export
+│   ├── rpg/                 # CharacterProfile, Habit, ItemDefinition, UserInventory,
+│   │                        #   DropTable, DropLog; StreakService, HabitService,
+│   │                        #   DropService, CosmeticService, GameLoopService
+│   ├── pets/                # PetSpecies, PotionType, UserPet, UserMount, PetService
+│   ├── quests/              # QuestDefinition, Quest, QuestParticipant, QuestRewardItem,
+│   │                        #   QuestService
 │   ├── google_integration/  # OAuth2, GoogleAccount, CalendarEventMapping
 │   └── mcp_server/          # FastMCP server with 14 tool modules
 ├── frontend/                # React 19 + Vite 8 + Tailwind 4 frontend
@@ -121,8 +127,9 @@ the-abby-project/
 │       ├── components/      # Layout, Card, StatusBadge, Loader, NotificationBell, etc.
 │       ├── hooks/           # useApi, useAuth
 │       └── pages/           # Dashboard, Projects, ProjectDetail, ProjectNew, ProjectIngest,
-│                            #   Chores, Homework, ClockPage, Timecards, Payments, Rewards,
-│                            #   Achievements, Portfolio, Manage, SettingsPage, Login
+│                            #   Chores, Homework, Habits, Inventory, Stable, Quests, Character,
+│                            #   ClockPage, Timecards, Payments, Rewards, Achievements, Portfolio,
+│                            #   Manage, SettingsPage, Login
 ├── Dockerfile               # Multi-stage: Node build → Python + Django + WhiteNoise
 ├── docker-compose.yml       # db, redis, django, celery_worker, celery_beat
 └── requirements.txt
@@ -183,6 +190,29 @@ the-abby-project/
 - **HomeworkProof** — Required image uploads with captions and ordering
 - **HomeworkTemplate** — Reusable assignment configs with skill tag presets
 - **HomeworkSkillTag** — XP awarded on approval, triggering badge evaluation
+
+### RPG: Character, Habits, Drops, Cosmetics (`apps/rpg/`)
+
+- **CharacterProfile** — Auto-created OneToOne with User. Tracks `level`, `login_streak`, `longest_login_streak`, `last_active_date`, `perfect_days_count`, and 4 cosmetic equip slots (`active_frame`, `active_title`, `active_theme`, `active_pet_accessory`) with type-constrained FKs to `ItemDefinition`.
+- **Habit / HabitLog** — Micro-behaviors with `+/-` taps (positive / negative / both). Tracks `strength` (decays daily if untapped). No approval flow — self-reported.
+- **ItemDefinition** — Master catalog. 9 item types (egg, potion, food, cosmetic_frame, cosmetic_title, cosmetic_theme, cosmetic_pet_accessory, quest_scroll, coin_pouch), 5 rarities (common → legendary), `coin_value` (salvage value), `metadata` JSONField for type-specific data.
+- **UserInventory** — Per-user item quantities with `unique_together=(user, item)`.
+- **DropTable** — Trigger → Item mapping with `weight` and `min_level`. Triggers: clock_out, chore_complete, homework_complete, milestone_complete, badge_earned, quest_complete, perfect_day, habit_log.
+- **DropLog** — Audit trail with `was_salvaged` flag (duplicate cosmetics auto-convert to coins).
+
+### RPG: Pets & Mounts (`apps/pets/`)
+
+- **PetSpecies** — Base creature (Wolf, Dragon, Fox, Owl, Cat, Bear, Phoenix, Unicorn) with `food_preference`.
+- **PotionType** — Variant modifier (Base, Fire, Ice, Shadow, Golden, Cosmic) with rarity and color.
+- **UserPet** — `unique_together=(user, species, potion)`. Tracks `growth_points` (0-100), `is_active`, `evolved_to_mount`.
+- **UserMount** — Evolved form created at 100 growth. Same unique constraint.
+
+### RPG: Quests (`apps/quests/`)
+
+- **QuestDefinition** — Template: `quest_type` (boss / collection), `target_value` (HP or item count), `duration_days`, `trigger_filter` JSONField (allowed_triggers, project_id, skill_category_id, chore_ids, etc.), optional `required_badge` FK, `coin_reward` / `xp_reward`, `is_system` / `is_repeatable`.
+- **QuestRewardItem** — M2M link from `QuestDefinition` to `ItemDefinition` with `quantity`.
+- **Quest** — Active instance. Status (active / completed / failed / expired), `current_progress`, `rage_shield` (boss-only), `start_date` / `end_date`.
+- **QuestParticipant** — Per-user contribution. Multi-player-ready (solo in current UI).
 
 ### XP / Level Thresholds
 
@@ -392,6 +422,46 @@ Authorization: Token <key>
 | GET | `/api/export/time-entries/` | Download time entries as CSV |
 | GET | `/api/export/portfolio/` | Download all project photos as ZIP |
 
+### RPG: Character, Streaks, Habits
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/character/` | Current user's character profile (level, streak, equipped cosmetics) |
+| GET | `/api/streaks/` | Login streak, longest streak, perfect day count |
+| GET | `/api/habits/` | List habits (parents see all, children see own) |
+| POST | `/api/habits/` | Create habit (parents or self) |
+| PATCH | `/api/habits/{id}/` | Update habit (parent-only) |
+| DELETE | `/api/habits/{id}/` | Delete habit (parent-only) |
+| POST | `/api/habits/{id}/log/` | Log a +1 or -1 tap on a habit |
+
+### RPG: Inventory, Drops, Cosmetics
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/inventory/` | Owned items grouped by type |
+| GET | `/api/drops/recent/` | Last 10 drops for the user |
+| GET | `/api/cosmetics/` | Owned cosmetics grouped by slot (frame, title, theme, pet_accessory) |
+| POST | `/api/character/equip/` | Equip a cosmetic item (body: `{item_id}`) |
+| POST | `/api/character/unequip/` | Clear a cosmetic slot (body: `{slot}`) |
+
+### Pets & Mounts
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/pets/stable/` | Full pet + mount collection with stats |
+| POST | `/api/pets/hatch/` | Hatch an egg + potion (body: `{egg_item_id, potion_item_id}`) |
+| POST | `/api/pets/{id}/feed/` | Feed a food item to a pet (body: `{food_item_id}`) — auto-evolves at 100 growth |
+| POST | `/api/pets/{id}/activate/` | Set pet as active (only one at a time) |
+| GET | `/api/mounts/` | User's mount collection |
+| POST | `/api/mounts/{id}/activate/` | Set mount as active |
+
+### Quests
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/quests/active/` | Current active quest with progress, or null |
+| GET | `/api/quests/available/` | System quest catalog |
+| POST | `/api/quests/start/` | Start a quest (body: `{definition_id, scroll_item_id?}`) |
+| GET | `/api/quests/history/` | Past quests (completed / failed / expired) |
+| POST | `/api/quests/` | Parent creates a custom quest |
+| POST | `/api/quests/{id}/assign/` | Parent assigns a quest to a child (body: `{user_id}`) |
+
 ## Business Logic
 
 ### Clock In/Out
@@ -507,6 +577,17 @@ OAuth2 flow for linking Google accounts. Syncs app events (project due dates, ch
 - Parses Amount and Description columns, creates payout ledger entries
 - API: `POST /api/greenlight/import/` with `user_id` and `csv_data`
 
+### RPG Gamification Layer
+Habitica-inspired RPG system layered on top of existing productivity features. Every task completion flows through `GameLoopService.on_task_completed` in `apps/rpg/services.py`, which orchestrates streak tracking, item drops, and quest progress.
+
+- **Streaks & daily check-in** — `CharacterProfile.login_streak` increments on consecutive active days, resets on gaps > 1 day. First action each day awards streak-scaled coins: `3 × min(1 + streak × 0.07, 2.0)` (capped at 2×). Milestone notifications fire at streaks of 3, 7, 14, 30, 60, 100. `longest_login_streak` tracks the all-time record.
+- **Perfect Day** — Nightly Celery task awards `perfect_days_count += 1` and 15 bonus coins to any child who was active AND completed all daily chores. Gentle-nudge design: missed days dim the streak flame visually but never destroy earned rewards.
+- **Habits** — `/api/habits/` — Micro-behaviors distinct from chores (no approval, multiple taps/day allowed). `strength` increments on `+1` taps, decrements on `-1`, and decays by 1 daily if untapped (Celery task at 00:05 local). Strength drives a color scale (red → yellow → green → blue). Positive habit taps trigger the full game loop (drops, quest progress).
+- **Drops & Inventory** — Every task completion rolls against `BASE_DROP_RATES[trigger_type]` (e.g., clock_out 40%, chore 30%, milestone 80%, badge 100%) + streak bonus (`+5%/day`, capped at +50%). Weighted random from `DropTable` entries filtered by `min_level`. 23+ items across eggs, potions, food, cosmetics, and coin pouches. Already-owned cosmetics auto-salvage to coins. Frontend `useDropToasts` hook polls every 20s and emits rarity-colored toast celebrations via `DropToastStack`.
+- **Pets & Mounts** — `/stable` — 8 species × 6 potion variants = 48 possible pets, 48 possible mounts. Lifecycle: hatch (consumes 1 egg + 1 potion, looks up species and variant from item metadata) → feed food items (+15 growth for preferred food, +5 otherwise) → auto-evolve at 100 growth into a matching `UserMount`. Only one active pet and one active mount at a time. Dashboard displays the active pet with a growth bar.
+- **Quests** — `/quests` — Two types: **boss** (damage-based HP pool) and **collection** (item count target). One active quest per user at a time. Damage scales per trigger (clock_out 10/hr, chore 15, homework 25, milestone 50, badge 30, project 75, habit 5). `QuestDefinition.trigger_filter` supports filtering by `allowed_triggers`, `project_id`, `skill_category_id`, `chore_ids`, `savings_goal_id`, `streak_target`, `perfect_day_target`. Rage mechanic: if no participant makes progress in a full day, the boss gains a 20-point shield (visual urgency, easily recoverable). On completion: coin + XP + item rewards auto-distributed; status → `completed`. Past end_date without completion → `expired` (no rewards, no penalty). Parents can create custom quests or assign to children.
+- **Cosmetics** — `/character` — 4 equip slots (frame, title, theme, pet accessory). `CharacterProfile` has nullable FKs with `limit_choices_to` enforcing type safety. Cosmetics are NOT consumed on equip (unlike eggs/potions/food). Drop from high-value triggers (milestone, badge, perfect day, quest complete). Duplicates salvage for coins. Avatar frame renders as a colored border; title renders as a chip under the display name.
+
 ## Frontend
 
 ### Design
@@ -529,6 +610,11 @@ OAuth2 flow for linking Google accounts. Syncs app events (project due dates, ch
 | Payments | `/payments` | Large balance, breakdown by type, transaction history |
 | Chores | `/chores` | Daily/weekly chore cards, submit completion, parent approval queue |
 | Homework | `/homework` | Assignment list, submit with proof photos, templates, parent approval |
+| Habits | `/habits` | Micro-behavior tracking with +/- tap buttons, strength visualization, parent CRUD |
+| Inventory | `/inventory` | Owned items grouped by type with rarity-colored badges |
+| Stable | `/stable` | Pet/mount collection tabs, hatching UI (egg + potion), feeding, activation |
+| Quests | `/quests` | Active quest with boss HP / collection progress, available catalog, history |
+| Character | `/character` | Profile hero card with avatar frame border, title chip, stats, cosmetic equip grids |
 | Rewards | `/rewards` | Reward shop, coin balance, exchange interface, parent CRUD + approval queues |
 | Achievements | `/achievements` | Badge collection grid + interactive skill tree by category/subject |
 | Portfolio | `/portfolio` | Photo + video gallery grouped by project, homework proofs, ZIP download |
@@ -621,3 +707,20 @@ docker compose down -v
 | `HOMEWORK_EARLY_BONUS` | `1.25` | Multiplier for submitting before due date |
 | `HOMEWORK_LATE_PENALTY` | `0.5` | Multiplier for late submission |
 | `HOMEWORK_LATE_CUTOFF_DAYS` | `3` | Days after which late rewards are zero |
+
+### RPG Game-Design Constants
+
+Hardcoded in `apps/rpg/services.py`, `apps/pets/services.py`, and `apps/quests/services.py` — these are game-design values, not deploy-time config.
+
+| Constant | Location | Default | Description |
+|----------|----------|---------|-------------|
+| `BASE_CHECK_IN_COINS` | `rpg/services.py` | `3` | Base daily check-in bonus before streak multiplier |
+| `STREAK_MULTIPLIER_PER_DAY` | `rpg/services.py` | `0.07` | Per-day bonus to check-in multiplier |
+| `STREAK_MULTIPLIER_CAP` | `rpg/services.py` | `2.0` | Max check-in bonus multiplier |
+| `BASE_DROP_RATES` | `rpg/services.py` | dict by trigger | Base drop probability per trigger type |
+| `STREAK_DROP_BONUS_PER_DAY` | `rpg/services.py` | `0.05` | Per-day bonus to drop rate |
+| `STREAK_DROP_BONUS_CAP` | `rpg/services.py` | `0.50` | Max streak drop bonus (+50%) |
+| `GROWTH_PREFERRED_FOOD` | `pets/services.py` | `15` | Growth points from preferred food |
+| `GROWTH_NEUTRAL_FOOD` | `pets/services.py` | `5` | Growth points from non-preferred food |
+| `EVOLUTION_THRESHOLD` | `pets/services.py` | `100` | Growth points to evolve pet into mount |
+| `TRIGGER_DAMAGE` | `quests/services.py` | dict by trigger | Per-trigger boss damage (clock_out scales by hours) |

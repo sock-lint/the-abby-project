@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 ## Project
-The Abby Project — Django + React app for tracking kids' projects, chores, and homework: time tracking, weekly timecards, payment ledger (Greenlight), non-monetary Coins economy + reward shop, skill tree (Category → Subject → Skill) with badges, and Instructables/PDF project ingestion with an AI enrichment pipeline.
+The Abby Project — Django + React app for tracking kids' projects, chores, and homework: time tracking, weekly timecards, payment ledger (Greenlight), non-monetary Coins economy + reward shop, skill tree (Category → Subject → Skill) with badges, Instructables/PDF project ingestion with an AI enrichment pipeline, and a Habitica-inspired RPG gamification layer (character profiles, streaks, habits, random drops, collectible pets with mount evolution, quests, and cosmetics).
 
 ## Stack
 - **Backend:** Django 5.1, DRF 3.15, PostgreSQL 16, Redis 7, Celery 5.4 + Beat, Gunicorn, Python 3.12
@@ -73,6 +73,24 @@ apps/
                      HomeworkSkillTag (XP distribution), HomeworkService,
                      AI-planned long-form homework via MCP create_project
   portfolio/         ProjectPhoto, ZIP export
+  rpg/               CharacterProfile (level, streaks, cosmetic slots),
+                     Habit, HabitLog, ItemDefinition (9 item types, 5 rarities),
+                     UserInventory, DropTable, DropLog,
+                     StreakService, HabitService, DropService, CosmeticService,
+                     GameLoopService (central orchestrator hooked into
+                     clock-out, chore approval, project/milestone signals,
+                     habit taps). Celery tasks: evaluate_perfect_day_task,
+                     decay_habit_strength_task.
+  pets/              PetSpecies (8 base creatures), PotionType (6 variants →
+                     48 possible pets/mounts), UserPet (growth 0-100),
+                     UserMount (evolved form), PetService (hatch, feed,
+                     evolve, activate).
+  quests/            QuestDefinition (boss/collection, trigger_filter JSON,
+                     badge gating), Quest (status, rage_shield),
+                     QuestParticipant (multi-player-ready), QuestRewardItem,
+                     QuestService (start, record_progress, complete, expire,
+                     apply_boss_rage). Celery tasks: expire_quests_task,
+                     apply_boss_rage_task.
 frontend/src/
   api/
     client.js        Fetch wrapper with token auth
@@ -84,9 +102,12 @@ frontend/src/
   constants/         colors.js, styles.js (shared Tailwind class helpers)
   utils/             format.js, api.js (normalizeList), image.js
   pages/             Dashboard, Projects, ProjectDetail, ProjectNew,
-                     ProjectIngest, ClockPage, Chores, Timecards, Payments,
+                     ProjectIngest, ClockPage, Chores, Homework, Habits,
+                     Inventory, Stable, Quests, Character, Timecards, Payments,
                      Rewards, Achievements, Portfolio, Manage (parent CRUD),
                      SettingsPage, Login
+  hooks/useDropToasts.js  Polls /api/drops/recent/ every 20s, emits rarity-
+                          colored toast celebrations via DropToastStack
   themes.js          Seasonal theme switching
 ```
 
@@ -122,6 +143,14 @@ frontend/src/
 - **Reward shop** (`apps/rewards/`): Parent-approved redemption flow mirroring timecard approval. Child requests a `Reward` → `RewardRedemption` status `pending` + coins held → parent approves (`fulfilled`) or denies (refund via `CoinLedger.Reason.REFUND`, stock restored). Rewards have rarity tiers and optional stock. Parents can CRUD `Reward` rows (uses `RewardWriteSerializer` + multipart for image upload). Routes: `/api/rewards/`, `/api/rewards/{id}/redeem/`, `/api/redemptions/` with `approve`/`deny` actions, `/api/coins/` for balance + recent ledger, `/api/coins/adjust/` for parent adjustments. Frontend page: `/rewards`. Parent approval queue rendered inline.
 - **Chores** (`apps/chores/`): recurring household tasks with a submit-then-approve workflow. `Chore` defines the task (title, icon, `reward_amount`, `coin_reward`, recurrence `daily|weekly|one_time`). `ChoreCompletion` tracks each instance (status `pending|approved|rejected`, snapshots reward values at submission). **Shared-custody support:** `Chore.week_schedule` is `every_week` (default) or `alternating`; when alternating, `schedule_start_date` sets the reference "on" week and `ChoreService.is_active_this_week()` compares ISO week parity. Availability is computed on-the-fly — no pre-generated instances, no Celery. On approval, `ChoreService.approve_completion()` posts `PaymentLedger.EntryType.CHORE_REWARD` and `CoinLedger.Reason.CHORE_REWARD`. `ChoreCompletion.completed_date` is a `DateField` — for daily chores it equals today; for weekly it equals Monday of the week. A `UniqueConstraint` on `(chore, user, completed_date)` excluding rejected completions prevents duplicates. Routes: `/api/chores/` (CRUD + `complete` action), `/api/chore-completions/` (read-only + `approve`/`reject` actions). Frontend page: `/chores`. MCP tools: `list_chores`, `get_chore`, `create_chore`, `update_chore`, `complete_chore`, `list_chore_completions`, `approve_chore_completion`, `reject_chore_completion`.
 - **Homework** (`apps/homework/`): one-off homework assignments with a submit-then-approve workflow requiring proof image uploads. Both parents and children can create assignments (child-created auto-assigns to self). Rewards are effort-scaled (`HOMEWORK_EFFORT_MULTIPLIERS`, 1-5 levels mapping to 0.5x-2.0x) with timeliness bonuses (`HOMEWORK_EARLY_BONUS` 1.25x for early, `HOMEWORK_LATE_PENALTY` 0.5x for late, zero beyond `HOMEWORK_LATE_CUTOFF_DAYS`). Rewards are computed and snapshotted at submission time. `HomeworkSkillTag` awards XP on approval, triggering badge evaluation. `HomeworkTemplate` stores reusable assignment configs with skill tags as JSON. **AI-planned long-form homework:** `HomeworkAssignment.project` (nullable FK to `Project`) links to a full project generated via Claude + MCP `create_project` tool use for complex multi-step assignments. `POST /api/homework/{id}/plan/` triggers AI planning. Routes: `/api/homework/` (CRUD + `submit` + `save-template` + `plan`), `/api/homework-submissions/` (read-only + `approve`/`reject`), `/api/homework-templates/` (CRUD + `create-assignment`), `/api/homework/dashboard/`. Frontend page: `/homework`. Portfolio integration: approved homework proofs appear alongside project photos with filter tabs. MCP tools: `list_homework`, `get_homework`, `create_homework`, `submit_homework`, `list_homework_submissions`, `approve_homework_submission`, `reject_homework_submission`.
+- **RPG game loop** (`apps/rpg/services.py`): `GameLoopService.on_task_completed(user, trigger_type, context)` is the single orchestrator called from all existing flows — clock-out (`apps/timecards/services.py`), chore approval (`apps/chores/services.py`), project/milestone completion signals (`apps/projects/signals.py`), and habit taps (`apps/rpg/views.py`). Pipeline: (1) `StreakService.record_activity` updates `CharacterProfile.login_streak`, first-of-day action awards streak-scaled check-in coins (`3 × min(1 + streak × 0.07, 2.0)`) via `CoinLedger.Reason.ADJUSTMENT`; (2) `DropService.process_drops` rolls against `BASE_DROP_RATES[trigger_type]` + streak bonus (`min(streak × 0.05, 0.50)`); (3) `QuestService.record_progress` applies damage/collection if the user has an active quest and the trigger matches the quest's `trigger_filter`. Returns `{trigger_type, streak, drops, quest, notifications}` — failures in quest progress are logged but never break the parent flow (wrapped in `try/except`).
+- **Streaks & daily engagement** (`apps/rpg/`): `CharacterProfile` auto-created per user via `post_save` signal on `projects.User` (see `apps/rpg/signals.py`). `login_streak` resets to 1 on a gap > 1 day, increments on consecutive days, and is tracked alongside `longest_login_streak`. Milestone notifications fire at streaks of 3, 7, 14, 30, 60, 100 (`NotificationType.STREAK_MILESTONE`). **Perfect Day:** `evaluate_perfect_day_task` (Celery, 23:55 local) awards `perfect_days_count += 1` and 15 bonus coins to any child who was active today AND completed every daily chore. Gentle-nudge design: missed days dim the streak flame visually and reset the multiplier, but NEVER destroy earned coins/XP/items.
+- **Habits** (`apps/rpg/`): Micro-behaviors distinct from chores — no parent approval, multiple taps/day allowed, no dollar rewards. `Habit.habit_type` is `positive`/`negative`/`both` — positive rejects `-1` taps, negative rejects `+1`. Each tap creates a `HabitLog` with `streak_at_time` snapshot. `strength` increments with `+1`, decrements with `-1`; the `decay_habit_strength_task` (Celery, 00:05 local) decays untapped habits by 1 toward 0. `HabitSerializer` exposes a computed `color` field (red-dark → red-light → yellow → green-light → green → blue) based on strength. Positive taps trigger `GameLoopService.on_task_completed(user, "habit_log", {"habit_id": ...})`. Both parents and children can create habits for themselves; parents can create for any child and are the only ones who can edit/delete.
+- **Drops & inventory** (`apps/rpg/`): `ItemDefinition` is the master catalog (9 item types: egg, potion, food, cosmetic_frame, cosmetic_title, cosmetic_theme, cosmetic_pet_accessory, quest_scroll, coin_pouch; 5 rarities; `metadata` JSONField for type-specific data like `{"species": "wolf"}` on eggs and `{"variant": "fire"}` on potions). `DropTable` maps trigger → item → weight with `min_level` gating. `DropService.process_drops` rolls `random.random()` against effective rate, weighted-selects from eligible rows, handles **cosmetic salvage** (already-owned cosmetics auto-convert to coins via `item.coin_value`), increments `UserInventory.quantity`, and logs to `DropLog`. Frontend `useDropToasts` polls `/api/drops/recent/` every 20s and emits rarity-colored toast celebrations via `DropToastStack` (mounted globally in Layout).
+- **Pets & mounts** (`apps/pets/`): Lifecycle is **Egg + Potion → Pet → Mount**. `PetService.hatch_pet` consumes one egg item and one potion item from `UserInventory`, reads `egg.metadata["species"]` and `potion.metadata["variant"]` to look up the `PetSpecies` and `PotionType`, enforces one pet per `(user, species, potion)` combo, and creates a `UserPet` with `growth_points=0`. `PetService.feed_pet` consumes a food item and adds growth — +15 if `food.metadata["food_type"] == pet.species.food_preference` (preferred), +5 otherwise (neutral). At `growth_points >= 100`, the pet auto-evolves: `UserPet.evolved_to_mount=True` and a matching `UserMount` row is created (the original pet is retained in the stable). Only one `UserPet` and one `UserMount` can be `is_active=True` per user at a time — `set_active_pet`/`set_active_mount` deactivate any current one in the same transaction. Dashboard displays the active pet with a growth bar.
+- **Quests** (`apps/quests/`): Two types — `boss` (damage-based HP pool) and `collection` (item-count target). `Quest` has a time-boxed `end_date` and tracks `current_progress` and `rage_shield` (extra damage required after an idle day). One active quest per user at a time (`Quest.status=="active"`). **Damage formula** per trigger in `TRIGGER_DAMAGE`: clock_out 10/hr, chore 15, homework 25, milestone 50, badge 30, project_complete 75, habit_log 5. Collection quests count 1 per qualifying trigger. **Trigger filtering** via `QuestDefinition.trigger_filter` JSONField: `allowed_triggers` (whitelist), `project_id`, `skill_category_id`, `chore_ids`, `savings_goal_id`, `streak_target`, `perfect_day_target` — empty filter = all triggers count. **Badge gating:** `QuestDefinition.required_badge` blocks start until earned. **Rage shield:** `apply_boss_rage_task` (Celery, 00:15 local) adds `rage_shield += 20` to any active boss quest where no participant made progress today — visual urgency, easily recoverable. **Expiration:** `expire_quests_task` (Celery, 00:10 local) marks past-due active quests as expired. On completion: `_complete_quest` awards `coin_reward` (via `CoinService`), `xp_reward` (via `AwardService.grant`), and any `QuestRewardItem` entries (to `UserInventory`), then notifies. `QuestParticipant` tracks per-user contribution — built multi-player-ready but currently solo-only in the UI.
+- **Cosmetics** (`apps/rpg/`): `CharacterProfile` has 4 nullable FK slots (`active_frame`, `active_title`, `active_theme`, `active_pet_accessory`) with `limit_choices_to={"item_type": ...}` enforcing correct type. `CosmeticService.equip(user, item_id)` validates ownership in `UserInventory` (cosmetics are NOT consumed on equip) and writes to the correct slot based on `COSMETIC_SLOT_MAP`. `CosmeticService.unequip(user, slot)` nils the slot. Duplicate cosmetic drops auto-salvage (see Drops gotcha). Frontend `/character` page shows owned cosmetics grouped by slot with click-to-equip; active items get a rarity-colored ring. Avatar frame renders as a colored border on the profile hero card; title renders as a chip under the display name.
+- **Seed data order matters** (`apps/projects/management/commands/seed_data.py`): `_create_pet_species` must run before `_create_item_catalog` (which seeds eggs with species metadata) and before `_create_sample_quests` (which may reference items as rewards). Current order: users → categories → skills → prerequisites → badges → projects → chores → homework → pet species/potions → item catalog → sample habits → sample quests.
 - **Parent data management:** The `/manage` page (`frontend/src/pages/Manage.jsx`) houses parent CRUD for Children, Project Templates, Rewards, Categories, Subjects, Skills, and Badges. Parents can also:
   - edit child hourly rate via `PATCH /api/children/{id}/` (`ChildViewSet`, `IsParent`, `get/patch` only).
   - adjust coin balances (`POST /api/coins/adjust/`) and payment ledger (`POST /api/payments/adjust/`).
@@ -130,7 +159,7 @@ frontend/src/
 - **Project templates** (`apps/projects/models.py`: `ProjectTemplate`, `TemplateMilestone`, `TemplateMaterial`): cloned from a completed project via `POST /api/templates/from-project/`; materialized into a new `Project` via `POST /api/templates/{id}/create-project/` with `assigned_to_id`. Optional `is_public` flag.
 - **Savings goals** (`apps/projects/models.py`: `SavingsGoal`): child-set targets with `target_amount`/`current_amount` and `percent_complete` property. Endpoints under `/api/savings-goals/`; `update_amount` action recomputes against current balance.
 - **Collaborators** (`apps/projects/models.py`: `ProjectCollaborator`): additional child assigned to a project with a `pay_split_percent`. Managed via `/api/projects/{project_pk}/collaborators/`.
-- **Notifications:** `apps.projects.Notification` with 14 `NotificationType`s (incl. `redemption_requested`, `chore_submitted`, `chore_approved`, `exchange_requested`, `exchange_approved`, `exchange_denied`). Routes under `/api/notifications/` with `unread_count`, `mark_all_read`, and per-item `mark_read` actions.
+- **Notifications:** `apps.projects.Notification` with `NotificationType`s including `redemption_requested`, `chore_submitted`, `chore_approved`, `exchange_requested`, `exchange_approved`, `exchange_denied`, `homework_submitted`, `homework_approved`, `streak_milestone`, `perfect_day`, `daily_check_in`. Routes under `/api/notifications/` with `unread_count`, `mark_all_read`, and per-item `mark_read` actions.
 - **Email:** console backend in dev; `DEFAULT_FROM_EMAIL=noreply@summerforge.local`.
 - **Timezone:** `America/Phoenix`.
 
@@ -147,7 +176,16 @@ frontend/src/
 - `HOMEWORK_ON_TIME_MULTIPLIER` (default `1.0`) — multiplier for same-day submission.
 - `HOMEWORK_LATE_PENALTY` (default `0.5`) — multiplier for late submission.
 - `HOMEWORK_LATE_CUTOFF_DAYS` (default `3`) — beyond this many days late, rewards are zero.
-- `CELERY_BEAT_SCHEDULE`: `auto-clock-out` every 30 min; `weekly-timecards` Sun 23:55; `weekly-email-summaries` Sun 08:00.
+- `CELERY_BEAT_SCHEDULE`: `auto-clock-out` every 30 min; `weekly-timecards` Sun 23:55; `weekly-email-summaries` Sun 08:00; `daily-reminders` 07:00; `rpg-perfect-day` 23:55 (evaluate perfect days); `rpg-habit-decay` 00:05 (decay untapped habits); `quest-expire` 00:10 (mark expired quests); `quest-boss-rage` 00:15 (add rage shield to idle boss quests).
+
+### RPG tunables (hardcoded constants in `apps/rpg/services.py`)
+These are intentionally NOT in settings — they're game-design constants, not deploy-time config.
+- `BASE_CHECK_IN_COINS = 3` — base daily check-in bonus before streak multiplier.
+- `STREAK_MULTIPLIER_PER_DAY = 0.07` and `STREAK_MULTIPLIER_CAP = 2.0` — check-in bonus scales `min(1 + streak × 0.07, 2.0)`.
+- `BASE_DROP_RATES` — dict of trigger → base drop probability (clock_out 0.40, chore 0.30, homework 0.35, milestone 0.80, badge 1.00, quest_complete 1.00, perfect_day 1.00, habit_log 0.15).
+- `STREAK_DROP_BONUS_PER_DAY = 0.05` and `STREAK_DROP_BONUS_CAP = 0.50` — streak adds up to +50% to base drop rate.
+- `GROWTH_PREFERRED_FOOD = 15`, `GROWTH_NEUTRAL_FOOD = 5`, `EVOLUTION_THRESHOLD = 100` (in `apps/pets/services.py`) — pet growth mechanics.
+- `TRIGGER_DAMAGE` (in `apps/quests/services.py`) — per-trigger boss damage table; clock_out multiplied by hours.
 
 ## Conventions
 - Inherit concrete models from `config.base_models.{CreatedAtModel,TimestampedModel}` instead of hand-rolling `created_at`/`updated_at`.
@@ -162,4 +200,7 @@ frontend/src/
 - `frontend/src/main.jsx`, `frontend/src/App.jsx`, `frontend/vite.config.js`
 - Seed: `apps/projects/management/commands/seed_data.py`
 - Ingestion: `apps/projects/ingestion/pipeline.py`, `runner.py`, `tasks.py`
-- Signals: `apps/projects/signals.py` (project completion → ledger + coin hooks)
+- Signals: `apps/projects/signals.py` (project completion → ledger + coin hooks + RPG game loop)
+- RPG orchestrator: `apps/rpg/services.py` — `GameLoopService.on_task_completed` is the single entry point called from clock-out, chore approval, project/milestone signals, and habit taps. Extend by adding a new step to this method.
+- RPG character auto-creation: `apps/rpg/signals.py` — `post_save` on `projects.User` creates `CharacterProfile`.
+- Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`; phase plans under `docs/superpowers/plans/`.
