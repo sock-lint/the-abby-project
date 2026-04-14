@@ -325,3 +325,73 @@ class GameLoopService:
             "drops": drops,
             "quest": quest_result,
         }
+
+
+class CosmeticService:
+    """Manages equipping/unequipping cosmetic items."""
+
+    COSMETIC_SLOT_MAP = {
+        "cosmetic_frame": "active_frame",
+        "cosmetic_title": "active_title",
+        "cosmetic_theme": "active_theme",
+        "cosmetic_pet_accessory": "active_pet_accessory",
+    }
+
+    @staticmethod
+    @transaction.atomic
+    def equip(user, item_id):
+        """Equip a cosmetic item to the appropriate slot.
+
+        Returns dict with slot and equipped item, or raises ValueError.
+        """
+        from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
+
+        try:
+            item = ItemDefinition.objects.get(pk=item_id)
+        except ItemDefinition.DoesNotExist:
+            raise ValueError("Item not found")
+
+        slot = CosmeticService.COSMETIC_SLOT_MAP.get(item.item_type)
+        if not slot:
+            raise ValueError("That item is not a cosmetic")
+
+        # Must own the item
+        if not UserInventory.objects.filter(user=user, item=item, quantity__gte=1).exists():
+            raise ValueError("You don't own that item")
+
+        profile, _ = CharacterProfile.objects.get_or_create(user=user)
+        setattr(profile, slot, item)
+        profile.save(update_fields=[slot, "updated_at"])
+
+        return {"slot": slot, "item_id": item.pk, "item_name": item.name}
+
+    @staticmethod
+    @transaction.atomic
+    def unequip(user, slot):
+        """Clear a cosmetic slot."""
+        from apps.rpg.models import CharacterProfile
+
+        if slot not in CosmeticService.COSMETIC_SLOT_MAP.values():
+            raise ValueError(f"Invalid slot: {slot}")
+
+        profile, _ = CharacterProfile.objects.get_or_create(user=user)
+        setattr(profile, slot, None)
+        profile.save(update_fields=[slot, "updated_at"])
+
+        return {"slot": slot}
+
+    @staticmethod
+    def list_owned_cosmetics(user):
+        """Return cosmetic items the user owns, grouped by slot."""
+        from apps.rpg.models import ItemDefinition, UserInventory
+
+        cosmetic_types = list(CosmeticService.COSMETIC_SLOT_MAP.keys())
+        entries = UserInventory.objects.filter(
+            user=user, item__item_type__in=cosmetic_types,
+        ).select_related("item")
+
+        result = {slot: [] for slot in CosmeticService.COSMETIC_SLOT_MAP.values()}
+        for entry in entries:
+            slot = CosmeticService.COSMETIC_SLOT_MAP[entry.item.item_type]
+            result[slot].append(entry.item)
+        return result

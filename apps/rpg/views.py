@@ -114,3 +114,52 @@ class RecentDropsView(APIView):
             user=request.user,
         ).select_related("item")[:10]
         return Response(DropLogSerializer(drops, many=True).data)
+
+
+class CosmeticsView(APIView):
+    """GET /api/cosmetics/ — owned cosmetics grouped by slot."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .serializers import ItemDefinitionSerializer
+        from .services import CosmeticService
+
+        owned = CosmeticService.list_owned_cosmetics(request.user)
+        return Response({
+            slot: ItemDefinitionSerializer(items, many=True).data
+            for slot, items in owned.items()
+        })
+
+
+class EquipCosmeticView(APIView):
+    """POST /api/character/equip/ — equip a cosmetic item."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from .services import CosmeticService
+
+        item_id = request.data.get("item_id")
+        if not item_id:
+            return Response({"error": "item_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            result = CosmeticService.equip(request.user, item_id)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result)
+
+
+class UnequipCosmeticView(APIView):
+    """POST /api/character/unequip/ — clear a cosmetic slot."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from .services import CosmeticService
+
+        slot = request.data.get("slot")
+        if not slot:
+            return Response({"error": "slot is required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            result = CosmeticService.unequip(request.user, slot)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result)
