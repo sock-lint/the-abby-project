@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, ClipboardCheck, Clock, Coins, DollarSign, Flame, FolderKanban, Package, Trophy, Timer, Target, Zap } from 'lucide-react';
-import { getDashboard, getRecentDrops } from '../api';
+import { Check, ClipboardCheck, Clock, Coins, DollarSign, Flame, FolderKanban, Heart, Package, Trophy, Timer, Target, Zap } from 'lucide-react';
+import { getDashboard, getRecentDrops, getStable } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import DifficultyStars from '../components/DifficultyStars';
@@ -13,6 +13,7 @@ import { formatCurrency, formatDuration } from '../utils/format';
 export default function Dashboard() {
   const { data, loading } = useApi(getDashboard);
   const { data: recentDrops } = useApi(getRecentDrops);
+  const { data: stableData } = useApi(getStable);
   const navigate = useNavigate();
 
   if (loading) return <Loader />;
@@ -48,6 +49,29 @@ export default function Dashboard() {
           </Card>
         </motion.div>
       )}
+
+      {/* Active Pet */}
+      {stableData?.pets?.find(p => p.is_active) && (() => {
+        const activePet = stableData.pets.find(p => p.is_active);
+        return (
+          <Card className="flex items-center gap-4 cursor-pointer" onClick={() => navigate('/stable')}>
+            <div className="text-4xl">{activePet.species.icon}</div>
+            <div className="flex-1">
+              <div className="text-sm font-medium">{activePet.potion.name} {activePet.species.name}</div>
+              {!activePet.evolved_to_mount && (
+                <div className="mt-1">
+                  <ProgressBar value={activePet.growth_points} max={100} className="h-1.5" />
+                  <div className="text-[10px] text-forge-text-dim mt-0.5">{activePet.growth_points}/100 growth</div>
+                </div>
+              )}
+              {activePet.evolved_to_mount && (
+                <div className="text-xs text-amber-highlight">Fully evolved!</div>
+              )}
+            </div>
+            <Heart size={16} className="text-pink-400" />
+          </Card>
+        );
+      })()}
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
