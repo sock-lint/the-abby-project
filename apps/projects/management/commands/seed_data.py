@@ -262,6 +262,7 @@ class Command(BaseCommand):
         self._create_sample_projects(categories, skill_map)
         self._create_sample_chores()
         self._create_sample_homework()
+        self._create_pet_species()
         self._create_item_catalog()
         self._create_sample_habits()
 
@@ -586,6 +587,43 @@ class Command(BaseCommand):
         )
         if created:
             self.stdout.write("  Created homework template: Weekly Reading Assignment")
+
+    def _create_pet_species(self):
+        from apps.pets.models import PetSpecies, PotionType
+
+        species_data = [
+            {"name": "Wolf", "icon": "🐺", "description": "A loyal pack hunter", "food_preference": "meat"},
+            {"name": "Dragon", "icon": "🐉", "description": "A fierce fire-breather", "food_preference": "fish"},
+            {"name": "Fox", "icon": "🦊", "description": "A clever forest dweller", "food_preference": "berries"},
+            {"name": "Owl", "icon": "🦉", "description": "A wise night hunter", "food_preference": "seeds"},
+            {"name": "Cat", "icon": "🐱", "description": "A graceful companion", "food_preference": "fish"},
+            {"name": "Bear", "icon": "🐻", "description": "A powerful protector", "food_preference": "honey"},
+            {"name": "Phoenix", "icon": "🔥", "description": "A legendary fire bird", "food_preference": "cake"},
+            {"name": "Unicorn", "icon": "🦄", "description": "A magical horned steed", "food_preference": "candy"},
+        ]
+
+        for data in species_data:
+            species, created = PetSpecies.objects.get_or_create(
+                name=data["name"], defaults=data,
+            )
+            if created:
+                self.stdout.write(f"  Created pet species: {species.name}")
+
+        potion_data = [
+            {"name": "Base", "color_hex": "#8B7355", "rarity": "common", "description": "Natural colors"},
+            {"name": "Fire", "color_hex": "#FF4500", "rarity": "uncommon", "description": "Red/orange tones"},
+            {"name": "Ice", "color_hex": "#87CEEB", "rarity": "uncommon", "description": "Blue/white tones"},
+            {"name": "Shadow", "color_hex": "#4B0082", "rarity": "rare", "description": "Dark/purple tones"},
+            {"name": "Golden", "color_hex": "#FFD700", "rarity": "epic", "description": "Gold/glowing"},
+            {"name": "Cosmic", "color_hex": "#191970", "rarity": "legendary", "description": "Starfield/nebula"},
+        ]
+
+        for data in potion_data:
+            potion, created = PotionType.objects.get_or_create(
+                name=data["name"], defaults=data,
+            )
+            if created:
+                self.stdout.write(f"  Created potion type: {potion.name}")
 
     def _create_item_catalog(self):
         from apps.rpg.models import ItemDefinition, DropTable
