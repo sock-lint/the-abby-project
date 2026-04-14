@@ -18,7 +18,7 @@ import StarRating from '../components/StarRating';
 import TimelinessBadge from '../components/TimelinessBadge';
 import ProofGallery from '../components/ProofGallery';
 import StatusBadge from '../components/StatusBadge';
-import { buttonSuccess } from '../constants/styles';
+import { buttonPrimary, buttonSuccess, inputClass } from '../constants/styles';
 import { downscaleImage } from '../utils/image';
 
 const SUBJECTS = [
@@ -116,12 +116,12 @@ export default function Homework() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Homework</h1>
+        <h1 className="font-heading text-2xl font-bold">Homework</h1>
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition-colors"
+          className={`flex items-center gap-1 px-3 py-1.5 text-xs ${buttonPrimary}`}
         >
-          <Plus size={16} /> New
+          <Plus size={14} /> New
         </button>
       </div>
 
@@ -140,15 +140,15 @@ export default function Homework() {
             <div className="grid grid-cols-3 gap-3">
               <Card className="text-center py-3">
                 <div className="text-2xl font-bold">{dashboard.stats.completion_rate}%</div>
-                <div className="text-xs text-white/50">Completion</div>
+                <div className="text-xs text-forge-text-dim">Completion</div>
               </Card>
               <Card className="text-center py-3">
                 <div className="text-2xl font-bold">{dashboard.stats.on_time_rate}%</div>
-                <div className="text-xs text-white/50">On Time</div>
+                <div className="text-xs text-forge-text-dim">On Time</div>
               </Card>
               <Card className="text-center py-3">
                 <div className="text-2xl font-bold">{dashboard.stats.total_approved}</div>
-                <div className="text-xs text-white/50">Completed</div>
+                <div className="text-xs text-forge-text-dim">Completed</div>
               </Card>
             </div>
           )}
@@ -207,7 +207,7 @@ export default function Homework() {
               <div className="flex items-center justify-between">
                 <div>
                   <span className="font-medium">{sub.user_name}</span>
-                  <span className="text-white/50 mx-2">&mdash;</span>
+                  <span className="text-forge-text-dim mx-2">&mdash;</span>
                   <span>{sub.assignment_title}</span>
                 </div>
                 <div className="flex gap-1.5">
@@ -215,10 +215,10 @@ export default function Homework() {
                   <StatusBadge status={sub.status} />
                 </div>
               </div>
-              {sub.notes && <p className="text-sm text-white/60">{sub.notes}</p>}
+              {sub.notes && <p className="text-sm text-forge-text-dim">{sub.notes}</p>}
               <ProofGallery proofs={sub.proofs} />
               <div className="flex items-center justify-between">
-                <div className="text-sm text-white/50">
+                <div className="text-sm text-forge-text-dim">
                   ${sub.reward_amount_snapshot} + {sub.coin_reward_snapshot}c
                 </div>
                 {actions}
@@ -234,50 +234,50 @@ export default function Homework() {
           <input
             type="text" placeholder="Title" required value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+            className={inputClass}
           />
           <textarea
             placeholder="Description (optional)" value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+            className={inputClass}
             rows={2}
           />
           <div className="grid grid-cols-2 gap-3">
             <select
               value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })}
-              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+              className={inputClass}
             >
               {SUBJECTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
             <input
               type="date" required value={form.due_date}
               onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+              className={inputClass}
             />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs text-white/50 block mb-1">Effort (1-5)</label>
+              <label className="text-xs text-forge-text-dim mb-1 block">Effort (1-5)</label>
               <input
                 type="number" min={1} max={5} value={form.effort_level}
                 onChange={(e) => setForm({ ...form, effort_level: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+                className={inputClass}
               />
             </div>
             <div>
-              <label className="text-xs text-white/50 block mb-1">$ Reward</label>
+              <label className="text-xs text-forge-text-dim mb-1 block">$ Reward</label>
               <input
                 type="number" step="0.01" min={0} value={form.reward_amount}
                 onChange={(e) => setForm({ ...form, reward_amount: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+                className={inputClass}
               />
             </div>
             <div>
-              <label className="text-xs text-white/50 block mb-1">Coins</label>
+              <label className="text-xs text-forge-text-dim mb-1 block">Coins</label>
               <input
                 type="number" min={0} value={form.coin_reward}
                 onChange={(e) => setForm({ ...form, coin_reward: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+                className={inputClass}
               />
             </div>
           </div>
@@ -285,7 +285,7 @@ export default function Homework() {
             <select
               value={form.assigned_to} required
               onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+              className={inputClass}
             >
               <option value="">Assign to...</option>
               {children.map((c) => (
@@ -293,7 +293,7 @@ export default function Homework() {
               ))}
             </select>
           )}
-          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 rounded-lg py-2 text-sm font-medium transition-colors">
+          <button type="submit" className={`w-full py-2 text-sm ${buttonPrimary}`}>
             Create Assignment
           </button>
         </form>
@@ -315,10 +315,10 @@ export default function Homework() {
 
             {/* Image picker */}
             <div>
-              <label className="text-xs text-white/50 block mb-2">Proof photos (required)</label>
+              <label className="text-xs text-forge-text-dim mb-2 block">Proof photos (required)</label>
               <div className="flex gap-2 flex-wrap">
                 {submitImages.map((img, i) => (
-                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/10">
+                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-forge-border">
                     <img src={URL.createObjectURL(img)} alt="" className="w-full h-full object-cover" />
                     <button
                       onClick={() => setSubmitImages(submitImages.filter((_, j) => j !== i))}
@@ -328,8 +328,8 @@ export default function Homework() {
                     </button>
                   </div>
                 ))}
-                <label className="w-16 h-16 rounded-lg border border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-white/40 transition-colors">
-                  <Camera size={20} className="text-white/40" />
+                <label className="w-16 h-16 rounded-lg border border-dashed border-forge-border hover:border-forge-muted flex items-center justify-center cursor-pointer transition-colors">
+                  <Camera size={20} className="text-forge-text-dim" />
                   <input
                     type="file" accept="image/*" multiple className="hidden"
                     onChange={(e) => setSubmitImages([...submitImages, ...Array.from(e.target.files)])}
@@ -341,7 +341,7 @@ export default function Homework() {
             <textarea
               placeholder="Notes (optional)" value={submitNotes}
               onChange={(e) => setSubmitNotes(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+              className={inputClass}
               rows={2}
             />
 
@@ -362,9 +362,9 @@ export default function Homework() {
 function Section({ title, items, emptyText, children }) {
   return (
     <div>
-      <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wide mb-2">{title}</h2>
+      <h2 className="font-heading text-lg font-bold mb-3">{title}</h2>
       {!items?.length ? (
-        emptyText && <p className="text-sm text-white/30">{emptyText}</p>
+        emptyText && <p className="text-sm text-forge-text-dim">{emptyText}</p>
       ) : (
         <div className="space-y-2">
           <AnimatePresence>
@@ -402,7 +402,7 @@ function AssignmentCard({ assignment, onSubmit, onPlan, planning }) {
           {sub && <StatusBadge status={sub.status} />}
         </div>
       </div>
-      <div className="flex items-center justify-between text-sm text-white/50">
+      <div className="flex items-center justify-between text-sm text-forge-text-dim">
         <span>Due {a.due_date}</span>
         <span>
           ${a.reward_amount} + {a.coin_reward}c base
@@ -412,7 +412,7 @@ function AssignmentCard({ assignment, onSubmit, onPlan, planning }) {
         {!sub && (
           <button
             onClick={onSubmit}
-            className="flex items-center gap-1 px-3 py-1 bg-green-600/80 hover:bg-green-500 rounded-lg text-xs font-medium transition-colors"
+            className={`flex items-center gap-1 px-3 py-1 text-xs ${buttonSuccess}`}
           >
             <Send size={12} /> Submit
           </button>
@@ -429,7 +429,7 @@ function AssignmentCard({ assignment, onSubmit, onPlan, planning }) {
         {hasProject && (
           <a
             href={`/projects/${a.project}`}
-            className="flex items-center gap-1 px-3 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-medium transition-colors"
+            className="flex items-center gap-1 px-3 py-1 bg-forge-bg hover:bg-forge-muted rounded-lg text-xs font-medium transition-colors"
           >
             <ExternalLink size={12} /> View Plan
           </a>
