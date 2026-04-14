@@ -295,3 +295,13 @@ export const createHomeworkTemplate = (data) => api.post('/homework-templates/',
 export const deleteHomeworkTemplate = (id) => api.delete(`/homework-templates/${id}/`);
 export const createAssignmentFromTemplate = (templateId, data) =>
   api.post(`/homework-templates/${templateId}/create-assignment/`, data);
+
+// RPG
+export const getCharacterProfile = () => api.get('/character/');
+export const getStreaks = () => api.get('/streaks/');
+export const getHabits = () => api.get('/habits/');
+export const createHabit = (data) => api.post('/habits/', data);
+export const updateHabit = (id, data) => api.patch(`/habits/${id}/`, data);
+export const deleteHabit = (id) => api.delete(`/habits/${id}/`);
+export const logHabitTap = (id, direction) =>
+  api.post(`/habits/${id}/log/`, { direction });
