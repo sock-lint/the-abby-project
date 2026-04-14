@@ -165,6 +165,34 @@ class DashboardView(APIView):
                 status=ChoreCompletion.Status.PENDING,
             ).count()
 
+        # RPG profile
+        from apps.rpg.models import CharacterProfile, Habit, HabitLog
+        rpg_profile, _ = CharacterProfile.objects.get_or_create(user=user)
+        habits = Habit.objects.filter(user=user, is_active=True)
+        habits_data = []
+        for h in habits:
+            taps_today = HabitLog.objects.filter(
+                habit=h, user=user, created_at__date=today,
+            ).count()
+            habits_data.append({
+                "id": h.pk,
+                "name": h.name,
+                "icon": h.icon,
+                "habit_type": h.habit_type,
+                "strength": h.strength,
+                "taps_today": taps_today,
+                "coin_reward": h.coin_reward,
+            })
+
+        rpg_data = {
+            "level": rpg_profile.level,
+            "login_streak": rpg_profile.login_streak,
+            "longest_login_streak": rpg_profile.longest_login_streak,
+            "perfect_days_count": rpg_profile.perfect_days_count,
+            "last_active_date": rpg_profile.last_active_date,
+            "habits_today": habits_data,
+        }
+
         return Response({
             "role": user.role,
             "active_timer": active_timer,
@@ -182,6 +210,7 @@ class DashboardView(APIView):
             "savings_goals": goals,
             "chores_today": chores_today,
             "pending_chore_approvals": pending_chore_approvals,
+            "rpg": rpg_data,
         })
 
 
