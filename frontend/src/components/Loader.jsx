@@ -1,8 +1,25 @@
+import { useEffect, useState } from 'react';
+
 /**
  * Loader — inked compass rose spinner. Matches the Hyrule Field Notes
  * aesthetic with a slowly rotating Sheikah ring.
+ *
+ * Delayed-show behavior: the spinner only appears after `delayMs` (default
+ * 200ms). Fast responses that resolve before the delay never show the
+ * spinner, which prevents the flash that used to read as "retry" during
+ * page transitions.
  */
-export default function Loader() {
+export default function Loader({ delayMs = 200 }) {
+  const [visible, setVisible] = useState(delayMs <= 0);
+
+  useEffect(() => {
+    if (delayMs <= 0) return undefined;
+    const t = setTimeout(() => setVisible(true), delayMs);
+    return () => clearTimeout(t);
+  }, [delayMs]);
+
+  if (!visible) return null;
+
   return (
     <div className="flex items-center justify-center py-12">
       <div className="relative w-10 h-10">
