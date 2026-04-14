@@ -262,6 +262,7 @@ class Command(BaseCommand):
         self._create_sample_projects(categories, skill_map)
         self._create_sample_chores()
         self._create_sample_homework()
+        self._create_item_catalog()
         self._create_sample_habits()
 
         self.stdout.write(self.style.SUCCESS("Seeding complete!"))
@@ -585,6 +586,87 @@ class Command(BaseCommand):
         )
         if created:
             self.stdout.write("  Created homework template: Weekly Reading Assignment")
+
+    def _create_item_catalog(self):
+        from apps.rpg.models import ItemDefinition, DropTable
+
+        items_data = [
+            # Pet Eggs (for Phase 3 - pets system)
+            {"name": "Wolf Egg", "icon": "🥚", "item_type": "egg", "rarity": "common", "coin_value": 3, "metadata": {"species": "wolf"}},
+            {"name": "Dragon Egg", "icon": "🥚", "item_type": "egg", "rarity": "uncommon", "coin_value": 5, "metadata": {"species": "dragon"}},
+            {"name": "Fox Egg", "icon": "🥚", "item_type": "egg", "rarity": "common", "coin_value": 3, "metadata": {"species": "fox"}},
+            {"name": "Owl Egg", "icon": "🥚", "item_type": "egg", "rarity": "common", "coin_value": 3, "metadata": {"species": "owl"}},
+            {"name": "Cat Egg", "icon": "🥚", "item_type": "egg", "rarity": "common", "coin_value": 3, "metadata": {"species": "cat"}},
+            {"name": "Bear Egg", "icon": "🥚", "item_type": "egg", "rarity": "uncommon", "coin_value": 5, "metadata": {"species": "bear"}},
+            {"name": "Phoenix Egg", "icon": "🥚", "item_type": "egg", "rarity": "rare", "coin_value": 10, "metadata": {"species": "phoenix"}},
+            {"name": "Unicorn Egg", "icon": "🥚", "item_type": "egg", "rarity": "rare", "coin_value": 10, "metadata": {"species": "unicorn"}},
+            # Hatching Potions
+            {"name": "Base Potion", "icon": "🧪", "item_type": "potion", "rarity": "common", "coin_value": 2, "metadata": {"variant": "base", "color": "#8B7355"}},
+            {"name": "Fire Potion", "icon": "🧪", "item_type": "potion", "rarity": "uncommon", "coin_value": 5, "metadata": {"variant": "fire", "color": "#FF4500"}},
+            {"name": "Ice Potion", "icon": "🧪", "item_type": "potion", "rarity": "uncommon", "coin_value": 5, "metadata": {"variant": "ice", "color": "#87CEEB"}},
+            {"name": "Shadow Potion", "icon": "🧪", "item_type": "potion", "rarity": "rare", "coin_value": 10, "metadata": {"variant": "shadow", "color": "#4B0082"}},
+            {"name": "Golden Potion", "icon": "🧪", "item_type": "potion", "rarity": "epic", "coin_value": 25, "metadata": {"variant": "golden", "color": "#FFD700"}},
+            {"name": "Cosmic Potion", "icon": "🧪", "item_type": "potion", "rarity": "legendary", "coin_value": 50, "metadata": {"variant": "cosmic", "color": "#191970"}},
+            # Pet Food
+            {"name": "Meat", "icon": "🥩", "item_type": "food", "rarity": "common", "coin_value": 1, "metadata": {"food_type": "meat", "growth": 5}},
+            {"name": "Fish", "icon": "🐟", "item_type": "food", "rarity": "common", "coin_value": 1, "metadata": {"food_type": "fish", "growth": 5}},
+            {"name": "Berries", "icon": "🫐", "item_type": "food", "rarity": "common", "coin_value": 1, "metadata": {"food_type": "berries", "growth": 5}},
+            {"name": "Seeds", "icon": "🌻", "item_type": "food", "rarity": "common", "coin_value": 1, "metadata": {"food_type": "seeds", "growth": 5}},
+            {"name": "Honey", "icon": "🍯", "item_type": "food", "rarity": "uncommon", "coin_value": 2, "metadata": {"food_type": "honey", "growth": 8}},
+            {"name": "Cake", "icon": "🎂", "item_type": "food", "rarity": "uncommon", "coin_value": 2, "metadata": {"food_type": "cake", "growth": 8}},
+            # Coin Pouches
+            {"name": "Small Coin Pouch", "icon": "👛", "item_type": "coin_pouch", "rarity": "common", "coin_value": 5, "metadata": {"coins": 5}},
+            {"name": "Medium Coin Pouch", "icon": "💰", "item_type": "coin_pouch", "rarity": "uncommon", "coin_value": 15, "metadata": {"coins": 15}},
+            {"name": "Large Coin Pouch", "icon": "💎", "item_type": "coin_pouch", "rarity": "rare", "coin_value": 50, "metadata": {"coins": 50}},
+        ]
+
+        item_map = {}
+        for data in items_data:
+            item, created = ItemDefinition.objects.get_or_create(
+                name=data["name"],
+                defaults=data,
+            )
+            item_map[item.name] = item
+            if created:
+                self.stdout.write(f"  Created item: {item.name}")
+
+        # Drop table entries for common triggers
+        common_triggers = ["clock_out", "chore_complete", "homework_complete", "milestone_complete", "habit_log"]
+
+        # Eggs drop from all triggers (weight by rarity)
+        egg_weights = {"common": 10, "uncommon": 5, "rare": 2, "epic": 1, "legendary": 1}
+        for trigger in common_triggers:
+            for item in ItemDefinition.objects.filter(item_type="egg"):
+                w = egg_weights.get(item.rarity, 1)
+                DropTable.objects.get_or_create(
+                    trigger_type=trigger, item=item,
+                    defaults={"weight": w},
+                )
+
+            # Potions
+            for item in ItemDefinition.objects.filter(item_type="potion"):
+                w = egg_weights.get(item.rarity, 1)
+                DropTable.objects.get_or_create(
+                    trigger_type=trigger, item=item,
+                    defaults={"weight": w},
+                )
+
+            # Food (higher weight - more common drops)
+            for item in ItemDefinition.objects.filter(item_type="food"):
+                DropTable.objects.get_or_create(
+                    trigger_type=trigger, item=item,
+                    defaults={"weight": 15},
+                )
+
+            # Coin pouches
+            for item in ItemDefinition.objects.filter(item_type="coin_pouch"):
+                w = egg_weights.get(item.rarity, 1) * 2
+                DropTable.objects.get_or_create(
+                    trigger_type=trigger, item=item,
+                    defaults={"weight": w},
+                )
+
+        self.stdout.write(self.style.SUCCESS(f"  Created {len(items_data)} items and drop table entries"))
 
     def _create_sample_habits(self):
         from apps.rpg.models import CharacterProfile, Habit
