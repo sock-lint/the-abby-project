@@ -262,6 +262,7 @@ class Command(BaseCommand):
         self._create_sample_projects(categories, skill_map)
         self._create_sample_chores()
         self._create_sample_homework()
+        self._create_sample_habits()
 
         self.stdout.write(self.style.SUCCESS("Seeding complete!"))
 
@@ -584,3 +585,32 @@ class Command(BaseCommand):
         )
         if created:
             self.stdout.write("  Created homework template: Weekly Reading Assignment")
+
+    def _create_sample_habits(self):
+        from apps.rpg.models import CharacterProfile, Habit
+        from apps.projects.models import User
+
+        parent = User.objects.filter(role="parent").first()
+        child = User.objects.filter(role="child").first()
+        if not parent or not child:
+            self.stdout.write("  Skipping habits: no parent/child found")
+            return
+
+        CharacterProfile.objects.get_or_create(user=child)
+
+        habits = [
+            {"name": "Read for 15 min", "icon": "\U0001f4d6", "habit_type": "positive", "coin_reward": 2, "xp_reward": 10},
+            {"name": "Practice instrument", "icon": "\U0001f3b5", "habit_type": "positive", "coin_reward": 2, "xp_reward": 10},
+            {"name": "Drink water", "icon": "\U0001f4a7", "habit_type": "positive", "coin_reward": 1, "xp_reward": 5},
+            {"name": "Exercise / stretch", "icon": "\U0001f3c3", "habit_type": "positive", "coin_reward": 1, "xp_reward": 5},
+            {"name": "Screen time snack", "icon": "\U0001f36b", "habit_type": "negative", "coin_reward": 0, "xp_reward": 0},
+        ]
+
+        for h_data in habits:
+            habit, created = Habit.objects.get_or_create(
+                name=h_data["name"],
+                user=child,
+                defaults={**h_data, "created_by": parent},
+            )
+            if created:
+                self.stdout.write(f"  Created habit: {habit.name}")
