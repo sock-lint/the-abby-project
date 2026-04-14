@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, ClipboardCheck, Clock, Coins, DollarSign, Flame, FolderKanban, Heart, Package, Trophy, Timer, Target, Zap } from 'lucide-react';
-import { getDashboard, getRecentDrops, getStable } from '../api';
+import { Check, ClipboardCheck, Clock, Coins, DollarSign, Flame, FolderKanban, Heart, Package, Swords, Trophy, Timer, Target, Zap } from 'lucide-react';
+import { getActiveQuest, getDashboard, getRecentDrops, getStable } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import DifficultyStars from '../components/DifficultyStars';
@@ -14,6 +14,7 @@ export default function Dashboard() {
   const { data, loading } = useApi(getDashboard);
   const { data: recentDrops } = useApi(getRecentDrops);
   const { data: stableData } = useApi(getStable);
+  const { data: activeQuestData } = useApi(getActiveQuest);
   const navigate = useNavigate();
 
   if (loading) return <Loader />;
@@ -72,6 +73,28 @@ export default function Dashboard() {
           </Card>
         );
       })()}
+
+      {/* Active Quest */}
+      {activeQuestData && (
+        <Card className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/quests')}>
+          <div className="text-3xl">{activeQuestData.definition.icon}</div>
+          <div className="flex-1">
+            <div className="text-sm font-medium">{activeQuestData.definition.name}</div>
+            <div className="mt-1">
+              <ProgressBar
+                value={activeQuestData.current_progress}
+                max={activeQuestData.effective_target}
+                color={activeQuestData.definition.quest_type === 'boss' ? 'bg-red-500' : 'bg-blue-500'}
+                className="h-1.5"
+              />
+              <div className="text-[10px] text-forge-text-dim mt-0.5">
+                {activeQuestData.progress_percent}% — {activeQuestData.current_progress}/{activeQuestData.effective_target}
+              </div>
+            </div>
+          </div>
+          <Swords size={16} className="text-amber-highlight shrink-0" />
+        </Card>
+      )}
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
