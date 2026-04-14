@@ -5,7 +5,7 @@ import { createProject, getCategories, getChildren, getInstructablesPreview } fr
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import ErrorAlert from '../components/ErrorAlert';
-import { inputClass } from '../constants/styles';
+import { buttonPrimary, inputClass } from '../constants/styles';
 import { normalizeList } from '../utils/api';
 
 export default function ProjectNew() {
@@ -198,7 +198,7 @@ export default function ProjectNew() {
             />
           </div>
 
-          <button type="submit" className="w-full bg-amber-primary hover:bg-amber-highlight text-black font-semibold py-2.5 rounded-lg transition-colors">
+          <button type="submit" className={`w-full py-2.5 ${buttonPrimary}`}>
             Create Project
           </button>
         </Card>

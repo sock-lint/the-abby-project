@@ -4,7 +4,7 @@ import { User, Crown, Palette, Sparkles, X, Check, Flame, Star } from 'lucide-re
 import {
   getCharacterProfile, getCosmetics, equipCosmetic, unequipCosmetic,
 } from '../api';
-import { useApi, useAuth } from '../hooks/useApi';
+import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
@@ -33,7 +33,6 @@ const RARITY_RING = {
 };
 
 export default function Character() {
-  const { user } = useAuth();
   const { data: profile, loading: loadingProfile, reload: reloadProfile } = useApi(getCharacterProfile);
   const { data: cosmetics, loading: loadingCosmetics, reload: reloadCosmetics } = useApi(getCosmetics);
   const [error, setError] = useState('');

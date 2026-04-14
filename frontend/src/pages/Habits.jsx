@@ -4,7 +4,9 @@ import { Plus, ThumbsUp, ThumbsDown, Pencil, Trash2, Zap } from 'lucide-react';
 import {
   getHabits, createHabit, updateHabit, deleteHabit, logHabitTap, getChildren,
 } from '../api';
-import { useApi, useAuth } from '../hooks/useApi';
+import { useApi } from '../hooks/useApi';
+import { useFormState } from '../hooks/useFormState';
+import { useRole } from '../hooks/useRole';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
@@ -25,7 +27,7 @@ function getStrengthColor(strength) {
 
 function HabitFormModal({ habit, children, onClose, onSaved }) {
   const isEdit = !!habit;
-  const [form, setForm] = useState({
+  const { form, set, saving, setSaving, error, setError } = useFormState({
     name: habit?.name || '',
     icon: habit?.icon || '',
     habit_type: habit?.habit_type || 'positive',
@@ -33,15 +35,13 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
     coin_reward: habit?.coin_reward ?? 2,
     xp_reward: habit?.xp_reward ?? 5,
   });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
 
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const onField = (k) => (e) => set({ [k]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setError('');
+    setError(null);
     try {
       const payload = {
         name: form.name,
@@ -70,16 +70,16 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
       <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label className="text-xs text-forge-text-dim mb-1 block">Name</label>
-              <input className={inputClass} value={form.name} onChange={set('name')} required />
+              <input className={inputClass} value={form.name} onChange={onField('name')} required />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-forge-text-dim mb-1 block">Icon</label>
-                <input className={inputClass} value={form.icon} onChange={set('icon')} placeholder="⚡" />
+                <input className={inputClass} value={form.icon} onChange={onField('icon')} placeholder="⚡" />
               </div>
               <div>
                 <label className="text-xs text-forge-text-dim mb-1 block">Type</label>
-                <select className={inputClass} value={form.habit_type} onChange={set('habit_type')}>
+                <select className={inputClass} value={form.habit_type} onChange={onField('habit_type')}>
                   <option value="positive">Positive</option>
                   <option value="negative">Negative</option>
                   <option value="both">Both</option>
@@ -89,7 +89,7 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
             {children?.length > 0 && (
               <div>
                 <label className="text-xs text-forge-text-dim mb-1 block">Child</label>
-                <select className={inputClass} value={form.user} onChange={set('user')}>
+                <select className={inputClass} value={form.user} onChange={onField('user')}>
                   <option value="">-- Select child --</option>
                   {children.map((c) => (
                     <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
@@ -100,11 +100,11 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-forge-text-dim mb-1 block">Coin Reward</label>
-                <input className={inputClass} type="number" min="0" value={form.coin_reward} onChange={set('coin_reward')} />
+                <input className={inputClass} type="number" min="0" value={form.coin_reward} onChange={onField('coin_reward')} />
               </div>
               <div>
                 <label className="text-xs text-forge-text-dim mb-1 block">XP Reward</label>
-                <input className={inputClass} type="number" min="0" value={form.xp_reward} onChange={set('xp_reward')} />
+                <input className={inputClass} type="number" min="0" value={form.xp_reward} onChange={onField('xp_reward')} />
               </div>
             </div>
             <button
@@ -120,8 +120,7 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
 }
 
 export default function Habits() {
-  const { user } = useAuth();
-  const isParent = user?.role === 'parent';
+  const { isParent } = useRole();
   const { data: rawHabits, loading, reload } = useApi(getHabits);
   const { data: rawChildren } = useApi(isParent ? getChildren : null);
   const [error, setError] = useState('');

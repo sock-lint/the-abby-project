@@ -8,7 +8,7 @@ import BottomSheet from '../components/BottomSheet';
 import EmptyState from '../components/EmptyState';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
-import { inputClass } from '../constants/styles';
+import { buttonPrimary, inputClass } from '../constants/styles';
 import { downscaleImage } from '../utils/image';
 import { normalizeList } from '../utils/api';
 
@@ -43,7 +43,7 @@ export default function Portfolio() {
           <button
             type="button"
             onClick={() => setUploadOpen(true)}
-            className="flex items-center gap-1.5 text-sm bg-amber-primary hover:bg-amber-highlight text-black font-semibold px-3 min-h-10 rounded-lg transition-colors"
+            className={`flex items-center gap-1.5 text-sm px-3 min-h-10 ${buttonPrimary}`}
           >
             <Plus size={16} /> Upload
           </button>
@@ -265,7 +265,7 @@ function UploadSheet({ projects, onClose, onUploaded }) {
         type="button"
         onClick={handleSubmit}
         disabled={uploading || !file || !projectId}
-        className="w-full bg-amber-primary hover:bg-amber-highlight disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold py-3 rounded-lg transition-colors"
+        className={`w-full py-3 disabled:cursor-not-allowed ${buttonPrimary}`}
       >
         {uploading ? 'Uploading…' : 'Upload Photo'}
       </button>

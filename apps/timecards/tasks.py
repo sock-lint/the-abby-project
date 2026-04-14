@@ -7,6 +7,11 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
+def _week_start(day):
+    """Return the Monday on or before ``day``."""
+    return day - timedelta(days=day.weekday())
+
+
 @shared_task
 def auto_clock_out_task():
     """Auto clock-out stale entries (runs every 30 minutes)."""
@@ -21,8 +26,7 @@ def generate_weekly_timecards_task():
     from apps.projects.models import User
     from .services import TimecardService
 
-    today = timezone.localdate()
-    week_start = today - timedelta(days=today.weekday())
+    week_start = _week_start(timezone.localdate())
 
     children = User.objects.filter(role="child")
     created = 0
@@ -43,10 +47,8 @@ def send_weekly_email_summaries():
     from apps.achievements.models import UserBadge
     from apps.timecards.models import TimeEntry
     from django.db.models import Sum
-    from datetime import timedelta
 
-    today = timezone.localdate()
-    week_start = today - timedelta(days=today.weekday())
+    week_start = _week_start(timezone.localdate())
     week_end = week_start + timedelta(days=6)
 
     for child in User.objects.filter(role="child"):

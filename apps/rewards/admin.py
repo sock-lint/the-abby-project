@@ -12,7 +12,7 @@ class RewardAdmin(admin.ModelAdmin):
 
 @admin.register(RewardRedemption)
 class RewardRedemptionAdmin(admin.ModelAdmin):
-    list_display = ["user", "reward", "status", "coin_cost_snapshot", "requested_at"]
+    list_display = ["user", "reward", "status", "coin_cost_snapshot", "created_at"]
     list_filter = ["status"]
     search_fields = ["user__username", "reward__name"]
 

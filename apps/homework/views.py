@@ -22,12 +22,15 @@ from .services import HomeworkError, HomeworkService
 
 
 class HomeworkAssignmentViewSet(
-    WriteReadSerializerMixin, viewsets.ModelViewSet,
+    RoleFilteredQuerySetMixin, WriteReadSerializerMixin, viewsets.ModelViewSet,
 ):
     serializer_class = HomeworkAssignmentSerializer
     write_serializer_class = HomeworkAssignmentWriteSerializer
+    role_filter_field = "assigned_to"
 
     def get_permissions(self):
+        # Children can create assignments (auto-assigned to self in
+        # perform_create); only parents can edit or delete.
         if self.action in ("update", "partial_update", "destroy"):
             return [IsParent()]
         return [permissions.IsAuthenticated()]
@@ -40,10 +43,7 @@ class HomeworkAssignmentViewSet(
         ).prefetch_related(
             "skill_tags__skill", "submissions",
         )
-        user = self.request.user
-        if user.role == "child":
-            qs = qs.filter(assigned_to=user)
-        return qs
+        return self.get_role_filtered_queryset(qs)
 
     def perform_create(self, serializer):
         data = serializer.validated_data.copy()

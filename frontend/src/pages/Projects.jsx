@@ -10,6 +10,8 @@ import EmptyState from '../components/EmptyState';
 import Loader from '../components/Loader';
 import ProgressBar from '../components/ProgressBar';
 import StatusBadge from '../components/StatusBadge';
+import { useRole } from '../hooks/useRole';
+import { buttonPrimary } from '../constants/styles';
 import { normalizeList } from '../utils/api';
 
 const STATUS_OPTIONS = [
@@ -28,7 +30,8 @@ const TYPE_OPTIONS = [
 
 const filterSelect = 'bg-forge-bg border border-forge-border rounded-lg px-2 py-1.5 text-forge-text text-sm focus:outline-none focus:border-amber-primary';
 
-export default function Projects({ user }) {
+export default function Projects() {
+  const { isParent } = useRole();
   const { data, loading } = useApi(getProjects);
   const { data: suggestions } = useApi(getProjectSuggestions);
   const { data: childrenData } = useApi(getChildren);
@@ -41,7 +44,6 @@ export default function Projects({ user }) {
   if (loading) return <Loader />;
   const allProjects = normalizeList(data);
   const children = normalizeList(childrenData);
-  const isParent = user?.role === 'parent';
 
   const projects = allProjects.filter((p) => {
     if (statusFilter && p.status !== statusFilter) return false;
@@ -60,7 +62,7 @@ export default function Projects({ user }) {
         {isParent && (
           <button
             onClick={() => navigate('/projects/new')}
-            className="flex items-center gap-2 bg-amber-primary hover:bg-amber-highlight text-black font-semibold px-4 py-2 rounded-lg text-sm transition-colors"
+            className={`flex items-center gap-2 px-4 py-2 text-sm ${buttonPrimary}`}
           >
             <Plus size={16} /> New Project
           </button>

@@ -1,7 +1,7 @@
 export default function RewardPreview({ breakdown }) {
   if (!breakdown) return null;
 
-  const { base_money, base_coins, effort_level, timeliness, timeliness_multiplier, final_money, final_coins } = breakdown;
+  const { base_money, base_coins, effort_level, timeliness_multiplier, final_money, final_coins } = breakdown;
 
   return (
     <div className="text-xs text-white/60 space-y-0.5">

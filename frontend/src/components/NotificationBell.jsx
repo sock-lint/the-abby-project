@@ -16,14 +16,14 @@ export default function NotificationBell() {
     try {
       const data = await getUnreadCount();
       setUnreadCount(data.count);
-    } catch {}
+    } catch { /* network errors here are non-fatal */ }
   };
 
   const loadNotifications = async () => {
     try {
       const data = await getNotifications();
       setNotifications(data.results || data || []);
-    } catch {}
+    } catch { /* network errors here are non-fatal */ }
   };
 
   const handleNotificationClick = async (notification) => {
@@ -34,7 +34,7 @@ export default function NotificationBell() {
           prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
         );
         setUnreadCount(prev => Math.max(0, prev - 1));
-      } catch {}
+      } catch { /* network errors here are non-fatal */ }
     }
     if (notification.link) {
       setOpen(false);
@@ -49,12 +49,14 @@ export default function NotificationBell() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional polling: kick off the first fetch and refresh every 30s
     loadCount();
     const interval = setInterval(loadCount, 30000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch the list lazily when the dropdown opens
     if (open) loadNotifications();
   }, [open]);
 

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import DropToastStack from './DropToastStack';
+import { useAuth } from '../hooks/useApi';
 
 const allNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -32,7 +33,8 @@ const allNavItems = [
 // Mobile bottom nav: 5 primary tabs + a "More" button that opens a sheet with the rest.
 const mobilePrimary = ['/', '/projects', '/chores', '/clock', '/rewards'];
 
-export default function Layout({ user, onLogout }) {
+export default function Layout() {
+  const { user, logout: onLogout } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
   const navItems = allNavItems.filter((n) => !n.parentOnly || user?.role === 'parent');
   const primaryNavItems = navItems.filter((n) => mobilePrimary.includes(n.to));

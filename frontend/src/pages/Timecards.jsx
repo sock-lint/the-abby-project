@@ -7,16 +7,18 @@ import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
 import Loader from '../components/Loader';
 import StatusBadge from '../components/StatusBadge';
+import { useRole } from '../hooks/useRole';
+import { buttonPrimary, buttonSecondary } from '../constants/styles';
 import { formatCurrency, formatDate, formatDuration } from '../utils/format';
 import { normalizeList } from '../utils/api';
 
-export default function Timecards({ user }) {
+export default function Timecards() {
+  const { isParent } = useRole();
   const { data, loading, reload } = useApi(getTimecards);
   const [expandedId, setExpandedId] = useState(null);
   const [detail, setDetail] = useState(null);
 
   const timecards = normalizeList(data);
-  const isParent = user?.role === 'parent';
 
   const toggleExpand = async (id) => {
     if (expandedId === id) {
@@ -127,13 +129,13 @@ export default function Timecards({ user }) {
                             <button onClick={() => handleAction(tc.id, 'approve')} className="flex-1 bg-green-600 hover:bg-green-500 text-white py-2 rounded-lg text-sm font-medium">
                               Approve
                             </button>
-                            <button onClick={() => handleAction(tc.id, 'dispute')} className="flex-1 bg-forge-muted hover:bg-forge-border text-forge-text py-2 rounded-lg text-sm font-medium">
+                            <button onClick={() => handleAction(tc.id, 'dispute')} className={`flex-1 py-2 text-sm ${buttonSecondary}`}>
                               Dispute
                             </button>
                           </div>
                         )}
                         {isParent && tc.status === 'approved' && (
-                          <button onClick={() => handleAction(tc.id, 'pay')} className="w-full bg-amber-primary hover:bg-amber-highlight text-black py-2 rounded-lg text-sm font-semibold">
+                          <button onClick={() => handleAction(tc.id, 'pay')} className={`w-full py-2 text-sm ${buttonPrimary}`}>
                             Mark as Paid ({formatCurrency(tc.total_earnings)})
                           </button>
                         )}

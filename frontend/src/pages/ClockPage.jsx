@@ -2,15 +2,17 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Square, Clock, Ban } from 'lucide-react';
 import { getClockStatus, clockIn, clockOut, getProjects, getTimeEntries, voidTimeEntry } from '../api';
-import { useApi, useAuth } from '../hooks/useApi';
+import { useApi } from '../hooks/useApi';
+import { useRole } from '../hooks/useRole';
 import Card from '../components/Card';
+import ConfirmDialog from '../components/ConfirmDialog';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import { formatDate, formatDuration } from '../utils/format';
 import { normalizeList } from '../utils/api';
 
 export default function ClockPage() {
-  const { user } = useAuth();
+  const { isParent } = useRole();
   const { data: status, reload: reloadStatus } = useApi(getClockStatus);
   const { data: projectsData } = useApi(getProjects);
   const { data: entriesData, reload: reloadEntries } = useApi(getTimeEntries);
@@ -18,11 +20,11 @@ export default function ClockPage() {
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [elapsed, setElapsed] = useState(0);
+  const [voidEntryId, setVoidEntryId] = useState(null);
 
   const projects = normalizeList(projectsData);
   const entries = normalizeList(entriesData);
   const isClocked = status && status.status === 'active';
-  const isParent = user?.role === 'parent';
 
   useEffect(() => {
     if (!isClocked || !status?.clock_in) return;
@@ -63,8 +65,9 @@ export default function ClockPage() {
     }
   };
 
-  const handleVoid = async (entryId) => {
-    if (!confirm('Void this time entry? This cannot be undone.')) return;
+  const confirmVoid = async () => {
+    const entryId = voidEntryId;
+    setVoidEntryId(null);
     try {
       await voidTimeEntry(entryId);
       reloadEntries();
@@ -161,7 +164,7 @@ export default function ClockPage() {
                   </div>
                   {isParent && e.status !== 'voided' && e.status !== 'active' && (
                     <button
-                      onClick={() => handleVoid(e.id)}
+                      onClick={() => setVoidEntryId(e.id)}
                       title="Void entry"
                       className="text-forge-text-dim hover:text-red-400 p-1 transition-colors"
                     >
@@ -173,6 +176,16 @@ export default function ClockPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {voidEntryId && (
+        <ConfirmDialog
+          title="Void this time entry?"
+          message="This cannot be undone."
+          confirmLabel="Void"
+          onConfirm={confirmVoid}
+          onCancel={() => setVoidEntryId(null)}
+        />
       )}
     </div>
   );

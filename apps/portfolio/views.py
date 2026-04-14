@@ -5,7 +5,7 @@ from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from config.viewsets import RoleFilteredQuerySetMixin
+from config.viewsets import RoleFilteredQuerySetMixin, filter_queryset_by_role
 
 from .models import ProjectPhoto
 from .serializers import ProjectPhotoSerializer
@@ -30,9 +30,11 @@ class PortfolioView(APIView):
         user = request.user
 
         # Project photos (existing).
-        photos = ProjectPhoto.objects.select_related("project")
-        if user.role != "parent":
-            photos = photos.filter(project__assigned_to=user)
+        photos = filter_queryset_by_role(
+            user,
+            ProjectPhoto.objects.select_related("project"),
+            role_filter_field="project__assigned_to",
+        )
 
         grouped = {}
         for photo in photos:
@@ -48,11 +50,13 @@ class PortfolioView(APIView):
         # Homework proofs (approved submissions only).
         from apps.homework.models import HomeworkProof, HomeworkSubmission
 
-        hw_proofs = HomeworkProof.objects.filter(
-            submission__status=HomeworkSubmission.Status.APPROVED,
-        ).select_related("submission__assignment")
-        if user.role != "parent":
-            hw_proofs = hw_proofs.filter(submission__user=user)
+        hw_proofs = filter_queryset_by_role(
+            user,
+            HomeworkProof.objects.filter(
+                submission__status=HomeworkSubmission.Status.APPROVED,
+            ).select_related("submission__assignment"),
+            role_filter_field="submission__user",
+        )
 
         hw_grouped = {}
         for proof in hw_proofs:
@@ -81,9 +85,11 @@ class ExportPortfolioView(APIView):
         import zipfile
         from django.http import HttpResponse
 
-        photos = ProjectPhoto.objects.select_related("project")
-        if request.user.role == "child":
-            photos = photos.filter(project__assigned_to=request.user)
+        photos = filter_queryset_by_role(
+            request.user,
+            ProjectPhoto.objects.select_related("project"),
+            role_filter_field="project__assigned_to",
+        )
 
         if not photos.exists():
             return Response({"error": "No photos to export"}, status=404)
@@ -103,11 +109,13 @@ class ExportPortfolioView(APIView):
             # Add homework proofs.
             from apps.homework.models import HomeworkProof, HomeworkSubmission
 
-            hw_proofs = HomeworkProof.objects.filter(
-                submission__status=HomeworkSubmission.Status.APPROVED,
-            ).select_related("submission__assignment")
-            if request.user.role == "child":
-                hw_proofs = hw_proofs.filter(submission__user=request.user)
+            hw_proofs = filter_queryset_by_role(
+                request.user,
+                HomeworkProof.objects.filter(
+                    submission__status=HomeworkSubmission.Status.APPROVED,
+                ).select_related("submission__assignment"),
+                role_filter_field="submission__user",
+            )
 
             for proof in hw_proofs:
                 if proof.image:

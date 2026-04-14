@@ -124,7 +124,8 @@ class CreateAssignmentTests(_Fixture):
             })
 
     def test_skill_tags_created(self):
-        from apps.achievements.models import Skill, SkillCategory, Subject
+        from apps.achievements.models import Skill, Subject
+        from apps.projects.models import SkillCategory
 
         cat = SkillCategory.objects.create(name="Academics")
         subj = Subject.objects.create(name="Math", category=cat)

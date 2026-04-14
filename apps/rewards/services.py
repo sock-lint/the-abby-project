@@ -3,7 +3,6 @@ from decimal import Decimal, InvalidOperation
 
 from django.conf import settings as django_settings
 from django.db import transaction
-from django.utils import timezone
 
 from apps.projects.notifications import get_display_name, notify, notify_parents
 from config.services import BaseLedgerService, finalize_decision
@@ -98,9 +97,8 @@ class RewardService:
             Reward.objects.filter(pk=reward.pk).update(stock=reward.stock - 1)
 
         if not reward.requires_parent_approval:
-            redemption.status = RewardRedemption.Status.FULFILLED
-            redemption.decided_at = timezone.now()
-            redemption.save(update_fields=["status", "decided_at"])
+            # Auto-fulfill: no parent decision, so decided_by stays null.
+            finalize_decision(redemption, RewardRedemption.Status.FULFILLED, None)
         else:
             from apps.projects.models import Notification
             display = get_display_name(user)

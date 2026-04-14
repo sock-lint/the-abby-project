@@ -4,6 +4,18 @@ from rest_framework.response import Response
 from config.permissions import IsParent
 
 
+def filter_queryset_by_role(user, queryset, role_filter_field="user"):
+    """Filter a queryset by user role: parents see all, children see own.
+
+    Usable from viewsets (via :class:`RoleFilteredQuerySetMixin`) and from
+    APIViews that need to apply the same rule to multiple querysets with
+    different filter fields.
+    """
+    if user.role == "parent":
+        return queryset
+    return queryset.filter(**{role_filter_field: user})
+
+
 class RoleFilteredQuerySetMixin:
     """Filter queryset by user role: parents see all, children see their own.
 
@@ -15,10 +27,9 @@ class RoleFilteredQuerySetMixin:
     role_filter_field = "user"
 
     def get_role_filtered_queryset(self, queryset):
-        user = self.request.user
-        if user.role == "parent":
-            return queryset
-        return queryset.filter(**{self.role_filter_field: user})
+        return filter_queryset_by_role(
+            self.request.user, queryset, self.role_filter_field,
+        )
 
 
 class NestedProjectResourceMixin:

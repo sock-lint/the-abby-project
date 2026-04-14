@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { DollarSign, TrendingUp, TrendingDown, ArrowDownRight, ArrowUpRight, ArrowRightLeft, Target, Plus } from 'lucide-react';
 import { getBalance, adjustPayment } from '../api';
-import { useApi, useAuth } from '../hooks/useApi';
+import { useApi } from '../hooks/useApi';
+import { useFormState } from '../hooks/useFormState';
+import { useRole } from '../hooks/useRole';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import FormModal from '../components/FormModal';
 import { formatCurrency } from '../utils/format';
-import { inputClass } from '../constants/styles';
+import { buttonPrimary, inputClass } from '../constants/styles';
 
 const typeIcons = {
   hourly: { icon: TrendingUp, color: 'text-blue-400' },
@@ -33,18 +35,23 @@ const typeLabels = {
 };
 
 function PaymentAdjustModal({ onClose, onSaved }) {
-  const [form, setForm] = useState({ user_id: '', amount: '', description: '' });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const { form, set, saving, setSaving, error, setError } = useFormState({
+    user_id: '', amount: '', description: '',
+  });
+  const onField = (k) => (e) => set({ [k]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true); setError('');
+    setSaving(true);
+    setError(null);
     try {
       await adjustPayment(parseInt(form.user_id), parseFloat(form.amount), form.description);
       onSaved();
-    } catch (err) { setError(err.message); } finally { setSaving(false); }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -53,19 +60,19 @@ function PaymentAdjustModal({ onClose, onSaved }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className="text-xs text-forge-text-dim mb-1 block">Child User ID</label>
-          <input className={inputClass} type="number" value={form.user_id} onChange={set('user_id')} required placeholder="Enter child user ID" />
+          <input className={inputClass} type="number" value={form.user_id} onChange={onField('user_id')} required placeholder="Enter child user ID" />
         </div>
         <div>
           <label className="text-xs text-forge-text-dim mb-1 block">Amount (positive to credit, negative to debit)</label>
-          <input className={inputClass} type="number" step="0.01" value={form.amount} onChange={set('amount')} required />
+          <input className={inputClass} type="number" step="0.01" value={form.amount} onChange={onField('amount')} required />
         </div>
         <div>
           <label className="text-xs text-forge-text-dim mb-1 block">Description</label>
-          <input className={inputClass} value={form.description} onChange={set('description')} placeholder="Reason for adjustment" />
+          <input className={inputClass} value={form.description} onChange={onField('description')} placeholder="Reason for adjustment" />
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-forge-text-dim hover:text-forge-text">Cancel</button>
-          <button type="submit" disabled={saving} className="px-4 py-2 bg-amber-primary hover:bg-amber-highlight text-black text-sm font-semibold rounded-lg disabled:opacity-50">
+          <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
             {saving ? 'Adjusting...' : 'Adjust'}
           </button>
         </div>
@@ -75,8 +82,7 @@ function PaymentAdjustModal({ onClose, onSaved }) {
 }
 
 export default function Payments() {
-  const { user } = useAuth();
-  const isParent = user?.role === 'parent';
+  const { isParent } = useRole();
   const { data, loading, reload } = useApi(getBalance);
   const [showAdjust, setShowAdjust] = useState(false);
 
@@ -92,7 +98,7 @@ export default function Payments() {
         {isParent && (
           <button
             onClick={() => setShowAdjust(true)}
-            className="flex items-center gap-1 bg-amber-primary hover:bg-amber-highlight text-black text-xs font-semibold px-3 py-1.5 rounded-lg"
+            className={`flex items-center gap-1 px-3 py-1.5 text-xs ${buttonPrimary}`}
           >
             <Plus size={14} /> Adjust Balance
           </button>

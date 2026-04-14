@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Send, Camera, X, ExternalLink, Sparkles } from 'lucide-react';
-import { useAuth, useApi } from '../hooks/useApi';
+import { useApi } from '../hooks/useApi';
+import { useRole } from '../hooks/useRole';
 import {
-  getHomeworkDashboard, getHomework, createHomework, deleteHomework,
-  submitHomework, getHomeworkSubmissions, approveHomeworkSubmission,
+  getHomeworkDashboard, createHomework,
+  submitHomework, approveHomeworkSubmission,
   rejectHomeworkSubmission, planHomework, getChildren,
 } from '../api';
 import Card from '../components/Card';
@@ -17,6 +18,7 @@ import StarRating from '../components/StarRating';
 import TimelinessBadge from '../components/TimelinessBadge';
 import ProofGallery from '../components/ProofGallery';
 import StatusBadge from '../components/StatusBadge';
+import { downscaleImage } from '../utils/image';
 
 const SUBJECTS = [
   { value: 'math', label: 'Math' },
@@ -30,8 +32,7 @@ const SUBJECTS = [
 ];
 
 export default function Homework() {
-  const { user } = useAuth();
-  const isParent = user?.role === 'parent';
+  const { isParent } = useRole();
 
   const { data: dashboard, loading, error, reload } = useApi(getHomeworkDashboard);
   const { data: childrenData } = useApi(isParent ? getChildren : null);
@@ -68,8 +69,9 @@ export default function Homework() {
     if (!submitImages.length || !showSubmit) return;
     setSubmitting(true);
     try {
+      const downscaled = await Promise.all(submitImages.map((img) => downscaleImage(img)));
       const fd = new FormData();
-      submitImages.forEach((img) => fd.append('images', img));
+      downscaled.forEach((img) => fd.append('images', img));
       if (submitNotes) fd.append('notes', submitNotes);
       await submitHomework(showSubmit.id, fd);
       setShowSubmit(null);

@@ -10,13 +10,15 @@ import {
   getCategories, getGoogleAuthUrl, unlinkGoogleAccount,
 } from '../api';
 import { useApi } from '../hooks/useApi';
+import { useFormState } from '../hooks/useFormState';
 import BottomSheet from '../components/BottomSheet';
 import Card from '../components/Card';
+import ConfirmDialog from '../components/ConfirmDialog';
 import StarRating from '../components/StarRating';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
-import { inputClass } from '../constants/styles';
+import { buttonPrimary, buttonSecondary, inputClass } from '../constants/styles';
 import { normalizeList } from '../utils/api';
 
 const tabs = ['Children', 'Templates'];
@@ -86,7 +88,7 @@ function ChildrenSection() {
           </div>
           <button
             onClick={() => setEditChild(child)}
-            className="bg-forge-muted hover:bg-forge-border text-forge-text px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1 transition-colors"
+            className={`flex items-center gap-1 px-3 py-2 text-sm ${buttonSecondary}`}
           >
             <Pencil size={14} /> Edit
           </button>
@@ -107,19 +109,17 @@ function ChildrenSection() {
 }
 
 function EditChildModal({ child, onClose, onSaved }) {
-  const [form, setForm] = useState({
+  const { form, set, saving, setSaving, error, setError } = useFormState({
     display_name: child.display_name || '',
     hourly_rate: child.hourly_rate || '',
   });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
 
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const onField = (k) => (e) => set({ [k]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setError('');
+    setError(null);
     try {
       await updateChild(child.id, {
         display_name: form.display_name,
@@ -159,11 +159,11 @@ function EditChildModal({ child, onClose, onSaved }) {
         <ErrorAlert message={error} />
         <div>
           <label className="block text-xs text-forge-text-dim mb-1">Display Name</label>
-          <input value={form.display_name} onChange={set('display_name')} className={inputClass} placeholder={child.username} />
+          <input value={form.display_name} onChange={onField('display_name')} className={inputClass} placeholder={child.username} />
         </div>
         <div>
           <label className="block text-xs text-forge-text-dim mb-1">Hourly Rate ($)</label>
-          <input value={form.hourly_rate} onChange={set('hourly_rate')} className={inputClass} type="number" step="0.01" min="0" required />
+          <input value={form.hourly_rate} onChange={onField('hourly_rate')} className={inputClass} type="number" step="0.01" min="0" required />
         </div>
         <div>
           <label className="block text-xs text-forge-text-dim mb-1">Google Account</label>
@@ -186,10 +186,10 @@ function EditChildModal({ child, onClose, onSaved }) {
           )}
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} disabled={saving} className="flex-1 bg-forge-muted hover:bg-forge-border text-forge-text font-medium py-3 rounded-lg transition-colors">
+          <button type="button" onClick={onClose} disabled={saving} className={`flex-1 py-3 ${buttonSecondary}`}>
             Cancel
           </button>
-          <button type="submit" disabled={saving} className="flex-1 bg-amber-primary hover:bg-amber-highlight disabled:opacity-50 text-black font-semibold py-3 rounded-lg transition-colors">
+          <button type="submit" disabled={saving} className={`flex-1 py-3 ${buttonPrimary}`}>
             {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
@@ -211,11 +211,13 @@ function TemplatesSection() {
 
   const [useModal, setUseModal] = useState(null);
   const [editModal, setEditModal] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
 
   if (loading) return <Loader />;
 
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this template?')) return;
+  const confirmDelete = async () => {
+    const id = deleteId;
+    setDeleteId(null);
     await deleteTemplate(id);
     reload();
   };
@@ -247,18 +249,18 @@ function TemplatesSection() {
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => setUseModal(t)}
-                className="bg-amber-primary hover:bg-amber-highlight text-black px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors"
+                className={`flex items-center gap-1 px-3 py-1.5 text-xs ${buttonPrimary}`}
               >
                 <Play size={12} /> Use
               </button>
               <button
                 onClick={() => setEditModal(t)}
-                className="bg-forge-muted hover:bg-forge-border text-forge-text px-2 py-1.5 rounded-lg text-xs transition-colors"
+                className={`px-2 py-1.5 text-xs ${buttonSecondary}`}
               >
                 <Pencil size={12} />
               </button>
               <button
-                onClick={() => handleDelete(t.id)}
+                onClick={() => setDeleteId(t.id)}
                 className="bg-forge-muted hover:bg-red-500/20 text-forge-text-dim hover:text-red-400 px-2 py-1.5 rounded-lg text-xs transition-colors"
               >
                 <Trash2 size={12} />
@@ -292,6 +294,15 @@ function TemplatesSection() {
           />
         )}
       </AnimatePresence>
+
+      {deleteId && (
+        <ConfirmDialog
+          title="Delete this template?"
+          message="This cannot be undone."
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -331,14 +342,14 @@ function UseTemplateModal({ template, children, onClose, onCreated }) {
         </select>
       </div>
       <div className="flex gap-2">
-        <button type="button" onClick={onClose} disabled={creating} className="flex-1 bg-forge-muted hover:bg-forge-border text-forge-text font-medium py-3 rounded-lg transition-colors">
+        <button type="button" onClick={onClose} disabled={creating} className={`flex-1 py-3 ${buttonSecondary}`}>
           Cancel
         </button>
         <button
           type="button"
           onClick={handleCreate}
           disabled={creating}
-          className="flex-1 bg-amber-primary hover:bg-amber-highlight disabled:opacity-50 text-black font-semibold py-3 rounded-lg transition-colors"
+          className={`flex-1 py-3 ${buttonPrimary}`}
         >
           {creating ? 'Creating...' : 'Create Project'}
         </button>
@@ -348,7 +359,7 @@ function UseTemplateModal({ template, children, onClose, onCreated }) {
 }
 
 function EditTemplateModal({ template, categories, onClose, onSaved }) {
-  const [form, setForm] = useState({
+  const { form, set, saving, setSaving, error, setError } = useFormState({
     title: template.title || '',
     description: template.description || '',
     difficulty: template.difficulty || 2,
@@ -357,15 +368,13 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
     materials_budget: template.materials_budget || '0',
     is_public: template.is_public || false,
   });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
 
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const onField = (k) => (e) => set({ [k]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setError('');
+    setError(null);
     try {
       await updateTemplate(template.id, {
         ...form,
@@ -386,23 +395,23 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
         <ErrorAlert message={error} />
         <div>
           <label className="block text-xs text-forge-text-dim mb-1">Title</label>
-          <input value={form.title} onChange={set('title')} className={inputClass} required />
+          <input value={form.title} onChange={onField('title')} className={inputClass} required />
         </div>
         <div>
           <label className="block text-xs text-forge-text-dim mb-1">Description</label>
-          <textarea value={form.description} onChange={set('description')} className={`${inputClass} h-20 resize-none`} />
+          <textarea value={form.description} onChange={onField('description')} className={`${inputClass} h-20 resize-none`} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-forge-text-dim mb-1">Category</label>
-            <select value={form.category_id} onChange={set('category_id')} className={inputClass}>
+            <select value={form.category_id} onChange={onField('category_id')} className={inputClass}>
               <option value="">None</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs text-forge-text-dim mb-1">Difficulty</label>
-            <select value={form.difficulty} onChange={set('difficulty')} className={inputClass}>
+            <select value={form.difficulty} onChange={onField('difficulty')} className={inputClass}>
               {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
             </select>
           </div>
@@ -410,27 +419,27 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-forge-text-dim mb-1">Bonus ($)</label>
-            <input value={form.bonus_amount} onChange={set('bonus_amount')} className={inputClass} type="number" step="0.01" min="0" />
+            <input value={form.bonus_amount} onChange={onField('bonus_amount')} className={inputClass} type="number" step="0.01" min="0" />
           </div>
           <div>
             <label className="block text-xs text-forge-text-dim mb-1">Budget ($)</label>
-            <input value={form.materials_budget} onChange={set('materials_budget')} className={inputClass} type="number" step="0.01" min="0" />
+            <input value={form.materials_budget} onChange={onField('materials_budget')} className={inputClass} type="number" step="0.01" min="0" />
           </div>
         </div>
         <label className="flex items-center gap-2 text-sm text-forge-text cursor-pointer">
           <input
             type="checkbox"
             checked={form.is_public}
-            onChange={(e) => setForm({ ...form, is_public: e.target.checked })}
+            onChange={(e) => set({ is_public: e.target.checked })}
             className="accent-amber-primary"
           />
           Share publicly (other families can see this template)
         </label>
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} disabled={saving} className="flex-1 bg-forge-muted hover:bg-forge-border text-forge-text font-medium py-3 rounded-lg transition-colors">
+          <button type="button" onClick={onClose} disabled={saving} className={`flex-1 py-3 ${buttonSecondary}`}>
             Cancel
           </button>
-          <button type="submit" disabled={saving} className="flex-1 bg-amber-primary hover:bg-amber-highlight disabled:opacity-50 text-black font-semibold py-3 rounded-lg transition-colors">
+          <button type="submit" disabled={saving} className={`flex-1 py-3 ${buttonPrimary}`}>
             {saving ? 'Saving...' : 'Save'}
           </button>
         </div>

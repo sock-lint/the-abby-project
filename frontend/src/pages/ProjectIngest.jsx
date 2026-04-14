@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Link as LinkIcon, FileText, Plus, Trash2 } from 'lucide-react';
-// Note: `LinkIcon` is reused as a generic "URL" icon in the source picker and
-// as the default resource type icon in the Resources card below.
+import { ArrowLeft } from 'lucide-react';
 import {
   commitIngestJob,
   discardIngestJob,
@@ -13,12 +11,11 @@ import {
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
-import StarRating from '../components/StarRating';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
-import { inputClass } from '../constants/styles';
-import TabButton from '../components/TabButton';
 import { normalizeList } from '../utils/api';
+import SourceStep from './ingest/SourceStep';
+import ReviewStep from './ingest/ReviewStep';
 
 const POLL_INTERVAL_MS = 1500;
 const POLL_MAX_MS = 60000;
@@ -46,25 +43,10 @@ export default function ProjectIngest() {
     if (pollTimer.current) clearTimeout(pollTimer.current);
   }, []);
 
-  const startJob = async () => {
-    setError('');
-    try {
-      const payload = sourceTab === 'pdf'
-        ? { source_type: 'pdf', source_file: file }
-        : {
-            source_type: url.includes('instructables.com') ? 'instructables' : 'url',
-            source_url: url,
-          };
-      const job = await startIngest(payload);
-      setJobId(job.id);
-      setPhase('polling');
-      beginPolling(job.id, Date.now());
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const beginPolling = (id, startedAt) => {
+  const beginPolling = (id) => {
+    // Capture the start timestamp when polling begins, not when startJob runs,
+    // to keep the impure Date.now() call out of the parent's render path.
+    const startedAt = Date.now();
     const tick = async () => {
       try {
         const job = await getIngestJob(id);
@@ -80,10 +62,7 @@ export default function ProjectIngest() {
             resources: rj.resources || [],
           });
           // Seed override defaults from staged draft where possible
-          setOverrides((o) => ({
-            ...o,
-            difficulty: rj.difficulty_hint || o.difficulty,
-          }));
+          setOverrides((o) => ({ ...o, difficulty: rj.difficulty_hint || o.difficulty }));
           setPhase('preview');
           return;
         }
@@ -106,86 +85,111 @@ export default function ProjectIngest() {
     tick();
   };
 
-  const updateMilestone = (i, patch) => {
-    setDraft((d) => {
-      const milestones = d.milestones.map((m, idx) => (idx === i ? { ...m, ...patch } : m));
-      return { ...d, milestones };
-    });
+  const startJob = async () => {
+    setError('');
+    try {
+      const payload = sourceTab === 'pdf'
+        ? { source_type: 'pdf', source_file: file }
+        : {
+            source_type: url.includes('instructables.com') ? 'instructables' : 'url',
+            source_url: url,
+          };
+      const job = await startIngest(payload);
+      setJobId(job.id);
+      setPhase('polling');
+      beginPolling(job.id);
+    } catch (err) {
+      setError(err.message);
+    }
   };
-  const addMilestone = () => setDraft((d) => ({
-    ...d,
-    milestones: [...d.milestones, { title: '', description: '', order: d.milestones.length }],
-  }));
-  const removeMilestone = (i) => setDraft((d) => ({
-    ...d,
-    milestones: d.milestones.filter((_, idx) => idx !== i).map((m, idx) => ({ ...m, order: idx })),
-    // Shift step.milestone_index so steps stay pointing at the right milestone
-    // after the removal. Steps that were attached to the removed milestone
-    // become loose (null).
-    steps: (d.steps || []).map((s) => {
-      if (s.milestone_index == null) return s;
-      if (s.milestone_index === i) return { ...s, milestone_index: null };
-      if (s.milestone_index > i) return { ...s, milestone_index: s.milestone_index - 1 };
-      return s;
-    }),
-  }));
 
-  const updateMaterial = (i, patch) => {
-    setDraft((d) => {
-      const materials = d.materials.map((m, idx) => (idx === i ? { ...m, ...patch } : m));
-      return { ...d, materials };
-    });
-  };
-  const addMaterial = () => setDraft((d) => ({
-    ...d, materials: [...d.materials, { name: '', description: '', estimated_cost: null }],
-  }));
-  const removeMaterial = (i) => setDraft((d) => ({
-    ...d, materials: d.materials.filter((_, idx) => idx !== i),
-  }));
+  // ── Draft mutation handlers ──────────────────────────────────────────────
+  // Cross-cutting helpers (removeMilestone shifts step.milestone_index;
+  // removeStep shifts resource.step_index) live here so the per-section
+  // editors stay presentational.
 
-  const updateStep = (i, patch) => {
-    setDraft((d) => {
-      const steps = d.steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s));
-      return { ...d, steps };
-    });
+  const milestoneHandlers = {
+    add: () => setDraft((d) => ({
+      ...d,
+      milestones: [...d.milestones, { title: '', description: '', order: d.milestones.length }],
+    })),
+    update: (i, patch) => setDraft((d) => ({
+      ...d,
+      milestones: d.milestones.map((m, idx) => (idx === i ? { ...m, ...patch } : m)),
+    })),
+    remove: (i) => setDraft((d) => ({
+      ...d,
+      milestones: d.milestones.filter((_, idx) => idx !== i).map((m, idx) => ({ ...m, order: idx })),
+      // Shift step.milestone_index so steps stay pointing at the right
+      // milestone after the removal. Steps attached to the removed milestone
+      // become loose (null).
+      steps: (d.steps || []).map((s) => {
+        if (s.milestone_index == null) return s;
+        if (s.milestone_index === i) return { ...s, milestone_index: null };
+        if (s.milestone_index > i) return { ...s, milestone_index: s.milestone_index - 1 };
+        return s;
+      }),
+    })),
   };
-  const addStep = () => setDraft((d) => ({
-    ...d,
-    steps: [
-      ...d.steps,
-      { title: '', description: '', order: d.steps.length, milestone_index: null },
-    ],
-  }));
-  const removeStep = (i) => setDraft((d) => ({
-    ...d,
-    // Drop the step, reindex ordering, and reshuffle resources attached to
-    // later steps so step_index stays valid post-removal.
-    steps: d.steps.filter((_, idx) => idx !== i).map((s, idx) => ({ ...s, order: idx })),
-    resources: (d.resources || []).flatMap((r) => {
-      if (r.step_index == null) return [r];
-      if (r.step_index === i) return [{ ...r, step_index: null }];
-      if (r.step_index > i) return [{ ...r, step_index: r.step_index - 1 }];
-      return [r];
-    }),
-  }));
 
-  const updateResource = (i, patch) => {
-    setDraft((d) => {
-      const resources = d.resources.map((r, idx) => (idx === i ? { ...r, ...patch } : r));
-      return { ...d, resources };
-    });
+  const stepHandlers = {
+    add: () => setDraft((d) => ({
+      ...d,
+      steps: [
+        ...d.steps,
+        { title: '', description: '', order: d.steps.length, milestone_index: null },
+      ],
+    })),
+    update: (i, patch) => setDraft((d) => ({
+      ...d,
+      steps: d.steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s)),
+    })),
+    remove: (i) => setDraft((d) => ({
+      ...d,
+      // Drop the step, reindex ordering, and reshuffle resources attached to
+      // later steps so step_index stays valid post-removal.
+      steps: d.steps.filter((_, idx) => idx !== i).map((s, idx) => ({ ...s, order: idx })),
+      resources: (d.resources || []).flatMap((r) => {
+        if (r.step_index == null) return [r];
+        if (r.step_index === i) return [{ ...r, step_index: null }];
+        if (r.step_index > i) return [{ ...r, step_index: r.step_index - 1 }];
+        return [r];
+      }),
+    })),
   };
-  const addResource = () => setDraft((d) => ({
-    ...d,
-    resources: [
-      ...(d.resources || []),
-      { url: '', title: '', resource_type: 'link', order: (d.resources || []).length, step_index: null },
-    ],
-  }));
-  const removeResource = (i) => setDraft((d) => ({
-    ...d,
-    resources: (d.resources || []).filter((_, idx) => idx !== i),
-  }));
+
+  const resourceHandlers = {
+    add: () => setDraft((d) => ({
+      ...d,
+      resources: [
+        ...(d.resources || []),
+        { url: '', title: '', resource_type: 'link', order: (d.resources || []).length, step_index: null },
+      ],
+    })),
+    update: (i, patch) => setDraft((d) => ({
+      ...d,
+      resources: d.resources.map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
+    })),
+    remove: (i) => setDraft((d) => ({
+      ...d,
+      resources: (d.resources || []).filter((_, idx) => idx !== i),
+    })),
+  };
+
+  const materialHandlers = {
+    add: () => setDraft((d) => ({
+      ...d,
+      materials: [...d.materials, { name: '', description: '', estimated_cost: null }],
+    })),
+    update: (i, patch) => setDraft((d) => ({
+      ...d,
+      materials: d.materials.map((m, idx) => (idx === i ? { ...m, ...patch } : m)),
+    })),
+    remove: (i) => setDraft((d) => ({
+      ...d,
+      materials: d.materials.filter((_, idx) => idx !== i),
+    })),
+  };
 
   const commit = async () => {
     setCommitting(true);
@@ -221,7 +225,10 @@ export default function ProjectIngest() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <button onClick={() => navigate('/projects')} className="flex items-center gap-1 text-sm text-forge-text-dim hover:text-forge-text">
+      <button
+        onClick={() => navigate('/projects')}
+        className="flex items-center gap-1 text-sm text-forge-text-dim hover:text-forge-text"
+      >
         <ArrowLeft size={16} /> Back
       </button>
       <div>
@@ -234,48 +241,12 @@ export default function ProjectIngest() {
       <ErrorAlert message={error} />
 
       {phase === 'source' && (
-        <Card className="space-y-4">
-          <div className="flex gap-2">
-            <TabButton active={sourceTab === 'url'} onClick={() => setSourceTab('url')}>
-              <span className="flex items-center gap-2"><LinkIcon size={14} /> URL</span>
-            </TabButton>
-            <TabButton active={sourceTab === 'pdf'} onClick={() => setSourceTab('pdf')}>
-              <span className="flex items-center gap-2"><FileText size={14} /> PDF</span>
-            </TabButton>
-          </div>
-
-          {sourceTab === 'url' ? (
-            <div>
-              <label className="block text-sm text-forge-text-dim mb-1">Tutorial URL</label>
-              <input
-                value={url} onChange={(e) => setUrl(e.target.value)}
-                className={inputClass} type="url"
-                placeholder="https://www.instructables.com/... or any how-to page"
-              />
-              <p className="text-xs text-forge-text-dim mt-1">
-                Instructables links are parsed in full. Other sites are best-effort.
-              </p>
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm text-forge-text-dim mb-1">PDF Tutorial</label>
-              <input
-                type="file" accept="application/pdf"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-forge-text-dim file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-amber-primary file:text-black file:font-semibold"
-              />
-              {file && <p className="text-xs text-forge-text-dim mt-1">{file.name}</p>}
-            </div>
-          )}
-
-          <button
-            type="button" onClick={startJob}
-            disabled={sourceTab === 'url' ? !url : !file}
-            className="w-full bg-amber-primary hover:bg-amber-highlight disabled:opacity-50 text-black font-semibold py-2.5 rounded-lg transition-colors"
-          >
-            Parse Source
-          </button>
-        </Card>
+        <SourceStep
+          sourceTab={sourceTab} setSourceTab={setSourceTab}
+          url={url} setUrl={setUrl}
+          file={file} setFile={setFile}
+          onStart={startJob}
+        />
       )}
 
       {phase === 'polling' && (
@@ -289,10 +260,16 @@ export default function ProjectIngest() {
         <Card className="space-y-3">
           <p className="text-sm text-forge-text-dim">We couldn't parse that source.</p>
           <div className="flex gap-2">
-            <button onClick={() => { setPhase('source'); setError(''); }} className="px-3 py-2 rounded-lg bg-amber-primary text-black text-sm font-semibold">
+            <button
+              onClick={() => { setPhase('source'); setError(''); }}
+              className="px-3 py-2 rounded-lg bg-amber-primary text-black text-sm font-semibold"
+            >
               Try Again
             </button>
-            <button onClick={() => navigate('/projects/new')} className="px-3 py-2 rounded-lg border border-forge-border text-sm">
+            <button
+              onClick={() => navigate('/projects/new')}
+              className="px-3 py-2 rounded-lg border border-forge-border text-sm"
+            >
               Manual form
             </button>
           </div>
@@ -300,422 +277,18 @@ export default function ProjectIngest() {
       )}
 
       {phase === 'preview' && draft && (
-        <div className="space-y-4">
-          {(draft.warnings?.length > 0 || draft.pipeline_warnings?.length > 0) && (
-            <div className="text-xs text-amber-highlight bg-amber-highlight/10 border border-amber-highlight/30 rounded-lg p-3 space-y-1">
-              {draft.warnings?.map((w, i) => <div key={`w-${i}`}>⚠ {w}</div>)}
-              {draft.pipeline_warnings?.map((w, i) => <div key={`pw-${i}`} className="opacity-70">⚙ {w}</div>)}
-            </div>
-          )}
-
-          {draft.ai_suggestions && (
-            <Card className="border-fuchsia-400/30 bg-fuchsia-400/5 space-y-2">
-              <div className="text-xs font-semibold text-fuchsia-300 uppercase tracking-wide">
-                ✨ Claude suggestions
-              </div>
-              {draft.ai_suggestions.summary && (
-                <div className="text-sm text-forge-text">{draft.ai_suggestions.summary}</div>
-              )}
-              <div className="flex flex-wrap gap-2">
-                {draft.ai_suggestions.category && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const match = categories.find(
-                        (c) => c.name.toLowerCase() === String(draft.ai_suggestions.category).toLowerCase()
-                      );
-                      if (match) setOverrides({ ...overrides, category_id: match.id });
-                    }}
-                    className="text-xs px-2 py-1 rounded-full border border-fuchsia-400/40 text-fuchsia-200 hover:bg-fuchsia-400/10"
-                  >
-                    Category: {draft.ai_suggestions.category}
-                  </button>
-                )}
-                {draft.ai_suggestions.difficulty && (
-                  <button
-                    type="button"
-                    onClick={() => setOverrides({ ...overrides, difficulty: draft.ai_suggestions.difficulty })}
-                    className="text-xs px-2 py-1 rounded-full border border-fuchsia-400/40 text-fuchsia-200 hover:bg-fuchsia-400/10"
-                  >
-                    Difficulty: <StarRating value={draft.ai_suggestions.difficulty} />
-                  </button>
-                )}
-                {(draft.ai_suggestions.skill_tags || []).map((tag, i) => (
-                  <span key={i} className="text-xs px-2 py-1 rounded-full border border-fuchsia-400/40 text-fuchsia-200">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-              {draft.ai_suggestions.extra_materials?.length > 0 && (
-                <div className="text-xs text-forge-text-dim">
-                  Suggested extras: {draft.ai_suggestions.extra_materials.map((m) => m.name).join(', ')}
-                </div>
-              )}
-              {draft.ai_suggestions.steps?.length > 0 && (
-                <div className="space-y-1">
-                  <div className="text-xs text-fuchsia-300 font-medium">Suggested walkthrough steps</div>
-                  <div className="flex flex-wrap gap-2">
-                    {draft.ai_suggestions.steps.map((s, i) => (
-                      <button
-                        key={`ais-${i}`}
-                        type="button"
-                        onClick={() =>
-                          setDraft((d) => ({
-                            ...d,
-                            steps: [
-                              ...d.steps,
-                              {
-                                title: s.title || `Step ${d.steps.length + 1}`,
-                                description: s.description || '',
-                                order: d.steps.length,
-                              },
-                            ],
-                          }))
-                        }
-                        className="text-xs px-2 py-1 rounded-full border border-fuchsia-400/40 text-fuchsia-200 hover:bg-fuchsia-400/10 text-left"
-                      >
-                        + {s.title?.slice(0, 40) || `Step ${i + 1}`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {draft.ai_suggestions.resources?.length > 0 && (
-                <div className="space-y-1">
-                  <div className="text-xs text-fuchsia-300 font-medium">Suggested resources</div>
-                  <div className="flex flex-wrap gap-2">
-                    {draft.ai_suggestions.resources.map((r, i) => (
-                      <button
-                        key={`air-${i}`}
-                        type="button"
-                        onClick={() =>
-                          setDraft((d) => ({
-                            ...d,
-                            resources: [
-                              ...(d.resources || []),
-                              {
-                                title: r.title || '',
-                                url: r.url || '',
-                                resource_type: r.resource_type || 'link',
-                                order: (d.resources || []).length,
-                                step_index: Number.isInteger(r.step_index) ? r.step_index : null,
-                              },
-                            ],
-                          }))
-                        }
-                        className="text-xs px-2 py-1 rounded-full border border-fuchsia-400/40 text-fuchsia-200 hover:bg-fuchsia-400/10"
-                      >
-                        + {r.title?.slice(0, 30) || r.url?.slice(0, 30) || 'link'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
-          )}
-
-          <Card className="space-y-4">
-            <h2 className="font-heading text-lg font-bold">Review &amp; Edit</h2>
-
-            {draft.cover_photo_url && (
-              <img src={draft.cover_photo_url} alt="" className="w-full h-40 object-cover rounded-lg" />
-            )}
-
-            <div>
-              <label className="block text-sm text-forge-text-dim mb-1">Title</label>
-              <input value={draft.title || ''} onChange={(e) => setDraft({ ...draft, title: e.target.value })} className={inputClass} />
-            </div>
-            <div>
-              <label className="block text-sm text-forge-text-dim mb-1">Description</label>
-              <textarea value={draft.description || ''} onChange={(e) => setDraft({ ...draft, description: e.target.value })} className={`${inputClass} h-20 resize-none`} />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-forge-text-dim mb-1">Category</label>
-                <select
-                  value={overrides.category_id}
-                  onChange={(e) => setOverrides({ ...overrides, category_id: e.target.value })}
-                  className={inputClass}
-                >
-                  <option value="">
-                    {draft.category_hint ? `Suggested: ${draft.category_hint}` : 'None'}
-                  </option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm text-forge-text-dim mb-1">Difficulty</label>
-                <select
-                  value={overrides.difficulty}
-                  onChange={(e) => setOverrides({ ...overrides, difficulty: e.target.value })}
-                  className={inputClass}
-                >
-                  {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm text-forge-text-dim mb-1">Bonus ($)</label>
-                <input value={overrides.bonus_amount} onChange={(e) => setOverrides({ ...overrides, bonus_amount: e.target.value })} className={inputClass} type="number" step="0.01" min="0" inputMode="decimal" />
-              </div>
-              <div>
-                <label className="block text-sm text-forge-text-dim mb-1">Materials Budget ($)</label>
-                <input value={overrides.materials_budget} onChange={(e) => setOverrides({ ...overrides, materials_budget: e.target.value })} className={inputClass} type="number" step="0.01" min="0" inputMode="decimal" />
-              </div>
-              <div>
-                <label className="block text-sm text-forge-text-dim mb-1">Due Date</label>
-                <input value={overrides.due_date} onChange={(e) => setOverrides({ ...overrides, due_date: e.target.value })} className={inputClass} type="date" />
-              </div>
-            </div>
-          </Card>
-
-          <Card className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-heading text-lg font-bold">Milestones ({draft.milestones.length})</h2>
-              <button onClick={addMilestone} className="text-xs text-amber-primary hover:text-amber-highlight flex items-center gap-1">
-                <Plus size={14} /> Add
-              </button>
-            </div>
-            <p className="text-xs text-forge-text-dim">
-              Optional payment goals — chapters of the project. Each one can hold a $ bonus and group its own steps below.
-            </p>
-            {draft.milestones.map((m, i) => (
-              <div key={i} className="bg-forge-bg border border-forge-border rounded-lg p-3 space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    value={m.title} onChange={(e) => updateMilestone(i, { title: e.target.value })}
-                    className={inputClass} placeholder={`Milestone ${i + 1}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeMilestone(i)}
-                    aria-label="Remove milestone"
-                    className="text-forge-text-dim hover:text-red-400 shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-                <textarea
-                  value={m.description || ''}
-                  onChange={(e) => updateMilestone(i, { description: e.target.value })}
-                  className={`${inputClass} h-16 resize-none text-xs`}
-                  placeholder="Description (optional)"
-                />
-              </div>
-            ))}
-          </Card>
-
-          <Card className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-heading text-lg font-bold">Steps ({draft.steps.length})</h2>
-              <button onClick={addStep} className="text-xs text-amber-primary hover:text-amber-highlight flex items-center gap-1">
-                <Plus size={14} /> Add
-              </button>
-            </div>
-            <p className="text-xs text-forge-text-dim">
-              Ordered walkthrough instructions. Assign a step to a milestone above to group it under that chapter — leave loose if it's a one-off.
-            </p>
-            {draft.steps.length === 0 && (
-              <div className="text-xs text-forge-text-dim italic">
-                No walkthrough steps parsed. Add some manually or accept an AI suggestion above.
-              </div>
-            )}
-            {draft.steps.map((s, i) => (
-              <div key={`s-${i}`} className="bg-forge-bg border border-forge-border rounded-lg p-3 space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    value={s.title}
-                    onChange={(e) => updateStep(i, { title: e.target.value })}
-                    className={inputClass}
-                    placeholder={`Step ${i + 1}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeStep(i)}
-                    aria-label="Remove step"
-                    className="text-forge-text-dim hover:text-red-400 shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-                <textarea
-                  value={s.description || ''}
-                  onChange={(e) => updateStep(i, { description: e.target.value })}
-                  className={`${inputClass} h-20 resize-none text-xs`}
-                  placeholder="What does the maker do in this step?"
-                />
-                {draft.milestones.length > 0 && (
-                  <select
-                    value={s.milestone_index == null ? '' : String(s.milestone_index)}
-                    onChange={(e) =>
-                      updateStep(i, {
-                        milestone_index: e.target.value === '' ? null : parseInt(e.target.value, 10),
-                      })
-                    }
-                    className={`${inputClass} text-xs`}
-                  >
-                    <option value="">(No milestone — loose step)</option>
-                    {draft.milestones.map((m, idx) => (
-                      <option key={idx} value={idx}>
-                        {idx + 1}. {(m.title || '').slice(0, 30) || `Milestone ${idx + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            ))}
-          </Card>
-
-          <Card className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-heading text-lg font-bold">Resources ({(draft.resources || []).length})</h2>
-              <button onClick={addResource} className="text-xs text-amber-primary hover:text-amber-highlight flex items-center gap-1">
-                <Plus size={14} /> Add
-              </button>
-            </div>
-            <p className="text-xs text-forge-text-dim">
-              Reference videos, docs, or inspiration links. Attach to a step or leave project-level.
-            </p>
-            {(draft.resources || []).map((r, i) => (
-              <div key={`r-${i}`} className="bg-forge-bg border border-forge-border rounded-lg p-3 space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    value={r.url}
-                    onChange={(e) => updateResource(i, { url: e.target.value })}
-                    className={inputClass}
-                    type="url"
-                    placeholder="https://..."
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeResource(i)}
-                    aria-label="Remove resource"
-                    className="text-forge-text-dim hover:text-red-400 shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-                <input
-                  value={r.title || ''}
-                  onChange={(e) => updateResource(i, { title: e.target.value })}
-                  className={`${inputClass} text-xs`}
-                  placeholder="Title (optional)"
-                />
-                <div className="flex gap-2">
-                  <select
-                    value={r.resource_type || 'link'}
-                    onChange={(e) => updateResource(i, { resource_type: e.target.value })}
-                    className={`${inputClass} text-xs`}
-                  >
-                    <option value="link">Link</option>
-                    <option value="video">Video</option>
-                    <option value="doc">Document</option>
-                    <option value="image">Image</option>
-                  </select>
-                  <select
-                    value={r.step_index == null ? '' : String(r.step_index)}
-                    onChange={(e) =>
-                      updateResource(i, {
-                        step_index: e.target.value === '' ? null : parseInt(e.target.value, 10),
-                      })
-                    }
-                    className={`${inputClass} text-xs`}
-                  >
-                    <option value="">(Project-level)</option>
-                    {draft.steps.map((s, idx) => (
-                      <option key={idx} value={idx}>
-                        {idx + 1}. {(s.title || '').slice(0, 30) || `Step ${idx + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            ))}
-          </Card>
-
-          <Card className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-heading text-lg font-bold">Milestones ({draft.milestones.length})</h2>
-              <button onClick={addMilestone} className="text-xs text-amber-primary hover:text-amber-highlight flex items-center gap-1">
-                <Plus size={14} /> Add
-              </button>
-            </div>
-            <p className="text-xs text-forge-text-dim">
-              Optional payment goals (separate from walkthrough steps). Parents author these for bonuses.
-            </p>
-            {draft.milestones.map((m, i) => (
-              <div key={i} className="bg-forge-bg border border-forge-border rounded-lg p-3 space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    value={m.title} onChange={(e) => updateMilestone(i, { title: e.target.value })}
-                    className={inputClass} placeholder={`Step ${i + 1}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeMilestone(i)}
-                    aria-label="Remove milestone"
-                    className="text-forge-text-dim hover:text-red-400 shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-                <textarea
-                  value={m.description || ''}
-                  onChange={(e) => updateMilestone(i, { description: e.target.value })}
-                  className={`${inputClass} h-16 resize-none text-xs`}
-                  placeholder="Description (optional)"
-                />
-              </div>
-            ))}
-          </Card>
-
-          <Card className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-heading text-lg font-bold">Materials ({draft.materials.length})</h2>
-              <button onClick={addMaterial} className="text-xs text-amber-primary hover:text-amber-highlight flex items-center gap-1">
-                <Plus size={14} /> Add
-              </button>
-            </div>
-            {draft.materials.map((m, i) => (
-              <div key={i} className="flex gap-2">
-                <input
-                  value={m.name} onChange={(e) => updateMaterial(i, { name: e.target.value })}
-                  className={`${inputClass} flex-1`} placeholder="Material name"
-                />
-                <input
-                  value={m.estimated_cost ?? ''}
-                  onChange={(e) => updateMaterial(i, { estimated_cost: e.target.value })}
-                  className={`${inputClass} w-24`} type="number" step="0.01" min="0" inputMode="decimal" placeholder="$ est."
-                />
-                <button
-                  type="button"
-                  onClick={() => removeMaterial(i)}
-                  aria-label="Remove material"
-                  className="text-forge-text-dim hover:text-red-400 shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            ))}
-          </Card>
-
-          <div className="flex gap-2">
-            <button
-              onClick={commit} disabled={committing}
-              className="flex-1 bg-amber-primary hover:bg-amber-highlight disabled:opacity-50 text-black font-semibold py-2.5 rounded-lg transition-colors"
-            >
-              {committing ? 'Creating…' : 'Create Project'}
-            </button>
-            <button onClick={discard} className="px-4 py-2.5 rounded-lg border border-forge-border text-sm text-forge-text-dim">
-              Discard
-            </button>
-          </div>
-        </div>
+        <ReviewStep
+          draft={draft} setDraft={setDraft}
+          overrides={overrides} setOverrides={setOverrides}
+          categories={categories}
+          milestoneHandlers={milestoneHandlers}
+          stepHandlers={stepHandlers}
+          resourceHandlers={resourceHandlers}
+          materialHandlers={materialHandlers}
+          committing={committing}
+          onCommit={commit}
+          onDiscard={discard}
+        />
       )}
     </div>
   );

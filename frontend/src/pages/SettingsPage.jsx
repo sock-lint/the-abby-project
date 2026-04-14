@@ -5,9 +5,11 @@ import {
   updateCalendarSettings, triggerCalendarSync, updateMe,
 } from '../api';
 import Card from '../components/Card';
+import { useAuth } from '../hooks/useApi';
 import { themes, applyTheme } from '../themes';
 
-export default function SettingsPage({ user, onLogout }) {
+export default function SettingsPage() {
+  const { user, logout: onLogout } = useAuth();
   const [currentTheme, setCurrentTheme] = useState(user?.theme || 'summer');
 
   // Google account state

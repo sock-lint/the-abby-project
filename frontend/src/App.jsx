@@ -43,7 +43,7 @@ function ErrorFallback({ error, resetError }) {
 }
 
 export default function App() {
-  const { user, loading, login, logout } = useAuth();
+  const { user, loading, login } = useAuth();
 
   useEffect(() => {
     if (user?.theme) applyTheme(user.theme);
@@ -65,12 +65,12 @@ export default function App() {
     <Sentry.ErrorBoundary fallback={ErrorFallback} showDialog={false}>
       <BrowserRouter>
         <Routes>
-          <Route element={<Layout user={user} onLogout={logout} />}>
+          <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/projects" element={<Projects user={user} />} />
+            <Route path="/projects" element={<Projects />} />
             <Route path="/projects/new" element={<ProjectNew />} />
             <Route path="/projects/ingest" element={<ProjectIngest />} />
-            <Route path="/projects/:id" element={<ProjectDetail user={user} />} />
+            <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/chores" element={<Chores />} />
             <Route path="/homework" element={<Homework />} />
             <Route path="/habits" element={<Habits />} />
@@ -79,13 +79,13 @@ export default function App() {
             <Route path="/quests" element={<Quests />} />
             <Route path="/character" element={<Character />} />
             <Route path="/clock" element={<ClockPage />} />
-            <Route path="/timecards" element={<Timecards user={user} />} />
+            <Route path="/timecards" element={<Timecards />} />
             <Route path="/payments" element={<Payments />} />
             <Route path="/rewards" element={<Rewards />} />
             <Route path="/achievements" element={<Achievements />} />
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/manage" element={<Manage />} />
-            <Route path="/settings" element={<SettingsPage user={user} onLogout={logout} />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

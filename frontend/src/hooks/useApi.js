@@ -1,5 +1,7 @@
 import * as Sentry from '@sentry/react';
-import { useState, useEffect, useCallback } from 'react';
+import {
+  createContext, createElement, useCallback, useContext, useEffect, useState,
+} from 'react';
 import { getMe, login as apiLogin, logout as apiLogout } from '../api';
 import { setToken } from '../api/client';
 
@@ -8,6 +10,10 @@ export function useApi(apiFn, deps = []) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // ``deps`` is dynamic — callers pass an array literal that changes per
+  // call site, so this hook intentionally trusts them rather than statically
+  // verifying. ``apiFn`` is captured by closure on each render and re-bound
+  // when ``deps`` changes; including it would re-fetch on every render.
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -19,6 +25,7 @@ export function useApi(apiFn, deps = []) {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
   useEffect(() => { load(); }, [load]);
@@ -26,7 +33,14 @@ export function useApi(apiFn, deps = []) {
   return { data, loading, error, reload: load, setData };
 }
 
-export function useAuth() {
+// --- Auth context ----------------------------------------------------------
+// Single source of truth for the logged-in user. Wrap the app in
+// <AuthProvider> and every useAuth() / useRole() call reads the same state,
+// so logout propagates globally and /api/users/me is fetched once per session.
+
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -52,18 +66,27 @@ export function useAuth() {
       .finally(() => setLoading(false));
   }, []);
 
-  const doLogin = async (username, password) => {
+  const login = useCallback(async (username, password) => {
     const u = await apiLogin(username, password);
     setUser(u);
     Sentry.setUser(u ? { id: u.id, username: u.username, role: u.role } : null);
     return u;
-  };
+  }, []);
 
-  const doLogout = async () => {
+  const logout = useCallback(async () => {
     await apiLogout();
     setUser(null);
     Sentry.setUser(null);
-  };
+  }, []);
 
-  return { user, loading, login: doLogin, logout: doLogout };
+  const value = { user, loading, login, logout };
+  return createElement(AuthContext.Provider, { value }, children);
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error('useAuth must be used inside <AuthProvider>');
+  }
+  return ctx;
 }

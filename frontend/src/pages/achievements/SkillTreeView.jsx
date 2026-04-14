@@ -1,0 +1,266 @@
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Lock, Unlock } from 'lucide-react';
+import { getSkillTree } from '../../api';
+import BottomSheet from '../../components/BottomSheet';
+import Card from '../../components/Card';
+import EmptyState from '../../components/EmptyState';
+import Loader from '../../components/Loader';
+import ProgressBar from '../../components/ProgressBar';
+import TabButton from '../../components/TabButton';
+
+const XP_THRESHOLDS = { 0: 0, 1: 100, 2: 300, 3: 600, 4: 1000, 5: 1500, 6: 2500 };
+
+function SkillCard({ skill, onSelect, index }) {
+  const nextThreshold = XP_THRESHOLDS[skill.level + 1] || XP_THRESHOLDS[6];
+  const currentThreshold = XP_THRESHOLDS[skill.level] || 0;
+  const progress = nextThreshold > currentThreshold
+    ? ((skill.xp_points - currentThreshold) / (nextThreshold - currentThreshold)) * 100
+    : 100;
+  const levelName = skill.level_names[String(skill.level)] || '';
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.04 }}
+    >
+      <Card
+        className={`${!skill.unlocked ? 'opacity-40' : ''} cursor-pointer active:scale-[0.98] transition-transform`}
+        onClick={onSelect}
+      >
+        <div className="flex items-center gap-3 mb-2">
+          <div className="text-2xl">{skill.icon}</div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm truncate">{skill.name}</span>
+              {!skill.unlocked && <Lock size={12} className="text-forge-text-dim shrink-0" />}
+              {skill.unlocked && skill.is_locked_by_default && (
+                <Unlock size={12} className="text-amber-highlight shrink-0" />
+              )}
+            </div>
+            <div className="text-xs text-forge-text-dim">
+              {skill.unlocked
+                ? `Level ${skill.level}${levelName ? ` — ${levelName}` : ''}`
+                : 'Locked'}
+            </div>
+          </div>
+          <div className="font-heading text-sm font-bold text-forge-text-dim shrink-0">
+            L{skill.level}
+          </div>
+        </div>
+        {skill.unlocked && (
+          <div>
+            <div className="flex justify-between text-xs text-forge-text-dim mb-1">
+              <span>{skill.xp_points} XP</span>
+              <span>{nextThreshold} XP</span>
+            </div>
+            <ProgressBar value={Math.min(100, progress)} />
+          </div>
+        )}
+        {!skill.unlocked && skill.prerequisites?.length > 0 && (
+          <div className="text-xs text-forge-text-dim mt-1">
+            Requires: {skill.prerequisites.map((p) =>
+              `${p.skill_name} L${p.required_level}${p.met ? ' ✓' : ''}`,
+            ).join(', ')}
+          </div>
+        )}
+      </Card>
+    </motion.div>
+  );
+}
+
+function SkillDetailSheet({ skill, onClose }) {
+  const nextThreshold = XP_THRESHOLDS[skill.level + 1] || XP_THRESHOLDS[6];
+  const currentThreshold = XP_THRESHOLDS[skill.level] || 0;
+  const xpInLevel = skill.xp_points - currentThreshold;
+  const xpNeeded = nextThreshold - currentThreshold;
+  const progress = xpNeeded > 0 ? (xpInLevel / xpNeeded) * 100 : 100;
+  const levelNames = Object.entries(skill.level_names).sort(([a], [b]) => Number(a) - Number(b));
+
+  return (
+    <BottomSheet title={skill.name} onClose={onClose}>
+      <div className="text-center">
+        <div className="text-5xl mb-3">{skill.icon}</div>
+        <div className="text-sm text-forge-text-dim mb-3">
+          {skill.description || 'No description yet.'}
+        </div>
+
+        <div className="flex justify-center gap-6 mb-4">
+          <div className="text-center">
+            <div className="font-heading text-2xl font-bold text-amber-highlight">{skill.level}</div>
+            <div className="text-xs text-forge-text-dim">Level</div>
+          </div>
+          <div className="text-center">
+            <div className="font-heading text-2xl font-bold text-forge-text">{skill.xp_points}</div>
+            <div className="text-xs text-forge-text-dim">XP</div>
+          </div>
+        </div>
+
+        {skill.level_names[String(skill.level)] && (
+          <div className="text-sm font-medium text-amber-highlight mb-3">
+            {skill.level_names[String(skill.level)]}
+          </div>
+        )}
+
+        {skill.unlocked && (
+          <div className="mb-4">
+            <div className="flex justify-between text-xs text-forge-text-dim mb-1">
+              <span>{xpInLevel} / {xpNeeded} XP to next level</span>
+            </div>
+            <ProgressBar value={Math.min(100, progress)} />
+          </div>
+        )}
+
+        {levelNames.length > 0 && (
+          <div className="text-left space-y-1 mb-3">
+            <div className="text-xs font-medium text-forge-text-dim uppercase tracking-wide mb-2">Level Roadmap</div>
+            {levelNames.map(([lvl, name]) => (
+              <div
+                key={lvl}
+                className={`flex items-center gap-2 text-sm ${
+                  Number(lvl) <= skill.level ? 'text-amber-highlight' : 'text-forge-text-dim'
+                }`}
+              >
+                <span className="font-heading text-xs w-6">L{lvl}</span>
+                <span>{name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {skill.prerequisites?.length > 0 && (
+          <div className="text-left space-y-1">
+            <div className="text-xs font-medium text-forge-text-dim uppercase tracking-wide mb-2">Prerequisites</div>
+            {skill.prerequisites.map((p, i) => (
+              <div
+                key={i}
+                className={`flex items-center justify-between text-sm ${
+                  p.met ? 'text-green-400' : 'text-forge-text-dim'
+                }`}
+              >
+                <span>{p.skill_name} Level {p.required_level}</span>
+                <span>{p.met ? '✓' : '✗'}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!skill.unlocked && (
+          <div className="mt-3 text-xs text-forge-text-dim italic">This skill is locked</div>
+        )}
+      </div>
+    </BottomSheet>
+  );
+}
+
+export default function SkillTreeView({ categories }) {
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [tree, setTree] = useState(null);
+  const [treeLoading, setTreeLoading] = useState(false);
+  const [selectedSkill, setSelectedSkill] = useState(null);
+
+  const loadTree = async (catId) => {
+    if (selectedCategory === catId) {
+      setSelectedCategory(null);
+      setTree(null);
+      return;
+    }
+    setSelectedCategory(catId);
+    setTreeLoading(true);
+    try {
+      const data = await getSkillTree(catId);
+      setTree(data);
+    } catch {
+      setTree(null);
+    }
+    setTreeLoading(false);
+  };
+
+  return (
+    <div>
+      <h2 className="font-heading text-lg font-bold mb-3">Skill Tree</h2>
+      <div
+        className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide"
+        style={{
+          maskImage: 'linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent)',
+          WebkitMaskImage: 'linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent)',
+        }}
+      >
+        {categories.map((cat) => (
+          <TabButton
+            key={cat.id}
+            active={selectedCategory === cat.id}
+            onClick={() => loadTree(cat.id)}
+            className="shrink-0"
+          >
+            <span className="flex items-center gap-1.5">
+              <span>{cat.icon}</span>
+              <span>{cat.name}</span>
+            </span>
+          </TabButton>
+        ))}
+      </div>
+
+      {treeLoading && <Loader />}
+
+      {!tree && !treeLoading && (
+        <EmptyState>
+          <div className="text-sm font-medium text-forge-text mb-1">Pick a category above</div>
+          <div className="text-xs">Tap a category to explore your skill tree</div>
+        </EmptyState>
+      )}
+
+      {tree && !treeLoading && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+          <Card className="flex items-center justify-between !p-3 md:!p-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl md:text-2xl">{tree.category.icon}</span>
+              <div>
+                <div className="font-bold text-sm md:text-base">{tree.category.name}</div>
+                <div className="text-xs text-forge-text-dim">
+                  Level {tree.summary.level} · {tree.summary.total_xp} XP
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {tree.subjects.map((subject) => (
+            <div key={subject.id} className="space-y-2 border-l-2 border-amber-primary/30 pl-3">
+              {subject.name && (
+                <div className="flex items-center justify-between py-2 sticky top-0 bg-forge-bg/95 backdrop-blur-sm z-10 -ml-3 pl-4 pr-1 rounded-r-lg">
+                  <div className="flex items-center gap-2">
+                    {subject.icon && <span>{subject.icon}</span>}
+                    <span className="font-heading text-sm font-bold text-forge-text">{subject.name}</span>
+                  </div>
+                  {subject.summary && (
+                    <span className="text-xs text-forge-text-dim">
+                      L{subject.summary.level} · {subject.summary.total_xp} XP
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="grid md:grid-cols-2 gap-3">
+                {subject.skills.map((skill, i) => (
+                  <SkillCard
+                    key={skill.id}
+                    skill={skill}
+                    index={i}
+                    onSelect={() => setSelectedSkill(skill)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </motion.div>
+      )}
+
+      <AnimatePresence>
+        {selectedSkill && (
+          <SkillDetailSheet skill={selectedSkill} onClose={() => setSelectedSkill(null)} />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

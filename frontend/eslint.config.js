@@ -23,8 +23,27 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // ``no-unused-vars`` can't see JSX member-expression usage like
+      // ``<motion.div>`` or ``<Icon size={...}>``. Cover the common cases:
+      //   - varsIgnorePattern ``^[A-Z_]`` keeps PascalCase imports/aliases
+      //     (Icon, FormModal, etc.) from being flagged when only used in JSX.
+      //   - argsIgnorePattern catches destructured renames inside callbacks
+      //     like ``map(({ icon: Icon }) => <Icon />)``.
+      //   - The explicit ``motion`` exemption handles framer-motion's
+      //     lowercase JSX namespace (``<motion.div>``).
+      'no-unused-vars': ['error', {
+        varsIgnorePattern: '^[A-Z_]|^motion$',
+        argsIgnorePattern: '^[A-Z_]|^_',
+        destructuredArrayIgnorePattern: '^_',
+        caughtErrors: 'none',
+      }],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
+  },
+  {
+    // Build/config files run in Node, not the browser, so allow ``process``
+    // and friends.
+    files: ['vite.config.js', 'eslint.config.js'],
+    languageOptions: { globals: globals.node },
   },
 ])

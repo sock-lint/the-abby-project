@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Hammer } from 'lucide-react';
 import ErrorAlert from '../components/ErrorAlert';
 import { getGoogleLoginUrl } from '../api';
+import { buttonPrimary } from '../constants/styles';
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState('');
@@ -89,7 +90,7 @@ export default function Login({ onLogin }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-amber-primary hover:bg-amber-highlight text-black font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50"
+            className={`w-full py-2.5 ${buttonPrimary}`}
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>

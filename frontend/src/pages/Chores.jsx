@@ -9,7 +9,9 @@ import {
   getChoreCompletions, approveChoreCompletion, rejectChoreCompletion,
   getChildren,
 } from '../api';
-import { useApi, useAuth } from '../hooks/useApi';
+import { useApi } from '../hooks/useApi';
+import { useFormState } from '../hooks/useFormState';
+import { useRole } from '../hooks/useRole';
 import ApprovalButtons from '../components/ApprovalButtons';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
@@ -20,14 +22,14 @@ import FormModal from '../components/FormModal';
 import { STATUS_COLORS } from '../constants/colors';
 import { formatDate } from '../utils/format';
 import { normalizeList } from '../utils/api';
-import { inputClass } from '../constants/styles';
+import { buttonPrimary, inputClass } from '../constants/styles';
 
 const RECURRENCE_LABELS = { daily: 'Daily', weekly: 'Weekly', one_time: 'One-Time' };
 const WEEK_SCHEDULE_LABELS = { every_week: 'Every Week', alternating: 'Alternating Weeks' };
 
 function ChoreFormModal({ chore, children, onClose, onSaved }) {
   const isEdit = !!chore;
-  const [form, setForm] = useState({
+  const { form, set, saving, setSaving, error, setError } = useFormState({
     title: chore?.title || '',
     description: chore?.description || '',
     icon: chore?.icon || '',
@@ -40,18 +42,16 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
     is_active: chore?.is_active ?? true,
     order: chore?.order ?? 0,
   });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
 
-  const set = (k) => (e) => {
+  const onField = (k) => (e) => {
     const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setForm({ ...form, [k]: val });
+    set({ [k]: val });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setError('');
+    setError(null);
     try {
       const payload = {
         title: form.title,
@@ -88,30 +88,30 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
       <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label className="text-xs text-forge-text-dim mb-1 block">Title</label>
-              <input className={inputClass} value={form.title} onChange={set('title')} required />
+              <input className={inputClass} value={form.title} onChange={onField('title')} required />
             </div>
             <div>
               <label className="text-xs text-forge-text-dim mb-1 block">Description</label>
-              <textarea className={inputClass} value={form.description} onChange={set('description')} rows={2} />
+              <textarea className={inputClass} value={form.description} onChange={onField('description')} rows={2} />
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="text-xs text-forge-text-dim mb-1 block">Icon</label>
-                <input className={inputClass} value={form.icon} onChange={set('icon')} placeholder="🧹" />
+                <input className={inputClass} value={form.icon} onChange={onField('icon')} placeholder="🧹" />
               </div>
               <div>
                 <label className="text-xs text-forge-text-dim mb-1 block">Reward ($)</label>
-                <input className={inputClass} type="number" min="0" step="0.25" value={form.reward_amount} onChange={set('reward_amount')} />
+                <input className={inputClass} type="number" min="0" step="0.25" value={form.reward_amount} onChange={onField('reward_amount')} />
               </div>
               <div>
                 <label className="text-xs text-forge-text-dim mb-1 block">Coins</label>
-                <input className={inputClass} type="number" min="0" value={form.coin_reward} onChange={set('coin_reward')} />
+                <input className={inputClass} type="number" min="0" value={form.coin_reward} onChange={onField('coin_reward')} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-forge-text-dim mb-1 block">Recurrence</label>
-                <select className={inputClass} value={form.recurrence} onChange={set('recurrence')}>
+                <select className={inputClass} value={form.recurrence} onChange={onField('recurrence')}>
                   {Object.entries(RECURRENCE_LABELS).map(([v, l]) => (
                     <option key={v} value={v}>{l}</option>
                   ))}
@@ -119,7 +119,7 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
               </div>
               <div>
                 <label className="text-xs text-forge-text-dim mb-1 block">Assign To</label>
-                <select className={inputClass} value={form.assigned_to} onChange={set('assigned_to')}>
+                <select className={inputClass} value={form.assigned_to} onChange={onField('assigned_to')}>
                   <option value="">All Children</option>
                   {children.map((c) => (
                     <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
@@ -131,7 +131,7 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-forge-text-dim mb-1 block">Custody Schedule</label>
-                  <select className={inputClass} value={form.week_schedule} onChange={set('week_schedule')}>
+                  <select className={inputClass} value={form.week_schedule} onChange={onField('week_schedule')}>
                     {Object.entries(WEEK_SCHEDULE_LABELS).map(([v, l]) => (
                       <option key={v} value={v}>{l}</option>
                     ))}
@@ -140,7 +140,7 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
                 {form.week_schedule === 'alternating' && (
                   <div>
                     <label className="text-xs text-forge-text-dim mb-1 block">Start Date (on-week)</label>
-                    <input className={inputClass} type="date" value={form.schedule_start_date} onChange={set('schedule_start_date')} />
+                    <input className={inputClass} type="date" value={form.schedule_start_date} onChange={onField('schedule_start_date')} />
                   </div>
                 )}
               </div>
@@ -148,18 +148,18 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-forge-text-dim mb-1 block">Order</label>
-                <input className={inputClass} type="number" value={form.order} onChange={set('order')} />
+                <input className={inputClass} type="number" value={form.order} onChange={onField('order')} />
               </div>
               <div className="flex items-end pb-1">
                 <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={form.is_active} onChange={set('is_active')} className="accent-amber-primary" />
+                  <input type="checkbox" checked={form.is_active} onChange={onField('is_active')} className="accent-amber-primary" />
                   Active
                 </label>
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-forge-text-dim hover:text-forge-text">Cancel</button>
-              <button type="submit" disabled={saving} className="px-4 py-2 bg-amber-primary hover:bg-amber-highlight text-black text-sm font-semibold rounded-lg disabled:opacity-50">
+              <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
                 {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
               </button>
             </div>
@@ -169,8 +169,7 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
 }
 
 export default function Chores() {
-  const { user } = useAuth();
-  const isParent = user?.role === 'parent';
+  const { isParent } = useRole();
 
   const { data: choresData, loading: loadingChores, reload: reloadChores } = useApi(getChores);
   const { data: completionsData, loading: loadingCompletions, reload: reloadCompletions } = useApi(
@@ -234,7 +233,7 @@ export default function Chores() {
         {isParent && (
           <button
             onClick={() => { setEditingChore(null); setShowForm(true); }}
-            className="flex items-center gap-1 bg-amber-primary hover:bg-amber-highlight text-black text-xs font-semibold px-3 py-1.5 rounded-lg"
+            className={`flex items-center gap-1 px-3 py-1.5 text-xs ${buttonPrimary}`}
           >
             <Plus size={14} /> New Chore
           </button>
@@ -355,14 +354,14 @@ export default function Chores() {
                     ) : isRejected ? (
                       <button
                         onClick={() => handleComplete(chore.id)}
-                        className="flex items-center gap-1 bg-amber-primary hover:bg-amber-highlight text-black text-xs font-semibold px-3 py-1.5 rounded-lg"
+                        className={`flex items-center gap-1 px-3 py-1.5 text-xs ${buttonPrimary}`}
                       >
                         <RefreshCw size={12} /> Retry
                       </button>
                     ) : isAvailable ? (
                       <button
                         onClick={() => handleComplete(chore.id)}
-                        className="flex items-center gap-1 bg-amber-primary hover:bg-amber-highlight text-black text-xs font-semibold px-3 py-1.5 rounded-lg"
+                        className={`flex items-center gap-1 px-3 py-1.5 text-xs ${buttonPrimary}`}
                       >
                         <Check size={14} /> Done
                       </button>

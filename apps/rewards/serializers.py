@@ -24,6 +24,10 @@ class RewardWriteSerializer(serializers.ModelSerializer):
 class RewardRedemptionSerializer(serializers.ModelSerializer):
     reward = RewardSerializer(read_only=True)
     user_name = serializers.CharField(source="user.username", read_only=True)
+    # Alias: column was renamed to ``created_at`` (PR: adopt CreatedAtModel)
+    # but the frontend still reads ``requested_at`` — keep exposing the old
+    # key to avoid a coordinated release.
+    requested_at = serializers.DateTimeField(source="created_at", read_only=True)
 
     class Meta:
         model = RewardRedemption

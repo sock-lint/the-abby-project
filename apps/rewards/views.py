@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from config.permissions import IsParent
 from config.viewsets import (
     ParentWritePermissionMixin, RoleFilteredQuerySetMixin,
-    WriteReadSerializerMixin, resolve_target_user,
+    WriteReadSerializerMixin, filter_queryset_by_role, resolve_target_user,
 )
 
 from django.conf import settings as django_settings
@@ -152,9 +152,9 @@ class ExchangeRequestView(APIView):
 
 class ExchangeRequestListView(APIView):
     def get(self, request):
-        qs = ExchangeRequest.objects.select_related("user")
-        if request.user.role != "parent":
-            qs = qs.filter(user=request.user)
+        qs = filter_queryset_by_role(
+            request.user, ExchangeRequest.objects.select_related("user"),
+        )
         return Response(
             ExchangeRequestSerializer(qs[:50], many=True).data,
         )

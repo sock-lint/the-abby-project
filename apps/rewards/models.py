@@ -80,7 +80,7 @@ class Reward(CreatedAtModel):
         return f"{self.icon} {self.name} ({self.cost_coins}c)"
 
 
-class RewardRedemption(ApprovalWorkflowModel):
+class RewardRedemption(ApprovalWorkflowModel, CreatedAtModel):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         APPROVED = "approved", "Approved"
@@ -101,11 +101,10 @@ class RewardRedemption(ApprovalWorkflowModel):
     coin_cost_snapshot = models.PositiveIntegerField(
         help_text="Cost at time of request — authoritative for refunds.",
     )
-    requested_at = models.DateTimeField(auto_now_add=True)
     parent_notes = models.TextField(blank=True)
 
     class Meta:
-        ordering = ["-requested_at"]
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"{self.user} → {self.reward.name} ({self.status})"

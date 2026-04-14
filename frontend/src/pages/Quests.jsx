@@ -4,7 +4,7 @@ import { Swords, Play, Shield } from 'lucide-react';
 import {
   getActiveQuest, getAvailableQuests, startQuest, getQuestHistory,
 } from '../api';
-import { useApi, useAuth } from '../hooks/useApi';
+import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
 import EmptyState from '../components/EmptyState';
@@ -22,8 +22,6 @@ const STATUS_COLORS = {
 };
 
 export default function Quests() {
-  const { user } = useAuth();
-  const isParent = user?.role === 'parent';
   const { data: activeQuest, loading: loadingActive, reload: reloadActive } = useApi(getActiveQuest);
   const { data: availableData, loading: loadingAvailable } = useApi(getAvailableQuests);
   const { data: historyData, loading: loadingHistory } = useApi(getQuestHistory);
