@@ -17,6 +17,26 @@ class CharacterProfile(TimestampedModel):
     longest_login_streak = models.PositiveIntegerField(default=0)
     last_active_date = models.DateField(null=True, blank=True)
     perfect_days_count = models.PositiveIntegerField(default=0)
+    active_frame = models.ForeignKey(
+        "rpg.ItemDefinition", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="equipped_as_frame",
+        limit_choices_to={"item_type": "cosmetic_frame"},
+    )
+    active_title = models.ForeignKey(
+        "rpg.ItemDefinition", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="equipped_as_title",
+        limit_choices_to={"item_type": "cosmetic_title"},
+    )
+    active_theme = models.ForeignKey(
+        "rpg.ItemDefinition", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="equipped_as_theme",
+        limit_choices_to={"item_type": "cosmetic_theme"},
+    )
+    active_pet_accessory = models.ForeignKey(
+        "rpg.ItemDefinition", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="equipped_as_pet_accessory",
+        limit_choices_to={"item_type": "cosmetic_pet_accessory"},
+    )
 
     class Meta:
         ordering = ["-level"]

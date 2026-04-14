@@ -6,6 +6,10 @@ from apps.rpg.models import CharacterProfile, Habit, HabitLog, ItemDefinition, U
 class CharacterProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
     display_name = serializers.SerializerMethodField()
+    active_frame = serializers.SerializerMethodField()
+    active_title = serializers.SerializerMethodField()
+    active_theme = serializers.SerializerMethodField()
+    active_pet_accessory = serializers.SerializerMethodField()
 
     class Meta:
         model = CharacterProfile
@@ -18,6 +22,10 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "longest_login_streak",
             "last_active_date",
             "perfect_days_count",
+            "active_frame",
+            "active_title",
+            "active_theme",
+            "active_pet_accessory",
             "created_at",
             "updated_at",
         ]
@@ -25,6 +33,30 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
 
     def get_display_name(self, obj):
         return obj.user.display_name or obj.user.username
+
+    @staticmethod
+    def _compact_item(item):
+        if item is None:
+            return None
+        return {
+            "id": item.pk,
+            "name": item.name,
+            "icon": item.icon,
+            "rarity": item.rarity,
+            "metadata": item.metadata,
+        }
+
+    def get_active_frame(self, obj):
+        return self._compact_item(obj.active_frame)
+
+    def get_active_title(self, obj):
+        return self._compact_item(obj.active_title)
+
+    def get_active_theme(self, obj):
+        return self._compact_item(obj.active_theme)
+
+    def get_active_pet_accessory(self, obj):
+        return self._compact_item(obj.active_pet_accessory)
 
 
 class HabitSerializer(serializers.ModelSerializer):
