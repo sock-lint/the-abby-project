@@ -326,6 +326,14 @@ CELERY_BEAT_SCHEDULE = {
         # 7:00 AM daily — just after quiet hours end.
         "schedule": crontab(hour=7, minute=0),
     },
+    "rpg-perfect-day": {
+        "task": "apps.rpg.tasks.evaluate_perfect_day_task",
+        "schedule": crontab(hour=23, minute=55),
+    },
+    "rpg-habit-decay": {
+        "task": "apps.rpg.tasks.decay_habit_strength_task",
+        "schedule": crontab(hour=0, minute=5),
+    },
 }
 
 # Session
