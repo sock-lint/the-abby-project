@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { LogOut, Link2, Unlink, Calendar, RefreshCw } from 'lucide-react';
-import { api } from '../api/client';
 import {
   getGoogleAuthUrl, getGoogleAccount, unlinkGoogleAccount,
-  updateCalendarSettings, triggerCalendarSync,
+  updateCalendarSettings, triggerCalendarSync, updateMe,
 } from '../api';
 import Card from '../components/Card';
 import { themes, applyTheme } from '../themes';
@@ -53,7 +52,7 @@ export default function SettingsPage({ user, onLogout }) {
     setCurrentTheme(themeName);
     applyTheme(themeName);
     try {
-      await api.patch(`/auth/me/`, { theme: themeName });
+      await updateMe({ theme: themeName });
     } catch { /* best-effort */ }
   };
 

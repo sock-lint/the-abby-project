@@ -14,6 +14,7 @@ from apps.projects.models import Notification
 from apps.projects.notifications import get_display_name, notify, notify_parents
 from apps.rewards.models import CoinLedger
 from apps.rewards.services import CoinService
+from config.services import finalize_decision
 
 from .models import (
     HomeworkAssignment,
@@ -207,10 +208,7 @@ class HomeworkService:
         if submission.status != HomeworkSubmission.Status.PENDING:
             return submission
 
-        submission.status = HomeworkSubmission.Status.APPROVED
-        submission.decided_at = timezone.now()
-        submission.decided_by = parent
-        submission.save(update_fields=["status", "decided_at", "decided_by"])
+        finalize_decision(submission, HomeworkSubmission.Status.APPROVED, parent)
 
         assignment = submission.assignment
 
@@ -263,10 +261,7 @@ class HomeworkService:
         if submission.status != HomeworkSubmission.Status.PENDING:
             return submission
 
-        submission.status = HomeworkSubmission.Status.REJECTED
-        submission.decided_at = timezone.now()
-        submission.decided_by = parent
-        submission.save(update_fields=["status", "decided_at", "decided_by"])
+        finalize_decision(submission, HomeworkSubmission.Status.REJECTED, parent)
 
         notify(
             submission.user,

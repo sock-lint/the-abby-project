@@ -611,8 +611,8 @@ export default function Achievements() {
                   </div>
                 </Card>
 
-                {(tree.subjects || [{ id: null, name: '', skills: tree.skills, summary: tree.summary }]).map((subject) => (
-                  <div key={subject.id ?? 'flat'} className="space-y-2 border-l-2 border-amber-primary/30 pl-3">
+                {tree.subjects.map((subject) => (
+                  <div key={subject.id} className="space-y-2 border-l-2 border-amber-primary/30 pl-3">
                     {subject.name && (
                       <div className="flex items-center justify-between py-2 sticky top-0 bg-forge-bg/95 backdrop-blur-sm z-10 -ml-3 pl-4 pr-1 rounded-r-lg">
                         <div className="flex items-center gap-2">

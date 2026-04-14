@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Sparkles } from 'lucide-react';
-import { createProject, getCategories, getChildren } from '../api';
-import { api } from '../api/client';
+import { createProject, getCategories, getChildren, getInstructablesPreview } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
-import DifficultyStars from '../components/DifficultyStars';
 import ErrorAlert from '../components/ErrorAlert';
 import { inputClass } from '../constants/styles';
 import { normalizeList } from '../utils/api';
@@ -31,7 +29,7 @@ export default function ProjectNew() {
     if (!url || !url.includes('instructables.com')) { setPreview(null); return; }
     setPreviewLoading(true);
     try {
-      const data = await api.get(`/instructables/preview/?url=${encodeURIComponent(url)}`);
+      const data = await getInstructablesPreview(url);
       setPreview(data);
       if (data.title && !form.title) setForm(prev => ({ ...prev, title: data.title }));
     } catch { setPreview(null); }

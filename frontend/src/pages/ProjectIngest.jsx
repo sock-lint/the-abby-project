@@ -13,7 +13,7 @@ import {
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
-import DifficultyStars from '../components/DifficultyStars';
+import StarRating from '../components/StarRating';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import { inputClass } from '../constants/styles';
@@ -337,7 +337,7 @@ export default function ProjectIngest() {
                     onClick={() => setOverrides({ ...overrides, difficulty: draft.ai_suggestions.difficulty })}
                     className="text-xs px-2 py-1 rounded-full border border-fuchsia-400/40 text-fuchsia-200 hover:bg-fuchsia-400/10"
                   >
-                    Difficulty: <DifficultyStars difficulty={draft.ai_suggestions.difficulty} />
+                    Difficulty: <StarRating value={draft.ai_suggestions.difficulty} />
                   </button>
                 )}
                 {(draft.ai_suggestions.skill_tags || []).map((tag, i) => (

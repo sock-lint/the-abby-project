@@ -1,4 +1,23 @@
 from django.db.models import Sum
+from django.utils import timezone
+
+
+def finalize_decision(instance, new_status, parent, notes=""):
+    """Stamp approval/denial fields on a pending-decision model instance.
+
+    Writes ``status``, ``decided_at``, ``decided_by``. If the model also has
+    a ``parent_notes`` field and ``notes`` is truthy, writes that too.
+    Works across the approval-workflow models (ChoreCompletion,
+    HomeworkSubmission, RewardRedemption, ExchangeRequest).
+    """
+    instance.status = new_status
+    instance.decided_at = timezone.now()
+    instance.decided_by = parent
+    update_fields = ["status", "decided_at", "decided_by"]
+    if notes and any(f.name == "parent_notes" for f in instance._meta.fields):
+        instance.parent_notes = notes
+        update_fields.append("parent_notes")
+    instance.save(update_fields=update_fields)
 
 
 class BaseLedgerService:

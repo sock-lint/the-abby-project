@@ -17,7 +17,7 @@ import {
 import { useApi } from '../hooks/useApi';
 import BottomSheet from '../components/BottomSheet';
 import Card from '../components/Card';
-import DifficultyStars from '../components/DifficultyStars';
+import StarRating from '../components/StarRating';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
@@ -283,7 +283,7 @@ export default function ProjectDetail({ user }) {
               </span>
             )}
             {project.category && <span>{project.category.icon} {project.category.name}</span>}
-            <DifficultyStars difficulty={project.difficulty} />
+            <StarRating value={project.difficulty} />
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">

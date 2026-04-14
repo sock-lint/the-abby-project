@@ -11,6 +11,7 @@ from apps.projects.models import Notification
 from apps.projects.notifications import get_display_name, notify, notify_parents
 from apps.rewards.models import CoinLedger
 from apps.rewards.services import CoinService
+from config.services import finalize_decision
 
 from .models import Chore, ChoreCompletion
 
@@ -175,10 +176,7 @@ class ChoreService:
         if completion.status != ChoreCompletion.Status.PENDING:
             return completion
 
-        completion.status = ChoreCompletion.Status.APPROVED
-        completion.decided_at = timezone.now()
-        completion.decided_by = parent
-        completion.save(update_fields=["status", "decided_at", "decided_by"])
+        finalize_decision(completion, ChoreCompletion.Status.APPROVED, parent)
 
         # Post payment.
         if completion.reward_amount_snapshot > 0:
@@ -227,9 +225,5 @@ class ChoreService:
         if completion.status != ChoreCompletion.Status.PENDING:
             return completion
 
-        completion.status = ChoreCompletion.Status.REJECTED
-        completion.decided_at = timezone.now()
-        completion.decided_by = parent
-        completion.save(update_fields=["status", "decided_at", "decided_by"])
-
+        finalize_decision(completion, ChoreCompletion.Status.REJECTED, parent)
         return completion

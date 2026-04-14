@@ -14,6 +14,7 @@ export const logout = async () => {
   }
 };
 export const getMe = () => api.get('/auth/me/');
+export const updateMe = (data) => api.patch('/auth/me/', data);
 
 // Dashboard
 export const getDashboard = () => api.get('/dashboard/');

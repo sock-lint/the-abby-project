@@ -60,10 +60,6 @@ class SkillTreeView(APIView):
         subjects = SkillService.get_skill_tree(request.user, category)
         summary = SkillService.get_category_summary(request.user, category)
 
-        # Flattened skill list kept for backward compatibility with any
-        # existing clients; new shape is under `subjects`.
-        flat_skills = [s for subj in subjects for s in subj["skills"]]
-
         return Response({
             "category": {
                 "id": category.id,
@@ -73,7 +69,6 @@ class SkillTreeView(APIView):
             },
             "summary": summary,
             "subjects": subjects,
-            "skills": flat_skills,
         })
 
 

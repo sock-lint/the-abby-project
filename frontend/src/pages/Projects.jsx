@@ -5,7 +5,7 @@ import { Plus, Sparkles } from 'lucide-react';
 import { getProjects, getProjectSuggestions, getChildren } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
-import DifficultyStars from '../components/DifficultyStars';
+import StarRating from '../components/StarRating';
 import EmptyState from '../components/EmptyState';
 import Loader from '../components/Loader';
 import ProgressBar from '../components/ProgressBar';
@@ -133,7 +133,7 @@ export default function Projects({ user }) {
                       {p.category.icon} {p.category.name}
                     </span>
                   )}
-                  <DifficultyStars difficulty={p.difficulty} />
+                  <StarRating value={p.difficulty} />
                 </div>
                 {p.milestones_total > 0 && (
                   <div className="mb-2">
@@ -177,7 +177,7 @@ export default function Projects({ user }) {
                   <div className="text-xs text-forge-text-dim mb-2">{s.description}</div>
                   <div className="flex items-center gap-2 text-xs text-forge-text-dim">
                     {s.category && <span className="bg-forge-muted px-1.5 py-0.5 rounded">{s.category}</span>}
-                    <DifficultyStars difficulty={s.difficulty || 1} />
+                    <StarRating value={s.difficulty || 1} />
                     {s.estimated_hours && <span>{s.estimated_hours}h est.</span>}
                   </div>
                   {s.why && <div className="text-xs text-amber-highlight mt-2">{s.why}</div>}

@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.projects.notifications import get_display_name, notify, notify_parents
-from config.services import BaseLedgerService
+from config.services import BaseLedgerService, finalize_decision
 
 from .models import CoinLedger, ExchangeRequest, Reward, RewardRedemption
 
@@ -59,16 +59,6 @@ class CoinService(BaseLedgerService):
             description=description,
             redemption=redemption,
         )
-
-
-def _finalize_decision(instance, new_status, parent, notes):
-    """Stamp approval/denial fields on a pending-decision model instance."""
-    instance.status = new_status
-    instance.decided_at = timezone.now()
-    instance.decided_by = parent
-    if notes:
-        instance.parent_notes = notes
-    instance.save(update_fields=["status", "decided_at", "decided_by", "parent_notes"])
 
 
 class RewardService:
@@ -127,7 +117,7 @@ class RewardService:
     def approve(redemption, parent, notes=""):
         if redemption.status != RewardRedemption.Status.PENDING:
             return redemption
-        _finalize_decision(redemption, RewardRedemption.Status.FULFILLED, parent, notes)
+        finalize_decision(redemption, RewardRedemption.Status.FULFILLED, parent, notes)
         return redemption
 
     @staticmethod
@@ -148,7 +138,7 @@ class RewardService:
         reward = redemption.reward
         if reward.stock is not None:
             Reward.objects.filter(pk=reward.pk).update(stock=reward.stock + 1)
-        _finalize_decision(redemption, RewardRedemption.Status.DENIED, parent, notes)
+        finalize_decision(redemption, RewardRedemption.Status.DENIED, parent, notes)
         return redemption
 
 
@@ -230,7 +220,7 @@ class ExchangeService:
             created_by=parent,
         )
 
-        _finalize_decision(exchange, ExchangeRequest.Status.APPROVED, parent, notes)
+        finalize_decision(exchange, ExchangeRequest.Status.APPROVED, parent, notes)
         logger.info("Exchange approved: user=%s $%s -> %d coins", user, dollar_amount, coin_amount)
 
         from apps.projects.models import Notification
@@ -250,7 +240,7 @@ class ExchangeService:
         if exchange.status != ExchangeRequest.Status.PENDING:
             return exchange
 
-        _finalize_decision(exchange, ExchangeRequest.Status.DENIED, parent, notes)
+        finalize_decision(exchange, ExchangeRequest.Status.DENIED, parent, notes)
 
         from apps.projects.models import Notification
         msg = f"Your exchange of ${exchange.dollar_amount} was denied."

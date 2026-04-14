@@ -13,7 +13,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import EmptyState from '../components/EmptyState';
 import BottomSheet from '../components/BottomSheet';
 import SubjectBadge from '../components/SubjectBadge';
-import EffortStars from '../components/EffortStars';
+import StarRating from '../components/StarRating';
 import TimelinessBadge from '../components/TimelinessBadge';
 import ProofGallery from '../components/ProofGallery';
 import StatusBadge from '../components/StatusBadge';
@@ -403,7 +403,7 @@ function AssignmentCard({ assignment, onSubmit, onPlan, planning }) {
           <span className="font-medium">{a.title}</span>
         </div>
         <div className="flex items-center gap-2">
-          <EffortStars level={a.effort_level} />
+          <StarRating value={a.effort_level} title={`Effort: ${a.effort_level}/5`} />
           {sub && <StatusBadge status={sub.status} />}
         </div>
       </div>

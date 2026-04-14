@@ -12,7 +12,7 @@ import {
 import { useApi } from '../hooks/useApi';
 import BottomSheet from '../components/BottomSheet';
 import Card from '../components/Card';
-import DifficultyStars from '../components/DifficultyStars';
+import StarRating from '../components/StarRating';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
@@ -233,7 +233,7 @@ function TemplatesSection() {
               <div className="font-semibold text-forge-text">{t.title}</div>
               <div className="flex items-center gap-3 text-xs text-forge-text-dim mt-1">
                 {t.category && <span>{t.category.icon} {t.category.name}</span>}
-                <DifficultyStars difficulty={t.difficulty} />
+                <StarRating value={t.difficulty} />
                 {t.milestones?.length > 0 && <span>{t.milestones.length} milestones</span>}
                 {t.steps?.length > 0 && <span>{t.steps.length} steps</span>}
                 {t.materials?.length > 0 && <span>{t.materials.length} materials</span>}

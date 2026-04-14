@@ -4,7 +4,7 @@ import { Check, ClipboardCheck, Clock, Coins, DollarSign, Flame, FolderKanban, H
 import { getActiveQuest, getDashboard, getRecentDrops, getStable } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
-import DifficultyStars from '../components/DifficultyStars';
+import StarRating from '../components/StarRating';
 import Loader from '../components/Loader';
 import ProgressBar from '../components/ProgressBar';
 import StatusBadge from '../components/StatusBadge';
@@ -241,7 +241,7 @@ export default function Dashboard() {
                     <StatusBadge status={p.status} />
                   </div>
                   <div className="flex items-center gap-2 text-xs text-forge-text-dim mb-2">
-                    <DifficultyStars difficulty={p.difficulty} />
+                    <StarRating value={p.difficulty} />
                   </div>
                   {p.milestones_total > 0 && (
                     <div>
