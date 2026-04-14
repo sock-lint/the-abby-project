@@ -28,15 +28,12 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
 
 
 class QuestParticipantSerializer(serializers.ModelSerializer):
-    user_name = serializers.SerializerMethodField()
+    user_name = serializers.CharField(source="user.display_label", read_only=True)
 
     class Meta:
         model = QuestParticipant
         fields = ["id", "user", "user_name", "contribution"]
         read_only_fields = fields
-
-    def get_user_name(self, obj):
-        return obj.user.display_name or obj.user.username
 
 
 class QuestSerializer(serializers.ModelSerializer):

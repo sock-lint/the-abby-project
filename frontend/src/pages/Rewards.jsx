@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Coins, Plus } from 'lucide-react';
 import {
-  approveExchange, approveRedemption, denyExchange, denyRedemption,
+  approveExchange, approveRedemption, rejectExchange, rejectRedemption,
   deleteReward, getCoinBalance, getExchangeRate, getExchangeRequests,
   getRedemptions, getRewards, redeemReward,
 } from '../api';
@@ -51,9 +51,9 @@ export default function Rewards() {
   };
 
   const handleApprove = async (id) => { await approveRedemption(id); refresh(); };
-  const handleDeny = async (id) => { await denyRedemption(id); refresh(); };
+  const handleReject = async (id) => { await rejectRedemption(id); refresh(); };
   const handleExchangeApprove = async (id) => { await approveExchange(id); refresh(); };
-  const handleExchangeDeny = async (id) => { await denyExchange(id); refresh(); };
+  const handleExchangeReject = async (id) => { await rejectExchange(id); refresh(); };
 
   const handleEditReward = (reward) => {
     setEditingReward(reward);
@@ -118,7 +118,7 @@ export default function Rewards() {
         <RedemptionApprovalQueue
           pending={pending}
           onApprove={handleApprove}
-          onDeny={handleDeny}
+          onReject={handleReject}
         />
       )}
 
@@ -126,7 +126,7 @@ export default function Rewards() {
         <ExchangeApprovalQueue
           pending={pendingExchanges}
           onApprove={handleExchangeApprove}
-          onDeny={handleExchangeDeny}
+          onReject={handleExchangeReject}
         />
       )}
 

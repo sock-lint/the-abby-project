@@ -13,13 +13,7 @@ import ProgressBar from '../components/ProgressBar';
 import TabButton from '../components/TabButton';
 import { normalizeList } from '../utils/api';
 import { formatDate } from '../utils/format';
-
-const STATUS_COLORS = {
-  active: 'bg-blue-500/20 text-blue-400',
-  completed: 'bg-green-500/20 text-green-400',
-  failed: 'bg-red-500/20 text-red-400',
-  expired: 'bg-gray-500/20 text-gray-400',
-};
+import { STATUS_COLORS } from '../constants/colors';
 
 export default function Quests() {
   const { data: activeQuest, loading: loadingActive, reload: reloadActive } = useApi(getActiveQuest);

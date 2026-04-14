@@ -1,7 +1,7 @@
 import { ArrowRightLeft } from 'lucide-react';
 import Card from '../../components/Card';
 import { STATUS_COLORS } from '../../constants/colors';
-import { formatDate } from '../../utils/format';
+import { formatCurrency, formatDate } from '../../utils/format';
 
 export default function ExchangeHistory({ exchanges, isParent }) {
   if (!exchanges.length) return null;
@@ -19,7 +19,7 @@ export default function ExchangeHistory({ exchanges, isParent }) {
               </div>
               <div>
                 <div className="text-sm font-medium">
-                  ${Number(ex.dollar_amount).toFixed(2)} → {ex.coin_amount} coins
+                  {formatCurrency(ex.dollar_amount)} → {ex.coin_amount} coins
                 </div>
                 <div className="text-xs text-forge-text-dim">
                   {isParent && `${ex.user_name} • `}

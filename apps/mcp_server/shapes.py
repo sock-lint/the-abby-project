@@ -50,7 +50,7 @@ def child_to_dict(user) -> dict[str, Any]:
     return {
         "id": user.id,
         "username": user.username,
-        "display_name": user.display_name or user.username,
+        "display_name": user.display_label,
         "hourly_rate": str(user.hourly_rate),
         "avatar": user.avatar.url if user.avatar else None,
     }

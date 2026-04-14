@@ -19,6 +19,9 @@ export const STATUS_COLORS = {
   fulfilled: 'bg-green-400/10 text-green-300 border-green-400/30',
   denied: 'bg-red-400/10 text-red-300 border-red-400/30',
   canceled: 'bg-gray-400/10 text-gray-300 border-gray-400/30',
+  // Quest statuses
+  failed: 'bg-red-500/20 text-red-400',
+  expired: 'bg-gray-500/20 text-gray-400',
 };
 
 export const STATUS_LABELS = {

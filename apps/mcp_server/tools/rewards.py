@@ -97,9 +97,9 @@ def approve_redemption(params: DecideRedemptionIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
-def deny_redemption(params: DecideRedemptionIn) -> dict[str, Any]:
-    """Deny a pending redemption and refund the held coins (parent-only)."""
+def reject_redemption(params: DecideRedemptionIn) -> dict[str, Any]:
+    """Reject a pending redemption and refund the held coins (parent-only)."""
     parent = require_parent()
     redemption = _get_pending_redemption(params.redemption_id)
-    updated = RewardService.deny(redemption, parent, notes=params.notes)
+    updated = RewardService.reject(redemption, parent, notes=params.notes)
     return redemption_to_dict(updated)

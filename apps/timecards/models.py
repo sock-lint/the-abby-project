@@ -90,14 +90,3 @@ class Timecard(TimestampedModel):
 
     def __str__(self):
         return f"{self.user} — Week of {self.week_start}"
-
-    def mark_approved(self, by_user, notes=""):
-        """Transition to approved and stamp audit fields atomically."""
-        from django.utils import timezone
-        self.status = self.Status.APPROVED
-        self.approved_by = by_user
-        self.approved_at = timezone.now()
-        self.parent_notes = notes
-        self.save(update_fields=[
-            "status", "approved_by", "approved_at", "parent_notes", "updated_at",
-        ])

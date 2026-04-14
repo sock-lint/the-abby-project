@@ -17,7 +17,7 @@ def export_timecards_csv(user, is_parent=False):
     for tc in qs.select_related("user"):
         writer.writerow([
             tc.week_start, tc.week_end,
-            tc.user.display_name or tc.user.username,
+            tc.user.display_label,
             tc.total_hours, tc.hourly_earnings,
             tc.bonus_earnings, tc.total_earnings, tc.status,
         ])
@@ -41,7 +41,7 @@ def export_time_entries_csv(user, is_parent=False):
     for entry in qs.select_related("user", "project"):
         writer.writerow([
             entry.clock_in.date(),
-            entry.user.display_name or entry.user.username,
+            entry.user.display_label,
             entry.project.title,
             entry.clock_in.strftime("%H:%M"),
             entry.clock_out.strftime("%H:%M") if entry.clock_out else "",

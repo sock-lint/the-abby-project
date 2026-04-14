@@ -29,7 +29,7 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
     proofs = HomeworkProofSerializer(many=True, read_only=True)
     assignment_title = serializers.CharField(source="assignment.title", read_only=True)
     assignment_subject = serializers.CharField(source="assignment.subject", read_only=True)
-    user_name = serializers.SerializerMethodField()
+    user_name = serializers.CharField(source="user.display_label", read_only=True)
     reward_breakdown = serializers.SerializerMethodField()
 
     class Meta:
@@ -46,9 +46,6 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def get_user_name(self, obj):
-        return obj.user.display_name or obj.user.username
-
     def get_reward_breakdown(self, obj):
         return {
             "base_money": str(obj.assignment.reward_amount),
@@ -63,8 +60,12 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
 
 class HomeworkAssignmentSerializer(serializers.ModelSerializer):
     skill_tags = HomeworkSkillTagSerializer(many=True, read_only=True)
-    assigned_to_name = serializers.SerializerMethodField()
-    created_by_name = serializers.SerializerMethodField()
+    assigned_to_name = serializers.CharField(
+        source="assigned_to.display_label", read_only=True,
+    )
+    created_by_name = serializers.CharField(
+        source="created_by.display_label", read_only=True,
+    )
     submission_status = serializers.SerializerMethodField()
     timeliness_preview = serializers.SerializerMethodField()
     has_project = serializers.SerializerMethodField()
@@ -83,12 +84,6 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
             "submission_status", "timeliness_preview",
             "created_at", "updated_at",
         ]
-
-    def get_assigned_to_name(self, obj):
-        return obj.assigned_to.display_name or obj.assigned_to.username
-
-    def get_created_by_name(self, obj):
-        return obj.created_by.display_name or obj.created_by.username
 
     def get_submission_status(self, obj):
         sub = obj.submissions.exclude(

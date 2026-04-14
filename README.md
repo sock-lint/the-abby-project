@@ -332,13 +332,13 @@ Authorization: Token <key>
 | GET | `/api/coins/exchange/rate/` | Current exchange rate |
 | GET | `/api/coins/exchange/list/` | Exchange request history (role-filtered) |
 | POST | `/api/coins/exchange/{id}/approve/` | Parent approves exchange |
-| POST | `/api/coins/exchange/{id}/deny/` | Parent denies exchange |
+| POST | `/api/coins/exchange/{id}/reject/` | Parent rejects exchange |
 | GET/POST | `/api/rewards/` | List / create rewards (parent CRUD) |
 | GET/PATCH/DELETE | `/api/rewards/{id}/` | Reward detail |
 | POST | `/api/rewards/{id}/redeem/` | Child requests redemption |
 | GET | `/api/redemptions/` | List redemptions (role-filtered) |
 | POST | `/api/redemptions/{id}/approve/` | Parent approves redemption |
-| POST | `/api/redemptions/{id}/deny/` | Parent denies redemption |
+| POST | `/api/redemptions/{id}/reject/` | Parent rejects redemption |
 
 ### Chores
 | Method | Endpoint | Description |

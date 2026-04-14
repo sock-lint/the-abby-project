@@ -19,5 +19,5 @@ urlpatterns = [
     path("coins/exchange/rate/", ExchangeRateView.as_view(), name="exchange-rate"),
     path("coins/exchange/list/", ExchangeRequestListView.as_view(), name="exchange-list"),
     path("coins/exchange/<int:pk>/approve/", ExchangeApprovalView.as_view(), {"action": "approve"}, name="exchange-approve"),
-    path("coins/exchange/<int:pk>/deny/", ExchangeApprovalView.as_view(), {"action": "deny"}, name="exchange-deny"),
+    path("coins/exchange/<int:pk>/reject/", ExchangeApprovalView.as_view(), {"action": "reject"}, name="exchange-reject"),
 ]

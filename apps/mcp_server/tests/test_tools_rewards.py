@@ -69,7 +69,7 @@ class RequestRedemptionTests(TestCase):
         self.assertEqual(CoinService.get_balance(self.child), 80)
 
 
-class ApproveDenyRedemptionTests(TestCase):
+class ApproveRejectRedemptionTests(TestCase):
     def setUp(self) -> None:
         self.parent = User.objects.create_user(
             username="p", password="pw", role="parent",
@@ -102,11 +102,11 @@ class ApproveDenyRedemptionTests(TestCase):
         self.assertEqual(result["status"], "fulfilled")
         self.assertEqual(CoinService.get_balance(self.child), 40)
 
-    def test_parent_deny_refunds(self) -> None:
+    def test_parent_reject_refunds(self) -> None:
         with override_user(self.parent):
-            result = reward_tools.deny_redemption(
+            result = reward_tools.reject_redemption(
                 DecideRedemptionIn(redemption_id=self.redemption_id, notes="no"),
             )
         self.assertEqual(result["status"], "denied")
-        # Held 10 deducted at request, refunded back on deny => 50.
+        # Held 10 deducted at request, refunded back on reject => 50.
         self.assertEqual(CoinService.get_balance(self.child), 50)

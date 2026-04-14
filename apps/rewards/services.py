@@ -120,10 +120,16 @@ class RewardService:
 
     @staticmethod
     @transaction.atomic
-    def deny(redemption, parent, notes=""):
+    def reject(redemption, parent, notes=""):
+        """Refund held coins, restore stock, and stamp the redemption as denied.
+
+        The persisted status stays ``DENIED`` (DB enum value, notification type,
+        and the frontend status-pill color are all keyed to ``"denied"``);
+        only the callable/route name is normalized to ``reject`` to match
+        chores/homework.
+        """
         if redemption.status != RewardRedemption.Status.PENDING:
             return redemption
-        # Refund held coins
         CoinService.award_coins(
             redemption.user,
             redemption.coin_cost_snapshot,
@@ -132,7 +138,6 @@ class RewardService:
             created_by=parent,
             redemption=redemption,
         )
-        # Restore stock if tracked
         reward = redemption.reward
         if reward.stock is not None:
             Reward.objects.filter(pk=reward.pk).update(stock=reward.stock + 1)
@@ -234,7 +239,13 @@ class ExchangeService:
 
     @staticmethod
     @transaction.atomic
-    def deny(exchange, parent, notes=""):
+    def reject(exchange, parent, notes=""):
+        """Mark an exchange request as denied. No ledger side-effects (money
+        is verified at approve-time, not held at request-time).
+
+        Persisted status stays ``DENIED`` for backward compatibility; only
+        the method/route name is normalized to match chores/homework.
+        """
         if exchange.status != ExchangeRequest.Status.PENDING:
             return exchange
 

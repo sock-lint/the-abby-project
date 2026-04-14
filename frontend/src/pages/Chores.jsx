@@ -275,7 +275,7 @@ export default function Chores() {
                   )}
                 </div>
                 <div className="shrink-0">
-                  <ApprovalButtons onApprove={() => handleApprove(c.id)} onDeny={() => handleReject(c.id)} denyLabel="Reject" />
+                  <ApprovalButtons onApprove={() => handleApprove(c.id)} onReject={() => handleReject(c.id)} />
                 </div>
               </Card>
             ))}

@@ -42,8 +42,7 @@ class CharacterProfile(TimestampedModel):
         ordering = ["-level"]
 
     def __str__(self):
-        name = self.user.display_name or self.user.username
-        return f"{name} (Level {self.level})"
+        return f"{self.user.display_label} (Level {self.level})"
 
 
 class Habit(TimestampedModel):

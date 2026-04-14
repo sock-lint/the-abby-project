@@ -2,7 +2,7 @@ import ApprovalButtons from '../../components/ApprovalButtons';
 import Card from '../../components/Card';
 import { formatDateTime } from '../../utils/format';
 
-export default function RedemptionApprovalQueue({ pending, onApprove, onDeny }) {
+export default function RedemptionApprovalQueue({ pending, onApprove, onReject }) {
   if (!pending.length) return null;
   return (
     <div>
@@ -18,7 +18,7 @@ export default function RedemptionApprovalQueue({ pending, onApprove, onDeny }) 
                 {r.coin_cost_snapshot} coins • {formatDateTime(r.requested_at)}
               </div>
             </div>
-            <ApprovalButtons onApprove={() => onApprove(r.id)} onDeny={() => onDeny(r.id)} />
+            <ApprovalButtons onApprove={() => onApprove(r.id)} onReject={() => onReject(r.id)} />
           </Card>
         ))}
       </div>

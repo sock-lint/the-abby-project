@@ -60,9 +60,9 @@ class RewardRedemptionViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelV
         return Response(RewardRedemptionSerializer(redemption).data)
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
-    def deny(self, request, pk=None):
+    def reject(self, request, pk=None):
         redemption = self.get_object()
-        RewardService.deny(redemption, request.user, notes=request.data.get("notes", ""))
+        RewardService.reject(redemption, request.user, notes=request.data.get("notes", ""))
         return Response(RewardRedemptionSerializer(redemption).data)
 
 
@@ -177,8 +177,8 @@ class ExchangeApprovalView(APIView):
                 exchange = ExchangeService.approve(
                     exchange, request.user, notes,
                 )
-            elif action == "deny":
-                exchange = ExchangeService.deny(
+            elif action == "reject":
+                exchange = ExchangeService.reject(
                     exchange, request.user, notes,
                 )
             else:

@@ -6,6 +6,7 @@ import ErrorAlert from '../../components/ErrorAlert';
 import FormModal from '../../components/FormModal';
 import { useApi } from '../../hooks/useApi';
 import { buttonPrimary, inputClass } from '../../constants/styles';
+import { formatCurrency } from '../../utils/format';
 
 export default function CoinExchangeModal({ exchangeRate, onClose, onSaved }) {
   const [dollarAmount, setDollarAmount] = useState('');
@@ -43,7 +44,7 @@ export default function CoinExchangeModal({ exchangeRate, onClose, onSaved }) {
 
       <div className="flex items-center justify-between text-sm mb-4 p-3 bg-forge-bg rounded-lg border border-forge-border">
         <span className="text-forge-text-dim">Your Balance</span>
-        <span className="font-bold text-green-400">${Number(moneyBalance).toFixed(2)}</span>
+        <span className="font-bold text-green-400">{formatCurrency(moneyBalance)}</span>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -67,7 +68,7 @@ export default function CoinExchangeModal({ exchangeRate, onClose, onSaved }) {
             className="flex items-center justify-center gap-2 p-3 bg-amber-primary/10 border border-amber-primary/30 rounded-lg"
           >
             <DollarSign size={16} className="text-green-400" />
-            <span className="text-sm">${parseFloat(dollarAmount || 0).toFixed(2)}</span>
+            <span className="text-sm">{formatCurrency(dollarAmount || 0)}</span>
             <ArrowRightLeft size={14} className="text-forge-text-dim" />
             <Coins size={16} className="text-amber-highlight" />
             <span className="text-sm font-bold text-amber-highlight">{coins} coins</span>

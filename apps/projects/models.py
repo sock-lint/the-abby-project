@@ -33,8 +33,18 @@ class User(AbstractUser):
 
     objects = CustomUserManager()
 
-    def __str__(self):
+    @property
+    def display_label(self) -> str:
+        """Human-facing name: display_name when set, otherwise username.
+
+        Single source of truth — imported by serializers (as a CharField
+        source) and any code that formats user names (emails, CSV exports,
+        MCP payloads).
+        """
         return self.display_name or self.username
+
+    def __str__(self):
+        return self.display_label
 
 
 class SkillCategory(models.Model):

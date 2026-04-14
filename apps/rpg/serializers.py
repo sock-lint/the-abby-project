@@ -5,7 +5,7 @@ from apps.rpg.models import CharacterProfile, Habit, HabitLog, ItemDefinition, U
 
 class CharacterProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
-    display_name = serializers.SerializerMethodField()
+    display_name = serializers.CharField(source="user.display_label", read_only=True)
     active_frame = serializers.SerializerMethodField()
     active_title = serializers.SerializerMethodField()
     active_theme = serializers.SerializerMethodField()
@@ -30,9 +30,6 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
-
-    def get_display_name(self, obj):
-        return obj.user.display_name or obj.user.username
 
     @staticmethod
     def _compact_item(item):
@@ -60,7 +57,9 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
 
 
 class HabitSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.SerializerMethodField()
+    created_by_name = serializers.CharField(
+        source="created_by.display_label", read_only=True,
+    )
     color = serializers.SerializerMethodField()
 
     class Meta:
@@ -89,9 +88,6 @@ class HabitSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-
-    def get_created_by_name(self, obj):
-        return obj.created_by.display_name or obj.created_by.username
 
     def get_color(self, obj):
         s = obj.strength

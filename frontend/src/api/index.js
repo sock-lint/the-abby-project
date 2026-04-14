@@ -155,8 +155,8 @@ export const redeemReward = (id) => api.post(`/rewards/${id}/redeem/`, {});
 export const getRedemptions = () => api.get('/redemptions/');
 export const approveRedemption = (id, notes = '') =>
   api.post(`/redemptions/${id}/approve/`, { notes });
-export const denyRedemption = (id, notes = '') =>
-  api.post(`/redemptions/${id}/deny/`, { notes });
+export const rejectRedemption = (id, notes = '') =>
+  api.post(`/redemptions/${id}/reject/`, { notes });
 export const getCoinBalance = () => api.get('/coins/');
 export const adjustCoins = (user_id, amount, description = '') =>
   api.post('/coins/adjust/', { user_id, amount, description });
@@ -168,8 +168,8 @@ export const requestExchange = (dollar_amount) =>
 export const getExchangeRequests = () => api.get('/coins/exchange/list/');
 export const approveExchange = (id, notes = '') =>
   api.post(`/coins/exchange/${id}/approve/`, { notes });
-export const denyExchange = (id, notes = '') =>
-  api.post(`/coins/exchange/${id}/deny/`, { notes });
+export const rejectExchange = (id, notes = '') =>
+  api.post(`/coins/exchange/${id}/reject/`, { notes });
 
 // Portfolio
 export const getPortfolio = () => api.get('/portfolio/');

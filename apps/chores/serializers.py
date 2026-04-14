@@ -4,7 +4,9 @@ from .models import Chore, ChoreCompletion
 
 
 class ChoreSerializer(serializers.ModelSerializer):
-    assigned_to_name = serializers.SerializerMethodField()
+    assigned_to_name = serializers.CharField(
+        source="assigned_to.display_label", read_only=True, allow_null=True,
+    )
     is_available = serializers.BooleanField(read_only=True, default=False)
     today_status = serializers.CharField(read_only=True, default=None)
     today_completion_id = serializers.IntegerField(read_only=True, default=None)
@@ -21,11 +23,6 @@ class ChoreSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
 
-    def get_assigned_to_name(self, obj):
-        if obj.assigned_to:
-            return obj.assigned_to.display_name or obj.assigned_to.username
-        return None
-
 
 class ChoreWriteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -41,7 +38,7 @@ class ChoreWriteSerializer(serializers.ModelSerializer):
 class ChoreCompletionSerializer(serializers.ModelSerializer):
     chore_title = serializers.CharField(source="chore.title", read_only=True)
     chore_icon = serializers.CharField(source="chore.icon", read_only=True)
-    user_name = serializers.SerializerMethodField()
+    user_name = serializers.CharField(source="user.display_label", read_only=True)
 
     class Meta:
         model = ChoreCompletion
@@ -54,6 +51,3 @@ class ChoreCompletionSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
-
-    def get_user_name(self, obj):
-        return obj.user.display_name or obj.user.username

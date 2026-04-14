@@ -77,7 +77,7 @@ def send_weekly_email_summaries():
             send_mail(
                 subject=f"The Abby Project Weekly Summary — {week_start.strftime('%b %d')}",
                 message=(
-                    f"Hi {child.display_name or child.username}!\n\n"
+                    f"Hi {child.display_label}!\n\n"
                     f"This week you worked {hours} hours.{badge_text}\n"
                     f"Current balance: ${balance}\n\n"
                     f"Keep up the great work!"
@@ -101,7 +101,7 @@ def send_weekly_email_summaries():
             total_minutes = entries.aggregate(total=Sum("duration_minutes"))["total"] or 0
             hours = round(total_minutes / 60, 1)
             if hours > 0:
-                child_summaries.append(f"  {child.display_name or child.username}: {hours}h")
+                child_summaries.append(f"  {child.display_label}: {hours}h")
 
         if not child_summaries:
             continue
@@ -113,7 +113,7 @@ def send_weekly_email_summaries():
             send_mail(
                 subject=f"The Abby Project Parent Summary — {week_start.strftime('%b %d')}",
                 message=(
-                    f"Hi {parent.display_name or parent.username}!\n\n"
+                    f"Hi {parent.display_label}!\n\n"
                     f"This week:\n" + "\n".join(child_summaries) + "\n\n"
                     f"Pending timecards: {pending}\n"
                 ),
