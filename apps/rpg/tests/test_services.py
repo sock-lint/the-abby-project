@@ -194,6 +194,7 @@ class GameLoopServiceTests(TestCase):
         self.assertTrue(result["streak"]["is_first_today"])
         self.assertGreater(result["streak"]["check_in_bonus_coins"], 0)
         self.assertIn("drops", result)
+        self.assertIn("quest", result)
         # Verify CoinLedger has the entry
         self.assertTrue(
             CoinLedger.objects.filter(
@@ -213,6 +214,7 @@ class GameLoopServiceTests(TestCase):
         self.assertFalse(result["streak"]["is_first_today"])
         self.assertEqual(result["streak"]["check_in_bonus_coins"], 0)
         self.assertIn("drops", result)
+        self.assertIn("quest", result)
         self.assertEqual(
             CoinLedger.objects.filter(user=self.user).count(), initial_count
         )
@@ -222,4 +224,5 @@ class GameLoopServiceTests(TestCase):
         result = GameLoopService.on_task_completed(self.user, "milestone_complete")
         self.assertEqual(result["trigger_type"], "milestone_complete")
         self.assertIn("drops", result)
+        self.assertIn("quest", result)
         self.assertEqual(result["drops"], [])

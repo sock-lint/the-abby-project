@@ -307,9 +307,21 @@ class GameLoopService:
                 link="/inventory",
             )
 
+        # Step 5: Quest progress
+        quest_result = None
+        try:
+            from apps.quests.services import QuestService
+            quest_result = QuestService.record_progress(user, trigger_type, context)
+        except Exception:
+            logger.exception("Quest progress failed for user %s", user.pk)
+
+        if quest_result and quest_result.get("completed"):
+            notifications.append(f"Quest complete: {quest_result['quest_name']}")
+
         return {
             "trigger_type": trigger_type,
             "streak": streak_result,
             "notifications": notifications,
             "drops": drops,
+            "quest": quest_result,
         }
