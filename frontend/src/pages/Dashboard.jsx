@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, ClipboardCheck, Clock, Coins, DollarSign, Flame, FolderKanban, Trophy, Timer, Target, Zap } from 'lucide-react';
-import { getDashboard } from '../api';
+import { Check, ClipboardCheck, Clock, Coins, DollarSign, Flame, FolderKanban, Package, Trophy, Timer, Target, Zap } from 'lucide-react';
+import { getDashboard, getRecentDrops } from '../api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import DifficultyStars from '../components/DifficultyStars';
@@ -12,6 +12,7 @@ import { formatCurrency, formatDuration } from '../utils/format';
 
 export default function Dashboard() {
   const { data, loading } = useApi(getDashboard);
+  const { data: recentDrops } = useApi(getRecentDrops);
   const navigate = useNavigate();
 
   if (loading) return <Loader />;
@@ -149,6 +150,24 @@ export default function Dashboard() {
                 <div className="text-2xl mb-1">{h.icon || '⚡'}</div>
                 <div className="text-xs font-medium truncate">{h.name}</div>
                 <div className="text-xs text-forge-text-dim">{h.taps_today}x today</div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Drops */}
+      {recentDrops?.length > 0 && (
+        <div>
+          <h2 className="font-heading text-lg font-bold mb-3 flex items-center gap-2 cursor-pointer" onClick={() => navigate('/inventory')}>
+            <Package size={18} /> Recent Drops
+          </h2>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {recentDrops.map((d) => (
+              <Card key={d.id} className="shrink-0 text-center w-20 cursor-pointer" onClick={() => navigate('/inventory')}>
+                <div className="text-2xl mb-1">{d.item_icon}</div>
+                <div className="text-xs font-medium truncate">{d.item_name}</div>
+                {d.was_salvaged && <div className="text-[10px] text-amber-highlight">Salvaged</div>}
               </Card>
             ))}
           </div>
