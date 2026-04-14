@@ -14,6 +14,7 @@ import Chores from './pages/Chores';
 import Homework from './pages/Homework';
 import Habits from './pages/Habits';
 import Inventory from './pages/Inventory';
+import Stable from './pages/Stable';
 import ClockPage from './pages/ClockPage';
 import Timecards from './pages/Timecards';
 import Payments from './pages/Payments';
@@ -72,6 +73,7 @@ export default function App() {
             <Route path="/homework" element={<Homework />} />
             <Route path="/habits" element={<Habits />} />
             <Route path="/inventory" element={<Inventory />} />
+            <Route path="/stable" element={<Stable />} />
             <Route path="/clock" element={<ClockPage />} />
             <Route path="/timecards" element={<Timecards user={user} />} />
             <Route path="/payments" element={<Payments />} />
