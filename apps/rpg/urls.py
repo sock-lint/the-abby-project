@@ -9,5 +9,7 @@ router.register(r"habits", views.HabitViewSet, basename="habit")
 urlpatterns = [
     path("character/", views.CharacterView.as_view(), name="character"),
     path("streaks/", views.StreakView.as_view(), name="streaks"),
+    path("inventory/", views.InventoryView.as_view(), name="inventory"),
+    path("drops/recent/", views.RecentDropsView.as_view(), name="recent-drops"),
     path("", include(router.urls)),
 ]

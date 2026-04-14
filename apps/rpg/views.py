@@ -6,12 +6,14 @@ from rest_framework.views import APIView
 from config.permissions import IsParent
 from config.viewsets import WriteReadSerializerMixin
 
-from .models import CharacterProfile, Habit, HabitLog
+from .models import CharacterProfile, Habit, HabitLog, UserInventory, DropLog
 from .serializers import (
     CharacterProfileSerializer,
     HabitLogSerializer,
     HabitSerializer,
     HabitWriteSerializer,
+    UserInventorySerializer,
+    DropLogSerializer,
 )
 from .services import GameLoopService, HabitService
 
@@ -90,3 +92,25 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             )
 
         return Response({**result, "game_event": game_event})
+
+
+class InventoryView(APIView):
+    """GET /api/inventory/ — current user's item inventory grouped by type."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        entries = UserInventory.objects.filter(
+            user=request.user,
+        ).select_related("item").order_by("item__item_type", "item__name")
+        return Response(UserInventorySerializer(entries, many=True).data)
+
+
+class RecentDropsView(APIView):
+    """GET /api/drops/recent/ — last 10 drops for the user."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        drops = DropLog.objects.filter(
+            user=request.user,
+        ).select_related("item")[:10]
+        return Response(DropLogSerializer(drops, many=True).data)

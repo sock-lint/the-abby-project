@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.rpg.models import CharacterProfile, Habit, HabitLog
+from apps.rpg.models import CharacterProfile, Habit, HabitLog, ItemDefinition, UserInventory, DropLog
 
 
 class CharacterProfileSerializer(serializers.ModelSerializer):
@@ -105,5 +105,41 @@ class HabitLogSerializer(serializers.ModelSerializer):
             "direction",
             "streak_at_time",
             "created_at",
+        ]
+        read_only_fields = fields
+
+
+class ItemDefinitionSerializer(serializers.ModelSerializer):
+    rarity_display = serializers.CharField(source="get_rarity_display", read_only=True)
+    type_display = serializers.CharField(source="get_item_type_display", read_only=True)
+
+    class Meta:
+        model = ItemDefinition
+        fields = [
+            "id", "name", "description", "icon", "item_type", "type_display",
+            "rarity", "rarity_display", "coin_value", "metadata",
+        ]
+        read_only_fields = fields
+
+
+class UserInventorySerializer(serializers.ModelSerializer):
+    item = ItemDefinitionSerializer(read_only=True)
+
+    class Meta:
+        model = UserInventory
+        fields = ["id", "item", "quantity", "updated_at"]
+        read_only_fields = fields
+
+
+class DropLogSerializer(serializers.ModelSerializer):
+    item_name = serializers.CharField(source="item.name", read_only=True)
+    item_icon = serializers.CharField(source="item.icon", read_only=True)
+    item_rarity = serializers.CharField(source="item.rarity", read_only=True)
+
+    class Meta:
+        model = DropLog
+        fields = [
+            "id", "item", "item_name", "item_icon", "item_rarity",
+            "trigger_type", "quantity", "was_salvaged", "created_at",
         ]
         read_only_fields = fields
