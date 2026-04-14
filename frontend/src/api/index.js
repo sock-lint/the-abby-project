@@ -307,3 +307,13 @@ export const logHabitTap = (id, direction) =>
   api.post(`/habits/${id}/log/`, { direction });
 export const getInventory = () => api.get('/inventory/');
 export const getRecentDrops = () => api.get('/drops/recent/');
+
+// Pets
+export const getStable = () => api.get('/pets/stable/');
+export const hatchPet = (eggItemId, potionItemId) =>
+  api.post('/pets/hatch/', { egg_item_id: eggItemId, potion_item_id: potionItemId });
+export const feedPet = (petId, foodItemId) =>
+  api.post(`/pets/${petId}/feed/`, { food_item_id: foodItemId });
+export const activatePet = (petId) => api.post(`/pets/${petId}/activate/`);
+export const getMounts = () => api.get('/mounts/');
+export const activateMount = (mountId) => api.post(`/mounts/${mountId}/activate/`);
