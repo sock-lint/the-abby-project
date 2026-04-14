@@ -10,14 +10,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import ProgressBar from '../components/ProgressBar';
 import TabButton from '../components/TabButton';
 import { normalizeList } from '../utils/api';
-
-const RARITY_COLORS = {
-  common: 'text-gray-400',
-  uncommon: 'text-green-400',
-  rare: 'text-blue-400',
-  epic: 'text-purple-400',
-  legendary: 'text-amber-400',
-};
+import { RARITY_TEXT_COLORS } from '../constants/colors';
 
 export default function Stable() {
   const { data: stableData, loading: loadingStable, reload: reloadStable } = useApi(getStable);
@@ -155,7 +148,7 @@ export default function Stable() {
                   <div className="text-center">
                     <div className="text-4xl mb-1">{pet.species.icon}</div>
                     <div className="text-xs font-medium">{pet.potion.name} {pet.species.name}</div>
-                    <div className={`text-[10px] ${RARITY_COLORS[pet.potion.rarity]}`}>{pet.potion.rarity}</div>
+                    <div className={`text-[10px] ${RARITY_TEXT_COLORS[pet.potion.rarity]}`}>{pet.potion.rarity}</div>
                     {!pet.evolved_to_mount && (
                       <div className="mt-2">
                         <ProgressBar value={pet.growth_points} max={100} />
@@ -220,7 +213,7 @@ export default function Stable() {
                 <Card className={`cursor-pointer text-center ${mount.is_active ? 'ring-2 ring-amber-400' : ''}`}>
                   <div className="text-5xl mb-1">{mount.species.icon}</div>
                   <div className="text-xs font-medium">{mount.potion.name} {mount.species.name}</div>
-                  <div className={`text-[10px] ${RARITY_COLORS[mount.potion.rarity]}`}>{mount.potion.rarity}</div>
+                  <div className={`text-[10px] ${RARITY_TEXT_COLORS[mount.potion.rarity]}`}>{mount.potion.rarity}</div>
                   <div className="text-[10px] text-amber-highlight mt-1">Mount</div>
                   {mount.is_active ? (
                     <div className="mt-1 text-[10px] text-amber-400 flex items-center justify-center gap-1">

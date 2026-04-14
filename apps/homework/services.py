@@ -252,6 +252,12 @@ class HomeworkService:
             link="/homework",
         )
 
+        # RPG game loop (streaks, drops, quest progress).
+        from apps.rpg.services import GameLoopService
+        GameLoopService.on_task_completed(
+            submission.user, "homework_complete", {"assignment_id": assignment.id},
+        )
+
         return submission
 
     @staticmethod

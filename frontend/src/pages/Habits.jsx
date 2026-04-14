@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, ThumbsUp, ThumbsDown, Pencil, Trash2, Zap, X } from 'lucide-react';
+import { Plus, ThumbsUp, ThumbsDown, Pencil, Trash2, Zap } from 'lucide-react';
 import {
   getHabits, createHabit, updateHabit, deleteHabit, logHabitTap, getChildren,
 } from '../api';
@@ -10,6 +10,7 @@ import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
+import FormModal from '../components/FormModal';
 import { inputClass } from '../constants/styles';
 import { normalizeList } from '../utils/api';
 
@@ -64,23 +65,9 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
   };
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      >
-        <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-        <motion.div
-          className="relative w-full md:max-w-lg bg-forge-card border border-forge-border rounded-t-2xl md:rounded-2xl p-5 max-h-[85vh] overflow-y-auto"
-          initial={{ y: '100%' }} animate={{ y: 0 }}
-          transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-heading text-lg font-bold">{isEdit ? 'Edit Habit' : 'New Habit'}</h3>
-            <button onClick={onClose} className="text-forge-text-dim hover:text-forge-text"><X size={20} /></button>
-          </div>
-          <ErrorAlert message={error} />
-          <form onSubmit={handleSubmit} className="space-y-3">
+    <FormModal title={isEdit ? 'Edit Habit' : 'New Habit'} onClose={onClose}>
+      <ErrorAlert message={error} />
+      <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label className="text-xs text-forge-text-dim mb-1 block">Name</label>
               <input className={inputClass} value={form.name} onChange={set('name')} required />
@@ -128,9 +115,7 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
               {saving ? 'Saving...' : isEdit ? 'Update Habit' : 'Create Habit'}
             </button>
           </form>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    </FormModal>
   );
 }
 

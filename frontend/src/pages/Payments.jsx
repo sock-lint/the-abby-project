@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { DollarSign, TrendingUp, TrendingDown, ArrowDownRight, ArrowUpRight, ArrowRightLeft, Target, Plus, X } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { DollarSign, TrendingUp, TrendingDown, ArrowDownRight, ArrowUpRight, ArrowRightLeft, Target, Plus } from 'lucide-react';
 import { getBalance, adjustPayment } from '../api';
 import { useApi, useAuth } from '../hooks/useApi';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
+import FormModal from '../components/FormModal';
 import { formatCurrency } from '../utils/format';
 import { inputClass } from '../constants/styles';
 
@@ -47,45 +48,29 @@ function PaymentAdjustModal({ onClose, onSaved }) {
   };
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      >
-        <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-        <motion.div
-          className="relative w-full md:max-w-md bg-forge-card border border-forge-border rounded-t-2xl md:rounded-2xl p-5"
-          initial={{ y: '100%' }} animate={{ y: 0 }}
-          transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-heading text-lg font-bold">Adjust Balance</h3>
-            <button onClick={onClose} className="text-forge-text-dim hover:text-forge-text"><X size={20} /></button>
-          </div>
-          <ErrorAlert message={error} />
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div>
-              <label className="text-xs text-forge-text-dim mb-1 block">Child User ID</label>
-              <input className={inputClass} type="number" value={form.user_id} onChange={set('user_id')} required placeholder="Enter child user ID" />
-            </div>
-            <div>
-              <label className="text-xs text-forge-text-dim mb-1 block">Amount (positive to credit, negative to debit)</label>
-              <input className={inputClass} type="number" step="0.01" value={form.amount} onChange={set('amount')} required />
-            </div>
-            <div>
-              <label className="text-xs text-forge-text-dim mb-1 block">Description</label>
-              <input className={inputClass} value={form.description} onChange={set('description')} placeholder="Reason for adjustment" />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-forge-text-dim hover:text-forge-text">Cancel</button>
-              <button type="submit" disabled={saving} className="px-4 py-2 bg-amber-primary hover:bg-amber-highlight text-black text-sm font-semibold rounded-lg disabled:opacity-50">
-                {saving ? 'Adjusting...' : 'Adjust'}
-              </button>
-            </div>
-          </form>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    <FormModal title="Adjust Balance" onClose={onClose} size="md" scroll={false}>
+      <ErrorAlert message={error} />
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className="text-xs text-forge-text-dim mb-1 block">Child User ID</label>
+          <input className={inputClass} type="number" value={form.user_id} onChange={set('user_id')} required placeholder="Enter child user ID" />
+        </div>
+        <div>
+          <label className="text-xs text-forge-text-dim mb-1 block">Amount (positive to credit, negative to debit)</label>
+          <input className={inputClass} type="number" step="0.01" value={form.amount} onChange={set('amount')} required />
+        </div>
+        <div>
+          <label className="text-xs text-forge-text-dim mb-1 block">Description</label>
+          <input className={inputClass} value={form.description} onChange={set('description')} placeholder="Reason for adjustment" />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-forge-text-dim hover:text-forge-text">Cancel</button>
+          <button type="submit" disabled={saving} className="px-4 py-2 bg-amber-primary hover:bg-amber-highlight text-black text-sm font-semibold rounded-lg disabled:opacity-50">
+            {saving ? 'Adjusting...' : 'Adjust'}
+          </button>
+        </div>
+      </form>
+    </FormModal>
   );
 }
 

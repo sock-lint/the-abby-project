@@ -8,8 +8,8 @@ from apps.chores.models import Chore, ChoreCompletion
 from apps.chores.services import ChoreService
 from apps.projects.models import User
 
-from ..context import get_current_user, require_parent
-from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
+from ..context import get_current_user, require_parent, resolve_target_user
+from ..errors import MCPNotFoundError, safe_tool
 from ..schemas import (
     CompleteChoreIn,
     CreateChoreIn,
@@ -21,17 +21,6 @@ from ..schemas import (
 )
 from ..server import tool
 from ..shapes import chore_completion_to_dict, chore_to_dict, many
-
-
-def _resolve_user_id(user, requested_id: int | None) -> User:
-    if requested_id is None or requested_id == user.id:
-        return user
-    if user.role != "parent":
-        raise MCPPermissionDenied("Children can only view their own data.")
-    try:
-        return User.objects.get(pk=requested_id)
-    except User.DoesNotExist:
-        raise MCPNotFoundError(f"User {requested_id} not found.")
 
 
 @tool()
@@ -145,7 +134,7 @@ def complete_chore(params: CompleteChoreIn) -> dict[str, Any]:
 def list_chore_completions(params: ListChoreCompletionsIn) -> dict[str, Any]:
     """List chore completions. Parents see all; children see their own."""
     user = get_current_user()
-    target = _resolve_user_id(user, params.user_id)
+    target = resolve_target_user(user, params.user_id)
 
     qs = ChoreCompletion.objects.select_related("chore", "user")
     if user.role != "parent":

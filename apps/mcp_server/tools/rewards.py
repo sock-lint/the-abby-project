@@ -3,12 +3,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.projects.models import User
 from apps.rewards.models import CoinLedger, Reward, RewardRedemption
 from apps.rewards.services import CoinService, RewardService
 
-from ..context import get_current_user, require_parent
-from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
+from ..context import get_current_user, require_parent, resolve_target_user
+from ..errors import MCPNotFoundError, safe_tool
 from ..schemas import (
     DecideRedemptionIn,
     GetCoinBalanceIn,
@@ -22,18 +21,6 @@ from ..shapes import (
     reward_to_dict,
     to_plain,
 )
-
-
-def _resolve_user_id(user, requested_id: int | None) -> User:
-    """Return the target user, enforcing child → self scoping."""
-    if requested_id is None or requested_id == user.id:
-        return user
-    if user.role != "parent":
-        raise MCPPermissionDenied("Children can only view their own data.")
-    try:
-        return User.objects.get(pk=requested_id)
-    except User.DoesNotExist:
-        raise MCPNotFoundError(f"User {requested_id} not found.")
 
 
 @tool()
@@ -56,7 +43,7 @@ def list_rewards(params: ListRewardsIn) -> dict[str, Any]:
 def get_coin_balance(params: GetCoinBalanceIn) -> dict[str, Any]:
     """Return coin balance, per-reason breakdown, and recent ledger entries."""
     user = get_current_user()
-    target = _resolve_user_id(user, params.user_id)
+    target = resolve_target_user(user, params.user_id)
 
     balance = CoinService.get_balance(target)
     breakdown = CoinService.get_breakdown(target)

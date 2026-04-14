@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import models
 
-from config.base_models import CreatedAtModel, TimestampedModel
+from config.base_models import ApprovalWorkflowModel, CreatedAtModel, TimestampedModel
 
 
 class Chore(TimestampedModel):
@@ -56,7 +56,7 @@ class Chore(TimestampedModel):
         return f"{self.icon} {self.title}".strip()
 
 
-class ChoreCompletion(CreatedAtModel):
+class ChoreCompletion(ApprovalWorkflowModel, CreatedAtModel):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending Approval"
         APPROVED = "approved", "Approved"
@@ -76,11 +76,6 @@ class ChoreCompletion(CreatedAtModel):
         max_length=10, choices=Status.choices, default=Status.PENDING,
     )
     notes = models.TextField(blank=True, help_text="Optional note from child.")
-    decided_at = models.DateTimeField(null=True, blank=True)
-    decided_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="decided_chore_completions",
-    )
     reward_amount_snapshot = models.DecimalField(
         max_digits=8, decimal_places=2,
         help_text="Reward amount frozen at submission time.",

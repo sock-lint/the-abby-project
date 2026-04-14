@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import models
 
-from config.base_models import CreatedAtModel
+from config.base_models import ApprovalWorkflowModel, CreatedAtModel
 
 
 class CoinLedger(CreatedAtModel):
@@ -80,7 +80,7 @@ class Reward(CreatedAtModel):
         return f"{self.icon} {self.name} ({self.cost_coins}c)"
 
 
-class RewardRedemption(models.Model):
+class RewardRedemption(ApprovalWorkflowModel):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         APPROVED = "approved", "Approved"
@@ -102,11 +102,6 @@ class RewardRedemption(models.Model):
         help_text="Cost at time of request — authoritative for refunds.",
     )
     requested_at = models.DateTimeField(auto_now_add=True)
-    decided_at = models.DateTimeField(null=True, blank=True)
-    decided_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="decided_redemptions",
-    )
     parent_notes = models.TextField(blank=True)
 
     class Meta:
@@ -116,7 +111,7 @@ class RewardRedemption(models.Model):
         return f"{self.user} → {self.reward.name} ({self.status})"
 
 
-class ExchangeRequest(CreatedAtModel):
+class ExchangeRequest(ApprovalWorkflowModel, CreatedAtModel):
     """A request to exchange money for coins, pending parent approval."""
 
     class Status(models.TextChoices):
@@ -135,11 +130,6 @@ class ExchangeRequest(CreatedAtModel):
     )
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.PENDING,
-    )
-    decided_at = models.DateTimeField(null=True, blank=True)
-    decided_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="decided_exchanges",
     )
     parent_notes = models.TextField(blank=True)
 

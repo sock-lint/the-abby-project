@@ -97,8 +97,8 @@ frontend/src/
     index.js         All endpoint functions (single import surface)
   hooks/useApi.js    useAuth, useApi
   components/        Card, Loader, ErrorAlert, EmptyState, StatusBadge,
-                     TabButton, BottomSheet, Layout, NotificationBell,
-                     DifficultyStars, ProgressBar
+                     TabButton, BottomSheet, FormModal, Layout,
+                     NotificationBell, DifficultyStars, ProgressBar
   constants/         colors.js, styles.js (shared Tailwind class helpers)
   utils/             format.js, api.js (normalizeList), image.js
   pages/             Dashboard, Projects, ProjectDetail, ProjectNew,
@@ -119,10 +119,11 @@ frontend/src/
 - Parent-only endpoints use `config.permissions.IsParent`; child-scoped querysets use `RoleFilteredQuerySetMixin.get_role_filtered_queryset` (parents see everything, children see rows where `role_filter_field == self`).
 
 ## Shared plumbing (`config/`)
-- **`config/base_models.py`** — `CreatedAtModel` (auto `created_at`) and `TimestampedModel` (adds auto `updated_at`). Concrete models across apps inherit from these; abstract bases live in `config/` rather than any single app.
-- **`config/services.py`** — `BaseLedgerService` with `ledger_model`, `category_field`, `default_value` class attrs. `PaymentService` and `CoinService` subclass it for `get_balance`/`get_breakdown`; subclasses add their own award/spend helpers.
+- **`config/base_models.py`** — `CreatedAtModel` (auto `created_at`), `TimestampedModel` (adds auto `updated_at`), and `ApprovalWorkflowModel` (adds `decided_at` + `decided_by` FK for submit-then-approve flows; subclasses define their own `status` field/choices). Concrete models across apps inherit from these; abstract bases live in `config/` rather than any single app.
+- **`config/services.py`** — `BaseLedgerService` with `ledger_model`, `category_field`, `default_value` class attrs. `PaymentService` and `CoinService` subclass it for `get_balance`/`get_breakdown`; subclasses add their own award/spend helpers. Also exports `finalize_decision(instance, new_status, parent, notes="")` — used by every approval service to stamp `status`/`decided_at`/`decided_by` on pending-decision models.
 - **`config/permissions.py`** — `IsParent` DRF permission class. Used throughout parent-only viewset actions (`create`, `update`, `destroy`) and manual adjustment endpoints.
 - **`config/viewsets.py`** — `RoleFilteredQuerySetMixin`, `NestedProjectResourceMixin` (for URLs like `projects/<project_pk>/milestones/`), plus `get_child_or_404` + `child_not_found_response` helpers for parent-targeting-child actions.
+- **`apps/mcp_server/context.py`** — `get_current_user`, `require_parent`, `resolve_target_user(user, requested_id)` (child→self scoping for MCP tools that accept an optional `user_id`).
 
 ## Gotchas
 - **Single-origin frontend:** The multi-stage `Dockerfile` builds the React bundle with Node, copies `frontend/dist` into `/app/frontend_dist`, and `collectstatic` pulls it into `STATIC_ROOT` via `STATICFILES_DIRS`. `config/urls.py` ends with a `re_path(r"^.*$", spa_view)` catch-all that returns the built `index.html` for any non-API route — React Router handles the rest in the browser. `frontend/vite.config.js` sets `base: '/static/'` for build mode so bundled asset references resolve through WhiteNoise. The API client in `frontend/src/api/client.js` uses relative `/api` URLs. No `VITE_API_URL` env var in production; no separate frontend container.
@@ -188,8 +189,8 @@ These are intentionally NOT in settings — they're game-design constants, not d
 - `TRIGGER_DAMAGE` (in `apps/quests/services.py`) — per-trigger boss damage table; clock_out multiplied by hours.
 
 ## Conventions
-- Inherit concrete models from `config.base_models.{CreatedAtModel,TimestampedModel}` instead of hand-rolling `created_at`/`updated_at`.
-- Subclass `config.services.BaseLedgerService` for any new append-only ledger.
+- Inherit concrete models from `config.base_models.{CreatedAtModel,TimestampedModel}` instead of hand-rolling `created_at`/`updated_at`. Submit-then-approve models (ChoreCompletion, HomeworkSubmission, RewardRedemption, ExchangeRequest) inherit from `ApprovalWorkflowModel` for `decided_at`/`decided_by`.
+- Subclass `config.services.BaseLedgerService` for any new append-only ledger. Use `config.services.finalize_decision` for approve/reject state transitions rather than hand-stamping `status`/`decided_at`/`decided_by`.
 - For new parent-only endpoints: use `IsParent` from `config.permissions`. For parent-targets-child actions, accept `user_id` in the body and use `get_child_or_404` + `child_not_found_response`.
 - For querysets that should be self-scoped for children but full for parents: use `RoleFilteredQuerySetMixin` and override `get_queryset` to call `get_role_filtered_queryset(super().get_queryset())`.
 - Frontend: import endpoint functions from `frontend/src/api/index.js` (single source of truth) rather than calling `api.get`/`api.post` directly in pages. Use shared components/helpers from `components/`, `constants/`, `utils/` rather than duplicating.

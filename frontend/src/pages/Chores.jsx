@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  ClipboardCheck, Check, X, Plus, Pencil, Trash2,
+  ClipboardCheck, Check, Plus, Pencil, Trash2,
   DollarSign, Coins, CalendarDays, RefreshCw,
 } from 'lucide-react';
 import {
@@ -16,6 +16,7 @@ import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
+import FormModal from '../components/FormModal';
 import { STATUS_COLORS } from '../constants/colors';
 import { formatDate } from '../utils/format';
 import { normalizeList } from '../utils/api';
@@ -82,23 +83,9 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
   const showSchedule = form.recurrence !== 'one_time';
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      >
-        <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-        <motion.div
-          className="relative w-full md:max-w-lg bg-forge-card border border-forge-border rounded-t-2xl md:rounded-2xl p-5 max-h-[85vh] overflow-y-auto"
-          initial={{ y: '100%' }} animate={{ y: 0 }}
-          transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-heading text-lg font-bold">{isEdit ? 'Edit Chore' : 'New Chore'}</h3>
-            <button onClick={onClose} className="text-forge-text-dim hover:text-forge-text"><X size={20} /></button>
-          </div>
-          <ErrorAlert message={error} />
-          <form onSubmit={handleSubmit} className="space-y-3">
+    <FormModal title={isEdit ? 'Edit Chore' : 'New Chore'} onClose={onClose}>
+      <ErrorAlert message={error} />
+      <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label className="text-xs text-forge-text-dim mb-1 block">Title</label>
               <input className={inputClass} value={form.title} onChange={set('title')} required />
@@ -177,9 +164,7 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
               </button>
             </div>
           </form>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    </FormModal>
   );
 }
 

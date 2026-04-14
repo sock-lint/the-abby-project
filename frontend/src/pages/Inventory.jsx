@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Package, Gem } from 'lucide-react';
 import { getInventory } from '../api';
@@ -7,14 +6,7 @@ import Card from '../components/Card';
 import Loader from '../components/Loader';
 import EmptyState from '../components/EmptyState';
 import { normalizeList } from '../utils/api';
-
-const RARITY_COLORS = {
-  common: 'bg-gray-500/20 text-gray-300',
-  uncommon: 'bg-green-500/20 text-green-400',
-  rare: 'bg-blue-500/20 text-blue-400',
-  epic: 'bg-purple-500/20 text-purple-400',
-  legendary: 'bg-amber-500/20 text-amber-400',
-};
+import { RARITY_PILL_COLORS } from '../constants/colors';
 
 const TYPE_LABELS = {
   egg: 'Pet Eggs',
@@ -69,7 +61,7 @@ export default function Inventory() {
                     <div className="text-3xl mb-1">{entry.item.icon}</div>
                     <div className="text-xs font-medium truncate">{entry.item.name}</div>
                     <div className="flex items-center justify-center gap-1 mt-1">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${RARITY_COLORS[entry.item.rarity] || ''}`}>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${RARITY_PILL_COLORS[entry.item.rarity] || ''}`}>
                         {entry.item.rarity_display}
                       </span>
                     </div>

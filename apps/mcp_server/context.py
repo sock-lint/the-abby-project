@@ -12,7 +12,7 @@ import contextlib
 import contextvars
 from typing import TYPE_CHECKING, Iterator, Optional
 
-from .errors import MCPPermissionDenied
+from .errors import MCPNotFoundError, MCPPermissionDenied
 
 if TYPE_CHECKING:
     from apps.projects.models import User
@@ -51,6 +51,25 @@ def require_parent() -> "User":
 def is_parent() -> bool:
     user = _CURRENT_USER.get()
     return user is not None and getattr(user, "role", None) == "parent"
+
+
+def resolve_target_user(user: "User", requested_id: int | None) -> "User":
+    """Return the target user, enforcing child → self scoping.
+
+    If ``requested_id`` is ``None`` or matches the caller, return the caller.
+    Otherwise the caller must be a parent and the requested user must exist.
+    Used by tools that accept an optional ``user_id`` for parents to act on
+    behalf of a specific child.
+    """
+    from apps.projects.models import User as UserModel
+    if requested_id is None or requested_id == user.id:
+        return user
+    if getattr(user, "role", None) != "parent":
+        raise MCPPermissionDenied("Children can only view their own data.")
+    try:
+        return UserModel.objects.get(pk=requested_id)
+    except UserModel.DoesNotExist:
+        raise MCPNotFoundError(f"User {requested_id} not found.")
 
 
 @contextlib.contextmanager
