@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, FolderKanban, ClipboardCheck, BookOpen, Zap, Package, Heart, Clock, FileText,
+  LayoutDashboard, FolderKanban, ClipboardCheck, BookOpen, Zap, Package, Heart, Swords, Clock, FileText,
   DollarSign, Gift, Trophy, Camera, Settings, LogOut, MoreHorizontal,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -16,6 +16,7 @@ const allNavItems = [
   { to: '/habits', icon: Zap, label: 'Habits' },
   { to: '/inventory', icon: Package, label: 'Inventory' },
   { to: '/stable', icon: Heart, label: 'Stable' },
+  { to: '/quests', icon: Swords, label: 'Quests' },
   { to: '/clock', icon: Clock, label: 'Clock' },
   { to: '/timecards', icon: FileText, label: 'Timecards' },
   { to: '/payments', icon: DollarSign, label: 'Payments' },
