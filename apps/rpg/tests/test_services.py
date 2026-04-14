@@ -1,10 +1,11 @@
 from datetime import date, timedelta
 
+from django.db import models
 from django.test import TestCase
 
 from apps.projects.models import User
 from apps.rpg.models import CharacterProfile, Habit, HabitLog
-from apps.rpg.services import HabitService, StreakService
+from apps.rpg.services import GameLoopService, HabitService, StreakService
 
 
 class StreakServiceTests(TestCase):
@@ -175,3 +176,42 @@ class HabitServiceTests(TestCase):
         )
         with self.assertRaises(ValueError):
             HabitService.log_tap(self.user, habit, direction=1)
+
+
+class GameLoopServiceTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="loopchild", password="testpass", role="child"
+        )
+
+    def test_on_task_completed_first_today(self):
+        """First task of the day awards check-in bonus coins."""
+        from apps.rewards.models import CoinLedger
+
+        result = GameLoopService.on_task_completed(self.user, "clock_out")
+        self.assertTrue(result["streak"]["is_first_today"])
+        self.assertGreater(result["streak"]["check_in_bonus_coins"], 0)
+        # Verify CoinLedger has the entry
+        self.assertTrue(
+            CoinLedger.objects.filter(
+                user=self.user, description="Daily check-in bonus"
+            ).exists()
+        )
+
+    def test_on_task_completed_second_today(self):
+        """Second task same day does not award bonus."""
+        from apps.rewards.models import CoinLedger
+
+        GameLoopService.on_task_completed(self.user, "clock_out")
+        initial_count = CoinLedger.objects.filter(user=self.user).count()
+
+        result = GameLoopService.on_task_completed(self.user, "clock_out")
+        self.assertFalse(result["streak"]["is_first_today"])
+        self.assertEqual(result["streak"]["check_in_bonus_coins"], 0)
+        self.assertEqual(
+            CoinLedger.objects.filter(user=self.user).count(), initial_count
+        )
+
+    def test_on_task_completed_returns_trigger_type(self):
+        result = GameLoopService.on_task_completed(self.user, "milestone_complete")
+        self.assertEqual(result["trigger_type"], "milestone_complete")
