@@ -4,171 +4,6 @@ from decimal import Decimal
 from django.core.management.base import BaseCommand
 
 
-SKILL_CATEGORIES = [
-    {"name": "Woodworking", "icon": "\U0001fab5", "color": "#8B4513", "description": "Working with wood"},
-    {"name": "Electronics", "icon": "\u26a1", "color": "#FFD700", "description": "Circuits, soldering, and electronics"},
-    {"name": "Cooking", "icon": "\U0001f373", "color": "#FF6347", "description": "Cooking and baking"},
-    {"name": "Art & Crafts", "icon": "\U0001f3a8", "color": "#9370DB", "description": "Drawing, painting, and crafts"},
-    {"name": "Coding", "icon": "\U0001f4bb", "color": "#00CED1", "description": "Programming and software"},
-    {"name": "Outdoors", "icon": "\U0001f33f", "color": "#228B22", "description": "Outdoor projects and nature"},
-    {"name": "Sewing & Textiles", "icon": "\U0001f9f5", "color": "#FF69B4", "description": "Sewing, knitting, and textiles"},
-    {"name": "Science", "icon": "\U0001f52c", "color": "#4169E1", "description": "Science experiments and research"},
-]
-
-SKILLS_BY_CATEGORY = {
-    "Woodworking": [
-        {"name": "Measuring & Marking", "icon": "\U0001f4d0", "locked": False, "prereqs": [],
-         "levels": {"1": "Eyeballer", "2": "Precise", "3": "Dead-On", "4": "Master Measurer", "5": "Micron Maniac"}},
-        {"name": "Hand Tools", "icon": "\U0001fa9a", "locked": False, "prereqs": [],
-         "levels": {"1": "Sawdust Maker", "2": "Handy", "3": "Skilled", "4": "Artisan", "5": "Old School Master"}},
-        {"name": "Power Tools", "icon": "\u26a1", "locked": True, "prereqs": [("Hand Tools", 2)],
-         "levels": {"1": "Nervous", "2": "Comfortable", "3": "Confident", "4": "Power User", "5": "Shop Boss"}},
-        {"name": "Sanding & Finishing", "icon": "\U0001fab5", "locked": False, "prereqs": [],
-         "levels": {"1": "Rough", "2": "Smooth Operator", "3": "Satin Touch", "4": "Glass Finish", "5": "Mirror Polish"}},
-        {"name": "Joinery", "icon": "\U0001f517", "locked": True, "prereqs": [("Hand Tools", 3), ("Measuring & Marking", 2)],
-         "levels": {"1": "Glue & Pray", "2": "Butt Joints", "3": "Dado & Rabbet", "4": "Dovetailer", "5": "Mortise Master"}},
-        {"name": "Wood Selection", "icon": "\U0001f333", "locked": True, "prereqs": [("Hand Tools", 2)],
-         "levels": {"1": "Pine Only", "2": "Grain Reader", "3": "Species Spotter", "4": "Wood Whisperer", "5": "Lumber Sage"}},
-    ],
-    "Electronics": [
-        {"name": "Wiring & Connectors", "icon": "\U0001f50c", "locked": False, "prereqs": [],
-         "levels": {"1": "Wire Stripper", "2": "Connector", "3": "Clean Runs", "4": "Cable Artist", "5": "Harness Pro"}},
-        {"name": "Through-Hole Soldering", "icon": "\U0001f525", "locked": False, "prereqs": [],
-         "levels": {"1": "Cold Joints", "2": "Tin Tipper", "3": "Clean Cones", "4": "Solder Surgeon", "5": "Flux Master"}},
-        {"name": "SMD Soldering", "icon": "\U0001f52c", "locked": True, "prereqs": [("Through-Hole Soldering", 3)],
-         "levels": {"1": "Shaky", "2": "Steady", "3": "Drag Soldier", "4": "Micro Surgeon", "5": "SMD Wizard"}},
-        {"name": "Circuit Reading", "icon": "\U0001f4cb", "locked": False, "prereqs": [],
-         "levels": {"1": "Confused", "2": "Symbol Reader", "3": "Trace Follower", "4": "Schematic Thinker", "5": "Circuit Sage"}},
-        {"name": "Circuit Design", "icon": "\u270f\ufe0f", "locked": True, "prereqs": [("Circuit Reading", 2)],
-         "levels": {"1": "Copy Cat", "2": "Modifier", "3": "Original", "4": "Architect", "5": "Analog Guru"}},
-        {"name": "Microcontrollers", "icon": "\U0001f916", "locked": True, "prereqs": [("Wiring & Connectors", 2), ("Circuit Reading", 2)],
-         "levels": {"1": "Blinky LED", "2": "Sensor Reader", "3": "Multi-Input", "4": "IoT Builder", "5": "Embedded Wizard"}},
-        {"name": "PCB Layout", "icon": "\U0001f7e9", "locked": True, "prereqs": [("Circuit Design", 3)],
-         "levels": {"1": "Auto-Route", "2": "Manual Route", "3": "Multi-Layer", "4": "High-Speed", "5": "PCB Artist"}},
-    ],
-    "Cooking": [
-        {"name": "Knife Skills", "icon": "\U0001f52a", "locked": False, "prereqs": [],
-         "levels": {"1": "Careful Chopper", "2": "Dicer", "3": "Julienne", "4": "Brunoise", "5": "Speed Demon"}},
-        {"name": "Heat Control", "icon": "\U0001f525", "locked": False, "prereqs": [],
-         "levels": {"1": "Burner", "2": "Temp Watcher", "3": "Heat Surfer", "4": "Flame Dancer", "5": "Thermal Master"}},
-        {"name": "Baking", "icon": "\U0001f9c1", "locked": False, "prereqs": [],
-         "levels": {"1": "Box Mix", "2": "From Scratch", "3": "Baker", "4": "Pastry Cook", "5": "P\u00e2tissier"}},
-        {"name": "Flavor & Seasoning", "icon": "\U0001f9c2", "locked": False, "prereqs": [],
-         "levels": {"1": "Salt & Pepper", "2": "Herb User", "3": "Spice Blender", "4": "Palate Pro", "5": "Flavor Architect"}},
-        {"name": "Meal Planning", "icon": "\U0001f4dd", "locked": True, "prereqs": [("Knife Skills", 2), ("Heat Control", 2)],
-         "levels": {"1": "One Dish", "2": "Full Meal", "3": "Week Planner", "4": "Meal Prep Pro", "5": "Executive Chef"}},
-        {"name": "Food Safety", "icon": "\U0001f321\ufe0f", "locked": False, "prereqs": [],
-         "levels": {"1": "Hand Washer", "2": "Temp Checker", "3": "Cross-Contam Aware", "4": "HACCP Thinker", "5": "Safety Inspector"}},
-        {"name": "Plating & Presentation", "icon": "\U0001f37d\ufe0f", "locked": True, "prereqs": [("Knife Skills", 3), ("Flavor & Seasoning", 2)],
-         "levels": {"1": "Pile It On", "2": "Neat", "3": "Composed", "4": "Restaurant Ready", "5": "Edible Art"}},
-    ],
-    "Art & Crafts": [
-        {"name": "Drawing", "icon": "\u270f\ufe0f", "locked": False, "prereqs": [],
-         "levels": {"1": "Sketcher", "2": "Renderer", "3": "Illustrator", "4": "Fine Artist", "5": "Visionary"}},
-        {"name": "Painting", "icon": "\U0001f58c\ufe0f", "locked": False, "prereqs": [],
-         "levels": {"1": "Brush Holder", "2": "Color Mixer", "3": "Blender", "4": "Painter", "5": "Gallery Ready"}},
-        {"name": "Color Theory", "icon": "\U0001f308", "locked": False, "prereqs": [],
-         "levels": {"1": "Primary Knower", "2": "Complementary", "3": "Harmonizer", "4": "Palette Master", "5": "Color Sage"}},
-        {"name": "Sculpture & 3D", "icon": "\U0001f5ff", "locked": True, "prereqs": [("Drawing", 2)],
-         "levels": {"1": "Clay Smasher", "2": "Former", "3": "Sculptor", "4": "3D Thinker", "5": "Installation Artist"}},
-        {"name": "Digital Art", "icon": "\U0001f4bb", "locked": True, "prereqs": [("Drawing", 2), ("Color Theory", 2)],
-         "levels": {"1": "Pixel Pusher", "2": "Layer User", "3": "Digital Painter", "4": "Vector Wizard", "5": "Creative Technologist"}},
-        {"name": "Textile & Fiber", "icon": "\U0001f9f6", "locked": False, "prereqs": [],
-         "levels": {"1": "Tangler", "2": "Stitcher", "3": "Pattern Follower", "4": "Pattern Maker", "5": "Fiber Artist"}},
-    ],
-    "Coding": [
-        {"name": "Logic & Algorithms", "icon": "\U0001f9e9", "locked": False, "prereqs": [],
-         "levels": {"1": "If-Then", "2": "Looper", "3": "Sorter", "4": "Optimizer", "5": "Algorithm Designer"}},
-        {"name": "Python", "icon": "\U0001f40d", "locked": False, "prereqs": [],
-         "levels": {"1": "Print Hello", "2": "Script Writer", "3": "Module User", "4": "Package Builder", "5": "Pythonista"}},
-        {"name": "Web Development", "icon": "\U0001f310", "locked": False, "prereqs": [],
-         "levels": {"1": "HTML Writer", "2": "CSS Styler", "3": "JS Scripter", "4": "Full Pager", "5": "Web App Builder"}},
-        {"name": "Hardware Programming", "icon": "\U0001f527", "locked": True, "prereqs": [("Python", 2)],
-         "levels": {"1": "LED Blinker", "2": "Sensor Reader", "3": "Actuator Controller", "4": "System Builder", "5": "Hardware Hacker"}},
-        {"name": "Data & Visualization", "icon": "\U0001f4ca", "locked": True, "prereqs": [("Python", 2)],
-         "levels": {"1": "CSV Reader", "2": "Chart Maker", "3": "Data Cleaner", "4": "Analyst", "5": "Data Storyteller"}},
-        {"name": "Version Control", "icon": "\U0001f4c2", "locked": False, "prereqs": [],
-         "levels": {"1": "Saver", "2": "Committer", "3": "Brancher", "4": "Merger", "5": "Git Wizard"}},
-    ],
-    "Outdoors": [
-        {"name": "Gardening", "icon": "\U0001f331", "locked": False, "prereqs": [],
-         "levels": {"1": "Seed Planter", "2": "Waterer", "3": "Grower", "4": "Green Thumb", "5": "Garden Designer"}},
-        {"name": "Tool Maintenance", "icon": "\U0001f527", "locked": False, "prereqs": [],
-         "levels": {"1": "Cleaner", "2": "Sharpener", "3": "Oiler", "4": "Restorer", "5": "Tool Whisperer"}},
-        {"name": "Nature ID", "icon": "\U0001f343", "locked": False, "prereqs": [],
-         "levels": {"1": "Looker", "2": "Spotter", "3": "Identifier", "4": "Naturalist", "5": "Field Expert"}},
-        {"name": "Building & Construction", "icon": "\U0001f3d7\ufe0f", "locked": True, "prereqs": [("Woodworking::Measuring & Marking", 2)],
-         "levels": {"1": "Stacker", "2": "Leveler", "3": "Framer", "4": "Builder", "5": "Architect"}},
-        {"name": "Water Systems", "icon": "\U0001f4a7", "locked": True, "prereqs": [("Tool Maintenance", 2)],
-         "levels": {"1": "Hose User", "2": "Sprinkler Setter", "3": "Drip Designer", "4": "Irrigation Pro", "5": "Hydro Engineer"}},
-    ],
-    "Sewing & Textiles": [
-        {"name": "Hand Sewing", "icon": "\U0001faa1", "locked": False, "prereqs": [],
-         "levels": {"1": "Button Sewer", "2": "Straight Stitcher", "3": "Hem Maker", "4": "Hand Tailor", "5": "Couture Stitcher"}},
-        {"name": "Machine Sewing", "icon": "\U0001f9f5", "locked": True, "prereqs": [("Hand Sewing", 2)],
-         "levels": {"1": "Threader", "2": "Straight Lines", "3": "Curves", "4": "Pattern Sewer", "5": "Machine Master"}},
-        {"name": "Pattern Reading", "icon": "\U0001f4d0", "locked": False, "prereqs": [],
-         "levels": {"1": "Confused", "2": "Piece Finder", "3": "Layout Pro", "4": "Modifier", "5": "Pattern Drafter"}},
-        {"name": "Fabric Selection", "icon": "\U0001f3ea", "locked": True, "prereqs": [("Hand Sewing", 2), ("Pattern Reading", 2)],
-         "levels": {"1": "Cotton Only", "2": "Woven vs Knit", "3": "Fabric Matcher", "4": "Textile Expert", "5": "Fabric Sommelier"}},
-    ],
-    "Science": [
-        {"name": "Observation", "icon": "\U0001f441\ufe0f", "locked": False, "prereqs": [],
-         "levels": {"1": "Looker", "2": "Noticer", "3": "Recorder", "4": "Analyst", "5": "Scientific Observer"}},
-        {"name": "Measurement", "icon": "\U0001f4cf", "locked": False, "prereqs": [],
-         "levels": {"1": "Ruler User", "2": "Multi-Tool", "3": "Precise", "4": "Calibrator", "5": "Metrologist"}},
-        {"name": "Experimentation", "icon": "\U0001f9ea", "locked": False, "prereqs": [],
-         "levels": {"1": "Mixer", "2": "Hypothesis Maker", "3": "Variable Controller", "4": "Experimenter", "5": "Research Scientist"}},
-        {"name": "Documentation", "icon": "\U0001f4d3", "locked": False, "prereqs": [],
-         "levels": {"1": "Note Taker", "2": "Logger", "3": "Report Writer", "4": "Paper Author", "5": "Lab Notebook Pro"}},
-        {"name": "Chemistry Basics", "icon": "\u2697\ufe0f", "locked": True, "prereqs": [("Measurement", 2), ("Experimentation", 2)],
-         "levels": {"1": "Reaction Observer", "2": "pH Tester", "3": "Titrator", "4": "Synthesizer", "5": "Bench Chemist"}},
-    ],
-}
-
-BADGES = [
-    # Getting Started
-    {"name": "First Clock-In", "desc": "Clock in for the first time", "icon": "\u23f0", "type": "first_clock_in", "value": {}, "rarity": "common", "xp": 10},
-    {"name": "First Project", "desc": "Complete your first project", "icon": "\u2b50", "type": "first_project", "value": {}, "rarity": "common", "xp": 25},
-    {"name": "Workshop Regular", "desc": "Work 5 different days", "icon": "\U0001f4c5", "type": "days_worked", "value": {"count": 5}, "rarity": "common", "xp": 15},
-    # Time Milestones
-    {"name": "10-Hour Club", "desc": "Log 10 approved hours", "icon": "\U0001f55a", "type": "hours_worked", "value": {"hours": 10}, "rarity": "uncommon", "xp": 25},
-    {"name": "25-Hour Club", "desc": "Log 25 approved hours", "icon": "\U0001f55b", "type": "hours_worked", "value": {"hours": 25}, "rarity": "rare", "xp": 50},
-    {"name": "50-Hour Club", "desc": "Log 50 approved hours", "icon": "\U0001f550", "type": "hours_worked", "value": {"hours": 50}, "rarity": "rare", "xp": 75},
-    {"name": "Century Worker", "desc": "Log 100 approved hours", "icon": "\U0001f4af", "type": "hours_worked", "value": {"hours": 100}, "rarity": "epic", "xp": 150},
-    {"name": "Marathon Day", "desc": "Work 4+ hours in a single day", "icon": "\U0001f3c3", "type": "hours_in_day", "value": {"hours": 4}, "rarity": "uncommon", "xp": 20},
-    # Project Milestones
-    {"name": "Hat Trick", "desc": "Complete 3 projects", "icon": "\U0001f3a9", "type": "projects_completed", "value": {"count": 3}, "rarity": "uncommon", "xp": 30},
-    {"name": "High Five", "desc": "Complete 5 projects", "icon": "\U0001f64c", "type": "projects_completed", "value": {"count": 5}, "rarity": "rare", "xp": 50},
-    {"name": "Perfect 10", "desc": "Complete 10 projects", "icon": "\U0001f3c6", "type": "projects_completed", "value": {"count": 10}, "rarity": "epic", "xp": 100},
-    {"name": "Diversified", "desc": "Complete projects in 3+ categories", "icon": "\U0001f310", "type": "category_projects", "value": {"categories": 3}, "rarity": "uncommon", "xp": 30},
-    {"name": "Specialist", "desc": "Complete 3 projects in the same category", "icon": "\U0001f3af", "type": "category_projects", "value": {"count": 3, "category": "any"}, "rarity": "uncommon", "xp": 30},
-    # Skill & Quality
-    {"name": "Level Up", "desc": "Reach Level 2 in any skill", "icon": "\u2b06\ufe0f", "type": "skill_level_reached", "value": {"level": 2, "count": 1}, "rarity": "common", "xp": 15},
-    {"name": "Triple Threat", "desc": "Reach Level 2 in 3 different skills", "icon": "\U0001f4aa", "type": "skill_level_reached", "value": {"level": 2, "count": 3}, "rarity": "uncommon", "xp": 30},
-    {"name": "Under Budget", "desc": "Complete a project under materials budget", "icon": "\U0001f4b0", "type": "materials_under_budget", "value": {}, "rarity": "uncommon", "xp": 25},
-    {"name": "Perfect Timecard", "desc": "Have a timecard approved with zero edits", "icon": "\u2705", "type": "perfect_timecard", "value": {}, "rarity": "uncommon", "xp": 20},
-    {"name": "Streak Week", "desc": "Work 7 consecutive days", "icon": "\U0001f525", "type": "streak_days", "value": {"days": 7}, "rarity": "rare", "xp": 50},
-    # Rare / Fun
-    {"name": "Night Owl", "desc": "Clock in before 8 AM", "icon": "\U0001f989", "type": "first_clock_in", "value": {}, "rarity": "rare", "xp": 15},
-    {"name": "Documentarian", "desc": "Upload 10+ photos across projects", "icon": "\U0001f4f8", "type": "photos_uploaded", "value": {"count": 10}, "rarity": "uncommon", "xp": 20},
-    {"name": "Speed Runner", "desc": "Complete a project in under 3 days", "icon": "\u26a1", "type": "projects_completed", "value": {"count": 1}, "rarity": "rare", "xp": 40},
-    {"name": "Master Craftsman", "desc": "Reach Level 5 in any skill", "icon": "\U0001f451", "type": "skill_level_reached", "value": {"level": 5, "count": 1}, "rarity": "legendary", "xp": 200},
-    {"name": "Summer Champion", "desc": "Earn $500+ total", "icon": "\U0001f3c6", "type": "total_earned", "value": {"amount": 500}, "rarity": "legendary", "xp": 250},
-    # Skill Tree Badges
-    {"name": "Key Turner", "desc": "Unlock your first locked skill", "icon": "\U0001f511", "type": "skills_unlocked", "value": {"count": 1}, "rarity": "uncommon", "xp": 15},
-    {"name": "Lockpicker", "desc": "Unlock 5 locked skills", "icon": "\U0001f510", "type": "skills_unlocked", "value": {"count": 5}, "rarity": "rare", "xp": 40},
-    {"name": "Skeleton Key", "desc": "Unlock 15 locked skills", "icon": "\U0001f5dd\ufe0f", "type": "skills_unlocked", "value": {"count": 15}, "rarity": "epic", "xp": 100},
-    {"name": "Deep Dive", "desc": "Reach Level 4 in any single skill", "icon": "\U0001f4a0", "type": "skill_level_reached", "value": {"level": 4, "count": 1}, "rarity": "rare", "xp": 50},
-    {"name": "Mastery", "desc": "Reach Level 5 in any single skill", "icon": "\U0001f48e", "type": "skill_level_reached", "value": {"level": 5, "count": 1}, "rarity": "epic", "xp": 100},
-    {"name": "Double Mastery", "desc": "Reach Level 5 in two skills", "icon": "\U0001f48e\U0001f48e", "type": "skill_level_reached", "value": {"level": 5, "count": 2}, "rarity": "epic", "xp": 150},
-    {"name": "Grandmaster", "desc": "Reach Level 5 in five skills", "icon": "\U0001f451\U0001f451", "type": "skill_level_reached", "value": {"level": 5, "count": 5}, "rarity": "legendary", "xp": 300},
-    {"name": "Renaissance Kid", "desc": "Have Level 1+ in skills across 4 categories", "icon": "\U0001f3ad", "type": "skill_categories_breadth", "value": {"min_level": 1, "categories": 4}, "rarity": "uncommon", "xp": 25},
-    {"name": "Polymath", "desc": "Have Level 2+ in skills across 6 categories", "icon": "\U0001f4da", "type": "skill_categories_breadth", "value": {"min_level": 2, "categories": 6}, "rarity": "rare", "xp": 75},
-    {"name": "Universal Genius", "desc": "Have Level 3+ in skills across all categories", "icon": "\U0001f30d", "type": "skill_categories_breadth", "value": {"min_level": 3, "categories": 8}, "rarity": "legendary", "xp": 500},
-    {"name": "Bridge Builder", "desc": "Unlock a skill that required a prerequisite from another category", "icon": "\U0001f309", "type": "cross_category_unlock", "value": {}, "rarity": "rare", "xp": 40},
-]
-
 SAMPLE_PROJECTS = [
     {
         "title": "Build a Birdhouse",
@@ -255,19 +90,36 @@ class Command(BaseCommand):
                 return
 
         self._create_users()
-        categories = self._create_categories()
-        skill_map = self._create_skills(categories)
-        self._create_prerequisites(skill_map)
-        self._create_badges()
+        # The RPG/skill-tree catalog (categories, skills, prereqs, badges,
+        # pet species, potions, items, drops, quests) is authored in
+        # content/rpg/initial/*.yaml and loaded here. Editing YAML is the
+        # single source of truth — don't add inline Python lists for new
+        # content, add an entry to the matching pack file.
+        from django.core.management import call_command
+        call_command("loadrpgcontent", verbosity=options.get("verbosity", 1))
+
+        # Fixture-style sample data (projects, chores, homework, habits)
+        # stays inline because it depends on the seeded users.
+        categories = self._resolve_categories()
+        skill_map = self._resolve_skill_map()
         self._create_sample_projects(categories, skill_map)
         self._create_sample_chores()
         self._create_sample_homework()
-        self._create_pet_species()
-        self._create_item_catalog()
         self._create_sample_habits()
-        self._create_sample_quests()
 
         self.stdout.write(self.style.SUCCESS("Seeding complete!"))
+
+    def _resolve_categories(self):
+        from apps.projects.models import SkillCategory
+        return {c.name: c for c in SkillCategory.objects.all()}
+
+    def _resolve_skill_map(self):
+        from apps.achievements.models import Skill
+        skill_map = {}
+        for skill in Skill.objects.select_related("category").all():
+            skill_map[f"{skill.category.name}::{skill.name}"] = skill
+            skill_map[skill.name] = skill
+        return skill_map
 
     def _create_users(self):
         from apps.projects.models import User
@@ -296,99 +148,6 @@ class Command(BaseCommand):
             self.stdout.write(f"  Created child: {child.username}")
         else:
             self.stdout.write(f"  Child already exists: {child.username}")
-
-    def _create_categories(self):
-        from apps.projects.models import SkillCategory
-
-        categories = {}
-        for cat_data in SKILL_CATEGORIES:
-            cat, created = SkillCategory.objects.get_or_create(
-                name=cat_data["name"],
-                defaults={
-                    "icon": cat_data["icon"],
-                    "color": cat_data["color"],
-                    "description": cat_data["description"],
-                },
-            )
-            categories[cat.name] = cat
-            if created:
-                self.stdout.write(f"  Created category: {cat.name}")
-        return categories
-
-    def _create_skills(self, categories):
-        from apps.achievements.models import Skill
-
-        skill_map = {}
-        for cat_name, skills in SKILLS_BY_CATEGORY.items():
-            category = categories[cat_name]
-            for i, skill_data in enumerate(skills):
-                skill, created = Skill.objects.get_or_create(
-                    name=skill_data["name"],
-                    category=category,
-                    defaults={
-                        "icon": skill_data["icon"],
-                        "is_locked_by_default": skill_data["locked"],
-                        "level_names": skill_data["levels"],
-                        "order": i,
-                    },
-                )
-                key = f"{cat_name}::{skill_data['name']}"
-                skill_map[key] = skill
-                # Also store without category prefix for same-category lookups
-                skill_map[skill_data["name"]] = skill
-                if created:
-                    self.stdout.write(f"  Created skill: {cat_name} > {skill.name}")
-        return skill_map
-
-    def _create_prerequisites(self, skill_map):
-        from apps.achievements.models import SkillPrerequisite
-
-        count = 0
-        for cat_name, skills in SKILLS_BY_CATEGORY.items():
-            for skill_data in skills:
-                if not skill_data["prereqs"]:
-                    continue
-                skill_key = f"{cat_name}::{skill_data['name']}"
-                skill = skill_map[skill_key]
-                for prereq_name, level in skill_data["prereqs"]:
-                    # Handle cross-category prereqs (prefixed with "Category::")
-                    if "::" in prereq_name:
-                        req_skill = skill_map.get(prereq_name)
-                    else:
-                        req_skill = skill_map.get(f"{cat_name}::{prereq_name}")
-                    if not req_skill:
-                        self.stdout.write(
-                            self.style.WARNING(f"  Prereq not found: {prereq_name} for {skill.name}")
-                        )
-                        continue
-                    _, created = SkillPrerequisite.objects.get_or_create(
-                        skill=skill,
-                        required_skill=req_skill,
-                        defaults={"required_level": level},
-                    )
-                    if created:
-                        count += 1
-        self.stdout.write(f"  Created {count} skill prerequisites")
-
-    def _create_badges(self):
-        from apps.achievements.models import Badge
-
-        count = 0
-        for b in BADGES:
-            _, created = Badge.objects.get_or_create(
-                name=b["name"],
-                defaults={
-                    "description": b["desc"],
-                    "icon": b["icon"],
-                    "criteria_type": b["type"],
-                    "criteria_value": b["value"],
-                    "xp_bonus": b["xp"],
-                    "rarity": b["rarity"],
-                },
-            )
-            if created:
-                count += 1
-        self.stdout.write(f"  Created {count} badges")
 
     def _create_sample_projects(self, categories, skill_map):
         from apps.projects.models import MaterialItem, Project, ProjectMilestone, User
@@ -589,152 +348,6 @@ class Command(BaseCommand):
         if created:
             self.stdout.write("  Created homework template: Weekly Reading Assignment")
 
-    def _create_pet_species(self):
-        from apps.pets.models import PetSpecies, PotionType
-
-        species_data = [
-            {"name": "Wolf", "icon": "🐺", "description": "A loyal pack hunter", "food_preference": "meat"},
-            {"name": "Dragon", "icon": "🐉", "description": "A fierce fire-breather", "food_preference": "fish"},
-            {"name": "Fox", "icon": "🦊", "description": "A clever forest dweller", "food_preference": "berries"},
-            {"name": "Owl", "icon": "🦉", "description": "A wise night hunter", "food_preference": "seeds"},
-            {"name": "Cat", "icon": "🐱", "description": "A graceful companion", "food_preference": "fish"},
-            {"name": "Bear", "icon": "🐻", "description": "A powerful protector", "food_preference": "honey"},
-            {"name": "Phoenix", "icon": "🔥", "description": "A legendary fire bird", "food_preference": "cake"},
-            {"name": "Unicorn", "icon": "🦄", "description": "A magical horned steed", "food_preference": "candy"},
-        ]
-
-        for data in species_data:
-            species, created = PetSpecies.objects.get_or_create(
-                name=data["name"], defaults=data,
-            )
-            if created:
-                self.stdout.write(f"  Created pet species: {species.name}")
-
-        potion_data = [
-            {"name": "Base", "color_hex": "#8B7355", "rarity": "common", "description": "Natural colors"},
-            {"name": "Fire", "color_hex": "#FF4500", "rarity": "uncommon", "description": "Red/orange tones"},
-            {"name": "Ice", "color_hex": "#87CEEB", "rarity": "uncommon", "description": "Blue/white tones"},
-            {"name": "Shadow", "color_hex": "#4B0082", "rarity": "rare", "description": "Dark/purple tones"},
-            {"name": "Golden", "color_hex": "#FFD700", "rarity": "epic", "description": "Gold/glowing"},
-            {"name": "Cosmic", "color_hex": "#191970", "rarity": "legendary", "description": "Starfield/nebula"},
-        ]
-
-        for data in potion_data:
-            potion, created = PotionType.objects.get_or_create(
-                name=data["name"], defaults=data,
-            )
-            if created:
-                self.stdout.write(f"  Created potion type: {potion.name}")
-
-    def _create_item_catalog(self):
-        from apps.rpg.models import ItemDefinition, DropTable
-
-        items_data = [
-            # Pet Eggs (for Phase 3 - pets system)
-            {"name": "Wolf Egg", "icon": "🥚", "item_type": "egg", "rarity": "common", "coin_value": 3, "metadata": {"species": "wolf"}},
-            {"name": "Dragon Egg", "icon": "🥚", "item_type": "egg", "rarity": "uncommon", "coin_value": 5, "metadata": {"species": "dragon"}},
-            {"name": "Fox Egg", "icon": "🥚", "item_type": "egg", "rarity": "common", "coin_value": 3, "metadata": {"species": "fox"}},
-            {"name": "Owl Egg", "icon": "🥚", "item_type": "egg", "rarity": "common", "coin_value": 3, "metadata": {"species": "owl"}},
-            {"name": "Cat Egg", "icon": "🥚", "item_type": "egg", "rarity": "common", "coin_value": 3, "metadata": {"species": "cat"}},
-            {"name": "Bear Egg", "icon": "🥚", "item_type": "egg", "rarity": "uncommon", "coin_value": 5, "metadata": {"species": "bear"}},
-            {"name": "Phoenix Egg", "icon": "🥚", "item_type": "egg", "rarity": "rare", "coin_value": 10, "metadata": {"species": "phoenix"}},
-            {"name": "Unicorn Egg", "icon": "🥚", "item_type": "egg", "rarity": "rare", "coin_value": 10, "metadata": {"species": "unicorn"}},
-            # Hatching Potions
-            {"name": "Base Potion", "icon": "🧪", "item_type": "potion", "rarity": "common", "coin_value": 2, "metadata": {"variant": "base", "color": "#8B7355"}},
-            {"name": "Fire Potion", "icon": "🧪", "item_type": "potion", "rarity": "uncommon", "coin_value": 5, "metadata": {"variant": "fire", "color": "#FF4500"}},
-            {"name": "Ice Potion", "icon": "🧪", "item_type": "potion", "rarity": "uncommon", "coin_value": 5, "metadata": {"variant": "ice", "color": "#87CEEB"}},
-            {"name": "Shadow Potion", "icon": "🧪", "item_type": "potion", "rarity": "rare", "coin_value": 10, "metadata": {"variant": "shadow", "color": "#4B0082"}},
-            {"name": "Golden Potion", "icon": "🧪", "item_type": "potion", "rarity": "epic", "coin_value": 25, "metadata": {"variant": "golden", "color": "#FFD700"}},
-            {"name": "Cosmic Potion", "icon": "🧪", "item_type": "potion", "rarity": "legendary", "coin_value": 50, "metadata": {"variant": "cosmic", "color": "#191970"}},
-            # Pet Food
-            {"name": "Meat", "icon": "🥩", "item_type": "food", "rarity": "common", "coin_value": 1, "metadata": {"food_type": "meat", "growth": 5}},
-            {"name": "Fish", "icon": "🐟", "item_type": "food", "rarity": "common", "coin_value": 1, "metadata": {"food_type": "fish", "growth": 5}},
-            {"name": "Berries", "icon": "🫐", "item_type": "food", "rarity": "common", "coin_value": 1, "metadata": {"food_type": "berries", "growth": 5}},
-            {"name": "Seeds", "icon": "🌻", "item_type": "food", "rarity": "common", "coin_value": 1, "metadata": {"food_type": "seeds", "growth": 5}},
-            {"name": "Honey", "icon": "🍯", "item_type": "food", "rarity": "uncommon", "coin_value": 2, "metadata": {"food_type": "honey", "growth": 8}},
-            {"name": "Cake", "icon": "🎂", "item_type": "food", "rarity": "uncommon", "coin_value": 2, "metadata": {"food_type": "cake", "growth": 8}},
-            # Coin Pouches
-            {"name": "Small Coin Pouch", "icon": "👛", "item_type": "coin_pouch", "rarity": "common", "coin_value": 5, "metadata": {"coins": 5}},
-            {"name": "Medium Coin Pouch", "icon": "💰", "item_type": "coin_pouch", "rarity": "uncommon", "coin_value": 15, "metadata": {"coins": 15}},
-            {"name": "Large Coin Pouch", "icon": "💎", "item_type": "coin_pouch", "rarity": "rare", "coin_value": 50, "metadata": {"coins": 50}},
-            # Avatar Frames
-            {"name": "Bronze Frame", "icon": "🟫", "item_type": "cosmetic_frame", "rarity": "common", "coin_value": 5, "metadata": {"border_color": "#CD7F32"}},
-            {"name": "Silver Frame", "icon": "⬜", "item_type": "cosmetic_frame", "rarity": "uncommon", "coin_value": 15, "metadata": {"border_color": "#C0C0C0"}},
-            {"name": "Gold Frame", "icon": "🟨", "item_type": "cosmetic_frame", "rarity": "rare", "coin_value": 30, "metadata": {"border_color": "#FFD700"}},
-            {"name": "Cosmic Frame", "icon": "🌌", "item_type": "cosmetic_frame", "rarity": "legendary", "coin_value": 100, "metadata": {"border_color": "#6A0DAD"}},
-            # Titles
-            {"name": "Apprentice", "icon": "🎓", "item_type": "cosmetic_title", "rarity": "common", "coin_value": 5, "metadata": {"text": "Apprentice"}},
-            {"name": "Artisan", "icon": "🛠️", "item_type": "cosmetic_title", "rarity": "uncommon", "coin_value": 15, "metadata": {"text": "Artisan"}},
-            {"name": "Master Crafter", "icon": "⚒️", "item_type": "cosmetic_title", "rarity": "rare", "coin_value": 30, "metadata": {"text": "Master Crafter"}},
-            {"name": "Legendary Forgemaster", "icon": "👑", "item_type": "cosmetic_title", "rarity": "legendary", "coin_value": 100, "metadata": {"text": "Legendary Forgemaster"}},
-            # Themes
-            {"name": "Ocean Theme", "icon": "🌊", "item_type": "cosmetic_theme", "rarity": "uncommon", "coin_value": 20, "metadata": {"accent": "#0077BE"}},
-            {"name": "Forest Theme", "icon": "🌲", "item_type": "cosmetic_theme", "rarity": "uncommon", "coin_value": 20, "metadata": {"accent": "#228B22"}},
-            {"name": "Sunset Theme", "icon": "🌅", "item_type": "cosmetic_theme", "rarity": "rare", "coin_value": 40, "metadata": {"accent": "#FF6B35"}},
-            # Pet Accessories
-            {"name": "Party Hat", "icon": "🎩", "item_type": "cosmetic_pet_accessory", "rarity": "common", "coin_value": 5, "metadata": {}},
-            {"name": "Bow Tie", "icon": "🎀", "item_type": "cosmetic_pet_accessory", "rarity": "common", "coin_value": 5, "metadata": {}},
-            {"name": "Crown", "icon": "👑", "item_type": "cosmetic_pet_accessory", "rarity": "rare", "coin_value": 30, "metadata": {}},
-        ]
-
-        item_map = {}
-        for data in items_data:
-            item, created = ItemDefinition.objects.get_or_create(
-                name=data["name"],
-                defaults=data,
-            )
-            item_map[item.name] = item
-            if created:
-                self.stdout.write(f"  Created item: {item.name}")
-
-        # Drop table entries for common triggers
-        common_triggers = ["clock_out", "chore_complete", "homework_complete", "milestone_complete", "habit_log"]
-
-        # Eggs drop from all triggers (weight by rarity)
-        egg_weights = {"common": 10, "uncommon": 5, "rare": 2, "epic": 1, "legendary": 1}
-        for trigger in common_triggers:
-            for item in ItemDefinition.objects.filter(item_type="egg"):
-                w = egg_weights.get(item.rarity, 1)
-                DropTable.objects.get_or_create(
-                    trigger_type=trigger, item=item,
-                    defaults={"weight": w},
-                )
-
-            # Potions
-            for item in ItemDefinition.objects.filter(item_type="potion"):
-                w = egg_weights.get(item.rarity, 1)
-                DropTable.objects.get_or_create(
-                    trigger_type=trigger, item=item,
-                    defaults={"weight": w},
-                )
-
-            # Food (higher weight - more common drops)
-            for item in ItemDefinition.objects.filter(item_type="food"):
-                DropTable.objects.get_or_create(
-                    trigger_type=trigger, item=item,
-                    defaults={"weight": 15},
-                )
-
-            # Coin pouches
-            for item in ItemDefinition.objects.filter(item_type="coin_pouch"):
-                w = egg_weights.get(item.rarity, 1) * 2
-                DropTable.objects.get_or_create(
-                    trigger_type=trigger, item=item,
-                    defaults={"weight": w},
-                )
-
-        # Cosmetics drop from high-value triggers
-        cosmetic_triggers = ["milestone_complete", "badge_earned", "perfect_day", "quest_complete"]
-        for trigger in cosmetic_triggers:
-            for item in ItemDefinition.objects.filter(item_type__startswith="cosmetic_"):
-                w = egg_weights.get(item.rarity, 1)
-                DropTable.objects.get_or_create(
-                    trigger_type=trigger, item=item,
-                    defaults={"weight": w},
-                )
-
-        self.stdout.write(self.style.SUCCESS(f"  Created {len(items_data)} items and drop table entries"))
-
     def _create_sample_habits(self):
         from apps.rpg.models import CharacterProfile, Habit
         from apps.projects.models import User
@@ -764,71 +377,3 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(f"  Created habit: {habit.name}")
 
-    def _create_sample_quests(self):
-        from apps.quests.models import QuestDefinition, QuestRewardItem
-        from apps.rpg.models import ItemDefinition
-
-        quests = [
-            {
-                "name": "Dragon Slayer",
-                "description": "Deal 500 damage to the mighty dragon by completing tasks!",
-                "icon": "\U0001f409",
-                "quest_type": "boss",
-                "target_value": 500,
-                "duration_days": 7,
-                "coin_reward": 50,
-                "xp_reward": 100,
-                "is_system": True,
-            },
-            {
-                "name": "Feather Collector",
-                "description": "Collect 10 phoenix feathers by completing any tasks.",
-                "icon": "\U0001fab6",
-                "quest_type": "collection",
-                "target_value": 10,
-                "duration_days": 5,
-                "coin_reward": 25,
-                "xp_reward": 50,
-                "is_system": True,
-            },
-            {
-                "name": "Chore Champion",
-                "description": "Complete 15 chores to prove your household mastery!",
-                "icon": "\U0001f3c6",
-                "quest_type": "collection",
-                "target_value": 15,
-                "duration_days": 7,
-                "coin_reward": 30,
-                "xp_reward": 75,
-                "is_system": True,
-                "trigger_filter": {"allowed_triggers": ["chore_complete"]},
-            },
-            {
-                "name": "Focus Master",
-                "description": "Clock 20 hours of focused project work to defeat the distraction monster!",
-                "icon": "\U0001f9e0",
-                "quest_type": "boss",
-                "target_value": 200,
-                "duration_days": 14,
-                "coin_reward": 75,
-                "xp_reward": 150,
-                "is_system": True,
-                "trigger_filter": {"allowed_triggers": ["clock_out"]},
-            },
-        ]
-
-        for q_data in quests:
-            trigger_filter = q_data.pop("trigger_filter", {})
-            qd, created = QuestDefinition.objects.get_or_create(
-                name=q_data["name"],
-                defaults={**q_data, "trigger_filter": trigger_filter},
-            )
-            if created:
-                self.stdout.write(f"  Created quest: {qd.name}")
-                # Add egg reward to boss quests
-                if qd.quest_type == "boss":
-                    egg = ItemDefinition.objects.filter(item_type="egg").first()
-                    if egg:
-                        QuestRewardItem.objects.get_or_create(
-                            quest_definition=qd, item=egg, defaults={"quantity": 1},
-                        )

@@ -119,6 +119,7 @@ class ItemDefinition(TimestampedModel):
         EPIC = "epic", "Epic"
         LEGENDARY = "legendary", "Legendary"
 
+    slug = models.SlugField(max_length=100, unique=True, null=True, blank=True)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     icon = models.CharField(max_length=50)
@@ -126,6 +127,29 @@ class ItemDefinition(TimestampedModel):
     rarity = models.CharField(max_length=20, choices=Rarity.choices, default=Rarity.COMMON)
     coin_value = models.PositiveIntegerField(default=0)
     metadata = models.JSONField(default=dict, blank=True)
+    # Typed references replace stringly-typed metadata["species"]/["variant"]/["food_type"].
+    # metadata stays for genuinely free-form fields (border_color, title text, pouch coins).
+    pet_species = models.ForeignKey(
+        "pets.PetSpecies",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="eggs",
+        help_text="For eggs: the species that hatches from this egg.",
+    )
+    potion_type = models.ForeignKey(
+        "pets.PotionType",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="item_variants",
+        help_text="For potions: the variant this item represents.",
+    )
+    food_species = models.ForeignKey(
+        "pets.PetSpecies",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="foods",
+        help_text="For food: the species that prefers this food (matches food_preference).",
+    )
 
     class Meta:
         ordering = ["item_type", "rarity", "name"]

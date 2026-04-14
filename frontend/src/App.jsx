@@ -1,40 +1,34 @@
 import * as Sentry from '@sentry/react';
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useAuth } from './hooks/useApi';
 import { applyTheme } from './themes';
-import Layout from './components/Layout';
+import JournalShell from './components/layout/JournalShell';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectNew from './pages/ProjectNew';
 import ProjectIngest from './pages/ProjectIngest';
-import Chores from './pages/Chores';
-import Homework from './pages/Homework';
-import Habits from './pages/Habits';
-import Inventory from './pages/Inventory';
-import Stable from './pages/Stable';
-import Quests from './pages/Quests';
-import Character from './pages/Character';
 import ClockPage from './pages/ClockPage';
-import Timecards from './pages/Timecards';
-import Payments from './pages/Payments';
-import Rewards from './pages/Rewards';
-import Achievements from './pages/Achievements';
-import Portfolio from './pages/Portfolio';
 import Manage from './pages/Manage';
 import SettingsPage from './pages/SettingsPage';
+import QuestsHub from './pages/quests';
+import BestiaryHub from './pages/bestiary';
+import TreasuryHub from './pages/treasury';
+import AtlasHub from './pages/atlas';
+import DesignShowcase from './pages/__design';
 import Loader from './components/Loader';
 
 function ErrorFallback({ error, resetError }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-forge-bg p-8 gap-4">
-      <h1 className="text-xl font-bold text-red-400">Something went wrong</h1>
-      <p className="text-forge-muted text-sm">{error?.message}</p>
+    <div className="min-h-screen flex flex-col items-center justify-center parchment-bg p-8 gap-4">
+      <h1 className="font-display text-2xl text-ember-deep italic">Ink spilled.</h1>
+      <p className="font-body text-ink-secondary text-sm max-w-sm text-center">
+        {error?.message || 'An unexpected error occurred while rendering this page.'}
+      </p>
       <button
         onClick={resetError}
-        className="px-4 py-2 bg-forge-accent text-white rounded-lg"
+        className="px-4 py-2 bg-sheikah-teal-deep text-ink-page-rune-glow rounded-lg font-medium hover:bg-sheikah-teal transition-colors"
       >
         Try again
       </button>
@@ -42,16 +36,35 @@ function ErrorFallback({ error, resetError }) {
   );
 }
 
+/**
+ * Legacy route → new hub (with tab query) redirector. Any bookmark or
+ * external link to the old flat routes keeps working.
+ */
+function LegacyRedirect({ to }) {
+  return <Navigate to={to} replace />;
+}
+
 export default function App() {
   const { user, loading, login } = useAuth();
 
   useEffect(() => {
     if (user?.theme) applyTheme(user.theme);
+    else applyTheme('hyrule');
   }, [user?.theme]);
+
+  // Dev-only design showcase route bypasses auth so primitives can be QA'd
+  // without a running backend. Matches the path before any other routing.
+  if (typeof window !== 'undefined' && window.location.pathname === '/__design') {
+    return (
+      <Sentry.ErrorBoundary fallback={ErrorFallback} showDialog={false}>
+        <DesignShowcase />
+      </Sentry.ErrorBoundary>
+    );
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-forge-bg">
+      <div className="min-h-screen flex items-center justify-center parchment-bg">
         <Loader />
       </div>
     );
@@ -65,30 +78,55 @@ export default function App() {
     <Sentry.ErrorBoundary fallback={ErrorFallback} showDialog={false}>
       <BrowserRouter>
         <Routes>
-          <Route element={<Layout />}>
+          <Route element={<JournalShell />}>
+            {/* Chapter I — Today */}
             <Route path="/" element={<Dashboard />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/projects/new" element={<ProjectNew />} />
-            <Route path="/projects/ingest" element={<ProjectIngest />} />
-            <Route path="/projects/:id" element={<ProjectDetail />} />
-            <Route path="/chores" element={<Chores />} />
-            <Route path="/homework" element={<Homework />} />
-            <Route path="/habits" element={<Habits />} />
-            <Route path="/inventory" element={<Inventory />} />
-            <Route path="/stable" element={<Stable />} />
-            <Route path="/quests" element={<Quests />} />
-            <Route path="/character" element={<Character />} />
+
+            {/* Chapter II — Quests (+ deep-link sub-routes for Projects) */}
+            <Route path="/quests" element={<QuestsHub />} />
+            <Route path="/quests/ventures/new" element={<ProjectNew />} />
+            <Route path="/quests/ventures/ingest" element={<ProjectIngest />} />
+            <Route path="/quests/ventures/:id" element={<ProjectDetail />} />
+
+            {/* Chapter III — Bestiary */}
+            <Route path="/bestiary" element={<BestiaryHub />} />
+
+            {/* Chapter IV — Treasury */}
+            <Route path="/treasury" element={<TreasuryHub />} />
+
+            {/* Chapter V — Atlas */}
+            <Route path="/atlas" element={<AtlasHub />} />
+
+            {/* Utility */}
             <Route path="/clock" element={<ClockPage />} />
-            <Route path="/timecards" element={<Timecards />} />
-            <Route path="/payments" element={<Payments />} />
-            <Route path="/rewards" element={<Rewards />} />
-            <Route path="/achievements" element={<Achievements />} />
-            <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/manage" element={<Manage />} />
             <Route path="/settings" element={<SettingsPage />} />
+
+            {/* Legacy route redirects — keep old bookmarks working */}
+            <Route path="/projects" element={<LegacyRedirect to="/quests?tab=ventures" />} />
+            <Route path="/projects/new" element={<LegacyRedirect to="/quests/ventures/new" />} />
+            <Route path="/projects/ingest" element={<LegacyRedirect to="/quests/ventures/ingest" />} />
+            <Route path="/projects/:id" element={<LegacyRedirectWithId />} />
+            <Route path="/chores" element={<LegacyRedirect to="/quests?tab=rituals" />} />
+            <Route path="/homework" element={<LegacyRedirect to="/quests?tab=study" />} />
+            <Route path="/habits" element={<LegacyRedirect to="/quests?tab=habits" />} />
+            <Route path="/inventory" element={<LegacyRedirect to="/bestiary?tab=satchel" />} />
+            <Route path="/stable" element={<LegacyRedirect to="/bestiary?tab=party" />} />
+            <Route path="/character" element={<LegacyRedirect to="/bestiary?tab=sigil" />} />
+            <Route path="/payments" element={<LegacyRedirect to="/treasury?tab=coffers" />} />
+            <Route path="/timecards" element={<LegacyRedirect to="/treasury?tab=wages" />} />
+            <Route path="/rewards" element={<LegacyRedirect to="/treasury?tab=bazaar" />} />
+            <Route path="/achievements" element={<LegacyRedirect to="/atlas?tab=skills" />} />
+            <Route path="/portfolio" element={<LegacyRedirect to="/atlas?tab=sketchbook" />} />
           </Route>
         </Routes>
       </BrowserRouter>
     </Sentry.ErrorBoundary>
   );
+}
+
+// Special-case /projects/:id → /quests/ventures/:id (needs useParams).
+function LegacyRedirectWithId() {
+  const { id } = useParams();
+  return <Navigate to={`/quests/ventures/${id}`} replace />;
 }

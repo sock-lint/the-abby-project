@@ -72,9 +72,9 @@ export default function NotificationBell() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="relative p-2 rounded-lg hover:bg-forge-muted/50 transition-colors"
+        className="relative p-2 rounded-lg hover:bg-ink-page-shadow/60/50 transition-colors"
       >
-        <Bell size={18} className="text-forge-text-dim" />
+        <Bell size={18} className="text-ink-whisper" />
         {unreadCount > 0 && (
           <motion.span
             initial={{ scale: 0 }}
@@ -92,14 +92,14 @@ export default function NotificationBell() {
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
-            className="absolute right-0 top-full mt-2 w-80 max-h-96 bg-forge-card border border-forge-border rounded-xl shadow-xl overflow-hidden z-50"
+            className="absolute right-0 top-full mt-2 w-80 max-h-96 bg-ink-page-aged border border-ink-page-shadow rounded-xl shadow-xl overflow-hidden z-50"
           >
-            <div className="flex items-center justify-between p-3 border-b border-forge-border">
-              <span className="font-heading font-bold text-sm">Notifications</span>
+            <div className="flex items-center justify-between p-3 border-b border-ink-page-shadow">
+              <span className="font-display font-bold text-sm">Notifications</span>
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}
-                  className="text-xs text-amber-highlight hover:underline"
+                  className="text-xs text-sheikah-teal-deep hover:underline"
                 >
                   Mark all read
                 </button>
@@ -107,7 +107,7 @@ export default function NotificationBell() {
             </div>
             <div className="overflow-y-auto max-h-72">
               {notifications.length === 0 ? (
-                <div className="p-4 text-center text-sm text-forge-text-dim">
+                <div className="p-4 text-center text-sm text-ink-whisper">
                   No notifications
                 </div>
               ) : (
@@ -115,9 +115,9 @@ export default function NotificationBell() {
                   <div
                     key={n.id}
                     onClick={() => handleNotificationClick(n)}
-                    className={`p-3 border-b border-forge-border/50 last:border-0 transition-colors ${
+                    className={`p-3 border-b border-ink-page-shadow/50 last:border-0 transition-colors ${
                       !n.is_read ? 'bg-amber-primary/5' : ''
-                    } ${n.link ? 'cursor-pointer hover:bg-forge-muted/30' : ''}`}
+                    } ${n.link ? 'cursor-pointer hover:bg-ink-page-shadow/60/30' : ''}`}
                   >
                     <div className="flex items-start gap-2">
                       {!n.is_read && (
@@ -126,9 +126,9 @@ export default function NotificationBell() {
                       <div className={!n.is_read ? '' : 'ml-4'}>
                         <div className="text-sm font-medium">{n.title}</div>
                         {n.message && (
-                          <div className="text-xs text-forge-text-dim mt-0.5">{n.message}</div>
+                          <div className="text-xs text-ink-whisper mt-0.5">{n.message}</div>
                         )}
-                        <div className="text-[10px] text-forge-text-dim mt-1">
+                        <div className="text-[10px] text-ink-whisper mt-1">
                           {formatDate(n.created_at)}
                         </div>
                       </div>

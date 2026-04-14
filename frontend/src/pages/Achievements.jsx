@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { getAchievementsSummary, getBadges, getCategories } from '../api';
 import Loader from '../components/Loader';
-import TabButton from '../components/TabButton';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
 import { normalizeList } from '../utils/api';
@@ -25,15 +24,42 @@ export default function Achievements() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-heading text-2xl font-bold">Achievements</h1>
+      <header className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <div className="font-script text-sheikah-teal-deep text-base">
+            the atlas · mastery charted in rune
+          </div>
+          <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+            Skills &amp; Badges
+          </h1>
+        </div>
         {isParent && (
-          <div className="flex gap-2">
-            <TabButton active={topTab === 'view'} onClick={() => setTopTab('view')}>View</TabButton>
-            <TabButton active={topTab === 'manage'} onClick={() => setTopTab('manage')}>Manage</TabButton>
+          <div className="flex gap-1 border border-ink-page-shadow rounded-lg p-1 bg-ink-page-aged">
+            <button
+              type="button"
+              onClick={() => setTopTab('view')}
+              className={`px-3 py-1.5 rounded font-display text-sm transition-colors ${
+                topTab === 'view'
+                  ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
+                  : 'text-ink-secondary hover:text-ink-primary'
+              }`}
+            >
+              View
+            </button>
+            <button
+              type="button"
+              onClick={() => setTopTab('manage')}
+              className={`px-3 py-1.5 rounded font-display text-sm transition-colors ${
+                topTab === 'manage'
+                  ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
+                  : 'text-ink-secondary hover:text-ink-primary'
+              }`}
+            >
+              Manage
+            </button>
           </div>
         )}
-      </div>
+      </header>
 
       {topTab === 'manage' && isParent ? (
         <ManagePanel categories={categories} reloadCategories={reloadCategories} />

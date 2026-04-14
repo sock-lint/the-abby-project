@@ -1,8 +1,8 @@
 const TIMELINESS_STYLES = {
-  early: 'bg-green-500/20 text-green-400',
-  on_time: 'bg-blue-500/20 text-blue-400',
-  late: 'bg-red-500/20 text-red-400',
-  beyond_cutoff: 'bg-red-700/20 text-red-500',
+  early: 'bg-moss/20 text-moss',
+  on_time: 'bg-blue-500/20 text-sheikah-teal-deep',
+  late: 'bg-ember/20 text-ember-deep',
+  beyond_cutoff: 'bg-red-700/20 text-ember-deep',
 };
 
 const TIMELINESS_LABELS = {

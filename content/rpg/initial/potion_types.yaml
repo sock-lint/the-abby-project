@@ -1,0 +1,55 @@
+# Potion types — each one auto-materializes a matching ItemDefinition
+# (type=potion) so authoring a new potion is a single entry here.
+#
+# Schema per entry:
+#   slug           (required, unique) — stable natural key
+#   name           (required) — display name ("Fire", "Ice", …)
+#   color_hex      (optional, default "#8B7355")
+#   rarity         (optional, default "common") — common|uncommon|rare|epic|legendary
+#   description    (optional)
+#   coin_value     (optional, default 2) — auto-item coin value
+#   item_name      (optional) — overrides "{name} Potion"
+#   item_icon      (optional, default "🧪")
+
+potions:
+  - slug: base
+    name: Base
+    color_hex: "#8B7355"
+    rarity: common
+    description: Natural colors
+    coin_value: 2
+
+  - slug: fire
+    name: Fire
+    color_hex: "#FF4500"
+    rarity: uncommon
+    description: Red/orange tones
+    coin_value: 5
+
+  - slug: ice
+    name: Ice
+    color_hex: "#87CEEB"
+    rarity: uncommon
+    description: Blue/white tones
+    coin_value: 5
+
+  - slug: shadow
+    name: Shadow
+    color_hex: "#4B0082"
+    rarity: rare
+    description: Dark/purple tones
+    coin_value: 10
+
+  - slug: golden
+    name: Golden
+    color_hex: "#FFD700"
+    rarity: epic
+    description: Gold/glowing
+    coin_value: 25
+
+  - slug: cosmic
+    name: Cosmic
+    color_hex: "#191970"
+    rarity: legendary
+    description: Starfield/nebula
+    coin_value: 50

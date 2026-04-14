@@ -61,20 +61,20 @@ export default function BadgeFormModal({ item, subjects, onClose, onSaved }) {
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">Name</label>
+          <label className="text-xs text-ink-whisper mb-1 block">Name</label>
           <input className={inputClass} value={form.name} onChange={onField('name')} required />
         </div>
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">Description</label>
+          <label className="text-xs text-ink-whisper mb-1 block">Description</label>
           <textarea className={inputClass} value={form.description} onChange={onField('description')} rows={2} required />
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="text-xs text-forge-text-dim mb-1 block">Icon</label>
+            <label className="text-xs text-ink-whisper mb-1 block">Icon</label>
             <input className={inputClass} value={form.icon} onChange={onField('icon')} />
           </div>
           <div>
-            <label className="text-xs text-forge-text-dim mb-1 block">Rarity</label>
+            <label className="text-xs text-ink-whisper mb-1 block">Rarity</label>
             <select className={inputClass} value={form.rarity} onChange={onField('rarity')}>
               {RARITIES.map((r) => (
                 <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
@@ -82,12 +82,12 @@ export default function BadgeFormModal({ item, subjects, onClose, onSaved }) {
             </select>
           </div>
           <div>
-            <label className="text-xs text-forge-text-dim mb-1 block">XP Bonus</label>
+            <label className="text-xs text-ink-whisper mb-1 block">XP Bonus</label>
             <input className={inputClass} type="number" min="0" value={form.xp_bonus} onChange={onField('xp_bonus')} />
           </div>
         </div>
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">Subject (optional)</label>
+          <label className="text-xs text-ink-whisper mb-1 block">Subject (optional)</label>
           <select className={inputClass} value={form.subject} onChange={onField('subject')}>
             <option value="">None</option>
             {subjects.map((s) => (
@@ -96,7 +96,7 @@ export default function BadgeFormModal({ item, subjects, onClose, onSaved }) {
           </select>
         </div>
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">Criteria Type</label>
+          <label className="text-xs text-ink-whisper mb-1 block">Criteria Type</label>
           <select className={inputClass} value={form.criteria_type} onChange={onField('criteria_type')}>
             {CRITERIA_TYPES.map((ct) => (
               <option key={ct} value={ct}>{ct.replace(/_/g, ' ')}</option>
@@ -104,7 +104,7 @@ export default function BadgeFormModal({ item, subjects, onClose, onSaved }) {
           </select>
         </div>
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">Criteria Value (JSON)</label>
+          <label className="text-xs text-ink-whisper mb-1 block">Criteria Value (JSON)</label>
           <input
             className={inputClass}
             value={form.criteria_value}
@@ -113,7 +113,7 @@ export default function BadgeFormModal({ item, subjects, onClose, onSaved }) {
           />
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-forge-text-dim">Cancel</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper">Cancel</button>
           <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
             {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
           </button>

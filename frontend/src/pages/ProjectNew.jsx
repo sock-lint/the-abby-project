@@ -60,22 +60,22 @@ export default function ProjectNew() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <button onClick={() => navigate('/projects')} className="flex items-center gap-1 text-sm text-forge-text-dim hover:text-forge-text">
+      <button onClick={() => navigate('/projects')} className="flex items-center gap-1 text-sm text-ink-whisper hover:text-ink-primary">
         <ArrowLeft size={16} /> Back
       </button>
-      <h1 className="font-heading text-2xl font-bold">New Project</h1>
+      <h1 className="font-display text-2xl font-bold">New Project</h1>
 
       <button
         type="button"
         onClick={() => navigate('/projects/ingest')}
-        className="w-full flex items-center gap-3 bg-amber-primary/10 hover:bg-amber-primary/20 border border-amber-primary/40 rounded-lg px-4 py-3 text-left transition-colors"
+        className="w-full flex items-center gap-3 bg-sheikah-teal/10 hover:bg-sheikah-teal/20 border border-sheikah-teal-deep/40 rounded-lg px-4 py-3 text-left transition-colors"
       >
-        <Sparkles size={20} className="text-amber-primary shrink-0" />
+        <Sparkles size={20} className="text-sheikah-teal-deep shrink-0" />
         <div className="flex-1">
-          <div className="text-sm font-semibold text-forge-text">Have a link or PDF?</div>
-          <div className="text-xs text-forge-text-dim">Auto-fill milestones, materials, and category from the source.</div>
+          <div className="text-sm font-semibold text-ink-primary">Have a link or PDF?</div>
+          <div className="text-xs text-ink-whisper">Auto-fill milestones, materials, and category from the source.</div>
         </div>
-        <ExternalLink size={16} className="text-forge-text-dim" />
+        <ExternalLink size={16} className="text-ink-whisper" />
       </button>
 
       <form onSubmit={handleSubmit}>
@@ -83,15 +83,15 @@ export default function ProjectNew() {
           <ErrorAlert message={error} />
 
           <div>
-            <label className="block text-sm text-forge-text-dim mb-1">Title</label>
+            <label className="block text-sm text-ink-whisper mb-1">Title</label>
             <input value={form.title} onChange={set('title')} className={inputClass} required />
           </div>
           <div>
-            <label className="block text-sm text-forge-text-dim mb-1">Description</label>
+            <label className="block text-sm text-ink-whisper mb-1">Description</label>
             <textarea value={form.description} onChange={set('description')} className={`${inputClass} h-24 resize-none`} />
           </div>
           <div>
-            <label className="block text-sm text-forge-text-dim mb-1">Instructables URL</label>
+            <label className="block text-sm text-ink-whisper mb-1">Instructables URL</label>
             <input
               value={form.instructables_url}
               onChange={set('instructables_url')}
@@ -100,30 +100,30 @@ export default function ProjectNew() {
               type="url"
               placeholder="https://www.instructables.com/..."
             />
-            {previewLoading && <div className="text-xs text-forge-text-dim mt-1">Loading preview...</div>}
+            {previewLoading && <div className="text-xs text-ink-whisper mt-1">Loading preview...</div>}
             {preview && (
-              <div className="mt-2 flex gap-3 bg-forge-bg rounded-lg p-3 border border-forge-border">
+              <div className="mt-2 flex gap-3 bg-ink-page rounded-lg p-3 border border-ink-page-shadow">
                 {preview.thumbnail_url && (
                   <img src={preview.thumbnail_url} alt="" className="w-16 h-16 rounded object-cover shrink-0" />
                 )}
                 <div className="text-xs">
-                  <div className="font-medium text-forge-text">{preview.title}</div>
-                  {preview.author && <div className="text-forge-text-dim">by {preview.author}</div>}
-                  {preview.step_count > 0 && <div className="text-forge-text-dim">{preview.step_count} steps</div>}
+                  <div className="font-medium text-ink-primary">{preview.title}</div>
+                  {preview.author && <div className="text-ink-whisper">by {preview.author}</div>}
+                  {preview.step_count > 0 && <div className="text-ink-whisper">{preview.step_count} steps</div>}
                 </div>
               </div>
             )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-forge-text-dim mb-1">Category</label>
+              <label className="block text-sm text-ink-whisper mb-1">Category</label>
               <select value={form.category_id} onChange={set('category_id')} className={inputClass}>
                 <option value="">None</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm text-forge-text-dim mb-1">Difficulty</label>
+              <label className="block text-sm text-ink-whisper mb-1">Difficulty</label>
               <select value={form.difficulty} onChange={set('difficulty')} className={inputClass}>
                 {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
               </select>
@@ -133,7 +133,7 @@ export default function ProjectNew() {
           {/* Assignment */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-forge-text-dim mb-1">Assign To</label>
+              <label className="block text-sm text-ink-whisper mb-1">Assign To</label>
               <select value={form.assigned_to_id} onChange={set('assigned_to_id')} className={inputClass}>
                 <option value="">{form.payment_kind === 'bounty' ? 'Unassigned (open bounty)' : 'Select a child...'}</option>
                 {children.map((c) => (
@@ -142,7 +142,7 @@ export default function ProjectNew() {
               </select>
             </div>
             <div>
-              <label className="block text-sm text-forge-text-dim mb-1">Hourly Rate Override ($)</label>
+              <label className="block text-sm text-ink-whisper mb-1">Hourly Rate Override ($)</label>
               <input
                 value={form.hourly_rate_override}
                 onChange={set('hourly_rate_override')}
@@ -159,12 +159,12 @@ export default function ProjectNew() {
           </div>
 
           <div>
-            <label className="block text-sm text-forge-text-dim mb-1">Payment Kind</label>
+            <label className="block text-sm text-ink-whisper mb-1">Payment Kind</label>
             <select value={form.payment_kind} onChange={set('payment_kind')} className={inputClass}>
               <option value="required">Required (part of allowance)</option>
               <option value="bounty">Bounty (up for grabs, cash reward)</option>
             </select>
-            <p className="text-xs text-forge-text-dim mt-1">
+            <p className="text-xs text-ink-whisper mt-1">
               {form.payment_kind === 'bounty'
                 ? 'Completing this project pays out the bonus as a bounty.'
                 : 'Counts toward normal allowance; bonus is a standard project bonus.'}
@@ -172,24 +172,24 @@ export default function ProjectNew() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm text-forge-text-dim mb-1">
+              <label className="block text-sm text-ink-whisper mb-1">
                 {form.payment_kind === 'bounty' ? 'Bounty ($)' : 'Bonus ($)'}
               </label>
               <input value={form.bonus_amount} onChange={set('bonus_amount')} className={inputClass} type="number" step="0.01" min="0" inputMode="decimal" />
             </div>
             <div>
-              <label className="block text-sm text-forge-text-dim mb-1">Materials Budget ($)</label>
+              <label className="block text-sm text-ink-whisper mb-1">Materials Budget ($)</label>
               <input value={form.materials_budget} onChange={set('materials_budget')} className={inputClass} type="number" step="0.01" min="0" inputMode="decimal" />
             </div>
             <div>
-              <label className="block text-sm text-forge-text-dim mb-1">Due Date</label>
+              <label className="block text-sm text-ink-whisper mb-1">Due Date</label>
               <input value={form.due_date} onChange={set('due_date')} className={inputClass} type="date" />
             </div>
           </div>
 
           {/* Parent Notes */}
           <div>
-            <label className="block text-sm text-forge-text-dim mb-1">Parent Notes</label>
+            <label className="block text-sm text-ink-whisper mb-1">Parent Notes</label>
             <textarea
               value={form.parent_notes}
               onChange={set('parent_notes')}

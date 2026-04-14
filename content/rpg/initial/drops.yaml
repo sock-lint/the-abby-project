@@ -1,0 +1,40 @@
+# Drop tables — link triggers to items with a weighted probability.
+#
+# Two ways to express rules:
+#
+# 1. Explicit `rules` — exact trigger + item list + weight:
+#      - triggers: [milestone_complete]
+#        item_slugs: [pouch-large]
+#        weight: 3
+#
+# 2. `macros` — sweep a whole item_type across a set of triggers, with
+#    optional per-rarity weighting. This mirrors how the old seed_data.py
+#    wired up the tables in ~30 lines of Python.
+#
+# Loader runs rules first, then macros. Both are idempotent.
+
+macros:
+  # Eggs, potions, coin pouches drop from all the frequent triggers.
+  # Weight-by-rarity: common 10 → legendary 1 (mirrors _create_item_catalog).
+  - triggers: [clock_out, chore_complete, homework_complete, milestone_complete, habit_log]
+    item_type: egg
+    weight_by_rarity: {common: 10, uncommon: 5, rare: 2, epic: 1, legendary: 1}
+
+  - triggers: [clock_out, chore_complete, homework_complete, milestone_complete, habit_log]
+    item_type: potion
+    weight_by_rarity: {common: 10, uncommon: 5, rare: 2, epic: 1, legendary: 1}
+
+  # Coin pouches at 2x base weight.
+  - triggers: [clock_out, chore_complete, homework_complete, milestone_complete, habit_log]
+    item_type: coin_pouch
+    weight_by_rarity: {common: 20, uncommon: 10, rare: 4, epic: 2, legendary: 2}
+
+  # Food drops frequently (weight 15 flat across all rarities).
+  - triggers: [clock_out, chore_complete, homework_complete, milestone_complete, habit_log]
+    item_type: food
+    weight: 15
+
+  # Cosmetics only drop from high-value triggers.
+  - triggers: [milestone_complete, badge_earned, perfect_day, quest_complete]
+    item_type_startswith: cosmetic_
+    weight_by_rarity: {common: 10, uncommon: 5, rare: 2, epic: 1, legendary: 1}

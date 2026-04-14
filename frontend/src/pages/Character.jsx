@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Crown, Palette, Sparkles, X, Check, Flame, Star } from 'lucide-react';
+import { Crown, Palette, Sparkles, X, Check, Flame, Star } from 'lucide-react';
 import {
   getCharacterProfile, getCosmetics, equipCosmetic, unequipCosmetic,
 } from '../api';
 import { useApi } from '../hooks/useApi';
-import Card from '../components/Card';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import EmptyState from '../components/EmptyState';
+import ParchmentCard from '../components/journal/ParchmentCard';
+import DeckleDivider from '../components/journal/DeckleDivider';
+import RuneBadge from '../components/journal/RuneBadge';
+import StreakFlame from '../components/journal/StreakFlame';
+import { RARITY_RING_COLORS } from '../constants/colors';
 
 const SLOT_ICONS = {
   active_frame: Palette,
@@ -18,18 +22,10 @@ const SLOT_ICONS = {
 };
 
 const SLOT_LABELS = {
-  active_frame: 'Avatar Frame',
-  active_title: 'Title',
-  active_theme: 'Dashboard Theme',
-  active_pet_accessory: 'Pet Accessory',
-};
-
-const RARITY_RING = {
-  common: 'ring-gray-400',
-  uncommon: 'ring-green-400',
-  rare: 'ring-blue-400',
-  epic: 'ring-purple-400',
-  legendary: 'ring-amber-400',
+  active_frame: { label: 'Avatar Frame', kicker: 'a border of renown' },
+  active_title: { label: 'Title', kicker: 'hard-won honorific' },
+  active_theme: { label: 'Journal Cover', kicker: 'the page aesthetic' },
+  active_pet_accessory: { label: 'Pet Accessory', kicker: 'a saddle, a sash' },
 };
 
 export default function Character() {
@@ -39,6 +35,7 @@ export default function Character() {
   const [working, setWorking] = useState(null);
 
   if (loadingProfile || loadingCosmetics) return <Loader />;
+  if (!profile) return <EmptyState>Unable to load sigil.</EmptyState>;
 
   const refresh = () => { reloadProfile(); reloadCosmetics(); };
 
@@ -62,103 +59,132 @@ export default function Character() {
     finally { setWorking(null); }
   };
 
-  if (!profile) return <EmptyState>Unable to load profile.</EmptyState>;
-
-  const frameColor = profile.active_frame?.metadata?.border_color || '#D97706';
+  const frameColor = profile.active_frame?.metadata?.border_color || 'var(--color-sheikah-teal-deep)';
   const titleText = profile.active_title?.metadata?.text || profile.active_title?.name;
   const initial = (profile.display_name || profile.username || '?')[0].toUpperCase();
 
   return (
-    <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold flex items-center gap-2">
-        <User size={22} /> Character
-      </h1>
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <header>
+        <div className="font-script text-sheikah-teal-deep text-base">
+          the sigil · who you are
+        </div>
+        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+          Sigil
+        </h1>
+      </header>
 
       <ErrorAlert message={error} />
 
       {/* Hero profile card */}
-      <Card className="text-center">
+      <ParchmentCard flourish tone="bright" className="text-center py-8">
         <div
-          className="w-24 h-24 mx-auto rounded-full bg-amber-primary/20 flex items-center justify-center text-4xl font-heading font-bold"
-          style={profile.active_frame ? { border: `4px solid ${frameColor}`, padding: '3px' } : {}}
+          className="w-28 h-28 mx-auto rounded-full bg-sheikah-teal/20 flex items-center justify-center font-display text-5xl text-sheikah-teal-deep"
+          style={profile.active_frame ? { border: `4px solid ${frameColor}`, padding: '3px' } : { border: '2px solid var(--color-ink-page-shadow)' }}
         >
           {initial}
         </div>
-        <div className="mt-3 font-heading text-xl font-bold">
+        <div className="mt-3 font-display italic text-2xl text-ink-primary">
           {profile.display_name || profile.username}
         </div>
         {titleText && (
-          <div className="text-sm text-amber-highlight flex items-center justify-center gap-1 mt-1">
-            <Crown size={12} /> {titleText}
+          <div className="font-script text-gold-leaf text-lg flex items-center justify-center gap-1 mt-0.5">
+            <Crown size={14} className="text-gold-leaf" /> {titleText}
           </div>
         )}
-        <div className="text-sm text-forge-text-dim mt-1">Level {profile.level}</div>
+        <div className="mt-2">
+          <RuneBadge tone="teal" size="md">level {profile.level}</RuneBadge>
+        </div>
 
-        <div className="grid grid-cols-3 gap-3 mt-4 text-xs">
-          <div>
-            <Flame size={16} className="mx-auto text-orange-400" />
-            <div className="font-heading text-lg font-bold">{profile.login_streak}</div>
-            <div className="text-forge-text-dim">Streak</div>
+        <div className="grid grid-cols-3 gap-3 mt-5 max-w-md mx-auto">
+          <div className="rounded-lg bg-ink-page/60 border border-ink-page-shadow py-2">
+            <Flame size={18} className="mx-auto text-ember-deep" />
+            <div className="font-rune text-xl font-bold text-ink-primary">
+              {profile.login_streak}
+            </div>
+            <div className="font-script text-xs text-ink-whisper">streak</div>
           </div>
-          <div>
-            <Star size={16} className="mx-auto text-amber-highlight" />
-            <div className="font-heading text-lg font-bold">{profile.perfect_days_count}</div>
-            <div className="text-forge-text-dim">Perfect Days</div>
+          <div className="rounded-lg bg-ink-page/60 border border-ink-page-shadow py-2">
+            <Star size={18} className="mx-auto text-gold-leaf" />
+            <div className="font-rune text-xl font-bold text-ink-primary">
+              {profile.perfect_days_count}
+            </div>
+            <div className="font-script text-xs text-ink-whisper">perfect days</div>
           </div>
-          <div>
-            <Flame size={16} className="mx-auto text-red-400" />
-            <div className="font-heading text-lg font-bold">{profile.longest_login_streak}</div>
-            <div className="text-forge-text-dim">Best Streak</div>
+          <div className="rounded-lg bg-ink-page/60 border border-ink-page-shadow py-2">
+            <Flame size={18} className="mx-auto text-royal" />
+            <div className="font-rune text-xl font-bold text-ink-primary">
+              {profile.longest_login_streak}
+            </div>
+            <div className="font-script text-xs text-ink-whisper">best streak</div>
           </div>
         </div>
-      </Card>
+      </ParchmentCard>
 
       {/* Cosmetic slots */}
-      {Object.keys(SLOT_LABELS).map((slot) => {
+      {Object.entries(SLOT_LABELS).map(([slot, meta], idx) => {
         const owned = cosmetics?.[slot] || [];
         const active = profile[slot];
         const SlotIcon = SLOT_ICONS[slot];
 
         return (
-          <div key={slot}>
-            <h2 className="font-heading text-sm font-bold mb-2 flex items-center gap-1.5">
-              <SlotIcon size={14} /> {SLOT_LABELS[slot]}
+          <section key={slot}>
+            {idx > 0 && <DeckleDivider glyph="flourish-corner" />}
+            <div className="flex items-center gap-2 mb-3">
+              <SlotIcon size={16} className="text-sheikah-teal-deep" />
+              <div className="flex-1">
+                <div className="font-script text-xs text-ink-whisper">{meta.kicker}</div>
+                <h2 className="font-display text-lg text-ink-primary leading-tight">
+                  {meta.label}
+                </h2>
+              </div>
               {active && (
                 <button
+                  type="button"
                   onClick={() => handleUnequip(slot)}
                   disabled={working === slot}
-                  className="ml-auto text-[10px] text-red-400 flex items-center gap-0.5 hover:text-red-300"
+                  className="font-script text-xs text-ember-deep hover:text-ember flex items-center gap-1 transition-colors"
                 >
-                  <X size={10} /> Unequip
+                  <X size={12} /> unequip
                 </button>
               )}
-            </h2>
+            </div>
 
             {owned.length === 0 ? (
-              <div className="text-xs text-forge-text-dim">None owned. Earn drops from tasks!</div>
+              <div className="font-script text-sm text-ink-whisper italic">
+                none owned yet — earn drops from tasks
+              </div>
             ) : (
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                 {owned.map((item) => {
                   const isActive = active?.id === item.id;
                   return (
-                    <motion.div key={item.id} whileHover={{ y: -2 }}>
-                      <Card className={`text-center p-2 cursor-pointer ${isActive ? `ring-2 ${RARITY_RING[item.rarity] || 'ring-amber-400'}` : ''}`}
-                        onClick={() => !isActive && handleEquip(item.id)}
-                      >
-                        <div className="text-2xl mb-0.5">{item.icon}</div>
-                        <div className="text-[10px] font-medium truncate">{item.name}</div>
-                        {isActive && (
-                          <div className="text-[9px] text-green-400 flex items-center justify-center gap-0.5 mt-0.5">
-                            <Check size={8} /> Equipped
-                          </div>
-                        )}
-                      </Card>
-                    </motion.div>
+                    <motion.button
+                      key={item.id}
+                      type="button"
+                      whileHover={{ y: -2 }}
+                      onClick={() => !isActive && handleEquip(item.id)}
+                      className={`text-center p-2.5 rounded-xl bg-ink-page-aged border border-ink-page-shadow transition-all
+                        ${isActive
+                          ? `ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[item.rarity] || 'ring-sheikah-teal'}`
+                          : 'hover:border-sheikah-teal/50 cursor-pointer'
+                        }`}
+                    >
+                      <div className="text-2xl mb-0.5">{item.icon}</div>
+                      <div className="font-body text-[11px] font-medium truncate">
+                        {item.name}
+                      </div>
+                      {isActive && (
+                        <div className="font-script text-[10px] text-moss flex items-center justify-center gap-0.5 mt-0.5">
+                          <Check size={10} /> equipped
+                        </div>
+                      )}
+                    </motion.button>
                   );
                 })}
               </div>
             )}
-          </div>
+          </section>
         );
       })}
     </div>

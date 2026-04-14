@@ -86,25 +86,34 @@ export default function Rewards() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-heading text-2xl font-bold">Reward Shop</h1>
+      <header className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <div className="font-script text-sheikah-teal-deep text-base">
+            the bazaar · barter coins for treasures
+          </div>
+          <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+            Bazaar
+          </h1>
+        </div>
         {isParent && (
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={() => setShowCoinAdjust(true)}
-              className="flex items-center gap-1 bg-forge-muted hover:bg-forge-border text-forge-text text-xs px-3 py-1.5 rounded-lg border border-forge-border"
+              className="flex items-center gap-1 bg-ink-page-aged hover:bg-ink-page-shadow/70 text-ink-primary text-sm px-3 py-2 rounded-lg border border-ink-page-shadow transition-colors"
             >
               <Coins size={14} /> Adjust Coins
             </button>
             <button
+              type="button"
               onClick={() => { setEditingReward(null); setShowRewardForm(true); }}
-              className={`flex items-center gap-1 px-3 py-1.5 text-xs ${buttonPrimary}`}
+              className={`flex items-center gap-1 px-3 py-2 text-sm ${buttonPrimary}`}
             >
               <Plus size={14} /> New Reward
             </button>
           </div>
         )}
-      </div>
+      </header>
 
       <ErrorAlert message={error} />
 

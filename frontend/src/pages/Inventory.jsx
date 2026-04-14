@@ -1,24 +1,27 @@
 import { motion } from 'framer-motion';
-import { Package, Gem } from 'lucide-react';
 import { getInventory } from '../api';
 import { useApi } from '../hooks/useApi';
-import Card from '../components/Card';
 import Loader from '../components/Loader';
 import EmptyState from '../components/EmptyState';
+import ParchmentCard from '../components/journal/ParchmentCard';
+import DeckleDivider from '../components/journal/DeckleDivider';
+import RuneBadge from '../components/journal/RuneBadge';
+import { EggIcon } from '../components/icons/JournalIcons';
 import { normalizeList } from '../utils/api';
-import { RARITY_PILL_COLORS } from '../constants/colors';
+import { RARITY_PILL_COLORS, RARITY_RING_COLORS } from '../constants/colors';
+import { staggerChildren, staggerItem } from '../motion/variants';
 
-const TYPE_LABELS = {
-  egg: 'Pet Eggs',
-  potion: 'Hatching Potions',
-  food: 'Pet Food',
-  cosmetic_frame: 'Avatar Frames',
-  cosmetic_title: 'Titles',
-  cosmetic_theme: 'Themes',
-  cosmetic_pet_accessory: 'Pet Accessories',
-  quest_scroll: 'Quest Scrolls',
-  coin_pouch: 'Coin Pouches',
-};
+const TYPE_COMPARTMENTS = [
+  { id: 'egg', label: 'Eggs', kicker: 'dormant companions', glyph: 'dragon-crest' },
+  { id: 'potion', label: 'Potions', kicker: 'elemental vials', glyph: 'rune-orb' },
+  { id: 'food', label: 'Provisions', kicker: 'pet food & snacks', glyph: 'flourish-corner' },
+  { id: 'cosmetic_frame', label: 'Avatar Frames', kicker: 'sigil borders', glyph: 'compass-rose' },
+  { id: 'cosmetic_title', label: 'Titles', kicker: 'hard-won honorifics', glyph: 'sheikah-eye' },
+  { id: 'cosmetic_theme', label: 'Journal Covers', kicker: 'aesthetic runes', glyph: 'flourish-corner' },
+  { id: 'cosmetic_pet_accessory', label: 'Pet Accessories', kicker: 'saddles & adornments', glyph: 'dragon-crest' },
+  { id: 'quest_scroll', label: 'Quest Scrolls', kicker: 'future adventures', glyph: 'sheikah-eye' },
+  { id: 'coin_pouch', label: 'Coin Pouches', kicker: 'fortune tucked away', glyph: 'wax-seal' },
+];
 
 export default function Inventory() {
   const { data, loading } = useApi(getInventory);
@@ -26,7 +29,6 @@ export default function Inventory() {
 
   if (loading) return <Loader />;
 
-  // Group by item type
   const grouped = {};
   for (const entry of items) {
     const type = entry.item.item_type;
@@ -34,45 +36,74 @@ export default function Inventory() {
     grouped[type].push(entry);
   }
 
-  const types = Object.keys(grouped);
+  const populatedCompartments = TYPE_COMPARTMENTS.filter((c) => grouped[c.id]?.length);
 
   return (
     <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold flex items-center gap-2">
-        <Package size={22} /> Inventory
-      </h1>
+      <header>
+        <div className="font-script text-sheikah-teal-deep text-base">
+          the satchel · all that's been gathered
+        </div>
+        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+          The Satchel
+        </h1>
+      </header>
 
-      {types.length === 0 ? (
-        <EmptyState>No items yet. Complete tasks to earn drops!</EmptyState>
+      {populatedCompartments.length === 0 ? (
+        <EmptyState icon={<EggIcon size={36} />}>
+          No items yet. Complete quests, chores, and homework to earn drops.
+        </EmptyState>
       ) : (
-        types.map((type) => (
-          <div key={type}>
-            <h2 className="font-heading text-lg font-bold mb-3">
-              {TYPE_LABELS[type] || type}
-            </h2>
-            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-              {grouped[type].map((entry) => (
-                <motion.div
-                  key={entry.id}
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                >
-                  <Card className="text-center p-3">
+        populatedCompartments.map((compartment, idx) => (
+          <section key={compartment.id}>
+            {idx > 0 && <DeckleDivider glyph={compartment.glyph} />}
+            <div className="flex items-baseline gap-3 mb-3">
+              <div>
+                <div className="font-script text-sheikah-teal-deep text-sm">
+                  {compartment.kicker}
+                </div>
+                <h2 className="font-display text-xl md:text-2xl text-ink-primary leading-tight">
+                  {compartment.label}
+                </h2>
+              </div>
+              <RuneBadge tone="ink" size="sm">
+                {grouped[compartment.id].length}
+              </RuneBadge>
+            </div>
+            <motion.div
+              variants={staggerChildren}
+              initial="initial"
+              animate="animate"
+              className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"
+            >
+              {grouped[compartment.id].map((entry) => (
+                <motion.div key={entry.id} variants={staggerItem}>
+                  <ParchmentCard
+                    className={`text-center p-3 relative ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[entry.item.rarity] || 'ring-transparent'}`}
+                  >
                     <div className="text-3xl mb-1">{entry.item.icon}</div>
-                    <div className="text-xs font-medium truncate">{entry.item.name}</div>
-                    <div className="flex items-center justify-center gap-1 mt-1">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${RARITY_PILL_COLORS[entry.item.rarity] || ''}`}>
+                    <div className="font-body text-xs font-medium truncate">
+                      {entry.item.name}
+                    </div>
+                    <div className="flex items-center justify-center mt-1.5">
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-script uppercase tracking-wider ${
+                          RARITY_PILL_COLORS[entry.item.rarity] || ''
+                        }`}
+                      >
                         {entry.item.rarity_display}
                       </span>
                     </div>
                     {entry.quantity > 1 && (
-                      <div className="text-xs text-forge-text-dim mt-1">x{entry.quantity}</div>
+                      <div className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1 rounded-full bg-ember-deep text-ink-page-rune-glow font-rune text-[11px] font-bold flex items-center justify-center border border-ember">
+                        ×{entry.quantity}
+                      </div>
                     )}
-                  </Card>
+                  </ParchmentCard>
                 </motion.div>
               ))}
-            </div>
-          </div>
+            </motion.div>
+          </section>
         ))
       )}
     </div>

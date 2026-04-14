@@ -1,10 +1,14 @@
+import ParchmentCard from './journal/ParchmentCard';
+
+/**
+ * Card — thin wrapper delegating to ParchmentCard so legacy callers
+ * automatically inherit the Hyrule Field Notes aesthetic without needing
+ * to migrate import sites.
+ */
 export default function Card({ children, className = '', ...props }) {
   return (
-    <div
-      className={`bg-forge-card border border-forge-border rounded-xl p-4 ${className}`}
-      {...props}
-    >
+    <ParchmentCard className={className} {...props}>
       {children}
-    </div>
+    </ParchmentCard>
   );
 }

@@ -1,0 +1,256 @@
+# Badges — awarded when criteria are met; trigger coin bonuses via RPG loop.
+#
+# Schema per entry:
+#   name            (required, unique)
+#   description     (required)
+#   icon            (optional)
+#   criteria_type   (required) — one of the Badge.CriteriaType choices
+#   criteria_value  (optional mapping, default {})
+#   xp_bonus        (optional, default 0)
+#   rarity          (optional, default "common")
+
+badges:
+  # Getting Started
+  - name: First Clock-In
+    description: Clock in for the first time
+    icon: "⏰"
+    criteria_type: first_clock_in
+    criteria_value: {}
+    rarity: common
+    xp_bonus: 10
+  - name: First Project
+    description: Complete your first project
+    icon: "⭐"
+    criteria_type: first_project
+    rarity: common
+    xp_bonus: 25
+  - name: Workshop Regular
+    description: Work 5 different days
+    icon: "📅"
+    criteria_type: days_worked
+    criteria_value: {count: 5}
+    rarity: common
+    xp_bonus: 15
+
+  # Time Milestones
+  - name: 10-Hour Club
+    description: Log 10 approved hours
+    icon: "🕚"
+    criteria_type: hours_worked
+    criteria_value: {hours: 10}
+    rarity: uncommon
+    xp_bonus: 25
+  - name: 25-Hour Club
+    description: Log 25 approved hours
+    icon: "🕛"
+    criteria_type: hours_worked
+    criteria_value: {hours: 25}
+    rarity: rare
+    xp_bonus: 50
+  - name: 50-Hour Club
+    description: Log 50 approved hours
+    icon: "🕐"
+    criteria_type: hours_worked
+    criteria_value: {hours: 50}
+    rarity: rare
+    xp_bonus: 75
+  - name: Century Worker
+    description: Log 100 approved hours
+    icon: "💯"
+    criteria_type: hours_worked
+    criteria_value: {hours: 100}
+    rarity: epic
+    xp_bonus: 150
+  - name: Marathon Day
+    description: Work 4+ hours in a single day
+    icon: "🏃"
+    criteria_type: hours_in_day
+    criteria_value: {hours: 4}
+    rarity: uncommon
+    xp_bonus: 20
+
+  # Project Milestones
+  - name: Hat Trick
+    description: Complete 3 projects
+    icon: "🎩"
+    criteria_type: projects_completed
+    criteria_value: {count: 3}
+    rarity: uncommon
+    xp_bonus: 30
+  - name: High Five
+    description: Complete 5 projects
+    icon: "🙌"
+    criteria_type: projects_completed
+    criteria_value: {count: 5}
+    rarity: rare
+    xp_bonus: 50
+  - name: Perfect 10
+    description: Complete 10 projects
+    icon: "🏆"
+    criteria_type: projects_completed
+    criteria_value: {count: 10}
+    rarity: epic
+    xp_bonus: 100
+  - name: Diversified
+    description: Complete projects in 3+ categories
+    icon: "🌐"
+    criteria_type: category_projects
+    criteria_value: {categories: 3}
+    rarity: uncommon
+    xp_bonus: 30
+  - name: Specialist
+    description: Complete 3 projects in the same category
+    icon: "🎯"
+    criteria_type: category_projects
+    criteria_value: {count: 3, category: any}
+    rarity: uncommon
+    xp_bonus: 30
+
+  # Skill & Quality
+  - name: Level Up
+    description: Reach Level 2 in any skill
+    icon: "⬆️"
+    criteria_type: skill_level_reached
+    criteria_value: {level: 2, count: 1}
+    rarity: common
+    xp_bonus: 15
+  - name: Triple Threat
+    description: Reach Level 2 in 3 different skills
+    icon: "💪"
+    criteria_type: skill_level_reached
+    criteria_value: {level: 2, count: 3}
+    rarity: uncommon
+    xp_bonus: 30
+  - name: Under Budget
+    description: Complete a project under materials budget
+    icon: "💰"
+    criteria_type: materials_under_budget
+    rarity: uncommon
+    xp_bonus: 25
+  - name: Perfect Timecard
+    description: Have a timecard approved with zero edits
+    icon: "✅"
+    criteria_type: perfect_timecard
+    rarity: uncommon
+    xp_bonus: 20
+  - name: Streak Week
+    description: Work 7 consecutive days
+    icon: "🔥"
+    criteria_type: streak_days
+    criteria_value: {days: 7}
+    rarity: rare
+    xp_bonus: 50
+
+  # Rare / Fun
+  - name: Night Owl
+    description: Clock in before 8 AM
+    icon: "🦉"
+    criteria_type: first_clock_in
+    rarity: rare
+    xp_bonus: 15
+  - name: Documentarian
+    description: Upload 10+ photos across projects
+    icon: "📸"
+    criteria_type: photos_uploaded
+    criteria_value: {count: 10}
+    rarity: uncommon
+    xp_bonus: 20
+  - name: Speed Runner
+    description: Complete a project in under 3 days
+    icon: "⚡"
+    criteria_type: projects_completed
+    criteria_value: {count: 1}
+    rarity: rare
+    xp_bonus: 40
+  - name: Master Craftsman
+    description: Reach Level 5 in any skill
+    icon: "👑"
+    criteria_type: skill_level_reached
+    criteria_value: {level: 5, count: 1}
+    rarity: legendary
+    xp_bonus: 200
+  - name: Summer Champion
+    description: Earn $500+ total
+    icon: "🏆"
+    criteria_type: total_earned
+    criteria_value: {amount: 500}
+    rarity: legendary
+    xp_bonus: 250
+
+  # Skill Tree Badges
+  - name: Key Turner
+    description: Unlock your first locked skill
+    icon: "🔑"
+    criteria_type: skills_unlocked
+    criteria_value: {count: 1}
+    rarity: uncommon
+    xp_bonus: 15
+  - name: Lockpicker
+    description: Unlock 5 locked skills
+    icon: "🔐"
+    criteria_type: skills_unlocked
+    criteria_value: {count: 5}
+    rarity: rare
+    xp_bonus: 40
+  - name: Skeleton Key
+    description: Unlock 15 locked skills
+    icon: "🗝️"
+    criteria_type: skills_unlocked
+    criteria_value: {count: 15}
+    rarity: epic
+    xp_bonus: 100
+  - name: Deep Dive
+    description: Reach Level 4 in any single skill
+    icon: "💠"
+    criteria_type: skill_level_reached
+    criteria_value: {level: 4, count: 1}
+    rarity: rare
+    xp_bonus: 50
+  - name: Mastery
+    description: Reach Level 5 in any single skill
+    icon: "💎"
+    criteria_type: skill_level_reached
+    criteria_value: {level: 5, count: 1}
+    rarity: epic
+    xp_bonus: 100
+  - name: Double Mastery
+    description: Reach Level 5 in two skills
+    icon: "💎💎"
+    criteria_type: skill_level_reached
+    criteria_value: {level: 5, count: 2}
+    rarity: epic
+    xp_bonus: 150
+  - name: Grandmaster
+    description: Reach Level 5 in five skills
+    icon: "👑👑"
+    criteria_type: skill_level_reached
+    criteria_value: {level: 5, count: 5}
+    rarity: legendary
+    xp_bonus: 300
+  - name: Renaissance Kid
+    description: Have Level 1+ in skills across 4 categories
+    icon: "🎭"
+    criteria_type: skill_categories_breadth
+    criteria_value: {min_level: 1, categories: 4}
+    rarity: uncommon
+    xp_bonus: 25
+  - name: Polymath
+    description: Have Level 2+ in skills across 6 categories
+    icon: "📚"
+    criteria_type: skill_categories_breadth
+    criteria_value: {min_level: 2, categories: 6}
+    rarity: rare
+    xp_bonus: 75
+  - name: Universal Genius
+    description: Have Level 3+ in skills across all categories
+    icon: "🌍"
+    criteria_type: skill_categories_breadth
+    criteria_value: {min_level: 3, categories: 8}
+    rarity: legendary
+    xp_bonus: 500
+  - name: Bridge Builder
+    description: Unlock a skill that required a prerequisite from another category
+    icon: "🌉"
+    criteria_type: cross_category_unlock
+    rarity: rare
+    xp_bonus: 40

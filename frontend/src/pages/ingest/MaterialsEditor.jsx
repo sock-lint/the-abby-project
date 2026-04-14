@@ -6,8 +6,8 @@ export default function MaterialsEditor({ materials, onAdd, onUpdate, onRemove }
   return (
     <Card className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="font-heading text-lg font-bold">Materials ({materials.length})</h2>
-        <button onClick={onAdd} className="text-xs text-amber-primary hover:text-amber-highlight flex items-center gap-1">
+        <h2 className="font-display text-lg font-bold">Materials ({materials.length})</h2>
+        <button onClick={onAdd} className="text-xs text-sheikah-teal-deep hover:text-sheikah-teal-deep flex items-center gap-1">
           <Plus size={14} /> Add
         </button>
       </div>
@@ -30,7 +30,7 @@ export default function MaterialsEditor({ materials, onAdd, onUpdate, onRemove }
             type="button"
             onClick={() => onRemove(i)}
             aria-label="Remove material"
-            className="text-forge-text-dim hover:text-red-400 shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
+            className="text-ink-whisper hover:text-ember-deep shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
           >
             <Trash2 size={18} />
           </button>

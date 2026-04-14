@@ -38,15 +38,15 @@ export default function AddStepModal({
     <BottomSheet title="Add Step" onClose={onClose} disabled={saving}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
-        <p className="text-xs text-forge-text-dim">
+        <p className="text-xs text-ink-whisper">
           Steps are walkthrough instructions — no coins, XP, or ledger impact.
         </p>
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Title</label>
+          <label className="block text-xs text-ink-whisper mb-1">Title</label>
           <input value={form.title} onChange={onField('title')} className={inputClass} required autoFocus />
         </div>
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Description</label>
+          <label className="block text-xs text-ink-whisper mb-1">Description</label>
           <textarea
             value={form.description}
             onChange={onField('description')}
@@ -56,7 +56,7 @@ export default function AddStepModal({
         </div>
         {milestones.length > 0 && (
           <div>
-            <label className="block text-xs text-forge-text-dim mb-1">Milestone</label>
+            <label className="block text-xs text-ink-whisper mb-1">Milestone</label>
             <select value={form.milestone} onChange={onField('milestone')} className={inputClass}>
               <option value="">(No milestone — loose step)</option>
               {milestones.map((m, idx) => (

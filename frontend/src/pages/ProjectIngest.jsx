@@ -227,13 +227,13 @@ export default function ProjectIngest() {
     <div className="max-w-3xl mx-auto space-y-6">
       <button
         onClick={() => navigate('/projects')}
-        className="flex items-center gap-1 text-sm text-forge-text-dim hover:text-forge-text"
+        className="flex items-center gap-1 text-sm text-ink-whisper hover:text-ink-primary"
       >
         <ArrowLeft size={16} /> Back
       </button>
       <div>
-        <h1 className="font-heading text-2xl font-bold">Auto-fill from Source</h1>
-        <p className="text-sm text-forge-text-dim mt-1">
+        <h1 className="font-display text-2xl font-bold">Auto-fill from Source</h1>
+        <p className="text-sm text-ink-whisper mt-1">
           Paste a tutorial link or drop in a PDF. We'll pull the steps, supplies, and category so you can review and confirm.
         </p>
       </div>
@@ -252,13 +252,13 @@ export default function ProjectIngest() {
       {phase === 'polling' && (
         <Card className="flex flex-col items-center py-10 gap-4">
           <Loader />
-          <div className="text-sm text-forge-text-dim">Reading the steps…</div>
+          <div className="text-sm text-ink-whisper">Reading the steps…</div>
         </Card>
       )}
 
       {phase === 'error' && (
         <Card className="space-y-3">
-          <p className="text-sm text-forge-text-dim">We couldn't parse that source.</p>
+          <p className="text-sm text-ink-whisper">We couldn't parse that source.</p>
           <div className="flex gap-2">
             <button
               onClick={() => { setPhase('source'); setError(''); }}
@@ -268,7 +268,7 @@ export default function ProjectIngest() {
             </button>
             <button
               onClick={() => navigate('/projects/new')}
-              className="px-3 py-2 rounded-lg border border-forge-border text-sm"
+              className="px-3 py-2 rounded-lg border border-ink-page-shadow text-sm"
             >
               Manual form
             </button>

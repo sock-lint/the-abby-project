@@ -46,19 +46,23 @@ class PetService:
         if potion_item.item_type != ItemDefinition.ItemType.POTION:
             raise ValueError("That item is not a potion")
 
-        # Look up species from egg metadata
-        species_name = egg_item.metadata.get("species", "")
-        try:
-            species = PetSpecies.objects.get(name__iexact=species_name)
-        except PetSpecies.DoesNotExist:
-            raise ValueError(f"Unknown species: {species_name}")
+        # Prefer the typed FK; fall back to the legacy metadata slug for
+        # any item rows that haven't been backfilled (e.g. during migration).
+        species = egg_item.pet_species
+        if species is None:
+            species_key = str(egg_item.metadata.get("species", "")).strip()
+            try:
+                species = PetSpecies.objects.get(name__iexact=species_key)
+            except PetSpecies.DoesNotExist:
+                raise ValueError(f"Unknown species: {species_key}")
 
-        # Look up potion type from potion metadata
-        variant_name = potion_item.metadata.get("variant", "")
-        try:
-            potion_type = PotionType.objects.get(name__iexact=variant_name)
-        except PotionType.DoesNotExist:
-            raise ValueError(f"Unknown potion variant: {variant_name}")
+        potion_type = potion_item.potion_type
+        if potion_type is None:
+            variant_key = str(potion_item.metadata.get("variant", "")).strip()
+            try:
+                potion_type = PotionType.objects.get(name__iexact=variant_key)
+            except PotionType.DoesNotExist:
+                raise ValueError(f"Unknown potion variant: {variant_key}")
 
         # Check if user already has this combo
         if UserPet.objects.filter(user=user, species=species, potion=potion_type).exists():
@@ -115,12 +119,16 @@ class PetService:
         if food_item.item_type != ItemDefinition.ItemType.FOOD:
             raise ValueError("That item is not food")
 
-        # Calculate growth from food preference
-        food_type = food_item.metadata.get("food_type", "")
-        if food_type and food_type == pet.species.food_preference:
-            growth = GROWTH_PREFERRED_FOOD
+        # Calculate growth. Prefer the typed food_species FK; fall back to
+        # the legacy metadata food_type string compare for unmigrated rows.
+        is_preferred = False
+        if food_item.food_species_id:
+            is_preferred = food_item.food_species_id == pet.species_id
         else:
-            growth = GROWTH_NEUTRAL_FOOD
+            food_type = str(food_item.metadata.get("food_type", "")).strip()
+            if food_type and food_type == pet.species.food_preference:
+                is_preferred = True
+        growth = GROWTH_PREFERRED_FOOD if is_preferred else GROWTH_NEUTRAL_FOOD
 
         # Consume food
         food_inv.quantity -= 1

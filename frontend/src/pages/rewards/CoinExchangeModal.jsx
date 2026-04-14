@@ -37,19 +37,19 @@ export default function CoinExchangeModal({ exchangeRate, onClose, onSaved }) {
     <FormModal title="Exchange Money for Coins" onClose={onClose} size="md" scroll={false}>
       <ErrorAlert message={error} />
 
-      <div className="flex items-center justify-between text-sm mb-4 p-3 bg-forge-bg rounded-lg border border-forge-border">
-        <span className="text-forge-text-dim">Exchange Rate</span>
-        <span className="font-bold text-amber-highlight">$1.00 = {rate} coins</span>
+      <div className="flex items-center justify-between text-sm mb-4 p-3 bg-ink-page rounded-lg border border-ink-page-shadow">
+        <span className="text-ink-whisper">Exchange Rate</span>
+        <span className="font-bold text-sheikah-teal-deep">$1.00 = {rate} coins</span>
       </div>
 
-      <div className="flex items-center justify-between text-sm mb-4 p-3 bg-forge-bg rounded-lg border border-forge-border">
-        <span className="text-forge-text-dim">Your Balance</span>
-        <span className="font-bold text-green-400">{formatCurrency(moneyBalance)}</span>
+      <div className="flex items-center justify-between text-sm mb-4 p-3 bg-ink-page rounded-lg border border-ink-page-shadow">
+        <span className="text-ink-whisper">Your Balance</span>
+        <span className="font-bold text-moss">{formatCurrency(moneyBalance)}</span>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">Dollar Amount (min $1.00)</label>
+          <label className="text-xs text-ink-whisper mb-1 block">Dollar Amount (min $1.00)</label>
           <input
             className={inputClass}
             type="number"
@@ -65,24 +65,24 @@ export default function CoinExchangeModal({ exchangeRate, onClose, onSaved }) {
           <motion.div
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-center gap-2 p-3 bg-amber-primary/10 border border-amber-primary/30 rounded-lg"
+            className="flex items-center justify-center gap-2 p-3 bg-sheikah-teal/10 border border-sheikah-teal-deep/30 rounded-lg"
           >
-            <DollarSign size={16} className="text-green-400" />
+            <DollarSign size={16} className="text-moss" />
             <span className="text-sm">{formatCurrency(dollarAmount || 0)}</span>
-            <ArrowRightLeft size={14} className="text-forge-text-dim" />
-            <Coins size={16} className="text-amber-highlight" />
-            <span className="text-sm font-bold text-amber-highlight">{coins} coins</span>
+            <ArrowRightLeft size={14} className="text-ink-whisper" />
+            <Coins size={16} className="text-sheikah-teal-deep" />
+            <span className="text-sm font-bold text-sheikah-teal-deep">{coins} coins</span>
           </motion.div>
         )}
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-forge-text-dim hover:text-forge-text">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper hover:text-ink-primary">
             Cancel
           </button>
           <button type="submit" disabled={saving || !valid} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
             {saving ? 'Requesting...' : 'Request Exchange'}
           </button>
         </div>
-        <p className="text-[10px] text-forge-text-dim text-center">Requires parent approval</p>
+        <p className="text-[10px] text-ink-whisper text-center">Requires parent approval</p>
       </form>
     </FormModal>
   );

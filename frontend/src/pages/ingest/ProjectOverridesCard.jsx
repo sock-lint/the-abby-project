@@ -15,14 +15,14 @@ export default function ProjectOverridesCard({
 
   return (
     <Card className="space-y-4">
-      <h2 className="font-heading text-lg font-bold">Review &amp; Edit</h2>
+      <h2 className="font-display text-lg font-bold">Review &amp; Edit</h2>
 
       {draft.cover_photo_url && (
         <img src={draft.cover_photo_url} alt="" className="w-full h-40 object-cover rounded-lg" />
       )}
 
       <div>
-        <label className="block text-sm text-forge-text-dim mb-1">Title</label>
+        <label className="block text-sm text-ink-whisper mb-1">Title</label>
         <input
           value={draft.title || ''}
           onChange={(e) => setDraft({ ...draft, title: e.target.value })}
@@ -30,7 +30,7 @@ export default function ProjectOverridesCard({
         />
       </div>
       <div>
-        <label className="block text-sm text-forge-text-dim mb-1">Description</label>
+        <label className="block text-sm text-ink-whisper mb-1">Description</label>
         <textarea
           value={draft.description || ''}
           onChange={(e) => setDraft({ ...draft, description: e.target.value })}
@@ -40,7 +40,7 @@ export default function ProjectOverridesCard({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm text-forge-text-dim mb-1">Category</label>
+          <label className="block text-sm text-ink-whisper mb-1">Category</label>
           <select value={overrides.category_id} onChange={setOverride('category_id')} className={inputClass}>
             <option value="">
               {draft.category_hint ? `Suggested: ${draft.category_hint}` : 'None'}
@@ -51,7 +51,7 @@ export default function ProjectOverridesCard({
           </select>
         </div>
         <div>
-          <label className="block text-sm text-forge-text-dim mb-1">Difficulty</label>
+          <label className="block text-sm text-ink-whisper mb-1">Difficulty</label>
           <select value={overrides.difficulty} onChange={setOverride('difficulty')} className={inputClass}>
             {[1, 2, 3, 4, 5].map((d) => (
               <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>
@@ -62,7 +62,7 @@ export default function ProjectOverridesCard({
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm text-forge-text-dim mb-1">Bonus ($)</label>
+          <label className="block text-sm text-ink-whisper mb-1">Bonus ($)</label>
           <input
             value={overrides.bonus_amount}
             onChange={setOverride('bonus_amount')}
@@ -71,7 +71,7 @@ export default function ProjectOverridesCard({
           />
         </div>
         <div>
-          <label className="block text-sm text-forge-text-dim mb-1">Materials Budget ($)</label>
+          <label className="block text-sm text-ink-whisper mb-1">Materials Budget ($)</label>
           <input
             value={overrides.materials_budget}
             onChange={setOverride('materials_budget')}
@@ -80,7 +80,7 @@ export default function ProjectOverridesCard({
           />
         </div>
         <div>
-          <label className="block text-sm text-forge-text-dim mb-1">Due Date</label>
+          <label className="block text-sm text-ink-whisper mb-1">Due Date</label>
           <input
             value={overrides.due_date}
             onChange={setOverride('due_date')}

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="waxFill" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#e08a5c" />
+      <stop offset="55%" stop-color="#a04a28" />
+      <stop offset="100%" stop-color="#5c2411" />
+    </radialGradient>
+  </defs>
+  <circle cx="32" cy="32" r="26" fill="url(#waxFill)" />
+  <path d="M32 10 L 36 14 L 32 18 L 28 14 Z M32 46 L 36 50 L 32 54 L 28 50 Z M10 32 L 14 28 L 18 32 L 14 36 Z M46 32 L 50 28 L 54 32 L 50 36 Z"
+        fill="none" stroke="#3a1708" stroke-width="0.75" opacity="0.5" />
+  <circle cx="32" cy="32" r="12" fill="none" stroke="#3a1708" stroke-width="1" opacity="0.6" />
+  <path d="M26 30 L 32 36 L 38 30 M32 24 L 32 38" stroke="#3a1708" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="32" cy="32" r="26" fill="none" stroke="#3a1708" stroke-width="0.5" opacity="0.4" />
+</svg>

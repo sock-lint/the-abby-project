@@ -4,15 +4,17 @@ import {
   getGoogleAuthUrl, getGoogleAccount, unlinkGoogleAccount,
   updateCalendarSettings, triggerCalendarSync, updateMe,
 } from '../api';
-import Card from '../components/Card';
+import ParchmentCard from '../components/journal/ParchmentCard';
+import RuneBadge from '../components/journal/RuneBadge';
 import { useAuth } from '../hooks/useApi';
-import { themes, applyTheme } from '../themes';
+import { themes, applyTheme, LEGACY_THEME_ALIASES } from '../themes';
+import { buttonPrimary } from '../constants/styles';
 
 export default function SettingsPage() {
   const { user, logout: onLogout } = useAuth();
-  const [currentTheme, setCurrentTheme] = useState(user?.theme || 'summer');
+  const initialTheme = LEGACY_THEME_ALIASES[user?.theme] || user?.theme || 'hyrule';
+  const [currentTheme, setCurrentTheme] = useState(initialTheme);
 
-  // Google account state
   const [googleAccount, setGoogleAccount] = useState(null);
   const [googleLoading, setGoogleLoading] = useState(true);
   const [calendarEnabled, setCalendarEnabled] = useState(false);
@@ -21,12 +23,10 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadGoogleAccount();
-
-    // Check for google link/error query params from OAuth callback
     const params = new URLSearchParams(window.location.search);
     const googleStatus = params.get('google');
     if (googleStatus === 'linked') {
-      setGoogleMessage('Google account linked successfully!');
+      setGoogleMessage('Google account linked successfully.');
       window.history.replaceState({}, '', window.location.pathname);
     } else if (googleStatus === 'error') {
       const detail = params.get('detail') || 'unknown';
@@ -40,10 +40,8 @@ export default function SettingsPage() {
     try {
       const data = await getGoogleAccount();
       setGoogleAccount(data);
-      if (data?.linked) {
-        setCalendarEnabled(data.calendar_sync_enabled || false);
-      }
-    } catch { /* not linked */
+      if (data?.linked) setCalendarEnabled(data.calendar_sync_enabled || false);
+    } catch {
       setGoogleAccount(null);
     } finally {
       setGoogleLoading(false);
@@ -53,9 +51,8 @@ export default function SettingsPage() {
   const handleThemeChange = async (themeName) => {
     setCurrentTheme(themeName);
     applyTheme(themeName);
-    try {
-      await updateMe({ theme: themeName });
-    } catch { /* best-effort */ }
+    try { await updateMe({ theme: themeName }); }
+    catch { /* best-effort */ }
   };
 
   const handleLinkGoogle = async () => {
@@ -94,7 +91,7 @@ export default function SettingsPage() {
     setSyncing(true);
     try {
       await triggerCalendarSync();
-      setGoogleMessage('Calendar sync started!');
+      setGoogleMessage('Calendar sync started.');
     } catch {
       setGoogleMessage('Failed to start sync.');
     } finally {
@@ -102,84 +99,101 @@ export default function SettingsPage() {
     }
   };
 
+  const fieldLabel = 'font-script text-sm text-ink-whisper';
+  const fieldValue = 'font-body text-ink-primary';
+
   return (
     <div className="max-w-lg mx-auto space-y-6">
-      <h1 className="font-heading text-2xl font-bold">Settings</h1>
+      <header>
+        <div className="font-script text-sheikah-teal-deep text-base">
+          preferences · tune the journal
+        </div>
+        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+          Settings
+        </h1>
+      </header>
 
-      <Card>
-        <h2 className="font-heading text-lg font-bold mb-4">Profile</h2>
+      {/* Profile */}
+      <ParchmentCard>
+        <h2 className="font-display text-xl text-ink-primary mb-4">Profile</h2>
         <div className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-forge-text-dim">Username</span>
-            <span>{user?.username}</span>
+          <div className="flex justify-between items-baseline text-sm">
+            <span className={fieldLabel}>Username</span>
+            <span className={fieldValue}>{user?.username}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-forge-text-dim">Display Name</span>
-            <span>{user?.display_name || '\u2014'}</span>
+          <div className="flex justify-between items-baseline text-sm">
+            <span className={fieldLabel}>Display name</span>
+            <span className={fieldValue}>{user?.display_name || '—'}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-forge-text-dim">Role</span>
-            <span className="capitalize">{user?.role}</span>
+          <div className="flex justify-between items-baseline text-sm">
+            <span className={fieldLabel}>Role</span>
+            <RuneBadge tone="teal" size="sm">{user?.role}</RuneBadge>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-forge-text-dim">Hourly Rate</span>
-            <span className="font-heading font-bold">${user?.hourly_rate}/hr</span>
+          <div className="flex justify-between items-baseline text-sm">
+            <span className={fieldLabel}>Hourly rate</span>
+            <span className="font-rune font-bold text-ink-primary tabular-nums">
+              ${user?.hourly_rate}/hr
+            </span>
           </div>
         </div>
-      </Card>
+      </ParchmentCard>
 
-      {/* Google Account */}
-      <Card>
-        <h2 className="font-heading text-lg font-bold mb-4">Google Account</h2>
+      {/* Google */}
+      <ParchmentCard>
+        <h2 className="font-display text-xl text-ink-primary mb-4">Google account</h2>
         {googleMessage && (
-          <div className="text-sm text-amber-highlight mb-3">{googleMessage}</div>
+          <div className="font-script text-sm text-sheikah-teal-deep mb-3">{googleMessage}</div>
         )}
         {googleLoading ? (
-          <div className="text-sm text-forge-text-dim">Loading...</div>
+          <div className="font-script text-sm text-ink-whisper">Loading…</div>
         ) : googleAccount?.linked ? (
           <div className="space-y-3">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-forge-text-dim">Linked to</span>
-              <span>{googleAccount.google_email}</span>
+              <span className={fieldLabel}>Linked to</span>
+              <span className={fieldValue}>{googleAccount.google_email}</span>
             </div>
             <button
+              type="button"
               onClick={handleUnlinkGoogle}
-              className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+              className="flex items-center gap-2 font-script text-sm text-ember-deep hover:text-ember transition-colors"
             >
-              <Unlink size={14} /> Unlink Google Account
+              <Unlink size={14} /> unlink Google account
             </button>
           </div>
         ) : (
           <button
+            type="button"
             onClick={handleLinkGoogle}
-            className="flex items-center gap-2 w-full px-4 py-2.5 rounded-lg border border-forge-border text-forge-text hover:border-amber-primary/50 hover:text-amber-highlight transition-colors text-sm"
+            className="flex items-center gap-2 w-full px-4 py-2.5 rounded-lg border border-ink-page-shadow text-ink-primary hover:border-sheikah-teal/60 hover:bg-ink-page-rune-glow transition-colors text-sm font-body"
           >
-            <Link2 size={16} /> Connect Google Account
+            <Link2 size={16} /> Connect Google account
           </button>
         )}
-      </Card>
+      </ParchmentCard>
 
-      {/* Calendar Sync (only if Google linked) */}
+      {/* Calendar Sync */}
       {googleAccount?.linked && (
-        <Card>
-          <h2 className="font-heading text-lg font-bold mb-4">Calendar Sync</h2>
-          <p className="text-xs text-forge-text-dim mb-4">
+        <ParchmentCard>
+          <h2 className="font-display text-xl text-ink-primary mb-2">Calendar sync</h2>
+          <p className="font-body text-sm text-ink-secondary mb-4">
             Sync project deadlines, chore schedules, and work sessions to your Google Calendar.
           </p>
           <div className="space-y-3">
-            <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-sm flex items-center gap-2">
-                <Calendar size={16} className="text-forge-text-dim" />
+            <label className="flex items-center justify-between cursor-pointer font-body text-sm text-ink-primary">
+              <span className="flex items-center gap-2">
+                <Calendar size={16} className="text-sheikah-teal-deep" />
                 Enable calendar sync
               </span>
               <button
+                type="button"
                 onClick={handleToggleCalendar}
                 className={`relative w-10 h-5 rounded-full transition-colors ${
-                  calendarEnabled ? 'bg-amber-primary' : 'bg-forge-muted'
+                  calendarEnabled ? 'bg-sheikah-teal-deep' : 'bg-ink-page-shadow'
                 }`}
+                aria-pressed={calendarEnabled}
               >
                 <span
-                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-ink-page-rune-glow transition-transform ${
                     calendarEnabled ? 'translate-x-5' : ''
                   }`}
                 />
@@ -187,63 +201,89 @@ export default function SettingsPage() {
             </label>
             {calendarEnabled && (
               <button
+                type="button"
                 onClick={handleSync}
                 disabled={syncing}
-                className="flex items-center gap-2 text-sm text-amber-highlight hover:text-amber-primary transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 font-script text-sm text-sheikah-teal-deep hover:text-sheikah-teal disabled:opacity-50 transition-colors"
               >
                 <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-                {syncing ? 'Syncing...' : 'Sync Now'}
+                {syncing ? 'syncing…' : 'sync now'}
               </button>
             )}
           </div>
-        </Card>
+        </ParchmentCard>
       )}
 
-      <Card>
-        <h2 className="font-heading text-lg font-bold mb-4">Theme</h2>
-        <div className="grid grid-cols-2 gap-3">
-          {Object.entries(themes).map(([key, theme]) => (
-            <button
-              key={key}
-              onClick={() => handleThemeChange(key)}
-              className={`p-3 rounded-xl border-2 text-left transition-all ${
-                currentTheme === key
-                  ? 'border-amber-primary'
-                  : 'border-forge-border hover:border-forge-muted'
-              }`}
-              style={{ backgroundColor: theme.bg }}
-            >
-              <div className="text-2xl mb-1">{theme.icon}</div>
-              <div className="text-sm font-medium" style={{ color: theme.highlight }}>
-                {theme.name}
-              </div>
-              <div className="flex gap-1 mt-2">
-                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: theme.primary }} />
-                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: theme.highlight }} />
-                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: theme.glow }} />
-              </div>
-            </button>
-          ))}
+      {/* Journal covers (themes) */}
+      <ParchmentCard>
+        <div className="mb-2">
+          <div className="font-script text-sm text-ink-whisper uppercase tracking-wider">
+            pick a cover
+          </div>
+          <h2 className="font-display text-xl text-ink-primary leading-tight">Journal cover</h2>
         </div>
-      </Card>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+          {Object.entries(themes).map(([key, theme]) => {
+            const active = currentTheme === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => handleThemeChange(key)}
+                className={`p-3 rounded-xl border-2 text-left transition-all ${
+                  active
+                    ? 'border-sheikah-teal-deep ring-2 ring-offset-2 ring-offset-ink-page ring-sheikah-teal-glow'
+                    : 'border-ink-page-shadow hover:border-sheikah-teal/50'
+                }`}
+                style={{ backgroundColor: theme.page }}
+              >
+                <div className="text-2xl mb-1">{theme.icon}</div>
+                <div
+                  className="font-display text-sm font-semibold leading-tight"
+                  style={{ color: theme.ink }}
+                >
+                  {theme.name}
+                </div>
+                <div className="flex gap-1 mt-2">
+                  <div
+                    className="w-4 h-4 rounded-full border"
+                    style={{ backgroundColor: theme.accent, borderColor: theme.pageShadow }}
+                  />
+                  <div
+                    className="w-4 h-4 rounded-full border"
+                    style={{ backgroundColor: theme.accentBright, borderColor: theme.pageShadow }}
+                  />
+                  <div
+                    className="w-4 h-4 rounded-full border"
+                    style={{ backgroundColor: theme.ember, borderColor: theme.pageShadow }}
+                  />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </ParchmentCard>
 
-      <Card>
-        <h2 className="font-heading text-lg font-bold mb-2">About The Abby Project</h2>
-        <p className="text-sm text-forge-text-dim">
-          Track projects, chores, and homework. Log hours, earn XP,
-          unlock skills, collect coins, and get paid.
+      {/* About */}
+      <ParchmentCard>
+        <h2 className="font-display text-xl text-ink-primary mb-2">About Hyrule Field Notes</h2>
+        <p className="font-body text-sm text-ink-secondary">
+          Chronicle ventures, rituals, and study. Ink hours, earn XP, unlock skills,
+          collect coins, and grow the party.
         </p>
-      </Card>
+      </ParchmentCard>
 
-      <Card>
-        <h2 className="font-heading text-lg font-bold mb-4">Account</h2>
+      {/* Sign off */}
+      <ParchmentCard>
+        <h2 className="font-display text-xl text-ink-primary mb-4">Account</h2>
         <button
+          type="button"
           onClick={onLogout}
-          className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg border border-forge-border text-forge-text-dim hover:text-red-400 hover:border-red-400/50 transition-colors text-sm"
+          className={`${buttonPrimary} flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm`}
         >
-          <LogOut size={16} /> Log out
+          <LogOut size={16} /> Sign off
         </button>
-      </Card>
+      </ParchmentCard>
     </div>
   );
 }

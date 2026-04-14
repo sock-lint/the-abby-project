@@ -1,64 +1,200 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Caveat:wght@400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Space+Mono:wght@400;700&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-heading: "Space Mono", ui-monospace, monospace;
-  --font-body: "DM Sans", system-ui, sans-serif;
-  --color-forge-bg: #0a0a0a;
-  --color-forge-card: #1a1a1a;
-  --color-forge-border: #2a2a2a;
-  --color-forge-muted: #3a3a3a;
-  --color-forge-text: #e5e5e5;
-  --color-forge-text-dim: #888888;
-  --color-amber-primary: #d97706;
-  --color-amber-highlight: #f59e0b;
-  --color-amber-glow: #fbbf24;
-  --color-rarity-common: #9ca3af;
-  --color-rarity-uncommon: #22c55e;
-  --color-rarity-rare: #3b82f6;
-  --color-rarity-epic: #a855f7;
-  --color-rarity-legendary: #f59e0b;
+  /* Fonts */
+  --font-display: "Cormorant Garamond", "EB Garamond", Georgia, serif;
+  --font-script: "Caveat", "Segoe Script", cursive;
+  --font-body: "Crimson Text", "EB Garamond", Georgia, serif;
+  --font-rune: "Space Mono", ui-monospace, monospace;
+
+  /* Legacy aliases — keep until all call sites migrate */
+  --font-heading: "Cormorant Garamond", "EB Garamond", Georgia, serif;
+
+  /* Parchment core */
+  --color-ink-page: #f4ecd8;
+  --color-ink-page-aged: #e8dcc0;
+  --color-ink-page-shadow: #d4c7a6;
+  --color-ink-page-rune-glow: #fff8e0;
+
+  /* Ink & text */
+  --color-ink-primary: #2d1f15;
+  --color-ink-secondary: #6b5639;
+  --color-ink-whisper: #a08a6c;
+
+  /* Sheikah accents */
+  --color-sheikah-teal: #4dd0e1;
+  --color-sheikah-teal-deep: #26a69a;
+  --color-sheikah-teal-glow: rgba(77, 208, 225, 0.4);
+
+  /* Supporting accents */
+  --color-ember: #d97548;
+  --color-ember-deep: #a04a28;
+  --color-moss: #7d9b69;
+  --color-royal: #6b5fb8;
+  --color-rose: #d4839c;
+  --color-gold-leaf: #d4af37;
+
+  /* Rarity tiers (journal vocabulary) */
+  --color-rarity-common: #7d9b69;
+  --color-rarity-uncommon: #4dd0e1;
+  --color-rarity-rare: #6b5fb8;
+  --color-rarity-epic: #d97548;
+  --color-rarity-legendary: #d4af37;
+
+  /* Legacy forge aliases — map old tokens to new palette so un-migrated
+     components still render coherently while Phase 2+ rolls forward. */
+  --color-forge-bg: #f4ecd8;
+  --color-forge-card: #e8dcc0;
+  --color-forge-border: #d4c7a6;
+  --color-forge-muted: #c4b594;
+  --color-forge-text: #2d1f15;
+  --color-forge-text-dim: #6b5639;
+  --color-amber-primary: #26a69a;
+  --color-amber-highlight: #4dd0e1;
+  --color-amber-glow: #fff8e0;
 }
 
 body {
   margin: 0;
   font-family: var(--font-body);
-  background: var(--color-forge-bg);
-  color: var(--color-forge-text);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-ink-primary);
+  background-color: var(--color-ink-page);
+  background-image: url("/parchment.svg");
+  background-size: 480px 480px;
+  background-blend-mode: multiply;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   min-height: 100vh;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: var(--color-forge-bg);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--color-forge-muted);
-  border-radius: 3px;
+/* Display + script utilities default to the journal tone. */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  color: var(--color-ink-primary);
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
-/* Hide scrollbar for horizontal scroll containers */
+/* Scrollbar — rendered as an ink-gutter */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-page-shadow);
+  border-radius: 4px;
+  border: 1px solid var(--color-ink-page-aged);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-whisper);
+}
+
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Selection — sheikah-tinted */
+::selection {
+  background: var(--color-sheikah-teal-glow);
+  color: var(--color-ink-primary);
+}
+
+/* Focus rings — Sheikah teal halo */
+:focus-visible {
+  outline: 2px solid var(--color-sheikah-teal);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Motion keyframes ─────────────────────────────────────────── */
+
+@keyframes flame-flicker {
+  0%, 100% { transform: scale(1) rotate(-1deg); opacity: 0.95; }
+  25% { transform: scale(1.05) rotate(2deg); opacity: 1; }
+  50% { transform: scale(0.98) rotate(-1deg); opacity: 0.9; }
+  75% { transform: scale(1.03) rotate(1deg); opacity: 1; }
+}
+
+@keyframes rune-pulse {
+  0%, 100% { opacity: 0.7; filter: drop-shadow(0 0 2px var(--color-sheikah-teal)); }
+  50%      { opacity: 1;   filter: drop-shadow(0 0 8px var(--color-sheikah-teal)); }
+}
+
+@keyframes rune-band-shimmer {
+  0%   { background-position: -120% 0; }
+  100% { background-position: 220% 0; }
+}
+
+@keyframes ink-bleed {
+  from { opacity: 0; filter: blur(3px); transform: translateY(6px); }
+  to   { opacity: 1; filter: blur(0);   transform: translateY(0); }
+}
+
+.animate-flame-flicker { animation: flame-flicker 2.4s ease-in-out infinite; transform-origin: 50% 85%; }
+.animate-rune-pulse    { animation: rune-pulse 2.6s ease-in-out infinite; }
+.animate-rune-band     { animation: rune-band-shimmer 3.2s linear infinite; }
+.animate-ink-bleed     { animation: ink-bleed 0.6s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-flame-flicker,
+  .animate-rune-pulse,
+  .animate-rune-band,
+  .animate-ink-bleed { animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* Parchment backdrop helper — attach to full-page wrappers when the
+   <body> layer alone isn't enough (e.g. inside modals). */
+.parchment-bg {
+  background-color: var(--color-ink-page);
+  background-image: url("/parchment.svg");
+  background-size: 480px 480px;
+  background-blend-mode: multiply;
+}
+
+.parchment-bg-aged {
+  background-color: var(--color-ink-page-aged);
+  background-image: url("/parchment.svg");
+  background-size: 480px 480px;
+  background-blend-mode: multiply;
+}
+
+/* Deckle-edge card — torn paper feel via SVG mask. */
+.deckle-edge {
+  --deckle-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none' viewBox='0 0 200 200'><path d='M4 8 C 20 3 40 9 60 5 C 80 2 100 8 120 4 C 140 1 160 7 180 3 L 196 6 L 194 40 L 198 80 L 195 120 L 197 160 L 194 194 L 160 196 L 120 193 L 80 197 L 40 194 L 8 196 L 4 160 L 7 120 L 3 80 L 6 40 Z' fill='white'/></svg>");
+  -webkit-mask-image: var(--deckle-mask);
+          mask-image: var(--deckle-mask);
+  -webkit-mask-size: 100% 100%;
+          mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+}
+
+/* Ink underline — used on chapter titles & hover states. */
+.ink-underline {
+  background-image: linear-gradient(to right, var(--color-ink-primary) 0%, var(--color-ink-primary) 100%);
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+  padding-bottom: 2px;
+}
 
 /* Mobile touch optimizations */
 @media (max-width: 768px) {
   button, a, [role="button"] {
     -webkit-tap-highlight-color: transparent;
   }
-
-  /* Prevent horizontal overflow on mobile */
   main {
     overflow-x: hidden;
   }
-
-  /* Slightly larger tap targets on mobile */
   input, select, textarea {
     font-size: 16px; /* prevents iOS zoom on focus */
   }

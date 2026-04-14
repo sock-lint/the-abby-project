@@ -1,7 +1,7 @@
 const SUBJECT_COLORS = {
-  math: 'bg-blue-500/20 text-blue-400',
+  math: 'bg-blue-500/20 text-sheikah-teal-deep',
   reading: 'bg-emerald-500/20 text-emerald-400',
-  writing: 'bg-purple-500/20 text-purple-400',
+  writing: 'bg-royal/20 text-royal',
   science: 'bg-amber-500/20 text-amber-400',
   social_studies: 'bg-orange-500/20 text-orange-400',
   art: 'bg-pink-500/20 text-pink-400',

@@ -54,23 +54,23 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Title</label>
+          <label className="block text-xs text-ink-whisper mb-1">Title</label>
           <input value={form.title} onChange={onField('title')} className={inputClass} required />
         </div>
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Description</label>
+          <label className="block text-xs text-ink-whisper mb-1">Description</label>
           <textarea value={form.description} onChange={onField('description')} className={`${inputClass} h-20 resize-none`} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-forge-text-dim mb-1">Category</label>
+            <label className="block text-xs text-ink-whisper mb-1">Category</label>
             <select value={form.category_id} onChange={onField('category_id')} className={inputClass}>
               <option value="">None</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs text-forge-text-dim mb-1">Difficulty</label>
+            <label className="block text-xs text-ink-whisper mb-1">Difficulty</label>
             <select value={form.difficulty} onChange={onField('difficulty')} className={inputClass}>
               {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
             </select>
@@ -78,7 +78,7 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-forge-text-dim mb-1">Assign To</label>
+            <label className="block text-xs text-ink-whisper mb-1">Assign To</label>
             <select value={form.assigned_to_id} onChange={onField('assigned_to_id')} className={inputClass}>
               <option value="">Unassigned</option>
               {children.map((c) => (
@@ -87,7 +87,7 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-forge-text-dim mb-1">Payment Kind</label>
+            <label className="block text-xs text-ink-whisper mb-1">Payment Kind</label>
             <select value={form.payment_kind} onChange={onField('payment_kind')} className={inputClass}>
               <option value="required">Required</option>
               <option value="bounty">Bounty</option>
@@ -96,26 +96,26 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs text-forge-text-dim mb-1">
+            <label className="block text-xs text-ink-whisper mb-1">
               {form.payment_kind === 'bounty' ? 'Bounty ($)' : 'Bonus ($)'}
             </label>
             <input value={form.bonus_amount} onChange={onField('bonus_amount')} className={inputClass} type="number" step="0.01" min="0" />
           </div>
           <div>
-            <label className="block text-xs text-forge-text-dim mb-1">Budget ($)</label>
+            <label className="block text-xs text-ink-whisper mb-1">Budget ($)</label>
             <input value={form.materials_budget} onChange={onField('materials_budget')} className={inputClass} type="number" step="0.01" min="0" />
           </div>
           <div>
-            <label className="block text-xs text-forge-text-dim mb-1">Rate Override ($)</label>
+            <label className="block text-xs text-ink-whisper mb-1">Rate Override ($)</label>
             <input value={form.hourly_rate_override} onChange={onField('hourly_rate_override')} className={inputClass} type="number" step="0.01" min="0" placeholder="Default" />
           </div>
         </div>
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Due Date</label>
+          <label className="block text-xs text-ink-whisper mb-1">Due Date</label>
           <input value={form.due_date} onChange={onField('due_date')} className={inputClass} type="date" />
         </div>
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Parent Notes</label>
+          <label className="block text-xs text-ink-whisper mb-1">Parent Notes</label>
           <textarea value={form.parent_notes} onChange={onField('parent_notes')} className={`${inputClass} h-16 resize-none`} placeholder="Private notes" />
         </div>
         <div className="flex gap-2">

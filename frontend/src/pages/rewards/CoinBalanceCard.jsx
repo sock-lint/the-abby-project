@@ -1,24 +1,28 @@
 import { motion } from 'framer-motion';
-import { ArrowRightLeft, Coins } from 'lucide-react';
-import Card from '../../components/Card';
+import { ArrowRightLeft } from 'lucide-react';
+import ParchmentCard from '../../components/journal/ParchmentCard';
+import { CoinIcon } from '../../components/icons/JournalIcons';
 
 export default function CoinBalanceCard({ coinBalance, isParent, onOpenExchange }) {
   return (
     <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-      <Card className="text-center py-5">
-        <div className="text-xs text-forge-text-dim mb-1 flex items-center justify-center gap-1">
-          <Coins size={14} /> Coin Balance
+      <ParchmentCard flourish tone="bright" className="text-center py-7">
+        <div className="font-script text-sheikah-teal-deep text-sm uppercase tracking-widest flex items-center justify-center gap-1.5">
+          <CoinIcon size={16} className="text-gold-leaf" /> coin balance
         </div>
-        <div className="font-heading text-4xl font-bold text-amber-highlight">{coinBalance}</div>
+        <div className="font-display font-semibold text-5xl md:text-6xl text-gold-leaf tabular-nums mt-1">
+          {coinBalance}
+        </div>
         {!isParent && (
           <button
+            type="button"
             onClick={onOpenExchange}
-            className="mt-3 inline-flex items-center gap-1.5 bg-amber-primary/20 hover:bg-amber-primary/30 text-amber-highlight text-xs font-semibold px-4 py-2 rounded-lg border border-amber-primary/30"
+            className="mt-4 inline-flex items-center gap-1.5 bg-sheikah-teal/20 hover:bg-sheikah-teal/30 text-sheikah-teal-deep font-body font-medium px-4 py-2 rounded-lg border border-sheikah-teal/50 transition-colors"
           >
-            <ArrowRightLeft size={14} /> Exchange Money for Coins
+            <ArrowRightLeft size={14} /> Exchange money for coins
           </button>
         )}
-      </Card>
+      </ParchmentCard>
     </motion.div>
   );
 }

@@ -1,0 +1,70 @@
+# Sample quest definitions.
+#
+# Schema per entry:
+#   name             (required, unique)
+#   description      (required)
+#   icon             (optional, default "⚔️")
+#   quest_type       (required) — "boss" | "collection"
+#   target_value     (required) — HP for boss, count for collection
+#   duration_days    (optional, default 7)
+#   trigger_filter   (optional JSON) — whitelist triggers, filter by project/
+#                    chore/etc. Empty = all triggers count.
+#   required_badge   (optional, badge name) — gates quest until earned
+#   coin_reward      (optional, default 0)
+#   xp_reward        (optional, default 0)
+#   is_repeatable    (optional, default false)
+#   is_system        (optional, default true)
+#   reward_items:    (optional list)
+#     - slug: <item-slug>
+#       quantity: 1
+
+quests:
+  - name: Dragon Slayer
+    description: Deal 500 damage to the mighty dragon by completing tasks!
+    icon: "🐉"
+    quest_type: boss
+    target_value: 500
+    duration_days: 7
+    coin_reward: 50
+    xp_reward: 100
+    is_system: true
+    reward_items:
+      - slug: wolf-egg
+        quantity: 1
+
+  - name: Feather Collector
+    description: Collect 10 phoenix feathers by completing any tasks.
+    icon: "🪶"
+    quest_type: collection
+    target_value: 10
+    duration_days: 5
+    coin_reward: 25
+    xp_reward: 50
+    is_system: true
+
+  - name: Chore Champion
+    description: Complete 15 chores to prove your household mastery!
+    icon: "🏆"
+    quest_type: collection
+    target_value: 15
+    duration_days: 7
+    trigger_filter:
+      allowed_triggers: [chore_complete]
+    coin_reward: 30
+    xp_reward: 75
+    is_system: true
+
+  - name: Focus Master
+    description: Clock 20 hours of focused project work to defeat the distraction monster!
+    icon: "🧠"
+    quest_type: boss
+    target_value: 200
+    duration_days: 14
+    trigger_filter:
+      allowed_triggers: [clock_out]
+    coin_reward: 75
+    xp_reward: 150
+    is_system: true
+    reward_items:
+      - slug: wolf-egg
+        quantity: 1

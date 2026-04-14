@@ -44,7 +44,11 @@ export default function ProjectDetail() {
   const { confirmState, askConfirm, closeConfirm } = useConfirmState();
 
   if (loading) return <Loader />;
-  if (!project) return <div className="text-forge-text-dim">Project not found</div>;
+  if (!project) return (
+    <div className="text-center py-12 font-script text-ink-whisper italic">
+      This venture is not inscribed in the journal.
+    </div>
+  );
 
   const isAssigned = project.assigned_to?.id === user?.id;
 
@@ -140,15 +144,16 @@ export default function ProjectDetail() {
         onOpenQR={() => setQrOpen(true)}
       />
 
-      <div className="flex gap-1 bg-forge-card rounded-lg p-1 border border-forge-border">
+      <div className="flex gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow">
         {tabs.map((tab) => (
           <button
             key={tab}
+            type="button"
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 rounded-md font-display text-sm transition-colors ${
               activeTab === tab
-                ? 'bg-amber-primary/15 text-amber-highlight'
-                : 'text-forge-text-dim hover:text-forge-text'
+                ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
+                : 'text-ink-secondary hover:text-ink-primary'
             }`}
           >
             {tab}

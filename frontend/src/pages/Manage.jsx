@@ -28,17 +28,25 @@ export default function Manage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold">Manage</h1>
+      <header>
+        <div className="font-script text-sheikah-teal-deep text-base">
+          stewardship · the keeper's ledger
+        </div>
+        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+          Manage
+        </h1>
+      </header>
 
-      <div className="flex gap-1 bg-forge-card rounded-lg p-1 border border-forge-border">
+      <div className="flex gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow">
         {tabs.map((tab) => (
           <button
             key={tab}
+            type="button"
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2 rounded-md font-display text-sm transition-colors flex items-center justify-center gap-2 ${
               activeTab === tab
-                ? 'bg-amber-primary/15 text-amber-highlight'
-                : 'text-forge-text-dim hover:text-forge-text'
+                ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
+                : 'text-ink-secondary hover:text-ink-primary'
             }`}
           >
             {tab === 'Children' ? <Users size={16} /> : <BookTemplate size={16} />}
@@ -69,18 +77,18 @@ function ChildrenSection() {
       )}
       {children.map((child) => (
         <Card key={child.id} className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-amber-primary/20 flex items-center justify-center text-amber-highlight text-lg font-bold shrink-0">
+          <div className="w-12 h-12 rounded-full bg-sheikah-teal/20 flex items-center justify-center text-sheikah-teal-deep text-lg font-bold shrink-0">
             {(child.display_name || child.username || '?')[0].toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-semibold text-forge-text truncate">
+            <div className="font-semibold text-ink-primary truncate">
               {child.display_name || child.username}
             </div>
-            <div className="text-xs text-forge-text-dim">@{child.username}</div>
-            <div className="text-sm text-forge-text-dim flex items-center gap-1 mt-0.5">
+            <div className="text-xs text-ink-whisper">@{child.username}</div>
+            <div className="text-sm text-ink-whisper flex items-center gap-1 mt-0.5">
               <DollarSign size={12} />{child.hourly_rate}/hr
               {child.google_linked && (
-                <span className="ml-2 text-xs text-green-400 flex items-center gap-0.5">
+                <span className="ml-2 text-xs text-moss flex items-center gap-0.5">
                   <Link2 size={10} /> Google
                 </span>
               )}
@@ -158,20 +166,20 @@ function EditChildModal({ child, onClose, onSaved }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Display Name</label>
+          <label className="block text-xs text-ink-whisper mb-1">Display Name</label>
           <input value={form.display_name} onChange={onField('display_name')} className={inputClass} placeholder={child.username} />
         </div>
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Hourly Rate ($)</label>
+          <label className="block text-xs text-ink-whisper mb-1">Hourly Rate ($)</label>
           <input value={form.hourly_rate} onChange={onField('hourly_rate')} className={inputClass} type="number" step="0.01" min="0" required />
         </div>
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Google Account</label>
+          <label className="block text-xs text-ink-whisper mb-1">Google Account</label>
           {child.google_linked ? (
             <button
               type="button"
               onClick={handleUnlinkGoogle}
-              className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+              className="flex items-center gap-2 text-sm text-ember-deep hover:text-red-300 transition-colors"
             >
               <Unlink size={14} /> Unlink Google Account
             </button>
@@ -179,7 +187,7 @@ function EditChildModal({ child, onClose, onSaved }) {
             <button
               type="button"
               onClick={handleLinkGoogle}
-              className="flex items-center gap-2 text-sm text-forge-text-dim hover:text-amber-highlight transition-colors"
+              className="flex items-center gap-2 text-sm text-ink-whisper hover:text-sheikah-teal-deep transition-colors"
             >
               <Link2 size={14} /> Link Google Account
             </button>
@@ -232,15 +240,15 @@ function TemplatesSection() {
         <Card key={t.id} className="space-y-2">
           <div className="flex items-start justify-between">
             <div>
-              <div className="font-semibold text-forge-text">{t.title}</div>
-              <div className="flex items-center gap-3 text-xs text-forge-text-dim mt-1">
+              <div className="font-semibold text-ink-primary">{t.title}</div>
+              <div className="flex items-center gap-3 text-xs text-ink-whisper mt-1">
                 {t.category && <span>{t.category.icon} {t.category.name}</span>}
                 <StarRating value={t.difficulty} />
                 {t.milestones?.length > 0 && <span>{t.milestones.length} milestones</span>}
                 {t.steps?.length > 0 && <span>{t.steps.length} steps</span>}
                 {t.materials?.length > 0 && <span>{t.materials.length} materials</span>}
                 {t.is_public && (
-                  <span className="flex items-center gap-0.5 text-blue-400">
+                  <span className="flex items-center gap-0.5 text-sheikah-teal-deep">
                     <Globe size={10} /> Public
                   </span>
                 )}
@@ -261,14 +269,14 @@ function TemplatesSection() {
               </button>
               <button
                 onClick={() => setDeleteId(t.id)}
-                className="bg-forge-muted hover:bg-red-500/20 text-forge-text-dim hover:text-red-400 px-2 py-1.5 rounded-lg text-xs transition-colors"
+                className="bg-ink-page-shadow/60 hover:bg-ember/20 text-ink-whisper hover:text-ember-deep px-2 py-1.5 rounded-lg text-xs transition-colors"
               >
                 <Trash2 size={12} />
               </button>
             </div>
           </div>
           {t.description && (
-            <p className="text-xs text-forge-text-dim line-clamp-2">{t.description}</p>
+            <p className="text-xs text-ink-whisper line-clamp-2">{t.description}</p>
           )}
         </Card>
       ))}
@@ -328,12 +336,12 @@ function UseTemplateModal({ template, children, onClose, onCreated }) {
   return (
     <BottomSheet title={`Create from "${template.title}"`} onClose={onClose} disabled={creating}>
       <ErrorAlert message={error} />
-      <p className="text-sm text-forge-text-dim">
+      <p className="text-sm text-ink-whisper">
         This will create a new project with {template.milestones?.length || 0} milestones
         and {template.materials?.length || 0} materials from this template.
       </p>
       <div>
-        <label className="block text-xs text-forge-text-dim mb-1">Assign To</label>
+        <label className="block text-xs text-ink-whisper mb-1">Assign To</label>
         <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className={inputClass}>
           <option value="">Unassigned</option>
           {children.map((c) => (
@@ -394,23 +402,23 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Title</label>
+          <label className="block text-xs text-ink-whisper mb-1">Title</label>
           <input value={form.title} onChange={onField('title')} className={inputClass} required />
         </div>
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Description</label>
+          <label className="block text-xs text-ink-whisper mb-1">Description</label>
           <textarea value={form.description} onChange={onField('description')} className={`${inputClass} h-20 resize-none`} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-forge-text-dim mb-1">Category</label>
+            <label className="block text-xs text-ink-whisper mb-1">Category</label>
             <select value={form.category_id} onChange={onField('category_id')} className={inputClass}>
               <option value="">None</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs text-forge-text-dim mb-1">Difficulty</label>
+            <label className="block text-xs text-ink-whisper mb-1">Difficulty</label>
             <select value={form.difficulty} onChange={onField('difficulty')} className={inputClass}>
               {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
             </select>
@@ -418,15 +426,15 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-forge-text-dim mb-1">Bonus ($)</label>
+            <label className="block text-xs text-ink-whisper mb-1">Bonus ($)</label>
             <input value={form.bonus_amount} onChange={onField('bonus_amount')} className={inputClass} type="number" step="0.01" min="0" />
           </div>
           <div>
-            <label className="block text-xs text-forge-text-dim mb-1">Budget ($)</label>
+            <label className="block text-xs text-ink-whisper mb-1">Budget ($)</label>
             <input value={form.materials_budget} onChange={onField('materials_budget')} className={inputClass} type="number" step="0.01" min="0" />
           </div>
         </div>
-        <label className="flex items-center gap-2 text-sm text-forge-text cursor-pointer">
+        <label className="flex items-center gap-2 text-sm text-ink-primary cursor-pointer">
           <input
             type="checkbox"
             checked={form.is_public}

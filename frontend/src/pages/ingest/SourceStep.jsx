@@ -24,7 +24,7 @@ export default function SourceStep({
 
       {sourceTab === 'url' ? (
         <div>
-          <label className="block text-sm text-forge-text-dim mb-1">Tutorial URL</label>
+          <label className="block text-sm text-ink-whisper mb-1">Tutorial URL</label>
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
@@ -32,20 +32,20 @@ export default function SourceStep({
             type="url"
             placeholder="https://www.instructables.com/... or any how-to page"
           />
-          <p className="text-xs text-forge-text-dim mt-1">
+          <p className="text-xs text-ink-whisper mt-1">
             Instructables links are parsed in full. Other sites are best-effort.
           </p>
         </div>
       ) : (
         <div>
-          <label className="block text-sm text-forge-text-dim mb-1">PDF Tutorial</label>
+          <label className="block text-sm text-ink-whisper mb-1">PDF Tutorial</label>
           <input
             type="file"
             accept="application/pdf"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="block w-full text-sm text-forge-text-dim file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-amber-primary file:text-black file:font-semibold"
+            className="block w-full text-sm text-ink-whisper file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-amber-primary file:text-black file:font-semibold"
           />
-          {file && <p className="text-xs text-forge-text-dim mt-1">{file.name}</p>}
+          {file && <p className="text-xs text-ink-whisper mt-1">{file.name}</p>}
         </div>
       )}
 

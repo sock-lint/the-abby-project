@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import {
   Check, Trash2, Video, FileText, Image as ImageIcon, Link as LinkIcon,
 } from 'lucide-react';
-import Card from '../../components/Card';
+import ParchmentCard from '../../components/journal/ParchmentCard';
 
 const RESOURCE_ICONS = {
   video: Video,
@@ -18,7 +18,7 @@ export function ResourcePill({ resource }) {
       href={resource.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 text-xs bg-forge-muted hover:bg-forge-border text-forge-text px-2.5 py-1 rounded-full border border-forge-border transition-colors"
+      className="inline-flex items-center gap-1.5 text-xs bg-ink-page-aged hover:bg-ink-page-rune-glow text-ink-primary px-2.5 py-1 rounded-full border border-ink-page-shadow hover:border-sheikah-teal/50 transition-colors font-body"
     >
       <Icon size={12} />
       <span className="truncate max-w-[180px]">{resource.title || resource.url}</span>
@@ -31,24 +31,26 @@ export function StepCard({
 }) {
   return (
     <motion.div layout>
-      <Card className={step.is_completed ? 'opacity-60' : ''}>
+      <ParchmentCard className={step.is_completed ? 'opacity-60' : ''}>
         <div className="flex items-start gap-3">
           <button
+            type="button"
             onClick={() => onToggle(step)}
-            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+            aria-label={step.is_completed ? 'Uncheck step' : 'Mark step complete'}
+            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${
               step.is_completed
-                ? 'bg-green-500 border-green-500'
-                : 'border-forge-muted hover:border-amber-primary'
+                ? 'bg-moss border-moss'
+                : 'border-ink-page-shadow hover:border-sheikah-teal-deep hover:bg-sheikah-teal/15'
             }`}
           >
-            {step.is_completed && <Check size={14} className="text-white" />}
+            {step.is_completed && <Check size={14} className="text-ink-page-rune-glow" strokeWidth={3} />}
           </button>
           <div className="flex-1 min-w-0">
-            <div className={`font-medium text-sm ${step.is_completed ? 'line-through' : ''}`}>
+            <div className={`font-body font-medium text-sm text-ink-primary ${step.is_completed ? 'line-through' : ''}`}>
               {step.title}
             </div>
             {step.description && (
-              <div className="text-xs text-forge-text-dim mt-1 whitespace-pre-wrap">
+              <div className="font-body text-xs text-ink-secondary mt-1 whitespace-pre-wrap">
                 {step.description}
               </div>
             )}
@@ -61,15 +63,15 @@ export function StepCard({
             )}
             {isParent && milestones.length > 0 && (
               <div className="mt-2 flex items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wide text-forge-text-dim">
-                  Move to
+                <span className="font-script text-[11px] text-ink-whisper uppercase tracking-wider">
+                  move to
                 </span>
                 <select
                   value={step.milestone ?? ''}
                   onChange={(e) => onMove(step, e.target.value)}
-                  className="text-xs bg-forge-bg border border-forge-border rounded px-1.5 py-0.5 text-forge-text"
+                  className="text-xs bg-ink-page border border-ink-page-shadow rounded px-1.5 py-0.5 text-ink-primary font-body focus:outline-none focus:border-sheikah-teal"
                 >
-                  <option value="">(No milestone)</option>
+                  <option value="">(no milestone)</option>
                   {milestones.map((m, idx) => (
                     <option key={m.id} value={m.id}>
                       {idx + 1}. {(m.title || `Milestone ${idx + 1}`).slice(0, 30)}
@@ -81,14 +83,16 @@ export function StepCard({
           </div>
           {isParent && (
             <button
+              type="button"
               onClick={() => onDelete(step.id)}
-              className="text-forge-text-dim hover:text-red-400 p-1 transition-colors shrink-0"
+              aria-label="Delete step"
+              className="text-ink-secondary hover:text-ember-deep p-1 transition-colors shrink-0"
             >
               <Trash2 size={14} />
             </button>
           )}
         </div>
-      </Card>
+      </ParchmentCard>
     </motion.div>
   );
 }

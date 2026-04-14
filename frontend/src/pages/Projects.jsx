@@ -4,31 +4,33 @@ import { motion } from 'framer-motion';
 import { Plus, Sparkles } from 'lucide-react';
 import { getProjects, getProjectSuggestions, getChildren } from '../api';
 import { useApi } from '../hooks/useApi';
-import Card from '../components/Card';
 import StarRating from '../components/StarRating';
 import EmptyState from '../components/EmptyState';
 import Loader from '../components/Loader';
-import ProgressBar from '../components/ProgressBar';
 import StatusBadge from '../components/StatusBadge';
+import ParchmentCard from '../components/journal/ParchmentCard';
+import RuneBadge from '../components/journal/RuneBadge';
+import { InkwellIcon } from '../components/icons/JournalIcons';
 import { useRole } from '../hooks/useRole';
-import { buttonPrimary } from '../constants/styles';
+import { buttonPrimary, inputClass } from '../constants/styles';
 import { normalizeList } from '../utils/api';
+import { staggerChildren, staggerItem } from '../motion/variants';
 
 const STATUS_OPTIONS = [
-  { value: '', label: 'All Statuses' },
+  { value: '', label: 'All statuses' },
   { value: 'draft', label: 'Draft' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'in_review', label: 'In Review' },
+  { value: 'in_progress', label: 'In progress' },
+  { value: 'in_review', label: 'In review' },
   { value: 'completed', label: 'Completed' },
 ];
 
 const TYPE_OPTIONS = [
-  { value: '', label: 'All Types' },
+  { value: '', label: 'All types' },
   { value: 'required', label: 'Required' },
   { value: 'bounty', label: 'Bounty' },
 ];
 
-const filterSelect = 'bg-forge-bg border border-forge-border rounded-lg px-2 py-1.5 text-forge-text text-sm focus:outline-none focus:border-amber-primary';
+const filterSelect = `${inputClass} py-1.5 text-sm w-auto min-w-[9rem]`;
 
 export default function Projects() {
   const { isParent } = useRole();
@@ -57,29 +59,53 @@ export default function Projects() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-heading text-2xl font-bold">Projects</h1>
+      <header className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <div className="font-script text-sheikah-teal-deep text-base">
+            ventures · the big adventures
+          </div>
+          <h2 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight">
+            All ventures
+          </h2>
+        </div>
         {isParent && (
           <button
-            onClick={() => navigate('/projects/new')}
+            type="button"
+            onClick={() => navigate('/quests/ventures/new')}
             className={`flex items-center gap-2 px-4 py-2 text-sm ${buttonPrimary}`}
           >
-            <Plus size={16} /> New Project
+            <Plus size={16} /> New venture
           </button>
         )}
-      </div>
+      </header>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={filterSelect}>
-          {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      <div className="flex flex-wrap gap-2 items-center">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className={filterSelect}
+        >
+          {STATUS_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
         </select>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={filterSelect}>
-          {TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className={filterSelect}
+        >
+          {TYPE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
         </select>
         {isParent && children.length > 0 && (
-          <select value={childFilter} onChange={(e) => setChildFilter(e.target.value)} className={filterSelect}>
-            <option value="">All Children</option>
+          <select
+            value={childFilter}
+            onChange={(e) => setChildFilter(e.target.value)}
+            className={filterSelect}
+          >
+            <option value="">All children</option>
             <option value="unassigned">Unassigned</option>
             {children.map((c) => (
               <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
@@ -88,48 +114,56 @@ export default function Projects() {
         )}
         {(statusFilter || typeFilter || childFilter) && (
           <button
+            type="button"
             onClick={() => { setStatusFilter(''); setTypeFilter(''); setChildFilter(''); }}
-            className="text-xs text-forge-text-dim hover:text-forge-text px-2 py-1.5"
+            className="font-script text-xs text-ink-whisper hover:text-ink-primary px-2 py-1.5 transition-colors"
           >
-            Clear filters
+            clear filters
           </button>
         )}
       </div>
 
       {projects.length === 0 ? (
-        <EmptyState>
+        <EmptyState icon={<InkwellIcon size={32} />}>
           {allProjects.length === 0
-            ? `No projects yet. ${isParent ? 'Create one to get started!' : 'Ask a parent to create one!'}`
-            : 'No projects match your filters.'}
+            ? `No ventures yet. ${isParent ? 'Inscribe one to get started!' : 'Ask a parent to inscribe one!'}`
+            : 'No ventures match your filters.'}
         </EmptyState>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map((p, i) => (
+        <motion.div
+          variants={staggerChildren}
+          initial="initial"
+          animate="animate"
+          className="grid md:grid-cols-2 lg:grid-cols-3 gap-4"
+        >
+          {projects.map((p) => (
             <motion.div
               key={p.id}
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: i * 0.05 }}
+              variants={staggerItem}
               whileHover={{ y: -3 }}
               className="cursor-pointer"
-              onClick={() => navigate(`/projects/${p.id}`)}
+              onClick={() => navigate(`/quests/ventures/${p.id}`)}
             >
-              <Card className="h-full">
+              <ParchmentCard className="h-full">
                 {p.cover_photo && (
-                  <img src={p.cover_photo} alt="" className="w-full h-32 object-cover rounded-lg mb-3 -mt-1" />
+                  <img
+                    src={p.cover_photo}
+                    alt=""
+                    className="w-full h-32 object-cover rounded-lg mb-3 -mt-1 border border-ink-page-shadow"
+                  />
                 )}
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-semibold text-forge-text">{p.title}</h3>
-                  <div className="flex items-center gap-1">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h3 className="font-display text-lg leading-tight text-ink-primary">
+                    {p.title}
+                  </h3>
+                  <div className="flex items-center gap-1 flex-wrap justify-end">
                     {p.payment_kind === 'bounty' && (
-                      <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-fuchsia-400/15 text-fuchsia-300 border border-fuchsia-400/30">
-                        Bounty
-                      </span>
+                      <RuneBadge tone="royal" size="sm">bounty</RuneBadge>
                     )}
                     <StatusBadge status={p.status} />
                   </div>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-forge-text-dim mb-3">
+                <div className="flex items-center gap-3 font-script text-xs text-ink-whisper mb-3">
                   {p.category && (
                     <span className="flex items-center gap-1">
                       {p.category.icon} {p.category.name}
@@ -139,55 +173,80 @@ export default function Projects() {
                 </div>
                 {p.milestones_total > 0 && (
                   <div className="mb-2">
-                    <div className="flex justify-between text-xs text-forge-text-dim mb-1">
-                      <span>Progress</span>
+                    <div className="flex justify-between font-rune text-[11px] text-ink-whisper mb-1">
+                      <span>MILESTONES</span>
                       <span>{p.milestones_completed}/{p.milestones_total}</span>
                     </div>
-                    <ProgressBar value={p.milestones_completed} max={p.milestones_total} />
+                    <div className="h-1.5 rounded-full bg-ink-page-shadow/60 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal"
+                        style={{ width: `${(p.milestones_completed / p.milestones_total) * 100}%` }}
+                      />
+                    </div>
                   </div>
                 )}
                 {p.assigned_to && (
-                  <div className="text-xs text-forge-text-dim">
-                    Assigned to {p.assigned_to.display_name || p.assigned_to.username}
+                  <div className="font-script text-xs text-ink-secondary">
+                    assigned to {p.assigned_to.display_name || p.assigned_to.username}
                   </div>
                 )}
                 {!p.assigned_to && p.payment_kind === 'bounty' && (
-                  <div className="text-xs text-fuchsia-300">Open bounty</div>
+                  <div className="font-script text-xs text-royal">open bounty</div>
                 )}
-              </Card>
+              </ParchmentCard>
             </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {/* AI Suggestions */}
       {suggestions?.length > 0 && (
-        <div>
-          <h2 className="font-heading text-lg font-bold mb-3 flex items-center gap-2">
-            <Sparkles size={18} className="text-amber-highlight" /> Suggested Next Projects
-          </h2>
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles size={18} className="text-gold-leaf" />
+            <div>
+              <div className="font-script text-xs text-ink-whisper uppercase tracking-wider">
+                whispered suggestions
+              </div>
+              <h2 className="font-display text-xl text-ink-primary leading-tight">
+                Next ventures to consider
+              </h2>
+            </div>
+          </div>
           <div className="grid md:grid-cols-3 gap-3">
             {suggestions.map((s, i) => (
               <motion.div
                 key={i}
                 initial={{ y: 10, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: i * 0.1 }}
+                transition={{ delay: i * 0.08 }}
               >
-                <Card className="border-amber-primary/20">
-                  <div className="font-semibold text-sm mb-1">{s.title}</div>
-                  <div className="text-xs text-forge-text-dim mb-2">{s.description}</div>
-                  <div className="flex items-center gap-2 text-xs text-forge-text-dim">
-                    {s.category && <span className="bg-forge-muted px-1.5 py-0.5 rounded">{s.category}</span>}
+                <ParchmentCard className="border-sheikah-teal/40">
+                  <div className="font-display text-base text-ink-primary mb-1 leading-tight">
+                    {s.title}
+                  </div>
+                  <div className="font-body text-xs text-ink-secondary mb-2">
+                    {s.description}
+                  </div>
+                  <div className="flex items-center gap-2 font-script text-xs text-ink-whisper">
+                    {s.category && (
+                      <span className="bg-ink-page-shadow/40 px-1.5 py-0.5 rounded font-body">
+                        {s.category}
+                      </span>
+                    )}
                     <StarRating value={s.difficulty || 1} />
                     {s.estimated_hours && <span>{s.estimated_hours}h est.</span>}
                   </div>
-                  {s.why && <div className="text-xs text-amber-highlight mt-2">{s.why}</div>}
-                </Card>
+                  {s.why && (
+                    <div className="font-script text-xs text-sheikah-teal-deep mt-2 italic">
+                      {s.why}
+                    </div>
+                  )}
+                </ParchmentCard>
               </motion.div>
             ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   );

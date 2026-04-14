@@ -1,93 +1,109 @@
 import { ExternalLink } from 'lucide-react';
-import Card from '../../components/Card';
+import ParchmentCard from '../../components/journal/ParchmentCard';
+import RuneBadge from '../../components/journal/RuneBadge';
 import { ResourcePill } from './ProjectPlanItems';
 
 export default function OverviewTab({ project, isParent }) {
   return (
     <div className="space-y-4">
       {project.description && (
-        <Card><p className="text-sm">{project.description}</p></Card>
+        <ParchmentCard>
+          <p className="font-body text-base text-ink-primary leading-relaxed">
+            {project.description}
+          </p>
+        </ParchmentCard>
       )}
       {project.instructables_url && (
-        <Card>
+        <ParchmentCard>
           <a
             href={project.instructables_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 text-amber-highlight hover:underline text-sm"
+            className="flex items-center gap-2 font-script text-sheikah-teal-deep hover:text-sheikah-teal text-sm transition-colors"
           >
-            <ExternalLink size={16} /> View on Instructables
+            <ExternalLink size={16} /> view on Instructables
           </a>
-        </Card>
+        </ParchmentCard>
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card>
-          <div className="text-xs text-forge-text-dim">
-            {project.payment_kind === 'bounty' ? 'Bounty' : 'Bonus'}
-          </div>
-          <div className={`font-heading font-bold text-lg ${project.payment_kind === 'bounty' ? 'text-fuchsia-300' : ''}`}>
-            ${project.bonus_amount}
-          </div>
-        </Card>
-        <Card>
-          <div className="text-xs text-forge-text-dim">Budget</div>
-          <div className="font-heading font-bold text-lg">${project.materials_budget}</div>
-        </Card>
-        <Card>
-          <div className="text-xs text-forge-text-dim">XP Reward</div>
-          <div className="font-heading font-bold text-lg">{project.xp_reward}</div>
-        </Card>
-        <Card>
-          <div className="text-xs text-forge-text-dim">Due Date</div>
-          <div className="font-heading font-bold text-lg">
-            {project.due_date || 'None'}
-          </div>
-        </Card>
+        <StatTile
+          label={project.payment_kind === 'bounty' ? 'Bounty' : 'Bonus'}
+          value={`$${project.bonus_amount}`}
+          tone={project.payment_kind === 'bounty' ? 'royal' : 'moss'}
+        />
+        <StatTile label="Budget" value={`$${project.materials_budget}`} />
+        <StatTile label="XP reward" value={project.xp_reward} tone="teal" />
+        <StatTile label="Due date" value={project.due_date || 'None'} />
       </div>
 
       {project.assigned_to && (
-        <Card>
-          <div className="text-xs text-forge-text-dim mb-1">Assigned To</div>
-          <div className="text-sm font-medium">
+        <ParchmentCard>
+          <div className="font-script text-xs text-ink-whisper uppercase tracking-wider mb-1">
+            assigned to
+          </div>
+          <div className="font-body text-base font-medium text-ink-primary">
             {project.assigned_to.display_name || project.assigned_to.username}
           </div>
           {project.hourly_rate_override && (
-            <div className="text-xs text-forge-text-dim mt-1">
-              Rate override: ${project.hourly_rate_override}/hr
+            <div className="font-script text-xs text-ink-whisper mt-1">
+              rate override: ${project.hourly_rate_override}/hr
             </div>
           )}
-        </Card>
+        </ParchmentCard>
       )}
 
       {!project.assigned_to && project.payment_kind === 'bounty' && (
-        <Card className="border-fuchsia-400/30">
-          <div className="text-xs text-fuchsia-300 font-medium">Open Bounty</div>
-          <div className="text-sm text-forge-text-dim mt-1">
-            This bounty is available for any maker to pick up.
+        <ParchmentCard className="border-royal/50 bg-royal/5">
+          <div className="font-script text-sm text-royal font-semibold uppercase tracking-wider">
+            open bounty
           </div>
-        </Card>
+          <div className="font-body text-sm text-ink-secondary mt-1">
+            This bounty is posted on the board for any adventurer to claim.
+          </div>
+        </ParchmentCard>
       )}
 
       {isParent && project.parent_notes && (
-        <Card className="border-amber-primary/30">
-          <div className="text-xs text-amber-highlight mb-1 font-medium">Parent Notes</div>
-          <p className="text-sm">{project.parent_notes}</p>
-        </Card>
+        <ParchmentCard className="border-sheikah-teal/50 bg-sheikah-teal/5">
+          <div className="font-script text-xs text-sheikah-teal-deep mb-1 uppercase tracking-wider">
+            keeper's notes
+          </div>
+          <p className="font-body text-sm text-ink-primary">{project.parent_notes}</p>
+        </ParchmentCard>
       )}
 
       {project.resources?.length > 0 && (
-        <Card>
-          <div className="text-xs text-forge-text-dim mb-2 font-medium uppercase tracking-wide">
-            Resources
+        <ParchmentCard>
+          <div className="font-script text-xs text-ink-whisper mb-2 uppercase tracking-wider">
+            resources
           </div>
           <div className="flex flex-wrap gap-2">
             {project.resources.map((r) => (
               <ResourcePill key={r.id} resource={r} />
             ))}
           </div>
-        </Card>
+        </ParchmentCard>
       )}
     </div>
+  );
+}
+
+function StatTile({ label, value, tone = 'default' }) {
+  const toneClasses = {
+    default: 'text-ink-primary',
+    royal: 'text-royal',
+    moss: 'text-moss',
+    teal: 'text-sheikah-teal-deep',
+  }[tone];
+  return (
+    <ParchmentCard>
+      <div className="font-script text-xs text-ink-whisper uppercase tracking-wider">
+        {label}
+      </div>
+      <div className={`font-display font-semibold text-lg tabular-nums ${toneClasses}`}>
+        {value}
+      </div>
+    </ParchmentCard>
   );
 }

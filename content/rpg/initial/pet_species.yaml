@@ -1,0 +1,81 @@
+# Pet species — each entry auto-materializes both a PetSpecies row AND an
+# egg ItemDefinition (type=egg) with typed FK back to the species. Authoring
+# a new pet is one entry here; the loader handles the fan-out.
+#
+# Schema per entry:
+#   slug               (required, unique)
+#   name               (required) — display name
+#   icon               (optional, default "")
+#   description        (optional)
+#   food_preference    (optional) — food slug this species prefers (+15 growth)
+#   available_potions  (optional list) — potion slugs this species can hatch with;
+#                       empty = all potions currently in the catalog
+#   egg_name           (optional) — overrides "{name} Egg"
+#   egg_icon           (optional, default "🥚")
+#   egg_rarity         (optional, default "common")
+#   egg_coin_value     (optional, default 3)
+
+species:
+  - slug: wolf
+    name: Wolf
+    icon: "🐺"
+    description: A loyal pack hunter
+    food_preference: meat
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: dragon
+    name: Dragon
+    icon: "🐉"
+    description: A fierce fire-breather
+    food_preference: fish
+    egg_rarity: uncommon
+    egg_coin_value: 5
+
+  - slug: fox
+    name: Fox
+    icon: "🦊"
+    description: A clever forest dweller
+    food_preference: berries
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: owl
+    name: Owl
+    icon: "🦉"
+    description: A wise night hunter
+    food_preference: seeds
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: cat
+    name: Cat
+    icon: "🐱"
+    description: A graceful companion
+    food_preference: fish
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: bear
+    name: Bear
+    icon: "🐻"
+    description: A powerful protector
+    food_preference: honey
+    egg_rarity: uncommon
+    egg_coin_value: 5
+
+  - slug: phoenix
+    name: Phoenix
+    icon: "🔥"
+    description: A legendary fire bird
+    food_preference: cake
+    egg_rarity: rare
+    egg_coin_value: 10
+
+  - slug: unicorn
+    name: Unicorn
+    icon: "🦄"
+    description: A magical horned steed
+    food_preference: candy
+    egg_rarity: rare
+    egg_coin_value: 10

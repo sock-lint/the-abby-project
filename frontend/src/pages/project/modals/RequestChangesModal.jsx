@@ -18,7 +18,7 @@ export default function RequestChangesModal({ onClose, onSubmit }) {
 
   return (
     <BottomSheet title="Request Changes" onClose={onClose} disabled={submitting}>
-      <p className="text-sm text-forge-text-dim">
+      <p className="text-sm text-ink-whisper">
         Tell the maker what needs to change before you approve this project.
       </p>
       <textarea
@@ -27,7 +27,7 @@ export default function RequestChangesModal({ onClose, onSubmit }) {
         placeholder="What should they fix or add?"
         autoFocus
         rows={4}
-        className="w-full bg-forge-bg border border-forge-border rounded-lg px-3 py-2 text-forge-text text-base resize-none focus:outline-none focus:border-amber-primary"
+        className="w-full bg-ink-page border border-ink-page-shadow rounded-lg px-3 py-2 text-ink-primary text-base resize-none focus:outline-none focus:border-sheikah-teal-deep"
       />
       <div className="flex gap-2">
         <button

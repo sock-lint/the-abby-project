@@ -6,16 +6,16 @@ export default function ResourcesEditor({ resources, steps, onAdd, onUpdate, onR
   return (
     <Card className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="font-heading text-lg font-bold">Resources ({resources.length})</h2>
-        <button onClick={onAdd} className="text-xs text-amber-primary hover:text-amber-highlight flex items-center gap-1">
+        <h2 className="font-display text-lg font-bold">Resources ({resources.length})</h2>
+        <button onClick={onAdd} className="text-xs text-sheikah-teal-deep hover:text-sheikah-teal-deep flex items-center gap-1">
           <Plus size={14} /> Add
         </button>
       </div>
-      <p className="text-xs text-forge-text-dim">
+      <p className="text-xs text-ink-whisper">
         Reference videos, docs, or inspiration links. Attach to a step or leave project-level.
       </p>
       {resources.map((r, i) => (
-        <div key={`r-${i}`} className="bg-forge-bg border border-forge-border rounded-lg p-3 space-y-2">
+        <div key={`r-${i}`} className="bg-ink-page border border-ink-page-shadow rounded-lg p-3 space-y-2">
           <div className="flex gap-2">
             <input
               value={r.url}
@@ -28,7 +28,7 @@ export default function ResourcesEditor({ resources, steps, onAdd, onUpdate, onR
               type="button"
               onClick={() => onRemove(i)}
               aria-label="Remove resource"
-              className="text-forge-text-dim hover:text-red-400 shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
+              className="text-ink-whisper hover:text-ember-deep shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
             >
               <Trash2 size={18} />
             </button>

@@ -1,0 +1,209 @@
+# Free-form items — food, cosmetics, coin pouches, quest scrolls.
+#
+# NOTE: Eggs are NOT here — they're auto-generated from pet_species.yaml.
+#       Potions are NOT here — they're auto-generated from potion_types.yaml.
+#
+# Schema per entry:
+#   slug           (required, unique)
+#   name           (required)
+#   icon           (optional)
+#   item_type      (required) — food|cosmetic_frame|cosmetic_title|cosmetic_theme|
+#                                cosmetic_pet_accessory|coin_pouch|quest_scroll
+#   rarity         (optional, default "common")
+#   coin_value     (optional, default 0)
+#   metadata       (optional mapping) — free-form bag for type-specific fields
+#   food_species   (optional, for food items) — species slug that prefers this food
+
+items:
+  # Pet Food ---------------------------------------------------------------
+  - slug: food-meat
+    name: Meat
+    icon: "🥩"
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: meat, growth: 5}
+    food_species: wolf
+
+  - slug: food-fish
+    name: Fish
+    icon: "🐟"
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: fish, growth: 5}
+    food_species: dragon  # also eaten by cat (neutral boost for cat — first match wins)
+
+  - slug: food-berries
+    name: Berries
+    icon: "🫐"
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: berries, growth: 5}
+    food_species: fox
+
+  - slug: food-seeds
+    name: Seeds
+    icon: "🌻"
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: seeds, growth: 5}
+    food_species: owl
+
+  - slug: food-honey
+    name: Honey
+    icon: "🍯"
+    item_type: food
+    rarity: uncommon
+    coin_value: 2
+    metadata: {food_type: honey, growth: 8}
+    food_species: bear
+
+  - slug: food-cake
+    name: Cake
+    icon: "🎂"
+    item_type: food
+    rarity: uncommon
+    coin_value: 2
+    metadata: {food_type: cake, growth: 8}
+    food_species: phoenix
+
+  # Coin Pouches ----------------------------------------------------------
+  - slug: pouch-small
+    name: Small Coin Pouch
+    icon: "👛"
+    item_type: coin_pouch
+    rarity: common
+    coin_value: 5
+    metadata: {coins: 5}
+
+  - slug: pouch-medium
+    name: Medium Coin Pouch
+    icon: "💰"
+    item_type: coin_pouch
+    rarity: uncommon
+    coin_value: 15
+    metadata: {coins: 15}
+
+  - slug: pouch-large
+    name: Large Coin Pouch
+    icon: "💎"
+    item_type: coin_pouch
+    rarity: rare
+    coin_value: 50
+    metadata: {coins: 50}
+
+  # Avatar Frames ---------------------------------------------------------
+  - slug: frame-bronze
+    name: Bronze Frame
+    icon: "🟫"
+    item_type: cosmetic_frame
+    rarity: common
+    coin_value: 5
+    metadata: {border_color: "#CD7F32"}
+
+  - slug: frame-silver
+    name: Silver Frame
+    icon: "⬜"
+    item_type: cosmetic_frame
+    rarity: uncommon
+    coin_value: 15
+    metadata: {border_color: "#C0C0C0"}
+
+  - slug: frame-gold
+    name: Gold Frame
+    icon: "🟨"
+    item_type: cosmetic_frame
+    rarity: rare
+    coin_value: 30
+    metadata: {border_color: "#FFD700"}
+
+  - slug: frame-cosmic
+    name: Cosmic Frame
+    icon: "🌌"
+    item_type: cosmetic_frame
+    rarity: legendary
+    coin_value: 100
+    metadata: {border_color: "#6A0DAD"}
+
+  # Titles ----------------------------------------------------------------
+  - slug: title-apprentice
+    name: Apprentice
+    icon: "🎓"
+    item_type: cosmetic_title
+    rarity: common
+    coin_value: 5
+    metadata: {text: Apprentice}
+
+  - slug: title-artisan
+    name: Artisan
+    icon: "🛠️"
+    item_type: cosmetic_title
+    rarity: uncommon
+    coin_value: 15
+    metadata: {text: Artisan}
+
+  - slug: title-master-crafter
+    name: Master Crafter
+    icon: "⚒️"
+    item_type: cosmetic_title
+    rarity: rare
+    coin_value: 30
+    metadata: {text: Master Crafter}
+
+  - slug: title-legendary-forgemaster
+    name: Legendary Forgemaster
+    icon: "👑"
+    item_type: cosmetic_title
+    rarity: legendary
+    coin_value: 100
+    metadata: {text: Legendary Forgemaster}
+
+  # Dashboard Themes ------------------------------------------------------
+  - slug: theme-ocean
+    name: Ocean Theme
+    icon: "🌊"
+    item_type: cosmetic_theme
+    rarity: uncommon
+    coin_value: 20
+    metadata: {accent: "#0077BE"}
+
+  - slug: theme-forest
+    name: Forest Theme
+    icon: "🌲"
+    item_type: cosmetic_theme
+    rarity: uncommon
+    coin_value: 20
+    metadata: {accent: "#228B22"}
+
+  - slug: theme-sunset
+    name: Sunset Theme
+    icon: "🌅"
+    item_type: cosmetic_theme
+    rarity: rare
+    coin_value: 40
+    metadata: {accent: "#FF6B35"}
+
+  # Pet Accessories -------------------------------------------------------
+  - slug: accessory-party-hat
+    name: Party Hat
+    icon: "🎩"
+    item_type: cosmetic_pet_accessory
+    rarity: common
+    coin_value: 5
+
+  - slug: accessory-bow-tie
+    name: Bow Tie
+    icon: "🎀"
+    item_type: cosmetic_pet_accessory
+    rarity: common
+    coin_value: 5
+
+  - slug: accessory-crown
+    name: Crown
+    icon: "👑"
+    item_type: cosmetic_pet_accessory
+    rarity: rare
+    coin_value: 30

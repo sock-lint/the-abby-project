@@ -24,16 +24,16 @@ export default function FormModal({
       >
         <div className="absolute inset-0 bg-black/60" onClick={onClose} />
         <motion.div
-          className={`relative w-full ${widthClass} bg-forge-card border border-forge-border rounded-t-2xl md:rounded-2xl p-5 ${scrollClass}`}
+          className={`relative w-full ${widthClass} bg-ink-page-aged border border-ink-page-shadow rounded-t-2xl md:rounded-2xl p-5 ${scrollClass}`}
           initial={{ y: '100%' }} animate={{ y: 0 }}
           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
         >
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-heading text-lg font-bold">{title}</h3>
+            <h3 className="font-display text-lg font-bold">{title}</h3>
             <button
               type="button"
               onClick={onClose}
-              className="text-forge-text-dim hover:text-forge-text"
+              className="text-ink-whisper hover:text-ink-primary"
               aria-label="Close"
             >
               <X size={20} />

@@ -6,7 +6,9 @@
       "Bash(git check-ignore:*)",
       "Bash(echo \"exit: $?\")",
       "Read(//c/Users/socce/Documents/GitHub/the-abby-project/frontend/**)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(python -c \"import django; print\\(django.__version__\\)\")",
+      "Bash(docker --version)"
     ]
   }
 }

@@ -66,19 +66,19 @@ export default function ManagePanel({ categories, reloadCategories }) {
         {item.icon && <span className="text-lg shrink-0">{item.icon}</span>}
         <div className="min-w-0">
           <div className="text-sm font-medium truncate">{item.name}</div>
-          {extra && <div className="text-xs text-forge-text-dim truncate">{extra}</div>}
+          {extra && <div className="text-xs text-ink-whisper truncate">{extra}</div>}
         </div>
       </div>
       <div className="flex gap-1 shrink-0 ml-2">
         <button
           onClick={() => setModal({ type, item })}
-          className="p-1.5 hover:bg-forge-muted rounded text-forge-text-dim hover:text-forge-text"
+          className="p-1.5 hover:bg-ink-page-shadow/60 rounded text-ink-whisper hover:text-ink-primary"
         >
           <Pencil size={14} />
         </button>
         <button
           onClick={() => setDeleteTarget({ type, id: item.id, label: item.name })}
-          className="p-1.5 hover:bg-red-500/20 rounded text-forge-text-dim hover:text-red-300"
+          className="p-1.5 hover:bg-ember/20 rounded text-ink-whisper hover:text-red-300"
         >
           <Trash2 size={14} />
         </button>

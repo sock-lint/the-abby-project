@@ -1,12 +1,16 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, ChevronDown, DollarSign, Plus, Trash2 } from 'lucide-react';
-import Card from '../../components/Card';
 import EmptyState from '../../components/EmptyState';
-import ProgressBar from '../../components/ProgressBar';
+import ParchmentCard from '../../components/journal/ParchmentCard';
 import { ResourcePill, StepCard } from './ProjectPlanItems';
 
 const LOOSE_KEY = '__loose__';
+
+const addButtonClass =
+  'flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 rounded-lg ' +
+  'border-2 border-dashed border-ink-page-shadow text-sm font-script ' +
+  'text-ink-secondary hover:text-ink-primary hover:border-sheikah-teal/60 transition-colors';
 
 export default function PlanTab({
   project, isParent,
@@ -45,30 +49,21 @@ export default function PlanTab({
     <div className="space-y-3">
       {isParent && (
         <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={onOpenAddMilestone}
-            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-forge-border text-sm text-forge-text-dim hover:text-forge-text hover:border-amber-primary transition-colors"
-          >
-            <Plus size={16} /> Add Milestone
+          <button type="button" onClick={onOpenAddMilestone} className={addButtonClass}>
+            <Plus size={16} /> add milestone
           </button>
-          <button
-            onClick={() => onOpenAddStep(null)}
-            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-forge-border text-sm text-forge-text-dim hover:text-forge-text hover:border-amber-primary transition-colors"
-          >
-            <Plus size={16} /> Add Step
+          <button type="button" onClick={() => onOpenAddStep(null)} className={addButtonClass}>
+            <Plus size={16} /> add step
           </button>
-          <button
-            onClick={onOpenAddResource}
-            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-forge-border text-sm text-forge-text-dim hover:text-forge-text hover:border-amber-primary transition-colors"
-          >
-            <Plus size={16} /> Add Resource
+          <button type="button" onClick={onOpenAddResource} className={addButtonClass}>
+            <Plus size={16} /> add resource
           </button>
         </div>
       )}
 
       {milestones.length === 0 && (project.steps || []).length === 0 && (
         <EmptyState className="py-8">
-          No plan yet — add a milestone or a step to break this project down.
+          No plan yet — add a milestone or a step to break this venture down.
         </EmptyState>
       )}
 
@@ -81,45 +76,60 @@ export default function PlanTab({
         const allDone = total > 0 && done === total;
         return (
           <motion.div key={ms.id} layout>
-            <Card className={ms.is_completed ? 'opacity-60' : ''}>
+            <ParchmentCard className={ms.is_completed ? 'opacity-60' : ''}>
               <div className="flex items-start gap-3">
                 <button
+                  type="button"
                   onClick={() => !ms.is_completed && onCompleteMilestone(ms.id)}
                   disabled={ms.is_completed}
                   aria-label={ms.is_completed ? 'Milestone completed' : 'Mark milestone complete'}
-                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                  className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${
                     ms.is_completed
-                      ? 'bg-green-500 border-green-500'
-                      : 'border-forge-muted hover:border-amber-primary'
+                      ? 'bg-moss border-moss'
+                      : 'border-ink-page-shadow hover:border-sheikah-teal-deep hover:bg-sheikah-teal/15'
                   }`}
                 >
-                  {ms.is_completed && <Check size={14} className="text-white" />}
+                  {ms.is_completed && <Check size={14} className="text-ink-page-rune-glow" strokeWidth={3} />}
                 </button>
                 <button
+                  type="button"
                   onClick={() => toggleMilestone(ms.id)}
                   className="flex-1 min-w-0 text-left"
                 >
                   <div className="flex items-center gap-2">
-                    <div className={`font-heading font-bold text-sm ${ms.is_completed ? 'line-through' : ''}`}>
+                    <div
+                      className={`font-display text-base text-ink-primary ${
+                        ms.is_completed ? 'line-through' : ''
+                      }`}
+                    >
                       {ms.title}
                     </div>
                     {ms.bonus_amount && (
-                      <span className="text-xs text-green-400 flex items-center gap-0.5">
+                      <span className="font-rune text-xs text-moss flex items-center gap-0.5">
                         <DollarSign size={12} />{ms.bonus_amount}
                       </span>
                     )}
                     <ChevronDown
                       size={14}
-                      className={`text-forge-text-dim ml-auto transition-transform ${collapsed ? '-rotate-90' : ''}`}
+                      className={`text-ink-secondary ml-auto transition-transform ${
+                        collapsed ? '-rotate-90' : ''
+                      }`}
                     />
                   </div>
                   {ms.description && (
-                    <div className="text-xs text-forge-text-dim mt-0.5">{ms.description}</div>
+                    <div className="font-body text-xs text-ink-secondary mt-0.5">
+                      {ms.description}
+                    </div>
                   )}
                   {total > 0 && (
                     <div className="mt-2 flex items-center gap-2">
-                      <ProgressBar value={done} max={total} className="flex-1" />
-                      <span className="text-[10px] text-forge-text-dim shrink-0">
+                      <div className="h-1.5 rounded-full bg-ink-page-shadow/60 overflow-hidden flex-1">
+                        <div
+                          className="h-full bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal"
+                          style={{ width: `${(done / total) * 100}%` }}
+                        />
+                      </div>
+                      <span className="font-rune text-[10px] text-ink-whisper shrink-0 tabular-nums">
                         {done}/{total}
                       </span>
                     </div>
@@ -127,8 +137,10 @@ export default function PlanTab({
                 </button>
                 {isParent && (
                   <button
+                    type="button"
                     onClick={() => onDeleteMilestone(ms.id)}
-                    className="text-forge-text-dim hover:text-red-400 p-1 transition-colors shrink-0"
+                    aria-label="Delete milestone"
+                    className="text-ink-secondary hover:text-ember-deep p-1 transition-colors shrink-0"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -136,11 +148,12 @@ export default function PlanTab({
               </div>
 
               {!collapsed && (
-                <div className="mt-3 ml-9 space-y-2">
+                <div className="mt-3 ml-10 space-y-2">
                   {allDone && !ms.is_completed && (
                     <button
+                      type="button"
                       onClick={() => onCompleteMilestone(ms.id)}
-                      className="w-full text-xs bg-amber-primary/15 hover:bg-amber-primary/25 text-amber-highlight border border-amber-primary/30 rounded-lg py-2 transition-colors"
+                      className="w-full font-body text-xs bg-sheikah-teal/15 hover:bg-sheikah-teal/25 text-sheikah-teal-deep border border-sheikah-teal/40 rounded-lg py-2 transition-colors"
                     >
                       All steps done — mark milestone complete?
                     </button>
@@ -157,32 +170,31 @@ export default function PlanTab({
                     />
                   ))}
                   {childSteps.length === 0 && (
-                    <div className="text-xs text-forge-text-dim italic">
+                    <div className="font-script text-xs text-ink-whisper italic">
                       No steps in this milestone yet.
                     </div>
                   )}
                   {isParent && (
                     <button
+                      type="button"
                       onClick={() => onOpenAddStep(ms.id)}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-forge-border text-xs text-forge-text-dim hover:text-forge-text hover:border-amber-primary transition-colors"
+                      className={`${addButtonClass} min-w-0 text-xs py-1.5`}
                     >
-                      <Plus size={12} /> Add step here
+                      <Plus size={12} /> add step here
                     </button>
                   )}
                 </div>
               )}
-            </Card>
+            </ParchmentCard>
           </motion.div>
         );
       })}
 
-      {/* Loose / unassigned steps. When there are no milestones, this is
-          the only section and acts as a flat step list (current behavior). */}
       {looseSteps.length > 0 && (
         <div className="space-y-2">
           {milestones.length > 0 && (
-            <div className="text-xs text-forge-text-dim font-medium uppercase tracking-wide pt-2">
-              Other Steps
+            <div className="font-script text-xs text-ink-whisper uppercase tracking-wider pt-2">
+              other steps
             </div>
           )}
           {looseSteps.map((step) => (
@@ -201,20 +213,22 @@ export default function PlanTab({
 
       {isParent && project.resources?.length > 0 && (
         <div className="pt-4">
-          <div className="text-xs text-forge-text-dim mb-2 font-medium uppercase tracking-wide">
-            Project-level Resources
+          <div className="font-script text-xs text-ink-whisper mb-2 uppercase tracking-wider">
+            project-level resources
           </div>
           <div className="space-y-1.5">
             {project.resources.map((r) => (
-              <Card key={r.id} className="flex items-center justify-between py-2">
+              <ParchmentCard key={r.id} className="flex items-center justify-between py-2">
                 <ResourcePill resource={r} />
                 <button
+                  type="button"
                   onClick={() => onDeleteResource(r.id)}
-                  className="text-forge-text-dim hover:text-red-400 p-1 transition-colors"
+                  aria-label="Delete resource"
+                  className="text-ink-secondary hover:text-ember-deep p-1 transition-colors"
                 >
                   <Trash2 size={14} />
                 </button>
-              </Card>
+              </ParchmentCard>
             ))}
           </div>
         </div>

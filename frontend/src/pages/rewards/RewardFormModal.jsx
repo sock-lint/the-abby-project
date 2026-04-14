@@ -59,26 +59,26 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">Name</label>
+          <label className="text-xs text-ink-whisper mb-1 block">Name</label>
           <input className={inputClass} value={form.name} onChange={onField('name')} required />
         </div>
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">Description</label>
+          <label className="text-xs text-ink-whisper mb-1 block">Description</label>
           <textarea className={inputClass} value={form.description} onChange={onField('description')} rows={2} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-forge-text-dim mb-1 block">Icon (emoji)</label>
+            <label className="text-xs text-ink-whisper mb-1 block">Icon (emoji)</label>
             <input className={inputClass} value={form.icon} onChange={onField('icon')} placeholder="🎁" />
           </div>
           <div>
-            <label className="text-xs text-forge-text-dim mb-1 block">Cost (coins)</label>
+            <label className="text-xs text-ink-whisper mb-1 block">Cost (coins)</label>
             <input className={inputClass} type="number" min="0" value={form.cost_coins} onChange={onField('cost_coins')} required />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-forge-text-dim mb-1 block">Rarity</label>
+            <label className="text-xs text-ink-whisper mb-1 block">Rarity</label>
             <select className={inputClass} value={form.rarity} onChange={onField('rarity')}>
               {RARITIES.map((r) => (
                 <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
@@ -86,22 +86,22 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
             </select>
           </div>
           <div>
-            <label className="text-xs text-forge-text-dim mb-1 block">Stock (blank = unlimited)</label>
+            <label className="text-xs text-ink-whisper mb-1 block">Stock (blank = unlimited)</label>
             <input className={inputClass} type="number" min="0" value={form.stock} onChange={onField('stock')} placeholder="∞" />
           </div>
         </div>
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">Image</label>
+          <label className="text-xs text-ink-whisper mb-1 block">Image</label>
           <input
             type="file"
             accept="image/*"
             onChange={(e) => setImageFile(e.target.files[0])}
-            className="text-sm text-forge-text"
+            className="text-sm text-ink-primary"
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-forge-text-dim mb-1 block">Order</label>
+            <label className="text-xs text-ink-whisper mb-1 block">Order</label>
             <input className={inputClass} type="number" value={form.order} onChange={onField('order')} />
           </div>
           <div />
@@ -127,7 +127,7 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
           </label>
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-forge-text-dim hover:text-forge-text">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper hover:text-ink-primary">
             Cancel
           </button>
           <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>

@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { saveProjectAsTemplate } from '../../api';
 import StarRating from '../../components/StarRating';
 import StatusBadge from '../../components/StatusBadge';
+import RuneBadge from '../../components/journal/RuneBadge';
 import { buttonPrimary, buttonSecondary, buttonSuccess } from '../../constants/styles';
 
 /**
- * Top section of ProjectDetail: back link, title/status row, and the action
- * buttons (activate/submit/approve/request-changes/save-as-template/edit/QR).
+ * Top section of ProjectDetail — back link, title/status row, and action
+ * buttons (activate / submit / approve / request-changes / save-as-template /
+ * edit / QR). Reskinned for the Hyrule Field Notes aesthetic.
  */
 export default function ProjectHeader({
   project, isParent, isAssigned,
@@ -23,66 +25,83 @@ export default function ProjectHeader({
   return (
     <>
       <button
-        onClick={() => navigate('/projects')}
-        className="flex items-center gap-1 text-sm text-forge-text-dim hover:text-forge-text"
+        type="button"
+        onClick={() => navigate('/quests?tab=ventures')}
+        className="flex items-center gap-1 font-script text-sm text-ink-whisper hover:text-ink-primary transition-colors"
       >
-        <ArrowLeft size={16} /> Back to Projects
+        <ArrowLeft size={16} /> back to ventures
       </button>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-bold">{project.title}</h1>
-          <div className="flex items-center gap-3 mt-1 text-sm text-forge-text-dim">
+          <div className="font-script text-sheikah-teal-deep text-sm">
+            venture
+          </div>
+          <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+            {project.title}
+          </h1>
+          <div className="flex items-center gap-2 mt-2 text-sm flex-wrap">
             <StatusBadge status={project.status} />
             {project.payment_kind === 'bounty' && (
-              <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded bg-fuchsia-400/15 text-fuchsia-300 border border-fuchsia-400/30">
-                Bounty
+              <RuneBadge tone="royal" size="sm">bounty</RuneBadge>
+            )}
+            {project.category && (
+              <span className="font-script text-ink-whisper">
+                {project.category.icon} {project.category.name}
               </span>
             )}
-            {project.category && <span>{project.category.icon} {project.category.name}</span>}
             <StarRating value={project.difficulty} />
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
           {isParent && (project.status === 'draft' || project.status === 'active') && (
-            <button onClick={() => onAction('activate')} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
-              Activate Project
+            <button
+              type="button"
+              onClick={() => onAction('activate')}
+              className={`px-4 py-2 text-sm ${buttonPrimary}`}
+            >
+              Activate venture
             </button>
           )}
           {isAssigned && project.status === 'in_progress' && (
             <button
+              type="button"
               onClick={() => onAction('submit')}
-              className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-medium"
+              className="bg-royal hover:bg-royal/85 text-ink-page-rune-glow px-4 py-2 rounded-lg text-sm font-body font-medium transition-colors border border-royal/70"
             >
-              Submit for Review
+              Submit for review
             </button>
           )}
           {isParent && project.status === 'in_review' && (
             <>
               <button
+                type="button"
                 onClick={() => onAction('approve')}
                 className={`px-4 py-2 text-sm ${buttonSuccess}`}
               >
                 Approve
               </button>
               <button
+                type="button"
                 onClick={() => onAction('request-changes')}
                 className={`px-4 py-2 text-sm ${buttonSecondary}`}
               >
-                Request Changes
+                Request changes
               </button>
             </>
           )}
           {isParent && project.status === 'completed' && (
             <button
+              type="button"
               onClick={handleSaveAsTemplate}
               className={`flex items-center gap-1 px-4 py-2 text-sm ${buttonSecondary}`}
             >
-              <Copy size={14} /> Save as Template
+              <Copy size={14} /> Save as template
             </button>
           )}
           {isParent && (
             <button
+              type="button"
               onClick={onEdit}
               className={`flex items-center gap-1 px-3 py-2 text-sm ${buttonSecondary}`}
             >
@@ -90,6 +109,7 @@ export default function ProjectHeader({
             </button>
           )}
           <button
+            type="button"
             onClick={onOpenQR}
             className={`flex items-center gap-1 px-3 py-2 text-sm ${buttonSecondary}`}
           >

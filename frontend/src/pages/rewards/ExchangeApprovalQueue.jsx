@@ -18,7 +18,7 @@ export default function ExchangeApprovalQueue({ pending, onApprove, onReject }) 
             <div className="text-sm font-medium">
               {ex.user_name} — {formatCurrency(ex.dollar_amount)} → {ex.coin_amount} coins
             </div>
-            <div className="text-xs text-forge-text-dim">
+            <div className="text-xs text-ink-whisper">
               Rate: {ex.exchange_rate} coins/$1 • {formatDateTime(ex.created_at)}
             </div>
           </div>

@@ -7,7 +7,7 @@ export default function RedemptionHistory({ redemptions, isParent }) {
   if (!redemptions.length) return null;
   return (
     <div>
-      <h2 className="font-heading text-lg font-bold mb-3 flex items-center gap-2">
+      <h2 className="font-display text-lg font-bold mb-3 flex items-center gap-2">
         <Clock size={18} /> {isParent ? 'All Redemptions' : 'My Redemptions'}
       </h2>
       <div className="space-y-2">
@@ -17,7 +17,7 @@ export default function RedemptionHistory({ redemptions, isParent }) {
               <div className="text-xl">{r.reward.icon || '🎁'}</div>
               <div>
                 <div className="text-sm font-medium">{r.reward.name}</div>
-                <div className="text-xs text-forge-text-dim">
+                <div className="text-xs text-ink-whisper">
                   {isParent && `${r.user_name} • `}
                   {formatDate(r.requested_at)} • {r.coin_cost_snapshot} coins
                 </div>

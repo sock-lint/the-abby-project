@@ -7,10 +7,17 @@ from config.base_models import TimestampedModel
 class PetSpecies(TimestampedModel):
     """Base creature type — e.g., Wolf, Dragon, Fox."""
 
+    slug = models.SlugField(max_length=60, unique=True, null=True, blank=True)
     name = models.CharField(max_length=50, unique=True)
     icon = models.CharField(max_length=10)
     description = models.TextField(blank=True)
     food_preference = models.CharField(max_length=30, blank=True)
+    available_potions = models.ManyToManyField(
+        "pets.PotionType",
+        blank=True,
+        related_name="species",
+        help_text="Potion variants that can hatch this species.",
+    )
 
     class Meta:
         verbose_name_plural = "pet species"
@@ -23,6 +30,7 @@ class PetSpecies(TimestampedModel):
 class PotionType(TimestampedModel):
     """Variant modifier for pets — e.g., Fire, Ice, Shadow."""
 
+    slug = models.SlugField(max_length=60, unique=True, null=True, blank=True)
     name = models.CharField(max_length=50, unique=True)
     color_hex = models.CharField(max_length=7, default="#8B7355")
     rarity = models.CharField(

@@ -16,7 +16,7 @@ export default function RedemptionApprovalQueue({ pending, onApprove, onReject }
             <div className="text-sm font-medium">
               {r.user_name} → {r.reward.icon} {r.reward.name}
             </div>
-            <div className="text-xs text-forge-text-dim">
+            <div className="text-xs text-ink-whisper">
               {r.coin_cost_snapshot} coins • {formatDateTime(r.requested_at)}
             </div>
           </div>

@@ -37,15 +37,15 @@ export default function AddMilestoneModal({ projectId, onClose, onSaved }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Title</label>
+          <label className="block text-xs text-ink-whisper mb-1">Title</label>
           <input value={form.title} onChange={onField('title')} className={inputClass} required autoFocus />
         </div>
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Description</label>
+          <label className="block text-xs text-ink-whisper mb-1">Description</label>
           <textarea value={form.description} onChange={onField('description')} className={`${inputClass} h-16 resize-none`} />
         </div>
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Bonus ($)</label>
+          <label className="block text-xs text-ink-whisper mb-1">Bonus ($)</label>
           <input value={form.bonus_amount} onChange={onField('bonus_amount')} className={inputClass} type="number" step="0.01" min="0" placeholder="Optional" />
         </div>
         <div className="flex gap-2">

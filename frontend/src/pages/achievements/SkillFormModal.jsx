@@ -58,12 +58,12 @@ export default function SkillFormModal({ item, categories, subjects, onClose, on
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">Name</label>
+          <label className="text-xs text-ink-whisper mb-1 block">Name</label>
           <input className={inputClass} value={form.name} onChange={onField('name')} required />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-forge-text-dim mb-1 block">Category</label>
+            <label className="text-xs text-ink-whisper mb-1 block">Category</label>
             <select className={inputClass} value={form.category} onChange={onField('category')} required>
               <option value="">Select...</option>
               {categories.map((c) => (
@@ -72,7 +72,7 @@ export default function SkillFormModal({ item, categories, subjects, onClose, on
             </select>
           </div>
           <div>
-            <label className="text-xs text-forge-text-dim mb-1 block">Subject</label>
+            <label className="text-xs text-ink-whisper mb-1 block">Subject</label>
             <select className={inputClass} value={form.subject} onChange={onField('subject')}>
               <option value="">None</option>
               {filteredSubjects.map((s) => (
@@ -83,20 +83,20 @@ export default function SkillFormModal({ item, categories, subjects, onClose, on
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-forge-text-dim mb-1 block">Icon</label>
+            <label className="text-xs text-ink-whisper mb-1 block">Icon</label>
             <input className={inputClass} value={form.icon} onChange={onField('icon')} />
           </div>
           <div>
-            <label className="text-xs text-forge-text-dim mb-1 block">Order</label>
+            <label className="text-xs text-ink-whisper mb-1 block">Order</label>
             <input className={inputClass} type="number" value={form.order} onChange={onField('order')} />
           </div>
         </div>
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">Description</label>
+          <label className="text-xs text-ink-whisper mb-1 block">Description</label>
           <textarea className={inputClass} value={form.description} onChange={onField('description')} rows={2} />
         </div>
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">Level Names (JSON)</label>
+          <label className="text-xs text-ink-whisper mb-1 block">Level Names (JSON)</label>
           <input
             className={inputClass}
             value={form.level_names}
@@ -114,7 +114,7 @@ export default function SkillFormModal({ item, categories, subjects, onClose, on
           Locked by default
         </label>
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-forge-text-dim">Cancel</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper">Cancel</button>
           <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
             {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
           </button>

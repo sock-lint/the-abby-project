@@ -29,7 +29,7 @@ export default function BadgeCollection({ allBadges, earnedBadges }) {
 
   return (
     <div>
-      <h2 className="font-heading text-lg font-bold mb-3">
+      <h2 className="font-display text-lg font-bold mb-3">
         Badges ({earnedBadgeIds.size}/{allBadges.length})
       </h2>
       {allBadges.length === 0 ? (
@@ -47,14 +47,14 @@ export default function BadgeCollection({ allBadges, earnedBadges }) {
                 className={`rounded-xl p-4 text-center border cursor-pointer transition-colors ${
                   item.earned
                     ? RARITY_COLORS[item.badge.rarity]
-                    : 'bg-forge-card/50 border-forge-border opacity-40 grayscale'
+                    : 'bg-ink-page-aged/50 border-ink-page-shadow opacity-40 grayscale'
                 }`}
                 onClick={() => setSelectedBadge(item)}
               >
                 <div className="text-3xl mb-1">{item.badge.icon || '🔒'}</div>
                 <div className="text-xs font-medium leading-tight">{item.badge.name}</div>
                 <div className={`text-[10px] capitalize ${
-                  item.earned ? RARITY_TEXT_COLORS[item.badge.rarity] : 'text-forge-text-dim'
+                  item.earned ? RARITY_TEXT_COLORS[item.badge.rarity] : 'text-ink-whisper'
                 }`}>
                   {item.badge.rarity}
                 </div>
@@ -75,20 +75,20 @@ export default function BadgeCollection({ allBadges, earnedBadges }) {
               <div className={`text-sm capitalize font-medium mb-2 ${RARITY_TEXT_COLORS[selectedBadge.badge.rarity]}`}>
                 {selectedBadge.badge.rarity}
               </div>
-              <p className="text-sm text-forge-text-dim mb-3">
+              <p className="text-sm text-ink-whisper mb-3">
                 {selectedBadge.badge.description}
               </p>
               {selectedBadge.badge.xp_bonus > 0 && (
-                <div className="text-xs text-amber-highlight">
+                <div className="text-xs text-sheikah-teal-deep">
                   +{selectedBadge.badge.xp_bonus} XP bonus
                 </div>
               )}
               {selectedBadge.earned ? (
-                <div className="mt-3 text-xs text-forge-text-dim">
+                <div className="mt-3 text-xs text-ink-whisper">
                   Earned {formatDate(selectedBadge.earnedAt)}
                 </div>
               ) : (
-                <div className="mt-3 text-xs text-forge-text-dim italic">
+                <div className="mt-3 text-xs text-ink-whisper italic">
                   Not yet earned
                 </div>
               )}

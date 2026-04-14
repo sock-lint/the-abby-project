@@ -39,7 +39,7 @@ export default function AddResourceModal({ projectId, steps, onClose, onSaved })
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">URL</label>
+          <label className="block text-xs text-ink-whisper mb-1">URL</label>
           <input
             value={form.url}
             onChange={onField('url')}
@@ -51,12 +51,12 @@ export default function AddResourceModal({ projectId, steps, onClose, onSaved })
           />
         </div>
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Title (optional)</label>
+          <label className="block text-xs text-ink-whisper mb-1">Title (optional)</label>
           <input value={form.title} onChange={onField('title')} className={inputClass} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-forge-text-dim mb-1">Type</label>
+            <label className="block text-xs text-ink-whisper mb-1">Type</label>
             <select value={form.resource_type} onChange={onField('resource_type')} className={inputClass}>
               <option value="link">Link</option>
               <option value="video">Video</option>
@@ -65,7 +65,7 @@ export default function AddResourceModal({ projectId, steps, onClose, onSaved })
             </select>
           </div>
           <div>
-            <label className="block text-xs text-forge-text-dim mb-1">Attach to Step</label>
+            <label className="block text-xs text-ink-whisper mb-1">Attach to Step</label>
             <select value={form.step} onChange={onField('step')} className={inputClass}>
               <option value="">(Project-level)</option>
               {steps.map((s, idx) => (

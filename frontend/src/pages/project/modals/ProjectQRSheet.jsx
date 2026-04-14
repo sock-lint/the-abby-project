@@ -50,7 +50,7 @@ export default function ProjectQRSheet({ projectId, projectTitle, onClose }) {
             </a>
           </>
         ) : (
-          <p className="text-forge-text-dim text-sm">Failed to load QR code.</p>
+          <p className="text-ink-whisper text-sm">Failed to load QR code.</p>
         )}
       </div>
     </BottomSheet>

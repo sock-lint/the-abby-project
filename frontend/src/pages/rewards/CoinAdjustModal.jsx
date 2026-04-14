@@ -30,7 +30,7 @@ export default function CoinAdjustModal({ onClose, onSaved }) {
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">Child User ID</label>
+          <label className="text-xs text-ink-whisper mb-1 block">Child User ID</label>
           <input
             className={inputClass}
             type="number"
@@ -41,7 +41,7 @@ export default function CoinAdjustModal({ onClose, onSaved }) {
           />
         </div>
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">
+          <label className="text-xs text-ink-whisper mb-1 block">
             Amount (positive to add, negative to deduct)
           </label>
           <input
@@ -53,7 +53,7 @@ export default function CoinAdjustModal({ onClose, onSaved }) {
           />
         </div>
         <div>
-          <label className="text-xs text-forge-text-dim mb-1 block">Description</label>
+          <label className="text-xs text-ink-whisper mb-1 block">Description</label>
           <input
             className={inputClass}
             value={form.description}
@@ -62,7 +62,7 @@ export default function CoinAdjustModal({ onClose, onSaved }) {
           />
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-forge-text-dim hover:text-forge-text">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper hover:text-ink-primary">
             Cancel
           </button>
           <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>

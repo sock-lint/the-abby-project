@@ -50,12 +50,12 @@ export default function AISuggestions({
     }));
 
   return (
-    <Card className="border-fuchsia-400/30 bg-fuchsia-400/5 space-y-2">
-      <div className="text-xs font-semibold text-fuchsia-300 uppercase tracking-wide">
+    <Card className="border-royal/30 bg-fuchsia-400/5 space-y-2">
+      <div className="text-xs font-semibold text-royal uppercase tracking-wide">
         ✨ Claude suggestions
       </div>
       {suggestions.summary && (
-        <div className="text-sm text-forge-text">{suggestions.summary}</div>
+        <div className="text-sm text-ink-primary">{suggestions.summary}</div>
       )}
       <div className="flex flex-wrap gap-2">
         {suggestions.category && (
@@ -75,13 +75,13 @@ export default function AISuggestions({
         ))}
       </div>
       {suggestions.extra_materials?.length > 0 && (
-        <div className="text-xs text-forge-text-dim">
+        <div className="text-xs text-ink-whisper">
           Suggested extras: {suggestions.extra_materials.map((m) => m.name).join(', ')}
         </div>
       )}
       {suggestions.steps?.length > 0 && (
         <div className="space-y-1">
-          <div className="text-xs text-fuchsia-300 font-medium">Suggested walkthrough steps</div>
+          <div className="text-xs text-royal font-medium">Suggested walkthrough steps</div>
           <div className="flex flex-wrap gap-2">
             {suggestions.steps.map((s, i) => (
               <button
@@ -98,7 +98,7 @@ export default function AISuggestions({
       )}
       {suggestions.resources?.length > 0 && (
         <div className="space-y-1">
-          <div className="text-xs text-fuchsia-300 font-medium">Suggested resources</div>
+          <div className="text-xs text-royal font-medium">Suggested resources</div>
           <div className="flex flex-wrap gap-2">
             {suggestions.resources.map((r, i) => (
               <button

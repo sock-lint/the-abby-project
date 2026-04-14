@@ -37,15 +37,15 @@ export default function AddMaterialModal({ projectId, onClose, onSaved }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Name</label>
+          <label className="block text-xs text-ink-whisper mb-1">Name</label>
           <input value={form.name} onChange={onField('name')} className={inputClass} required autoFocus />
         </div>
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Description</label>
+          <label className="block text-xs text-ink-whisper mb-1">Description</label>
           <textarea value={form.description} onChange={onField('description')} className={`${inputClass} h-16 resize-none`} />
         </div>
         <div>
-          <label className="block text-xs text-forge-text-dim mb-1">Estimated Cost ($)</label>
+          <label className="block text-xs text-ink-whisper mb-1">Estimated Cost ($)</label>
           <input value={form.estimated_cost} onChange={onField('estimated_cost')} className={inputClass} type="number" step="0.01" min="0" />
         </div>
         <div className="flex gap-2">

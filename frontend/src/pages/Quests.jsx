@@ -1,19 +1,27 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Swords, Play, Shield } from 'lucide-react';
+import { Play, Shield } from 'lucide-react';
 import {
   getActiveQuest, getAvailableQuests, startQuest, getQuestHistory,
 } from '../api';
 import { useApi } from '../hooks/useApi';
-import Card from '../components/Card';
 import Loader from '../components/Loader';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
-import ProgressBar from '../components/ProgressBar';
 import TabButton from '../components/TabButton';
+import ParchmentCard from '../components/journal/ParchmentCard';
+import RuneBadge from '../components/journal/RuneBadge';
+import { DragonIcon } from '../components/icons/JournalIcons';
 import { normalizeList } from '../utils/api';
 import { formatDate } from '../utils/format';
-import { STATUS_COLORS } from '../constants/colors';
+import { buttonPrimary } from '../constants/styles';
+
+const STATUS_TONE = {
+  active: 'teal',
+  completed: 'moss',
+  expired: 'ink',
+  failed: 'ember',
+};
 
 export default function Quests() {
   const { data: activeQuest, loading: loadingActive, reload: reloadActive } = useApi(getActiveQuest);
@@ -41,116 +49,146 @@ export default function Quests() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold flex items-center gap-2">
-        <Swords size={22} /> Quests
-      </h1>
+      <header>
+        <div className="font-script text-sheikah-teal-deep text-base">
+          trials · epic campaigns & collection hunts
+        </div>
+        <h2 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight">
+          Trials
+        </h2>
+      </header>
 
       <ErrorAlert message={error} />
 
-      {/* Tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <TabButton active={tab === 'current'} onClick={() => setTab('current')}>Current</TabButton>
-        <TabButton active={tab === 'available'} onClick={() => setTab('available')}>Available ({available.length})</TabButton>
+        <TabButton active={tab === 'available'} onClick={() => setTab('available')}>
+          Available ({available.length})
+        </TabButton>
         <TabButton active={tab === 'history'} onClick={() => setTab('history')}>History</TabButton>
       </div>
 
-      {/* Current Quest */}
+      {/* Current Trial */}
       {tab === 'current' && (
         activeQuest ? (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <Card className="space-y-4">
+            <ParchmentCard flourish className="space-y-4">
               <div className="flex items-start gap-3">
-                <div className="text-4xl">{activeQuest.definition.icon}</div>
-                <div className="flex-1">
-                  <div className="font-heading font-bold text-lg">{activeQuest.definition.name}</div>
-                  <div className="text-sm text-forge-text-dim">{activeQuest.definition.description}</div>
-                  <div className="flex items-center gap-2 mt-1 text-xs text-forge-text-dim">
-                    <span className={`px-1.5 py-0.5 rounded-full ${STATUS_COLORS[activeQuest.status]}`}>
+                <div className="text-5xl">{activeQuest.definition.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-display text-2xl text-ink-primary leading-tight">
+                    {activeQuest.definition.name}
+                  </div>
+                  <div className="font-body text-sm text-ink-secondary">
+                    {activeQuest.definition.description}
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <RuneBadge tone={STATUS_TONE[activeQuest.status] || 'teal'} size="sm">
                       {activeQuest.status}
-                    </span>
-                    <span>{activeQuest.definition.quest_type_display}</span>
+                    </RuneBadge>
+                    <RuneBadge tone="royal" size="sm">
+                      {activeQuest.definition.quest_type_display}
+                    </RuneBadge>
                   </div>
                 </div>
               </div>
 
               {/* Progress */}
               <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="font-medium">
-                    {activeQuest.definition.quest_type === 'boss' ? 'Damage Dealt' : 'Collected'}
+                <div className="flex justify-between font-script text-sm mb-1">
+                  <span className="text-ink-primary">
+                    {activeQuest.definition.quest_type === 'boss' ? 'Damage dealt' : 'Collected'}
                   </span>
-                  <span className="text-forge-text-dim">
+                  <span className="text-ink-whisper font-rune tabular-nums">
                     {activeQuest.current_progress} / {activeQuest.effective_target}
                   </span>
                 </div>
-                <ProgressBar
-                  value={activeQuest.current_progress}
-                  max={activeQuest.effective_target}
-                  color={activeQuest.definition.quest_type === 'boss' ? 'bg-red-500' : 'bg-blue-500'}
-                />
-                <div className="text-xs text-forge-text-dim mt-1">
+                <div className="h-3 rounded-full bg-ink-page-shadow/60 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${
+                      activeQuest.definition.quest_type === 'boss'
+                        ? 'bg-gradient-to-r from-ember-deep to-ember'
+                        : 'bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal'
+                    }`}
+                    style={{ width: `${activeQuest.progress_percent}%` }}
+                  />
+                </div>
+                <div className="font-rune text-xs text-ink-whisper mt-1">
                   {activeQuest.progress_percent}% complete
                 </div>
               </div>
 
-              {/* Rage shield indicator */}
+              {/* Rage shield */}
               {activeQuest.rage_shield > 0 && (
-                <div className="flex items-center gap-2 text-xs text-orange-400">
-                  <Shield size={14} />
-                  <span>Boss raged! +{activeQuest.rage_shield} shield</span>
+                <div className="flex items-center gap-2 font-script text-sm text-ember-deep bg-ember/10 rounded-lg p-2 border border-ember/40">
+                  <Shield size={14} /> Boss raged! +{activeQuest.rage_shield} shield
                 </div>
               )}
 
               {/* Rewards preview */}
-              <div className="text-xs text-forge-text-dim">
-                <span className="font-medium">Rewards: </span>
-                {activeQuest.definition.coin_reward > 0 && <span>{activeQuest.definition.coin_reward} coins </span>}
-                {activeQuest.definition.xp_reward > 0 && <span>{activeQuest.definition.xp_reward} XP </span>}
-                {activeQuest.definition.reward_items?.map(r => (
-                  <span key={r.id}>{r.item_icon} {r.item_name} x{r.quantity} </span>
+              <div className="font-script text-sm text-ink-secondary">
+                <span className="text-ink-whisper uppercase tracking-wider text-xs">rewards · </span>
+                {activeQuest.definition.coin_reward > 0 && (
+                  <span className="mr-2">{activeQuest.definition.coin_reward} coins</span>
+                )}
+                {activeQuest.definition.xp_reward > 0 && (
+                  <span className="mr-2">{activeQuest.definition.xp_reward} XP</span>
+                )}
+                {activeQuest.definition.reward_items?.map((r) => (
+                  <span key={r.id} className="mr-2">
+                    {r.item_icon} {r.item_name} ×{r.quantity}
+                  </span>
                 ))}
               </div>
 
-              {/* Time remaining */}
-              <div className="text-xs text-forge-text-dim">
+              <div className="font-script text-xs text-ink-whisper italic">
                 Ends: {formatDate(activeQuest.end_date)}
               </div>
-            </Card>
+            </ParchmentCard>
           </motion.div>
         ) : (
-          <EmptyState>No active quest. Start one from the Available tab!</EmptyState>
+          <EmptyState icon={<DragonIcon size={32} />}>
+            No trial under way. Choose one from the Available list to begin the hunt.
+          </EmptyState>
         )
       )}
 
-      {/* Available Quests */}
+      {/* Available Trials */}
       {tab === 'available' && (
         available.length === 0 ? (
-          <EmptyState>No quests available right now.</EmptyState>
+          <EmptyState icon={<DragonIcon size={32} />}>
+            No trials posted on the board right now.
+          </EmptyState>
         ) : (
           <div className="space-y-3">
             {available.map((qd) => (
-              <Card key={qd.id} className="flex items-center gap-4">
-                <div className="text-3xl shrink-0">{qd.icon}</div>
+              <ParchmentCard key={qd.id} className="flex items-center gap-4">
+                <div className="text-4xl shrink-0">{qd.icon}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm">{qd.name}</div>
-                  <div className="text-xs text-forge-text-dim truncate">{qd.description}</div>
-                  <div className="flex gap-2 mt-1 text-[10px] text-forge-text-dim">
+                  <div className="font-display text-base text-ink-primary leading-tight">
+                    {qd.name}
+                  </div>
+                  <div className="font-body text-xs text-ink-secondary truncate">
+                    {qd.description}
+                  </div>
+                  <div className="flex gap-2 mt-1 font-script text-xs text-ink-whisper flex-wrap">
                     <span>{qd.quest_type_display}</span>
-                    <span>Target: {qd.target_value}</span>
+                    <span>target: {qd.target_value}</span>
                     <span>{qd.duration_days}d</span>
                     {qd.coin_reward > 0 && <span>{qd.coin_reward} coins</span>}
                   </div>
                 </div>
                 {!activeQuest && (
                   <button
+                    type="button"
                     onClick={() => handleStart(qd.id)}
                     disabled={starting === qd.id}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-primary text-white text-xs font-medium shrink-0"
+                    className={`${buttonPrimary} flex items-center gap-1 px-3 py-1.5 text-xs shrink-0`}
                   >
-                    <Play size={12} /> {starting === qd.id ? 'Starting...' : 'Start'}
+                    <Play size={12} /> {starting === qd.id ? 'Starting…' : 'Begin'}
                   </button>
                 )}
-              </Card>
+              </ParchmentCard>
             ))}
           </div>
         )
@@ -159,22 +197,24 @@ export default function Quests() {
       {/* History */}
       {tab === 'history' && (
         history.length === 0 ? (
-          <EmptyState>No quest history yet.</EmptyState>
+          <EmptyState>No trials in the chronicle yet.</EmptyState>
         ) : (
           <div className="space-y-2">
             {history.map((q) => (
-              <Card key={q.id} className="flex items-center gap-3">
-                <div className="text-2xl shrink-0">{q.definition.icon}</div>
+              <ParchmentCard key={q.id} className="flex items-center gap-3">
+                <div className="text-3xl shrink-0">{q.definition.icon}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium">{q.definition.name}</div>
-                  <div className="text-xs text-forge-text-dim">
+                  <div className="font-body text-sm font-medium text-ink-primary">
+                    {q.definition.name}
+                  </div>
+                  <div className="font-rune text-xs text-ink-whisper tabular-nums">
                     {q.current_progress}/{q.definition.target_value}
                   </div>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[q.status]}`}>
+                <RuneBadge tone={STATUS_TONE[q.status] || 'ink'} size="sm">
                   {q.status}
-                </span>
-              </Card>
+                </RuneBadge>
+              </ParchmentCard>
             ))}
           </div>
         )

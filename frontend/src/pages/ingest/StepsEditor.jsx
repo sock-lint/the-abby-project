@@ -6,21 +6,21 @@ export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemo
   return (
     <Card className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="font-heading text-lg font-bold">Steps ({steps.length})</h2>
-        <button onClick={onAdd} className="text-xs text-amber-primary hover:text-amber-highlight flex items-center gap-1">
+        <h2 className="font-display text-lg font-bold">Steps ({steps.length})</h2>
+        <button onClick={onAdd} className="text-xs text-sheikah-teal-deep hover:text-sheikah-teal-deep flex items-center gap-1">
           <Plus size={14} /> Add
         </button>
       </div>
-      <p className="text-xs text-forge-text-dim">
+      <p className="text-xs text-ink-whisper">
         Ordered walkthrough instructions. Assign a step to a milestone above to group it under that chapter — leave loose if it's a one-off.
       </p>
       {steps.length === 0 && (
-        <div className="text-xs text-forge-text-dim italic">
+        <div className="text-xs text-ink-whisper italic">
           No walkthrough steps parsed. Add some manually or accept an AI suggestion above.
         </div>
       )}
       {steps.map((s, i) => (
-        <div key={`s-${i}`} className="bg-forge-bg border border-forge-border rounded-lg p-3 space-y-2">
+        <div key={`s-${i}`} className="bg-ink-page border border-ink-page-shadow rounded-lg p-3 space-y-2">
           <div className="flex gap-2">
             <input
               value={s.title}
@@ -32,7 +32,7 @@ export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemo
               type="button"
               onClick={() => onRemove(i)}
               aria-label="Remove step"
-              className="text-forge-text-dim hover:text-red-400 shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
+              className="text-ink-whisper hover:text-ember-deep shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
             >
               <Trash2 size={18} />
             </button>

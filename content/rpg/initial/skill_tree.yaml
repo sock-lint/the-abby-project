@@ -1,0 +1,362 @@
+# Skill tree — categories, skills, and prerequisites.
+#
+# Schema:
+#   categories:
+#     - name        (required, unique)
+#       icon        (optional)
+#       color       (optional hex, default "#888888")
+#       description (optional)
+#   skills:
+#     - name        (required; unique within category)
+#       category    (required, category name)
+#       icon        (optional)
+#       locked      (optional, default false) — is_locked_by_default
+#       order       (optional, default 0)
+#       levels      (optional mapping: "1" → "Beginner", "5" → "Master")
+#       prereqs:    (optional list)
+#         - "Other Skill Name"                      # same category, level 2
+#         - skill: "Other Skill Name", level: 3     # same category, level 3
+#         - "Woodworking::Measuring & Marking"      # cross-category, level 2
+#         - skill: "Woodworking::Hand Tools", level: 2
+
+categories:
+  - name: Woodworking
+    icon: "🪵"
+    color: "#8B4513"
+    description: Working with wood
+  - name: Electronics
+    icon: "⚡"
+    color: "#FFD700"
+    description: Circuits, soldering, and electronics
+  - name: Cooking
+    icon: "🍳"
+    color: "#FF6347"
+    description: Cooking and baking
+  - name: Art & Crafts
+    icon: "🎨"
+    color: "#9370DB"
+    description: Drawing, painting, and crafts
+  - name: Coding
+    icon: "💻"
+    color: "#00CED1"
+    description: Programming and software
+  - name: Outdoors
+    icon: "🌿"
+    color: "#228B22"
+    description: Outdoor projects and nature
+  - name: Sewing & Textiles
+    icon: "🧵"
+    color: "#FF69B4"
+    description: Sewing, knitting, and textiles
+  - name: Science
+    icon: "🔬"
+    color: "#4169E1"
+    description: Science experiments and research
+
+skills:
+  # Woodworking
+  - name: Measuring & Marking
+    category: Woodworking
+    icon: "📐"
+    order: 0
+    levels: {"1": Eyeballer, "2": Precise, "3": Dead-On, "4": Master Measurer, "5": Micron Maniac}
+  - name: Hand Tools
+    category: Woodworking
+    icon: "🪚"
+    order: 1
+    levels: {"1": Sawdust Maker, "2": Handy, "3": Skilled, "4": Artisan, "5": Old School Master}
+  - name: Power Tools
+    category: Woodworking
+    icon: "⚡"
+    locked: true
+    order: 2
+    levels: {"1": Nervous, "2": Comfortable, "3": Confident, "4": Power User, "5": Shop Boss}
+    prereqs:
+      - {skill: Hand Tools, level: 2}
+  - name: Sanding & Finishing
+    category: Woodworking
+    icon: "🪵"
+    order: 3
+    levels: {"1": Rough, "2": Smooth Operator, "3": Satin Touch, "4": Glass Finish, "5": Mirror Polish}
+  - name: Joinery
+    category: Woodworking
+    icon: "🔗"
+    locked: true
+    order: 4
+    levels: {"1": Glue & Pray, "2": Butt Joints, "3": Dado & Rabbet, "4": Dovetailer, "5": Mortise Master}
+    prereqs:
+      - {skill: Hand Tools, level: 3}
+      - {skill: Measuring & Marking, level: 2}
+  - name: Wood Selection
+    category: Woodworking
+    icon: "🌳"
+    locked: true
+    order: 5
+    levels: {"1": Pine Only, "2": Grain Reader, "3": Species Spotter, "4": Wood Whisperer, "5": Lumber Sage}
+    prereqs:
+      - {skill: Hand Tools, level: 2}
+
+  # Electronics
+  - name: Wiring & Connectors
+    category: Electronics
+    icon: "🔌"
+    order: 0
+    levels: {"1": Wire Stripper, "2": Connector, "3": Clean Runs, "4": Cable Artist, "5": Harness Pro}
+  - name: Through-Hole Soldering
+    category: Electronics
+    icon: "🔥"
+    order: 1
+    levels: {"1": Cold Joints, "2": Tin Tipper, "3": Clean Cones, "4": Solder Surgeon, "5": Flux Master}
+  - name: SMD Soldering
+    category: Electronics
+    icon: "🔬"
+    locked: true
+    order: 2
+    levels: {"1": Shaky, "2": Steady, "3": Drag Soldier, "4": Micro Surgeon, "5": SMD Wizard}
+    prereqs:
+      - {skill: Through-Hole Soldering, level: 3}
+  - name: Circuit Reading
+    category: Electronics
+    icon: "📋"
+    order: 3
+    levels: {"1": Confused, "2": Symbol Reader, "3": Trace Follower, "4": Schematic Thinker, "5": Circuit Sage}
+  - name: Circuit Design
+    category: Electronics
+    icon: "✏️"
+    locked: true
+    order: 4
+    levels: {"1": Copy Cat, "2": Modifier, "3": Original, "4": Architect, "5": Analog Guru}
+    prereqs:
+      - {skill: Circuit Reading, level: 2}
+  - name: Microcontrollers
+    category: Electronics
+    icon: "🤖"
+    locked: true
+    order: 5
+    levels: {"1": Blinky LED, "2": Sensor Reader, "3": Multi-Input, "4": IoT Builder, "5": Embedded Wizard}
+    prereqs:
+      - {skill: Wiring & Connectors, level: 2}
+      - {skill: Circuit Reading, level: 2}
+  - name: PCB Layout
+    category: Electronics
+    icon: "🟩"
+    locked: true
+    order: 6
+    levels: {"1": Auto-Route, "2": Manual Route, "3": Multi-Layer, "4": High-Speed, "5": PCB Artist}
+    prereqs:
+      - {skill: Circuit Design, level: 3}
+
+  # Cooking
+  - name: Knife Skills
+    category: Cooking
+    icon: "🔪"
+    order: 0
+    levels: {"1": Careful Chopper, "2": Dicer, "3": Julienne, "4": Brunoise, "5": Speed Demon}
+  - name: Heat Control
+    category: Cooking
+    icon: "🔥"
+    order: 1
+    levels: {"1": Burner, "2": Temp Watcher, "3": Heat Surfer, "4": Flame Dancer, "5": Thermal Master}
+  - name: Baking
+    category: Cooking
+    icon: "🧁"
+    order: 2
+    levels: {"1": Box Mix, "2": From Scratch, "3": Baker, "4": Pastry Cook, "5": Pâtissier}
+  - name: Flavor & Seasoning
+    category: Cooking
+    icon: "🧂"
+    order: 3
+    levels: {"1": Salt & Pepper, "2": Herb User, "3": Spice Blender, "4": Palate Pro, "5": Flavor Architect}
+  - name: Meal Planning
+    category: Cooking
+    icon: "📝"
+    locked: true
+    order: 4
+    levels: {"1": One Dish, "2": Full Meal, "3": Week Planner, "4": Meal Prep Pro, "5": Executive Chef}
+    prereqs:
+      - {skill: Knife Skills, level: 2}
+      - {skill: Heat Control, level: 2}
+  - name: Food Safety
+    category: Cooking
+    icon: "🌡️"
+    order: 5
+    levels: {"1": Hand Washer, "2": Temp Checker, "3": Cross-Contam Aware, "4": HACCP Thinker, "5": Safety Inspector}
+  - name: Plating & Presentation
+    category: Cooking
+    icon: "🍽️"
+    locked: true
+    order: 6
+    levels: {"1": Pile It On, "2": Neat, "3": Composed, "4": Restaurant Ready, "5": Edible Art}
+    prereqs:
+      - {skill: Knife Skills, level: 3}
+      - {skill: Flavor & Seasoning, level: 2}
+
+  # Art & Crafts
+  - name: Drawing
+    category: Art & Crafts
+    icon: "✏️"
+    order: 0
+    levels: {"1": Sketcher, "2": Renderer, "3": Illustrator, "4": Fine Artist, "5": Visionary}
+  - name: Painting
+    category: Art & Crafts
+    icon: "🖌️"
+    order: 1
+    levels: {"1": Brush Holder, "2": Color Mixer, "3": Blender, "4": Painter, "5": Gallery Ready}
+  - name: Color Theory
+    category: Art & Crafts
+    icon: "🌈"
+    order: 2
+    levels: {"1": Primary Knower, "2": Complementary, "3": Harmonizer, "4": Palette Master, "5": Color Sage}
+  - name: Sculpture & 3D
+    category: Art & Crafts
+    icon: "🗿"
+    locked: true
+    order: 3
+    levels: {"1": Clay Smasher, "2": Former, "3": Sculptor, "4": 3D Thinker, "5": Installation Artist}
+    prereqs:
+      - {skill: Drawing, level: 2}
+  - name: Digital Art
+    category: Art & Crafts
+    icon: "💻"
+    locked: true
+    order: 4
+    levels: {"1": Pixel Pusher, "2": Layer User, "3": Digital Painter, "4": Vector Wizard, "5": Creative Technologist}
+    prereqs:
+      - {skill: Drawing, level: 2}
+      - {skill: Color Theory, level: 2}
+  - name: Textile & Fiber
+    category: Art & Crafts
+    icon: "🧶"
+    order: 5
+    levels: {"1": Tangler, "2": Stitcher, "3": Pattern Follower, "4": Pattern Maker, "5": Fiber Artist}
+
+  # Coding
+  - name: Logic & Algorithms
+    category: Coding
+    icon: "🧩"
+    order: 0
+    levels: {"1": If-Then, "2": Looper, "3": Sorter, "4": Optimizer, "5": Algorithm Designer}
+  - name: Python
+    category: Coding
+    icon: "🐍"
+    order: 1
+    levels: {"1": Print Hello, "2": Script Writer, "3": Module User, "4": Package Builder, "5": Pythonista}
+  - name: Web Development
+    category: Coding
+    icon: "🌐"
+    order: 2
+    levels: {"1": HTML Writer, "2": CSS Styler, "3": JS Scripter, "4": Full Pager, "5": Web App Builder}
+  - name: Hardware Programming
+    category: Coding
+    icon: "🔧"
+    locked: true
+    order: 3
+    levels: {"1": LED Blinker, "2": Sensor Reader, "3": Actuator Controller, "4": System Builder, "5": Hardware Hacker}
+    prereqs:
+      - {skill: Python, level: 2}
+  - name: Data & Visualization
+    category: Coding
+    icon: "📊"
+    locked: true
+    order: 4
+    levels: {"1": CSV Reader, "2": Chart Maker, "3": Data Cleaner, "4": Analyst, "5": Data Storyteller}
+    prereqs:
+      - {skill: Python, level: 2}
+  - name: Version Control
+    category: Coding
+    icon: "📂"
+    order: 5
+    levels: {"1": Saver, "2": Committer, "3": Brancher, "4": Merger, "5": Git Wizard}
+
+  # Outdoors
+  - name: Gardening
+    category: Outdoors
+    icon: "🌱"
+    order: 0
+    levels: {"1": Seed Planter, "2": Waterer, "3": Grower, "4": Green Thumb, "5": Garden Designer}
+  - name: Tool Maintenance
+    category: Outdoors
+    icon: "🔧"
+    order: 1
+    levels: {"1": Cleaner, "2": Sharpener, "3": Oiler, "4": Restorer, "5": Tool Whisperer}
+  - name: Nature ID
+    category: Outdoors
+    icon: "🍃"
+    order: 2
+    levels: {"1": Looker, "2": Spotter, "3": Identifier, "4": Naturalist, "5": Field Expert}
+  - name: Building & Construction
+    category: Outdoors
+    icon: "🏗️"
+    locked: true
+    order: 3
+    levels: {"1": Stacker, "2": Leveler, "3": Framer, "4": Builder, "5": Architect}
+    prereqs:
+      - {skill: "Woodworking::Measuring & Marking", level: 2}
+  - name: Water Systems
+    category: Outdoors
+    icon: "💧"
+    locked: true
+    order: 4
+    levels: {"1": Hose User, "2": Sprinkler Setter, "3": Drip Designer, "4": Irrigation Pro, "5": Hydro Engineer}
+    prereqs:
+      - {skill: Tool Maintenance, level: 2}
+
+  # Sewing & Textiles
+  - name: Hand Sewing
+    category: Sewing & Textiles
+    icon: "🪡"
+    order: 0
+    levels: {"1": Button Sewer, "2": Straight Stitcher, "3": Hem Maker, "4": Hand Tailor, "5": Couture Stitcher}
+  - name: Machine Sewing
+    category: Sewing & Textiles
+    icon: "🧵"
+    locked: true
+    order: 1
+    levels: {"1": Threader, "2": Straight Lines, "3": Curves, "4": Pattern Sewer, "5": Machine Master}
+    prereqs:
+      - {skill: Hand Sewing, level: 2}
+  - name: Pattern Reading
+    category: Sewing & Textiles
+    icon: "📐"
+    order: 2
+    levels: {"1": Confused, "2": Piece Finder, "3": Layout Pro, "4": Modifier, "5": Pattern Drafter}
+  - name: Fabric Selection
+    category: Sewing & Textiles
+    icon: "🏪"
+    locked: true
+    order: 3
+    levels: {"1": Cotton Only, "2": Woven vs Knit, "3": Fabric Matcher, "4": Textile Expert, "5": Fabric Sommelier}
+    prereqs:
+      - {skill: Hand Sewing, level: 2}
+      - {skill: Pattern Reading, level: 2}
+
+  # Science
+  - name: Observation
+    category: Science
+    icon: "👁️"
+    order: 0
+    levels: {"1": Looker, "2": Noticer, "3": Recorder, "4": Analyst, "5": Scientific Observer}
+  - name: Measurement
+    category: Science
+    icon: "📏"
+    order: 1
+    levels: {"1": Ruler User, "2": Multi-Tool, "3": Precise, "4": Calibrator, "5": Metrologist}
+  - name: Experimentation
+    category: Science
+    icon: "🧪"
+    order: 2
+    levels: {"1": Mixer, "2": Hypothesis Maker, "3": Variable Controller, "4": Experimenter, "5": Research Scientist}
+  - name: Documentation
+    category: Science
+    icon: "📓"
+    order: 3
+    levels: {"1": Note Taker, "2": Logger, "3": Report Writer, "4": Paper Author, "5": Lab Notebook Pro}
+  - name: Chemistry Basics
+    category: Science
+    icon: "⚗️"
+    locked: true
+    order: 4
+    levels: {"1": Reaction Observer, "2": pH Tester, "3": Titrator, "4": Synthesizer, "5": Bench Chemist}
+    prereqs:
+      - {skill: Measurement, level: 2}
+      - {skill: Experimentation, level: 2}

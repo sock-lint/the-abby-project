@@ -16,19 +16,19 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        className="fixed bottom-0 left-0 right-0 bg-forge-card border-t border-forge-border rounded-t-2xl z-50 pb-[env(safe-area-inset-bottom)] max-h-[90vh] overflow-y-auto md:left-1/2 md:right-auto md:bottom-auto md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md md:rounded-2xl md:border"
+        className="fixed bottom-0 left-0 right-0 bg-ink-page-aged border-t border-ink-page-shadow rounded-t-2xl z-50 pb-[env(safe-area-inset-bottom)] max-h-[90vh] overflow-y-auto md:left-1/2 md:right-auto md:bottom-auto md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md md:rounded-2xl md:border"
       >
         <div className="flex justify-center pt-2 md:hidden">
-          <div className="w-10 h-1 rounded-full bg-forge-muted" />
+          <div className="w-10 h-1 rounded-full bg-ink-page-shadow/60" />
         </div>
         <div className="flex items-center justify-between px-4 pt-3 pb-2">
-          <h2 className="font-heading text-lg font-bold">{title}</h2>
+          <h2 className="font-display text-lg font-bold">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             disabled={disabled}
             aria-label="Close"
-            className="text-forge-text-dim hover:text-forge-text min-h-10 min-w-10 flex items-center justify-center rounded-lg"
+            className="text-ink-whisper hover:text-ink-primary min-h-10 min-w-10 flex items-center justify-center rounded-lg"
           >
             <X size={20} />
           </button>

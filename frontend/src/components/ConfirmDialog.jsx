@@ -9,16 +9,16 @@ export default function ConfirmDialog({ title, message, confirmLabel = 'Delete',
       >
         <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
         <motion.div
-          className="relative bg-forge-card border border-forge-border rounded-2xl p-5 max-w-sm w-full mx-4"
+          className="relative bg-ink-page-aged border border-ink-page-shadow rounded-2xl p-5 max-w-sm w-full mx-4"
           initial={{ scale: 0.9 }} animate={{ scale: 1 }}
         >
-          <h3 className="font-heading font-bold mb-2">{title}</h3>
-          <p className="text-sm text-forge-text-dim mb-4">{message}</p>
+          <h3 className="font-display font-bold mb-2">{title}</h3>
+          <p className="text-sm text-ink-whisper mb-4">{message}</p>
           <div className="flex justify-end gap-2">
-            <button onClick={onCancel} className="px-4 py-2 text-sm text-forge-text-dim hover:text-forge-text">Cancel</button>
+            <button onClick={onCancel} className="px-4 py-2 text-sm text-ink-whisper hover:text-ink-primary">Cancel</button>
             <button
               onClick={onConfirm}
-              className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-sm font-semibold rounded-lg border border-red-500/30"
+              className="px-4 py-2 bg-ember/20 hover:bg-ember/30 text-red-300 text-sm font-semibold rounded-lg border border-red-500/30"
             >
               {confirmLabel}
             </button>

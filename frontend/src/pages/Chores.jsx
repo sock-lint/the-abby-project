@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  ClipboardCheck, Check, Plus, Pencil, Trash2,
-  DollarSign, Coins, CalendarDays, RefreshCw,
+  Check, Plus, Pencil, Trash2,
+  DollarSign, CalendarDays, RefreshCw,
 } from 'lucide-react';
 import {
   getChores, createChore, updateChore, deleteChore, completeChore,
@@ -13,19 +13,26 @@ import { useApi } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
 import { useRole } from '../hooks/useRole';
 import ApprovalQueue from '../components/ApprovalQueue';
-import Card from '../components/Card';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import FormModal from '../components/FormModal';
-import { STATUS_COLORS } from '../constants/colors';
+import ParchmentCard from '../components/journal/ParchmentCard';
+import RuneBadge from '../components/journal/RuneBadge';
+import { CoinIcon, ScrollIcon } from '../components/icons/JournalIcons';
 import { formatDate } from '../utils/format';
 import { normalizeList } from '../utils/api';
 import { buttonPrimary, inputClass } from '../constants/styles';
 
-const RECURRENCE_LABELS = { daily: 'Daily', weekly: 'Weekly', one_time: 'One-Time' };
-const WEEK_SCHEDULE_LABELS = { every_week: 'Every Week', alternating: 'Alternating Weeks' };
+const RECURRENCE_LABELS = { daily: 'Daily', weekly: 'Weekly', one_time: 'One-time' };
+const WEEK_SCHEDULE_LABELS = { every_week: 'Every week', alternating: 'Alternating weeks' };
+
+const STATUS_TONE = {
+  approved: 'moss',
+  pending: 'ember',
+  rejected: 'ember',
+};
 
 function ChoreFormModal({ chore, children, onClose, onSaved }) {
   const isEdit = !!chore;
@@ -80,90 +87,93 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
     }
   };
 
+  const labelClass = 'font-script text-sm text-ink-secondary mb-1 block';
   const showSchedule = form.recurrence !== 'one_time';
 
   return (
-    <FormModal title={isEdit ? 'Edit Chore' : 'New Chore'} onClose={onClose}>
+    <FormModal title={isEdit ? 'Edit Ritual' : 'New Ritual'} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className={labelClass}>Title</label>
+          <input className={inputClass} value={form.title} onChange={onField('title')} required />
+        </div>
+        <div>
+          <label className={labelClass}>Description</label>
+          <textarea className={inputClass} value={form.description} onChange={onField('description')} rows={2} />
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className={labelClass}>Icon</label>
+            <input className={inputClass} value={form.icon} onChange={onField('icon')} placeholder="🧹" />
+          </div>
+          <div>
+            <label className={labelClass}>Reward ($)</label>
+            <input className={inputClass} type="number" min="0" step="0.25" value={form.reward_amount} onChange={onField('reward_amount')} />
+          </div>
+          <div>
+            <label className={labelClass}>Coins</label>
+            <input className={inputClass} type="number" min="0" value={form.coin_reward} onChange={onField('coin_reward')} />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>Recurrence</label>
+            <select className={inputClass} value={form.recurrence} onChange={onField('recurrence')}>
+              {Object.entries(RECURRENCE_LABELS).map(([v, l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Assign to</label>
+            <select className={inputClass} value={form.assigned_to} onChange={onField('assigned_to')}>
+              <option value="">All children</option>
+              {children.map((c) => (
+                <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {showSchedule && (
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-forge-text-dim mb-1 block">Title</label>
-              <input className={inputClass} value={form.title} onChange={onField('title')} required />
+              <label className={labelClass}>Custody schedule</label>
+              <select className={inputClass} value={form.week_schedule} onChange={onField('week_schedule')}>
+                {Object.entries(WEEK_SCHEDULE_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </select>
             </div>
-            <div>
-              <label className="text-xs text-forge-text-dim mb-1 block">Description</label>
-              <textarea className={inputClass} value={form.description} onChange={onField('description')} rows={2} />
-            </div>
-            <div className="grid grid-cols-3 gap-3">
+            {form.week_schedule === 'alternating' && (
               <div>
-                <label className="text-xs text-forge-text-dim mb-1 block">Icon</label>
-                <input className={inputClass} value={form.icon} onChange={onField('icon')} placeholder="🧹" />
-              </div>
-              <div>
-                <label className="text-xs text-forge-text-dim mb-1 block">Reward ($)</label>
-                <input className={inputClass} type="number" min="0" step="0.25" value={form.reward_amount} onChange={onField('reward_amount')} />
-              </div>
-              <div>
-                <label className="text-xs text-forge-text-dim mb-1 block">Coins</label>
-                <input className={inputClass} type="number" min="0" value={form.coin_reward} onChange={onField('coin_reward')} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-forge-text-dim mb-1 block">Recurrence</label>
-                <select className={inputClass} value={form.recurrence} onChange={onField('recurrence')}>
-                  {Object.entries(RECURRENCE_LABELS).map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-forge-text-dim mb-1 block">Assign To</label>
-                <select className={inputClass} value={form.assigned_to} onChange={onField('assigned_to')}>
-                  <option value="">All Children</option>
-                  {children.map((c) => (
-                    <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            {showSchedule && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-forge-text-dim mb-1 block">Custody Schedule</label>
-                  <select className={inputClass} value={form.week_schedule} onChange={onField('week_schedule')}>
-                    {Object.entries(WEEK_SCHEDULE_LABELS).map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
-                    ))}
-                  </select>
-                </div>
-                {form.week_schedule === 'alternating' && (
-                  <div>
-                    <label className="text-xs text-forge-text-dim mb-1 block">Start Date (on-week)</label>
-                    <input className={inputClass} type="date" value={form.schedule_start_date} onChange={onField('schedule_start_date')} />
-                  </div>
-                )}
+                <label className={labelClass}>Start date (on-week)</label>
+                <input className={inputClass} type="date" value={form.schedule_start_date} onChange={onField('schedule_start_date')} />
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-forge-text-dim mb-1 block">Order</label>
-                <input className={inputClass} type="number" value={form.order} onChange={onField('order')} />
-              </div>
-              <div className="flex items-end pb-1">
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={form.is_active} onChange={onField('is_active')} className="accent-amber-primary" />
-                  Active
-                </label>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-forge-text-dim hover:text-forge-text">Cancel</button>
-              <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
-                {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
-              </button>
-            </div>
-          </form>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>Order</label>
+            <input className={inputClass} type="number" value={form.order} onChange={onField('order')} />
+          </div>
+          <div className="flex items-end pb-1">
+            <label className="flex items-center gap-2 font-body text-sm text-ink-primary">
+              <input type="checkbox" checked={form.is_active} onChange={onField('is_active')} className="accent-sheikah-teal-deep" />
+              Active
+            </label>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-secondary hover:text-ink-primary transition-colors">
+            Cancel
+          </button>
+          <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
+            {saving ? 'Saving…' : isEdit ? 'Update' : 'Create'}
+          </button>
+        </div>
+      </form>
     </FormModal>
   );
 }
@@ -223,36 +233,46 @@ export default function Chores() {
   const children = normalizeList(childrenData);
   const pendingCompletions = completions.filter((c) => c.status === 'pending');
 
-  // Child view: count done vs total
-  const doneCount = chores.filter((c) => c.is_done || c.today_status === 'approved' || c.today_status === 'pending').length;
+  const doneCount = chores.filter(
+    (c) => c.is_done || c.today_status === 'approved' || c.today_status === 'pending',
+  ).length;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-heading text-2xl font-bold">Chores</h1>
+      <header className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <div className="font-script text-sheikah-teal-deep text-base">
+            rituals · the daily keep
+          </div>
+          <h2 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight">
+            Daily rituals
+          </h2>
+        </div>
         {isParent && (
           <button
+            type="button"
             onClick={() => { setEditingChore(null); setShowForm(true); }}
-            className={`flex items-center gap-1 px-3 py-1.5 text-xs ${buttonPrimary}`}
+            className={`flex items-center gap-1 px-3 py-2 text-sm ${buttonPrimary}`}
           >
-            <Plus size={14} /> New Chore
+            <Plus size={14} /> New ritual
           </button>
         )}
-      </div>
+      </header>
 
       <ErrorAlert message={error} />
 
       {/* Child summary card */}
       {!isParent && chores.length > 0 && (
-        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-          <Card className="text-center py-5">
-            <div className="text-xs text-forge-text-dim mb-1 flex items-center justify-center gap-1">
-              <ClipboardCheck size={14} /> Today&apos;s Progress
+        <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+          <ParchmentCard flourish tone="bright" className="text-center py-6">
+            <div className="font-script text-ink-whisper text-xs uppercase tracking-widest">
+              today's progress
             </div>
-            <div className="font-heading text-4xl font-bold text-amber-highlight">
-              {doneCount} <span className="text-lg text-forge-text-dim">/ {chores.length}</span>
+            <div className="font-display font-semibold text-5xl tabular-nums text-sheikah-teal-deep mt-1">
+              {doneCount}
+              <span className="font-script text-2xl text-ink-whisper"> / {chores.length}</span>
             </div>
-          </Card>
+          </ParchmentCard>
         </motion.div>
       )}
 
@@ -260,37 +280,44 @@ export default function Chores() {
       {isParent && (
         <ApprovalQueue
           items={pendingCompletions}
-          title="Pending Approvals"
+          title="Awaiting your seal"
           onApprove={handleApprove}
           onReject={handleReject}
         >
           {({ item: c, actions }) => (
-            <Card key={c.id} className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium">
+            <ParchmentCard key={c.id} className="flex items-center justify-between">
+              <div className="min-w-0">
+                <div className="font-body text-sm font-medium text-ink-primary">
                   {c.user_name} — {c.chore_icon} {c.chore_title}
                 </div>
-                <div className="text-xs text-forge-text-dim">
-                  {formatDate(c.completed_date)} — ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
+                <div className="font-script text-xs text-ink-whisper">
+                  {formatDate(c.completed_date)} · ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
                 </div>
                 {c.notes && (
-                  <div className="text-xs text-forge-text-dim italic mt-0.5">&ldquo;{c.notes}&rdquo;</div>
+                  <div className="font-script text-xs text-ink-secondary italic mt-0.5">
+                    &ldquo;{c.notes}&rdquo;
+                  </div>
                 )}
               </div>
               <div className="shrink-0">{actions}</div>
-            </Card>
+            </ParchmentCard>
           )}
         </ApprovalQueue>
       )}
 
       {/* Chore list */}
-      <div>
-        <h2 className="font-heading text-lg font-bold mb-3 flex items-center gap-2">
-          <ClipboardCheck size={18} /> {isParent ? 'All Chores' : 'Today\u2019s Chores'}
-        </h2>
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <ScrollIcon size={18} className="text-sheikah-teal-deep" />
+          <h2 className="font-display text-xl text-ink-primary leading-tight">
+            {isParent ? 'All rituals' : "Today's rituals"}
+          </h2>
+        </div>
         {chores.length === 0 ? (
-          <EmptyState>
-            {isParent ? 'No chores created yet. Add one to get started!' : 'No chores available today.'}
+          <EmptyState icon={<ScrollIcon size={32} />}>
+            {isParent
+              ? 'No rituals inscribed yet. Add one to begin the keep.'
+              : 'No rituals available today.'}
           </EmptyState>
         ) : (
           <div className="space-y-2">
@@ -299,31 +326,36 @@ export default function Chores() {
               const isAvailable = !isParent && chore.is_available;
               const isRejected = !isParent && chore.today_status === 'rejected';
               return (
-                <Card key={chore.id} className={`flex items-center gap-3 ${isDone ? 'opacity-60' : ''}`}>
+                <ParchmentCard
+                  key={chore.id}
+                  className={`flex items-center gap-3 ${isDone ? 'opacity-60' : ''}`}
+                >
                   <div className="text-2xl shrink-0 w-10 text-center">{chore.icon || '📋'}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium flex items-center gap-2">
+                    <div className="font-body text-sm font-medium text-ink-primary flex items-center gap-2">
                       {chore.title}
                       {isParent && !chore.is_active && (
-                        <span className="text-[10px] text-red-400">Inactive</span>
+                        <RuneBadge tone="ink" size="sm">inactive</RuneBadge>
                       )}
                     </div>
                     {chore.description && (
-                      <div className="text-xs text-forge-text-dim line-clamp-1">{chore.description}</div>
+                      <div className="font-body text-xs text-ink-secondary line-clamp-1">
+                        {chore.description}
+                      </div>
                     )}
-                    <div className="flex items-center gap-3 mt-1 text-xs text-forge-text-dim">
+                    <div className="flex items-center gap-3 mt-1 font-script text-xs text-ink-whisper">
                       <span className="flex items-center gap-0.5">
                         <DollarSign size={10} />{chore.reward_amount}
                       </span>
                       <span className="flex items-center gap-0.5">
-                        <Coins size={10} />{chore.coin_reward}
+                        <CoinIcon size={10} />{chore.coin_reward}
                       </span>
                       <span className="flex items-center gap-0.5">
                         <RefreshCw size={10} />{RECURRENCE_LABELS[chore.recurrence]}
                       </span>
                       {chore.week_schedule === 'alternating' && (
-                        <span className="flex items-center gap-0.5">
-                          <CalendarDays size={10} />Alt. weeks
+                        <span className="flex items-center gap-0.5 text-royal">
+                          <CalendarDays size={10} />alt. weeks
                         </span>
                       )}
                       {isParent && chore.assigned_to_name && (
@@ -335,24 +367,29 @@ export default function Chores() {
                     {isParent ? (
                       <div className="flex gap-1">
                         <button
+                          type="button"
                           onClick={() => { setEditingChore(chore); setShowForm(true); }}
-                          className="p-1.5 bg-forge-bg hover:bg-forge-muted rounded text-forge-text-dim hover:text-forge-text"
+                          aria-label="Edit ritual"
+                          className="p-1.5 bg-ink-page hover:bg-ink-page-shadow/70 rounded text-ink-secondary hover:text-ink-primary transition-colors"
                         >
                           <Pencil size={14} />
                         </button>
                         <button
+                          type="button"
                           onClick={() => setDeleteConfirm(chore.id)}
-                          className="p-1.5 bg-forge-bg hover:bg-red-500/30 rounded text-forge-text-dim hover:text-red-300"
+                          aria-label="Delete ritual"
+                          className="p-1.5 bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
                         >
                           <Trash2 size={14} />
                         </button>
                       </div>
                     ) : isDone ? (
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full border uppercase ${STATUS_COLORS[chore.today_status] || STATUS_COLORS.pending}`}>
+                      <RuneBadge tone={STATUS_TONE[chore.today_status] || 'ember'} size="sm">
                         {chore.today_status}
-                      </span>
+                      </RuneBadge>
                     ) : isRejected ? (
                       <button
+                        type="button"
                         onClick={() => handleComplete(chore.id)}
                         className={`flex items-center gap-1 px-3 py-1.5 text-xs ${buttonPrimary}`}
                       >
@@ -360,6 +397,7 @@ export default function Chores() {
                       </button>
                     ) : isAvailable ? (
                       <button
+                        type="button"
                         onClick={() => handleComplete(chore.id)}
                         className={`flex items-center gap-1 px-3 py-1.5 text-xs ${buttonPrimary}`}
                       >
@@ -367,36 +405,40 @@ export default function Chores() {
                       </button>
                     ) : null}
                   </div>
-                </Card>
+                </ParchmentCard>
               );
             })}
           </div>
         )}
-      </div>
+      </section>
 
       {/* Child: recent history */}
       {!isParent && completions.length > 0 && (
-        <div>
-          <h2 className="font-heading text-lg font-bold mb-3">Recent History</h2>
+        <section>
+          <h2 className="font-display text-xl text-ink-primary leading-tight mb-3">
+            Recent history
+          </h2>
           <div className="space-y-2">
             {completions.slice(0, 10).map((c) => (
-              <Card key={c.id} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <ParchmentCard key={c.id} className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
                   <span className="text-lg">{c.chore_icon || '📋'}</span>
-                  <div>
-                    <div className="text-sm font-medium">{c.chore_title}</div>
-                    <div className="text-xs text-forge-text-dim">
-                      {formatDate(c.completed_date)} — ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
+                  <div className="min-w-0">
+                    <div className="font-body text-sm font-medium text-ink-primary truncate">
+                      {c.chore_title}
+                    </div>
+                    <div className="font-script text-xs text-ink-whisper">
+                      {formatDate(c.completed_date)} · ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
                     </div>
                   </div>
                 </div>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full border uppercase ${STATUS_COLORS[c.status] || STATUS_COLORS.pending}`}>
+                <RuneBadge tone={STATUS_TONE[c.status] || 'ember'} size="sm">
                   {c.status}
-                </span>
-              </Card>
+                </RuneBadge>
+              </ParchmentCard>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {showForm && (
@@ -410,8 +452,8 @@ export default function Chores() {
 
       {deleteConfirm && (
         <ConfirmDialog
-          title="Delete Chore?"
-          message="This will also remove all completion history for this chore."
+          title="Delete ritual?"
+          message="This will also remove all completion history for this ritual."
           onConfirm={() => handleDelete(deleteConfirm)}
           onCancel={() => setDeleteConfirm(null)}
         />

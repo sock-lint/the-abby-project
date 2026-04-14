@@ -18,7 +18,7 @@ export default function ApprovalQueue({
   items, title, icon, emptyText, onApprove, onReject, children,
 }) {
   const header = (title || icon) && (
-    <h2 className="font-heading text-lg font-bold mb-3 flex items-center gap-2">
+    <h2 className="font-display text-lg font-bold mb-3 flex items-center gap-2">
       {icon}{title}
     </h2>
   );
@@ -28,7 +28,7 @@ export default function ApprovalQueue({
     return (
       <div>
         {header}
-        <p className="text-sm text-forge-text-dim">{emptyText}</p>
+        <p className="text-sm text-ink-whisper">{emptyText}</p>
       </div>
     );
   }
