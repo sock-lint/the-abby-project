@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     # Local apps
     "apps.projects",
     "apps.notifications",
+    "apps.ingestion",
     "apps.timecards",
     "apps.payments",
     "apps.achievements",

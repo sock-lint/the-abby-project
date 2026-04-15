@@ -117,7 +117,7 @@ def notification_to_dict(notification) -> dict[str, Any]:
 
 
 def ingestion_job_to_dict(job) -> dict[str, Any]:
-    from apps.projects.serializers import ProjectIngestionJobSerializer
+    from apps.ingestion.serializers import ProjectIngestionJobSerializer
 
     return to_plain(ProjectIngestionJobSerializer(job).data)
 

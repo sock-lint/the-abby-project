@@ -10,10 +10,10 @@ from typing import Any
 
 from django.db import transaction
 
+from apps.ingestion.models import ProjectIngestionJob
 from apps.projects.models import (
     MaterialItem,
     Project,
-    ProjectIngestionJob,
     ProjectMilestone,
     SkillCategory,
     User,
@@ -56,7 +56,7 @@ def submit_ingestion_job(params: SubmitIngestionJobIn) -> dict[str, Any]:
     )
 
     # Enqueue via Celery; fall back to inline execution if the broker is down.
-    from apps.projects.tasks import run_ingestion_job
+    from apps.ingestion.tasks import run_ingestion_job
 
     try:
         run_ingestion_job.delay(str(job.id))
@@ -102,8 +102,8 @@ def commit_ingestion_job(params: CommitIngestionJobIn) -> dict[str, Any]:
     ``committed``.
     """
     parent = require_parent()
-    from apps.projects.ingestion.base import IngestionResult
-    from apps.projects.ingestion.category import resolve_category_id
+    from apps.ingestion.pipeline.base import IngestionResult
+    from apps.ingestion.pipeline.category import resolve_category_id
 
     try:
         job = ProjectIngestionJob.objects.get(pk=params.job_id, created_by=parent)
