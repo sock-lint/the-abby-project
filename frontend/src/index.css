@@ -97,6 +97,12 @@ h1, h2, h3, h4 {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-ink-whisper);
 }
+/* The corner where vertical and horizontal scrollbars meet — defaults to
+   bright white in WebKit which read as an out-of-place notch inside
+   parchment-themed modals. Blend it into the surface instead. */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
 
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

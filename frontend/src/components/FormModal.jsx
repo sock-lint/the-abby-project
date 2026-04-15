@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ModalBackdrop from './modal/ModalBackdrop';
 import SealCloseButton from './modal/SealCloseButton';
@@ -19,7 +20,11 @@ export default function FormModal({
 }) {
   const widthClass = size === 'md' ? 'max-w-md' : 'max-w-lg';
   const scrollClass = scroll ? 'max-h-[85vh] overflow-y-auto' : '';
-  return (
+  // Portal to <body> so the modal escapes any ancestor that creates a
+  // containing block for fixed positioning (notably PageTurnTransition's
+  // motion.div, which transforms its children and would otherwise clip
+  // the backdrop to the main content area).
+  return createPortal(
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <ModalBackdrop onClick={onClose} zIndex="z-40" />
@@ -40,6 +45,7 @@ export default function FormModal({
           </div>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

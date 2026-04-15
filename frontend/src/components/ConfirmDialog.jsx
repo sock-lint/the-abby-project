@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ModalBackdrop from './modal/ModalBackdrop';
 import SealPulseRing from './modal/SealPulseRing';
@@ -12,7 +13,7 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }) {
-  return (
+  return createPortal(
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <ModalBackdrop onClick={onCancel} zIndex="z-40" />
@@ -59,6 +60,7 @@ export default function ConfirmDialog({
           </div>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

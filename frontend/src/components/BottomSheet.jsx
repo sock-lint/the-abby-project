@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ModalBackdrop from './modal/ModalBackdrop';
 import SealCloseButton from './modal/SealCloseButton';
@@ -29,7 +30,7 @@ function useIsDesktop() {
 export default function BottomSheet({ title, onClose, disabled, children }) {
   const isDesktop = useIsDesktop();
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <ModalBackdrop onClick={onClose} disabled={disabled} zIndex="z-40" />
       {isDesktop ? (
@@ -92,6 +93,7 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
