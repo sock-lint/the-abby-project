@@ -40,13 +40,28 @@ config/              Django project
   viewsets.py        RoleFilteredQuerySetMixin, NestedProjectResourceMixin,
                      get_child_or_404, child_not_found_response
 apps/
-  projects/          User (role=parent|child), Project (payment_kind), Milestone,
-                     Step (FK to Milestone), Resource (FK to Step),
-                     MaterialItem, Notification, ProjectTemplate (+ milestones,
-                     steps, materials), ProjectCollaborator, SavingsGoal,
-                     ProjectIngestionJob, Instructables scraper, AI suggestions,
-                     ingestion/ Scrapy-style Item Pipeline,
+  accounts/          User (role=parent|child, AUTH_USER_MODEL),
+                     CustomUserManager, UserAdmin. Table preserved as
+                     projects_user (state-only migration from projects).
+                     apps.projects.models re-exports User for back-compat
+                     so older `from apps.projects.models import User`
+                     call sites keep working.
+  projects/          Project (payment_kind), Milestone, Step (FK to
+                     Milestone), Resource (FK to Step), MaterialItem,
+                     ProjectTemplate (+ milestones, steps, materials),
+                     ProjectCollaborator, SavingsGoal, Instructables
+                     scraper shim, AI suggestions,
                      management/commands/seed_data.py
+  notifications/     Notification model + NotificationType TextChoices
+                     (promoted from nested), NotificationViewSet,
+                     notify() + notify_parents() helpers. Table preserved
+                     as projects_notification.
+  ingestion/         ProjectIngestionJob model + Scrapy-style pipeline
+                     package (base/detect/parse/normalize/markdown/
+                     enrich stages, plus per-source ingestors:
+                     instructables, generic_url, pdf). run_ingestion_job
+                     Celery task + ProjectIngestViewSet (/api/projects/
+                     ingest/). Depends on projects for Project FK.
   timecards/         TimeEntry (Active|Completed|Voided), Timecard,
                      ClockService, TimeEntryService, TimecardService,
                      Celery tasks, CSV export
@@ -55,10 +70,11 @@ apps/
                      chore_reward/coin_exchange),
                      PaymentService (extends BaseLedgerService),
                      Greenlight CSV import, PaymentAdjustmentView
-  achievements/      Subject → Skill → Badge models (17 criterion types incl.
-                     subjects_completed), SkillPrerequisite, SkillProgress,
-                     ProjectSkillTag, MilestoneSkillTag,
-                     SkillService, BadgeService
+  achievements/      SkillCategory → Subject → Skill → Badge (full
+                     skill-tree hierarchy, 17 criterion types incl.
+                     subjects_completed, quest_completed),
+                     SkillPrerequisite, SkillProgress, ProjectSkillTag,
+                     MilestoneSkillTag, SkillService, BadgeService.
   rewards/           CoinLedger, Reward, RewardRedemption, ExchangeRequest,
                      CoinService (extends BaseLedgerService), RewardService,
                      ExchangeService (money→coins with parent approval),
@@ -73,14 +89,16 @@ apps/
                      HomeworkSkillTag (XP distribution), HomeworkService,
                      AI-planned long-form homework via MCP create_project
   portfolio/         ProjectPhoto, ZIP export
+  habits/            Habit, HabitLog, HabitService, HabitViewSet,
+                     decay_habit_strength_task (Celery). Positive taps
+                     call apps.rpg.services.GameLoopService.on_task_completed.
   rpg/               CharacterProfile (level, streaks, cosmetic slots),
-                     Habit, HabitLog, ItemDefinition (9 item types, 5 rarities),
+                     ItemDefinition (9 item types, 5 rarities),
                      UserInventory, DropTable, DropLog,
-                     StreakService, HabitService, DropService, CosmeticService,
+                     StreakService, DropService, CosmeticService,
                      GameLoopService (central orchestrator hooked into
                      clock-out, chore approval, project/milestone signals,
-                     habit taps). Celery tasks: evaluate_perfect_day_task,
-                     decay_habit_strength_task.
+                     habit taps). Celery task: evaluate_perfect_day_task.
   pets/              PetSpecies (8 base creatures), PotionType (6 variants →
                      48 possible pets/mounts), UserPet (growth 0-100),
                      UserMount (evolved form), PetService (hatch, feed,
@@ -129,7 +147,7 @@ frontend/src/
 - **Single-origin frontend:** The multi-stage `Dockerfile` builds the React bundle with Node, copies `frontend/dist` into `/app/frontend_dist`, and `collectstatic` pulls it into `STATIC_ROOT` via `STATICFILES_DIRS`. `config/urls.py` ends with a `re_path(r"^.*$", spa_view)` catch-all that returns the built `index.html` for any non-API route — React Router handles the rest in the browser. `frontend/vite.config.js` sets `base: '/static/'` for build mode so bundled asset references resolve through WhiteNoise. The API client in `frontend/src/api/client.js` uses relative `/api` URLs. No `VITE_API_URL` env var in production; no separate frontend container.
 - **CSRF/proxy:** `SECURE_PROXY_SSL_HEADER`, `USE_X_FORWARDED_HOST=True`, and `CSRF_TRUSTED_ORIGINS` needed behind Traefik/Caddy.
 - **Sentry release automation:** `@sentry/vite-plugin` in `frontend/vite.config.js` uploads source maps to `logs.neato.digital` during the Dockerfile's frontend-build stage, then deletes `.map` files so they're never served. Conditional on `SENTRY_AUTH_TOKEN` — local builds skip it. CI passes the token + org + project as Docker build args (stage 1 only, not in final image). After deploy, CI `curl`s the Sentry API to associate commits and create a deployment record. Both backend (`SENTRY_RELEASE` in `.env`) and frontend (`VITE_SENTRY_RELEASE` build arg) share the same 8-char git SHA release tag.
-- **Ingestion pipeline** (`apps/projects/ingestion/`): Scrapy-style `Pipeline` of ordered `Stage`s assembled by `default_pipeline()` in `pipeline.py` and executed from `runner.py` (which `tasks.run_ingestion_job` calls). `detect.route_source` picks the per-source ingestor (`instructables.py`, `pdf.py`, `generic_url.py`) which becomes the `ParseStage`. Default stages: `ParseStage → NormalizeStage → MarkdownStage → EnrichStage`. `IngestionItem` (alias of `IngestionResult`) carries additive `raw_html`, `markdown`, `ai_suggestions`, `pipeline_warnings` fields — `result_json` shape is additive-only so the frontend poller is unchanged. Instructables scrapes cached in Redis 24h via `fetch_cached()`. Async job tracked in `ProjectIngestionJob` (UUID pk). Tests live in `apps/projects/tests/test_ingestion.py`.
+- **Ingestion pipeline** (`apps/ingestion/pipeline/`): Scrapy-style `Pipeline` of ordered `Stage`s assembled by `default_pipeline()` in `pipeline.py` and executed from `runner.py` (which `apps.ingestion.tasks.run_ingestion_job` calls). `detect.route_source` picks the per-source ingestor (`instructables.py`, `pdf.py`, `generic_url.py`) which becomes the `ParseStage`. Default stages: `ParseStage → NormalizeStage → MarkdownStage → EnrichStage`. `IngestionItem` (alias of `IngestionResult`) carries additive `raw_html`, `markdown`, `ai_suggestions`, `pipeline_warnings` fields — `result_json` shape is additive-only so the frontend poller is unchanged. Instructables scrapes cached in Redis 24h via `fetch_cached()`. Async job tracked in `apps.ingestion.models.ProjectIngestionJob` (UUID pk, db_table preserved as `projects_projectingestionjob`). Tests live in `apps/ingestion/tests/test_pipeline.py`.
 - **AI enrichment** (`ingestion/enrich.py`): `EnrichStage` is a no-op without `ANTHROPIC_API_KEY`. When set, calls Claude (`CLAUDE_MODEL`, default `claude-haiku-4-5-20251001`) with the item's markdown and writes `{category, difficulty, skill_tags, extra_materials, summary}` to `item.ai_suggestions`. Rendered as opt-in chips on the `ProjectIngest` preview — never mutates title/description/milestones/materials automatically. Markdown conversion (`ingestion/markdown.py`) prefers `crawl4ai`, falls back to `markdownify`, then synthesizes from title+description.
 - **Clock-in rules:** quiet hours 10pm–7am; max 8h single entry; auto clock-out via Celery every 30 min; >4h flagged for review. DB constraint: one active `TimeEntry` per user (partial unique index on `status="active"`). Entries support a `voided` status — parents can void a completed entry via `POST /api/time-entries/{id}/void/`.
 - **Weekly timecards** auto-generated Sunday 23:55 local via Celery Beat; weekly email summaries fire Sunday 08:00. Uses `project.hourly_rate_override` or `user.hourly_rate`. `TimecardService.approve_timecard(timecard, parent, notes)` is the single entry point for the approved-state transition. `Timecard` predates `ApprovalWorkflowModel` and still uses `approved_by`/`approved_at` field names, so the service inlines the audit stamp rather than using `finalize_decision` (renaming the fields would be a wide migration for no behavior change).
@@ -145,7 +163,7 @@ frontend/src/
 - **Chores** (`apps/chores/`): recurring household tasks with a submit-then-approve workflow. `Chore` defines the task (title, icon, `reward_amount`, `coin_reward`, recurrence `daily|weekly|one_time`). `ChoreCompletion` tracks each instance (status `pending|approved|rejected`, snapshots reward values at submission). **Shared-custody support:** `Chore.week_schedule` is `every_week` (default) or `alternating`; when alternating, `schedule_start_date` sets the reference "on" week and `ChoreService.is_active_this_week()` compares ISO week parity. Availability is computed on-the-fly — no pre-generated instances, no Celery. On approval, `ChoreService.approve_completion()` posts `PaymentLedger.EntryType.CHORE_REWARD` and `CoinLedger.Reason.CHORE_REWARD`. `ChoreCompletion.completed_date` is a `DateField` — for daily chores it equals today; for weekly it equals Monday of the week. A `UniqueConstraint` on `(chore, user, completed_date)` excluding rejected completions prevents duplicates. Routes: `/api/chores/` (CRUD + `complete` action), `/api/chore-completions/` (read-only + `approve`/`reject` actions). Frontend page: `/chores`. MCP tools: `list_chores`, `get_chore`, `create_chore`, `update_chore`, `complete_chore`, `list_chore_completions`, `approve_chore_completion`, `reject_chore_completion`.
 - **Homework** (`apps/homework/`): one-off homework assignments with a submit-then-approve workflow requiring proof image uploads. Both parents and children can create assignments (child-created auto-assigns to self). Rewards are effort-scaled (`HOMEWORK_EFFORT_MULTIPLIERS`, 1-5 levels mapping to 0.5x-2.0x) with timeliness bonuses (`HOMEWORK_EARLY_BONUS` 1.25x for early, `HOMEWORK_LATE_PENALTY` 0.5x for late, zero beyond `HOMEWORK_LATE_CUTOFF_DAYS`). Rewards are computed and snapshotted at submission time. `HomeworkSkillTag` awards XP on approval, triggering badge evaluation. `HomeworkTemplate` stores reusable assignment configs with skill tags as JSON. **AI-planned long-form homework:** `HomeworkAssignment.project` (nullable FK to `Project`) links to a full project generated via Claude + MCP `create_project` tool use for complex multi-step assignments. `POST /api/homework/{id}/plan/` triggers AI planning. Routes: `/api/homework/` (CRUD + `submit` + `save-template` + `plan`), `/api/homework-submissions/` (read-only + `approve`/`reject`), `/api/homework-templates/` (CRUD + `create-assignment`), `/api/homework/dashboard/`. Frontend page: `/homework`. Portfolio integration: approved homework proofs appear alongside project photos with filter tabs. MCP tools: `list_homework`, `get_homework`, `create_homework`, `submit_homework`, `list_homework_submissions`, `approve_homework_submission`, `reject_homework_submission`.
 - **RPG game loop** (`apps/rpg/services.py`): `GameLoopService.on_task_completed(user, trigger_type, context)` is the single orchestrator called from all existing flows — clock-out (`apps/timecards/services.py`), chore approval (`apps/chores/services.py`), project/milestone completion signals (`apps/projects/signals.py`), and habit taps (`apps/rpg/views.py`). Pipeline: (1) `StreakService.record_activity` updates `CharacterProfile.login_streak`, first-of-day action awards streak-scaled check-in coins (`3 × min(1 + streak × 0.07, 2.0)`) via `CoinLedger.Reason.ADJUSTMENT`; (2) `DropService.process_drops` rolls against `BASE_DROP_RATES[trigger_type]` + streak bonus (`min(streak × 0.05, 0.50)`); (3) `QuestService.record_progress` applies damage/collection if the user has an active quest and the trigger matches the quest's `trigger_filter`. Returns `{trigger_type, streak, drops, quest, notifications}` — failures in quest progress are logged but never break the parent flow (wrapped in `try/except`).
-- **Streaks & daily engagement** (`apps/rpg/`): `CharacterProfile` auto-created per user via `post_save` signal on `projects.User` (see `apps/rpg/signals.py`). `login_streak` resets to 1 on a gap > 1 day, increments on consecutive days, and is tracked alongside `longest_login_streak`. Milestone notifications fire at streaks of 3, 7, 14, 30, 60, 100 (`NotificationType.STREAK_MILESTONE`). **Perfect Day:** `evaluate_perfect_day_task` (Celery, 23:55 local) awards `perfect_days_count += 1` and 15 bonus coins to any child who was active today AND completed every daily chore. Gentle-nudge design: missed days dim the streak flame visually and reset the multiplier, but NEVER destroy earned coins/XP/items.
+- **Streaks & daily engagement** (`apps/rpg/`): `CharacterProfile` auto-created per user via `post_save` signal on `accounts.User` (see `apps/rpg/signals.py`). `login_streak` resets to 1 on a gap > 1 day, increments on consecutive days, and is tracked alongside `longest_login_streak`. Milestone notifications fire at streaks of 3, 7, 14, 30, 60, 100 (`NotificationType.STREAK_MILESTONE`). **Perfect Day:** `evaluate_perfect_day_task` (Celery, 23:55 local) awards `perfect_days_count += 1` and 15 bonus coins to any child who was active today AND completed every daily chore. Gentle-nudge design: missed days dim the streak flame visually and reset the multiplier, but NEVER destroy earned coins/XP/items.
 - **Habits** (`apps/rpg/`): Micro-behaviors distinct from chores — no parent approval, multiple taps/day allowed, no dollar rewards. `Habit.habit_type` is `positive`/`negative`/`both` — positive rejects `-1` taps, negative rejects `+1`. Each tap creates a `HabitLog` with `streak_at_time` snapshot. `strength` increments with `+1`, decrements with `-1`; the `decay_habit_strength_task` (Celery, 00:05 local) decays untapped habits by 1 toward 0. `HabitSerializer` exposes a computed `color` field (red-dark → red-light → yellow → green-light → green → blue) based on strength. Positive taps trigger `GameLoopService.on_task_completed(user, "habit_log", {"habit_id": ...})`. Both parents and children can create habits for themselves; parents can create for any child and are the only ones who can edit/delete.
 - **Drops & inventory** (`apps/rpg/`): `ItemDefinition` is the master catalog (9 item types: egg, potion, food, cosmetic_frame, cosmetic_title, cosmetic_theme, cosmetic_pet_accessory, quest_scroll, coin_pouch; 5 rarities). Cross-entity references are typed: `ItemDefinition.pet_species` FK (eggs → `PetSpecies`), `ItemDefinition.potion_type` FK (potions → `PotionType`), `ItemDefinition.food_species` FK (food → preferred `PetSpecies`). `metadata` JSONField stays for genuinely free-form per-type fields (border colors, title text, coin-pouch counts). `DropTable` maps trigger → item → weight with `min_level` gating. `DropService.process_drops` rolls `random.random()` against effective rate, weighted-selects from eligible rows, handles **cosmetic salvage** (already-owned cosmetics auto-convert to coins via `item.coin_value`), increments `UserInventory.quantity`, and logs to `DropLog`. Frontend `useDropToasts` polls `/api/drops/recent/` every 20s and emits rarity-colored toast celebrations via `DropToastStack` (mounted globally in Layout).
 - **Pets & mounts** (`apps/pets/`): Lifecycle is **Egg + Potion → Pet → Mount**. `PetService.hatch_pet` consumes one egg item and one potion item from `UserInventory`, reads `egg.pet_species` and `potion.potion_type` FKs (falls back to the legacy `metadata["species"]`/`["variant"]` strings for unmigrated rows), enforces one pet per `(user, species, potion)` combo, and creates a `UserPet` with `growth_points=0`. `PetSpecies.available_potions` M2M declares which species × potion combos are valid (defaults to all potions when unspecified in a content pack). `PetService.feed_pet` consumes a food item and adds growth — +15 if `food.food_species == pet.species` (preferred, FK-driven), +5 otherwise (neutral). At `growth_points >= 100`, the pet auto-evolves: `UserPet.evolved_to_mount=True` and a matching `UserMount` row is created (the original pet is retained in the stable). Only one `UserPet` and one `UserMount` can be `is_active=True` per user at a time — `set_active_pet`/`set_active_mount` deactivate any current one in the same transaction. Dashboard displays the active pet with a growth bar.
@@ -177,7 +195,7 @@ frontend/src/
 - `HOMEWORK_ON_TIME_MULTIPLIER` (default `1.0`) — multiplier for same-day submission.
 - `HOMEWORK_LATE_PENALTY` (default `0.5`) — multiplier for late submission.
 - `HOMEWORK_LATE_CUTOFF_DAYS` (default `3`) — beyond this many days late, rewards are zero.
-- `CELERY_BEAT_SCHEDULE`: `auto-clock-out` every 30 min; `weekly-timecards` Sun 23:55; `weekly-email-summaries` Sun 08:00; `daily-reminders` 07:00; `rpg-perfect-day` 23:55 (evaluate perfect days); `rpg-habit-decay` 00:05 (decay untapped habits); `quest-expire` 00:10 (mark expired quests); `quest-boss-rage` 00:15 (add rage shield to idle boss quests).
+- `CELERY_BEAT_SCHEDULE`: `auto-clock-out` every 30 min; `weekly-timecards` Sun 23:55; `weekly-email-summaries` Sun 08:00; `daily-reminders` 07:00; `rpg-perfect-day` 23:55 (evaluate perfect days); `habit-decay` 00:05 (decay untapped habits, `apps.habits.tasks.decay_habit_strength_task`); `quest-expire` 00:10 (mark expired quests); `quest-boss-rage` 00:15 (add rage shield to idle boss quests).
 
 ### RPG tunables (hardcoded constants in `apps/rpg/services.py`)
 These are intentionally NOT in settings — they're game-design constants, not deploy-time config.
@@ -200,8 +218,8 @@ These are intentionally NOT in settings — they're game-design constants, not d
 - `manage.py`, `config/wsgi.py`, `config/urls.py`, `config/celery.py`, `config/settings.py`
 - `frontend/src/main.jsx`, `frontend/src/App.jsx`, `frontend/vite.config.js`
 - Seed: `apps/projects/management/commands/seed_data.py` (sample users/projects/chores/habits); RPG catalog comes from `content/rpg/initial/*.yaml` via `apps/rpg/management/commands/loadrpgcontent.py` + `apps/rpg/content/loader.py`.
-- Ingestion: `apps/projects/ingestion/pipeline.py`, `runner.py`, `tasks.py`
+- Ingestion: `apps/ingestion/pipeline/pipeline.py`, `runner.py`, `apps/ingestion/tasks.py`
 - Signals: `apps/projects/signals.py` (project completion → ledger + coin hooks + RPG game loop)
 - RPG orchestrator: `apps/rpg/services.py` — `GameLoopService.on_task_completed` is the single entry point called from clock-out, chore approval, project/milestone signals, and habit taps. Extend by adding a new step to this method.
-- RPG character auto-creation: `apps/rpg/signals.py` — `post_save` on `projects.User` creates `CharacterProfile`.
+- RPG character auto-creation: `apps/rpg/signals.py` — `post_save` on `accounts.User` creates `CharacterProfile`.
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`; phase plans under `docs/superpowers/plans/`.
