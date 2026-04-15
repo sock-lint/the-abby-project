@@ -22,7 +22,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("projects", "0012_alter_notification_notification_type"),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [

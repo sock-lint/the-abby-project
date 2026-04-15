@@ -12,7 +12,6 @@ class Migration(migrations.Migration):
     dependencies = [
         ("payments", "0001_initial"),
         ("timecards", "0001_initial"),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [

@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("rpg", "0002_habit_habitlog"),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ("projects", "0001_initial"),
     ]
 
     operations = [

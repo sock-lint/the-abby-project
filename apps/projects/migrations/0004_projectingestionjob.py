@@ -9,7 +9,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("projects", "0003_user_theme_projecttemplate_savingsgoal_and_more"),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [

@@ -13,7 +13,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('rewards', '0002_alter_coinledger_reason_exchangerequest'),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [

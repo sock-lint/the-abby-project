@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ('achievements', '0003_alter_subject_id'),
         ('rpg', '0003_itemdefinition_droptable_droplog_userinventory'),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ("projects", "0001_initial"),
     ]
 
     operations = [
