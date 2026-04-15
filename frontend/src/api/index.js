@@ -127,6 +127,11 @@ export const recordPayout = (user_id, amount) =>
 export const adjustPayment = (user_id, amount, description = '') =>
   api.post('/payments/adjust/', { user_id, amount, description });
 
+// RPG Codex — parent-only catalog of YAML-authored content
+export const getItemCatalog = () => api.get('/items/catalog/');
+export const getPetSpeciesCatalog = () => api.get('/pets/species/catalog/');
+export const getQuestCatalog = () => api.get('/quests/catalog/');
+
 // Achievements
 export const getBadges = () => api.get('/badges/');
 export const createBadge = (data) => api.post('/badges/', data);

@@ -1,17 +1,19 @@
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
 from config.viewsets import WriteReadSerializerMixin
 
-from .models import CharacterProfile, Habit, HabitLog, UserInventory, DropLog
+from .models import CharacterProfile, Habit, HabitLog, ItemDefinition, UserInventory, DropLog
 from .serializers import (
     CharacterProfileSerializer,
     HabitLogSerializer,
     HabitSerializer,
     HabitWriteSerializer,
+    ItemDefinitionSerializer,
     UserInventorySerializer,
     DropLogSerializer,
 )
@@ -146,6 +148,18 @@ class EquipCosmeticView(APIView):
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(result)
+
+
+class ItemCatalogView(ListAPIView):
+    """GET /api/items/catalog/ — parent-only browse of every authored ItemDefinition."""
+    permission_classes = [permissions.IsAuthenticated, IsParent]
+    serializer_class = ItemDefinitionSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return ItemDefinition.objects.select_related(
+            "pet_species", "potion_type", "food_species",
+        ).order_by("item_type", "rarity", "name")
 
 
 class UnequipCosmeticView(APIView):

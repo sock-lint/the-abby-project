@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import {
-  Users, BookTemplate, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink,
+  Users, BookTemplate, BookOpen, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink,
 } from 'lucide-react';
 import {
   getChildren, updateChild,
   getTemplates, updateTemplate, deleteTemplate, createProjectFromTemplate,
   getCategories, getGoogleAuthUrl, unlinkGoogleAccount,
 } from '../api';
+import CodexSection from './manage/CodexSection';
 import { useApi } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
 import BottomSheet from '../components/BottomSheet';
@@ -21,7 +22,13 @@ import Loader from '../components/Loader';
 import { buttonPrimary, buttonSecondary, inputClass } from '../constants/styles';
 import { normalizeList } from '../utils/api';
 
-const tabs = ['Children', 'Templates'];
+const tabs = ['Children', 'Templates', 'Codex'];
+
+const TAB_ICONS = {
+  Children: Users,
+  Templates: BookTemplate,
+  Codex: BookOpen,
+};
 
 export default function Manage() {
   const [activeTab, setActiveTab] = useState('Children');
@@ -38,25 +45,29 @@ export default function Manage() {
       </header>
 
       <div className="flex gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow">
-        {tabs.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 rounded-md font-display text-sm transition-colors flex items-center justify-center gap-2 ${
-              activeTab === tab
-                ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
-                : 'text-ink-secondary hover:text-ink-primary'
-            }`}
-          >
-            {tab === 'Children' ? <Users size={16} /> : <BookTemplate size={16} />}
-            {tab}
-          </button>
-        ))}
+        {tabs.map((tab) => {
+          const Icon = TAB_ICONS[tab];
+          return (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-2 rounded-md font-display text-sm transition-colors flex items-center justify-center gap-2 ${
+                activeTab === tab
+                  ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
+                  : 'text-ink-secondary hover:text-ink-primary'
+              }`}
+            >
+              {Icon && <Icon size={16} />}
+              {tab}
+            </button>
+          );
+        })}
       </div>
 
       {activeTab === 'Children' && <ChildrenSection />}
       {activeTab === 'Templates' && <TemplatesSection />}
+      {activeTab === 'Codex' && <CodexSection />}
     </div>
   );
 }

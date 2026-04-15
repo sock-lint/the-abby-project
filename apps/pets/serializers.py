@@ -16,6 +16,27 @@ class PotionTypeSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class PotionTypeMiniSerializer(serializers.ModelSerializer):
+    """Compact potion info for the species catalog BottomSheet."""
+    class Meta:
+        model = PotionType
+        fields = ["id", "name", "color_hex", "rarity"]
+        read_only_fields = fields
+
+
+class PetSpeciesCatalogSerializer(serializers.ModelSerializer):
+    """Parent-only catalog view — includes compatible potion list."""
+    available_potions = PotionTypeMiniSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = PetSpecies
+        fields = [
+            "id", "name", "icon", "sprite_key", "description", "food_preference",
+            "available_potions",
+        ]
+        read_only_fields = fields
+
+
 class UserPetSerializer(serializers.ModelSerializer):
     species = PetSpeciesSerializer(read_only=True)
     potion = PotionTypeSerializer(read_only=True)

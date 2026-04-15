@@ -1,4 +1,5 @@
 from rest_framework import permissions, status
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -91,6 +92,18 @@ class CreateQuestView(APIView):
                 return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(QuestDefinitionSerializer(definition).data, status=status.HTTP_201_CREATED)
+
+
+class QuestCatalogView(ListAPIView):
+    """GET /api/quests/catalog/ — parent-only browse of every authored QuestDefinition."""
+    permission_classes = [permissions.IsAuthenticated, IsParent]
+    serializer_class = QuestDefinitionSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return QuestDefinition.objects.prefetch_related(
+            "reward_items", "reward_items__item",
+        ).order_by("quest_type", "name")
 
 
 class AssignQuestView(APIView):

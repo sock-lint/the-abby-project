@@ -1,9 +1,16 @@
 from rest_framework import permissions, status
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import UserPet, UserMount
-from .serializers import UserPetSerializer, UserMountSerializer
+from config.permissions import IsParent
+
+from .models import PetSpecies, UserPet, UserMount
+from .serializers import (
+    PetSpeciesCatalogSerializer,
+    UserMountSerializer,
+    UserPetSerializer,
+)
 from .services import PetService
 
 
@@ -80,6 +87,16 @@ class MountsView(APIView):
             user=request.user,
         ).select_related("species", "potion")
         return Response(UserMountSerializer(mounts, many=True).data)
+
+
+class PetSpeciesCatalogView(ListAPIView):
+    """GET /api/pets/species/catalog/ — parent-only browse of every authored PetSpecies."""
+    permission_classes = [permissions.IsAuthenticated, IsParent]
+    serializer_class = PetSpeciesCatalogSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return PetSpecies.objects.prefetch_related("available_potions").order_by("name")
 
 
 class ActivateMountView(APIView):

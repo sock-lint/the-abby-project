@@ -141,12 +141,16 @@ class HabitLogSerializer(serializers.ModelSerializer):
 class ItemDefinitionSerializer(serializers.ModelSerializer):
     rarity_display = serializers.CharField(source="get_rarity_display", read_only=True)
     type_display = serializers.CharField(source="get_item_type_display", read_only=True)
+    pet_species_name = serializers.CharField(source="pet_species.name", read_only=True, default=None)
+    potion_type_name = serializers.CharField(source="potion_type.name", read_only=True, default=None)
+    food_species_name = serializers.CharField(source="food_species.name", read_only=True, default=None)
 
     class Meta:
         model = ItemDefinition
         fields = [
             "id", "name", "description", "icon", "sprite_key", "item_type", "type_display",
             "rarity", "rarity_display", "coin_value", "metadata",
+            "pet_species_name", "potion_type_name", "food_species_name",
         ]
         read_only_fields = fields
 
