@@ -7,7 +7,8 @@ from rest_framework.test import APIClient
 from apps.achievements.models import (
     Badge, Skill, SkillProgress, Subject, UserBadge,
 )
-from apps.projects.models import SkillCategory, User
+from apps.achievements.models import SkillCategory
+from apps.projects.models import User
 
 
 class _Fixture(TestCase):

@@ -123,7 +123,7 @@ def ingestion_job_to_dict(job) -> dict[str, Any]:
 
 
 def skill_category_to_dict(category) -> dict[str, Any]:
-    from apps.projects.serializers import SkillCategorySerializer
+    from apps.achievements.serializers import SkillCategorySerializer
 
     return to_plain(SkillCategorySerializer(category).data)
 

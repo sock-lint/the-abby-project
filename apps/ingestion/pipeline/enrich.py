@@ -91,7 +91,7 @@ class EnrichStage:
             return item
 
         # Keep this import local so the pipeline module stays Django-agnostic.
-        from apps.projects.models import SkillCategory
+        from apps.achievements.models import SkillCategory
         categories = list(SkillCategory.objects.values_list("name", flat=True))
 
         try:

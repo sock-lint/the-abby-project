@@ -12,8 +12,8 @@ def get_project_suggestions(user):
     Returns a list of suggestion dicts if the API key is available, otherwise returns
     curated fallback suggestions.
     """
-    from apps.achievements.models import SkillProgress
-    from apps.projects.models import Project, SkillCategory
+    from apps.achievements.models import SkillCategory, SkillProgress
+    from apps.projects.models import Project
 
     # Build user context
     completed = list(

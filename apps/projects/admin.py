@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 from .models import (
     MaterialItem, Project, ProjectCollaborator, ProjectMilestone,
-    ProjectTemplate, SavingsGoal, SkillCategory, TemplateMaterial,
+    ProjectTemplate, SavingsGoal, TemplateMaterial,
     TemplateMilestone, User,
 )
 
@@ -18,12 +18,6 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
         ("The Abby Project", {"fields": ("role", "hourly_rate", "display_name")}),
     )
-
-
-@admin.register(SkillCategory)
-class SkillCategoryAdmin(admin.ModelAdmin):
-    list_display = ["name", "icon", "color"]
-    search_fields = ["name"]
 
 
 class ProjectMilestoneInline(admin.TabularInline):

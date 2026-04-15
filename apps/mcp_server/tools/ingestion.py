@@ -15,9 +15,9 @@ from apps.projects.models import (
     MaterialItem,
     Project,
     ProjectMilestone,
-    SkillCategory,
     User,
 )
+from apps.achievements.models import SkillCategory
 
 from ..context import require_parent
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool

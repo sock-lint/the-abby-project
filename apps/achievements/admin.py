@@ -1,9 +1,15 @@
 from django.contrib import admin
 
 from .models import (
-    Badge, MilestoneSkillTag, ProjectSkillTag, Skill,
+    Badge, MilestoneSkillTag, ProjectSkillTag, Skill, SkillCategory,
     SkillPrerequisite, SkillProgress, Subject, UserBadge,
 )
+
+
+@admin.register(SkillCategory)
+class SkillCategoryAdmin(admin.ModelAdmin):
+    list_display = ["name", "icon", "color"]
+    search_fields = ["name"]
 
 
 @admin.register(Subject)

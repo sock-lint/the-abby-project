@@ -11,9 +11,10 @@ from apps.ingestion.pipeline.base import IngestionResult
 from apps.ingestion.pipeline.category import guess_category
 from apps.ingestion.pipeline.generic_url import GenericUrlIngestor
 from apps.ingestion.pipeline.instructables import InstructablesIngestor
+from apps.achievements.models import SkillCategory
 from apps.projects.models import (
     MaterialItem, Project, ProjectMilestone,
-    ProjectResource, ProjectStep, SkillCategory, User,
+    ProjectResource, ProjectStep, User,
 )
 
 

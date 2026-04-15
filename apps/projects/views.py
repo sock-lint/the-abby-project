@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 from .models import (
     MaterialItem, Project, ProjectCollaborator,
     ProjectMilestone, ProjectResource, ProjectStep, ProjectTemplate, SavingsGoal,
-    SkillCategory, TemplateMaterial, TemplateMilestone, TemplateResource,
+    TemplateMaterial, TemplateMilestone, TemplateResource,
     TemplateStep, User,
 )
 from .serializers import (
@@ -27,7 +27,7 @@ from .serializers import (
     ProjectCollaboratorSerializer, ProjectDetailSerializer,
     ProjectListSerializer,
     ProjectMilestoneSerializer, ProjectResourceSerializer, ProjectStepSerializer,
-    ProjectTemplateSerializer, SavingsGoalSerializer, SkillCategorySerializer,
+    ProjectTemplateSerializer, SavingsGoalSerializer,
     UserSerializer,
 )
 
@@ -213,11 +213,6 @@ class DashboardView(APIView):
             "pending_chore_approvals": pending_chore_approvals,
             "rpg": rpg_data,
         })
-
-
-class SkillCategoryViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
-    queryset = SkillCategory.objects.all()
-    serializer_class = SkillCategorySerializer
 
 
 class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):

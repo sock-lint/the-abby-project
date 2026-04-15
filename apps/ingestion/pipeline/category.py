@@ -43,7 +43,7 @@ def resolve_category_id(name: str | None) -> int | None:
     if not name:
         return None
     # Imported lazily to avoid app-registry issues at import time.
-    from apps.projects.models import SkillCategory
+    from apps.achievements.models import SkillCategory
 
     match = SkillCategory.objects.filter(name__iexact=name).first()
     return match.id if match else None

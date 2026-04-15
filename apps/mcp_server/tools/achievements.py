@@ -14,7 +14,8 @@ from apps.achievements.models import (
     UserBadge,
 )
 from apps.achievements.services import SkillService
-from apps.projects.models import SkillCategory, User
+from apps.achievements.models import SkillCategory
+from apps.projects.models import User
 
 from ..context import get_current_user, require_parent
 from ..errors import (

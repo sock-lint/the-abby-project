@@ -2,10 +2,13 @@ import logging
 
 from rest_framework import serializers
 
+from apps.achievements.models import SkillCategory
+from apps.achievements.serializers import SkillCategorySerializer
+
 from .models import (
     MaterialItem, Project, ProjectCollaborator,
     ProjectMilestone, ProjectResource, ProjectStep, ProjectTemplate, SavingsGoal,
-    SkillCategory, TemplateMaterial, TemplateMilestone, TemplateResource, TemplateStep,
+    TemplateMaterial, TemplateMilestone, TemplateResource, TemplateStep,
     User,
 )
 
@@ -47,12 +50,6 @@ class ChildSerializer(serializers.ModelSerializer):
         except Exception:
             logger.debug("google_linked check failed for user %s", obj.pk, exc_info=True)
             return False
-
-
-class SkillCategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SkillCategory
-        fields = ["id", "name", "icon", "color", "description"]
 
 
 class ProjectMilestoneSerializer(serializers.ModelSerializer):

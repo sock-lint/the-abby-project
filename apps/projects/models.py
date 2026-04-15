@@ -46,20 +46,6 @@ class User(AbstractUser):
         return self.display_label
 
 
-class SkillCategory(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    icon = models.CharField(max_length=50, blank=True)
-    color = models.CharField(max_length=7, default="#D97706")
-    description = models.TextField(blank=True)
-
-    class Meta:
-        verbose_name_plural = "skill categories"
-        ordering = ["name"]
-
-    def __str__(self):
-        return f"{self.icon} {self.name}"
-
-
 class Project(TimestampedModel):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
@@ -81,7 +67,7 @@ class Project(TimestampedModel):
         choices=[(i, str(i)) for i in range(1, 6)], default=1
     )
     category = models.ForeignKey(
-        SkillCategory, on_delete=models.SET_NULL, null=True, blank=True,
+        "achievements.SkillCategory", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="projects",
     )
     status = models.CharField(
@@ -249,7 +235,7 @@ class ProjectTemplate(CreatedAtModel):
         choices=[(i, str(i)) for i in range(1, 6)], default=1
     )
     category = models.ForeignKey(
-        SkillCategory, on_delete=models.SET_NULL, null=True, blank=True,
+        "achievements.SkillCategory", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="templates",
     )
     bonus_amount = models.DecimalField(

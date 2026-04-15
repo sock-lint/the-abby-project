@@ -2,16 +2,20 @@ from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.projects.models import SkillCategory
 from config.viewsets import ParentWritePermissionMixin, WriteReadSerializerMixin
 
-from .models import Badge, Skill, SkillProgress, Subject, UserBadge
+from .models import Badge, Skill, SkillCategory, SkillProgress, Subject, UserBadge
 from .serializers import (
-    BadgeSerializer, BadgeWriteSerializer, SkillProgressSerializer,
-    SkillSerializer, SkillWriteSerializer, SubjectSerializer,
-    SubjectWriteSerializer, UserBadgeSerializer,
+    BadgeSerializer, BadgeWriteSerializer, SkillCategorySerializer,
+    SkillProgressSerializer, SkillSerializer, SkillWriteSerializer,
+    SubjectSerializer, SubjectWriteSerializer, UserBadgeSerializer,
 )
 from .services import SkillService
+
+
+class SkillCategoryViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
+    queryset = SkillCategory.objects.all()
+    serializer_class = SkillCategorySerializer
 
 
 class BadgeViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewsets.ModelViewSet):

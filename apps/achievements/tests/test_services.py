@@ -17,7 +17,8 @@ from apps.achievements.models import (
     UserBadge,
 )
 from apps.achievements.services import BadgeService, SkillService
-from apps.projects.models import Project, ProjectMilestone, SkillCategory, User
+from apps.achievements.models import SkillCategory
+from apps.projects.models import Project, ProjectMilestone, User
 
 
 class _Fixture(TestCase):

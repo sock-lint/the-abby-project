@@ -28,7 +28,8 @@ from apps.mcp_server.schemas import (
     UpdateSubjectIn,
 )
 from apps.mcp_server.tools import achievements as ach
-from apps.projects.models import SkillCategory, User
+from apps.achievements.models import SkillCategory
+from apps.projects.models import User
 
 
 class _Base(TestCase):

@@ -17,13 +17,13 @@ from apps.projects.models import (
     ProjectResource,
     ProjectStep,
     ProjectTemplate,
-    SkillCategory,
     TemplateMaterial,
     TemplateMilestone,
     TemplateResource,
     TemplateStep,
     User,
 )
+from apps.achievements.models import SkillCategory
 
 from ..context import get_current_user, require_parent
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool

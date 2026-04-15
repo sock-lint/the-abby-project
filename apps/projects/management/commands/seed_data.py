@@ -110,7 +110,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Seeding complete!"))
 
     def _resolve_categories(self):
-        from apps.projects.models import SkillCategory
+        from apps.achievements.models import SkillCategory
         return {c.name: c for c in SkillCategory.objects.all()}
 
     def _resolve_skill_map(self):
