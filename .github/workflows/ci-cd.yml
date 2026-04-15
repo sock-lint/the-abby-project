@@ -94,6 +94,12 @@ jobs:
             exit 1
           }
 
+          echo "=== Loading RPG content ==="
+          ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} docker compose run --rm django python manage.py loadrpgcontent" || {
+            echo "::error::RPG content load failed — aborting"
+            exit 1
+          }
+
           echo "=== Setting Sentry release ==="
           ${SSH} ${TARGET} "cd ${DIR} && grep -q '^SENTRY_RELEASE=' .env 2>/dev/null && sed -i 's/^SENTRY_RELEASE=.*/SENTRY_RELEASE=${TAG}/' .env || echo 'SENTRY_RELEASE=${TAG}' >> .env" || true
 
