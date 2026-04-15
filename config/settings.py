@@ -35,8 +35,11 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "django_celery_beat",
-    # Local apps
+    # Local apps — accounts first (owns AUTH_USER_MODEL)
+    "apps.accounts",
     "apps.projects",
+    "apps.notifications",
+    "apps.ingestion",
     "apps.timecards",
     "apps.payments",
     "apps.achievements",
@@ -47,6 +50,7 @@ INSTALLED_APPS = [
     "apps.mcp_server",
     "apps.google_integration",
     "apps.rpg",
+    "apps.habits",
     "apps.pets",
     "apps.quests",
 ]
@@ -257,7 +261,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Custom user model
 
-AUTH_USER_MODEL = "projects.User"
+AUTH_USER_MODEL = "accounts.User"
 
 # Django REST Framework
 
@@ -332,8 +336,8 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.rpg.tasks.evaluate_perfect_day_task",
         "schedule": crontab(hour=23, minute=55),
     },
-    "rpg-habit-decay": {
-        "task": "apps.rpg.tasks.decay_habit_strength_task",
+    "habit-decay": {
+        "task": "apps.habits.tasks.decay_habit_strength_task",
         "schedule": crontab(hour=0, minute=5),
     },
     "quest-expire": {

@@ -4,7 +4,8 @@ from decimal import Decimal, InvalidOperation
 from django.conf import settings as django_settings
 from django.db import transaction
 
-from apps.projects.notifications import get_display_name, notify, notify_parents
+from apps.notifications.models import NotificationType
+from apps.notifications.services import get_display_name, notify, notify_parents
 from config.services import BaseLedgerService, finalize_decision
 
 from .models import CoinLedger, ExchangeRequest, Reward, RewardRedemption
@@ -100,12 +101,11 @@ class RewardService:
             # Auto-fulfill: no parent decision, so decided_by stays null.
             finalize_decision(redemption, RewardRedemption.Status.FULFILLED, None)
         else:
-            from apps.projects.models import Notification
             display = get_display_name(user)
             notify_parents(
                 title=f"Reward request: {reward.name}",
                 message=f"{display} wants to redeem {reward.name} for {reward.cost_coins} coins.",
-                notification_type=Notification.NotificationType.REDEMPTION_REQUESTED,
+                notification_type=NotificationType.REDEMPTION_REQUESTED,
                 link="/rewards",
             )
         return redemption
@@ -209,12 +209,11 @@ class ExchangeService:
             exchange_rate=rate,
         )
 
-        from apps.projects.models import Notification
         display = get_display_name(user)
         notify_parents(
             title=f"Exchange request: ${dollar_amount}",
             message=f"{display} wants to exchange ${dollar_amount} for {coin_amount} coins.",
-            notification_type=Notification.NotificationType.EXCHANGE_REQUESTED,
+            notification_type=NotificationType.EXCHANGE_REQUESTED,
             link="/rewards",
         )
 
@@ -258,12 +257,11 @@ class ExchangeService:
         finalize_decision(exchange, ExchangeRequest.Status.APPROVED, parent, notes)
         logger.info("Exchange approved: user=%s $%s -> %d coins", user, dollar_amount, coin_amount)
 
-        from apps.projects.models import Notification
         notify(
             user,
             title="Exchange approved!",
             message=f"Your exchange of ${dollar_amount} for {coin_amount} coins was approved.",
-            notification_type=Notification.NotificationType.EXCHANGE_APPROVED,
+            notification_type=NotificationType.EXCHANGE_APPROVED,
             link="/rewards",
         )
 
@@ -283,7 +281,6 @@ class ExchangeService:
 
         finalize_decision(exchange, ExchangeRequest.Status.DENIED, parent, notes)
 
-        from apps.projects.models import Notification
         msg = f"Your exchange of ${exchange.dollar_amount} was denied."
         if notes:
             msg += f" Note: {notes}"
@@ -291,7 +288,7 @@ class ExchangeService:
             exchange.user,
             title="Exchange denied",
             message=msg,
-            notification_type=Notification.NotificationType.EXCHANGE_DENIED,
+            notification_type=NotificationType.EXCHANGE_DENIED,
             link="/rewards",
         )
 

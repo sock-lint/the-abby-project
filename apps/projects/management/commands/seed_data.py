@@ -110,7 +110,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Seeding complete!"))
 
     def _resolve_categories(self):
-        from apps.projects.models import SkillCategory
+        from apps.achievements.models import SkillCategory
         return {c.name: c for c in SkillCategory.objects.all()}
 
     def _resolve_skill_map(self):
@@ -349,8 +349,9 @@ class Command(BaseCommand):
             self.stdout.write("  Created homework template: Weekly Reading Assignment")
 
     def _create_sample_habits(self):
-        from apps.rpg.models import CharacterProfile, Habit
+        from apps.habits.models import Habit
         from apps.projects.models import User
+        from apps.rpg.models import CharacterProfile
 
         parent = User.objects.filter(role="parent").first()
         child = User.objects.filter(role="child").first()

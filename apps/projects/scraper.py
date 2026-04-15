@@ -3,11 +3,11 @@
 Keeps the original ``scrape_instructables`` contract (dict with title, author,
 thumbnail_url, step_count, category, url) used by
 :class:`InstructablesPreviewView`. New code should use
-``apps.projects.ingestion`` directly.
+``apps.ingestion.pipeline`` directly.
 """
 from __future__ import annotations
 
-from .ingestion.instructables import InstructablesIngestor
+from apps.ingestion.pipeline.instructables import InstructablesIngestor
 
 
 def scrape_instructables(url: str) -> dict:

@@ -45,9 +45,9 @@ from apps.projects.models import (
     ProjectMilestone,
     ProjectResource,
     ProjectStep,
-    SkillCategory,
     User,
 )
+from apps.achievements.models import SkillCategory
 
 
 class _Base(TestCase):

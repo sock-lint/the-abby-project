@@ -1,4 +1,4 @@
-"""Celery tasks for the projects app."""
+"""Celery tasks for the project-ingestion pipeline."""
 from __future__ import annotations
 
 import logging
@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 def run_ingestion_job(job_id: str) -> str:
     """Run the ingestor for a :class:`ProjectIngestionJob` and store the result."""
     # Imported lazily to avoid Django app-registry issues at worker import time.
-    from .ingestion import run_ingestion
     from .models import ProjectIngestionJob
+    from .pipeline import run_ingestion
 
     try:
         job = ProjectIngestionJob.objects.get(pk=job_id)

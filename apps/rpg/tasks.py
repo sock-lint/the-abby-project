@@ -11,8 +11,8 @@ def evaluate_perfect_day_task():
     """Award 'Perfect Day' bonus to children who completed all daily chores."""
     from apps.chores.models import Chore
     from apps.chores.services import ChoreService
+    from apps.notifications.services import notify
     from apps.projects.models import User
-    from apps.projects.notifications import notify
     from apps.rewards.models import CoinLedger
     from apps.rewards.services import CoinService
     from apps.rpg.models import CharacterProfile
@@ -54,18 +54,3 @@ def evaluate_perfect_day_task():
         awarded += 1
 
     return f"Perfect day evaluated: {awarded}/{children.count()} children awarded."
-
-
-@shared_task
-def decay_habit_strength_task():
-    """Decay strength of untapped habits toward 0 for all children."""
-    from apps.projects.models import User
-    from apps.rpg.services import HabitService
-
-    children = User.objects.filter(role="child")
-    total_decayed = 0
-
-    for child in children:
-        total_decayed += HabitService.decay_all_habits(child)
-
-    return f"Habit decay complete: {total_decayed} habits decayed across {children.count()} children."

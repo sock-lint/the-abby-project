@@ -111,19 +111,19 @@ def savings_goal_to_dict(goal) -> dict[str, Any]:
 
 
 def notification_to_dict(notification) -> dict[str, Any]:
-    from apps.projects.serializers import NotificationSerializer
+    from apps.notifications.serializers import NotificationSerializer
 
     return to_plain(NotificationSerializer(notification).data)
 
 
 def ingestion_job_to_dict(job) -> dict[str, Any]:
-    from apps.projects.serializers import ProjectIngestionJobSerializer
+    from apps.ingestion.serializers import ProjectIngestionJobSerializer
 
     return to_plain(ProjectIngestionJobSerializer(job).data)
 
 
 def skill_category_to_dict(category) -> dict[str, Any]:
-    from apps.projects.serializers import SkillCategorySerializer
+    from apps.achievements.serializers import SkillCategorySerializer
 
     return to_plain(SkillCategorySerializer(category).data)
 

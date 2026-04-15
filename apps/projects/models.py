@@ -1,64 +1,11 @@
-import uuid
 from decimal import Decimal
 
 from django.conf import settings
-from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from apps.accounts.models import User  # noqa: F401  — re-exported for historical imports
+
 from config.base_models import CreatedAtModel, TimestampedModel
-
-from .managers import CustomUserManager
-
-
-class User(AbstractUser):
-    class Role(models.TextChoices):
-        PARENT = "parent", "Parent"
-        CHILD = "child", "Child"
-
-    role = models.CharField(max_length=10, choices=Role.choices, default=Role.CHILD)
-    hourly_rate = models.DecimalField(
-        max_digits=5, decimal_places=2, default=Decimal("8.00")
-    )
-    display_name = models.CharField(max_length=100, blank=True)
-    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
-    theme = models.CharField(
-        max_length=20, default="summer",
-        choices=[
-            ("summer", "Summer"),
-            ("winter", "Winter Break"),
-            ("spring", "Spring Break"),
-            ("autumn", "Autumn"),
-        ],
-    )
-
-    objects = CustomUserManager()
-
-    @property
-    def display_label(self) -> str:
-        """Human-facing name: display_name when set, otherwise username.
-
-        Single source of truth — imported by serializers (as a CharField
-        source) and any code that formats user names (emails, CSV exports,
-        MCP payloads).
-        """
-        return self.display_name or self.username
-
-    def __str__(self):
-        return self.display_label
-
-
-class SkillCategory(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    icon = models.CharField(max_length=50, blank=True)
-    color = models.CharField(max_length=7, default="#D97706")
-    description = models.TextField(blank=True)
-
-    class Meta:
-        verbose_name_plural = "skill categories"
-        ordering = ["name"]
-
-    def __str__(self):
-        return f"{self.icon} {self.name}"
 
 
 class Project(TimestampedModel):
@@ -82,7 +29,7 @@ class Project(TimestampedModel):
         choices=[(i, str(i)) for i in range(1, 6)], default=1
     )
     category = models.ForeignKey(
-        SkillCategory, on_delete=models.SET_NULL, null=True, blank=True,
+        "achievements.SkillCategory", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="projects",
     )
     status = models.CharField(
@@ -241,53 +188,6 @@ class ProjectResource(TimestampedModel):
         return f"{self.project.title} — {label}"
 
 
-class Notification(CreatedAtModel):
-    class NotificationType(models.TextChoices):
-        TIMECARD_READY = "timecard_ready", "Timecard Ready"
-        TIMECARD_APPROVED = "timecard_approved", "Timecard Approved"
-        BADGE_EARNED = "badge_earned", "Badge Earned"
-        PROJECT_APPROVED = "project_approved", "Project Approved"
-        PROJECT_CHANGES = "project_changes", "Changes Requested"
-        PAYOUT_RECORDED = "payout_recorded", "Payout Recorded"
-        SKILL_UNLOCKED = "skill_unlocked", "Skill Unlocked"
-        MILESTONE_COMPLETED = "milestone_completed", "Milestone Completed"
-        REDEMPTION_REQUESTED = "redemption_requested", "Redemption Requested"
-        CHORE_SUBMITTED = "chore_submitted", "Chore Submitted"
-        CHORE_APPROVED = "chore_approved", "Chore Approved"
-        EXCHANGE_REQUESTED = "exchange_requested", "Exchange Requested"
-        EXCHANGE_APPROVED = "exchange_approved", "Exchange Approved"
-        EXCHANGE_DENIED = "exchange_denied", "Exchange Denied"
-        PROJECT_DUE_SOON = "project_due_soon", "Project Due Soon"
-        CHORE_REMINDER = "chore_reminder", "Chore Reminder"
-        APPROVAL_REMINDER = "approval_reminder", "Approval Reminder"
-        HOMEWORK_CREATED = "homework_created", "Homework Created"
-        HOMEWORK_SUBMITTED = "homework_submitted", "Homework Submitted"
-        HOMEWORK_APPROVED = "homework_approved", "Homework Approved"
-        HOMEWORK_REJECTED = "homework_rejected", "Homework Rejected"
-        HOMEWORK_DUE_SOON = "homework_due_soon", "Homework Due Soon"
-        STREAK_MILESTONE = "streak_milestone", "Streak Milestone"
-        PERFECT_DAY = "perfect_day", "Perfect Day"
-        DAILY_CHECK_IN = "daily_check_in", "Daily Check-In"
-
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-        related_name="notifications",
-    )
-    title = models.CharField(max_length=200)
-    message = models.TextField(blank=True)
-    notification_type = models.CharField(
-        max_length=25, choices=NotificationType.choices
-    )
-    is_read = models.BooleanField(default=False)
-    link = models.CharField(max_length=255, blank=True, default="")
-
-    class Meta:
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        return f"{self.user} — {self.title}"
-
-
 class ProjectTemplate(CreatedAtModel):
     """A reusable project template created from a completed project."""
     title = models.CharField(max_length=200)
@@ -297,7 +197,7 @@ class ProjectTemplate(CreatedAtModel):
         choices=[(i, str(i)) for i in range(1, 6)], default=1
     )
     category = models.ForeignKey(
-        SkillCategory, on_delete=models.SET_NULL, null=True, blank=True,
+        "achievements.SkillCategory", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="templates",
     )
     bonus_amount = models.DecimalField(
@@ -449,50 +349,3 @@ class SavingsGoal(CreatedAtModel):
         return min(100, round(float(self.current_amount / self.target_amount) * 100))
 
 
-class ProjectIngestionJob(TimestampedModel):
-    """Staging row for project auto-ingestion from a URL or uploaded file.
-
-    A job is created when a parent submits a source; a Celery task runs the
-    matching ingestor and stores the result in ``result_json``. The parent then
-    reviews/edits the staged draft and commits it, which creates the real
-    ``Project`` row plus its milestones and materials.
-    """
-
-    class SourceType(models.TextChoices):
-        INSTRUCTABLES = "instructables", "Instructables"
-        URL = "url", "Generic URL"
-        PDF = "pdf", "PDF Upload"
-
-    class Status(models.TextChoices):
-        PENDING = "pending", "Pending"
-        RUNNING = "running", "Running"
-        READY = "ready", "Ready"
-        FAILED = "failed", "Failed"
-        DISCARDED = "discarded", "Discarded"
-        COMMITTED = "committed", "Committed"
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-        related_name="ingestion_jobs",
-    )
-    source_type = models.CharField(max_length=20, choices=SourceType.choices)
-    source_url = models.URLField(blank=True, null=True, max_length=1000)
-    source_file = models.FileField(
-        upload_to="ingestion/", blank=True, null=True
-    )
-    status = models.CharField(
-        max_length=20, choices=Status.choices, default=Status.PENDING
-    )
-    result_json = models.JSONField(blank=True, null=True)
-    error = models.TextField(blank=True)
-    project = models.ForeignKey(
-        Project, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="ingestion_jobs",
-    )
-
-    class Meta:
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        return f"IngestionJob {self.id} ({self.status})"

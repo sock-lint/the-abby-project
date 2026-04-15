@@ -1,6 +1,23 @@
 from django.conf import settings
 from django.db import models
 
+
+class SkillCategory(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    icon = models.CharField(max_length=50, blank=True)
+    color = models.CharField(max_length=7, default="#D97706")
+    description = models.TextField(blank=True)
+
+    class Meta:
+        # Preserve original table name so the move is a state-only migration.
+        db_table = "projects_skillcategory"
+        verbose_name_plural = "skill categories"
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.icon} {self.name}"
+
+
 XP_THRESHOLDS = {
     0: 0,
     1: 100,
@@ -21,7 +38,7 @@ class Subject(models.Model):
 
     name = models.CharField(max_length=100)
     category = models.ForeignKey(
-        "projects.SkillCategory", on_delete=models.CASCADE,
+        SkillCategory, on_delete=models.CASCADE,
         related_name="subjects",
     )
     description = models.TextField(blank=True)
@@ -39,7 +56,7 @@ class Subject(models.Model):
 class Skill(models.Model):
     name = models.CharField(max_length=100)
     category = models.ForeignKey(
-        "projects.SkillCategory", on_delete=models.CASCADE,
+        SkillCategory, on_delete=models.CASCADE,
         related_name="skills",
     )
     subject = models.ForeignKey(

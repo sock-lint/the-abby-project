@@ -167,7 +167,7 @@ class QuestService:
         from apps.rewards.models import CoinLedger
         from apps.rewards.services import CoinService
         from apps.rpg.models import UserInventory
-        from apps.projects.notifications import notify
+        from apps.notifications.services import notify
 
         quest.status = Quest.Status.COMPLETED
         quest.save(update_fields=["status", "updated_at"])

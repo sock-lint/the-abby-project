@@ -2,10 +2,13 @@ import logging
 
 from rest_framework import serializers
 
+from apps.achievements.models import SkillCategory
+from apps.achievements.serializers import SkillCategorySerializer
+
 from .models import (
-    MaterialItem, Notification, Project, ProjectCollaborator, ProjectIngestionJob,
+    MaterialItem, Project, ProjectCollaborator,
     ProjectMilestone, ProjectResource, ProjectStep, ProjectTemplate, SavingsGoal,
-    SkillCategory, TemplateMaterial, TemplateMilestone, TemplateResource, TemplateStep,
+    TemplateMaterial, TemplateMilestone, TemplateResource, TemplateStep,
     User,
 )
 
@@ -47,12 +50,6 @@ class ChildSerializer(serializers.ModelSerializer):
         except Exception:
             logger.debug("google_linked check failed for user %s", obj.pk, exc_info=True)
             return False
-
-
-class SkillCategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SkillCategory
-        fields = ["id", "name", "icon", "color", "description"]
 
 
 class ProjectMilestoneSerializer(serializers.ModelSerializer):
@@ -219,13 +216,6 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
         return project
 
 
-class NotificationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Notification
-        fields = ["id", "title", "message", "notification_type", "is_read", "created_at", "link"]
-        read_only_fields = ["title", "message", "notification_type", "created_at", "link"]
-
-
 class TemplateMilestoneSerializer(serializers.ModelSerializer):
     class Meta:
         model = TemplateMilestone
@@ -289,24 +279,6 @@ class ProjectCollaboratorSerializer(serializers.ModelSerializer):
         model = ProjectCollaborator
         fields = ["id", "project", "user", "user_id", "pay_split_percent", "joined_at"]
         read_only_fields = ["joined_at"]
-
-
-class ProjectIngestionJobSerializer(serializers.ModelSerializer):
-    """Read/write serializer for the ingest staging job.
-
-    ``result_json`` is writable so the parent can edit the staged draft from
-    the preview screen before committing.
-    """
-
-    class Meta:
-        model = ProjectIngestionJob
-        fields = [
-            "id", "source_type", "source_url", "source_file", "status",
-            "result_json", "error", "project", "created_at", "updated_at",
-        ]
-        read_only_fields = [
-            "id", "status", "error", "project", "created_at", "updated_at",
-        ]
 
 
 class SavingsGoalSerializer(serializers.ModelSerializer):

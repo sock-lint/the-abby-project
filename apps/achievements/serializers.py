@@ -1,6 +1,12 @@
 from rest_framework import serializers
 
-from .models import Badge, Skill, SkillProgress, Subject, UserBadge
+from .models import Badge, Skill, SkillCategory, SkillProgress, Subject, UserBadge
+
+
+class SkillCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SkillCategory
+        fields = ["id", "name", "icon", "color", "description"]
 
 
 class SubjectSerializer(serializers.ModelSerializer):

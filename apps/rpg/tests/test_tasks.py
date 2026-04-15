@@ -5,8 +5,7 @@ from django.utils import timezone
 
 from apps.chores.models import Chore, ChoreCompletion
 from apps.projects.models import User
-from apps.rpg.models import CharacterProfile, Habit
-from apps.rpg.tasks import decay_habit_strength_task, evaluate_perfect_day_task
+from apps.rpg.tasks import evaluate_perfect_day_task
 
 
 # Tests should never reach the production Redis cache. Swap in an in-memory
@@ -74,34 +73,3 @@ class PerfectDayTaskTests(TestCase):
         self.assertEqual(self.profile.perfect_days_count, 0)
 
 
-@override_settings(
-    CACHES=CACHES_OVERRIDE,
-    # Run Celery tasks synchronously so creating a Chore doesn't try to
-    # enqueue the google_integration sync task against a real broker.
-    CELERY_TASK_ALWAYS_EAGER=True,
-    CELERY_TASK_EAGER_PROPAGATES=True,
-)
-class DecayHabitTaskTests(TestCase):
-    def setUp(self):
-        self.parent = User.objects.create_user(
-            username="decayparent", password="testpass", role="parent"
-        )
-        self.child = User.objects.create_user(
-            username="decaychild", password="testpass", role="child"
-        )
-
-    def test_decay_reduces_untapped_habits(self):
-        """Habit with strength=5 decays to 4."""
-        habit = Habit.objects.create(
-            name="Read",
-            habit_type="positive",
-            user=self.child,
-            created_by=self.parent,
-            strength=5,
-        )
-
-        result = decay_habit_strength_task()
-        self.assertIn("1 habits decayed", result)
-
-        habit.refresh_from_db()
-        self.assertEqual(habit.strength, 4)

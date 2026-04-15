@@ -13,9 +13,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from apps.habits.models import Habit
+from apps.habits.services import HabitService
 from apps.projects.models import User
-from apps.rpg.models import Habit
-from apps.rpg.services import GameLoopService, HabitService
+from apps.rpg.services import GameLoopService
 
 from ..context import get_current_user, require_parent
 from ..errors import (
@@ -37,7 +38,7 @@ from ..shapes import to_plain
 
 
 def _habit_to_dict(habit: Habit) -> dict[str, Any]:
-    from apps.rpg.serializers import HabitSerializer
+    from apps.habits.serializers import HabitSerializer
 
     return to_plain(HabitSerializer(habit).data)
 

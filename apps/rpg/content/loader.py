@@ -159,7 +159,7 @@ class ContentPack:
         if not data:
             return
         from apps.achievements.models import Skill, SkillPrerequisite
-        from apps.projects.models import SkillCategory
+        from apps.achievements.models import SkillCategory
 
         # Categories
         cat_by_name: dict[str, Any] = {}

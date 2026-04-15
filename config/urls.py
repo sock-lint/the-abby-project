@@ -41,7 +41,12 @@ def spa_view(request):
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # Ingestion urls must come BEFORE projects/ so /api/projects/ingest/
+    # matches the ingest router first — otherwise `ingest` is interpreted as
+    # a project pk by the projects viewset.
+    path("api/", include("apps.ingestion.urls")),
     path("api/", include("apps.projects.urls")),
+    path("api/", include("apps.notifications.urls")),
     path("api/", include("apps.timecards.urls")),
     path("api/", include("apps.payments.urls")),
     path("api/", include("apps.achievements.urls")),
@@ -50,6 +55,7 @@ urlpatterns = [
     path("api/", include("apps.chores.urls")),
     path("api/", include("apps.homework.urls")),
     path("api/", include("apps.rpg.urls")),
+    path("api/", include("apps.habits.urls")),
     path("api/", include("apps.pets.urls")),
     path("api/", include("apps.quests.urls")),
     path("api/", include("apps.google_integration.urls")),

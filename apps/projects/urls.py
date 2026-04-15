@@ -4,12 +4,7 @@ from rest_framework.routers import DefaultRouter
 from . import views
 
 router = DefaultRouter()
-# NOTE: register the ingest viewset BEFORE projects/ so its routes match first
-# (otherwise `/projects/ingest/` would be resolved as project detail with pk=ingest).
-router.register(r"projects/ingest", views.ProjectIngestViewSet, basename="project-ingest")
 router.register(r"projects", views.ProjectViewSet, basename="project")
-router.register(r"categories", views.SkillCategoryViewSet, basename="category")
-router.register(r"notifications", views.NotificationViewSet, basename="notification")
 router.register(r"templates", views.ProjectTemplateViewSet, basename="template")
 router.register(r"children", views.ChildViewSet, basename="child")
 router.register(r"savings-goals", views.SavingsGoalViewSet, basename="savings-goal")

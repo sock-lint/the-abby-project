@@ -24,9 +24,9 @@ from apps.projects.models import (
     ProjectMilestone,
     ProjectResource,
     ProjectStep,
-    SkillCategory,
     User,
 )
+from apps.achievements.models import SkillCategory
 from apps.rewards.models import CoinLedger
 
 from ..context import get_current_user, require_parent
