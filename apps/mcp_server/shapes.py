@@ -111,7 +111,7 @@ def savings_goal_to_dict(goal) -> dict[str, Any]:
 
 
 def notification_to_dict(notification) -> dict[str, Any]:
-    from apps.projects.serializers import NotificationSerializer
+    from apps.notifications.serializers import NotificationSerializer
 
     return to_plain(NotificationSerializer(notification).data)
 

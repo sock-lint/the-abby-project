@@ -44,7 +44,7 @@ def handle_project_status_change(sender, instance, created, **kwargs):
         from apps.payments.services import PaymentService
         from apps.achievements.services import AwardService
         from apps.rewards.models import CoinLedger
-        from .notifications import notify
+        from apps.notifications.services import notify
 
         if instance.assigned_to:
             notify(instance.assigned_to, f"Project approved: {instance.title}",

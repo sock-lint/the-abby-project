@@ -203,7 +203,7 @@ class GameLoopService:
         # Step 3: streak milestone notification
         streak = streak_result["streak"]
         if streak in STREAK_MILESTONES:
-            from apps.projects.notifications import notify
+            from apps.notifications.services import notify
 
             msg = f"Keep it up! You've been active {streak} days in a row."
             notify(
@@ -223,7 +223,7 @@ class GameLoopService:
         drops = DropService.process_drops(user, trigger_type, streak_bonus)
 
         if drops:
-            from apps.projects.notifications import notify
+            from apps.notifications.services import notify
 
             drop_names = ", ".join(d["item_name"] for d in drops)
             notify(

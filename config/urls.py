@@ -42,6 +42,7 @@ def spa_view(request):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("apps.projects.urls")),
+    path("api/", include("apps.notifications.urls")),
     path("api/", include("apps.timecards.urls")),
     path("api/", include("apps.payments.urls")),
     path("api/", include("apps.achievements.urls")),

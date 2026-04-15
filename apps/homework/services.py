@@ -10,8 +10,8 @@ from django.utils import timezone
 from apps.achievements.services import BadgeService, SkillService
 from apps.payments.models import PaymentLedger
 from apps.payments.services import PaymentService
-from apps.projects.models import Notification
-from apps.projects.notifications import get_display_name, notify, notify_parents
+from apps.notifications.models import NotificationType
+from apps.notifications.services import get_display_name, notify, notify_parents
 from apps.rewards.models import CoinLedger
 from apps.rewards.services import CoinService
 from config.services import finalize_decision
@@ -112,7 +112,7 @@ class HomeworkService:
             notify_parents(
                 title=f"New homework: {assignment.title}",
                 message=f"{display} added homework: \"{assignment.title}\" due {assignment.due_date}.",
-                notification_type=Notification.NotificationType.HOMEWORK_CREATED,
+                notification_type=NotificationType.HOMEWORK_CREATED,
                 link="/homework",
             )
         else:
@@ -120,7 +120,7 @@ class HomeworkService:
                 assignment.assigned_to,
                 title=f"New homework assigned: {assignment.title}",
                 message=f"You have new homework: \"{assignment.title}\" due {assignment.due_date}.",
-                notification_type=Notification.NotificationType.HOMEWORK_CREATED,
+                notification_type=NotificationType.HOMEWORK_CREATED,
                 link="/homework",
             )
 
@@ -192,7 +192,7 @@ class HomeworkService:
                 f'{display} submitted "{assignment.title}" '
                 f"({timeliness_label.replace('_', ' ')}) for review."
             ),
-            notification_type=Notification.NotificationType.HOMEWORK_SUBMITTED,
+            notification_type=NotificationType.HOMEWORK_SUBMITTED,
             link="/homework",
         )
 
@@ -253,7 +253,7 @@ class HomeworkService:
                 f"You earned ${submission.reward_amount_snapshot} "
                 f"and {submission.coin_reward_snapshot} coins."
             ),
-            notification_type=Notification.NotificationType.HOMEWORK_APPROVED,
+            notification_type=NotificationType.HOMEWORK_APPROVED,
             link="/homework",
         )
 
@@ -284,7 +284,7 @@ class HomeworkService:
                 f'Your homework "{submission.assignment.title}" was not approved. '
                 f"You can re-submit with updated proof."
             ),
-            notification_type=Notification.NotificationType.HOMEWORK_REJECTED,
+            notification_type=NotificationType.HOMEWORK_REJECTED,
             link="/homework",
         )
 
@@ -337,7 +337,7 @@ class HomeworkService:
             assigned_to,
             title=f"New homework assigned: {assignment.title}",
             message=f"You have new homework: \"{assignment.title}\" due {assignment.due_date}.",
-            notification_type=Notification.NotificationType.HOMEWORK_CREATED,
+            notification_type=NotificationType.HOMEWORK_CREATED,
             link="/homework",
         )
 
@@ -563,7 +563,7 @@ class HomeworkService:
                 f'Your homework "{assignment.title}" has been planned out as a '
                 f'project with {len(milestone_rows)} phases.'
             ),
-            notification_type=Notification.NotificationType.HOMEWORK_CREATED,
+            notification_type=NotificationType.HOMEWORK_CREATED,
             link=f"/quests/ventures/{project.pk}",
         )
 

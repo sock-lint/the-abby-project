@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.projects.models import Notification
+from apps.notifications.models import Notification
 
 from ..context import get_current_user
 from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool

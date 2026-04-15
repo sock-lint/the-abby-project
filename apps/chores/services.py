@@ -7,8 +7,8 @@ from django.utils import timezone
 
 from apps.payments.models import PaymentLedger
 from apps.payments.services import PaymentService
-from apps.projects.models import Notification
-from apps.projects.notifications import get_display_name, notify, notify_parents
+from apps.notifications.models import NotificationType
+from apps.notifications.services import get_display_name, notify, notify_parents
 from apps.rewards.models import CoinLedger
 from apps.rewards.services import CoinService
 from config.services import finalize_decision
@@ -163,7 +163,7 @@ class ChoreService:
         notify_parents(
             title=f"Chore completed: {chore.title}",
             message=f'{display} completed "{chore.title}" and is waiting for approval.',
-            notification_type=Notification.NotificationType.CHORE_SUBMITTED,
+            notification_type=NotificationType.CHORE_SUBMITTED,
             link="/chores",
         )
 
@@ -211,7 +211,7 @@ class ChoreService:
                 f'Your chore "{completion.chore.title}" was approved! '
                 f"You earned ${completion.reward_amount_snapshot} and {completion.coin_reward_snapshot} coins."
             ),
-            notification_type=Notification.NotificationType.CHORE_APPROVED,
+            notification_type=NotificationType.CHORE_APPROVED,
             link="/chores",
         )
 

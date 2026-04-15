@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "django_celery_beat",
     # Local apps
     "apps.projects",
+    "apps.notifications",
     "apps.timecards",
     "apps.payments",
     "apps.achievements",

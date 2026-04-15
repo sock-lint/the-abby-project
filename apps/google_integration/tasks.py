@@ -95,7 +95,7 @@ def send_daily_reminders_task():
     from apps.chores.models import Chore, ChoreCompletion
     from apps.chores.services import ChoreService
     from apps.projects.models import Project, User
-    from apps.projects.notifications import notify
+    from apps.notifications.services import notify
     from apps.rewards.models import ExchangeRequest, RewardRedemption
     from apps.timecards.models import Timecard
 

@@ -3,7 +3,7 @@ import logging
 from rest_framework import serializers
 
 from .models import (
-    MaterialItem, Notification, Project, ProjectCollaborator, ProjectIngestionJob,
+    MaterialItem, Project, ProjectCollaborator, ProjectIngestionJob,
     ProjectMilestone, ProjectResource, ProjectStep, ProjectTemplate, SavingsGoal,
     SkillCategory, TemplateMaterial, TemplateMilestone, TemplateResource, TemplateStep,
     User,
@@ -217,13 +217,6 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             )
 
         return project
-
-
-class NotificationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Notification
-        fields = ["id", "title", "message", "notification_type", "is_read", "created_at", "link"]
-        read_only_fields = ["title", "message", "notification_type", "created_at", "link"]
 
 
 class TemplateMilestoneSerializer(serializers.ModelSerializer):

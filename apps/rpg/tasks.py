@@ -11,8 +11,8 @@ def evaluate_perfect_day_task():
     """Award 'Perfect Day' bonus to children who completed all daily chores."""
     from apps.chores.models import Chore
     from apps.chores.services import ChoreService
+    from apps.notifications.services import notify
     from apps.projects.models import User
-    from apps.projects.notifications import notify
     from apps.rewards.models import CoinLedger
     from apps.rewards.services import CoinService
     from apps.rpg.models import CharacterProfile
