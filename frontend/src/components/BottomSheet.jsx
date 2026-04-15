@@ -41,7 +41,7 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
             animate={{ scale: 1, opacity: 1, rotate: 0 }}
             exit={{ scale: 0.94, opacity: 0 }}
             transition={{ type: 'spring', damping: 22, stiffness: 260 }}
-            className="pointer-events-auto relative w-full max-w-lg parchment-bg-aged border border-ink-page-shadow rounded-2xl modal-seal-ring max-h-[85vh] overflow-y-auto"
+            className="pointer-events-auto relative w-full max-w-lg parchment-bg-aged border border-ink-page-shadow rounded-2xl modal-seal-ring max-h-[85vh] overflow-y-auto overflow-x-hidden scrollbar-hide"
           >
             <SealPulseRing rounded="rounded-2xl" />
             <div className="relative flex items-center justify-between px-5 pt-4 pb-2">
@@ -60,7 +60,7 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-          className="fixed bottom-0 left-0 right-0 parchment-bg-aged border-t border-ink-page-shadow rounded-t-2xl z-50 pb-[env(safe-area-inset-bottom)] max-h-[90vh] overflow-y-auto modal-seal-ring"
+          className="fixed bottom-0 left-0 right-0 parchment-bg-aged border-t border-ink-page-shadow rounded-t-2xl z-50 pb-[env(safe-area-inset-bottom)] max-h-[90vh] overflow-y-auto overflow-x-hidden scrollbar-hide modal-seal-ring"
         >
           {/* Top-edge teal halo — one-shot animation that radiates as the
               sheet settles, reinforcing the "paper slipped onto the journal"

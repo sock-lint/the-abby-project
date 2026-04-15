@@ -19,7 +19,7 @@ export default function FormModal({
   title, onClose, size = 'lg', scroll = true, children,
 }) {
   const widthClass = size === 'md' ? 'max-w-md' : 'max-w-lg';
-  const scrollClass = scroll ? 'max-h-[85vh] overflow-y-auto' : '';
+  const scrollClass = scroll ? 'max-h-[85vh] overflow-y-auto overflow-x-hidden scrollbar-hide' : 'overflow-x-hidden';
   // Portal to <body> so the modal escapes any ancestor that creates a
   // containing block for fixed positioning (notably PageTurnTransition's
   // motion.div, which transforms its children and would otherwise clip

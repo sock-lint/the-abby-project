@@ -43,3 +43,4 @@ docker-compose.override.yml
 
 # Worktrees
 .worktrees/
+/.playwright-mcp
