@@ -1,0 +1,22 @@
+# Spring 2026 — badges
+# Both quests get achievement records. Garden Pest Hunter is the boss
+# arc (earns the Garden Hero title), Spring Bloom Collector is the
+# easier collection quest.
+badges:
+  - name: Garden Hero
+    description: Drove the aphid swarm out of the spring garden. Earned by completing "Garden Pest Hunter".
+    icon: "🌷"
+    criteria_type: quest_completed
+    criteria_value:
+      quest_name: Garden Pest Hunter
+    rarity: rare
+    award_coins: false
+
+  - name: Spring Bloom Collector
+    description: Gathered a basket of fresh spring blooms by completing daily tasks.
+    icon: "🌸"
+    criteria_type: quest_completed
+    criteria_value:
+      quest_name: Spring Bloom Collector
+    rarity: uncommon
+    award_coins: false

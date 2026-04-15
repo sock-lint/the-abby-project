@@ -1,26 +1,8 @@
-# Sleep Prep 2026 — drop tables
-# Wire pack items into existing triggers. Habit logs are the
-# primary source (wind-down routines) and perfect_day is the
-# big-ticket reward for full-day consistency.
-drops:
-  # Chamomile tea — common food, drops from any habit log.
-  # Gentle, steady reinforcement for doing the bedtime routine.
-  - trigger: habit_log
-    item: sleep-prep-2026-food-chamomile-tea
+# Sleep Prep 2026 — drops
+# Only the consumable food drops from activity. The frame + title are
+# earned via their quests (see quests.yaml reward_items + badges.yaml).
+rules:
+  - triggers: [habit_log]
+    item_slugs: [food-chamomile-tea]
     weight: 3
-    min_level: 1
-
-  # Well-Rested title — uncommon, rarer habit_log drop.
-  # Accumulates naturally for kids who stick with the routine.
-  - trigger: habit_log
-    item: sleep-prep-2026-title-well-rested
-    weight: 1
-    min_level: 1
-
-  # Moonlit Frame — the prize. Only drops on perfect_day so you
-  # have to actually complete every daily chore AND be active.
-  # Rare by design — this is the "I nailed my sleep routine" badge.
-  - trigger: perfect_day
-    item: sleep-prep-2026-frame-moonlit
-    weight: 1
-    min_level: 1
+    min_level: 0

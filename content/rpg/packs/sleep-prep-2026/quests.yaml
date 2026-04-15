@@ -3,8 +3,10 @@
 #   1. Collection quest — build the bedtime-story habit (7 days)
 #   2. Boss quest — defeat the Doomscroll monster (14 days)
 quests:
-  - slug: seven-nights-of-stories
-    name: Seven Nights of Stories
+  # Each quest has a matching QUEST_COMPLETED badge in badges.yaml.
+  # The badge lights up the /achievements page when the quest finishes;
+  # the cosmetic reward_items show up in inventory to equip.
+  - name: Seven Nights of Stories
     description: "Wind down the right way. Read (or listen to) a bedtime story for five nights in a row. No screens in the last 30 minutes before bed."
     quest_type: collection
     target_value: 5
@@ -20,8 +22,7 @@ quests:
       - slug: frame-moonlit
         quantity: 1
 
-  - slug: defeat-the-doomscroll
-    name: Defeat the Doomscroll
+  - name: Defeat the Doomscroll
     description: "The Doomscroll beast thrives on late-night phone time. Every chore completed, every habit logged, every project step done weakens it. Land the killing blow before the first day of school."
     quest_type: boss
     target_value: 250

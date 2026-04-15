@@ -1,10 +1,4 @@
-rewards:
-  - slug: garden-hero-title
-    name: Garden Hero Title
-    description: Unlock the prestigious Garden Hero title and wear it proudly on your profile.
-    cost_coins: 100
-    rarity: rare
-    icon: "🌷"
-    fulfillment_kind: digital_item
-    item_definition: title-garden-hero
-    is_active: true
+# Spring 2026 — shop rewards
+# No shop listings. The Garden Hero title is now a quest reward
+# (see quests.yaml) with a matching badge (see badges.yaml).
+rewards: []

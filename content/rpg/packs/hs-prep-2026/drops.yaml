@@ -1,30 +1,11 @@
+# HS Prep 2026 — drops
+# Summer-scholar title stays as a habit_log drop — it's a common
+# cosmetic with no matching quest, pure grindable collectible.
+# Freshman-warrior / backpack-charm / trophy-frame are now quest-only
+# (removed from drops to preserve the achievement meaning of their
+# matching badges).
 rules:
   - triggers: [habit_log]
     item_slugs: [title-summer-scholar]
     weight: 3
-    min_level: 0
-
-  - triggers: [habit_log]
-    item_slugs: [accessory-backpack-charm]
-    weight: 2
-    min_level: 0
-
-  - triggers: [habit_log]
-    item_slugs: [title-freshman-warrior]
-    weight: 1
-    min_level: 0
-
-  - triggers: [perfect_day]
-    item_slugs: [accessory-backpack-charm]
-    weight: 4
-    min_level: 0
-
-  - triggers: [perfect_day]
-    item_slugs: [title-freshman-warrior]
-    weight: 2
-    min_level: 0
-
-  - triggers: [perfect_day]
-    item_slugs: [frame-high-school-trophy]
-    weight: 1
     min_level: 0

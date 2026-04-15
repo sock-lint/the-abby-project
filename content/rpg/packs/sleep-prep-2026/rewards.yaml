@@ -1,22 +1,5 @@
 # Sleep Prep 2026 — shop rewards
-# Digital-item rewards linked to pack cosmetics. Kids can spend
-# coins directly in the shop to buy the frame/title without
-# waiting on RNG drops — but the quest path is still cheaper.
-rewards:
-  - slug: shop-moonlit-frame
-    name: Moonlit Frame (Shop)
-    description: Buy the Moonlit Frame directly with coins. Equips instantly to your profile.
-    cost_coins: 150
-    rarity: rare
-    fulfillment_kind: digital_item
-    item_definition: sleep-prep-2026-frame-moonlit
-    stock: null
-
-  - slug: shop-well-rested-title
-    name: Well-Rested Title (Shop)
-    description: Buy the Well-Rested title with coins. Shows under your name.
-    cost_coins: 80
-    rarity: uncommon
-    fulfillment_kind: digital_item
-    item_definition: sleep-prep-2026-title-well-rested
-    stock: null
+# No shop listings: Moonlit Frame and Well-Rested Title are both
+# earned via quest completion. Selling them in the shop would undercut
+# the "earn it" meaning of the matching badges.
+rewards: []

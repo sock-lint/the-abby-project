@@ -1,0 +1,22 @@
+# HS Prep 2026 — badges
+# Matching achievement records for the two quests. Both use the
+# QUEST_COMPLETED criterion type; award_coins:false since the quest
+# itself paid out.
+badges:
+  - name: Summer Warrior
+    description: Completed "The Summer Before High School" — 90 days of habits chipping at the boss.
+    icon: "🛡️"
+    criteria_type: quest_completed
+    criteria_value:
+      quest_name: The Summer Before High School
+    rarity: epic
+    award_coins: false
+
+  - name: Freshman Survivor
+    description: Survived the first week of freshman year with your routine intact.
+    icon: "🎒"
+    criteria_type: quest_completed
+    criteria_value:
+      quest_name: First Week of Freshman Year
+    rarity: rare
+    award_coins: false
