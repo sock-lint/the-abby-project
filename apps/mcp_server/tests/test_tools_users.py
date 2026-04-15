@@ -7,7 +7,7 @@ from apps.mcp_server.context import override_user
 from apps.mcp_server.errors import MCPPermissionDenied
 from apps.mcp_server.schemas import GetUserIn, ListChildrenIn
 from apps.mcp_server.tools import users as user_tools
-from apps.projects.models import User
+from apps.accounts.models import User
 
 
 class ListChildrenTests(TestCase):

@@ -29,7 +29,7 @@ from apps.mcp_server.schemas import (
 )
 from apps.mcp_server.tools import achievements as ach
 from apps.achievements.models import SkillCategory
-from apps.projects.models import User
+from apps.accounts.models import User
 
 
 class _Base(TestCase):

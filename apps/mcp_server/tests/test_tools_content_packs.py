@@ -36,7 +36,7 @@ from apps.mcp_server.schemas import (
     WritePackFileIn,
 )
 from apps.mcp_server.tools import content_packs as cp
-from apps.projects.models import User
+from apps.accounts.models import User
 from apps.rpg.models import ItemDefinition
 
 

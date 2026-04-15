@@ -7,7 +7,7 @@ from rest_framework.authtoken.models import Token
 from apps.mcp_server.auth import _parse_token_header, _resolve_user
 from apps.mcp_server.context import get_current_user, override_user
 from apps.mcp_server.errors import MCPPermissionDenied
-from apps.projects.models import User
+from apps.accounts.models import User
 
 
 class ParseTokenHeaderTests(TestCase):

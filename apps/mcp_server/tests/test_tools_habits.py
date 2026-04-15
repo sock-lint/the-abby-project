@@ -17,7 +17,7 @@ from apps.mcp_server.schemas import (
     UpdateHabitIn,
 )
 from apps.mcp_server.tools import habits as hb
-from apps.projects.models import User
+from apps.accounts.models import User
 from apps.habits.models import Habit, HabitLog
 
 

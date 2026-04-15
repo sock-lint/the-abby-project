@@ -15,7 +15,7 @@ from apps.mcp_server.schemas import (
 from apps.mcp_server.tools import payments as payment_tools
 from apps.payments.models import PaymentLedger
 from apps.payments.services import PaymentService
-from apps.projects.models import User
+from apps.accounts.models import User
 
 
 class PaymentBalanceTests(TestCase):

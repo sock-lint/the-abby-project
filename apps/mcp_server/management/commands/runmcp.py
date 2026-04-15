@@ -58,7 +58,7 @@ class Command(BaseCommand):
                 raise CommandError(
                     "--as-user is only allowed when DEBUG is true.",
                 )
-            from apps.projects.models import User
+            from apps.accounts.models import User
 
             try:
                 user = User.objects.get(username=as_user)

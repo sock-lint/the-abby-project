@@ -12,7 +12,7 @@ from apps.mcp_server.schemas import (
     RequestRedemptionIn,
 )
 from apps.mcp_server.tools import rewards as reward_tools
-from apps.projects.models import User
+from apps.accounts.models import User
 from apps.rewards.models import CoinLedger, Reward
 from apps.rewards.services import CoinService
 

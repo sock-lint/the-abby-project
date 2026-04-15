@@ -20,7 +20,7 @@ from typing import Any
 from django.utils import timezone
 
 from apps.achievements.models import Badge
-from apps.projects.models import User
+from apps.accounts.models import User
 from apps.quests.models import Quest, QuestDefinition, QuestParticipant
 from apps.quests.services import QuestService
 

@@ -39,13 +39,13 @@ from apps.mcp_server.schemas import (
     UpdateStepIn,
 )
 from apps.mcp_server.tools import projects as project_tools
+from apps.accounts.models import User
 from apps.projects.models import (
     MaterialItem,
     Project,
     ProjectMilestone,
     ProjectResource,
     ProjectStep,
-    User,
 )
 from apps.achievements.models import SkillCategory
 

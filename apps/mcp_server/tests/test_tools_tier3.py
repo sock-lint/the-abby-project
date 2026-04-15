@@ -25,11 +25,11 @@ from apps.mcp_server.tools import portfolio as pf
 from apps.mcp_server.tools import projects as project_tools
 from apps.mcp_server.tools import savings as sv
 from apps.mcp_server.tools import users as user_tools
+from apps.accounts.models import User
 from apps.projects.models import (
     Project,
     ProjectCollaborator,
     SavingsGoal,
-    User,
 )
 
 

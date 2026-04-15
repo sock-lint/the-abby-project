@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Iterator, Optional
 from .errors import MCPNotFoundError, MCPPermissionDenied
 
 if TYPE_CHECKING:
-    from apps.projects.models import User
+    from apps.accounts.models import User
 
 
 _CURRENT_USER: contextvars.ContextVar[Optional["User"]] = contextvars.ContextVar(
@@ -61,7 +61,7 @@ def resolve_target_user(user: "User", requested_id: int | None) -> "User":
     Used by tools that accept an optional ``user_id`` for parents to act on
     behalf of a specific child.
     """
-    from apps.projects.models import User as UserModel
+    from apps.accounts.models import User as UserModel
     if requested_id is None or requested_id == user.id:
         return user
     if getattr(user, "role", None) != "parent":

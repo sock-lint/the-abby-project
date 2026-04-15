@@ -19,7 +19,8 @@
       "Bash(ls -la src/assets/parchment.svg src/assets/glyphs/*.svg)",
       "Bash(docker compose:*)",
       "Bash(python -c \"from PIL import Image; i=Image.open\\(r'C:\\\\Users\\\\socce\\\\Downloads\\\\reward-icons\\\\shikashi\\\\#1 - Transparent Icons.png'\\); print\\('shikashi #1:', i.size\\); i2=Image.open\\(r'C:\\\\Users\\\\socce\\\\Downloads\\\\reward-icons\\\\shikashi2\\\\#1 - Transparent Icons.png'\\); print\\('shikashi2 #1:', i2.size\\)\")",
-      "Bash(python -c 'from PIL import Image; import os:*)"
+      "Bash(python -c 'from PIL import Image; import os:*)",
+      "Bash(grep -E \"\\(^\\(OK|FAIL|ERROR|Ran |test_\\)|FAILED|^$\\)\")"
     ]
   }
 }

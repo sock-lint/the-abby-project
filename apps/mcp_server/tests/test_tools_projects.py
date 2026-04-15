@@ -19,8 +19,9 @@ from apps.mcp_server.schemas import (
 )
 from apps.mcp_server.tools import projects as project_tools
 from apps.achievements.models import ProjectSkillTag, Skill, SkillCategory, Subject
+from apps.accounts.models import User
 from apps.projects.models import (
-    Project, ProjectMilestone, ProjectResource, ProjectStep, User,
+    Project, ProjectMilestone, ProjectResource, ProjectStep,
 )
 
 

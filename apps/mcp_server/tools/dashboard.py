@@ -10,7 +10,8 @@ from django.utils import timezone
 from apps.achievements.models import UserBadge
 from apps.payments.services import PaymentService
 from apps.notifications.models import Notification
-from apps.projects.models import Project, User
+from apps.accounts.models import User
+from apps.projects.models import Project
 from apps.rewards.models import RewardRedemption
 from apps.rewards.services import CoinService
 from apps.timecards.models import TimeEntry

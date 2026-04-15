@@ -6,7 +6,8 @@ from typing import Any
 
 from django.utils import timezone
 
-from apps.projects.models import SavingsGoal, User
+from apps.accounts.models import User
+from apps.projects.models import SavingsGoal
 
 from ..context import get_current_user
 from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool

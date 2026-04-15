@@ -5,7 +5,7 @@ from typing import Any
 
 from apps.payments.models import PaymentLedger
 from apps.payments.services import PaymentService
-from apps.projects.models import User
+from apps.accounts.models import User
 
 from ..context import get_current_user, require_parent
 from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool

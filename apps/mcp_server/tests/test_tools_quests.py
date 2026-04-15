@@ -21,7 +21,7 @@ from apps.mcp_server.schemas import (
     ListQuestsIn,
 )
 from apps.mcp_server.tools import quests as q
-from apps.projects.models import User
+from apps.accounts.models import User
 from apps.quests.models import Quest, QuestDefinition, QuestParticipant
 
 

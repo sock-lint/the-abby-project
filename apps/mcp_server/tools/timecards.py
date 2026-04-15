@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.projects.models import User
+from apps.accounts.models import User
 from apps.timecards.models import Timecard, TimeEntry
 from apps.timecards.services import ClockService, TimecardService
 

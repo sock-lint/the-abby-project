@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.projects.models import User
+from apps.accounts.models import User
 
 from ..context import get_current_user, require_parent
 from ..errors import (

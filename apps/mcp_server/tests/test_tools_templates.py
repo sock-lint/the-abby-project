@@ -25,6 +25,7 @@ from apps.mcp_server.schemas import (
     UpdateTemplateIn,
 )
 from apps.mcp_server.tools import templates as t
+from apps.accounts.models import User
 from apps.projects.models import (
     MaterialItem,
     Project,
@@ -35,7 +36,6 @@ from apps.projects.models import (
     TemplateMilestone,
     TemplateResource,
     TemplateStep,
-    User,
 )
 
 

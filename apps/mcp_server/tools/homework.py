@@ -12,7 +12,7 @@ from apps.homework.models import (
     HomeworkTemplate,
 )
 from apps.homework.services import HomeworkError, HomeworkService
-from apps.projects.models import User
+from apps.accounts.models import User
 
 from ..context import get_current_user, require_parent, resolve_target_user
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
@@ -265,7 +265,7 @@ def plan_homework(params: PlanHomeworkIn) -> dict[str, Any]:
     Raises ``MCPValidationError`` if the assignment already has a linked
     project or if AI planning is not yet configured.
     """
-    require_parent()
+    parent = require_parent()
     try:
         assignment = HomeworkAssignment.objects.get(pk=params.assignment_id)
     except HomeworkAssignment.DoesNotExist:
@@ -276,11 +276,13 @@ def plan_homework(params: PlanHomeworkIn) -> dict[str, Any]:
             f"(project_id={assignment.project_id}).",
         )
     if not hasattr(HomeworkService, "plan_assignment"):
-        # REST view currently returns 501 — mirror that here.
         raise MCPValidationError(
             "AI planning is not yet configured on this server.",
         )
-    HomeworkService.plan_assignment(assignment)  # pragma: no cover
+    try:
+        HomeworkService.plan_assignment(assignment, parent=parent)
+    except HomeworkError as exc:
+        raise MCPValidationError(str(exc)) from exc
     assignment.refresh_from_db()
     return homework_assignment_to_dict(assignment)
 

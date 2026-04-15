@@ -242,7 +242,7 @@ def adjust_coins(params: AdjustCoinsIn) -> dict[str, Any]:
     """
     parent = require_parent()
     try:
-        from apps.projects.models import User
+        from apps.accounts.models import User
         target = User.objects.get(pk=params.user_id)
     except User.DoesNotExist:
         raise MCPValidationError(f"user_id {params.user_id} not found.")

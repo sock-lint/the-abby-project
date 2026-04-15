@@ -32,7 +32,7 @@ from django.test import TransactionTestCase
 
 from apps.mcp_server.context import override_user
 from apps.mcp_server.server import mcp
-from apps.projects.models import User
+from apps.accounts.models import User
 
 
 class AllToolsRegisteredAsAsync(TransactionTestCase):

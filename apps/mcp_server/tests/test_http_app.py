@@ -22,7 +22,7 @@ from rest_framework.authtoken.models import Token
 from starlette.testclient import TestClient
 
 from apps.mcp_server.server import build_http_app, mcp
-from apps.projects.models import User
+from apps.accounts.models import User
 
 
 def _reset_mcp_session_manager() -> None:

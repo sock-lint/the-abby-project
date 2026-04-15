@@ -15,7 +15,7 @@ from typing import Any
 
 from apps.habits.models import Habit
 from apps.habits.services import HabitService
-from apps.projects.models import User
+from apps.accounts.models import User
 from apps.rpg.services import GameLoopService
 
 from ..context import get_current_user, require_parent

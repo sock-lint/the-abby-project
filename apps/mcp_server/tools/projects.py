@@ -17,6 +17,7 @@ from apps.achievements.models import (
     Skill,
 )
 from apps.achievements.services import AwardService, SkillService
+from apps.accounts.models import User
 from apps.projects.models import (
     MaterialItem,
     Project,
@@ -24,7 +25,6 @@ from apps.projects.models import (
     ProjectMilestone,
     ProjectResource,
     ProjectStep,
-    User,
 )
 from apps.achievements.models import SkillCategory
 from apps.rewards.models import CoinLedger

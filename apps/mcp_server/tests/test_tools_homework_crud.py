@@ -32,8 +32,8 @@ from apps.mcp_server.schemas import (
     UpdateHomeworkTemplateIn,
 )
 from apps.mcp_server.tools import homework as hw
+from apps.accounts.models import User
 from apps.achievements.models import SkillCategory
-from apps.projects.models import User
 
 
 class _Base(TestCase):
@@ -128,7 +128,8 @@ class PlanHomeworkTests(_Base):
             ))
 
     def test_plan_raises_not_configured(self) -> None:
-        # HomeworkService has no plan_assignment method today.
+        # Without ANTHROPIC_API_KEY, plan_assignment raises HomeworkError →
+        # safe_tool converts to MCPValidationError.
         with override_user(self.parent), self.assertRaises(MCPValidationError):
             hw.plan_homework(PlanHomeworkIn(
                 assignment_id=self.assignment.id,

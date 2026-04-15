@@ -6,7 +6,7 @@ from typing import Any
 
 from apps.chores.models import Chore, ChoreCompletion
 from apps.chores.services import ChoreService
-from apps.projects.models import User
+from apps.accounts.models import User
 
 from ..context import get_current_user, require_parent, resolve_target_user
 from ..errors import MCPNotFoundError, safe_tool

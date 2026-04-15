@@ -11,11 +11,11 @@ from typing import Any
 from django.db import transaction
 
 from apps.ingestion.models import ProjectIngestionJob
+from apps.accounts.models import User
 from apps.projects.models import (
     MaterialItem,
     Project,
     ProjectMilestone,
-    User,
 )
 from apps.achievements.models import SkillCategory
 
