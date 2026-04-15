@@ -9,6 +9,7 @@ import Card from '../../components/Card';
 import EmptyState from '../../components/EmptyState';
 import ErrorAlert from '../../components/ErrorAlert';
 import Loader from '../../components/Loader';
+import RpgSprite from '../../components/rpg/RpgSprite';
 import {
   RARITY_COLORS, RARITY_TEXT_COLORS, RARITY_PILL_COLORS,
 } from '../../constants/colors';
@@ -50,7 +51,7 @@ function sortByRarityName(a, b) {
   );
 }
 
-function CatalogCard({ rarity, icon, name, subtitle, onClick }) {
+function CatalogCard({ rarity, icon, spriteKey, name, subtitle, onClick }) {
   return (
     <button
       type="button"
@@ -59,7 +60,9 @@ function CatalogCard({ rarity, icon, name, subtitle, onClick }) {
         RARITY_COLORS[rarity] || 'border-ink-page-shadow bg-ink-page-aged/50'
       }`}
     >
-      <div className="text-3xl mb-1 leading-none">{icon || '❓'}</div>
+      <div className="flex items-center justify-center h-12 mb-1">
+        <RpgSprite spriteKey={spriteKey} icon={icon} size={40} alt={name} />
+      </div>
       <div className="text-xs font-medium leading-tight text-ink-primary line-clamp-2">{name}</div>
       {subtitle && (
         <div className={`text-[10px] mt-1 capitalize ${RARITY_TEXT_COLORS[rarity] || 'text-ink-whisper'}`}>
@@ -116,6 +119,7 @@ function ItemsBlock({ items, onSelect }) {
                   key={item.id}
                   rarity={item.rarity}
                   icon={item.icon}
+                  spriteKey={item.sprite_key}
                   name={item.name}
                   subtitle={item.rarity_display}
                   onClick={() => onSelect(item)}
@@ -132,7 +136,9 @@ function ItemsBlock({ items, onSelect }) {
 function ItemDetail({ item }) {
   return (
     <div className="text-center">
-      <div className="text-5xl mb-3">{item.icon || '❓'}</div>
+      <div className="flex items-center justify-center h-16 mb-3">
+        <RpgSprite spriteKey={item.sprite_key} icon={item.icon} size={64} alt={item.name} />
+      </div>
       <div className={`text-sm capitalize font-medium mb-1 ${RARITY_TEXT_COLORS[item.rarity]}`}>
         {item.rarity_display} · {item.type_display}
       </div>
@@ -178,6 +184,7 @@ function CreaturesBlock({ species, onSelect }) {
           key={s.id}
           rarity="common" // species don't have rarity — neutral framing
           icon={s.icon}
+          spriteKey={s.sprite_key}
           name={s.name}
           onClick={() => onSelect(s)}
         />
@@ -190,7 +197,9 @@ function CreatureDetail({ species }) {
   const potions = species.available_potions || [];
   return (
     <div className="text-center">
-      <div className="text-5xl mb-3">{species.icon || '🐾'}</div>
+      <div className="flex items-center justify-center h-16 mb-3">
+        <RpgSprite spriteKey={species.sprite_key} icon={species.icon || '🐾'} size={64} alt={species.name} />
+      </div>
       {species.description && (
         <p className="text-sm text-ink-whisper mb-3">{species.description}</p>
       )}
@@ -241,6 +250,7 @@ function AdventuresBlock({ quests, onSelect }) {
           key={q.id}
           rarity="rare" // neutral shared accent; quests don't carry a rarity field
           icon={q.icon}
+          spriteKey={q.sprite_key}
           name={q.name}
           subtitle={q.quest_type_display}
           onClick={() => onSelect(q)}
@@ -254,7 +264,9 @@ function AdventureDetail({ quest }) {
   const rewards = quest.reward_items || [];
   return (
     <div className="text-center">
-      <div className="text-5xl mb-3">{quest.icon || '⚔️'}</div>
+      <div className="flex items-center justify-center h-16 mb-3">
+        <RpgSprite spriteKey={quest.sprite_key} icon={quest.icon || '⚔️'} size={64} alt={quest.name} />
+      </div>
       <div className="text-sm capitalize font-medium mb-2 text-royal">
         {quest.quest_type_display} · Target {quest.target_value}
       </div>
@@ -278,7 +290,12 @@ function AdventureDetail({ quest }) {
                   key={r.id}
                   className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] bg-ink-page-aged/60 text-ink-primary"
                 >
-                  <span>{r.item_icon}</span>
+                  <RpgSprite
+                    spriteKey={r.item_sprite_key}
+                    icon={r.item_icon}
+                    size={24}
+                    alt={r.item_name}
+                  />
                   {r.item_name} ×{r.quantity}
                 </span>
               ))}
