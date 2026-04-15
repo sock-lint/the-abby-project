@@ -50,6 +50,7 @@ urlpatterns = [
     path("api/", include("apps.chores.urls")),
     path("api/", include("apps.homework.urls")),
     path("api/", include("apps.rpg.urls")),
+    path("api/", include("apps.habits.urls")),
     path("api/", include("apps.pets.urls")),
     path("api/", include("apps.quests.urls")),
     path("api/", include("apps.google_integration.urls")),

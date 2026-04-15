@@ -54,18 +54,3 @@ def evaluate_perfect_day_task():
         awarded += 1
 
     return f"Perfect day evaluated: {awarded}/{children.count()} children awarded."
-
-
-@shared_task
-def decay_habit_strength_task():
-    """Decay strength of untapped habits toward 0 for all children."""
-    from apps.projects.models import User
-    from apps.rpg.services import HabitService
-
-    children = User.objects.filter(role="child")
-    total_decayed = 0
-
-    for child in children:
-        total_decayed += HabitService.decay_all_habits(child)
-
-    return f"Habit decay complete: {total_decayed} habits decayed across {children.count()} children."

@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "apps.mcp_server",
     "apps.google_integration",
     "apps.rpg",
+    "apps.habits",
     "apps.pets",
     "apps.quests",
 ]
@@ -332,8 +333,8 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.rpg.tasks.evaluate_perfect_day_task",
         "schedule": crontab(hour=23, minute=55),
     },
-    "rpg-habit-decay": {
-        "task": "apps.rpg.tasks.decay_habit_strength_task",
+    "habit-decay": {
+        "task": "apps.habits.tasks.decay_habit_strength_task",
         "schedule": crontab(hour=0, minute=5),
     },
     "quest-expire": {

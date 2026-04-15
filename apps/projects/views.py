@@ -166,7 +166,8 @@ class DashboardView(APIView):
             ).count()
 
         # RPG profile
-        from apps.rpg.models import CharacterProfile, Habit, HabitLog
+        from apps.habits.models import Habit, HabitLog
+        from apps.rpg.models import CharacterProfile
         rpg_profile, _ = CharacterProfile.objects.get_or_create(user=user)
         habits = Habit.objects.filter(user=user, is_active=True)
         habits_data = []

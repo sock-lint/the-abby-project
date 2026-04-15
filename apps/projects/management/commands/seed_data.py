@@ -349,8 +349,9 @@ class Command(BaseCommand):
             self.stdout.write("  Created homework template: Weekly Reading Assignment")
 
     def _create_sample_habits(self):
-        from apps.rpg.models import CharacterProfile, Habit
+        from apps.habits.models import Habit
         from apps.projects.models import User
+        from apps.rpg.models import CharacterProfile
 
         parent = User.objects.filter(role="parent").first()
         child = User.objects.filter(role="child").first()

@@ -18,7 +18,7 @@ from apps.mcp_server.schemas import (
 )
 from apps.mcp_server.tools import habits as hb
 from apps.projects.models import User
-from apps.rpg.models import Habit, HabitLog
+from apps.habits.models import Habit, HabitLog
 
 
 class _Base(TestCase):
