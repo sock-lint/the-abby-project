@@ -35,6 +35,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("auth", "0012_alter_user_first_name_max_length"),
+        ("projects", "0015_move_skillcategory_out"),
     ]
 
     operations = [

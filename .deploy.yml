@@ -23,7 +23,7 @@ deploy:
 
   migrate:
     enabled: true
-    command: "python manage.py migrate --noinput"
+    command: "python manage.py backfill_accounts_history && python manage.py migrate --noinput"
 
   collectstatic:
     enabled: true
