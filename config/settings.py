@@ -35,7 +35,8 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "django_celery_beat",
-    # Local apps
+    # Local apps — accounts first (owns AUTH_USER_MODEL)
+    "apps.accounts",
     "apps.projects",
     "apps.notifications",
     "apps.ingestion",
@@ -260,7 +261,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Custom user model
 
-AUTH_USER_MODEL = "projects.User"
+AUTH_USER_MODEL = "accounts.User"
 
 # Django REST Framework
 
