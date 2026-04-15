@@ -20,6 +20,7 @@ from apps.achievements.services import AwardService, SkillService
 from apps.projects.models import (
     MaterialItem,
     Project,
+    ProjectCollaborator,
     ProjectMilestone,
     ProjectResource,
     ProjectStep,
@@ -31,13 +32,32 @@ from apps.rewards.models import CoinLedger
 from ..context import get_current_user, require_parent
 from ..errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError, safe_tool
 from ..schemas import (
+    AddCollaboratorIn,
+    AddMaterialIn,
+    AddMilestoneIn,
+    AddResourceIn,
+    AddStepIn,
     CompleteMilestoneIn,
     CreateProjectIn,
+    DeleteMaterialIn,
+    DeleteMilestoneIn,
+    DeleteProjectIn,
+    DeleteResourceIn,
+    DeleteStepIn,
     GetProjectIn,
     ListProjectsIn,
     MarkMaterialPurchasedIn,
+    ProjectActionIn,
+    RemoveCollaboratorIn,
+    RequestProjectChangesIn,
     SetProjectSkillTagsIn,
+    StepActionIn,
+    UpdateMaterialIn,
+    UpdateMilestoneIn,
+    UpdateProjectIn,
     UpdateProjectStatusIn,
+    UpdateResourceIn,
+    UpdateStepIn,
 )
 from ..server import tool
 from ..shapes import (
@@ -426,3 +446,526 @@ def mark_material_purchased(params: MarkMaterialPurchasedIn) -> dict[str, Any]:
         material.actual_cost = material.estimated_cost
     material.save()
     return material_to_dict(material)
+
+
+# ---------------------------------------------------------------------------
+# Tier 1.1: Project editing + nested CRUD
+# ---------------------------------------------------------------------------
+
+
+def _get_project_parent_only(project_id: int) -> Project:
+    require_parent()
+    try:
+        return Project.objects.get(pk=project_id)
+    except Project.DoesNotExist:
+        raise MCPNotFoundError(f"Project {project_id} not found.")
+
+
+@tool()
+@safe_tool
+def update_project(params: UpdateProjectIn) -> dict[str, Any]:
+    """Edit project fields (parent-only). Only the provided fields are touched.
+
+    Use ``update_project_status`` for status transitions — this tool refuses
+    status changes so it can't bypass the completion-hooks there.
+    """
+    project = _get_project_parent_only(params.project_id)
+
+    data = params.model_dump(exclude={"project_id"}, exclude_unset=True)
+
+    if "assigned_to_id" in data:
+        try:
+            User.objects.get(pk=data["assigned_to_id"])
+        except User.DoesNotExist:
+            raise MCPValidationError(
+                f"assigned_to_id {data['assigned_to_id']} does not match any user.",
+            )
+    if "category_id" in data and data["category_id"] is not None:
+        try:
+            SkillCategory.objects.get(pk=data["category_id"])
+        except SkillCategory.DoesNotExist:
+            raise MCPValidationError(
+                f"category_id {data['category_id']} does not match any category.",
+            )
+
+    for field, value in data.items():
+        setattr(project, field, value)
+    project.save()
+    project.refresh_from_db()
+    return project_detail_to_dict(project)
+
+
+@tool()
+@safe_tool
+def delete_project(params: DeleteProjectIn) -> dict[str, Any]:
+    """Delete a project and all its nested milestones/steps/materials/resources."""
+    project = _get_project_parent_only(params.project_id)
+    project_id = project.pk
+    project.delete()
+    return {"project_id": project_id, "deleted": True}
+
+
+@tool()
+@safe_tool
+def activate_project(params: ProjectActionIn) -> dict[str, Any]:
+    """Move a ``draft``/``in_review`` project to ``in_progress`` (parent-only).
+
+    Matches the REST ``POST /api/projects/{id}/activate/`` behavior —
+    stamps ``started_at`` if unset.
+    """
+    project = _get_project_parent_only(params.project_id)
+    if project.status not in ("draft", "in_review"):
+        raise MCPValidationError(
+            f"Cannot activate from status {project.status!r}. "
+            "Expected 'draft' or 'in_review'.",
+        )
+    project.status = "in_progress"
+    if project.started_at is None:
+        project.started_at = timezone.now()
+    project.save()
+    return project_detail_to_dict(project)
+
+
+@tool()
+@safe_tool
+def approve_project(params: ProjectActionIn) -> dict[str, Any]:
+    """Mark a project as ``completed`` (parent-only).
+
+    Matches ``POST /api/projects/{id}/approve/``. The project-completion
+    signals fire on save, awarding XP/coins/badges just like the REST path.
+    """
+    project = _get_project_parent_only(params.project_id)
+    project.status = "completed"
+    if project.completed_at is None:
+        project.completed_at = timezone.now()
+    project.save()
+    return project_detail_to_dict(project)
+
+
+@tool()
+@safe_tool
+def request_project_changes(params: RequestProjectChangesIn) -> dict[str, Any]:
+    """Send a project back to ``in_progress`` with parent notes (parent-only).
+
+    Matches ``POST /api/projects/{id}/request-changes/``. Use this after a
+    child submits for review but the work needs iteration.
+    """
+    project = _get_project_parent_only(params.project_id)
+    project.status = "in_progress"
+    if project.started_at is None:
+        project.started_at = timezone.now()
+    project.parent_notes = params.parent_notes
+    project.save()
+    return project_detail_to_dict(project)
+
+
+# ---- Milestone CRUD ------------------------------------------------------
+
+
+def _get_milestone_parent_only(milestone_id: int) -> ProjectMilestone:
+    require_parent()
+    try:
+        return ProjectMilestone.objects.select_related("project").get(
+            pk=milestone_id,
+        )
+    except ProjectMilestone.DoesNotExist:
+        raise MCPNotFoundError(f"Milestone {milestone_id} not found.")
+
+
+@tool()
+@safe_tool
+def add_milestone(params: AddMilestoneIn) -> dict[str, Any]:
+    """Add a milestone (chapter) to an existing project. Parent-only.
+
+    Pass ``skill_tags`` to wire this milestone to XP awards on completion.
+    Milestones with a ``bonus_amount`` post to PaymentLedger.milestone_bonus
+    when marked complete via ``complete_milestone``.
+    """
+    project = _get_project_parent_only(params.project_id)
+    with transaction.atomic():
+        milestone = ProjectMilestone.objects.create(
+            project=project,
+            title=params.title,
+            description=params.description,
+            order=params.order,
+            bonus_amount=params.bonus_amount,
+        )
+        _create_milestone_skill_tags(
+            milestone, [t.model_dump() for t in params.skill_tags],
+        )
+    milestone.refresh_from_db()
+    return milestone_to_dict(milestone)
+
+
+@tool()
+@safe_tool
+def update_milestone(params: UpdateMilestoneIn) -> dict[str, Any]:
+    """Edit a milestone. When ``skill_tags`` is provided, replaces the full set."""
+    milestone = _get_milestone_parent_only(params.milestone_id)
+    data = params.model_dump(
+        exclude={"milestone_id", "skill_tags"},
+        exclude_unset=True,
+    )
+    with transaction.atomic():
+        for field, value in data.items():
+            setattr(milestone, field, value)
+        milestone.save()
+        if params.skill_tags is not None:
+            MilestoneSkillTag.objects.filter(milestone=milestone).delete()
+            _create_milestone_skill_tags(
+                milestone, [t.model_dump() for t in params.skill_tags],
+            )
+    milestone.refresh_from_db()
+    return milestone_to_dict(milestone)
+
+
+@tool()
+@safe_tool
+def delete_milestone(params: DeleteMilestoneIn) -> dict[str, Any]:
+    """Delete a milestone. Its steps become ungrouped (milestone=None)."""
+    milestone = _get_milestone_parent_only(params.milestone_id)
+    milestone_id = milestone.pk
+    # ProjectStep.milestone is SET_NULL — deletion un-groups steps rather
+    # than cascading. MilestoneSkillTag rows cascade on delete.
+    milestone.delete()
+    return {"milestone_id": milestone_id, "deleted": True}
+
+
+# ---- Step CRUD -----------------------------------------------------------
+
+
+def _get_step_editable(step_id: int) -> ProjectStep:
+    require_parent()
+    try:
+        return ProjectStep.objects.select_related("project").get(pk=step_id)
+    except ProjectStep.DoesNotExist:
+        raise MCPNotFoundError(f"Step {step_id} not found.")
+
+
+@tool()
+@safe_tool
+def add_step(params: AddStepIn) -> dict[str, Any]:
+    """Add a walkthrough step to a project, optionally grouped under a milestone.
+
+    Steps are parent-authored instructional content; children toggle their
+    completion via ``complete_step`` / ``uncomplete_step``.
+    """
+    project = _get_project_parent_only(params.project_id)
+    milestone = None
+    if params.milestone_id is not None:
+        try:
+            milestone = ProjectMilestone.objects.get(
+                pk=params.milestone_id, project=project,
+            )
+        except ProjectMilestone.DoesNotExist:
+            raise MCPValidationError(
+                f"milestone_id {params.milestone_id} is not on this project.",
+            )
+    step = ProjectStep.objects.create(
+        project=project,
+        milestone=milestone,
+        title=params.title,
+        description=params.description,
+        order=params.order,
+    )
+    return {
+        "id": step.id,
+        "project_id": step.project_id,
+        "milestone_id": step.milestone_id,
+        "title": step.title,
+        "description": step.description,
+        "order": step.order,
+        "is_completed": step.is_completed,
+    }
+
+
+@tool()
+@safe_tool
+def update_step(params: UpdateStepIn) -> dict[str, Any]:
+    """Edit a step. Parent-only.
+
+    To unset a step's milestone (ungroup it), pass ``clear_milestone=True``.
+    Passing ``milestone_id=<id>`` re-groups under that milestone; leaving
+    both unset preserves the current grouping.
+    """
+    step = _get_step_editable(params.step_id)
+    data = params.model_dump(
+        exclude={"step_id", "milestone_id", "clear_milestone"},
+        exclude_unset=True,
+    )
+    for field, value in data.items():
+        setattr(step, field, value)
+    if params.clear_milestone:
+        step.milestone = None
+    elif params.milestone_id is not None:
+        try:
+            step.milestone = ProjectMilestone.objects.get(
+                pk=params.milestone_id, project=step.project,
+            )
+        except ProjectMilestone.DoesNotExist:
+            raise MCPValidationError(
+                f"milestone_id {params.milestone_id} is not on this project.",
+            )
+    step.save()
+    return {
+        "id": step.id,
+        "project_id": step.project_id,
+        "milestone_id": step.milestone_id,
+        "title": step.title,
+        "description": step.description,
+        "order": step.order,
+        "is_completed": step.is_completed,
+    }
+
+
+@tool()
+@safe_tool
+def delete_step(params: DeleteStepIn) -> dict[str, Any]:
+    """Delete a walkthrough step (parent-only)."""
+    step = _get_step_editable(params.step_id)
+    step_id = step.pk
+    step.delete()
+    return {"step_id": step_id, "deleted": True}
+
+
+def _can_toggle_step(user, project) -> bool:
+    if user.role == "parent":
+        return True
+    if project.assigned_to_id == user.id:
+        return True
+    return project.collaborators.filter(user=user).exists()
+
+
+@tool()
+@safe_tool
+def complete_step(params: StepActionIn) -> dict[str, Any]:
+    """Mark a step complete. Child-safe: assignee or collaborators may toggle."""
+    user = get_current_user()
+    try:
+        step = ProjectStep.objects.select_related("project").get(pk=params.step_id)
+    except ProjectStep.DoesNotExist:
+        raise MCPNotFoundError(f"Step {params.step_id} not found.")
+    if not _can_toggle_step(user, step.project):
+        raise MCPPermissionDenied("Step is not on your project.")
+    step.is_completed = True
+    step.completed_at = timezone.now()
+    step.save(update_fields=["is_completed", "completed_at", "updated_at"])
+    return {"step_id": step.id, "is_completed": True}
+
+
+@tool()
+@safe_tool
+def uncomplete_step(params: StepActionIn) -> dict[str, Any]:
+    """Un-mark a step. Child-safe: assignee or collaborators may toggle."""
+    user = get_current_user()
+    try:
+        step = ProjectStep.objects.select_related("project").get(pk=params.step_id)
+    except ProjectStep.DoesNotExist:
+        raise MCPNotFoundError(f"Step {params.step_id} not found.")
+    if not _can_toggle_step(user, step.project):
+        raise MCPPermissionDenied("Step is not on your project.")
+    step.is_completed = False
+    step.completed_at = None
+    step.save(update_fields=["is_completed", "completed_at", "updated_at"])
+    return {"step_id": step.id, "is_completed": False}
+
+
+# ---- Material CRUD -------------------------------------------------------
+
+
+def _get_material_parent_only(material_id: int) -> MaterialItem:
+    require_parent()
+    try:
+        return MaterialItem.objects.select_related("project").get(pk=material_id)
+    except MaterialItem.DoesNotExist:
+        raise MCPNotFoundError(f"Material {material_id} not found.")
+
+
+@tool()
+@safe_tool
+def add_material(params: AddMaterialIn) -> dict[str, Any]:
+    """Add a material to a project's bill-of-materials (parent-only)."""
+    project = _get_project_parent_only(params.project_id)
+    material = MaterialItem.objects.create(
+        project=project,
+        name=params.name,
+        description=params.description,
+        estimated_cost=params.estimated_cost,
+    )
+    return material_to_dict(material)
+
+
+@tool()
+@safe_tool
+def update_material(params: UpdateMaterialIn) -> dict[str, Any]:
+    """Edit a material (parent-only). To mark purchased, use ``mark_material_purchased``."""
+    material = _get_material_parent_only(params.material_id)
+    data = params.model_dump(exclude={"material_id"}, exclude_unset=True)
+    for field, value in data.items():
+        setattr(material, field, value)
+    material.save()
+    return material_to_dict(material)
+
+
+@tool()
+@safe_tool
+def delete_material(params: DeleteMaterialIn) -> dict[str, Any]:
+    """Delete a material from a project (parent-only)."""
+    material = _get_material_parent_only(params.material_id)
+    material_id = material.pk
+    material.delete()
+    return {"material_id": material_id, "deleted": True}
+
+
+# ---- Resource CRUD -------------------------------------------------------
+
+
+def _get_resource_parent_only(resource_id: int) -> ProjectResource:
+    require_parent()
+    try:
+        return ProjectResource.objects.select_related("project", "step").get(
+            pk=resource_id,
+        )
+    except ProjectResource.DoesNotExist:
+        raise MCPNotFoundError(f"Resource {resource_id} not found.")
+
+
+def _resource_to_dict(resource: ProjectResource) -> dict[str, Any]:
+    return {
+        "id": resource.id,
+        "project_id": resource.project_id,
+        "step_id": resource.step_id,
+        "url": resource.url,
+        "title": resource.title,
+        "resource_type": resource.resource_type,
+        "order": resource.order,
+    }
+
+
+@tool()
+@safe_tool
+def add_resource(params: AddResourceIn) -> dict[str, Any]:
+    """Add a reference link (video/doc/image/link) to a project or step. Parent-only."""
+    project = _get_project_parent_only(params.project_id)
+    step = None
+    if params.step_id is not None:
+        try:
+            step = ProjectStep.objects.get(pk=params.step_id, project=project)
+        except ProjectStep.DoesNotExist:
+            raise MCPValidationError(
+                f"step_id {params.step_id} is not on this project.",
+            )
+    resource = ProjectResource.objects.create(
+        project=project,
+        step=step,
+        url=params.url,
+        title=params.title,
+        resource_type=params.resource_type,
+        order=params.order,
+    )
+    return _resource_to_dict(resource)
+
+
+@tool()
+@safe_tool
+def update_resource(params: UpdateResourceIn) -> dict[str, Any]:
+    """Edit a reference link (parent-only).
+
+    Pass ``clear_step=True`` to promote a step-scoped resource to
+    project-level. Pass ``step_id=<id>`` to re-scope to a step.
+    """
+    resource = _get_resource_parent_only(params.resource_id)
+    data = params.model_dump(
+        exclude={"resource_id", "step_id", "clear_step"},
+        exclude_unset=True,
+    )
+    for field, value in data.items():
+        setattr(resource, field, value)
+    if params.clear_step:
+        resource.step = None
+    elif params.step_id is not None:
+        try:
+            resource.step = ProjectStep.objects.get(
+                pk=params.step_id, project=resource.project,
+            )
+        except ProjectStep.DoesNotExist:
+            raise MCPValidationError(
+                f"step_id {params.step_id} is not on this project.",
+            )
+    resource.save()
+    return _resource_to_dict(resource)
+
+
+@tool()
+@safe_tool
+def delete_resource(params: DeleteResourceIn) -> dict[str, Any]:
+    """Delete a reference link (parent-only)."""
+    resource = _get_resource_parent_only(params.resource_id)
+    resource_id = resource.pk
+    resource.delete()
+    return {"resource_id": resource_id, "deleted": True}
+
+
+# ---------------------------------------------------------------------------
+# Tier 3.1: Collaborators
+# ---------------------------------------------------------------------------
+
+
+@tool()
+@safe_tool
+def add_collaborator(params: AddCollaboratorIn) -> dict[str, Any]:
+    """Add a child as a collaborator on a project (parent-only).
+
+    Collaborators can toggle step completion alongside the primary assignee.
+    ``pay_split_percent`` is informational — the ledger still pays the
+    assignee; splits are tracked for reporting.
+    """
+    project = _get_project_parent_only(params.project_id)
+    try:
+        child = User.objects.get(pk=params.user_id, role="child")
+    except User.DoesNotExist:
+        raise MCPValidationError(
+            f"user_id {params.user_id} does not match any child.",
+        )
+    if project.assigned_to_id == child.id:
+        raise MCPValidationError(
+            "This child is already the primary assignee; no need to add as a "
+            "collaborator.",
+        )
+    if ProjectCollaborator.objects.filter(
+        project=project, user=child,
+    ).exists():
+        raise MCPValidationError(
+            f"{child.display_label} is already a collaborator on this project.",
+        )
+    collab = ProjectCollaborator.objects.create(
+        project=project,
+        user=child,
+        pay_split_percent=params.pay_split_percent,
+    )
+    return {
+        "id": collab.id,
+        "project_id": project.id,
+        "user_id": child.id,
+        "pay_split_percent": collab.pay_split_percent,
+    }
+
+
+@tool()
+@safe_tool
+def remove_collaborator(params: RemoveCollaboratorIn) -> dict[str, Any]:
+    """Remove a collaborator from a project (parent-only)."""
+    project = _get_project_parent_only(params.project_id)
+    deleted, _ = ProjectCollaborator.objects.filter(
+        project=project, user_id=params.user_id,
+    ).delete()
+    if not deleted:
+        raise MCPNotFoundError(
+            f"User {params.user_id} is not a collaborator on project "
+            f"{params.project_id}.",
+        )
+    return {
+        "project_id": project.id,
+        "user_id": params.user_id,
+        "deleted": True,
+    }

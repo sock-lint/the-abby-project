@@ -11,7 +11,11 @@ from apps.timecards.models import TimeEntry
 
 from ..context import get_current_user
 from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
-from ..schemas import GetPortfolioSummaryIn, ListProjectPhotosIn
+from ..schemas import (
+    GetPortfolioSummaryIn,
+    ListPortfolioMediaIn,
+    ListProjectPhotosIn,
+)
 from ..server import tool
 from ..shapes import project_photo_to_dict
 
@@ -70,3 +74,60 @@ def get_portfolio_summary(params: GetPortfolioSummaryIn) -> dict[str, Any]:
         "total_photos": total_photos,
         "total_hours": round(total_minutes / 60, 1),
     }
+
+
+@tool()
+@safe_tool
+def list_portfolio_media(params: ListPortfolioMediaIn) -> dict[str, Any]:
+    """Aggregated recent work: project photos + approved homework proofs.
+
+    Returns a unified, chronologically-sorted list so an LLM can answer
+    "show me Abby's recent work" with one call. Each entry has a
+    ``kind`` discriminator ("project_photo" | "homework_proof") plus
+    enough metadata to render a tile.
+    """
+    from apps.homework.models import HomeworkProof
+
+    user = get_current_user()
+    target = _resolve_target(user, params.user_id)
+
+    photos = list(
+        ProjectPhoto.objects.select_related("project")
+        .filter(project__assigned_to=target)
+        .order_by("-uploaded_at")[: params.limit],
+    )
+    proofs = list(
+        HomeworkProof.objects.select_related("submission__assignment")
+        .filter(
+            submission__user=target,
+            submission__status="approved",
+        )
+        .order_by("-submission__created_at")[: params.limit],
+    )
+
+    items: list[dict[str, Any]] = []
+    for p in photos:
+        items.append({
+            "kind": "project_photo",
+            "id": p.id,
+            "project_id": p.project_id,
+            "project_title": p.project.title,
+            "image_url": p.image.url if p.image else None,
+            "caption": getattr(p, "caption", ""),
+            "uploaded_at": p.uploaded_at.isoformat() if p.uploaded_at else None,
+        })
+    for pr in proofs:
+        sub = pr.submission
+        items.append({
+            "kind": "homework_proof",
+            "id": pr.id,
+            "submission_id": sub.id,
+            "assignment_title": sub.assignment.title,
+            "image_url": pr.image.url if pr.image else None,
+            "caption": "",
+            "uploaded_at": sub.created_at.isoformat() if sub.created_at else None,
+        })
+
+    items.sort(key=lambda x: x.get("uploaded_at") or "", reverse=True)
+    items = items[: params.limit]
+    return {"media": items, "count": len(items)}

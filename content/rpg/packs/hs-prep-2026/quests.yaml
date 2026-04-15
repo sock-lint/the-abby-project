@@ -1,0 +1,30 @@
+quests:
+  - slug: summer-prep-arc
+    name: The Summer Before High School
+    description: A 90-day quest to build rock-solid habits before freshman year. Every habit tap, chore, and assignment chips away at the boss.
+    quest_type: boss
+    target_value: 800
+    duration_days: 90
+    coin_reward: 500
+    xp_reward: 400
+    is_repeatable: false
+    reward_items:
+      - slug: frame-high-school-trophy
+        quantity: 1
+      - slug: title-freshman-warrior
+        quantity: 1
+
+  - slug: first-week-freshman
+    name: First Week of Freshman Year
+    description: Survive the first week of high school by keeping the routine alive. Log 5 habits to clear it.
+    quest_type: collection
+    target_value: 5
+    duration_days: 7
+    coin_reward: 200
+    xp_reward: 150
+    is_repeatable: false
+    trigger_filter:
+      allowed_triggers: [habit_log]
+    reward_items:
+      - slug: accessory-backpack-charm
+        quantity: 1

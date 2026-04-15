@@ -1,0 +1,32 @@
+items:
+  - slug: title-freshman-warrior
+    name: Freshman Warrior
+    item_type: cosmetic_title
+    rarity: rare
+    icon: "🛡️"
+    coin_value: 40
+    description: Earned by grinding habits through the summer before high school.
+
+  - slug: frame-high-school-trophy
+    name: High School Trophy Frame
+    item_type: cosmetic_frame
+    rarity: epic
+    icon: "🏆"
+    coin_value: 80
+    description: A golden laurel frame for the incoming freshman champion.
+
+  - slug: accessory-backpack-charm
+    name: Lucky Backpack Charm
+    item_type: cosmetic_pet_accessory
+    rarity: uncommon
+    icon: "🎒"
+    coin_value: 20
+    description: A tiny first-day-of-school charm for your pet.
+
+  - slug: title-summer-scholar
+    name: Summer Scholar
+    item_type: cosmetic_title
+    rarity: common
+    icon: "☀️"
+    coin_value: 10
+    description: For anyone who studies in the sunshine months.

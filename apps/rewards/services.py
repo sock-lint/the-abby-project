@@ -116,7 +116,39 @@ class RewardService:
         if redemption.status != RewardRedemption.Status.PENDING:
             return redemption
         finalize_decision(redemption, RewardRedemption.Status.FULFILLED, parent, notes)
+        RewardService._maybe_credit_digital_item(redemption)
         return redemption
+
+    @staticmethod
+    def _maybe_credit_digital_item(redemption):
+        """Credit the linked ItemDefinition to UserInventory when the reward
+        is a digital-item fulfillment.
+
+        Idempotent-ish: only fires from ``approve``'s transition into
+        ``FULFILLED``, so it never double-credits even if this method is
+        called repeatedly. A noop for ``real_world`` rewards or rewards
+        without a linked item. Missing FK + non-real_world kind is logged
+        but not raised — we don't want a mis-configured reward to block
+        an approval the parent already greenlit.
+        """
+        reward = redemption.reward
+        if reward.fulfillment_kind == Reward.FulfillmentKind.REAL_WORLD:
+            return
+        if reward.item_definition_id is None:
+            logger.warning(
+                "Reward %s has fulfillment_kind=%s but no item_definition; "
+                "skipping inventory credit.",
+                reward.pk, reward.fulfillment_kind,
+            )
+            return
+        from apps.rpg.models import UserInventory
+        inv, _ = UserInventory.objects.select_for_update().get_or_create(
+            user=redemption.user,
+            item=reward.item_definition,
+            defaults={"quantity": 0},
+        )
+        inv.quantity = inv.quantity + 1
+        inv.save(update_fields=["quantity"])
 
     @staticmethod
     @transaction.atomic

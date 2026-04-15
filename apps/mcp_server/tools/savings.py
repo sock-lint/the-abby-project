@@ -13,7 +13,9 @@ from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
 from ..schemas import (
     ContributeToGoalIn,
     CreateSavingsGoalIn,
+    DeleteSavingsGoalIn,
     ListSavingsGoalsIn,
+    UpdateSavingsGoalIn,
 )
 from ..server import tool
 from ..shapes import savings_goal_to_dict
@@ -80,3 +82,37 @@ def contribute_to_goal(params: ContributeToGoalIn) -> dict[str, Any]:
         goal.completed_at = timezone.now()
     goal.save()
     return savings_goal_to_dict(goal)
+
+
+@tool()
+@safe_tool
+def update_savings_goal(params: UpdateSavingsGoalIn) -> dict[str, Any]:
+    """Edit a savings goal's metadata (owner or parent only)."""
+    user = get_current_user()
+    try:
+        goal = SavingsGoal.objects.get(pk=params.goal_id)
+    except SavingsGoal.DoesNotExist:
+        raise MCPNotFoundError(f"Savings goal {params.goal_id} not found.")
+    if goal.user_id != user.id and user.role != "parent":
+        raise MCPPermissionDenied("Cannot edit another user's goal.")
+    data = params.model_dump(exclude={"goal_id"}, exclude_unset=True)
+    for field, value in data.items():
+        setattr(goal, field, value)
+    goal.save()
+    return savings_goal_to_dict(goal)
+
+
+@tool()
+@safe_tool
+def delete_savings_goal(params: DeleteSavingsGoalIn) -> dict[str, Any]:
+    """Delete a savings goal (owner or parent only)."""
+    user = get_current_user()
+    try:
+        goal = SavingsGoal.objects.get(pk=params.goal_id)
+    except SavingsGoal.DoesNotExist:
+        raise MCPNotFoundError(f"Savings goal {params.goal_id} not found.")
+    if goal.user_id != user.id and user.role != "parent":
+        raise MCPPermissionDenied("Cannot delete another user's goal.")
+    goal_id = goal.pk
+    goal.delete()
+    return {"goal_id": goal_id, "deleted": True}

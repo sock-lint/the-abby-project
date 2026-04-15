@@ -1,0 +1,16 @@
+{
+  "last_load_stats": {
+    "created": {
+      "drop": 6,
+      "item_cosmetic_frame": 1,
+      "item_cosmetic_pet_accessory": 1,
+      "item_cosmetic_title": 2,
+      "quest": 2,
+      "quest_reward": 3,
+      "reward": 3
+    },
+    "skipped": {},
+    "updated": {}
+  },
+  "last_loaded_at": "2026-04-15T18:48:10.563010+00:00"
+}

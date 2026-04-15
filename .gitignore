@@ -44,3 +44,8 @@ docker-compose.override.yml
 # Worktrees
 .worktrees/
 /.playwright-mcp
+
+# Licensed RPG sprite sheets — not redistributable. The sliced derivatives
+# under frontend/src/assets/rpg-sprites/ ARE committed; the raw packs stay
+# local. See content/rpg/README.md for where to download them.
+reward-icons/

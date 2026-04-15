@@ -48,7 +48,19 @@ class CoinLedger(CreatedAtModel):
 
 
 class Reward(CreatedAtModel):
-    """A non-monetary reward that can be redeemed with Coins."""
+    """A non-monetary reward that can be redeemed with Coins.
+
+    Rewards bridge two fulfillment modes:
+
+    - ``real_world`` (default): parent fulfils by hand (trip, treat, etc.)
+    - ``digital_item``: linked to an ``rpg.ItemDefinition``; approval credits
+      the item to the user's ``UserInventory`` automatically.
+    - ``both``: credit the item AND flag for real-world follow-through.
+
+    The digital path lets an RPG content pack surface its items directly in
+    the shop via the ``item_definition`` FK, without needing a second
+    authoring surface.
+    """
 
     class Rarity(models.TextChoices):
         COMMON = "common", "Common"
@@ -56,6 +68,11 @@ class Reward(CreatedAtModel):
         RARE = "rare", "Rare"
         EPIC = "epic", "Epic"
         LEGENDARY = "legendary", "Legendary"
+
+    class FulfillmentKind(models.TextChoices):
+        REAL_WORLD = "real_world", "Real-world (parent fulfills)"
+        DIGITAL_ITEM = "digital_item", "Digital item (inventory credit)"
+        BOTH = "both", "Both"
 
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
@@ -72,6 +89,22 @@ class Reward(CreatedAtModel):
     requires_parent_approval = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
     order = models.IntegerField(default=0)
+    item_definition = models.ForeignKey(
+        "rpg.ItemDefinition",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="shop_rewards",
+        help_text=(
+            "Optional link to an RPG ItemDefinition. When set AND "
+            "fulfillment_kind is digital_item or both, redemption approval "
+            "credits one of this item to the user's UserInventory."
+        ),
+    )
+    fulfillment_kind = models.CharField(
+        max_length=16,
+        choices=FulfillmentKind.choices,
+        default=FulfillmentKind.REAL_WORLD,
+    )
 
     class Meta:
         ordering = ["order", "cost_coins", "name"]

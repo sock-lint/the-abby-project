@@ -80,16 +80,26 @@ class ContentPack:
 
     # ---- public API ----------------------------------------------------
 
+    @transaction.atomic
     def load(self, stdout=None, dry_run: bool = False) -> LoadStats:
-        """Parse, validate, and upsert every content file present."""
+        """Parse, validate, and upsert every content file present.
+
+        Wrapped in ``transaction.atomic`` so the savepoint below has an
+        active outer transaction to nest inside. Without this wrapper,
+        callers that aren't already inside a transaction (e.g. MCP tool
+        handlers hitting ``load()`` directly) would see ``dry_run=True``
+        silently leak writes — ``transaction.savepoint()`` is a no-op
+        outside of an atomic block.
+        """
         parsed = self._parse_all()
 
         write = _writer(stdout)
         if dry_run:
             write("[dry-run] parsed successfully; no changes committed")
 
-        # Outer transaction — if anything fails or dry_run, roll everything
-        # back atomically.
+        # Inner savepoint so the same code path handles both dry-run
+        # (rollback) and commit. The outer @transaction.atomic commits
+        # whatever's left after this savepoint is rolled back or released.
         sid = transaction.savepoint()
         try:
             self._load_skill_tree(parsed.get("skill_tree"), write)
@@ -528,6 +538,7 @@ class ContentPack:
         if not data:
             return
         from apps.rewards.models import Reward
+        from apps.rpg.models import ItemDefinition
 
         for entry in data.get("rewards", []) or []:
             defaults = {
@@ -541,7 +552,34 @@ class ContentPack:
                 ),
                 "is_active": bool(entry.get("is_active", True)),
                 "order": int(entry.get("order", 0)),
+                "fulfillment_kind": entry.get(
+                    "fulfillment_kind", Reward.FulfillmentKind.REAL_WORLD,
+                ),
             }
+
+            # Optional link to a loaded ItemDefinition. Accept either a
+            # namespaced slug or a core slug — the loader just finished
+            # upserting items for this pack, so the namespaced form is
+            # usually what the author wants, but referencing an existing
+            # core item (e.g. a cosmetic from initial/) should also work.
+            raw_item_slug = entry.get("item_definition")
+            if raw_item_slug:
+                slug = self._ns(raw_item_slug)
+                try:
+                    defaults["item_definition"] = ItemDefinition.objects.get(
+                        slug=slug,
+                    )
+                except ItemDefinition.DoesNotExist:
+                    try:
+                        defaults["item_definition"] = ItemDefinition.objects.get(
+                            slug=raw_item_slug,
+                        )
+                    except ItemDefinition.DoesNotExist as exc:
+                        raise ContentPackError(
+                            f"reward {entry['name']!r} references unknown "
+                            f"item_definition slug {raw_item_slug!r}"
+                        ) from exc
+
             _, created = Reward.objects.update_or_create(
                 name=entry["name"], defaults=defaults,
             )

@@ -1,0 +1,24 @@
+rewards:
+  - name: Unlock Freshman Warrior Title
+    description: A rare title for anyone who built high-school habits before day one.
+    cost_coins: 120
+    fulfillment_kind: digital_item
+    item_definition: title-freshman-warrior
+    rarity: rare
+    is_active: true
+
+  - name: Unlock Lucky Backpack Charm
+    description: A first-day-of-school charm for your pet.
+    cost_coins: 60
+    fulfillment_kind: digital_item
+    item_definition: accessory-backpack-charm
+    rarity: uncommon
+    is_active: true
+
+  - name: Unlock High School Trophy Frame
+    description: An epic golden frame for your profile.
+    cost_coins: 250
+    fulfillment_kind: digital_item
+    item_definition: frame-high-school-trophy
+    rarity: epic
+    is_active: true

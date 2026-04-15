@@ -3,20 +3,36 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.homework.models import HomeworkAssignment, HomeworkSubmission
+from django.db import transaction
+
+from apps.homework.models import (
+    HomeworkAssignment,
+    HomeworkSkillTag,
+    HomeworkSubmission,
+    HomeworkTemplate,
+)
 from apps.homework.services import HomeworkError, HomeworkService
 from apps.projects.models import User
 
 from ..context import get_current_user, require_parent, resolve_target_user
-from ..errors import MCPNotFoundError, safe_tool
+from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
+    CreateHomeworkFromTemplateIn,
     CreateHomeworkIn,
+    CreateHomeworkTemplateIn,
     DecideHomeworkSubmissionIn,
+    DeleteHomeworkIn,
+    DeleteHomeworkTemplateIn,
     GetHomeworkIn,
+    GetHomeworkTemplateIn,
     ListHomeworkIn,
     ListHomeworkSubmissionsIn,
+    ListHomeworkTemplatesIn,
     PlanHomeworkIn,
+    SetHomeworkSkillTagsIn,
     SubmitHomeworkIn,
+    UpdateHomeworkIn,
+    UpdateHomeworkTemplateIn,
 )
 from ..server import tool
 from ..shapes import homework_assignment_to_dict, homework_submission_to_dict, many
@@ -160,3 +176,228 @@ def reject_homework_submission(params: DecideHomeworkSubmissionIn) -> dict[str, 
 
     updated = HomeworkService.reject_submission(submission, parent)
     return homework_submission_to_dict(updated)
+
+
+# ---------------------------------------------------------------------------
+# Tier 1.4: update/delete + templates + skill tags
+# ---------------------------------------------------------------------------
+
+
+def _get_assignment_parent_only(assignment_id: int) -> HomeworkAssignment:
+    require_parent()
+    try:
+        return HomeworkAssignment.objects.get(pk=assignment_id)
+    except HomeworkAssignment.DoesNotExist:
+        raise MCPNotFoundError(f"Assignment {assignment_id} not found.")
+
+
+@tool()
+@safe_tool
+def update_homework(params: UpdateHomeworkIn) -> dict[str, Any]:
+    """Edit fields on a homework assignment (parent-only).
+
+    Use ``set_homework_skill_tags`` to change XP routing. Use
+    ``delete_homework`` to soft-delete (sets ``is_active=False``).
+    """
+    assignment = _get_assignment_parent_only(params.assignment_id)
+    data = params.model_dump(exclude={"assignment_id"}, exclude_unset=True)
+    for field, value in data.items():
+        setattr(assignment, field, value)
+    assignment.save()
+    assignment.refresh_from_db()
+    return homework_assignment_to_dict(assignment)
+
+
+@tool()
+@safe_tool
+def delete_homework(params: DeleteHomeworkIn) -> dict[str, Any]:
+    """Soft-delete a homework assignment (sets ``is_active=False``). Parent-only.
+
+    Mirrors the REST ``DELETE`` behavior. Submissions stay intact so past
+    receipts remain visible in the portfolio.
+    """
+    assignment = _get_assignment_parent_only(params.assignment_id)
+    assignment.is_active = False
+    assignment.save(update_fields=["is_active"])
+    return {"assignment_id": assignment.id, "deleted": True}
+
+
+@tool()
+@safe_tool
+def set_homework_skill_tags(params: SetHomeworkSkillTagsIn) -> dict[str, Any]:
+    """Replace the skill-tag set on an assignment (parent-only).
+
+    Passing an empty list removes all tags (the assignment will award no
+    XP on approval, even though it still pays money/coins).
+    """
+    from apps.achievements.models import Skill
+
+    assignment = _get_assignment_parent_only(params.assignment_id)
+    skill_ids = [t.skill_id for t in params.skill_tags]
+    known = set(Skill.objects.filter(id__in=skill_ids).values_list("id", flat=True))
+    missing = [s for s in skill_ids if s not in known]
+    if missing:
+        raise MCPValidationError(f"Unknown skill IDs: {missing}")
+    with transaction.atomic():
+        HomeworkSkillTag.objects.filter(assignment=assignment).delete()
+        HomeworkSkillTag.objects.bulk_create([
+            HomeworkSkillTag(
+                assignment=assignment,
+                skill_id=t.skill_id,
+                xp_amount=t.xp_amount,
+            )
+            for t in params.skill_tags
+        ])
+    assignment.refresh_from_db()
+    return homework_assignment_to_dict(assignment)
+
+
+@tool()
+@safe_tool
+def plan_homework(params: PlanHomeworkIn) -> dict[str, Any]:
+    """Trigger AI project planning for a homework assignment (parent-only).
+
+    Calls the underlying ``HomeworkService.plan_assignment`` which uses
+    Claude + the MCP ``create_project`` tool to generate a full project
+    linked to the assignment. Returns the updated assignment (now with
+    ``project_id`` set).
+
+    Raises ``MCPValidationError`` if the assignment already has a linked
+    project or if AI planning is not yet configured.
+    """
+    require_parent()
+    try:
+        assignment = HomeworkAssignment.objects.get(pk=params.assignment_id)
+    except HomeworkAssignment.DoesNotExist:
+        raise MCPNotFoundError(f"Assignment {params.assignment_id} not found.")
+    if assignment.project_id:
+        raise MCPValidationError(
+            "This assignment already has a linked project "
+            f"(project_id={assignment.project_id}).",
+        )
+    if not hasattr(HomeworkService, "plan_assignment"):
+        # REST view currently returns 501 — mirror that here.
+        raise MCPValidationError(
+            "AI planning is not yet configured on this server.",
+        )
+    HomeworkService.plan_assignment(assignment)  # pragma: no cover
+    assignment.refresh_from_db()
+    return homework_assignment_to_dict(assignment)
+
+
+# ---- Templates -----------------------------------------------------------
+
+
+def _template_to_dict(template: HomeworkTemplate) -> dict[str, Any]:
+    from apps.homework.serializers import HomeworkTemplateSerializer
+    from ..shapes import to_plain
+
+    return to_plain(HomeworkTemplateSerializer(template).data)
+
+
+@tool()
+@safe_tool
+def list_homework_templates(params: ListHomeworkTemplatesIn) -> dict[str, Any]:
+    """List homework templates owned by the calling parent."""
+    parent = require_parent()
+    qs = HomeworkTemplate.objects.filter(created_by=parent).order_by("title")
+    items = [_template_to_dict(t) for t in qs[: params.limit]]
+    return {"templates": items, "count": len(items)}
+
+
+@tool()
+@safe_tool
+def get_homework_template(params: GetHomeworkTemplateIn) -> dict[str, Any]:
+    """Return a single template owned by the calling parent."""
+    parent = require_parent()
+    try:
+        template = HomeworkTemplate.objects.get(
+            pk=params.template_id, created_by=parent,
+        )
+    except HomeworkTemplate.DoesNotExist:
+        raise MCPNotFoundError(f"Template {params.template_id} not found.")
+    return _template_to_dict(template)
+
+
+@tool()
+@safe_tool
+def create_homework_template(params: CreateHomeworkTemplateIn) -> dict[str, Any]:
+    """Create a reusable homework template (parent-only)."""
+    parent = require_parent()
+    template = HomeworkTemplate.objects.create(
+        title=params.title,
+        description=params.description,
+        subject=params.subject,
+        effort_level=params.effort_level,
+        reward_amount=params.reward_amount,
+        coin_reward=params.coin_reward,
+        created_by=parent,
+        skill_tags=[t.model_dump() for t in params.skill_tags],
+    )
+    return _template_to_dict(template)
+
+
+@tool()
+@safe_tool
+def update_homework_template(params: UpdateHomeworkTemplateIn) -> dict[str, Any]:
+    """Edit a homework template (parent-only)."""
+    parent = require_parent()
+    try:
+        template = HomeworkTemplate.objects.get(
+            pk=params.template_id, created_by=parent,
+        )
+    except HomeworkTemplate.DoesNotExist:
+        raise MCPNotFoundError(f"Template {params.template_id} not found.")
+    data = params.model_dump(
+        exclude={"template_id", "skill_tags"}, exclude_unset=True,
+    )
+    for field, value in data.items():
+        setattr(template, field, value)
+    if params.skill_tags is not None:
+        template.skill_tags = [t.model_dump() for t in params.skill_tags]
+    template.save()
+    return _template_to_dict(template)
+
+
+@tool()
+@safe_tool
+def delete_homework_template(params: DeleteHomeworkTemplateIn) -> dict[str, Any]:
+    """Delete a homework template (parent-only)."""
+    parent = require_parent()
+    try:
+        template = HomeworkTemplate.objects.get(
+            pk=params.template_id, created_by=parent,
+        )
+    except HomeworkTemplate.DoesNotExist:
+        raise MCPNotFoundError(f"Template {params.template_id} not found.")
+    template_id = template.pk
+    template.delete()
+    return {"template_id": template_id, "deleted": True}
+
+
+@tool()
+@safe_tool
+def create_homework_from_template(
+    params: CreateHomeworkFromTemplateIn,
+) -> dict[str, Any]:
+    """Spawn a homework assignment for a child from a template (parent-only)."""
+    parent = require_parent()
+    try:
+        template = HomeworkTemplate.objects.get(
+            pk=params.template_id, created_by=parent,
+        )
+    except HomeworkTemplate.DoesNotExist:
+        raise MCPNotFoundError(f"Template {params.template_id} not found.")
+    try:
+        child = User.objects.get(pk=params.assigned_to_id, role="child")
+    except User.DoesNotExist:
+        raise MCPValidationError(
+            f"Child {params.assigned_to_id} not found.",
+        )
+    try:
+        assignment = HomeworkService.create_from_template(
+            template, child, params.due_date,
+        )
+    except HomeworkError as exc:
+        raise MCPValidationError(str(exc))
+    return homework_assignment_to_dict(assignment)

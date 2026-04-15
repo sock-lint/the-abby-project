@@ -1,0 +1,36 @@
+items:
+  - slug: food-dandelion
+    name: Dandelion Greens
+    item_type: food
+    rarity: common
+    icon: "🌼"
+    coin_value: 1
+    description: Freshly picked spring dandelion greens.
+  - slug: food-honeysuckle
+    name: Honeysuckle Nectar
+    item_type: food
+    rarity: common
+    icon: "🌸"
+    coin_value: 1
+    description: Sweet spring nectar from blooming honeysuckle.
+  - slug: food-rhubarb
+    name: Rhubarb Stalk
+    item_type: food
+    rarity: common
+    icon: "🌱"
+    coin_value: 1
+    description: Tart and crunchy spring rhubarb.
+  - slug: food-spring-peas
+    name: Spring Peas
+    item_type: food
+    rarity: common
+    icon: "🫛"
+    coin_value: 1
+    description: Fresh garden peas straight from the pod.
+  - slug: title-garden-hero
+    name: Garden Hero
+    item_type: cosmetic_title
+    rarity: rare
+    icon: "🌷"
+    coin_value: 30
+    description: A title earned by protecting the garden from pests.

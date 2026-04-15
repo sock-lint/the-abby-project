@@ -1,0 +1,21 @@
+quests:
+  - slug: garden-pest-hunter
+    name: Garden Pest Hunter
+    description: A swarm of hungry aphids is devouring the spring garden! Complete tasks to drive them out and save the blossoms.
+    quest_type: boss
+    target_value: 300
+    duration_days: 7
+    coin_reward: 150
+    xp_reward: 200
+    icon: "🐛"
+    is_repeatable: false
+  - slug: spring-bloom-collector
+    name: Spring Bloom Collector
+    description: Gather fresh spring blooms and treasures from around the garden by completing your daily tasks.
+    quest_type: collection
+    target_value: 5
+    duration_days: 14
+    coin_reward: 75
+    xp_reward: 100
+    icon: "🌸"
+    is_repeatable: false
