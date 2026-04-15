@@ -160,7 +160,11 @@ class GoogleCallbackView(APIView):
             try:
                 linked_by = User.objects.get(pk=linked_by_id)
             except User.DoesNotExist:
-                pass
+                logger.warning(
+                    "google_oauth: linked_by user %s not found while linking google_id=%s to target_user_id=%s; "
+                    "continuing without parent attribution.",
+                    linked_by_id, google_id, target_user_id,
+                )
 
         # Check if this google_id is already linked to a different user
         existing = GoogleAccount.objects.filter(google_id=google_id).exclude(user=target_user).first()

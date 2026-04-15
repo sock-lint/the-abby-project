@@ -1,0 +1,33 @@
+# Sleep Prep 2026 — items
+# Late-summer pack to help Abby build sleep hygiene before
+# her first week of high school (starts August 2026).
+# Theme: wind-down routines, screen curfew, bedtime stories.
+items:
+  - slug: frame-moonlit
+    name: Moonlit Frame
+    description: A serene silver-blue avatar border that glows like a full moon. Earned by building a steady sleep routine.
+    item_type: cosmetic_frame
+    rarity: rare
+    icon: 🌙
+    coin_value: 150
+    metadata:
+      border_color: "#8BA4D4"
+      accent_color: "#D9E2F3"
+
+  - slug: title-well-rested
+    name: Well-Rested
+    description: A title for those who conquered the late-night scroll and woke up ready.
+    item_type: cosmetic_title
+    rarity: uncommon
+    icon: 😴
+    coin_value: 80
+    metadata:
+      title_text: "Well-Rested"
+
+  - slug: food-chamomile-tea
+    name: Chamomile Tea
+    description: A warm cup of chamomile. Calming, cozy, and the perfect pre-bed treat for a pet.
+    item_type: food
+    rarity: common
+    icon: 🍵
+    coin_value: 8

@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import models
 
-from config.base_models import TimestampedModel
+from config.base_models import ApprovalWorkflowModel, TimestampedModel
 
 
 class TimeEntry(models.Model):
@@ -49,7 +49,7 @@ class TimeEntry(models.Model):
         super().save(*args, **kwargs)
 
 
-class Timecard(TimestampedModel):
+class Timecard(ApprovalWorkflowModel, TimestampedModel):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         APPROVED = "approved", "Approved"
@@ -77,11 +77,6 @@ class Timecard(TimestampedModel):
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.PENDING
     )
-    approved_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="approved_timecards",
-    )
-    approved_at = models.DateTimeField(null=True, blank=True)
     parent_notes = models.TextField(blank=True)
 
     class Meta:

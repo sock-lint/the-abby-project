@@ -409,6 +409,166 @@ class HomeworkService:
             "stats": stats,
         }
 
+    # ------------------------------------------------------------------
+    # AI planning — generate a linked Project via Claude
+    # ------------------------------------------------------------------
+    _PLAN_PROMPT = (
+        "You are helping break a homework assignment into a kid-friendly "
+        "multi-step project so a child can work through it and check off "
+        "progress. Return ONLY a JSON object with this shape:\n"
+        '{\n'
+        '  "title": "short project title (<= 80 chars)",\n'
+        '  "description": "1-2 sentence plain-English summary for a kid",\n'
+        '  "difficulty": 1-5 integer (1 easiest, 5 hardest),\n'
+        '  "milestones": [ {"title": "chapter title", "description": "1-2 sentences"}, ... ],\n'
+        '  "steps": [ {"title": "short \'do this next\' (<= 60 chars)", "description": "1-3 kid-friendly sentences", "milestone_index": 0-based index into milestones or null} ],\n'
+        '  "materials": [ {"name": "string", "description": "string", "estimated_cost": number-or-null} ]\n'
+        "}\n\n"
+        "Rules:\n"
+        "- 2-5 milestones, 4-12 steps total.\n"
+        "- Every step should belong to a milestone (milestone_index non-null) when possible.\n"
+        "- Keep language warm and encouraging; avoid jargon.\n"
+        "- Only include materials the child actually needs.\n"
+        "- Difficulty should reflect the homework effort_level if sensible.\n\n"
+        "Homework assignment:\n"
+        "Title: {title}\n"
+        "Subject: {subject}\n"
+        "Effort level (1-5): {effort_level}\n"
+        "Due date: {due_date}\n"
+        "Description: {description}\n"
+    )
+
+    @staticmethod
+    @transaction.atomic
+    def plan_assignment(assignment, parent):
+        """Use Claude + project model to generate a multi-step Project for a homework assignment.
+
+        Raises HomeworkError if:
+        - the assignment already has a linked project,
+        - ANTHROPIC_API_KEY is not configured, or
+        - the Claude call / JSON parse fails.
+        """
+        from apps.projects.models import (
+            MaterialItem,
+            Project,
+            ProjectMilestone,
+            ProjectStep,
+        )
+
+        if assignment.project_id:
+            raise HomeworkError("This assignment already has a linked project.")
+
+        api_key = getattr(settings, "ANTHROPIC_API_KEY", "")
+        if not api_key:
+            raise HomeworkError("AI planning is not configured (ANTHROPIC_API_KEY missing).")
+
+        try:
+            import anthropic  # type: ignore
+        except ImportError as exc:
+            raise HomeworkError("AI planning requires the 'anthropic' package.") from exc
+
+        prompt = HomeworkService._PLAN_PROMPT.format(
+            title=assignment.title,
+            subject=assignment.get_subject_display(),
+            effort_level=assignment.effort_level,
+            due_date=assignment.due_date.isoformat(),
+            description=(assignment.description or "(none)")[:4000],
+        )
+
+        try:
+            client = anthropic.Anthropic(api_key=api_key)
+            message = client.messages.create(
+                model=getattr(settings, "CLAUDE_MODEL", "claude-haiku-4-5-20251001"),
+                max_tokens=2048,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = (message.content[0].text or "").strip()
+            if text.startswith("```"):
+                text = text.strip("`")
+                if text.startswith("json"):
+                    text = text[4:].strip()
+            import json as _json
+            spec = _json.loads(text)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Homework AI planning failed for assignment %s", assignment.pk)
+            raise HomeworkError(f"AI planning failed: {exc}") from exc
+
+        if not isinstance(spec, dict):
+            raise HomeworkError("AI planner returned a non-object response.")
+
+        # Build the project.
+        project = Project.objects.create(
+            title=str(spec.get("title") or assignment.title)[:200],
+            description=str(spec.get("description") or "")[:4000],
+            difficulty=max(1, min(5, int(spec.get("difficulty") or assignment.effort_level))),
+            status=Project.Status.IN_PROGRESS,
+            assigned_to=assignment.assigned_to,
+            created_by=parent,
+            payment_kind=Project.PaymentKind.REQUIRED,
+        )
+
+        # Milestones (kept ordered by list position).
+        milestone_rows = []
+        for idx, ms in enumerate(spec.get("milestones") or []):
+            if not isinstance(ms, dict):
+                continue
+            milestone_rows.append(
+                ProjectMilestone.objects.create(
+                    project=project,
+                    title=str(ms.get("title") or f"Phase {idx + 1}")[:200],
+                    description=str(ms.get("description") or "")[:4000],
+                    order=idx,
+                )
+            )
+
+        # Steps — attach to milestone by index when provided.
+        for idx, st in enumerate(spec.get("steps") or []):
+            if not isinstance(st, dict):
+                continue
+            ms_index = st.get("milestone_index")
+            milestone = None
+            if isinstance(ms_index, int) and 0 <= ms_index < len(milestone_rows):
+                milestone = milestone_rows[ms_index]
+            ProjectStep.objects.create(
+                project=project,
+                milestone=milestone,
+                title=str(st.get("title") or f"Step {idx + 1}")[:200],
+                description=str(st.get("description") or "")[:4000],
+                order=idx,
+            )
+
+        # Materials — optional.
+        for mat in spec.get("materials") or []:
+            if not isinstance(mat, dict):
+                continue
+            cost = mat.get("estimated_cost")
+            try:
+                cost_dec = Decimal(str(cost)) if cost is not None else Decimal("0.00")
+            except Exception:  # noqa: BLE001
+                cost_dec = Decimal("0.00")
+            MaterialItem.objects.create(
+                project=project,
+                name=str(mat.get("name") or "Material")[:200],
+                description=str(mat.get("description") or "")[:4000],
+                estimated_cost=cost_dec,
+            )
+
+        assignment.project = project
+        assignment.save(update_fields=["project"])
+
+        notify(
+            assignment.assigned_to,
+            title=f"Project planned: {project.title}",
+            message=(
+                f'Your homework "{assignment.title}" has been planned out as a '
+                f'project with {len(milestone_rows)} phases.'
+            ),
+            notification_type=Notification.NotificationType.HOMEWORK_CREATED,
+            link=f"/quests/ventures/{project.pk}",
+        )
+
+        return assignment
+
     @staticmethod
     def get_parent_overview():
         """Return pending submissions queue + per-child stats for parents."""

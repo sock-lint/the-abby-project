@@ -95,20 +95,25 @@ class HomeworkAssignmentViewSet(
             status=status.HTTP_201_CREATED,
         )
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def plan(self, request, pk=None):
-        """Trigger AI planning — creates a linked Project via MCP."""
+        """Trigger AI planning — creates a linked Project via Claude.
+
+        Parent-only: AI calls are non-trivial and cost real money; children
+        request planning by asking a parent in the UI.
+        """
         assignment = self.get_object()
-        if assignment.project_id:
-            return Response(
-                {"error": "This assignment already has a linked project."},
-                status=status.HTTP_400_BAD_REQUEST,
+        try:
+            updated = HomeworkService.plan_assignment(assignment, request.user)
+        except HomeworkError as exc:
+            message = str(exc)
+            http_status = (
+                status.HTTP_501_NOT_IMPLEMENTED
+                if "not configured" in message
+                else status.HTTP_400_BAD_REQUEST
             )
-        # AI planning will be wired in Phase 4 (MCP integration).
-        return Response(
-            {"error": "AI planning not yet configured."},
-            status=status.HTTP_501_NOT_IMPLEMENTED,
-        )
+            return Response({"error": message}, status=http_status)
+        return Response(HomeworkAssignmentSerializer(updated).data)
 
 
 class HomeworkSubmissionViewSet(

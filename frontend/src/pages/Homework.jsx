@@ -45,6 +45,7 @@ export default function Homework() {
   const [submitNotes, setSubmitNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [planning, setPlanning] = useState(null);
+  const [planError, setPlanError] = useState('');
 
   const [form, setForm] = useState({
     title: '', description: '', subject: 'math', effort_level: 3,
@@ -97,16 +98,19 @@ export default function Homework() {
 
   const handlePlan = async (assignment) => {
     setPlanning(assignment.id);
+    setPlanError('');
     try {
       const result = await planHomework(assignment.id);
-      if (result?.project_id) {
-        window.location.href = `/quests/ventures/${result.project_id}`;
+      const projectId = result?.project_id || result?.project?.id || result?.project;
+      if (projectId) {
+        window.location.href = `/quests/ventures/${projectId}`;
+        return;
       }
-    } catch {
-      // AI planning not yet available
+      reload();
+    } catch (err) {
+      setPlanError(err?.message || 'AI planning failed. Try again later.');
     } finally {
       setPlanning(null);
-      reload();
     }
   };
 
@@ -133,6 +137,8 @@ export default function Homework() {
         </button>
       </header>
 
+      {planError && <ErrorAlert message={planError} />}
+
       {/* Child dashboard view */}
       {!isParent && (
         <>
@@ -157,6 +163,7 @@ export default function Homework() {
                 onSubmit={() => setShowSubmit(a)}
                 onPlan={() => handlePlan(a)}
                 planning={planning === a.id}
+                canPlan={isParent}
               />
             )}
           </Section>
@@ -181,6 +188,7 @@ export default function Homework() {
                 onSubmit={() => setShowSubmit(a)}
                 onPlan={() => handlePlan(a)}
                 planning={planning === a.id}
+                canPlan={isParent}
               />
             )}
           </Section>
@@ -399,7 +407,7 @@ function Section({ title, items, emptyText, children }) {
   );
 }
 
-function AssignmentCard({ assignment, onSubmit, onPlan, planning }) {
+function AssignmentCard({ assignment, onSubmit, onPlan, planning, canPlan }) {
   const a = assignment;
   const sub = a.submission_status;
   const hasProject = a.has_project;
@@ -432,7 +440,7 @@ function AssignmentCard({ assignment, onSubmit, onPlan, planning }) {
             <Send size={12} /> Submit
           </button>
         )}
-        {!hasProject && (
+        {!hasProject && canPlan && (
           <button
             type="button"
             onClick={onPlan}

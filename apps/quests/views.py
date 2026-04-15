@@ -106,6 +106,25 @@ class QuestCatalogView(ListAPIView):
         ).order_by("quest_type", "name")
 
 
+class FamilyActiveQuestsView(APIView):
+    """GET /api/quests/family/ — parent-only family roll-up of each child's active quest."""
+    permission_classes = [IsParent]
+
+    def get(self, request):
+        from apps.projects.models import User
+
+        children = User.objects.filter(role="child").order_by("display_name", "username")
+        rows = []
+        for child in children:
+            quest = QuestService.get_active_quest(child)
+            rows.append({
+                "child_id": child.pk,
+                "child_name": child.display_label,
+                "quest": QuestSerializer(quest).data if quest else None,
+            })
+        return Response({"results": rows})
+
+
 class AssignQuestView(APIView):
     """POST /api/quests/{id}/assign/ — parent assigns quest to child."""
     permission_classes = [IsParent]

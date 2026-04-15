@@ -1,0 +1,34 @@
+# Sleep Prep 2026 — quests
+# Two-quest arc that maps to Abby's first week of high school:
+#   1. Collection quest — build the bedtime-story habit (7 days)
+#   2. Boss quest — defeat the Doomscroll monster (14 days)
+quests:
+  - slug: seven-nights-of-stories
+    name: Seven Nights of Stories
+    description: "Wind down the right way. Read (or listen to) a bedtime story for five nights in a row. No screens in the last 30 minutes before bed."
+    quest_type: collection
+    target_value: 5
+    duration_days: 7
+    coin_reward: 150
+    xp_reward: 50
+    is_repeatable: false
+    trigger_filter:
+      allowed_triggers: [habit_log]
+    reward_items:
+      - slug: food-chamomile-tea
+        quantity: 3
+      - slug: frame-moonlit
+        quantity: 1
+
+  - slug: defeat-the-doomscroll
+    name: Defeat the Doomscroll
+    description: "The Doomscroll beast thrives on late-night phone time. Every chore completed, every habit logged, every project step done weakens it. Land the killing blow before the first day of school."
+    quest_type: boss
+    target_value: 250
+    duration_days: 14
+    coin_reward: 200
+    xp_reward: 75
+    is_repeatable: false
+    reward_items:
+      - slug: title-well-rested
+        quantity: 1

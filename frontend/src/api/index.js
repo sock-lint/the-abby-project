@@ -338,3 +338,4 @@ export const getQuestHistory = () => api.get('/quests/history/');
 export const createQuest = (data) => api.post('/quests/', data);
 export const assignQuest = (definitionId, userId) =>
   api.post(`/quests/${definitionId}/assign/`, { user_id: userId });
+export const getFamilyQuests = () => api.get('/quests/family/');

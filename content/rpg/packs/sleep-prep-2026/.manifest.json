@@ -1,0 +1,15 @@
+{
+  "last_load_stats": {
+    "created": {
+      "item_cosmetic_frame": 1,
+      "item_cosmetic_title": 1,
+      "item_food": 1,
+      "quest": 2,
+      "quest_reward": 3,
+      "reward": 2
+    },
+    "skipped": {},
+    "updated": {}
+  },
+  "last_loaded_at": "2026-04-15T20:21:31.570401+00:00"
+}

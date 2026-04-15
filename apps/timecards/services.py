@@ -230,20 +230,12 @@ class TimecardService:
     def approve_timecard(timecard, parent_user, notes=""):
         """Approve a timecard and stamp audit fields atomically.
 
-        Timecard predates ``ApprovalWorkflowModel`` and uses ``approved_by``/
-        ``approved_at`` instead of ``decided_by``/``decided_at`` — so it can't
-        use ``config.services.finalize_decision``. Stamping is inlined here
-        to keep the only business logic in one place.
+        Uses ``finalize_decision`` now that Timecard inherits from
+        ``ApprovalWorkflowModel`` (migration 0002).
         """
-        from django.utils import timezone
+        from config.services import finalize_decision
 
-        timecard.status = Timecard.Status.APPROVED
-        timecard.approved_by = parent_user
-        timecard.approved_at = timezone.now()
-        timecard.parent_notes = notes
-        timecard.save(update_fields=[
-            "status", "approved_by", "approved_at", "parent_notes", "updated_at",
-        ])
+        finalize_decision(timecard, Timecard.Status.APPROVED, parent_user, notes)
 
         from apps.achievements.services import BadgeService
         BadgeService.evaluate_badges(timecard.user)

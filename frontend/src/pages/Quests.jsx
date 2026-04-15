@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Shield } from 'lucide-react';
 import {
-  getActiveQuest, getAvailableQuests, startQuest, getQuestHistory,
+  getActiveQuest, getAvailableQuests, startQuest, getQuestHistory, getFamilyQuests,
 } from '../api';
 import { useApi } from '../hooks/useApi';
+import { useRole } from '../hooks/useRole';
 import Loader from '../components/Loader';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
@@ -25,18 +26,25 @@ const STATUS_TONE = {
 };
 
 export default function Quests() {
+  const { isParent } = useRole();
   const { data: activeQuest, loading: loadingActive, reload: reloadActive } = useApi(getActiveQuest);
   const { data: availableData, loading: loadingAvailable } = useApi(getAvailableQuests);
   const { data: historyData, loading: loadingHistory } = useApi(getQuestHistory);
+  const fetchFamily = useCallback(
+    () => (isParent ? getFamilyQuests() : Promise.resolve({ results: [] })),
+    [isParent],
+  );
+  const { data: familyData, loading: loadingFamily } = useApi(fetchFamily, [isParent]);
   const [tab, setTab] = useState('current');
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(null);
 
-  const loading = loadingActive || loadingAvailable || loadingHistory;
+  const loading = loadingActive || loadingAvailable || loadingHistory || loadingFamily;
   if (loading) return <Loader />;
 
   const available = normalizeList(availableData);
   const history = normalizeList(historyData);
+  const familyRows = (familyData?.results || []).filter((row) => row.quest);
 
   const handleStart = async (defId) => {
     setStarting(defId);
@@ -60,6 +68,41 @@ export default function Quests() {
       </header>
 
       <ErrorAlert message={error} />
+
+      {/* Parent-only family roll-up */}
+      {isParent && familyRows.length > 0 && (
+        <ParchmentCard className="space-y-3">
+          <div className="font-display text-lg text-ink-primary leading-tight">Family Trials</div>
+          <div className="space-y-2">
+            {familyRows.map((row) => (
+              <div key={row.child_id} className="flex items-center gap-3">
+                <div className="font-script text-sm text-ink-primary w-28 shrink-0 truncate">
+                  {row.child_name}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-baseline gap-2">
+                    <span className="font-body text-sm text-ink-secondary truncate">
+                      {row.quest.definition.name}
+                    </span>
+                    <span className="font-rune text-xs text-ink-whisper tabular-nums shrink-0">
+                      {row.quest.current_progress}/{row.quest.effective_target}
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-ink-page-shadow/60 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal"
+                      style={{ width: `${row.quest.progress_percent}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="font-rune text-xs text-ink-whisper tabular-nums shrink-0 w-20 text-right">
+                  ends {formatDate(row.quest.end_date)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </ParchmentCard>
+      )}
 
       <div className="flex gap-2 flex-wrap">
         <TabButton active={tab === 'current'} onClick={() => setTab('current')}>Current</TabButton>
@@ -123,6 +166,36 @@ export default function Quests() {
                   {activeQuest.progress_percent}% complete
                 </div>
               </div>
+
+              {/* Party contributions — only render when it adds signal */}
+              {activeQuest.participants?.length > 1 && (
+                <div>
+                  <div className="font-script text-sm text-ink-primary mb-1">Party</div>
+                  <div className="space-y-1">
+                    {activeQuest.participants.map((p) => {
+                      const pct = activeQuest.current_progress > 0
+                        ? Math.round((p.contribution / activeQuest.current_progress) * 100)
+                        : 0;
+                      return (
+                        <div key={p.id} className="flex items-center gap-2">
+                          <span className="font-script text-xs text-ink-secondary w-20 shrink-0 truncate">
+                            {p.user_name}
+                          </span>
+                          <div className="flex-1 h-2 rounded-full bg-ink-page-shadow/60 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-moss-deep to-moss"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="font-rune text-xs text-ink-whisper tabular-nums w-16 text-right shrink-0">
+                            {p.contribution} ({pct}%)
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Rage shield */}
               {activeQuest.rage_shield > 0 && (

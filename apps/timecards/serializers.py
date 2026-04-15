@@ -26,7 +26,7 @@ class TimecardSerializer(serializers.ModelSerializer):
         fields = [
             "id", "user", "username", "week_start", "week_end",
             "total_hours", "hourly_earnings", "bonus_earnings",
-            "total_earnings", "status", "approved_by", "approved_at",
+            "total_earnings", "status", "decided_by", "decided_at",
             "parent_notes", "created_at",
         ]
         read_only_fields = fields
