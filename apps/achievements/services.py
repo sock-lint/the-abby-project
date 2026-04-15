@@ -255,7 +255,14 @@ class BadgeService:
 
     @staticmethod
     def _award_badge_coins(user, badge):
-        """Award coins scaled by badge rarity."""
+        """Award coins scaled by badge rarity.
+
+        Skipped entirely when ``badge.award_coins`` is False — used for
+        badges that represent purely-cosmetic achievement titles (e.g.
+        quest-completion badges) where the triggering event already paid.
+        """
+        if not badge.award_coins:
+            return
         from django.conf import settings
         from apps.rewards.services import CoinService
         from apps.rewards.models import CoinLedger

@@ -49,6 +49,7 @@ from ..schemas import (
     ListContentPacksIn,
     ListRpgCatalogIn,
     LoadContentPackIn,
+    PrunePackContentIn,
     ReadPackFileIn,
     ValidateContentPackIn,
     WritePackFileIn,
@@ -389,6 +390,43 @@ def load_content_pack(params: LoadContentPackIn) -> dict[str, Any]:
         }
         _write_manifest(pack_dir, manifest)
     return result
+
+
+@tool()
+@safe_tool
+def prune_pack_content(params: PrunePackContentIn) -> dict[str, Any]:
+    """Delete pack-scoped DropTable + Reward rows before a re-load.
+
+    ``load_content_pack`` is upsert-only — removing a drop rule or shop
+    reward from a pack's YAML and re-loading does NOT delete the stale
+    row. Call this first to wipe the pack's drop + reward surface so the
+    next load re-materializes exactly what the current YAML declares.
+
+    Matches rows by ``ItemDefinition.slug.startswith("<pack>-")`` — so it
+    only touches rows owned by this pack, never core content or other packs.
+
+    Does NOT prune: ItemDefinitions (would cascade to UserInventory),
+    QuestDefinitions/RewardItems (owned by quests and re-upserted), or
+    Badges (name-keyed, not slug-keyed — edit via admin if needed).
+
+    Parent-only. Pass ``dry_run=true`` to get counts without deleting.
+    Returns ``{"pack": ..., "dry_run": bool, "drops_deleted": int, "rewards_deleted": int}``.
+    """
+    require_parent()
+    # Validate pack name format via the same check used for writes, but
+    # don't require the pack dir to exist — operator may be pruning a
+    # pack whose YAML was already deleted.
+    _validate_pack_name(params.pack)
+
+    from apps.rpg.management.commands.prune_pack_content import prune_pack
+
+    counts = prune_pack(params.pack, dry_run=params.dry_run)
+    return {
+        "pack": params.pack,
+        "dry_run": params.dry_run,
+        "drops_deleted": counts["drops"],
+        "rewards_deleted": counts["rewards"],
+    }
 
 
 # ---------------------------------------------------------------------------

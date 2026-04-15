@@ -1157,6 +1157,14 @@ class LoadContentPackIn(_Base):
     dry_run: bool = False
 
 
+class PrunePackContentIn(_Base):
+    pack: str = Field(min_length=1, max_length=40)
+    dry_run: bool = Field(
+        default=False,
+        description="Report counts without deleting anything.",
+    )
+
+
 class ListRpgCatalogIn(_Base):
     """Filters for the RPG catalog read tool.
 

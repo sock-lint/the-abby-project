@@ -153,6 +153,7 @@ class Badge(models.Model):
         TOTAL_EARNED = "total_earned", "Total Earned"
         DAYS_WORKED = "days_worked", "Days Worked"
         CROSS_CATEGORY_UNLOCK = "cross_category_unlock", "Cross-Category Unlock"
+        QUEST_COMPLETED = "quest_completed", "Quest Completed"
 
     class Rarity(models.TextChoices):
         COMMON = "common", "Common"
@@ -173,6 +174,15 @@ class Badge(models.Model):
     xp_bonus = models.PositiveIntegerField(default=0)
     rarity = models.CharField(
         max_length=10, choices=Rarity.choices, default=Rarity.COMMON
+    )
+    award_coins = models.BooleanField(
+        default=True,
+        help_text=(
+            "When True (default), earning this badge pays rarity-scaled coins "
+            "per COINS_PER_BADGE_RARITY. Set False for badges that represent "
+            "purely cosmetic achievement titles (e.g. quest-completion badges) "
+            "where the associated quest already paid out."
+        ),
     )
 
     class Meta:

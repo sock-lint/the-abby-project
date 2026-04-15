@@ -183,11 +183,18 @@ class QuestService:
             )
             rewards["coins"] = definition.coin_reward
 
-        # Award XP
+        # Award XP (AwardService.grant already runs BadgeService.evaluate_badges
+        # internally when xp > 0, so the QUEST_COMPLETED criterion picks up).
         if definition.xp_reward > 0:
             from apps.achievements.services import AwardService
             AwardService.grant(user, xp=definition.xp_reward)
             rewards["xp"] = definition.xp_reward
+        else:
+            # Quests with xp_reward == 0 still need badge evaluation so the
+            # QUEST_COMPLETED criterion fires. AwardService is the usual
+            # doorway; when it isn't called, evaluate directly.
+            from apps.achievements.services import BadgeService
+            BadgeService.evaluate_badges(user)
 
         # Award item rewards
         for reward_item in definition.reward_items.select_related("item").all():

@@ -246,6 +246,7 @@ class ContentPack:
                 "criteria_value": entry.get("criteria_value", {}),
                 "xp_bonus": entry.get("xp_bonus", 0),
                 "rarity": entry.get("rarity", "common"),
+                "award_coins": bool(entry.get("award_coins", True)),
             }
             _, created = Badge.objects.update_or_create(
                 name=entry["name"], defaults=defaults,

@@ -1,0 +1,23 @@
+# Sleep Prep 2026 — badges
+# Each quest in this pack has a matching badge. Badges are purely
+# cosmetic achievement markers (award_coins: false) — the quest itself
+# already pays out the coin + XP rewards. Earning the badge is the
+# "/achievements" record that persists forever.
+badges:
+  - name: Seven Nights Storyteller
+    description: Completed the "Seven Nights of Stories" quest — built a five-night bedtime-story streak.
+    icon: "🌙"
+    criteria_type: quest_completed
+    criteria_value:
+      quest_name: Seven Nights of Stories
+    rarity: rare
+    award_coins: false
+
+  - name: Doomscroll Slayer
+    description: Defeated the Doomscroll — fourteen days of chipping away at late-night screen habits.
+    icon: "😴"
+    criteria_type: quest_completed
+    criteria_value:
+      quest_name: Defeat the Doomscroll
+    rarity: epic
+    award_coins: false

@@ -30,6 +30,7 @@ from apps.mcp_server.schemas import (
     ListContentPacksIn,
     ListRpgCatalogIn,
     LoadContentPackIn,
+    PrunePackContentIn,
     ReadPackFileIn,
     ValidateContentPackIn,
     WritePackFileIn,
@@ -402,3 +403,108 @@ class ListRpgCatalogTests(_PacksMixin):
     def test_child_cannot_read_catalog(self) -> None:
         with override_user(self.child), self.assertRaises(MCPPermissionDenied):
             cp.list_rpg_catalog(ListRpgCatalogIn())
+
+
+class PrunePackContentMCPTests(_PacksMixin):
+    """Thin MCP wrapper around the prune_pack helper.
+
+    Permissions + pack-name validation are the new surface here; the
+    deletion logic itself is covered in apps/rpg/tests/test_prune_pack_content.py.
+    """
+
+    def _seed_pack_with_drops_and_rewards(self, pack: str) -> None:
+        """Write + load a small pack that actually creates a drop + reward."""
+        with override_user(self.parent):
+            cp.write_pack_file(WritePackFileIn(
+                pack=pack, filename="items.yaml",
+                yaml_content=(
+                    "items:\n"
+                    "  - slug: food-a\n"
+                    "    name: Food A\n"
+                    "    item_type: food\n"
+                    "    rarity: common\n"
+                    "    coin_value: 1\n"
+                ),
+            ))
+            cp.write_pack_file(WritePackFileIn(
+                pack=pack, filename="drops.yaml",
+                yaml_content=(
+                    "rules:\n"
+                    "  - trigger: chore_complete\n"
+                    "    item_slugs: [food-a]\n"
+                    "    weight: 2\n"
+                ),
+            ))
+            cp.write_pack_file(WritePackFileIn(
+                pack=pack, filename="rewards.yaml",
+                yaml_content=(
+                    "rewards:\n"
+                    "  - name: Prune Test Reward\n"
+                    "    description: x\n"
+                    "    cost_coins: 10\n"
+                    "    rarity: common\n"
+                    "    fulfillment_kind: digital_item\n"
+                    "    item_definition: food-a\n"
+                ),
+            ))
+            cp.load_content_pack(LoadContentPackIn(pack=pack))
+
+    def test_prune_removes_drops_and_rewards(self) -> None:
+        from apps.rewards.models import Reward
+        from apps.rpg.models import DropTable
+
+        pack = "prunable"
+        self._seed_pack_with_drops_and_rewards(pack)
+        self.assertTrue(
+            DropTable.objects.filter(item__slug=f"{pack}-food-a").exists()
+        )
+        self.assertTrue(
+            Reward.objects.filter(item_definition__slug=f"{pack}-food-a").exists()
+        )
+
+        with override_user(self.parent):
+            r = cp.prune_pack_content(PrunePackContentIn(pack=pack))
+        self.assertEqual(r["drops_deleted"], 1)
+        self.assertEqual(r["rewards_deleted"], 1)
+        self.assertFalse(r["dry_run"])
+
+        # Rows gone, pack ItemDefinition preserved.
+        self.assertFalse(
+            DropTable.objects.filter(item__slug=f"{pack}-food-a").exists()
+        )
+        self.assertFalse(
+            Reward.objects.filter(item_definition__slug=f"{pack}-food-a").exists()
+        )
+        self.assertTrue(
+            ItemDefinition.objects.filter(slug=f"{pack}-food-a").exists()
+        )
+
+    def test_dry_run_reports_but_persists_nothing(self) -> None:
+        from apps.rewards.models import Reward
+        from apps.rpg.models import DropTable
+
+        pack = "prunedry"
+        self._seed_pack_with_drops_and_rewards(pack)
+
+        with override_user(self.parent):
+            r = cp.prune_pack_content(
+                PrunePackContentIn(pack=pack, dry_run=True),
+            )
+        self.assertEqual(r["drops_deleted"], 1)
+        self.assertEqual(r["rewards_deleted"], 1)
+        self.assertTrue(r["dry_run"])
+        # Nothing actually removed.
+        self.assertTrue(
+            DropTable.objects.filter(item__slug=f"{pack}-food-a").exists()
+        )
+        self.assertTrue(
+            Reward.objects.filter(item_definition__slug=f"{pack}-food-a").exists()
+        )
+
+    def test_child_cannot_prune(self) -> None:
+        with override_user(self.child), self.assertRaises(MCPPermissionDenied):
+            cp.prune_pack_content(PrunePackContentIn(pack="whatever"))
+
+    def test_reserved_pack_name_rejected(self) -> None:
+        with override_user(self.parent), self.assertRaises(_VALIDATION_ERRORS):
+            cp.prune_pack_content(PrunePackContentIn(pack="initial"))

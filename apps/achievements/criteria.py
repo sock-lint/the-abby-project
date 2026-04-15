@@ -182,3 +182,37 @@ def _total_earned(user, c):
         user=user, amount__gt=0,
     ).aggregate(total=Sum("amount"))["total"] or 0
     return total >= c.get("amount", 500)
+
+
+# ---------------------------------------------------------------------------
+# Quest criteria
+# ---------------------------------------------------------------------------
+
+@criterion(Badge.CriteriaType.QUEST_COMPLETED)
+def _quest_completed(user, c):
+    """Badge awarded when the user has completed a specific quest.
+
+    ``criteria_value`` shape::
+
+        {"quest_name": "Seven Nights of Stories"}
+
+    We match on ``QuestDefinition.name`` rather than a slug because quest
+    definitions are name-keyed in the loader (no slug field on the model).
+    Accepts a list for multi-quest badges (any-of), e.g.::
+
+        {"quest_names": ["Quest A", "Quest B"]}
+    """
+    from apps.quests.models import Quest
+
+    names = c.get("quest_names")
+    if names is None:
+        name = c.get("quest_name")
+        if not name:
+            return False
+        names = [name]
+
+    return Quest.objects.filter(
+        participants__user=user,
+        status=Quest.Status.COMPLETED,
+        definition__name__in=list(names),
+    ).exists()
