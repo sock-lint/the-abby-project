@@ -39,6 +39,7 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "id": item.pk,
             "name": item.name,
             "icon": item.icon,
+            "sprite_key": item.sprite_key,
             "rarity": item.rarity,
             "metadata": item.metadata,
         }
@@ -144,7 +145,7 @@ class ItemDefinitionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ItemDefinition
         fields = [
-            "id", "name", "description", "icon", "item_type", "type_display",
+            "id", "name", "description", "icon", "sprite_key", "item_type", "type_display",
             "rarity", "rarity_display", "coin_value", "metadata",
         ]
         read_only_fields = fields
@@ -162,12 +163,13 @@ class UserInventorySerializer(serializers.ModelSerializer):
 class DropLogSerializer(serializers.ModelSerializer):
     item_name = serializers.CharField(source="item.name", read_only=True)
     item_icon = serializers.CharField(source="item.icon", read_only=True)
+    item_sprite_key = serializers.CharField(source="item.sprite_key", read_only=True)
     item_rarity = serializers.CharField(source="item.rarity", read_only=True)
 
     class Meta:
         model = DropLog
         fields = [
-            "id", "item", "item_name", "item_icon", "item_rarity",
+            "id", "item", "item_name", "item_icon", "item_sprite_key", "item_rarity",
             "trigger_type", "quantity", "was_salvaged", "created_at",
         ]
         read_only_fields = fields

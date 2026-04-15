@@ -5,14 +5,14 @@ from .models import PetSpecies, PotionType, UserPet, UserMount
 class PetSpeciesSerializer(serializers.ModelSerializer):
     class Meta:
         model = PetSpecies
-        fields = ["id", "name", "icon", "description", "food_preference"]
+        fields = ["id", "name", "icon", "sprite_key", "description", "food_preference"]
         read_only_fields = fields
 
 
 class PotionTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = PotionType
-        fields = ["id", "name", "color_hex", "rarity", "description"]
+        fields = ["id", "name", "sprite_key", "color_hex", "rarity", "description"]
         read_only_fields = fields
 
 

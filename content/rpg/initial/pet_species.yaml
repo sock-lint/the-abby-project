@@ -6,16 +6,19 @@
 #   slug               (required, unique)
 #   name               (required) — display name
 #   icon               (optional, default "")
+#   sprite_key         (optional) — bundled pixel-art sprite slug
 #   description        (optional)
 #   food_preference    (optional) — food slug this species prefers (+15 growth)
 #   available_potions  (optional list) — potion slugs this species can hatch with;
 #                       empty = all potions currently in the catalog
 #   egg_name           (optional) — overrides "{name} Egg"
 #   egg_icon           (optional, default "🥚")
+#   egg_sprite_key     (optional, default "big-egg") — sprite for the egg item
 #   egg_rarity         (optional, default "common")
 #   egg_coin_value     (optional, default 3)
 
 species:
+  # ── Original 8 ─────────────────────────────────────────────────────────
   - slug: wolf
     name: Wolf
     icon: "🐺"
@@ -79,3 +82,68 @@ species:
     food_preference: candy
     egg_rarity: rare
     egg_coin_value: 10
+
+  # ── Aquatic pets (pixel sprites from Shikashi pack) ───────────────────
+  - slug: clownling
+    name: Clownling
+    icon: "🐠"
+    sprite_key: clownfish
+    description: A bright-striped reef wanderer
+    food_preference: fish
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: pondshell
+    name: Pondshell
+    icon: "🐢"
+    sprite_key: turtle
+    description: A patient little river turtle
+    food_preference: vegetables
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: seafang
+    name: Seafang
+    icon: "🐟"
+    sprite_key: tropical-fish
+    description: A swift tropical hunter
+    food_preference: fish
+    egg_rarity: uncommon
+    egg_coin_value: 5
+
+  - slug: ripplecoil
+    name: Ripplecoil
+    icon: "🦡"
+    sprite_key: eel
+    description: A serpentine current-rider
+    food_preference: fish
+    egg_rarity: rare
+    egg_coin_value: 8
+
+  - slug: drift-jelly
+    name: Drift Jelly
+    icon: "🪼"
+    sprite_key: jellyfish
+    description: A glowing translucent drifter
+    food_preference: plankton
+    egg_rarity: rare
+    egg_coin_value: 10
+
+  - slug: deepkraken
+    name: Deepkraken
+    icon: "🐙"
+    sprite_key: octopus
+    description: A clever many-armed depth-dweller
+    food_preference: fish
+    egg_rarity: epic
+    egg_coin_value: 20
+
+  # ── Mount path: Stallion (evolves into a horse mount at growth 100) ───
+  - slug: stallion
+    name: Stallion
+    icon: "🐴"
+    sprite_key: horse
+    description: A noble steed bred for the open road
+    food_preference: vegetables
+    egg_rarity: epic
+    egg_coin_value: 25

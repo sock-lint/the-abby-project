@@ -7,6 +7,7 @@ import ParchmentCard from '../components/journal/ParchmentCard';
 import DeckleDivider from '../components/journal/DeckleDivider';
 import RuneBadge from '../components/journal/RuneBadge';
 import { EggIcon } from '../components/icons/JournalIcons';
+import RpgSprite from '../components/rpg/RpgSprite';
 import { normalizeList } from '../utils/api';
 import { RARITY_PILL_COLORS, RARITY_RING_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem } from '../motion/variants';
@@ -81,7 +82,14 @@ export default function Inventory() {
                   <ParchmentCard
                     className={`text-center p-3 relative ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[entry.item.rarity] || 'ring-transparent'}`}
                   >
-                    <div className="text-3xl mb-1">{entry.item.icon}</div>
+                    <div className="flex items-center justify-center h-12 mb-1">
+                      <RpgSprite
+                        spriteKey={entry.item.sprite_key}
+                        icon={entry.item.icon}
+                        size={48}
+                        alt={entry.item.name}
+                      />
+                    </div>
                     <div className="font-body text-xs font-medium truncate">
                       {entry.item.name}
                     </div>

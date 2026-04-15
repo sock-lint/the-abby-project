@@ -12,6 +12,7 @@ import TabButton from '../components/TabButton';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import { DragonIcon } from '../components/icons/JournalIcons';
+import RpgSprite from '../components/rpg/RpgSprite';
 import { normalizeList } from '../utils/api';
 import { formatDate } from '../utils/format';
 import { buttonPrimary } from '../constants/styles';
@@ -74,7 +75,12 @@ export default function Quests() {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <ParchmentCard flourish className="space-y-4">
               <div className="flex items-start gap-3">
-                <div className="text-5xl">{activeQuest.definition.icon}</div>
+                <RpgSprite
+                  spriteKey={activeQuest.definition.sprite_key}
+                  icon={activeQuest.definition.icon}
+                  size={56}
+                  alt={activeQuest.definition.name}
+                />
                 <div className="flex-1 min-w-0">
                   <div className="font-display text-2xl text-ink-primary leading-tight">
                     {activeQuest.definition.name}
@@ -135,8 +141,14 @@ export default function Quests() {
                   <span className="mr-2">{activeQuest.definition.xp_reward} XP</span>
                 )}
                 {activeQuest.definition.reward_items?.map((r) => (
-                  <span key={r.id} className="mr-2">
-                    {r.item_icon} {r.item_name} ×{r.quantity}
+                  <span key={r.id} className="mr-2 inline-flex items-center gap-1 align-middle">
+                    <RpgSprite
+                      spriteKey={r.item_sprite_key}
+                      icon={r.item_icon}
+                      size={24}
+                      alt={r.item_name}
+                    />
+                    {r.item_name} ×{r.quantity}
                   </span>
                 ))}
               </div>
@@ -163,7 +175,14 @@ export default function Quests() {
           <div className="space-y-3">
             {available.map((qd) => (
               <ParchmentCard key={qd.id} className="flex items-center gap-4">
-                <div className="text-4xl shrink-0">{qd.icon}</div>
+                <div className="shrink-0">
+                  <RpgSprite
+                    spriteKey={qd.sprite_key}
+                    icon={qd.icon}
+                    size={48}
+                    alt={qd.name}
+                  />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-display text-base text-ink-primary leading-tight">
                     {qd.name}
@@ -202,7 +221,14 @@ export default function Quests() {
           <div className="space-y-2">
             {history.map((q) => (
               <ParchmentCard key={q.id} className="flex items-center gap-3">
-                <div className="text-3xl shrink-0">{q.definition.icon}</div>
+                <div className="shrink-0">
+                  <RpgSprite
+                    spriteKey={q.definition.sprite_key}
+                    icon={q.definition.icon}
+                    size={40}
+                    alt={q.definition.name}
+                  />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-body text-sm font-medium text-ink-primary">
                     {q.definition.name}

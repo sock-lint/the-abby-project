@@ -12,6 +12,7 @@ import ParchmentCard from '../components/journal/ParchmentCard';
 import DeckleDivider from '../components/journal/DeckleDivider';
 import RuneBadge from '../components/journal/RuneBadge';
 import StreakFlame from '../components/journal/StreakFlame';
+import RpgSprite from '../components/rpg/RpgSprite';
 import { RARITY_RING_COLORS } from '../constants/colors';
 
 const SLOT_ICONS = {
@@ -170,7 +171,14 @@ export default function Character() {
                           : 'hover:border-sheikah-teal/50 cursor-pointer'
                         }`}
                     >
-                      <div className="text-2xl mb-0.5">{item.icon}</div>
+                      <div className="flex items-center justify-center h-9 mb-0.5">
+                        <RpgSprite
+                          spriteKey={item.sprite_key}
+                          icon={item.icon}
+                          size={32}
+                          alt={item.name}
+                        />
+                      </div>
                       <div className="font-body text-[11px] font-medium truncate">
                         {item.name}
                       </div>

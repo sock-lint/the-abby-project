@@ -5,10 +5,11 @@ from .models import QuestDefinition, QuestRewardItem, Quest, QuestParticipant
 class QuestRewardItemSerializer(serializers.ModelSerializer):
     item_name = serializers.CharField(source="item.name", read_only=True)
     item_icon = serializers.CharField(source="item.icon", read_only=True)
+    item_sprite_key = serializers.CharField(source="item.sprite_key", read_only=True)
 
     class Meta:
         model = QuestRewardItem
-        fields = ["id", "item", "item_name", "item_icon", "quantity"]
+        fields = ["id", "item", "item_name", "item_icon", "item_sprite_key", "quantity"]
         read_only_fields = fields
 
 
@@ -19,7 +20,7 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuestDefinition
         fields = [
-            "id", "name", "description", "icon", "quest_type", "quest_type_display",
+            "id", "name", "description", "icon", "sprite_key", "quest_type", "quest_type_display",
             "target_value", "duration_days", "trigger_filter",
             "coin_reward", "xp_reward", "reward_items",
             "is_repeatable", "is_system", "created_at",

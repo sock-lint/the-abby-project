@@ -123,6 +123,10 @@ class ItemDefinition(TimestampedModel):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     icon = models.CharField(max_length=50)
+    sprite_key = models.CharField(
+        max_length=64, blank=True,
+        help_text="Optional bundled pixel-art sprite slug; falls back to icon when empty.",
+    )
     item_type = models.CharField(max_length=30, choices=ItemType.choices)
     rarity = models.CharField(max_length=20, choices=Rarity.choices, default=Rarity.COMMON)
     coin_value = models.PositiveIntegerField(default=0)

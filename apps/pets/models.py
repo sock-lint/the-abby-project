@@ -10,6 +10,10 @@ class PetSpecies(TimestampedModel):
     slug = models.SlugField(max_length=60, unique=True, null=True, blank=True)
     name = models.CharField(max_length=50, unique=True)
     icon = models.CharField(max_length=10)
+    sprite_key = models.CharField(
+        max_length=64, blank=True,
+        help_text="Optional bundled pixel-art sprite slug; falls back to icon when empty.",
+    )
     description = models.TextField(blank=True)
     food_preference = models.CharField(max_length=30, blank=True)
     available_potions = models.ManyToManyField(
@@ -32,6 +36,10 @@ class PotionType(TimestampedModel):
 
     slug = models.SlugField(max_length=60, unique=True, null=True, blank=True)
     name = models.CharField(max_length=50, unique=True)
+    sprite_key = models.CharField(
+        max_length=64, blank=True,
+        help_text="Optional bundled pixel-art sprite slug for the potion icon.",
+    )
     color_hex = models.CharField(max_length=7, default="#8B7355")
     rarity = models.CharField(
         max_length=20,

@@ -4,6 +4,7 @@
 #   name             (required, unique)
 #   description      (required)
 #   icon             (optional, default "⚔️")
+#   sprite_key       (optional) — bundled pixel-art sprite slug
 #   quest_type       (required) — "boss" | "collection"
 #   target_value     (required) — HP for boss, count for collection
 #   duration_days    (optional, default 7)
@@ -67,4 +68,71 @@ quests:
     is_system: true
     reward_items:
       - slug: wolf-egg
+        quantity: 1
+
+  # ── New pixel-art quests ────────────────────────────────────────────────
+  - name: Angler's Bounty
+    description: Earn drops from your daily efforts and reel in 5 fish-themed treasures.
+    icon: "🎣"
+    sprite_key: fishing-rod
+    quest_type: collection
+    target_value: 5
+    duration_days: 7
+    trigger_filter:
+      allowed_triggers: [clock_out, chore_complete, homework_complete, milestone_complete]
+    coin_reward: 40
+    xp_reward: 80
+    is_system: true
+    reward_items:
+      - slug: pouch-large
+        quantity: 1
+      - slug: clownling-egg
+        quantity: 1
+
+  - name: Backyard Botanist
+    description: Care for 3 things and watch your garden quest grow to bloom.
+    icon: "🌱"
+    sprite_key: plant-pot-fully-grown
+    quest_type: collection
+    target_value: 3
+    duration_days: 10
+    trigger_filter:
+      allowed_triggers: [chore_complete, milestone_complete]
+    coin_reward: 35
+    xp_reward: 70
+    is_system: true
+    reward_items:
+      - slug: accessory-tribal-necklace
+        quantity: 1
+
+  - name: Iron Chef
+    description: Stock the pantry — collect 10 food drops to win the cook-off!
+    icon: "🍳"
+    sprite_key: cauldron-on-fire
+    quest_type: collection
+    target_value: 10
+    duration_days: 7
+    trigger_filter:
+      allowed_triggers: [clock_out, chore_complete, homework_complete, milestone_complete, habit_log]
+    coin_reward: 45
+    xp_reward: 90
+    is_system: true
+    reward_items:
+      - slug: scroll-amber
+        quantity: 1
+
+  - name: Treasure Hunter
+    description: Strike 400 damage against the locked vault to claim the hoard within!
+    icon: "💎"
+    sprite_key: treasure-chest
+    quest_type: boss
+    target_value: 400
+    duration_days: 10
+    trigger_filter:
+      allowed_triggers: [chore_complete, homework_complete, clock_out]
+    coin_reward: 100
+    xp_reward: 200
+    is_system: true
+    reward_items:
+      - slug: pouch-treasure
         quantity: 1

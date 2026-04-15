@@ -10,6 +10,7 @@ import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import DeckleDivider from '../components/journal/DeckleDivider';
 import { EggIcon, DragonIcon } from '../components/icons/JournalIcons';
+import RpgSprite from '../components/rpg/RpgSprite';
 import { normalizeList } from '../utils/api';
 import { RARITY_RING_COLORS, RARITY_TEXT_COLORS } from '../constants/colors';
 import { buttonPrimary, inputClass } from '../constants/styles';
@@ -212,7 +213,14 @@ export default function Stable() {
                   onClick={() => setSelectedPet(selectedPet?.id === pet.id ? null : pet)}
                 >
                   <div className="text-center">
-                    <div className="text-5xl mb-1">{pet.species.icon}</div>
+                    <div className="flex items-center justify-center h-14 mb-1">
+                      <RpgSprite
+                        spriteKey={pet.species.sprite_key}
+                        icon={pet.species.icon}
+                        size={56}
+                        alt={pet.species.name}
+                      />
+                    </div>
                     <div className="font-body text-sm font-medium leading-tight">
                       {pet.potion.name} {pet.species.name}
                     </div>
@@ -273,9 +281,15 @@ export default function Stable() {
                                 onClick={(e) => { e.stopPropagation(); handleFeed(pet.id, f.item.id); }}
                                 disabled={working}
                                 title={f.item.name}
-                                className="font-body text-xs px-2 py-1 rounded bg-ink-page border border-ink-page-shadow hover:border-sheikah-teal/50 transition-colors"
+                                className="font-body text-xs px-2 py-1 rounded bg-ink-page border border-ink-page-shadow hover:border-sheikah-teal/50 transition-colors flex items-center gap-1"
                               >
-                                {f.item.icon} ×{f.quantity}
+                                <RpgSprite
+                                  spriteKey={f.item.sprite_key}
+                                  icon={f.item.icon}
+                                  size={24}
+                                  alt={f.item.name}
+                                />
+                                ×{f.quantity}
                               </button>
                             ))}
                           </div>
@@ -310,7 +324,14 @@ export default function Stable() {
                       : ''
                   }`}
                 >
-                  <div className="text-6xl mb-1">{mount.species.icon}</div>
+                  <div className="flex items-center justify-center h-16 mb-1">
+                    <RpgSprite
+                      spriteKey={mount.species.sprite_key}
+                      icon={mount.species.icon}
+                      size={64}
+                      alt={mount.species.name}
+                    />
+                  </div>
                   <div className="font-body text-sm font-medium leading-tight">
                     {mount.potion.name} {mount.species.name}
                   </div>

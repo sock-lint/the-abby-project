@@ -7,6 +7,7 @@
 #   slug           (required, unique)
 #   name           (required)
 #   icon           (optional)
+#   sprite_key     (optional) — bundled pixel-art sprite slug
 #   item_type      (required) — food|cosmetic_frame|cosmetic_title|cosmetic_theme|
 #                                cosmetic_pet_accessory|coin_pouch|quest_scroll
 #   rarity         (optional, default "common")
@@ -15,10 +16,11 @@
 #   food_species   (optional, for food items) — species slug that prefers this food
 
 items:
-  # Pet Food ---------------------------------------------------------------
+  # ── Pet Food (originals + Shikashi pixel-art expansions) ───────────────
   - slug: food-meat
     name: Meat
     icon: "🥩"
+    sprite_key: chicken-leg
     item_type: food
     rarity: common
     coin_value: 1
@@ -28,6 +30,7 @@ items:
   - slug: food-fish
     name: Fish
     icon: "🐟"
+    sprite_key: cooked-fish
     item_type: food
     rarity: common
     coin_value: 1
@@ -37,6 +40,7 @@ items:
   - slug: food-berries
     name: Berries
     icon: "🫐"
+    sprite_key: grapes
     item_type: food
     rarity: common
     coin_value: 1
@@ -55,6 +59,7 @@ items:
   - slug: food-honey
     name: Honey
     icon: "🍯"
+    sprite_key: honey
     item_type: food
     rarity: uncommon
     coin_value: 2
@@ -64,16 +69,201 @@ items:
   - slug: food-cake
     name: Cake
     icon: "🎂"
+    sprite_key: cake
     item_type: food
     rarity: uncommon
     coin_value: 2
     metadata: {food_type: cake, growth: 8}
     food_species: phoenix
 
-  # Coin Pouches ----------------------------------------------------------
+  # New pixel-art foods --------------------------------------------------
+  - slug: food-apple
+    name: Apple
+    icon: "🍎"
+    sprite_key: apple
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: fruit, growth: 3}
+
+  - slug: food-strawberry
+    name: Strawberry
+    icon: "🍓"
+    sprite_key: strawberry
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: fruit, growth: 3}
+
+  - slug: food-grapes
+    name: Grape Cluster
+    icon: "🍇"
+    sprite_key: grapes
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: fruit, growth: 3}
+
+  - slug: food-banana
+    name: Banana
+    icon: "🍌"
+    sprite_key: banana
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: fruit, growth: 3}
+
+  - slug: food-pear
+    name: Pear
+    icon: "🍐"
+    sprite_key: pear
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: fruit, growth: 3}
+
+  - slug: food-lemon
+    name: Lemon
+    icon: "🍋"
+    sprite_key: lemon
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: fruit, growth: 2}
+
+  - slug: food-carrot
+    name: Carrot
+    icon: "🥕"
+    sprite_key: carrot
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: vegetables, growth: 4}
+    food_species: pondshell
+
+  - slug: food-sweetcorn
+    name: Sweetcorn
+    icon: "🌽"
+    sprite_key: sweetcorn
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: vegetables, growth: 4}
+
+  - slug: food-tomato
+    name: Tomato
+    icon: "🍅"
+    sprite_key: tomato
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: vegetables, growth: 3}
+
+  - slug: food-chili
+    name: Red Chili
+    icon: "🌶️"
+    sprite_key: red-chili
+    item_type: food
+    rarity: uncommon
+    coin_value: 2
+    metadata: {food_type: vegetables, growth: 5}
+
+  - slug: food-mushroom
+    name: Wild Mushroom
+    icon: "🍄"
+    sprite_key: food-mushroom
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: vegetables, growth: 4}
+
+  - slug: food-bread
+    name: Loaf of Bread
+    icon: "🍞"
+    sprite_key: loaf-of-bread
+    item_type: food
+    rarity: uncommon
+    coin_value: 2
+    metadata: {food_type: grain, growth: 6}
+
+  - slug: food-chicken-leg
+    name: Chicken Leg
+    icon: "🍗"
+    sprite_key: chicken-leg
+    item_type: food
+    rarity: uncommon
+    coin_value: 2
+    metadata: {food_type: meat, growth: 6}
+
+  - slug: food-steak
+    name: Sirloin Steak
+    icon: "🥩"
+    sprite_key: sirloin-steak
+    item_type: food
+    rarity: rare
+    coin_value: 5
+    metadata: {food_type: meat, growth: 10}
+
+  - slug: food-fish-cooked
+    name: Cooked Fish
+    icon: "🐟"
+    sprite_key: cooked-fish
+    item_type: food
+    rarity: uncommon
+    coin_value: 2
+    metadata: {food_type: fish, growth: 6}
+    food_species: seafang
+
+  - slug: food-ham
+    name: Honey-Glazed Ham
+    icon: "🍖"
+    sprite_key: ham
+    item_type: food
+    rarity: uncommon
+    coin_value: 2
+    metadata: {food_type: meat, growth: 6}
+
+  - slug: food-eggs
+    name: Eggs
+    icon: "🥚"
+    sprite_key: eggs
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: protein, growth: 4}
+
+  - slug: food-cheese
+    name: Cheese Wedge
+    icon: "🧀"
+    sprite_key: cheese
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: dairy, growth: 5}
+
+  - slug: food-milk
+    name: Milk
+    icon: "🥛"
+    sprite_key: milk
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: dairy, growth: 4}
+
+  - slug: food-candy
+    name: Candy
+    icon: "🍬"
+    sprite_key: candy
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: treat, growth: 2}
+
+  # ── Coin Pouches (originals + Shikashi expansions) ────────────────────
   - slug: pouch-small
     name: Small Coin Pouch
     icon: "👛"
+    sprite_key: money-purse
     item_type: coin_pouch
     rarity: common
     coin_value: 5
@@ -82,6 +272,7 @@ items:
   - slug: pouch-medium
     name: Medium Coin Pouch
     icon: "💰"
+    sprite_key: bronze-coin-stack
     item_type: coin_pouch
     rarity: uncommon
     coin_value: 15
@@ -90,12 +281,41 @@ items:
   - slug: pouch-large
     name: Large Coin Pouch
     icon: "💎"
+    sprite_key: silver-coin-stack
     item_type: coin_pouch
     rarity: rare
     coin_value: 50
     metadata: {coins: 50}
 
-  # Avatar Frames ---------------------------------------------------------
+  # New pixel-art coin pouches ------------------------------------------
+  - slug: pouch-rupee
+    name: Loose Rupee
+    icon: "💎"
+    sprite_key: rupee
+    item_type: coin_pouch
+    rarity: common
+    coin_value: 10
+    metadata: {coins: 10}
+
+  - slug: pouch-gold
+    name: Gold Stack
+    icon: "🪙"
+    sprite_key: gold-coin-stack
+    item_type: coin_pouch
+    rarity: epic
+    coin_value: 100
+    metadata: {coins: 100}
+
+  - slug: pouch-treasure
+    name: Treasure Hoard
+    icon: "🏆"
+    sprite_key: large-gold-coin-stack
+    item_type: coin_pouch
+    rarity: legendary
+    coin_value: 250
+    metadata: {coins: 250}
+
+  # ── Avatar Frames (originals + Shikashi helmets) ──────────────────────
   - slug: frame-bronze
     name: Bronze Frame
     icon: "🟫"
@@ -128,7 +348,34 @@ items:
     coin_value: 100
     metadata: {border_color: "#6A0DAD"}
 
-  # Titles ----------------------------------------------------------------
+  - slug: frame-barbute
+    name: Barbute Helm Frame
+    icon: "⛑️"
+    sprite_key: barbute-helm
+    item_type: cosmetic_frame
+    rarity: uncommon
+    coin_value: 20
+    metadata: {border_color: "#5A6470"}
+
+  - slug: frame-robin-hood
+    name: Ranger's Cap Frame
+    icon: "🪖"
+    sprite_key: robin-hood-hat
+    item_type: cosmetic_frame
+    rarity: rare
+    coin_value: 35
+    metadata: {border_color: "#3A8B3A"}
+
+  - slug: frame-cross-helm
+    name: Paladin Helm Frame
+    icon: "🛡️"
+    sprite_key: cross-helm
+    item_type: cosmetic_frame
+    rarity: epic
+    coin_value: 60
+    metadata: {border_color: "#A88B3A"}
+
+  # ── Titles ────────────────────────────────────────────────────────────
   - slug: title-apprentice
     name: Apprentice
     icon: "🎓"
@@ -161,7 +408,7 @@ items:
     coin_value: 100
     metadata: {text: Legendary Forgemaster}
 
-  # Dashboard Themes ------------------------------------------------------
+  # ── Dashboard Themes (originals + Shikashi tunics/cloak) ──────────────
   - slug: theme-ocean
     name: Ocean Theme
     icon: "🌊"
@@ -186,7 +433,34 @@ items:
     coin_value: 40
     metadata: {accent: "#FF6B35"}
 
-  # Pet Accessories -------------------------------------------------------
+  - slug: theme-azure-tunic
+    name: Azure Tunic Theme
+    icon: "🟦"
+    sprite_key: blue-tunic
+    item_type: cosmetic_theme
+    rarity: uncommon
+    coin_value: 25
+    metadata: {accent: "#3a6db5"}
+
+  - slug: theme-emerald-tunic
+    name: Emerald Tunic Theme
+    icon: "🟩"
+    sprite_key: green-tunic
+    item_type: cosmetic_theme
+    rarity: uncommon
+    coin_value: 25
+    metadata: {accent: "#2e7a3a"}
+
+  - slug: theme-wanderer-cloak
+    name: Wanderer's Cloak Theme
+    icon: "🧥"
+    sprite_key: cloak
+    item_type: cosmetic_theme
+    rarity: rare
+    coin_value: 45
+    metadata: {accent: "#5a3a8b"}
+
+  # ── Pet Accessories (originals + Shikashi jewelry) ────────────────────
   - slug: accessory-party-hat
     name: Party Hat
     icon: "🎩"
@@ -207,3 +481,98 @@ items:
     item_type: cosmetic_pet_accessory
     rarity: rare
     coin_value: 30
+
+  - slug: accessory-prayer-beads
+    name: Prayer Beads
+    icon: "📿"
+    sprite_key: prayer-beads
+    item_type: cosmetic_pet_accessory
+    rarity: common
+    coin_value: 8
+
+  - slug: accessory-silver-ring
+    name: Silver Ring
+    icon: "💍"
+    sprite_key: ring
+    item_type: cosmetic_pet_accessory
+    rarity: uncommon
+    coin_value: 18
+
+  - slug: accessory-tribal-necklace
+    name: Tribal Necklace
+    icon: "📿"
+    sprite_key: tribal-necklace
+    item_type: cosmetic_pet_accessory
+    rarity: uncommon
+    coin_value: 22
+
+  - slug: accessory-gold-necklace
+    name: Gold Necklace
+    icon: "📿"
+    sprite_key: gold-necklace
+    item_type: cosmetic_pet_accessory
+    rarity: rare
+    coin_value: 40
+
+  - slug: accessory-diamond-ring
+    name: Diamond Ring
+    icon: "💍"
+    sprite_key: diamond-ring
+    item_type: cosmetic_pet_accessory
+    rarity: epic
+    coin_value: 80
+
+  # ── Quest Scrolls (Shikashi magic + classic scrolls) ──────────────────
+  - slug: scroll-crimson
+    name: Crimson Scroll
+    icon: "📜"
+    sprite_key: magic-scroll-1
+    item_type: quest_scroll
+    rarity: uncommon
+    coin_value: 12
+    metadata: {reveals: drop_hint}
+
+  - slug: scroll-azure
+    name: Azure Scroll
+    icon: "📜"
+    sprite_key: magic-scroll-2
+    item_type: quest_scroll
+    rarity: uncommon
+    coin_value: 12
+    metadata: {reveals: next_quest}
+
+  - slug: scroll-emerald
+    name: Emerald Scroll
+    icon: "📜"
+    sprite_key: magic-scroll-3
+    item_type: quest_scroll
+    rarity: rare
+    coin_value: 25
+    metadata: {reveals: rare_drop_boost}
+
+  - slug: scroll-amber
+    name: Amber Scroll
+    icon: "📜"
+    sprite_key: magic-scroll-4
+    item_type: quest_scroll
+    rarity: rare
+    coin_value: 25
+    metadata: {reveals: coin_boost}
+
+  - slug: scroll-sealed
+    name: Sealed Mission Scroll
+    icon: "📜"
+    sprite_key: tied-scroll
+    item_type: quest_scroll
+    rarity: epic
+    coin_value: 50
+    metadata: {reveals: mystery_quest}
+
+  - slug: scroll-ancient
+    name: Ancient Scroll
+    icon: "📜"
+    sprite_key: open-scroll
+    item_type: quest_scroll
+    rarity: legendary
+    coin_value: 100
+    metadata: {reveals: legendary_quest}

@@ -138,17 +138,74 @@ h1, h2, h3, h4 {
   to   { opacity: 1; filter: blur(0);   transform: translateY(0); }
 }
 
+/* Wax-seal pulse — expanding teal ring that radiates from the modal card
+   as it stamps into place, then fades. One-shot on mount. */
+@keyframes seal-pulse {
+  0%   { transform: scale(1);    opacity: 0.55; }
+  70%  { opacity: 0.1; }
+  100% { transform: scale(1.12); opacity: 0; }
+}
+
+/* Halo rise — top-edge teal glow that expands along a mobile bottom-sheet
+   as it settles. Gives the "paper slid up onto the journal" read. */
+@keyframes halo-rise {
+  0%   { transform: scaleX(0.4); opacity: 0; }
+  40%  { opacity: 0.8; }
+  100% { transform: scaleX(1);   opacity: 0; }
+}
+
 .animate-flame-flicker { animation: flame-flicker 2.4s ease-in-out infinite; transform-origin: 50% 85%; }
 .animate-rune-pulse    { animation: rune-pulse 2.6s ease-in-out infinite; }
 .animate-rune-band     { animation: rune-band-shimmer 3.2s linear infinite; }
 .animate-ink-bleed     { animation: ink-bleed 0.6s ease-out both; }
+.animate-seal-pulse    { animation: seal-pulse 0.7s ease-out both; }
+.animate-halo-rise     { animation: halo-rise 0.6s ease-out both; transform-origin: center; }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-flame-flicker,
   .animate-rune-pulse,
   .animate-rune-band,
-  .animate-ink-bleed { animation: none !important; }
+  .animate-ink-bleed,
+  .animate-seal-pulse,
+  .animate-halo-rise { animation: none !important; }
   html { scroll-behavior: auto; }
+}
+
+/* ─── Modal chrome ─────────────────────────────────────────────────
+   Shared "Sheikah Stamp" treatment used by FormModal, BottomSheet,
+   ConfirmDialog. Warm ink wash instead of flat black, teal glow ring
+   signature, radial vignette focus. */
+
+.modal-ink-wash {
+  background-color: rgba(45, 31, 21, 0.45); /* --color-ink-primary @ 45% */
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.modal-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 25%,
+    rgba(45, 31, 21, 0.25) 70%,
+    rgba(45, 31, 21, 0.45) 100%
+  );
+  pointer-events: none;
+}
+
+.modal-seal-ring {
+  box-shadow:
+    0 0 0 1px rgba(77, 208, 225, 0.28),
+    0 0 40px rgba(77, 208, 225, 0.18),
+    0 24px 60px rgba(45, 31, 21, 0.45),
+    0 2px 0 rgba(255, 248, 224, 0.4) inset;
+}
+
+.modal-seal-ring-strong {
+  box-shadow:
+    0 0 0 1px rgba(217, 117, 72, 0.40),
+    0 0 44px rgba(77, 208, 225, 0.22),
+    0 28px 70px rgba(45, 31, 21, 0.55),
+    0 2px 0 rgba(255, 248, 224, 0.4) inset;
 }
 
 /* Parchment backdrop helper — attach to full-page wrappers when the

@@ -254,6 +254,7 @@ class ContentPack:
             slug = self._ns(entry["slug"])
             defaults = {
                 "name": entry["name"],
+                "sprite_key": entry.get("sprite_key", ""),
                 "color_hex": entry.get("color_hex", "#8B7355"),
                 "rarity": entry.get("rarity", "common"),
                 "description": entry.get("description", ""),
@@ -268,6 +269,7 @@ class ContentPack:
             item_defaults = {
                 "name": entry.get("item_name", f"{entry['name']} Potion"),
                 "icon": entry.get("item_icon", "🧪"),
+                "sprite_key": entry.get("sprite_key", ""),
                 "item_type": ItemDefinition.ItemType.POTION,
                 "rarity": entry.get("rarity", "common"),
                 "coin_value": entry.get("coin_value", 2),
@@ -299,6 +301,7 @@ class ContentPack:
             defaults = {
                 "name": entry["name"],
                 "icon": entry.get("icon", ""),
+                "sprite_key": entry.get("sprite_key", ""),
                 "description": entry.get("description", ""),
                 "food_preference": entry.get("food_preference", ""),
             }
@@ -326,10 +329,14 @@ class ContentPack:
             species.available_potions.set(potion_objs)
 
             # Auto-materialize an egg ItemDefinition.
+            # Eggs use the generic "big-egg" sprite by default so they read as
+            # eggs in the inventory; the species sprite is reserved for the
+            # hatched pet on Stable.jsx. YAML can override via egg_sprite_key.
             egg_slug = self._ns(f"{entry['slug']}-egg")
             egg_defaults = {
                 "name": entry.get("egg_name", f"{entry['name']} Egg"),
                 "icon": entry.get("egg_icon", "🥚"),
+                "sprite_key": entry.get("egg_sprite_key", "big-egg"),
                 "item_type": ItemDefinition.ItemType.EGG,
                 "rarity": entry.get("egg_rarity", "common"),
                 "coin_value": entry.get("egg_coin_value", 3),
@@ -373,6 +380,7 @@ class ContentPack:
             defaults = {
                 "name": entry["name"],
                 "icon": entry.get("icon", ""),
+                "sprite_key": entry.get("sprite_key", ""),
                 "item_type": item_type,
                 "rarity": entry.get("rarity", "common"),
                 "coin_value": entry.get("coin_value", 0),
@@ -469,6 +477,7 @@ class ContentPack:
             defaults = {
                 "description": entry.get("description", ""),
                 "icon": entry.get("icon", "⚔️"),
+                "sprite_key": entry.get("sprite_key", ""),
                 "quest_type": entry["quest_type"],
                 "target_value": int(entry["target_value"]),
                 "duration_days": int(entry.get("duration_days", 7)),

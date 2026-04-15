@@ -15,6 +15,10 @@ class QuestDefinition(TimestampedModel):
     name = models.CharField(max_length=100)
     description = models.TextField()
     icon = models.CharField(max_length=50, default="\u2694\ufe0f")
+    sprite_key = models.CharField(
+        max_length=64, blank=True,
+        help_text="Optional bundled pixel-art sprite slug; falls back to icon when empty.",
+    )
     quest_type = models.CharField(max_length=20, choices=QuestType.choices)
     target_value = models.PositiveIntegerField()  # HP for boss, count for collection
     duration_days = models.PositiveIntegerField(default=7)

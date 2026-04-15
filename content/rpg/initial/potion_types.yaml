@@ -4,6 +4,7 @@
 # Schema per entry:
 #   slug           (required, unique) — stable natural key
 #   name           (required) — display name ("Fire", "Ice", …)
+#   sprite_key     (optional) — bundled pixel-art sprite slug for the bottle
 #   color_hex      (optional, default "#8B7355")
 #   rarity         (optional, default "common") — common|uncommon|rare|epic|legendary
 #   description    (optional)
@@ -14,6 +15,7 @@
 potions:
   - slug: base
     name: Base
+    sprite_key: potion-brew-earthy
     color_hex: "#8B7355"
     rarity: common
     description: Natural colors
@@ -21,6 +23,7 @@ potions:
 
   - slug: fire
     name: Fire
+    sprite_key: potion-normal-red
     color_hex: "#FF4500"
     rarity: uncommon
     description: Red/orange tones
@@ -28,6 +31,7 @@ potions:
 
   - slug: ice
     name: Ice
+    sprite_key: potion-upgraded-blue
     color_hex: "#87CEEB"
     rarity: uncommon
     description: Blue/white tones
@@ -35,6 +39,7 @@ potions:
 
   - slug: shadow
     name: Shadow
+    sprite_key: potion-rare-purple
     color_hex: "#4B0082"
     rarity: rare
     description: Dark/purple tones
@@ -42,6 +47,7 @@ potions:
 
   - slug: golden
     name: Golden
+    sprite_key: potion-upgraded-gold
     color_hex: "#FFD700"
     rarity: epic
     description: Gold/glowing
@@ -49,6 +55,7 @@ potions:
 
   - slug: cosmic
     name: Cosmic
+    sprite_key: potion-rare-cosmic
     color_hex: "#191970"
     rarity: legendary
     description: Starfield/nebula

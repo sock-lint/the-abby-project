@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Package, X } from 'lucide-react';
 import { useDropToasts } from '../hooks/useDropToasts';
+import RpgSprite from './rpg/RpgSprite';
 
 const RARITY_BG = {
   common: 'bg-gray-600 border-gray-400',
@@ -26,7 +27,12 @@ function ToastItem({ toast, onDismiss }) {
       className={`flex items-center gap-3 rounded-lg border px-3 py-2 shadow-lg ${RARITY_BG[toast.item_rarity] || RARITY_BG.common}`}
     >
       <Package size={18} className="text-white shrink-0" />
-      <div className="text-2xl">{toast.item_icon}</div>
+      <RpgSprite
+        spriteKey={toast.item_sprite_key}
+        icon={toast.item_icon}
+        size={32}
+        alt={toast.item_name}
+      />
       <div className="flex-1 min-w-0">
         <div className="text-xs font-medium text-white">
           {toast.was_salvaged ? 'Salvaged' : 'You got'}: {toast.item_name}

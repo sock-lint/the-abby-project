@@ -35,6 +35,7 @@ export function useDropToasts(pollIntervalMs = 20000) {
             id: d.id,
             item_name: d.item_name,
             item_icon: d.item_icon,
+            item_sprite_key: d.item_sprite_key,
             item_rarity: d.item_rarity,
             was_salvaged: d.was_salvaged,
           }))]);

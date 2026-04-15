@@ -1,0 +1,120 @@
+# Shikashi Fantasy Icons Pack → RPG sprite manifest
+#
+# Each entry maps a semantic slug (referenced by sprite_key in content YAML)
+# to a (col, row) coordinate in a spritesheet. Tiles are 32×32 px, 16 cols per row.
+#
+# Pack2 (reward-icons/pack2/#1 - Transparent Icons.png) contains all 284 icons
+# (pack1's 245 + 39 new from the V.2 update). We source everything from pack2.
+#
+# Layout (pack2, 16×27 grid):
+#   Row  0       Status effects (11)
+#   Row  1       Body icons (5)
+#   Row  2       Buffs/debuffs (7)
+#   Row  3       Special moves (16)
+#   Row  4       Non-combat actions (9)
+#   Rows 5-6     Weapons (28)
+#   Rows 7-8     Clothing & armour (26)
+#   Row  9       Healing items/potions (16)
+#   Rows 10-13   General items (64)
+#   Rows 14-15   Food (31)
+#   Row 16       Fishing (15)
+#   Row 17       Resources (11)
+#   Row 18       Orbs (6)
+#   Row 19       Flasks + cauldrons + horse + wooden beam (12, new in v2)
+#   Row 20       Wicker basket + 12 powders (13, new in v2)
+#   Row 21       Hand + 6 magic scrolls + 7 weather (14, new in v2)
+
+sheet: pack2/#1 - Transparent Icons.png
+tile_size: 32
+sprites:
+  # ── Aquatic pets (row 16, fishing) ───────────────────────────────────
+  tropical-fish:          {col: 6,  row: 16}
+  clownfish:              {col: 7,  row: 16}
+  jellyfish:              {col: 8,  row: 16}
+  octopus:                {col: 9,  row: 16}
+  turtle:                 {col: 10, row: 16}
+  eel:                    {col: 5,  row: 16}
+  fishing-rod:            {col: 0,  row: 16}
+  sunken-chest:           {col: 14, row: 16}
+
+  # ── Horse (mount, row 19) ─────────────────────────────────────────────
+  horse:                  {col: 10, row: 19}
+
+  # ── Foods (rows 14-15) ────────────────────────────────────────────────
+  apple:                  {col: 0,  row: 14}
+  banana:                 {col: 1,  row: 14}
+  pear:                   {col: 2,  row: 14}
+  lemon:                  {col: 3,  row: 14}
+  strawberry:             {col: 4,  row: 14}
+  grapes:                 {col: 5,  row: 14}
+  carrot:                 {col: 6,  row: 14}
+  sweetcorn:              {col: 7,  row: 14}
+  tomato:                 {col: 9,  row: 14}
+  red-chili:              {col: 11, row: 14}
+  food-mushroom:          {col: 12, row: 14}
+  loaf-of-bread:          {col: 13, row: 14}
+  chicken-leg:            {col: 0,  row: 15}
+  sirloin-steak:          {col: 1,  row: 15}
+  ham:                    {col: 2,  row: 15}
+  cooked-fish:            {col: 4,  row: 15}
+  eggs:                   {col: 5,  row: 15}
+  big-egg:                {col: 6,  row: 15}
+  cheese:                 {col: 7,  row: 15}
+  milk:                   {col: 8,  row: 15}
+  honey:                  {col: 9,  row: 15}
+  candy:                  {col: 12, row: 15}
+  cake:                   {col: 13, row: 15}
+
+  # ── Cosmetic frames (helmets, row 7) ─────────────────────────────────
+  robin-hood-hat:         {col: 0,  row: 7}
+  barbute-helm:           {col: 1,  row: 7}
+  cross-helm:             {col: 3,  row: 7}
+
+  # ── Cosmetic themes (clothing, row 7) ────────────────────────────────
+  blue-tunic:             {col: 8,  row: 7}
+  green-tunic:            {col: 9,  row: 7}
+  cloak:                  {col: 14, row: 7}
+
+  # ── Cosmetic pet accessories (jewelry, row 8) ─────────────────────────
+  ring:                   {col: 4,  row: 8}
+  diamond-ring:           {col: 5,  row: 8}
+  gold-necklace:          {col: 6,  row: 8}
+  prayer-beads:           {col: 7,  row: 8}
+  tribal-necklace:        {col: 8,  row: 8}
+
+  # ── Coin pouches (row 12) ─────────────────────────────────────────────
+  money-purse:            {col: 6,  row: 12}
+  bronze-coin-stack:      {col: 8,  row: 12}
+  silver-coin-stack:      {col: 9,  row: 12}
+  gold-coin-stack:        {col: 10, row: 12}
+  large-gold-coin-stack:  {col: 11, row: 12}
+  rupee:                  {col: 15, row: 12}
+
+  # ── Quest scrolls (row 13 + row 21) ───────────────────────────────────
+  tied-scroll:            {col: 10, row: 13}
+  open-scroll:            {col: 11, row: 13}
+  magic-scroll-1:         {col: 1,  row: 21}
+  magic-scroll-2:         {col: 2,  row: 21}
+  magic-scroll-3:         {col: 3,  row: 21}
+  magic-scroll-4:         {col: 4,  row: 21}
+  magic-scroll-5:         {col: 5,  row: 21}
+  magic-scroll-6:         {col: 6,  row: 21}
+
+  # ── Potion backfill (row 9) ───────────────────────────────────────────
+  # Row 9 layout: 4 normal (c0-c3), 4 upgraded (c4-c7), 4 rare (c8-c11), 3 brew (c12-c14), bandage (c15)
+  potion-normal-red:      {col: 0,  row: 9}
+  potion-normal-blue:     {col: 1,  row: 9}
+  potion-upgraded-red:    {col: 4,  row: 9}
+  potion-upgraded-blue:   {col: 5,  row: 9}
+  potion-upgraded-green:  {col: 6,  row: 9}
+  potion-upgraded-gold:   {col: 7,  row: 9}
+  potion-rare-purple:     {col: 8,  row: 9}
+  potion-rare-cosmic:     {col: 11, row: 9}
+  potion-brew-earthy:     {col: 12, row: 9}
+
+  # ── Quest banner sprites ──────────────────────────────────────────────
+  plant-pot-fully-grown:  {col: 5,  row: 12}
+  treasure-chest:         {col: 11, row: 11}
+  cauldron:               {col: 9,  row: 19}
+  cauldron-on-fire:       {col: 8,  row: 19}
+  spellbook:              {col: 7,  row: 4}
