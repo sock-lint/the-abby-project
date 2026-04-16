@@ -11,6 +11,20 @@
   /* Legacy aliases — keep until all call sites migrate */
   --font-heading: "Cormorant Garamond", "EB Garamond", Georgia, serif;
 
+  /* Type scale — paired with line-height so utilities double as leading.
+     Values are calibrated against the cohort of arbitrary text-[Npx] uses
+     audited 2026-04-16. text-base remains the Tailwind default (16px). */
+  --text-micro: 10px;
+  --text-micro--line-height: 14px;
+  --text-tiny: 11px;
+  --text-tiny--line-height: 15px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-lede: 18px;
+  --text-lede--line-height: 26px;
+
   /* Parchment core */
   --color-ink-page: #f4ecd8;
   --color-ink-page-aged: #e8dcc0;
