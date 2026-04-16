@@ -64,12 +64,19 @@ export default function Homework() {
   const [form, setForm] = useState(emptyForm);
 
   const presets = quickDueDates();
-  const presetChips = [
-    { label: 'Tomorrow', value: presets.tomorrow },
-    { label: 'Friday', value: presets.friday },
-    { label: 'Next Mon', value: presets.nextMonday },
-    { label: '+1 week', value: presets.nextWeek },
+  // Hide a relative chip when it resolves to the same date as a named-day
+  // chip — otherwise both light up on Thursdays (Tomorrow == Friday),
+  // Sundays (Tomorrow == Next Mon), Fridays (+1 week == Friday), and
+  // Mondays (+1 week == Next Mon).
+  const rawChips = [
+    { label: 'Tomorrow', value: presets.tomorrow, named: false },
+    { label: 'Friday', value: presets.friday, named: true },
+    { label: 'Next Mon', value: presets.nextMonday, named: true },
+    { label: '+1 week', value: presets.nextWeek, named: false },
   ];
+  const presetChips = rawChips.filter((c, i, arr) =>
+    c.named || !arr.some((o, j) => j !== i && o.named && o.value === c.value),
+  );
 
   const labelClass = 'font-script text-sm text-ink-secondary mb-1 block';
 

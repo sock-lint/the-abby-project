@@ -8,7 +8,6 @@ import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
 import { buildParent, buildUser } from '../test/factories.js';
-import { quickDueDates } from '../utils/dates.js';
 import * as Sentry from '@sentry/react';
 
 vi.mock('framer-motion', async () => {
@@ -170,76 +169,122 @@ describe('Homework', () => {
   });
 
   it('clicking the Tomorrow quick-date chip sets due_date and submits it', async () => {
-    const user = userEvent.setup();
-    const create = spyHandler('post', /\/api\/homework\/$/, { ok: true });
-    renderPage(buildUser(), [
-      http.get('*/api/homework/dashboard/', () =>
-        HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} }),
-      ),
-      create.handler,
-    ]);
-    await user.click(await screen.findByRole('button', { name: /new assignment/i }));
-    await user.type(await screen.findByPlaceholderText(/^title$/i), 'Quick homework');
-    const tomorrowChip = screen.getByRole('button', { name: /^tomorrow$/i });
-    expect(tomorrowChip).toHaveAttribute('aria-pressed', 'false');
-    await user.click(tomorrowChip);
-    expect(tomorrowChip).toHaveAttribute('aria-pressed', 'true');
-    await user.click(screen.getByRole('button', { name: /create assignment/i }));
+    // Freeze to Wednesday so the Tomorrow chip isn't deduped against Friday.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(2026, 3, 15, 9, 0));
+    try {
+      const user = userEvent.setup();
+      const create = spyHandler('post', /\/api\/homework\/$/, { ok: true });
+      renderPage(buildUser(), [
+        http.get('*/api/homework/dashboard/', () =>
+          HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} }),
+        ),
+        create.handler,
+      ]);
+      await user.click(await screen.findByRole('button', { name: /new assignment/i }));
+      await user.type(await screen.findByPlaceholderText(/^title$/i), 'Quick homework');
+      const tomorrowChip = screen.getByRole('button', { name: /^tomorrow$/i });
+      expect(tomorrowChip).toHaveAttribute('aria-pressed', 'false');
+      await user.click(tomorrowChip);
+      expect(tomorrowChip).toHaveAttribute('aria-pressed', 'true');
+      await user.click(screen.getByRole('button', { name: /create assignment/i }));
 
-    await waitFor(() => expect(create.calls).toHaveLength(1));
-    expect(create.calls[0].body).toHaveProperty('due_date', quickDueDates().tomorrow);
+      await waitFor(() => expect(create.calls).toHaveLength(1));
+      expect(create.calls[0].body).toHaveProperty('due_date', '2026-04-16');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders all four quick-date chips and Friday submits a Friday due_date', async () => {
-    const user = userEvent.setup();
-    const create = spyHandler('post', /\/api\/homework\/$/, { ok: true });
-    renderPage(buildUser(), [
-      http.get('*/api/homework/dashboard/', () =>
-        HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} }),
-      ),
-      create.handler,
-    ]);
-    await user.click(await screen.findByRole('button', { name: /new assignment/i }));
-    for (const label of [/^tomorrow$/i, /^friday$/i, /^next mon$/i, /\+1 week/i]) {
-      expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
-    }
-    await user.type(await screen.findByPlaceholderText(/^title$/i), 'Friday work');
-    await user.click(screen.getByRole('button', { name: /^friday$/i }));
-    await user.click(screen.getByRole('button', { name: /create assignment/i }));
+    // Freeze to a Wednesday so no preset values collide with each other
+    // (on Thu/Sun/Fri/Mon some chips share a date and are deduped).
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(2026, 3, 15, 9, 0)); // Wed 2026-04-15
+    try {
+      const user = userEvent.setup();
+      const create = spyHandler('post', /\/api\/homework\/$/, { ok: true });
+      renderPage(buildUser(), [
+        http.get('*/api/homework/dashboard/', () =>
+          HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} }),
+        ),
+        create.handler,
+      ]);
+      await user.click(await screen.findByRole('button', { name: /new assignment/i }));
+      for (const label of [/^tomorrow$/i, /^friday$/i, /^next mon$/i, /\+1 week/i]) {
+        expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
+      }
+      await user.type(await screen.findByPlaceholderText(/^title$/i), 'Friday work');
+      await user.click(screen.getByRole('button', { name: /^friday$/i }));
+      await user.click(screen.getByRole('button', { name: /create assignment/i }));
 
-    await waitFor(() => expect(create.calls).toHaveLength(1));
-    const submitted = create.calls[0].body.due_date;
-    expect(submitted).toBe(quickDueDates().friday);
-    // Sanity check: it really is a Friday.
-    expect(new Date(submitted + 'T12:00:00').getDay()).toBe(5);
+      await waitFor(() => expect(create.calls).toHaveLength(1));
+      const submitted = create.calls[0].body.due_date;
+      expect(submitted).toBe('2026-04-17'); // Fri 2026-04-17
+      expect(new Date(submitted + 'T12:00:00').getDay()).toBe(5);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('hides the Tomorrow chip on Thursdays so Friday is not duplicated', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(2026, 3, 16, 9, 0)); // Thu 2026-04-16 — Tomorrow == Friday
+    try {
+      const user = userEvent.setup();
+      renderPage(buildUser(), [
+        http.get('*/api/homework/dashboard/', () =>
+          HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} }),
+        ),
+      ]);
+      await user.click(await screen.findByRole('button', { name: /new assignment/i }));
+      expect(screen.queryByRole('button', { name: /^tomorrow$/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^friday$/i })).toBeInTheDocument();
+      // Exactly one chip with today+1 value should be "pressable" — i.e. no
+      // two chips share the same aria-pressed state when Friday is chosen.
+      await user.click(screen.getByRole('button', { name: /^friday$/i }));
+      const pressed = screen
+        .getAllByRole('button')
+        .filter((b) => b.getAttribute('aria-pressed') === 'true');
+      expect(pressed).toHaveLength(1);
+      expect(pressed[0]).toHaveTextContent(/friday/i);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('surfaces a backend create error and reports it to Sentry', async () => {
-    Sentry.captureException.mockClear();
-    const user = userEvent.setup();
-    renderPage(buildUser(), [
-      http.get('*/api/homework/dashboard/', () =>
-        HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} }),
-      ),
-      // Simulate the bug: backend returns 201 with an empty body (no
-      // content-type) — client.js throws "Unexpected non-JSON response".
-      http.post('*/api/homework/', () => new HttpResponse(null, { status: 201 })),
-    ]);
-    await user.click(await screen.findByRole('button', { name: /new assignment/i }));
-    await user.type(await screen.findByPlaceholderText(/^title$/i), 'Will fail');
-    await user.click(screen.getByRole('button', { name: /^tomorrow$/i }));
-    await user.click(screen.getByRole('button', { name: /create assignment/i }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(2026, 3, 15, 9, 0));
+    try {
+      Sentry.captureException.mockClear();
+      const user = userEvent.setup();
+      renderPage(buildUser(), [
+        http.get('*/api/homework/dashboard/', () =>
+          HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} }),
+        ),
+        // Simulate the bug: backend returns 201 with an empty body (no
+        // content-type) — client.js throws "Unexpected non-JSON response".
+        http.post('*/api/homework/', () => new HttpResponse(null, { status: 201 })),
+      ]);
+      await user.click(await screen.findByRole('button', { name: /new assignment/i }));
+      await user.type(await screen.findByPlaceholderText(/^title$/i), 'Will fail');
+      await user.click(screen.getByRole('button', { name: /^tomorrow$/i }));
+      await user.click(screen.getByRole('button', { name: /create assignment/i }));
 
-    await waitFor(() =>
-      expect(screen.getByText(/non-JSON response/i)).toBeInTheDocument(),
-    );
-    // Page-level capture fires with our area tag; client.js also captures
-    // separately on the non-JSON branch, so we just assert our tagged one.
-    const tagged = Sentry.captureException.mock.calls.find(
-      ([, ctx]) => ctx?.tags?.area === 'homework.create',
-    );
-    expect(tagged).toBeDefined();
-    expect(tagged[0]).toBeInstanceOf(Error);
+      await waitFor(() =>
+        expect(screen.getByText(/non-JSON response/i)).toBeInTheDocument(),
+      );
+      // Page-level capture fires with our area tag; client.js also captures
+      // separately on the non-JSON branch, so we just assert our tagged one.
+      const tagged = Sentry.captureException.mock.calls.find(
+        ([, ctx]) => ctx?.tags?.area === 'homework.create',
+      );
+      expect(tagged).toBeDefined();
+      expect(tagged[0]).toBeInstanceOf(Error);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('clicking Adjust on a pending submission posts to /homework-submissions/{id}/adjust/', async () => {
