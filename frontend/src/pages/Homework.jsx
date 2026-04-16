@@ -21,6 +21,7 @@ import StatusBadge from '../components/StatusBadge';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import { buttonPrimary, buttonSuccess, inputClass } from '../constants/styles';
 import { downscaleImage } from '../utils/image';
+import { quickDueDates } from '../utils/dates';
 
 const SUBJECTS = [
   { value: 'math', label: 'Math' },
@@ -58,6 +59,14 @@ export default function Homework() {
     due_date: '', assigned_to: '', reward_amount: '0', coin_reward: '0',
   };
   const [form, setForm] = useState(emptyForm);
+
+  const presets = quickDueDates();
+  const presetChips = [
+    { label: 'Tomorrow', value: presets.tomorrow },
+    { label: 'Friday', value: presets.friday },
+    { label: 'Next Mon', value: presets.nextMonday },
+    { label: '+1 week', value: presets.nextWeek },
+  ];
 
   const labelClass = 'font-script text-sm text-ink-secondary mb-1 block';
 
@@ -311,18 +320,42 @@ export default function Homework() {
               className={inputClass}
               rows={2}
             />
-            <div className="grid grid-cols-2 gap-3">
-              <select
-                value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                className={inputClass}
-              >
-                {SUBJECTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-              <input
-                type="date" required value={form.due_date}
-                onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-                className={inputClass}
-              />
+            <div>
+              <label className={labelClass}>Due</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {presetChips.map((chip) => {
+                  const active = form.due_date === chip.value;
+                  return (
+                    <button
+                      key={chip.label}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setForm((f) => ({ ...f, due_date: chip.value }))}
+                      className={
+                        'px-3 py-1 text-xs font-medium rounded-full border transition-colors ' +
+                        (active
+                          ? 'bg-sheikah-teal-deep text-ink-page-rune-glow border-sheikah-teal-deep'
+                          : 'bg-ink-page-aged text-ink-secondary border-ink-page-shadow hover:text-ink-primary')
+                      }
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <select
+                  value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                  className={inputClass}
+                >
+                  {SUBJECTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+                <input
+                  type="date" required value={form.due_date}
+                  onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
             </div>
             {isParent && (
               <div className="grid grid-cols-3 gap-3">

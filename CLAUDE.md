@@ -121,7 +121,8 @@ frontend/src/
                      TabButton, BottomSheet, FormModal, Layout,
                      NotificationBell, DifficultyStars, ProgressBar
   constants/         colors.js, styles.js (shared Tailwind class helpers)
-  utils/             format.js, api.js (normalizeList), image.js
+  utils/             format.js, api.js (normalizeList), image.js,
+                     dates.js (toISODate + quickDueDates for due-date chips)
   pages/             Dashboard, Projects, ProjectDetail, ProjectNew,
                      ProjectIngest, ClockPage, Chores, Homework, Habits,
                      Inventory, Stable, Quests, Character, Timecards, Payments,

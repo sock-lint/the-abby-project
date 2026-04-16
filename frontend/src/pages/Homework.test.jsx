@@ -8,6 +8,7 @@ import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
 import { buildParent, buildUser } from '../test/factories.js';
+import { quickDueDates } from '../utils/dates.js';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -165,6 +166,51 @@ describe('Homework', () => {
     expect(body).not.toHaveProperty('reward_amount');
     expect(body).not.toHaveProperty('coin_reward');
     expect(body).not.toHaveProperty('assigned_to');
+  });
+
+  it('clicking the Tomorrow quick-date chip sets due_date and submits it', async () => {
+    const user = userEvent.setup();
+    const create = spyHandler('post', /\/api\/homework\/$/, { ok: true });
+    renderPage(buildUser(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} }),
+      ),
+      create.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: /new assignment/i }));
+    await user.type(await screen.findByPlaceholderText(/^title$/i), 'Quick homework');
+    const tomorrowChip = screen.getByRole('button', { name: /^tomorrow$/i });
+    expect(tomorrowChip).toHaveAttribute('aria-pressed', 'false');
+    await user.click(tomorrowChip);
+    expect(tomorrowChip).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: /create assignment/i }));
+
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].body).toHaveProperty('due_date', quickDueDates().tomorrow);
+  });
+
+  it('renders all four quick-date chips and Friday submits a Friday due_date', async () => {
+    const user = userEvent.setup();
+    const create = spyHandler('post', /\/api\/homework\/$/, { ok: true });
+    renderPage(buildUser(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} }),
+      ),
+      create.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: /new assignment/i }));
+    for (const label of [/^tomorrow$/i, /^friday$/i, /^next mon$/i, /\+1 week/i]) {
+      expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
+    }
+    await user.type(await screen.findByPlaceholderText(/^title$/i), 'Friday work');
+    await user.click(screen.getByRole('button', { name: /^friday$/i }));
+    await user.click(screen.getByRole('button', { name: /create assignment/i }));
+
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    const submitted = create.calls[0].body.due_date;
+    expect(submitted).toBe(quickDueDates().friday);
+    // Sanity check: it really is a Friday.
+    expect(new Date(submitted + 'T12:00:00').getDay()).toBe(5);
   });
 
   it('clicking Adjust on a pending submission posts to /homework-submissions/{id}/adjust/', async () => {
