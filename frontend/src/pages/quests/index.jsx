@@ -8,11 +8,8 @@ import LegacyQuests from '../Quests';
 /**
  * Quests — hub page consolidating all "things to do."
  *
- * Ventures  (Projects)  · Rituals (Chores) · Study (Homework)
- * Trials    (RPG Quests) · Habits
- *
- * Phase 2 wraps the existing legacy pages. Phases 3+ will redesign the
- * content of each tab within the new journal aesthetic.
+ * Ventures (Projects) · Duties (Chores) · Study (Homework)
+ * Trials   (RPG Quests) · Rituals (Habits)
  */
 export default function QuestsHub() {
   return (
@@ -23,10 +20,10 @@ export default function QuestsHub() {
       defaultTabId="ventures"
       tabs={[
         { id: 'ventures', label: 'Ventures', render: () => <Projects /> },
-        { id: 'rituals',  label: 'Rituals',  render: () => <Chores /> },
+        { id: 'duties',   label: 'Duties',   render: () => <Chores /> },
         { id: 'study',    label: 'Study',    render: () => <Homework /> },
         { id: 'trials',   label: 'Trials',   render: () => <LegacyQuests /> },
-        { id: 'habits',   label: 'Habits',   render: () => <Habits /> },
+        { id: 'rituals',  label: 'Rituals',  render: () => <Habits /> },
       ]}
     />
   );

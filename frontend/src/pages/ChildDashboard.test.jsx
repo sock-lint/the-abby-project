@@ -93,7 +93,7 @@ describe('ChildDashboard', () => {
     await waitFor(() => expect(screen.getByLabelText(/find a pet/i)).toBeInTheDocument());
   });
 
-  it('surfaces an upcoming homework block for assignments due on the target day', async () => {
+  it('surfaces due-next-school-day homework in Today\'s Log with a Study kind tag', async () => {
     const { iso, label } = nextDueTarget();
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
@@ -117,10 +117,100 @@ describe('ChildDashboard', () => {
       ),
     ]);
     await waitFor(() => expect(screen.getByText(/science worksheet/i)).toBeInTheDocument());
-    // Only the target-date match surfaces — the far-future one is filtered out.
+    // Row renders inside the main log; the old standalone "Coming up" card is gone.
+    expect(screen.queryByText(/^coming up$/i)).not.toBeInTheDocument();
+    // Meta line carries subject + due label.
+    expect(screen.getByText(new RegExp(`science.*due ${label}`, 'i'))).toBeInTheDocument();
+    // Study kind tag is present.
+    expect(screen.getByText(/^study$/i)).toBeInTheDocument();
+    // Far-future homework is filtered out.
     expect(screen.queryByText(/far future/i)).not.toBeInTheDocument();
-    // Kicker + inline badge both read "due tomorrow" / "due Monday".
-    expect(screen.getAllByText(new RegExp(`due ${label}`, 'i')).length).toBeGreaterThan(0);
+  });
+
+  it('surfaces due-today and overdue homework alongside next-school-day items', async () => {
+    const { iso } = nextDueTarget();
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({
+          active_timer: null, current_balance: 0, coin_balance: 0,
+          this_week: { hours_worked: 0, earnings: 0 },
+          active_projects: [], recent_badges: [], savings_goals: [], chores_today: [],
+          pending_chore_approvals: 0,
+          rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
+        }),
+      ),
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({
+          today: [{ id: 10, title: 'Due-today worksheet', subject: 'Math', due_date: '2026-04-16' }],
+          overdue: [{ id: 20, title: 'Overdue paper', subject: 'Writing', due_date: '2026-04-10' }],
+          upcoming: [{ id: 30, title: 'Tomorrow prep', subject: 'Reading', due_date: iso }],
+        }),
+      ),
+    ]);
+    await waitFor(() => expect(screen.getByText(/due-today worksheet/i)).toBeInTheDocument());
+    expect(screen.getByText(/overdue paper/i)).toBeInTheDocument();
+    expect(screen.getByText(/tomorrow prep/i)).toBeInTheDocument();
+    expect(screen.getByText(/writing.*overdue/i)).toBeInTheDocument();
+    expect(screen.getByText(/math.*due today/i)).toBeInTheDocument();
+  });
+
+  it('hides homework whose submission is already approved', async () => {
+    const { iso } = nextDueTarget();
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({
+          active_timer: null, current_balance: 0, coin_balance: 0,
+          this_week: { hours_worked: 0, earnings: 0 },
+          active_projects: [], recent_badges: [], savings_goals: [], chores_today: [],
+          pending_chore_approvals: 0,
+          rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
+        }),
+      ),
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({
+          today: [], overdue: [],
+          upcoming: [
+            { id: 55, title: 'Already approved', subject: 'Math', due_date: iso,
+              submission_status: { id: 900, status: 'approved' } },
+            { id: 56, title: 'Still pending submit', subject: 'Math', due_date: iso },
+          ],
+        }),
+      ),
+    ]);
+    await waitFor(() => expect(screen.getByText(/still pending submit/i)).toBeInTheDocument());
+    expect(screen.queryByText(/already approved/i)).not.toBeInTheDocument();
+  });
+
+  it('clicking an open homework row opens the submit sheet', async () => {
+    const { iso } = nextDueTarget();
+    const user = userEvent.setup();
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({
+          active_timer: null, current_balance: 0, coin_balance: 0,
+          this_week: { hours_worked: 0, earnings: 0 },
+          active_projects: [], recent_badges: [], savings_goals: [], chores_today: [],
+          pending_chore_approvals: 0,
+          rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
+        }),
+      ),
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({
+          today: [], overdue: [],
+          upcoming: [{ id: 99, title: 'Poem recital', subject: 'Reading', due_date: iso }],
+        }),
+      ),
+    ]);
+    const row = await screen.findByRole('button', { name: /complete poem recital/i });
+    await user.click(row);
+    // Sheet content renders on document.body via portal.
+    await waitFor(() =>
+      expect(document.body.textContent).toMatch(/affix photographic evidence/i),
+    );
+    expect(document.body.textContent).toMatch(/poem recital/i);
   });
 
   it('tapping a habit on the today log posts to /habits/{id}/log/ and refetches', async () => {

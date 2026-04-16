@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import * as Sentry from '@sentry/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Send, Camera, X, ExternalLink, Sparkles } from 'lucide-react';
+import { Plus, Send, ExternalLink, Sparkles } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
 import {
   getHomeworkDashboard, createHomework,
-  submitHomework, approveHomeworkSubmission,
+  approveHomeworkSubmission,
   rejectHomeworkSubmission,
   planHomework, getChildren,
 } from '../api';
@@ -14,6 +14,7 @@ import ApprovalQueue from '../components/ApprovalQueue';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import BottomSheet from '../components/BottomSheet';
+import HomeworkSubmitSheet from '../components/HomeworkSubmitSheet';
 import SubjectBadge from '../components/SubjectBadge';
 import StarRating from '../components/StarRating';
 import TimelinessBadge from '../components/TimelinessBadge';
@@ -21,7 +22,6 @@ import ProofGallery from '../components/ProofGallery';
 import StatusBadge from '../components/StatusBadge';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import { buttonPrimary, buttonSuccess, inputClass } from '../constants/styles';
-import { downscaleImage } from '../utils/image';
 import { quickDueDates } from '../utils/dates';
 
 const SUBJECTS = [
@@ -46,9 +46,6 @@ export default function Homework() {
   const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
   const [showSubmit, setShowSubmit] = useState(null);
-  const [submitImages, setSubmitImages] = useState([]);
-  const [submitNotes, setSubmitNotes] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [planning, setPlanning] = useState(null);
   const [planError, setPlanError] = useState('');
 
@@ -102,24 +99,6 @@ export default function Homework() {
       setCreateError(err?.message || 'Could not create the assignment.');
     } finally {
       setCreating(false);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!submitImages.length || !showSubmit) return;
-    setSubmitting(true);
-    try {
-      const downscaled = await Promise.all(submitImages.map((img) => downscaleImage(img)));
-      const fd = new FormData();
-      downscaled.forEach((img) => fd.append('images', img));
-      if (submitNotes) fd.append('notes', submitNotes);
-      await submitHomework(showSubmit.id, fd);
-      setShowSubmit(null);
-      setSubmitImages([]);
-      setSubmitNotes('');
-      reload();
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -363,67 +342,11 @@ export default function Homework() {
         </BottomSheet>
       )}
 
-      {/* Submit homework */}
-      {showSubmit && (
-        <BottomSheet
-          onClose={() => { setShowSubmit(null); setSubmitImages([]); setSubmitNotes(''); }}
-          title="Affix photographic evidence"
-        >
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-display text-lg text-ink-primary">{showSubmit.title}</h3>
-              <div className="flex gap-2 mt-1">
-                <SubjectBadge subject={showSubmit.subject} />
-                {showSubmit.timeliness_preview && (
-                  <TimelinessBadge timeliness={showSubmit.timeliness_preview.timeliness} />
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className={labelClass}>Proof photos (required)</label>
-              <div className="flex gap-2 flex-wrap">
-                {submitImages.map((img, i) => (
-                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-ink-page-shadow">
-                    <img src={URL.createObjectURL(img)} alt="" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setSubmitImages(submitImages.filter((_, j) => j !== i))}
-                      aria-label="Remove photo"
-                      className="absolute top-0 right-0 bg-ink-primary/80 rounded-bl-lg p-0.5 text-ink-page-rune-glow"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-                <label className="w-16 h-16 rounded-lg border-2 border-dashed border-ink-page-shadow hover:border-sheikah-teal/60 flex items-center justify-center cursor-pointer transition-colors">
-                  <Camera size={20} className="text-ink-secondary" />
-                  <input
-                    type="file" accept="image/*" multiple className="hidden"
-                    onChange={(e) => setSubmitImages([...submitImages, ...Array.from(e.target.files)])}
-                  />
-                </label>
-              </div>
-            </div>
-
-            <textarea
-              placeholder="Notes (optional)" value={submitNotes}
-              onChange={(e) => setSubmitNotes(e.target.value)}
-              className={inputClass}
-              rows={2}
-            />
-
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!submitImages.length || submitting}
-              className={`w-full py-2.5 text-sm flex items-center justify-center gap-2 ${buttonSuccess}`}
-            >
-              <Send size={16} /> {submitting ? 'Submitting…' : 'Submit for review'}
-            </button>
-          </div>
-        </BottomSheet>
-      )}
+      <HomeworkSubmitSheet
+        assignment={showSubmit}
+        onClose={() => setShowSubmit(null)}
+        onSubmitted={() => { setShowSubmit(null); reload(); }}
+      />
     </div>
   );
 }

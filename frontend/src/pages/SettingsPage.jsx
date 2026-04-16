@@ -319,8 +319,8 @@ export default function SettingsPage() {
       <ParchmentCard>
         <h2 className="font-display text-xl text-ink-primary mb-2">About Hyrule Field Notes</h2>
         <p className="font-body text-sm text-ink-secondary">
-          Chronicle ventures, rituals, and study. Ink hours, earn XP, unlock skills,
-          collect coins, and grow the party.
+          Chronicle ventures, duties, rituals, and study. Ink hours, earn XP, unlock
+          skills, collect coins, and grow the party.
         </p>
       </ParchmentCard>
 

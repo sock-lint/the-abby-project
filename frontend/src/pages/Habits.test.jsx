@@ -34,7 +34,7 @@ describe('Habits', () => {
       http.get('*/api/habits/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
-      expect(screen.getByText((t) => /no habits/i.test(t))).toBeInTheDocument(),
+      expect(screen.getByText((t) => /no rituals/i.test(t))).toBeInTheDocument(),
     );
   });
 
@@ -117,10 +117,10 @@ describe('Habits', () => {
       http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       create.handler,
     ]);
-    const newBtn = await screen.findByRole('button', { name: /new habit/i });
+    const newBtn = await screen.findByRole('button', { name: /new ritual/i });
     await user.click(newBtn);
     // Wait for the modal's submit button to confirm it's open, then fill inputs.
-    const submit = await screen.findByRole('button', { name: /create habit/i });
+    const submit = await screen.findByRole('button', { name: /create ritual/i });
     const textboxes = screen.getAllByRole('textbox');
     await user.type(textboxes[0], 'Brush teeth'); // Name field is first textbox.
     // Max taps and XP are the two spinbuttons; first is max_taps_per_day per form order.

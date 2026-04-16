@@ -15,7 +15,7 @@ import RuneBadge from './RuneBadge';
  *   actionLabel : string — optional label for the primary action button
  *   icon      : node — optional leading icon/glyph
  *   tone      : RuneBadge tone for the kind-tag
- *   kind      : string — label shown in the kind-tag (e.g. "Ritual", "Venture")
+ *   kind      : string — label shown in the kind-tag (e.g. "Duty", "Shift")
  */
 export default function QuestLogEntry({
   title,

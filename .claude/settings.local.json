@@ -25,7 +25,8 @@
       "Bash(grep -l \"settings.AUTH_USER_MODEL\" apps/*/migrations/*.py)",
       "Bash(grep -rn \"projects\\\\.user\\\\|projects\\\\.User\" apps/*/migrations/ apps/*/models.py apps/*/apps.py)",
       "Bash(grep -rn 'to=\"projects\\\\|to=\"accounts' apps/*/migrations/*.py)",
-      "Bash(python -c ':*)"
+      "Bash(python -c ':*)",
+      "Bash(npx vitest *)"
     ]
   }
 }

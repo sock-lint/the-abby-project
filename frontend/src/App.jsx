@@ -111,9 +111,9 @@ export default function App() {
             <Route path="/projects/new" element={<LegacyRedirect to="/quests/ventures/new" />} />
             <Route path="/projects/ingest" element={<LegacyRedirect to="/quests/ventures/ingest" />} />
             <Route path="/projects/:id" element={<LegacyRedirectWithId />} />
-            <Route path="/chores" element={<LegacyRedirect to="/quests?tab=rituals" />} />
+            <Route path="/chores" element={<LegacyRedirect to="/quests?tab=duties" />} />
             <Route path="/homework" element={<LegacyRedirect to="/quests?tab=study" />} />
-            <Route path="/habits" element={<LegacyRedirect to="/quests?tab=habits" />} />
+            <Route path="/habits" element={<LegacyRedirect to="/quests?tab=rituals" />} />
             <Route path="/inventory" element={<LegacyRedirect to="/bestiary?tab=satchel" />} />
             <Route path="/stable" element={<LegacyRedirect to="/bestiary?tab=party" />} />
             <Route path="/character" element={<LegacyRedirect to="/sigil" />} />

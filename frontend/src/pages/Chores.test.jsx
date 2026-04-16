@@ -35,7 +35,7 @@ describe('Chores', () => {
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
-      expect(screen.getByText(/no rituals available today/i)).toBeInTheDocument(),
+      expect(screen.getByText(/no duties available today/i)).toBeInTheDocument(),
     );
   });
 
@@ -46,7 +46,7 @@ describe('Chores', () => {
       http.get('*/api/children/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
-      expect(screen.getByText(/no rituals inscribed yet/i)).toBeInTheDocument(),
+      expect(screen.getByText(/no duties inscribed yet/i)).toBeInTheDocument(),
     );
   });
 
@@ -60,7 +60,7 @@ describe('Chores', () => {
     await waitFor(() => expect(screen.getByText('Dishes')).toBeInTheDocument());
   });
 
-  it('parent can open the new-ritual form modal', async () => {
+  it('parent can open the new-duty form modal', async () => {
     const user = userEvent.setup();
     renderPage(buildParent(), [
       http.get('*/api/chores/', () => HttpResponse.json([])),
@@ -68,9 +68,9 @@ describe('Chores', () => {
       http.get('*/api/children/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /new ritual/i })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: /new duty/i })).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole('button', { name: /new ritual/i }));
+    await user.click(screen.getByRole('button', { name: /new duty/i }));
     expect(await screen.findByRole('button', { name: /^create$/i })).toBeInTheDocument();
   });
 

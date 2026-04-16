@@ -163,9 +163,9 @@ export default function DesignShowcase() {
         <ul className="space-y-2">
           <QuestLogEntry
             title="Make bed"
-            meta="Daily ritual · due today"
+            meta="Daily duty · due today"
             reward="$0.50 · 3🪙"
-            kind="ritual"
+            kind="duty"
             tone="moss"
             status="pending"
             icon={<InkwellIcon size={16} />}

@@ -13,6 +13,7 @@ import RuneBadge from '../components/journal/RuneBadge';
 import HeroPrimaryCard from '../components/dashboard/HeroPrimaryCard';
 import VitalPipStrip from '../components/dashboard/VitalPipStrip';
 import AccordionSection from '../components/dashboard/AccordionSection';
+import HomeworkSubmitSheet from '../components/HomeworkSubmitSheet';
 import { DragonIcon, InkwellIcon, ScrollIcon, CoinIcon } from '../components/icons/JournalIcons';
 import { BookOpen, Target } from 'lucide-react';
 import { normalizeList } from '../utils/api';
@@ -22,7 +23,44 @@ import { formatWeekdayDate, mapProjectTone, nextDueTarget } from './_dashboardSh
 
 const VISIBLE_LOG_CAP = 5;
 
-function buildTodayQuests({ chores_today, activeQuest, rpg, activeTimer, onTapHabit, onCompleteChore }) {
+/**
+ * Build Today's Log rows for homework that needs attention today.
+ * Includes overdue, due-today, and due-next-school-day assignments.
+ * Approved submissions are hidden (nothing left for the child to do);
+ * pending submissions render as a done-row with "awaiting seal" so the
+ * child sees their proof landed.
+ */
+function buildHomeworkEntries({ homeworkDashboard, dueTarget, onOpenHomework }) {
+  if (!homeworkDashboard) return [];
+  const out = [];
+  const makeRow = (hw, dueLabel, baseStatus) => {
+    const subStatus = hw.submission_status?.status;
+    if (subStatus === 'approved') return;
+    const awaitingReview = subStatus === 'pending';
+    const status = awaitingReview ? 'done' : baseStatus;
+    const metaParts = [hw.subject || 'homework', dueLabel];
+    if (awaitingReview) metaParts.push('awaiting seal');
+    out.push({
+      id: `homework-${hw.id}`,
+      title: hw.title,
+      meta: metaParts.join(' · '),
+      reward: null,
+      status,
+      kind: 'Study',
+      tone: 'royal',
+      icon: <BookOpen size={16} />,
+      onAction: status === 'done' ? undefined : () => onOpenHomework(hw),
+    });
+  };
+  normalizeList(homeworkDashboard.overdue).forEach((hw) => makeRow(hw, 'overdue', 'overdue'));
+  normalizeList(homeworkDashboard.today).forEach((hw) => makeRow(hw, 'due today', 'pending'));
+  normalizeList(homeworkDashboard.upcoming)
+    .filter((hw) => hw.due_date === dueTarget.iso)
+    .forEach((hw) => makeRow(hw, `due ${dueTarget.label}`, 'pending'));
+  return out;
+}
+
+function buildTodayQuests({ chores_today, activeQuest, rpg, activeTimer, homeworkEntries, onTapHabit, onCompleteChore }) {
   const out = [];
   if (activeTimer?.project_title) {
     out.push({
@@ -30,7 +68,7 @@ function buildTodayQuests({ chores_today, activeQuest, rpg, activeTimer, onTapHa
       title: `Keep inking: ${activeTimer.project_title}`,
       meta: 'Clocked in',
       status: 'pending',
-      kind: 'venture',
+      kind: 'shift',
       tone: 'teal',
       icon: <InkwellIcon size={16} />,
     });
@@ -47,14 +85,15 @@ function buildTodayQuests({ chores_today, activeQuest, rpg, activeTimer, onTapHa
       icon: <DragonIcon size={16} />,
     });
   }
+  (homeworkEntries || []).forEach((hw) => out.push(hw));
   (chores_today || []).forEach((c) => {
     out.push({
       id: `chore-${c.id}`,
       title: c.title,
-      meta: c.reward_amount ? `ritual · $${c.reward_amount}` : 'ritual',
+      meta: c.reward_amount ? `duty · $${c.reward_amount}` : 'duty',
       reward: c.is_done ? null : c.coin_reward ? `$${c.reward_amount} · ${c.coin_reward}🪙` : `$${c.reward_amount}`,
       status: c.is_done ? 'done' : 'pending',
-      kind: 'ritual',
+      kind: 'duty',
       tone: 'moss',
       icon: c.icon ? <span className="text-base">{c.icon}</span> : null,
       onAction: c.is_done ? undefined : () => onCompleteChore(c.id),
@@ -67,7 +106,7 @@ function buildTodayQuests({ chores_today, activeQuest, rpg, activeTimer, onTapHa
     out.push({
       id: `habit-${h.id}`,
       title: h.name,
-      meta: `habit · strength ${h.strength ?? 0} · ${taps}/${cap} today`,
+      meta: `ritual · strength ${h.strength ?? 0} · ${taps}/${cap} today`,
       status: atCap ? 'done' : 'pending',
       kind: 'virtue',
       tone: 'gold',
@@ -82,9 +121,10 @@ export default function ChildDashboard({ data, reload }) {
   const { data: recentDrops } = useApi(getRecentDrops);
   const { data: stableData } = useApi(getStable);
   const { data: activeQuest } = useApi(getActiveQuest);
-  const { data: homeworkDashboard } = useApi(getHomeworkDashboard);
+  const { data: homeworkDashboard, reload: reloadHomework } = useApi(getHomeworkDashboard);
   const navigate = useNavigate();
   const [logExpanded, setLogExpanded] = useState(false);
+  const [activeHomework, setActiveHomework] = useState(null);
 
   const {
     active_timer, current_balance, coin_balance, this_week, active_projects,
@@ -96,23 +136,25 @@ export default function ChildDashboard({ data, reload }) {
   const onCompleteChore = (id) => completeChore(id).then(reload).catch(() => {});
   const onTapHabit = (id) => logHabitTap(id, 1).then(reload).catch(() => {});
 
+  const dueTarget = nextDueTarget();
+  const homeworkEntries = buildHomeworkEntries({
+    homeworkDashboard, dueTarget, onOpenHomework: setActiveHomework,
+  });
+
   const todayQuests = buildTodayQuests({
-    chores_today, activeQuest, rpg, activeTimer: active_timer, onTapHabit, onCompleteChore,
+    chores_today, activeQuest, rpg, activeTimer: active_timer,
+    homeworkEntries, onTapHabit, onCompleteChore,
   });
   const visibleQuests = logExpanded ? todayQuests : todayQuests.slice(0, VISIBLE_LOG_CAP);
   const hiddenQuestCount = todayQuests.length - visibleQuests.length;
 
   const { weekday, dateStr } = formatWeekdayDate();
 
-  const dueTarget = nextDueTarget();
-  const upcomingHomework = normalizeList(homeworkDashboard?.upcoming)
-    .filter((hw) => hw.due_date === dueTarget.iso);
-
   return (
     <motion.div variants={inkBleed} initial="initial" animate="animate" className="max-w-6xl mx-auto space-y-5">
       <header>
         <div className="font-script text-sheikah-teal-deep text-base md:text-lg">
-          {weekday} · {dateStr}
+          {weekday} · {dateStr} · to be inked before nightfall
         </div>
         <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
           Today&apos;s Entry
@@ -138,54 +180,9 @@ export default function ChildDashboard({ data, reload }) {
         activePet={activePet}
       />
 
-      {upcomingHomework.length > 0 && (
-        <section>
-          <div className="mb-2">
-            <div className="font-script text-sheikah-teal-deep text-sm">due {dueTarget.label}</div>
-            <h2 className="font-display text-xl md:text-2xl text-ink-primary leading-tight">
-              Coming up
-            </h2>
-          </div>
-          <ParchmentCard>
-            <ul className="space-y-2">
-              {upcomingHomework.map((hw) => (
-                <li key={hw.id}>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/quests?tab=study&submit=${hw.id}`)}
-                    className="w-full flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-ink-page-rune-glow transition-colors text-left"
-                  >
-                    <BookOpen size={16} className="text-royal shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-body text-sm font-semibold text-ink-primary truncate">
-                        {hw.title}
-                      </div>
-                      {hw.subject && (
-                        <div className="font-script text-xs text-ink-whisper truncate">
-                          {hw.subject}
-                        </div>
-                      )}
-                    </div>
-                    <span className="font-rune text-[11px] text-ember-deep shrink-0 uppercase">
-                      due {dueTarget.label}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </ParchmentCard>
-        </section>
-      )}
-
       {todayQuests.length > 0 && (
         <section>
-          <div className="mb-2 flex items-end justify-between gap-3">
-            <div>
-              <div className="font-script text-sheikah-teal-deep text-sm">to be inked before nightfall</div>
-              <h2 className="font-display text-xl md:text-2xl text-ink-primary leading-tight">
-                Today&apos;s Log
-              </h2>
-            </div>
+          <div className="mb-2 flex justify-end">
             <RuneBadge tone="teal" size="sm">{todayQuests.length}</RuneBadge>
           </div>
           <ParchmentCard flourish>
@@ -395,6 +392,16 @@ export default function ChildDashboard({ data, reload }) {
           </div>
         </AccordionSection>
       )}
+
+      <HomeworkSubmitSheet
+        assignment={activeHomework}
+        onClose={() => setActiveHomework(null)}
+        onSubmitted={() => {
+          setActiveHomework(null);
+          reload();
+          reloadHomework?.();
+        }}
+      />
 
     </motion.div>
   );

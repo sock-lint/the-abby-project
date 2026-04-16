@@ -37,7 +37,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
                 {count} {count === 1 ? 'thing needs' : 'things need'} your seal today
               </h1>
               <div className="font-body text-sm text-ink-secondary mt-1">
-                Review rituals, homework, and redemptions below.
+                Review duties, homework, and redemptions below.
               </div>
               <div className="mt-3 flex items-center gap-2">
                 <button

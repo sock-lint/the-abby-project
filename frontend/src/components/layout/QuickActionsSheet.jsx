@@ -267,7 +267,7 @@ export default function QuickActionsSheet({
               {hasGoals && (
                 <ActionRow
                   icon={<Target size={18} />}
-                  label="Contribute to a savings goal"
+                  label="Contribute to a hoard"
                   tone="moss"
                   onClick={() => { onClose(); navigate('/treasury?tab=coffers'); }}
                 />

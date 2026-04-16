@@ -11,7 +11,7 @@ import {
 } from '../../api';
 
 const KIND_LABELS = {
-  chore: { label: 'ritual', tone: 'moss', icon: ClipboardCheck },
+  chore: { label: 'duty', tone: 'moss', icon: ClipboardCheck },
   homework: { label: 'study', tone: 'royal', icon: BookOpen },
   redemption: { label: 'reward', tone: 'gold', icon: Gift },
 };

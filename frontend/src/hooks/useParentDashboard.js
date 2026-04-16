@@ -10,7 +10,7 @@ function unifyChore(c) {
     kind: 'chore',
     kidId: c.user ?? c.user_id ?? null,
     kidName: c.user_name || c.user_display_name || 'Unassigned',
-    title: c.chore_title || 'Ritual',
+    title: c.chore_title || 'Duty',
     subtitle: c.notes || null,
     reward: c.reward_amount_snapshot ?? null,
     submittedAt: c.submitted_at || c.created_at || null,

@@ -91,7 +91,7 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
   const showSchedule = form.recurrence !== 'one_time';
 
   return (
-    <BottomSheet title={isEdit ? 'Edit Ritual' : 'New Ritual'} onClose={onClose}>
+    <BottomSheet title={isEdit ? 'Edit Duty' : 'New Duty'} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
@@ -242,10 +242,10 @@ export default function Chores() {
       <header className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
-            rituals · the daily keep
+            duties · the daily keep
           </div>
           <h2 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight">
-            Daily rituals
+            Daily duties
           </h2>
         </div>
         {isParent && (
@@ -254,7 +254,7 @@ export default function Chores() {
             onClick={() => { setEditingChore(null); setShowForm(true); }}
             className={`flex items-center gap-1 px-3 py-2 text-sm ${buttonPrimary}`}
           >
-            <Plus size={14} /> New ritual
+            <Plus size={14} /> New duty
           </button>
         )}
       </header>
@@ -310,14 +310,14 @@ export default function Chores() {
         <div className="flex items-center gap-2 mb-3">
           <ScrollIcon size={18} className="text-sheikah-teal-deep" />
           <h2 className="font-display text-xl text-ink-primary leading-tight">
-            {isParent ? 'All rituals' : "Today's rituals"}
+            {isParent ? 'All duties' : "Today's duties"}
           </h2>
         </div>
         {chores.length === 0 ? (
           <EmptyState icon={<ScrollIcon size={32} />}>
             {isParent
-              ? 'No rituals inscribed yet. Add one to begin the keep.'
-              : 'No rituals available today.'}
+              ? 'No duties inscribed yet. Add one to begin the keep.'
+              : 'No duties available today.'}
           </EmptyState>
         ) : (
           <div className="space-y-2">
@@ -369,7 +369,7 @@ export default function Chores() {
                         <button
                           type="button"
                           onClick={() => { setEditingChore(chore); setShowForm(true); }}
-                          aria-label="Edit ritual"
+                          aria-label="Edit duty"
                           className="p-1.5 bg-ink-page hover:bg-ink-page-shadow/70 rounded text-ink-secondary hover:text-ink-primary transition-colors"
                         >
                           <Pencil size={14} />
@@ -377,7 +377,7 @@ export default function Chores() {
                         <button
                           type="button"
                           onClick={() => setDeleteConfirm(chore.id)}
-                          aria-label="Delete ritual"
+                          aria-label="Delete duty"
                           className="p-1.5 bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
                         >
                           <Trash2 size={14} />
@@ -452,8 +452,8 @@ export default function Chores() {
 
       {deleteConfirm && (
         <ConfirmDialog
-          title="Delete ritual?"
-          message="This will also remove all completion history for this ritual."
+          title="Delete duty?"
+          message="This will also remove all completion history for this duty."
           onConfirm={() => handleDelete(deleteConfirm)}
           onCancel={() => setDeleteConfirm(null)}
         />

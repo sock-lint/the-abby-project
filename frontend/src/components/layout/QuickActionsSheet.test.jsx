@@ -47,7 +47,7 @@ describe('QuickActionsSheet', () => {
     // Guarded actions are NOT shown because preconditions aren't met.
     expect(screen.queryByText(/submit homework/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/start a quest/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/contribute to a savings goal/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/contribute to a hoard/i)).not.toBeInTheDocument();
     // Reward shop is intentionally excluded from quick actions.
     expect(screen.queryByText(/request a reward/i)).not.toBeInTheDocument();
   });

@@ -69,7 +69,7 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
   };
 
   return (
-    <BottomSheet title={isEdit ? 'Edit Habit' : 'New Habit'} onClose={onClose}>
+    <BottomSheet title={isEdit ? 'Edit Ritual' : 'New Ritual'} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
@@ -116,7 +116,7 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
           disabled={saving}
           className={`${buttonPrimary} w-full py-2.5`}
         >
-          {saving ? 'Saving…' : isEdit ? 'Update habit' : 'Create habit'}
+          {saving ? 'Saving…' : isEdit ? 'Update ritual' : 'Create ritual'}
         </button>
       </form>
     </BottomSheet>
@@ -168,10 +168,10 @@ export default function Habits() {
       <header className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
-            habits · virtues & vices
+            rituals · virtues & vices
           </div>
           <h2 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight">
-            Habits
+            Rituals
           </h2>
         </div>
         {isParent && (
@@ -180,7 +180,7 @@ export default function Habits() {
             onClick={() => { setEditingHabit(null); setShowForm(true); }}
             className={`${buttonPrimary} flex items-center gap-1.5 px-3 py-2 text-sm`}
           >
-            <Plus size={16} /> New habit
+            <Plus size={16} /> New ritual
           </button>
         )}
       </header>
@@ -189,7 +189,7 @@ export default function Habits() {
 
       {habits.length === 0 ? (
         <EmptyState icon={<ScrollIcon size={32} />}>
-          No habits recorded yet. Inscribe a virtue to begin practicing.
+          No rituals recorded yet. Inscribe a virtue to begin practicing.
         </EmptyState>
       ) : (
         <motion.div layout className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -260,7 +260,7 @@ export default function Habits() {
                         <button
                           type="button"
                           onClick={() => { setEditingHabit(habit); setShowForm(true); }}
-                          aria-label="Edit habit"
+                          aria-label="Edit ritual"
                           className="p-1.5 text-ink-secondary hover:text-ink-primary transition-colors"
                         >
                           <Pencil size={14} />
@@ -268,7 +268,7 @@ export default function Habits() {
                         <button
                           type="button"
                           onClick={() => setConfirmDelete(habit)}
-                          aria-label="Delete habit"
+                          aria-label="Delete ritual"
                           className="p-1.5 text-ink-secondary hover:text-ember-deep transition-colors"
                         >
                           <Trash2 size={14} />
@@ -294,7 +294,7 @@ export default function Habits() {
 
       {confirmDelete && (
         <ConfirmDialog
-          title="Delete habit"
+          title="Delete ritual"
           message={`Are you sure you want to delete "${confirmDelete.name}"?`}
           onConfirm={handleDelete}
           onCancel={() => setConfirmDelete(null)}
