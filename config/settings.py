@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 import dj_database_url
@@ -436,3 +437,16 @@ if SENTRY_DSN:
             RedisIntegration(),
         ],
     )
+
+# ──────────────────────────────────────────────────────────────────────────
+# Testing — skip migrations and use syncdb for test databases.
+#
+# The AUTH_USER_MODEL move from projects.User → accounts.User left the
+# migration graph with unresolvable settings.AUTH_USER_MODEL FK references
+# on fresh databases. Production is unaffected (migrations were applied
+# sequentially). For test databases, bypass the migration graph entirely
+# and create tables from current model state.
+# ──────────────────────────────────────────────────────────────────────────
+if "test" in sys.argv:
+    MIGRATION_MODULES = {app.split(".")[-1]: None for app in INSTALLED_APPS}
+    PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]

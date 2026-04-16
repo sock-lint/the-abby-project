@@ -112,7 +112,7 @@ def handle_milestone_completed(sender, instance, created, **kwargs):
 
     user = instance.project.assigned_to
 
-    from .notifications import notify
+    from apps.notifications.services import notify
     if user:
         notify(user, f"Milestone completed: {instance.title}",
                f"You completed a milestone on {instance.project.title}!", "milestone_completed",

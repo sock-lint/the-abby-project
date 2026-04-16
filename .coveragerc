@@ -1,0 +1,20 @@
+[run]
+source = apps, config
+omit =
+    */migrations/*
+    */tests/*
+    */test_*
+    manage.py
+    config/wsgi.py
+    config/asgi.py
+    config/celery.py
+
+[report]
+show_missing = True
+skip_covered = False
+precision = 1
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if TYPE_CHECKING:
+    raise NotImplementedError
