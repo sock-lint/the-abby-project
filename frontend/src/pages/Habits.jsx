@@ -229,8 +229,8 @@ export default function Habits() {
                       {(habit.habit_type === 'positive' || habit.habit_type === 'both') && (
                         <button
                           type="button"
-                          onClick={() => handleTap(habit, 'up')}
-                          disabled={tapping === `${habit.id}-up`}
+                          onClick={() => handleTap(habit, 1)}
+                          disabled={tapping === `${habit.id}-1`}
                           className="flex items-center gap-1 px-3 py-1.5 bg-moss/20 hover:bg-moss/30 text-moss text-sm font-body font-medium rounded-lg border border-moss/40 disabled:opacity-50 transition-colors"
                         >
                           <ThumbsUp size={14} /> virtue
@@ -239,8 +239,8 @@ export default function Habits() {
                       {(habit.habit_type === 'negative' || habit.habit_type === 'both') && (
                         <button
                           type="button"
-                          onClick={() => handleTap(habit, 'down')}
-                          disabled={tapping === `${habit.id}-down`}
+                          onClick={() => handleTap(habit, -1)}
+                          disabled={tapping === `${habit.id}--1`}
                           className="flex items-center gap-1 px-3 py-1.5 bg-ember/20 hover:bg-ember/30 text-ember-deep text-sm font-body font-medium rounded-lg border border-ember/40 disabled:opacity-50 transition-colors"
                         >
                           <ThumbsDown size={14} /> vice

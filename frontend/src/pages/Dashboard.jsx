@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ClipboardCheck, BookOpen, Target, Sparkles } from 'lucide-react';
 import {
-  getActiveQuest, getDashboard, getRecentDrops, getStable,
+  completeChore, getActiveQuest, getDashboard, getRecentDrops, getStable, logHabitTap,
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import { useAuth } from '../hooks/useApi';
@@ -70,7 +70,9 @@ export default function Dashboard() {
   const isParent = user?.role === 'parent';
 
   // Build a unified "Today's Quests" list from chores + trial + habits + homework.
-  const todayQuests = buildTodayQuests({ chores_today, activeQuest, rpg, activeTimer: active_timer });
+  const todayQuests = buildTodayQuests({
+    chores_today, activeQuest, rpg, activeTimer: active_timer, reload,
+  });
 
   const streakMultiplier = rpg?.login_streak
     ? Math.min(1 + rpg.login_streak * 0.07, 2).toFixed(2)
@@ -446,8 +448,9 @@ function TreasuryStat({ label, value, icon, tone = 'teal', onClick }) {
   );
 }
 
-function buildTodayQuests({ chores_today, activeQuest, rpg, activeTimer }) {
+function buildTodayQuests({ chores_today, activeQuest, rpg, activeTimer, reload }) {
   const out = [];
+  const refresh = typeof reload === 'function' ? reload : () => {};
 
   // Active project milestone teaser (if clocked in on a project)
   if (activeTimer?.project_title) {
@@ -487,6 +490,7 @@ function buildTodayQuests({ chores_today, activeQuest, rpg, activeTimer }) {
       kind: 'ritual',
       tone: 'moss',
       icon: c.icon ? <span className="text-base">{c.icon}</span> : null,
+      onAction: c.is_done ? undefined : () => completeChore(c.id).then(refresh).catch(() => {}),
     });
   });
 
@@ -500,6 +504,7 @@ function buildTodayQuests({ chores_today, activeQuest, rpg, activeTimer }) {
       kind: 'virtue',
       tone: 'gold',
       icon: h.icon ? <span className="text-base">{h.icon}</span> : <ScrollIcon size={16} />,
+      onAction: () => logHabitTap(h.id, 1).then(refresh).catch(() => {}),
     });
   });
 

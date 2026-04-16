@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import ClockPage from './ClockPage.jsx';
 import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
+import { spyHandler } from '../test/spy.js';
 import { buildParent, buildUser, buildProject } from '../test/factories.js';
 
 vi.mock('framer-motion', async () => {
@@ -112,6 +113,50 @@ describe('ClockPage', () => {
     await user.click(screen.getByRole('button', { name: /void entry/i }));
     await user.click(await screen.findByRole('button', { name: /cancel/i }));
     expect(screen.queryByRole('button', { name: 'Void' })).toBeNull();
+  });
+
+  it('clocking in posts {action:"in", project_id:N} to /clock/', async () => {
+    const user = userEvent.setup();
+    const clock = spyHandler('post', '*/api/clock/', { ok: true });
+    renderPage(buildUser(), [
+      http.get('*/api/clock/', () => HttpResponse.json({ status: 'idle' })),
+      http.get('*/api/projects/', () =>
+        HttpResponse.json([buildProject({ id: 7, title: 'Alpha', status: 'active' })]),
+      ),
+      http.get('*/api/time-entries/', () => HttpResponse.json([])),
+      clock.handler,
+    ]);
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+    await user.selectOptions(screen.getByRole('combobox'), '7');
+    const play = screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-play'));
+    await user.click(play);
+
+    await waitFor(() => expect(clock.calls).toHaveLength(1));
+    expect(clock.calls[0].body).toEqual({ action: 'in', project_id: 7 });
+  });
+
+  it('clocking out posts {action:"out", notes:"…"} to /clock/', async () => {
+    const user = userEvent.setup();
+    const clock = spyHandler('post', '*/api/clock/', { ok: true });
+    renderPage(buildUser(), [
+      http.get('*/api/clock/', () =>
+        HttpResponse.json({
+          status: 'active',
+          project_title: 'Ongoing',
+          clock_in: new Date(Date.now() - 5000).toISOString(),
+        }),
+      ),
+      http.get('*/api/projects/', () => HttpResponse.json([])),
+      http.get('*/api/time-entries/', () => HttpResponse.json([])),
+      clock.handler,
+    ]);
+    await waitFor(() => expect(screen.getByText(/now inking/i)).toBeInTheDocument());
+    await user.type(screen.getByPlaceholderText(/scribble what you did/i), 'Great stuff');
+    const stop = screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-square'));
+    await user.click(stop);
+
+    await waitFor(() => expect(clock.calls).toHaveLength(1));
+    expect(clock.calls[0].body).toEqual({ action: 'out', notes: 'Great stuff' });
   });
 
   it('surfaces clock-in server error', async () => {
