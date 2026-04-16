@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  completeChore, getActiveQuest, getRecentDrops, getStable, logHabitTap,
+  completeChore, getActiveQuest, getHomeworkDashboard, getRecentDrops, getStable, logHabitTap,
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import { formatCurrency } from '../utils/format';
@@ -14,10 +14,11 @@ import HeroPrimaryCard from '../components/dashboard/HeroPrimaryCard';
 import VitalPipStrip from '../components/dashboard/VitalPipStrip';
 import AccordionSection from '../components/dashboard/AccordionSection';
 import { DragonIcon, InkwellIcon, ScrollIcon, CoinIcon } from '../components/icons/JournalIcons';
-import { Target } from 'lucide-react';
+import { BookOpen, Target } from 'lucide-react';
+import { normalizeList } from '../utils/api';
 import { RARITY_RING_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem, inkBleed } from '../motion/variants';
-import { formatWeekdayDate, mapProjectTone } from './_dashboardShared';
+import { formatWeekdayDate, mapProjectTone, nextDueTarget } from './_dashboardShared';
 
 const VISIBLE_LOG_CAP = 5;
 
@@ -81,6 +82,7 @@ export default function ChildDashboard({ data, reload }) {
   const { data: recentDrops } = useApi(getRecentDrops);
   const { data: stableData } = useApi(getStable);
   const { data: activeQuest } = useApi(getActiveQuest);
+  const { data: homeworkDashboard } = useApi(getHomeworkDashboard);
   const navigate = useNavigate();
   const [logExpanded, setLogExpanded] = useState(false);
 
@@ -101,6 +103,10 @@ export default function ChildDashboard({ data, reload }) {
   const hiddenQuestCount = todayQuests.length - visibleQuests.length;
 
   const { weekday, dateStr } = formatWeekdayDate();
+
+  const dueTarget = nextDueTarget();
+  const upcomingHomework = normalizeList(homeworkDashboard?.upcoming)
+    .filter((hw) => hw.due_date === dueTarget.iso);
 
   return (
     <motion.div variants={inkBleed} initial="initial" animate="animate" className="max-w-6xl mx-auto space-y-5">
@@ -131,6 +137,45 @@ export default function ChildDashboard({ data, reload }) {
         level={rpg?.level}
         activePet={activePet}
       />
+
+      {upcomingHomework.length > 0 && (
+        <section>
+          <div className="mb-2">
+            <div className="font-script text-sheikah-teal-deep text-sm">due {dueTarget.label}</div>
+            <h2 className="font-display text-xl md:text-2xl text-ink-primary leading-tight">
+              Coming up
+            </h2>
+          </div>
+          <ParchmentCard>
+            <ul className="space-y-2">
+              {upcomingHomework.map((hw) => (
+                <li key={hw.id}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/quests?tab=study&submit=${hw.id}`)}
+                    className="w-full flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-ink-page-rune-glow transition-colors text-left"
+                  >
+                    <BookOpen size={16} className="text-royal shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-body text-sm font-semibold text-ink-primary truncate">
+                        {hw.title}
+                      </div>
+                      {hw.subject && (
+                        <div className="font-script text-xs text-ink-whisper truncate">
+                          {hw.subject}
+                        </div>
+                      )}
+                    </div>
+                    <span className="font-rune text-[11px] text-ember-deep shrink-0 uppercase">
+                      due {dueTarget.label}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </ParchmentCard>
+        </section>
+      )}
 
       {todayQuests.length > 0 && (
         <section>

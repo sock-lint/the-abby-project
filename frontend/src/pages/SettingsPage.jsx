@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { LogOut, Link2, Unlink, Calendar, RefreshCw } from 'lucide-react';
+import { LogOut, Link2, Unlink, Calendar, RefreshCw, Flame, Check } from 'lucide-react';
 import {
   getGoogleAuthUrl, getGoogleAccount, unlinkGoogleAccount,
   updateCalendarSettings, triggerCalendarSync, updateMe,
 } from '../api';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
+import { CoinIcon } from '../components/icons/JournalIcons';
 import { useAuth } from '../hooks/useApi';
 import { themes, applyTheme, LEGACY_THEME_ALIASES } from '../themes';
 import { buttonPrimary } from '../constants/styles';
@@ -222,41 +223,91 @@ export default function SettingsPage() {
           </div>
           <h2 className="font-display text-xl text-ink-primary leading-tight">Journal cover</h2>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
           {Object.entries(themes).map(([key, theme]) => {
             const active = currentTheme === key;
+            const t = theme.tones || {};
             return (
               <button
                 key={key}
                 type="button"
                 onClick={() => handleThemeChange(key)}
-                className={`p-3 rounded-xl border-2 text-left transition-all ${
+                aria-pressed={active}
+                aria-label={`Pick ${theme.name} cover`}
+                className={`relative p-3 rounded-xl border-2 text-left transition-all ${
                   active
                     ? 'border-sheikah-teal-deep ring-2 ring-offset-2 ring-offset-ink-page ring-sheikah-teal-glow'
                     : 'border-ink-page-shadow hover:border-sheikah-teal/50'
                 }`}
                 style={{ backgroundColor: theme.page }}
               >
-                <div className="text-2xl mb-1">{theme.icon}</div>
-                <div
-                  className="font-display text-sm font-semibold leading-tight"
-                  style={{ color: theme.ink }}
-                >
-                  {theme.name}
+                {active && (
+                  <span
+                    className="absolute top-2 right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-rune uppercase tracking-wider border"
+                    style={{
+                      color: theme.accent,
+                      borderColor: theme.accent,
+                      backgroundColor: theme.pageAged,
+                    }}
+                  >
+                    <Check size={10} strokeWidth={2.5} />
+                    reading
+                  </span>
+                )}
+                <div className="flex items-baseline gap-2">
+                  <div className="text-2xl leading-none" aria-hidden>{theme.icon}</div>
+                  <div
+                    className="font-display text-base font-semibold leading-tight"
+                    style={{ color: theme.ink }}
+                  >
+                    {theme.name}
+                  </div>
                 </div>
-                <div className="flex gap-1 mt-2">
-                  <div
-                    className="w-4 h-4 rounded-full border"
-                    style={{ backgroundColor: theme.accent, borderColor: theme.pageShadow }}
-                  />
-                  <div
-                    className="w-4 h-4 rounded-full border"
-                    style={{ backgroundColor: theme.accentBright, borderColor: theme.pageShadow }}
-                  />
-                  <div
-                    className="w-4 h-4 rounded-full border"
-                    style={{ backgroundColor: theme.ember, borderColor: theme.pageShadow }}
-                  />
+                <div
+                  className="font-body text-xs mt-1.5 leading-snug"
+                  style={{ color: theme.inkSecondary }}
+                >
+                  Ink the day&apos;s deeds here.
+                </div>
+                <div
+                  className="font-script text-xs mt-0.5"
+                  style={{ color: theme.inkWhisper }}
+                >
+                  — 6 chapters opened
+                </div>
+                <div className="flex items-center gap-1.5 mt-2.5">
+                  <span
+                    className="inline-flex items-center gap-1 h-6 px-1.5 rounded-full border text-[11px] font-rune tabular-nums"
+                    style={{
+                      color: t.emberDeep || theme.ember,
+                      borderColor: theme.pageShadow,
+                      backgroundColor: theme.pageAged,
+                    }}
+                  >
+                    <Flame size={11} />
+                    <span>7</span>
+                  </span>
+                  <span
+                    className="inline-flex items-center gap-1 h-6 px-1.5 rounded-full border text-[11px] font-rune tabular-nums"
+                    style={{
+                      color: t.goldLeaf,
+                      borderColor: theme.pageShadow,
+                      backgroundColor: theme.pageAged,
+                    }}
+                  >
+                    <CoinIcon size={11} />
+                    <span>142</span>
+                  </span>
+                  <span
+                    className="inline-flex items-center h-6 px-1.5 rounded-full border text-[11px] font-rune"
+                    style={{
+                      color: theme.accent,
+                      borderColor: theme.pageShadow,
+                      backgroundColor: theme.pageAged,
+                    }}
+                  >
+                    quest
+                  </span>
                 </div>
               </button>
             );

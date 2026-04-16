@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  getChoreCompletions, getHomeworkDashboard, getRedemptions,
-  getChildren, getDashboard,
+  getChoreCompletions, getHomeworkDashboard, getRedemptions, getDashboard,
 } from '../api';
 import { normalizeList } from '../utils/api';
 
@@ -51,14 +50,13 @@ function byRecent(a, b) {
 }
 
 /**
- * useParentDashboard — aggregates pending approvals across chores,
- * homework, and redemptions plus the kid roster and week stats.
- * Returns a unified `pending` array sorted newest-first.
+ * useParentDashboard — aggregates pending approvals across chores, homework,
+ * and redemptions plus per-kid week stats. Returns a unified `pending` array
+ * sorted newest-first.
  */
 export default function useParentDashboard() {
   const [data, setData] = useState({
     pending: [],
-    kids: [],
     weekByKid: [],
     dashboard: null,
     loading: true,
@@ -68,11 +66,10 @@ export default function useParentDashboard() {
   const load = useCallback(async () => {
     setData((d) => ({ ...d, loading: true, error: null }));
     try {
-      const [chores, hw, reds, kidsRes, dashboardRes] = await Promise.all([
+      const [chores, hw, reds, dashboardRes] = await Promise.all([
         getChoreCompletions('pending').catch(() => []),
         getHomeworkDashboard().catch(() => ({ pending_submissions: [] })),
         getRedemptions().catch(() => []),
-        getChildren().catch(() => []),
         getDashboard().catch(() => null),
       ]);
 
@@ -82,17 +79,12 @@ export default function useParentDashboard() {
         ...normalizeList(reds).filter((r) => r.status === 'pending').map(unifyRedemption),
       ].sort(byRecent);
 
-      const kids = normalizeList(kidsRes);
       // Week stats — if the dashboard payload has per-kid data in the future,
-      // use it; otherwise render a single aggregate row sourced from the
-      // parent's own week stats.
-      const weekByKid = dashboardRes?.this_week_by_kid
-        ? dashboardRes.this_week_by_kid
-        : [];
+      // use it; otherwise leave the list empty and the UI hides the block.
+      const weekByKid = dashboardRes?.this_week_by_kid ?? [];
 
       setData({
         pending: unified,
-        kids,
         weekByKid,
         dashboard: dashboardRes,
         loading: false,

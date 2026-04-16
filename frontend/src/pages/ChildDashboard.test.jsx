@@ -20,6 +20,8 @@ function renderDashboard(extraHandlers = []) {
   );
 }
 
+import { nextDueTarget } from './_dashboardShared';
+
 describe('ChildDashboard', () => {
   it('renders active-timer hero when a timer is active', async () => {
     renderDashboard([
@@ -89,6 +91,36 @@ describe('ChildDashboard', () => {
       ),
     ]);
     await waitFor(() => expect(screen.getByLabelText(/find a pet/i)).toBeInTheDocument());
+  });
+
+  it('surfaces an upcoming homework block for assignments due on the target day', async () => {
+    const { iso, label } = nextDueTarget();
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({
+          active_timer: null, current_balance: 0, coin_balance: 0,
+          this_week: { hours_worked: 0, earnings: 0 },
+          active_projects: [], recent_badges: [], savings_goals: [], chores_today: [],
+          pending_chore_approvals: 0,
+          rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
+        }),
+      ),
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({
+          today: [], overdue: [],
+          upcoming: [
+            { id: 55, title: 'Science worksheet', subject: 'Science', due_date: iso },
+            { id: 56, title: 'Far future', subject: 'Math', due_date: '2099-01-01' },
+          ],
+        }),
+      ),
+    ]);
+    await waitFor(() => expect(screen.getByText(/science worksheet/i)).toBeInTheDocument());
+    // Only the target-date match surfaces — the far-future one is filtered out.
+    expect(screen.queryByText(/far future/i)).not.toBeInTheDocument();
+    // Kicker + inline badge both read "due tomorrow" / "due Monday".
+    expect(screen.getAllByText(new RegExp(`due ${label}`, 'i')).length).toBeGreaterThan(0);
   });
 
   it('tapping a habit on the today log posts to /habits/{id}/log/ and refetches', async () => {

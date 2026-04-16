@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion';
 import HeroPrimaryCard from '../components/dashboard/HeroPrimaryCard';
 import ApprovalQueueList from '../components/dashboard/ApprovalQueueList';
-import KidStrip from '../components/dashboard/KidStrip';
 import AccordionSection from '../components/dashboard/AccordionSection';
 import WeekGlanceBlock from '../components/dashboard/WeekGlanceBlock';
 import QuickAdjustRow from '../components/dashboard/QuickAdjustRow';
@@ -10,7 +9,7 @@ import { inkBleed } from '../motion/variants';
 import { formatWeekdayDate } from './_dashboardShared';
 
 export default function ParentDashboard() {
-  const { pending, kids, weekByKid, reload } = useParentDashboard();
+  const { pending, weekByKid, reload } = useParentDashboard();
   const { weekday, dateStr } = formatWeekdayDate();
 
   return (
@@ -33,8 +32,6 @@ export default function ParentDashboard() {
       />
 
       <ApprovalQueueList items={pending} onDone={reload} />
-
-      <KidStrip kids={kids} />
 
       <AccordionSection
         title="Week at a glance"

@@ -36,7 +36,7 @@ function renderSheet(userFixture, handlers = [], props = {}) {
 }
 
 describe('QuickActionsSheet', () => {
-  it('shows child actions including Clock in, Add homework, Request a reward', async () => {
+  it('shows child actions including Clock in and Add homework', async () => {
     renderSheet(buildUser(), [
       http.get('*/api/homework/dashboard/', () => HttpResponse.json({ today: [], overdue: [], pending_submissions: [] })),
       http.get('*/api/savings-goals/', () => HttpResponse.json([])),
@@ -44,11 +44,12 @@ describe('QuickActionsSheet', () => {
     ]);
     await waitFor(() => expect(screen.getByText(/clock in/i)).toBeInTheDocument());
     expect(screen.getByText(/add homework/i)).toBeInTheDocument();
-    expect(screen.getByText(/request a reward/i)).toBeInTheDocument();
     // Guarded actions are NOT shown because preconditions aren't met.
     expect(screen.queryByText(/submit homework/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/start a quest/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/contribute to a savings goal/i)).not.toBeInTheDocument();
+    // Reward shop is intentionally excluded from quick actions.
+    expect(screen.queryByText(/request a reward/i)).not.toBeInTheDocument();
   });
 
   it('reveals Submit homework when an assignment is due', async () => {
@@ -86,7 +87,6 @@ describe('QuickActionsSheet', () => {
     expect(screen.getByText(/adjust payment/i)).toBeInTheDocument();
     // No child-only actions surface for parents.
     expect(screen.queryByText(/add homework$/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/request a reward/i)).not.toBeInTheDocument();
   });
 
   it('Add homework submits to POST /homework/ with a self-assign payload', async () => {

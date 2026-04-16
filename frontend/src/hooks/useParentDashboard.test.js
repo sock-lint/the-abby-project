@@ -25,7 +25,6 @@ describe('useParentDashboard', () => {
           { id: 4, reward_name: 'Fulfilled thing', user_id: 2, user_name: 'Abby', status: 'fulfilled', created_at: '2026-04-16T07:00:00Z' },
         ]),
       ),
-      http.get('*/api/children/', () => HttpResponse.json([{ id: 2, username: 'abby' }])),
       http.get('*/api/dashboard/', () =>
         HttpResponse.json({ this_week: { hours_worked: 0, earnings: 0 } }),
       ),
@@ -40,7 +39,6 @@ describe('useParentDashboard', () => {
     expect(result.current.pending.map((i) => i.kind)).toEqual([
       'homework', 'redemption', 'chore',
     ]);
-    expect(result.current.kids).toHaveLength(1);
   });
 
   it('tolerates individual endpoint failures without throwing', async () => {
@@ -48,7 +46,6 @@ describe('useParentDashboard', () => {
       http.get('*/api/chore-completions/', () => HttpResponse.json({ error: 'nope' }, { status: 500 })),
       http.get('*/api/homework/dashboard/', () => HttpResponse.json({ pending_submissions: [] })),
       http.get('*/api/redemptions/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
       http.get('*/api/dashboard/', () => HttpResponse.json({})),
     );
 

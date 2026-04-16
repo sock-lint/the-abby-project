@@ -17,31 +17,31 @@
   --color-ink-page-shadow: #d4c7a6;
   --color-ink-page-rune-glow: #fff8e0;
 
-  /* Ink & text */
+  /* Ink & text (Hyrule defaults — overridden per-cover by applyTheme) */
   --color-ink-primary: #2d1f15;
   --color-ink-secondary: #6b5639;
-  --color-ink-whisper: #a08a6c;
+  --color-ink-whisper: #755a38;
 
-  /* Sheikah accents */
-  --color-sheikah-teal: #4dd0e1;
-  --color-sheikah-teal-deep: #26a69a;
+  /* Sheikah accents (Hyrule defaults) */
+  --color-sheikah-teal: #1d8a80;
+  --color-sheikah-teal-deep: #157064;
   --color-sheikah-teal-glow: rgba(77, 208, 225, 0.4);
 
-  /* Supporting accents */
-  --color-ember: #d97548;
-  --color-ember-deep: #a04a28;
-  --color-moss: #7d9b69;
-  --color-moss-deep: #5b7649;
-  --color-royal: #6b5fb8;
-  --color-rose: #d4839c;
-  --color-gold-leaf: #d4af37;
+  /* Supporting accents (Hyrule defaults — overridden per-cover by applyTheme) */
+  --color-ember: #a04a28;
+  --color-ember-deep: #8f3e1d;
+  --color-moss: #456a3a;
+  --color-moss-deep: #385829;
+  --color-royal: #5449a3;
+  --color-rose: #a54865;
+  --color-gold-leaf: #856418;
 
   /* Rarity tiers (journal vocabulary) */
-  --color-rarity-common: #7d9b69;
-  --color-rarity-uncommon: #4dd0e1;
-  --color-rarity-rare: #6b5fb8;
-  --color-rarity-epic: #d97548;
-  --color-rarity-legendary: #d4af37;
+  --color-rarity-common: #456a3a;
+  --color-rarity-uncommon: #1d8a80;
+  --color-rarity-rare: #5449a3;
+  --color-rarity-epic: #a04a28;
+  --color-rarity-legendary: #856418;
 
   /* Legacy forge aliases — map old tokens to new palette so un-migrated
      components still render coherently while Phase 2+ rolls forward. */
@@ -51,8 +51,8 @@
   --color-forge-muted: #c4b594;
   --color-forge-text: #2d1f15;
   --color-forge-text-dim: #6b5639;
-  --color-amber-primary: #26a69a;
-  --color-amber-highlight: #4dd0e1;
+  --color-amber-primary: #157064;
+  --color-amber-highlight: #1d8a80;
   --color-amber-glow: #fff8e0;
 }
 
@@ -256,7 +256,7 @@ h1, h2, h3, h4 {
   button, a, [role="button"] {
     -webkit-tap-highlight-color: transparent;
   }
-  main {
+  body {
     overflow-x: hidden;
   }
   input, select, textarea {

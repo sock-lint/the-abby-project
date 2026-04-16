@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import SettingsPage from './SettingsPage.jsx';
 import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
+import { spyHandler } from '../test/spy.js';
 import { buildUser } from '../test/factories.js';
 
 vi.mock('framer-motion', async () => {
@@ -70,18 +71,70 @@ describe('SettingsPage', () => {
     if (toggle) await user.click(toggle);
   });
 
-  it('changes theme', async () => {
+  it('PATCHes /api/auth/me/ with the picked cover slug on theme change', async () => {
+    const user = userEvent.setup();
+    const spy = spyHandler('patch', /\/api\/auth\/me\/$/, {});
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
+      spy.handler,
+    );
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <SettingsPage />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText(/journal cover/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /Pick Night Vigil cover/i }));
+    await waitFor(() => expect(spy.calls).toHaveLength(1));
+    expect(spy.calls[0].body).toEqual({ theme: 'vigil' });
+    expect(spy.calls[0].url).toMatch(/\/api\/auth\/me\/$/);
+  });
+
+  it('marks the active cover with aria-pressed and a READING label', async () => {
     const user = userEvent.setup();
     renderPage([
       http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
       http.patch('*/api/auth/me/', () => HttpResponse.json({})),
     ]);
     await waitFor(() => expect(screen.getByText(/journal cover/i)).toBeInTheDocument());
-    // Click the first theme button under "Journal cover".
-    const themeButtons = screen.getAllByRole('button').filter((b) => b.className.includes('rounded-xl border-2'));
-    if (themeButtons.length) {
-      await user.click(themeButtons[0]);
+
+    // Default cover is Hyrule Day (from buildUser theme fallback) — initially active.
+    const hyrule = screen.getByRole('button', { name: /Pick Hyrule Day cover/i });
+    const vigil = screen.getByRole('button', { name: /Pick Night Vigil cover/i });
+    expect(hyrule).toHaveAttribute('aria-pressed', 'true');
+    expect(vigil).toHaveAttribute('aria-pressed', 'false');
+
+    // Switch to Night Vigil — aria-pressed + READING flip to the new tile.
+    await user.click(vigil);
+    expect(vigil).toHaveAttribute('aria-pressed', 'true');
+    expect(hyrule).toHaveAttribute('aria-pressed', 'false');
+    expect(vigil.textContent).toMatch(/reading/i);
+    expect(hyrule.textContent).not.toMatch(/reading/i);
+  });
+
+  it('renders all 6 cover swatches with sample preview copy', async () => {
+    renderPage([
+      http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
+    ]);
+    await waitFor(() => expect(screen.getByText(/journal cover/i)).toBeInTheDocument());
+    const coverNames = [
+      'Hyrule Day',
+      'Night Vigil',
+      'Sunlit Field',
+      'Snowquill Tome',
+      'Verdant Pages',
+      'Harvest Folio',
+    ];
+    for (const name of coverNames) {
+      expect(screen.getByRole('button', { name: new RegExp(`Pick ${name} cover`, 'i') })).toBeInTheDocument();
     }
+    // Sample preview copy renders inside each swatch so users can eyeball
+    // contrast before committing.
+    expect(screen.getAllByText(/Ink the day's deeds here/i)).toHaveLength(6);
+    expect(screen.getAllByText(/6 chapters opened/i)).toHaveLength(6);
   });
 
   it('signs off on click', async () => {

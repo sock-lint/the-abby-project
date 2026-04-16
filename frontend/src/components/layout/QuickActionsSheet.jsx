@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Square, BookOpen, Gift, Target, CircleDollarSign, UserCog } from 'lucide-react';
+import { Play, Square, BookOpen, Target, CircleDollarSign, UserCog } from 'lucide-react';
 import BottomSheet from '../BottomSheet';
 import { DragonIcon } from '../icons/JournalIcons';
 import {
@@ -264,13 +264,6 @@ export default function QuickActionsSheet({
                   onClick={() => { onClose(); navigate('/quests?tab=trials'); }}
                 />
               )}
-              <ActionRow
-                icon={<Gift size={18} />}
-                label="Request a reward"
-                hint="Spend coins in the bazaar"
-                tone="gold"
-                onClick={() => { onClose(); navigate('/treasury?tab=bazaar'); }}
-              />
               {hasGoals && (
                 <ActionRow
                   icon={<Target size={18} />}
