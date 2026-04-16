@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from django.conf import settings
 from django.db import models
 
@@ -22,7 +20,7 @@ class HomeworkAssignment(TimestampedModel):
     subject = models.CharField(max_length=20, choices=Subject.choices)
     effort_level = models.IntegerField(
         default=3,
-        help_text="1-5 scale. Drives reward scaling via HOMEWORK_EFFORT_MULTIPLIERS.",
+        help_text="1-5 scale. Weights XP distribution across skill tags.",
     )
     due_date = models.DateField()
     assigned_to = models.ForeignKey(
@@ -33,24 +31,8 @@ class HomeworkAssignment(TimestampedModel):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
         related_name="created_homework",
     )
-    reward_amount = models.DecimalField(
-        max_digits=8, decimal_places=2, default=Decimal("0.00"),
-        help_text="Base money reward before effort/timeliness scaling.",
-    )
-    coin_reward = models.PositiveIntegerField(
-        default=0,
-        help_text="Base coin reward before effort/timeliness scaling.",
-    )
     is_active = models.BooleanField(default=True)
     notes = models.TextField(blank=True, help_text="Optional parent notes or context.")
-    rewards_pending_review = models.BooleanField(
-        default=False,
-        help_text=(
-            "True when a child created this assignment without setting "
-            "effort/reward/coins. Cleared when AI or a parent (via Adjust) "
-            "fills in the values at submission time."
-        ),
-    )
     project = models.ForeignKey(
         "projects.Project", on_delete=models.SET_NULL,
         null=True, blank=True, related_name="homework_assignments",
@@ -108,20 +90,9 @@ class HomeworkSubmission(ApprovalWorkflowModel, CreatedAtModel):
         max_length=15, choices=Status.choices, default=Status.PENDING,
     )
     notes = models.TextField(blank=True, help_text="Optional child submission notes.")
-    reward_amount_snapshot = models.DecimalField(
-        max_digits=8, decimal_places=2,
-        help_text="Final money reward (base × effort × timeliness), frozen at submission.",
-    )
-    coin_reward_snapshot = models.PositiveIntegerField(
-        help_text="Final coin reward (base × effort × timeliness), frozen at submission.",
-    )
     timeliness = models.CharField(
         max_length=15, choices=Timeliness.choices,
         help_text="Computed at submission time by comparing submit date to due_date.",
-    )
-    timeliness_multiplier = models.DecimalField(
-        max_digits=4, decimal_places=2,
-        help_text="Frozen multiplier (e.g., 1.25 early, 1.0 on_time, 0.5 late, 0.0 beyond).",
     )
 
     class Meta:
@@ -161,10 +132,6 @@ class HomeworkTemplate(TimestampedModel):
         max_length=20, choices=HomeworkAssignment.Subject.choices,
     )
     effort_level = models.IntegerField(default=3)
-    reward_amount = models.DecimalField(
-        max_digits=8, decimal_places=2, default=Decimal("0.00"),
-    )
-    coin_reward = models.PositiveIntegerField(default=0)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
         related_name="homework_templates",

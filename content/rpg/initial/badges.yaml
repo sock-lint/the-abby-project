@@ -254,3 +254,49 @@ badges:
     criteria_type: cross_category_unlock
     rarity: rare
     xp_bonus: 40
+
+  # Scholar Track — organization rewards for homework.
+  # Homework no longer pays money or coins; these badges are the
+  # recognition path for planning ahead and submitting on time.
+  - name: Planner
+    description: Log 3 homework assignments at least 2 days before their due date
+    icon: "🗓️"
+    criteria_type: homework_planned_ahead
+    criteria_value: {count: 3, days_ahead: 2}
+    rarity: common
+    xp_bonus: 15
+  - name: Planner II
+    description: Log 10 assignments at least 2 days ahead
+    icon: "📅"
+    criteria_type: homework_planned_ahead
+    criteria_value: {count: 10, days_ahead: 2}
+    rarity: uncommon
+    xp_bonus: 30
+  - name: Planner III
+    description: Log 25 assignments at least 2 days ahead
+    icon: "🗂️"
+    criteria_type: homework_planned_ahead
+    criteria_value: {count: 25, days_ahead: 2}
+    rarity: rare
+    xp_bonus: 60
+  - name: Punctual
+    description: Submit 5 homework assignments early or on time
+    icon: "✏️"
+    criteria_type: homework_on_time_count
+    criteria_value: {count: 5}
+    rarity: common
+    xp_bonus: 15
+  - name: Punctual II
+    description: Submit 15 homework assignments early or on time
+    icon: "📏"
+    criteria_type: homework_on_time_count
+    criteria_value: {count: 15}
+    rarity: uncommon
+    xp_bonus: 40
+  - name: Punctual III
+    description: Submit 40 homework assignments early or on time
+    icon: "🏅"
+    criteria_type: homework_on_time_count
+    criteria_value: {count: 40}
+    rarity: rare
+    xp_bonus: 80

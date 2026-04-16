@@ -1,0 +1,328 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Play, Square, BookOpen, Gift, Target, CircleDollarSign, UserCog } from 'lucide-react';
+import BottomSheet from '../BottomSheet';
+import { DragonIcon } from '../icons/JournalIcons';
+import {
+  clockIn, clockOut, getProjects,
+  createHomework, getHomeworkDashboard,
+  getSavingsGoals, getInventory,
+} from '../../api';
+import { useApi, useAuth } from '../../hooks/useApi';
+import { normalizeList } from '../../utils/api';
+import { buttonPrimary, buttonDanger, buttonSecondary, inputClass } from '../../constants/styles';
+
+function formatClock(secs) {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function ActionRow({ icon, label, hint, onClick, tone = 'ink', disabled = false }) {
+  const toneText = {
+    ink: 'text-ink-primary',
+    teal: 'text-sheikah-teal-deep',
+    ember: 'text-ember-deep',
+    moss: 'text-moss',
+    gold: 'text-gold-leaf',
+    royal: 'text-royal',
+  }[tone];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-ink-page-shadow bg-ink-page hover:bg-ink-page-rune-glow transition-colors disabled:opacity-50 text-left"
+    >
+      <span className={`${toneText} shrink-0`}>{icon}</span>
+      <span className="flex-1 min-w-0">
+        <span className="block font-body text-sm font-semibold text-ink-primary">
+          {label}
+        </span>
+        {hint && (
+          <span className="block font-script text-xs text-ink-whisper truncate">{hint}</span>
+        )}
+      </span>
+    </button>
+  );
+}
+
+function ClockPane({ status, isClocked, elapsedSecs, onBack, onClockReload }) {
+  const { data: projectsData } = useApi(getProjects);
+  const projects = normalizeList(projectsData);
+  const [selectedProject, setSelectedProject] = useState('');
+  const [notes, setNotes] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const handleIn = async () => {
+    if (!selectedProject) { setError('Select a venture first'); return; }
+    setBusy(true); setError('');
+    try {
+      await clockIn(parseInt(selectedProject, 10));
+      await onClockReload();
+      onBack();
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  };
+  const handleOut = async () => {
+    setBusy(true); setError('');
+    try {
+      await clockOut(notes);
+      await onClockReload();
+      setNotes('');
+      onBack();
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="space-y-3">
+      <button type="button" onClick={onBack} className="font-script text-sm text-sheikah-teal-deep hover:underline">
+        ← Back
+      </button>
+      {isClocked ? (
+        <>
+          <div className="font-script text-ink-whisper text-xs uppercase tracking-wider">Time still inking</div>
+          <div className="font-display text-lg truncate">{status?.project_title}</div>
+          <div className="font-rune text-3xl font-bold text-ember-deep tabular-nums text-center">
+            {formatClock(elapsedSecs)}
+          </div>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Scribble what you did…"
+            className={`${inputClass} resize-none h-20`}
+          />
+          {error && <div className="text-ember-deep text-sm font-script">{error}</div>}
+          <button onClick={handleOut} disabled={busy} className={`${buttonDanger} w-full px-4 py-2.5 flex items-center justify-center gap-2`}>
+            <Square size={18} /> Clock Out
+          </button>
+        </>
+      ) : (
+        <>
+          <div>
+            <label htmlFor="qa-clock-project" className="block font-script text-sm text-ink-secondary mb-1">Which venture?</label>
+            <select
+              id="qa-clock-project"
+              value={selectedProject}
+              onChange={(e) => setSelectedProject(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Select a project…</option>
+              {projects.filter((p) => ['active', 'in_progress'].includes(p.status)).map((p) => (
+                <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
+            </select>
+          </div>
+          {error && <div className="text-ember-deep text-sm font-script">{error}</div>}
+          <button onClick={handleIn} disabled={busy} className={`${buttonPrimary} w-full px-4 py-2.5 flex items-center justify-center gap-2`}>
+            <Play size={18} /> Clock In
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function AddHomeworkPane({ onBack, onDone }) {
+  const [title, setTitle] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!title.trim()) { setError('Title is required'); return; }
+    setBusy(true); setError('');
+    try {
+      await createHomework({
+        title: title.trim(),
+        due_date: dueDate || null,
+      });
+      onDone && onDone();
+      onBack();
+    } catch (err) {
+      setError(err?.message || 'Could not save assignment.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <button type="button" onClick={onBack} className="font-script text-sm text-sheikah-teal-deep hover:underline">
+        ← Back
+      </button>
+      <div>
+        <label htmlFor="qa-hw-title" className="block font-script text-sm text-ink-secondary mb-1">Title</label>
+        <input
+          id="qa-hw-title"
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="e.g. Math worksheet"
+          className={inputClass}
+          autoFocus
+        />
+      </div>
+      <div>
+        <label htmlFor="qa-hw-due" className="block font-script text-sm text-ink-secondary mb-1">Due date</label>
+        <input
+          id="qa-hw-due"
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          className={inputClass}
+        />
+      </div>
+      {error && <div className="text-ember-deep text-sm font-script">{error}</div>}
+      <div className="flex gap-2">
+        <button type="button" onClick={onBack} className={`${buttonSecondary} flex-1 px-4 py-2.5`}>Cancel</button>
+        <button type="submit" disabled={busy} className={`${buttonPrimary} flex-1 px-4 py-2.5`}>
+          {busy ? 'Saving…' : 'Add homework'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * QuickActionsSheet — contextual action launcher shown by QuickActionsFab.
+ * Role-aware and hide rules:
+ *   - Child: Clock, Add homework, Submit homework (only if due),
+ *            Start quest (only if scroll in inventory),
+ *            Request reward, Contribute to savings goal (only if goals exist).
+ *   - Parent: Clock (rare), Create chore, Create homework, Adjust coins,
+ *            Adjust payment.
+ */
+export default function QuickActionsSheet({
+  status, isClocked, elapsedSecs, onClose, onClockReload,
+}) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const isParent = user?.role === 'parent';
+  const [pane, setPane] = useState('menu'); // 'menu' | 'clock' | 'add-homework'
+
+  // Contextual enable/disable flags.
+  const { data: hwDashboard } = useApi(isParent ? () => Promise.resolve(null) : getHomeworkDashboard);
+  const { data: goalsData } = useApi(isParent ? () => Promise.resolve([]) : getSavingsGoals);
+  const { data: inventoryData } = useApi(isParent ? () => Promise.resolve([]) : getInventory);
+
+  const hasDueHw = !isParent && (
+    normalizeList(hwDashboard?.today).length > 0 ||
+    normalizeList(hwDashboard?.overdue).length > 0
+  );
+  const firstDueHw = hasDueHw
+    ? normalizeList(hwDashboard.overdue)[0] || normalizeList(hwDashboard.today)[0]
+    : null;
+  const hasGoals = !isParent && normalizeList(goalsData).some((g) => !g.is_completed);
+  const hasScroll = !isParent && normalizeList(inventoryData).some(
+    (row) => row.item?.item_type === 'quest_scroll' && (row.quantity ?? 0) > 0,
+  );
+
+  return (
+    <BottomSheet title={pane === 'menu' ? 'Quick actions' : pane === 'clock' ? 'Clock' : 'Add homework'} onClose={onClose}>
+      {pane === 'menu' && (
+        <div className="space-y-2">
+          <ActionRow
+            icon={isClocked ? <Square size={18} /> : <Play size={18} />}
+            label={isClocked ? 'Stop clock' : 'Clock in'}
+            hint={isClocked ? status?.project_title : 'Open an entry'}
+            tone={isClocked ? 'ember' : 'teal'}
+            onClick={() => setPane('clock')}
+          />
+
+          {!isParent && (
+            <>
+              <ActionRow
+                icon={<BookOpen size={18} />}
+                label="Add homework"
+                hint="Self-assign an assignment"
+                tone="royal"
+                onClick={() => setPane('add-homework')}
+              />
+              {hasDueHw && (
+                <ActionRow
+                  icon={<BookOpen size={18} />}
+                  label="Submit homework"
+                  hint={firstDueHw?.title || 'Turn in due work'}
+                  tone="teal"
+                  onClick={() => {
+                    onClose();
+                    navigate(firstDueHw ? `/quests?tab=study&submit=${firstDueHw.id}` : '/quests?tab=study');
+                  }}
+                />
+              )}
+              {hasScroll && (
+                <ActionRow
+                  icon={<DragonIcon size={18} />}
+                  label="Start a quest"
+                  hint="Spend a scroll"
+                  tone="moss"
+                  onClick={() => { onClose(); navigate('/quests?tab=trials'); }}
+                />
+              )}
+              <ActionRow
+                icon={<Gift size={18} />}
+                label="Request a reward"
+                hint="Spend coins in the bazaar"
+                tone="gold"
+                onClick={() => { onClose(); navigate('/treasury?tab=bazaar'); }}
+              />
+              {hasGoals && (
+                <ActionRow
+                  icon={<Target size={18} />}
+                  label="Contribute to a savings goal"
+                  tone="moss"
+                  onClick={() => { onClose(); navigate('/treasury?tab=coffers'); }}
+                />
+              )}
+            </>
+          )}
+
+          {isParent && (
+            <>
+              <ActionRow
+                icon={<BookOpen size={18} />}
+                label="Create homework for a kid"
+                tone="royal"
+                onClick={() => { onClose(); navigate('/quests?tab=study&new=1'); }}
+              />
+              <ActionRow
+                icon={<CircleDollarSign size={18} />}
+                label="Adjust coins"
+                tone="gold"
+                onClick={() => { onClose(); navigate('/manage?tab=coins'); }}
+              />
+              <ActionRow
+                icon={<UserCog size={18} />}
+                label="Adjust payment"
+                tone="ember"
+                onClick={() => { onClose(); navigate('/manage?tab=payments'); }}
+              />
+            </>
+          )}
+        </div>
+      )}
+
+      {pane === 'clock' && (
+        <ClockPane
+          status={status}
+          isClocked={isClocked}
+          elapsedSecs={elapsedSecs}
+          onBack={() => setPane('menu')}
+          onClockReload={onClockReload}
+        />
+      )}
+
+      {pane === 'add-homework' && (
+        <AddHomeworkPane
+          onBack={() => setPane('menu')}
+          onDone={() => { /* parent may wish to reload */ }}
+        />
+      )}
+    </BottomSheet>
+  );
+}

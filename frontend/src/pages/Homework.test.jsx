@@ -48,13 +48,35 @@ describe('Homework', () => {
       http.get('*/api/homework/dashboard/', () =>
         HttpResponse.json({
           pending_submissions: [
-            { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], effort_level: 2, timeliness: 'on_time', subject: 'reading' },
+            { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
           ],
         }),
       ),
       http.get('*/api/children/', () => HttpResponse.json([buildUser({ id: 3 })])),
     ]);
     await waitFor(() => expect(screen.getByText(/reading log/i)).toBeInTheDocument());
+  });
+
+  it('parent approval queue does not render $ / coins anywhere', async () => {
+    renderPage(buildParent(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({
+          pending_submissions: [
+            { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
+          ],
+        }),
+      ),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() => expect(screen.getByText(/reading log/i)).toBeInTheDocument());
+    // No currency glyphs anywhere.
+    expect(document.body.textContent).not.toMatch(/\$\d/);
+    expect(document.body.textContent).not.toMatch(/\dc\b/);
+    // No legacy pending-review / AI-effort badges.
+    expect(screen.queryByText(/rewards pending review/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ai estimated effort/i)).not.toBeInTheDocument();
+    // No Adjust button.
+    expect(screen.queryByRole('button', { name: /^adjust$/i })).not.toBeInTheDocument();
   });
 
   it('parent approving a submission posts to /homework-submissions/{id}/approve/', async () => {
@@ -64,7 +86,7 @@ describe('Homework', () => {
       http.get('*/api/homework/dashboard/', () =>
         HttpResponse.json({
           pending_submissions: [
-            { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], effort_level: 2, timeliness: 'on_time', subject: 'reading', reward_amount_snapshot: '1.00', coin_reward_snapshot: 5 },
+            { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
           ],
         }),
       ),
@@ -86,7 +108,7 @@ describe('Homework', () => {
       http.get('*/api/homework/dashboard/', () =>
         HttpResponse.json({
           pending_submissions: [
-            { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], effort_level: 2, timeliness: 'on_time', subject: 'reading', reward_amount_snapshot: '1.00', coin_reward_snapshot: 5 },
+            { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
           ],
         }),
       ),
@@ -101,7 +123,7 @@ describe('Homework', () => {
     expect(reject.calls[0].url).toMatch(/\/homework-submissions\/9\/reject\/$/);
   });
 
-  it('child new-assignment form does not render effort/reward/coin inputs', async () => {
+  it('child new-assignment form does not render reward inputs', async () => {
     const user = userEvent.setup();
     renderPage(buildUser(), [
       http.get('*/api/homework/dashboard/', () =>
@@ -110,19 +132,19 @@ describe('Homework', () => {
     ]);
     const openButton = await screen.findByRole('button', { name: /new assignment/i });
     await user.click(openButton);
-    // Title input is present to confirm form is open.
+    // Title input confirms the form is open.
     await waitFor(() =>
       expect(screen.getByPlaceholderText(/^title$/i)).toBeInTheDocument(),
     );
-    // Effort/$ reward/Coins labels should NOT be present for children.
+    // Effort + reward + coin inputs are NOT present for children.
     expect(screen.queryByText(/effort \(1-5\)/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/\$ reward/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^coins$/i)).not.toBeInTheDocument();
-    // Helper text is shown instead.
-    expect(screen.getByText(/grown-up will set the reward/i)).toBeInTheDocument();
+    // Child-facing helper copy explains the new reward shape.
+    expect(screen.getByText(/xp, streaks, and a chance at loot/i)).toBeInTheDocument();
   });
 
-  it('parent new-assignment form still renders effort/reward/coin inputs', async () => {
+  it('parent new-assignment form renders effort input but no currency inputs', async () => {
     const user = userEvent.setup();
     renderPage(buildParent(), [
       http.get('*/api/homework/dashboard/', () =>
@@ -135,8 +157,9 @@ describe('Homework', () => {
     await waitFor(() =>
       expect(screen.getByText(/effort \(1-5\)/i)).toBeInTheDocument(),
     );
-    expect(screen.getByText(/\$ reward/i)).toBeInTheDocument();
-    expect(screen.getByText(/^coins$/i)).toBeInTheDocument();
+    // The two currency inputs must be gone.
+    expect(screen.queryByText(/\$ reward/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^coins$/i)).not.toBeInTheDocument();
   });
 
   it('child create posts only title/description/subject/due_date (no reward fields)', async () => {
@@ -150,7 +173,6 @@ describe('Homework', () => {
     ]);
     await user.click(await screen.findByRole('button', { name: /new assignment/i }));
     await user.type(await screen.findByPlaceholderText(/^title$/i), 'My homework');
-    // Fill due_date via the (only) date input.
     const container = screen.getByPlaceholderText(/^title$/i).closest('form');
     const dateInput = container.querySelector('input[type="date"]');
     const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
@@ -197,8 +219,6 @@ describe('Homework', () => {
   });
 
   it('renders all four quick-date chips and Friday submits a Friday due_date', async () => {
-    // Freeze to a Wednesday so no preset values collide with each other
-    // (on Thu/Sun/Fri/Mon some chips share a date and are deduped).
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date(2026, 3, 15, 9, 0)); // Wed 2026-04-15
     try {
@@ -220,7 +240,7 @@ describe('Homework', () => {
 
       await waitFor(() => expect(create.calls).toHaveLength(1));
       const submitted = create.calls[0].body.due_date;
-      expect(submitted).toBe('2026-04-17'); // Fri 2026-04-17
+      expect(submitted).toBe('2026-04-17');
       expect(new Date(submitted + 'T12:00:00').getDay()).toBe(5);
     } finally {
       vi.useRealTimers();
@@ -240,8 +260,6 @@ describe('Homework', () => {
       await user.click(await screen.findByRole('button', { name: /new assignment/i }));
       expect(screen.queryByRole('button', { name: /^friday$/i })).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: /^tomorrow$/i })).toBeInTheDocument();
-      // After clicking Tomorrow, only one chip should be aria-pressed — no
-      // duplicate highlight when two chips would share the same date.
       await user.click(screen.getByRole('button', { name: /^tomorrow$/i }));
       const pressed = screen
         .getAllByRole('button')
@@ -281,8 +299,6 @@ describe('Homework', () => {
         http.get('*/api/homework/dashboard/', () =>
           HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} }),
         ),
-        // Simulate the bug: backend returns 201 with an empty body (no
-        // content-type) — client.js throws "Unexpected non-JSON response".
         http.post('*/api/homework/', () => new HttpResponse(null, { status: 201 })),
       ]);
       await user.click(await screen.findByRole('button', { name: /new assignment/i }));
@@ -293,8 +309,6 @@ describe('Homework', () => {
       await waitFor(() =>
         expect(screen.getByText(/non-JSON response/i)).toBeInTheDocument(),
       );
-      // Page-level capture fires with our area tag; client.js also captures
-      // separately on the non-JSON branch, so we just assert our tagged one.
       const tagged = Sentry.captureException.mock.calls.find(
         ([, ctx]) => ctx?.tags?.area === 'homework.create',
       );
@@ -303,66 +317,6 @@ describe('Homework', () => {
     } finally {
       vi.useRealTimers();
     }
-  });
-
-  it('clicking Adjust on a pending submission posts to /homework-submissions/{id}/adjust/', async () => {
-    const user = userEvent.setup();
-    const adjust = spyHandler('post', /\/api\/homework-submissions\/\d+\/adjust\/$/, { ok: true });
-    renderPage(buildParent(), [
-      http.get('*/api/homework/dashboard/', () =>
-        HttpResponse.json({
-          pending_submissions: [
-            {
-              id: 42,
-              assignment_title: 'Reading log',
-              assignment_rewards_pending_review: true,
-              assignment_created_by_role: 'child',
-              user_name: 'Abby',
-              status: 'pending',
-              proofs: [],
-              timeliness: 'on_time',
-              subject: 'reading',
-              reward_amount_snapshot: '0.00',
-              coin_reward_snapshot: 0,
-              reward_breakdown: {
-                effort_level: 3,
-                base_money: '0.00',
-                base_coins: 0,
-              },
-            },
-          ],
-        }),
-      ),
-      http.get('*/api/children/', () => HttpResponse.json([])),
-      adjust.handler,
-    ]);
-
-    await user.click(await screen.findByRole('button', { name: /^adjust$/i }));
-    // Modal form should now show 3 inputs; find them via their labels.
-    const modalTitle = await screen.findByText(/adjust reward/i);
-    const form = modalTitle.closest('div[role="dialog"]') || document.body;
-    const inputs = form.querySelectorAll('input[type="number"]');
-    expect(inputs.length).toBeGreaterThanOrEqual(3);
-
-    // Clear and set the first (effort) to 5.
-    await user.clear(inputs[0]);
-    await user.type(inputs[0], '5');
-    await user.clear(inputs[1]);
-    await user.type(inputs[1], '2.50');
-    await user.clear(inputs[2]);
-    await user.type(inputs[2], '10');
-
-    await user.click(screen.getByRole('button', { name: /save adjustment/i }));
-
-    await waitFor(() => expect(adjust.calls).toHaveLength(1));
-    expect(adjust.calls[0].url).toMatch(/\/homework-submissions\/42\/adjust\/$/);
-    // Number inputs with step=0.01 normalize trailing zeros, so reward_amount
-    // comes through as "2.5" not "2.50".
-    expect(adjust.calls[0].body).toEqual({
-      effort_level: 5,
-      reward_amount: '2.5',
-      coin_reward: 10,
-    });
   });
 });
 

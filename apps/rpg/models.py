@@ -135,6 +135,7 @@ class DropTable(TimestampedModel):
         CLOCK_OUT = "clock_out", "Clock Out"
         CHORE_COMPLETE = "chore_complete", "Chore Complete"
         HOMEWORK_COMPLETE = "homework_complete", "Homework Complete"
+        HOMEWORK_CREATED = "homework_created", "Homework Created"
         MILESTONE_COMPLETE = "milestone_complete", "Milestone Complete"
         BADGE_EARNED = "badge_earned", "Badge Earned"
         QUEST_COMPLETE = "quest_complete", "Quest Complete"

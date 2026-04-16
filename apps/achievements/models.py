@@ -171,6 +171,8 @@ class Badge(models.Model):
         DAYS_WORKED = "days_worked", "Days Worked"
         CROSS_CATEGORY_UNLOCK = "cross_category_unlock", "Cross-Category Unlock"
         QUEST_COMPLETED = "quest_completed", "Quest Completed"
+        HOMEWORK_PLANNED_AHEAD = "homework_planned_ahead", "Homework Planned Ahead"
+        HOMEWORK_ON_TIME_COUNT = "homework_on_time_count", "Homework On Time Count"
 
     class Rarity(models.TextChoices):
         COMMON = "common", "Common"

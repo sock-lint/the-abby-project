@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from decimal import Decimal
 
 from django.test import TestCase
 
@@ -56,8 +55,6 @@ class _Base(TestCase):
             due_date=date.today() + timedelta(days=3),
             assigned_to=self.child,
             created_by=self.parent,
-            reward_amount=Decimal("1.50"),
-            coin_reward=10,
         )
 
 
@@ -67,11 +64,11 @@ class UpdateHomeworkTests(_Base):
             hw.update_homework(UpdateHomeworkIn(
                 assignment_id=self.assignment.id,
                 effort_level=5,
-                coin_reward=50,
+                notes="please use a pencil",
             ))
         self.assignment.refresh_from_db()
         self.assertEqual(self.assignment.effort_level, 5)
-        self.assertEqual(self.assignment.coin_reward, 50)
+        self.assertEqual(self.assignment.notes, "please use a pencil")
 
     def test_child_cannot_update(self) -> None:
         with override_user(self.child), self.assertRaises(MCPPermissionDenied):
@@ -188,8 +185,6 @@ class TemplateCrudTests(_Base):
             title="Page drill",
             subject="math",
             effort_level=3,
-            reward_amount=Decimal("2.00"),
-            coin_reward=15,
             created_by=self.parent,
             skill_tags=[{"skill_id": self.skill.id, "xp_amount": 20}],
         )

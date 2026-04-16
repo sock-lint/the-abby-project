@@ -11,6 +11,7 @@ TRIGGER_DAMAGE = {
     "clock_out": 10,  # per hour
     "chore_complete": 15,
     "homework_complete": 25,
+    "homework_created": 5,
     "milestone_complete": 50,
     "badge_earned": 30,
     "project_complete": 75,
@@ -121,6 +122,10 @@ class QuestService:
 
         # Check chore filter
         if trigger_filter.get("chore_ids") and context.get("chore_id") not in trigger_filter["chore_ids"]:
+            return None
+
+        # Check timeliness filter (homework on-time submissions, etc.)
+        if trigger_filter.get("on_time") and not context.get("on_time"):
             return None
 
         # Calculate damage/progress

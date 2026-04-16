@@ -1,19 +1,13 @@
 import logging
-from datetime import date
 from decimal import Decimal
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Count, Q
 from django.utils import timezone
 
 from apps.achievements.services import BadgeService, SkillService
-from apps.payments.models import PaymentLedger
-from apps.payments.services import PaymentService
 from apps.notifications.models import NotificationType
 from apps.notifications.services import get_display_name, notify, notify_parents
-from apps.rewards.models import CoinLedger
-from apps.rewards.services import CoinService
 from config.services import finalize_decision
 
 from .models import (
@@ -37,42 +31,24 @@ class HomeworkService:
     # ------------------------------------------------------------------
     @staticmethod
     def get_timeliness(due_date, submit_date=None):
-        """Return (timeliness_label, multiplier) for a given due date.
+        """Return the ``Timeliness`` label for a submission date vs. due date.
 
-        Pure function — no side effects.
+        Pure function — no side effects. Homework pays no money and no
+        coins, so there's no multiplier to return; the label alone is
+        what goes on ``HomeworkSubmission.timeliness`` and gates the
+        ``on_time`` quest filter.
         """
         if submit_date is None:
             submit_date = timezone.localdate()
 
         if submit_date < due_date:
-            return (
-                HomeworkSubmission.Timeliness.EARLY,
-                settings.HOMEWORK_EARLY_BONUS,
-            )
-        elif submit_date == due_date:
-            return (
-                HomeworkSubmission.Timeliness.ON_TIME,
-                settings.HOMEWORK_ON_TIME_MULTIPLIER,
-            )
-        else:
-            days_late = (submit_date - due_date).days
-            if days_late > settings.HOMEWORK_LATE_CUTOFF_DAYS:
-                return (
-                    HomeworkSubmission.Timeliness.BEYOND_CUTOFF,
-                    Decimal("0"),
-                )
-            return (
-                HomeworkSubmission.Timeliness.LATE,
-                settings.HOMEWORK_LATE_PENALTY,
-            )
-
-    @staticmethod
-    def compute_reward(base_amount, effort_level, timeliness_multiplier):
-        """Compute final reward: base × effort_multiplier × timeliness_multiplier."""
-        effort_mult = settings.HOMEWORK_EFFORT_MULTIPLIERS.get(
-            effort_level, Decimal("1.0"),
-        )
-        return base_amount * effort_mult * timeliness_multiplier
+            return HomeworkSubmission.Timeliness.EARLY
+        if submit_date == due_date:
+            return HomeworkSubmission.Timeliness.ON_TIME
+        days_late = (submit_date - due_date).days
+        if days_late > settings.HOMEWORK_LATE_CUTOFF_DAYS:
+            return HomeworkSubmission.Timeliness.BEYOND_CUTOFF
+        return HomeworkSubmission.Timeliness.LATE
 
     # ------------------------------------------------------------------
     # Assignment CRUD
@@ -82,22 +58,19 @@ class HomeworkService:
     def create_assignment(user, data):
         """Create a homework assignment.
 
-        Immediately active — no approval needed for creation.
-        Child-created assignments auto-set assigned_to=self AND strip
-        effort/reward/coin fields + skill tags; those values are filled
-        in later by AI (from the proof image) or the parent (via the
-        Adjust action on the submission).
+        Immediately active — no approval needed for creation. Homework no
+        longer pays money or coins; effort is just an XP-weighting hint.
+        Children may set their own effort; skill tags remain parent-only
+        because XP routing is a parent decision.
+
+        On successful creation, fires the RPG ``homework_created`` game
+        loop for the assigned child — always records streak and quest
+        progress; caps drop rolls to the first creation per calendar day
+        so the loop can't be farmed.
         """
         if user.role == "child":
             data["assigned_to"] = user
-            # Children don't set their own effort or rewards — clear any
-            # values the client might have sent and flag the assignment
-            # as pending review so submit_completion/adjust know to
-            # backfill them.
-            for field in ("effort_level", "reward_amount", "coin_reward"):
-                data.pop(field, None)
-            data["rewards_pending_review"] = True
-            # Skill tags are also parent-only (XP routing decision).
+            # Skill tags are parent-only (XP routing decision).
             data.pop("skill_tags", None)
 
         due_date = data.get("due_date")
@@ -136,6 +109,25 @@ class HomeworkService:
                 link="/homework",
             )
 
+        # RPG game loop + planner badge evaluation.
+        child = assignment.assigned_to
+        if child is not None:
+            today = timezone.localdate()
+            # One drop roll per user per day for homework_created (anti-farm);
+            # streak + quest progress still fire every time.
+            drops_allowed = not HomeworkAssignment.objects.filter(
+                assigned_to=child, created_at__date=today,
+            ).exclude(pk=assignment.pk).exists()
+
+            from apps.rpg.services import GameLoopService
+            GameLoopService.on_task_completed(
+                child, "homework_created",
+                {"assignment_id": assignment.id, "drops_allowed": drops_allowed},
+            )
+
+            # Planner badges depend on the new row existing, so evaluate now.
+            BadgeService.evaluate_badges(child)
+
         return assignment
 
     # ------------------------------------------------------------------
@@ -146,14 +138,11 @@ class HomeworkService:
     def submit_completion(user, assignment, images, notes=""):
         """Child submits homework with proof images.
 
-        Validates at least 1 image. Computes and snapshots rewards.
-
-        If the assignment has ``rewards_pending_review=True`` (child-created,
-        no parent-set effort/reward/coins), attempts to call Claude vision
-        on the first proof image to estimate ``effort_level``, then applies
-        the configured base reward/coin amounts. On any AI failure the
-        flag stays set and rewards stay at 0 — the parent resolves via
-        the Adjust action before approving.
+        Validates at least 1 image. Records timeliness for later badge
+        evaluation. Homework no longer pays money or coins, so there is
+        no snapshot to compute and no AI effort estimation — effort
+        stays as whatever was set on the assignment and only weights XP
+        distribution on approval.
         """
         if user.role != "child":
             raise HomeworkError("Only children can submit homework.")
@@ -173,30 +162,14 @@ class HomeworkService:
         ).exclude(status=HomeworkSubmission.Status.REJECTED).exists():
             raise HomeworkError("You already have a pending or approved submission for this assignment.")
 
-        # AI effort estimation for child-authored assignments.
-        if assignment.rewards_pending_review:
-            HomeworkService._try_ai_effort_estimate(assignment, images[0])
-
-        # Compute timeliness and rewards.
-        timeliness_label, timeliness_mult = HomeworkService.get_timeliness(
-            assignment.due_date,
-        )
-        reward_amount = HomeworkService.compute_reward(
-            assignment.reward_amount, assignment.effort_level, timeliness_mult,
-        )
-        coin_reward = int(HomeworkService.compute_reward(
-            Decimal(str(assignment.coin_reward)), assignment.effort_level, timeliness_mult,
-        ))
+        timeliness_label = HomeworkService.get_timeliness(assignment.due_date)
 
         submission = HomeworkSubmission.objects.create(
             assignment=assignment,
             user=user,
             status=HomeworkSubmission.Status.PENDING,
             notes=notes,
-            reward_amount_snapshot=reward_amount,
-            coin_reward_snapshot=coin_reward,
             timeliness=timeliness_label,
-            timeliness_multiplier=timeliness_mult,
         )
 
         # Create proof records.
@@ -222,115 +195,16 @@ class HomeworkService:
         return submission
 
     # ------------------------------------------------------------------
-    # AI effort estimation (child-created assignments only)
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _try_ai_effort_estimate(assignment, image_file):
-        """Best-effort AI effort estimation from a proof image.
-
-        Mutates ``assignment`` in place on success: sets ``effort_level``,
-        applies the configured base reward/coin amounts, and clears
-        ``rewards_pending_review``. On any failure (missing API key,
-        network error, parse error) logs a warning and leaves the
-        assignment unchanged so the parent Adjust flow handles it.
-        """
-        from . import ai as homework_ai
-
-        # Read image bytes without consuming the upload handle — seek
-        # back to 0 afterward so Django's file storage still writes it
-        # to disk when HomeworkProof is created below.
-        try:
-            pointer = image_file.tell() if hasattr(image_file, "tell") else 0
-            image_bytes = image_file.read()
-            if hasattr(image_file, "seek"):
-                image_file.seek(pointer)
-        except Exception:  # noqa: BLE001
-            logger.warning(
-                "Could not read image bytes for AI effort estimation on assignment %s",
-                assignment.pk,
-            )
-            return
-
-        media_type = getattr(image_file, "content_type", None) or "image/jpeg"
-
-        try:
-            effort = homework_ai.estimate_effort_from_proof(
-                image_bytes, assignment, media_type=media_type,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "AI effort estimation failed for assignment %s: %s",
-                assignment.pk, exc,
-            )
-            return
-
-        assignment.effort_level = effort
-        assignment.reward_amount = settings.HOMEWORK_BASE_REWARD_AMOUNT
-        assignment.coin_reward = settings.HOMEWORK_BASE_COIN_REWARD
-        assignment.rewards_pending_review = False
-        assignment.save(update_fields=[
-            "effort_level", "reward_amount", "coin_reward",
-            "rewards_pending_review", "updated_at",
-        ])
-
-    # ------------------------------------------------------------------
-    # Parent Adjust (re-snapshot before approving)
-    # ------------------------------------------------------------------
-    @staticmethod
-    @transaction.atomic
-    def adjust_submission(submission, parent, effort_level, reward_amount, coin_reward):
-        """Parent updates effort/reward/coins on a pending submission.
-
-        Overwrites the assignment's effort/reward/coin fields (so a
-        future re-submission would use the same baseline) and recomputes
-        the submission's reward snapshot using the already-frozen
-        timeliness multiplier. Clears ``rewards_pending_review`` on the
-        assignment. Returns the refreshed submission.
-        """
-        if submission.status != HomeworkSubmission.Status.PENDING:
-            raise HomeworkError("Can only adjust a pending submission.")
-
-        effort_int = int(effort_level)
-        if effort_int < 1 or effort_int > 5:
-            raise HomeworkError("Effort level must be between 1 and 5.")
-
-        reward_dec = Decimal(str(reward_amount))
-        if reward_dec < 0:
-            raise HomeworkError("Reward amount must be non-negative.")
-
-        coin_int = int(coin_reward)
-        if coin_int < 0:
-            raise HomeworkError("Coin reward must be non-negative.")
-
-        assignment = submission.assignment
-        assignment.effort_level = effort_int
-        assignment.reward_amount = reward_dec
-        assignment.coin_reward = coin_int
-        assignment.rewards_pending_review = False
-        assignment.save(update_fields=[
-            "effort_level", "reward_amount", "coin_reward",
-            "rewards_pending_review", "updated_at",
-        ])
-
-        timeliness_mult = submission.timeliness_multiplier
-        submission.reward_amount_snapshot = HomeworkService.compute_reward(
-            reward_dec, effort_int, timeliness_mult,
-        )
-        submission.coin_reward_snapshot = int(HomeworkService.compute_reward(
-            Decimal(str(coin_int)), effort_int, timeliness_mult,
-        ))
-        submission.save(update_fields=[
-            "reward_amount_snapshot", "coin_reward_snapshot",
-        ])
-        return submission
-
-    # ------------------------------------------------------------------
     # Approval / Rejection
     # ------------------------------------------------------------------
     @staticmethod
     @transaction.atomic
     def approve_submission(submission, parent, notes=""):
-        """Parent approves. Posts to PaymentLedger + CoinLedger + XP + badges.
+        """Parent approves. Awards XP + evaluates badges + fires RPG loop.
+
+        Homework no longer pays money or coins — approval just routes
+        XP through skill tags, fires the ``homework_complete`` RPG trigger
+        (drop rolls, streak, quest progress), and re-evaluates badges.
 
         ``notes`` is accepted for uniform signature with other approval
         services; HomeworkSubmission has no parent_notes field so the value
@@ -342,26 +216,6 @@ class HomeworkService:
         finalize_decision(submission, HomeworkSubmission.Status.APPROVED, parent, notes)
 
         assignment = submission.assignment
-
-        # Post payment.
-        if submission.reward_amount_snapshot > 0:
-            PaymentService.record_entry(
-                submission.user,
-                submission.reward_amount_snapshot,
-                PaymentLedger.EntryType.HOMEWORK_REWARD,
-                description=f"Homework: {assignment.title}",
-                created_by=parent,
-            )
-
-        # Award coins.
-        if submission.coin_reward_snapshot > 0:
-            CoinService.award_coins(
-                submission.user,
-                submission.coin_reward_snapshot,
-                CoinLedger.Reason.HOMEWORK_REWARD,
-                description=f"Homework: {assignment.title}",
-                created_by=parent,
-            )
 
         # Distribute XP via HomeworkSkillTags.
         for tag in assignment.skill_tags.select_related("skill"):
@@ -376,17 +230,23 @@ class HomeworkService:
             title=f"Homework approved: {assignment.title}",
             message=(
                 f'Your homework "{assignment.title}" was approved! '
-                f"You earned ${submission.reward_amount_snapshot} "
-                f"and {submission.coin_reward_snapshot} coins."
+                f"Great work — you earned XP toward your skills."
             ),
             notification_type=NotificationType.HOMEWORK_APPROVED,
             link="/homework",
         )
 
-        # RPG game loop (streaks, drops, quest progress).
+        # RPG game loop (streaks, drops, quest progress). Pass on_time so
+        # quests with ``trigger_filter.on_time=true`` can count only
+        # early/on-time submissions.
+        on_time = submission.timeliness in (
+            HomeworkSubmission.Timeliness.EARLY,
+            HomeworkSubmission.Timeliness.ON_TIME,
+        )
         from apps.rpg.services import GameLoopService
         GameLoopService.on_task_completed(
-            submission.user, "homework_complete", {"assignment_id": assignment.id},
+            submission.user, "homework_complete",
+            {"assignment_id": assignment.id, "on_time": on_time},
         )
 
         return submission
@@ -431,8 +291,6 @@ class HomeworkService:
             description=assignment.description,
             subject=assignment.subject,
             effort_level=assignment.effort_level,
-            reward_amount=assignment.reward_amount,
-            coin_reward=assignment.coin_reward,
             created_by=user,
             skill_tags=skill_tag_data,
         )
@@ -446,8 +304,6 @@ class HomeworkService:
             description=template.description,
             subject=template.subject,
             effort_level=template.effort_level,
-            reward_amount=template.reward_amount,
-            coin_reward=template.coin_reward,
             due_date=due_date,
             assigned_to=assigned_to,
             created_by=template.created_by,

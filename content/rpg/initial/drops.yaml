@@ -34,6 +34,16 @@ macros:
     item_type: food
     weight_by_rarity: {common: 15, uncommon: 6, rare: 2, epic: 1, legendary: 1}
 
+  # Homework-created (first log of the day) rolls a smaller table — just
+  # food and common coin pouches. Keeps the reward a gentle nudge rather
+  # than a farming opportunity; the rate is also low (0.15) in BASE_DROP_RATES.
+  - triggers: [homework_created]
+    item_type: food
+    weight_by_rarity: {common: 10, uncommon: 3}
+  - triggers: [homework_created]
+    item_type: coin_pouch
+    weight_by_rarity: {common: 10, uncommon: 3}
+
   # Cosmetics only drop from high-value triggers.
   - triggers: [milestone_complete, badge_earned, perfect_day, quest_complete]
     item_type_startswith: cosmetic_

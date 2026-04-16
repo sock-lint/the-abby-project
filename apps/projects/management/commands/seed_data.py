@@ -278,16 +278,12 @@ class Command(BaseCommand):
                 "subject": "math",
                 "effort_level": 2,
                 "due_date": today + timedelta(days=1),
-                "reward_amount": "2.00",
-                "coin_reward": 5,
             },
             {
                 "title": "Read 'Hatchet' Chapters 4-6",
                 "subject": "reading",
                 "effort_level": 3,
                 "due_date": today + timedelta(days=2),
-                "reward_amount": "3.00",
-                "coin_reward": 8,
             },
             {
                 "title": "Science Lab Report: Plant Growth",
@@ -295,24 +291,18 @@ class Command(BaseCommand):
                 "subject": "science",
                 "effort_level": 4,
                 "due_date": today + timedelta(days=5),
-                "reward_amount": "5.00",
-                "coin_reward": 15,
             },
             {
                 "title": "Spelling Practice Words",
                 "subject": "writing",
                 "effort_level": 1,
                 "due_date": today,
-                "reward_amount": "1.00",
-                "coin_reward": 3,
             },
             {
                 "title": "Social Studies Map Activity",
                 "subject": "social_studies",
                 "effort_level": 3,
                 "due_date": today + timedelta(days=3),
-                "reward_amount": "3.00",
-                "coin_reward": 8,
             },
         ]
 
@@ -326,8 +316,6 @@ class Command(BaseCommand):
                     "effort_level": hw["effort_level"],
                     "due_date": hw["due_date"],
                     "created_by": parent,
-                    "reward_amount": Decimal(hw["reward_amount"]),
-                    "coin_reward": hw["coin_reward"],
                 },
             )
             if created:
@@ -340,8 +328,6 @@ class Command(BaseCommand):
                 "description": "Read assigned chapters and write a brief summary.",
                 "subject": "reading",
                 "effort_level": 3,
-                "reward_amount": Decimal("3.00"),
-                "coin_reward": 8,
                 "created_by": parent,
             },
         )

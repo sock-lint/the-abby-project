@@ -17,12 +17,14 @@ BASE_DROP_RATES = {
     "clock_out": 0.40,
     "chore_complete": 0.30,
     "homework_complete": 0.35,
+    "homework_created": 0.15,
     "milestone_complete": 0.80,
     "badge_earned": 1.00,
     "quest_complete": 1.00,
     "perfect_day": 1.00,
     "habit_log": 0.15,
 }
+
 STREAK_DROP_BONUS_PER_DAY = 0.05
 STREAK_DROP_BONUS_CAP = 0.50
 
@@ -216,11 +218,18 @@ class GameLoopService:
             notifications.append(f"{streak}-day streak milestone")
 
         # Step 4: Drop roll
+        # Callers can set ``context["drops_allowed"]=False`` to suppress the
+        # drop roll while still recording streak + quest progress — used by
+        # daily-capped triggers like ``homework_created`` to prevent farming
+        # via "create 50 assignments then delete them."
         streak_bonus = min(
             streak_result["streak"] * STREAK_DROP_BONUS_PER_DAY,
             STREAK_DROP_BONUS_CAP,
         )
-        drops = DropService.process_drops(user, trigger_type, streak_bonus)
+        if context.get("drops_allowed", True):
+            drops = DropService.process_drops(user, trigger_type, streak_bonus)
+        else:
+            drops = []
 
         if drops:
             from apps.notifications.services import notify

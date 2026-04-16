@@ -93,8 +93,6 @@ def create_homework(params: CreateHomeworkIn) -> dict[str, Any]:
         "effort_level": params.effort_level,
         "due_date": params.due_date,
         "assigned_to": child,
-        "reward_amount": params.reward_amount,
-        "coin_reward": params.coin_reward,
         "notes": params.notes,
         "skill_tags": params.skill_tags,
     }
@@ -149,7 +147,7 @@ def list_homework_submissions(params: ListHomeworkSubmissionsIn) -> dict[str, An
 @tool()
 @safe_tool
 def approve_homework_submission(params: DecideHomeworkSubmissionIn) -> dict[str, Any]:
-    """Approve a pending homework submission (parent-only). Awards money, coins, and XP."""
+    """Approve a pending homework submission (parent-only). Awards XP + fires the RPG loop."""
     parent = require_parent()
     try:
         submission = HomeworkSubmission.objects.select_related(
@@ -228,7 +226,8 @@ def set_homework_skill_tags(params: SetHomeworkSkillTagsIn) -> dict[str, Any]:
     """Replace the skill-tag set on an assignment (parent-only).
 
     Passing an empty list removes all tags (the assignment will award no
-    XP on approval, even though it still pays money/coins).
+    XP on approval). Homework no longer pays money or coins — skill
+    tags are the only progression reward.
     """
     from apps.achievements.models import Skill
 
@@ -331,8 +330,6 @@ def create_homework_template(params: CreateHomeworkTemplateIn) -> dict[str, Any]
         description=params.description,
         subject=params.subject,
         effort_level=params.effort_level,
-        reward_amount=params.reward_amount,
-        coin_reward=params.coin_reward,
         created_by=parent,
         skill_tags=[t.model_dump() for t in params.skill_tags],
     )

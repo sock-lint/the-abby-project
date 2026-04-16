@@ -185,6 +185,58 @@ def _total_earned(user, c):
 
 
 # ---------------------------------------------------------------------------
+# Homework criteria
+# ---------------------------------------------------------------------------
+
+@criterion(Badge.CriteriaType.HOMEWORK_PLANNED_AHEAD)
+def _homework_planned_ahead(user, c):
+    """Count assignments the child logged ≥N days before the due date.
+
+    ``criteria_value`` shape::
+
+        {"count": 5, "days_ahead": 2}  # defaults: count=3, days_ahead=2
+
+    Counts only active (non-deleted) assignments assigned to the user where
+    the creation date was at least ``days_ahead`` days before the due date.
+    Assignment status doesn't matter — the signal we're rewarding is the
+    planning, not the completion (which gets its own badge line).
+    """
+    from apps.homework.models import HomeworkAssignment
+
+    target = int(c.get("count", 3))
+    days_ahead = int(c.get("days_ahead", 2))
+    rows = HomeworkAssignment.objects.filter(
+        assigned_to=user, is_active=True,
+    ).values_list("due_date", "created_at")
+    qualifying = sum(
+        1 for due, created in rows
+        if (due - created.date()).days >= days_ahead
+    )
+    return qualifying >= target
+
+
+@criterion(Badge.CriteriaType.HOMEWORK_ON_TIME_COUNT)
+def _homework_on_time_count(user, c):
+    """Count approved homework submissions that were early or on-time.
+
+    ``criteria_value`` shape::
+
+        {"count": 5}  # default: 5
+    """
+    from apps.homework.models import HomeworkSubmission
+
+    target = int(c.get("count", 5))
+    return HomeworkSubmission.objects.filter(
+        user=user,
+        status=HomeworkSubmission.Status.APPROVED,
+        timeliness__in=[
+            HomeworkSubmission.Timeliness.EARLY,
+            HomeworkSubmission.Timeliness.ON_TIME,
+        ],
+    ).count() >= target
+
+
+# ---------------------------------------------------------------------------
 # Quest criteria
 # ---------------------------------------------------------------------------
 

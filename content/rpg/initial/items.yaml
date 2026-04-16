@@ -576,3 +576,37 @@ items:
     rarity: legendary
     coin_value: 100
     metadata: {reveals: legendary_quest}
+
+  # ── Scholar Track (homework-themed cosmetics) ─────────────────────────
+  # Unlocked through Planner/Punctual badges — see drops.yaml for routing.
+  - slug: title-bookworm
+    name: Bookworm
+    icon: "🐛"
+    item_type: cosmetic_title
+    rarity: uncommon
+    coin_value: 15
+    metadata: {text: Bookworm}
+
+  - slug: title-scholar
+    name: Scholar
+    icon: "🎓"
+    item_type: cosmetic_title
+    rarity: rare
+    coin_value: 30
+    metadata: {text: Scholar}
+
+  - slug: frame-scholar
+    name: Scholar Frame
+    icon: "📖"
+    item_type: cosmetic_frame
+    rarity: rare
+    coin_value: 35
+    metadata: {border_color: "#8B5A2B"}
+
+  - slug: theme-library
+    name: Library Theme
+    icon: "📚"
+    item_type: cosmetic_theme
+    rarity: epic
+    coin_value: 60
+    metadata: {accent: "#6B3410"}

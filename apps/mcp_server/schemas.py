@@ -994,8 +994,6 @@ class CreateHomeworkIn(_Base):
     effort_level: int = Field(default=3, ge=1, le=5)
     due_date: date
     assigned_to_id: int
-    reward_amount: Decimal = Field(default=Decimal("0.00"), ge=Decimal("0"))
-    coin_reward: int = Field(default=0, ge=0)
     notes: str = ""
     skill_tags: list[dict] = Field(
         default_factory=list,
@@ -1037,8 +1035,6 @@ class UpdateHomeworkIn(_Base):
     subject: Optional[HomeworkSubject] = None
     effort_level: Optional[int] = Field(default=None, ge=1, le=5)
     due_date: Optional[date] = None
-    reward_amount: Optional[Decimal] = None
-    coin_reward: Optional[int] = Field(default=None, ge=0)
     notes: Optional[str] = None
 
 
@@ -1064,8 +1060,6 @@ class CreateHomeworkTemplateIn(_Base):
     description: str = ""
     subject: HomeworkSubject = "other"
     effort_level: int = Field(default=3, ge=1, le=5)
-    reward_amount: Decimal = Field(default=Decimal("0.00"), ge=Decimal("0"))
-    coin_reward: int = Field(default=0, ge=0)
     skill_tags: list[HomeworkSkillTagDraft] = Field(default_factory=list)
 
 
@@ -1075,8 +1069,6 @@ class UpdateHomeworkTemplateIn(_Base):
     description: Optional[str] = None
     subject: Optional[HomeworkSubject] = None
     effort_level: Optional[int] = Field(default=None, ge=1, le=5)
-    reward_amount: Optional[Decimal] = None
-    coin_reward: Optional[int] = Field(default=None, ge=0)
     skill_tags: Optional[list[HomeworkSkillTagDraft]] = None
 
 

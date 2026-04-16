@@ -29,40 +29,24 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
     proofs = HomeworkProofSerializer(many=True, read_only=True)
     assignment_title = serializers.CharField(source="assignment.title", read_only=True)
     assignment_subject = serializers.CharField(source="assignment.subject", read_only=True)
-    assignment_rewards_pending_review = serializers.BooleanField(
-        source="assignment.rewards_pending_review", read_only=True,
-    )
     assignment_created_by_role = serializers.CharField(
         source="assignment.created_by.role", read_only=True,
     )
     user_name = serializers.CharField(source="user.display_label", read_only=True)
-    reward_breakdown = serializers.SerializerMethodField()
 
     class Meta:
         model = HomeworkSubmission
         fields = [
             "id", "assignment", "assignment_title", "assignment_subject",
-            "assignment_rewards_pending_review", "assignment_created_by_role",
+            "assignment_created_by_role",
             "user", "user_name",
             "status", "notes",
             "decided_at", "decided_by",
-            "reward_amount_snapshot", "coin_reward_snapshot",
-            "timeliness", "timeliness_multiplier",
-            "proofs", "reward_breakdown",
+            "timeliness",
+            "proofs",
             "created_at",
         ]
         read_only_fields = fields
-
-    def get_reward_breakdown(self, obj):
-        return {
-            "base_money": str(obj.assignment.reward_amount),
-            "base_coins": obj.assignment.coin_reward,
-            "effort_level": obj.assignment.effort_level,
-            "timeliness": obj.timeliness,
-            "timeliness_multiplier": str(obj.timeliness_multiplier),
-            "final_money": str(obj.reward_amount_snapshot),
-            "final_coins": obj.coin_reward_snapshot,
-        }
 
 
 class HomeworkAssignmentSerializer(serializers.ModelSerializer):
@@ -84,8 +68,6 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
             "effort_level", "due_date",
             "assigned_to", "assigned_to_name",
             "created_by", "created_by_name",
-            "reward_amount", "coin_reward",
-            "rewards_pending_review",
             "is_active", "notes",
             "project", "has_project",
             "skill_tags",
@@ -104,8 +86,7 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
     def get_timeliness_preview(self, obj):
         from .services import HomeworkService
 
-        label, mult = HomeworkService.get_timeliness(obj.due_date)
-        return {"timeliness": label, "multiplier": str(mult)}
+        return {"timeliness": HomeworkService.get_timeliness(obj.due_date)}
 
     def get_has_project(self, obj):
         return obj.project_id is not None
@@ -121,7 +102,7 @@ class HomeworkAssignmentWriteSerializer(serializers.ModelSerializer):
         fields = [
             "title", "description", "subject",
             "effort_level", "due_date",
-            "assigned_to", "reward_amount", "coin_reward",
+            "assigned_to",
             "notes", "skill_tags",
         ]
         # ``assigned_to`` is optional on write — children omit it entirely
@@ -142,7 +123,7 @@ class HomeworkTemplateSerializer(serializers.ModelSerializer):
         model = HomeworkTemplate
         fields = [
             "id", "title", "description", "subject",
-            "effort_level", "reward_amount", "coin_reward",
+            "effort_level",
             "skill_tags", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]

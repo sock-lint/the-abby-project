@@ -136,3 +136,50 @@ quests:
     reward_items:
       - slug: pouch-treasure
         quantity: 1
+
+  # ── Scholar Track — homework-themed quests ─────────────────────────
+  - name: Scholar's Week
+    description: Log 5 homework assignments this week — share what you're working on!
+    icon: "📓"
+    quest_type: collection
+    target_value: 5
+    duration_days: 7
+    trigger_filter:
+      allowed_triggers: [homework_created]
+    coin_reward: 25
+    xp_reward: 60
+    is_system: true
+    reward_items:
+      - slug: scroll-azure
+        quantity: 1
+
+  - name: On-Time Streak
+    description: Submit 3 homework assignments on or before their due date.
+    icon: "⏱️"
+    quest_type: collection
+    target_value: 3
+    duration_days: 10
+    trigger_filter:
+      allowed_triggers: [homework_complete]
+      on_time: true
+    coin_reward: 30
+    xp_reward: 80
+    is_system: true
+    reward_items:
+      - slug: title-bookworm
+        quantity: 1
+
+  - name: Midnight Oil
+    description: Deal 200 damage to the looming deadline by finishing homework.
+    icon: "🕯️"
+    quest_type: boss
+    target_value: 200
+    duration_days: 14
+    trigger_filter:
+      allowed_triggers: [homework_complete]
+    coin_reward: 60
+    xp_reward: 120
+    is_system: true
+    reward_items:
+      - slug: frame-scholar
+        quantity: 1

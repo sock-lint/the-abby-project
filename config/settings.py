@@ -149,19 +149,13 @@ COINS_PER_BADGE_RARITY = {
 # How many Coins a child receives per $1.00 exchanged (money → coins).
 COINS_PER_DOLLAR = 10
 
-# --- Homework reward scaling ------------------------------------------------
-from decimal import Decimal as _D  # noqa: E402
-
-HOMEWORK_EFFORT_MULTIPLIERS = {1: _D("0.5"), 2: _D("0.75"), 3: _D("1.0"), 4: _D("1.5"), 5: _D("2.0")}
-HOMEWORK_EARLY_BONUS = _D("1.25")
-HOMEWORK_ON_TIME_MULTIPLIER = _D("1.0")
-HOMEWORK_LATE_PENALTY = _D("0.5")
-HOMEWORK_LATE_CUTOFF_DAYS = 3  # 0 rewards beyond this many days late
-
-# Default bases used when a child creates an assignment and AI (or a parent
-# via the Adjust action) fills in effort_level at submission time.
-HOMEWORK_BASE_REWARD_AMOUNT = _D("1.00")
-HOMEWORK_BASE_COIN_REWARD = 5
+# --- Homework timeliness ----------------------------------------------------
+# Homework pays no money and no coins — rewards are XP, drops, streaks, and
+# quest progress only. The label from ``HomeworkService.get_timeliness`` is
+# recorded on each submission and gates the "on_time" quest filter; past
+# this many days late the submission flips to ``beyond_cutoff`` instead of
+# ``late`` so badges and UI can show the right state.
+HOMEWORK_LATE_CUTOFF_DAYS = 3
 
 # --- Anthropic / Claude ---------------------------------------------------
 # Optional. When set, enables Claude-powered ingestion enrichment and

@@ -7,7 +7,7 @@ import { useRole } from '../hooks/useRole';
 import {
   getHomeworkDashboard, createHomework,
   submitHomework, approveHomeworkSubmission,
-  rejectHomeworkSubmission, adjustHomeworkSubmission,
+  rejectHomeworkSubmission,
   planHomework, getChildren,
 } from '../api';
 import ApprovalQueue from '../components/ApprovalQueue';
@@ -51,15 +51,10 @@ export default function Homework() {
   const [submitting, setSubmitting] = useState(false);
   const [planning, setPlanning] = useState(null);
   const [planError, setPlanError] = useState('');
-  const [adjusting, setAdjusting] = useState(null);
-  const [adjustForm, setAdjustForm] = useState({
-    effort_level: 3, reward_amount: '1.00', coin_reward: 5,
-  });
-  const [adjustSaving, setAdjustSaving] = useState(false);
 
   const emptyForm = {
     title: '', description: '', subject: 'math', effort_level: 3,
-    due_date: '', assigned_to: '', reward_amount: '0', coin_reward: '0',
+    due_date: '', assigned_to: '',
   };
   const [form, setForm] = useState(emptyForm);
 
@@ -91,8 +86,6 @@ export default function Homework() {
     };
     if (isParent) {
       payload.effort_level = parseInt(form.effort_level);
-      payload.reward_amount = form.reward_amount;
-      payload.coin_reward = parseInt(form.coin_reward);
       payload.assigned_to = parseInt(form.assigned_to);
     }
     setCreating(true);
@@ -109,32 +102,6 @@ export default function Homework() {
       setCreateError(err?.message || 'Could not create the assignment.');
     } finally {
       setCreating(false);
-    }
-  };
-
-  const openAdjust = (sub) => {
-    setAdjustForm({
-      effort_level: sub.reward_breakdown?.effort_level ?? 3,
-      reward_amount: sub.reward_breakdown?.base_money ?? '1.00',
-      coin_reward: sub.reward_breakdown?.base_coins ?? 5,
-    });
-    setAdjusting(sub);
-  };
-
-  const handleAdjust = async (e) => {
-    e.preventDefault();
-    if (!adjusting) return;
-    setAdjustSaving(true);
-    try {
-      await adjustHomeworkSubmission(adjusting.id, {
-        effort_level: parseInt(adjustForm.effort_level),
-        reward_amount: adjustForm.reward_amount,
-        coin_reward: parseInt(adjustForm.coin_reward),
-      });
-      setAdjusting(null);
-      reload();
-    } finally {
-      setAdjustSaving(false);
     }
   };
 
@@ -274,56 +241,30 @@ export default function Homework() {
           onApprove={handleApprove}
           onReject={handleReject}
         >
-          {({ item: sub, actions }) => {
-            const pending = sub.assignment_rewards_pending_review;
-            const childAuthored = sub.assignment_created_by_role === 'child';
-            return (
-              <ParchmentCard key={sub.id} className="space-y-3">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="font-body">
-                    <span className="font-medium text-ink-primary">{sub.user_name}</span>
-                    <span className="text-ink-whisper mx-2">&mdash;</span>
-                    <span className="text-ink-primary">{sub.assignment_title}</span>
-                  </div>
-                  <div className="flex gap-1.5 flex-wrap">
-                    <TimelinessBadge timeliness={sub.timeliness} />
-                    <StatusBadge status={sub.status} />
-                    {pending && (
-                      <span className="text-xs font-body font-medium px-2 py-0.5 rounded-full bg-ember/20 text-ember-deep border border-ember/50">
-                        Rewards pending review
-                      </span>
-                    )}
-                    {!pending && childAuthored && (
-                      <span className="text-xs font-body font-medium px-2 py-0.5 rounded-full bg-royal/15 text-royal border border-royal/40">
-                        AI estimated effort {sub.reward_breakdown?.effort_level}/5
-                      </span>
-                    )}
-                  </div>
+          {({ item: sub, actions }) => (
+            <ParchmentCard key={sub.id} className="space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="font-body">
+                  <span className="font-medium text-ink-primary">{sub.user_name}</span>
+                  <span className="text-ink-whisper mx-2">&mdash;</span>
+                  <span className="text-ink-primary">{sub.assignment_title}</span>
                 </div>
-                {sub.notes && (
-                  <p className="font-script text-sm text-ink-secondary italic">
-                    &ldquo;{sub.notes}&rdquo;
-                  </p>
-                )}
-                <ProofGallery proofs={sub.proofs} />
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="font-rune text-sm text-moss tabular-nums">
-                    ${sub.reward_amount_snapshot} + {sub.coin_reward_snapshot}c
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => openAdjust(sub)}
-                      className="px-3 py-1 text-xs font-body font-medium rounded-lg bg-ink-page border border-ink-page-shadow hover:border-sheikah-teal/60 transition-colors"
-                    >
-                      Adjust
-                    </button>
-                    {actions}
-                  </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  <TimelinessBadge timeliness={sub.timeliness} />
+                  <StatusBadge status={sub.status} />
                 </div>
-              </ParchmentCard>
-            );
-          }}
+              </div>
+              {sub.notes && (
+                <p className="font-script text-sm text-ink-secondary italic">
+                  &ldquo;{sub.notes}&rdquo;
+                </p>
+              )}
+              <ProofGallery proofs={sub.proofs} />
+              <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                {actions}
+              </div>
+            </ParchmentCard>
+          )}
         </ApprovalQueue>
       )}
 
@@ -380,36 +321,22 @@ export default function Homework() {
               </div>
             </div>
             {isParent && (
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className={labelClass}>Effort (1-5)</label>
-                  <input
-                    type="number" min={1} max={5} value={form.effort_level}
-                    onChange={(e) => setForm({ ...form, effort_level: e.target.value })}
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>$ reward</label>
-                  <input
-                    type="number" step="0.01" min={0} value={form.reward_amount}
-                    onChange={(e) => setForm({ ...form, reward_amount: e.target.value })}
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Coins</label>
-                  <input
-                    type="number" min={0} value={form.coin_reward}
-                    onChange={(e) => setForm({ ...form, coin_reward: e.target.value })}
-                    className={inputClass}
-                  />
-                </div>
+              <div>
+                <label className={labelClass}>Effort (1-5)</label>
+                <input
+                  type="number" min={1} max={5} value={form.effort_level}
+                  onChange={(e) => setForm({ ...form, effort_level: e.target.value })}
+                  className={inputClass}
+                />
+                <p className="font-script text-xs text-ink-whisper italic mt-1">
+                  Weights XP distribution across skill tags — no money or coins.
+                </p>
               </div>
             )}
             {!isParent && (
               <p className="font-script text-xs text-ink-whisper italic">
-                A grown-up will set the reward after reviewing your work.
+                Log it here so your grown-ups can see — you'll earn XP, streaks,
+                and a chance at loot for every assignment you share.
               </p>
             )}
             {isParent && children.length > 0 && (
@@ -431,54 +358,6 @@ export default function Homework() {
               className={`w-full py-2.5 text-sm ${buttonPrimary}`}
             >
               {creating ? 'Creating…' : 'Create assignment'}
-            </button>
-          </form>
-        </BottomSheet>
-      )}
-
-      {/* Adjust submission (parent-only) */}
-      {adjusting && (
-        <BottomSheet
-          onClose={() => setAdjusting(null)}
-          title={`Adjust reward: ${adjusting.assignment_title}`}
-        >
-          <form onSubmit={handleAdjust} className="space-y-4">
-            <p className="font-script text-sm text-ink-secondary italic">
-              Sets effort/reward/coins on the assignment and re-computes the
-              snapshot using the timeliness multiplier frozen at submission.
-            </p>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className={labelClass}>Effort (1-5)</label>
-                <input
-                  type="number" min={1} max={5} value={adjustForm.effort_level}
-                  onChange={(e) => setAdjustForm({ ...adjustForm, effort_level: e.target.value })}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>$ reward</label>
-                <input
-                  type="number" step="0.01" min={0} value={adjustForm.reward_amount}
-                  onChange={(e) => setAdjustForm({ ...adjustForm, reward_amount: e.target.value })}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Coins</label>
-                <input
-                  type="number" min={0} value={adjustForm.coin_reward}
-                  onChange={(e) => setAdjustForm({ ...adjustForm, coin_reward: e.target.value })}
-                  className={inputClass}
-                />
-              </div>
-            </div>
-            <button
-              type="submit"
-              disabled={adjustSaving}
-              className={`w-full py-2.5 text-sm ${buttonPrimary} disabled:opacity-60`}
-            >
-              {adjustSaving ? 'Saving…' : 'Save adjustment'}
             </button>
           </form>
         </BottomSheet>
@@ -601,11 +480,8 @@ function AssignmentCard({ assignment, onSubmit, onPlan, planning, canPlan }) {
           {sub && <StatusBadge status={sub.status} />}
         </div>
       </div>
-      <div className="flex items-center justify-between font-script text-sm text-ink-whisper">
-        <span>due {a.due_date}</span>
-        <span className="font-rune text-ink-secondary">
-          ${a.reward_amount} + {a.coin_reward}c base
-        </span>
+      <div className="font-script text-sm text-ink-whisper">
+        due {a.due_date}
       </div>
       <div className="flex gap-2 flex-wrap">
         {!sub && (

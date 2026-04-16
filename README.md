@@ -185,11 +185,13 @@ the-abby-project/
 
 ### Homework
 
-- **HomeworkAssignment** — School assignments with subject, effort level (1-5), due date, money + coin rewards. Both parents and children can create assignments.
-- **HomeworkSubmission** — Submit-then-approve with effort-scaled rewards (0.5x–2.0x) and timeliness bonuses (early 1.25x, on-time 1.0x, late 0.5x, beyond cutoff 0x)
-- **HomeworkProof** — Required image uploads with captions and ordering
-- **HomeworkTemplate** — Reusable assignment configs with skill tag presets
-- **HomeworkSkillTag** — XP awarded on approval, triggering badge evaluation
+Homework pays **no money and no coins** — it's positioned as school duty, not work-for-hire. Rewards come from XP, RPG drops, streaks, and quest progress.
+
+- **HomeworkAssignment** — School assignments with subject, effort level (1-5, XP-weighting hint only), due date. Both parents and children can create assignments. Creating fires a `homework_created` RPG trigger (streak + quests + one drop roll per day).
+- **HomeworkSubmission** — Submit-then-approve with a `Timeliness` label (early / on_time / late / beyond_cutoff) recorded for badge + quest gating. No reward snapshot.
+- **HomeworkProof** — Required image uploads with captions and ordering.
+- **HomeworkTemplate** — Reusable assignment configs with skill tag presets.
+- **HomeworkSkillTag** — XP awarded on approval, triggering badge evaluation (incl. `HOMEWORK_PLANNED_AHEAD` / `HOMEWORK_ON_TIME_COUNT` Scholar badges).
 
 ### RPG: Character, Habits, Drops, Cosmetics (`apps/rpg/`)
 
@@ -197,7 +199,7 @@ the-abby-project/
 - **Habit / HabitLog** — Micro-behaviors with `+/-` taps (positive / negative / both). Tracks `strength` (decays daily if untapped). No approval flow — self-reported.
 - **ItemDefinition** — Master catalog. 9 item types (egg, potion, food, cosmetic_frame, cosmetic_title, cosmetic_theme, cosmetic_pet_accessory, quest_scroll, coin_pouch), 5 rarities (common → legendary), `coin_value` (salvage value), `metadata` JSONField for type-specific data.
 - **UserInventory** — Per-user item quantities with `unique_together=(user, item)`.
-- **DropTable** — Trigger → Item mapping with `weight` and `min_level`. Triggers: clock_out, chore_complete, homework_complete, milestone_complete, badge_earned, quest_complete, perfect_day, habit_log.
+- **DropTable** — Trigger → Item mapping with `weight` and `min_level`. Triggers: clock_out, chore_complete, homework_complete, homework_created, milestone_complete, badge_earned, quest_complete, perfect_day, habit_log.
 - **DropLog** — Audit trail with `was_salvaged` flag (duplicate cosmetics auto-convert to coins).
 
 ### RPG: Pets & Mounts (`apps/pets/`)
@@ -498,12 +500,14 @@ balance = sum(all ledger entries)  # positive = owed, negative = paid out
 - `UniqueConstraint` prevents duplicate completions per chore per day
 
 ### Homework
-- Effort-scaled rewards using 5 levels: 0.5x, 0.75x, 1.0x, 1.5x, 2.0x multiplier
-- Timeliness bonuses: early 1.25x, on-time 1.0x, late 0.5x, beyond cutoff (3 days) 0x
-- Rewards computed and snapshotted at submission time
-- Proof image uploads required — ordered gallery with captions
-- `HomeworkSkillTag` awards XP on approval, triggering badge evaluation
-- AI-planned long-form homework: `POST /api/homework/{id}/plan/` generates a linked Project via Claude + MCP
+- No money, no coins — homework is school duty, not work-for-hire. Rewards are XP, drops, streaks, quests, and Scholar badges.
+- `effort_level` (1-5) is a hint that only weights how XP distributes across skill tags; children set their own.
+- Creating an assignment fires `homework_created` RPG trigger — drop roll capped to the first log per day, streak + quest progress fire on every create.
+- Submission records a `Timeliness` label (early/on_time/late/beyond_cutoff via `HOMEWORK_LATE_CUTOFF_DAYS`); no reward snapshot.
+- On approval: XP from skill tags, badges re-evaluated (incl. `HOMEWORK_ON_TIME_COUNT`), `homework_complete` trigger fires with `on_time` context for quest filtering.
+- Proof image uploads required — ordered gallery with captions.
+- Scholar track content lives in YAML: Planner / Punctual badges, Scholar-themed cosmetics, Scholar's Week / On-Time Streak / Midnight Oil quests.
+- AI-planned long-form homework: `POST /api/homework/{id}/plan/` generates a linked Project via Claude + MCP.
 
 ### Skill Tree & XP
 - Hierarchy: SkillCategory → Subject → Skill
@@ -516,7 +520,7 @@ balance = sum(all ledger entries)  # positive = owed, negative = paid out
 - Cross-category prerequisites create interesting progression paths
 
 ### Badge Evaluation
-Triggered on: project completion, milestone completion, clock-out, timecard approval, homework approval. Checks all unearned badges against current stats across 17 criteria types. Badges award rarity-scaled Coins.
+Triggered on: project completion, milestone completion, clock-out, timecard approval, homework creation + approval. Checks all unearned badges against current stats across 19 criteria types (incl. `HOMEWORK_PLANNED_AHEAD` and `HOMEWORK_ON_TIME_COUNT` for the Scholar track). Badges award rarity-scaled Coins.
 
 ### Notifications
 Auto-created via Django signals on: project approved/changes requested, milestone completed, badge earned, payout recorded, chore submitted/approved, redemption requested, exchange requested/approved/denied, homework created/submitted/approved/rejected, due-soon reminders.
@@ -706,10 +710,7 @@ docker compose down -v
 | `COINS_PER_HOUR` | `5` | Coins awarded per clock-out hour |
 | `COINS_PER_BADGE_RARITY` | common 5 → legendary 150 | Per-rarity coin bonus |
 | `COINS_PER_DOLLAR` | `10` | Coins per $1.00 in money→coins exchange |
-| `HOMEWORK_EFFORT_MULTIPLIERS` | 1→0.5x to 5→2.0x | Per-effort-level reward scaling |
-| `HOMEWORK_EARLY_BONUS` | `1.25` | Multiplier for submitting before due date |
-| `HOMEWORK_LATE_PENALTY` | `0.5` | Multiplier for late submission |
-| `HOMEWORK_LATE_CUTOFF_DAYS` | `3` | Days after which late rewards are zero |
+| `HOMEWORK_LATE_CUTOFF_DAYS` | `3` | Past this many days late, submissions flip from `late` to `beyond_cutoff` (label-only — homework pays no money or coins) |
 
 ### RPG Game-Design Constants
 
