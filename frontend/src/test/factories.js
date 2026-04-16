@@ -64,6 +64,23 @@ export function buildChore(over = {}) {
   };
 }
 
+export function buildHabit(over = {}) {
+  return {
+    id: 1,
+    name: 'Read 20 min',
+    icon: '📖',
+    habit_type: 'positive',
+    user: 1,
+    strength: 0,
+    color: 'yellow',
+    xp_reward: 5,
+    max_taps_per_day: 1,
+    taps_today: 0,
+    is_active: true,
+    ...over,
+  };
+}
+
 export function buildNotification(over = {}) {
   return {
     id: 1,

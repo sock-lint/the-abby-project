@@ -63,11 +63,11 @@ class UpdateAndDeleteTests(_Base):
         )
         with override_user(self.parent):
             hb.update_habit(UpdateHabitIn(
-                habit_id=habit.id, name="new", coin_reward=3,
+                habit_id=habit.id, name="new", max_taps_per_day=3,
             ))
         habit.refresh_from_db()
         self.assertEqual(habit.name, "new")
-        self.assertEqual(habit.coin_reward, 3)
+        self.assertEqual(habit.max_taps_per_day, 3)
 
     def test_child_cannot_update(self) -> None:
         habit = Habit.objects.create(
@@ -116,6 +116,17 @@ class LogHabitTests(_Base):
         )
         with override_user(self.child), self.assertRaises(MCPValidationError):
             hb.log_habit(LogHabitIn(habit_id=habit.id, amount=-1))
+
+    def test_log_rejected_over_daily_cap(self) -> None:
+        habit = Habit.objects.create(
+            name="Brush teeth", user=self.child, created_by=self.child,
+            habit_type="positive", max_taps_per_day=2,
+        )
+        with override_user(self.child):
+            hb.log_habit(LogHabitIn(habit_id=habit.id, amount=1))
+            hb.log_habit(LogHabitIn(habit_id=habit.id, amount=1))
+            with self.assertRaises(MCPValidationError):
+                hb.log_habit(LogHabitIn(habit_id=habit.id, amount=1))
 
 
 class ListAndGetTests(_Base):

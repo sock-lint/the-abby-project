@@ -7,7 +7,7 @@ import Habits from './Habits.jsx';
 import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
-import { buildUser } from '../test/factories.js';
+import { buildUser, buildHabit, buildParent } from '../test/factories.js';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -55,7 +55,7 @@ describe('Habits', () => {
     renderPage(buildUser(), [
       http.get('*/api/habits/', () =>
         HttpResponse.json([
-          { id: 9, name: 'Read 20 min', icon: '📖', habit_type: 'positive', strength: 3, color: 'green', coin_reward: 0, xp_reward: 0 },
+          buildHabit({ id: 9, max_taps_per_day: 2, taps_today: 0 }),
         ]),
       ),
       tap.handler,
@@ -75,7 +75,14 @@ describe('Habits', () => {
     renderPage(buildUser(), [
       http.get('*/api/habits/', () =>
         HttpResponse.json([
-          { id: 9, name: 'Skip dessert', icon: '🍰', habit_type: 'negative', strength: -2, color: 'red', coin_reward: 0, xp_reward: 0 },
+          buildHabit({
+            id: 9,
+            name: 'Skip dessert',
+            icon: '🍰',
+            habit_type: 'negative',
+            strength: -2,
+            color: 'red',
+          }),
         ]),
       ),
       tap.handler,
@@ -86,5 +93,45 @@ describe('Habits', () => {
 
     await waitFor(() => expect(tap.calls).toHaveLength(1));
     expect(tap.calls[0].body).toEqual({ direction: -1 });
+  });
+
+  it('disables the virtue button when taps_today has hit max_taps_per_day', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', () =>
+        HttpResponse.json([
+          buildHabit({ id: 7, max_taps_per_day: 2, taps_today: 2 }),
+        ]),
+      ),
+    ]);
+    const button = await screen.findByRole('button', { name: /done/i });
+    expect(button).toBeDisabled();
+    // Count badge is shown as "2/2 today".
+    expect(screen.getByText(/2\/2 today/)).toBeInTheDocument();
+  });
+
+  it('create-habit form submits max_taps_per_day and no coin_reward', async () => {
+    const user = userEvent.setup();
+    const create = spyHandler('post', /\/api\/habits\/$/, { id: 42 });
+    renderPage(buildParent(), [
+      http.get('*/api/habits/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
+      create.handler,
+    ]);
+    const newBtn = await screen.findByRole('button', { name: /new habit/i });
+    await user.click(newBtn);
+    // Wait for the modal's submit button to confirm it's open, then fill inputs.
+    const submit = await screen.findByRole('button', { name: /create habit/i });
+    const textboxes = screen.getAllByRole('textbox');
+    await user.type(textboxes[0], 'Brush teeth'); // Name field is first textbox.
+    // Max taps and XP are the two spinbuttons; first is max_taps_per_day per form order.
+    const spinbuttons = screen.getAllByRole('spinbutton');
+    await user.clear(spinbuttons[0]);
+    await user.type(spinbuttons[0], '2');
+    await user.click(submit);
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    const body = create.calls[0].body;
+    expect(body).not.toHaveProperty('coin_reward');
+    expect(body.max_taps_per_day).toBe(2);
+    expect(body.name).toBe('Brush teeth');
   });
 });

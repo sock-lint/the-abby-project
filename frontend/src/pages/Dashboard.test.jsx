@@ -104,7 +104,7 @@ describe('Dashboard', () => {
           rpg: {
             level: 3, xp_to_next: 10, xp_percent: 80,
             login_streak: 4, longest_login_streak: 6, perfect_days_count: 1,
-            habits_today: [{ id: 1, name: 'Read 30min', icon: '📖', strength: 7, taps_today: 2 }],
+            habits_today: [{ id: 1, name: 'Read 30min', icon: '📖', strength: 7, taps_today: 2, max_taps_per_day: 5 }],
           },
         }),
       ),
@@ -158,7 +158,7 @@ describe('Dashboard', () => {
         rpg: {
           level: 1, xp_to_next: 10, xp_percent: 0,
           login_streak: 0, longest_login_streak: 0, perfect_days_count: 0,
-          habits_today: [{ id: 7, name: 'Read 30min', icon: '📖', strength: 7, taps_today: 2 }],
+          habits_today: [{ id: 7, name: 'Read 30min', icon: '📖', strength: 7, taps_today: 2, max_taps_per_day: 5 }],
         },
       }),
     );

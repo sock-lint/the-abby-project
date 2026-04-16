@@ -106,8 +106,29 @@ class HabitLogTests(_Fixture):
             "direction": 1,
         }, format="json")
         self.assertEqual(resp1.status_code, 200)
+        self.assertNotIn("coin_reward", resp1.json())
         # -1 tap.
         resp2 = self.client.post(f"/api/habits/{habit.pk}/log/", {
             "direction": -1,
         }, format="json")
         self.assertEqual(resp2.status_code, 200)
+
+    @patch("apps.rpg.services.GameLoopService.on_task_completed", return_value={})
+    def test_positive_tap_rejected_over_daily_cap(self, _mock_gl):
+        from apps.habits.models import Habit
+        habit = Habit.objects.create(
+            name="Brush teeth", habit_type="positive",
+            user=self.child, created_by=self.child,
+            max_taps_per_day=2,
+        )
+        self.client.force_authenticate(self.child)
+        for _ in range(2):
+            ok = self.client.post(f"/api/habits/{habit.pk}/log/", {
+                "direction": 1,
+            }, format="json")
+            self.assertEqual(ok.status_code, 200)
+        over = self.client.post(f"/api/habits/{habit.pk}/log/", {
+            "direction": 1,
+        }, format="json")
+        self.assertEqual(over.status_code, 400)
+        self.assertIn("Daily limit reached", over.json().get("error", ""))

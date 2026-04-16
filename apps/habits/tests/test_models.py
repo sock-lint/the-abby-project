@@ -16,8 +16,8 @@ class HabitTests(TestCase):
             created_by=self.parent,
         )
         self.assertEqual(habit.habit_type, Habit.HabitType.POSITIVE)
-        self.assertEqual(habit.coin_reward, 1)
         self.assertEqual(habit.xp_reward, 5)
+        self.assertEqual(habit.max_taps_per_day, 1)
         self.assertEqual(habit.strength, 0)
         self.assertTrue(habit.is_active)
         self.assertEqual(str(habit), "Read a book")

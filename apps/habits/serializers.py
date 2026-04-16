@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.habits.models import Habit, HabitLog
@@ -8,6 +9,7 @@ class HabitSerializer(serializers.ModelSerializer):
         source="created_by.display_label", read_only=True,
     )
     color = serializers.SerializerMethodField()
+    taps_today = serializers.SerializerMethodField()
 
     class Meta:
         model = Habit
@@ -19,8 +21,9 @@ class HabitSerializer(serializers.ModelSerializer):
             "user",
             "created_by",
             "created_by_name",
-            "coin_reward",
             "xp_reward",
+            "max_taps_per_day",
+            "taps_today",
             "strength",
             "color",
             "is_active",
@@ -31,6 +34,7 @@ class HabitSerializer(serializers.ModelSerializer):
             "id",
             "strength",
             "color",
+            "taps_today",
             "created_by_name",
             "created_at",
             "updated_at",
@@ -50,6 +54,14 @@ class HabitSerializer(serializers.ModelSerializer):
             return "green"
         return "blue"
 
+    def get_taps_today(self, obj):
+        return HabitLog.objects.filter(
+            habit=obj,
+            user=obj.user,
+            direction=1,
+            created_at__date=timezone.localdate(),
+        ).count()
+
 
 class HabitWriteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -59,8 +71,8 @@ class HabitWriteSerializer(serializers.ModelSerializer):
             "icon",
             "habit_type",
             "user",
-            "coin_reward",
             "xp_reward",
+            "max_taps_per_day",
             "is_active",
         ]
 

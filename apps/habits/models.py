@@ -29,8 +29,8 @@ class Habit(TimestampedModel):
         on_delete=models.CASCADE,
         related_name="created_habits",
     )
-    coin_reward = models.PositiveIntegerField(default=1)
     xp_reward = models.PositiveIntegerField(default=5)
+    max_taps_per_day = models.PositiveSmallIntegerField(default=1)
     strength = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
 

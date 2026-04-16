@@ -23,16 +23,15 @@ class HabitServiceTests(TestCase):
             habit_type="positive",
             user=self.user,
             created_by=self.parent,
-            coin_reward=2,
             xp_reward=10,
         )
 
     def test_log_positive_tap(self):
         result = HabitService.log_tap(self.user, self.habit, direction=1)
         self.assertEqual(result["direction"], 1)
-        self.assertEqual(result["coin_reward"], 2)
         self.assertEqual(result["xp_reward"], 10)
         self.assertEqual(result["new_strength"], 1)
+        self.assertNotIn("coin_reward", result)
         self.habit.refresh_from_db()
         self.assertEqual(self.habit.strength, 1)
 
@@ -42,14 +41,13 @@ class HabitServiceTests(TestCase):
             habit_type="negative",
             user=self.user,
             created_by=self.parent,
-            coin_reward=2,
             xp_reward=10,
         )
         result = HabitService.log_tap(self.user, habit, direction=-1)
         self.assertEqual(result["direction"], -1)
-        self.assertEqual(result["coin_reward"], 0)
         self.assertEqual(result["xp_reward"], 0)
         self.assertEqual(result["new_strength"], -1)
+        self.assertNotIn("coin_reward", result)
 
     def test_multiple_taps_same_day(self):
         both_habit = Habit.objects.create(
@@ -57,12 +55,49 @@ class HabitServiceTests(TestCase):
             habit_type="both",
             user=self.user,
             created_by=self.parent,
+            max_taps_per_day=3,
         )
         HabitService.log_tap(self.user, both_habit, direction=1)
         HabitService.log_tap(self.user, both_habit, direction=1)
         both_habit.refresh_from_db()
         self.assertEqual(both_habit.strength, 2)
         self.assertEqual(HabitLog.objects.filter(habit=both_habit).count(), 2)
+
+    def test_log_tap_rejects_over_daily_cap(self):
+        habit = Habit.objects.create(
+            name="Brush teeth",
+            habit_type="positive",
+            user=self.user,
+            created_by=self.parent,
+            max_taps_per_day=2,
+        )
+        HabitService.log_tap(self.user, habit, direction=1)
+        HabitService.log_tap(self.user, habit, direction=1)
+        with self.assertRaises(ValueError) as cm:
+            HabitService.log_tap(self.user, habit, direction=1)
+        self.assertIn("Daily limit reached", str(cm.exception))
+        habit.refresh_from_db()
+        # Third tap blocked — strength stays at 2, log count stays at 2.
+        self.assertEqual(habit.strength, 2)
+        self.assertEqual(HabitLog.objects.filter(habit=habit).count(), 2)
+
+    def test_log_tap_negative_unlimited(self):
+        """Negative taps are uncapped so kids can log every slip."""
+        habit = Habit.objects.create(
+            name="Snacking",
+            habit_type="both",
+            user=self.user,
+            created_by=self.parent,
+            max_taps_per_day=1,
+        )
+        # Five consecutive negative taps all succeed.
+        for _ in range(5):
+            HabitService.log_tap(self.user, habit, direction=-1)
+        habit.refresh_from_db()
+        self.assertEqual(habit.strength, -5)
+        self.assertEqual(
+            HabitLog.objects.filter(habit=habit, direction=-1).count(), 5,
+        )
 
     def test_decay_strength(self):
         # Give the habit some strength without logging today

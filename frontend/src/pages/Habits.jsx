@@ -35,8 +35,8 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
     icon: habit?.icon || '',
     habit_type: habit?.habit_type || 'positive',
     user: habit?.user ?? '',
-    coin_reward: habit?.coin_reward ?? 2,
     xp_reward: habit?.xp_reward ?? 5,
+    max_taps_per_day: habit?.max_taps_per_day ?? 1,
   });
 
   const onField = (k) => (e) => set({ [k]: e.target.value });
@@ -52,8 +52,8 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
         icon: form.icon,
         habit_type: form.habit_type,
         user: form.user ? parseInt(form.user) : null,
-        coin_reward: parseInt(form.coin_reward) || 0,
         xp_reward: parseInt(form.xp_reward) || 0,
+        max_taps_per_day: Math.max(1, parseInt(form.max_taps_per_day) || 1),
       };
       if (isEdit) {
         await updateHabit(habit.id, payload);
@@ -103,8 +103,8 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
         )}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass}>Coin reward</label>
-            <input className={inputClass} type="number" min="0" value={form.coin_reward} onChange={onField('coin_reward')} />
+            <label className={labelClass}>Max taps / day</label>
+            <input className={inputClass} type="number" min="1" max="50" value={form.max_taps_per_day} onChange={onField('max_taps_per_day')} />
           </div>
           <div>
             <label className={labelClass}>XP reward</label>
@@ -217,25 +217,33 @@ export default function Habits() {
                         </span>
                       </div>
                       <div className="font-script text-xs text-ink-whisper mt-0.5">
-                        {habit.coin_reward > 0 && <span>{habit.coin_reward} coins</span>}
-                        {habit.coin_reward > 0 && habit.xp_reward > 0 && <span> · </span>}
                         {habit.xp_reward > 0 && <span>{habit.xp_reward} XP</span>}
+                        {habit.xp_reward > 0 && habit.max_taps_per_day > 0 && <span> · </span>}
+                        {habit.max_taps_per_day > 0 && (
+                          <span>
+                            {habit.taps_today ?? 0}/{habit.max_taps_per_day} today
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-ink-page-shadow/70">
                     <div className="flex gap-2">
-                      {(habit.habit_type === 'positive' || habit.habit_type === 'both') && (
-                        <button
-                          type="button"
-                          onClick={() => handleTap(habit, 1)}
-                          disabled={tapping === `${habit.id}-1`}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-moss/20 hover:bg-moss/30 text-moss text-sm font-body font-medium rounded-lg border border-moss/40 disabled:opacity-50 transition-colors"
-                        >
-                          <ThumbsUp size={14} /> virtue
-                        </button>
-                      )}
+                      {(habit.habit_type === 'positive' || habit.habit_type === 'both') && (() => {
+                        const atCap = (habit.taps_today ?? 0) >= (habit.max_taps_per_day ?? 1);
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => handleTap(habit, 1)}
+                            disabled={tapping === `${habit.id}-1` || atCap}
+                            title={atCap ? `Daily limit reached (${habit.max_taps_per_day}/day)` : undefined}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-moss/20 hover:bg-moss/30 text-moss text-sm font-body font-medium rounded-lg border border-moss/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <ThumbsUp size={14} /> {atCap ? 'done' : 'virtue'}
+                          </button>
+                        );
+                      })()}
                       {(habit.habit_type === 'negative' || habit.habit_type === 'both') && (
                         <button
                           type="button"

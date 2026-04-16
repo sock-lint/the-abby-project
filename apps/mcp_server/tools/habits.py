@@ -97,8 +97,8 @@ def create_habit(params: CreateHabitIn) -> dict[str, Any]:
         name=params.name,
         icon=params.icon,
         habit_type=params.habit_type,
-        coin_reward=params.coin_reward,
         xp_reward=params.xp_reward,
+        max_taps_per_day=params.max_taps_per_day,
         user=target,
         created_by=user,
     )

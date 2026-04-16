@@ -496,15 +496,18 @@ function buildTodayQuests({ chores_today, activeQuest, rpg, activeTimer, reload 
 
   // Habits (positive taps surfaced as quests; tap count shown in meta)
   (rpg?.habits_today || []).slice(0, 5).forEach((h) => {
+    const cap = h.max_taps_per_day ?? 1;
+    const taps = h.taps_today ?? 0;
+    const atCap = taps >= cap;
     out.push({
       id: `habit-${h.id}`,
       title: h.name,
-      meta: `habit · strength ${h.strength ?? 0} · ${h.taps_today}× today`,
-      status: 'pending',
+      meta: `habit · strength ${h.strength ?? 0} · ${taps}/${cap} today`,
+      status: atCap ? 'done' : 'pending',
       kind: 'virtue',
       tone: 'gold',
       icon: h.icon ? <span className="text-base">{h.icon}</span> : <ScrollIcon size={16} />,
-      onAction: () => logHabitTap(h.id, 1).then(refresh).catch(() => {}),
+      onAction: atCap ? undefined : () => logHabitTap(h.id, 1).then(refresh).catch(() => {}),
     });
   });
 

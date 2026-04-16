@@ -21,6 +21,21 @@ class HabitService:
         if habit.habit_type == "negative" and direction == +1:
             raise ValueError("Negative habits do not accept positive taps.")
 
+        # Daily cap: positive taps only. Vices stay uncapped so kids can
+        # honestly log every slip.
+        if direction == 1:
+            today = timezone.localdate()
+            taps_today = HabitLog.objects.filter(
+                habit=habit,
+                user=user,
+                direction=1,
+                created_at__date=today,
+            ).count()
+            if taps_today >= habit.max_taps_per_day:
+                raise ValueError(
+                    f"Daily limit reached ({habit.max_taps_per_day} taps/day)."
+                )
+
         # Get current streak
         profile, _created = CharacterProfile.objects.get_or_create(user=user)
         streak = profile.login_streak
@@ -39,7 +54,6 @@ class HabitService:
 
         return {
             "direction": direction,
-            "coin_reward": habit.coin_reward if direction == 1 else 0,
             "xp_reward": habit.xp_reward if direction == 1 else 0,
             "new_strength": habit.strength,
         }

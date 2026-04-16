@@ -726,8 +726,13 @@ class CreateHabitIn(_Base):
     name: str = Field(min_length=1, max_length=100)
     icon: str = ""
     habit_type: HabitType = "positive"
-    coin_reward: int = Field(default=1, ge=0)
     xp_reward: int = Field(default=5, ge=0)
+    max_taps_per_day: int = Field(
+        default=1,
+        ge=1,
+        le=50,
+        description="Per-day cap on positive taps. Negative taps stay uncapped.",
+    )
     user_id: Optional[int] = Field(
         default=None,
         description="Parent-only: assign to a specific child. Omit to assign "
@@ -740,8 +745,8 @@ class UpdateHabitIn(_Base):
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     icon: Optional[str] = None
     habit_type: Optional[HabitType] = None
-    coin_reward: Optional[int] = Field(default=None, ge=0)
     xp_reward: Optional[int] = Field(default=None, ge=0)
+    max_taps_per_day: Optional[int] = Field(default=None, ge=1, le=50)
     is_active: Optional[bool] = None
 
 

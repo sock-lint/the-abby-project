@@ -173,7 +173,7 @@ class DashboardView(APIView):
         habits_data = []
         for h in habits:
             taps_today = HabitLog.objects.filter(
-                habit=h, user=user, created_at__date=today,
+                habit=h, user=user, direction=1, created_at__date=today,
             ).count()
             habits_data.append({
                 "id": h.pk,
@@ -182,7 +182,7 @@ class DashboardView(APIView):
                 "habit_type": h.habit_type,
                 "strength": h.strength,
                 "taps_today": taps_today,
-                "coin_reward": h.coin_reward,
+                "max_taps_per_day": h.max_taps_per_day,
             })
 
         rpg_data = {

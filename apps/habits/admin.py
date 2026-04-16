@@ -5,7 +5,7 @@ from .models import Habit, HabitLog
 
 @admin.register(Habit)
 class HabitAdmin(admin.ModelAdmin):
-    list_display = ["name", "icon", "habit_type", "user", "coin_reward", "xp_reward", "strength", "is_active"]
+    list_display = ["name", "icon", "habit_type", "user", "xp_reward", "max_taps_per_day", "strength", "is_active"]
     list_filter = ["habit_type", "is_active"]
     search_fields = ["name"]
 
