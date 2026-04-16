@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as Sentry from '@sentry/react';
 import { server } from '../test/server.js';
 import { api, getBlob, getToken, setToken } from './client.js';
@@ -103,6 +103,75 @@ describe('api errors', () => {
     );
     await expect(api.get('/boom/')).rejects.toThrow('boom');
     expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('cache bypass', () => {
+  it('sends cache: "no-store" on every request so disk-cached HTML errors can never poison the API surface', async () => {
+    // Spy directly on fetch — MSW runs at the network layer and swallows the
+    // fetch init object. We just want to verify the init the client builds.
+    const realFetch = globalThis.fetch;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: () => Promise.resolve({}),
+      }),
+    );
+    try {
+      await api.get('/anything/');
+      const init = fetchSpy.mock.calls.at(-1)[1];
+      expect(init.cache).toBe('no-store');
+    } finally {
+      fetchSpy.mockRestore();
+      globalThis.fetch = realFetch;
+    }
+  });
+});
+
+describe('non-JSON 200 guard', () => {
+  beforeEach(() => {
+    Sentry.addBreadcrumb.mockClear();
+    Sentry.captureException.mockClear();
+  });
+
+  it('throws a clear error when a 200 response has HTML content-type (stale upstream error page)', async () => {
+    server.use(
+      http.get('*/api/notifications/unread_count/', () =>
+        new HttpResponse('<!DOCTYPE html><title>oops</title>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        }),
+      ),
+    );
+    await expect(api.get('/notifications/unread_count/')).rejects.toThrow(
+      /non-JSON response/i,
+    );
+    // Must surface to Sentry so we notice it happening in prod.
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws when the 200 response has no content-type at all', async () => {
+    server.use(
+      http.get('*/api/thing/', () =>
+        // HttpResponse with a plain string body and explicit empty headers.
+        new HttpResponse('not json', { status: 200, headers: {} }),
+      ),
+    );
+    await expect(api.get('/thing/')).rejects.toThrow(/non-JSON response/i);
+  });
+
+  it('accepts application/json with a charset suffix', async () => {
+    server.use(
+      http.get('*/api/thing/', () =>
+        new HttpResponse(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        }),
+      ),
+    );
+    await expect(api.get('/thing/')).resolves.toEqual({ ok: true });
   });
 });
 

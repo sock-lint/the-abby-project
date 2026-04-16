@@ -158,6 +158,11 @@ HOMEWORK_ON_TIME_MULTIPLIER = _D("1.0")
 HOMEWORK_LATE_PENALTY = _D("0.5")
 HOMEWORK_LATE_CUTOFF_DAYS = 3  # 0 rewards beyond this many days late
 
+# Default bases used when a child creates an assignment and AI (or a parent
+# via the Adjust action) fills in effort_level at submission time.
+HOMEWORK_BASE_REWARD_AMOUNT = _D("1.00")
+HOMEWORK_BASE_COIN_REWARD = 5
+
 # --- Anthropic / Claude ---------------------------------------------------
 # Optional. When set, enables Claude-powered ingestion enrichment and
 # project suggestion flows. Both call sites should import these names
@@ -173,6 +178,7 @@ GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "")
 
 MIDDLEWARE = [
     "config.middleware.HealthCheckMiddleware",
+    "config.middleware.NoCacheAPIMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",

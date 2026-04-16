@@ -29,6 +29,12 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
     proofs = HomeworkProofSerializer(many=True, read_only=True)
     assignment_title = serializers.CharField(source="assignment.title", read_only=True)
     assignment_subject = serializers.CharField(source="assignment.subject", read_only=True)
+    assignment_rewards_pending_review = serializers.BooleanField(
+        source="assignment.rewards_pending_review", read_only=True,
+    )
+    assignment_created_by_role = serializers.CharField(
+        source="assignment.created_by.role", read_only=True,
+    )
     user_name = serializers.CharField(source="user.display_label", read_only=True)
     reward_breakdown = serializers.SerializerMethodField()
 
@@ -36,6 +42,7 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
         model = HomeworkSubmission
         fields = [
             "id", "assignment", "assignment_title", "assignment_subject",
+            "assignment_rewards_pending_review", "assignment_created_by_role",
             "user", "user_name",
             "status", "notes",
             "decided_at", "decided_by",
@@ -78,6 +85,7 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
             "assigned_to", "assigned_to_name",
             "created_by", "created_by_name",
             "reward_amount", "coin_reward",
+            "rewards_pending_review",
             "is_active", "notes",
             "project", "has_project",
             "skill_tags",
@@ -116,6 +124,12 @@ class HomeworkAssignmentWriteSerializer(serializers.ModelSerializer):
             "assigned_to", "reward_amount", "coin_reward",
             "notes", "skill_tags",
         ]
+        # ``assigned_to`` is optional on write — children omit it entirely
+        # (the viewset's ``perform_create`` auto-sets it to the request
+        # user) and parents supply it explicitly.
+        extra_kwargs = {
+            "assigned_to": {"required": False},
+        }
 
     def validate_effort_level(self, value):
         if value < 1 or value > 5:

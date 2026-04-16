@@ -26,6 +26,28 @@ class HealthCheckMiddleware:
         return self.get_response(request)
 
 
+class NoCacheAPIMiddleware:
+    """Stamp ``Cache-Control: no-store`` on every ``/api/*`` response.
+
+    Why: without an explicit ``Cache-Control`` header, browsers apply RFC 7234
+    heuristic freshness to any 200 OK body. If an upstream proxy (Coolify /
+    Traefik) ever returns a 200 with an HTML "app is down" page for an API
+    URL — which has happened in production — the browser will happily serve
+    that stale HTML from disk cache for hours afterward, and the SPA's
+    ``res.json()`` call blows up on ``<!DOCTYPE html>``. ``no-store`` on every
+    API response prevents that trap regardless of what upstream does.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if request.path.startswith("/api/"):
+            response["Cache-Control"] = "no-store"
+        return response
+
+
 class SentryUserMiddleware:
     """Set Sentry user context from the authenticated Django user.
 

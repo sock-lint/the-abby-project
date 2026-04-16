@@ -251,6 +251,177 @@ class ApproveRejectTests(_Fixture):
         )
 
 
+class ChildCreateStripsRewardsTests(_Fixture):
+    def test_child_create_zeros_rewards_and_flags_pending(self):
+        """Client-sent effort/reward/coins are ignored for child creates."""
+        assignment = HomeworkService.create_assignment(self.child, {
+            "title": "My self-assigned homework",
+            "subject": "reading",
+            "effort_level": 5,
+            "reward_amount": Decimal("100.00"),
+            "coin_reward": 999,
+            "due_date": self.tomorrow,
+        })
+        self.assertEqual(assignment.assigned_to, self.child)
+        # Defaults restored (field-level defaults: effort=3, $0, 0 coins).
+        self.assertEqual(assignment.effort_level, 3)
+        self.assertEqual(assignment.reward_amount, Decimal("0.00"))
+        self.assertEqual(assignment.coin_reward, 0)
+        self.assertTrue(assignment.rewards_pending_review)
+
+    def test_parent_create_keeps_rewards(self):
+        assignment = HomeworkService.create_assignment(self.parent, {
+            "title": "Parent-set HW",
+            "subject": "math",
+            "effort_level": 4,
+            "reward_amount": Decimal("7.50"),
+            "coin_reward": 25,
+            "due_date": self.tomorrow,
+            "assigned_to": self.child,
+        })
+        self.assertEqual(assignment.effort_level, 4)
+        self.assertEqual(assignment.reward_amount, Decimal("7.50"))
+        self.assertEqual(assignment.coin_reward, 25)
+        self.assertFalse(assignment.rewards_pending_review)
+
+    def test_child_skill_tags_ignored(self):
+        """Children can't route XP to skills — that's a parent concern."""
+        from apps.achievements.models import Skill, SkillCategory, Subject
+
+        cat = SkillCategory.objects.create(name="Academics")
+        subj = Subject.objects.create(name="Reading", category=cat)
+        skill = Skill.objects.create(name="Comprehension", subject=subj, category=cat)
+
+        assignment = HomeworkService.create_assignment(self.child, {
+            "title": "Self HW",
+            "subject": "reading",
+            "due_date": self.tomorrow,
+            "skill_tags": [{"skill_id": skill.id, "xp_amount": 50}],
+        })
+        self.assertEqual(assignment.skill_tags.count(), 0)
+
+
+class AIEffortEstimationTests(_Fixture):
+    def setUp(self):
+        super().setUp()
+        # Child-authored assignment with rewards_pending_review=True.
+        self.assignment = HomeworkService.create_assignment(self.child, {
+            "title": "My reading",
+            "subject": "reading",
+            "due_date": self.tomorrow,
+        })
+        self.assertTrue(self.assignment.rewards_pending_review)
+
+    def test_submit_calls_ai_and_applies_base_rewards(self):
+        with patch("apps.homework.ai.estimate_effort_from_proof", return_value=4) as mock_ai:
+            submission = HomeworkService.submit_completion(
+                self.child, self.assignment, [_make_image()], "",
+            )
+        mock_ai.assert_called_once()
+        self.assignment.refresh_from_db()
+        self.assertFalse(self.assignment.rewards_pending_review)
+        self.assertEqual(self.assignment.effort_level, 4)
+        # Base reward: $1.00, base coins: 5 (see config/settings.py).
+        self.assertEqual(self.assignment.reward_amount, Decimal("1.00"))
+        self.assertEqual(self.assignment.coin_reward, 5)
+        # Snapshot: $1 × effort_mult(4)=1.5 × timeliness(early=1.25) = $1.875
+        self.assertEqual(
+            submission.reward_amount_snapshot, Decimal("1.8750"),
+        )
+
+    def test_submit_ai_failure_leaves_zero_snapshot(self):
+        with patch(
+            "apps.homework.ai.estimate_effort_from_proof",
+            side_effect=RuntimeError("no api key"),
+        ):
+            submission = HomeworkService.submit_completion(
+                self.child, self.assignment, [_make_image()], "",
+            )
+        self.assignment.refresh_from_db()
+        self.assertTrue(self.assignment.rewards_pending_review)
+        self.assertEqual(submission.reward_amount_snapshot, Decimal("0.00"))
+        self.assertEqual(submission.coin_reward_snapshot, 0)
+
+    def test_parent_created_assignment_skips_ai(self):
+        """AI should NOT run when parent already set effort/reward/coins."""
+        parent_hw = HomeworkAssignment.objects.create(
+            title="Parent HW",
+            subject="math",
+            effort_level=3,
+            due_date=self.tomorrow,
+            assigned_to=self.child,
+            created_by=self.parent,
+            reward_amount=Decimal("10.00"),
+            coin_reward=20,
+            rewards_pending_review=False,
+        )
+        with patch("apps.homework.ai.estimate_effort_from_proof") as mock_ai:
+            HomeworkService.submit_completion(
+                self.child, parent_hw, [_make_image()], "",
+            )
+        mock_ai.assert_not_called()
+
+
+class AdjustSubmissionTests(_Fixture):
+    def setUp(self):
+        super().setUp()
+        self.assignment = HomeworkService.create_assignment(self.child, {
+            "title": "Child HW",
+            "subject": "writing",
+            "due_date": self.tomorrow,
+        })
+        # Submit without AI (AI fails, zero snapshot).
+        with patch(
+            "apps.homework.ai.estimate_effort_from_proof",
+            side_effect=RuntimeError("disabled"),
+        ):
+            self.submission = HomeworkService.submit_completion(
+                self.child, self.assignment, [_make_image()], "",
+            )
+
+    def test_adjust_recomputes_snapshot(self):
+        updated = HomeworkService.adjust_submission(
+            self.submission, self.parent,
+            effort_level=5, reward_amount="2.00", coin_reward=10,
+        )
+        self.assignment.refresh_from_db()
+        self.assertFalse(self.assignment.rewards_pending_review)
+        self.assertEqual(self.assignment.effort_level, 5)
+        self.assertEqual(self.assignment.reward_amount, Decimal("2.00"))
+        self.assertEqual(self.assignment.coin_reward, 10)
+        # Snapshot: $2 × effort_mult(5)=2.0 × timeliness(early=1.25) = $5.00
+        self.assertEqual(updated.reward_amount_snapshot, Decimal("5.00"))
+        # Coins: 10 × 2.0 × 1.25 = 25
+        self.assertEqual(updated.coin_reward_snapshot, 25)
+
+    def test_adjust_rejects_non_pending(self):
+        HomeworkService.reject_submission(self.submission, self.parent)
+        with self.assertRaises(HomeworkError):
+            HomeworkService.adjust_submission(
+                self.submission, self.parent,
+                effort_level=3, reward_amount="1", coin_reward=1,
+            )
+
+    def test_adjust_validates_effort_range(self):
+        with self.assertRaises(HomeworkError):
+            HomeworkService.adjust_submission(
+                self.submission, self.parent,
+                effort_level=6, reward_amount="1", coin_reward=1,
+            )
+        with self.assertRaises(HomeworkError):
+            HomeworkService.adjust_submission(
+                self.submission, self.parent,
+                effort_level=0, reward_amount="1", coin_reward=1,
+            )
+
+    def test_adjust_rejects_negative_reward(self):
+        with self.assertRaises(HomeworkError):
+            HomeworkService.adjust_submission(
+                self.submission, self.parent,
+                effort_level=3, reward_amount="-1", coin_reward=1,
+            )
+
+
 class TemplateTests(_Fixture):
     def test_save_and_create_from_template(self):
         assignment = HomeworkAssignment.objects.create(

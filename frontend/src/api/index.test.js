@@ -12,7 +12,9 @@ function okJson(body = {}) {
   return Promise.resolve({
     ok: true,
     status: 200,
+    headers: { get: (name) => (name.toLowerCase() === 'content-type' ? 'application/json' : null) },
     json: () => Promise.resolve(body),
+    text: () => Promise.resolve(JSON.stringify(body)),
     blob: () => Promise.resolve(new Blob(['x'])),
   });
 }

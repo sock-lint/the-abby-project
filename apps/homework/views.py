@@ -134,6 +134,29 @@ class HomeworkSubmissionViewSet(
             qs = qs.filter(status=status_filter)
         return qs
 
+    @action(detail=True, methods=["post"], permission_classes=[IsParent])
+    def adjust(self, request, pk=None):
+        """Parent overrides effort/reward/coins on a pending submission.
+
+        Re-computes the submission's reward snapshot using the frozen
+        timeliness multiplier and clears the assignment's
+        ``rewards_pending_review`` flag. Used when AI effort estimation
+        was unavailable or when the parent wants to tweak the AI's
+        determination before approving.
+        """
+        submission = self.get_object()
+        try:
+            updated = HomeworkService.adjust_submission(
+                submission,
+                request.user,
+                effort_level=request.data.get("effort_level"),
+                reward_amount=request.data.get("reward_amount"),
+                coin_reward=request.data.get("coin_reward"),
+            )
+        except (HomeworkError, TypeError, ValueError) as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(HomeworkSubmissionSerializer(updated).data)
+
 
 class HomeworkTemplateViewSet(viewsets.ModelViewSet):
     serializer_class = HomeworkTemplateSerializer

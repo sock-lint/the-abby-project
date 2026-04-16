@@ -83,10 +83,22 @@ class HomeworkService:
         """Create a homework assignment.
 
         Immediately active — no approval needed for creation.
-        Child-created assignments auto-set assigned_to=self.
+        Child-created assignments auto-set assigned_to=self AND strip
+        effort/reward/coin fields + skill tags; those values are filled
+        in later by AI (from the proof image) or the parent (via the
+        Adjust action on the submission).
         """
         if user.role == "child":
             data["assigned_to"] = user
+            # Children don't set their own effort or rewards — clear any
+            # values the client might have sent and flag the assignment
+            # as pending review so submit_completion/adjust know to
+            # backfill them.
+            for field in ("effort_level", "reward_amount", "coin_reward"):
+                data.pop(field, None)
+            data["rewards_pending_review"] = True
+            # Skill tags are also parent-only (XP routing decision).
+            data.pop("skill_tags", None)
 
         due_date = data.get("due_date")
         if due_date and due_date < timezone.localdate():
@@ -135,6 +147,13 @@ class HomeworkService:
         """Child submits homework with proof images.
 
         Validates at least 1 image. Computes and snapshots rewards.
+
+        If the assignment has ``rewards_pending_review=True`` (child-created,
+        no parent-set effort/reward/coins), attempts to call Claude vision
+        on the first proof image to estimate ``effort_level``, then applies
+        the configured base reward/coin amounts. On any AI failure the
+        flag stays set and rewards stay at 0 — the parent resolves via
+        the Adjust action before approving.
         """
         if user.role != "child":
             raise HomeworkError("Only children can submit homework.")
@@ -153,6 +172,10 @@ class HomeworkService:
             assignment=assignment, user=user,
         ).exclude(status=HomeworkSubmission.Status.REJECTED).exists():
             raise HomeworkError("You already have a pending or approved submission for this assignment.")
+
+        # AI effort estimation for child-authored assignments.
+        if assignment.rewards_pending_review:
+            HomeworkService._try_ai_effort_estimate(assignment, images[0])
 
         # Compute timeliness and rewards.
         timeliness_label, timeliness_mult = HomeworkService.get_timeliness(
@@ -196,6 +219,109 @@ class HomeworkService:
             link="/homework",
         )
 
+        return submission
+
+    # ------------------------------------------------------------------
+    # AI effort estimation (child-created assignments only)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _try_ai_effort_estimate(assignment, image_file):
+        """Best-effort AI effort estimation from a proof image.
+
+        Mutates ``assignment`` in place on success: sets ``effort_level``,
+        applies the configured base reward/coin amounts, and clears
+        ``rewards_pending_review``. On any failure (missing API key,
+        network error, parse error) logs a warning and leaves the
+        assignment unchanged so the parent Adjust flow handles it.
+        """
+        from . import ai as homework_ai
+
+        # Read image bytes without consuming the upload handle — seek
+        # back to 0 afterward so Django's file storage still writes it
+        # to disk when HomeworkProof is created below.
+        try:
+            pointer = image_file.tell() if hasattr(image_file, "tell") else 0
+            image_bytes = image_file.read()
+            if hasattr(image_file, "seek"):
+                image_file.seek(pointer)
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "Could not read image bytes for AI effort estimation on assignment %s",
+                assignment.pk,
+            )
+            return
+
+        media_type = getattr(image_file, "content_type", None) or "image/jpeg"
+
+        try:
+            effort = homework_ai.estimate_effort_from_proof(
+                image_bytes, assignment, media_type=media_type,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "AI effort estimation failed for assignment %s: %s",
+                assignment.pk, exc,
+            )
+            return
+
+        assignment.effort_level = effort
+        assignment.reward_amount = settings.HOMEWORK_BASE_REWARD_AMOUNT
+        assignment.coin_reward = settings.HOMEWORK_BASE_COIN_REWARD
+        assignment.rewards_pending_review = False
+        assignment.save(update_fields=[
+            "effort_level", "reward_amount", "coin_reward",
+            "rewards_pending_review", "updated_at",
+        ])
+
+    # ------------------------------------------------------------------
+    # Parent Adjust (re-snapshot before approving)
+    # ------------------------------------------------------------------
+    @staticmethod
+    @transaction.atomic
+    def adjust_submission(submission, parent, effort_level, reward_amount, coin_reward):
+        """Parent updates effort/reward/coins on a pending submission.
+
+        Overwrites the assignment's effort/reward/coin fields (so a
+        future re-submission would use the same baseline) and recomputes
+        the submission's reward snapshot using the already-frozen
+        timeliness multiplier. Clears ``rewards_pending_review`` on the
+        assignment. Returns the refreshed submission.
+        """
+        if submission.status != HomeworkSubmission.Status.PENDING:
+            raise HomeworkError("Can only adjust a pending submission.")
+
+        effort_int = int(effort_level)
+        if effort_int < 1 or effort_int > 5:
+            raise HomeworkError("Effort level must be between 1 and 5.")
+
+        reward_dec = Decimal(str(reward_amount))
+        if reward_dec < 0:
+            raise HomeworkError("Reward amount must be non-negative.")
+
+        coin_int = int(coin_reward)
+        if coin_int < 0:
+            raise HomeworkError("Coin reward must be non-negative.")
+
+        assignment = submission.assignment
+        assignment.effort_level = effort_int
+        assignment.reward_amount = reward_dec
+        assignment.coin_reward = coin_int
+        assignment.rewards_pending_review = False
+        assignment.save(update_fields=[
+            "effort_level", "reward_amount", "coin_reward",
+            "rewards_pending_review", "updated_at",
+        ])
+
+        timeliness_mult = submission.timeliness_multiplier
+        submission.reward_amount_snapshot = HomeworkService.compute_reward(
+            reward_dec, effort_int, timeliness_mult,
+        )
+        submission.coin_reward_snapshot = int(HomeworkService.compute_reward(
+            Decimal(str(coin_int)), effort_int, timeliness_mult,
+        ))
+        submission.save(update_fields=[
+            "reward_amount_snapshot", "coin_reward_snapshot",
+        ])
         return submission
 
     # ------------------------------------------------------------------

@@ -296,6 +296,8 @@ export const approveHomeworkSubmission = (id) =>
   api.post(`/homework-submissions/${id}/approve/`);
 export const rejectHomeworkSubmission = (id) =>
   api.post(`/homework-submissions/${id}/reject/`);
+export const adjustHomeworkSubmission = (id, data) =>
+  api.post(`/homework-submissions/${id}/adjust/`, data);
 export const getHomeworkTemplates = () => api.get('/homework-templates/');
 export const createHomeworkTemplate = (data) => api.post('/homework-templates/', data);
 export const deleteHomeworkTemplate = (id) => api.delete(`/homework-templates/${id}/`);

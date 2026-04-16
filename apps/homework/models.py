@@ -43,6 +43,14 @@ class HomeworkAssignment(TimestampedModel):
     )
     is_active = models.BooleanField(default=True)
     notes = models.TextField(blank=True, help_text="Optional parent notes or context.")
+    rewards_pending_review = models.BooleanField(
+        default=False,
+        help_text=(
+            "True when a child created this assignment without setting "
+            "effort/reward/coins. Cleared when AI or a parent (via Adjust) "
+            "fills in the values at submission time."
+        ),
+    )
     project = models.ForeignKey(
         "projects.Project", on_delete=models.SET_NULL,
         null=True, blank=True, related_name="homework_assignments",

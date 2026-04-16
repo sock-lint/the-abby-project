@@ -142,6 +142,86 @@ class HomeworkSubmissionViewSetTests(_Fixture):
         self.assertEqual(len(resp.json()["results"]), 1)
 
 
+class HomeworkAdjustEndpointTests(_Fixture):
+    def setUp(self):
+        super().setUp()
+        self.hw = HomeworkAssignment.objects.create(
+            title="Child HW", subject="math",
+            due_date=timezone.localdate() + timedelta(days=1),
+            assigned_to=self.child, created_by=self.child,
+            reward_amount=Decimal("0"), coin_reward=0,
+            rewards_pending_review=True,
+        )
+        self.sub = HomeworkSubmission.objects.create(
+            assignment=self.hw, user=self.child, status="pending",
+            reward_amount_snapshot=Decimal("0"), coin_reward_snapshot=0,
+            timeliness="on_time", timeliness_multiplier=Decimal("1.0"),
+        )
+
+    def test_parent_can_adjust_pending_submission(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post(
+            f"/api/homework-submissions/{self.sub.pk}/adjust/",
+            {"effort_level": 3, "reward_amount": "2.00", "coin_reward": 10},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.sub.refresh_from_db()
+        self.hw.refresh_from_db()
+        # effort=3 → multiplier=1.0, timeliness=on_time → 1.0; $2×1×1 = $2.
+        self.assertEqual(self.sub.reward_amount_snapshot, Decimal("2.00"))
+        self.assertEqual(self.sub.coin_reward_snapshot, 10)
+        self.assertFalse(self.hw.rewards_pending_review)
+
+    def test_child_cannot_adjust(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(
+            f"/api/homework-submissions/{self.sub.pk}/adjust/",
+            {"effort_level": 5, "reward_amount": "100", "coin_reward": 100},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    def test_adjust_rejects_non_pending(self):
+        self.sub.status = "approved"
+        self.sub.save(update_fields=["status"])
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post(
+            f"/api/homework-submissions/{self.sub.pk}/adjust/",
+            {"effort_level": 3, "reward_amount": "1.00", "coin_reward": 5},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_adjust_validates_effort(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post(
+            f"/api/homework-submissions/{self.sub.pk}/adjust/",
+            {"effort_level": 9, "reward_amount": "1.00", "coin_reward": 5},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+
+
+class HomeworkChildCreateEndpointTests(_Fixture):
+    def test_child_post_ignores_reward_fields(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.post("/api/homework/", {
+            "title": "Self-assigned",
+            "subject": "reading",
+            "due_date": (timezone.localdate() + timedelta(days=2)).isoformat(),
+            "effort_level": 5,
+            "reward_amount": "50.00",
+            "coin_reward": 200,
+        }, format="json")
+        self.assertEqual(resp.status_code, 201)
+        hw = HomeworkAssignment.objects.get(title="Self-assigned")
+        self.assertTrue(hw.rewards_pending_review)
+        self.assertEqual(hw.effort_level, 3)
+        self.assertEqual(hw.reward_amount, Decimal("0.00"))
+        self.assertEqual(hw.coin_reward, 0)
+
+
 class HomeworkDashboardTests(_Fixture):
     def test_child_dashboard_returns_sections(self):
         self.client.force_authenticate(self.child)

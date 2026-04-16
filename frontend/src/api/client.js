@@ -21,6 +21,12 @@ async function request(path, options = {}) {
   const token = getToken();
   const authHeader = token ? { Authorization: `Token ${token}` } : {};
   const config = {
+    // Never serve API responses from the HTTP cache. If an upstream proxy
+    // (Coolify / Traefik) ever returns a cacheable 200 with an HTML "app
+    // is down" page for an API URL, the browser would otherwise keep
+    // serving that stale HTML for hours — and res.json() would blow up on
+    // `<!DOCTYPE html>`. no-store bypasses disk cache on every request.
+    cache: 'no-store',
     headers: { 'Content-Type': 'application/json', ...authHeader, ...options.headers },
     ...options,
   };
@@ -52,6 +58,22 @@ async function request(path, options = {}) {
     throw new Error(errorMessage);
   }
   if (res.status === 204) return null;
+  // Guard against an upstream proxy returning a 200 with an HTML error page
+  // (or anything else non-JSON) — happens when the origin is down and a load
+  // balancer substitutes its own body. We'd rather throw a clear error (and
+  // report it to Sentry) than silently feed `<!DOCTYPE html>` into res.json().
+  const contentType = res.headers?.get?.('content-type') || '';
+  if (!contentType.toLowerCase().includes('application/json')) {
+    const snippet = await res.text().catch(() => '');
+    const preview = snippet.slice(0, 120);
+    Sentry.captureException(
+      new Error(`API 200 with non-JSON body: ${options.method || 'GET'} ${path}`),
+      { extra: { contentType, preview, url } },
+    );
+    throw new Error(
+      `Unexpected non-JSON response from ${path} (content-type: ${contentType || 'missing'})`,
+    );
+  }
   return res.json();
 }
 

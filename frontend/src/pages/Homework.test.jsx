@@ -99,6 +99,133 @@ describe('Homework', () => {
     await waitFor(() => expect(reject.calls).toHaveLength(1));
     expect(reject.calls[0].url).toMatch(/\/homework-submissions\/9\/reject\/$/);
   });
+
+  it('child new-assignment form does not render effort/reward/coin inputs', async () => {
+    const user = userEvent.setup();
+    renderPage(buildUser(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} }),
+      ),
+    ]);
+    const openButton = await screen.findByRole('button', { name: /new assignment/i });
+    await user.click(openButton);
+    // Title input is present to confirm form is open.
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText(/^title$/i)).toBeInTheDocument(),
+    );
+    // Effort/$ reward/Coins labels should NOT be present for children.
+    expect(screen.queryByText(/effort \(1-5\)/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\$ reward/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^coins$/i)).not.toBeInTheDocument();
+    // Helper text is shown instead.
+    expect(screen.getByText(/grown-up will set the reward/i)).toBeInTheDocument();
+  });
+
+  it('parent new-assignment form still renders effort/reward/coin inputs', async () => {
+    const user = userEvent.setup();
+    renderPage(buildParent(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({ pending_submissions: [] }),
+      ),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser({ id: 3 })])),
+    ]);
+    const openButton = await screen.findByRole('button', { name: /new assignment/i });
+    await user.click(openButton);
+    await waitFor(() =>
+      expect(screen.getByText(/effort \(1-5\)/i)).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/\$ reward/i)).toBeInTheDocument();
+    expect(screen.getByText(/^coins$/i)).toBeInTheDocument();
+  });
+
+  it('child create posts only title/description/subject/due_date (no reward fields)', async () => {
+    const user = userEvent.setup();
+    const create = spyHandler('post', /\/api\/homework\/$/, { ok: true });
+    renderPage(buildUser(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} }),
+      ),
+      create.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: /new assignment/i }));
+    await user.type(await screen.findByPlaceholderText(/^title$/i), 'My homework');
+    // Fill due_date via the (only) date input.
+    const container = screen.getByPlaceholderText(/^title$/i).closest('form');
+    const dateInput = container.querySelector('input[type="date"]');
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    await user.type(dateInput, tomorrow);
+    await user.click(screen.getByRole('button', { name: /create assignment/i }));
+
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    const body = create.calls[0].body;
+    expect(body).toHaveProperty('title', 'My homework');
+    expect(body).toHaveProperty('subject');
+    expect(body).toHaveProperty('due_date', tomorrow);
+    expect(body).not.toHaveProperty('effort_level');
+    expect(body).not.toHaveProperty('reward_amount');
+    expect(body).not.toHaveProperty('coin_reward');
+    expect(body).not.toHaveProperty('assigned_to');
+  });
+
+  it('clicking Adjust on a pending submission posts to /homework-submissions/{id}/adjust/', async () => {
+    const user = userEvent.setup();
+    const adjust = spyHandler('post', /\/api\/homework-submissions\/\d+\/adjust\/$/, { ok: true });
+    renderPage(buildParent(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({
+          pending_submissions: [
+            {
+              id: 42,
+              assignment_title: 'Reading log',
+              assignment_rewards_pending_review: true,
+              assignment_created_by_role: 'child',
+              user_name: 'Abby',
+              status: 'pending',
+              proofs: [],
+              timeliness: 'on_time',
+              subject: 'reading',
+              reward_amount_snapshot: '0.00',
+              coin_reward_snapshot: 0,
+              reward_breakdown: {
+                effort_level: 3,
+                base_money: '0.00',
+                base_coins: 0,
+              },
+            },
+          ],
+        }),
+      ),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      adjust.handler,
+    ]);
+
+    await user.click(await screen.findByRole('button', { name: /^adjust$/i }));
+    // Modal form should now show 3 inputs; find them via their labels.
+    const modalTitle = await screen.findByText(/adjust reward/i);
+    const form = modalTitle.closest('div[role="dialog"]') || document.body;
+    const inputs = form.querySelectorAll('input[type="number"]');
+    expect(inputs.length).toBeGreaterThanOrEqual(3);
+
+    // Clear and set the first (effort) to 5.
+    await user.clear(inputs[0]);
+    await user.type(inputs[0], '5');
+    await user.clear(inputs[1]);
+    await user.type(inputs[1], '2.50');
+    await user.clear(inputs[2]);
+    await user.type(inputs[2], '10');
+
+    await user.click(screen.getByRole('button', { name: /save adjustment/i }));
+
+    await waitFor(() => expect(adjust.calls).toHaveLength(1));
+    expect(adjust.calls[0].url).toMatch(/\/homework-submissions\/42\/adjust\/$/);
+    // Number inputs with step=0.01 normalize trailing zeros, so reward_amount
+    // comes through as "2.5" not "2.50".
+    expect(adjust.calls[0].body).toEqual({
+      effort_level: 5,
+      reward_amount: '2.5',
+      coin_reward: 10,
+    });
+  });
 });
 
 // NOTE: child submit-with-proof is not covered here — it requires File/Blob fixtures
