@@ -639,6 +639,9 @@ docker compose exec django python manage.py shell_plus
 # Run backend tests
 docker compose exec django python manage.py test
 
+# Run frontend tests (Vitest + RTL + MSW; coverage gate enforced in CI)
+cd frontend && npm run test:coverage
+
 # Reset everything
 docker compose down -v
 ```

@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'coverage']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -43,7 +43,29 @@ export default defineConfig([
   {
     // Build/config files run in Node, not the browser, so allow ``process``
     // and friends.
-    files: ['vite.config.js', 'eslint.config.js'],
+    files: ['vite.config.js', 'vitest.config.js', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
+  },
+  {
+    // Test files run under Vitest's globals: `vi`, `describe`, `it`,
+    // `expect`, `beforeAll`, `beforeEach`, `afterAll`, `afterEach`. The
+    // `test/` scaffolding imports them explicitly but still needs the same
+    // relaxations as the test files themselves.
+    files: ['src/**/*.test.{js,jsx}', 'src/test/**/*.{js,jsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        vi: 'readonly',
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+        beforeAll: 'readonly',
+        beforeEach: 'readonly',
+        afterAll: 'readonly',
+        afterEach: 'readonly',
+      },
+    },
   },
 ])

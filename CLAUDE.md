@@ -21,6 +21,9 @@ docker compose exec django python manage.py createsuperuser
 cd frontend && npm run dev       # :3000 with /api proxy to :8000
 npm run build
 npm run lint
+npm run test                     # vitest watcher
+npm run test:run                 # one-shot run (CI-style)
+npm run test:coverage            # run + coverage report (gated in CI)
 
 # Backend tests (ingestion pipeline has tests under apps/projects/tests/)
 docker compose exec django python manage.py test
@@ -206,17 +209,37 @@ These are intentionally NOT in settings — they're game-design constants, not d
 - `GROWTH_PREFERRED_FOOD = 15`, `GROWTH_NEUTRAL_FOOD = 5`, `EVOLUTION_THRESHOLD = 100` (in `apps/pets/services.py`) — pet growth mechanics.
 - `TRIGGER_DAMAGE` (in `apps/quests/services.py`) — per-trigger boss damage table; clock_out multiplied by hours.
 
+## Frontend testing (`frontend/`)
+- **Stack:** Vitest 4 + React Testing Library + jsdom + MSW 2 + `@vitest/coverage-v8`. Config lives in `frontend/vitest.config.js` (separate from `vite.config.js` so test-only deps don't leak into production builds).
+- **Layout:** tests are colocated next to source as `*.test.{js,jsx}`. Shared scaffolding lives under `frontend/src/test/`:
+  - `setup.js` — global jest-dom matchers, `vi.mock('@sentry/react', …)`, jsdom polyfills (`matchMedia`, `IntersectionObserver`, `ResizeObserver`, `createImageBitmap`, `HTMLCanvasElement.{getContext,toBlob}`), and MSW lifecycle (`server.listen` / `resetHandlers` / `close`). `localStorage.clear()` runs in `beforeEach`.
+  - `server.js` + `handlers.js` — single MSW node server with permissive defaults (empty success shapes) for every `/api` route in `frontend/src/api/index.js`. Per-test `server.use(http.get(…))` overrides for specific responses.
+  - `render.jsx` — `renderWithProviders(ui, { route, routePath, withAuth })` wraps in `<MemoryRouter>` + `<AuthProvider>`; re-exports RTL helpers and a pre-set-up `userEvent`.
+  - `factories.js` — `buildUser` / `buildParent` / `buildProject` / `buildBadge` / `buildChore` / `buildNotification` builders. Use these instead of inlining fixture objects.
+- **Coverage gate:** thresholds in `vitest.config.js` are 65/55/55/65 (lines/branches/functions/statements). Excluded from coverage: `main.jsx`, `themes.js`, `pages/__design.jsx`, `components/icons/JournalIcons.jsx`, the framer-motion-only journal primitives (`StreakFlame`, `DeckleDivider`, `PageTurnTransition`), `assets/**`, `motion/**`, and the `test/` scaffolding itself.
+- **Animations:** stub `AnimatePresence` per file when its exit animation would block synchronous unmount assertions:
+  ```js
+  vi.mock('framer-motion', async () => {
+    const a = await vi.importActual('framer-motion');
+    return { ...a, AnimatePresence: ({ children }) => children };
+  });
+  ```
+- **Modals:** components that `createPortal(…, document.body)` (FormModal, BottomSheet, ConfirmDialog) — query their backdrop/contents off `document.body`, not the RTL container.
+- **Patterns to reuse:** for click-outside handlers that listen on `document` for `mousedown`, dispatch a synthetic event (`outside.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))`) inside `act(...)`. For pages that poll on an interval, install `vi.useFakeTimers({ shouldAdvanceTime: true })` BEFORE mount so the component's `setInterval` is scheduled with fake timers.
+- **CI:** `.github/workflows/ci-cd.yml` has a `frontend-test` job that runs `npm ci && npm run lint && npm run test:coverage`; the `build` job declares `needs: frontend-test`, so a coverage-threshold failure blocks deploy. When adding new pages/components, write tests in the same PR — the gate will catch missing coverage if it dips below the threshold.
+
 ## Conventions
 - Inherit concrete models from `config.base_models.{CreatedAtModel,TimestampedModel}` instead of hand-rolling `created_at`/`updated_at`. Submit-then-approve models (ChoreCompletion, HomeworkSubmission, RewardRedemption, ExchangeRequest) inherit from `ApprovalWorkflowModel` for `decided_at`/`decided_by`.
 - Subclass `config.services.BaseLedgerService` for any new append-only ledger. Use `config.services.finalize_decision` for approve/reject state transitions rather than hand-stamping `status`/`decided_at`/`decided_by`.
 - For new parent-only endpoints: use `IsParent` from `config.permissions`. For parent-targets-child actions, accept `user_id` in the body and use `get_child_or_404` + `child_not_found_response`.
 - For querysets that should be self-scoped for children but full for parents: use `RoleFilteredQuerySetMixin` and override `get_queryset` to call `get_role_filtered_queryset(super().get_queryset())`.
 - Frontend: import endpoint functions from `frontend/src/api/index.js` (single source of truth) rather than calling `api.get`/`api.post` directly in pages. Use shared components/helpers from `components/`, `constants/`, `utils/` rather than duplicating.
+- Frontend tests: write a colocated `*.test.{js,jsx}` next to any new component, page, hook, or util. Use `frontend/src/test/render.jsx` + `factories.js` rather than inlining provider trees and fixtures. Mock `@sentry/react` is already installed globally — don't re-mock per file.
 - Settings values that belong in Django settings (e.g. `ANTHROPIC_API_KEY`, `CLAUDE_MODEL`, `COINS_PER_HOUR`) should be read via `from django.conf import settings`, not `os.environ`.
 
 ## Key entry points
 - `manage.py`, `config/wsgi.py`, `config/urls.py`, `config/celery.py`, `config/settings.py`
-- `frontend/src/main.jsx`, `frontend/src/App.jsx`, `frontend/vite.config.js`
+- `frontend/src/main.jsx`, `frontend/src/App.jsx`, `frontend/vite.config.js`, `frontend/vitest.config.js`, `frontend/src/test/{setup,server,handlers,render,factories}` (test scaffolding)
 - Seed: `apps/projects/management/commands/seed_data.py` (sample users/projects/chores/habits); RPG catalog comes from `content/rpg/initial/*.yaml` via `apps/rpg/management/commands/loadrpgcontent.py` + `apps/rpg/content/loader.py`.
 - Ingestion: `apps/ingestion/pipeline/pipeline.py`, `runner.py`, `apps/ingestion/tasks.py`
 - Signals: `apps/projects/signals.py` (project completion → ledger + coin hooks + RPG game loop)
