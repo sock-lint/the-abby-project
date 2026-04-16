@@ -7,7 +7,6 @@ import { http, HttpResponse } from 'msw';
 
 const empty = () => HttpResponse.json([]);
 const ok = () => HttpResponse.json({ ok: true });
-const list = () => HttpResponse.json({ count: 0, results: [] });
 const nullBody = () => new HttpResponse(null, { status: 204 });
 
 // Order matters inside MSW — more specific paths first.

@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as Sentry from '@sentry/react';
 import { server } from '../test/server.js';
 import { api, getBlob, getToken, setToken } from './client.js';

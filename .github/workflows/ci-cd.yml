@@ -10,7 +10,27 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  frontend-test:
+    runs-on: [self-hosted, deploy-platform]
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Test with coverage
+        run: npm run test:coverage
+
   build:
+    needs: frontend-test
     runs-on: [self-hosted, deploy-platform]
     permissions:
       contents: read
