@@ -167,6 +167,7 @@ class Migration(migrations.Migration):
                 "verbose_name": "user",
                 "verbose_name_plural": "users",
                 "abstract": False,
+                "swappable": "AUTH_USER_MODEL",
             },
         ),
         migrations.CreateModel(
@@ -244,7 +245,7 @@ class Migration(migrations.Migration):
                         null=True,
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="assigned_projects",
-                        to=settings.AUTH_USER_MODEL,
+                        to="projects.User",
                     ),
                 ),
                 (
@@ -252,7 +253,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="created_projects",
-                        to=settings.AUTH_USER_MODEL,
+                        to="projects.User",
                     ),
                 ),
                 (

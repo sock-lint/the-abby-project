@@ -156,7 +156,7 @@ class ExchangeRequestViewSet(
     approval_service = ExchangeService
 
     def get_queryset(self):
-        return self.get_role_filtered_queryset(super().get_queryset())[:50]
+        return self.get_role_filtered_queryset(super().get_queryset())
 
     def handle_exception(self, exc):
         if isinstance(exc, InsufficientFundsError):
