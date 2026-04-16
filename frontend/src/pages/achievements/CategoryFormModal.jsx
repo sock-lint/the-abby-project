@@ -1,6 +1,6 @@
 import { createCategory, updateCategory } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
-import FormModal from '../../components/FormModal';
+import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
 import { buttonPrimary, inputClass } from '../../constants/styles';
 
@@ -31,7 +31,7 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
   };
 
   return (
-    <FormModal title={isEdit ? 'Edit Category' : 'New Category'} onClose={onClose}>
+    <BottomSheet title={isEdit ? 'Edit Category' : 'New Category'} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
@@ -64,6 +64,6 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
           </button>
         </div>
       </form>
-    </FormModal>
+    </BottomSheet>
   );
 }

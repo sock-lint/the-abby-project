@@ -20,13 +20,12 @@ function useIsDesktop() {
   return isDesktop;
 }
 
-// Long-form modal shell. Dual-mode under the "Sheikah Stamp" DNA:
-//   Desktop (md+)   — centered parchment card with stamp-in motion,
-//                     matches FormModal's feel but wider (max-w-lg).
-//   Mobile          — retains the bottom-sheet slide (thumb-reach),
-//                     adds a sheikah-glyph drag handle, a one-shot teal
-//                     halo across the top edge, deckle-style divider,
-//                     and the parchment texture carries through.
+// Shared modal shell for every form dialog in the app. Dual-mode under the
+// "Sheikah Stamp" DNA:
+//   Desktop (md+)   — centered parchment card with stamp-in motion (max-w-lg).
+//   Mobile          — bottom-sheet slide (thumb-reach), sheikah-glyph drag
+//                     handle, one-shot teal halo across the top edge,
+//                     parchment texture carried through.
 export default function BottomSheet({ title, onClose, disabled, children }) {
   const isDesktop = useIsDesktop();
 

@@ -64,18 +64,19 @@ export default function Homework() {
   const [form, setForm] = useState(emptyForm);
 
   const presets = quickDueDates();
-  // Hide a relative chip when it resolves to the same date as a named-day
-  // chip — otherwise both light up on Thursdays (Tomorrow == Friday),
-  // Sundays (Tomorrow == Next Mon), Fridays (+1 week == Friday), and
-  // Mondays (+1 week == Next Mon).
+  // When a named-day chip resolves to the same date as a relative one,
+  // hide the named chip. Prefer Tomorrow/+1 week so the UI stays stable
+  // (Tomorrow always shows) and the four collision days — Thu, Sun (hide
+  // Friday/Next Mon in favor of Tomorrow) and Fri, Mon (hide Friday/Next
+  // Mon in favor of +1 week) — don't double-pressed two chips.
   const rawChips = [
-    { label: 'Tomorrow', value: presets.tomorrow, named: false },
-    { label: 'Friday', value: presets.friday, named: true },
-    { label: 'Next Mon', value: presets.nextMonday, named: true },
-    { label: '+1 week', value: presets.nextWeek, named: false },
+    { label: 'Tomorrow', value: presets.tomorrow, relative: true },
+    { label: 'Friday', value: presets.friday, relative: false },
+    { label: 'Next Mon', value: presets.nextMonday, relative: false },
+    { label: '+1 week', value: presets.nextWeek, relative: true },
   ];
   const presetChips = rawChips.filter((c, i, arr) =>
-    c.named || !arr.some((o, j) => j !== i && o.named && o.value === c.value),
+    c.relative || !arr.some((o, j) => j !== i && o.relative && o.value === c.value),
   );
 
   const labelClass = 'font-script text-sm text-ink-secondary mb-1 block';

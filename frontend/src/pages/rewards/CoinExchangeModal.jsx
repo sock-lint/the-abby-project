@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowRightLeft, Coins, DollarSign } from 'lucide-react';
 import { getBalance, requestExchange } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
-import FormModal from '../../components/FormModal';
+import BottomSheet from '../../components/BottomSheet';
 import { useApi } from '../../hooks/useApi';
 import { buttonPrimary, inputClass } from '../../constants/styles';
 import { formatCurrency } from '../../utils/format';
@@ -34,7 +34,7 @@ export default function CoinExchangeModal({ exchangeRate, onClose, onSaved }) {
   };
 
   return (
-    <FormModal title="Exchange Money for Coins" onClose={onClose} size="md" scroll={false}>
+    <BottomSheet title="Exchange Money for Coins" onClose={onClose}>
       <ErrorAlert message={error} />
 
       <div className="flex items-center justify-between text-sm mb-4 p-3 bg-ink-page rounded-lg border border-ink-page-shadow">
@@ -84,6 +84,6 @@ export default function CoinExchangeModal({ exchangeRate, onClose, onSaved }) {
         </div>
         <p className="text-[10px] text-ink-whisper text-center">Requires parent approval</p>
       </form>
-    </FormModal>
+    </BottomSheet>
   );
 }

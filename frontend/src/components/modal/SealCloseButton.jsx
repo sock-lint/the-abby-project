@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 // the surface reads like pressed wax. The X sits embossed in the center.
 //
 // Variants:
-//   "ember" (default) — warm red seal, fits FormModal / BottomSheet
+//   "ember" (default) — warm red seal, fits BottomSheet / ConfirmDialog
 //   "teal"             — sheikah teal seal, optional for neutral surfaces
 export default function SealCloseButton({
   onClick,

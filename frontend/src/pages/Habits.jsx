@@ -11,7 +11,7 @@ import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
-import FormModal from '../components/FormModal';
+import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import { ScrollIcon } from '../components/icons/JournalIcons';
 import { buttonPrimary, inputClass } from '../constants/styles';
@@ -69,7 +69,7 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
   };
 
   return (
-    <FormModal title={isEdit ? 'Edit Habit' : 'New Habit'} onClose={onClose}>
+    <BottomSheet title={isEdit ? 'Edit Habit' : 'New Habit'} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
@@ -119,7 +119,7 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
           {saving ? 'Saving…' : isEdit ? 'Update habit' : 'Create habit'}
         </button>
       </form>
-    </FormModal>
+    </BottomSheet>
   );
 }
 

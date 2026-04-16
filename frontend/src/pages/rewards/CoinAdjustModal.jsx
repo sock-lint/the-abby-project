@@ -1,6 +1,6 @@
 import { adjustCoins } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
-import FormModal from '../../components/FormModal';
+import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
 import { buttonPrimary, inputClass } from '../../constants/styles';
 
@@ -26,7 +26,7 @@ export default function CoinAdjustModal({ onClose, onSaved }) {
   };
 
   return (
-    <FormModal title="Adjust Coins" onClose={onClose} size="md" scroll={false}>
+    <BottomSheet title="Adjust Coins" onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
@@ -70,6 +70,6 @@ export default function CoinAdjustModal({ onClose, onSaved }) {
           </button>
         </div>
       </form>
-    </FormModal>
+    </BottomSheet>
   );
 }

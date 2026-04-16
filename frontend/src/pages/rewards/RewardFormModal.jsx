@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createReward, updateReward } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
-import FormModal from '../../components/FormModal';
+import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
 import { buttonPrimary, inputClass } from '../../constants/styles';
 import { downscaleImage } from '../../utils/image';
@@ -55,7 +55,7 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
   };
 
   return (
-    <FormModal title={isEdit ? 'Edit Reward' : 'New Reward'} onClose={onClose}>
+    <BottomSheet title={isEdit ? 'Edit Reward' : 'New Reward'} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
@@ -135,6 +135,6 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
           </button>
         </div>
       </form>
-    </FormModal>
+    </BottomSheet>
   );
 }

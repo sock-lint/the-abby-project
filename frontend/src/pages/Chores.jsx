@@ -17,7 +17,7 @@ import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
-import FormModal from '../components/FormModal';
+import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import { CoinIcon, ScrollIcon } from '../components/icons/JournalIcons';
@@ -91,7 +91,7 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
   const showSchedule = form.recurrence !== 'one_time';
 
   return (
-    <FormModal title={isEdit ? 'Edit Ritual' : 'New Ritual'} onClose={onClose}>
+    <BottomSheet title={isEdit ? 'Edit Ritual' : 'New Ritual'} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
@@ -174,7 +174,7 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
           </button>
         </div>
       </form>
-    </FormModal>
+    </BottomSheet>
   );
 }
 

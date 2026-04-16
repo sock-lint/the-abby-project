@@ -7,7 +7,7 @@ import { useFormState } from '../hooks/useFormState';
 import { useRole } from '../hooks/useRole';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
-import FormModal from '../components/FormModal';
+import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import DeckleDivider from '../components/journal/DeckleDivider';
 import RuneBadge from '../components/journal/RuneBadge';
@@ -61,7 +61,7 @@ function PaymentAdjustModal({ onClose, onSaved }) {
   };
 
   return (
-    <FormModal title="Adjust Balance" onClose={onClose} size="md" scroll={false}>
+    <BottomSheet title="Adjust Balance" onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
@@ -87,7 +87,7 @@ function PaymentAdjustModal({ onClose, onSaved }) {
           </button>
         </div>
       </form>
-    </FormModal>
+    </BottomSheet>
   );
 }
 

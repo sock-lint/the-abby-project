@@ -227,7 +227,7 @@ describe('Homework', () => {
     }
   });
 
-  it('hides the Tomorrow chip on Thursdays so Friday is not duplicated', async () => {
+  it('hides the Friday chip on Thursdays so Tomorrow is not duplicated', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date(2026, 3, 16, 9, 0)); // Thu 2026-04-16 — Tomorrow == Friday
     try {
@@ -238,16 +238,34 @@ describe('Homework', () => {
         ),
       ]);
       await user.click(await screen.findByRole('button', { name: /new assignment/i }));
-      expect(screen.queryByRole('button', { name: /^tomorrow$/i })).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /^friday$/i })).toBeInTheDocument();
-      // Exactly one chip with today+1 value should be "pressable" — i.e. no
-      // two chips share the same aria-pressed state when Friday is chosen.
-      await user.click(screen.getByRole('button', { name: /^friday$/i }));
+      expect(screen.queryByRole('button', { name: /^friday$/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^tomorrow$/i })).toBeInTheDocument();
+      // After clicking Tomorrow, only one chip should be aria-pressed — no
+      // duplicate highlight when two chips would share the same date.
+      await user.click(screen.getByRole('button', { name: /^tomorrow$/i }));
       const pressed = screen
         .getAllByRole('button')
         .filter((b) => b.getAttribute('aria-pressed') === 'true');
       expect(pressed).toHaveLength(1);
-      expect(pressed[0]).toHaveTextContent(/friday/i);
+      expect(pressed[0]).toHaveTextContent(/tomorrow/i);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('hides the Next Mon chip on Mondays so +1 week is not duplicated', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(2026, 3, 13, 9, 0)); // Mon 2026-04-13 — Next Mon == +1 week
+    try {
+      const user = userEvent.setup();
+      renderPage(buildUser(), [
+        http.get('*/api/homework/dashboard/', () =>
+          HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} }),
+        ),
+      ]);
+      await user.click(await screen.findByRole('button', { name: /new assignment/i }));
+      expect(screen.queryByRole('button', { name: /^next mon$/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /\+1 week/i })).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
