@@ -245,7 +245,7 @@ class Migration(migrations.Migration):
                         null=True,
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="assigned_projects",
-                        to="projects.User",
+                        to=settings.AUTH_USER_MODEL,
                     ),
                 ),
                 (
@@ -253,7 +253,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="created_projects",
-                        to="projects.User",
+                        to=settings.AUTH_USER_MODEL,
                     ),
                 ),
                 (

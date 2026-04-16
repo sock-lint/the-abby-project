@@ -20,7 +20,12 @@
       "Bash(docker compose:*)",
       "Bash(python -c \"from PIL import Image; i=Image.open\\(r'C:\\\\Users\\\\socce\\\\Downloads\\\\reward-icons\\\\shikashi\\\\#1 - Transparent Icons.png'\\); print\\('shikashi #1:', i.size\\); i2=Image.open\\(r'C:\\\\Users\\\\socce\\\\Downloads\\\\reward-icons\\\\shikashi2\\\\#1 - Transparent Icons.png'\\); print\\('shikashi2 #1:', i2.size\\)\")",
       "Bash(python -c 'from PIL import Image; import os:*)",
-      "Bash(grep -E \"\\(^\\(OK|FAIL|ERROR|Ran |test_\\)|FAILED|^$\\)\")"
+      "Bash(grep -E \"\\(^\\(OK|FAIL|ERROR|Ran |test_\\)|FAILED|^$\\)\")",
+      "Bash(grep -l \"projects.user\\\\|projects\\\\.User\\\\|to='projects.user'\\\\|to=\\\\\"projects.user\\\\\"\" apps/*/migrations/*.py)",
+      "Bash(grep -l \"settings.AUTH_USER_MODEL\" apps/*/migrations/*.py)",
+      "Bash(grep -rn \"projects\\\\.user\\\\|projects\\\\.User\" apps/*/migrations/ apps/*/models.py apps/*/apps.py)",
+      "Bash(grep -rn 'to=\"projects\\\\|to=\"accounts' apps/*/migrations/*.py)",
+      "Bash(python -c ':*)"
     ]
   }
 }
