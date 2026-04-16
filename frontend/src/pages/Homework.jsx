@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import * as Sentry from '@sentry/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Send, Camera, X, ExternalLink, Sparkles } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
@@ -42,6 +43,8 @@ export default function Homework() {
   const children = childrenData || [];
 
   const [showCreate, setShowCreate] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [creating, setCreating] = useState(false);
   const [showSubmit, setShowSubmit] = useState(null);
   const [submitImages, setSubmitImages] = useState([]);
   const [submitNotes, setSubmitNotes] = useState('');
@@ -84,10 +87,21 @@ export default function Homework() {
       payload.coin_reward = parseInt(form.coin_reward);
       payload.assigned_to = parseInt(form.assigned_to);
     }
-    await createHomework(payload);
-    setShowCreate(false);
-    setForm(emptyForm);
-    reload();
+    setCreating(true);
+    setCreateError('');
+    try {
+      await createHomework(payload);
+      setShowCreate(false);
+      setForm(emptyForm);
+      reload();
+    } catch (err) {
+      // Surface to the user AND to Sentry — silent failures here are how
+      // we shipped the "empty 201 body" bug unnoticed.
+      Sentry.captureException(err, { tags: { area: 'homework.create' } });
+      setCreateError(err?.message || 'Could not create the assignment.');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const openAdjust = (sub) => {
@@ -307,7 +321,7 @@ export default function Homework() {
 
       {/* Create assignment */}
       {showCreate && (
-        <BottomSheet onClose={() => setShowCreate(false)} title="New assignment">
+        <BottomSheet onClose={() => { setShowCreate(false); setCreateError(''); }} title="New assignment">
           <form onSubmit={handleCreate} className="space-y-4">
             <input
               type="text" placeholder="Title" required value={form.title}
@@ -402,8 +416,13 @@ export default function Homework() {
                 ))}
               </select>
             )}
-            <button type="submit" className={`w-full py-2.5 text-sm ${buttonPrimary}`}>
-              Create assignment
+            {createError && <ErrorAlert message={createError} />}
+            <button
+              type="submit"
+              disabled={creating}
+              className={`w-full py-2.5 text-sm ${buttonPrimary}`}
+            >
+              {creating ? 'Creating…' : 'Create assignment'}
             </button>
           </form>
         </BottomSheet>

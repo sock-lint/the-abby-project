@@ -9,6 +9,7 @@ import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
 import { buildParent, buildUser } from '../test/factories.js';
 import { quickDueDates } from '../utils/dates.js';
+import * as Sentry from '@sentry/react';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -211,6 +212,34 @@ describe('Homework', () => {
     expect(submitted).toBe(quickDueDates().friday);
     // Sanity check: it really is a Friday.
     expect(new Date(submitted + 'T12:00:00').getDay()).toBe(5);
+  });
+
+  it('surfaces a backend create error and reports it to Sentry', async () => {
+    Sentry.captureException.mockClear();
+    const user = userEvent.setup();
+    renderPage(buildUser(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} }),
+      ),
+      // Simulate the bug: backend returns 201 with an empty body (no
+      // content-type) — client.js throws "Unexpected non-JSON response".
+      http.post('*/api/homework/', () => new HttpResponse(null, { status: 201 })),
+    ]);
+    await user.click(await screen.findByRole('button', { name: /new assignment/i }));
+    await user.type(await screen.findByPlaceholderText(/^title$/i), 'Will fail');
+    await user.click(screen.getByRole('button', { name: /^tomorrow$/i }));
+    await user.click(screen.getByRole('button', { name: /create assignment/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/non-JSON response/i)).toBeInTheDocument(),
+    );
+    // Page-level capture fires with our area tag; client.js also captures
+    // separately on the non-JSON branch, so we just assert our tagged one.
+    const tagged = Sentry.captureException.mock.calls.find(
+      ([, ctx]) => ctx?.tags?.area === 'homework.create',
+    );
+    expect(tagged).toBeDefined();
+    expect(tagged[0]).toBeInstanceOf(Error);
   });
 
   it('clicking Adjust on a pending submission posts to /homework-submissions/{id}/adjust/', async () => {

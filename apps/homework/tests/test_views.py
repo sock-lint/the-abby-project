@@ -41,6 +41,11 @@ class HomeworkAssignmentCreateTests(_Fixture):
             "coin_reward": 10,
         }, format="json")
         self.assertEqual(resp.status_code, 201)
+        # Response must carry JSON and the serialized assignment — an empty
+        # 201 body breaks the frontend's JSON-only client (see client.js).
+        self.assertIn("application/json", resp["Content-Type"])
+        self.assertEqual(resp.data["title"], "Math ch5")
+        self.assertIn("id", resp.data)
         self.assertTrue(HomeworkAssignment.objects.filter(title="Math ch5").exists())
 
     def test_child_creates_auto_assigns_self(self):
@@ -56,6 +61,8 @@ class HomeworkAssignmentCreateTests(_Fixture):
             "coin_reward": 0,
         }, format="json")
         self.assertEqual(resp.status_code, 201)
+        self.assertIn("application/json", resp["Content-Type"])
+        self.assertEqual(resp.data["title"], "My reading")
         hw = HomeworkAssignment.objects.get(title="My reading")
         self.assertEqual(hw.assigned_to, self.child)
 

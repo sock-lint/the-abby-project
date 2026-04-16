@@ -55,16 +55,19 @@ class HomeworkAssignmentViewSet(
         if user.role == "child":
             data["assigned_to"] = user
 
-        HomeworkService.create_assignment(user, data)
+        return HomeworkService.create_assignment(user, data)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            self.perform_create(serializer)
+            assignment = self.perform_create(serializer)
         except HomeworkError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(status=status.HTTP_201_CREATED)
+        return Response(
+            HomeworkAssignmentSerializer(assignment).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     def perform_destroy(self, instance):
         instance.is_active = False
