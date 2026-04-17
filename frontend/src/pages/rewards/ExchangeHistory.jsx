@@ -1,5 +1,5 @@
 import { ArrowRightLeft } from 'lucide-react';
-import Card from '../../components/Card';
+import ParchmentCard from '../../components/journal/ParchmentCard';
 import { STATUS_COLORS } from '../../constants/colors';
 import { formatCurrency, formatDate } from '../../utils/format';
 
@@ -12,7 +12,7 @@ export default function ExchangeHistory({ exchanges, isParent }) {
       </h2>
       <div className="space-y-2">
         {exchanges.map((ex) => (
-          <Card key={ex.id} className="flex items-center justify-between">
+          <ParchmentCard key={ex.id} className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-sheikah-teal/20 flex items-center justify-center">
                 <ArrowRightLeft size={14} className="text-sheikah-teal-deep" />
@@ -30,7 +30,7 @@ export default function ExchangeHistory({ exchanges, isParent }) {
             <span className={`text-micro px-2 py-0.5 rounded-full border uppercase ${STATUS_COLORS[ex.status] || STATUS_COLORS.pending}`}>
               {ex.status}
             </span>
-          </Card>
+          </ParchmentCard>
         ))}
       </div>
     </div>

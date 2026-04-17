@@ -1,5 +1,5 @@
 import { Clock } from 'lucide-react';
-import Card from '../../components/Card';
+import ParchmentCard from '../../components/journal/ParchmentCard';
 import { STATUS_COLORS } from '../../constants/colors';
 import { formatDate } from '../../utils/format';
 
@@ -12,7 +12,7 @@ export default function RedemptionHistory({ redemptions, isParent }) {
       </h2>
       <div className="space-y-2">
         {redemptions.map((r) => (
-          <Card key={r.id} className="flex items-center justify-between">
+          <ParchmentCard key={r.id} className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="text-xl">{r.reward.icon || '🎁'}</div>
               <div>
@@ -26,7 +26,7 @@ export default function RedemptionHistory({ redemptions, isParent }) {
             <span className={`text-micro px-2 py-0.5 rounded-full border uppercase ${STATUS_COLORS[r.status] || STATUS_COLORS.pending}`}>
               {r.status}
             </span>
-          </Card>
+          </ParchmentCard>
         ))}
       </div>
     </div>

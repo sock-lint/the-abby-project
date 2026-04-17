@@ -1,4 +1,4 @@
-import Card from '../../components/Card';
+import ParchmentCard from '../../components/journal/ParchmentCard';
 import StarRating from '../../components/StarRating';
 
 const chipClass =
@@ -50,7 +50,7 @@ export default function AISuggestions({
     }));
 
   return (
-    <Card className="border-royal/30 bg-fuchsia-400/5 space-y-2">
+    <ParchmentCard className="border-royal/30 bg-fuchsia-400/5 space-y-2">
       <div className="text-xs font-semibold text-royal uppercase tracking-wide">
         ✨ Claude suggestions
       </div>
@@ -113,6 +113,6 @@ export default function AISuggestions({
           </div>
         </div>
       )}
-    </Card>
+    </ParchmentCard>
   );
 }

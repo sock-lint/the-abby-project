@@ -1,5 +1,5 @@
 import ApprovalQueue from '../../components/ApprovalQueue';
-import Card from '../../components/Card';
+import ParchmentCard from '../../components/journal/ParchmentCard';
 import { formatDateTime } from '../../utils/format';
 
 export default function RedemptionApprovalQueue({ pending, onApprove, onReject }) {
@@ -11,7 +11,7 @@ export default function RedemptionApprovalQueue({ pending, onApprove, onReject }
       onReject={onReject}
     >
       {({ item: r, actions }) => (
-        <Card key={r.id} className="flex items-center justify-between">
+        <ParchmentCard key={r.id} className="flex items-center justify-between">
           <div>
             <div className="text-sm font-medium">
               {r.user_name} → {r.reward.icon} {r.reward.name}
@@ -21,7 +21,7 @@ export default function RedemptionApprovalQueue({ pending, onApprove, onReject }
             </div>
           </div>
           {actions}
-        </Card>
+        </ParchmentCard>
       )}
     </ApprovalQueue>
   );

@@ -1,10 +1,10 @@
 import { Plus, Trash2 } from 'lucide-react';
-import Card from '../../components/Card';
+import ParchmentCard from '../../components/journal/ParchmentCard';
 import { TextField } from '../../components/form';
 
 export default function MaterialsEditor({ materials, onAdd, onUpdate, onRemove }) {
   return (
-    <Card className="space-y-3">
+    <ParchmentCard className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg font-bold">Materials ({materials.length})</h2>
         <button onClick={onAdd} className="text-xs text-sheikah-teal-deep hover:text-sheikah-teal-deep flex items-center gap-1">
@@ -36,6 +36,6 @@ export default function MaterialsEditor({ materials, onAdd, onUpdate, onRemove }
           </button>
         </div>
       ))}
-    </Card>
+    </ParchmentCard>
   );
 }

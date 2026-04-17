@@ -5,7 +5,7 @@ import {
 } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import BottomSheet from '../../components/BottomSheet';
-import Card from '../../components/Card';
+import ParchmentCard from '../../components/journal/ParchmentCard';
 import EmptyState from '../../components/EmptyState';
 import ErrorAlert from '../../components/ErrorAlert';
 import Loader from '../../components/Loader';
@@ -340,45 +340,45 @@ export default function CodexSection() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <ParchmentCard>
         <p className="text-sm text-ink-secondary">
           Behind-the-scenes audit of every RPG entry currently loaded from{' '}
           <code className="text-xs px-1.5 py-0.5 bg-ink-page-aged rounded">content/rpg/</code>{' '}
           YAML. The kids discover these organically — this page is for your reference only.
         </p>
-      </Card>
+      </ParchmentCard>
 
       {error && <ErrorAlert error={error} />}
       {loading && <Loader />}
 
       {!loading && !error && (
         <>
-          <Card>
+          <ParchmentCard>
             <SectionHeader
               icon={<Package size={18} className="text-sheikah-teal-deep" />}
               title="Items"
               count={items.length}
             />
             <ItemsBlock items={items} onSelect={setSelectedItem} />
-          </Card>
+          </ParchmentCard>
 
-          <Card>
+          <ParchmentCard>
             <SectionHeader
               icon={<PawPrint size={18} className="text-sheikah-teal-deep" />}
               title="Creatures"
               count={species.length}
             />
             <CreaturesBlock species={species} onSelect={setSelectedSpecies} />
-          </Card>
+          </ParchmentCard>
 
-          <Card>
+          <ParchmentCard>
             <SectionHeader
               icon={<Swords size={18} className="text-sheikah-teal-deep" />}
               title="Adventures"
               count={quests.length}
             />
             <AdventuresBlock quests={quests} onSelect={setSelectedQuest} />
-          </Card>
+          </ParchmentCard>
         </>
       )}
 

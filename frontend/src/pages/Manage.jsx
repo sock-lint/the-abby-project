@@ -13,7 +13,7 @@ import CodexSection from './manage/CodexSection';
 import { useApi } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
 import BottomSheet from '../components/BottomSheet';
-import Card from '../components/Card';
+import ParchmentCard from '../components/journal/ParchmentCard';
 import ConfirmDialog from '../components/ConfirmDialog';
 import StarRating from '../components/StarRating';
 import EmptyState from '../components/EmptyState';
@@ -89,7 +89,7 @@ function ChildrenSection() {
         <EmptyState>No children found. Create child accounts in Django admin.</EmptyState>
       )}
       {children.map((child) => (
-        <Card key={child.id} className="flex items-center gap-4">
+        <ParchmentCard key={child.id} className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-sheikah-teal/20 flex items-center justify-center text-sheikah-teal-deep text-lg font-bold shrink-0">
             {(child.display_name || child.username || '?')[0].toUpperCase()}
           </div>
@@ -115,7 +115,7 @@ function ChildrenSection() {
           >
             <Pencil size={14} /> Edit
           </Button>
-        </Card>
+        </ParchmentCard>
       ))}
 
       <AnimatePresence>
@@ -246,7 +246,7 @@ function TemplatesSection() {
       )}
 
       {templates.map((t) => (
-        <Card key={t.id} className="space-y-2">
+        <ParchmentCard key={t.id} className="space-y-2">
           <div className="flex items-start justify-between">
             <div>
               <div className="font-semibold text-ink-primary">{t.title}</div>
@@ -294,7 +294,7 @@ function TemplatesSection() {
           {t.description && (
             <p className="text-xs text-ink-whisper line-clamp-2">{t.description}</p>
           )}
-        </Card>
+        </ParchmentCard>
       ))}
 
       <AnimatePresence>

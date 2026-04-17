@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Sparkles } from 'lucide-react';
 import { createProject, getCategories, getChildren, getInstructablesPreview } from '../api';
 import { useApi } from '../hooks/useApi';
-import Card from '../components/Card';
+import ParchmentCard from '../components/journal/ParchmentCard';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
 import { TextField, SelectField, TextAreaField } from '../components/form';
@@ -80,7 +80,7 @@ export default function ProjectNew() {
       </button>
 
       <form onSubmit={handleSubmit}>
-        <Card className="space-y-4">
+        <ParchmentCard className="space-y-4">
           <ErrorAlert message={error} />
 
           <TextField label="Title" value={form.title} onChange={set('title')} required />
@@ -177,7 +177,7 @@ export default function ProjectNew() {
           <Button type="submit" className="w-full">
             Create Project
           </Button>
-        </Card>
+        </ParchmentCard>
       </form>
     </div>
   );

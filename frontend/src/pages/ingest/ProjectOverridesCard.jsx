@@ -1,4 +1,4 @@
-import Card from '../../components/Card';
+import ParchmentCard from '../../components/journal/ParchmentCard';
 import { TextField, SelectField, TextAreaField } from '../../components/form';
 
 /**
@@ -14,7 +14,7 @@ export default function ProjectOverridesCard({
   const setOverride = (k) => (e) => setOverrides({ ...overrides, [k]: e.target.value });
 
   return (
-    <Card className="space-y-4">
+    <ParchmentCard className="space-y-4">
       <h2 className="font-display text-lg font-bold">Review &amp; Edit</h2>
 
       {draft.cover_photo_url && (
@@ -69,6 +69,6 @@ export default function ProjectOverridesCard({
           type="date"
         />
       </div>
-    </Card>
+    </ParchmentCard>
   );
 }

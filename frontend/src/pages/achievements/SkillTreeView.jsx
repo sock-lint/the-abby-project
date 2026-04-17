@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, Unlock } from 'lucide-react';
 import { getSkillTree } from '../../api';
 import BottomSheet from '../../components/BottomSheet';
-import Card from '../../components/Card';
+import ParchmentCard from '../../components/journal/ParchmentCard';
 import EmptyState from '../../components/EmptyState';
 import Loader from '../../components/Loader';
 import ProgressBar from '../../components/ProgressBar';
@@ -26,7 +26,7 @@ function SkillCard({ skill, onSelect, index }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
     >
-      <Card
+      <ParchmentCard
         className={`${!skill.unlocked ? 'opacity-40' : ''} cursor-pointer active:scale-[0.98] transition-transform`}
         onClick={onSelect}
       >
@@ -69,7 +69,7 @@ function SkillCard({ skill, onSelect, index }) {
             ).join(', ')}
           </div>
         )}
-      </Card>
+      </ParchmentCard>
     </motion.div>
   );
 }
@@ -220,7 +220,7 @@ export default function SkillTreeView({ categories }) {
 
       {tree && !treeLoading && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-          <Card className="flex items-center justify-between !p-3 md:!p-4">
+          <ParchmentCard className="flex items-center justify-between !p-3 md:!p-4">
             <div className="flex items-center gap-2">
               <span className="text-xl md:text-2xl">{tree.category.icon}</span>
               <div>
@@ -230,7 +230,7 @@ export default function SkillTreeView({ categories }) {
                 </div>
               </div>
             </div>
-          </Card>
+          </ParchmentCard>
 
           {tree.subjects.map((subject) => (
             <div key={subject.id} className="space-y-2 border-l-2 border-sheikah-teal-deep/30 pl-3">

@@ -4,7 +4,7 @@ import {
   getBadges, getSkills, getSubjects,
   deleteBadge, deleteCategory, deleteSkill, deleteSubject,
 } from '../../api';
-import Card from '../../components/Card';
+import ParchmentCard from '../../components/journal/ParchmentCard';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import ErrorAlert from '../../components/ErrorAlert';
 import TabButton from '../../components/TabButton';
@@ -62,7 +62,7 @@ export default function ManagePanel({ categories, reloadCategories }) {
   ];
 
   const renderRow = (item, type, extra) => (
-    <Card key={item.id} className="flex items-center justify-between">
+    <ParchmentCard key={item.id} className="flex items-center justify-between">
       <div className="flex items-center gap-2 min-w-0">
         {item.icon && <span className="text-lg shrink-0">{item.icon}</span>}
         <div className="min-w-0">
@@ -90,7 +90,7 @@ export default function ManagePanel({ categories, reloadCategories }) {
           <Trash2 size={14} />
         </IconButton>
       </div>
-    </Card>
+    </ParchmentCard>
   );
 
   return (

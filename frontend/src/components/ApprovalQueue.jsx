@@ -7,9 +7,9 @@ import ApprovalButtons from './ApprovalButtons';
  * provides a render function via `children` that receives `{ item, actions }`
  * — `actions` is the pre-wired `<ApprovalButtons>` node that calls
  * `onApprove(item.id)` / `onReject(item.id)`. The caller is responsible for
- * wrapping the row in its own `<Card>` so each queue (chore row, homework
- * card with proof gallery, redemption row, exchange row) stays free to
- * choose its layout.
+ * wrapping the row in its own `<ParchmentCard>` so each queue (chore row,
+ * homework card with proof gallery, redemption row, exchange row) stays free
+ * to choose its layout.
  *
  * Returns null when `items` is empty (queues stay out of sight unless
  * something is actually pending), unless `emptyText` is given.

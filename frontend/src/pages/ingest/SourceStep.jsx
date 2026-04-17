@@ -1,5 +1,5 @@
 import { FileText, Link as LinkIcon } from 'lucide-react';
-import Card from '../../components/Card';
+import ParchmentCard from '../../components/journal/ParchmentCard';
 import TabButton from '../../components/TabButton';
 import Button from '../../components/Button';
 import { formLabelClass } from '../../constants/styles';
@@ -14,7 +14,7 @@ export default function SourceStep({
   const disabled = sourceTab === 'url' ? !url : !file;
 
   return (
-    <Card className="space-y-4">
+    <ParchmentCard className="space-y-4">
       <div className="flex gap-2">
         <TabButton active={sourceTab === 'url'} onClick={() => setSourceTab('url')}>
           <span className="flex items-center gap-2"><LinkIcon size={14} /> URL</span>
@@ -50,6 +50,6 @@ export default function SourceStep({
       <Button onClick={onStart} disabled={disabled} className="w-full">
         Parse Source
       </Button>
-    </Card>
+    </ParchmentCard>
   );
 }

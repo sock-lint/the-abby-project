@@ -10,7 +10,7 @@ import {
   updateIngestJob,
 } from '../api';
 import { useApi } from '../hooks/useApi';
-import Card from '../components/Card';
+import ParchmentCard from '../components/journal/ParchmentCard';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import { normalizeList } from '../utils/api';
@@ -250,14 +250,14 @@ export default function ProjectIngest() {
       )}
 
       {phase === 'polling' && (
-        <Card className="flex flex-col items-center py-10 gap-4">
+        <ParchmentCard className="flex flex-col items-center py-10 gap-4">
           <Loader />
           <div className="text-sm text-ink-whisper">Reading the steps…</div>
-        </Card>
+        </ParchmentCard>
       )}
 
       {phase === 'error' && (
-        <Card className="space-y-3">
+        <ParchmentCard className="space-y-3">
           <p className="text-sm text-ink-whisper">We couldn't parse that source.</p>
           <div className="flex gap-2">
             <button
@@ -273,7 +273,7 @@ export default function ProjectIngest() {
               Manual form
             </button>
           </div>
-        </Card>
+        </ParchmentCard>
       )}
 
       {phase === 'preview' && draft && (
