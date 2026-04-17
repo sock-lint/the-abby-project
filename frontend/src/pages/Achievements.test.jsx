@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Achievements from './Achievements.jsx';
 import { AuthProvider } from '../hooks/useApi.js';
@@ -13,15 +12,13 @@ vi.mock('framer-motion', async () => {
   return { ...a, AnimatePresence: ({ children }) => children };
 });
 
-function renderPage(
-  { user = buildUser(), handlers = [], initialRoute = '/achievements' } = {},
-) {
+function renderPage({ user = buildUser(), handlers = [] } = {}) {
   server.use(
     http.get('*/api/auth/me/', () => HttpResponse.json(user)),
     ...handlers,
   );
   return render(
-    <MemoryRouter initialEntries={[initialRoute]}>
+    <MemoryRouter>
       <AuthProvider>
         <Achievements />
       </AuthProvider>
@@ -29,8 +26,8 @@ function renderPage(
   );
 }
 
-describe('Achievements', () => {
-  it('renders error block when summary fetch fails', async () => {
+describe('Achievements (Skills page)', () => {
+  it('renders an error block when summary fetch fails', async () => {
     renderPage({
       handlers: [
         http.get('*/api/achievements/summary/', () =>
@@ -43,84 +40,35 @@ describe('Achievements', () => {
     );
   });
 
-  it('defaults to the Atlas tab and renders the skill tree', async () => {
+  it('renders the Skills header and skill tree for a child', async () => {
     renderPage({
       handlers: [
         http.get('*/api/achievements/summary/', () => HttpResponse.json({ badges_earned: [] })),
-        http.get('*/api/badges/', () => HttpResponse.json([])),
         http.get('*/api/categories/', () =>
           HttpResponse.json([{ id: 1, name: 'Woodworking', icon: '🪵' }]),
         ),
       ],
     });
     await waitFor(() =>
-      expect(screen.getByRole('tab', { name: 'Atlas' })).toHaveAttribute('aria-selected', 'true'),
+      expect(screen.getByRole('heading', { name: 'Skills' })).toBeInTheDocument(),
     );
-    expect(screen.getByRole('tab', { name: 'Sigils' })).toHaveAttribute('aria-selected', 'false');
+    // Child should NOT see View | Manage toggle.
+    expect(screen.queryByRole('tab', { name: 'Manage' })).toBeNull();
+    // Category pennant renders as a tab.
+    expect(screen.getByRole('tab', { name: /Woodworking/ })).toBeInTheDocument();
   });
 
-  it('renders the sigils view when ?tab=sigils is present', async () => {
-    renderPage({
-      initialRoute: '/achievements?tab=sigils',
-      handlers: [
-        http.get('*/api/achievements/summary/', () => HttpResponse.json({ badges_earned: [] })),
-        http.get('*/api/badges/', () =>
-          HttpResponse.json([{ id: 1, name: 'First Stitch', rarity: 'common', icon: '🧵' }]),
-        ),
-        http.get('*/api/categories/', () => HttpResponse.json([])),
-      ],
-    });
-    await waitFor(() =>
-      expect(screen.getByRole('tab', { name: 'Sigils' })).toHaveAttribute('aria-selected', 'true'),
-    );
-    expect(screen.getByText('First Stitch')).toBeInTheDocument();
-    expect(screen.getByText(/0 of 1 sigils sealed/i)).toBeInTheDocument();
-  });
-
-  it('falls back to Atlas when ?tab is unknown', async () => {
-    renderPage({
-      initialRoute: '/achievements?tab=bogus',
-      handlers: [
-        http.get('*/api/achievements/summary/', () => HttpResponse.json({ badges_earned: [] })),
-        http.get('*/api/badges/', () => HttpResponse.json([])),
-        http.get('*/api/categories/', () => HttpResponse.json([])),
-      ],
-    });
-    await waitFor(() =>
-      expect(screen.getByRole('tab', { name: 'Atlas' })).toHaveAttribute('aria-selected', 'true'),
-    );
-  });
-
-  it('switches from Atlas to Sigils on click', async () => {
-    const user = userEvent.setup();
-    renderPage({
-      handlers: [
-        http.get('*/api/achievements/summary/', () => HttpResponse.json({ badges_earned: [] })),
-        http.get('*/api/badges/', () =>
-          HttpResponse.json([{ id: 1, name: 'First Stitch', rarity: 'common', icon: '🧵' }]),
-        ),
-        http.get('*/api/categories/', () => HttpResponse.json([])),
-      ],
-    });
-    await waitFor(() =>
-      expect(screen.getByRole('tab', { name: 'Atlas' })).toHaveAttribute('aria-selected', 'true'),
-    );
-    await user.click(screen.getByRole('tab', { name: 'Sigils' }));
-    await waitFor(() =>
-      expect(screen.getByRole('tab', { name: 'Sigils' })).toHaveAttribute('aria-selected', 'true'),
-    );
-    expect(screen.getByText('First Stitch')).toBeInTheDocument();
-  });
-
-  it('parent sees manage panel tab', async () => {
+  it('parent sees the View | Manage toggle', async () => {
     renderPage({
       user: buildParent(),
       handlers: [
         http.get('*/api/achievements/summary/', () => HttpResponse.json({ badges_earned: [] })),
+        http.get('*/api/categories/', () => HttpResponse.json([])),
       ],
     });
     await waitFor(() =>
       expect(screen.getByRole('tab', { name: 'Manage' })).toBeInTheDocument(),
     );
+    expect(screen.getByRole('tab', { name: 'View' })).toHaveAttribute('aria-selected', 'true');
   });
 });

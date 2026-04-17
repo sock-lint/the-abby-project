@@ -43,7 +43,7 @@ Page-specific `*Card` components start as sibling files inside their owning page
 - `pages/Homework/AssignmentCard.jsx` — used only by `pages/Homework/index.jsx`
 - `pages/manage/CatalogCard.jsx` — used only by `pages/manage/CodexSection.jsx`
 - `pages/achievements/SkillStanza.jsx` + `CategoryPennant.jsx` + `CategoryRibbon.jsx` + `CategoryCapitulare.jsx` + `ChapterRubric.jsx` + `PrereqChain.jsx` + `SkillDetailSheet.jsx` — all used only by `pages/achievements/SkillTreeView.jsx`
-- `pages/achievements/BadgeSigil.jsx` + `BadgeSigilGrid.jsx` + `BadgeDetailSheet.jsx` — used only by `pages/Achievements.jsx`
+- `pages/achievements/BadgeSigil.jsx` + `BadgeSigilGrid.jsx` + `BadgeDetailSheet.jsx` — used only by `pages/Badges.jsx` (kept under `achievements/` because `ManagePanel.jsx` is the single cross-cutting admin surface for badges, so the files that describe badges still co-locate with it)
 - `pages/rewards/RewardCard.jsx` — used only by `pages/rewards/RewardShop.jsx`
 - `pages/rewards/CoinBalanceCard.jsx` — used only by `pages/rewards/Rewards.jsx`
 - `pages/ingest/ProjectOverridesCard.jsx` — used only by `pages/ingest/ReviewStep.jsx`
