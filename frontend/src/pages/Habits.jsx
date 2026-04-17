@@ -14,7 +14,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import { ScrollIcon } from '../components/icons/JournalIcons';
-import { buttonPrimary } from '../constants/styles';
+import Button from '../components/Button';
 import { TextField, SelectField } from '../components/form';
 import { normalizeList } from '../utils/api';
 
@@ -93,13 +93,9 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
           <TextField label="Max taps / day" type="number" min="1" max="50" value={form.max_taps_per_day} onChange={onField('max_taps_per_day')} />
           <TextField label="XP reward" type="number" min="0" value={form.xp_reward} onChange={onField('xp_reward')} />
         </div>
-        <button
-          type="submit"
-          disabled={saving}
-          className={`${buttonPrimary} w-full py-2.5`}
-        >
+        <Button type="submit" disabled={saving} className="w-full">
           {saving ? 'Saving…' : isEdit ? 'Update ritual' : 'Create ritual'}
-        </button>
+        </Button>
       </form>
     </BottomSheet>
   );
@@ -157,13 +153,13 @@ export default function Habits() {
           </h2>
         </div>
         {isParent && (
-          <button
-            type="button"
+          <Button
+            size="sm"
             onClick={() => { setEditingHabit(null); setShowForm(true); }}
-            className={`${buttonPrimary} flex items-center gap-1.5 px-3 py-2 text-sm`}
+            className="flex items-center gap-1.5"
           >
             <Plus size={16} /> New ritual
-          </button>
+          </Button>
         )}
       </header>
 
