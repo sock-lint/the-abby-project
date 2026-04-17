@@ -224,6 +224,7 @@ function CreatureDetail({ species }) {
                 >
                   <span
                     className="w-3 h-3 rounded-full border border-ink-page-shadow"
+                    // intentional: neutral gray fallback for missing user data (no neutral-gray token in palette)
                     style={{ backgroundColor: p.color_hex || '#888' }}
                   />
                   {p.name}
