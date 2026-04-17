@@ -2,7 +2,7 @@ import { createResource } from '../../../api';
 import BottomSheet from '../../../components/BottomSheet';
 import ErrorAlert from '../../../components/ErrorAlert';
 import { useFormState } from '../../../hooks/useFormState';
-import { buttonPrimary, buttonSecondary } from '../../../constants/styles';
+import Button from '../../../components/Button';
 import { TextField, SelectField } from '../../../components/form';
 
 export default function AddResourceModal({ projectId, steps, onClose, onSaved }) {
@@ -66,12 +66,12 @@ export default function AddResourceModal({ projectId, steps, onClose, onSaved })
           </SelectField>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} disabled={saving} className={`flex-1 py-3 ${buttonSecondary}`}>
+          <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
-          </button>
-          <button type="submit" disabled={saving || !form.url.trim()} className={`flex-1 py-3 ${buttonPrimary}`}>
+          </Button>
+          <Button type="submit" disabled={saving || !form.url.trim()} className="flex-1">
             {saving ? 'Adding...' : 'Add Resource'}
-          </button>
+          </Button>
         </div>
       </form>
     </BottomSheet>

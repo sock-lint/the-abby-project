@@ -4,7 +4,7 @@ import { saveProjectAsTemplate } from '../../api';
 import StarRating from '../../components/StarRating';
 import StatusBadge from '../../components/StatusBadge';
 import RuneBadge from '../../components/journal/RuneBadge';
-import { buttonPrimary, buttonSecondary, buttonSuccess } from '../../constants/styles';
+import Button from '../../components/Button';
 
 /**
  * Top section of ProjectDetail — back link, title/status row, and action
@@ -55,13 +55,9 @@ export default function ProjectHeader({
         </div>
         <div className="flex gap-2 flex-wrap">
           {isParent && (project.status === 'draft' || project.status === 'active') && (
-            <button
-              type="button"
-              onClick={() => onAction('activate')}
-              className={`px-4 py-2 text-sm ${buttonPrimary}`}
-            >
+            <Button size="sm" onClick={() => onAction('activate')}>
               Activate venture
-            </button>
+            </Button>
           )}
           {isAssigned && project.status === 'in_progress' && (
             <button
@@ -74,47 +70,42 @@ export default function ProjectHeader({
           )}
           {isParent && project.status === 'in_review' && (
             <>
-              <button
-                type="button"
-                onClick={() => onAction('approve')}
-                className={`px-4 py-2 text-sm ${buttonSuccess}`}
-              >
+              <Button variant="success" size="sm" onClick={() => onAction('approve')}>
                 Approve
-              </button>
-              <button
-                type="button"
-                onClick={() => onAction('request-changes')}
-                className={`px-4 py-2 text-sm ${buttonSecondary}`}
-              >
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => onAction('request-changes')}>
                 Request changes
-              </button>
+              </Button>
             </>
           )}
           {isParent && project.status === 'completed' && (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handleSaveAsTemplate}
-              className={`flex items-center gap-1 px-4 py-2 text-sm ${buttonSecondary}`}
+              className="flex items-center gap-1"
             >
               <Copy size={14} /> Save as template
-            </button>
+            </Button>
           )}
           {isParent && (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={onEdit}
-              className={`flex items-center gap-1 px-3 py-2 text-sm ${buttonSecondary}`}
+              className="flex items-center gap-1"
             >
               <Pencil size={14} /> Edit
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={onOpenQR}
-            className={`flex items-center gap-1 px-3 py-2 text-sm ${buttonSecondary}`}
+            className="flex items-center gap-1"
           >
             <QrCode size={14} /> QR
-          </button>
+          </Button>
         </div>
       </div>
     </>

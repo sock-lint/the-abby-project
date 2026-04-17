@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import BottomSheet from '../../../components/BottomSheet';
-import { buttonPrimary, buttonSecondary } from '../../../constants/styles';
+import Button from '../../../components/Button';
 
 export default function RequestChangesModal({ onClose, onSubmit }) {
   const [notes, setNotes] = useState('');
@@ -30,22 +30,12 @@ export default function RequestChangesModal({ onClose, onSubmit }) {
         className="w-full bg-ink-page border border-ink-page-shadow rounded-lg px-3 py-2 text-ink-primary text-base resize-none focus:outline-none focus:border-sheikah-teal-deep"
       />
       <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={submitting}
-          className={`flex-1 py-3 ${buttonSecondary}`}
-        >
+        <Button variant="secondary" onClick={onClose} disabled={submitting} className="flex-1">
           Cancel
-        </button>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={submitting || !notes.trim()}
-          className={`flex-1 py-3 disabled:cursor-not-allowed ${buttonPrimary}`}
-        >
+        </Button>
+        <Button onClick={handleSubmit} disabled={submitting || !notes.trim()} className="flex-1">
           {submitting ? 'Sending...' : 'Send'}
-        </button>
+        </Button>
       </div>
     </BottomSheet>
   );

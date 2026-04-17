@@ -2,7 +2,7 @@ import { createStep } from '../../../api';
 import BottomSheet from '../../../components/BottomSheet';
 import ErrorAlert from '../../../components/ErrorAlert';
 import { useFormState } from '../../../hooks/useFormState';
-import { buttonPrimary, buttonSecondary } from '../../../constants/styles';
+import Button from '../../../components/Button';
 import { TextField, SelectField, TextAreaField } from '../../../components/form';
 
 export default function AddStepModal({
@@ -61,12 +61,12 @@ export default function AddStepModal({
           </SelectField>
         )}
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} disabled={saving} className={`flex-1 py-3 ${buttonSecondary}`}>
+          <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
-          </button>
-          <button type="submit" disabled={saving || !form.title.trim()} className={`flex-1 py-3 ${buttonPrimary}`}>
+          </Button>
+          <Button type="submit" disabled={saving || !form.title.trim()} className="flex-1">
             {saving ? 'Adding...' : 'Add Step'}
-          </button>
+          </Button>
         </div>
       </form>
     </BottomSheet>

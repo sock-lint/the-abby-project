@@ -3,7 +3,7 @@ import BottomSheet from '../../../components/BottomSheet';
 import ErrorAlert from '../../../components/ErrorAlert';
 import { useApi } from '../../../hooks/useApi';
 import { useFormState } from '../../../hooks/useFormState';
-import { buttonPrimary, buttonSecondary } from '../../../constants/styles';
+import Button from '../../../components/Button';
 import { TextField, SelectField, TextAreaField } from '../../../components/form';
 import { normalizeList } from '../../../utils/api';
 
@@ -92,12 +92,12 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
         <TextField label="Due Date" value={form.due_date} onChange={onField('due_date')} type="date" />
         <TextAreaField label="Parent Notes" value={form.parent_notes} onChange={onField('parent_notes')} rows={2} placeholder="Private notes" />
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} disabled={saving} className={`flex-1 py-3 ${buttonSecondary}`}>
+          <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
-          </button>
-          <button type="submit" disabled={saving} className={`flex-1 py-3 ${buttonPrimary}`}>
+          </Button>
+          <Button type="submit" disabled={saving} className="flex-1">
             {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+          </Button>
         </div>
       </form>
     </BottomSheet>

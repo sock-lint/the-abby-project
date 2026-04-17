@@ -2,7 +2,7 @@ import { createMaterial } from '../../../api';
 import BottomSheet from '../../../components/BottomSheet';
 import ErrorAlert from '../../../components/ErrorAlert';
 import { useFormState } from '../../../hooks/useFormState';
-import { buttonPrimary, buttonSecondary } from '../../../constants/styles';
+import Button from '../../../components/Button';
 import { TextField, TextAreaField } from '../../../components/form';
 
 export default function AddMaterialModal({ projectId, onClose, onSaved }) {
@@ -41,12 +41,12 @@ export default function AddMaterialModal({ projectId, onClose, onSaved }) {
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
         <TextField label="Estimated Cost ($)" value={form.estimated_cost} onChange={onField('estimated_cost')} type="number" step="0.01" min="0" />
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} disabled={saving} className={`flex-1 py-3 ${buttonSecondary}`}>
+          <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
-          </button>
-          <button type="submit" disabled={saving || !form.name.trim()} className={`flex-1 py-3 ${buttonPrimary}`}>
+          </Button>
+          <Button type="submit" disabled={saving || !form.name.trim()} className="flex-1">
             {saving ? 'Adding...' : 'Add Material'}
-          </button>
+          </Button>
         </div>
       </form>
     </BottomSheet>
