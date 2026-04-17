@@ -19,7 +19,8 @@ import StarRating from '../components/StarRating';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
-import { buttonPrimary, buttonSecondary, inputClass } from '../constants/styles';
+import { buttonPrimary, buttonSecondary } from '../constants/styles';
+import { TextField, SelectField, TextAreaField } from '../components/form';
 import { normalizeList } from '../utils/api';
 
 const tabs = ['Children', 'Templates', 'Codex'];
@@ -176,14 +177,8 @@ function EditChildModal({ child, onClose, onSaved }) {
     <BottomSheet title={`Edit ${child.display_name || child.username}`} onClose={onClose} disabled={saving}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
-        <div>
-          <label className="block text-xs text-ink-whisper mb-1">Display Name</label>
-          <input value={form.display_name} onChange={onField('display_name')} className={inputClass} placeholder={child.username} />
-        </div>
-        <div>
-          <label className="block text-xs text-ink-whisper mb-1">Hourly Rate ($)</label>
-          <input value={form.hourly_rate} onChange={onField('hourly_rate')} className={inputClass} type="number" step="0.01" min="0" required />
-        </div>
+        <TextField label="Display Name" value={form.display_name} onChange={onField('display_name')} placeholder={child.username} />
+        <TextField label="Hourly Rate ($)" value={form.hourly_rate} onChange={onField('hourly_rate')} type="number" step="0.01" min="0" required />
         <div>
           <label className="block text-xs text-ink-whisper mb-1">Google Account</label>
           {child.google_linked ? (
@@ -351,15 +346,12 @@ function UseTemplateModal({ template, children, onClose, onCreated }) {
         This will create a new project with {template.milestones?.length || 0} milestones
         and {template.materials?.length || 0} materials from this template.
       </p>
-      <div>
-        <label className="block text-xs text-ink-whisper mb-1">Assign To</label>
-        <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className={inputClass}>
-          <option value="">Unassigned</option>
-          {children.map((c) => (
-            <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
-          ))}
-        </select>
-      </div>
+      <SelectField label="Assign To" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
+        <option value="">Unassigned</option>
+        {children.map((c) => (
+          <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
+        ))}
+      </SelectField>
       <div className="flex gap-2">
         <button type="button" onClick={onClose} disabled={creating} className={`flex-1 py-3 ${buttonSecondary}`}>
           Cancel
@@ -412,38 +404,20 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
     <BottomSheet title="Edit Template" onClose={onClose} disabled={saving}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
-        <div>
-          <label className="block text-xs text-ink-whisper mb-1">Title</label>
-          <input value={form.title} onChange={onField('title')} className={inputClass} required />
-        </div>
-        <div>
-          <label className="block text-xs text-ink-whisper mb-1">Description</label>
-          <textarea value={form.description} onChange={onField('description')} className={`${inputClass} h-20 resize-none`} />
+        <TextField label="Title" value={form.title} onChange={onField('title')} required />
+        <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={3} />
+        <div className="grid grid-cols-2 gap-3">
+          <SelectField label="Category" value={form.category_id} onChange={onField('category_id')}>
+            <option value="">None</option>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+          </SelectField>
+          <SelectField label="Difficulty" value={form.difficulty} onChange={onField('difficulty')}>
+            {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
+          </SelectField>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-ink-whisper mb-1">Category</label>
-            <select value={form.category_id} onChange={onField('category_id')} className={inputClass}>
-              <option value="">None</option>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-ink-whisper mb-1">Difficulty</label>
-            <select value={form.difficulty} onChange={onField('difficulty')} className={inputClass}>
-              {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-ink-whisper mb-1">Bonus ($)</label>
-            <input value={form.bonus_amount} onChange={onField('bonus_amount')} className={inputClass} type="number" step="0.01" min="0" />
-          </div>
-          <div>
-            <label className="block text-xs text-ink-whisper mb-1">Budget ($)</label>
-            <input value={form.materials_budget} onChange={onField('materials_budget')} className={inputClass} type="number" step="0.01" min="0" />
-          </div>
+          <TextField label="Bonus ($)" value={form.bonus_amount} onChange={onField('bonus_amount')} type="number" step="0.01" min="0" />
+          <TextField label="Budget ($)" value={form.materials_budget} onChange={onField('materials_budget')} type="number" step="0.01" min="0" />
         </div>
         <label className="flex items-center gap-2 text-sm text-ink-primary cursor-pointer">
           <input

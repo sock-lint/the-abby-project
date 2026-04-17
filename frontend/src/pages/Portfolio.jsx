@@ -8,7 +8,8 @@ import BottomSheet from '../components/BottomSheet';
 import EmptyState from '../components/EmptyState';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
-import { buttonPrimary, inputClass } from '../constants/styles';
+import { buttonPrimary } from '../constants/styles';
+import { TextField, SelectField } from '../components/form';
 import { downscaleImage } from '../utils/image';
 import { normalizeList } from '../utils/api';
 
@@ -210,22 +211,19 @@ function UploadSheet({ projects, onClose, onUploaded }) {
     <BottomSheet title="Upload Photo" onClose={onClose} disabled={uploading}>
       <ErrorAlert message={error} />
 
-      <div>
-        <label className="block text-sm text-ink-whisper mb-1">Project</label>
-        <select
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-          className={inputClass}
-          disabled={uploading}
-        >
-          <option value="">Select a project...</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.title}
-            </option>
-          ))}
-        </select>
-      </div>
+      <SelectField
+        label="Project"
+        value={projectId}
+        onChange={(e) => setProjectId(e.target.value)}
+        disabled={uploading}
+      >
+        <option value="">Select a project...</option>
+        {projects.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.title}
+          </option>
+        ))}
+      </SelectField>
 
       <div>
         <label className="block text-sm text-ink-whisper mb-1">Photo</label>
@@ -263,18 +261,15 @@ function UploadSheet({ projects, onClose, onUploaded }) {
         )}
       </div>
 
-      <div>
-        <label className="block text-sm text-ink-whisper mb-1">Caption (optional)</label>
-        <input
-          type="text"
-          value={caption}
-          onChange={(e) => setCaption(e.target.value)}
-          className={inputClass}
-          placeholder="What are we looking at?"
-          disabled={uploading}
-          maxLength={255}
-        />
-      </div>
+      <TextField
+        label="Caption (optional)"
+        type="text"
+        value={caption}
+        onChange={(e) => setCaption(e.target.value)}
+        placeholder="What are we looking at?"
+        disabled={uploading}
+        maxLength={255}
+      />
 
       <button
         type="button"

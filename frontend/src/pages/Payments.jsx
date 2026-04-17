@@ -12,7 +12,8 @@ import ParchmentCard from '../components/journal/ParchmentCard';
 import DeckleDivider from '../components/journal/DeckleDivider';
 import RuneBadge from '../components/journal/RuneBadge';
 import { formatCurrency } from '../utils/format';
-import { buttonPrimary, inputClass } from '../constants/styles';
+import { buttonPrimary } from '../constants/styles';
+import { TextField } from '../components/form';
 
 // Each ledger category maps to a journal-compatible tone rather than a
 // neon accent. Icons remain lucide-react glyphs, colored via tone class.
@@ -64,20 +65,16 @@ function PaymentAdjustModal({ onClose, onSaved }) {
     <BottomSheet title="Adjust Balance" onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="font-script text-sm text-ink-secondary mb-1 block">Child User ID</label>
-          <input className={inputClass} type="number" value={form.user_id} onChange={onField('user_id')} required placeholder="Enter child user ID" />
-        </div>
-        <div>
-          <label className="font-script text-sm text-ink-secondary mb-1 block">
-            Amount <span className="text-ink-whisper">(positive = credit, negative = debit)</span>
-          </label>
-          <input className={inputClass} type="number" step="0.01" value={form.amount} onChange={onField('amount')} required />
-        </div>
-        <div>
-          <label className="font-script text-sm text-ink-secondary mb-1 block">Description</label>
-          <input className={inputClass} value={form.description} onChange={onField('description')} placeholder="Reason for adjustment" />
-        </div>
+        <TextField label="Child User ID" type="number" value={form.user_id} onChange={onField('user_id')} required placeholder="Enter child user ID" />
+        <TextField
+          label={<>Amount <span className="text-ink-whisper">(positive = credit, negative = debit)</span></>}
+          type="number"
+          step="0.01"
+          value={form.amount}
+          onChange={onField('amount')}
+          required
+        />
+        <TextField label="Description" value={form.description} onChange={onField('description')} placeholder="Reason for adjustment" />
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-secondary hover:text-ink-primary">
             Cancel

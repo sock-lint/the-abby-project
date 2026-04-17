@@ -13,7 +13,8 @@ import { EggIcon, DragonIcon } from '../components/icons/JournalIcons';
 import RpgSprite from '../components/rpg/RpgSprite';
 import { normalizeList } from '../utils/api';
 import { RARITY_RING_COLORS, RARITY_TEXT_COLORS } from '../constants/colors';
-import { buttonPrimary, inputClass } from '../constants/styles';
+import { buttonPrimary } from '../constants/styles';
+import { SelectField } from '../components/form';
 
 export default function Stable() {
   const { data: stableData, loading: loadingStable, reload: reloadStable } = useApi(getStable);
@@ -130,48 +131,32 @@ export default function Stable() {
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label
-                htmlFor="hatch-egg"
-                className="block font-script text-sm text-ink-secondary mb-1"
-              >
-                Egg
-              </label>
-              <select
-                id="hatch-egg"
-                className={inputClass}
-                value={hatchEgg}
-                onChange={(e) => setHatchEgg(e.target.value)}
-              >
-                <option value="">Select an egg…</option>
-                {eggs.map((e) => (
-                  <option key={e.item.id} value={e.item.id}>
-                    {e.item.icon} {e.item.name} (×{e.quantity})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label
-                htmlFor="hatch-potion"
-                className="block font-script text-sm text-ink-secondary mb-1"
-              >
-                Potion
-              </label>
-              <select
-                id="hatch-potion"
-                className={inputClass}
-                value={hatchPotion}
-                onChange={(e) => setHatchPotion(e.target.value)}
-              >
-                <option value="">Select a potion…</option>
-                {potions.map((e) => (
-                  <option key={e.item.id} value={e.item.id}>
-                    {e.item.icon} {e.item.name} (×{e.quantity})
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SelectField
+              id="hatch-egg"
+              label="Egg"
+              value={hatchEgg}
+              onChange={(e) => setHatchEgg(e.target.value)}
+            >
+              <option value="">Select an egg…</option>
+              {eggs.map((e) => (
+                <option key={e.item.id} value={e.item.id}>
+                  {e.item.icon} {e.item.name} (×{e.quantity})
+                </option>
+              ))}
+            </SelectField>
+            <SelectField
+              id="hatch-potion"
+              label="Potion"
+              value={hatchPotion}
+              onChange={(e) => setHatchPotion(e.target.value)}
+            >
+              <option value="">Select a potion…</option>
+              {potions.map((e) => (
+                <option key={e.item.id} value={e.item.id}>
+                  {e.item.icon} {e.item.name} (×{e.quantity})
+                </option>
+              ))}
+            </SelectField>
           </div>
           <button
             type="button"

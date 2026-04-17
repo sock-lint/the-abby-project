@@ -21,7 +21,8 @@ import TimelinessBadge from '../components/TimelinessBadge';
 import ProofGallery from '../components/ProofGallery';
 import StatusBadge from '../components/StatusBadge';
 import ParchmentCard from '../components/journal/ParchmentCard';
-import { buttonPrimary, buttonSuccess, inputClass } from '../constants/styles';
+import { buttonPrimary, buttonSuccess } from '../constants/styles';
+import { TextField, SelectField, TextAreaField } from '../components/form';
 import { quickDueDates } from '../utils/dates';
 
 const SUBJECTS = [
@@ -70,8 +71,6 @@ export default function Homework() {
   const presetChips = rawChips.filter((c, i, arr) =>
     c.relative || !arr.some((o, j) => j !== i && o.relative && o.value === c.value),
   );
-
-  const labelClass = 'font-script text-sm text-ink-secondary mb-1 block';
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -251,19 +250,17 @@ export default function Homework() {
       {showCreate && (
         <BottomSheet onClose={() => { setShowCreate(false); setCreateError(''); }} title="New assignment">
           <form onSubmit={handleCreate} className="space-y-4">
-            <input
+            <TextField
               type="text" placeholder="Title" required value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className={inputClass}
             />
-            <textarea
+            <TextAreaField
               placeholder="Description (optional)" value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className={inputClass}
               rows={2}
             />
             <div>
-              <label className={labelClass}>Due</label>
+              <span className="font-script text-sm text-ink-secondary mb-1 block">Due</span>
               <div className="flex flex-wrap gap-2 mb-2">
                 {presetChips.map((chip) => {
                   const active = form.due_date === chip.value;
@@ -286,31 +283,25 @@ export default function Homework() {
                 })}
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <select
-                  value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                  className={inputClass}
+                <SelectField
+                  value={form.subject}
+                  onChange={(e) => setForm({ ...form, subject: e.target.value })}
                 >
                   {SUBJECTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-                <input
+                </SelectField>
+                <TextField
                   type="date" required value={form.due_date}
                   onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-                  className={inputClass}
                 />
               </div>
             </div>
             {isParent && (
-              <div>
-                <label className={labelClass}>Effort (1-5)</label>
-                <input
-                  type="number" min={1} max={5} value={form.effort_level}
-                  onChange={(e) => setForm({ ...form, effort_level: e.target.value })}
-                  className={inputClass}
-                />
-                <p className="font-script text-xs text-ink-whisper italic mt-1">
-                  Weights XP distribution across skill tags — no money or coins.
-                </p>
-              </div>
+              <TextField
+                label="Effort (1-5)"
+                type="number" min={1} max={5} value={form.effort_level}
+                onChange={(e) => setForm({ ...form, effort_level: e.target.value })}
+                helpText="Weights XP distribution across skill tags — no money or coins."
+              />
             )}
             {!isParent && (
               <p className="font-script text-xs text-ink-whisper italic">
@@ -319,16 +310,15 @@ export default function Homework() {
               </p>
             )}
             {isParent && children.length > 0 && (
-              <select
+              <SelectField
                 value={form.assigned_to} required
                 onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
-                className={inputClass}
               >
                 <option value="">Assign to…</option>
                 {children.map((c) => (
                   <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
                 ))}
-              </select>
+              </SelectField>
             )}
             {createError && <ErrorAlert message={createError} />}
             <button

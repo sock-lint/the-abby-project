@@ -5,7 +5,8 @@ import { createProject, getCategories, getChildren, getInstructablesPreview } fr
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import ErrorAlert from '../components/ErrorAlert';
-import { buttonPrimary, inputClass } from '../constants/styles';
+import { buttonPrimary } from '../constants/styles';
+import { TextField, SelectField, TextAreaField } from '../components/form';
 import { normalizeList } from '../utils/api';
 
 export default function ProjectNew() {
@@ -82,21 +83,14 @@ export default function ProjectNew() {
         <Card className="space-y-4">
           <ErrorAlert message={error} />
 
+          <TextField label="Title" value={form.title} onChange={set('title')} required />
+          <TextAreaField label="Description" value={form.description} onChange={set('description')} rows={3} />
           <div>
-            <label className="block text-sm text-ink-whisper mb-1">Title</label>
-            <input value={form.title} onChange={set('title')} className={inputClass} required />
-          </div>
-          <div>
-            <label className="block text-sm text-ink-whisper mb-1">Description</label>
-            <textarea value={form.description} onChange={set('description')} className={`${inputClass} h-24 resize-none`} />
-          </div>
-          <div>
-            <label className="block text-sm text-ink-whisper mb-1">Instructables URL</label>
-            <input
+            <TextField
+              label="Instructables URL"
               value={form.instructables_url}
               onChange={set('instructables_url')}
               onBlur={(e) => fetchPreview(e.target.value)}
-              className={inputClass}
               type="url"
               placeholder="https://www.instructables.com/..."
             />
@@ -115,88 +109,70 @@ export default function ProjectNew() {
             )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-ink-whisper mb-1">Category</label>
-              <select value={form.category_id} onChange={set('category_id')} className={inputClass}>
-                <option value="">None</option>
-                {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-ink-whisper mb-1">Difficulty</label>
-              <select value={form.difficulty} onChange={set('difficulty')} className={inputClass}>
-                {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
-              </select>
-            </div>
+            <SelectField label="Category" value={form.category_id} onChange={set('category_id')}>
+              <option value="">None</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+            </SelectField>
+            <SelectField label="Difficulty" value={form.difficulty} onChange={set('difficulty')}>
+              {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
+            </SelectField>
           </div>
 
           {/* Assignment */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-ink-whisper mb-1">Assign To</label>
-              <select value={form.assigned_to_id} onChange={set('assigned_to_id')} className={inputClass}>
-                <option value="">{form.payment_kind === 'bounty' ? 'Unassigned (open bounty)' : 'Select a child...'}</option>
-                {children.map((c) => (
-                  <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-ink-whisper mb-1">Hourly Rate Override ($)</label>
-              <input
-                value={form.hourly_rate_override}
-                onChange={set('hourly_rate_override')}
-                className={inputClass}
-                type="number"
-                step="0.01"
-                min="0"
-                inputMode="decimal"
-                placeholder={form.assigned_to_id
-                  ? `Default: $${children.find(c => c.id === parseInt(form.assigned_to_id))?.hourly_rate || '—'}/hr`
-                  : 'Select child first'}
-              />
-            </div>
+            <SelectField label="Assign To" value={form.assigned_to_id} onChange={set('assigned_to_id')}>
+              <option value="">{form.payment_kind === 'bounty' ? 'Unassigned (open bounty)' : 'Select a child...'}</option>
+              {children.map((c) => (
+                <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
+              ))}
+            </SelectField>
+            <TextField
+              label="Hourly Rate Override ($)"
+              value={form.hourly_rate_override}
+              onChange={set('hourly_rate_override')}
+              type="number"
+              step="0.01"
+              min="0"
+              inputMode="decimal"
+              placeholder={form.assigned_to_id
+                ? `Default: $${children.find(c => c.id === parseInt(form.assigned_to_id))?.hourly_rate || '—'}/hr`
+                : 'Select child first'}
+            />
           </div>
 
-          <div>
-            <label className="block text-sm text-ink-whisper mb-1">Payment Kind</label>
-            <select value={form.payment_kind} onChange={set('payment_kind')} className={inputClass}>
-              <option value="required">Required (part of allowance)</option>
-              <option value="bounty">Bounty (up for grabs, cash reward)</option>
-            </select>
-            <p className="text-xs text-ink-whisper mt-1">
-              {form.payment_kind === 'bounty'
-                ? 'Completing this project pays out the bonus as a bounty.'
-                : 'Counts toward normal allowance; bonus is a standard project bonus.'}
-            </p>
-          </div>
+          <SelectField
+            label="Payment Kind"
+            value={form.payment_kind}
+            onChange={set('payment_kind')}
+            helpText={form.payment_kind === 'bounty'
+              ? 'Completing this project pays out the bonus as a bounty.'
+              : 'Counts toward normal allowance; bonus is a standard project bonus.'}
+          >
+            <option value="required">Required (part of allowance)</option>
+            <option value="bounty">Bounty (up for grabs, cash reward)</option>
+          </SelectField>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm text-ink-whisper mb-1">
-                {form.payment_kind === 'bounty' ? 'Bounty ($)' : 'Bonus ($)'}
-              </label>
-              <input value={form.bonus_amount} onChange={set('bonus_amount')} className={inputClass} type="number" step="0.01" min="0" inputMode="decimal" />
-            </div>
-            <div>
-              <label className="block text-sm text-ink-whisper mb-1">Materials Budget ($)</label>
-              <input value={form.materials_budget} onChange={set('materials_budget')} className={inputClass} type="number" step="0.01" min="0" inputMode="decimal" />
-            </div>
-            <div>
-              <label className="block text-sm text-ink-whisper mb-1">Due Date</label>
-              <input value={form.due_date} onChange={set('due_date')} className={inputClass} type="date" />
-            </div>
+            <TextField
+              label={form.payment_kind === 'bounty' ? 'Bounty ($)' : 'Bonus ($)'}
+              value={form.bonus_amount}
+              onChange={set('bonus_amount')}
+              type="number"
+              step="0.01"
+              min="0"
+              inputMode="decimal"
+            />
+            <TextField label="Materials Budget ($)" value={form.materials_budget} onChange={set('materials_budget')} type="number" step="0.01" min="0" inputMode="decimal" />
+            <TextField label="Due Date" value={form.due_date} onChange={set('due_date')} type="date" />
           </div>
 
           {/* Parent Notes */}
-          <div>
-            <label className="block text-sm text-ink-whisper mb-1">Parent Notes</label>
-            <textarea
-              value={form.parent_notes}
-              onChange={set('parent_notes')}
-              className={`${inputClass} h-20 resize-none`}
-              placeholder="Private notes (only visible to parents)"
-            />
-          </div>
+          <TextAreaField
+            label="Parent Notes"
+            value={form.parent_notes}
+            onChange={set('parent_notes')}
+            rows={3}
+            placeholder="Private notes (only visible to parents)"
+          />
 
           <button type="submit" className={`w-full py-2.5 ${buttonPrimary}`}>
             Create Project

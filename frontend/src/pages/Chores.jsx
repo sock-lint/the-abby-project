@@ -23,7 +23,8 @@ import RuneBadge from '../components/journal/RuneBadge';
 import { CoinIcon, ScrollIcon } from '../components/icons/JournalIcons';
 import { formatDate } from '../utils/format';
 import { normalizeList } from '../utils/api';
-import { buttonPrimary, inputClass } from '../constants/styles';
+import { buttonPrimary } from '../constants/styles';
+import { TextField, SelectField, TextAreaField } from '../components/form';
 
 const RECURRENCE_LABELS = { daily: 'Daily', weekly: 'Weekly', one_time: 'One-time' };
 const WEEK_SCHEDULE_LABELS = { every_week: 'Every week', alternating: 'Alternating weeks' };
@@ -87,77 +88,46 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
     }
   };
 
-  const labelClass = 'font-script text-sm text-ink-secondary mb-1 block';
   const showSchedule = form.recurrence !== 'one_time';
 
   return (
     <BottomSheet title={isEdit ? 'Edit Duty' : 'New Duty'} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className={labelClass}>Title</label>
-          <input className={inputClass} value={form.title} onChange={onField('title')} required />
-        </div>
-        <div>
-          <label className={labelClass}>Description</label>
-          <textarea className={inputClass} value={form.description} onChange={onField('description')} rows={2} />
-        </div>
+        <TextField label="Title" value={form.title} onChange={onField('title')} required />
+        <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
         <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className={labelClass}>Icon</label>
-            <input className={inputClass} value={form.icon} onChange={onField('icon')} placeholder="🧹" />
-          </div>
-          <div>
-            <label className={labelClass}>Reward ($)</label>
-            <input className={inputClass} type="number" min="0" step="0.25" value={form.reward_amount} onChange={onField('reward_amount')} />
-          </div>
-          <div>
-            <label className={labelClass}>Coins</label>
-            <input className={inputClass} type="number" min="0" value={form.coin_reward} onChange={onField('coin_reward')} />
-          </div>
+          <TextField label="Icon" value={form.icon} onChange={onField('icon')} placeholder="🧹" />
+          <TextField label="Reward ($)" type="number" min="0" step="0.25" value={form.reward_amount} onChange={onField('reward_amount')} />
+          <TextField label="Coins" type="number" min="0" value={form.coin_reward} onChange={onField('coin_reward')} />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelClass}>Recurrence</label>
-            <select className={inputClass} value={form.recurrence} onChange={onField('recurrence')}>
-              {Object.entries(RECURRENCE_LABELS).map(([v, l]) => (
-                <option key={v} value={v}>{l}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>Assign to</label>
-            <select className={inputClass} value={form.assigned_to} onChange={onField('assigned_to')}>
-              <option value="">All children</option>
-              {children.map((c) => (
-                <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
-              ))}
-            </select>
-          </div>
+          <SelectField label="Recurrence" value={form.recurrence} onChange={onField('recurrence')}>
+            {Object.entries(RECURRENCE_LABELS).map(([v, l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </SelectField>
+          <SelectField label="Assign to" value={form.assigned_to} onChange={onField('assigned_to')}>
+            <option value="">All children</option>
+            {children.map((c) => (
+              <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
+            ))}
+          </SelectField>
         </div>
         {showSchedule && (
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Custody schedule</label>
-              <select className={inputClass} value={form.week_schedule} onChange={onField('week_schedule')}>
-                {Object.entries(WEEK_SCHEDULE_LABELS).map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
-                ))}
-              </select>
-            </div>
+            <SelectField label="Custody schedule" value={form.week_schedule} onChange={onField('week_schedule')}>
+              {Object.entries(WEEK_SCHEDULE_LABELS).map(([v, l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </SelectField>
             {form.week_schedule === 'alternating' && (
-              <div>
-                <label className={labelClass}>Start date (on-week)</label>
-                <input className={inputClass} type="date" value={form.schedule_start_date} onChange={onField('schedule_start_date')} />
-              </div>
+              <TextField label="Start date (on-week)" type="date" value={form.schedule_start_date} onChange={onField('schedule_start_date')} />
             )}
           </div>
         )}
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelClass}>Order</label>
-            <input className={inputClass} type="number" value={form.order} onChange={onField('order')} />
-          </div>
+          <TextField label="Order" type="number" value={form.order} onChange={onField('order')} />
           <div className="flex items-end pb-1">
             <label className="flex items-center gap-2 font-body text-sm text-ink-primary">
               <input type="checkbox" checked={form.is_active} onChange={onField('is_active')} className="accent-sheikah-teal-deep" />

@@ -11,8 +11,9 @@ import {
 } from '../components/icons/JournalIcons';
 import {
   buttonPrimary, buttonSecondary, buttonDanger, buttonSuccess, buttonGhost,
-  inputClass, headingDisplay, headingScript,
+  headingDisplay, headingScript,
 } from '../constants/styles';
+import { TextField, SelectField, TextAreaField } from '../components/form';
 
 export default function DesignShowcase() {
   return (
@@ -262,16 +263,37 @@ export default function DesignShowcase() {
         <Labeled label="Dragon"><DragonIcon size={28} /></Labeled>
       </section>
 
-      <DeckleDivider glyph="sheikah-eye" label="Form input" />
+      <DeckleDivider glyph="sheikah-eye" label="Form primitives" />
 
-      <ParchmentCard>
-        <label className="block font-script text-sm text-ink-secondary mb-1" htmlFor="demo-input">
-          What ventures are stirring today?
-        </label>
-        <input
-          id="demo-input"
-          className={inputClass}
+      <ParchmentCard className="space-y-4">
+        <TextField
+          id="demo-text"
+          label="What ventures are stirring today?"
           placeholder="Sketch a dragon, plan a campfire, ink a letter…"
+          helpText="TextField — labeled input with helpText slot."
+        />
+        <SelectField
+          id="demo-select"
+          label="Pick a quest"
+          helpText="SelectField — labeled select; pass <option> children directly."
+        >
+          <option value="">Choose…</option>
+          <option value="dragon">Slay a dragon</option>
+          <option value="forge">Forge a sword</option>
+          <option value="map">Chart a map</option>
+        </SelectField>
+        <TextAreaField
+          id="demo-textarea"
+          label="Notes for the next traveller"
+          rows={3}
+          placeholder="Mind the embers near dusk…"
+          helpText="TextAreaField — labeled textarea; rows defaults to 3."
+        />
+        <TextField
+          id="demo-error"
+          label="Field with error"
+          defaultValue="invalid-input"
+          error="This field has an error message wired through aria-describedby."
         />
       </ParchmentCard>
 

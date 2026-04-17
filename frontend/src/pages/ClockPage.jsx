@@ -10,7 +10,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import { ClockFabIcon, InkwellIcon } from '../components/icons/JournalIcons';
-import { inputClass } from '../constants/styles';
+import { SelectField, TextAreaField } from '../components/form';
 import { formatDate, formatDuration } from '../utils/format';
 import { normalizeList } from '../utils/api';
 
@@ -112,12 +112,12 @@ export default function ClockPage() {
                   {formatTime(elapsed)}
                 </div>
                 <div className="mb-4">
-                  <textarea
+                  <TextAreaField
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Scribble what you did…"
                     inputMode="text"
-                    className={`${inputClass} resize-none h-20`}
+                    rows={3}
                   />
                 </div>
                 <motion.button
@@ -137,16 +137,15 @@ export default function ClockPage() {
                   00:00:00
                 </div>
                 <div className="mb-4">
-                  <select
+                  <SelectField
                     value={selectedProject}
                     onChange={(e) => setSelectedProject(e.target.value)}
-                    className={inputClass}
                   >
                     <option value="">Select a venture…</option>
                     {projects.filter((p) => ['active', 'in_progress'].includes(p.status)).map((p) => (
                       <option key={p.id} value={p.id}>{p.title}</option>
                     ))}
-                  </select>
+                  </SelectField>
                 </div>
                 <motion.button
                   type="button"

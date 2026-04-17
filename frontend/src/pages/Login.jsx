@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import ErrorAlert from '../components/ErrorAlert';
 import { getGoogleLoginUrl } from '../api';
 import ParchmentCard from '../components/journal/ParchmentCard';
-import { buttonPrimary, inputClass } from '../constants/styles';
+import { buttonPrimary } from '../constants/styles';
+import { TextField } from '../components/form';
 
 /**
  * Login — the front page of the journal. Sign-in form on parchment with
@@ -75,39 +76,23 @@ export default function Login({ onLogin }) {
         <ParchmentCard flourish as="form" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <ErrorAlert message={error} />
-            <div>
-              <label
-                htmlFor="login-username"
-                className="block font-script text-sm text-ink-secondary mb-1"
-              >
-                Name in the ledger
-              </label>
-              <input
-                id="login-username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className={inputClass}
-                autoFocus
-                autoComplete="username"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="login-password"
-                className="block font-script text-sm text-ink-secondary mb-1"
-              >
-                Secret word
-              </label>
-              <input
-                id="login-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={inputClass}
-                autoComplete="current-password"
-              />
-            </div>
+            <TextField
+              id="login-username"
+              label="Name in the ledger"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoFocus
+              autoComplete="username"
+            />
+            <TextField
+              id="login-password"
+              label="Secret word"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
             <button
               type="submit"
               disabled={loading}
