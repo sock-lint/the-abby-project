@@ -2,7 +2,8 @@ import { createSkill, updateSkill } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
-import { buttonPrimary, inputClass } from '../../constants/styles';
+import { buttonPrimary } from '../../constants/styles';
+import { TextField, SelectField, TextAreaField } from '../../components/form';
 
 export default function SkillFormModal({ item, categories, subjects, onClose, onSaved }) {
   const isEdit = !!item;
@@ -57,53 +58,32 @@ export default function SkillFormModal({ item, categories, subjects, onClose, on
     <BottomSheet title={isEdit ? 'Edit Skill' : 'New Skill'} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Name</label>
-          <input className={inputClass} value={form.name} onChange={onField('name')} required />
+        <TextField label="Name" value={form.name} onChange={onField('name')} required />
+        <div className="grid grid-cols-2 gap-3">
+          <SelectField label="Category" value={form.category} onChange={onField('category')} required>
+            <option value="">Select...</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+            ))}
+          </SelectField>
+          <SelectField label="Subject" value={form.subject} onChange={onField('subject')}>
+            <option value="">None</option>
+            {filteredSubjects.map((s) => (
+              <option key={s.id} value={s.id}>{s.icon} {s.name}</option>
+            ))}
+          </SelectField>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Category</label>
-            <select className={inputClass} value={form.category} onChange={onField('category')} required>
-              <option value="">Select...</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Subject</label>
-            <select className={inputClass} value={form.subject} onChange={onField('subject')}>
-              <option value="">None</option>
-              {filteredSubjects.map((s) => (
-                <option key={s.id} value={s.id}>{s.icon} {s.name}</option>
-              ))}
-            </select>
-          </div>
+          <TextField label="Icon" value={form.icon} onChange={onField('icon')} />
+          <TextField label="Order" type="number" value={form.order} onChange={onField('order')} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Icon</label>
-            <input className={inputClass} value={form.icon} onChange={onField('icon')} />
-          </div>
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Order</label>
-            <input className={inputClass} type="number" value={form.order} onChange={onField('order')} />
-          </div>
-        </div>
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Description</label>
-          <textarea className={inputClass} value={form.description} onChange={onField('description')} rows={2} />
-        </div>
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Level Names (JSON)</label>
-          <input
-            className={inputClass}
-            value={form.level_names}
-            onChange={onField('level_names')}
-            placeholder='{"0":"Novice","1":"Apprentice"}'
-          />
-        </div>
+        <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
+        <TextField
+          label="Level Names (JSON)"
+          value={form.level_names}
+          onChange={onField('level_names')}
+          placeholder='{"0":"Novice","1":"Apprentice"}'
+        />
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"

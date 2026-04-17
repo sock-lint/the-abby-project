@@ -2,7 +2,8 @@ import { createBadge, updateBadge } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
-import { buttonPrimary, inputClass } from '../../constants/styles';
+import { buttonPrimary } from '../../constants/styles';
+import { TextField, SelectField, TextAreaField } from '../../components/form';
 
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 
@@ -60,58 +61,34 @@ export default function BadgeFormModal({ item, subjects, onClose, onSaved }) {
     <BottomSheet title={isEdit ? 'Edit Badge' : 'New Badge'} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Name</label>
-          <input className={inputClass} value={form.name} onChange={onField('name')} required />
-        </div>
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Description</label>
-          <textarea className={inputClass} value={form.description} onChange={onField('description')} rows={2} required />
-        </div>
+        <TextField label="Name" value={form.name} onChange={onField('name')} required />
+        <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} required />
         <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Icon</label>
-            <input className={inputClass} value={form.icon} onChange={onField('icon')} />
-          </div>
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Rarity</label>
-            <select className={inputClass} value={form.rarity} onChange={onField('rarity')}>
-              {RARITIES.map((r) => (
-                <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">XP Bonus</label>
-            <input className={inputClass} type="number" min="0" value={form.xp_bonus} onChange={onField('xp_bonus')} />
-          </div>
-        </div>
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Subject (optional)</label>
-          <select className={inputClass} value={form.subject} onChange={onField('subject')}>
-            <option value="">None</option>
-            {subjects.map((s) => (
-              <option key={s.id} value={s.id}>{s.icon} {s.name}</option>
+          <TextField label="Icon" value={form.icon} onChange={onField('icon')} />
+          <SelectField label="Rarity" value={form.rarity} onChange={onField('rarity')}>
+            {RARITIES.map((r) => (
+              <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
             ))}
-          </select>
+          </SelectField>
+          <TextField label="XP Bonus" type="number" min="0" value={form.xp_bonus} onChange={onField('xp_bonus')} />
         </div>
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Criteria Type</label>
-          <select className={inputClass} value={form.criteria_type} onChange={onField('criteria_type')}>
-            {CRITERIA_TYPES.map((ct) => (
-              <option key={ct} value={ct}>{ct.replace(/_/g, ' ')}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Criteria Value (JSON)</label>
-          <input
-            className={inputClass}
-            value={form.criteria_value}
-            onChange={onField('criteria_value')}
-            placeholder='{"count": 5}'
-          />
-        </div>
+        <SelectField label="Subject (optional)" value={form.subject} onChange={onField('subject')}>
+          <option value="">None</option>
+          {subjects.map((s) => (
+            <option key={s.id} value={s.id}>{s.icon} {s.name}</option>
+          ))}
+        </SelectField>
+        <SelectField label="Criteria Type" value={form.criteria_type} onChange={onField('criteria_type')}>
+          {CRITERIA_TYPES.map((ct) => (
+            <option key={ct} value={ct}>{ct.replace(/_/g, ' ')}</option>
+          ))}
+        </SelectField>
+        <TextField
+          label="Criteria Value (JSON)"
+          value={form.criteria_value}
+          onChange={onField('criteria_value')}
+          placeholder='{"count": 5}'
+        />
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper">Cancel</button>
           <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>

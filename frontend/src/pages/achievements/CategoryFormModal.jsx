@@ -2,7 +2,8 @@ import { createCategory, updateCategory } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
-import { buttonPrimary, inputClass } from '../../constants/styles';
+import { buttonPrimary } from '../../constants/styles';
+import { TextField, TextAreaField } from '../../components/form';
 
 export default function CategoryFormModal({ item, onClose, onSaved }) {
   const isEdit = !!item;
@@ -34,17 +35,12 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
     <BottomSheet title={isEdit ? 'Edit Category' : 'New Category'} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Name</label>
-          <input className={inputClass} value={form.name} onChange={onField('name')} required />
-        </div>
+        <TextField label="Name" value={form.name} onChange={onField('name')} required />
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Icon (emoji)</label>
-            <input className={inputClass} value={form.icon} onChange={onField('icon')} />
-          </div>
+          <TextField label="Icon (emoji)" value={form.icon} onChange={onField('icon')} />
           <div>
             <label className="text-xs text-ink-whisper mb-1 block">Color</label>
+            {/* Raw <input type="color"> stays — color picker has its own visual treatment, not inputClass-styled */}
             <input
               type="color"
               className="w-full h-10 rounded-lg border border-ink-page-shadow bg-ink-page cursor-pointer"
@@ -53,10 +49,7 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
             />
           </div>
         </div>
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Description</label>
-          <textarea className={inputClass} value={form.description} onChange={onField('description')} rows={2} />
-        </div>
+        <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper">Cancel</button>
           <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>

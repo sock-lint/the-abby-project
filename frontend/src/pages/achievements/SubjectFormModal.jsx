@@ -2,7 +2,8 @@ import { createSubject, updateSubject } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
-import { buttonPrimary, inputClass } from '../../constants/styles';
+import { buttonPrimary } from '../../constants/styles';
+import { TextField, SelectField, TextAreaField } from '../../components/form';
 
 export default function SubjectFormModal({ item, categories, onClose, onSaved }) {
   const isEdit = !!item;
@@ -40,33 +41,18 @@ export default function SubjectFormModal({ item, categories, onClose, onSaved })
     <BottomSheet title={isEdit ? 'Edit Subject' : 'New Subject'} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Name</label>
-          <input className={inputClass} value={form.name} onChange={onField('name')} required />
-        </div>
+        <TextField label="Name" value={form.name} onChange={onField('name')} required />
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Category</label>
-            <select className={inputClass} value={form.category} onChange={onField('category')} required>
-              <option value="">Select...</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Icon</label>
-            <input className={inputClass} value={form.icon} onChange={onField('icon')} />
-          </div>
+          <SelectField label="Category" value={form.category} onChange={onField('category')} required>
+            <option value="">Select...</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+            ))}
+          </SelectField>
+          <TextField label="Icon" value={form.icon} onChange={onField('icon')} />
         </div>
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Description</label>
-          <textarea className={inputClass} value={form.description} onChange={onField('description')} rows={2} />
-        </div>
-        <div className="w-1/2">
-          <label className="text-xs text-ink-whisper mb-1 block">Order</label>
-          <input className={inputClass} type="number" value={form.order} onChange={onField('order')} />
-        </div>
+        <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
+        <TextField className="w-1/2" label="Order" type="number" value={form.order} onChange={onField('order')} />
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper">Cancel</button>
           <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
