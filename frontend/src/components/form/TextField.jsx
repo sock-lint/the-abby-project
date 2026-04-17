@@ -1,9 +1,11 @@
-import { forwardRef, useId } from 'react';
-import { inputClass } from '../../constants/styles';
-
-const labelClass = 'font-script text-sm text-ink-secondary mb-1 block';
-const helpClass = 'text-xs text-ink-whisper mt-1';
-const errorClass = 'text-xs text-ember-deep mt-1';
+import { forwardRef } from 'react';
+import {
+  inputClass,
+  formLabelClass,
+  formHelpClass,
+  formErrorClass,
+} from '../../constants/styles';
+import useFieldIds from './useFieldIds';
 
 /**
  * TextField — labeled input with built-in error and helpText slots,
@@ -17,15 +19,11 @@ const TextField = forwardRef(function TextField(
   { label, error, helpText, id: idProp, className = '', ...rest },
   ref,
 ) {
-  const generatedId = useId();
-  const id = idProp || generatedId;
-  const helpId = helpText ? `${id}-help` : undefined;
-  const errorId = error ? `${id}-error` : undefined;
-  const describedBy = [helpId, errorId].filter(Boolean).join(' ') || undefined;
+  const { id, helpId, errorId, describedBy } = useFieldIds({ idProp, helpText, error });
 
   return (
     <div className={className}>
-      {label && <label htmlFor={id} className={labelClass}>{label}</label>}
+      {label && <label htmlFor={id} className={formLabelClass}>{label}</label>}
       <input
         ref={ref}
         id={id}
@@ -34,8 +32,8 @@ const TextField = forwardRef(function TextField(
         aria-describedby={describedBy}
         {...rest}
       />
-      {helpText && !error && <p id={helpId} className={helpClass}>{helpText}</p>}
-      {error && <p id={errorId} role="alert" className={errorClass}>{error}</p>}
+      {helpText && !error && <p id={helpId} className={formHelpClass}>{helpText}</p>}
+      {error && <p id={errorId} role="alert" className={formErrorClass}>{error}</p>}
     </div>
   );
 });
