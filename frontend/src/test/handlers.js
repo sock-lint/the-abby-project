@@ -26,7 +26,7 @@ export const handlers = [
   http.post('*/api/auth/google/calendar/sync/', ok),
 
   // Dashboard / Balance
-  http.get('*/api/dashboard/', () => HttpResponse.json({})),
+  http.get('*/api/dashboard/', () => HttpResponse.json({ next_actions: [] })),
   http.get('*/api/balance/', () => HttpResponse.json({ balance: 0, breakdown: {} })),
 
   // Projects
