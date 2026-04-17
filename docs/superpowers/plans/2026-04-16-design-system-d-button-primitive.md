@@ -697,3 +697,24 @@ grep -rn "from.*\\bCard'" src/ | grep -v "ParchmentCard\\|.test."
 ```
 
 Both should return 0 hits (excluding the internal usage inside `Button.jsx` and `IconButton.jsx`).
+
+---
+
+## Plan-vs-Reality (post-execution addendum)
+
+**Audit gap #4 (no shared Button) and #13 (Card alias deletion) — fully closed.**
+- 35 files / 54 button-class call sites migrated to `<Button>`
+- 17 importers migrated to `<ParchmentCard>`; `Card.jsx` + `Card.test.jsx` deleted
+
+**Audit gap #10 (icon-only buttons lack aria-label) — closed at the a11y level, partially at the cohort-consistency level.**
+- The audit predicted ~19 unlabeled icon-only buttons. Reality: only **8** sites lacked an aria-label by the time Task 6 ran — the wave migration in Tasks 3-5 added many aria-labels in passing, and prior PRs (Plan B's [`SkillTreeView`](frontend/src/pages/achievements/SkillTreeView.jsx) follow-up, the standalone aria-label sweep on `ApprovalQueueList`) had already covered others.
+- Those 8 sites were converted to `<IconButton>` in commit `cf18127`.
+- **An additional ~12 icon-only `<button>` sites already have a valid `aria-label` and were left as raw markup** — they're functionally accessible but not visually using the `<IconButton>` primitive. Examples: `Habits.jsx:238-253` (Edit/Delete ritual), `Chores.jsx:342,350` (Edit/Delete duty), `RewardShop.jsx:19,27` (Edit/Delete reward), `HomeworkSubmitSheet.jsx:83-90` (Remove photo), the X buttons across the `pages/ingest/*Editor.jsx` cohort. Plan D's stated scope was *closing the a11y gap*, not *enforcing primitive consistency on already-accessible markup* — converting these is a polish PR, not a bugfix.
+
+**One asymmetry caught and fixed in `35deb5f`-style polish:** [`Manage.jsx`](frontend/src/pages/Manage.jsx) had Edit as `<Button>` and Delete as `<IconButton>` *in the same row*. The Edit was converted to `<IconButton>` so the matched pair is consistent.
+
+**One pre-existing typo cleaned in passing:** [`NotificationBell.jsx`](frontend/src/components/NotificationBell.jsx) had `hover:bg-ink-page-shadow/60/50` (double `/60/50` modifier — invalid Tailwind, no-ops at runtime). Carried verbatim by the IconButton conversion; cleaned up to `hover:bg-ink-page-shadow/60`.
+
+**Out of scope (documented for follow-up):**
+1. Convert the ~12 already-labeled icon-only `<button>` sites to `<IconButton>` for cohort consistency.
+2. Add an ESLint rule (or `@deprecated` JSDoc on `buttonPrimary`/etc.) to deflect future PRs from re-introducing the raw-button-class pattern.

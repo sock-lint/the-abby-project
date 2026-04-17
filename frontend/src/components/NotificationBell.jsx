@@ -75,7 +75,7 @@ export default function NotificationBell() {
         onClick={() => setOpen(!open)}
         variant="ghost"
         aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
-        className="relative hover:bg-ink-page-shadow/60/50"
+        className="relative hover:bg-ink-page-shadow/60"
       >
         <Bell size={18} className="text-ink-whisper" />
         {unreadCount > 0 && (

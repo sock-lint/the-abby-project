@@ -271,15 +271,14 @@ function TemplatesSection() {
               >
                 <Play size={12} /> Use
               </Button>
-              <Button
+              <IconButton
                 variant="secondary"
                 size="sm"
                 onClick={() => setEditModal(t)}
                 aria-label="Edit template"
-                className="text-xs"
               >
                 <Pencil size={12} />
-              </Button>
+              </IconButton>
               <IconButton
                 onClick={() => setDeleteId(t.id)}
                 variant="ghost"
