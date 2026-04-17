@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import ProgressBar from './ProgressBar.jsx';
 
 describe('ProgressBar', () => {
@@ -31,5 +31,28 @@ describe('ProgressBar', () => {
   it('handles partial values', () => {
     const { container } = render(<ProgressBar value={25} max={100} />);
     expect(container.firstChild).toBeTruthy();
+  });
+
+  it('exposes role=progressbar with value and bounds', () => {
+    render(<ProgressBar value={30} max={100} aria-label="Quest progress" />);
+    const bar = screen.getByRole('progressbar', { name: 'Quest progress' });
+    expect(bar).toHaveAttribute('aria-valuenow', '30');
+    expect(bar).toHaveAttribute('aria-valuemin', '0');
+    expect(bar).toHaveAttribute('aria-valuemax', '100');
+  });
+
+  it('clamps aria-valuenow when value exceeds max', () => {
+    render(<ProgressBar value={150} max={100} aria-label="x" />);
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100');
+  });
+
+  it('reports 0 when max is 0', () => {
+    render(<ProgressBar value={5} max={0} aria-label="x" />);
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+  });
+
+  it('falls back to a generic accessible name when caller omits aria-label', () => {
+    render(<ProgressBar value={50} max={100} />);
+    expect(screen.getByRole('progressbar')).toHaveAccessibleName(/progress/i);
   });
 });
