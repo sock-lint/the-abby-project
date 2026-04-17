@@ -20,6 +20,7 @@ import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
 import Button from '../components/Button';
+import IconButton from '../components/IconButton';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 import { normalizeList } from '../utils/api';
 
@@ -279,12 +280,15 @@ function TemplatesSection() {
               >
                 <Pencil size={12} />
               </Button>
-              <button
+              <IconButton
                 onClick={() => setDeleteId(t.id)}
-                className="bg-ink-page-shadow/60 hover:bg-ember/20 text-ink-whisper hover:text-ember-deep px-2 py-1.5 rounded-lg text-xs transition-colors"
+                variant="ghost"
+                size="sm"
+                aria-label="Delete template"
+                className="bg-ink-page-shadow/60 hover:bg-ember/20 text-ink-whisper hover:text-ember-deep text-xs"
               >
                 <Trash2 size={12} />
-              </button>
+              </IconButton>
             </div>
           </div>
           {t.description && (

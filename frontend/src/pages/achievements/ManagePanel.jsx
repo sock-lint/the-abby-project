@@ -10,6 +10,7 @@ import ErrorAlert from '../../components/ErrorAlert';
 import TabButton from '../../components/TabButton';
 import { useApi } from '../../hooks/useApi';
 import Button from '../../components/Button';
+import IconButton from '../../components/IconButton';
 import { normalizeList } from '../../utils/api';
 import CategoryFormModal from './CategoryFormModal';
 import SubjectFormModal from './SubjectFormModal';
@@ -70,18 +71,24 @@ export default function ManagePanel({ categories, reloadCategories }) {
         </div>
       </div>
       <div className="flex gap-1 shrink-0 ml-2">
-        <button
+        <IconButton
           onClick={() => setModal({ type, item })}
-          className="p-1.5 hover:bg-ink-page-shadow/60 rounded text-ink-whisper hover:text-ink-primary"
+          variant="ghost"
+          size="sm"
+          aria-label={`Edit ${type} ${item.name}`}
+          className="hover:bg-ink-page-shadow/60 text-ink-whisper hover:text-ink-primary"
         >
           <Pencil size={14} />
-        </button>
-        <button
+        </IconButton>
+        <IconButton
           onClick={() => setDeleteTarget({ type, id: item.id, label: item.name })}
-          className="p-1.5 hover:bg-ember/20 rounded text-ink-whisper hover:text-red-300"
+          variant="ghost"
+          size="sm"
+          aria-label={`Delete ${type} ${item.name}`}
+          className="hover:bg-ember/20 text-ink-whisper hover:text-red-300"
         >
           <Trash2 size={14} />
-        </button>
+        </IconButton>
       </div>
     </Card>
   );

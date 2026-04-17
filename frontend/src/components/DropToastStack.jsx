@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Package, X } from 'lucide-react';
 import { useDropToasts } from '../hooks/useDropToasts';
+import IconButton from './IconButton';
 import RpgSprite from './rpg/RpgSprite';
 
 const RARITY_BG = {
@@ -39,9 +40,15 @@ function ToastItem({ toast, onDismiss }) {
         </div>
         <div className="text-micro text-white/70 capitalize">{toast.item_rarity}</div>
       </div>
-      <button onClick={() => onDismiss(toast.id)} className="text-white/70 hover:text-white shrink-0">
+      <IconButton
+        onClick={() => onDismiss(toast.id)}
+        variant="ghost"
+        size="sm"
+        aria-label="Dismiss notification"
+        className="text-white/70 hover:text-white shrink-0"
+      >
         <X size={14} />
-      </button>
+      </IconButton>
     </motion.div>
   );
 }

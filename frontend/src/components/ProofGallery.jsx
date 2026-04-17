@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import IconButton from './IconButton';
 
 export default function ProofGallery({ proofs = [] }) {
   const [viewerIndex, setViewerIndex] = useState(null);
@@ -24,24 +25,33 @@ export default function ProofGallery({ proofs = [] }) {
       {/* Full-screen viewer */}
       {viewerIndex !== null && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setViewerIndex(null)}>
-          <button onClick={() => setViewerIndex(null)} className="absolute top-4 right-4 text-white/70 hover:text-white">
+          <IconButton
+            onClick={() => setViewerIndex(null)}
+            variant="ghost"
+            aria-label="Close photo viewer"
+            className="absolute top-4 right-4 text-white/70 hover:text-white"
+          >
             <X size={24} />
-          </button>
+          </IconButton>
           {viewerIndex > 0 && (
-            <button
+            <IconButton
               onClick={(e) => { e.stopPropagation(); setViewerIndex(viewerIndex - 1); }}
+              variant="ghost"
+              aria-label="Previous photo"
               className="absolute left-4 text-white/70 hover:text-white"
             >
               <ChevronLeft size={32} />
-            </button>
+            </IconButton>
           )}
           {viewerIndex < proofs.length - 1 && (
-            <button
+            <IconButton
               onClick={(e) => { e.stopPropagation(); setViewerIndex(viewerIndex + 1); }}
+              variant="ghost"
+              aria-label="Next photo"
               className="absolute right-4 text-white/70 hover:text-white"
             >
               <ChevronRight size={32} />
-            </button>
+            </IconButton>
           )}
           <img
             src={proofs[viewerIndex].image}

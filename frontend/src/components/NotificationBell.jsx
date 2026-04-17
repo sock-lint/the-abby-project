@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bell } from 'lucide-react';
 import { getNotifications, getUnreadCount, markAllRead as markAllReadApi, markNotificationRead } from '../api';
 import { formatDate } from '../utils/format';
+import IconButton from './IconButton';
 
 export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -70,9 +71,11 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={ref}>
-      <button
+      <IconButton
         onClick={() => setOpen(!open)}
-        className="relative p-2 rounded-lg hover:bg-ink-page-shadow/60/50 transition-colors"
+        variant="ghost"
+        aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
+        className="relative hover:bg-ink-page-shadow/60/50"
       >
         <Bell size={18} className="text-ink-whisper" />
         {unreadCount > 0 && (
@@ -84,7 +87,7 @@ export default function NotificationBell() {
             {unreadCount > 9 ? '9+' : unreadCount}
           </motion.span>
         )}
-      </button>
+      </IconButton>
 
       <AnimatePresence>
         {open && (
