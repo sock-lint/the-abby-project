@@ -11,9 +11,10 @@ import ErrorAlert from '../../components/ErrorAlert';
 import Loader from '../../components/Loader';
 import RpgSprite from '../../components/rpg/RpgSprite';
 import {
-  RARITY_COLORS, RARITY_TEXT_COLORS, RARITY_PILL_COLORS,
+  RARITY_TEXT_COLORS, RARITY_PILL_COLORS,
 } from '../../constants/colors';
 import { normalizeList } from '../../utils/api';
+import CatalogCard from './CatalogCard';
 
 const RARITY_ORDER = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
 
@@ -48,28 +49,6 @@ function sortByRarityName(a, b) {
   return (
     (RARITY_ORDER[a.rarity] ?? 99) - (RARITY_ORDER[b.rarity] ?? 99)
     || a.name.localeCompare(b.name)
-  );
-}
-
-function CatalogCard({ rarity, icon, spriteKey, name, subtitle, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-xl p-3 text-center border cursor-pointer transition-transform hover:-translate-y-0.5 ${
-        RARITY_COLORS[rarity] || 'border-ink-page-shadow bg-ink-page-aged/50'
-      }`}
-    >
-      <div className="flex items-center justify-center h-12 mb-1">
-        <RpgSprite spriteKey={spriteKey} icon={icon} size={40} alt={name} />
-      </div>
-      <div className="text-xs font-medium leading-tight text-ink-primary line-clamp-2">{name}</div>
-      {subtitle && (
-        <div className={`text-micro mt-1 capitalize ${RARITY_TEXT_COLORS[rarity] || 'text-ink-whisper'}`}>
-          {subtitle}
-        </div>
-      )}
-    </button>
   );
 }
 
