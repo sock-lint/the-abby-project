@@ -36,6 +36,25 @@ Everything that floats above page chrome lives at `z-50`. That means a toast emi
 
 A component lives in `pages/` until it's reused twice; promote to `components/` (or a sub-folder) on the second use.
 
+### Accessibility roles
+
+Shared primitives carry consistent ARIA roles. Match these when building new ones:
+
+| Primitive | Role | Why |
+|---|---|---|
+| `Loader` | `status` + `aria-busy="true"` | Non-urgent transient state |
+| `EmptyState` | `status` | Non-urgent informational region |
+| `ErrorAlert` | `alert` | Errors interrupt — assertive politeness |
+| `ProgressBar` | `progressbar` + `aria-valuenow/min/max` | Widget with measurable state |
+| `BottomSheet` | `dialog` + `aria-modal="true"` + `aria-labelledby` | Modal surface |
+| `ConfirmDialog` | `alertdialog` + `aria-modal="true"` + `aria-labelledby` + `aria-describedby` | Destructive-action modal |
+
+Use React's `useId()` to generate per-instance IDs for `aria-labelledby` / `aria-describedby` so multiple stacked instances don't collide.
+
+For icon-only interactive elements, an `aria-label` is mandatory — the upcoming `<IconButton>` primitive enforces this; raw `<button>` tags wrapping a single Lucide icon need it added by hand.
+
+When a `ProgressBar` accepts an `aria-label`, prefer a context-rich one (e.g. `"${skill.name} XP progress"`) over the default `"Progress"` if the page renders multiple bars.
+
 ### Modal overlay tokens
 
 The four `.modal-*` classes in `index.css` (`modal-ink-wash`, `modal-vignette`, `modal-seal-ring`, `modal-seal-ring-strong`) reference per-cover-overridable `--color-modal-*` tokens. `themes.js` may diverge these per cover — e.g. Vigil's dark surface needs a lighter wash. Three Hyrule defaults (`--color-modal-wash`, `--color-modal-vignette-edge`, `--color-modal-shadow`) happen to share `rgba(45,31,21,0.45)` but represent three distinct semantic roles; do not dedupe.

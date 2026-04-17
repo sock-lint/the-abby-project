@@ -611,6 +611,24 @@ Expected:
 - BottomSheet test count up by 1
 - Coverage thresholds (65/55/55/65) still met — these primitives now have `function` coverage they previously lacked, so the metric should rise
 
+---
+
+## Plan-vs-Reality (post-execution addendum)
+
+**The plan's "Create" assumption was wrong.** All 5 primitive test files (`Loader.test.jsx`, `ProgressBar.test.jsx`, `ErrorAlert.test.jsx`, `EmptyState.test.jsx`, `StatusBadge.test.jsx`) already existed at base SHA `94e0616` with meaningful render-mechanics tests. The audit (in [`C:\Users\socce\.claude\plans\snazzy-noodling-treasure.md`](C:\Users\socce\.claude\plans\snazzy-noodling-treasure.md)) listed these as "no test file" but that was a false negative.
+
+Implementers correctly **extended** rather than created — preserving every existing test (including the `Loader` unmount-cleanup timer assertion and the `BottomSheet` matchMedia change-event test) and appending only the new ARIA-aware tests. No prior coverage was lost.
+
+The original "Create" wording in the task descriptions and the Verification section's "5 new test files" line are historical artifacts that survive untouched for git-blame fidelity.
+
+**One additional code-review-driven commit** landed beyond the plan's scope: `283687d` updated `frontend/src/pages/achievements/SkillTreeView.jsx` to pass distinct `aria-label`s to its two `<ProgressBar>` instances. The plan's introduction of a `"Progress"` default name would otherwise have silently regressed that page from "no progressbar role at all" to "two adjacent progressbars both announced as Progress." The fix lives next to the primitive change because they're functionally one PR.
+
+**Out-of-scope follow-ups** surfaced during reviews and tracked in the Plan AB cleanup commit:
+- `ConfirmDialog` got `role="alertdialog"` + `aria-labelledby` + `aria-describedby` for parity with `BottomSheet`
+- `BottomSheet` mobile drag-handle got `aria-hidden="true"` (purely decorative)
+- `SubjectBadge.jsx` `other` fallback migrated from `bg-gray-500/20 text-gray-400` to the same `ink-whisper` token pattern as `StatusBadge` (the other 7 subjects still use non-token Tailwind defaults — design re-skin, not token discipline)
+- `frontend/src/components/README.md` gained an "Accessibility roles" section codifying the cohort-level pattern for future primitive authors
+
 Smoke test in the browser:
 
 ```bash

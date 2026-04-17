@@ -81,7 +81,7 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
             }}
           />
           {/* Sheikah-glyph drag handle — replaces the anonymous grey pill. */}
-          <div className="flex justify-center pt-2">
+          <div className="flex justify-center pt-2" aria-hidden="true">
             <div
               className="w-12 h-1.5 rounded-full animate-rune-pulse"
               style={{

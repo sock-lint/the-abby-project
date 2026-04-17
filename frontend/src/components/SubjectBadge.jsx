@@ -6,7 +6,7 @@ const SUBJECT_COLORS = {
   social_studies: 'bg-orange-500/20 text-orange-400',
   art: 'bg-pink-500/20 text-pink-400',
   music: 'bg-indigo-500/20 text-indigo-400',
-  other: 'bg-gray-500/20 text-gray-400',
+  other: 'bg-ink-whisper/15 text-ink-secondary border border-ink-whisper/30',
 };
 
 const SUBJECT_LABELS = {

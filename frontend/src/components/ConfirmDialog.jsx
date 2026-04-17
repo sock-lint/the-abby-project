@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ModalBackdrop from './modal/ModalBackdrop';
@@ -13,6 +14,8 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }) {
+  const titleId = useId();
+  const messageId = useId();
   return createPortal(
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -20,6 +23,10 @@ export default function ConfirmDialog({
         {/* Wrapper holds the pulse ring. The inner card carries the deckle mask
             (which would otherwise clip the ring). */}
         <motion.div
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          aria-describedby={messageId}
           className="relative max-w-sm w-full"
           initial={{ scale: 0.82, opacity: 0, rotate: -3 }}
           animate={{ scale: 1, opacity: 1, rotate: 0 }}
@@ -28,10 +35,10 @@ export default function ConfirmDialog({
         >
           <SealPulseRing rounded="rounded-[22px]" />
           <div className="relative parchment-bg-aged deckle-edge p-6 modal-seal-ring-strong">
-            <h3 className="font-display font-bold text-lg text-ink-primary mb-2">
+            <h3 id={titleId} className="font-display font-bold text-lg text-ink-primary mb-2">
               {title}
             </h3>
-            <p className="text-sm text-ink-secondary mb-5 leading-relaxed">
+            <p id={messageId} className="text-sm text-ink-secondary mb-5 leading-relaxed">
               {message}
             </p>
             <div className="flex justify-end gap-2 items-center">

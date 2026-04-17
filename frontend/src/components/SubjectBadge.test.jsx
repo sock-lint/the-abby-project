@@ -20,6 +20,8 @@ describe('SubjectBadge', () => {
 
   it('uses the "other" color palette for unknown subjects', () => {
     const { container } = render(<SubjectBadge subject="mystery" />);
-    expect(container.firstChild.className).toContain('bg-gray-500/20');
+    // Token-driven fallback (was bg-gray-500/20, which Tailwind 4 doesn't ship in this project's @theme)
+    expect(container.firstChild.className).toContain('ink-whisper');
+    expect(container.firstChild.className).not.toContain('bg-gray');
   });
 });
