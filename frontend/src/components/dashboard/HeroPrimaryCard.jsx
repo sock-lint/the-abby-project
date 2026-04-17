@@ -1,23 +1,37 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Play, Square, Flame, Sparkles, ClipboardCheck } from 'lucide-react';
+import { Play, Square, Flame, Sparkles, ClipboardCheck, BookOpen } from 'lucide-react';
 import ParchmentCard from '../journal/ParchmentCard';
 import RuneBadge from '../journal/RuneBadge';
-import { formatCurrency, formatDuration } from '../../utils/format';
+import { formatDuration } from '../../utils/format';
 import { inkBleed } from '../../motion/variants';
 import { buttonPrimary } from '../../constants/styles';
+
+const ICON_MAP = { BookOpen, Sparkles, Flame, Play, Square, ClipboardCheck };
+
+const TONE_TO_ACCENT_CLASS = {
+  royal: 'text-royal',
+  moss: 'text-moss',
+  ember: 'text-ember-deep',
+};
 
 /**
  * HeroPrimaryCard — the single-fold primary card on the Today page.
  *
  * Child roles resolve a context in this order:
- *   clocked → streak-risk → next-chore → quest-progress → idle
+ *   clocked → next-action → quest-progress → idle
  * Parent role: queue(count) → all-clear.
  *
  * Props:
  *   role     : 'child' | 'parent'
- *   ctx      : { activeTimer, rpg, chores_today, activeQuest, hour, weekday, dateStr, pendingCount,
- *                onCompleteChore, onTapHabit }
+ *   ctx      : { activeTimer, rpg, nextAction, activeQuest,
+ *                weekday, dateStr, pendingCount,
+ *                onCompleteChore, onTapHabit, onOpenHomework }
+ *
+ * `nextAction` is the top item from the backend's `next_actions` feed
+ * (see apps/projects/priority.py). Its shape is the NextAction.as_dict()
+ * serialization — {kind, id, title, subtitle, score, due_at, reward,
+ * icon, tone, action_url}.
  */
 export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
   const navigate = useNavigate();
@@ -70,18 +84,12 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
 
   // Child contexts.
   const activeTimer = ctx.activeTimer;
-  const streak = ctx.rpg?.login_streak ?? 0;
-  const hour = ctx.hour ?? new Date().getHours();
-  const habitsToday = ctx.rpg?.habits_today || [];
-  const pendingChore = (ctx.chores_today || []).find((c) => !c.is_done);
-  const unfinishedHabit = habitsToday.find((h) => (h.taps_today ?? 0) < (h.max_taps_per_day ?? 1));
-  const streakAtRisk = streak > 0 && hour >= 18 && unfinishedHabit;
+  const nextAction = ctx.nextAction;
   const quest = ctx.activeQuest && ctx.activeQuest.status === 'active' ? ctx.activeQuest : null;
 
   let variant = 'idle';
   if (activeTimer) variant = 'clocked';
-  else if (streakAtRisk) variant = 'streak-risk';
-  else if (pendingChore) variant = 'next-chore';
+  else if (nextAction) variant = 'next-action';
   else if (quest) variant = 'quest-progress';
 
   return (
@@ -112,50 +120,14 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
           </>
         )}
 
-        {variant === 'streak-risk' && (
-          <>
-            <div className="flex items-center gap-1.5 font-script text-xs text-ember-deep uppercase tracking-wider">
-              <Flame size={14} /> Don&apos;t break the streak
-            </div>
-            <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5">
-              {streak}-day streak — one tap to keep it alive
-            </h1>
-            <div className="mt-3">
-              <button
-                type="button"
-                aria-label={`Complete ${unfinishedHabit.name}`}
-                onClick={() => ctx.onTapHabit && ctx.onTapHabit(unfinishedHabit.id)}
-                className={`${buttonPrimary} inline-flex items-center gap-2 px-4 py-2 text-sm`}
-              >
-                {unfinishedHabit.icon && <span>{unfinishedHabit.icon}</span>}
-                Tap: {unfinishedHabit.name}
-              </button>
-            </div>
-          </>
-        )}
-
-        {variant === 'next-chore' && (
-          <>
-            <div className="font-script text-xs text-moss uppercase tracking-wider">
-              Next up
-            </div>
-            <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 truncate">
-              {pendingChore.title}
-            </h1>
-            <div className="font-body text-sm text-ink-secondary mt-1">
-              {pendingChore.reward_amount && <>{formatCurrency(pendingChore.reward_amount)}</>}
-              {pendingChore.reward_amount && pendingChore.coin_reward ? ' · ' : ''}
-              {pendingChore.coin_reward ? `${pendingChore.coin_reward} coins` : ''}
-            </div>
-            <button
-              type="button"
-              aria-label={`Complete ${pendingChore.title}`}
-              onClick={() => ctx.onCompleteChore && ctx.onCompleteChore(pendingChore.id)}
-              className={`${buttonPrimary} mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm`}
-            >
-              <Play size={16} /> Complete
-            </button>
-          </>
+        {variant === 'next-action' && (
+          <NextActionBody
+            action={nextAction}
+            onOpenHomework={ctx.onOpenHomework}
+            onCompleteChore={ctx.onCompleteChore}
+            onTapHabit={ctx.onTapHabit}
+            onNavigate={navigate}
+          />
         )}
 
         {variant === 'quest-progress' && (
@@ -204,5 +176,41 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
         )}
       </ParchmentCard>
     </motion.div>
+  );
+}
+
+function NextActionBody({ action, onOpenHomework, onCompleteChore, onTapHabit, onNavigate }) {
+  const Icon = ICON_MAP[action.icon] || Sparkles;
+  const accentClass = TONE_TO_ACCENT_CLASS[action.tone] || 'text-moss';
+  const buttonLabel = action.kind === 'homework' ? 'Submit'
+    : action.kind === 'habit' ? 'Tap'
+    : 'Complete';
+  const handleClick = () => {
+    if (action.kind === 'homework' && onOpenHomework) return onOpenHomework(action.id);
+    if (action.kind === 'chore' && onCompleteChore) return onCompleteChore(action.id);
+    if (action.kind === 'habit' && onTapHabit) return onTapHabit(action.id);
+    if (action.action_url) onNavigate(action.action_url);
+  };
+
+  return (
+    <>
+      <div className={`flex items-center gap-1.5 font-script text-xs ${accentClass} uppercase tracking-wider`}>
+        <Icon size={14} /> Next up
+      </div>
+      <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 truncate">
+        {action.title}
+      </h1>
+      <div className="font-body text-sm text-ink-secondary mt-1">
+        {action.subtitle}
+      </div>
+      <button
+        type="button"
+        aria-label={`${buttonLabel} ${action.title}`}
+        onClick={handleClick}
+        className={`${buttonPrimary} mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm`}
+      >
+        <Play size={16} /> {buttonLabel}
+      </button>
+    </>
   );
 }
