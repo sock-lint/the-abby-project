@@ -225,7 +225,7 @@ export default function Stable() {
                       {pet.potion.name} {pet.species.name}
                     </div>
                     <div
-                      className={`font-script text-[11px] uppercase tracking-wider ${
+                      className={`font-script text-tiny uppercase tracking-wider ${
                         RARITY_TEXT_COLORS[pet.potion.rarity]
                       }`}
                     >
@@ -239,18 +239,18 @@ export default function Stable() {
                             style={{ width: `${pet.growth_points}%` }}
                           />
                         </div>
-                        <div className="font-rune text-[10px] text-ink-whisper mt-0.5">
+                        <div className="font-rune text-micro text-ink-whisper mt-0.5">
                           {pet.growth_points}/100
                         </div>
                       </div>
                     )}
                     {pet.evolved_to_mount && (
-                      <div className="mt-1 font-script text-[11px] text-gold-leaf flex items-center justify-center gap-1">
+                      <div className="mt-1 font-script text-tiny text-gold-leaf flex items-center justify-center gap-1">
                         <Crown size={10} /> evolved
                       </div>
                     )}
                     {pet.is_active && (
-                      <div className="mt-1 font-script text-[11px] text-moss flex items-center justify-center gap-1">
+                      <div className="mt-1 font-script text-tiny text-moss flex items-center justify-center gap-1">
                         <Star size={10} /> active
                       </div>
                     )}
@@ -270,7 +270,7 @@ export default function Stable() {
                       )}
                       {!pet.evolved_to_mount && foods.length > 0 && (
                         <div>
-                          <div className="font-script text-[11px] text-ink-whisper mb-1">
+                          <div className="font-script text-tiny text-ink-whisper mb-1">
                             feed · prefers {pet.species.food_preference}
                           </div>
                           <div className="flex flex-wrap gap-1">
@@ -336,15 +336,15 @@ export default function Stable() {
                     {mount.potion.name} {mount.species.name}
                   </div>
                   <div
-                    className={`font-script text-[11px] uppercase tracking-wider ${
+                    className={`font-script text-tiny uppercase tracking-wider ${
                       RARITY_TEXT_COLORS[mount.potion.rarity]
                     }`}
                   >
                     {mount.potion.rarity}
                   </div>
-                  <div className="font-script text-[11px] text-gold-leaf mt-1">mount</div>
+                  <div className="font-script text-tiny text-gold-leaf mt-1">mount</div>
                   {mount.is_active ? (
-                    <div className="mt-1 font-script text-[11px] text-gold-leaf flex items-center justify-center gap-1">
+                    <div className="mt-1 font-script text-tiny text-gold-leaf flex items-center justify-center gap-1">
                       <Crown size={10} /> riding
                     </div>
                   ) : (

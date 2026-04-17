@@ -179,11 +179,11 @@ export default function Character() {
                           alt={item.name}
                         />
                       </div>
-                      <div className="font-body text-[11px] font-medium truncate">
+                      <div className="font-body text-tiny font-medium truncate">
                         {item.name}
                       </div>
                       {isActive && (
-                        <div className="font-script text-[10px] text-moss flex items-center justify-center gap-0.5 mt-0.5">
+                        <div className="font-script text-micro text-moss flex items-center justify-center gap-0.5 mt-0.5">
                           <Check size={10} /> equipped
                         </div>
                       )}

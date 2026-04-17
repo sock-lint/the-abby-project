@@ -32,7 +32,7 @@ function RewardCard({ reward, isParent, coinBalance, onRedeem, onEdit, onDelete 
         </div>
       )}
       {isParent && !reward.is_active && (
-        <div className="font-script text-[11px] text-ember-deep text-center mb-1">
+        <div className="font-script text-tiny text-ember-deep text-center mb-1">
           inactive
         </div>
       )}

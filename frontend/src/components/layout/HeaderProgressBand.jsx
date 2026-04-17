@@ -42,7 +42,7 @@ export default function HeaderProgressBand() {
       />
       {/* Tooltip shown on hover (desktop only-ish, safe to keep). */}
       <span
-        className="pointer-events-none absolute top-full right-2 mt-0.5 hidden group-hover:block bg-ink-page-aged border border-ink-page-shadow rounded px-2 py-0.5 font-rune text-[10px] text-ink-secondary"
+        className="pointer-events-none absolute top-full right-2 mt-0.5 hidden group-hover:block bg-ink-page-aged border border-ink-page-shadow rounded px-2 py-0.5 font-rune text-micro text-ink-secondary"
       >
         {title} · {percent}%
       </span>

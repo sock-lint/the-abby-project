@@ -243,7 +243,7 @@ export default function SettingsPage() {
               >
                 {active && (
                   <span
-                    className="absolute top-2 right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-rune uppercase tracking-wider border"
+                    className="absolute top-2 right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-micro font-rune uppercase tracking-wider border"
                     style={{
                       color: theme.accent,
                       borderColor: theme.accent,
@@ -277,7 +277,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex items-center gap-1.5 mt-2.5">
                   <span
-                    className="inline-flex items-center gap-1 h-6 px-1.5 rounded-full border text-[11px] font-rune tabular-nums"
+                    className="inline-flex items-center gap-1 h-6 px-1.5 rounded-full border text-tiny font-rune tabular-nums"
                     style={{
                       color: t.emberDeep || theme.ember,
                       borderColor: theme.pageShadow,
@@ -288,7 +288,7 @@ export default function SettingsPage() {
                     <span>7</span>
                   </span>
                   <span
-                    className="inline-flex items-center gap-1 h-6 px-1.5 rounded-full border text-[11px] font-rune tabular-nums"
+                    className="inline-flex items-center gap-1 h-6 px-1.5 rounded-full border text-tiny font-rune tabular-nums"
                     style={{
                       color: t.goldLeaf,
                       borderColor: theme.pageShadow,
@@ -299,7 +299,7 @@ export default function SettingsPage() {
                     <span>142</span>
                   </span>
                   <span
-                    className="inline-flex items-center h-6 px-1.5 rounded-full border text-[11px] font-rune"
+                    className="inline-flex items-center h-6 px-1.5 rounded-full border text-tiny font-rune"
                     style={{
                       color: theme.accent,
                       borderColor: theme.pageShadow,

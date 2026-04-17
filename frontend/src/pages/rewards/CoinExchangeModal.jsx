@@ -82,7 +82,7 @@ export default function CoinExchangeModal({ exchangeRate, onClose, onSaved }) {
             {saving ? 'Requesting...' : 'Request Exchange'}
           </button>
         </div>
-        <p className="text-[10px] text-ink-whisper text-center">Requires parent approval</p>
+        <p className="text-micro text-ink-whisper text-center">Requires parent approval</p>
       </form>
     </BottomSheet>
   );

@@ -129,7 +129,7 @@ export default function PlanTab({
                           style={{ width: `${(done / total) * 100}%` }}
                         />
                       </div>
-                      <span className="font-rune text-[10px] text-ink-whisper shrink-0 tabular-nums">
+                      <span className="font-rune text-micro text-ink-whisper shrink-0 tabular-nums">
                         {done}/{total}
                       </span>
                     </div>

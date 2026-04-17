@@ -65,7 +65,7 @@ function CatalogCard({ rarity, icon, spriteKey, name, subtitle, onClick }) {
       </div>
       <div className="text-xs font-medium leading-tight text-ink-primary line-clamp-2">{name}</div>
       {subtitle && (
-        <div className={`text-[10px] mt-1 capitalize ${RARITY_TEXT_COLORS[rarity] || 'text-ink-whisper'}`}>
+        <div className={`text-micro mt-1 capitalize ${RARITY_TEXT_COLORS[rarity] || 'text-ink-whisper'}`}>
           {subtitle}
         </div>
       )}
@@ -111,7 +111,7 @@ function ItemsBlock({ items, onSelect }) {
               <h4 className="font-display text-sm font-semibold text-ink-secondary uppercase tracking-wide">
                 {ITEM_TYPE_LABELS[itemType] || itemType}
               </h4>
-              <span className="text-[11px] text-ink-whisper">({rows.length})</span>
+              <span className="text-tiny text-ink-whisper">({rows.length})</span>
             </div>
             <CatalogGrid>
               {rows.map((item) => (
@@ -161,7 +161,7 @@ function ItemDetail({ item }) {
         {item.metadata && Object.keys(item.metadata).length > 0 && (
           <details className="mt-3 text-left">
             <summary className="cursor-pointer text-ink-whisper">Metadata</summary>
-            <pre className="mt-2 p-2 bg-ink-page-aged/50 rounded text-[10px] overflow-x-auto">
+            <pre className="mt-2 p-2 bg-ink-page-aged/50 rounded text-micro overflow-x-auto">
               {JSON.stringify(item.metadata, null, 2)}
             </pre>
           </details>
@@ -218,7 +218,7 @@ function CreatureDetail({ species }) {
               {potions.map((p) => (
                 <span
                   key={p.id}
-                  className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] ${
+                  className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-tiny ${
                     RARITY_PILL_COLORS[p.rarity] || 'bg-ink-page-aged/60 text-ink-secondary'
                   }`}
                 >
@@ -288,7 +288,7 @@ function AdventureDetail({ quest }) {
               {rewards.map((r) => (
                 <span
                   key={r.id}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] bg-ink-page-aged/60 text-ink-primary"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-tiny bg-ink-page-aged/60 text-ink-primary"
                 >
                   <RpgSprite
                     spriteKey={r.item_sprite_key}
@@ -305,7 +305,7 @@ function AdventureDetail({ quest }) {
         {quest.trigger_filter && Object.keys(quest.trigger_filter).length > 0 && (
           <details className="mt-3 text-left">
             <summary className="cursor-pointer text-ink-whisper">Trigger filter</summary>
-            <pre className="mt-2 p-2 bg-ink-page-aged/50 rounded text-[10px] overflow-x-auto">
+            <pre className="mt-2 p-2 bg-ink-page-aged/50 rounded text-micro overflow-x-auto">
               {JSON.stringify(quest.trigger_filter, null, 2)}
             </pre>
           </details>

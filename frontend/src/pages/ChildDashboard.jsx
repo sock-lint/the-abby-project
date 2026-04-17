@@ -234,7 +234,7 @@ export default function ChildDashboard({ data, reload }) {
                 <div className="text-3xl mb-1">{d.item_icon || '📦'}</div>
                 <div className="font-body text-xs font-medium truncate">{d.item_name}</div>
                 {d.was_salvaged && (
-                  <div className="font-script text-[10px] text-gold-leaf mt-0.5">salvaged</div>
+                  <div className="font-script text-micro text-gold-leaf mt-0.5">salvaged</div>
                 )}
               </motion.button>
             ))}
@@ -315,7 +315,7 @@ export default function ChildDashboard({ data, reload }) {
                   </div>
                   {p.milestones_total > 0 && (
                     <>
-                      <div className="flex justify-between font-rune text-[11px] text-ink-whisper mb-1">
+                      <div className="flex justify-between font-rune text-tiny text-ink-whisper mb-1">
                         <span>MILESTONES</span>
                         <span>{p.milestones_completed}/{p.milestones_total}</span>
                       </div>
@@ -351,7 +351,7 @@ export default function ChildDashboard({ data, reload }) {
                     {goal.title}
                   </span>
                 </div>
-                <div className="flex justify-between font-rune text-[11px] text-ink-whisper mb-1">
+                <div className="flex justify-between font-rune text-tiny text-ink-whisper mb-1">
                   <span>{formatCurrency(goal.current_amount)}</span>
                   <span>{formatCurrency(goal.target_amount)}</span>
                 </div>

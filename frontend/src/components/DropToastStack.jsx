@@ -37,7 +37,7 @@ function ToastItem({ toast, onDismiss }) {
         <div className="text-xs font-medium text-white">
           {toast.was_salvaged ? 'Salvaged' : 'You got'}: {toast.item_name}
         </div>
-        <div className="text-[10px] text-white/70 capitalize">{toast.item_rarity}</div>
+        <div className="text-micro text-white/70 capitalize">{toast.item_rarity}</div>
       </div>
       <button onClick={() => onDismiss(toast.id)} className="text-white/70 hover:text-white shrink-0">
         <X size={14} />

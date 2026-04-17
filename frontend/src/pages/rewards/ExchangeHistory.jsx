@@ -27,7 +27,7 @@ export default function ExchangeHistory({ exchanges, isParent }) {
                 </div>
               </div>
             </div>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full border uppercase ${STATUS_COLORS[ex.status] || STATUS_COLORS.pending}`}>
+            <span className={`text-micro px-2 py-0.5 rounded-full border uppercase ${STATUS_COLORS[ex.status] || STATUS_COLORS.pending}`}>
               {ex.status}
             </span>
           </Card>

@@ -63,7 +63,7 @@ export function StepCard({
             )}
             {isParent && milestones.length > 0 && (
               <div className="mt-2 flex items-center gap-1.5">
-                <span className="font-script text-[11px] text-ink-whisper uppercase tracking-wider">
+                <span className="font-script text-tiny text-ink-whisper uppercase tracking-wider">
                   move to
                 </span>
                 <select

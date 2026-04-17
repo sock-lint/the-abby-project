@@ -38,7 +38,7 @@ describe('RuneBadge', () => {
 
   it('falls back to sm size for unknown size', () => {
     const { container } = render(<RuneBadge size="xl">t</RuneBadge>);
-    expect(container.firstChild.className).toContain('text-[11px]');
+    expect(container.firstChild.className).toContain('text-tiny');
   });
 
   it('renders icon slot', () => {

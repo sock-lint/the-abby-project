@@ -25,7 +25,7 @@ function VitalPip({ label, value, icon, tone = 'ink', onClick, ariaLabel }) {
           {value}
         </span>
       </div>
-      <div className="font-script text-[11px] text-ink-whisper uppercase tracking-wider leading-none">
+      <div className="font-script text-tiny text-ink-whisper uppercase tracking-wider leading-none">
         {label}
       </div>
     </button>

@@ -43,7 +43,7 @@ export default function RuneBand({ projectTitle, elapsedLabel, onClick }) {
           className="w-6 h-6 text-sheikah-teal-deep animate-rune-pulse"
         />
         <div className="min-w-0 flex-1">
-          <div className="font-script text-[11px] uppercase tracking-widest text-sheikah-teal-deep">
+          <div className="font-script text-tiny uppercase tracking-widest text-sheikah-teal-deep">
             Now inking
           </div>
           <div className="font-display text-sm truncate text-ink-primary">

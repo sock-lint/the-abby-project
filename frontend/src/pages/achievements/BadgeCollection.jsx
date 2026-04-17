@@ -53,7 +53,7 @@ export default function BadgeCollection({ allBadges, earnedBadges }) {
               >
                 <div className="text-3xl mb-1">{item.badge.icon || '🔒'}</div>
                 <div className="text-xs font-medium leading-tight">{item.badge.name}</div>
-                <div className={`text-[10px] capitalize ${
+                <div className={`text-micro capitalize ${
                   item.earned ? RARITY_TEXT_COLORS[item.badge.rarity] : 'text-ink-whisper'
                 }`}>
                   {item.badge.rarity}

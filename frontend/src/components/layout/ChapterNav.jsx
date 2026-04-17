@@ -145,7 +145,7 @@ export function ChapterBottomBar() {
           {({ isActive }) => (
             <>
               <Icon size={22} className={isActive ? 'animate-rune-pulse' : ''} />
-              <span className="font-script text-[11px] leading-none">{shortLabel}</span>
+              <span className="font-script text-tiny leading-none">{shortLabel}</span>
               {isActive && (
                 <span
                   className="absolute top-0.5 h-0.5 w-10 rounded-full bg-sheikah-teal-deep"

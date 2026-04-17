@@ -173,7 +173,7 @@ export default function Projects() {
                 </div>
                 {p.milestones_total > 0 && (
                   <div className="mb-2">
-                    <div className="flex justify-between font-rune text-[11px] text-ink-whisper mb-1">
+                    <div className="flex justify-between font-rune text-tiny text-ink-whisper mb-1">
                       <span>MILESTONES</span>
                       <span>{p.milestones_completed}/{p.milestones_total}</span>
                     </div>

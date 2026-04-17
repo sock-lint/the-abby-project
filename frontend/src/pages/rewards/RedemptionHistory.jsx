@@ -23,7 +23,7 @@ export default function RedemptionHistory({ redemptions, isParent }) {
                 </div>
               </div>
             </div>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full border uppercase ${STATUS_COLORS[r.status] || STATUS_COLORS.pending}`}>
+            <span className={`text-micro px-2 py-0.5 rounded-full border uppercase ${STATUS_COLORS[r.status] || STATUS_COLORS.pending}`}>
               {r.status}
             </span>
           </Card>

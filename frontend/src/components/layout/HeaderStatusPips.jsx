@@ -93,6 +93,7 @@ export default function HeaderStatusPips({ user }) {
     if (isParent) {
       out.push({
         key: 'approvals',
+        // retained: pixel-perfect seal glyph
         icon: <span aria-hidden="true" className="font-display text-[13px] leading-none">seal</span>,
         label: String(pending),
         tone: pending > 0 ? 'ember' : 'ink',

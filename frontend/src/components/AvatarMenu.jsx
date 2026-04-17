@@ -89,7 +89,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
           >
             {/* Menu header — reads as "you are …" so the menu feels like a profile drawer */}
             <div className="px-4 pt-3 pb-2 border-b border-ink-page-shadow/70 bg-ink-page/40">
-              <div className="font-script text-ink-whisper text-[11px] uppercase tracking-[0.2em]">
+              <div className="font-script text-ink-whisper text-tiny uppercase tracking-[0.2em]">
                 you are
               </div>
               <div className="font-display italic text-base text-ink-primary leading-tight truncate">

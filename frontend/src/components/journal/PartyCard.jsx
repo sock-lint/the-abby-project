@@ -75,7 +75,7 @@ export default function PartyCard({
 
           {/* Growth bar */}
           <div className="mt-2">
-            <div className="flex justify-between items-center text-[10px] font-rune text-ink-whisper mb-0.5">
+            <div className="flex justify-between items-center text-micro font-rune text-ink-whisper mb-0.5">
               <span>GROWTH</span>
               <span>{growth}/100</span>
             </div>

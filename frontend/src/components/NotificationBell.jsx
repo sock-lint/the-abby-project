@@ -79,7 +79,7 @@ export default function NotificationBell() {
           <motion.span
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center font-bold"
+            className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-micro text-white flex items-center justify-center font-bold"
           >
             {unreadCount > 9 ? '9+' : unreadCount}
           </motion.span>
@@ -128,7 +128,7 @@ export default function NotificationBell() {
                         {n.message && (
                           <div className="text-xs text-ink-whisper mt-0.5">{n.message}</div>
                         )}
-                        <div className="text-[10px] text-ink-whisper mt-1">
+                        <div className="text-micro text-ink-whisper mt-1">
                           {formatDate(n.created_at)}
                         </div>
                       </div>

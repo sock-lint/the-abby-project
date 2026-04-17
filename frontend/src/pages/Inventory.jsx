@@ -95,7 +95,7 @@ export default function Inventory() {
                     </div>
                     <div className="flex items-center justify-center mt-1.5">
                       <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-script uppercase tracking-wider ${
+                        className={`text-micro px-1.5 py-0.5 rounded-full font-script uppercase tracking-wider ${
                           RARITY_PILL_COLORS[entry.item.rarity] || ''
                         }`}
                       >
@@ -103,7 +103,7 @@ export default function Inventory() {
                       </span>
                     </div>
                     {entry.quantity > 1 && (
-                      <div className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1 rounded-full bg-ember-deep text-ink-page-rune-glow font-rune text-[11px] font-bold flex items-center justify-center border border-ember">
+                      <div className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1 rounded-full bg-ember-deep text-ink-page-rune-glow font-rune text-tiny font-bold flex items-center justify-center border border-ember">
                         ×{entry.quantity}
                       </div>
                     )}
