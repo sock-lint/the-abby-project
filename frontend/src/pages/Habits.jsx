@@ -14,7 +14,8 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import { ScrollIcon } from '../components/icons/JournalIcons';
-import { buttonPrimary, inputClass } from '../constants/styles';
+import { buttonPrimary } from '../constants/styles';
+import { TextField, SelectField } from '../components/form';
 import { normalizeList } from '../utils/api';
 
 // Strength color — journal-safe sepia gradient from ember (low) through
@@ -40,7 +41,6 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
   });
 
   const onField = (k) => (e) => set({ [k]: e.target.value });
-  const labelClass = 'font-script text-sm text-ink-secondary mb-1 block';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -72,44 +72,26 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
     <BottomSheet title={isEdit ? 'Edit Ritual' : 'New Ritual'} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className={labelClass}>Name</label>
-          <input className={inputClass} value={form.name} onChange={onField('name')} required />
-        </div>
+        <TextField label="Name" value={form.name} onChange={onField('name')} required />
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelClass}>Icon</label>
-            <input className={inputClass} value={form.icon} onChange={onField('icon')} placeholder="⚡" />
-          </div>
-          <div>
-            <label className={labelClass}>Type</label>
-            <select className={inputClass} value={form.habit_type} onChange={onField('habit_type')}>
-              <option value="positive">Virtue (+)</option>
-              <option value="negative">Vice (−)</option>
-              <option value="both">Both</option>
-            </select>
-          </div>
+          <TextField label="Icon" value={form.icon} onChange={onField('icon')} placeholder="⚡" />
+          <SelectField label="Type" value={form.habit_type} onChange={onField('habit_type')}>
+            <option value="positive">Virtue (+)</option>
+            <option value="negative">Vice (−)</option>
+            <option value="both">Both</option>
+          </SelectField>
         </div>
         {children?.length > 0 && (
-          <div>
-            <label className={labelClass}>Child</label>
-            <select className={inputClass} value={form.user} onChange={onField('user')}>
-              <option value="">-- Select child --</option>
-              {children.map((c) => (
-                <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
-              ))}
-            </select>
-          </div>
+          <SelectField label="Child" value={form.user} onChange={onField('user')}>
+            <option value="">-- Select child --</option>
+            {children.map((c) => (
+              <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
+            ))}
+          </SelectField>
         )}
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelClass}>Max taps / day</label>
-            <input className={inputClass} type="number" min="1" max="50" value={form.max_taps_per_day} onChange={onField('max_taps_per_day')} />
-          </div>
-          <div>
-            <label className={labelClass}>XP reward</label>
-            <input className={inputClass} type="number" min="0" value={form.xp_reward} onChange={onField('xp_reward')} />
-          </div>
+          <TextField label="Max taps / day" type="number" min="1" max="50" value={form.max_taps_per_day} onChange={onField('max_taps_per_day')} />
+          <TextField label="XP reward" type="number" min="0" value={form.xp_reward} onChange={onField('xp_reward')} />
         </div>
         <button
           type="submit"
