@@ -19,10 +19,13 @@ from typing import Any
 
 from django.utils import timezone
 
+from django.core.exceptions import ValidationError as DjangoValidationError
+
 from apps.achievements.models import Badge
 from apps.accounts.models import User
 from apps.quests.models import Quest, QuestDefinition, QuestParticipant
 from apps.quests.services import QuestService
+from apps.quests.validators import validate_trigger_filter
 
 from ..context import get_current_user, require_parent
 from ..errors import (
@@ -151,6 +154,11 @@ def create_quest_definition(
         raise MCPValidationError(
             f"A quest named {params.name!r} already exists.",
         )
+
+    try:
+        validate_trigger_filter(params.trigger_filter)
+    except DjangoValidationError as exc:
+        raise MCPValidationError("; ".join(exc.messages))
 
     definition = QuestDefinition.objects.create(
         name=params.name,

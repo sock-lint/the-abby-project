@@ -61,6 +61,29 @@ class DropServiceTests(TestCase):
 
     @patch("apps.rpg.services.random.choices")
     @patch("apps.rpg.services.random.random")
+    def test_project_complete_rolls_drops(self, mock_random, mock_choices):
+        """Completing a project — the biggest single achievement — should
+        drop at rate 1.00, not fall through to the generic 0.20 default.
+        Regression guard for the bug where project_complete was absent from
+        BASE_DROP_RATES entirely."""
+        from apps.rpg.constants import TriggerType
+
+        project_entry = DropTable.objects.create(
+            trigger_type=TriggerType.PROJECT_COMPLETE,
+            item=self.egg_item,
+            weight=10,
+        )
+        # If the rate were 0.20, a mock_random of 0.5 would fail the roll.
+        mock_random.return_value = 0.5
+        mock_choices.return_value = [project_entry]
+
+        result = DropService.process_drops(self.user, TriggerType.PROJECT_COMPLETE)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["item_name"], "Dragon Egg")
+
+    @patch("apps.rpg.services.random.choices")
+    @patch("apps.rpg.services.random.random")
     def test_cosmetic_salvage(self, mock_random, mock_choices):
         cosmetic = ItemDefinition.objects.create(
             name="Gold Frame",

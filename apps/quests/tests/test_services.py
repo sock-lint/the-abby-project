@@ -81,8 +81,9 @@ class QuestServiceTest(TestCase):
         QuestParticipant.objects.filter(quest=quest).update(
             updated_at=timezone.now() - timedelta(days=1),
         )
-        raged = QuestService.apply_boss_rage()
-        self.assertEqual(raged, 1)
+        result = QuestService.apply_boss_rage()
+        self.assertEqual(result["raged"], 1)
+        self.assertEqual(result["decayed"], 0)
         quest.refresh_from_db()
         self.assertEqual(quest.rage_shield, 20)
 

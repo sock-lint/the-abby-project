@@ -41,7 +41,6 @@ def handle_project_status_change(sender, instance, created, **kwargs):
             "Project completed: '%s' by user %s (payment_kind=%s)",
             instance.title, instance.assigned_to, getattr(instance, "payment_kind", "required"),
         )
-        from apps.payments.services import PaymentService
         from apps.achievements.services import AwardService
         from apps.rewards.models import CoinLedger
         from apps.notifications.services import notify
@@ -55,20 +54,9 @@ def handle_project_status_change(sender, instance, created, **kwargs):
 
         is_bounty = getattr(instance, "payment_kind", "required") == "bounty"
 
-        if instance.bonus_amount and instance.assigned_to:
-            entry_type = "bounty_payout" if is_bounty else "project_bonus"
-            label = "Bounty payout" if is_bounty else "Project bonus"
-            PaymentService.record_entry(
-                instance.assigned_to,
-                instance.bonus_amount,
-                entry_type,
-                description=f"{label}: {instance.title}",
-                project=instance,
-                created_by=instance.created_by,
-            )
-
         if instance.assigned_to:
             coin_bonus = (25 if is_bounty else 10) * max(1, instance.difficulty)
+            label = "Bounty payout" if is_bounty else "Project bonus"
             AwardService.grant(
                 instance.assigned_to,
                 project=instance,
@@ -79,14 +67,20 @@ def handle_project_status_change(sender, instance, created, **kwargs):
                     else CoinLedger.Reason.PROJECT_BONUS
                 ),
                 coin_description=f"{'Bounty' if is_bounty else 'Project'} complete: {instance.title}",
+                money=instance.bonus_amount or 0,
+                money_entry_type=(
+                    "bounty_payout" if is_bounty else "project_bonus"
+                ),
+                money_description=f"{label}: {instance.title}",
                 created_by=instance.created_by,
             )
 
         # RPG game loop
+        from apps.rpg.constants import TriggerType
         from apps.rpg.services import GameLoopService
         if instance.assigned_to:
             GameLoopService.on_task_completed(
-                instance.assigned_to, "project_complete",
+                instance.assigned_to, TriggerType.PROJECT_COMPLETE,
                 {"project_id": instance.pk},
             )
 
@@ -144,9 +138,10 @@ def handle_milestone_completed(sender, instance, created, **kwargs):
     BadgeService.evaluate_badges(user)
 
     # RPG game loop
+    from apps.rpg.constants import TriggerType
     from apps.rpg.services import GameLoopService
     if instance.project.assigned_to:
         GameLoopService.on_task_completed(
-            instance.project.assigned_to, "milestone_complete",
+            instance.project.assigned_to, TriggerType.MILESTONE_COMPLETE,
             {"project_id": instance.project_id, "milestone_id": instance.pk},
         )

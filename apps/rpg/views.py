@@ -119,3 +119,17 @@ class UnequipCosmeticView(APIView):
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(result)
+
+
+class UseConsumableView(APIView):
+    """POST /api/inventory/<item_id>/use/ — consume a single consumable item."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, item_id):
+        from .services import ConsumableService
+
+        try:
+            result = ConsumableService.use(request.user, item_id)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result)

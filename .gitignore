@@ -49,3 +49,4 @@ docker-compose.override.yml
 # under frontend/src/assets/rpg-sprites/ ARE committed; the raw packs stay
 # local. See content/rpg/README.md for where to download them.
 reward-icons/
+/.claude/worktrees

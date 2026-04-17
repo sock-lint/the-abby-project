@@ -193,3 +193,40 @@ class CancelQuestTests(_Base):
         )
         with override_user(self.parent), self.assertRaises(MCPValidationError):
             q.cancel_quest(CancelQuestIn(quest_id=quest.id))
+
+
+class CreateDefinitionTriggerFilterTests(_Base):
+    """The MCP tool shares the model's trigger_filter validator so a typo
+    here is caught before the QuestDefinition row is created."""
+
+    def test_rejects_unknown_trigger_filter_key(self) -> None:
+        with override_user(self.parent), self.assertRaises(MCPValidationError):
+            q.create_quest_definition(CreateQuestDefinitionIn(
+                name="Typo Quest",
+                description="Bad filter shape.",
+                quest_type="collection",
+                target_value=5,
+                trigger_filter={"allowed_trigger": ["chore_complete"]},  # missing 's'
+            ))
+        self.assertFalse(QuestDefinition.objects.filter(name="Typo Quest").exists())
+
+    def test_rejects_unknown_trigger_value(self) -> None:
+        with override_user(self.parent), self.assertRaises(MCPValidationError):
+            q.create_quest_definition(CreateQuestDefinitionIn(
+                name="Bad Trigger",
+                description="Unknown trigger.",
+                quest_type="collection",
+                target_value=5,
+                trigger_filter={"allowed_triggers": ["chore_compelte"]},
+            ))
+
+    def test_accepts_valid_trigger_filter(self) -> None:
+        with override_user(self.parent):
+            r = q.create_quest_definition(CreateQuestDefinitionIn(
+                name="Valid Filter",
+                description="Only chores count.",
+                quest_type="collection",
+                target_value=5,
+                trigger_filter={"allowed_triggers": ["chore_complete"]},
+            ))
+        self.assertEqual(r["definition"]["name"], "Valid Filter")

@@ -5,24 +5,26 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 
+from apps.rpg.constants import TriggerType
 from apps.rpg.models import CharacterProfile
 
 logger = logging.getLogger(__name__)
 
-BASE_CHECK_IN_COINS = 3
+BASE_CHECK_IN_COINS = 5
 STREAK_MULTIPLIER_PER_DAY = 0.07
-STREAK_MULTIPLIER_CAP = 2.0
+STREAK_MULTIPLIER_CAP = 3.0
 
 BASE_DROP_RATES = {
-    "clock_out": 0.40,
-    "chore_complete": 0.30,
-    "homework_complete": 0.35,
-    "homework_created": 0.15,
-    "milestone_complete": 0.80,
-    "badge_earned": 1.00,
-    "quest_complete": 1.00,
-    "perfect_day": 1.00,
-    "habit_log": 0.15,
+    TriggerType.CLOCK_OUT: 0.40,
+    TriggerType.CHORE_COMPLETE: 0.30,
+    TriggerType.HOMEWORK_COMPLETE: 0.35,
+    TriggerType.HOMEWORK_CREATED: 0.15,
+    TriggerType.MILESTONE_COMPLETE: 0.80,
+    TriggerType.PROJECT_COMPLETE: 1.00,
+    TriggerType.BADGE_EARNED: 1.00,
+    TriggerType.QUEST_COMPLETE: 1.00,
+    TriggerType.PERFECT_DAY: 1.00,
+    TriggerType.HABIT_LOG: 0.15,
 }
 
 STREAK_DROP_BONUS_PER_DAY = 0.05
@@ -51,14 +53,31 @@ class StreakService:
                 "streak": profile.login_streak,
             }
 
-        # Streak logic
-        if (
-            profile.last_active_date is not None
-            and (activity_date - profile.last_active_date) == timedelta(days=1)
-        ):
+        # Streak logic — with streak-freeze grace for a single missed day.
+        consumed_freeze = False
+        save_fields = ["login_streak", "longest_login_streak", "last_active_date"]
+
+        if profile.last_active_date is None:
+            profile.login_streak = 1
+        elif (activity_date - profile.last_active_date) == timedelta(days=1):
             profile.login_streak += 1
         else:
-            profile.login_streak = 1
+            # Gap > 1 day. A freeze is eligible if it was armed in time to
+            # cover the FIRST missed day (last_active + 1). Intuition: a
+            # freeze bought on Monday that expires Tuesday protects a
+            # Tuesday skip, regardless of when the child returns.
+            first_missed = profile.last_active_date + timedelta(days=1)
+            freeze_covers = (
+                profile.streak_freeze_expires_at is not None
+                and profile.streak_freeze_expires_at >= first_missed
+            )
+            if freeze_covers:
+                profile.login_streak += 1
+                profile.streak_freeze_expires_at = None
+                save_fields.append("streak_freeze_expires_at")
+                consumed_freeze = True
+            else:
+                profile.login_streak = 1
 
         profile.last_active_date = activity_date
 
@@ -66,13 +85,7 @@ class StreakService:
         if profile.login_streak > profile.longest_login_streak:
             profile.longest_login_streak = profile.login_streak
 
-        profile.save(
-            update_fields=[
-                "login_streak",
-                "longest_login_streak",
-                "last_active_date",
-            ]
-        )
+        profile.save(update_fields=save_fields)
 
         # Calculate bonus coins
         multiplier = min(
@@ -85,6 +98,7 @@ class StreakService:
             "is_first_today": True,
             "check_in_bonus_coins": bonus_coins,
             "streak": profile.login_streak,
+            "freeze_consumed": consumed_freeze,
         }
 
 
@@ -261,6 +275,63 @@ class GameLoopService:
             "drops": drops,
             "quest": quest_result,
         }
+
+
+class ConsumableService:
+    """Applies the effect of a single-use ItemType.CONSUMABLE item.
+
+    Consumables opt in by setting ``metadata = {"effect": "<slug>"}``. Each
+    effect slug maps to a function here; unknown effects raise ValueError so
+    a typo in content YAML doesn't quietly no-op.
+    """
+
+    @staticmethod
+    @transaction.atomic
+    def use(user, item_id):
+        from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
+
+        try:
+            inv = UserInventory.objects.select_for_update().get(
+                user=user, item_id=item_id, quantity__gte=1,
+            )
+        except UserInventory.DoesNotExist:
+            raise ValueError("You don't own that item")
+
+        item = inv.item
+        if item.item_type != ItemDefinition.ItemType.CONSUMABLE:
+            raise ValueError("That item is not a consumable")
+
+        effect = (item.metadata or {}).get("effect")
+        if not effect:
+            raise ValueError("That consumable has no effect configured")
+
+        profile, _ = CharacterProfile.objects.select_for_update().get_or_create(user=user)
+        detail = ConsumableService._apply_effect(profile, effect, item)
+
+        inv.quantity -= 1
+        if inv.quantity == 0:
+            inv.delete()
+        else:
+            inv.save(update_fields=["quantity", "updated_at"])
+
+        return {
+            "item_id": item.pk,
+            "item_name": item.name,
+            "effect": effect,
+            "detail": detail,
+        }
+
+    @staticmethod
+    def _apply_effect(profile, effect, item):
+        if effect == "streak_freeze":
+            duration = int((item.metadata or {}).get("duration_days", 1))
+            today = timezone.localdate()
+            profile.streak_freeze_expires_at = today + timedelta(days=duration)
+            profile.save(update_fields=["streak_freeze_expires_at", "updated_at"])
+            return {
+                "streak_freeze_expires_at": profile.streak_freeze_expires_at.isoformat(),
+            }
+        raise ValueError(f"Unknown consumable effect: {effect!r}")
 
 
 class CosmeticService:

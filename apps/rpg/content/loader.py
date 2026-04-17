@@ -411,7 +411,18 @@ class ContentPack:
     def _load_drops(self, data: dict | None, write: Callable[[str], None]) -> None:
         if not data:
             return
+        from apps.rpg.constants import TriggerType
         from apps.rpg.models import DropTable, ItemDefinition
+
+        valid_triggers = {t.value for t in TriggerType}
+
+        def _require_trigger(trigger: str, source: str) -> str:
+            if trigger not in valid_triggers:
+                raise ContentPackError(
+                    f"drops.{source} references unknown trigger_type {trigger!r}. "
+                    f"Valid triggers: {sorted(valid_triggers)}"
+                )
+            return trigger
 
         # Support two shapes:
         #   rules: [{trigger: clock_out, item_slugs: [...], weight: 5, min_level: 0}]
@@ -428,6 +439,7 @@ class ContentPack:
             min_level = int(rule.get("min_level", 0))
             item_slugs = rule.get("item_slugs", []) or []
             for trigger in filter(None, triggers):
+                _require_trigger(trigger, "rules")
                 for raw_slug in item_slugs:
                     slug = self._ns(raw_slug)
                     try:
@@ -450,6 +462,9 @@ class ContentPack:
             weight_by_rarity = macro.get("weight_by_rarity", {}) or {}
             flat_weight = macro.get("weight")
             min_level = int(macro.get("min_level", 0))
+
+            for trigger in triggers:
+                _require_trigger(trigger, "macros")
 
             qs = ItemDefinition.objects.all()
             if item_type:

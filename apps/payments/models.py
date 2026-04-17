@@ -15,7 +15,6 @@ class PaymentLedger(CreatedAtModel):
         ADJUSTMENT = "adjustment", "Adjustment"
         CHORE_REWARD = "chore_reward", "Chore Reward"
         COIN_EXCHANGE = "coin_exchange", "Coin Exchange"
-        HOMEWORK_REWARD = "homework_reward", "Homework Reward"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,

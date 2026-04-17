@@ -4,19 +4,31 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 
+from apps.rpg.constants import TriggerType
+
 logger = logging.getLogger(__name__)
 
-# Damage values per trigger type (for boss fights)
+# Damage values per trigger type (for boss fights).
+#
+# QUEST_COMPLETE and PERFECT_DAY are intentionally absent: they fire as
+# *rewards* for existing work, not new effort — so they don't count as
+# damage against a separate boss quest. If a future design wants them to
+# cross-count, add them here explicitly.
 TRIGGER_DAMAGE = {
-    "clock_out": 10,  # per hour
-    "chore_complete": 15,
-    "homework_complete": 25,
-    "homework_created": 5,
-    "milestone_complete": 50,
-    "badge_earned": 30,
-    "project_complete": 75,
-    "habit_log": 5,
+    TriggerType.CLOCK_OUT: 10,  # per hour
+    TriggerType.CHORE_COMPLETE: 15,
+    TriggerType.HOMEWORK_COMPLETE: 25,
+    TriggerType.HOMEWORK_CREATED: 5,
+    TriggerType.MILESTONE_COMPLETE: 50,
+    TriggerType.BADGE_EARNED: 30,
+    TriggerType.PROJECT_COMPLETE: 75,
+    TriggerType.HABIT_LOG: 5,
 }
+
+# Rage shield balance (boss quests only). Idle day climbs, active day decays.
+# Cap matches the original per-day step of 20 so the cliff is 5 idle days.
+RAGE_SHIELD_STEP = 20
+RAGE_SHIELD_CAP = 100
 
 
 class QuestService:
@@ -132,7 +144,7 @@ class QuestService:
         if definition.quest_type == "boss":
             base_damage = TRIGGER_DAMAGE.get(trigger_type, 10)
             # Scale by hours for clock_out
-            if trigger_type == "clock_out" and "hours" in context:
+            if trigger_type == TriggerType.CLOCK_OUT and "hours" in context:
                 damage = int(base_damage * context["hours"])
             else:
                 damage = base_damage
@@ -241,11 +253,21 @@ class QuestService:
 
     @staticmethod
     def apply_boss_rage():
-        """Apply rage shield to boss quests where no progress was made today.
+        """Tick rage shield on every active boss quest.
 
         Called by nightly Celery task.
+
+        - Idle day (no participant progress): rage climbs by RAGE_SHIELD_STEP,
+          capped at RAGE_SHIELD_CAP. The cap prevents an absent user's quest
+          from spiraling into unwinnable territory.
+        - Active day (any participant made progress): rage decays by
+          RAGE_SHIELD_STEP toward 0. This preserves the "catch up when you're
+          back" signal while staying consistent with the project's
+          gentle-nudge doctrine.
+
+        Returns a dict with ``raged`` and ``decayed`` counts.
         """
-        from apps.quests.models import Quest, QuestParticipant
+        from apps.quests.models import Quest
 
         today = timezone.localdate()
         active_bosses = Quest.objects.filter(
@@ -254,18 +276,24 @@ class QuestService:
         )
 
         raged = 0
+        decayed = 0
         for quest in active_bosses:
-            # Check if any participant made progress today
             had_progress = quest.participants.filter(
                 updated_at__date=today,
             ).exists()
 
-            if not had_progress:
-                quest.rage_shield += 20
+            if not had_progress and quest.rage_shield < RAGE_SHIELD_CAP:
+                quest.rage_shield = min(
+                    quest.rage_shield + RAGE_SHIELD_STEP, RAGE_SHIELD_CAP,
+                )
                 quest.save(update_fields=["rage_shield", "updated_at"])
                 raged += 1
+            elif had_progress and quest.rage_shield > 0:
+                quest.rage_shield = max(quest.rage_shield - RAGE_SHIELD_STEP, 0)
+                quest.save(update_fields=["rage_shield", "updated_at"])
+                decayed += 1
 
-        return raged
+        return {"raged": raged, "decayed": decayed}
 
     @staticmethod
     def get_active_quest(user):

@@ -157,7 +157,8 @@ def log_habit(params: LogHabitIn) -> dict[str, Any]:
 
     game_event = None
     if params.amount == 1:
+        from apps.rpg.constants import TriggerType
         game_event = GameLoopService.on_task_completed(
-            user, "habit_log", {"habit_id": habit.pk},
+            user, TriggerType.HABIT_LOG, {"habit_id": habit.pk},
         )
     return to_plain({**result, "game_event": game_event})

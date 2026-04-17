@@ -312,6 +312,8 @@ export const deleteHabit = (id) => api.delete(`/habits/${id}/`);
 export const logHabitTap = (id, direction) =>
   api.post(`/habits/${id}/log/`, { direction });
 export const getInventory = () => api.get('/inventory/');
+export const useConsumable = (itemId) =>
+  api.post(`/inventory/${itemId}/use/`);
 export const getRecentDrops = () => api.get('/drops/recent/');
 
 // Pets

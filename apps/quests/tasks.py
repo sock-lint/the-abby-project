@@ -11,7 +11,7 @@ def expire_quests_task():
 
 @shared_task
 def apply_boss_rage_task():
-    """Daily: apply rage shield to idle boss quests."""
+    """Daily: climb rage on idle boss quests, decay it on active ones."""
     from apps.quests.services import QuestService
-    raged = QuestService.apply_boss_rage()
-    return f"Applied rage to {raged} boss quests"
+    result = QuestService.apply_boss_rage()
+    return f"Rage: +{result['raged']} idle, -{result['decayed']} active"

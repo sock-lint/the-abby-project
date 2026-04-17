@@ -226,22 +226,21 @@ class ApproveRejectTests(_Fixture):
         )
 
     def test_approve_does_not_post_to_payment_or_coin_ledger(self):
-        """Homework no longer pays money or coins on approval."""
+        """Homework no longer pays money or coins on approval.
+
+        The real invariant is that the approval flow creates zero ledger
+        rows for the child — the specific ``HOMEWORK_REWARD`` enum value is
+        gone, so we check the full absence rather than a single entry type.
+        """
         with patch("apps.rpg.services.GameLoopService.on_task_completed"):
             HomeworkService.approve_submission(self.submission, self.parent)
         self.submission.refresh_from_db()
         self.assertEqual(self.submission.status, "approved")
-        self.assertFalse(
-            PaymentLedger.objects.filter(
-                user=self.child,
-                entry_type=PaymentLedger.EntryType.HOMEWORK_REWARD,
-            ).exists(),
+        self.assertEqual(
+            PaymentLedger.objects.filter(user=self.child).count(), 0,
         )
-        self.assertFalse(
-            CoinLedger.objects.filter(
-                user=self.child,
-                reason=CoinLedger.Reason.HOMEWORK_REWARD,
-            ).exists(),
+        self.assertEqual(
+            CoinLedger.objects.filter(user=self.child).count(), 0,
         )
 
     def test_approve_fires_homework_complete_trigger_with_on_time(self):
@@ -256,11 +255,8 @@ class ApproveRejectTests(_Fixture):
         HomeworkService.reject_submission(self.submission, self.parent)
         self.submission.refresh_from_db()
         self.assertEqual(self.submission.status, "rejected")
-        self.assertFalse(
-            PaymentLedger.objects.filter(
-                user=self.child,
-                entry_type=PaymentLedger.EntryType.HOMEWORK_REWARD,
-            ).exists(),
+        self.assertEqual(
+            PaymentLedger.objects.filter(user=self.child).count(), 0,
         )
 
 

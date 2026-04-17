@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 
+from apps.rpg.constants import TriggerType
 from config.base_models import CreatedAtModel, TimestampedModel
 
 
@@ -17,6 +18,13 @@ class CharacterProfile(TimestampedModel):
     longest_login_streak = models.PositiveIntegerField(default=0)
     last_active_date = models.DateField(null=True, blank=True)
     perfect_days_count = models.PositiveIntegerField(default=0)
+    streak_freeze_expires_at = models.DateField(
+        null=True, blank=True,
+        help_text=(
+            "While set to today or later, a missed day doesn't reset the "
+            "login streak. Consumed on use by the streak-freeze consumable."
+        ),
+    )
     active_frame = models.ForeignKey(
         "rpg.ItemDefinition", on_delete=models.SET_NULL,
         null=True, blank=True, related_name="equipped_as_frame",
@@ -58,6 +66,7 @@ class ItemDefinition(TimestampedModel):
         COSMETIC_PET_ACCESSORY = "cosmetic_pet_accessory", "Pet Accessory"
         QUEST_SCROLL = "quest_scroll", "Quest Scroll"
         COIN_POUCH = "coin_pouch", "Coin Pouch"
+        CONSUMABLE = "consumable", "Consumable"
 
     class Rarity(models.TextChoices):
         COMMON = "common", "Common"
@@ -131,16 +140,7 @@ class UserInventory(TimestampedModel):
 class DropTable(TimestampedModel):
     """Configurable drop table linking triggers to items with weights."""
 
-    class TriggerType(models.TextChoices):
-        CLOCK_OUT = "clock_out", "Clock Out"
-        CHORE_COMPLETE = "chore_complete", "Chore Complete"
-        HOMEWORK_COMPLETE = "homework_complete", "Homework Complete"
-        HOMEWORK_CREATED = "homework_created", "Homework Created"
-        MILESTONE_COMPLETE = "milestone_complete", "Milestone Complete"
-        BADGE_EARNED = "badge_earned", "Badge Earned"
-        QUEST_COMPLETE = "quest_complete", "Quest Complete"
-        PERFECT_DAY = "perfect_day", "Perfect Day"
-        HABIT_LOG = "habit_log", "Habit Log"
+    TriggerType = TriggerType
 
     trigger_type = models.CharField(max_length=30, choices=TriggerType.choices)
     item = models.ForeignKey(

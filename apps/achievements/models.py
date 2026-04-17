@@ -168,6 +168,7 @@ class Badge(models.Model):
         HOURS_IN_DAY = "hours_in_day", "Hours in a Day"
         PHOTOS_UPLOADED = "photos_uploaded", "Photos Uploaded"
         TOTAL_EARNED = "total_earned", "Total Earned"
+        TOTAL_COINS_EARNED = "total_coins_earned", "Total Coins Earned"
         DAYS_WORKED = "days_worked", "Days Worked"
         CROSS_CATEGORY_UNLOCK = "cross_category_unlock", "Cross-Category Unlock"
         QUEST_COMPLETED = "quest_completed", "Quest Completed"

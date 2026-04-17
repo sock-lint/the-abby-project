@@ -133,9 +133,10 @@ class ClockService:
         )
 
         # RPG game loop
+        from apps.rpg.constants import TriggerType
         from apps.rpg.services import GameLoopService
         GameLoopService.on_task_completed(
-            user, "clock_out",
+            user, TriggerType.CLOCK_OUT,
             {"project_id": entry.project_id, "hours": hours},
         )
 

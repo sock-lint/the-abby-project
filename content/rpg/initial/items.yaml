@@ -577,6 +577,21 @@ items:
     coin_value: 100
     metadata: {reveals: legendary_quest}
 
+  # ── Consumables (single-use items) ────────────────────────────────────
+  # Unlike cosmetics (keep on equip) or scrolls (reveal hints), consumables
+  # fire an effect on use and decrement inventory. Trigger logic lives in
+  # apps/rpg/services.py::ConsumableService._apply_effect keyed by
+  # metadata.effect. Add a new entry below AND the matching branch there.
+  - slug: streak-freeze
+    name: Streak Freeze
+    icon: "❄️"
+    sprite_key: magic-ice-1
+    item_type: consumable
+    rarity: rare
+    coin_value: 30
+    description: Protects your streak from a single missed day.
+    metadata: {effect: streak_freeze, duration_days: 1}
+
   # ── Scholar Track (homework-themed cosmetics) ─────────────────────────
   # Unlocked through Planner/Punctual badges — see drops.yaml for routing.
   - slug: title-bookworm

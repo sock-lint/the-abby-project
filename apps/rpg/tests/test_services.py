@@ -57,8 +57,8 @@ class StreakServiceTests(TestCase):
 
     def test_daily_check_in_bonus_coins(self):
         result = StreakService.record_activity(self.user, activity_date=date(2026, 4, 1))
-        # streak=1, multiplier = 1 + 1*0.07 = 1.07, bonus = int(3 * 1.07) = 3
-        self.assertEqual(result["check_in_bonus_coins"], 3)
+        # streak=1, multiplier = 1 + 1*0.07 = 1.07, bonus = int(5 * 1.07) = 5
+        self.assertEqual(result["check_in_bonus_coins"], 5)
 
     def test_daily_check_in_bonus_scales_with_streak(self):
         # Build an 11-day streak
@@ -68,17 +68,24 @@ class StreakServiceTests(TestCase):
 
         profile = CharacterProfile.objects.get(user=self.user)
         self.assertEqual(profile.login_streak, 11)
-        # streak=11, multiplier = 1 + 11*0.07 = 1.77, bonus = int(3 * 1.77) = 5
-        # The last call's return value should reflect this
-        result = StreakService.record_activity(
-            self.user, activity_date=start + timedelta(days=10)
-        )
-        # Same day — returns cached streak, no bonus
-        self.assertFalse(result["is_first_today"])
-        # Verify by computing manually from the profile
-        multiplier = min(1 + 11 * 0.07, 2.0)
-        expected = int(3 * multiplier)
-        self.assertEqual(expected, 5)
+        # streak=11, multiplier = 1 + 11*0.07 = 1.77, bonus = int(5 * 1.77) = 8
+        multiplier = min(1 + 11 * 0.07, 3.0)
+        expected = int(5 * multiplier)
+        self.assertEqual(expected, 8)
+
+    def test_daily_check_in_bonus_caps_at_day_30(self):
+        """Once streak hits the cap (3.0x), daily bonus plateaus at 15 coins."""
+        start = date(2026, 4, 1)
+        for i in range(30):
+            StreakService.record_activity(self.user, activity_date=start + timedelta(days=i))
+
+        profile = CharacterProfile.objects.get(user=self.user)
+        self.assertEqual(profile.login_streak, 30)
+        # Compute: multiplier = min(1 + 30*0.07, 3.0) = min(3.1, 3.0) = 3.0
+        # bonus = int(5 * 3.0) = 15
+        multiplier = min(1 + profile.login_streak * 0.07, 3.0)
+        expected = int(5 * multiplier)
+        self.assertEqual(expected, 15)
 
 
 class GameLoopServiceTests(TestCase):

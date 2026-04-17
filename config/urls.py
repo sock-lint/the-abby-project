@@ -61,15 +61,19 @@ urlpatterns = [
     path("api/", include("apps.google_integration.urls")),
 ]
 
-# Serve /media/ through Django in all environments. Fine at home-app scale;
-# swap for a proper object store if this ever outgrows a single server.
-urlpatterns += [
-    re_path(
-        r"^media/(?P<path>.*)$",
-        static_serve,
-        {"document_root": str(settings.MEDIA_ROOT)},
-    ),
-]
+# Serve /media/ through Django when uploads live on local disk. With
+# USE_S3_STORAGE=true (production), uploads live in MinIO and the browser
+# fetches them directly from s3.neato.digital via presigned URLs — Django
+# never touches the bytes, so this route is dropped to avoid exposing an
+# empty (or stale) media directory at a public path.
+if not settings.USE_S3_STORAGE:
+    urlpatterns += [
+        re_path(
+            r"^media/(?P<path>.*)$",
+            static_serve,
+            {"document_root": str(settings.MEDIA_ROOT)},
+        ),
+    ]
 
 # SPA catch-all — MUST be last. React Router owns every other path.
 # Exclude static/ so missing assets get a proper 404 instead of index.html

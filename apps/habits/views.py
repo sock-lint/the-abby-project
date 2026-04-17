@@ -57,10 +57,11 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         if direction == 1:
             # Imported lazily to avoid a static dep from habits → rpg at
             # module load; the game loop is only triggered for positive taps.
+            from apps.rpg.constants import TriggerType
             from apps.rpg.services import GameLoopService
 
             game_event = GameLoopService.on_task_completed(
-                request.user, "habit_log", {"habit_id": habit.pk},
+                request.user, TriggerType.HABIT_LOG, {"habit_id": habit.pk},
             )
 
         return Response({**result, "game_event": game_event})

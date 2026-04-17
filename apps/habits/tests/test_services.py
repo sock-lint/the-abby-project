@@ -138,3 +138,43 @@ class HabitServiceTests(TestCase):
         )
         with self.assertRaises(ValueError):
             HabitService.log_tap(self.user, habit, direction=1)
+
+    def test_decay_weighted_by_max_taps_per_day(self):
+        """A 4x-per-day habit decays by 2, not 1, so high-frequency habits
+        don't feel rock-solid just because each slip lands the same unit."""
+        frequent = Habit.objects.create(
+            name="Water",
+            habit_type="positive",
+            user=self.user,
+            created_by=self.parent,
+            max_taps_per_day=4,
+            strength=5,
+        )
+        target = date(2026, 4, 13)
+        HabitService.decay_all_habits(self.user, target_date=target)
+        frequent.refresh_from_db()
+        self.assertEqual(frequent.strength, 3)  # 5 - (4 // 2) = 3
+
+    def test_decay_weighted_floor_is_one(self):
+        """max_taps_per_day=1 decays by 1 (unchanged behavior)."""
+        self.habit.strength = 4
+        self.habit.save(update_fields=["strength"])
+        target = date(2026, 4, 13)
+        HabitService.decay_all_habits(self.user, target_date=target)
+        self.habit.refresh_from_db()
+        self.assertEqual(self.habit.strength, 3)
+
+    def test_decay_clamps_at_zero(self):
+        """Decay can't overshoot past zero and flip sign."""
+        frequent = Habit.objects.create(
+            name="Water",
+            habit_type="positive",
+            user=self.user,
+            created_by=self.parent,
+            max_taps_per_day=4,
+            strength=1,  # less than step size of 2
+        )
+        target = date(2026, 4, 13)
+        HabitService.decay_all_habits(self.user, target_date=target)
+        frequent.refresh_from_db()
+        self.assertEqual(frequent.strength, 0)

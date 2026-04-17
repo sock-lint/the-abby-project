@@ -177,6 +177,24 @@ badges:
     rarity: legendary
     xp_bonus: 250
 
+  # Coin lifetime earnings — parallels total_earned (money) but tracks the
+  # progression currency. Earns coins on award by default, so the badge
+  # itself is a meaningful drip of the thing it measures.
+  - name: Bronze Saver
+    description: Earn 500 coins over your lifetime
+    icon: "🪙"
+    criteria_type: total_coins_earned
+    criteria_value: {amount: 500}
+    rarity: uncommon
+    xp_bonus: 25
+  - name: Gold Saver
+    description: Earn 5,000 coins over your lifetime
+    icon: "💰"
+    criteria_type: total_coins_earned
+    criteria_value: {amount: 5000}
+    rarity: epic
+    xp_bonus: 100
+
   # Skill Tree Badges
   - name: Key Turner
     description: Unlock your first locked skill

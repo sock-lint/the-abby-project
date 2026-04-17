@@ -60,7 +60,13 @@ class HabitService:
 
     @staticmethod
     def decay_all_habits(user, target_date=None):
-        """Decay strength of untapped habits toward 0. Returns count decayed."""
+        """Decay strength of untapped habits toward 0. Returns count decayed.
+
+        Decay magnitude scales with ``max_taps_per_day`` so a 4x-per-day habit
+        drifts roughly twice as fast as a daily one — otherwise high-frequency
+        habits feel rock-solid just because each individual slip lands the same
+        unit of decay.
+        """
         if target_date is None:
             target_date = timezone.localdate()
 
@@ -78,11 +84,13 @@ class HabitService:
             if tapped_today or habit.strength == 0:
                 continue
 
+            step = max(1, habit.max_taps_per_day // 2)
+
             # Decay toward 0
             if habit.strength > 0:
-                habit.strength -= 1
+                habit.strength = max(0, habit.strength - step)
             else:
-                habit.strength += 1
+                habit.strength = min(0, habit.strength + step)
 
             habit.save(update_fields=["strength"])
             decayed += 1

@@ -156,7 +156,7 @@ the-abby-project/
 
 - **TimeEntry** — Clock in/out records with a DB constraint ensuring one active entry per user. Supports `voided` status.
 - **Timecard** — Weekly aggregation of time entries with hourly + bonus earnings and approval workflow
-- **PaymentLedger** — Append-only financial ledger with 10 entry types: hourly, project_bonus, bounty_payout, milestone_bonus, materials_reimbursement, payout, adjustment, chore_reward, coin_exchange, homework_reward
+- **PaymentLedger** — Append-only financial ledger with 9 entry types: hourly, project_bonus, bounty_payout, milestone_bonus, materials_reimbursement, payout, adjustment, chore_reward, coin_exchange
 
 ### Skill Tree
 
@@ -195,9 +195,9 @@ Homework pays **no money and no coins** — it's positioned as school duty, not 
 
 ### RPG: Character, Habits, Drops, Cosmetics (`apps/rpg/`)
 
-- **CharacterProfile** — Auto-created OneToOne with User. Tracks `level`, `login_streak`, `longest_login_streak`, `last_active_date`, `perfect_days_count`, and 4 cosmetic equip slots (`active_frame`, `active_title`, `active_theme`, `active_pet_accessory`) with type-constrained FKs to `ItemDefinition`.
+- **CharacterProfile** — Auto-created OneToOne with User. Tracks `level`, `login_streak`, `longest_login_streak`, `last_active_date`, `perfect_days_count`, `streak_freeze_expires_at` (one-shot grace set by consuming a Streak Freeze), and 4 cosmetic equip slots (`active_frame`, `active_title`, `active_theme`, `active_pet_accessory`) with type-constrained FKs to `ItemDefinition`.
 - **Habit / HabitLog** — Micro-behaviors with `+/-` taps (positive / negative / both). Tracks `strength` (decays daily if untapped). No approval flow — self-reported.
-- **ItemDefinition** — Master catalog. 9 item types (egg, potion, food, cosmetic_frame, cosmetic_title, cosmetic_theme, cosmetic_pet_accessory, quest_scroll, coin_pouch), 5 rarities (common → legendary), `coin_value` (salvage value), `metadata` JSONField for type-specific data.
+- **ItemDefinition** — Master catalog. 10 item types (egg, potion, food, cosmetic_frame, cosmetic_title, cosmetic_theme, cosmetic_pet_accessory, quest_scroll, coin_pouch, consumable), 5 rarities (common → legendary), `coin_value` (salvage value), `metadata` JSONField for type-specific data. `consumable` items fire a one-shot effect on use (dispatched by `ConsumableService._apply_effect` keyed by `metadata.effect`) — currently `streak_freeze`.
 - **UserInventory** — Per-user item quantities with `unique_together=(user, item)`.
 - **DropTable** — Trigger → Item mapping with `weight` and `min_level`. Triggers: clock_out, chore_complete, homework_complete, homework_created, milestone_complete, badge_earned, quest_complete, perfect_day, habit_log.
 - **DropLog** — Audit trail with `was_salvaged` flag (duplicate cosmetics auto-convert to coins).
@@ -718,9 +718,11 @@ Hardcoded in `apps/rpg/services.py`, `apps/pets/services.py`, and `apps/quests/s
 
 | Constant | Location | Default | Description |
 |----------|----------|---------|-------------|
-| `BASE_CHECK_IN_COINS` | `rpg/services.py` | `3` | Base daily check-in bonus before streak multiplier |
+| `BASE_CHECK_IN_COINS` | `rpg/services.py` | `5` | Base daily check-in bonus before streak multiplier |
 | `STREAK_MULTIPLIER_PER_DAY` | `rpg/services.py` | `0.07` | Per-day bonus to check-in multiplier |
-| `STREAK_MULTIPLIER_CAP` | `rpg/services.py` | `2.0` | Max check-in bonus multiplier |
+| `STREAK_MULTIPLIER_CAP` | `rpg/services.py` | `3.0` | Max check-in bonus multiplier (15c/day at day 30+) |
+| `RAGE_SHIELD_STEP` | `quests/services.py` | `20` | Boss-quest rage climb/decay step per day |
+| `RAGE_SHIELD_CAP` | `quests/services.py` | `100` | Max rage a boss quest accumulates |
 | `BASE_DROP_RATES` | `rpg/services.py` | dict by trigger | Base drop probability per trigger type |
 | `STREAK_DROP_BONUS_PER_DAY` | `rpg/services.py` | `0.05` | Per-day bonus to drop rate |
 | `STREAK_DROP_BONUS_CAP` | `rpg/services.py` | `0.50` | Max streak drop bonus (+50%) |

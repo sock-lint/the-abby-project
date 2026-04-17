@@ -1,0 +1,18 @@
+# Initial reward-shop stock.
+#
+# The reward shop is parent-managed so most rewards come from local authoring
+# or content packs. This file seeds the one reward that's tightly coupled to
+# an engine mechanic (streak protection) so kids always have a path to buy it
+# even when drops aren't cooperating.
+
+rewards:
+  - name: Streak Freeze
+    description: Protect your login streak from one missed day.
+    icon: "❄️"
+    cost_coins: 60
+    rarity: rare
+    stock: null
+    requires_parent_approval: false
+    fulfillment_kind: digital_item
+    item_definition: streak-freeze
+    order: 100

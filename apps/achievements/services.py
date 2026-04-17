@@ -215,8 +215,18 @@ class AwardService:
         coins=0,
         coin_reason=None,
         coin_description="",
+        money=0,
+        money_entry_type=None,
+        money_description="",
         created_by=None,
     ):
+        """Distribute XP + coins + optional money atomically and re-evaluate badges.
+
+        ``money`` / ``money_entry_type`` are optional — pass them for paired
+        award paths (clock-out hourly, chore reward, project/milestone bonus)
+        that credit both ``PaymentLedger`` and ``CoinLedger`` in one breath.
+        Badge-only and quest-only callers leave them off.
+        """
         if project is not None and xp > 0:
             SkillService.distribute_project_xp(user, project, xp)
 
@@ -227,6 +237,17 @@ class AwardService:
                 coins,
                 coin_reason,
                 description=coin_description,
+                created_by=created_by,
+            )
+
+        if money and money_entry_type is not None:
+            from apps.payments.services import PaymentService
+            PaymentService.record_entry(
+                user,
+                money,
+                money_entry_type,
+                description=money_description or coin_description,
+                project=project,
                 created_by=created_by,
             )
 

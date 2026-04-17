@@ -183,25 +183,18 @@ class ChoreService:
 
         finalize_decision(completion, ChoreCompletion.Status.APPROVED, parent, notes)
 
-        # Post payment.
-        if completion.reward_amount_snapshot > 0:
-            PaymentService.record_entry(
-                completion.user,
-                completion.reward_amount_snapshot,
-                PaymentLedger.EntryType.CHORE_REWARD,
-                description=f"Chore: {completion.chore.title}",
-                created_by=parent,
-            )
-
-        # Award coins.
-        if completion.coin_reward_snapshot > 0:
-            CoinService.award_coins(
-                completion.user,
-                completion.coin_reward_snapshot,
-                CoinLedger.Reason.CHORE_REWARD,
-                description=f"Chore: {completion.chore.title}",
-                created_by=parent,
-            )
+        # Paired money + coin award through a single distribution call.
+        from apps.achievements.services import AwardService
+        AwardService.grant(
+            completion.user,
+            coins=completion.coin_reward_snapshot,
+            coin_reason=CoinLedger.Reason.CHORE_REWARD,
+            coin_description=f"Chore: {completion.chore.title}",
+            money=completion.reward_amount_snapshot,
+            money_entry_type=PaymentLedger.EntryType.CHORE_REWARD,
+            money_description=f"Chore: {completion.chore.title}",
+            created_by=parent,
+        )
 
         # Notify child.
         notify(
@@ -216,9 +209,10 @@ class ChoreService:
         )
 
         # RPG game loop
+        from apps.rpg.constants import TriggerType
         from apps.rpg.services import GameLoopService
         GameLoopService.on_task_completed(
-            completion.user, "chore_complete", {"chore_id": completion.chore_id},
+            completion.user, TriggerType.CHORE_COMPLETE, {"chore_id": completion.chore_id},
         )
 
         return completion

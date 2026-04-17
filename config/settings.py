@@ -247,9 +247,45 @@ STORAGES = {
 }
 
 # Media files
+#
+# Default: local FileSystemStorage at MEDIA_ROOT, served by config/urls.py.
+# Production: set USE_S3_STORAGE=true to route every FileField/ImageField
+# through django-storages' S3 backend pointed at MinIO (s3.neato.digital).
+# When S3 is on, MEDIA_URL/MEDIA_ROOT are ignored and image URLs returned
+# in API responses are presigned (signed with AWS_ACCESS_KEY_ID, expire
+# after AWS_QUERYSTRING_EXPIRE seconds).
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+USE_S3_STORAGE = os.environ.get("USE_S3_STORAGE", "False").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+
+if USE_S3_STORAGE:
+    AWS_S3_ENDPOINT_URL = os.environ.get("AWS_S3_ENDPOINT_URL", "")
+    AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME", "")
+    AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "")
+    AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+    # boto3 requires a region even when MinIO ignores it.
+    AWS_S3_REGION_NAME = os.environ.get("AWS_S3_REGION_NAME", "us-east-1")
+    # MinIO needs path-style addressing (bucket-as-subdomain doesn't work
+    # against most self-hosted S3-compatible servers behind a reverse proxy).
+    AWS_S3_ADDRESSING_STYLE = "path"
+    AWS_S3_SIGNATURE_VERSION = "s3v4"
+    # Presigned URLs — bucket is private, every read goes through a signed URL.
+    AWS_QUERYSTRING_AUTH = True
+    AWS_QUERYSTRING_EXPIRE = int(os.environ.get("AWS_QUERYSTRING_EXPIRE", "3600"))
+    # Don't overwrite same-named uploads — django-storages appends a random
+    # suffix (e.g. cover_aB12cD.jpg) so two kids uploading "cover.jpg" stay
+    # distinct. Mirrors the FileSystemStorage default behavior.
+    AWS_S3_FILE_OVERWRITE = False
+    # MinIO doesn't honor canned ACLs the same way AWS does; leave unset.
+    AWS_DEFAULT_ACL = None
+
+    STORAGES["default"] = {"BACKEND": "storages.backends.s3.S3Storage"}
 
 # Allow larger bodies for PDF ingestion and photo uploads now that gunicorn
 # handles uploads directly (no nginx in front).
@@ -450,3 +486,7 @@ if SENTRY_DSN:
 if "test" in sys.argv:
     MIGRATION_MODULES = {app.split(".")[-1]: None for app in INSTALLED_APPS}
     PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+    # Tests use SimpleUploadedFile against a local temp dir — never reach for
+    # MinIO even when USE_S3_STORAGE is set in the developer's shell env.
+    USE_S3_STORAGE = False
+    STORAGES["default"] = {"BACKEND": "django.core.files.storage.FileSystemStorage"}

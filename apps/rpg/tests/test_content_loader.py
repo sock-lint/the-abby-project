@@ -197,3 +197,74 @@ class ValidationTest(TestCase):
     def test_bad_yaml_path_raises(self):
         with self.assertRaises(ContentPackError):
             ContentPack("/nonexistent/path").load()
+
+    def test_unknown_trigger_in_drops_rules_raises(self):
+        """A typo in drops.yaml 'triggers:' list should fail loading, not
+        silently create DropTable rows with invalid trigger_type values."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pack_path = Path(tmpdir)
+            # Need at least one item to reference
+            (pack_path / "items.yaml").write_text(
+                textwrap.dedent(
+                    """
+                    items:
+                      - slug: test-pouch
+                        name: Test Pouch
+                        icon: "💰"
+                        item_type: coin_pouch
+                        rarity: common
+                        coin_value: 10
+                    """
+                ).strip(),
+                encoding="utf-8",
+            )
+            (pack_path / "drops.yaml").write_text(
+                textwrap.dedent(
+                    """
+                    rules:
+                      - triggers: [clock_ou]
+                        item_slugs: [test-pouch]
+                        weight: 5
+                    """
+                ).strip(),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(ContentPackError) as ctx:
+                ContentPack(pack_path).load()
+            self.assertIn("clock_ou", str(ctx.exception))
+
+        self.assertFalse(DropTable.objects.filter(trigger_type="clock_ou").exists())
+
+    def test_unknown_trigger_in_drops_macros_raises(self):
+        """Same validation applies to the macros shape."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pack_path = Path(tmpdir)
+            (pack_path / "items.yaml").write_text(
+                textwrap.dedent(
+                    """
+                    items:
+                      - slug: test-egg
+                        name: Test Egg
+                        icon: "🥚"
+                        item_type: egg
+                        rarity: common
+                    """
+                ).strip(),
+                encoding="utf-8",
+            )
+            (pack_path / "drops.yaml").write_text(
+                textwrap.dedent(
+                    """
+                    macros:
+                      - triggers: [project_completion]
+                        item_type: egg
+                        weight_by_rarity: {common: 5}
+                    """
+                ).strip(),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(ContentPackError) as ctx:
+                ContentPack(pack_path).load()
+            self.assertIn("project_completion", str(ctx.exception))

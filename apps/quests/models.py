@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from apps.quests.validators import validate_trigger_filter
 from config.base_models import TimestampedModel
 
 
@@ -44,6 +45,10 @@ class QuestDefinition(TimestampedModel):
 
     class Meta:
         ordering = ["-is_system", "name"]
+
+    def clean(self):
+        super().clean()
+        validate_trigger_filter(self.trigger_filter)
 
     def __str__(self):
         return f"{self.icon} {self.name} ({self.get_quest_type_display()})"

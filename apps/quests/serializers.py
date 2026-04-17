@@ -1,5 +1,8 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
+
 from .models import QuestDefinition, QuestRewardItem, Quest, QuestParticipant
+from .validators import validate_trigger_filter
 
 
 class QuestRewardItemSerializer(serializers.ModelSerializer):
@@ -65,3 +68,10 @@ class QuestWriteSerializer(serializers.Serializer):
     xp_reward = serializers.IntegerField(min_value=0, default=0)
     trigger_filter = serializers.JSONField(required=False, default=dict)
     assigned_to = serializers.IntegerField(required=False)  # child user ID
+
+    def validate_trigger_filter(self, value):
+        try:
+            validate_trigger_filter(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages)
+        return value

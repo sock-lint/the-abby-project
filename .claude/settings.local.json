@@ -26,7 +26,8 @@
       "Bash(grep -rn \"projects\\\\.user\\\\|projects\\\\.User\" apps/*/migrations/ apps/*/models.py apps/*/apps.py)",
       "Bash(grep -rn 'to=\"projects\\\\|to=\"accounts' apps/*/migrations/*.py)",
       "Bash(python -c ':*)",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(MSYS_NO_PATHCONV=1 docker compose exec django ls /app/apps/projects/tests/)"
     ]
   }
 }

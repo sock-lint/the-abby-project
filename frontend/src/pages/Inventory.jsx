@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { getInventory } from '../api';
+import { getInventory, useConsumable } from '../api';
 import { useApi } from '../hooks/useApi';
 import Loader from '../components/Loader';
 import EmptyState from '../components/EmptyState';
@@ -22,11 +23,28 @@ const TYPE_COMPARTMENTS = [
   { id: 'cosmetic_pet_accessory', label: 'Pet Accessories', kicker: 'saddles & adornments', glyph: 'dragon-crest' },
   { id: 'quest_scroll', label: 'Quest Scrolls', kicker: 'future adventures', glyph: 'sheikah-eye' },
   { id: 'coin_pouch', label: 'Coin Pouches', kicker: 'fortune tucked away', glyph: 'wax-seal' },
+  { id: 'consumable', label: 'Consumables', kicker: 'one-use charms', glyph: 'wax-seal' },
 ];
 
 export default function Inventory() {
-  const { data, loading } = useApi(getInventory);
+  const { data, loading, reload } = useApi(getInventory);
   const items = normalizeList(data);
+  const [busyId, setBusyId] = useState(null);
+  const [flash, setFlash] = useState(null);
+
+  const handleUse = async (entry) => {
+    if (busyId) return;
+    setBusyId(entry.id);
+    try {
+      const result = await useConsumable(entry.item.id);
+      setFlash({ name: entry.item.name, effect: result?.effect });
+      if (reload) await reload();
+    } catch (err) {
+      setFlash({ error: err?.message || 'Could not use item.' });
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   if (loading) return <Loader />;
 
@@ -49,6 +67,21 @@ export default function Inventory() {
           The Satchel
         </h1>
       </header>
+
+      {flash && (
+        <div
+          role="status"
+          className={`text-sm px-3 py-2 rounded ${
+            flash.error
+              ? 'bg-ember-deep/10 text-ember-deep'
+              : 'bg-sheikah-teal-deep/10 text-sheikah-teal-deep'
+          }`}
+        >
+          {flash.error
+            ? flash.error
+            : `Used ${flash.name}. Your streak is protected for the next missed day.`}
+        </div>
+      )}
 
       {populatedCompartments.length === 0 ? (
         <EmptyState icon={<EggIcon size={36} />}>
@@ -102,6 +135,16 @@ export default function Inventory() {
                         {entry.item.rarity_display}
                       </span>
                     </div>
+                    {entry.item.item_type === 'consumable' && (
+                      <button
+                        type="button"
+                        onClick={() => handleUse(entry)}
+                        disabled={busyId === entry.id}
+                        className="mt-2 w-full text-tiny font-script uppercase tracking-wider px-2 py-1 rounded bg-sheikah-teal-deep text-ink-page-rune-glow disabled:opacity-50"
+                      >
+                        {busyId === entry.id ? 'Using…' : 'Use'}
+                      </button>
+                    )}
                     {entry.quantity > 1 && (
                       <div className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1 rounded-full bg-ember-deep text-ink-page-rune-glow font-rune text-tiny font-bold flex items-center justify-center border border-ember">
                         ×{entry.quantity}

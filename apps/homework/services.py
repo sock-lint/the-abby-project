@@ -119,9 +119,10 @@ class HomeworkService:
                 assigned_to=child, created_at__date=today,
             ).exclude(pk=assignment.pk).exists()
 
+            from apps.rpg.constants import TriggerType
             from apps.rpg.services import GameLoopService
             GameLoopService.on_task_completed(
-                child, "homework_created",
+                child, TriggerType.HOMEWORK_CREATED,
                 {"assignment_id": assignment.id, "drops_allowed": drops_allowed},
             )
 
@@ -243,9 +244,10 @@ class HomeworkService:
             HomeworkSubmission.Timeliness.EARLY,
             HomeworkSubmission.Timeliness.ON_TIME,
         )
+        from apps.rpg.constants import TriggerType
         from apps.rpg.services import GameLoopService
         GameLoopService.on_task_completed(
-            submission.user, "homework_complete",
+            submission.user, TriggerType.HOMEWORK_COMPLETE,
             {"assignment_id": assignment.id, "on_time": on_time},
         )
 

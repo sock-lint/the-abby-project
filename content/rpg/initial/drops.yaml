@@ -16,21 +16,21 @@
 macros:
   # Eggs, potions, coin pouches drop from all the frequent triggers.
   # Weight-by-rarity: common 10 → legendary 1 (mirrors _create_item_catalog).
-  - triggers: [clock_out, chore_complete, homework_complete, milestone_complete, habit_log]
+  - triggers: [clock_out, chore_complete, homework_complete, milestone_complete, project_complete, habit_log]
     item_type: egg
     weight_by_rarity: {common: 10, uncommon: 5, rare: 2, epic: 1, legendary: 1}
 
-  - triggers: [clock_out, chore_complete, homework_complete, milestone_complete, habit_log]
+  - triggers: [clock_out, chore_complete, homework_complete, milestone_complete, project_complete, habit_log]
     item_type: potion
     weight_by_rarity: {common: 10, uncommon: 5, rare: 2, epic: 1, legendary: 1}
 
   # Coin pouches at 2x base weight.
-  - triggers: [clock_out, chore_complete, homework_complete, milestone_complete, habit_log]
+  - triggers: [clock_out, chore_complete, homework_complete, milestone_complete, project_complete, habit_log]
     item_type: coin_pouch
     weight_by_rarity: {common: 20, uncommon: 10, rare: 4, epic: 2, legendary: 2}
 
   # Food drops frequently (weight-scaled by rarity now we have many tiers).
-  - triggers: [clock_out, chore_complete, homework_complete, milestone_complete, habit_log]
+  - triggers: [clock_out, chore_complete, homework_complete, milestone_complete, project_complete, habit_log]
     item_type: food
     weight_by_rarity: {common: 15, uncommon: 6, rare: 2, epic: 1, legendary: 1}
 
@@ -45,12 +45,22 @@ macros:
     weight_by_rarity: {common: 10, uncommon: 3}
 
   # Cosmetics only drop from high-value triggers.
-  - triggers: [milestone_complete, badge_earned, perfect_day, quest_complete]
+  # project_complete is the biggest accomplishment — it's included so finishing
+  # a whole project is as likely to yield a cosmetic as a milestone.
+  - triggers: [milestone_complete, project_complete, badge_earned, perfect_day, quest_complete]
     item_type_startswith: cosmetic_
     weight_by_rarity: {common: 10, uncommon: 5, rare: 2, epic: 1, legendary: 1}
 
-  # Quest scrolls drop from milestone/badge/quest/perfect triggers — they're a
-  # ladder reward that lets players queue up future quests.
-  - triggers: [milestone_complete, badge_earned, quest_complete, perfect_day]
+  # Quest scrolls drop from milestone/project/badge/quest/perfect triggers —
+  # they're a ladder reward that lets players queue up future quests.
+  - triggers: [milestone_complete, project_complete, badge_earned, quest_complete, perfect_day]
     item_type: quest_scroll
     weight_by_rarity: {uncommon: 4, rare: 2, epic: 1, legendary: 1}
+
+rules:
+  # Streak Freeze drops rarely from milestone/project completions — the
+  # expected player path is earn → save → spend on a missed day. If drops
+  # feel too scarce, the reward shop also stocks it.
+  - triggers: [milestone_complete, project_complete, badge_earned, perfect_day]
+    item_slugs: [streak-freeze]
+    weight: 2

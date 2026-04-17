@@ -22,6 +22,7 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "longest_login_streak",
             "last_active_date",
             "perfect_days_count",
+            "streak_freeze_expires_at",
             "active_frame",
             "active_title",
             "active_theme",

@@ -70,7 +70,6 @@ services:
       dockerfile: Dockerfile
     command: sh -c "python manage.py backfill_accounts_history && python manage.py migrate --noinput && python manage.py loadrpgcontent && gunicorn config.asgi:application --bind 0.0.0.0:8000 --workers 3 --worker-class uvicorn.workers.UvicornWorker --timeout 120"
     volumes:
-      - media_data:/app/media
       # LLM-authored RPG content packs. The MCP ``write_pack_file`` tool
       # writes into this path; binding it to the repo on the host so
       # pack YAMLs survive container rebuilds AND are available for the
@@ -105,6 +104,13 @@ services:
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
       SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.2}
       SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      USE_S3_STORAGE: ${USE_S3_STORAGE:-false}
+      AWS_S3_ENDPOINT_URL: ${AWS_S3_ENDPOINT_URL:-}
+      AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_S3_REGION_NAME: ${AWS_S3_REGION_NAME:-us-east-1}
+      AWS_QUERYSTRING_EXPIRE: ${AWS_QUERYSTRING_EXPIRE:-3600}
     depends_on:
       db:
         condition: service_healthy
@@ -145,6 +151,13 @@ services:
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
       SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.2}
       SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      USE_S3_STORAGE: ${USE_S3_STORAGE:-false}
+      AWS_S3_ENDPOINT_URL: ${AWS_S3_ENDPOINT_URL:-}
+      AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_S3_REGION_NAME: ${AWS_S3_REGION_NAME:-us-east-1}
+      AWS_QUERYSTRING_EXPIRE: ${AWS_QUERYSTRING_EXPIRE:-3600}
     depends_on:
       db:
         condition: service_healthy
@@ -200,4 +213,3 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  media_data:
