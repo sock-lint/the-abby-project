@@ -20,9 +20,9 @@ The app uses three explicit layers. Avoid introducing new z values without updat
 |---|---|---|
 | Sticky shell | `z-30` | `JournalShell` header (sticky), `HeaderProgressBand` |
 | Modal backdrop | `z-40` | `ModalBackdrop`, `BottomSheet` overlay |
-| Modal surface | `z-50` | `BottomSheet` card / sheet, `ConfirmDialog` |
+| Modal surface / toast | `z-50` | `BottomSheet` card / sheet, `ConfirmDialog`, `DropToastStack` |
 
-If a new layer is needed (e.g. a toast stack above modals), pick `z-60` and add a row to this table in the same PR.
+`DropToastStack` shares `z-50` with modal surfaces — a toast emitted while a modal is open can be hidden behind it. If that proves wrong (toasts should always be visible), promote toasts to a new `z-60` row and update this table in the same PR. Do not introduce ad-hoc z-values without updating this table.
 
 ### File layout
 
