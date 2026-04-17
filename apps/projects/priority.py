@@ -140,3 +140,76 @@ def _chore_actions(user, target_date):
             action_url="/chores",
         ))
     return actions
+
+
+def _eligible_homework(user):
+    """Homework assignments the child can still act on.
+
+    Excludes:
+    - inactive assignments
+    - assignments with any submission in ('pending', 'approved') —
+      rejected-only submissions still leave the assignment eligible.
+    """
+    from apps.homework.models import HomeworkAssignment, HomeworkSubmission
+    from django.db.models import Exists, OuterRef
+
+    blocking_submission = HomeworkSubmission.objects.filter(
+        assignment=OuterRef("pk"),
+        user=user,
+    ).exclude(status=HomeworkSubmission.Status.REJECTED)
+
+    return list(
+        HomeworkAssignment.objects
+        .filter(assigned_to=user, is_active=True)
+        .annotate(_has_blocking=Exists(blocking_submission))
+        .filter(_has_blocking=False)
+    )
+
+
+def _homework_score(hw, target_date):
+    w = SCORING_WEIGHTS
+    days_delta = (hw.due_date - target_date).days
+    if days_delta < 0:
+        score = w["homework_overdue_base"] + (-days_delta) * w["homework_overdue_per_day"]
+        return min(score, w["homework_overdue_cap"])
+    if days_delta == 0:
+        return w["homework_due_today"]
+    if days_delta == 1:
+        return w["homework_due_tomorrow"]
+    if days_delta <= 7:
+        return w["homework_due_this_week"]
+    return 0  # signal: skip
+
+
+def _homework_subtitle(hw, target_date):
+    days_delta = (hw.due_date - target_date).days
+    subject = hw.get_subject_display()
+    if days_delta < 0:
+        n = -days_delta
+        return f"{subject} · {n} day{'s' if n != 1 else ''} overdue"
+    if days_delta == 0:
+        return f"{subject} · due today"
+    if days_delta == 1:
+        return f"{subject} · due tomorrow"
+    return f"{subject} · due in {days_delta} days"
+
+
+def _homework_actions(user, target_date):
+    actions = []
+    for hw in _eligible_homework(user):
+        score = _homework_score(hw, target_date)
+        if score == 0:
+            continue
+        actions.append(NextAction(
+            kind="homework",
+            id=hw.pk,
+            title=hw.title,
+            subtitle=_homework_subtitle(hw, target_date),
+            score=score,
+            due_at=hw.due_date,
+            reward=None,
+            icon="BookOpen",
+            tone="royal",
+            action_url="/homework",
+        ))
+    return actions

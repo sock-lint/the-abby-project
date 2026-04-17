@@ -143,3 +143,88 @@ class ChoreScoringTests(TestCase):
             _make_chore(pk=1, title="Free chore", recurrence="daily")
         ]
         self.assertIsNone(_chore_actions(_child(), today)[0].reward)
+
+
+from apps.projects.priority import _homework_actions
+
+
+def _make_homework(*, pk, title, due_date, subject="math"):
+    return SimpleNamespace(
+        pk=pk, title=title, due_date=due_date, subject=subject,
+        get_subject_display=lambda: subject.title(),
+    )
+
+
+class HomeworkScoringTests(TestCase):
+    @patch("apps.projects.priority._eligible_homework")
+    def test_overdue_scales_with_days(self, mock_hw):
+        today = datetime.date(2026, 4, 16)
+        mock_hw.return_value = [
+            _make_homework(pk=1, title="Reading",
+                           due_date=datetime.date(2026, 4, 13))
+        ]
+        # 3 days overdue → 100 + 3·10 = 130
+        actions = _homework_actions(_child(), today)
+        self.assertEqual(actions[0].score, 130)
+        self.assertEqual(actions[0].kind, "homework")
+
+    @patch("apps.projects.priority._eligible_homework")
+    def test_overdue_caps_at_200(self, mock_hw):
+        today = datetime.date(2026, 4, 16)
+        mock_hw.return_value = [
+            _make_homework(pk=1, title="R",
+                           due_date=datetime.date(2026, 3, 1))
+        ]
+        # Way more than 10 days late → capped at 200
+        self.assertEqual(_homework_actions(_child(), today)[0].score, 200)
+
+    @patch("apps.projects.priority._eligible_homework")
+    def test_due_today_scores_90(self, mock_hw):
+        today = datetime.date(2026, 4, 16)
+        mock_hw.return_value = [_make_homework(pk=1, title="Math", due_date=today)]
+        self.assertEqual(_homework_actions(_child(), today)[0].score, 90)
+
+    @patch("apps.projects.priority._eligible_homework")
+    def test_due_tomorrow_scores_60(self, mock_hw):
+        today = datetime.date(2026, 4, 16)
+        mock_hw.return_value = [
+            _make_homework(pk=1, title="Math",
+                           due_date=datetime.date(2026, 4, 17))
+        ]
+        self.assertEqual(_homework_actions(_child(), today)[0].score, 60)
+
+    @patch("apps.projects.priority._eligible_homework")
+    def test_due_this_week_scores_30(self, mock_hw):
+        today = datetime.date(2026, 4, 16)  # Thursday
+        mock_hw.return_value = [
+            _make_homework(pk=1, title="Math",
+                           due_date=datetime.date(2026, 4, 20))
+        ]
+        # 4 days out, within 7-day horizon, not tomorrow → 30
+        self.assertEqual(_homework_actions(_child(), today)[0].score, 30)
+
+    @patch("apps.projects.priority._eligible_homework")
+    def test_beyond_7_days_not_scored(self, mock_hw):
+        today = datetime.date(2026, 4, 16)
+        mock_hw.return_value = [
+            _make_homework(pk=1, title="Math",
+                           due_date=datetime.date(2026, 4, 30))
+        ]
+        self.assertEqual(_homework_actions(_child(), today), [])
+
+    @patch("apps.projects.priority._eligible_homework")
+    def test_subtitle_formats_due_date_phrase(self, mock_hw):
+        today = datetime.date(2026, 4, 16)
+
+        mock_hw.return_value = [
+            _make_homework(pk=1, title="A", due_date=datetime.date(2026, 4, 14))
+        ]
+        self.assertIn("overdue", _homework_actions(_child(), today)[0].subtitle)
+
+        mock_hw.return_value = [_make_homework(pk=2, title="B", due_date=today)]
+        self.assertIn("today", _homework_actions(_child(), today)[0].subtitle)
+
+        mock_hw.return_value = [
+            _make_homework(pk=3, title="C", due_date=datetime.date(2026, 4, 17))
+        ]
+        self.assertIn("tomorrow", _homework_actions(_child(), today)[0].subtitle)
