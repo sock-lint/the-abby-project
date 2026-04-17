@@ -57,7 +57,11 @@
   --color-rarity-epic: #a04a28;
   --color-rarity-legendary: #856418;
 
-  /* Modal chrome (Hyrule defaults — themes.js may override per cover) */
+  /* Modal chrome (Hyrule defaults — themes.js may override per cover).
+     `wash`, `vignette-edge`, and `shadow` happen to share rgba(45,31,21,0.45)
+     in Hyrule but represent three distinct semantic roles (backdrop wash,
+     outer vignette ring, drop shadow). Covers like Vigil will diverge them.
+     Do not dedupe. */
   --color-modal-wash: rgba(45, 31, 21, 0.45);
   --color-modal-vignette-mid: rgba(45, 31, 21, 0.25);
   --color-modal-vignette-edge: rgba(45, 31, 21, 0.45);
