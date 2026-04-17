@@ -5,7 +5,7 @@ import { createProject, getCategories, getChildren, getInstructablesPreview } fr
 import { useApi } from '../hooks/useApi';
 import Card from '../components/Card';
 import ErrorAlert from '../components/ErrorAlert';
-import { buttonPrimary } from '../constants/styles';
+import Button from '../components/Button';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 import { normalizeList } from '../utils/api';
 
@@ -174,9 +174,9 @@ export default function ProjectNew() {
             placeholder="Private notes (only visible to parents)"
           />
 
-          <button type="submit" className={`w-full py-2.5 ${buttonPrimary}`}>
+          <Button type="submit" className="w-full">
             Create Project
-          </button>
+          </Button>
         </Card>
       </form>
     </div>

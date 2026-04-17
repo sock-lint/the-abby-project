@@ -12,7 +12,7 @@ import ParchmentCard from '../components/journal/ParchmentCard';
 import DeckleDivider from '../components/journal/DeckleDivider';
 import RuneBadge from '../components/journal/RuneBadge';
 import { formatCurrency } from '../utils/format';
-import { buttonPrimary } from '../constants/styles';
+import Button from '../components/Button';
 import { TextField } from '../components/form';
 
 // Each ledger category maps to a journal-compatible tone rather than a
@@ -79,9 +79,9 @@ function PaymentAdjustModal({ onClose, onSaved }) {
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-secondary hover:text-ink-primary">
             Cancel
           </button>
-          <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
+          <Button type="submit" size="sm" disabled={saving}>
             {saving ? 'Adjusting…' : 'Adjust'}
-          </button>
+          </Button>
         </div>
       </form>
     </BottomSheet>
@@ -123,13 +123,13 @@ export default function Payments() {
           </h1>
         </div>
         {isParent && (
-          <button
-            type="button"
+          <Button
+            size="sm"
             onClick={() => setShowAdjust(true)}
-            className={`${buttonPrimary} flex items-center gap-1 px-3 py-2 text-sm`}
+            className="flex items-center gap-1"
           >
             <Plus size={14} /> Adjust Balance
-          </button>
+          </Button>
         )}
       </header>
 

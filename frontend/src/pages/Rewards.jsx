@@ -11,7 +11,7 @@ import Loader from '../components/Loader';
 import { useApi } from '../hooks/useApi';
 import { useConfirmState } from '../hooks/useConfirmState';
 import { useRole } from '../hooks/useRole';
-import { buttonPrimary } from '../constants/styles';
+import Button from '../components/Button';
 import { normalizeList } from '../utils/api';
 import CoinAdjustModal from './rewards/CoinAdjustModal';
 import CoinBalanceCard from './rewards/CoinBalanceCard';
@@ -104,13 +104,13 @@ export default function Rewards() {
             >
               <Coins size={14} /> Adjust Coins
             </button>
-            <button
-              type="button"
+            <Button
+              size="sm"
               onClick={() => { setEditingReward(null); setShowRewardForm(true); }}
-              className={`flex items-center gap-1 px-3 py-2 text-sm ${buttonPrimary}`}
+              className="flex items-center gap-1"
             >
               <Plus size={14} /> New Reward
-            </button>
+            </Button>
           </div>
         )}
       </header>

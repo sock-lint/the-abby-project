@@ -13,7 +13,7 @@ import { EggIcon, DragonIcon } from '../components/icons/JournalIcons';
 import RpgSprite from '../components/rpg/RpgSprite';
 import { normalizeList } from '../utils/api';
 import { RARITY_RING_COLORS, RARITY_TEXT_COLORS } from '../constants/colors';
-import { buttonPrimary } from '../constants/styles';
+import Button from '../components/Button';
 import { SelectField } from '../components/form';
 
 export default function Stable() {
@@ -89,13 +89,13 @@ export default function Stable() {
           </h1>
         </div>
         {eggs.length > 0 && potions.length > 0 && (
-          <button
-            type="button"
+          <Button
+            size="sm"
             onClick={() => setShowHatch(!showHatch)}
-            className={`${buttonPrimary} px-3 py-2 flex items-center gap-1.5 text-sm`}
+            className="flex items-center gap-1.5"
           >
             <Sparkles size={14} /> Hatch Pet
-          </button>
+          </Button>
         )}
       </header>
 
@@ -158,14 +158,13 @@ export default function Stable() {
               ))}
             </SelectField>
           </div>
-          <button
-            type="button"
+          <Button
             onClick={handleHatch}
             disabled={!hatchEgg || !hatchPotion || working}
-            className={`${buttonPrimary} w-full mt-3 py-2.5`}
+            className="w-full mt-3"
           >
             {working ? 'Hatching…' : 'Perform the ritual'}
-          </button>
+          </Button>
         </ParchmentCard>
       )}
 

@@ -8,7 +8,7 @@ import BottomSheet from '../components/BottomSheet';
 import EmptyState from '../components/EmptyState';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
-import { buttonPrimary } from '../constants/styles';
+import Button from '../components/Button';
 import { TextField, SelectField } from '../components/form';
 import { downscaleImage } from '../utils/image';
 import { normalizeList } from '../utils/api';
@@ -48,13 +48,13 @@ export default function Portfolio() {
               <Download size={16} /> <span className="hidden sm:inline">download all</span>
             </a>
           )}
-          <button
-            type="button"
+          <Button
+            size="sm"
             onClick={() => setUploadOpen(true)}
-            className={`flex items-center gap-1.5 text-sm px-3 min-h-10 ${buttonPrimary}`}
+            className="flex items-center gap-1.5 min-h-10"
           >
             <Plus size={16} /> Affix photo
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -271,14 +271,13 @@ function UploadSheet({ projects, onClose, onUploaded }) {
         maxLength={255}
       />
 
-      <button
-        type="button"
+      <Button
         onClick={handleSubmit}
         disabled={uploading || !file || !projectId}
-        className={`w-full py-3 disabled:cursor-not-allowed ${buttonPrimary}`}
+        className="w-full"
       >
         {uploading ? 'Uploading…' : 'Upload Photo'}
-      </button>
+      </Button>
     </BottomSheet>
   );
 }

@@ -9,10 +9,8 @@ import {
   TodayIcon, QuestsIcon, BestiaryIcon, TreasuryIcon, AtlasIcon,
   ClockFabIcon, InkwellIcon, ScrollIcon, EggIcon, CoinIcon, DragonIcon,
 } from '../components/icons/JournalIcons';
-import {
-  buttonPrimary, buttonSecondary, buttonDanger, buttonSuccess, buttonGhost,
-  headingDisplay, headingScript,
-} from '../constants/styles';
+import { headingDisplay, headingScript } from '../constants/styles';
+import Button from '../components/Button';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 
 export default function DesignShowcase() {
@@ -85,11 +83,11 @@ export default function DesignShowcase() {
       <DeckleDivider glyph="flourish-corner" label="Buttons" />
 
       <section className="flex flex-wrap gap-3">
-        <button className={buttonPrimary + ' px-4 py-2 text-sm'}>Wax-seal primary</button>
-        <button className={buttonSuccess + ' px-4 py-2 text-sm'}>Mossy success</button>
-        <button className={buttonSecondary + ' px-4 py-2 text-sm'}>Parchment secondary</button>
-        <button className={buttonDanger + ' px-4 py-2 text-sm'}>Ember danger</button>
-        <button className={buttonGhost + ' px-4 py-2 text-sm'}>Ghost action</button>
+        <Button size="sm">Wax-seal primary</Button>
+        <Button variant="success" size="sm">Mossy success</Button>
+        <Button variant="secondary" size="sm">Parchment secondary</Button>
+        <Button variant="danger" size="sm">Ember danger</Button>
+        <Button variant="ghost" size="sm">Ghost action</Button>
       </section>
 
       <DeckleDivider glyph="sheikah-eye" label="RuneBadge tones" />

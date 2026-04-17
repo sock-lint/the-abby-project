@@ -21,7 +21,7 @@ import TimelinessBadge from '../components/TimelinessBadge';
 import ProofGallery from '../components/ProofGallery';
 import StatusBadge from '../components/StatusBadge';
 import ParchmentCard from '../components/journal/ParchmentCard';
-import { buttonPrimary, buttonSuccess } from '../constants/styles';
+import Button from '../components/Button';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 import { quickDueDates } from '../utils/dates';
 
@@ -143,13 +143,13 @@ export default function Homework() {
             Study
           </h2>
         </div>
-        <button
-          type="button"
+        <Button
+          size="sm"
           onClick={() => setShowCreate(true)}
-          className={`${buttonPrimary} flex items-center gap-1 px-3 py-2 text-sm`}
+          className="flex items-center gap-1"
         >
           <Plus size={14} /> New assignment
-        </button>
+        </Button>
       </header>
 
       {planError && <ErrorAlert message={planError} />}
@@ -321,13 +321,9 @@ export default function Homework() {
               </SelectField>
             )}
             {createError && <ErrorAlert message={createError} />}
-            <button
-              type="submit"
-              disabled={creating}
-              className={`w-full py-2.5 text-sm ${buttonPrimary}`}
-            >
+            <Button type="submit" size="sm" disabled={creating} className="w-full">
               {creating ? 'Creating…' : 'Create assignment'}
-            </button>
+            </Button>
           </form>
         </BottomSheet>
       )}
@@ -398,13 +394,14 @@ function AssignmentCard({ assignment, onSubmit, onPlan, planning, canPlan }) {
       </div>
       <div className="flex gap-2 flex-wrap">
         {!sub && (
-          <button
-            type="button"
+          <Button
+            variant="success"
+            size="sm"
             onClick={onSubmit}
-            className={`flex items-center gap-1 px-3 py-1 text-xs ${buttonSuccess}`}
+            className="flex items-center gap-1 text-xs"
           >
             <Send size={12} /> Submit
-          </button>
+          </Button>
         )}
         {!hasProject && canPlan && (
           <button

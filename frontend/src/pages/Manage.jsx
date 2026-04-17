@@ -19,7 +19,7 @@ import StarRating from '../components/StarRating';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
-import { buttonPrimary, buttonSecondary } from '../constants/styles';
+import Button from '../components/Button';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 import { normalizeList } from '../utils/api';
 
@@ -106,12 +106,14 @@ function ChildrenSection() {
               )}
             </div>
           </div>
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => setEditChild(child)}
-            className={`flex items-center gap-1 px-3 py-2 text-sm ${buttonSecondary}`}
+            className="flex items-center gap-1"
           >
             <Pencil size={14} /> Edit
-          </button>
+          </Button>
         </Card>
       ))}
 
@@ -200,12 +202,12 @@ function EditChildModal({ child, onClose, onSaved }) {
           )}
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} disabled={saving} className={`flex-1 py-3 ${buttonSecondary}`}>
+          <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
-          </button>
-          <button type="submit" disabled={saving} className={`flex-1 py-3 ${buttonPrimary}`}>
+          </Button>
+          <Button type="submit" disabled={saving} className="flex-1">
             {saving ? 'Saving...' : 'Save'}
-          </button>
+          </Button>
         </div>
       </form>
     </BottomSheet>
@@ -261,18 +263,22 @@ function TemplatesSection() {
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <button
+              <Button
+                size="sm"
                 onClick={() => setUseModal(t)}
-                className={`flex items-center gap-1 px-3 py-1.5 text-xs ${buttonPrimary}`}
+                className="flex items-center gap-1 text-xs"
               >
                 <Play size={12} /> Use
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => setEditModal(t)}
-                className={`px-2 py-1.5 text-xs ${buttonSecondary}`}
+                aria-label="Edit template"
+                className="text-xs"
               >
                 <Pencil size={12} />
-              </button>
+              </Button>
               <button
                 onClick={() => setDeleteId(t.id)}
                 className="bg-ink-page-shadow/60 hover:bg-ember/20 text-ink-whisper hover:text-ember-deep px-2 py-1.5 rounded-lg text-xs transition-colors"
@@ -353,17 +359,12 @@ function UseTemplateModal({ template, children, onClose, onCreated }) {
         ))}
       </SelectField>
       <div className="flex gap-2">
-        <button type="button" onClick={onClose} disabled={creating} className={`flex-1 py-3 ${buttonSecondary}`}>
+        <Button variant="secondary" onClick={onClose} disabled={creating} className="flex-1">
           Cancel
-        </button>
-        <button
-          type="button"
-          onClick={handleCreate}
-          disabled={creating}
-          className={`flex-1 py-3 ${buttonPrimary}`}
-        >
+        </Button>
+        <Button onClick={handleCreate} disabled={creating} className="flex-1">
           {creating ? 'Creating...' : 'Create Project'}
-        </button>
+        </Button>
       </div>
     </BottomSheet>
   );
@@ -429,12 +430,12 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
           Share publicly (other families can see this template)
         </label>
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} disabled={saving} className={`flex-1 py-3 ${buttonSecondary}`}>
+          <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
-          </button>
-          <button type="submit" disabled={saving} className={`flex-1 py-3 ${buttonPrimary}`}>
+          </Button>
+          <Button type="submit" disabled={saving} className="flex-1">
             {saving ? 'Saving...' : 'Save'}
-          </button>
+          </Button>
         </div>
       </form>
     </BottomSheet>

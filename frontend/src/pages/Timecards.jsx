@@ -9,7 +9,7 @@ import StatusBadge from '../components/StatusBadge';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import { ScrollIcon } from '../components/icons/JournalIcons';
 import { useRole } from '../hooks/useRole';
-import { buttonPrimary, buttonSecondary, buttonSuccess } from '../constants/styles';
+import Button from '../components/Button';
 import { formatCurrency, formatDate, formatDuration } from '../utils/format';
 import { normalizeList } from '../utils/api';
 
@@ -161,30 +161,32 @@ export default function Timecards() {
                         ))}
                         {isParent && tc.status === 'pending' && (
                           <div className="flex gap-2 pt-2">
-                            <button
-                              type="button"
+                            <Button
+                              variant="success"
+                              size="sm"
                               onClick={() => handleAction(tc.id, 'approve')}
-                              className={`flex-1 py-2 text-sm ${buttonSuccess}`}
+                              className="flex-1"
                             >
                               Approve
-                            </button>
-                            <button
-                              type="button"
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               onClick={() => handleAction(tc.id, 'dispute')}
-                              className={`flex-1 py-2 text-sm ${buttonSecondary}`}
+                              className="flex-1"
                             >
                               Dispute
-                            </button>
+                            </Button>
                           </div>
                         )}
                         {isParent && tc.status === 'approved' && (
-                          <button
-                            type="button"
+                          <Button
+                            size="sm"
                             onClick={() => handleAction(tc.id, 'pay')}
-                            className={`w-full py-2 text-sm ${buttonPrimary}`}
+                            className="w-full"
                           >
                             Mark as Paid ({formatCurrency(tc.total_earnings)})
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </motion.div>

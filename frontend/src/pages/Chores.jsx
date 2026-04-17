@@ -23,7 +23,7 @@ import RuneBadge from '../components/journal/RuneBadge';
 import { CoinIcon, ScrollIcon } from '../components/icons/JournalIcons';
 import { formatDate } from '../utils/format';
 import { normalizeList } from '../utils/api';
-import { buttonPrimary } from '../constants/styles';
+import Button from '../components/Button';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 
 const RECURRENCE_LABELS = { daily: 'Daily', weekly: 'Weekly', one_time: 'One-time' };
@@ -139,9 +139,9 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-secondary hover:text-ink-primary transition-colors">
             Cancel
           </button>
-          <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
+          <Button type="submit" size="sm" disabled={saving}>
             {saving ? 'Saving…' : isEdit ? 'Update' : 'Create'}
-          </button>
+          </Button>
         </div>
       </form>
     </BottomSheet>
@@ -219,13 +219,13 @@ export default function Chores() {
           </h2>
         </div>
         {isParent && (
-          <button
-            type="button"
+          <Button
+            size="sm"
             onClick={() => { setEditingChore(null); setShowForm(true); }}
-            className={`flex items-center gap-1 px-3 py-2 text-sm ${buttonPrimary}`}
+            className="flex items-center gap-1"
           >
             <Plus size={14} /> New duty
-          </button>
+          </Button>
         )}
       </header>
 
@@ -358,21 +358,21 @@ export default function Chores() {
                         {chore.today_status}
                       </RuneBadge>
                     ) : isRejected ? (
-                      <button
-                        type="button"
+                      <Button
+                        size="sm"
                         onClick={() => handleComplete(chore.id)}
-                        className={`flex items-center gap-1 px-3 py-1.5 text-xs ${buttonPrimary}`}
+                        className="flex items-center gap-1 text-xs"
                       >
                         <RefreshCw size={12} /> Retry
-                      </button>
+                      </Button>
                     ) : isAvailable ? (
-                      <button
-                        type="button"
+                      <Button
+                        size="sm"
                         onClick={() => handleComplete(chore.id)}
-                        className={`flex items-center gap-1 px-3 py-1.5 text-xs ${buttonPrimary}`}
+                        className="flex items-center gap-1 text-xs"
                       >
                         <Check size={14} /> Done
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                 </ParchmentCard>

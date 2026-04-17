@@ -9,7 +9,7 @@ import RuneBadge from '../components/journal/RuneBadge';
 import { CoinIcon } from '../components/icons/JournalIcons';
 import { useAuth } from '../hooks/useApi';
 import { themes, applyTheme, LEGACY_THEME_ALIASES } from '../themes';
-import { buttonPrimary } from '../constants/styles';
+import Button from '../components/Button';
 
 export default function SettingsPage() {
   const { user, logout: onLogout } = useAuth();
@@ -327,13 +327,13 @@ export default function SettingsPage() {
       {/* Sign off */}
       <ParchmentCard>
         <h2 className="font-display text-xl text-ink-primary mb-4">Account</h2>
-        <button
-          type="button"
+        <Button
+          size="sm"
           onClick={onLogout}
-          className={`${buttonPrimary} flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm`}
+          className="flex items-center justify-center gap-2 w-full"
         >
           <LogOut size={16} /> Sign off
-        </button>
+        </Button>
       </ParchmentCard>
     </div>
   );

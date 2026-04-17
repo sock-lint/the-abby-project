@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import ErrorAlert from '../components/ErrorAlert';
 import { getGoogleLoginUrl } from '../api';
 import ParchmentCard from '../components/journal/ParchmentCard';
-import { buttonPrimary } from '../constants/styles';
+import Button from '../components/Button';
 import { TextField } from '../components/form';
 
 /**
@@ -93,13 +93,9 @@ export default function Login({ onLogin }) {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
             />
-            <button
-              type="submit"
-              disabled={loading}
-              className={`${buttonPrimary} w-full py-2.5`}
-            >
+            <Button type="submit" disabled={loading} className="w-full">
               {loading ? 'Unsealing…' : 'Enter'}
-            </button>
+            </Button>
 
             {googleAvailable && (
               <>

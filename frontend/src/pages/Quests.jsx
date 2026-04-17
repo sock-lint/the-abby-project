@@ -16,7 +16,7 @@ import { DragonIcon } from '../components/icons/JournalIcons';
 import RpgSprite from '../components/rpg/RpgSprite';
 import { normalizeList } from '../utils/api';
 import { formatDate } from '../utils/format';
-import { buttonPrimary } from '../constants/styles';
+import Button from '../components/Button';
 
 const STATUS_TONE = {
   active: 'teal',
@@ -271,14 +271,14 @@ export default function Quests() {
                   </div>
                 </div>
                 {!activeQuest && (
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
                     onClick={() => handleStart(qd.id)}
                     disabled={starting === qd.id}
-                    className={`${buttonPrimary} flex items-center gap-1 px-3 py-1.5 text-xs shrink-0`}
+                    className="flex items-center gap-1 text-xs shrink-0"
                   >
                     <Play size={12} /> {starting === qd.id ? 'Starting…' : 'Begin'}
-                  </button>
+                  </Button>
                 )}
               </ParchmentCard>
             ))}

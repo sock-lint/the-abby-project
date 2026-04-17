@@ -12,7 +12,8 @@ import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import { InkwellIcon } from '../components/icons/JournalIcons';
 import { useRole } from '../hooks/useRole';
-import { buttonPrimary, inputClass } from '../constants/styles';
+import { inputClass } from '../constants/styles';
+import Button from '../components/Button';
 import { normalizeList } from '../utils/api';
 import { staggerChildren, staggerItem } from '../motion/variants';
 
@@ -71,13 +72,13 @@ export default function Projects() {
           </h2>
         </div>
         {isParent && (
-          <button
-            type="button"
+          <Button
+            size="sm"
             onClick={() => navigate('/quests/ventures/new')}
-            className={`flex items-center gap-2 px-4 py-2 text-sm ${buttonPrimary}`}
+            className="flex items-center gap-2"
           >
             <Plus size={16} /> New venture
-          </button>
+          </Button>
         )}
       </header>
 
