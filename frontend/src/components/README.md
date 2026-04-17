@@ -36,6 +36,28 @@ Everything that floats above page chrome lives at `z-50`. That means a toast emi
 
 A component lives in `pages/` until it's reused twice; promote to `components/` (or a sub-folder) on the second use.
 
+#### Card placement rule
+
+Page-specific `*Card` components start as sibling files inside their owning page directory:
+
+- `pages/Homework/AssignmentCard.jsx` — used only by `pages/Homework/index.jsx`
+- `pages/manage/CatalogCard.jsx` — used only by `pages/manage/CodexSection.jsx`
+- `pages/achievements/SkillCard.jsx` — used only by `pages/achievements/SkillTreeView.jsx`
+- `pages/rewards/RewardCard.jsx` — used only by `pages/rewards/RewardShop.jsx`
+- `pages/rewards/CoinBalanceCard.jsx` — used only by `pages/rewards/Rewards.jsx`
+- `pages/ingest/ProjectOverridesCard.jsx` — used only by `pages/ingest/ReviewStep.jsx`
+- `pages/project/ProjectPlanItems.jsx` (`StepCard` export) — used only by `pages/project/PlanTab.jsx`
+
+Promote to `components/cards/` only when a **second** page imports it. Until then, co-location wins: the card lives next to its only consumer, the parent file stays under ~400 lines, and the import line documents ownership.
+
+Do not pre-emptively promote a card that has only one importer. The cost of moving is small; the cost of premature abstraction is real.
+
+#### Per-area shared constants
+
+When a page-area has constants used by both a parent and an extracted card (e.g. XP thresholds, type orderings), house them in a sibling `.constants.js` file rather than exporting from the parent component file. ESLint's `react-refresh/only-export-components` rule forbids non-component exports from a `.jsx` component file; using a separate `.constants.js` keeps both the lint rule happy and the constant in lockstep across consumers.
+
+Example: [`pages/achievements/skillTree.constants.js`](../pages/achievements/skillTree.constants.js) holds `XP_THRESHOLDS` so both `SkillTreeView.jsx` and `SkillCard.jsx` can import it.
+
 ### Accessibility roles
 
 Shared primitives carry consistent ARIA roles. Match these when building new ones:
