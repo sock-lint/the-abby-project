@@ -79,7 +79,25 @@ def build_next_actions(user, *, target_date=None, hour=None, limit=20):
     """
     if user.role != "child":
         return []
-    return []  # contributors land in Tasks 2–4
+
+    from django.utils import timezone
+    if target_date is None:
+        target_date = timezone.localdate()
+    if hour is None:
+        hour = timezone.localtime().hour
+
+    actions = []
+    actions.extend(_chore_actions(user, target_date))
+    actions.extend(_homework_actions(user, target_date))
+    actions.extend(_habit_actions(user, target_date, hour=hour))
+
+    def sort_key(a):
+        has_money = bool(a.reward and a.reward.get("money") not in (None, "0.00"))
+        due = a.due_at or datetime.date.max
+        return (-a.score, 0 if has_money else 1, due, a.title)
+
+    actions.sort(key=sort_key)
+    return actions[:limit]
 
 
 def _available_chores(user, target_date):

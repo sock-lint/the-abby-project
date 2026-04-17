@@ -308,3 +308,51 @@ class HabitStreakProtectionTests(TestCase):
             _habit_actions(_child(), datetime.date(2026, 4, 16), hour=19),
             [],
         )
+
+
+class OrchestratorTests(TestCase):
+    def _patch_all(self, *, chores=(), homework=(), habits=(), streak=0):
+        for target, value in [
+            ("apps.projects.priority._available_chores", list(chores)),
+            ("apps.projects.priority._eligible_homework", list(homework)),
+            ("apps.projects.priority._untapped_positive_habits", list(habits)),
+            ("apps.projects.priority._login_streak", streak),
+        ]:
+            p = patch(target, return_value=value)
+            p.start()
+            self.addCleanup(p.stop)
+
+    def test_sorts_descending_by_score(self):
+        today = datetime.date(2026, 4, 16)
+        hw_overdue = _make_homework(pk=1, title="Overdue",
+                                    due_date=datetime.date(2026, 4, 14))
+        chore_weekly = _make_chore(pk=2, title="Clean Room", recurrence="weekly")
+        self._patch_all(chores=[chore_weekly], homework=[hw_overdue])
+        actions = build_next_actions(_child(), target_date=today, hour=12)
+        # Overdue homework (120) > weekly chore Thursday (34)
+        self.assertEqual(
+            [(a.kind, a.id) for a in actions],
+            [("homework", 1), ("chore", 2)],
+        )
+
+    def test_tie_break_reward_wins(self):
+        today = datetime.date(2026, 4, 16)
+        a = _make_chore(pk=1, title="Apple", recurrence="daily")
+        b = _make_chore(pk=2, title="Banana", recurrence="daily",
+                        reward=Decimal("1.00"))
+        self._patch_all(chores=[a, b])
+        actions = build_next_actions(_child(), target_date=today, hour=12)
+        # Both score 70 → reward wins, so Banana first
+        self.assertEqual(actions[0].id, 2)
+
+    def test_trims_to_limit(self):
+        today = datetime.date(2026, 4, 16)
+        chores = [
+            _make_chore(pk=i, title=f"Chore {i}", recurrence="daily")
+            for i in range(30)
+        ]
+        self._patch_all(chores=chores)
+        actions = build_next_actions(
+            _child(), target_date=today, hour=12, limit=5,
+        )
+        self.assertEqual(len(actions), 5)
