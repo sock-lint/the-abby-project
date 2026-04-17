@@ -1,7 +1,8 @@
 import io
 import logging
 
-from rest_framework import viewsets
+from rest_framework import status, viewsets
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -23,6 +24,15 @@ class ProjectPhotoViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if request.user.role != "parent" and instance.user_id != request.user.id:
+            raise PermissionDenied("You can only delete your own photos.")
+        if instance.image:
+            instance.image.delete(save=False)
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class PortfolioView(APIView):
@@ -72,6 +82,7 @@ class PortfolioView(APIView):
                 "caption": proof.caption,
                 "assignment_title": proof.submission.assignment.title,
                 "submitted_at": proof.submission.created_at.isoformat(),
+                "user_id": proof.submission.user_id,
             })
 
         return Response({

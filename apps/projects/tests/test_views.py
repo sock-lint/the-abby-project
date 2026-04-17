@@ -2,6 +2,7 @@
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -149,3 +150,52 @@ class TemplateTests(_Fixture):
             "title": "Hack", "difficulty": 1,
         }, format="json")
         self.assertEqual(resp.status_code, 403)
+
+
+def _fake_avatar(name="me.png"):
+    # Minimal PNG header + padding. ImageField is forgiving when we skip width/height
+    # validation via no image_field validators at DB layer (User.avatar has none beyond
+    # upload_to); Pillow would reject, but DRF's MultiPartParser just streams the file
+    # to storage.
+    content = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+    return SimpleUploadedFile(name, content, content_type="image/png")
+
+
+class MeViewTests(_Fixture):
+    def test_avatar_upload_updates_user(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.patch(
+            "/api/auth/me/",
+            {"avatar": _fake_avatar()},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.child.refresh_from_db()
+        self.assertTrue(self.child.avatar)
+        self.assertIn("avatars/", self.child.avatar.name)
+
+    def test_avatar_empty_string_clears_existing(self):
+        self.child.avatar = _fake_avatar()
+        self.child.save()
+        self.client.force_authenticate(self.child)
+        resp = self.client.patch(
+            "/api/auth/me/",
+            {"avatar": ""},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.child.refresh_from_db()
+        self.assertFalse(self.child.avatar)
+
+    def test_theme_still_works(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.patch(
+            "/api/auth/me/", {"theme": "vigil"}, format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.child.refresh_from_db()
+        self.assertEqual(self.child.theme, "vigil")
+
+    def test_unauthenticated_rejected(self):
+        resp = self.client.patch("/api/auth/me/", {"theme": "vigil"}, format="json")
+        self.assertEqual(resp.status_code, 401)

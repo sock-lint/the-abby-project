@@ -1,18 +1,22 @@
-import { useState, useEffect } from 'react';
-import { LogOut, Link2, Unlink, Calendar, RefreshCw, Flame, Check } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { LogOut, Link2, Unlink, Calendar, RefreshCw, Flame, Check, Camera, Trash2 } from 'lucide-react';
 import {
   getGoogleAuthUrl, getGoogleAccount, unlinkGoogleAccount,
   updateCalendarSettings, triggerCalendarSync, updateMe,
+  uploadAvatar, removeAvatar,
 } from '../api';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
+import ConfirmDialog from '../components/ConfirmDialog';
+import ErrorAlert from '../components/ErrorAlert';
 import { CoinIcon } from '../components/icons/JournalIcons';
 import { useAuth } from '../hooks/useApi';
 import { themes, applyTheme, LEGACY_THEME_ALIASES } from '../themes';
+import { downscaleImage } from '../utils/image';
 import Button from '../components/Button';
 
 export default function SettingsPage() {
-  const { user, logout: onLogout } = useAuth();
+  const { user, logout: onLogout, setUser } = useAuth();
   const initialTheme = LEGACY_THEME_ALIASES[user?.theme] || user?.theme || 'hyrule';
   const [currentTheme, setCurrentTheme] = useState(initialTheme);
 
@@ -21,6 +25,44 @@ export default function SettingsPage() {
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [googleMessage, setGoogleMessage] = useState('');
+
+  const avatarInputRef = useRef(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const [confirmRemoveAvatar, setConfirmRemoveAvatar] = useState(false);
+
+  const handleAvatarPick = () => avatarInputRef.current?.click();
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setAvatarError('');
+    setAvatarUploading(true);
+    try {
+      const processed = await downscaleImage(file, { maxDim: 512, quality: 0.9 });
+      const updated = await uploadAvatar(processed);
+      if (updated) setUser(updated);
+    } catch (err) {
+      setAvatarError(err.message || 'Upload failed');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleAvatarRemove = async () => {
+    setConfirmRemoveAvatar(false);
+    setAvatarError('');
+    setAvatarUploading(true);
+    try {
+      const updated = await removeAvatar();
+      if (updated) setUser(updated);
+    } catch (err) {
+      setAvatarError(err.message || 'Remove failed');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
 
   useEffect(() => {
     loadGoogleAccount();
@@ -118,6 +160,47 @@ export default function SettingsPage() {
       <ParchmentCard>
         <h2 className="font-display text-xl text-ink-primary mb-4">Profile</h2>
         <div className="space-y-3">
+          <div className="flex items-center gap-4">
+            <div className="w-20 h-20 rounded-full bg-sheikah-teal/20 border border-sheikah-teal/40 flex items-center justify-center text-sheikah-teal-deep font-rune text-2xl overflow-hidden shrink-0">
+              {user?.avatar ? (
+                <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+              ) : (
+                ((user?.display_name || user?.username || '?')[0] || '?').toUpperCase()
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleAvatarChange}
+                className="hidden"
+                disabled={avatarUploading}
+              />
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleAvatarPick}
+                disabled={avatarUploading}
+                className="flex items-center gap-1.5"
+              >
+                <Camera size={14} />
+                {avatarUploading ? 'Saving…' : user?.avatar ? 'Change avatar' : 'Upload avatar'}
+              </Button>
+              {user?.avatar && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setConfirmRemoveAvatar(true)}
+                  disabled={avatarUploading}
+                  className="flex items-center gap-1.5 text-ink-whisper"
+                >
+                  <Trash2 size={14} /> Remove
+                </Button>
+              )}
+            </div>
+          </div>
+          {avatarError && <ErrorAlert message={avatarError} />}
           <div className="flex justify-between items-baseline text-sm">
             <span className={fieldLabel}>Username</span>
             <span className={fieldValue}>{user?.username}</span>
@@ -138,6 +221,16 @@ export default function SettingsPage() {
           </div>
         </div>
       </ParchmentCard>
+
+      {confirmRemoveAvatar && (
+        <ConfirmDialog
+          title="Remove your avatar?"
+          message="Your circle will go back to your initial until you upload another."
+          confirmLabel="Remove"
+          onConfirm={handleAvatarRemove}
+          onCancel={() => setConfirmRemoveAvatar(false)}
+        />
+      )}
 
       {/* Google */}
       <ParchmentCard>

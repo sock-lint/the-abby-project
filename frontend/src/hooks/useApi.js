@@ -103,7 +103,7 @@ export function AuthProvider({ children }) {
     Sentry.setUser(null);
   }, []);
 
-  const value = { user, loading, login, logout };
+  const value = { user, loading, login, logout, setUser };
   return createElement(AuthContext.Provider, { value }, children);
 }
 

@@ -151,4 +151,49 @@ describe('SettingsPage', () => {
     await user.click(screen.getByRole('button', { name: /sign off/i }));
     await waitFor(() => expect(logoutSpy).toHaveBeenCalled());
   });
+
+  it('uploads an avatar via multipart PATCH /auth/me/', async () => {
+    const user = userEvent.setup();
+    const spy = spyHandler('patch', /\/api\/auth\/me\/$/, buildUser({ avatar: '/media/avatars/me.png' }));
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
+      spy.handler,
+    );
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <SettingsPage />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText(/profile/i)).toBeInTheDocument());
+
+    const file = new File([new Uint8Array([137, 80, 78, 71])], 'me.png', { type: 'image/png' });
+    // Target the hidden <input type="file"> sibling of the Upload avatar button.
+    const fileInput = document.querySelector('input[type="file"][accept*="image"]');
+    expect(fileInput).toBeTruthy();
+    await user.upload(fileInput, file);
+    await waitFor(() => expect(spy.calls).toHaveLength(1));
+    expect(spy.calls[0].url).toMatch(/\/api\/auth\/me\/$/);
+    expect(spy.calls[0].method).toBe('PATCH');
+  });
+
+  it('shows Remove avatar button when user has an avatar set', async () => {
+    // Register the avatar-having /auth/me/ handler BEFORE renderPage adds
+    // its default — MSW picks the first matching handler in registration order.
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser({ avatar: '/media/avatars/x.png' }))),
+      http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
+    );
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <SettingsPage />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByRole('button', { name: /change avatar/i })).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /^remove$/i })).toBeInTheDocument();
+  });
 });

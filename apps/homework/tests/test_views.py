@@ -8,7 +8,7 @@ from django.utils import timezone
 from PIL import Image
 from rest_framework.test import APIClient
 
-from apps.homework.models import HomeworkAssignment, HomeworkSubmission
+from apps.homework.models import HomeworkAssignment, HomeworkProof, HomeworkSubmission
 from apps.projects.models import User
 
 
@@ -145,6 +145,50 @@ class HomeworkSubmissionViewSetTests(_Fixture):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()["results"]), 1)
 
+
+
+class HomeworkProofDeleteTests(_Fixture):
+    def setUp(self):
+        super().setUp()
+        self.other_child = User.objects.create_user(
+            username="c2", password="pw", role="child",
+        )
+        self.assignment = HomeworkAssignment.objects.create(
+            title="Essay", subject="writing", effort_level=3,
+            due_date=timezone.localdate() + timedelta(days=1),
+            assigned_to=self.child, created_by=self.parent,
+        )
+        self.submission = HomeworkSubmission.objects.create(
+            assignment=self.assignment, user=self.child, status="approved",
+            timeliness="on_time",
+        )
+        self.proof = HomeworkProof.objects.create(
+            submission=self.submission, caption="my page",
+        )
+
+    def test_owner_can_delete_own_proof(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.delete(f"/api/homework-proofs/{self.proof.pk}/")
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(HomeworkProof.objects.filter(pk=self.proof.pk).exists())
+        # Submission itself stays — audit trail intact.
+        self.assertTrue(HomeworkSubmission.objects.filter(pk=self.submission.pk).exists())
+
+    def test_parent_can_delete_any_proof(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.delete(f"/api/homework-proofs/{self.proof.pk}/")
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(HomeworkProof.objects.filter(pk=self.proof.pk).exists())
+
+    def test_other_child_cannot_delete(self):
+        self.client.force_authenticate(self.other_child)
+        resp = self.client.delete(f"/api/homework-proofs/{self.proof.pk}/")
+        self.assertEqual(resp.status_code, 403)
+        self.assertTrue(HomeworkProof.objects.filter(pk=self.proof.pk).exists())
+
+    def test_unauthenticated_rejected(self):
+        resp = self.client.delete(f"/api/homework-proofs/{self.proof.pk}/")
+        self.assertEqual(resp.status_code, 401)
 
 
 class HomeworkDashboardTests(_Fixture):

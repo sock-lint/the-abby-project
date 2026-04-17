@@ -186,6 +186,16 @@ export const uploadPhoto = (projectId, file, caption = '') => {
   if (caption) fd.append('caption', caption);
   return api.upload('/photos/', fd);
 };
+export const deletePhoto = (id) => api.delete(`/photos/${id}/`);
+export const deleteHomeworkProof = (id) => api.delete(`/homework-proofs/${id}/`);
+
+// Avatar
+export const uploadAvatar = (file) => {
+  const fd = new FormData();
+  fd.append('avatar', file);
+  return api.patch('/auth/me/', fd);
+};
+export const removeAvatar = () => api.patch('/auth/me/', { avatar: '' });
 
 // Categories
 export const getCategories = () => api.get('/categories/');

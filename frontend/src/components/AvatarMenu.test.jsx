@@ -71,6 +71,24 @@ describe('AvatarMenu', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
   });
 
+  it('renders a Settings menu link pointing to /settings', async () => {
+    const user = userEvent.setup();
+    renderMenu();
+    await user.click(screen.getByRole('button', { name: /profile menu/i }));
+    const link = screen.getByRole('menuitem', { name: /settings/i });
+    expect(link.getAttribute('href')).toBe('/settings');
+  });
+
+  it('clicking the Settings link closes the menu', async () => {
+    const user = userEvent.setup();
+    renderMenu();
+    const trigger = screen.getByRole('button', { name: /profile menu/i });
+    await user.click(trigger);
+    const link = screen.getByRole('menuitem', { name: /settings/i });
+    await user.click(link);
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('supports the compact prop (left-align anchor classes)', () => {
     const { container } = renderMenu({ compact: true });
     expect(container.querySelector('.w-9')).toBeTruthy();
@@ -89,5 +107,16 @@ describe('AvatarMenu', () => {
     await user.click(screen.getByRole('button', { name: /profile menu/i }));
     expect(screen.getByText('adventurer')).toBeInTheDocument();
     expect(screen.getByText('traveler')).toBeInTheDocument();
+  });
+
+  it('renders an <img> when user.avatar is set', () => {
+    const { container } = renderMenu({
+      user: {
+        username: 'abby', display_name: 'Abby', role: 'child',
+        avatar: 'https://example.com/avatar.png',
+      },
+    });
+    const img = container.querySelector('img[src="https://example.com/avatar.png"]');
+    expect(img).toBeTruthy();
   });
 });

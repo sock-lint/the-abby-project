@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Settings } from 'lucide-react';
 import { DragonIcon } from './icons/JournalIcons';
 
 /**
@@ -10,8 +11,9 @@ import { DragonIcon } from './icons/JournalIcons';
  *   - JournalShell mobile header     → <AvatarMenu user={user} compact />
  *   - ChapterNav desktop sidebar     → <AvatarMenu user={user} align="top" />
  *
- * The menu is intentionally sparse — a single Sigil link today, with room to
- * grow (Settings, Sign off, etc.) without redesign.
+ * Menu items: Sigil (profile) + Settings (theme / account / sign-off).
+ * Settings lives here because the mobile bottom tab bar only holds the five
+ * chapters, so the avatar dropdown is the sole mobile entry point to /settings.
  */
 export default function AvatarMenu({ user, compact = false, align = 'bottom' }) {
   const [open, setOpen] = useState(false);
@@ -60,10 +62,18 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
         <span
           className={`${circleSize} rounded-full bg-sheikah-teal/20 border
                       border-sheikah-teal/40 flex items-center justify-center
-                      text-sheikah-teal-deep font-rune shrink-0 transition-colors
+                      text-sheikah-teal-deep font-rune shrink-0 overflow-hidden transition-colors
                       ${open ? 'bg-sheikah-teal/35 border-sheikah-teal-deep' : ''}`}
         >
-          {initial}
+          {user?.avatar ? (
+            <img
+              src={user.avatar}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            initial
+          )}
         </span>
         <span className="text-sm font-body min-w-0 text-left">
           <span className="block text-ink-primary truncate leading-tight">
@@ -100,7 +110,6 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
               </div>
             </div>
 
-            {/* Menu links — currently just Sigil, but the block leaves room to grow */}
             <nav className="p-2" role="none">
               <NavLink
                 to="/sigil"
@@ -121,6 +130,28 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                   </span>
                   <span className="block font-script text-ink-whisper text-xs leading-tight">
                     who you are
+                  </span>
+                </span>
+              </NavLink>
+              <NavLink
+                to="/settings"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all
+                   ${isActive
+                      ? 'bg-sheikah-teal/15 text-ink-primary'
+                      : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
+                   }`
+                }
+              >
+                <Settings size={20} className="text-sheikah-teal-deep shrink-0" />
+                <span className="min-w-0">
+                  <span className="block font-display text-base tracking-wide leading-tight">
+                    Settings
+                  </span>
+                  <span className="block font-script text-ink-whisper text-xs leading-tight">
+                    theme, account, sign-off
                   </span>
                 </span>
               </NavLink>

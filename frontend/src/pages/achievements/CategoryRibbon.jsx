@@ -2,12 +2,15 @@ import { useCallback, useEffect, useRef } from 'react';
 import CategoryPennant from './CategoryPennant';
 
 /**
- * CategoryRibbon — horizontal snap-scroll of CategoryPennant tabs.
+ * CategoryRibbon — wrapped tablist of CategoryPennant tabs.
  *
- * Maintains role="tablist" / role="tab" semantics and keeps the selected
- * pennant scrolled into view as the caller flips `activeId`. Arrow keys
- * move selection (wrap around). The container is edge-faded via a mask
- * so long category names hint at being scrollable.
+ * Previously a horizontal snap-scroll ribbon; on narrow viewports that
+ * buried any category past the fourth with no discovery affordance, so
+ * the pennants now wrap onto multiple rows. Every category is always
+ * visible. `role="tablist"` + `role="tab"` semantics preserved; arrow
+ * keys continue to move selection linearly with wrap-around, and the
+ * `scrollIntoView` effect still kicks in when a selected pennant sits
+ * in a wrapped row outside the scroll viewport (long category lists).
  */
 export default function CategoryRibbon({
   categories,
@@ -44,13 +47,7 @@ export default function CategoryRibbon({
       role="tablist"
       aria-orientation="horizontal"
       aria-label="Skill categories"
-      className="flex gap-2 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide"
-      style={{
-        maskImage:
-          'linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)',
-        WebkitMaskImage:
-          'linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)',
-      }}
+      className="flex flex-wrap gap-2 pb-1"
     >
       {categories.map((cat) => (
         <CategoryPennant

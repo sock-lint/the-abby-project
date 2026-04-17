@@ -4,6 +4,7 @@ from django.contrib.auth import authenticate
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -59,6 +60,8 @@ class AuthView(APIView):
 
 
 class MeView(APIView):
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
     def get(self, request):
         return Response(UserSerializer(request.user).data)
 
@@ -67,6 +70,15 @@ class MeView(APIView):
         if "theme" in request.data:
             user.theme = request.data["theme"]
             user.save(update_fields=["theme"])
+        if "avatar" in request.FILES:
+            if user.avatar:
+                user.avatar.delete(save=False)
+            user.avatar = request.FILES["avatar"]
+            user.save(update_fields=["avatar"])
+        elif request.data.get("avatar") == "" and user.avatar:
+            user.avatar.delete(save=False)
+            user.avatar = None
+            user.save(update_fields=["avatar"])
         return Response(UserSerializer(user).data)
 
 

@@ -11,8 +11,9 @@ import AvatarMenu from '../AvatarMenu';
  *   - mobile  : bottom tab bar, five equal columns
  *
  * The Clock is NOT a chapter — it lives in ClockFab (floating action).
- * Parent utilities (Manage/Settings) are shown in the sidebar footer and
- * inside the mobile header avatar menu.
+ * Manage (parent-only) and Settings sit in the desktop sidebar footer.
+ * Mobile has no footer — Settings is reached via the header AvatarMenu; Manage
+ * is desktop-only since parents rarely manage on mobile.
  */
 
 const CHAPTERS = [

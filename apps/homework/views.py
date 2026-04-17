@@ -1,5 +1,6 @@
-from rest_framework import permissions, status, viewsets
+from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -12,7 +13,7 @@ from config.viewsets import (
     child_not_found_response,
 )
 
-from .models import HomeworkAssignment, HomeworkSubmission, HomeworkTemplate
+from .models import HomeworkAssignment, HomeworkProof, HomeworkSubmission, HomeworkTemplate
 from .serializers import (
     HomeworkAssignmentSerializer,
     HomeworkAssignmentWriteSerializer,
@@ -136,6 +137,23 @@ class HomeworkSubmissionViewSet(
         if status_filter:
             qs = qs.filter(status=status_filter)
         return qs
+
+
+class HomeworkProofViewSet(mixins.DestroyModelMixin, viewsets.GenericViewSet):
+    queryset = HomeworkProof.objects.select_related("submission")
+    serializer_class = HomeworkSubmissionSerializer  # unused; required by GenericViewSet
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if (
+            request.user.role != "parent"
+            and instance.submission.user_id != request.user.id
+        ):
+            raise PermissionDenied("You can only delete your own homework proofs.")
+        if instance.image:
+            instance.image.delete(save=False)
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class HomeworkTemplateViewSet(viewsets.ModelViewSet):

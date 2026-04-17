@@ -183,6 +183,8 @@ const CASES = [
 
   ['getPortfolio', [], /\/api\/portfolio\/$/, 'GET'],
   ['getPhotos', [], /\/api\/photos\/$/, 'GET'],
+  ['deletePhoto', [42], /\/api\/photos\/42\/$/, 'DELETE'],
+  ['deleteHomeworkProof', [7], /\/api\/homework-proofs\/7\/$/, 'DELETE'],
 
   ['getCategories', [], /\/api\/categories\/$/, 'GET'],
   ['createCategory', [{}], /\/api\/categories\/$/, 'POST'],
@@ -361,6 +363,22 @@ describe('FormData uploads', () => {
     expect(lastCall().url).toMatch(/\/api\/homework\/5\/submit\/$/);
     expect(lastCall().method).toBe('POST');
     expect(lastCall().body).toBeInstanceOf(FormData);
+  });
+
+  it('uploadAvatar PATCHes /auth/me/ with multipart FormData', async () => {
+    const file = new File(['bytes'], 'me.png', { type: 'image/png' });
+    await api.uploadAvatar(file);
+    expect(lastCall().url).toMatch(/\/api\/auth\/me\/$/);
+    expect(lastCall().method).toBe('PATCH');
+    expect(lastCall().body).toBeInstanceOf(FormData);
+    expect(lastCall().body.get('avatar')).toBeInstanceOf(File);
+  });
+
+  it('removeAvatar PATCHes /auth/me/ with avatar="" sentinel', async () => {
+    await api.removeAvatar();
+    expect(lastCall().url).toMatch(/\/api\/auth\/me\/$/);
+    expect(lastCall().method).toBe('PATCH');
+    expect(JSON.parse(lastCall().body)).toEqual({ avatar: '' });
   });
 });
 

@@ -142,6 +142,45 @@ class PortfolioViewTests(_Fixture):
         self.assertEqual(resp.json()["homework"], [])
 
 
+class ProjectPhotoDeleteTests(_Fixture):
+    def test_owner_can_delete_own_photo(self):
+        photo = ProjectPhoto.objects.create(
+            project=self.project, user=self.child, image=_image(), caption="mine",
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.delete(f"/api/photos/{photo.pk}/")
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(ProjectPhoto.objects.filter(pk=photo.pk).exists())
+
+    def test_parent_can_delete_any_photo(self):
+        photo = ProjectPhoto.objects.create(
+            project=self.project, user=self.child, image=_image(), caption="mine",
+        )
+        self.client.force_authenticate(self.parent)
+        resp = self.client.delete(f"/api/photos/{photo.pk}/")
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(ProjectPhoto.objects.filter(pk=photo.pk).exists())
+
+    def test_other_child_cannot_delete(self):
+        # RoleFilteredQuerySet scopes to project__assigned_to, so a sibling
+        # child gets 404 (the row isn't visible to them), which is the same
+        # security outcome as 403 — the photo stays.
+        photo = ProjectPhoto.objects.create(
+            project=self.project, user=self.child, image=_image(), caption="mine",
+        )
+        self.client.force_authenticate(self.other)
+        resp = self.client.delete(f"/api/photos/{photo.pk}/")
+        self.assertIn(resp.status_code, (403, 404))
+        self.assertTrue(ProjectPhoto.objects.filter(pk=photo.pk).exists())
+
+    def test_unauthenticated_rejected(self):
+        photo = ProjectPhoto.objects.create(
+            project=self.project, user=self.child, caption="mine",
+        )
+        resp = self.client.delete(f"/api/photos/{photo.pk}/")
+        self.assertEqual(resp.status_code, 401)
+
+
 class ExportPortfolioViewTests(_Fixture):
     def test_empty_export_404(self):
         self.client.force_authenticate(self.child)
