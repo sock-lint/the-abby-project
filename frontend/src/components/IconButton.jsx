@@ -38,8 +38,7 @@ const IconButton = forwardRef(function IconButton(
   },
   ref,
 ) {
-  if (process.env.NODE_ENV !== 'production' && !ariaLabel) {
-    // eslint-disable-next-line no-console
+  if (!import.meta.env.PROD && !ariaLabel) {
     console.error(
       'IconButton requires aria-label so screen-reader users can identify the action.',
     );
