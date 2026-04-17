@@ -80,3 +80,63 @@ def build_next_actions(user, *, target_date=None, hour=None, limit=20):
     if user.role != "child":
         return []
     return []  # contributors land in Tasks 2–4
+
+
+def _available_chores(user, target_date):
+    """Thin wrapper around ChoreService.get_available_chores — extracted so
+    tests can patch it without pulling in a full DB fixture."""
+    from apps.chores.services import ChoreService
+    return list(ChoreService.get_available_chores(user, target_date))
+
+
+def _chore_reward(chore):
+    if not chore.reward_amount and not chore.coin_reward:
+        return None
+    return {
+        "money": str(chore.reward_amount),
+        "coins": int(chore.coin_reward),
+    }
+
+
+def _chore_subtitle(chore):
+    if chore.reward_amount and chore.coin_reward:
+        return f"duty · ${chore.reward_amount} · {chore.coin_reward} coins"
+    if chore.reward_amount:
+        return f"duty · ${chore.reward_amount}"
+    if chore.coin_reward:
+        return f"duty · {chore.coin_reward} coins"
+    return "duty"
+
+
+def _chore_score(chore, target_date):
+    w = SCORING_WEIGHTS
+    if chore.recurrence == "daily":
+        return w["chore_daily"]
+    if chore.recurrence == "weekly":
+        days_since_monday = target_date.weekday()
+        return w["chore_weekly_base"] + days_since_monday * w["chore_weekly_per_day"]
+    if chore.recurrence == "one_time":
+        created = chore.created_at.date() if hasattr(chore.created_at, "date") else chore.created_at
+        days_since = max(0, (target_date - created).days)
+        return w["chore_one_time_base"] + days_since * w["chore_one_time_per_day"]
+    return 0
+
+
+def _chore_actions(user, target_date):
+    actions = []
+    for chore in _available_chores(user, target_date):
+        if chore.is_done_today:
+            continue
+        actions.append(NextAction(
+            kind="chore",
+            id=chore.pk,
+            title=chore.title,
+            subtitle=_chore_subtitle(chore),
+            score=_chore_score(chore, target_date),
+            due_at=None,
+            reward=_chore_reward(chore),
+            icon=chore.icon or "Sparkles",
+            tone="moss",
+            action_url="/chores",
+        ))
+    return actions
