@@ -28,15 +28,18 @@ export default function SealCloseButton({
       className="relative min-h-10 min-w-10 h-10 w-10 flex items-center justify-center rounded-full transition-transform duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none"
       style={{
         background: gradient,
+        // ink-tone shadow stops use --color-modal-* so per-cover overrides flow through;
+        // the 0.45 highlight is intentionally one tick brighter than --color-modal-highlight (0.4)
+        // because seal buttons live on a colored gradient, not parchment.
         boxShadow:
-          'inset 0 1px 2px rgba(255, 248, 224, 0.45), inset 0 -2px 4px rgba(45, 31, 21, 0.45), 0 2px 4px rgba(45, 31, 21, 0.35)',
+          'inset 0 1px 2px rgba(255, 248, 224, 0.45), inset 0 -2px 4px var(--color-modal-shadow), 0 2px 4px rgba(45, 31, 21, 0.35)',
       }}
     >
       <X
         size={16}
         strokeWidth={2.5}
         className="text-ink-page-rune-glow"
-        style={{ filter: 'drop-shadow(0 1px 1px rgba(45, 31, 21, 0.55))' }}
+        style={{ filter: 'drop-shadow(0 1px 1px var(--color-modal-shadow-strong))' }}
       />
     </button>
   );

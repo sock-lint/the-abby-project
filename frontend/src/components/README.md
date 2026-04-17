@@ -20,9 +20,9 @@ The app uses three explicit layers. Avoid introducing new z values without updat
 |---|---|---|
 | Sticky shell | `z-30` | `JournalShell` header (sticky), `HeaderProgressBand` |
 | Modal backdrop | `z-40` | `ModalBackdrop`, `BottomSheet` overlay |
-| Modal surface / toast | `z-50` | `BottomSheet` card / sheet, `ConfirmDialog`, `DropToastStack` |
+| Modal surface / popover / toast / lightbox | `z-50` | `BottomSheet`, `ConfirmDialog`, `DropToastStack`, `AvatarMenu` (dropdown), `NotificationBell` (dropdown), `ProofGallery` (lightbox) |
 
-`DropToastStack` shares `z-50` with modal surfaces — a toast emitted while a modal is open can be hidden behind it. If that proves wrong (toasts should always be visible), promote toasts to a new `z-60` row and update this table in the same PR. Do not introduce ad-hoc z-values without updating this table.
+Everything that floats above page chrome lives at `z-50`. That means a toast emitted while a modal is open can be hidden behind it, and an open modal will block the notification dropdown until dismissed. If that proves wrong for a specific element (e.g. toasts should always be visible), promote it to a new `z-60` row and update this table in the same PR. Do not introduce ad-hoc z-values without updating this table.
 
 ### File layout
 

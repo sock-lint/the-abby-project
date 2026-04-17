@@ -49,9 +49,12 @@ export default function ConfirmDialog({
                 style={{
                   background:
                     'radial-gradient(circle at 30% 30%, #e88a5e 0%, #d97548 55%, #a04a28 100%)', // intentional: theme-invariant ember seal palette — must NOT bind to --color-ember (varies per cover)
+                  // ink-tone stops route through --color-modal-* tokens so Vigil and other covers can override;
+                  // the colored 0 3px 8px ember-tinted shadow stays literal — same theme-invariant wax-seal palette
+                  // as the gradient stops above.
                   boxShadow:
-                    'inset 0 1px 2px rgba(255, 248, 224, 0.45), inset 0 -2px 4px rgba(45, 31, 21, 0.45), 0 3px 8px rgba(160, 74, 40, 0.5)',
-                  textShadow: '0 1px 1px rgba(45, 31, 21, 0.55)',
+                    'inset 0 1px 2px rgba(255, 248, 224, 0.45), inset 0 -2px 4px var(--color-modal-shadow), 0 3px 8px rgba(160, 74, 40, 0.5)',
+                  textShadow: '0 1px 1px var(--color-modal-shadow-strong)',
                 }}
               >
                 {confirmLabel}
