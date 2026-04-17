@@ -3,7 +3,8 @@ import { createReward, updateReward } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
-import { buttonPrimary, formLabelClass } from '../../constants/styles';
+import { formLabelClass } from '../../constants/styles';
+import Button from '../../components/Button';
 import { TextField, SelectField, TextAreaField } from '../../components/form';
 import { downscaleImage } from '../../utils/image';
 
@@ -111,9 +112,9 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper hover:text-ink-primary">
             Cancel
           </button>
-          <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
+          <Button type="submit" size="sm" disabled={saving}>
             {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
-          </button>
+          </Button>
         </div>
       </form>
     </BottomSheet>

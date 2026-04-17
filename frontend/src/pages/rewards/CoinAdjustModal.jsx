@@ -2,7 +2,7 @@ import { adjustCoins } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
-import { buttonPrimary } from '../../constants/styles';
+import Button from '../../components/Button';
 import { TextField } from '../../components/form';
 
 export default function CoinAdjustModal({ onClose, onSaved }) {
@@ -55,9 +55,9 @@ export default function CoinAdjustModal({ onClose, onSaved }) {
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper hover:text-ink-primary">
             Cancel
           </button>
-          <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
+          <Button type="submit" size="sm" disabled={saving}>
             {saving ? 'Adjusting...' : 'Adjust'}
-          </button>
+          </Button>
         </div>
       </form>
     </BottomSheet>

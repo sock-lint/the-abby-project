@@ -5,7 +5,7 @@ import { getBalance, requestExchange } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useApi } from '../../hooks/useApi';
-import { buttonPrimary } from '../../constants/styles';
+import Button from '../../components/Button';
 import { TextField } from '../../components/form';
 import { formatCurrency } from '../../utils/format';
 
@@ -76,9 +76,9 @@ export default function CoinExchangeModal({ exchangeRate, onClose, onSaved }) {
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper hover:text-ink-primary">
             Cancel
           </button>
-          <button type="submit" disabled={saving || !valid} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
+          <Button type="submit" size="sm" disabled={saving || !valid}>
             {saving ? 'Requesting...' : 'Request Exchange'}
-          </button>
+          </Button>
         </div>
         <p className="text-micro text-ink-whisper text-center">Requires parent approval</p>
       </form>
