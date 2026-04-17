@@ -57,6 +57,18 @@
   --color-rarity-epic: #a04a28;
   --color-rarity-legendary: #856418;
 
+  /* Modal chrome (Hyrule defaults — themes.js may override per cover) */
+  --color-modal-wash: rgba(45, 31, 21, 0.45);
+  --color-modal-vignette-mid: rgba(45, 31, 21, 0.25);
+  --color-modal-vignette-edge: rgba(45, 31, 21, 0.45);
+  --color-modal-seal-glow: rgba(77, 208, 225, 0.18);
+  --color-modal-seal-edge: rgba(77, 208, 225, 0.28);
+  --color-modal-seal-glow-strong: rgba(77, 208, 225, 0.22);
+  --color-modal-seal-edge-strong: rgba(217, 117, 72, 0.40);
+  --color-modal-shadow: rgba(45, 31, 21, 0.45);
+  --color-modal-shadow-strong: rgba(45, 31, 21, 0.55);
+  --color-modal-highlight: rgba(255, 248, 224, 0.4);
+
   /* Legacy forge aliases — map old tokens to new palette so un-migrated
      components still render coherently while Phase 2+ rolls forward. */
   --color-forge-bg: #f4ecd8;
@@ -198,7 +210,7 @@ h1, h2, h3, h4 {
    signature, radial vignette focus. */
 
 .modal-ink-wash {
-  background-color: rgba(45, 31, 21, 0.45); /* --color-ink-primary @ 45% */
+  background-color: var(--color-modal-wash);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
 }
@@ -207,26 +219,26 @@ h1, h2, h3, h4 {
   background: radial-gradient(
     ellipse at center,
     transparent 25%,
-    rgba(45, 31, 21, 0.25) 70%,
-    rgba(45, 31, 21, 0.45) 100%
+    var(--color-modal-vignette-mid) 70%,
+    var(--color-modal-vignette-edge) 100%
   );
   pointer-events: none;
 }
 
 .modal-seal-ring {
   box-shadow:
-    0 0 0 1px rgba(77, 208, 225, 0.28),
-    0 0 40px rgba(77, 208, 225, 0.18),
-    0 24px 60px rgba(45, 31, 21, 0.45),
-    0 2px 0 rgba(255, 248, 224, 0.4) inset;
+    0 0 0 1px var(--color-modal-seal-edge),
+    0 0 40px var(--color-modal-seal-glow),
+    0 24px 60px var(--color-modal-shadow),
+    0 2px 0 var(--color-modal-highlight) inset;
 }
 
 .modal-seal-ring-strong {
   box-shadow:
-    0 0 0 1px rgba(217, 117, 72, 0.40),
-    0 0 44px rgba(77, 208, 225, 0.22),
-    0 28px 70px rgba(45, 31, 21, 0.55),
-    0 2px 0 rgba(255, 248, 224, 0.4) inset;
+    0 0 0 1px var(--color-modal-seal-edge-strong),
+    0 0 44px var(--color-modal-seal-glow-strong),
+    0 28px 70px var(--color-modal-shadow-strong),
+    0 2px 0 var(--color-modal-highlight) inset;
 }
 
 /* Parchment backdrop helper — attach to full-page wrappers when the
