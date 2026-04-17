@@ -7,7 +7,8 @@ import TimelinessBadge from './TimelinessBadge';
 import ErrorAlert from './ErrorAlert';
 import { submitHomework } from '../api';
 import { downscaleImage } from '../utils/image';
-import { buttonSuccess, formLabelClass } from '../constants/styles';
+import { formLabelClass } from '../constants/styles';
+import Button from './Button';
 import { TextAreaField } from './form';
 
 /**
@@ -107,14 +108,15 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
 
         {error && <ErrorAlert message={error} />}
 
-        <button
-          type="button"
+        <Button
+          variant="success"
+          size="sm"
           onClick={handleSubmit}
           disabled={!images.length || submitting}
-          className={`w-full py-2.5 text-sm flex items-center justify-center gap-2 ${buttonSuccess}`}
+          className="w-full flex items-center justify-center gap-2"
         >
           <Send size={16} /> {submitting ? 'Submitting…' : 'Submit for review'}
-        </button>
+        </Button>
       </div>
     </BottomSheet>
   );

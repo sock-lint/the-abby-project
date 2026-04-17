@@ -10,7 +10,7 @@ import {
 } from '../../api';
 import { useApi, useAuth } from '../../hooks/useApi';
 import { normalizeList } from '../../utils/api';
-import { buttonPrimary, buttonDanger, buttonSecondary } from '../../constants/styles';
+import Button from '../Button';
 import { TextField, SelectField, TextAreaField } from '../form';
 
 function formatClock(secs) {
@@ -97,9 +97,14 @@ function ClockPane({ status, isClocked, elapsedSecs, onBack, onClockReload }) {
             rows={3}
           />
           {error && <div className="text-ember-deep text-sm font-script">{error}</div>}
-          <button onClick={handleOut} disabled={busy} className={`${buttonDanger} w-full px-4 py-2.5 flex items-center justify-center gap-2`}>
+          <Button
+            variant="danger"
+            onClick={handleOut}
+            disabled={busy}
+            className="w-full flex items-center justify-center gap-2"
+          >
             <Square size={18} /> Clock Out
-          </button>
+          </Button>
         </>
       ) : (
         <>
@@ -115,9 +120,13 @@ function ClockPane({ status, isClocked, elapsedSecs, onBack, onClockReload }) {
             ))}
           </SelectField>
           {error && <div className="text-ember-deep text-sm font-script">{error}</div>}
-          <button onClick={handleIn} disabled={busy} className={`${buttonPrimary} w-full px-4 py-2.5 flex items-center justify-center gap-2`}>
+          <Button
+            onClick={handleIn}
+            disabled={busy}
+            className="w-full flex items-center justify-center gap-2"
+          >
             <Play size={18} /> Clock In
-          </button>
+          </Button>
         </>
       )}
     </div>
@@ -171,10 +180,10 @@ function AddHomeworkPane({ onBack, onDone }) {
       />
       {error && <div className="text-ember-deep text-sm font-script">{error}</div>}
       <div className="flex gap-2">
-        <button type="button" onClick={onBack} className={`${buttonSecondary} flex-1 px-4 py-2.5`}>Cancel</button>
-        <button type="submit" disabled={busy} className={`${buttonPrimary} flex-1 px-4 py-2.5`}>
+        <Button variant="secondary" onClick={onBack} className="flex-1">Cancel</Button>
+        <Button type="submit" disabled={busy} className="flex-1">
           {busy ? 'Saving…' : 'Add homework'}
-        </button>
+        </Button>
       </div>
     </form>
   );

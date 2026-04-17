@@ -5,7 +5,7 @@ import ParchmentCard from '../journal/ParchmentCard';
 import RuneBadge from '../journal/RuneBadge';
 import { formatDuration } from '../../utils/format';
 import { inkBleed } from '../../motion/variants';
-import { buttonPrimary } from '../../constants/styles';
+import Button from '../Button';
 
 const ICON_MAP = { BookOpen, Sparkles, Flame, Play, Square, ClipboardCheck };
 
@@ -54,16 +54,16 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
                 Review duties, homework, and redemptions below.
               </div>
               <div className="mt-3 flex items-center gap-2">
-                <button
-                  type="button"
+                <Button
+                  size="sm"
                   onClick={() => {
                     const el = document.getElementById('approval-queue');
                     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }}
-                  className={`${buttonPrimary} inline-flex items-center gap-2 px-4 py-2 text-sm`}
+                  className="inline-flex items-center gap-2"
                 >
                   <ClipboardCheck size={16} /> Review queue
-                </button>
+                </Button>
                 <RuneBadge tone="ember">pending</RuneBadge>
               </div>
             </>
@@ -110,13 +110,13 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
             <div className="font-rune text-3xl md:text-4xl font-bold text-ember-deep tabular-nums mt-2">
               {formatDuration(activeTimer.elapsed_minutes)}
             </div>
-            <button
-              type="button"
+            <Button
+              size="sm"
               onClick={() => navigate('/clock')}
-              className={`${buttonPrimary} mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm`}
+              className="mt-3 inline-flex items-center gap-2"
             >
               <Square size={16} /> Stop and log
-            </button>
+            </Button>
           </>
         )}
 
@@ -203,14 +203,14 @@ function NextActionBody({ action, onOpenHomework, onCompleteChore, onTapHabit, o
       <div className="font-body text-sm text-ink-secondary mt-1">
         {action.subtitle}
       </div>
-      <button
-        type="button"
+      <Button
+        size="sm"
         aria-label={`${buttonLabel} ${action.title}`}
         onClick={handleClick}
-        className={`${buttonPrimary} mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm`}
+        className="mt-3 inline-flex items-center gap-2"
       >
         <Play size={16} /> {buttonLabel}
-      </button>
+      </Button>
     </>
   );
 }
