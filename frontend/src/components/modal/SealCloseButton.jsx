@@ -15,8 +15,8 @@ export default function SealCloseButton({
 }) {
   const gradient =
     variant === 'teal'
-      ? 'radial-gradient(circle at 30% 30%, #4dd0e1 0%, #26a69a 55%, #1b7970 100%)'
-      : 'radial-gradient(circle at 30% 30%, #e88a5e 0%, #d97548 55%, #a04a28 100%)';
+      ? 'radial-gradient(circle at 30% 30%, #4dd0e1 0%, #26a69a 55%, #1b7970 100%)' // intentional: wax-seal sculpted gradient — hand-tuned highlight/midtone/shadow stops
+      : 'radial-gradient(circle at 30% 30%, #e88a5e 0%, #d97548 55%, #a04a28 100%)'; // intentional: wax-seal sculpted gradient — hand-tuned highlight/midtone/shadow stops
 
   return (
     <button

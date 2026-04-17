@@ -9,7 +9,7 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
   const { form, set, saving, setSaving, error, setError } = useFormState({
     name: item?.name || '',
     icon: item?.icon || '',
-    color: item?.color || '#D97706',
+    color: item?.color || '#D97706', // intentional: default value seeding the <input type="color"> picker — user-pickable color literal stored as data, not a surface token
     description: item?.description || '',
   });
 
