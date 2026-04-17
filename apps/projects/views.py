@@ -194,6 +194,11 @@ class DashboardView(APIView):
             "habits_today": habits_data,
         }
 
+        from apps.projects import priority as priority_module
+        next_actions = [
+            a.as_dict() for a in priority_module.build_next_actions(user)
+        ]
+
         return Response({
             "role": user.role,
             "active_timer": active_timer,
@@ -210,6 +215,7 @@ class DashboardView(APIView):
             "streak_days": streak,
             "savings_goals": goals,
             "chores_today": chores_today,
+            "next_actions": next_actions,
             "pending_chore_approvals": pending_chore_approvals,
             "rpg": rpg_data,
         })
