@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  completeChore, getActiveQuest, getHomeworkDashboard, getRecentDrops, getStable, logHabitTap,
+  completeChore, getActiveQuest, getRecentDrops, getStable, logHabitTap,
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import { formatCurrency } from '../utils/format';
@@ -14,139 +14,97 @@ import HeroPrimaryCard from '../components/dashboard/HeroPrimaryCard';
 import VitalPipStrip from '../components/dashboard/VitalPipStrip';
 import AccordionSection from '../components/dashboard/AccordionSection';
 import HomeworkSubmitSheet from '../components/HomeworkSubmitSheet';
-import { DragonIcon, InkwellIcon, ScrollIcon, CoinIcon } from '../components/icons/JournalIcons';
-import { BookOpen, Target } from 'lucide-react';
-import { normalizeList } from '../utils/api';
+import { CoinIcon } from '../components/icons/JournalIcons';
+import { BookOpen, Sparkles, Flame, Target } from 'lucide-react';
 import { RARITY_RING_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem, inkBleed } from '../motion/variants';
-import { formatWeekdayDate, mapProjectTone, nextDueTarget } from './_dashboardShared';
+import { formatWeekdayDate, mapProjectTone } from './_dashboardShared';
 
 const VISIBLE_LOG_CAP = 5;
 
-/**
- * Build Today's Log rows for homework that needs attention today.
- * Includes overdue, due-today, and due-next-school-day assignments.
- * Approved submissions are hidden (nothing left for the child to do);
- * pending submissions render as a done-row with "awaiting seal" so the
- * child sees their proof landed.
- */
-function buildHomeworkEntries({ homeworkDashboard, dueTarget, onOpenHomework }) {
-  if (!homeworkDashboard) return [];
-  const out = [];
-  const makeRow = (hw, dueLabel, baseStatus) => {
-    const subStatus = hw.submission_status?.status;
-    if (subStatus === 'approved') return;
-    const awaitingReview = subStatus === 'pending';
-    const status = awaitingReview ? 'done' : baseStatus;
-    const metaParts = [hw.subject || 'homework', dueLabel];
-    if (awaitingReview) metaParts.push('awaiting seal');
-    out.push({
-      id: `homework-${hw.id}`,
-      title: hw.title,
-      meta: metaParts.join(' · '),
-      reward: null,
-      status,
-      kind: 'Study',
-      tone: 'royal',
-      icon: <BookOpen size={16} />,
-      onAction: status === 'done' ? undefined : () => onOpenHomework(hw),
-    });
-  };
-  normalizeList(homeworkDashboard.overdue).forEach((hw) => makeRow(hw, 'overdue', 'overdue'));
-  normalizeList(homeworkDashboard.today).forEach((hw) => makeRow(hw, 'due today', 'pending'));
-  normalizeList(homeworkDashboard.upcoming)
-    .filter((hw) => hw.due_date === dueTarget.iso)
-    .forEach((hw) => makeRow(hw, `due ${dueTarget.label}`, 'pending'));
-  return out;
-}
+// Map NextAction.icon names to lucide-react components for the quest log row
+// glyph. Falls back to Sparkles if the backend ships an unknown name.
+const ICON_MAP = { BookOpen, Sparkles, Flame };
 
-function buildTodayQuests({ chores_today, activeQuest, rpg, activeTimer, homeworkEntries, onTapHabit, onCompleteChore }) {
-  const out = [];
-  if (activeTimer?.project_title) {
-    out.push({
-      id: `active-${activeTimer.project_id}`,
-      title: `Keep inking: ${activeTimer.project_title}`,
-      meta: 'Clocked in',
-      status: 'pending',
-      kind: 'shift',
-      tone: 'teal',
-      icon: <InkwellIcon size={16} />,
-    });
+// Map NextAction.kind to the kind-tag label shown in the QuestLogEntry.
+const KIND_LABEL = { homework: 'Study', chore: 'Duty', habit: 'Ritual' };
+
+/**
+ * Group the next_actions feed into the three quest-log sections. The
+ * backend already sorts by score DESC with deterministic tie-breaking, so
+ * each section preserves the global ranking.
+ */
+function buildQuestLogFromActions(next_actions = []) {
+  const study = [];
+  const duty = [];
+  const ritual = [];
+  for (const a of next_actions) {
+    if (a.kind === 'homework') study.push(a);
+    else if (a.kind === 'chore') duty.push(a);
+    else if (a.kind === 'habit') ritual.push(a);
   }
-  if (activeQuest && activeQuest.status === 'active') {
-    const t = activeQuest.definition;
-    out.push({
-      id: `quest-${activeQuest.id}`,
-      title: t.name,
-      meta: `${t.quest_type === 'boss' ? 'Boss' : 'Collection'} · ${activeQuest.progress_percent}% · ${activeQuest.current_progress}/${activeQuest.effective_target}`,
-      status: 'pending',
-      kind: 'trial',
-      tone: 'royal',
-      icon: <DragonIcon size={16} />,
-    });
-  }
-  (homeworkEntries || []).forEach((hw) => out.push(hw));
-  (chores_today || []).forEach((c) => {
-    out.push({
-      id: `chore-${c.id}`,
-      title: c.title,
-      meta: c.reward_amount ? `duty · $${c.reward_amount}` : 'duty',
-      reward: c.is_done ? null : c.coin_reward ? `$${c.reward_amount} · ${c.coin_reward}🪙` : `$${c.reward_amount}`,
-      status: c.is_done ? 'done' : 'pending',
-      kind: 'duty',
-      tone: 'moss',
-      icon: c.icon ? <span className="text-base">{c.icon}</span> : null,
-      onAction: c.is_done ? undefined : () => onCompleteChore(c.id),
-    });
-  });
-  (rpg?.habits_today || []).slice(0, 5).forEach((h) => {
-    const cap = h.max_taps_per_day ?? 1;
-    const taps = h.taps_today ?? 0;
-    const atCap = taps >= cap;
-    out.push({
-      id: `habit-${h.id}`,
-      title: h.name,
-      meta: `ritual · strength ${h.strength ?? 0} · ${taps}/${cap} today`,
-      status: atCap ? 'done' : 'pending',
-      kind: 'virtue',
-      tone: 'gold',
-      icon: h.icon ? <span className="text-base">{h.icon}</span> : <ScrollIcon size={16} />,
-      onAction: atCap ? undefined : () => onTapHabit(h.id),
-    });
-  });
-  return out;
+  return { study, duty, ritual };
 }
 
 export default function ChildDashboard({ data, reload }) {
   const { data: recentDrops } = useApi(getRecentDrops);
   const { data: stableData } = useApi(getStable);
   const { data: activeQuest } = useApi(getActiveQuest);
-  const { data: homeworkDashboard, reload: reloadHomework } = useApi(getHomeworkDashboard);
   const navigate = useNavigate();
   const [logExpanded, setLogExpanded] = useState(false);
   const [activeHomework, setActiveHomework] = useState(null);
 
   const {
     active_timer, current_balance, coin_balance, this_week, active_projects,
-    recent_badges, savings_goals, chores_today, rpg,
+    recent_badges, savings_goals, rpg, next_actions = [],
   } = data || {};
 
   const activePet = stableData?.pets?.find((p) => p.is_active) || null;
 
-  const onCompleteChore = (id) => completeChore(id).then(reload).catch(() => {});
-  const onTapHabit = (id) => logHabitTap(id, 1).then(reload).catch(() => {});
+  const handleCompleteChore = (id) => completeChore(id).then(reload).catch(() => {});
+  const handleTapHabit = (id) => logHabitTap(id, 1).then(reload).catch(() => {});
+  // Open the homework submit sheet inline. We accept either a plain id
+  // (from the hero's NextAction handler) or an action object (from the
+  // quest log row); the sheet only needs `{id, title}`.
+  const handleOpenHomework = (idOrAction) => {
+    if (idOrAction && typeof idOrAction === 'object') {
+      setActiveHomework(idOrAction);
+    } else {
+      const match = (next_actions || []).find(
+        (a) => a.kind === 'homework' && a.id === idOrAction,
+      );
+      setActiveHomework(match || { id: idOrAction });
+    }
+  };
 
-  const dueTarget = nextDueTarget();
-  const homeworkEntries = buildHomeworkEntries({
-    homeworkDashboard, dueTarget, onOpenHomework: setActiveHomework,
-  });
+  const { study, duty, ritual } = buildQuestLogFromActions(next_actions);
+  const sections = [
+    { key: 'study', label: 'Study', tone: 'royal', actions: study },
+    { key: 'duty', label: 'Duty', tone: 'moss', actions: duty },
+    { key: 'ritual', label: 'Ritual', tone: 'gold', actions: ritual },
+  ].filter((s) => s.actions.length > 0);
 
-  const todayQuests = buildTodayQuests({
-    chores_today, activeQuest, rpg, activeTimer: active_timer,
-    homeworkEntries, onTapHabit, onCompleteChore,
-  });
-  const visibleQuests = logExpanded ? todayQuests : todayQuests.slice(0, VISIBLE_LOG_CAP);
-  const hiddenQuestCount = todayQuests.length - visibleQuests.length;
+  const totalLogCount = study.length + duty.length + ritual.length;
+  const visibleSections = (() => {
+    if (logExpanded) return sections;
+    let remaining = VISIBLE_LOG_CAP;
+    const out = [];
+    for (const s of sections) {
+      if (remaining <= 0) break;
+      const slice = s.actions.slice(0, remaining);
+      remaining -= slice.length;
+      out.push({ ...s, actions: slice });
+    }
+    return out;
+  })();
+  const visibleCount = visibleSections.reduce((n, s) => n + s.actions.length, 0);
+  const hiddenQuestCount = totalLogCount - visibleCount;
+
+  const onActionClick = (a) => {
+    if (a.kind === 'homework') return handleOpenHomework(a);
+    if (a.kind === 'chore') return handleCompleteChore(a.id);
+    if (a.kind === 'habit') return handleTapHabit(a.id);
+  };
 
   const { weekday, dateStr } = formatWeekdayDate();
 
@@ -165,11 +123,13 @@ export default function ChildDashboard({ data, reload }) {
         role="child"
         ctx={{
           activeTimer: active_timer,
-          rpg, chores_today,
+          rpg,
+          nextAction: next_actions[0] || null,
           activeQuest,
           weekday, dateStr,
-          onCompleteChore,
-          onTapHabit,
+          onCompleteChore: handleCompleteChore,
+          onTapHabit: handleTapHabit,
+          onOpenHomework: handleOpenHomework,
         }}
       />
 
@@ -180,27 +140,47 @@ export default function ChildDashboard({ data, reload }) {
         activePet={activePet}
       />
 
-      {todayQuests.length > 0 && (
+      {totalLogCount > 0 && (
         <section>
           <div className="mb-2 flex justify-end">
-            <RuneBadge tone="teal" size="sm">{todayQuests.length}</RuneBadge>
+            <RuneBadge tone="teal" size="sm">{totalLogCount}</RuneBadge>
           </div>
           <ParchmentCard flourish>
-            <ul className="space-y-2">
-              {visibleQuests.map((q) => (
-                <QuestLogEntry
-                  key={q.id}
-                  title={q.title}
-                  meta={q.meta}
-                  reward={q.reward}
-                  status={q.status}
-                  kind={q.kind}
-                  tone={q.tone}
-                  icon={q.icon}
-                  onAction={q.onAction}
-                />
+            <div className="space-y-3">
+              {visibleSections.map((section) => (
+                <div key={section.key}>
+                  <div className="font-script text-xs text-ink-whisper uppercase tracking-wider mb-1">
+                    {section.label}
+                  </div>
+                  <ul className="space-y-2">
+                    {section.actions.map((a) => {
+                      const Icon = ICON_MAP[a.icon] || Sparkles;
+                      const meta = a.subtitle;
+                      let reward = null;
+                      if (a.reward) {
+                        const parts = [];
+                        if (a.reward.money && a.reward.money !== '0.00') parts.push(`$${a.reward.money}`);
+                        if (a.reward.coins) parts.push(`${a.reward.coins}🪙`);
+                        if (parts.length) reward = parts.join(' · ');
+                      }
+                      return (
+                        <QuestLogEntry
+                          key={`${a.kind}-${a.id}`}
+                          title={a.title}
+                          meta={meta}
+                          reward={reward}
+                          status="pending"
+                          kind={KIND_LABEL[a.kind] || section.label}
+                          tone={a.tone || section.tone}
+                          icon={<Icon size={16} />}
+                          onAction={() => onActionClick(a)}
+                        />
+                      );
+                    })}
+                  </ul>
+                </div>
               ))}
-            </ul>
+            </div>
             {hiddenQuestCount > 0 && (
               <button
                 type="button"
@@ -399,7 +379,6 @@ export default function ChildDashboard({ data, reload }) {
         onSubmitted={() => {
           setActiveHomework(null);
           reload();
-          reloadHomework?.();
         }}
       />
 

@@ -20,8 +20,6 @@ function renderDashboard(extraHandlers = []) {
   );
 }
 
-import { nextDueTarget } from './_dashboardShared';
-
 describe('ChildDashboard', () => {
   it('renders active-timer hero when a timer is active', async () => {
     renderDashboard([
@@ -33,6 +31,7 @@ describe('ChildDashboard', () => {
           this_week: { hours_worked: 0, earnings: 0 },
           active_projects: [], recent_badges: [], savings_goals: [], chores_today: [],
           pending_chore_approvals: 0, rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
+          next_actions: [],
         }),
       ),
     ]);
@@ -58,6 +57,12 @@ describe('ChildDashboard', () => {
             login_streak: 4, longest_login_streak: 6, perfect_days_count: 1,
             habits_today: [],
           },
+          next_actions: [
+            { kind: 'chore', id: 1, title: 'dishes', subtitle: 'duty · $1',
+              score: 70, due_at: null,
+              reward: { money: '1', coins: 5 },
+              icon: 'Sparkles', tone: 'moss', action_url: '/chores' },
+          ],
         }),
       ),
       http.get('*/api/pets/stable/', () =>
@@ -87,104 +92,52 @@ describe('ChildDashboard', () => {
           active_projects: [], recent_badges: [], savings_goals: [], chores_today: [],
           pending_chore_approvals: 0,
           rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
+          next_actions: [],
         }),
       ),
     ]);
     await waitFor(() => expect(screen.getByLabelText(/find a pet/i)).toBeInTheDocument());
   });
 
-  it('surfaces due-next-school-day homework in Today\'s Log with a Study kind tag', async () => {
-    const { iso, label } = nextDueTarget();
+  it('renders hero using next_actions[0] and groups quest log by kind', async () => {
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/dashboard/', () =>
         HttpResponse.json({
-          active_timer: null, current_balance: 0, coin_balance: 0,
-          this_week: { hours_worked: 0, earnings: 0 },
-          active_projects: [], recent_badges: [], savings_goals: [], chores_today: [],
-          pending_chore_approvals: 0,
-          rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
-        }),
-      ),
-      http.get('*/api/homework/dashboard/', () =>
-        HttpResponse.json({
-          today: [], overdue: [],
-          upcoming: [
-            { id: 55, title: 'Science worksheet', subject: 'Science', due_date: iso },
-            { id: 56, title: 'Far future', subject: 'Math', due_date: '2099-01-01' },
+          role: 'child',
+          active_timer: null,
+          chores_today: [], // deprecated — still on wire
+          homework: { dashboard: { overdue: [], today: [], upcoming: [] } },
+          rpg: {
+            level: 0, login_streak: 0, longest_login_streak: 0,
+            perfect_days_count: 0, last_active_date: null, habits_today: [],
+          },
+          next_actions: [
+            { kind: 'homework', id: 42, title: 'Math workbook',
+              subtitle: 'Math · due tomorrow', score: 60, due_at: '2026-04-17',
+              reward: null, icon: 'BookOpen', tone: 'royal', action_url: '/homework' },
+            { kind: 'chore', id: 7, title: 'Clean Room',
+              subtitle: 'duty · $1.00', score: 34, due_at: null,
+              reward: { money: '1.00', coins: 2 },
+              icon: 'Sparkles', tone: 'moss', action_url: '/chores' },
           ],
         }),
       ),
     ]);
-    await waitFor(() => expect(screen.getByText(/science worksheet/i)).toBeInTheDocument());
-    // Row renders inside the main log; the old standalone "Coming up" card is gone.
-    expect(screen.queryByText(/^coming up$/i)).not.toBeInTheDocument();
-    // Meta line carries subject + due label.
-    expect(screen.getByText(new RegExp(`science.*due ${label}`, 'i'))).toBeInTheDocument();
-    // Study kind tag is present.
-    expect(screen.getByText(/^study$/i)).toBeInTheDocument();
-    // Far-future homework is filtered out.
-    expect(screen.queryByText(/far future/i)).not.toBeInTheDocument();
-  });
 
-  it('surfaces due-today and overdue homework alongside next-school-day items', async () => {
-    const { iso } = nextDueTarget();
-    renderDashboard([
-      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
-      http.get('*/api/dashboard/', () =>
-        HttpResponse.json({
-          active_timer: null, current_balance: 0, coin_balance: 0,
-          this_week: { hours_worked: 0, earnings: 0 },
-          active_projects: [], recent_badges: [], savings_goals: [], chores_today: [],
-          pending_chore_approvals: 0,
-          rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
-        }),
-      ),
-      http.get('*/api/homework/dashboard/', () =>
-        HttpResponse.json({
-          today: [{ id: 10, title: 'Due-today worksheet', subject: 'Math', due_date: '2026-04-16' }],
-          overdue: [{ id: 20, title: 'Overdue paper', subject: 'Writing', due_date: '2026-04-10' }],
-          upcoming: [{ id: 30, title: 'Tomorrow prep', subject: 'Reading', due_date: iso }],
-        }),
-      ),
-    ]);
-    await waitFor(() => expect(screen.getByText(/due-today worksheet/i)).toBeInTheDocument());
-    expect(screen.getByText(/overdue paper/i)).toBeInTheDocument();
-    expect(screen.getByText(/tomorrow prep/i)).toBeInTheDocument();
-    expect(screen.getByText(/writing.*overdue/i)).toBeInTheDocument();
-    expect(screen.getByText(/math.*due today/i)).toBeInTheDocument();
-  });
-
-  it('hides homework whose submission is already approved', async () => {
-    const { iso } = nextDueTarget();
-    renderDashboard([
-      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
-      http.get('*/api/dashboard/', () =>
-        HttpResponse.json({
-          active_timer: null, current_balance: 0, coin_balance: 0,
-          this_week: { hours_worked: 0, earnings: 0 },
-          active_projects: [], recent_badges: [], savings_goals: [], chores_today: [],
-          pending_chore_approvals: 0,
-          rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
-        }),
-      ),
-      http.get('*/api/homework/dashboard/', () =>
-        HttpResponse.json({
-          today: [], overdue: [],
-          upcoming: [
-            { id: 55, title: 'Already approved', subject: 'Math', due_date: iso,
-              submission_status: { id: 900, status: 'approved' } },
-            { id: 56, title: 'Still pending submit', subject: 'Math', due_date: iso },
-          ],
-        }),
-      ),
-    ]);
-    await waitFor(() => expect(screen.getByText(/still pending submit/i)).toBeInTheDocument());
-    expect(screen.queryByText(/already approved/i)).not.toBeInTheDocument();
+    await screen.findAllByText('Math workbook');
+    // Hero shows top item — and the quest log echoes it; both should be present.
+    expect(screen.getAllByText('Math workbook').length).toBeGreaterThanOrEqual(1);
+    // Hero exposes a "Submit Math workbook" button (homework kind label).
+    expect(screen.getByRole('button', { name: /submit math workbook/i })).toBeInTheDocument();
+    // Quest log shows both items grouped by section. Section labels and the
+    // per-row kind tags both render the same string, so use getAllByText.
+    expect(screen.getAllByText(/study/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/duty/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Clean Room')).toBeInTheDocument();
   });
 
   it('clicking an open homework row opens the submit sheet', async () => {
-    const { iso } = nextDueTarget();
     const user = userEvent.setup();
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
@@ -195,15 +148,17 @@ describe('ChildDashboard', () => {
           active_projects: [], recent_badges: [], savings_goals: [], chores_today: [],
           pending_chore_approvals: 0,
           rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
-        }),
-      ),
-      http.get('*/api/homework/dashboard/', () =>
-        HttpResponse.json({
-          today: [], overdue: [],
-          upcoming: [{ id: 99, title: 'Poem recital', subject: 'Reading', due_date: iso }],
+          next_actions: [
+            { kind: 'homework', id: 99, title: 'Poem recital',
+              subtitle: 'Reading · due tomorrow', score: 60, due_at: null,
+              reward: null, icon: 'BookOpen', tone: 'royal', action_url: '/homework' },
+          ],
         }),
       ),
     ]);
+    // Hero exposes a "Submit Poem recital" button; the quest log exposes
+    // the per-row "Complete Poem recital" check-glyph. Either should open
+    // the same sheet.
     const row = await screen.findByRole('button', { name: /complete poem recital/i });
     await user.click(row);
     // Sheet content renders on document.body via portal.
@@ -227,6 +182,11 @@ describe('ChildDashboard', () => {
           login_streak: 0, longest_login_streak: 0, perfect_days_count: 0,
           habits_today: [{ id: 7, name: 'Read 30min', icon: '📖', strength: 7, taps_today: 2, max_taps_per_day: 5 }],
         },
+        next_actions: [
+          { kind: 'habit', id: 7, title: 'Read 30min',
+            subtitle: 'keep your 1-day streak', score: 65, due_at: null,
+            reward: null, icon: 'Flame', tone: 'ember', action_url: '/habits' },
+        ],
       }),
     );
     renderDashboard([
@@ -235,8 +195,9 @@ describe('ChildDashboard', () => {
       tap.handler,
     ]);
 
-    const button = await screen.findByRole('button', { name: /complete read 30min/i });
-    await user.click(button);
+    // Quest log exposes per-row "Complete Read 30min" check-glyph.
+    const buttons = await screen.findAllByRole('button', { name: /complete read 30min/i });
+    await user.click(buttons[0]);
 
     await waitFor(() => expect(tap.calls).toHaveLength(1));
     expect(tap.calls[0].body).toEqual({ direction: 1 });
@@ -255,6 +216,12 @@ describe('ChildDashboard', () => {
         chores_today: [{ id: 4, title: 'dishes', reward_amount: '1', coin_reward: 5, is_done: false }],
         pending_chore_approvals: 0,
         rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
+        next_actions: [
+          { kind: 'chore', id: 4, title: 'dishes', subtitle: 'duty · $1',
+            score: 70, due_at: null,
+            reward: { money: '1', coins: 5 },
+            icon: 'Sparkles', tone: 'moss', action_url: '/chores' },
+        ],
       }),
     );
     renderDashboard([
@@ -263,7 +230,7 @@ describe('ChildDashboard', () => {
       complete.handler,
     ]);
 
-    // The today log exposes the checkbox control with aria-label "Complete {title}".
+    // The quest log exposes the checkbox control with aria-label "Complete {title}".
     const buttons = await screen.findAllByRole('button', { name: /complete dishes/i });
     await user.click(buttons[0]);
 

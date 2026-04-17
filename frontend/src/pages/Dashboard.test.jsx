@@ -43,6 +43,33 @@ describe('Dashboard (router)', () => {
     expect(screen.getByText(/treasury/i)).toBeInTheDocument();
   });
 
+  it('threads next_actions through to ChildDashboard', async () => {
+    const { spyHandler } = await import('../test/spy.js');
+    const dashboard = spyHandler('get', /\/api\/dashboard\/$/, {
+      role: 'child',
+      active_timer: null,
+      chores_today: [],
+      homework: { dashboard: { overdue: [], today: [], upcoming: [] } },
+      rpg: {
+        level: 0, login_streak: 0, longest_login_streak: 0,
+        perfect_days_count: 0, last_active_date: null, habits_today: [],
+      },
+      next_actions: [
+        { kind: 'chore', id: 1, title: 'Threaded Chore',
+          subtitle: 'duty', score: 70, due_at: null, reward: null,
+          icon: 'Sparkles', tone: 'moss', action_url: '/chores' },
+      ],
+    });
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      dashboard.handler,
+    ]);
+    // Renders in both the hero and the quest log; either presence proves
+    // the prop is threaded.
+    await screen.findAllByText('Threaded Chore');
+    expect(screen.getAllByText('Threaded Chore').length).toBeGreaterThanOrEqual(1);
+  });
+
   it('shows the error retry block when the dashboard fetch fails', async () => {
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
