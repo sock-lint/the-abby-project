@@ -229,6 +229,39 @@ class HomeworkScoringTests(TestCase):
         ]
         self.assertIn("tomorrow", _homework_actions(_child(), today)[0].subtitle)
 
+    @patch("apps.projects.priority._eligible_homework")
+    def test_subtitle_singular_vs_plural_overdue(self, mock_hw):
+        today = datetime.date(2026, 4, 16)
+
+        # 1 day overdue → singular "day"
+        mock_hw.return_value = [
+            _make_homework(pk=1, title="A", due_date=datetime.date(2026, 4, 15))
+        ]
+        self.assertIn("1 day overdue", _homework_actions(_child(), today)[0].subtitle)
+
+        # 2 days overdue → plural "days"
+        mock_hw.return_value = [
+            _make_homework(pk=2, title="B", due_date=datetime.date(2026, 4, 14))
+        ]
+        self.assertIn("2 days overdue", _homework_actions(_child(), today)[0].subtitle)
+
+    @patch("apps.projects.priority._eligible_homework")
+    def test_due_in_exactly_7_days_still_scored(self, mock_hw):
+        # Boundary test: day 7 is INCLUSIVE in this-week tier; day 8 is excluded.
+        today = datetime.date(2026, 4, 16)
+
+        mock_hw.return_value = [
+            _make_homework(pk=1, title="Edge",
+                           due_date=datetime.date(2026, 4, 23))  # +7 days
+        ]
+        self.assertEqual(_homework_actions(_child(), today)[0].score, 30)
+
+        mock_hw.return_value = [
+            _make_homework(pk=2, title="Past edge",
+                           due_date=datetime.date(2026, 4, 24))  # +8 days
+        ]
+        self.assertEqual(_homework_actions(_child(), today), [])
+
 
 from apps.projects.priority import _habit_actions
 

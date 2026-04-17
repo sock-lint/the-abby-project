@@ -54,7 +54,11 @@ apps/
                      ProjectTemplate (+ milestones, steps, materials),
                      ProjectCollaborator, SavingsGoal, Instructables
                      scraper shim, AI suggestions,
-                     management/commands/seed_data.py
+                     management/commands/seed_data.py.
+                     priority.py: build_next_actions(user) — scored,
+                     ranked feed of chores + homework + streak-protecting
+                     habit, exposed as `next_actions` on /api/dashboard/
+                     and consumed by ChildDashboard hero + quest log.
   notifications/     Notification model + NotificationType TextChoices
                      (promoted from nested), NotificationViewSet,
                      notify() + notify_parents() helpers. Table preserved
