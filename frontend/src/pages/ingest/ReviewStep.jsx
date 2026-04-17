@@ -1,4 +1,4 @@
-import { buttonPrimary } from '../../constants/styles';
+import Button from '../../components/Button';
 import AISuggestions from './AISuggestions';
 import ProjectOverridesCard from './ProjectOverridesCard';
 import MilestonesEditor from './MilestonesEditor';
@@ -78,13 +78,9 @@ export default function ReviewStep({
       />
 
       <div className="flex gap-2">
-        <button
-          onClick={onCommit}
-          disabled={committing}
-          className={`flex-1 py-2.5 ${buttonPrimary}`}
-        >
+        <Button onClick={onCommit} disabled={committing} className="flex-1">
           {committing ? 'Creating…' : 'Create Project'}
-        </button>
+        </Button>
         <button
           onClick={onDiscard}
           className="px-4 py-2.5 rounded-lg border border-ink-page-shadow text-sm text-ink-whisper"

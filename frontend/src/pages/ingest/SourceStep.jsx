@@ -1,7 +1,8 @@
 import { FileText, Link as LinkIcon } from 'lucide-react';
 import Card from '../../components/Card';
 import TabButton from '../../components/TabButton';
-import { buttonPrimary, formLabelClass } from '../../constants/styles';
+import Button from '../../components/Button';
+import { formLabelClass } from '../../constants/styles';
 import { TextField } from '../../components/form';
 
 export default function SourceStep({
@@ -46,14 +47,9 @@ export default function SourceStep({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={onStart}
-        disabled={disabled}
-        className={`w-full py-2.5 ${buttonPrimary}`}
-      >
+      <Button onClick={onStart} disabled={disabled} className="w-full">
         Parse Source
-      </button>
+      </Button>
     </Card>
   );
 }
