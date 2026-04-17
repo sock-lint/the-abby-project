@@ -42,7 +42,8 @@ Page-specific `*Card` components start as sibling files inside their owning page
 
 - `pages/Homework/AssignmentCard.jsx` — used only by `pages/Homework/index.jsx`
 - `pages/manage/CatalogCard.jsx` — used only by `pages/manage/CodexSection.jsx`
-- `pages/achievements/SkillCard.jsx` — used only by `pages/achievements/SkillTreeView.jsx`
+- `pages/achievements/SkillStanza.jsx` + `CategoryPennant.jsx` + `CategoryRibbon.jsx` + `CategoryCapitulare.jsx` + `ChapterRubric.jsx` + `PrereqChain.jsx` + `SkillDetailSheet.jsx` — all used only by `pages/achievements/SkillTreeView.jsx`
+- `pages/achievements/BadgeSigil.jsx` + `BadgeSigilGrid.jsx` + `BadgeDetailSheet.jsx` — used only by `pages/Achievements.jsx`
 - `pages/rewards/RewardCard.jsx` — used only by `pages/rewards/RewardShop.jsx`
 - `pages/rewards/CoinBalanceCard.jsx` — used only by `pages/rewards/Rewards.jsx`
 - `pages/ingest/ProjectOverridesCard.jsx` — used only by `pages/ingest/ReviewStep.jsx`
@@ -56,7 +57,7 @@ Do not pre-emptively promote a card that has only one importer. The cost of movi
 
 When a page-area has constants used by both a parent and an extracted card (e.g. XP thresholds, type orderings), house them in a sibling `.constants.js` file rather than exporting from the parent component file. ESLint's `react-refresh/only-export-components` rule forbids non-component exports from a `.jsx` component file; using a separate `.constants.js` keeps both the lint rule happy and the constant in lockstep across consumers.
 
-Example: [`pages/achievements/skillTree.constants.js`](../pages/achievements/skillTree.constants.js) holds `XP_THRESHOLDS` so both `SkillTreeView.jsx` and `SkillCard.jsx` can import it.
+Examples: [`pages/achievements/skillTree.constants.js`](../pages/achievements/skillTree.constants.js) holds `XP_THRESHOLDS` (the level curve, shared by `SkillTreeView.jsx`, `SkillStanza.jsx`, `SkillDetailSheet.jsx`, and `CategoryCapitulare.jsx`); [`pages/achievements/mastery.constants.js`](../pages/achievements/mastery.constants.js) holds the Illuminated Codex shared maps — `PROGRESS_TIER` (left-edge accent-bar tier by progress %), `RARITY_HALO` (glow around earned sigils), `CHAPTER_NUMERALS` + `chapterMark` (subject numbering), plus `tierForProgress`, `countIlluminated`, `isRecentlyEarned` helpers.
 
 ### Accessibility roles
 
@@ -67,15 +68,18 @@ Shared primitives carry consistent ARIA roles. Match these when building new one
 | `Loader` | `status` + `aria-busy="true"` | Non-urgent transient state |
 | `EmptyState` | `status` | Non-urgent informational region |
 | `ErrorAlert` | `alert` | Errors interrupt — assertive politeness |
-| `ProgressBar` | `progressbar` + `aria-valuenow/min/max` | Widget with measurable state |
+| `ProgressBar` / `QuillProgress` | `progressbar` + `aria-valuenow/min/max` | Widget with measurable state |
 | `BottomSheet` | `dialog` + `aria-modal="true"` + `aria-labelledby` | Modal surface |
 | `ConfirmDialog` | `alertdialog` + `aria-modal="true"` + `aria-labelledby` + `aria-describedby` | Destructive-action modal |
+| `CategoryRibbon` / `CategoryPennant` | `tablist` + `tab` + `aria-selected` + `aria-orientation="horizontal"` | Keyboard-navigable category switcher |
 
 Use React's `useId()` to generate per-instance IDs for `aria-labelledby` / `aria-describedby` so multiple stacked instances don't collide.
 
 For icon-only interactive elements, an `aria-label` is mandatory — the upcoming `<IconButton>` primitive enforces this; raw `<button>` tags wrapping a single Lucide icon need it added by hand.
 
-When a `ProgressBar` accepts an `aria-label`, prefer a context-rich one (e.g. `"${skill.name} XP progress"`) over the default `"Progress"` if the page renders multiple bars.
+When a `ProgressBar` or `QuillProgress` accepts an `aria-label`, prefer a context-rich one (e.g. `"${skill.name} XP progress toward level ${n+1}"`) over the default if the page renders multiple bars.
+
+`QuillProgress` is a variant of `ProgressBar` with a hand-drawn quill-stroke SVG overlay — use it for mastery/progression contexts (skill XP, category chapters), keep `ProgressBar` for neutral progress (savings goals, assignments complete). Both share the same ARIA contract and `color` prop so they're substitutable when the aesthetic needs to change.
 
 ### Modal overlay tokens
 

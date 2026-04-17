@@ -1,33 +1,53 @@
 import { useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { getAchievementsSummary, getBadges, getCategories } from '../api';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
+import Button from '../components/Button';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
 import { normalizeList } from '../utils/api';
-import BadgeCollection from './achievements/BadgeCollection';
+import BadgeSigilGrid from './achievements/BadgeSigilGrid';
+import BadgeDetailSheet from './achievements/BadgeDetailSheet';
 import ManagePanel from './achievements/ManagePanel';
 import SkillTreeView from './achievements/SkillTreeView';
 
+const VIEW_TABS = [
+  { id: 'atlas', label: 'Atlas', hint: 'the skill tree' },
+  { id: 'sigils', label: 'Sigils', hint: 'your badge haul' },
+];
+
+function normalizeViewTab(raw) {
+  return VIEW_TABS.some((t) => t.id === raw) ? raw : 'atlas';
+}
+
 export default function Achievements() {
   const { isParent } = useRole();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: summary, loading, error, reload } = useApi(getAchievementsSummary);
   const { data: allBadgesData, loading: badgesLoading } = useApi(getBadges);
   const { data: categoriesData, reload: reloadCategories } = useApi(getCategories);
   const [topTab, setTopTab] = useState('view');
+  const [selectedEntry, setSelectedEntry] = useState(null);
+
+  const viewTab = normalizeViewTab(searchParams.get('tab'));
+
+  const setViewTab = (id) => {
+    const params = new URLSearchParams(searchParams);
+    if (id === 'atlas') params.delete('tab');
+    else params.set('tab', id);
+    setSearchParams(params, { replace: false });
+  };
 
   if (loading || badgesLoading) return <Loader />;
   if (error || !summary) {
     return (
       <div className="max-w-6xl mx-auto space-y-3">
         <ErrorAlert message={error || 'Could not load the atlas.'} />
-        <button
-          type="button"
-          onClick={reload}
-          className="px-4 py-2 text-sm bg-sheikah-teal-deep text-ink-page-rune-glow rounded-lg hover:bg-sheikah-teal transition-colors font-display"
-        >
+        <Button variant="primary" onClick={reload}>
           Try again
-        </button>
+        </Button>
       </div>
     );
   }
@@ -48,29 +68,17 @@ export default function Achievements() {
           </h1>
         </div>
         {isParent && (
-          <div className="flex gap-1 border border-ink-page-shadow rounded-lg p-1 bg-ink-page-aged">
-            <button
-              type="button"
-              onClick={() => setTopTab('view')}
-              className={`px-3 py-1.5 rounded font-display text-sm transition-colors ${
-                topTab === 'view'
-                  ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
-                  : 'text-ink-secondary hover:text-ink-primary'
-              }`}
-            >
+          <div
+            role="tablist"
+            aria-label="Achievements mode"
+            className="flex gap-1 border border-ink-page-shadow rounded-lg p-1 bg-ink-page-aged"
+          >
+            <TopTabButton active={topTab === 'view'} onClick={() => setTopTab('view')}>
               View
-            </button>
-            <button
-              type="button"
-              onClick={() => setTopTab('manage')}
-              className={`px-3 py-1.5 rounded font-display text-sm transition-colors ${
-                topTab === 'manage'
-                  ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
-                  : 'text-ink-secondary hover:text-ink-primary'
-              }`}
-            >
+            </TopTabButton>
+            <TopTabButton active={topTab === 'manage'} onClick={() => setTopTab('manage')}>
               Manage
-            </button>
+            </TopTabButton>
           </div>
         )}
       </header>
@@ -79,10 +87,73 @@ export default function Achievements() {
         <ManagePanel categories={categories} reloadCategories={reloadCategories} />
       ) : (
         <>
-          <BadgeCollection allBadges={allBadges} earnedBadges={earnedBadges} />
-          <SkillTreeView categories={categories} />
+          {/* Sub-tab row: Atlas | Sigils. Stays under the header, above either view. */}
+          <div
+            role="tablist"
+            aria-label="Achievements view"
+            className="inline-flex items-center gap-1 border border-ink-page-shadow rounded-xl p-1 bg-ink-page-aged shadow-[0_1px_0_0_var(--color-ink-page-rune-glow)_inset]"
+          >
+            {VIEW_TABS.map((tab) => {
+              const active = viewTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active ? 'true' : 'false'}
+                  onClick={() => setViewTab(tab.id)}
+                  className={`px-4 py-2 min-h-[40px] rounded-lg font-display text-sm transition-colors ${
+                    active
+                      ? 'bg-sheikah-teal-deep text-ink-page-rune-glow shadow-[0_1px_0_0_var(--color-gold-leaf)]'
+                      : 'text-ink-secondary hover:text-ink-primary'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {viewTab === 'atlas' ? (
+            <SkillTreeView categories={categories} />
+          ) : (
+            <section>
+              <h2 className="font-display italic text-lede md:text-xl text-ink-primary mb-3">
+                {earnedBadges.length} of {allBadges.length} sigils sealed
+              </h2>
+              <BadgeSigilGrid
+                allBadges={allBadges}
+                earnedBadges={earnedBadges}
+                onSelect={setSelectedEntry}
+              />
+            </section>
+          )}
         </>
       )}
+
+      <AnimatePresence>
+        {selectedEntry && (
+          <BadgeDetailSheet entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function TopTabButton({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active ? 'true' : 'false'}
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded font-display text-sm transition-colors ${
+        active
+          ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
+          : 'text-ink-secondary hover:text-ink-primary'
+      }`}
+    >
+      {children}
+    </button>
   );
 }

@@ -191,12 +191,47 @@ h1, h2, h3, h4 {
   100% { transform: scaleX(1);   opacity: 0; }
 }
 
+/* Gilded glint — one-shot diagonal sheen sweep across a recently-earned
+   badge sigil. Illumination read: freshly-stamped foil catching the light. */
+@keyframes gilded-glint {
+  0%   { background-position: -140% 0; opacity: 0; }
+  20%  { opacity: 0.8; }
+  100% { background-position: 240% 0; opacity: 0; }
+}
+
+/* Quill stroke in — seed animation for the first mount of QuillProgress.
+   The JS also drives continuous width updates via Framer; this handles
+   the initial "inking in" feel when the bar first renders. */
+@keyframes quill-stroke-in {
+  from { transform: scaleX(0); opacity: 0.6; }
+  to   { transform: scaleX(1); opacity: 1;   }
+}
+
 .animate-flame-flicker { animation: flame-flicker 2.4s ease-in-out infinite; transform-origin: 50% 85%; }
 .animate-rune-pulse    { animation: rune-pulse 2.6s ease-in-out infinite; }
 .animate-rune-band     { animation: rune-band-shimmer 3.2s linear infinite; }
 .animate-ink-bleed     { animation: ink-bleed 0.6s ease-out both; }
 .animate-seal-pulse    { animation: seal-pulse 0.7s ease-out both; }
 .animate-halo-rise     { animation: halo-rise 0.6s ease-out both; transform-origin: center; }
+.animate-gilded-glint  {
+  position: relative;
+  overflow: hidden;
+}
+.animate-gilded-glint::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    rgba(255, 248, 224, 0.55) 50%,
+    transparent 65%
+  );
+  background-size: 220% 100%;
+  animation: gilded-glint 1.4s ease-out 0.2s both;
+}
+.animate-quill-stroke-in { animation: quill-stroke-in 0.7s ease-out both; transform-origin: left center; }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-flame-flicker,
@@ -204,7 +239,9 @@ h1, h2, h3, h4 {
   .animate-rune-band,
   .animate-ink-bleed,
   .animate-seal-pulse,
-  .animate-halo-rise { animation: none !important; }
+  .animate-halo-rise,
+  .animate-quill-stroke-in { animation: none !important; }
+  .animate-gilded-glint::after { animation: none !important; opacity: 0; }
   html { scroll-behavior: auto; }
 }
 
