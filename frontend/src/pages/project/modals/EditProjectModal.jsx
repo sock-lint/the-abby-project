@@ -3,7 +3,8 @@ import BottomSheet from '../../../components/BottomSheet';
 import ErrorAlert from '../../../components/ErrorAlert';
 import { useApi } from '../../../hooks/useApi';
 import { useFormState } from '../../../hooks/useFormState';
-import { buttonPrimary, buttonSecondary, inputClass } from '../../../constants/styles';
+import { buttonPrimary, buttonSecondary } from '../../../constants/styles';
+import { TextField, SelectField, TextAreaField } from '../../../components/form';
 import { normalizeList } from '../../../utils/api';
 
 export default function EditProjectModal({ project, onClose, onSaved }) {
@@ -53,71 +54,43 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
     <BottomSheet title="Edit Project" onClose={onClose} disabled={saving}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
-        <div>
-          <label className="block text-xs text-ink-whisper mb-1">Title</label>
-          <input value={form.title} onChange={onField('title')} className={inputClass} required />
-        </div>
-        <div>
-          <label className="block text-xs text-ink-whisper mb-1">Description</label>
-          <textarea value={form.description} onChange={onField('description')} className={`${inputClass} h-20 resize-none`} />
+        <TextField label="Title" value={form.title} onChange={onField('title')} required />
+        <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={3} />
+        <div className="grid grid-cols-2 gap-3">
+          <SelectField label="Category" value={form.category_id} onChange={onField('category_id')}>
+            <option value="">None</option>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+          </SelectField>
+          <SelectField label="Difficulty" value={form.difficulty} onChange={onField('difficulty')}>
+            {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
+          </SelectField>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-ink-whisper mb-1">Category</label>
-            <select value={form.category_id} onChange={onField('category_id')} className={inputClass}>
-              <option value="">None</option>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-ink-whisper mb-1">Difficulty</label>
-            <select value={form.difficulty} onChange={onField('difficulty')} className={inputClass}>
-              {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-ink-whisper mb-1">Assign To</label>
-            <select value={form.assigned_to_id} onChange={onField('assigned_to_id')} className={inputClass}>
-              <option value="">Unassigned</option>
-              {children.map((c) => (
-                <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-ink-whisper mb-1">Payment Kind</label>
-            <select value={form.payment_kind} onChange={onField('payment_kind')} className={inputClass}>
-              <option value="required">Required</option>
-              <option value="bounty">Bounty</option>
-            </select>
-          </div>
+          <SelectField label="Assign To" value={form.assigned_to_id} onChange={onField('assigned_to_id')}>
+            <option value="">Unassigned</option>
+            {children.map((c) => (
+              <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
+            ))}
+          </SelectField>
+          <SelectField label="Payment Kind" value={form.payment_kind} onChange={onField('payment_kind')}>
+            <option value="required">Required</option>
+            <option value="bounty">Bounty</option>
+          </SelectField>
         </div>
         <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs text-ink-whisper mb-1">
-              {form.payment_kind === 'bounty' ? 'Bounty ($)' : 'Bonus ($)'}
-            </label>
-            <input value={form.bonus_amount} onChange={onField('bonus_amount')} className={inputClass} type="number" step="0.01" min="0" />
-          </div>
-          <div>
-            <label className="block text-xs text-ink-whisper mb-1">Budget ($)</label>
-            <input value={form.materials_budget} onChange={onField('materials_budget')} className={inputClass} type="number" step="0.01" min="0" />
-          </div>
-          <div>
-            <label className="block text-xs text-ink-whisper mb-1">Rate Override ($)</label>
-            <input value={form.hourly_rate_override} onChange={onField('hourly_rate_override')} className={inputClass} type="number" step="0.01" min="0" placeholder="Default" />
-          </div>
+          <TextField
+            label={form.payment_kind === 'bounty' ? 'Bounty ($)' : 'Bonus ($)'}
+            value={form.bonus_amount}
+            onChange={onField('bonus_amount')}
+            type="number"
+            step="0.01"
+            min="0"
+          />
+          <TextField label="Budget ($)" value={form.materials_budget} onChange={onField('materials_budget')} type="number" step="0.01" min="0" />
+          <TextField label="Rate Override ($)" value={form.hourly_rate_override} onChange={onField('hourly_rate_override')} type="number" step="0.01" min="0" placeholder="Default" />
         </div>
-        <div>
-          <label className="block text-xs text-ink-whisper mb-1">Due Date</label>
-          <input value={form.due_date} onChange={onField('due_date')} className={inputClass} type="date" />
-        </div>
-        <div>
-          <label className="block text-xs text-ink-whisper mb-1">Parent Notes</label>
-          <textarea value={form.parent_notes} onChange={onField('parent_notes')} className={`${inputClass} h-16 resize-none`} placeholder="Private notes" />
-        </div>
+        <TextField label="Due Date" value={form.due_date} onChange={onField('due_date')} type="date" />
+        <TextAreaField label="Parent Notes" value={form.parent_notes} onChange={onField('parent_notes')} rows={2} placeholder="Private notes" />
         <div className="flex gap-2">
           <button type="button" onClick={onClose} disabled={saving} className={`flex-1 py-3 ${buttonSecondary}`}>
             Cancel
