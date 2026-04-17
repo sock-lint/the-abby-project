@@ -1,8 +1,9 @@
 import { X } from 'lucide-react';
 
 // Wax-seal close button. Replaces the bare <X> used across the modal family.
-// Pure CSS: radial gradient (ember → ember-deep) with an inset highlight so
-// the surface reads like pressed wax. The X sits embossed in the center.
+// Pure CSS: radial gradient using a theme-invariant ember-tone palette
+// (NOT --color-ember, which varies per cover). Inset highlight reads like
+// pressed wax. The X sits embossed in the center.
 //
 // Variants:
 //   "ember" (default) — warm red seal, fits BottomSheet / ConfirmDialog
@@ -15,8 +16,8 @@ export default function SealCloseButton({
 }) {
   const gradient =
     variant === 'teal'
-      ? 'radial-gradient(circle at 30% 30%, #4dd0e1 0%, #26a69a 55%, #1b7970 100%)' // intentional: wax-seal sculpted gradient — hand-tuned highlight/midtone/shadow stops
-      : 'radial-gradient(circle at 30% 30%, #e88a5e 0%, #d97548 55%, #a04a28 100%)'; // intentional: wax-seal sculpted gradient — hand-tuned highlight/midtone/shadow stops
+      ? 'radial-gradient(circle at 30% 30%, #4dd0e1 0%, #26a69a 55%, #1b7970 100%)' // intentional: theme-invariant teal seal palette — must NOT bind to --color-sheikah-* (varies per cover)
+      : 'radial-gradient(circle at 30% 30%, #e88a5e 0%, #d97548 55%, #a04a28 100%)'; // intentional: theme-invariant ember seal palette — must NOT bind to --color-ember (varies per cover; e.g. Vigil inverts it light)
 
   return (
     <button
