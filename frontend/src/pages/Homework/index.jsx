@@ -1,29 +1,28 @@
 import { useState } from 'react';
 import * as Sentry from '@sentry/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Send, ExternalLink, Sparkles } from 'lucide-react';
-import { useApi } from '../hooks/useApi';
-import { useRole } from '../hooks/useRole';
+import { Plus } from 'lucide-react';
+import { useApi } from '../../hooks/useApi';
+import { useRole } from '../../hooks/useRole';
 import {
   getHomeworkDashboard, createHomework,
   approveHomeworkSubmission,
   rejectHomeworkSubmission,
   planHomework, getChildren,
-} from '../api';
-import ApprovalQueue from '../components/ApprovalQueue';
-import Loader from '../components/Loader';
-import ErrorAlert from '../components/ErrorAlert';
-import BottomSheet from '../components/BottomSheet';
-import HomeworkSubmitSheet from '../components/HomeworkSubmitSheet';
-import SubjectBadge from '../components/SubjectBadge';
-import StarRating from '../components/StarRating';
-import TimelinessBadge from '../components/TimelinessBadge';
-import ProofGallery from '../components/ProofGallery';
-import StatusBadge from '../components/StatusBadge';
-import ParchmentCard from '../components/journal/ParchmentCard';
-import Button from '../components/Button';
-import { TextField, SelectField, TextAreaField } from '../components/form';
-import { quickDueDates } from '../utils/dates';
+} from '../../api';
+import ApprovalQueue from '../../components/ApprovalQueue';
+import Loader from '../../components/Loader';
+import ErrorAlert from '../../components/ErrorAlert';
+import BottomSheet from '../../components/BottomSheet';
+import HomeworkSubmitSheet from '../../components/HomeworkSubmitSheet';
+import TimelinessBadge from '../../components/TimelinessBadge';
+import ProofGallery from '../../components/ProofGallery';
+import StatusBadge from '../../components/StatusBadge';
+import ParchmentCard from '../../components/journal/ParchmentCard';
+import Button from '../../components/Button';
+import { TextField, SelectField, TextAreaField } from '../../components/form';
+import { quickDueDates } from '../../utils/dates';
+import AssignmentCard from './AssignmentCard';
 
 const SUBJECTS = [
   { value: 'math', label: 'Math' },
@@ -369,60 +368,6 @@ function Section({ title, items, emptyText, children }) {
         </div>
       )}
     </section>
-  );
-}
-
-function AssignmentCard({ assignment, onSubmit, onPlan, planning, canPlan }) {
-  const a = assignment;
-  const sub = a.submission_status;
-  const hasProject = a.has_project;
-
-  return (
-    <ParchmentCard className="space-y-2">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <SubjectBadge subject={a.subject} />
-          <span className="font-display text-base text-ink-primary">{a.title}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <StarRating value={a.effort_level} title={`Effort: ${a.effort_level}/5`} />
-          {sub && <StatusBadge status={sub.status} />}
-        </div>
-      </div>
-      <div className="font-script text-sm text-ink-whisper">
-        due {a.due_date}
-      </div>
-      <div className="flex gap-2 flex-wrap">
-        {!sub && (
-          <Button
-            variant="success"
-            size="sm"
-            onClick={onSubmit}
-            className="flex items-center gap-1 text-xs"
-          >
-            <Send size={12} /> Submit
-          </Button>
-        )}
-        {!hasProject && canPlan && (
-          <button
-            type="button"
-            onClick={onPlan}
-            disabled={planning}
-            className="flex items-center gap-1 px-3 py-1 bg-royal/20 hover:bg-royal/30 text-royal border border-royal/50 disabled:opacity-50 rounded-lg text-xs font-body font-medium transition-colors"
-          >
-            <Sparkles size={12} /> {planning ? 'Planning…' : 'Plan it out'}
-          </button>
-        )}
-        {hasProject && (
-          <a
-            href={`/quests/ventures/${a.project}`}
-            className="flex items-center gap-1 px-3 py-1 bg-ink-page border border-ink-page-shadow hover:border-sheikah-teal/60 rounded-lg text-xs font-body font-medium transition-colors"
-          >
-            <ExternalLink size={12} /> View plan
-          </a>
-        )}
-      </div>
-    </ParchmentCard>
   );
 }
 

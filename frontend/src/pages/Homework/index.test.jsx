@@ -3,11 +3,11 @@ import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import Homework from './Homework.jsx';
-import { AuthProvider } from '../hooks/useApi.js';
-import { server } from '../test/server.js';
-import { spyHandler } from '../test/spy.js';
-import { buildParent, buildUser } from '../test/factories.js';
+import Homework from './index.jsx';
+import { AuthProvider } from '../../hooks/useApi.js';
+import { server } from '../../test/server.js';
+import { spyHandler } from '../../test/spy.js';
+import { buildParent, buildUser } from '../../test/factories.js';
 import * as Sentry from '@sentry/react';
 
 vi.mock('framer-motion', async () => {
