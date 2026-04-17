@@ -7,6 +7,10 @@ export const inputClass =
   'focus:outline-none focus:border-sheikah-teal focus:ring-2 focus:ring-sheikah-teal-glow ' +
   'transition-colors';
 
+// INTERNAL: these class strings are now consumed only by <Button> and
+// <IconButton> (frontend/src/components/Button.jsx). New call sites should
+// use the components, not these strings directly.
+
 // Primary CTA — wax-seal button. Deep sheikah accent with parchment-light text.
 export const buttonPrimary =
   'bg-sheikah-teal-deep hover:bg-sheikah-teal disabled:opacity-50 disabled:cursor-not-allowed ' +
