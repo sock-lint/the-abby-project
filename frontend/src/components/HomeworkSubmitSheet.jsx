@@ -7,7 +7,8 @@ import TimelinessBadge from './TimelinessBadge';
 import ErrorAlert from './ErrorAlert';
 import { submitHomework } from '../api';
 import { downscaleImage } from '../utils/image';
-import { buttonSuccess, inputClass } from '../constants/styles';
+import { buttonSuccess } from '../constants/styles';
+import { TextAreaField } from './form';
 
 /**
  * HomeworkSubmitSheet — bottom-sheet form for submitting homework proof.
@@ -56,6 +57,8 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
   };
 
   const labelClass = 'font-script text-sm text-ink-secondary mb-1 block';
+  // Kept for the photo-picker grid below — that field isn't a single
+  // <input>, so it can't use the form-primitive label/htmlFor wiring.
 
   return (
     <BottomSheet onClose={handleClose} title="Affix photographic evidence">
@@ -96,10 +99,9 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
           </div>
         </div>
 
-        <textarea
+        <TextAreaField
           placeholder="Notes (optional)" value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className={inputClass}
           rows={2}
         />
 

@@ -10,7 +10,8 @@ import {
 } from '../../api';
 import { useApi, useAuth } from '../../hooks/useApi';
 import { normalizeList } from '../../utils/api';
-import { buttonPrimary, buttonDanger, buttonSecondary, inputClass } from '../../constants/styles';
+import { buttonPrimary, buttonDanger, buttonSecondary } from '../../constants/styles';
+import { TextField, SelectField, TextAreaField } from '../form';
 
 function formatClock(secs) {
   const h = Math.floor(secs / 3600);
@@ -89,11 +90,11 @@ function ClockPane({ status, isClocked, elapsedSecs, onBack, onClockReload }) {
           <div className="font-rune text-3xl font-bold text-ember-deep tabular-nums text-center">
             {formatClock(elapsedSecs)}
           </div>
-          <textarea
+          <TextAreaField
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Scribble what you did…"
-            className={`${inputClass} resize-none h-20`}
+            rows={3}
           />
           {error && <div className="text-ember-deep text-sm font-script">{error}</div>}
           <button onClick={handleOut} disabled={busy} className={`${buttonDanger} w-full px-4 py-2.5 flex items-center justify-center gap-2`}>
@@ -102,20 +103,17 @@ function ClockPane({ status, isClocked, elapsedSecs, onBack, onClockReload }) {
         </>
       ) : (
         <>
-          <div>
-            <label htmlFor="qa-clock-project" className="block font-script text-sm text-ink-secondary mb-1">Which venture?</label>
-            <select
-              id="qa-clock-project"
-              value={selectedProject}
-              onChange={(e) => setSelectedProject(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">Select a project…</option>
-              {projects.filter((p) => ['active', 'in_progress'].includes(p.status)).map((p) => (
-                <option key={p.id} value={p.id}>{p.title}</option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            id="qa-clock-project"
+            label="Which venture?"
+            value={selectedProject}
+            onChange={(e) => setSelectedProject(e.target.value)}
+          >
+            <option value="">Select a project…</option>
+            {projects.filter((p) => ['active', 'in_progress'].includes(p.status)).map((p) => (
+              <option key={p.id} value={p.id}>{p.title}</option>
+            ))}
+          </SelectField>
           {error && <div className="text-ember-deep text-sm font-script">{error}</div>}
           <button onClick={handleIn} disabled={busy} className={`${buttonPrimary} w-full px-4 py-2.5 flex items-center justify-center gap-2`}>
             <Play size={18} /> Clock In
@@ -155,28 +153,22 @@ function AddHomeworkPane({ onBack, onDone }) {
       <button type="button" onClick={onBack} className="font-script text-sm text-sheikah-teal-deep hover:underline">
         ← Back
       </button>
-      <div>
-        <label htmlFor="qa-hw-title" className="block font-script text-sm text-ink-secondary mb-1">Title</label>
-        <input
-          id="qa-hw-title"
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g. Math worksheet"
-          className={inputClass}
-          autoFocus
-        />
-      </div>
-      <div>
-        <label htmlFor="qa-hw-due" className="block font-script text-sm text-ink-secondary mb-1">Due date</label>
-        <input
-          id="qa-hw-due"
-          type="date"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-          className={inputClass}
-        />
-      </div>
+      <TextField
+        id="qa-hw-title"
+        label="Title"
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="e.g. Math worksheet"
+        autoFocus
+      />
+      <TextField
+        id="qa-hw-due"
+        label="Due date"
+        type="date"
+        value={dueDate}
+        onChange={(e) => setDueDate(e.target.value)}
+      />
       {error && <div className="text-ember-deep text-sm font-script">{error}</div>}
       <div className="flex gap-2">
         <button type="button" onClick={onBack} className={`${buttonSecondary} flex-1 px-4 py-2.5`}>Cancel</button>
