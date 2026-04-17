@@ -31,4 +31,10 @@ describe('EmptyState', () => {
     );
     expect(container.firstChild.className).toContain('custom');
   });
+
+  it('exposes role=status so screen readers announce the empty region', () => {
+    render(<EmptyState>No quests yet</EmptyState>);
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('No quests yet');
+  });
 });

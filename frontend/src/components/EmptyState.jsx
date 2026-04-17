@@ -6,7 +6,11 @@ import ParchmentCard from './journal/ParchmentCard';
  */
 export default function EmptyState({ children, icon, className = '' }) {
   return (
-    <ParchmentCard flourish className={`text-center py-10 text-ink-secondary font-body italic ${className}`}>
+    <ParchmentCard
+      flourish
+      role="status"
+      className={`text-center py-10 text-ink-secondary font-body italic ${className}`}
+    >
       {icon && <div className="flex justify-center mb-2 text-ink-whisper">{icon}</div>}
       {children}
     </ParchmentCard>
