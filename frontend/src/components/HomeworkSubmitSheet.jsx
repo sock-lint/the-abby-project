@@ -13,7 +13,7 @@ import { TextAreaField } from './form';
 
 /**
  * HomeworkSubmitSheet — bottom-sheet form for submitting homework proof.
- * Extracted from Homework.jsx so the child dashboard can open the same
+ * Extracted from pages/Homework/index.jsx so the child dashboard can open the same
  * flow inline without navigating away.
  *
  * Controlled by the parent: pass `assignment` to open, `null` to close.
