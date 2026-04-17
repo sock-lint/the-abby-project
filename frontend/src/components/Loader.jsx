@@ -21,7 +21,12 @@ export default function Loader({ delayMs = 200 }) {
   if (!visible) return null;
 
   return (
-    <div className="flex items-center justify-center py-12">
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label="Loading"
+      className="flex items-center justify-center py-12"
+    >
       <div className="relative w-10 h-10">
         <div
           className="absolute inset-0 border-2 border-sheikah-teal-deep border-t-transparent border-l-transparent rounded-full animate-spin"
