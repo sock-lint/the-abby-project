@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import Card from '../../components/Card';
-import { inputClass } from '../../constants/styles';
+import { TextField, SelectField } from '../../components/form';
 
 export default function ResourcesEditor({ resources, steps, onAdd, onUpdate, onRemove }) {
   return (
@@ -17,10 +17,10 @@ export default function ResourcesEditor({ resources, steps, onAdd, onUpdate, onR
       {resources.map((r, i) => (
         <div key={`r-${i}`} className="bg-ink-page border border-ink-page-shadow rounded-lg p-3 space-y-2">
           <div className="flex gap-2">
-            <input
+            <TextField
+              className="flex-1"
               value={r.url}
               onChange={(e) => onUpdate(i, { url: e.target.value })}
-              className={inputClass}
               type="url"
               placeholder="https://..."
             />
@@ -33,31 +33,30 @@ export default function ResourcesEditor({ resources, steps, onAdd, onUpdate, onR
               <Trash2 size={18} />
             </button>
           </div>
-          <input
+          <TextField
             value={r.title || ''}
             onChange={(e) => onUpdate(i, { title: e.target.value })}
-            className={`${inputClass} text-xs`}
             placeholder="Title (optional)"
           />
           <div className="flex gap-2">
-            <select
+            <SelectField
+              className="flex-1"
               value={r.resource_type || 'link'}
               onChange={(e) => onUpdate(i, { resource_type: e.target.value })}
-              className={`${inputClass} text-xs`}
             >
               <option value="link">Link</option>
               <option value="video">Video</option>
               <option value="doc">Document</option>
               <option value="image">Image</option>
-            </select>
-            <select
+            </SelectField>
+            <SelectField
+              className="flex-1"
               value={r.step_index == null ? '' : String(r.step_index)}
               onChange={(e) =>
                 onUpdate(i, {
                   step_index: e.target.value === '' ? null : parseInt(e.target.value, 10),
                 })
               }
-              className={`${inputClass} text-xs`}
             >
               <option value="">(Project-level)</option>
               {steps.map((s, idx) => (
@@ -65,7 +64,7 @@ export default function ResourcesEditor({ resources, steps, onAdd, onUpdate, onR
                   {idx + 1}. {(s.title || '').slice(0, 30) || `Step ${idx + 1}`}
                 </option>
               ))}
-            </select>
+            </SelectField>
           </div>
         </div>
       ))}

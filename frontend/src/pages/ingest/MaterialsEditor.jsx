@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import Card from '../../components/Card';
-import { inputClass } from '../../constants/styles';
+import { TextField } from '../../components/form';
 
 export default function MaterialsEditor({ materials, onAdd, onUpdate, onRemove }) {
   return (
@@ -13,16 +13,16 @@ export default function MaterialsEditor({ materials, onAdd, onUpdate, onRemove }
       </div>
       {materials.map((m, i) => (
         <div key={i} className="flex gap-2">
-          <input
+          <TextField
+            className="flex-1"
             value={m.name}
             onChange={(e) => onUpdate(i, { name: e.target.value })}
-            className={`${inputClass} flex-1`}
             placeholder="Material name"
           />
-          <input
+          <TextField
+            className="w-24"
             value={m.estimated_cost ?? ''}
             onChange={(e) => onUpdate(i, { estimated_cost: e.target.value })}
-            className={`${inputClass} w-24`}
             type="number" step="0.01" min="0" inputMode="decimal"
             placeholder="$ est."
           />

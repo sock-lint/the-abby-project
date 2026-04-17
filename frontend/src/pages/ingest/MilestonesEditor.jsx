@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import Card from '../../components/Card';
-import { inputClass } from '../../constants/styles';
+import { TextField, TextAreaField } from '../../components/form';
 
 export default function MilestonesEditor({ milestones, onAdd, onUpdate, onRemove }) {
   return (
@@ -17,10 +17,10 @@ export default function MilestonesEditor({ milestones, onAdd, onUpdate, onRemove
       {milestones.map((m, i) => (
         <div key={i} className="bg-ink-page border border-ink-page-shadow rounded-lg p-3 space-y-2">
           <div className="flex gap-2">
-            <input
+            <TextField
+              className="flex-1"
               value={m.title}
               onChange={(e) => onUpdate(i, { title: e.target.value })}
-              className={inputClass}
               placeholder={`Milestone ${i + 1}`}
             />
             <button
@@ -32,10 +32,10 @@ export default function MilestonesEditor({ milestones, onAdd, onUpdate, onRemove
               <Trash2 size={18} />
             </button>
           </div>
-          <textarea
+          <TextAreaField
             value={m.description || ''}
             onChange={(e) => onUpdate(i, { description: e.target.value })}
-            className={`${inputClass} h-16 resize-none text-xs`}
+            rows={2}
             placeholder="Description (optional)"
           />
         </div>

@@ -1,7 +1,8 @@
 import { FileText, Link as LinkIcon } from 'lucide-react';
 import Card from '../../components/Card';
 import TabButton from '../../components/TabButton';
-import { buttonPrimary, inputClass } from '../../constants/styles';
+import { buttonPrimary } from '../../constants/styles';
+import { TextField } from '../../components/form';
 
 export default function SourceStep({
   sourceTab, setSourceTab,
@@ -23,22 +24,18 @@ export default function SourceStep({
       </div>
 
       {sourceTab === 'url' ? (
-        <div>
-          <label className="block text-sm text-ink-whisper mb-1">Tutorial URL</label>
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            className={inputClass}
-            type="url"
-            placeholder="https://www.instructables.com/... or any how-to page"
-          />
-          <p className="text-xs text-ink-whisper mt-1">
-            Instructables links are parsed in full. Other sites are best-effort.
-          </p>
-        </div>
+        <TextField
+          label="Tutorial URL"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          type="url"
+          placeholder="https://www.instructables.com/... or any how-to page"
+          helpText="Instructables links are parsed in full. Other sites are best-effort."
+        />
       ) : (
         <div>
           <label className="block text-sm text-ink-whisper mb-1">PDF Tutorial</label>
+          {/* Raw <input type="file"> stays — file picker has custom file:* tailwind treatment, not inputClass */}
           <input
             type="file"
             accept="application/pdf"

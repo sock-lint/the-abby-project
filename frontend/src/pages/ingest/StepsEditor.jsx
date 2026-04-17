@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import Card from '../../components/Card';
-import { inputClass } from '../../constants/styles';
+import { TextField, SelectField, TextAreaField } from '../../components/form';
 
 export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemove }) {
   return (
@@ -22,10 +22,10 @@ export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemo
       {steps.map((s, i) => (
         <div key={`s-${i}`} className="bg-ink-page border border-ink-page-shadow rounded-lg p-3 space-y-2">
           <div className="flex gap-2">
-            <input
+            <TextField
+              className="flex-1"
               value={s.title}
               onChange={(e) => onUpdate(i, { title: e.target.value })}
-              className={inputClass}
               placeholder={`Step ${i + 1}`}
             />
             <button
@@ -37,21 +37,20 @@ export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemo
               <Trash2 size={18} />
             </button>
           </div>
-          <textarea
+          <TextAreaField
             value={s.description || ''}
             onChange={(e) => onUpdate(i, { description: e.target.value })}
-            className={`${inputClass} h-20 resize-none text-xs`}
+            rows={3}
             placeholder="What does the maker do in this step?"
           />
           {milestones.length > 0 && (
-            <select
+            <SelectField
               value={s.milestone_index == null ? '' : String(s.milestone_index)}
               onChange={(e) =>
                 onUpdate(i, {
                   milestone_index: e.target.value === '' ? null : parseInt(e.target.value, 10),
                 })
               }
-              className={`${inputClass} text-xs`}
             >
               <option value="">(No milestone — loose step)</option>
               {milestones.map((m, idx) => (
@@ -59,7 +58,7 @@ export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemo
                   {idx + 1}. {(m.title || '').slice(0, 30) || `Milestone ${idx + 1}`}
                 </option>
               ))}
-            </select>
+            </SelectField>
           )}
         </div>
       ))}
