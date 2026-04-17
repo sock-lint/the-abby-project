@@ -213,3 +213,56 @@ def _homework_actions(user, target_date):
             action_url="/homework",
         ))
     return actions
+
+
+def _login_streak(user):
+    from apps.rpg.models import CharacterProfile
+    try:
+        return CharacterProfile.objects.get(user=user).login_streak
+    except CharacterProfile.DoesNotExist:
+        return 0
+
+
+def _untapped_positive_habits(user, target_date):
+    """Positive (or both) habits with taps_today < max_taps_per_day."""
+    from apps.habits.models import Habit, HabitLog
+    from django.db.models import Q
+
+    habits = list(
+        Habit.objects
+        .filter(user=user, is_active=True)
+        .filter(Q(habit_type="positive") | Q(habit_type="both"))
+    )
+    for h in habits:
+        h._taps_today = HabitLog.objects.filter(
+            habit=h, user=user, direction=1,
+            created_at__date=target_date,
+        ).count()
+    return [h for h in habits if h._taps_today < h.max_taps_per_day]
+
+
+def _habit_actions(user, target_date, *, hour):
+    if hour < 18:
+        return []
+    streak = _login_streak(user)
+    if streak < 1:
+        return []
+    habits = _untapped_positive_habits(user, target_date)
+    if not habits:
+        return []
+    # Pick the habit with highest strength, ties broken by name.
+    habits.sort(key=lambda h: (-h.strength, h.name))
+    top = habits[0]
+    icon = top.icon or "Flame"
+    return [NextAction(
+        kind="habit",
+        id=top.pk,
+        title=top.name,
+        subtitle=f"keep your {streak}-day streak",
+        score=SCORING_WEIGHTS["habit_streak_protection"],
+        due_at=None,
+        reward=None,
+        icon=icon,
+        tone="ember",
+        action_url="/habits",
+    )]

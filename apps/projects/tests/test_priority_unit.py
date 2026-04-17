@@ -228,3 +228,83 @@ class HomeworkScoringTests(TestCase):
             _make_homework(pk=3, title="C", due_date=datetime.date(2026, 4, 17))
         ]
         self.assertIn("tomorrow", _homework_actions(_child(), today)[0].subtitle)
+
+
+from apps.projects.priority import _habit_actions
+
+
+def _make_habit(*, pk, name, strength=0, icon="", max_taps=1, taps_today=0,
+                habit_type="positive"):
+    return SimpleNamespace(
+        pk=pk, name=name, strength=strength, icon=icon,
+        habit_type=habit_type, max_taps_per_day=max_taps,
+        _taps_today=taps_today,
+    )
+
+
+class HabitStreakProtectionTests(TestCase):
+    def _patch(self, habits, streak):
+        """Stack two patches as context managers and return their mocks
+        for tests that don't need to assert on call args."""
+        habits_patch = patch(
+            "apps.projects.priority._untapped_positive_habits",
+            return_value=list(habits),
+        )
+        streak_patch = patch(
+            "apps.projects.priority._login_streak",
+            return_value=streak,
+        )
+        habits_patch.start()
+        streak_patch.start()
+        self.addCleanup(habits_patch.stop)
+        self.addCleanup(streak_patch.stop)
+
+    def test_no_streak_returns_empty(self):
+        self._patch([_make_habit(pk=1, name="Brush", strength=5)], streak=0)
+        self.assertEqual(
+            _habit_actions(_child(), datetime.date(2026, 4, 16), hour=19),
+            [],
+        )
+
+    def test_early_hour_returns_empty(self):
+        self._patch([_make_habit(pk=1, name="Brush", strength=5)], streak=3)
+        self.assertEqual(
+            _habit_actions(_child(), datetime.date(2026, 4, 16), hour=17),
+            [],
+        )
+
+    def test_streak_protection_scores_65(self):
+        self._patch(
+            [_make_habit(pk=1, name="Brush teeth", strength=5, icon="🪥")],
+            streak=3,
+        )
+        actions = _habit_actions(_child(), datetime.date(2026, 4, 16), hour=19)
+        self.assertEqual(len(actions), 1)
+        self.assertEqual(actions[0].score, 65)
+        self.assertEqual(actions[0].kind, "habit")
+        self.assertEqual(actions[0].title, "Brush teeth")
+        self.assertEqual(actions[0].tone, "ember")
+
+    def test_picks_highest_strength(self):
+        self._patch([
+            _make_habit(pk=1, name="Aaa", strength=1),
+            _make_habit(pk=2, name="Zzz", strength=10),
+        ], streak=3)
+        actions = _habit_actions(_child(), datetime.date(2026, 4, 16), hour=19)
+        self.assertEqual(len(actions), 1)
+        self.assertEqual(actions[0].id, 2)  # the high-strength one
+
+    def test_ties_break_alphabetically(self):
+        self._patch([
+            _make_habit(pk=1, name="Zebra", strength=5),
+            _make_habit(pk=2, name="Apple", strength=5),
+        ], streak=3)
+        actions = _habit_actions(_child(), datetime.date(2026, 4, 16), hour=19)
+        self.assertEqual(actions[0].title, "Apple")
+
+    def test_empty_list_returns_empty(self):
+        self._patch([], streak=3)
+        self.assertEqual(
+            _habit_actions(_child(), datetime.date(2026, 4, 16), hour=19),
+            [],
+        )
