@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ModalBackdrop from './modal/ModalBackdrop';
@@ -28,6 +28,7 @@ function useIsDesktop() {
 //                     parchment texture carried through.
 export default function BottomSheet({ title, onClose, disabled, children }) {
   const isDesktop = useIsDesktop();
+  const titleId = useId();
 
   return createPortal(
     <AnimatePresence>
@@ -36,6 +37,9 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
           <motion.div
             key="sheet-desktop"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
             initial={{ scale: 0.88, opacity: 0, rotate: -1.5 }}
             animate={{ scale: 1, opacity: 1, rotate: 0 }}
             exit={{ scale: 0.94, opacity: 0 }}
@@ -44,7 +48,7 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
           >
             <SealPulseRing rounded="rounded-2xl" />
             <div className="relative flex items-center justify-between px-5 pt-4 pb-2">
-              <h2 className="font-display text-lg font-bold text-ink-primary">{title}</h2>
+              <h2 id={titleId} className="font-display text-lg font-bold text-ink-primary">{title}</h2>
               <SealCloseButton onClick={onClose} disabled={disabled} />
             </div>
             <div className="relative px-5 pb-5 space-y-3">
@@ -55,6 +59,9 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
       ) : (
         <motion.div
           key="sheet-mobile"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
@@ -84,7 +91,7 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
             />
           </div>
           <div className="flex items-center justify-between px-4 pt-3 pb-2">
-            <h2 className="font-display text-lg font-bold text-ink-primary">{title}</h2>
+            <h2 id={titleId} className="font-display text-lg font-bold text-ink-primary">{title}</h2>
             <SealCloseButton onClick={onClose} disabled={disabled} />
           </div>
           <div className="px-4 pb-4 space-y-3">

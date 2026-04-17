@@ -89,4 +89,16 @@ describe('BottomSheet', () => {
     // No throw; component should re-render without crashing.
     expect(screen.getByText('Flex')).toBeInTheDocument();
   });
+
+  it('exposes role=dialog with aria-modal and a labeled title on desktop', () => {
+    renderDesktop({ title: 'Edit reward' });
+    const dialog = screen.getByRole('dialog', { name: 'Edit reward' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+  });
+
+  it('exposes role=dialog with aria-modal and a labeled title on mobile', () => {
+    renderMobile({ title: 'Add chore' });
+    const dialog = screen.getByRole('dialog', { name: 'Add chore' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+  });
 });
