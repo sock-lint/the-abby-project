@@ -2,7 +2,8 @@ import { adjustCoins } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
-import { buttonPrimary, inputClass } from '../../constants/styles';
+import { buttonPrimary } from '../../constants/styles';
+import { TextField } from '../../components/form';
 
 export default function CoinAdjustModal({ onClose, onSaved }) {
   const { form, set, saving, setSaving, error, setError } = useFormState({
@@ -29,38 +30,27 @@ export default function CoinAdjustModal({ onClose, onSaved }) {
     <BottomSheet title="Adjust Coins" onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Child User ID</label>
-          <input
-            className={inputClass}
-            type="number"
-            value={form.user_id}
-            onChange={onField('user_id')}
-            required
-            placeholder="Enter child user ID"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">
-            Amount (positive to add, negative to deduct)
-          </label>
-          <input
-            className={inputClass}
-            type="number"
-            value={form.amount}
-            onChange={onField('amount')}
-            required
-          />
-        </div>
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Description</label>
-          <input
-            className={inputClass}
-            value={form.description}
-            onChange={onField('description')}
-            placeholder="Reason for adjustment"
-          />
-        </div>
+        <TextField
+          label="Child User ID"
+          type="number"
+          value={form.user_id}
+          onChange={onField('user_id')}
+          required
+          placeholder="Enter child user ID"
+        />
+        <TextField
+          label="Amount (positive to add, negative to deduct)"
+          type="number"
+          value={form.amount}
+          onChange={onField('amount')}
+          required
+        />
+        <TextField
+          label="Description"
+          value={form.description}
+          onChange={onField('description')}
+          placeholder="Reason for adjustment"
+        />
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper hover:text-ink-primary">
             Cancel

@@ -5,7 +5,8 @@ import { getBalance, requestExchange } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useApi } from '../../hooks/useApi';
-import { buttonPrimary, inputClass } from '../../constants/styles';
+import { buttonPrimary } from '../../constants/styles';
+import { TextField } from '../../components/form';
 import { formatCurrency } from '../../utils/format';
 
 export default function CoinExchangeModal({ exchangeRate, onClose, onSaved }) {
@@ -48,19 +49,16 @@ export default function CoinExchangeModal({ exchangeRate, onClose, onSaved }) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Dollar Amount (min $1.00)</label>
-          <input
-            className={inputClass}
-            type="number"
-            min="1"
-            step="0.01"
-            value={dollarAmount}
-            onChange={(e) => setDollarAmount(e.target.value)}
-            required
-            placeholder="0.00"
-          />
-        </div>
+        <TextField
+          label="Dollar Amount (min $1.00)"
+          type="number"
+          min="1"
+          step="0.01"
+          value={dollarAmount}
+          onChange={(e) => setDollarAmount(e.target.value)}
+          required
+          placeholder="0.00"
+        />
         {dollarAmount && (
           <motion.div
             initial={{ opacity: 0, y: -5 }}

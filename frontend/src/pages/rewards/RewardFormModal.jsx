@@ -3,7 +3,8 @@ import { createReward, updateReward } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
-import { buttonPrimary, inputClass } from '../../constants/styles';
+import { buttonPrimary } from '../../constants/styles';
+import { TextField, SelectField, TextAreaField } from '../../components/form';
 import { downscaleImage } from '../../utils/image';
 
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
@@ -58,40 +59,23 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
     <BottomSheet title={isEdit ? 'Edit Reward' : 'New Reward'} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Name</label>
-          <input className={inputClass} value={form.name} onChange={onField('name')} required />
-        </div>
-        <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Description</label>
-          <textarea className={inputClass} value={form.description} onChange={onField('description')} rows={2} />
+        <TextField label="Name" value={form.name} onChange={onField('name')} required />
+        <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
+        <div className="grid grid-cols-2 gap-3">
+          <TextField label="Icon (emoji)" value={form.icon} onChange={onField('icon')} placeholder="🎁" />
+          <TextField label="Cost (coins)" type="number" min="0" value={form.cost_coins} onChange={onField('cost_coins')} required />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Icon (emoji)</label>
-            <input className={inputClass} value={form.icon} onChange={onField('icon')} placeholder="🎁" />
-          </div>
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Cost (coins)</label>
-            <input className={inputClass} type="number" min="0" value={form.cost_coins} onChange={onField('cost_coins')} required />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Rarity</label>
-            <select className={inputClass} value={form.rarity} onChange={onField('rarity')}>
-              {RARITIES.map((r) => (
-                <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Stock (blank = unlimited)</label>
-            <input className={inputClass} type="number" min="0" value={form.stock} onChange={onField('stock')} placeholder="∞" />
-          </div>
+          <SelectField label="Rarity" value={form.rarity} onChange={onField('rarity')}>
+            {RARITIES.map((r) => (
+              <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+            ))}
+          </SelectField>
+          <TextField label="Stock (blank = unlimited)" type="number" min="0" value={form.stock} onChange={onField('stock')} placeholder="∞" />
         </div>
         <div>
           <label className="text-xs text-ink-whisper mb-1 block">Image</label>
+          {/* Raw <input type="file"> stays — file picker visual is intentionally different from inputClass */}
           <input
             type="file"
             accept="image/*"
@@ -100,10 +84,7 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Order</label>
-            <input className={inputClass} type="number" value={form.order} onChange={onField('order')} />
-          </div>
+          <TextField label="Order" type="number" value={form.order} onChange={onField('order')} />
           <div />
         </div>
         <div className="flex gap-4">
