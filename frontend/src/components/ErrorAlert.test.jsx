@@ -24,4 +24,10 @@ describe('ErrorAlert', () => {
     const { container } = render(<ErrorAlert message="x" className="mt-4" />);
     expect(container.firstChild.className).toContain('mt-4');
   });
+
+  it('exposes role=alert when a message is provided', () => {
+    render(<ErrorAlert message="Something broke" />);
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Something broke');
+  });
 });
