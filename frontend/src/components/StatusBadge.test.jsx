@@ -21,9 +21,11 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Weird')).toBeInTheDocument();
   });
 
-  it('falls back to default gray classes for unknown statuses', () => {
+  it('uses an ink-whisper token fallback for unknown statuses', () => {
     const { container } = render(<StatusBadge status="nope" />);
-    expect(container.firstChild.className).toContain('bg-gray-500/20');
+    // Token-driven fallback — no bg-gray-500 (which Tailwind 4 doesn't ship in this project's @theme)
+    expect(container.firstChild.className).not.toContain('bg-gray');
+    expect(container.firstChild.className).toContain('ink-whisper');
   });
 
   it('renders nothing visible for undefined status', () => {
