@@ -56,7 +56,10 @@ function SkillCard({ skill, onSelect, index }) {
               <span>{skill.xp_points} XP</span>
               <span>{nextThreshold} XP</span>
             </div>
-            <ProgressBar value={Math.min(100, progress)} />
+            <ProgressBar
+              value={Math.min(100, progress)}
+              aria-label={`${skill.name} XP progress`}
+            />
           </div>
         )}
         {!skill.unlocked && skill.prerequisites?.length > 0 && (
@@ -109,7 +112,10 @@ function SkillDetailSheet({ skill, onClose }) {
             <div className="flex justify-between text-xs text-ink-whisper mb-1">
               <span>{xpInLevel} / {xpNeeded} XP to next level</span>
             </div>
-            <ProgressBar value={Math.min(100, progress)} />
+            <ProgressBar
+              value={Math.min(100, progress)}
+              aria-label={`${skill.name} progress to level ${skill.level + 1}`}
+            />
           </div>
         )}
 
