@@ -9,7 +9,7 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import ErrorAlert from '../../components/ErrorAlert';
 import TabButton from '../../components/TabButton';
 import { useApi } from '../../hooks/useApi';
-import { buttonPrimary } from '../../constants/styles';
+import Button from '../../components/Button';
 import { normalizeList } from '../../utils/api';
 import CategoryFormModal from './CategoryFormModal';
 import SubjectFormModal from './SubjectFormModal';
@@ -95,12 +95,13 @@ export default function ManagePanel({ categories, reloadCategories }) {
             {t.label} ({t.count})
           </TabButton>
         ))}
-        <button
+        <Button
+          size="sm"
           onClick={() => setModal({ type: manageTab.replace(/s$/, '') })}
-          className={`flex items-center gap-1 px-3 py-1.5 text-xs shrink-0 ml-auto ${buttonPrimary}`}
+          className="flex items-center gap-1 text-xs shrink-0 ml-auto"
         >
           <Plus size={14} /> Add
-        </button>
+        </Button>
       </div>
 
       <div className="space-y-2">

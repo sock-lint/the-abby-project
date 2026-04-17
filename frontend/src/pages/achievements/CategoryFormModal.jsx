@@ -2,7 +2,8 @@ import { createCategory, updateCategory } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
-import { buttonPrimary, formLabelClass } from '../../constants/styles';
+import { formLabelClass } from '../../constants/styles';
+import Button from '../../components/Button';
 import { TextField, TextAreaField } from '../../components/form';
 
 export default function CategoryFormModal({ item, onClose, onSaved }) {
@@ -52,9 +53,9 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper">Cancel</button>
-          <button type="submit" disabled={saving} className={`px-4 py-2 text-sm ${buttonPrimary}`}>
+          <Button type="submit" size="sm" disabled={saving}>
             {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
-          </button>
+          </Button>
         </div>
       </form>
     </BottomSheet>
