@@ -1,7 +1,7 @@
 import { FileText, Link as LinkIcon } from 'lucide-react';
 import Card from '../../components/Card';
 import TabButton from '../../components/TabButton';
-import { buttonPrimary } from '../../constants/styles';
+import { buttonPrimary, formLabelClass } from '../../constants/styles';
 import { TextField } from '../../components/form';
 
 export default function SourceStep({
@@ -34,7 +34,7 @@ export default function SourceStep({
         />
       ) : (
         <div>
-          <label className="block text-sm text-ink-whisper mb-1">PDF Tutorial</label>
+          <label className={formLabelClass}>PDF Tutorial</label>
           {/* Raw <input type="file"> stays — file picker has custom file:* tailwind treatment, not inputClass */}
           <input
             type="file"

@@ -3,7 +3,7 @@ import { createReward, updateReward } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
-import { buttonPrimary } from '../../constants/styles';
+import { buttonPrimary, formLabelClass } from '../../constants/styles';
 import { TextField, SelectField, TextAreaField } from '../../components/form';
 import { downscaleImage } from '../../utils/image';
 
@@ -74,7 +74,7 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
           <TextField label="Stock (blank = unlimited)" type="number" min="0" value={form.stock} onChange={onField('stock')} placeholder="∞" />
         </div>
         <div>
-          <label className="text-xs text-ink-whisper mb-1 block">Image</label>
+          <label className={formLabelClass}>Image</label>
           {/* Raw <input type="file"> stays — file picker visual is intentionally different from inputClass */}
           <input
             type="file"

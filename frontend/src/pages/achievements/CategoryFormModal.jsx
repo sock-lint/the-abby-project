@@ -2,7 +2,7 @@ import { createCategory, updateCategory } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
-import { buttonPrimary } from '../../constants/styles';
+import { buttonPrimary, formLabelClass } from '../../constants/styles';
 import { TextField, TextAreaField } from '../../components/form';
 
 export default function CategoryFormModal({ item, onClose, onSaved }) {
@@ -39,7 +39,7 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
         <div className="grid grid-cols-2 gap-3">
           <TextField label="Icon (emoji)" value={form.icon} onChange={onField('icon')} />
           <div>
-            <label className="text-xs text-ink-whisper mb-1 block">Color</label>
+            <label className={formLabelClass}>Color</label>
             {/* Raw <input type="color"> stays — color picker has its own visual treatment, not inputClass-styled */}
             <input
               type="color"

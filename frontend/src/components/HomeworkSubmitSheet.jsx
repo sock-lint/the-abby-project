@@ -7,7 +7,7 @@ import TimelinessBadge from './TimelinessBadge';
 import ErrorAlert from './ErrorAlert';
 import { submitHomework } from '../api';
 import { downscaleImage } from '../utils/image';
-import { buttonSuccess } from '../constants/styles';
+import { buttonSuccess, formLabelClass } from '../constants/styles';
 import { TextAreaField } from './form';
 
 /**
@@ -56,9 +56,9 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
     }
   };
 
-  const labelClass = 'font-script text-sm text-ink-secondary mb-1 block';
-  // Kept for the photo-picker grid below — that field isn't a single
-  // <input>, so it can't use the form-primitive label/htmlFor wiring.
+  // formLabelClass used directly for the photo-picker grid label below — that
+  // field isn't a single <input>, so it can't use the form-primitive
+  // label/htmlFor wiring; the className stays in lockstep via the constant.
 
   return (
     <BottomSheet onClose={handleClose} title="Affix photographic evidence">
@@ -74,7 +74,7 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
         </div>
 
         <div>
-          <label className={labelClass}>Proof photos (required)</label>
+          <label className={formLabelClass}>Proof photos (required)</label>
           <div className="flex gap-2 flex-wrap">
             {images.map((img, i) => (
               <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-ink-page-shadow">

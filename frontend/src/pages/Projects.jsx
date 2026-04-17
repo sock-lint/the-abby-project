@@ -30,6 +30,8 @@ const TYPE_OPTIONS = [
   { value: 'bounty', label: 'Bounty' },
 ];
 
+// intentional: compact filter selects need py-1.5 / text-sm / w-auto sizing that
+// SelectField doesn't expose. Keep using raw inputClass + dimensional overrides.
 const filterSelect = `${inputClass} py-1.5 text-sm w-auto min-w-[9rem]`;
 
 export default function Projects() {
