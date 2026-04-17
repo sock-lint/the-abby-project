@@ -152,9 +152,7 @@ export default function Character() {
             </div>
 
             {owned.length === 0 ? (
-              <div className="font-script text-sm text-ink-whisper italic">
-                none owned yet — earn drops from tasks
-              </div>
+              <EmptyState>none owned yet — earn drops from tasks</EmptyState>
             ) : (
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                 {owned.map((item) => {

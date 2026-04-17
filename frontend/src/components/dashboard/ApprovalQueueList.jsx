@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X, ClipboardCheck, BookOpen, Gift } from 'lucide-react';
+import EmptyState from '../EmptyState';
 import ParchmentCard from '../journal/ParchmentCard';
 import RuneBadge from '../journal/RuneBadge';
 import { formatCurrency } from '../../utils/format';
@@ -112,11 +113,11 @@ function Row({ item, onDone, onError }) {
 export default function ApprovalQueueList({ items = [], onDone }) {
   if (!items || items.length === 0) {
     return (
-      <ParchmentCard id="approval-queue" className="text-center py-6">
-        <div className="font-script text-ink-whisper text-sm">
+      <section id="approval-queue">
+        <EmptyState>
           No pending approvals. All quiet on the journal.
-        </div>
-      </ParchmentCard>
+        </EmptyState>
+      </section>
     );
   }
 

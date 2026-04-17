@@ -1,3 +1,4 @@
+import EmptyState from '../EmptyState';
 import { formatCurrency } from '../../utils/format';
 
 /**
@@ -6,11 +7,7 @@ import { formatCurrency } from '../../utils/format';
  */
 export default function WeekGlanceBlock({ weekByKid = [] }) {
   if (!weekByKid || weekByKid.length === 0) {
-    return (
-      <div className="font-script text-ink-whisper text-sm">
-        No activity logged this week.
-      </div>
-    );
+    return <EmptyState>No activity logged this week.</EmptyState>;
   }
   return (
     <ul className="divide-y divide-ink-page-shadow/60">
