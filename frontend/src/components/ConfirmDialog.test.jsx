@@ -35,4 +35,39 @@ describe('ConfirmDialog', () => {
     await user.click(backdrop);
     expect(onCancel).toHaveBeenCalledTimes(2);
   });
+
+  it('exposes role=alertdialog with aria-modal, aria-labelledby, and aria-describedby', () => {
+    render(
+      <ConfirmDialog
+        title="Delete reward"
+        message="This cannot be undone."
+        onConfirm={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete reward' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    // aria-describedby should point at an element containing the message text.
+    const describedById = dialog.getAttribute('aria-describedby');
+    expect(describedById).toBeTruthy();
+    const descEl = document.getElementById(describedById);
+    expect(descEl).toHaveTextContent('This cannot be undone.');
+  });
+
+  it('generates unique IDs for multiple stacked dialogs', () => {
+    render(
+      <>
+        <ConfirmDialog title="A" message="aa" onConfirm={() => {}} onCancel={() => {}} />
+        <ConfirmDialog title="B" message="bb" onConfirm={() => {}} onCancel={() => {}} />
+      </>,
+    );
+    const dialogs = screen.getAllByRole('alertdialog');
+    expect(dialogs).toHaveLength(2);
+    expect(dialogs[0].getAttribute('aria-labelledby')).not.toBe(
+      dialogs[1].getAttribute('aria-labelledby'),
+    );
+    expect(dialogs[0].getAttribute('aria-describedby')).not.toBe(
+      dialogs[1].getAttribute('aria-describedby'),
+    );
+  });
 });
