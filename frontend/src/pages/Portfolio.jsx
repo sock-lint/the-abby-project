@@ -37,6 +37,8 @@ export default function Portfolio() {
   const [sortMode, setSortMode] = useState('project');
   const [viewer, setViewer] = useState({ open: false, index: 0, items: [] });
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const allItems = useMemo(() => {
     if (!data) return [];
@@ -146,14 +148,22 @@ export default function Portfolio() {
 
   const confirmDelete = async () => {
     if (!pendingDelete) return;
-    const fn = pendingDelete.kind === 'project' ? deletePhoto : deleteHomeworkProof;
+    const target = pendingDelete;
+    const fn = target.kind === 'project' ? deletePhoto : deleteHomeworkProof;
+    setDeleting(true);
+    setDeleteError('');
     try {
-      await fn(pendingDelete.deleteId);
-    } catch {
-      // reload below surfaces the actual state; no toast infra yet
+      await fn(target.deleteId);
+      setPendingDelete(null);
+      await reload();
+    } catch (err) {
+      // Surface the failure so users (and us) can see why nothing was removed.
+      const msg = err?.message || String(err) || 'Delete failed';
+      setDeleteError(`Couldn't remove that page: ${msg}`);
+      console.error('[Sketchbook] delete failed', { target, err });
+    } finally {
+      setDeleting(false);
     }
-    setPendingDelete(null);
-    reload();
   };
 
   const projects = normalizeList(projectsData);
@@ -161,6 +171,7 @@ export default function Portfolio() {
 
   return (
     <div className="space-y-6">
+      {deleteError && <ErrorAlert message={deleteError} />}
       <header className="flex items-start justify-between gap-2 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
