@@ -1,6 +1,6 @@
 import logging
 
-from django.db import models
+from django.db import models, transaction
 
 from . import criteria
 from .models import (
@@ -207,6 +207,7 @@ class AwardService:
     """
 
     @staticmethod
+    @transaction.atomic
     def grant(
         user,
         *,

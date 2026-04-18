@@ -7,6 +7,7 @@ tests catch it before the audit-sensitive ledger behavior diverges.
 from __future__ import annotations
 
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.test import TestCase
 
@@ -108,3 +109,31 @@ class AwardServicePairedGrantTests(TestCase):
         )
         money_row = PaymentLedger.objects.get(user=self.child)
         self.assertEqual(money_row.project_id, project.pk)
+
+
+class AwardServiceAtomicityTests(TestCase):
+    """grant() must roll back every ledger write if any step raises."""
+
+    def setUp(self):
+        self.parent = User.objects.create_user(username="p2", password="pw", role="parent")
+        self.child = User.objects.create_user(username="c2", password="pw", role="child")
+
+    def test_badge_evaluation_failure_rolls_back_coin_and_money_rows(self):
+        with patch(
+            "apps.achievements.services.BadgeService.evaluate_badges",
+            side_effect=RuntimeError("boom"),
+        ):
+            with self.assertRaises(RuntimeError):
+                AwardService.grant(
+                    self.child,
+                    coins=10,
+                    coin_reason=CoinLedger.Reason.CHORE_REWARD,
+                    coin_description="Chore: X",
+                    money=Decimal("3.00"),
+                    money_entry_type=PaymentLedger.EntryType.CHORE_REWARD,
+                    money_description="Chore: X",
+                    created_by=self.parent,
+                )
+
+        self.assertEqual(CoinLedger.objects.filter(user=self.child).count(), 0)
+        self.assertEqual(PaymentLedger.objects.filter(user=self.child).count(), 0)
