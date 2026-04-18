@@ -136,6 +136,7 @@ def _load_tool_modules() -> None:
         quests,
         rewards,
         savings,
+        sprite_assets,
         templates,
         timecards,
         users,

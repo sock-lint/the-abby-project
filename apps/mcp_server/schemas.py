@@ -1171,3 +1171,115 @@ class ListRpgCatalogIn(_Base):
     item_type: Optional[str] = None
     trigger_type: Optional[str] = None
     limit_per_section: int = Field(default=200, ge=1, le=1000)
+
+
+# ---------------------------------------------------------------------------
+# Draft pack entries (merge-write helper over write_pack_file)
+# ---------------------------------------------------------------------------
+
+
+DraftPackFilename = Literal[
+    "items.yaml",
+    "pet_species.yaml",
+    "potion_types.yaml",
+    "badges.yaml",
+    "quests.yaml",
+    "rewards.yaml",
+]
+
+
+class DraftPackEntriesIn(_Base):
+    """Merge a list of YAML entries into an existing pack file.
+
+    For files whose top-level key is a list of rows (items, pet_species,
+    potion_types, badges, quests, rewards), this tool parses the existing
+    file, appends or replaces, dedupes by natural key, and writes the
+    result back. Saves the LLM from hand-merging YAML.
+    """
+    pack: str = Field(min_length=1, max_length=40)
+    filename: DraftPackFilename
+    entries: list[dict] = Field(
+        min_length=1,
+        description="Ready-to-serialize entries matching the loader's schema.",
+    )
+    mode: Literal["append", "replace"] = "append"
+
+
+# ---------------------------------------------------------------------------
+# Sprite asset ingestion
+# ---------------------------------------------------------------------------
+
+
+_SPRITE_ID_PATTERN = r"^[a-z0-9][a-z0-9-]*$"
+
+
+class SheetDecl(_Base):
+    """Declaration of a spritesheet to register in the shared manifest."""
+    id: str = Field(
+        min_length=1, max_length=64, pattern=_SPRITE_ID_PATTERN,
+        description="Logical id (lowercase, hyphens, digits).",
+    )
+    file: str = Field(
+        min_length=1, max_length=500,
+        description=(
+            "Repo-relative path to the sheet PNG. Must live under "
+            "``reward-icons/<pack>/`` or the pack's own ``sprites/`` dir."
+        ),
+    )
+    tile_size: int = Field(gt=0, le=512)
+
+
+class SpriteTileDecl(_Base):
+    """Declaration of a sheet-tile sprite."""
+    slug: str = Field(
+        min_length=1, max_length=64, pattern=_SPRITE_ID_PATTERN,
+    )
+    sheet: str = Field(
+        min_length=1, max_length=64, pattern=_SPRITE_ID_PATTERN,
+        description="Must match the ``id`` of a sheet being registered or "
+                    "already present in the manifest.",
+    )
+    col: int = Field(ge=0, le=1024)
+    row: int = Field(ge=0, le=1024)
+
+
+class SpriteLooseDecl(_Base):
+    """Declaration of a loose-file sprite (standalone PNG, copied as-is)."""
+    slug: str = Field(
+        min_length=1, max_length=64, pattern=_SPRITE_ID_PATTERN,
+    )
+    file: str = Field(
+        min_length=1, max_length=500,
+        description=(
+            "Repo-relative path to the PNG. Must live under the pack's own "
+            "``content/rpg/packs/<pack>/sprites/`` dir."
+        ),
+    )
+
+
+class RegisterSpriteAssetsIn(_Base):
+    """Register sprite artwork for a content pack.
+
+    Idempotent: re-registering the same slug updates the manifest entry
+    and (if ``force=True``) re-slices the output PNG. Slugs listed here
+    become available as ``sprite_key`` values in the pack's YAML files.
+    """
+    pack: str = Field(min_length=1, max_length=40)
+    sheets: list[SheetDecl] = Field(
+        default_factory=list,
+        description="Spritesheets to register. Can be empty if every sprite "
+                    "below is a loose file or references a sheet already in "
+                    "the manifest.",
+    )
+    tiles: list[SpriteTileDecl] = Field(
+        default_factory=list,
+        description="Sheet-tile sprites to register.",
+    )
+    loose: list[SpriteLooseDecl] = Field(
+        default_factory=list,
+        description="Loose-file sprites to register.",
+    )
+    force: bool = Field(
+        default=False,
+        description="Re-slice and overwrite any existing output PNGs.",
+    )

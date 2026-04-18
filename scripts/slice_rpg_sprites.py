@@ -1,14 +1,12 @@
-"""Slice individual 32x32 RPG sprites from a Shikashi spritesheet.
+"""Slice RPG sprites declared in ``scripts/sprite_manifest.yaml``.
 
-Reads scripts/sprite_manifest.yaml (slug → {col, row}) and writes
-frontend/src/assets/rpg-sprites/<slug>.png for each entry.
+Thin CLI wrapper around ``apps.rpg.content.sprites.slice_all``. Supports
+both sheet-tile sprites and loose PNGs, and multiple sheets with
+different tile sizes.
 
 Usage:
     python scripts/slice_rpg_sprites.py            # skip existing files
     python scripts/slice_rpg_sprites.py --force    # overwrite
-
-The manifest lists only the sprites we actually use in content YAML;
-unused tiles are not sliced.
 """
 from __future__ import annotations
 
@@ -16,13 +14,22 @@ import argparse
 import sys
 from pathlib import Path
 
-import yaml
-from PIL import Image
-
-
+# Allow running this script without installing the project — add the repo
+# root to sys.path so ``apps.rpg.content.sprites`` imports cleanly.
 REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from apps.rpg.content.sprites import (  # noqa: E402  (path setup above)
+    ManifestError,
+    load_manifest,
+    slice_all,
+    validate_sources,
+    validate_tile_bounds,
+)
+
+
 MANIFEST_PATH = REPO_ROOT / "scripts" / "sprite_manifest.yaml"
-SHEET_DIR = REPO_ROOT / "reward-icons"
 OUTPUT_DIR = REPO_ROOT / "frontend" / "src" / "assets" / "rpg-sprites"
 
 
@@ -34,36 +41,34 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    with MANIFEST_PATH.open("r", encoding="utf-8") as fh:
-        manifest = yaml.safe_load(fh)
-
-    sheet_path = SHEET_DIR / manifest["sheet"]
-    tile_size = int(manifest["tile_size"])
-    sprites = manifest["sprites"]
-
-    if not sheet_path.exists():
-        print(f"ERROR: spritesheet not found: {sheet_path}", file=sys.stderr)
+    try:
+        manifest = load_manifest(MANIFEST_PATH)
+    except ManifestError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    sheet = Image.open(sheet_path)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    errors = validate_sources(manifest, REPO_ROOT)
+    if errors:
+        for line in errors:
+            print(f"ERROR: {line}", file=sys.stderr)
+        return 1
 
-    sliced = 0
-    skipped = 0
-    for slug, coord in sprites.items():
-        out_path = OUTPUT_DIR / f"{slug}.png"
-        if out_path.exists() and not args.force:
-            skipped += 1
-            continue
-        col = int(coord["col"])
-        row = int(coord["row"])
-        x = col * tile_size
-        y = row * tile_size
-        tile = sheet.crop((x, y, x + tile_size, y + tile_size))
-        tile.save(out_path)
-        sliced += 1
+    errors = validate_tile_bounds(manifest, REPO_ROOT)
+    if errors:
+        for line in errors:
+            print(f"ERROR: {line}", file=sys.stderr)
+        return 1
 
-    print(f"Sliced {sliced}, skipped {skipped} (use --force to overwrite).")
+    try:
+        stats = slice_all(manifest, REPO_ROOT, OUTPUT_DIR, force=args.force)
+    except ManifestError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    print(
+        f"Sliced {stats.sliced}, copied {stats.copied}, skipped "
+        f"{stats.skipped} (use --force to overwrite).",
+    )
     print(f"Output: {OUTPUT_DIR}")
     return 0
 
