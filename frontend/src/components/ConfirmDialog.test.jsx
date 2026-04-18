@@ -27,13 +27,25 @@ describe('ConfirmDialog', () => {
   it('fires onCancel from the Cancel button and the backdrop', async () => {
     const onCancel = vi.fn();
     const user = userEvent.setup();
-    const { container } = render(<ConfirmDialog title="x" message="y" onConfirm={() => {}} onCancel={onCancel} />);
+    render(<ConfirmDialog title="x" message="y" onConfirm={() => {}} onCancel={onCancel} />);
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onCancel).toHaveBeenCalledTimes(1);
-    // Click the backdrop (first motion.div with modal-ink-wash class).
-    const backdrop = container.querySelector('.modal-ink-wash');
+    // Backdrop is portaled to document.body as a sibling of the centering
+    // wrapper — not a descendant of the RTL container.
+    const backdrop = document.querySelector('.modal-ink-wash');
     await user.click(backdrop);
     expect(onCancel).toHaveBeenCalledTimes(2);
+  });
+
+  it('renders the backdrop below the card so clicks reach the confirm button', () => {
+    // Structural guard: jsdom can't hit-test CSS, but we can lock in the
+    // pattern that prevents the backdrop from painting over the card —
+    // pointer-events-none on the centering wrapper + pointer-events-auto
+    // on the alertdialog. If a refactor drops either, this fails.
+    render(<ConfirmDialog title="x" message="y" onConfirm={() => {}} onCancel={() => {}} />);
+    const dialog = screen.getByRole('alertdialog');
+    expect(dialog.className).toMatch(/pointer-events-auto/);
+    expect(dialog.parentElement.className).toMatch(/pointer-events-none/);
   });
 
   it('exposes role=alertdialog with aria-modal, aria-labelledby, and aria-describedby', () => {

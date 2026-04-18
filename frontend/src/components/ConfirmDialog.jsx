@@ -18,8 +18,11 @@ export default function ConfirmDialog({
   const messageId = useId();
   return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <ModalBackdrop onClick={onCancel} zIndex="z-40" />
+      {/* Backdrop is a sibling of the centering wrapper (not a child) so the
+          z-40 ink-wash can't paint over the z-auto card — otherwise clicks on
+          Confirm land on the backdrop's onCancel instead. Mirrors BottomSheet. */}
+      <ModalBackdrop onClick={onCancel} zIndex="z-40" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         {/* Wrapper holds the pulse ring. The inner card carries the deckle mask
             (which would otherwise clip the ring). */}
         <motion.div
@@ -27,7 +30,7 @@ export default function ConfirmDialog({
           aria-modal="true"
           aria-labelledby={titleId}
           aria-describedby={messageId}
-          className="relative max-w-sm w-full"
+          className="pointer-events-auto relative max-w-sm w-full"
           initial={{ scale: 0.82, opacity: 0, rotate: -3 }}
           animate={{ scale: 1, opacity: 1, rotate: 0 }}
           exit={{ scale: 0.9, opacity: 0 }}
