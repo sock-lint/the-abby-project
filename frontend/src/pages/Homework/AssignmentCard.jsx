@@ -1,11 +1,14 @@
-import { Send, ExternalLink, Sparkles } from 'lucide-react';
+import { Send, ExternalLink, Sparkles, Pencil, Trash2 } from 'lucide-react';
 import SubjectBadge from '../../components/SubjectBadge';
 import StarRating from '../../components/StarRating';
 import StatusBadge from '../../components/StatusBadge';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import Button from '../../components/Button';
 
-export default function AssignmentCard({ assignment, onSubmit, onPlan, planning, canPlan }) {
+export default function AssignmentCard({
+  assignment, onSubmit, onPlan, planning, canPlan,
+  canManage, onEdit, onDelete,
+}) {
   const a = assignment;
   const sub = a.submission_status;
   const hasProject = a.has_project;
@@ -53,6 +56,26 @@ export default function AssignmentCard({ assignment, onSubmit, onPlan, planning,
           >
             <ExternalLink size={12} /> View plan
           </a>
+        )}
+        {canManage && (
+          <div className="flex gap-1 ml-auto">
+            <button
+              type="button"
+              onClick={onEdit}
+              aria-label="Edit assignment"
+              className="p-1.5 bg-ink-page hover:bg-ink-page-shadow/70 rounded text-ink-secondary hover:text-ink-primary transition-colors"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label="Delete assignment"
+              className="p-1.5 bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
         )}
       </div>
     </ParchmentCard>

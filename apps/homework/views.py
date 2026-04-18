@@ -70,6 +70,13 @@ class HomeworkAssignmentViewSet(
             status=status.HTTP_201_CREATED,
         )
 
+    def perform_update(self, serializer):
+        # skill_tags ride in via the write serializer's ListField for the
+        # create path; drop them on update so ModelSerializer.update doesn't
+        # try to assign the reverse-FK manager.
+        serializer.validated_data.pop("skill_tags", None)
+        serializer.save()
+
     def perform_destroy(self, instance):
         instance.is_active = False
         instance.save(update_fields=["is_active"])
@@ -219,5 +226,8 @@ class HomeworkDashboardView(APIView):
             return Response({
                 "pending_submissions": HomeworkSubmissionSerializer(
                     overview["pending_submissions"], many=True,
+                ).data,
+                "assignments": HomeworkAssignmentSerializer(
+                    overview["assignments"], many=True,
                 ).data,
             })
