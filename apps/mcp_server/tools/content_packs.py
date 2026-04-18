@@ -45,6 +45,7 @@ from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
     DeleteContentPackIn,
     DeletePackFileIn,
+    DraftPackEntriesIn,
     GetContentPackIn,
     ListContentPacksIn,
     ListRpgCatalogIn,
@@ -255,6 +256,132 @@ def write_pack_file(params: WritePackFileIn) -> dict[str, Any]:
         "pack": params.pack,
         "filename": params.filename,
         "bytes_written": len(params.yaml_content.encode("utf-8")),
+    }
+
+
+# Mapping from a pack filename to ``(top_level_key, natural_key_field)``.
+# The loader reads each file's rows from its top-level key (e.g.
+# ``items.yaml`` → ``items:``) and upserts on the listed natural key. The
+# draft-entries tool uses the same mapping so merges here stay consistent
+# with what ``load_content_pack`` will later do.
+_PACK_FILE_SCHEMA: dict[str, tuple[str, str]] = {
+    "items.yaml": ("items", "slug"),
+    "pet_species.yaml": ("species", "slug"),
+    "potion_types.yaml": ("potions", "slug"),
+    "badges.yaml": ("badges", "name"),
+    "quests.yaml": ("quests", "name"),
+    "rewards.yaml": ("rewards", "name"),
+}
+
+
+@tool()
+@safe_tool
+def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
+    """Merge a batch of YAML entries into a pack file.
+
+    Parses the existing file (creating it if absent), combines the new
+    rows with the old ones, dedupes by natural key (``slug`` for items /
+    pet_species / potion_types, ``name`` for badges / quests / rewards)
+    with last-write-wins semantics — matching the loader's upsert — and
+    writes the merged YAML back through the same safety rails as
+    ``write_pack_file`` (size cap, path containment, reserved-name check).
+
+    ``mode="append"`` (default) merges into any existing rows; ``"replace"``
+    discards the current file contents and writes only ``entries``.
+
+    Does NOT trigger a load. Call ``validate_content_pack`` then
+    ``load_content_pack`` to commit the rows to the database.
+    """
+    require_parent()
+    schema = _PACK_FILE_SCHEMA.get(params.filename)
+    if schema is None:
+        raise MCPValidationError(
+            f"filename {params.filename!r} is not draftable. "
+            f"Supported: {sorted(_PACK_FILE_SCHEMA)}",
+        )
+    top_key, natural_key = schema
+
+    # Validate entries shape up-front so a bad row doesn't silently pass
+    # through to the loader later.
+    for i, entry in enumerate(params.entries):
+        if not isinstance(entry, dict):
+            raise MCPValidationError(
+                f"entries[{i}] must be a mapping, got {type(entry).__name__}.",
+            )
+        if natural_key not in entry or not entry[natural_key]:
+            raise MCPValidationError(
+                f"entries[{i}] is missing required field "
+                f"{natural_key!r} (the natural key for "
+                f"{params.filename}).",
+            )
+
+    path = _resolve_pack_file(params.pack, params.filename)
+
+    existing: list[dict] = []
+    if params.mode == "append" and path.exists():
+        try:
+            parsed = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as exc:
+            raise MCPValidationError(
+                f"{params.pack}/{params.filename} is malformed YAML: {exc}",
+            )
+        if parsed and not isinstance(parsed, dict):
+            raise MCPValidationError(
+                f"{params.pack}/{params.filename} top level must be a mapping.",
+            )
+        raw_existing = (parsed or {}).get(top_key) or []
+        if not isinstance(raw_existing, list):
+            raise MCPValidationError(
+                f"{params.pack}/{params.filename}: {top_key!r} must be a list "
+                f"(got {type(raw_existing).__name__}).",
+            )
+        existing = [e for e in raw_existing if isinstance(e, dict)]
+
+    # Last-write-wins dedup by natural key. Preserve order: existing rows
+    # first (with their key unchanged), new/updated rows added or replacing
+    # in place.
+    by_key: dict[Any, dict] = {}
+    order: list[Any] = []
+    for entry in existing:
+        key = entry.get(natural_key)
+        if key is None:
+            # Skip rows without a natural key — the loader would reject
+            # them anyway, and they'd create ambiguous merges here.
+            continue
+        if key not in by_key:
+            order.append(key)
+        by_key[key] = entry
+    for entry in params.entries:
+        key = entry[natural_key]
+        if key not in by_key:
+            order.append(key)
+        by_key[key] = entry
+
+    merged = [by_key[k] for k in order]
+    doc = {top_key: merged}
+    yaml_content = yaml.safe_dump(
+        doc,
+        sort_keys=False,
+        allow_unicode=True,
+        default_flow_style=False,
+    )
+
+    if len(yaml_content.encode("utf-8")) > _MAX_YAML_BYTES:
+        raise MCPValidationError(
+            f"Merged {params.filename} exceeds 200 KB "
+            f"({len(yaml_content.encode('utf-8'))} bytes). Split the pack "
+            f"or reduce entry count.",
+        )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml_content, encoding="utf-8")
+    return {
+        "pack": params.pack,
+        "filename": params.filename,
+        "mode": params.mode,
+        "entry_count": len(merged),
+        "entries_added_or_updated": len(params.entries),
+        "bytes_written": len(yaml_content.encode("utf-8")),
     }
 
 
