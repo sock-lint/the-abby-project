@@ -1,0 +1,41 @@
+# Pre-commit hooks — run `pre-commit install` once per clone to wire them in.
+# These are a fast last line of defense; CI still runs the full lint + tests.
+#
+# Install:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Run on the whole repo on demand:
+#   pre-commit run --all-files
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.0
+    hooks:
+      # Autofix what's fixable, then flag what isn't.
+      - id: ruff
+        args: [--fix]
+        files: ^(apps|config)/
+      # Pair with a formatter pass so style doesn't drift between contributors.
+      - id: ruff-format
+        files: ^(apps|config)/
+
+  - repo: local
+    hooks:
+      - id: eslint-frontend
+        name: ESLint (frontend)
+        entry: bash -c 'cd frontend && npx --no-install eslint --max-warnings=0'
+        language: system
+        files: ^frontend/src/.*\.(js|jsx)$
+        pass_filenames: false

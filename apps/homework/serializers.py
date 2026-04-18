@@ -76,11 +76,12 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
         ]
 
     def get_submission_status(self, obj):
-        sub = obj.submissions.exclude(
-            status=HomeworkSubmission.Status.REJECTED,
-        ).first()
-        if sub:
-            return {"id": sub.id, "status": sub.status}
+        # Iterate the prefetched manager rather than re-querying with
+        # .exclude(...).first() — that call bypasses the prefetch cache
+        # and fires one query per assignment in list views.
+        for sub in obj.submissions.all():
+            if sub.status != HomeworkSubmission.Status.REJECTED:
+                return {"id": sub.id, "status": sub.status}
         return None
 
     def get_timeliness_preview(self, obj):

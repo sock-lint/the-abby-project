@@ -400,6 +400,9 @@ DEFAULT_FROM_EMAIL = "noreply@summerforge.local"
 # ──────────────────────────────────────────────────────────────────────────
 # Logging
 # ──────────────────────────────────────────────────────────────────────────
+LOG_JSON = os.environ.get("LOG_JSON", "").lower() in ("1", "true", "yes")
+_DEFAULT_FORMATTER = "json" if LOG_JSON else "verbose"
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -408,11 +411,14 @@ LOGGING = {
             "format": "{levelname} {asctime} {module} {message}",
             "style": "{",
         },
+        "json": {
+            "()": "config.logging.JsonFormatter",
+        },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "verbose",
+            "formatter": _DEFAULT_FORMATTER,
         },
     },
     "root": {

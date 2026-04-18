@@ -98,13 +98,9 @@ export default function Payments() {
     return (
       <div className="max-w-6xl mx-auto space-y-3">
         <ErrorAlert message={error || 'Could not load the coffers.'} />
-        <button
-          type="button"
-          onClick={reload}
-          className="px-4 py-2 text-sm bg-sheikah-teal-deep text-ink-page-rune-glow rounded-lg hover:bg-sheikah-teal transition-colors font-display"
-        >
+        <Button variant="secondary" size="sm" onClick={reload}>
           Try again
-        </button>
+        </Button>
       </div>
     );
   }

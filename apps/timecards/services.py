@@ -185,8 +185,16 @@ class ClockService:
 
     @staticmethod
     def get_active_entry(user):
-        """Return the current active TimeEntry or None."""
-        return TimeEntry.objects.filter(user=user, status="active").first()
+        """Return the current active TimeEntry or None.
+
+        Selects the project in the same query so dashboard callers can
+        render ``entry.project.title`` without a follow-up round-trip.
+        """
+        return (
+            TimeEntry.objects.filter(user=user, status="active")
+            .select_related("project")
+            .first()
+        )
 
     @classmethod
     def auto_clock_out(cls):

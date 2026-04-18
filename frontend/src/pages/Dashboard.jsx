@@ -1,5 +1,6 @@
 import { getDashboard } from '../api';
 import { useApi, useAuth } from '../hooks/useApi';
+import Button from '../components/Button';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import ChildDashboard from './ChildDashboard';
@@ -22,13 +23,9 @@ export default function Dashboard() {
         {/* Show a soft dated header so the date test passes even in error state. */}
         <DateHeader />
         <ErrorAlert message={error || 'Could not load today’s entry.'} />
-        <button
-          type="button"
-          onClick={reload}
-          className="px-4 py-2 text-sm bg-sheikah-teal-deep text-ink-page-rune-glow rounded-lg hover:bg-sheikah-teal transition-colors font-display"
-        >
+        <Button variant="secondary" size="sm" onClick={reload}>
           Try again
-        </button>
+        </Button>
       </div>
     );
   }

@@ -1,0 +1,11 @@
+# Trivy CVE allowlist for the container image.
+#
+# Format: one CVE ID per line (e.g. CVE-2024-12345). Blank lines and lines
+# starting with "#" are ignored. Prefer fixing vulnerabilities to silencing
+# them — only add entries here for CVEs you've explicitly triaged and decided
+# to accept, and include a brief justification above the entry.
+#
+# Example:
+#   # CVE-2024-9999: no exploit path in our use; upstream fix tracked in
+#   # https://github.com/upstream/repo/issues/NNN — revisit 2026-07-01.
+#   CVE-2024-9999

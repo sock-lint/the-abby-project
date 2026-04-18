@@ -61,6 +61,19 @@ COPY --from=frontend-build /app/frontend/dist /app/frontend_dist
 
 RUN python manage.py collectstatic --noinput
 
+# Run the container as a non-root user for defense-in-depth. /app is
+# chowned so migrations + loadrpgcontent + Django logs are writable.
+#
+# NOTE: docker-compose.yml bind-mounts ./content/rpg/packs over this
+# image's copy at runtime. The host-side directory MUST be owned by
+# UID 1000 (or world-writable) or the MCP ``write_pack_file`` tool
+# will fail with EACCES. On a fresh deploy host:
+#   sudo chown -R 1000:1000 /opt/the-abby-project/content/rpg/packs
+RUN groupadd --system --gid 1000 app \
+    && useradd --system --uid 1000 --gid 1000 --create-home --shell /sbin/nologin app \
+    && chown -R app:app /app
+USER app
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
