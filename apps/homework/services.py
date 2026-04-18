@@ -555,7 +555,12 @@ class HomeworkService:
 
     @staticmethod
     def get_parent_overview():
-        """Return pending submissions queue + per-child stats for parents."""
+        """Return pending submissions + active assignments list for parents.
+
+        Parents manage (edit/delete) assignments from the ``assignments`` list
+        — it's ordered by due date ascending so anything overdue floats to the
+        top of the list.
+        """
         pending = (
             HomeworkSubmission.objects
             .filter(status=HomeworkSubmission.Status.PENDING)
@@ -563,4 +568,14 @@ class HomeworkService:
             .prefetch_related("proofs")
             .order_by("created_at")
         )
-        return {"pending_submissions": list(pending)}
+        assignments = (
+            HomeworkAssignment.objects
+            .filter(is_active=True)
+            .select_related("assigned_to", "created_by")
+            .prefetch_related("skill_tags__skill", "submissions")
+            .order_by("due_date")
+        )
+        return {
+            "pending_submissions": list(pending),
+            "assignments": list(assignments),
+        }

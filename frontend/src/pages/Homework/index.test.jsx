@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Homework from './index.jsx';
@@ -9,6 +9,29 @@ import { server } from '../../test/server.js';
 import { spyHandler } from '../../test/spy.js';
 import { buildParent, buildUser } from '../../test/factories.js';
 import * as Sentry from '@sentry/react';
+
+function buildAssignment(over = {}) {
+  return {
+    id: 42,
+    title: 'Finish lab report',
+    description: 'Write up the volcano experiment.',
+    subject: 'science',
+    effort_level: 3,
+    due_date: '2026-04-20',
+    assigned_to: 1,
+    assigned_to_name: 'Abby',
+    created_by: 99,
+    created_by_name: 'Parent',
+    is_active: true,
+    notes: '',
+    project: null,
+    has_project: false,
+    skill_tags: [],
+    submission_status: null,
+    timeliness_preview: { timeliness: 'on_time' },
+    ...over,
+  };
+}
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -317,6 +340,82 @@ describe('Homework', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('Homework — edit & delete', () => {
+  it('clicking edit opens the form pre-filled and PATCHes the assignment', async () => {
+    const user = userEvent.setup();
+    const patch = spyHandler('patch', /\/api\/homework\/\d+\/$/, { id: 42 });
+
+    renderPage(buildParent(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({
+          assignments: [buildAssignment()],
+          pending_submissions: [],
+        }),
+      ),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
+      patch.handler,
+    ]);
+
+    const editBtn = await screen.findByRole('button', { name: /edit assignment/i });
+    await user.click(editBtn);
+
+    const dialog = await screen.findByRole('dialog', { name: /edit assignment/i });
+    const titleInput = within(dialog).getByDisplayValue('Finish lab report');
+    await user.clear(titleInput);
+    await user.type(titleInput, 'Finish volcano report');
+
+    await user.click(within(dialog).getByRole('button', { name: /update assignment/i }));
+
+    await waitFor(() => expect(patch.calls).toHaveLength(1));
+    expect(patch.calls[0].url).toMatch(/\/homework\/42\/$/);
+    expect(patch.calls[0].body.title).toBe('Finish volcano report');
+    expect(patch.calls[0].body.subject).toBe('science');
+    expect(patch.calls[0].body.due_date).toBe('2026-04-20');
+  });
+
+  it('clicking delete then confirm DELETEs the assignment', async () => {
+    const user = userEvent.setup();
+    const del = spyHandler('delete', /\/api\/homework\/\d+\/$/, null);
+
+    renderPage(buildParent(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({
+          assignments: [buildAssignment()],
+          pending_submissions: [],
+        }),
+      ),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
+      del.handler,
+    ]);
+
+    const deleteBtn = await screen.findByRole('button', { name: /delete assignment/i });
+    await user.click(deleteBtn);
+
+    const confirm = await screen.findByRole('alertdialog', { name: /delete assignment\?/i });
+    await user.click(within(confirm).getByRole('button', { name: /^delete$/i }));
+
+    await waitFor(() => expect(del.calls).toHaveLength(1));
+    expect(del.calls[0].url).toMatch(/\/homework\/42\/$/);
+  });
+
+  it('does not render edit or delete buttons for child users', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({
+          today: [buildAssignment()],
+          upcoming: [],
+          overdue: [],
+          stats: { completion_rate: 0, on_time_rate: 0, total_approved: 0 },
+        }),
+      ),
+    ]);
+
+    await screen.findByText(/finish lab report/i);
+    expect(screen.queryByRole('button', { name: /edit assignment/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /delete assignment/i })).toBeNull();
   });
 });
 

@@ -1,39 +1,27 @@
 import { useState } from 'react';
-import * as Sentry from '@sentry/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useRole } from '../../hooks/useRole';
 import {
-  getHomeworkDashboard, createHomework,
+  getHomeworkDashboard,
   approveHomeworkSubmission,
   rejectHomeworkSubmission,
   planHomework, getChildren,
+  deleteHomework,
 } from '../../api';
 import ApprovalQueue from '../../components/ApprovalQueue';
 import Loader from '../../components/Loader';
 import ErrorAlert from '../../components/ErrorAlert';
-import BottomSheet from '../../components/BottomSheet';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import HomeworkSubmitSheet from '../../components/HomeworkSubmitSheet';
 import TimelinessBadge from '../../components/TimelinessBadge';
 import ProofGallery from '../../components/ProofGallery';
 import StatusBadge from '../../components/StatusBadge';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import Button from '../../components/Button';
-import { TextField, SelectField, TextAreaField } from '../../components/form';
-import { quickDueDates } from '../../utils/dates';
 import AssignmentCard from './AssignmentCard';
-
-const SUBJECTS = [
-  { value: 'math', label: 'Math' },
-  { value: 'reading', label: 'Reading' },
-  { value: 'writing', label: 'Writing' },
-  { value: 'science', label: 'Science' },
-  { value: 'social_studies', label: 'Social Studies' },
-  { value: 'art', label: 'Art' },
-  { value: 'music', label: 'Music' },
-  { value: 'other', label: 'Other' },
-];
+import HomeworkFormModal from './HomeworkFormModal';
 
 export default function Homework() {
   const { isParent } = useRole();
@@ -42,63 +30,17 @@ export default function Homework() {
   const { data: childrenData } = useApi(isParent ? getChildren : null);
   const children = childrenData || [];
 
-  const [showCreate, setShowCreate] = useState(false);
-  const [createError, setCreateError] = useState('');
-  const [creating, setCreating] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [actionError, setActionError] = useState('');
   const [showSubmit, setShowSubmit] = useState(null);
   const [planning, setPlanning] = useState(null);
   const [planError, setPlanError] = useState('');
 
-  const emptyForm = {
-    title: '', description: '', subject: 'math', effort_level: 3,
-    due_date: '', assigned_to: '',
-  };
-  const [form, setForm] = useState(emptyForm);
-
-  const presets = quickDueDates();
-  // When a named-day chip resolves to the same date as a relative one,
-  // hide the named chip. Prefer Tomorrow/+1 week so the UI stays stable
-  // (Tomorrow always shows) and the four collision days — Thu, Sun (hide
-  // Friday/Next Mon in favor of Tomorrow) and Fri, Mon (hide Friday/Next
-  // Mon in favor of +1 week) — don't double-pressed two chips.
-  const rawChips = [
-    { label: 'Tomorrow', value: presets.tomorrow, relative: true },
-    { label: 'Friday', value: presets.friday, relative: false },
-    { label: 'Next Mon', value: presets.nextMonday, relative: false },
-    { label: '+1 week', value: presets.nextWeek, relative: true },
-  ];
-  const presetChips = rawChips.filter((c, i, arr) =>
-    c.relative || !arr.some((o, j) => j !== i && o.relative && o.value === c.value),
-  );
-
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    const payload = {
-      title: form.title,
-      description: form.description,
-      subject: form.subject,
-      due_date: form.due_date,
-    };
-    if (isParent) {
-      payload.effort_level = parseInt(form.effort_level);
-      payload.assigned_to = parseInt(form.assigned_to);
-    }
-    setCreating(true);
-    setCreateError('');
-    try {
-      await createHomework(payload);
-      setShowCreate(false);
-      setForm(emptyForm);
-      reload();
-    } catch (err) {
-      // Surface to the user AND to Sentry — silent failures here are how
-      // we shipped the "empty 201 body" bug unnoticed.
-      Sentry.captureException(err, { tags: { area: 'homework.create' } });
-      setCreateError(err?.message || 'Could not create the assignment.');
-    } finally {
-      setCreating(false);
-    }
-  };
+  const openCreate = () => { setEditing(null); setShowForm(true); };
+  const openEdit = (a) => { setEditing(a); setShowForm(true); };
+  const closeForm = () => { setShowForm(false); setEditing(null); };
 
   const handleApprove = async (id) => {
     await approveHomeworkSubmission(id);
@@ -108,6 +50,17 @@ export default function Homework() {
   const handleReject = async (id) => {
     await rejectHomeworkSubmission(id);
     reload();
+  };
+
+  const handleDelete = async () => {
+    setActionError('');
+    try {
+      await deleteHomework(deleteConfirm);
+      setDeleteConfirm(null);
+      reload();
+    } catch (err) {
+      setActionError(err?.message || 'Could not delete the assignment.');
+    }
   };
 
   const handlePlan = async (assignment) => {
@@ -131,6 +84,19 @@ export default function Homework() {
   if (loading) return <Loader />;
   if (error) return <ErrorAlert message={error} />;
 
+  const renderCard = (a) => (
+    <AssignmentCard
+      key={a.id} assignment={a}
+      onSubmit={() => setShowSubmit(a)}
+      onPlan={() => handlePlan(a)}
+      planning={planning === a.id}
+      canPlan={isParent}
+      canManage={isParent}
+      onEdit={() => openEdit(a)}
+      onDelete={() => setDeleteConfirm(a.id)}
+    />
+  );
+
   return (
     <div className="space-y-6">
       <header className="flex items-start justify-between gap-3 flex-wrap">
@@ -144,13 +110,14 @@ export default function Homework() {
         </div>
         <Button
           size="sm"
-          onClick={() => setShowCreate(true)}
+          onClick={openCreate}
           className="flex items-center gap-1"
         >
           <Plus size={14} /> New assignment
         </Button>
       </header>
 
+      {actionError && <ErrorAlert message={actionError} />}
       {planError && <ErrorAlert message={planError} />}
 
       {/* Child dashboard view */}
@@ -171,46 +138,39 @@ export default function Homework() {
           )}
 
           <Section title="Due today" items={dashboard?.today} emptyText="Nothing due today.">
-            {(a) => (
-              <AssignmentCard
-                key={a.id} assignment={a}
-                onSubmit={() => setShowSubmit(a)}
-                onPlan={() => handlePlan(a)}
-                planning={planning === a.id}
-                canPlan={isParent}
-              />
-            )}
+            {renderCard}
           </Section>
 
           {dashboard?.overdue?.length > 0 && (
             <Section title="Overdue" items={dashboard.overdue}>
-              {(a) => (
-                <AssignmentCard
-                  key={a.id} assignment={a}
-                  onSubmit={() => setShowSubmit(a)}
-                  onPlan={() => handlePlan(a)}
-                  planning={planning === a.id}
-                />
-              )}
+              {renderCard}
             </Section>
           )}
 
           <Section title="Coming up" items={dashboard?.upcoming} emptyText="No upcoming assignments.">
-            {(a) => (
-              <AssignmentCard
-                key={a.id} assignment={a}
-                onSubmit={() => setShowSubmit(a)}
-                onPlan={() => handlePlan(a)}
-                planning={planning === a.id}
-                canPlan={isParent}
-              />
-            )}
+            {renderCard}
           </Section>
         </>
       )}
 
       {/* Parent view */}
       {isParent && (
+        <>
+        {dashboard?.assignments?.length > 0 && (
+          <Section title="Active assignments" items={dashboard.assignments}>
+            {(a) => (
+              <AssignmentCard
+                key={a.id} assignment={a}
+                onPlan={() => handlePlan(a)}
+                planning={planning === a.id}
+                canPlan
+                canManage
+                onEdit={() => openEdit(a)}
+                onDelete={() => setDeleteConfirm(a.id)}
+              />
+            )}
+          </Section>
+        )}
         <ApprovalQueue
           items={dashboard?.pending_submissions}
           title="Awaiting your seal"
@@ -243,88 +203,26 @@ export default function Homework() {
             </ParchmentCard>
           )}
         </ApprovalQueue>
+        </>
       )}
 
-      {/* Create assignment */}
-      {showCreate && (
-        <BottomSheet onClose={() => { setShowCreate(false); setCreateError(''); }} title="New assignment">
-          <form onSubmit={handleCreate} className="space-y-4">
-            <TextField
-              type="text" placeholder="Title" required value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-            />
-            <TextAreaField
-              placeholder="Description (optional)" value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              rows={2}
-            />
-            <div>
-              <span className="font-script text-sm text-ink-secondary mb-1 block">Due</span>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {presetChips.map((chip) => {
-                  const active = form.due_date === chip.value;
-                  return (
-                    <button
-                      key={chip.label}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => setForm((f) => ({ ...f, due_date: chip.value }))}
-                      className={
-                        'px-3 py-1 text-xs font-medium rounded-full border transition-colors ' +
-                        (active
-                          ? 'bg-sheikah-teal-deep text-ink-page-rune-glow border-sheikah-teal-deep'
-                          : 'bg-ink-page-aged text-ink-secondary border-ink-page-shadow hover:text-ink-primary')
-                      }
-                    >
-                      {chip.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <SelectField
-                  value={form.subject}
-                  onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                >
-                  {SUBJECTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </SelectField>
-                <TextField
-                  type="date" required value={form.due_date}
-                  onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-                />
-              </div>
-            </div>
-            {isParent && (
-              <TextField
-                label="Effort (1-5)"
-                type="number" min={1} max={5} value={form.effort_level}
-                onChange={(e) => setForm({ ...form, effort_level: e.target.value })}
-                helpText="Weights XP distribution across skill tags — no money or coins."
-              />
-            )}
-            {!isParent && (
-              <p className="font-script text-xs text-ink-whisper italic">
-                Log it here so your grown-ups can see — you'll earn XP, streaks,
-                and a chance at loot for every assignment you share.
-              </p>
-            )}
-            {isParent && children.length > 0 && (
-              <SelectField
-                value={form.assigned_to} required
-                onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
-              >
-                <option value="">Assign to…</option>
-                {children.map((c) => (
-                  <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
-                ))}
-              </SelectField>
-            )}
-            {createError && <ErrorAlert message={createError} />}
-            <Button type="submit" size="sm" disabled={creating} className="w-full">
-              {creating ? 'Creating…' : 'Create assignment'}
-            </Button>
-          </form>
-        </BottomSheet>
+      {showForm && (
+        <HomeworkFormModal
+          assignment={editing}
+          isParent={isParent}
+          children={children}
+          onClose={closeForm}
+          onSaved={() => { closeForm(); reload(); }}
+        />
+      )}
+
+      {deleteConfirm && (
+        <ConfirmDialog
+          title="Delete assignment?"
+          message="Past submissions (if any) stay in the approval history, but the assignment itself will be hidden."
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteConfirm(null)}
+        />
       )}
 
       <HomeworkSubmitSheet
@@ -370,4 +268,3 @@ function Section({ title, items, emptyText, children }) {
     </section>
   );
 }
-
