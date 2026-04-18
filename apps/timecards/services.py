@@ -104,6 +104,17 @@ class ClockService:
             project.status = "in_progress"
             project.save()
 
+        from apps.activity.services import ActivityLogService
+        ActivityLogService.record(
+            category="timecard",
+            event_type="timecard.clock_in",
+            summary=f"Clocked in: {project.title}",
+            actor=user,
+            subject=user,
+            target=entry,
+            extras={"project_id": project.pk, "project_title": project.title},
+        )
+
         return entry
 
     @classmethod
@@ -121,24 +132,54 @@ class ClockService:
         from django.conf import settings
         from apps.achievements.services import AwardService
         from apps.rewards.models import CoinLedger
+        from apps.activity.services import ActivityLogService, activity_scope
 
         hours = entry.duration_minutes / 60
-        AwardService.grant(
-            user,
-            project=entry.project,
-            xp=round(hours * 10),
-            coins=round(hours * getattr(settings, "COINS_PER_HOUR", 5)),
-            coin_reason=CoinLedger.Reason.HOURLY,
-            coin_description=f"Hourly coins: {entry.project.title}",
-        )
+        coins = round(hours * getattr(settings, "COINS_PER_HOUR", 5))
+        xp = round(hours * 10)
 
-        # RPG game loop
-        from apps.rpg.constants import TriggerType
-        from apps.rpg.services import GameLoopService
-        GameLoopService.on_task_completed(
-            user, TriggerType.CLOCK_OUT,
-            {"project_id": entry.project_id, "hours": hours},
-        )
+        with activity_scope():
+            ActivityLogService.record(
+                category="timecard",
+                event_type="timecard.clock_out",
+                summary=f"Clocked out: {entry.project.title} ({hours:.2f}h)",
+                actor=user,
+                subject=user,
+                target=entry,
+                xp_delta=xp,
+                coins_delta=coins,
+                breakdown=[
+                    {"label": "hours", "value": round(hours, 2), "op": "×"},
+                    {"label": "coins/hr",
+                     "value": getattr(settings, "COINS_PER_HOUR", 5), "op": "="},
+                    {"label": "coins", "value": coins, "op": "note"},
+                    {"label": "xp", "value": xp, "op": "note"},
+                ],
+                extras={
+                    "project_id": entry.project_id,
+                    "project_title": entry.project.title,
+                    "hours": round(hours, 4),
+                    "duration_minutes": entry.duration_minutes,
+                    "auto_clocked_out": entry.auto_clocked_out,
+                },
+            )
+
+            AwardService.grant(
+                user,
+                project=entry.project,
+                xp=xp,
+                coins=coins,
+                coin_reason=CoinLedger.Reason.HOURLY,
+                coin_description=f"Hourly coins: {entry.project.title}",
+            )
+
+            # RPG game loop
+            from apps.rpg.constants import TriggerType
+            from apps.rpg.services import GameLoopService
+            GameLoopService.on_task_completed(
+                user, TriggerType.CLOCK_OUT,
+                {"project_id": entry.project_id, "hours": hours},
+            )
 
         return entry
 
@@ -236,10 +277,21 @@ class TimecardService:
         """
         from config.services import finalize_decision
 
-        finalize_decision(timecard, Timecard.Status.APPROVED, parent_user, notes)
+        finalize_decision(
+            timecard, Timecard.Status.APPROVED, parent_user, notes,
+            activity_category="timecard",
+            activity_event_type="timecard.approve",
+            activity_summary=f"Timecard approved: week of {timecard.week_start}",
+            activity_subject=timecard.user,
+            activity_extras={
+                "week_start": str(timecard.week_start),
+                "total_hours": str(getattr(timecard, "total_hours", "") or ""),
+                "total_amount": str(getattr(timecard, "total_amount", "") or ""),
+            },
+        )
 
         from apps.achievements.services import BadgeService
-        BadgeService.evaluate_badges(timecard.user)
+        BadgeService.evaluate_badges(timecard.user, created_by=parent_user)
 
         return timecard
 

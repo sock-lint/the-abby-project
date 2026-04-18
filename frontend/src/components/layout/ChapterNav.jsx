@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { SlidersHorizontal, Settings, LogOut } from 'lucide-react';
+import { SlidersHorizontal, Settings, LogOut, History } from 'lucide-react';
 import {
   TodayIcon, QuestsIcon, BestiaryIcon, TreasuryIcon, AtlasIcon,
 } from '../icons/JournalIcons';
@@ -81,6 +81,21 @@ export function ChapterSidebar({ user, onLogout }) {
 
       {/* Utility + user footer */}
       <div className="p-3 border-t border-ink-page-shadow bg-ink-page/40 space-y-1">
+        {isParent && (
+          <NavLink
+            to="/activity"
+            className={({ isActive }) =>
+              `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-body transition-colors ${
+                isActive
+                  ? 'bg-sheikah-teal/10 text-ink-primary'
+                  : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
+              }`
+            }
+          >
+            <History size={16} />
+            Activity
+          </NavLink>
+        )}
         {isParent && (
           <NavLink
             to="/manage"

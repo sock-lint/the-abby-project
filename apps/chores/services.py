@@ -158,6 +158,26 @@ class ChoreService:
             coin_reward_snapshot=chore.coin_reward,
         )
 
+        from apps.activity.services import ActivityLogService
+        ActivityLogService.record(
+            category="approval",
+            event_type="chore.submit",
+            summary=f"Chore submitted: {chore.title}",
+            actor=user,
+            subject=user,
+            target=completion,
+            breakdown=[
+                {"label": "reward", "value": str(chore.reward_amount), "op": "note"},
+                {"label": "coins", "value": chore.coin_reward, "op": "note"},
+            ],
+            extras={
+                "chore_id": chore.pk,
+                "chore_title": chore.title,
+                "reward_snapshot": str(chore.reward_amount),
+                "coin_snapshot": chore.coin_reward,
+            },
+        )
+
         # Notify parents.
         display = get_display_name(user)
         notify_parents(
@@ -181,7 +201,18 @@ class ChoreService:
         if completion.status != ChoreCompletion.Status.PENDING:
             return completion
 
-        finalize_decision(completion, ChoreCompletion.Status.APPROVED, parent, notes)
+        finalize_decision(
+            completion, ChoreCompletion.Status.APPROVED, parent, notes,
+            activity_category="approval",
+            activity_event_type="chore.approve",
+            activity_summary=f"Chore approved: {completion.chore.title}",
+            activity_subject=completion.user,
+            activity_extras={
+                "chore_id": completion.chore_id,
+                "reward_snapshot": str(completion.reward_amount_snapshot),
+                "coin_snapshot": completion.coin_reward_snapshot,
+            },
+        )
 
         # Paired money + coin award through a single distribution call.
         from apps.achievements.services import AwardService
@@ -227,5 +258,12 @@ class ChoreService:
         if completion.status != ChoreCompletion.Status.PENDING:
             return completion
 
-        finalize_decision(completion, ChoreCompletion.Status.REJECTED, parent, notes)
+        finalize_decision(
+            completion, ChoreCompletion.Status.REJECTED, parent, notes,
+            activity_category="approval",
+            activity_event_type="chore.reject",
+            activity_summary=f"Chore rejected: {completion.chore.title}",
+            activity_subject=completion.user,
+            activity_extras={"chore_id": completion.chore_id},
+        )
         return completion

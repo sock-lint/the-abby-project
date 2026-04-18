@@ -41,7 +41,7 @@ class HabitService:
         streak = profile.login_streak
 
         # Create log entry
-        HabitLog.objects.create(
+        log = HabitLog.objects.create(
             habit=habit,
             user=user,
             direction=direction,
@@ -51,6 +51,29 @@ class HabitService:
         # Update strength
         habit.strength += direction
         habit.save(update_fields=["strength"])
+
+        from apps.activity.services import ActivityLogService
+        ActivityLogService.record(
+            category="habit",
+            event_type="habit.tap",
+            summary=(f"{'+1' if direction == 1 else '-1'} {habit.name}"),
+            actor=user,
+            subject=user,
+            target=log,
+            breakdown=[
+                {"label": "direction", "value": direction, "op": "note"},
+                {"label": "new strength", "value": habit.strength, "op": "="},
+                {"label": "streak at time", "value": streak, "op": "note"},
+            ],
+            extras={
+                "habit_id": habit.pk,
+                "habit_name": habit.name,
+                "habit_type": habit.habit_type,
+                "direction": direction,
+                "new_strength": habit.strength,
+                "streak": streak,
+            },
+        )
 
         return {
             "direction": direction,

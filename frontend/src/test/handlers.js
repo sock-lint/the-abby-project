@@ -213,4 +213,8 @@ export const handlers = [
   http.post('*/api/quests/', ok),
   http.post(/\/api\/quests\/\d+\/assign\/$/, ok),
   http.get('*/api/quests/family/', empty),
+
+  // Activity log (parent-only)
+  http.get('*/api/activity/', () =>
+    HttpResponse.json({ results: [], next: null, previous: null })),
 ];

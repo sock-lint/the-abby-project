@@ -29,7 +29,7 @@ class PaymentService(BaseLedgerService):
         Wrapping `PaymentLedger.objects.create` in one place makes it easy to
         audit, log, or enforce transactionality across the codebase.
         """
-        return PaymentLedger.objects.create(
+        entry = PaymentLedger.objects.create(
             user=user,
             amount=amount,
             entry_type=entry_type,
@@ -38,6 +38,29 @@ class PaymentService(BaseLedgerService):
             timecard=timecard,
             created_by=created_by,
         )
+        from apps.activity.services import ActivityLogService, ledger_suppressed
+
+        if not ledger_suppressed():
+            ActivityLogService.record(
+                category="ledger",
+                event_type=f"ledger.money.{entry_type}",
+                summary=description
+                    or f"Money ${amount} ({entry_type})",
+                actor=created_by,
+                subject=user,
+                target=entry,
+                money_delta=amount,
+                breakdown=[
+                    {"label": entry_type, "value": str(amount), "op": "="},
+                ],
+                extras={
+                    "entry_type": entry_type,
+                    "description": description or "",
+                    "project_id": project.pk if project else None,
+                    "timecard_id": timecard.pk if timecard else None,
+                },
+            )
+        return entry
 
     @classmethod
     def record_payout(cls, user, amount, parent_user):

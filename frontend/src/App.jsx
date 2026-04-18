@@ -11,6 +11,7 @@ import ProjectNew from './pages/ProjectNew';
 import ProjectIngest from './pages/ProjectIngest';
 import ClockPage from './pages/ClockPage';
 import Manage from './pages/Manage';
+import ActivityPage from './pages/activity/ActivityPage';
 import SettingsPage from './pages/SettingsPage';
 import QuestsHub from './pages/quests';
 import BestiaryHub from './pages/bestiary';
@@ -104,6 +105,7 @@ export default function App() {
             {/* Utility */}
             <Route path="/clock" element={<ClockPage />} />
             <Route path="/manage" element={<Manage />} />
+            <Route path="/activity" element={<ActivityPage />} />
             <Route path="/settings" element={<SettingsPage />} />
 
             {/* Legacy route redirects — keep old bookmarks working */}

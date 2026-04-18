@@ -226,38 +226,123 @@ class AwardService:
         award paths (clock-out hourly, chore reward, project/milestone bonus)
         that credit both ``PaymentLedger`` and ``CoinLedger`` in one breath.
         Badge-only and quest-only callers leave them off.
+
+        Activity-log contract: inner ``CoinService``/``PaymentService`` calls
+        stay silent inside this block; this method emits consolidated
+        ``award.xp`` / ``award.coins`` / ``award.money`` events with the
+        per-skill distribution and the original description.
         """
-        if project is not None and xp > 0:
-            SkillService.distribute_project_xp(user, project, xp)
+        from apps.activity.services import ActivityLogService, activity_scope
 
-        if coins > 0 and coin_reason is not None:
-            from apps.rewards.services import CoinService
-            CoinService.award_coins(
-                user,
-                coins,
-                coin_reason,
-                description=coin_description,
-                created_by=created_by,
-            )
+        with activity_scope(suppress_inner_ledger=True):
+            xp_breakdown = []
+            if project is not None and xp > 0:
+                xp_breakdown = AwardService._distribute_project_xp_logged(
+                    user, project, xp,
+                )
 
-        if money and money_entry_type is not None:
-            from apps.payments.services import PaymentService
-            PaymentService.record_entry(
-                user,
-                money,
-                money_entry_type,
-                description=money_description or coin_description,
-                project=project,
-                created_by=created_by,
-            )
+            if coins > 0 and coin_reason is not None:
+                from apps.rewards.services import CoinService
+                CoinService.award_coins(
+                    user,
+                    coins,
+                    coin_reason,
+                    description=coin_description,
+                    created_by=created_by,
+                )
+                ActivityLogService.record(
+                    category="award",
+                    event_type="award.coins",
+                    summary=coin_description or f"+{coins} coins ({coin_reason})",
+                    actor=created_by,
+                    subject=user,
+                    coins_delta=int(coins),
+                    breakdown=[
+                        {"label": coin_reason, "value": int(coins), "op": "="},
+                    ],
+                    extras={"reason": coin_reason, "project_id": project.pk if project else None},
+                )
 
-        BadgeService.evaluate_badges(user)
+            if money and money_entry_type is not None:
+                from apps.payments.services import PaymentService
+                PaymentService.record_entry(
+                    user,
+                    money,
+                    money_entry_type,
+                    description=money_description or coin_description,
+                    project=project,
+                    created_by=created_by,
+                )
+                ActivityLogService.record(
+                    category="award",
+                    event_type="award.money",
+                    summary=money_description
+                        or coin_description
+                        or f"${money} ({money_entry_type})",
+                    actor=created_by,
+                    subject=user,
+                    money_delta=money,
+                    breakdown=[
+                        {"label": money_entry_type, "value": str(money), "op": "="},
+                    ],
+                    extras={
+                        "entry_type": money_entry_type,
+                        "project_id": project.pk if project else None,
+                    },
+                )
+
+            if xp_breakdown:
+                ActivityLogService.record(
+                    category="award",
+                    event_type="award.xp",
+                    summary=f"+{xp} XP distributed"
+                        + (f" · {project.title}" if project else ""),
+                    actor=created_by,
+                    subject=user,
+                    xp_delta=int(xp),
+                    breakdown=xp_breakdown,
+                    extras={"project_id": project.pk if project else None},
+                )
+
+            BadgeService.evaluate_badges(user, created_by=created_by)
+
+    @staticmethod
+    def _distribute_project_xp_logged(user, project, total_xp):
+        """Mirror of SkillService.distribute_project_xp that returns per-skill breakdown.
+
+        Kept as a private helper on ``AwardService`` so the emitted
+        ``award.xp`` breakdown rows stay in lockstep with the actual XP
+        distribution — no risk of drift if ``SkillService`` signature
+        changes later.
+        """
+        tags = ProjectSkillTag.objects.filter(project=project).select_related("skill")
+        if not tags.exists():
+            return []
+        total_weight = sum(tag.xp_weight for tag in tags)
+        if total_weight == 0:
+            return []
+        rows = []
+        for tag in tags:
+            skill_xp = round(total_xp * (tag.xp_weight / total_weight))
+            if skill_xp > 0:
+                SkillService.award_xp(user, tag.skill, skill_xp)
+                rows.append({
+                    "label": tag.skill.name,
+                    "value": skill_xp,
+                    "op": "+",
+                })
+        return rows
 
 
 class BadgeService:
     @classmethod
-    def evaluate_badges(cls, user):
+    def evaluate_badges(cls, user, *, created_by=None):
         """Check all unearned badges and award any newly qualified."""
+        from apps.activity.services import (
+            ActivityLogService,
+            activity_scope,
+        )
+
         earned_ids = set(
             UserBadge.objects.filter(user=user).values_list("badge_id", flat=True)
         )
@@ -266,11 +351,32 @@ class BadgeService:
 
         for badge in all_badges:
             if cls._check_criteria(user, badge):
-                UserBadge.objects.create(user=user, badge=badge)
-                if badge.xp_bonus > 0:
-                    cls._award_badge_xp(user, badge)
-                cls._award_badge_coins(user, badge)
+                user_badge = UserBadge.objects.create(user=user, badge=badge)
+                # Suppress inner ledger emissions — ``award.badge`` below is
+                # the canonical row. The rarity->coin breakdown captures the
+                # same numeric data without a separate ``ledger.coins.*``.
+                with activity_scope(suppress_inner_ledger=True):
+                    if badge.xp_bonus > 0:
+                        cls._award_badge_xp(user, badge)
+                    cls._award_badge_coins(user, badge)
                 newly_earned.append(badge)
+                ActivityLogService.record(
+                    category="award",
+                    event_type="award.badge",
+                    summary=f"Badge earned: {badge.name}",
+                    actor=created_by,
+                    subject=user,
+                    target=user_badge,
+                    breakdown=[
+                        {"label": "rarity", "value": badge.rarity, "op": "note"},
+                        {"label": "xp bonus", "value": badge.xp_bonus, "op": "+"},
+                    ],
+                    extras={
+                        "badge_id": badge.pk,
+                        "badge_name": badge.name,
+                        "rarity": badge.rarity,
+                    },
+                )
 
         return newly_earned
 
