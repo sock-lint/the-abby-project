@@ -37,11 +37,32 @@ def evaluate_perfect_day_task():
         profile.perfect_days_count += 1
         profile.save(update_fields=["perfect_days_count"])
 
-        CoinService.award_coins(
-            child,
-            15,
-            CoinLedger.Reason.ADJUSTMENT,
-            description="Perfect Day bonus!",
+        from apps.activity.services import (
+            ActivityLogService, activity_scope,
+        )
+        with activity_scope(suppress_inner_ledger=True):
+            CoinService.award_coins(
+                child,
+                15,
+                CoinLedger.Reason.ADJUSTMENT,
+                description="Perfect Day bonus!",
+            )
+        ActivityLogService.record(
+            category="system",
+            event_type="system.perfect_day",
+            summary="Perfect Day: +15 coins",
+            actor=None,
+            subject=child,
+            coins_delta=15,
+            breakdown=[
+                {"label": "daily chores done", "value": len(daily_chores), "op": "="},
+                {"label": "bonus", "value": 15, "op": "note"},
+                {"label": "perfect days total", "value": profile.perfect_days_count, "op": "note"},
+            ],
+            extras={
+                "daily_chores_done": len(daily_chores),
+                "perfect_days_count": profile.perfect_days_count,
+            },
         )
 
         notify(

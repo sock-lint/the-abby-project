@@ -91,6 +91,27 @@ class HomeworkService:
                 xp_amount=tag.get("xp_amount", 15),
             )
 
+        from apps.activity.services import ActivityLogService
+        ActivityLogService.record(
+            category="approval",
+            event_type="homework.create",
+            summary=f"Homework assigned: {assignment.title}",
+            actor=user,
+            subject=assignment.assigned_to,
+            target=assignment,
+            breakdown=[
+                {"label": "subject", "value": assignment.subject or "—", "op": "note"},
+                {"label": "effort", "value": assignment.effort_level, "op": "note"},
+                {"label": "due", "value": str(assignment.due_date), "op": "note"},
+            ],
+            extras={
+                "assignment_id": assignment.pk,
+                "subject": assignment.subject,
+                "effort_level": assignment.effort_level,
+                "due_date": str(assignment.due_date),
+            },
+        )
+
         # Notify.
         display = get_display_name(user)
         if user.role == "child":
@@ -181,6 +202,25 @@ class HomeworkService:
                 order=order,
             )
 
+        from apps.activity.services import ActivityLogService
+        ActivityLogService.record(
+            category="approval",
+            event_type="homework.submit",
+            summary=f"Homework submitted: {assignment.title}",
+            actor=user,
+            subject=user,
+            target=submission,
+            breakdown=[
+                {"label": "timeliness", "value": timeliness_label, "op": "note"},
+                {"label": "proofs", "value": len(images), "op": "note"},
+            ],
+            extras={
+                "assignment_id": assignment.pk,
+                "timeliness": timeliness_label,
+                "proof_count": len(images),
+            },
+        )
+
         # Notify parents.
         display = get_display_name(user)
         notify_parents(
@@ -214,16 +254,42 @@ class HomeworkService:
         if submission.status != HomeworkSubmission.Status.PENDING:
             return submission
 
-        finalize_decision(submission, HomeworkSubmission.Status.APPROVED, parent, notes)
+        finalize_decision(
+            submission, HomeworkSubmission.Status.APPROVED, parent, notes,
+            activity_category="approval",
+            activity_event_type="homework.approve",
+            activity_summary=f"Homework approved: {submission.assignment.title}",
+            activity_subject=submission.user,
+            activity_extras={
+                "assignment_id": submission.assignment_id,
+                "timeliness": submission.timeliness,
+            },
+        )
 
         assignment = submission.assignment
 
         # Distribute XP via HomeworkSkillTags.
+        from apps.activity.services import ActivityLogService
+        xp_rows = []
+        total_xp = 0
         for tag in assignment.skill_tags.select_related("skill"):
             SkillService.award_xp(submission.user, tag.skill, tag.xp_amount)
+            xp_rows.append({"label": tag.skill.name, "value": tag.xp_amount, "op": "+"})
+            total_xp += tag.xp_amount
+        if xp_rows:
+            ActivityLogService.record(
+                category="award",
+                event_type="award.xp",
+                summary=f"+{total_xp} XP · {assignment.title}",
+                actor=parent,
+                subject=submission.user,
+                xp_delta=total_xp,
+                breakdown=xp_rows,
+                extras={"assignment_id": assignment.pk, "source": "homework"},
+            )
 
         # Evaluate badges.
-        BadgeService.evaluate_badges(submission.user)
+        BadgeService.evaluate_badges(submission.user, created_by=parent)
 
         # Notify child.
         notify(
@@ -263,7 +329,14 @@ class HomeworkService:
         if submission.status != HomeworkSubmission.Status.PENDING:
             return submission
 
-        finalize_decision(submission, HomeworkSubmission.Status.REJECTED, parent, notes)
+        finalize_decision(
+            submission, HomeworkSubmission.Status.REJECTED, parent, notes,
+            activity_category="approval",
+            activity_event_type="homework.reject",
+            activity_summary=f"Homework rejected: {submission.assignment.title}",
+            activity_subject=submission.user,
+            activity_extras={"assignment_id": submission.assignment_id},
+        )
 
         notify(
             submission.user,

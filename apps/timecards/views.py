@@ -70,6 +70,19 @@ class TimeEntryViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         entry = self.get_object()
         entry.status = "voided"
         entry.save()
+        from apps.activity.services import ActivityLogService
+        ActivityLogService.record(
+            category="timecard",
+            event_type="timecard.void",
+            summary=f"Voided time entry: {entry.project.title}",
+            actor=request.user,
+            subject=entry.user,
+            target=entry,
+            extras={
+                "project_id": entry.project_id,
+                "duration_minutes": entry.duration_minutes,
+            },
+        )
         return Response(TimeEntrySerializer(entry).data)
 
 

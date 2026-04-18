@@ -351,3 +351,19 @@ export const createQuest = (data) => api.post('/quests/', data);
 export const assignQuest = (definitionId, userId) =>
   api.post(`/quests/${definitionId}/assign/`, { user_id: userId });
 export const getFamilyQuests = () => api.get('/quests/family/');
+
+// Activity log (parent-only)
+export const listActivity = (params = {}) => {
+  const qs = Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+  return api.get(`/activity/${qs ? `?${qs}` : ''}`);
+};
+// Cursor pagination returns absolute next/previous URLs — call them as-is
+// minus the /api prefix the client auto-adds.
+export const fetchActivityUrl = (url) => {
+  if (!url) return Promise.resolve({ results: [], next: null, previous: null });
+  const path = url.replace(/^https?:\/\/[^/]+/, '').replace(/^\/api/, '');
+  return api.get(path);
+};

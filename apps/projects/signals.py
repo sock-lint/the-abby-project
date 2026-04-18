@@ -55,6 +55,27 @@ def handle_project_status_change(sender, instance, created, **kwargs):
         is_bounty = getattr(instance, "payment_kind", "required") == "bounty"
 
         if instance.assigned_to:
+            from apps.activity.services import ActivityLogService
+            ActivityLogService.record(
+                category="approval",
+                event_type="project.complete",
+                summary=f"Project complete: {instance.title}",
+                actor=instance.created_by,
+                subject=instance.assigned_to,
+                target=instance,
+                breakdown=[
+                    {"label": "payment kind",
+                     "value": "bounty" if is_bounty else "required",
+                     "op": "note"},
+                    {"label": "difficulty", "value": instance.difficulty, "op": "note"},
+                ],
+                extras={
+                    "project_id": instance.pk,
+                    "project_title": instance.title,
+                    "payment_kind": "bounty" if is_bounty else "required",
+                    "difficulty": instance.difficulty,
+                },
+            )
             coin_bonus = (25 if is_bounty else 10) * max(1, instance.difficulty)
             label = "Bounty payout" if is_bounty else "Project bonus"
             AwardService.grant(
@@ -105,6 +126,27 @@ def handle_milestone_completed(sender, instance, created, **kwargs):
     sender.objects.filter(pk=instance.pk).update(completed_at=timezone.now())
 
     user = instance.project.assigned_to
+
+    if user:
+        from apps.activity.services import ActivityLogService
+        ActivityLogService.record(
+            category="approval",
+            event_type="milestone.complete",
+            summary=f"Milestone: {instance.title}",
+            actor=None,
+            subject=user,
+            target=instance,
+            money_delta=instance.bonus_amount or None,
+            breakdown=[
+                {"label": "project", "value": instance.project.title, "op": "note"},
+                {"label": "bonus", "value": str(instance.bonus_amount or 0), "op": "note"},
+            ],
+            extras={
+                "project_id": instance.project_id,
+                "milestone_id": instance.pk,
+                "bonus_amount": str(instance.bonus_amount or 0),
+            },
+        )
 
     from apps.notifications.services import notify
     if user:

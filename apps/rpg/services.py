@@ -1,5 +1,6 @@
 import logging
 import random
+from contextlib import contextmanager
 from datetime import timedelta
 
 from django.db import transaction
@@ -94,10 +95,29 @@ class StreakService:
         )
         bonus_coins = int(BASE_CHECK_IN_COINS * multiplier)
 
+        from apps.activity.services import ActivityLogService
+        ActivityLogService.record(
+            category="rpg",
+            event_type="rpg.streak_updated",
+            summary=f"Streak is now {profile.login_streak} day(s)",
+            subject=user,
+            breakdown=[
+                {"label": "streak", "value": profile.login_streak, "op": "="},
+                {"label": "longest", "value": profile.longest_login_streak, "op": "note"},
+                {"label": "freeze consumed", "value": consumed_freeze, "op": "note"},
+            ],
+            extras={
+                "streak": profile.login_streak,
+                "longest_login_streak": profile.longest_login_streak,
+                "freeze_consumed": consumed_freeze,
+            },
+        )
+
         return {
             "is_first_today": True,
             "check_in_bonus_coins": bonus_coins,
             "streak": profile.login_streak,
+            "multiplier": round(multiplier, 2),
             "freeze_consumed": consumed_freeze,
         }
 
@@ -113,11 +133,31 @@ class DropService:
         Returns list of dicts: [{item_id, item_name, item_icon, item_type, item_rarity, quantity, was_salvaged}]
         """
         from apps.rpg.models import CharacterProfile, DropTable, DropLog, ItemDefinition, UserInventory
+        from apps.activity.services import ActivityLogService
 
-        effective_rate = BASE_DROP_RATES.get(trigger_type, 0.20) + streak_bonus
-        effective_rate = min(effective_rate, 1.0)
+        base_rate = BASE_DROP_RATES.get(trigger_type, 0.20)
+        effective_rate = min(base_rate + streak_bonus, 1.0)
+        roll = random.random()
 
-        if random.random() > effective_rate:
+        if roll > effective_rate:
+            ActivityLogService.record(
+                category="rpg",
+                event_type="rpg.drop_rolled",
+                summary=f"No drop ({trigger_type})",
+                subject=user,
+                breakdown=[
+                    {"label": "base rate", "value": base_rate, "op": "+"},
+                    {"label": "streak bonus", "value": round(streak_bonus, 3), "op": "="},
+                    {"label": "effective", "value": round(effective_rate, 3), "op": "note"},
+                    {"label": "rolled", "value": round(roll, 3), "op": "note"},
+                ],
+                extras={
+                    "trigger_type": str(trigger_type),
+                    "rolled": round(roll, 4),
+                    "effective_rate": round(effective_rate, 4),
+                    "dropped": False,
+                },
+            )
             return []
 
         # Get user level
@@ -170,9 +210,35 @@ class DropService:
                 inv.save(update_fields=["quantity", "updated_at"])
 
         # Log the drop
-        DropLog.objects.create(
+        drop_log = DropLog.objects.create(
             user=user, item=item, trigger_type=trigger_type,
             quantity=1, was_salvaged=was_salvaged,
+        )
+
+        ActivityLogService.record(
+            category="rpg",
+            event_type="rpg.drop_rolled",
+            summary=(f"Salvaged duplicate: {item.name}" if was_salvaged
+                     else f"Dropped: {item.name} ({item.rarity})"),
+            subject=user,
+            target=drop_log,
+            breakdown=[
+                {"label": "base rate", "value": base_rate, "op": "+"},
+                {"label": "streak bonus", "value": round(streak_bonus, 3), "op": "="},
+                {"label": "effective", "value": round(effective_rate, 3), "op": "note"},
+                {"label": "rolled", "value": round(roll, 3), "op": "note"},
+                {"label": "item", "value": f"{item.name} ({item.rarity})", "op": "note"},
+            ],
+            extras={
+                "trigger_type": str(trigger_type),
+                "rolled": round(roll, 4),
+                "effective_rate": round(effective_rate, 4),
+                "dropped": True,
+                "item_id": item.pk,
+                "item_name": item.name,
+                "item_rarity": item.rarity,
+                "was_salvaged": was_salvaged,
+            },
         )
 
         return [{
@@ -198,83 +264,125 @@ class GameLoopService:
         if context is None:
             context = {}
 
-        notifications = []
-
-        # Step 1: record daily activity
-        streak_result = StreakService.record_activity(user)
-
-        # Step 2: award check-in bonus coins if first activity today
-        bonus = streak_result["check_in_bonus_coins"]
-        if streak_result["is_first_today"] and bonus > 0:
-            from apps.rewards.models import CoinLedger
-            from apps.rewards.services import CoinService
-
-            CoinService.award_coins(
-                user,
-                bonus,
-                CoinLedger.Reason.ADJUSTMENT,
-                description="Daily check-in bonus",
-            )
-
-        # Step 3: streak milestone notification
-        streak = streak_result["streak"]
-        if streak in STREAK_MILESTONES:
-            from apps.notifications.services import notify
-
-            msg = f"Keep it up! You've been active {streak} days in a row."
-            notify(
-                user,
-                title=f"\U0001f525 {streak}-day streak!",
-                message=msg,
-                notification_type="streak_milestone",
-                link="/",
-            )
-            notifications.append(f"{streak}-day streak milestone")
-
-        # Step 4: Drop roll
-        # Callers can set ``context["drops_allowed"]=False`` to suppress the
-        # drop roll while still recording streak + quest progress — used by
-        # daily-capped triggers like ``homework_created`` to prevent farming
-        # via "create 50 assignments then delete them."
-        streak_bonus = min(
-            streak_result["streak"] * STREAK_DROP_BONUS_PER_DAY,
-            STREAK_DROP_BONUS_CAP,
+        from apps.activity.services import (
+            ActivityLogService, activity_scope, current_correlation_id,
         )
-        if context.get("drops_allowed", True):
-            drops = DropService.process_drops(user, trigger_type, streak_bonus)
-        else:
-            drops = []
 
-        if drops:
-            from apps.notifications.services import notify
+        # Re-enter the same scope if one is already open (chore approval
+        # already wrapped us); otherwise open a fresh correlation scope so
+        # every downstream emission shares one UUID.
+        scope_cm = (
+            activity_scope()
+            if current_correlation_id() is None
+            else _noop_scope()
+        )
 
-            drop_names = ", ".join(d["item_name"] for d in drops)
-            notify(
-                user,
-                title=f"Item dropped: {drop_names}",
-                message=f"You found {drop_names}!",
-                notification_type="badge_earned",
-                link="/inventory",
+        with scope_cm:
+            notifications = []
+
+            # Step 1: record daily activity
+            streak_result = StreakService.record_activity(user)
+
+            # Step 2: award check-in bonus coins if first activity today
+            bonus = streak_result["check_in_bonus_coins"]
+            if streak_result["is_first_today"] and bonus > 0:
+                from apps.rewards.models import CoinLedger
+                from apps.rewards.services import CoinService
+
+                # Suppress the inner ledger.coins.adjustment emission — the
+                # rpg.check_in_bonus row below is the canonical record of
+                # this calculation (base × multiplier = result).
+                with activity_scope(suppress_inner_ledger=True):
+                    CoinService.award_coins(
+                        user,
+                        bonus,
+                        CoinLedger.Reason.ADJUSTMENT,
+                        description="Daily check-in bonus",
+                    )
+                ActivityLogService.record(
+                    category="rpg",
+                    event_type="rpg.check_in_bonus",
+                    summary=f"Daily check-in bonus: +{bonus} coins",
+                    subject=user,
+                    coins_delta=int(bonus),
+                    breakdown=[
+                        {"label": "base", "value": BASE_CHECK_IN_COINS, "op": "×"},
+                        {"label": f"day {streak_result['streak']} multiplier",
+                         "value": streak_result["multiplier"], "op": "="},
+                        {"label": "coins awarded", "value": bonus, "op": "note"},
+                    ],
+                    extras={
+                        "base": BASE_CHECK_IN_COINS,
+                        "multiplier": streak_result["multiplier"],
+                        "streak": streak_result["streak"],
+                    },
+                )
+
+            # Step 3: streak milestone notification
+            streak = streak_result["streak"]
+            if streak in STREAK_MILESTONES:
+                from apps.notifications.services import notify
+
+                msg = f"Keep it up! You've been active {streak} days in a row."
+                notify(
+                    user,
+                    title=f"\U0001f525 {streak}-day streak!",
+                    message=msg,
+                    notification_type="streak_milestone",
+                    link="/",
+                )
+                notifications.append(f"{streak}-day streak milestone")
+
+            # Step 4: Drop roll
+            # Callers can set ``context["drops_allowed"]=False`` to suppress the
+            # drop roll while still recording streak + quest progress — used by
+            # daily-capped triggers like ``homework_created`` to prevent farming
+            # via "create 50 assignments then delete them."
+            streak_bonus = min(
+                streak_result["streak"] * STREAK_DROP_BONUS_PER_DAY,
+                STREAK_DROP_BONUS_CAP,
             )
+            if context.get("drops_allowed", True):
+                drops = DropService.process_drops(user, trigger_type, streak_bonus)
+            else:
+                drops = []
 
-        # Step 5: Quest progress
-        quest_result = None
-        try:
-            from apps.quests.services import QuestService
-            quest_result = QuestService.record_progress(user, trigger_type, context)
-        except Exception:
-            logger.exception("Quest progress failed for user %s", user.pk)
+            if drops:
+                from apps.notifications.services import notify
 
-        if quest_result and quest_result.get("completed"):
-            notifications.append(f"Quest complete: {quest_result['quest_name']}")
+                drop_names = ", ".join(d["item_name"] for d in drops)
+                notify(
+                    user,
+                    title=f"Item dropped: {drop_names}",
+                    message=f"You found {drop_names}!",
+                    notification_type="badge_earned",
+                    link="/inventory",
+                )
 
-        return {
-            "trigger_type": trigger_type,
-            "streak": streak_result,
-            "notifications": notifications,
-            "drops": drops,
-            "quest": quest_result,
-        }
+            # Step 5: Quest progress
+            quest_result = None
+            try:
+                from apps.quests.services import QuestService
+                quest_result = QuestService.record_progress(user, trigger_type, context)
+            except Exception:
+                logger.exception("Quest progress failed for user %s", user.pk)
+
+            if quest_result and quest_result.get("completed"):
+                notifications.append(f"Quest complete: {quest_result['quest_name']}")
+
+            return {
+                "trigger_type": trigger_type,
+                "streak": streak_result,
+                "notifications": notifications,
+                "drops": drops,
+                "quest": quest_result,
+            }
+
+
+@contextmanager
+def _noop_scope():
+    """No-op context manager used when we're already inside an activity scope."""
+    yield
 
 
 class ConsumableService:

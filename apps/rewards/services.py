@@ -34,7 +34,7 @@ class CoinService(BaseLedgerService):
     def award_coins(user, amount, reason, *, description="", created_by=None, redemption=None):
         if amount == 0:
             return None
-        return CoinLedger.objects.create(
+        entry = CoinLedger.objects.create(
             user=user,
             amount=int(amount),
             reason=reason,
@@ -42,6 +42,8 @@ class CoinService(BaseLedgerService):
             created_by=created_by,
             redemption=redemption,
         )
+        CoinService._record_activity(entry, created_by=created_by)
+        return entry
 
     @staticmethod
     def spend_coins(user, amount, reason, *, description="", redemption=None):
@@ -52,12 +54,41 @@ class CoinService(BaseLedgerService):
             raise InsufficientCoinsError(
                 f"Need {amount} coins, have {balance}."
             )
-        return CoinLedger.objects.create(
+        entry = CoinLedger.objects.create(
             user=user,
             amount=-int(amount),
             reason=reason,
             description=description,
             redemption=redemption,
+        )
+        CoinService._record_activity(entry, created_by=None)
+        return entry
+
+    @staticmethod
+    def _record_activity(entry, *, created_by):
+        """Emit a ledger.coins.* event unless an outer AwardService scope suppressed it."""
+        from apps.activity.services import ActivityLogService, ledger_suppressed
+
+        if ledger_suppressed():
+            return
+
+        direction = "+" if entry.amount >= 0 else ""
+        summary = (
+            entry.description
+            or f"Coins {direction}{entry.amount} ({entry.reason})"
+        )
+        ActivityLogService.record(
+            category="ledger",
+            event_type=f"ledger.coins.{entry.reason}",
+            summary=summary,
+            actor=created_by,
+            subject=entry.user,
+            target=entry,
+            coins_delta=int(entry.amount),
+            breakdown=[
+                {"label": entry.reason, "value": int(entry.amount), "op": "="},
+            ],
+            extras={"reason": entry.reason, "description": entry.description or ""},
         )
 
 
@@ -97,9 +128,36 @@ class RewardService:
         if reward.stock is not None:
             Reward.objects.filter(pk=reward.pk).update(stock=reward.stock - 1)
 
+        from apps.activity.services import ActivityLogService
+        ActivityLogService.record(
+            category="approval",
+            event_type="reward.redeem",
+            summary=f"Redemption requested: {reward.name}",
+            actor=user,
+            subject=user,
+            target=redemption,
+            coins_delta=-int(reward.cost_coins),
+            breakdown=[
+                {"label": "cost", "value": int(reward.cost_coins), "op": "="},
+                {"label": "reward", "value": reward.name, "op": "note"},
+            ],
+            extras={
+                "reward_id": reward.pk,
+                "reward_name": reward.name,
+                "cost_coins": int(reward.cost_coins),
+            },
+        )
+
         if not reward.requires_parent_approval:
             # Auto-fulfill: no parent decision, so decided_by stays null.
-            finalize_decision(redemption, RewardRedemption.Status.FULFILLED, None)
+            finalize_decision(
+                redemption, RewardRedemption.Status.FULFILLED, None,
+                activity_category="approval",
+                activity_event_type="reward.approve",
+                activity_summary=f"Redemption auto-fulfilled: {reward.name}",
+                activity_subject=user,
+                activity_extras={"reward_id": reward.pk, "auto": True},
+            )
         else:
             display = get_display_name(user)
             notify_parents(
@@ -115,7 +173,17 @@ class RewardService:
     def approve(redemption, parent, notes=""):
         if redemption.status != RewardRedemption.Status.PENDING:
             return redemption
-        finalize_decision(redemption, RewardRedemption.Status.FULFILLED, parent, notes)
+        finalize_decision(
+            redemption, RewardRedemption.Status.FULFILLED, parent, notes,
+            activity_category="approval",
+            activity_event_type="reward.approve",
+            activity_summary=f"Redemption approved: {redemption.reward.name}",
+            activity_subject=redemption.user,
+            activity_extras={
+                "reward_id": redemption.reward_id,
+                "coin_cost": int(redemption.coin_cost_snapshot),
+            },
+        )
         RewardService._maybe_credit_digital_item(redemption)
         return redemption
 
@@ -173,7 +241,17 @@ class RewardService:
         reward = redemption.reward
         if reward.stock is not None:
             Reward.objects.filter(pk=reward.pk).update(stock=reward.stock + 1)
-        finalize_decision(redemption, RewardRedemption.Status.DENIED, parent, notes)
+        finalize_decision(
+            redemption, RewardRedemption.Status.DENIED, parent, notes,
+            activity_category="approval",
+            activity_event_type="reward.reject",
+            activity_summary=f"Redemption rejected: {reward.name}",
+            activity_subject=redemption.user,
+            activity_extras={
+                "reward_id": reward.pk,
+                "refunded_coins": int(redemption.coin_cost_snapshot),
+            },
+        )
         return redemption
 
 
@@ -207,6 +285,26 @@ class ExchangeService:
             dollar_amount=dollar_amount,
             coin_amount=coin_amount,
             exchange_rate=rate,
+        )
+
+        from apps.activity.services import ActivityLogService
+        ActivityLogService.record(
+            category="approval",
+            event_type="exchange.request",
+            summary=f"Exchange requested: ${dollar_amount} → {coin_amount} coins",
+            actor=user,
+            subject=user,
+            target=exchange,
+            breakdown=[
+                {"label": "dollars", "value": str(dollar_amount), "op": "×"},
+                {"label": "rate", "value": int(rate), "op": "="},
+                {"label": "coins", "value": coin_amount, "op": "note"},
+            ],
+            extras={
+                "dollar_amount": str(dollar_amount),
+                "coin_amount": coin_amount,
+                "exchange_rate": int(rate),
+            },
         )
 
         display = get_display_name(user)
@@ -254,7 +352,20 @@ class ExchangeService:
             created_by=parent,
         )
 
-        finalize_decision(exchange, ExchangeRequest.Status.APPROVED, parent, notes)
+        finalize_decision(
+            exchange, ExchangeRequest.Status.APPROVED, parent, notes,
+            activity_category="approval",
+            activity_event_type="exchange.approve",
+            activity_summary=(
+                f"Exchange approved: ${dollar_amount} → {coin_amount} coins"
+            ),
+            activity_subject=user,
+            activity_extras={
+                "dollar_amount": str(dollar_amount),
+                "coin_amount": coin_amount,
+                "exchange_rate": int(exchange.exchange_rate),
+            },
+        )
         logger.info("Exchange approved: user=%s $%s -> %d coins", user, dollar_amount, coin_amount)
 
         notify(
@@ -279,7 +390,17 @@ class ExchangeService:
         if exchange.status != ExchangeRequest.Status.PENDING:
             return exchange
 
-        finalize_decision(exchange, ExchangeRequest.Status.DENIED, parent, notes)
+        finalize_decision(
+            exchange, ExchangeRequest.Status.DENIED, parent, notes,
+            activity_category="approval",
+            activity_event_type="exchange.deny",
+            activity_summary=f"Exchange denied: ${exchange.dollar_amount}",
+            activity_subject=exchange.user,
+            activity_extras={
+                "dollar_amount": str(exchange.dollar_amount),
+                "coin_amount": exchange.coin_amount,
+            },
+        )
 
         msg = f"Your exchange of ${exchange.dollar_amount} was denied."
         if notes:

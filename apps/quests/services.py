@@ -156,8 +156,34 @@ class QuestService:
         quest.current_progress += damage
         participant.contribution += damage
 
+        prior_progress = quest.current_progress - damage
         quest.save(update_fields=["current_progress", "updated_at"])
         participant.save(update_fields=["contribution", "updated_at"])
+
+        from apps.activity.services import ActivityLogService
+        ActivityLogService.record(
+            category="quest",
+            event_type="quest.progress",
+            summary=f"Quest progress: {definition.name} +{damage}",
+            subject=user,
+            target=quest,
+            breakdown=[
+                {"label": "trigger", "value": str(trigger_type), "op": "note"},
+                {"label": "damage", "value": damage, "op": "+"},
+                {"label": "progress",
+                 "value": f"{prior_progress} → {quest.current_progress}/{quest.effective_target}",
+                 "op": "note"},
+            ],
+            extras={
+                "quest_id": quest.pk,
+                "quest_name": definition.name,
+                "trigger_type": str(trigger_type),
+                "damage_dealt": damage,
+                "prior_progress": prior_progress,
+                "new_progress": quest.current_progress,
+                "target": quest.effective_target,
+            },
+        )
 
         # Check completion
         completed = False
@@ -236,6 +262,31 @@ class QuestService:
             link="/quests",
         )
 
+        from apps.activity.services import ActivityLogService
+        ActivityLogService.record(
+            category="quest",
+            event_type="quest.complete",
+            summary=f"Quest complete: {definition.name}",
+            subject=user,
+            target=quest,
+            coins_delta=int(rewards["coins"]) or None,
+            xp_delta=int(rewards["xp"]) or None,
+            breakdown=[
+                {"label": "coins", "value": rewards["coins"], "op": "note"},
+                {"label": "xp", "value": rewards["xp"], "op": "note"},
+                {"label": "items",
+                 "value": ", ".join(i["item_name"] for i in rewards["items"]) or "—",
+                 "op": "note"},
+            ],
+            extras={
+                "quest_id": quest.pk,
+                "quest_name": definition.name,
+                "coin_reward": rewards["coins"],
+                "xp_reward": rewards["xp"],
+                "item_rewards": rewards["items"],
+            },
+        )
+
         logger.info("User %s completed quest: %s", user.username, definition.name)
         return rewards
 
@@ -244,12 +295,37 @@ class QuestService:
         """Expire all active quests past their end_date. Called by Celery task."""
         from apps.quests.models import Quest
 
-        expired = Quest.objects.filter(
-            status=Quest.Status.ACTIVE,
-            end_date__lt=timezone.now(),
-        ).update(status=Quest.Status.EXPIRED)
+        to_expire = list(
+            Quest.objects.filter(
+                status=Quest.Status.ACTIVE,
+                end_date__lt=timezone.now(),
+            ).select_related("definition").prefetch_related("participants__user")
+        )
+        if not to_expire:
+            return 0
 
-        return expired
+        ids = [q.pk for q in to_expire]
+        Quest.objects.filter(pk__in=ids).update(status=Quest.Status.EXPIRED)
+
+        from apps.activity.services import ActivityLogService
+        for quest in to_expire:
+            for participant in quest.participants.all():
+                ActivityLogService.record(
+                    category="system",
+                    event_type="system.quest_expire",
+                    summary=f"Quest expired: {quest.definition.name}",
+                    actor=None,
+                    subject=participant.user,
+                    target=quest,
+                    extras={
+                        "quest_id": quest.pk,
+                        "quest_name": quest.definition.name,
+                        "progress": quest.current_progress,
+                        "target": quest.effective_target,
+                    },
+                )
+
+        return len(to_expire)
 
     @staticmethod
     def apply_boss_rage():
@@ -275,6 +351,8 @@ class QuestService:
             definition__quest_type="boss",
         )
 
+        from apps.activity.services import ActivityLogService
+
         raged = 0
         decayed = 0
         for quest in active_bosses:
@@ -282,18 +360,62 @@ class QuestService:
                 updated_at__date=today,
             ).exists()
 
+            prior = quest.rage_shield
             if not had_progress and quest.rage_shield < RAGE_SHIELD_CAP:
                 quest.rage_shield = min(
                     quest.rage_shield + RAGE_SHIELD_STEP, RAGE_SHIELD_CAP,
                 )
                 quest.save(update_fields=["rage_shield", "updated_at"])
                 raged += 1
+                QuestService._log_rage_event(
+                    quest, prior, direction="up",
+                )
             elif had_progress and quest.rage_shield > 0:
                 quest.rage_shield = max(quest.rage_shield - RAGE_SHIELD_STEP, 0)
                 quest.save(update_fields=["rage_shield", "updated_at"])
                 decayed += 1
+                QuestService._log_rage_event(
+                    quest, prior, direction="down",
+                )
 
         return {"raged": raged, "decayed": decayed}
+
+    @staticmethod
+    def _log_rage_event(quest, prior, direction):
+        from apps.activity.services import ActivityLogService
+
+        for participant in quest.participants.select_related("user").all():
+            ActivityLogService.record(
+                category="system",
+                event_type="system.rage_shield_tick",
+                summary=(
+                    f"{quest.definition.name}: rage "
+                    f"{prior} → {quest.rage_shield}"
+                    + (" (idle day)" if direction == "up" else " (active day)")
+                ),
+                actor=None,
+                subject=participant.user,
+                target=quest,
+                breakdown=[
+                    {"label": "prior", "value": prior, "op": "+"},
+                    {
+                        "label": "step",
+                        "value": (
+                            f"+{RAGE_SHIELD_STEP}"
+                            if direction == "up"
+                            else f"-{RAGE_SHIELD_STEP}"
+                        ),
+                        "op": "=",
+                    },
+                    {"label": "now", "value": quest.rage_shield, "op": "note"},
+                ],
+                extras={
+                    "quest_id": quest.pk,
+                    "direction": direction,
+                    "prior": prior,
+                    "new": quest.rage_shield,
+                },
+            )
 
     @staticmethod
     def get_active_quest(user):
