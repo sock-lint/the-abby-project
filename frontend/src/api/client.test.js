@@ -280,3 +280,116 @@ describe('getBlob', () => {
     expect(Sentry.captureException).toHaveBeenCalled();
   });
 });
+
+describe('401 self-heal', () => {
+  // jsdom marks Location.reload as non-configurable, so we can't redefine the
+  // method on the real object. Swap the whole `window.location` with a plain
+  // stub that only exposes what the client's 401 branch touches (reload).
+  // Scoped to this describe so the rest of the suite keeps the real location.
+  let reloadSpy;
+  let originalLocation;
+
+  beforeEach(() => {
+    reloadSpy = vi.fn();
+    originalLocation = window.location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      writable: true,
+      // Preserve the URL-ish fields fetch() uses to resolve relative URLs
+      // (origin, href, etc.); only stub the one method our code calls.
+      value: {
+        href: originalLocation.href,
+        origin: originalLocation.origin,
+        protocol: originalLocation.protocol,
+        host: originalLocation.host,
+        hostname: originalLocation.hostname,
+        port: originalLocation.port,
+        pathname: originalLocation.pathname,
+        search: originalLocation.search,
+        hash: originalLocation.hash,
+        reload: reloadSpy,
+      },
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      writable: true,
+      value: originalLocation,
+    });
+  });
+
+  it('clears the token and reloads when request() gets a 401 on an authed call', async () => {
+    setToken('stale-token');
+    server.use(
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({ detail: 'Invalid token.' }, { status: 401 }),
+      ),
+    );
+
+    await expect(api.get('/dashboard/')).rejects.toThrow();
+
+    expect(localStorage.getItem('abby_auth_token')).toBeNull();
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT reload when request() gets a 401 without an Authorization header (boot-time getMe)', async () => {
+    // No token stored — first-time visitor or freshly-cleared localStorage.
+    server.use(
+      http.get('*/api/auth/me/', () =>
+        HttpResponse.json(
+          { detail: 'Authentication credentials were not provided.' },
+          { status: 401 },
+        ),
+      ),
+    );
+
+    await expect(api.get('/auth/me/')).rejects.toThrow();
+
+    expect(reloadSpy).not.toHaveBeenCalled();
+  });
+
+  it('does NOT reload on a failed login attempt (no auth header sent)', async () => {
+    server.use(
+      http.post('*/api/auth/', () =>
+        HttpResponse.json({ error: 'Invalid credentials' }, { status: 401 }),
+      ),
+    );
+
+    await expect(
+      api.post('/auth/', { action: 'login', username: 'x', password: 'y' }),
+    ).rejects.toThrow('Invalid credentials');
+
+    expect(reloadSpy).not.toHaveBeenCalled();
+  });
+
+  it('clears the token and reloads when getBlob() gets a 401 on an authed call', async () => {
+    setToken('stale-token');
+    server.use(
+      http.get('*/api/timecards/export.csv', () =>
+        HttpResponse.json({ detail: 'Invalid token.' }, { status: 401 }),
+      ),
+    );
+
+    await expect(getBlob('/timecards/export.csv')).rejects.toThrow();
+
+    expect(localStorage.getItem('abby_auth_token')).toBeNull();
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT reload when getBlob() gets a 401 without a stored token', async () => {
+    server.use(
+      http.get('*/api/timecards/export.csv', () =>
+        HttpResponse.json(
+          { detail: 'Authentication credentials were not provided.' },
+          { status: 401 },
+        ),
+      ),
+    );
+
+    await expect(getBlob('/timecards/export.csv')).rejects.toThrow();
+
+    expect(reloadSpy).not.toHaveBeenCalled();
+  });
+});

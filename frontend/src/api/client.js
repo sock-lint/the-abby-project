@@ -36,6 +36,7 @@ async function request(path, options = {}) {
   if (config.body instanceof FormData) {
     delete config.headers['Content-Type'];
   }
+  const hadAuth = Boolean(config.headers?.Authorization);
   const res = await fetch(url, config);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -47,6 +48,18 @@ async function request(path, options = {}) {
       level: 'error',
       data: { status: res.status, url, response: errorMessage },
     });
+
+    // Self-heal on a stale token: if we sent an Authorization header and
+    // the server rejected it, the stored token is no longer valid (the
+    // token row went away during a redeploy, got rotated, etc). Clear it
+    // and reload so AuthProvider's boot flow lands on the Login page
+    // without requiring users to manually purge browser session data.
+    // Skipped when no auth header was sent — that path is legitimate
+    // anonymous access (boot-time getMe, login-form credential retries).
+    if (res.status === 401 && hadAuth) {
+      setToken(null);
+      window.location.reload();
+    }
 
     if (res.status >= 500) {
       Sentry.captureException(
@@ -88,6 +101,7 @@ export const api = {
 export async function getBlob(path) {
   const url = `${BASE}${path}`;
   const token = getToken();
+  const hadAuth = Boolean(token);
   const res = await fetch(url, {
     headers: token ? { Authorization: `Token ${token}` } : {},
   });
@@ -100,6 +114,12 @@ export async function getBlob(path) {
       level: 'error',
       data: { status: res.status, url },
     });
+
+    // Same self-heal path as `request()` — see that function's comment.
+    if (res.status === 401 && hadAuth) {
+      setToken(null);
+      window.location.reload();
+    }
 
     if (res.status >= 500) {
       Sentry.captureException(

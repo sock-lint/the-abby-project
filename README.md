@@ -241,6 +241,13 @@ the frontend stores in `localStorage` and sends on every request as:
 Authorization: Token <key>
 ```
 
+If any API call returns `401` on a request that carried an `Authorization`
+header, the frontend fetch wrapper clears the stored token and reloads the
+page. This self-heal routes the user back to the Login screen automatically
+when a stored token has gone stale, rather than leaving the SPA stuck sending
+an invalid header. Login attempts and anonymous requests (no `Authorization`
+header sent) are exempt — they surface the 401 as a normal error.
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/auth/` | Login (`{"action": "login", "username": "...", "password": "..."}`) — returns `{...user, "token": "<key>"}`. Logout (`{"action": "logout"}`) — revokes the caller's token. |
