@@ -247,3 +247,73 @@ class RegisterSpriteBatchTests(TestCase):
         )
         self.assertEqual(result["registered"][0]["frame_count"], 4)
         self.assertEqual(result["registered"][0]["frame_width_px"], 32)
+
+
+class RegisterSpriteBatchPartialFailureTests(TestCase):
+    def setUp(self):
+        self.parent = User.objects.create_user(username="p5", password="pw", role="parent")
+
+    def test_out_of_bounds_tile_skipped_others_registered(self):
+        sheet = _png_bytes((64, 32))  # 2x1 tiles at tile_size=32
+        result = register_sprite_batch(
+            sheet_b64=base64.b64encode(sheet).decode(),
+            tile_size=32,
+            tiles=[
+                {"slug": "good", "col": 0, "row": 0},
+                {"slug": "bad", "col": 5, "row": 0},  # out of bounds
+            ],
+            actor=self.parent,
+        )
+        self.assertEqual(len(result["registered"]), 1)
+        self.assertEqual(len(result["skipped"]), 1)
+        self.assertEqual(result["skipped"][0]["slug"], "bad")
+        self.assertIn("out of bounds", result["skipped"][0]["reason"])
+
+    def test_slug_collision_reported_in_skipped(self):
+        # Pre-seed a sprite with slug "taken"
+        seed = base64.b64encode(_png_bytes((16, 16))).decode()
+        register_sprite(slug="taken", image_b64=seed, actor=self.parent)
+
+        sheet = _png_bytes((64, 32))
+        result = register_sprite_batch(
+            sheet_b64=base64.b64encode(sheet).decode(),
+            tile_size=32,
+            tiles=[{"slug": "taken", "col": 0, "row": 0}],
+            actor=self.parent,
+        )
+        self.assertEqual(result["registered"], [])
+        self.assertEqual(len(result["skipped"]), 1)
+        self.assertIn("already exists", result["skipped"][0]["reason"])
+
+    def test_missing_required_tile_keys_reported_in_skipped(self):
+        sheet = _png_bytes((64, 32))
+        result = register_sprite_batch(
+            sheet_b64=base64.b64encode(sheet).decode(),
+            tile_size=32,
+            tiles=[
+                {"slug": "ok", "col": 0, "row": 0},
+                {"col": 1, "row": 0},  # missing slug
+                {"slug": "no-col", "row": 0},  # missing col
+            ],
+            actor=self.parent,
+        )
+        self.assertEqual(len(result["registered"]), 1)
+        self.assertEqual(len(result["skipped"]), 2)
+        # The missing-slug one reports "<unknown>"; the other reports its slug
+        slugs_reported = {s["slug"] for s in result["skipped"]}
+        self.assertIn("<unknown>", slugs_reported)
+        self.assertIn("no-col", slugs_reported)
+        for s in result["skipped"]:
+            self.assertIn("missing required keys", s["reason"])
+
+    def test_nonpositive_tile_size_raises(self):
+        sheet = _png_bytes((64, 32))
+        for bad in (0, -1):
+            with self.assertRaises(SpriteAuthoringError) as ctx:
+                register_sprite_batch(
+                    sheet_b64=base64.b64encode(sheet).decode(),
+                    tile_size=bad,
+                    tiles=[{"slug": "x", "col": 0, "row": 0}],
+                    actor=self.parent,
+                )
+            self.assertIn("tile_size", str(ctx.exception))
