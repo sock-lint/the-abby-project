@@ -31,16 +31,33 @@ from apps.rpg.sprite_authoring import SpriteAuthoringError
 DEFAULT_MAX_FRAMES = 8
 ALLOWED_TILE_SIZES = (32, 64, 128)
 
+# Fraction of the tile left as transparent border on each side after
+# autocenter. 0.10 means the subject occupies the middle 80% of the tile.
+AUTOCENTER_PADDING_FRAC = 0.10
+
+# Four-phase cyclic walk for quadrupeds (foxes have 4 legs, not 2).
+# Order is intentional: frame 4 naturally leads back to frame 1 because
+# "passing" is the pose that precedes each "contact" — so the loop
+# is right-contact → passing → left-contact → passing → right-contact
+# instead of the biped-flavoured sequence v1 used.
 WALK_CYCLE_TEMPLATE = (
-    "neutral stance, weight on both legs",
-    "right leg forward, mid-stride",
-    "mid-stride, weight centered",
-    "left leg forward, mid-stride",
+    "right-contact pose: right front leg planted forward, left rear leg "
+    "planted back, body weight shifted onto the right side, tail slightly raised",
+    "passing pose: all four legs passing under the body, weight centered, "
+    "mid-bounce with the body at its highest point of the stride",
+    "left-contact pose: left front leg planted forward, right rear leg "
+    "planted back, body weight shifted onto the left side, tail slightly raised",
+    "passing pose: all four legs passing under the body, weight centered, "
+    "mid-bounce with the body at its highest point of the stride (opposite "
+    "leg set from the previous passing pose)",
 )
 
 PROMPT_SUFFIX = (
-    " Pixel art style. Transparent background. Centered subject, "
-    "full body visible. No text, no UI, no borders, no watermark."
+    " Pixel art style. Fully transparent background — no scene, no ground, "
+    "no shadow. The subject MUST occupy the center of the frame with equal "
+    "space on all sides; do not place the subject in any corner. The subject "
+    "MUST be at the same scale as any reference image provided (do not zoom "
+    "in or out). No text, no UI, no borders, no watermark, no caption."
 )
 
 
@@ -110,14 +127,42 @@ def _generate_frame(
     return _extract_png_bytes(response)
 
 
-def _resize_to_tile(png_bytes: bytes, tile_size: int) -> bytes:
+def _autocenter_frame(png_bytes: bytes, tile_size: int) -> bytes:
+    """Crop to the subject's alpha bounding box, scale to fit inside the
+    tile with ``AUTOCENTER_PADDING_FRAC`` transparent border on each
+    side, and paste onto a transparent canvas of exactly ``tile_size``
+    squared. Deterministic post-processing that fixes composition drift
+    in Gemini's per-frame output — the reference image passed to the
+    next call is always subject-centered at the same scale, so
+    iterative generation has a stable spatial grounding.
+    """
     try:
         src = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
     except (UnidentifiedImageError, OSError) as exc:
         raise SpriteGenerationError(f"Gemini returned an invalid image: {exc}")
-    tile = src.resize((tile_size, tile_size), Image.LANCZOS)
+
+    canvas = Image.new("RGBA", (tile_size, tile_size), (0, 0, 0, 0))
+    bbox = src.getbbox()
+    if bbox is None:
+        # Fully transparent input — return an empty tile rather than crash.
+        out = io.BytesIO()
+        canvas.save(out, format="PNG")
+        return out.getvalue()
+
+    cropped = src.crop(bbox)
+    cw, ch = cropped.size
+    inner = max(1, int(round(tile_size * (1 - 2 * AUTOCENTER_PADDING_FRAC))))
+    scale = inner / max(cw, ch)
+    new_w = max(1, int(round(cw * scale)))
+    new_h = max(1, int(round(ch * scale)))
+    scaled = cropped.resize((new_w, new_h), Image.LANCZOS)
+
+    x = (tile_size - new_w) // 2
+    y = (tile_size - new_h) // 2
+    canvas.paste(scaled, (x, y))
+
     out = io.BytesIO()
-    tile.save(out, format="PNG")
+    canvas.save(out, format="PNG")
     return out.getvalue()
 
 
@@ -185,21 +230,28 @@ def generate_sprite_sheet(
     if frame_count == 1:
         full_prompt = _build_prompt(subject=prompt, style_hint=style_hint)
         raw = _generate_frame(prompt=full_prompt)
-        frames.append(_resize_to_tile(raw, tile_size))
+        frames.append(_autocenter_frame(raw, tile_size))
     else:
         # Frame 1 — text-only prompt, no reference.
         first_note = f"Frame 1 of {frame_count}: {WALK_CYCLE_TEMPLATE[0]}"
         first_raw = _generate_frame(prompt=_build_prompt(
             subject=prompt, style_hint=style_hint, frame_note=first_note,
         ))
-        frames.append(_resize_to_tile(first_raw, tile_size))
-        # Frames 2..N — each passes the previous (already tile-sized) frame.
+        frames.append(_autocenter_frame(first_raw, tile_size))
+        # Frames 2..N — each passes the previous autocentered frame as
+        # reference. Autocenter BEFORE using as reference so Gemini sees
+        # a subject-centered image, giving consistent spatial grounding
+        # across frames (prevents composition drift + makes the loop cycle).
         for i in range(1, frame_count):
             motion = WALK_CYCLE_TEMPLATE[i % len(WALK_CYCLE_TEMPLATE)]
             frame_note = (
                 f"Frame {i + 1} of {frame_count}: {motion}. "
-                "Keep the same character design, palette, and proportions "
-                "as the reference frame — only adjust the pose."
+                "This MUST be the EXACT same character from the reference "
+                "image — identical head shape, body proportions, color "
+                "palette, fur markings, and silhouette. Only the leg "
+                "positions change to show the new pose. The character must "
+                "occupy the same central position and the same size as the "
+                "reference. Do not zoom, pan, or redesign the character."
             )
             raw = _generate_frame(
                 prompt=_build_prompt(
@@ -207,7 +259,7 @@ def generate_sprite_sheet(
                 ),
                 reference_png=frames[-1],
             )
-            frames.append(_resize_to_tile(raw, tile_size))
+            frames.append(_autocenter_frame(raw, tile_size))
 
     sheet_bytes = frames[0] if frame_count == 1 else _stitch_strip(frames, tile_size)
 
