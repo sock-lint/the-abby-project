@@ -127,3 +127,45 @@ class RegisterSpriteValidationTests(TestCase):
                 actor=self.parent,
             )
         self.assertIn("divisible", str(ctx.exception))
+
+
+class RegisterSpriteAnimatedTests(TestCase):
+    def setUp(self):
+        self.parent = User.objects.create_user(username="p2", password="pw", role="parent")
+
+    def test_horizontal_strip_4_frames(self):
+        # 128x32 = 4 frames of 32x32
+        png = _png_bytes((128, 32))
+        result = register_sprite(
+            slug="flame", image_b64=base64.b64encode(png).decode(),
+            frame_count=4, fps=6, frame_layout="horizontal",
+            actor=self.parent,
+        )
+        self.assertEqual(result["frame_count"], 4)
+        self.assertEqual(result["fps"], 6)
+        self.assertEqual(result["frame_width_px"], 32)
+        self.assertEqual(result["frame_height_px"], 32)
+        self.assertEqual(result["frame_layout"], "horizontal")
+        row = SpriteAsset.objects.get(slug="flame")
+        self.assertEqual(row.frame_count, 4)
+        self.assertEqual(row.fps, 6)
+        self.assertEqual(row.frame_width_px, 32)
+        self.assertEqual(row.frame_layout, "horizontal")
+
+    def test_vertical_strip_3_frames(self):
+        png = _png_bytes((16, 48))  # 3 frames of 16x16
+        result = register_sprite(
+            slug="coin", image_b64=base64.b64encode(png).decode(),
+            frame_count=3, fps=8, frame_layout="vertical",
+            actor=self.parent,
+        )
+        self.assertEqual(result["frame_count"], 3)
+        self.assertEqual(result["fps"], 8)
+        self.assertEqual(result["frame_width_px"], 16)
+        self.assertEqual(result["frame_height_px"], 16)
+        self.assertEqual(result["frame_layout"], "vertical")
+        row = SpriteAsset.objects.get(slug="coin")
+        self.assertEqual(row.frame_count, 3)
+        self.assertEqual(row.fps, 8)
+        self.assertEqual(row.frame_height_px, 16)
+        self.assertEqual(row.frame_layout, "vertical")
