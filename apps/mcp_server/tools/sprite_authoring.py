@@ -14,13 +14,16 @@ from __future__ import annotations
 from typing import Any
 
 from apps.rpg import sprite_authoring as svc
+from apps.rpg import sprite_generation as gen_svc
 from apps.rpg.models import SpriteAsset
 from apps.rpg.sprite_authoring import SpriteAuthoringError
+from apps.rpg.sprite_generation import SpriteGenerationError
 
 from ..context import require_parent, get_current_user
 from ..errors import MCPValidationError, safe_tool
 from ..schemas import (
     DeleteSpriteIn,
+    GenerateSpriteSheetIn,
     ListSpritesIn,
     RegisterSpriteBatchIn,
     RegisterSpriteIn,
@@ -31,7 +34,7 @@ from ..server import tool
 def _wrap_svc_call(fn, **kwargs) -> dict[str, Any]:
     try:
         return fn(**kwargs)
-    except SpriteAuthoringError as exc:
+    except (SpriteAuthoringError, SpriteGenerationError) as exc:
         raise MCPValidationError(str(exc))
 
 
@@ -109,6 +112,35 @@ def list_sprites(params: ListSpritesIn) -> dict[str, Any]:
             for a in qs
         ],
     }
+
+
+@tool()
+@safe_tool
+def generate_sprite_sheet(params: GenerateSpriteSheetIn) -> dict[str, Any]:
+    """Generate a sprite (static or animated strip) from a text prompt.
+
+    Parent-only. Calls Google's Gemini 3 Pro Image ("Nano Banana Pro") to
+    produce pixel-art frames, then hands the result to ``register_sprite``
+    so the new slug lands in the public sprite catalog immediately. For
+    animations, each frame after the first passes the previous frame as a
+    reference image so character design stays consistent across frames.
+
+    Requires ``GEMINI_API_KEY`` in settings. ``frame_count`` is capped by
+    ``SPRITE_GENERATION_MAX_FRAMES`` (default 8).
+    """
+    require_parent()
+    return _wrap_svc_call(
+        gen_svc.generate_sprite_sheet,
+        slug=params.slug,
+        prompt=params.prompt,
+        frame_count=params.frame_count,
+        tile_size=params.tile_size,
+        fps=params.fps,
+        pack=params.pack,
+        style_hint=params.style_hint,
+        overwrite=params.overwrite,
+        actor=get_current_user(),
+    )
 
 
 @tool()

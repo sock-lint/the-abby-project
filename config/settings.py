@@ -165,6 +165,16 @@ HOMEWORK_LATE_CUTOFF_DAYS = 3
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
 
+# --- Google Gemini (sprite generation) ------------------------------------
+# Optional. When set, enables the ``generate_sprite_sheet`` MCP tool which
+# calls Gemini 3 Pro Image ("Nano Banana Pro") to produce pixel-art sprite
+# sheets from a text prompt. Empty disables the tool (raises at call time).
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-3-pro-image-preview")
+# Hard cap on per-call frame count — bounds worst-case API spend per
+# invocation (each frame is one image-generation call).
+SPRITE_GENERATION_MAX_FRAMES = 8
+
 # --- Google OAuth / Calendar ------------------------------------------------
 # Optional. When set, enables "Sign in with Google" and Google Calendar sync.
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")

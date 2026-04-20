@@ -10,7 +10,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -1334,3 +1334,39 @@ class ListSpritesIn(_Base):
 
 class DeleteSpriteIn(_Base):
     slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
+
+
+SPRITE_TILE_SIZES = (32, 64, 128)
+
+
+class GenerateSpriteSheetIn(_Base):
+    """Input to the ``generate_sprite_sheet`` MCP tool.
+
+    Frame-count / fps cross-validation mirrors ``SpriteAsset.clean()`` so
+    invalid combinations fail fast at pydantic construction, before the
+    tool ever runs and before the Gemini SDK is loaded.
+    """
+
+    slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
+    prompt: str = Field(min_length=3, max_length=500)
+    frame_count: int = Field(default=1, ge=1, le=8)
+    tile_size: int = Field(default=64)
+    fps: int = Field(default=0, ge=0, le=30)
+    pack: str = Field(default="ai-generated", max_length=40)
+    style_hint: str = Field(default="", max_length=200)
+    overwrite: bool = False
+
+    @field_validator("tile_size")
+    @classmethod
+    def _tile_size_in_scale(cls, v: int) -> int:
+        if v not in SPRITE_TILE_SIZES:
+            raise ValueError(f"tile_size must be one of {SPRITE_TILE_SIZES}")
+        return v
+
+    @model_validator(mode="after")
+    def _frames_and_fps(self) -> "GenerateSpriteSheetIn":
+        if self.frame_count == 1 and self.fps != 0:
+            raise ValueError("static sprites (frame_count == 1) require fps == 0")
+        if self.frame_count > 1 and self.fps < 1:
+            raise ValueError("animated sprites (frame_count > 1) require fps >= 1")
+        return self
