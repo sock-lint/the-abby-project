@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { getTimecards, getTimecard, approveTimecard, disputeTimecard, markTimecardPaid } from '../api';
 import { useApi } from '../hooks/useApi';
 import EmptyState from '../components/EmptyState';
+import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
 import StatusBadge from '../components/StatusBadge';
 import ParchmentCard from '../components/journal/ParchmentCard';
@@ -18,6 +19,7 @@ export default function Timecards() {
   const { data, loading, reload } = useApi(getTimecards);
   const [expandedId, setExpandedId] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [error, setError] = useState('');
 
   const timecards = normalizeList(data);
 
@@ -33,6 +35,7 @@ export default function Timecards() {
   };
 
   const handleAction = async (id, action) => {
+    setError('');
     try {
       if (action === 'approve') await approveTimecard(id, '');
       else if (action === 'dispute') await disputeTimecard(id);
@@ -42,7 +45,7 @@ export default function Timecards() {
       }
       reload();
     } catch (err) {
-      alert(err.message);
+      setError(err.message);
     }
   };
 
@@ -66,6 +69,8 @@ export default function Timecards() {
           <Download size={14} /> scribe a copy (CSV)
         </a>
       </header>
+
+      <ErrorAlert message={error} />
 
       {timecards.length === 0 ? (
         <EmptyState icon={<ScrollIcon size={36} />}>

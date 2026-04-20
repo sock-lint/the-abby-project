@@ -13,6 +13,7 @@ import { useApi } from '../hooks/useApi';
 import { useConfirmState } from '../hooks/useConfirmState';
 import { useRole } from '../hooks/useRole';
 import ConfirmDialog from '../components/ConfirmDialog';
+import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
 import ProjectHeader from './project/ProjectHeader';
 import OverviewTab from './project/OverviewTab';
@@ -41,6 +42,7 @@ export default function ProjectDetail() {
   const [addStepMilestoneId, setAddStepMilestoneId] = useState(null);
   const [addResourceOpen, setAddResourceOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [error, setError] = useState('');
   const { confirmState, askConfirm, closeConfirm } = useConfirmState();
 
   if (loading) return <Loader />;
@@ -65,6 +67,7 @@ export default function ProjectDetail() {
   };
 
   const handleAction = async (action) => {
+    setError('');
     try {
       if (action === 'activate') await activateProject(id);
       else if (action === 'submit') await submitProject(id);
@@ -75,17 +78,18 @@ export default function ProjectDetail() {
       }
       reload();
     } catch (err) {
-      alert(err.message);
+      setError(err.message);
     }
   };
 
   const submitRequestChanges = async (notes) => {
+    setError('');
     try {
       await requestChanges(id, notes);
       setChangesOpen(false);
       reload();
     } catch (err) {
-      alert(err.message);
+      setError(err.message);
     }
   };
 
@@ -143,6 +147,8 @@ export default function ProjectDetail() {
         onEdit={() => setEditOpen(true)}
         onOpenQR={() => setQrOpen(true)}
       />
+
+      <ErrorAlert message={error} />
 
       <div className="flex gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow">
         {tabs.map((tab) => (
