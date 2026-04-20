@@ -105,3 +105,17 @@ class SpriteAuthoringToolTests(TestCase):
             self.assertEqual(result["skipped"], [])
         finally:
             reset_current_user(tok)
+
+    def test_all_four_tools_registered_with_fastmcp(self):
+        """Guard against a regression where the sprite_authoring module
+        is not imported by server.py — the @tool() decorators only fire
+        on import, so a missing import silently drops the tools from the
+        MCP surface.
+        """
+        from apps.mcp_server.server import mcp
+        import asyncio
+        tool_names = {t.name for t in asyncio.run(mcp.list_tools())}
+        self.assertIn("register_sprite", tool_names)
+        self.assertIn("register_sprite_batch", tool_names)
+        self.assertIn("list_sprites", tool_names)
+        self.assertIn("delete_sprite", tool_names)

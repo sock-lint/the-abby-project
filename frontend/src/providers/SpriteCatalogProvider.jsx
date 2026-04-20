@@ -50,30 +50,22 @@ export function SpriteCatalogProvider({ children }) {
     return () => { cancelled = true; };
   }, []);
 
-  // Emit @keyframes for each distinct frame_count present in the catalog.
-  // One <style id="sprite-keyframes"> tag; one rule per distinct count.
+  // Emit the shared @keyframes sprite-cycle rule when the catalog contains
+  // any animated sprite. Per-sprite particulars (frame count, element size)
+  // are injected inline via the --sprite-end-x CSS custom property.
   useEffect(() => {
     if (!catalog) return;
-    const counts = new Set();
-    Object.values(catalog.sprites || {}).forEach((s) => {
-      if (s.frames > 1) counts.add(s.frames);
-    });
-    if (counts.size === 0) return;
+    const hasAnimated = Object.values(catalog.sprites || {}).some((s) => s.frames > 1);
+    if (!hasAnimated) return;
 
-    const rules = Array.from(counts).sort().map((n) => {
-      // Width translation — background-position moves by -100% of the strip
-      // width to cycle through all frames. Using percent lets the keyframe
-      // work at any render size.
-      return `@keyframes sprite-cycle-${n} { from { background-position: 0 0 } to { background-position: -100% 0 } }`;
-    }).join('\n');
-
+    const rule = `@keyframes sprite-cycle { to { background-position-x: var(--sprite-end-x, 0); } }`;
     let tag = document.getElementById('sprite-keyframes');
     if (!tag) {
       tag = document.createElement('style');
       tag.id = 'sprite-keyframes';
       document.head.appendChild(tag);
     }
-    tag.textContent = rules;
+    tag.textContent = rule;
   }, [catalog]);
 
   const value = useMemo(() => ({

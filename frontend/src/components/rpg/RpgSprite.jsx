@@ -42,6 +42,8 @@ export default function RpgSprite({
 
   if (meta && meta.frames > 1) {
     const duration = (meta.frames / meta.fps).toFixed(3);
+    const totalWidth = meta.frames * size;
+    const endX = -(meta.frames - 1) * size;
     return (
       <span
         role="img"
@@ -51,9 +53,13 @@ export default function RpgSprite({
           width: size,
           height: size,
           backgroundImage: `url(${meta.url})`,
-          backgroundSize: `${meta.frames * 100}% 100%`,
+          backgroundSize: `${totalWidth}px ${size}px`,
+          backgroundPositionX: 0,
           imageRendering: 'pixelated',
-          animation: `sprite-cycle-${meta.frames} ${duration}s steps(${meta.frames}) infinite`,
+          '--sprite-end-x': `${endX}px`,
+          // steps(N, jump-none) visits N equally-spaced positions including
+          // both endpoints — frame 0 at start, frame N-1 at end.
+          animation: `sprite-cycle ${duration}s steps(${meta.frames}, jump-none) infinite`,
         }}
       />
     );

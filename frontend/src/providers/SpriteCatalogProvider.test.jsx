@@ -19,6 +19,10 @@ const fakeCatalog = {
 describe('SpriteCatalogProvider', () => {
   beforeEach(() => {
     localStorage.clear();
+    // Remove any sprite-keyframes tag left over from a previous test so each
+    // test starts from a clean DOM state.
+    const existing = document.getElementById('sprite-keyframes');
+    if (existing) existing.remove();
     server.use(
       http.get('/api/sprites/catalog/', () =>
         HttpResponse.json(fakeCatalog, { headers: { ETag: `"${fakeCatalog.etag}"` } })
@@ -61,13 +65,12 @@ describe('SpriteCatalogProvider', () => {
     expect(result.current.getSpriteUrl('dragon')).toBeNull();
   });
 
-  it('emits @keyframes for each distinct frame_count in the catalog', async () => {
+  it('emits @keyframes sprite-cycle when catalog has any animated sprite', async () => {
     const animCatalog = {
       etag: 'anim-etag',
       sprites: {
         'flame-4':    { url: 'x', frames: 4, fps: 6, w: 16, h: 16, layout: 'horizontal' },
         'flicker-2':  { url: 'x', frames: 2, fps: 4, w: 16, h: 16, layout: 'horizontal' },
-        'also-4':     { url: 'x', frames: 4, fps: 8, w: 32, h: 32, layout: 'horizontal' },
         'static':     { url: 'x', frames: 1, fps: 0, w: 16, h: 16, layout: 'horizontal' },
       },
     };
@@ -81,15 +84,28 @@ describe('SpriteCatalogProvider', () => {
     await waitFor(() => {
       const styleTag = document.getElementById('sprite-keyframes');
       expect(styleTag).toBeTruthy();
-      expect(styleTag.textContent).toContain('@keyframes sprite-cycle-4');
-      expect(styleTag.textContent).toContain('@keyframes sprite-cycle-2');
+      expect(styleTag.textContent).toContain('@keyframes sprite-cycle');
+      expect(styleTag.textContent).toContain('var(--sprite-end-x');
     });
+  });
 
-    // Distinct frame_count values are present exactly once each
+  it('does NOT emit keyframes if all sprites are static', async () => {
+    const staticOnly = {
+      etag: 'static-etag',
+      sprites: {
+        'dragon': { url: 'x', frames: 1, fps: 0, w: 16, h: 16, layout: 'horizontal' },
+      },
+    };
+    server.use(
+      http.get('/api/sprites/catalog/', () =>
+        HttpResponse.json(staticOnly, { headers: { ETag: `"${staticOnly.etag}"` } })
+      )
+    );
+    renderHook(() => useSpriteCatalog(), { wrapper: wrap });
+    // Give the effect time to run
+    await new Promise((r) => setTimeout(r, 50));
     const styleTag = document.getElementById('sprite-keyframes');
-    const matches = styleTag.textContent.match(/@keyframes sprite-cycle-4/g) || [];
-    expect(matches.length).toBe(1);
-    // Static sprite (frames=1) contributes no keyframe
-    expect(styleTag.textContent).not.toContain('sprite-cycle-1');
+    // Either no tag, or empty content — both are valid no-animation states.
+    expect(styleTag === null || styleTag.textContent === '').toBeTruthy();
   });
 });

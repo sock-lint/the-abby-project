@@ -39,10 +39,12 @@ describe('RpgSprite', () => {
     const el = screen.getByLabelText('flame');
     expect(el.tagName).toBe('SPAN');
     const style = el.getAttribute('style') || '';
-    expect(style).toContain('animation: sprite-cycle-4');
+    expect(style).toContain('animation: sprite-cycle');
     // duration = frames/fps = 4/6 ≈ 0.667s — matches any 0.6x string
     expect(style).toMatch(/0\.6\d*s/);
-    expect(style).toContain('steps(4)');
+    expect(style).toContain('steps(4, jump-none)');
+    // With size=32 and frames=4: end-x = -3 * 32 = -96px
+    expect(style).toContain('--sprite-end-x: -96px');
   });
 
   it('emoji-fallbacks for unknown slug', () => {
