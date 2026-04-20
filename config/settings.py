@@ -245,6 +245,10 @@ STATICFILES_DIRS = [BASE_DIR / "frontend_dist"]
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+    # Sprites: dedicated public-read bucket on Ceph with long-lived Cache-Control
+    # headers so browsers cache aggressively and no presigning is needed.
+    # Defaults to FileSystemStorage in dev/test; flips to S3 when USE_S3_STORAGE=true.
+    "sprites": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
 }
 
 # Media files
@@ -287,6 +291,34 @@ if USE_S3_STORAGE:
     AWS_DEFAULT_ACL = None
 
     STORAGES["default"] = {"BACKEND": "storages.backends.s3.S3Storage"}
+
+    # Sprite bucket — public-read, immutable cache, no presigning.
+    STORAGES["sprites"] = {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": os.environ.get("SPRITE_S3_BUCKET", "abby-sprites"),
+            # AWS_S3_ENDPOINT_URL is defined earlier in this USE_S3_STORAGE block.
+            "endpoint_url": os.environ.get(
+                "SPRITE_S3_ENDPOINT", AWS_S3_ENDPOINT_URL,
+            ),
+            "access_key": AWS_ACCESS_KEY_ID,
+            "secret_key": AWS_SECRET_ACCESS_KEY,
+            "region_name": AWS_S3_REGION_NAME,
+            "addressing_style": "path",
+            "signature_version": "s3v4",
+            "querystring_auth": False,   # public URLs, no presigning
+            "default_acl": "public-read",
+            # intentional: True is safe because every write path goes through
+            # apps/rpg/sprite_authoring.py which names files as <slug>-<sha256[:8]>.png.
+            # Different bytes → different hash → different file (no collision).
+            # Identical bytes → same hash → same file (overwrite is a no-op).
+            "file_overwrite": True,
+            "object_parameters": {
+                "CacheControl": "public, max-age=31536000, immutable",
+            },
+            "custom_domain": os.environ.get("SPRITE_S3_CUSTOM_DOMAIN") or None,
+        },
+    }
 
 # Allow larger bodies for PDF ingestion and photo uploads now that gunicorn
 # handles uploads directly (no nginx in front).
@@ -497,3 +529,4 @@ if "test" in sys.argv:
     # MinIO even when USE_S3_STORAGE is set in the developer's shell env.
     USE_S3_STORAGE = False
     STORAGES["default"] = {"BACKEND": "django.core.files.storage.FileSystemStorage"}
+    STORAGES["sprites"] = {"BACKEND": "django.core.files.storage.FileSystemStorage"}

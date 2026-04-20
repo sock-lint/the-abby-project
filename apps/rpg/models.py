@@ -4,6 +4,7 @@ from django.core.validators import RegexValidator
 from django.db import models
 
 from apps.rpg.constants import TriggerType
+from apps.rpg.storage import sprite_storage
 from config.base_models import CreatedAtModel, TimestampedModel
 
 
@@ -196,7 +197,7 @@ class SpriteAsset(TimestampedModel):
         unique=True,
         validators=[RegexValidator(SLUG_PATTERN, "Slug must be lowercase a-z0-9 and hyphens.")],
     )
-    image = models.ImageField(upload_to="rpg-sprites/", storage=None, blank=True)
+    image = models.ImageField(upload_to="rpg-sprites/", storage=sprite_storage, blank=True)
     pack = models.CharField(max_length=40, db_index=True, default="user-authored")
     frame_count = models.PositiveSmallIntegerField(default=1)
     fps = models.PositiveSmallIntegerField(default=0)
