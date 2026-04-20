@@ -3,6 +3,12 @@
 Lives in its own module (not inline in the migration file) so tests can
 import and invoke it directly — migrations run at import time as
 RunPython wrappers and are awkward to test end-to-end otherwise.
+
+Sources the pre-sliced PNG derivatives committed at
+``content/rpg/legacy_sprites/``. Slug = filename stem. Does NOT read
+``scripts/sprite_manifest.yaml`` or the source sheets — those sheets
+are in .gitignore (licensed, not redistributable) and therefore not
+in the Docker image.
 """
 from __future__ import annotations
 
@@ -15,42 +21,29 @@ from django.core.files.base import ContentFile
 from PIL import Image
 
 
+def _legacy_sprite_dir() -> Path:
+    return Path(settings.BASE_DIR).resolve() / "content" / "rpg" / "legacy_sprites"
+
+
 def import_legacy_sprites(apps, schema_editor):
-    """Import every sprite from scripts/sprite_manifest.yaml into the DB."""
-    from apps.rpg.content.sprites import load_manifest, SheetTile, LooseFile
-
+    """Import every PNG in content/rpg/legacy_sprites/ as a SpriteAsset row."""
     SpriteAsset = apps.get_model("rpg", "SpriteAsset")
-    repo_root = Path(settings.BASE_DIR).resolve()
-    manifest_path = repo_root / "scripts" / "sprite_manifest.yaml"
+    sprite_dir = _legacy_sprite_dir()
 
-    if not manifest_path.exists():
-        # Fresh deploy where the manifest was already removed — nothing to import
+    if not sprite_dir.exists():
+        # Fresh deploy where the legacy directory was already removed —
+        # nothing to import (Phase 3 cleanup will be this path).
         return
 
-    manifest = load_manifest(manifest_path)
+    for png_path in sorted(sprite_dir.glob("*.png")):
+        slug = png_path.stem
 
-    for slug, entry in manifest.sprites.items():
         if SpriteAsset.objects.filter(slug=slug).exists():
             continue  # idempotent
 
-        if isinstance(entry, SheetTile):
-            sheet = manifest.sheets[entry.sheet_id]
-            sheet_img = Image.open(repo_root / sheet.file)
-            ts = sheet.tile_size
-            crop = sheet_img.crop(
-                (entry.col * ts, entry.row * ts,
-                 (entry.col + 1) * ts, (entry.row + 1) * ts),
-            )
-            buf = io.BytesIO()
-            crop.save(buf, format="PNG")
-            png_bytes = buf.getvalue()
-            w, h = ts, ts
-        elif isinstance(entry, LooseFile):
-            png_bytes = (repo_root / entry.file).read_bytes()
-            img = Image.open(io.BytesIO(png_bytes))
-            w, h = img.size
-        else:
-            continue  # unknown source type — skip
+        png_bytes = png_path.read_bytes()
+        img = Image.open(io.BytesIO(png_bytes))
+        w, h = img.size
 
         digest = hashlib.sha256(png_bytes).hexdigest()[:8]
         asset = SpriteAsset(
