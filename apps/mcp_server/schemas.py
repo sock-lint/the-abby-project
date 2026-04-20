@@ -1283,3 +1283,54 @@ class RegisterSpriteAssetsIn(_Base):
         default=False,
         description="Re-slice and overwrite any existing output PNGs.",
     )
+
+
+# ---------------------------------------------------------------------------
+# Sprite authoring (chat-to-prod runtime sprites)
+# ---------------------------------------------------------------------------
+
+FrameLayout = Literal["horizontal", "vertical"]
+SPRITE_SLUG_PATTERN = r"^[a-z0-9][a-z0-9-]*$"
+
+
+class RegisterSpriteIn(_Base):
+    slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
+    image_b64: Optional[str] = Field(
+        default=None,
+        description="Base64-encoded PNG or WebP bytes. Exactly one of image_b64/image_url required.",
+    )
+    image_url: Optional[str] = Field(
+        default=None,
+        description="https URL to PNG/WebP. Exactly one of image_b64/image_url required.",
+    )
+    pack: str = Field(default="user-authored", max_length=40)
+    frame_count: int = Field(default=1, ge=1, le=64)
+    fps: int = Field(default=0, ge=0, le=30)
+    frame_layout: FrameLayout = "horizontal"
+    overwrite: bool = False
+
+
+class AnimatedSpriteTileDecl(_Base):
+    slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
+    col: int = Field(ge=0, le=1024)
+    row: int = Field(ge=0, le=1024)
+    frame_count: int = Field(default=1, ge=1, le=64)
+    fps: int = Field(default=0, ge=0, le=30)
+    pack: str = Field(default="user-authored", max_length=40)
+
+
+class RegisterSpriteBatchIn(_Base):
+    sheet_b64: Optional[str] = None
+    sheet_url: Optional[str] = None
+    tile_size: int = Field(ge=8, le=256)
+    tiles: list[AnimatedSpriteTileDecl] = Field(min_length=1, max_length=200)
+    overwrite: bool = False
+
+
+class ListSpritesIn(_Base):
+    pack: Optional[str] = None
+    limit: int = Field(default=200, ge=1, le=500)
+
+
+class DeleteSpriteIn(_Base):
+    slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
