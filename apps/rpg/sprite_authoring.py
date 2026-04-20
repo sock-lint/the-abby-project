@@ -67,7 +67,7 @@ def _validate_png(png_bytes: bytes) -> tuple[int, int, str]:
     return img.width, img.height, img.format  # return format too
 
 
-def _fetch_url(url: str) -> bytes:
+def _fetch_url(url: str, max_bytes: int = MAX_IMAGE_BYTES) -> bytes:
     try:
         resp = requests.get(url, timeout=15)
         resp.raise_for_status()
@@ -78,9 +78,9 @@ def _fetch_url(url: str) -> bytes:
         raise SpriteAuthoringError(
             f"Content-Type {ctype!r} not accepted; must be image/png or image/webp",
         )
-    if len(resp.content) > MAX_IMAGE_BYTES:
+    if len(resp.content) > max_bytes:
         raise SpriteAuthoringError(
-            f"fetched image exceeds {MAX_IMAGE_BYTES} bytes",
+            f"fetched image exceeds {max_bytes} bytes",
         )
     return resp.content
 
@@ -166,3 +166,105 @@ def register_sprite(
         "frame_height_px": asset.frame_height_px,
         "frame_layout": asset.frame_layout,
     }
+
+
+MAX_SHEET_BYTES = 20 * 1024 * 1024  # sheets can be up to 20 MB
+
+
+def register_sprite_batch(
+    *,
+    sheet_b64: Optional[str] = None,
+    sheet_url: Optional[str] = None,
+    tile_size: int,
+    tiles: list[dict[str, Any]],
+    overwrite: bool = False,
+    actor: Optional[User] = None,
+) -> dict[str, Any]:
+    """Slice a spritesheet into many named tile sprites in one call.
+
+    Each tile dict accepts: ``slug`` (required), ``col`` (required),
+    ``row`` (required), ``frame_count`` (default 1 — animation frames
+    extend rightward from col), ``fps`` (default 0), ``pack`` (default
+    "user-authored"). Per-tile failures are collected in the ``skipped``
+    list rather than aborting the whole batch.
+    """
+    if bool(sheet_b64) == bool(sheet_url):
+        raise SpriteAuthoringError("exactly one of sheet_b64 or sheet_url must be provided.")
+
+    if tile_size <= 0:
+        raise SpriteAuthoringError(
+            f"tile_size must be a positive integer; got {tile_size!r}",
+        )
+
+    if sheet_b64:
+        sheet_bytes = _decode_b64(sheet_b64)
+        if len(sheet_bytes) > MAX_SHEET_BYTES:
+            raise SpriteAuthoringError(f"sheet exceeds {MAX_SHEET_BYTES} bytes")
+    else:
+        sheet_bytes = _fetch_url(sheet_url, max_bytes=MAX_SHEET_BYTES)
+
+    try:
+        sheet_img = Image.open(io.BytesIO(sheet_bytes))
+        sheet_img.load()  # force decode to catch corruption
+    except (UnidentifiedImageError, OSError) as exc:
+        raise SpriteAuthoringError(f"sheet is not a valid image: {exc}")
+
+    if sheet_img.format not in ("PNG", "WEBP"):
+        raise SpriteAuthoringError(f"sheet format {sheet_img.format!r} not supported")
+
+    cols_max = sheet_img.width // tile_size
+    rows_max = sheet_img.height // tile_size
+
+    registered: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+
+    for tile in tiles:
+        missing = [k for k in ("slug", "col", "row") if k not in tile]
+        if missing:
+            skipped.append({
+                "slug": tile.get("slug", "<unknown>"),
+                "reason": f"missing required keys: {missing}",
+            })
+            continue
+        slug = tile["slug"]
+        col = tile["col"]
+        row = tile["row"]
+        fc = tile.get("frame_count", 1)
+        fps = tile.get("fps", 0)
+        pack = tile.get("pack", "user-authored")
+
+        # Bounds check: tile extends `fc` columns to the right from (col, row)
+        if col < 0 or row < 0 or row >= rows_max or col + fc > cols_max:
+            skipped.append({
+                "slug": slug,
+                "reason": f"tile out of bounds (col={col}, row={row}, fc={fc}; sheet is {cols_max}x{rows_max} tiles)",
+            })
+            continue
+
+        # Crop the tile region and re-encode as standalone PNG
+        left = col * tile_size
+        top = row * tile_size
+        right = (col + fc) * tile_size
+        bottom = (row + 1) * tile_size
+        crop = sheet_img.crop((left, top, right, bottom))
+        buf = io.BytesIO()
+        crop.save(buf, format="PNG")
+        tile_bytes = buf.getvalue()
+        tile_b64 = base64.b64encode(tile_bytes).decode()
+
+        try:
+            result = register_sprite(
+                slug=slug,
+                image_b64=tile_b64,
+                pack=pack,
+                frame_count=fc,
+                fps=fps,
+                frame_layout="horizontal",
+                overwrite=overwrite,
+                actor=actor,
+            )
+            registered.append(result)
+        except SpriteAuthoringError as exc:
+            skipped.append({"slug": slug, "reason": str(exc)})
+
+    return {"registered": registered, "skipped": skipped}

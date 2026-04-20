@@ -7,7 +7,7 @@ from PIL import Image
 from django.test import TestCase
 from apps.accounts.models import User
 from apps.rpg.models import SpriteAsset
-from apps.rpg.sprite_authoring import register_sprite, SpriteAuthoringError
+from apps.rpg.sprite_authoring import register_sprite, register_sprite_batch, SpriteAuthoringError
 
 
 def _png_bytes(size=(32, 32), color=(255, 0, 0, 255)):
@@ -211,3 +211,39 @@ class RegisterSpriteFromUrlTests(TestCase):
         )
         with self.assertRaises(SpriteAuthoringError):
             register_sprite(slug="x", image_url="http://e/missing", actor=self.parent)
+
+
+class RegisterSpriteBatchTests(TestCase):
+    def setUp(self):
+        self.parent = User.objects.create_user(username="p4", password="pw", role="parent")
+
+    def test_slices_sheet_into_multiple_tiles(self):
+        # 64x32 sheet, tile_size=32 → 2 columns × 1 row
+        sheet = _png_bytes((64, 32), color=(0, 255, 0, 255))
+        result = register_sprite_batch(
+            sheet_b64=base64.b64encode(sheet).decode(),
+            tile_size=32,
+            tiles=[
+                {"slug": "tile-a", "col": 0, "row": 0},
+                {"slug": "tile-b", "col": 1, "row": 0},
+            ],
+            actor=self.parent,
+        )
+        self.assertEqual(len(result["registered"]), 2)
+        self.assertEqual(result["skipped"], [])
+        self.assertEqual(SpriteAsset.objects.filter(slug__startswith="tile-").count(), 2)
+
+    def test_registers_animated_tile(self):
+        # 128x32 sheet, tile_size=32 → 4 columns × 1 row
+        sheet = _png_bytes((128, 32))
+        result = register_sprite_batch(
+            sheet_b64=base64.b64encode(sheet).decode(),
+            tile_size=32,
+            tiles=[{
+                "slug": "flame-anim", "col": 0, "row": 0,
+                "frame_count": 4, "fps": 6,
+            }],
+            actor=self.parent,
+        )
+        self.assertEqual(result["registered"][0]["frame_count"], 4)
+        self.assertEqual(result["registered"][0]["frame_width_px"], 32)
