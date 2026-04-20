@@ -17,6 +17,7 @@ import hashlib
 import io
 from typing import Any, Optional
 
+import requests
 from django.core.files.base import ContentFile
 from PIL import Image, UnidentifiedImageError
 
@@ -66,11 +67,29 @@ def _validate_png(png_bytes: bytes) -> tuple[int, int, str]:
     return img.width, img.height, img.format  # return format too
 
 
+def _fetch_url(url: str) -> bytes:
+    try:
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        raise SpriteAuthoringError(f"failed to fetch image: {exc}")
+    ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+    if ctype not in ("image/png", "image/webp"):
+        raise SpriteAuthoringError(
+            f"Content-Type {ctype!r} not accepted; must be image/png or image/webp",
+        )
+    if len(resp.content) > MAX_IMAGE_BYTES:
+        raise SpriteAuthoringError(
+            f"fetched image exceeds {MAX_IMAGE_BYTES} bytes",
+        )
+    return resp.content
+
+
 def register_sprite(
     *,
     slug: str,
     image_b64: Optional[str] = None,
-    image_url: Optional[str] = None,  # URL path implemented in later task
+    image_url: Optional[str] = None,
     pack: str = "user-authored",
     frame_count: int = 1,
     fps: int = 0,
@@ -91,8 +110,7 @@ def register_sprite(
     if image_b64:
         png_bytes = _decode_b64(image_b64)
     else:
-        # TODO(Task 6): replace with _fetch_url(image_url) + content-type validation.
-        raise SpriteAuthoringError("image_url not yet implemented")
+        png_bytes = _fetch_url(image_url)
 
     total_w, total_h, fmt = _validate_png(png_bytes)
 

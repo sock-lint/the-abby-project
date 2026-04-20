@@ -1,5 +1,8 @@
 import base64
 import io
+from unittest.mock import patch
+
+import requests
 from PIL import Image
 from django.test import TestCase
 from apps.accounts.models import User
@@ -169,3 +172,42 @@ class RegisterSpriteAnimatedTests(TestCase):
         self.assertEqual(row.fps, 8)
         self.assertEqual(row.frame_height_px, 16)
         self.assertEqual(row.frame_layout, "vertical")
+
+
+class RegisterSpriteFromUrlTests(TestCase):
+    def setUp(self):
+        self.parent = User.objects.create_user(username="p3", password="pw", role="parent")
+
+    @patch("apps.rpg.sprite_authoring.requests.get")
+    def test_fetches_url_and_registers(self, mock_get):
+        png_bytes = _png_bytes((32, 32))
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.content = png_bytes
+        mock_get.return_value.headers = {"Content-Type": "image/png"}
+        mock_get.return_value.raise_for_status = lambda: None
+
+        result = register_sprite(
+            slug="fetched", image_url="https://example.com/a.png",
+            actor=self.parent,
+        )
+        self.assertEqual(result["slug"], "fetched")
+        mock_get.assert_called_once_with("https://example.com/a.png", timeout=15)
+
+    @patch("apps.rpg.sprite_authoring.requests.get")
+    def test_rejects_non_image_mime(self, mock_get):
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.content = b"<html>"
+        mock_get.return_value.headers = {"Content-Type": "text/html"}
+        mock_get.return_value.raise_for_status = lambda: None
+        with self.assertRaises(SpriteAuthoringError) as ctx:
+            register_sprite(slug="x", image_url="http://e/x", actor=self.parent)
+        self.assertIn("Content-Type", str(ctx.exception))
+
+    @patch("apps.rpg.sprite_authoring.requests.get")
+    def test_rejects_http_error(self, mock_get):
+        mock_get.return_value.status_code = 404
+        mock_get.return_value.raise_for_status = (
+            lambda: (_ for _ in ()).throw(requests.HTTPError("404"))
+        )
+        with self.assertRaises(SpriteAuthoringError):
+            register_sprite(slug="x", image_url="http://e/missing", actor=self.parent)
