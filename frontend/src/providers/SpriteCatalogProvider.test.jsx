@@ -60,4 +60,36 @@ describe('SpriteCatalogProvider', () => {
     // before waitFor triggers — fetch hasn't resolved
     expect(result.current.getSpriteUrl('dragon')).toBeNull();
   });
+
+  it('emits @keyframes for each distinct frame_count in the catalog', async () => {
+    const animCatalog = {
+      etag: 'anim-etag',
+      sprites: {
+        'flame-4':    { url: 'x', frames: 4, fps: 6, w: 16, h: 16, layout: 'horizontal' },
+        'flicker-2':  { url: 'x', frames: 2, fps: 4, w: 16, h: 16, layout: 'horizontal' },
+        'also-4':     { url: 'x', frames: 4, fps: 8, w: 32, h: 32, layout: 'horizontal' },
+        'static':     { url: 'x', frames: 1, fps: 0, w: 16, h: 16, layout: 'horizontal' },
+      },
+    };
+    server.use(
+      http.get('/api/sprites/catalog/', () =>
+        HttpResponse.json(animCatalog, { headers: { ETag: `"${animCatalog.etag}"` } })
+      )
+    );
+    renderHook(() => useSpriteCatalog(), { wrapper: wrap });
+
+    await waitFor(() => {
+      const styleTag = document.getElementById('sprite-keyframes');
+      expect(styleTag).toBeTruthy();
+      expect(styleTag.textContent).toContain('@keyframes sprite-cycle-4');
+      expect(styleTag.textContent).toContain('@keyframes sprite-cycle-2');
+    });
+
+    // Distinct frame_count values are present exactly once each
+    const styleTag = document.getElementById('sprite-keyframes');
+    const matches = styleTag.textContent.match(/@keyframes sprite-cycle-4/g) || [];
+    expect(matches.length).toBe(1);
+    // Static sprite (frames=1) contributes no keyframe
+    expect(styleTag.textContent).not.toContain('sprite-cycle-1');
+  });
 });

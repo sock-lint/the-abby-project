@@ -50,6 +50,32 @@ export function SpriteCatalogProvider({ children }) {
     return () => { cancelled = true; };
   }, []);
 
+  // Emit @keyframes for each distinct frame_count present in the catalog.
+  // One <style id="sprite-keyframes"> tag; one rule per distinct count.
+  useEffect(() => {
+    if (!catalog) return;
+    const counts = new Set();
+    Object.values(catalog.sprites || {}).forEach((s) => {
+      if (s.frames > 1) counts.add(s.frames);
+    });
+    if (counts.size === 0) return;
+
+    const rules = Array.from(counts).sort().map((n) => {
+      // Width translation — background-position moves by -100% of the strip
+      // width to cycle through all frames. Using percent lets the keyframe
+      // work at any render size.
+      return `@keyframes sprite-cycle-${n} { from { background-position: 0 0 } to { background-position: -100% 0 } }`;
+    }).join('\n');
+
+    let tag = document.getElementById('sprite-keyframes');
+    if (!tag) {
+      tag = document.createElement('style');
+      tag.id = 'sprite-keyframes';
+      document.head.appendChild(tag);
+    }
+    tag.textContent = rules;
+  }, [catalog]);
+
   const value = useMemo(() => ({
     getSpriteUrl: (slug) => (catalog?.sprites?.[slug]?.url ?? null),
     getSpriteMeta: (slug) => (catalog?.sprites?.[slug] ?? null),
