@@ -1,4 +1,4 @@
-import { getSpriteUrl } from '../../assets/rpg-sprites';
+import { useSpriteCatalog } from '../../providers/SpriteCatalogProvider';
 
 const SIZE_TO_TEXT_CLASS = {
   24: 'text-xl',
@@ -12,9 +12,10 @@ const SIZE_TO_TEXT_CLASS = {
 };
 
 /**
- * Renders an RPG entity icon. Prefers a bundled pixel-art sprite when
- * `spriteKey` resolves to a known asset; otherwise falls back to the
- * emoji `icon` string sized by `size` (in px).
+ * Renders an RPG entity icon. Branches on sprite metadata:
+ *  - static (frames=1): plain <img>
+ *  - animated (frames>1): <span> with CSS background-position animation
+ *  - unknown slug or catalog still loading: emoji fallback
  */
 export default function RpgSprite({
   spriteKey,
@@ -23,11 +24,13 @@ export default function RpgSprite({
   className = '',
   alt = '',
 }) {
-  const url = getSpriteUrl(spriteKey);
-  if (url) {
+  const { getSpriteMeta } = useSpriteCatalog();
+  const meta = getSpriteMeta(spriteKey);
+
+  if (meta && meta.frames === 1) {
     return (
       <img
-        src={url}
+        src={meta.url}
         alt={alt || spriteKey || 'sprite'}
         width={size}
         height={size}
@@ -36,8 +39,27 @@ export default function RpgSprite({
       />
     );
   }
-  // Emoji fallback — match the visual size with a Tailwind text class when
-  // possible; otherwise use inline font-size.
+
+  if (meta && meta.frames > 1) {
+    const duration = (meta.frames / meta.fps).toFixed(3);
+    return (
+      <span
+        role="img"
+        aria-label={alt || spriteKey || 'sprite'}
+        className={`inline-block ${className}`}
+        style={{
+          width: size,
+          height: size,
+          backgroundImage: `url(${meta.url})`,
+          backgroundSize: `${meta.frames * 100}% 100%`,
+          imageRendering: 'pixelated',
+          animation: `sprite-cycle-${meta.frames} ${duration}s steps(${meta.frames}) infinite`,
+        }}
+      />
+    );
+  }
+
+  // Emoji fallback
   const cls = SIZE_TO_TEXT_CLASS[size];
   if (cls) {
     return (
