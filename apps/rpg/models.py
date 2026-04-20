@@ -1,4 +1,6 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import models
 
 from apps.rpg.constants import TriggerType
@@ -171,3 +173,60 @@ class DropLog(CreatedAtModel):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class SpriteAsset(TimestampedModel):
+    """Runtime-authored sprite (static or animated strip) stored on Ceph.
+
+    Replaces the build-time scripts/sprite_manifest.yaml + Vite bundle flow.
+    One row per registered sprite; the ``image`` FieldFile points at a
+    public-read Ceph object under the ``abby-sprites`` bucket. Content YAML
+    and model rows reference sprites by ``slug`` via ``sprite_key`` fields
+    (unchanged — just resolved through DB now).
+    """
+
+    SLUG_PATTERN = r"^[a-z0-9][a-z0-9-]*$"
+
+    class FrameLayout(models.TextChoices):
+        HORIZONTAL = "horizontal", "Horizontal strip"
+        VERTICAL = "vertical", "Vertical strip"
+
+    slug = models.CharField(
+        max_length=64,
+        unique=True,
+        validators=[RegexValidator(SLUG_PATTERN, "Slug must be lowercase a-z0-9 and hyphens.")],
+    )
+    image = models.ImageField(upload_to="rpg-sprites/", storage=None, blank=True)
+    pack = models.CharField(max_length=40, db_index=True, default="user-authored")
+    frame_count = models.PositiveSmallIntegerField(default=1)
+    fps = models.PositiveSmallIntegerField(default=0)
+    frame_width_px = models.PositiveSmallIntegerField()
+    frame_height_px = models.PositiveSmallIntegerField()
+    frame_layout = models.CharField(
+        max_length=12,
+        choices=FrameLayout.choices,
+        default=FrameLayout.HORIZONTAL,
+    )
+    created_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sprites_authored",
+    )
+
+    class Meta:
+        indexes = [models.Index(fields=["pack", "slug"])]
+
+    def clean(self):
+        super().clean()
+        if self.frame_count < 1:
+            raise ValidationError({"frame_count": "frame_count must be >= 1"})
+        if self.frame_count == 1 and self.fps != 0:
+            raise ValidationError({"fps": "static sprite (frame_count=1) must have fps=0"})
+        if self.frame_count > 1 and self.fps < 1:
+            raise ValidationError({"fps": "animated sprite (frame_count>1) requires fps >= 1"})
+
+    def __str__(self):
+        tag = "animated" if self.frame_count > 1 else "static"
+        return f"{self.slug} ({tag}, {self.pack})"
