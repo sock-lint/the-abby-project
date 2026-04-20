@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { getInventory, useConsumable } from '../api';
 import { useApi } from '../hooks/useApi';
+import Button from '../components/Button';
 import Loader from '../components/Loader';
 import EmptyState from '../components/EmptyState';
 import ParchmentCard from '../components/journal/ParchmentCard';
@@ -108,7 +109,7 @@ export default function Inventory() {
               variants={staggerChildren}
               initial="initial"
               animate="animate"
-              className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"
             >
               {grouped[compartment.id].map((entry) => (
                 <motion.div key={entry.id} variants={staggerItem}>
@@ -136,14 +137,14 @@ export default function Inventory() {
                       </span>
                     </div>
                     {entry.item.item_type === 'consumable' && (
-                      <button
-                        type="button"
+                      <Button
+                        size="sm"
                         onClick={() => handleUse(entry)}
                         disabled={busyId === entry.id}
-                        className="mt-2 w-full text-tiny font-script uppercase tracking-wider px-2 py-1 rounded bg-sheikah-teal-deep text-ink-page-rune-glow disabled:opacity-50"
+                        className="mt-2 w-full"
                       >
                         {busyId === entry.id ? 'Using…' : 'Use'}
-                      </button>
+                      </Button>
                     )}
                     {entry.quantity > 1 && (
                       <div className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1 rounded-full bg-ember-deep text-ink-page-rune-glow font-rune text-tiny font-bold flex items-center justify-center border border-ember">

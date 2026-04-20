@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { ArrowLeft, Copy, Pencil, QrCode } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { saveProjectAsTemplate } from '../../api';
@@ -5,6 +6,7 @@ import StarRating from '../../components/StarRating';
 import StatusBadge from '../../components/StatusBadge';
 import RuneBadge from '../../components/journal/RuneBadge';
 import Button from '../../components/Button';
+import ErrorAlert from '../../components/ErrorAlert';
 
 /**
  * Top section of ProjectDetail — back link, title/status row, and action
@@ -16,10 +18,23 @@ export default function ProjectHeader({
   onAction, onEdit, onOpenQR,
 }) {
   const navigate = useNavigate();
+  const [flash, setFlash] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(''), 3000);
+    return () => clearTimeout(t);
+  }, [flash]);
 
   const handleSaveAsTemplate = async () => {
-    await saveProjectAsTemplate(project.id, false);
-    alert('Saved as template!');
+    setError('');
+    try {
+      await saveProjectAsTemplate(project.id, false);
+      setFlash('Saved as template.');
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   return (
@@ -108,6 +123,16 @@ export default function ProjectHeader({
           </Button>
         </div>
       </div>
+
+      {flash && (
+        <div
+          role="status"
+          className="text-sm px-3 py-2 rounded-lg bg-sheikah-teal-deep/10 text-sheikah-teal-deep border border-sheikah-teal-deep/30 font-body"
+        >
+          {flash}
+        </div>
+      )}
+      <ErrorAlert message={error} />
     </>
   );
 }
