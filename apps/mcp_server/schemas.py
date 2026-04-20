@@ -1337,6 +1337,7 @@ class DeleteSpriteIn(_Base):
 
 
 SPRITE_TILE_SIZES = (32, 64, 128)
+SpriteMotion = Literal["idle", "walk", "bounce"]
 
 
 class GenerateSpriteSheetIn(_Base):
@@ -1345,6 +1346,12 @@ class GenerateSpriteSheetIn(_Base):
     Frame-count / fps cross-validation mirrors ``SpriteAsset.clean()`` so
     invalid combinations fail fast at pydantic construction, before the
     tool ever runs and before the Gemini SDK is loaded.
+
+    ``motion`` selects which 4-phase cyclic template drives per-frame
+    poses (see ``sprite_generation.MOTION_TEMPLATES``) — silently
+    ignored when ``frame_count == 1``. Default is ``"idle"`` because
+    (a) it's the most common pose on a tile-grid RPG map and (b) small
+    per-frame deltas make it the most forgiving for Gemini.
     """
 
     slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
@@ -1354,6 +1361,7 @@ class GenerateSpriteSheetIn(_Base):
     fps: int = Field(default=0, ge=0, le=30)
     pack: str = Field(default="ai-generated", max_length=40)
     style_hint: str = Field(default="", max_length=200)
+    motion: SpriteMotion = "idle"
     overwrite: bool = False
 
     @field_validator("tile_size")

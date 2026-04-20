@@ -31,16 +31,70 @@ from apps.rpg.sprite_authoring import SpriteAuthoringError
 DEFAULT_MAX_FRAMES = 8
 ALLOWED_TILE_SIZES = (32, 64, 128)
 
-WALK_CYCLE_TEMPLATE = (
-    "neutral stance, weight on both legs",
-    "right leg forward, mid-stride",
-    "mid-stride, weight centered",
-    "left leg forward, mid-stride",
+# Fraction of the tile left as transparent border on each side after
+# autocenter. 0.10 means the subject occupies the middle 80% of the tile.
+AUTOCENTER_PADDING_FRAC = 0.10
+
+# Motion templates — each is a 4-phase cyclic sequence keyed so frame 4
+# naturally leads back to frame 1. The ``motion`` arg to
+# ``generate_sprite_sheet`` picks one. Add new motions here and expose
+# them via the pydantic enum in ``apps/mcp_server/schemas.py``.
+
+# Idle: subtle breathing + tail/ear micro-motion. Most forgiving pose for
+# Gemini because the per-frame deltas are small — less composition drift
+# across the strip. Default motion for the tool.
+IDLE_CYCLE_TEMPLATE = (
+    "neutral idle pose: all four legs planted evenly, chest at resting "
+    "size, tail curved downward and slightly to one side, ears relaxed",
+    "light inhale: chest slightly expanded upward, body raised a hair, "
+    "tail tip twitching up, ears perked very slightly",
+    "full inhale peak: chest at widest, body at its highest point of "
+    "the breath cycle, tail raised in a gentle mid-wag, ears fully alert",
+    "exhale returning: chest settling back down, body lowering, tail "
+    "curving back toward the neutral position, ears easing toward relaxed",
 )
 
+# Walk: 4-phase cyclic walk for quadrupeds (foxes have 4 legs, not 2).
+# "Passing" is the pose that precedes each "contact" — so the loop is
+# right-contact → passing → left-contact → passing → right-contact.
+WALK_CYCLE_TEMPLATE = (
+    "right-contact pose: right front leg planted forward, left rear leg "
+    "planted back, body weight shifted onto the right side, tail slightly raised",
+    "passing pose: all four legs passing under the body, weight centered, "
+    "mid-bounce with the body at its highest point of the stride",
+    "left-contact pose: left front leg planted forward, right rear leg "
+    "planted back, body weight shifted onto the left side, tail slightly raised",
+    "passing pose: all four legs passing under the body, weight centered, "
+    "mid-bounce with the body at its highest point of the stride (opposite "
+    "leg set from the previous passing pose)",
+)
+
+# Bounce: vertical hop loop — useful for items, power-ups, coins, pickups.
+# No legs required, so this works for anything the subject prompt describes.
+BOUNCE_CYCLE_TEMPLATE = (
+    "baseline pose: subject at its resting position, neutral stance, "
+    "body centered vertically in the frame",
+    "mid-rise stretched: subject lifted a few pixels upward with body "
+    "stretched slightly taller, as if launching into a jump",
+    "peak: subject at the highest point of the bounce, body at its most "
+    "stretched, with a hint of transparent space below suggesting airborne",
+    "falling compressed: subject descending back toward baseline, body "
+    "slightly compressed/squashed as it anticipates landing",
+)
+
+MOTION_TEMPLATES: dict[str, tuple[str, ...]] = {
+    "idle": IDLE_CYCLE_TEMPLATE,
+    "walk": WALK_CYCLE_TEMPLATE,
+    "bounce": BOUNCE_CYCLE_TEMPLATE,
+}
+DEFAULT_MOTION = "idle"
+
 PROMPT_SUFFIX = (
-    " Pixel art style. Transparent background. Centered subject, "
-    "full body visible. No text, no UI, no borders, no watermark."
+    " Pixel art style. Fully transparent background — no scene, no ground, "
+    "no shadow. The subject MUST occupy the center of the frame with equal "
+    "space on all sides; do not place the subject in any corner. The subject "
+    "MUST be at the same scale as any reference image provided (do not zoom "
+    "in or out). No text, no UI, no borders, no watermark, no caption."
 )
 
 
@@ -110,14 +164,42 @@ def _generate_frame(
     return _extract_png_bytes(response)
 
 
-def _resize_to_tile(png_bytes: bytes, tile_size: int) -> bytes:
+def _autocenter_frame(png_bytes: bytes, tile_size: int) -> bytes:
+    """Crop to the subject's alpha bounding box, scale to fit inside the
+    tile with ``AUTOCENTER_PADDING_FRAC`` transparent border on each
+    side, and paste onto a transparent canvas of exactly ``tile_size``
+    squared. Deterministic post-processing that fixes composition drift
+    in Gemini's per-frame output — the reference image passed to the
+    next call is always subject-centered at the same scale, so
+    iterative generation has a stable spatial grounding.
+    """
     try:
         src = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
     except (UnidentifiedImageError, OSError) as exc:
         raise SpriteGenerationError(f"Gemini returned an invalid image: {exc}")
-    tile = src.resize((tile_size, tile_size), Image.LANCZOS)
+
+    canvas = Image.new("RGBA", (tile_size, tile_size), (0, 0, 0, 0))
+    bbox = src.getbbox()
+    if bbox is None:
+        # Fully transparent input — return an empty tile rather than crash.
+        out = io.BytesIO()
+        canvas.save(out, format="PNG")
+        return out.getvalue()
+
+    cropped = src.crop(bbox)
+    cw, ch = cropped.size
+    inner = max(1, int(round(tile_size * (1 - 2 * AUTOCENTER_PADDING_FRAC))))
+    scale = inner / max(cw, ch)
+    new_w = max(1, int(round(cw * scale)))
+    new_h = max(1, int(round(ch * scale)))
+    scaled = cropped.resize((new_w, new_h), Image.LANCZOS)
+
+    x = (tile_size - new_w) // 2
+    y = (tile_size - new_h) // 2
+    canvas.paste(scaled, (x, y))
+
     out = io.BytesIO()
-    tile.save(out, format="PNG")
+    canvas.save(out, format="PNG")
     return out.getvalue()
 
 
@@ -155,13 +237,16 @@ def generate_sprite_sheet(
     fps: int = 0,
     pack: str = "ai-generated",
     style_hint: str = "",
+    motion: str = DEFAULT_MOTION,
     overwrite: bool = False,
     actor: Optional[User] = None,
 ) -> dict[str, Any]:
     """Generate a sprite (static or animated) from a text prompt.
 
     Returns the same dict shape as ``sprite_authoring.register_sprite`` so
-    callers can treat it as drop-in.
+    callers can treat it as drop-in. ``motion`` picks the 4-phase
+    template used for animated strips (see ``MOTION_TEMPLATES``) — it's
+    silently ignored when ``frame_count == 1``.
     """
     max_frames = getattr(settings, "SPRITE_GENERATION_MAX_FRAMES", DEFAULT_MAX_FRAMES)
     if frame_count < 1 or frame_count > max_frames:
@@ -180,26 +265,40 @@ def generate_sprite_sheet(
         raise SpriteGenerationError(
             "static sprites (frame_count == 1) require fps == 0.",
         )
+    # motion only matters for animated sprites, but validate unconditionally
+    # so callers get a clear error regardless of frame_count.
+    if motion not in MOTION_TEMPLATES:
+        raise SpriteGenerationError(
+            f"motion must be one of {sorted(MOTION_TEMPLATES)}; got {motion!r}.",
+        )
 
     frames: list[bytes] = []
     if frame_count == 1:
         full_prompt = _build_prompt(subject=prompt, style_hint=style_hint)
         raw = _generate_frame(prompt=full_prompt)
-        frames.append(_resize_to_tile(raw, tile_size))
+        frames.append(_autocenter_frame(raw, tile_size))
     else:
+        template = MOTION_TEMPLATES[motion]
         # Frame 1 — text-only prompt, no reference.
-        first_note = f"Frame 1 of {frame_count}: {WALK_CYCLE_TEMPLATE[0]}"
+        first_note = f"Frame 1 of {frame_count}: {template[0]}"
         first_raw = _generate_frame(prompt=_build_prompt(
             subject=prompt, style_hint=style_hint, frame_note=first_note,
         ))
-        frames.append(_resize_to_tile(first_raw, tile_size))
-        # Frames 2..N — each passes the previous (already tile-sized) frame.
+        frames.append(_autocenter_frame(first_raw, tile_size))
+        # Frames 2..N — each passes the previous autocentered frame as
+        # reference. Autocenter BEFORE using as reference so Gemini sees
+        # a subject-centered image, giving consistent spatial grounding
+        # across frames (prevents composition drift + makes the loop cycle).
         for i in range(1, frame_count):
-            motion = WALK_CYCLE_TEMPLATE[i % len(WALK_CYCLE_TEMPLATE)]
+            phase = template[i % len(template)]
             frame_note = (
-                f"Frame {i + 1} of {frame_count}: {motion}. "
-                "Keep the same character design, palette, and proportions "
-                "as the reference frame — only adjust the pose."
+                f"Frame {i + 1} of {frame_count}: {phase}. "
+                "This MUST be the EXACT same character from the reference "
+                "image — identical head shape, body proportions, color "
+                "palette, markings, and silhouette. Only the pose changes "
+                "to match the described phase. The character must occupy "
+                "the same central position and the same size as the "
+                "reference. Do not zoom, pan, or redesign the character."
             )
             raw = _generate_frame(
                 prompt=_build_prompt(
@@ -207,7 +306,7 @@ def generate_sprite_sheet(
                 ),
                 reference_png=frames[-1],
             )
-            frames.append(_resize_to_tile(raw, tile_size))
+            frames.append(_autocenter_frame(raw, tile_size))
 
     sheet_bytes = frames[0] if frame_count == 1 else _stitch_strip(frames, tile_size)
 

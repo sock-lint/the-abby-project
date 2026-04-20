@@ -267,3 +267,16 @@ class GenerateSpriteSheetSchemaTests(TestCase):
         self.assertEqual(m.frame_count, 4)
         self.assertEqual(m.fps, 8)
         self.assertEqual(m.style_hint, "gameboy palette")
+
+    def test_motion_defaults_to_idle(self):
+        m = GenerateSpriteSheetIn(slug="ok", prompt="pixel-art fox")
+        self.assertEqual(m.motion, "idle")
+
+    def test_motion_accepts_walk_and_bounce(self):
+        for motion in ("walk", "bounce", "idle"):
+            m = GenerateSpriteSheetIn(slug="ok", prompt="pixel-art fox", motion=motion)
+            self.assertEqual(m.motion, motion)
+
+    def test_motion_rejects_unknown_value(self):
+        with self.assertRaises(ValidationError):
+            GenerateSpriteSheetIn(slug="x", prompt="pixel-art fox", motion="sprint")

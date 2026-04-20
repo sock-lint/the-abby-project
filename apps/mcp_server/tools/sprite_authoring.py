@@ -138,6 +138,7 @@ def generate_sprite_sheet(params: GenerateSpriteSheetIn) -> dict[str, Any]:
         fps=params.fps,
         pack=params.pack,
         style_hint=params.style_hint,
+        motion=params.motion,
         overwrite=params.overwrite,
         actor=get_current_user(),
     )
