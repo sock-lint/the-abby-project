@@ -1,5 +1,6 @@
 from rest_framework import permissions, status
 from rest_framework.generics import ListAPIView
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -133,3 +134,36 @@ class UseConsumableView(APIView):
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(result)
+
+
+class SpriteCatalogView(APIView):
+    """Public read-only sprite catalog used by the frontend provider.
+
+    Anonymous access — the sprite URLs themselves are public-read on
+    Ceph, and no child-scoped data is exposed. ETag + short max-age
+    make re-fetches cheap.
+    """
+
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
+
+    _CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=600"
+
+    def get(self, request):
+        from apps.rpg.sprite_authoring import get_catalog
+
+        catalog = get_catalog()
+        etag = f'"{catalog["etag"]}"'
+        if_none_match = request.META.get("HTTP_IF_NONE_MATCH")
+        if if_none_match and if_none_match == etag:
+            resp = Response(status=304)
+            resp["ETag"] = etag
+            return resp
+        resp = Response(catalog)
+        resp["ETag"] = etag
+        return resp
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        response["Cache-Control"] = self._CACHE_CONTROL
+        return response

@@ -38,3 +38,14 @@ class NoCacheAPIMiddlewareTests(TestCase):
         # /health is served by HealthCheckMiddleware before the URL resolver;
         # it should NOT be marked no-store (probes can cache briefly).
         self.assertNotEqual(resp.get("Cache-Control", ""), "no-store")
+
+    def test_api_view_that_sets_cache_control_is_not_clobbered(self):
+        """Views that explicitly set Cache-Control opt out of the no-store
+        default. SpriteCatalogView is the canonical example.
+        """
+        from rest_framework.test import APIClient
+        unauth = APIClient()
+        resp = unauth.get("/api/sprites/catalog/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("public", resp["Cache-Control"])
+        self.assertNotEqual(resp["Cache-Control"], "no-store")

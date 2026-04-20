@@ -27,15 +27,15 @@ class HealthCheckMiddleware:
 
 
 class NoCacheAPIMiddleware:
-    """Stamp ``Cache-Control: no-store`` on every ``/api/*`` response.
+    """Stamp ``Cache-Control: no-store`` on every ``/api/*`` response that
+    didn't set its own ``Cache-Control`` header.
 
-    Why: without an explicit ``Cache-Control`` header, browsers apply RFC 7234
-    heuristic freshness to any 200 OK body. If an upstream proxy (Coolify /
-    Traefik) ever returns a 200 with an HTML "app is down" page for an API
-    URL — which has happened in production — the browser will happily serve
-    that stale HTML from disk cache for hours afterward, and the SPA's
-    ``res.json()`` call blows up on ``<!DOCTYPE html>``. ``no-store`` on every
-    API response prevents that trap regardless of what upstream does.
+    Views can opt out by setting their own header (e.g.
+    ``Cache-Control: public, max-age=60``) when the response is safely
+    cacheable — public, non-user-scoped data only. The default protects
+    against a CDN or browser serving a stale authenticated response to
+    a different user. When opting out, the view author owns the decision
+    that the response contains NO user-scoped data.
     """
 
     def __init__(self, get_response):
@@ -43,7 +43,7 @@ class NoCacheAPIMiddleware:
 
     def __call__(self, request):
         response = self.get_response(request)
-        if request.path.startswith("/api/"):
+        if request.path.startswith("/api/") and "Cache-Control" not in response:
             response["Cache-Control"] = "no-store"
         return response
 

@@ -16,4 +16,5 @@ urlpatterns = [
     path("cosmetics/", views.CosmeticsView.as_view(), name="cosmetics"),
     path("character/equip/", views.EquipCosmeticView.as_view(), name="character-equip"),
     path("character/unequip/", views.UnequipCosmeticView.as_view(), name="character-unequip"),
+    path("sprites/catalog/", views.SpriteCatalogView.as_view(), name="sprite-catalog"),
 ]
