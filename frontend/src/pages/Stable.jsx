@@ -66,15 +66,19 @@ export default function Stable() {
   };
 
   const handleActivatePet = async (petId) => {
+    setWorking(true);
     setError('');
     try { await activatePet(petId); refresh(); }
     catch (e) { setError(e.message); }
+    finally { setWorking(false); }
   };
 
   const handleActivateMount = async (mountId) => {
+    setWorking(true);
     setError('');
     try { await activateMount(mountId); refresh(); }
     catch (e) { setError(e.message); }
+    finally { setWorking(false); }
   };
 
   return (
@@ -247,9 +251,10 @@ export default function Stable() {
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleActivatePet(pet.id); }}
-                          className="w-full font-body text-xs py-1.5 rounded-lg bg-moss/20 text-moss border border-moss/50 hover:bg-moss/30 transition-colors"
+                          disabled={working}
+                          className="w-full font-body text-xs py-1.5 rounded-lg bg-moss/20 text-moss border border-moss/50 hover:bg-moss/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Set active
+                          {working ? 'Setting…' : 'Set active'}
                         </button>
                       )}
                       {!pet.evolved_to_mount && foods.length > 0 && (
@@ -335,9 +340,10 @@ export default function Stable() {
                     <button
                       type="button"
                       onClick={() => handleActivateMount(mount.id)}
-                      className="mt-2 w-full font-body text-xs py-1.5 rounded-lg bg-gold-leaf/20 text-ember-deep border border-gold-leaf/60 hover:bg-gold-leaf/30 transition-colors"
+                      disabled={working}
+                      className="mt-2 w-full font-body text-xs py-1.5 rounded-lg bg-gold-leaf/20 text-ember-deep border border-gold-leaf/60 hover:bg-gold-leaf/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Saddle up
+                      {working ? 'Saddling…' : 'Saddle up'}
                     </button>
                   )}
                 </ParchmentCard>
