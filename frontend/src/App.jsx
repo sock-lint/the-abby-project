@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useAuth } from './hooks/useApi';
 import { applyTheme } from './themes';
+import { SpriteCatalogProvider } from './providers/SpriteCatalogProvider';
 import JournalShell from './components/layout/JournalShell';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -78,55 +79,57 @@ export default function App() {
 
   return (
     <Sentry.ErrorBoundary fallback={ErrorFallback} showDialog={false}>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<JournalShell />}>
-            {/* Chapter I — Today */}
-            <Route path="/" element={<Dashboard />} />
+      <SpriteCatalogProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<JournalShell />}>
+              {/* Chapter I — Today */}
+              <Route path="/" element={<Dashboard />} />
 
-            {/* Chapter II — Quests (+ deep-link sub-routes for Projects) */}
-            <Route path="/quests" element={<QuestsHub />} />
-            <Route path="/quests/ventures/new" element={<ProjectNew />} />
-            <Route path="/quests/ventures/ingest" element={<ProjectIngest />} />
-            <Route path="/quests/ventures/:id" element={<ProjectDetail />} />
+              {/* Chapter II — Quests (+ deep-link sub-routes for Projects) */}
+              <Route path="/quests" element={<QuestsHub />} />
+              <Route path="/quests/ventures/new" element={<ProjectNew />} />
+              <Route path="/quests/ventures/ingest" element={<ProjectIngest />} />
+              <Route path="/quests/ventures/:id" element={<ProjectDetail />} />
 
-            {/* Chapter III — Bestiary */}
-            <Route path="/bestiary" element={<BestiaryHub />} />
+              {/* Chapter III — Bestiary */}
+              <Route path="/bestiary" element={<BestiaryHub />} />
 
-            {/* Sigil — the user's character/identity page, surfaced via the avatar menu */}
-            <Route path="/sigil" element={<Character />} />
+              {/* Sigil — the user's character/identity page, surfaced via the avatar menu */}
+              <Route path="/sigil" element={<Character />} />
 
-            {/* Chapter IV — Treasury */}
-            <Route path="/treasury" element={<TreasuryHub />} />
+              {/* Chapter IV — Treasury */}
+              <Route path="/treasury" element={<TreasuryHub />} />
 
-            {/* Chapter V — Atlas */}
-            <Route path="/atlas" element={<AtlasHub />} />
+              {/* Chapter V — Atlas */}
+              <Route path="/atlas" element={<AtlasHub />} />
 
-            {/* Utility */}
-            <Route path="/clock" element={<ClockPage />} />
-            <Route path="/manage" element={<Manage />} />
-            <Route path="/activity" element={<ActivityPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
+              {/* Utility */}
+              <Route path="/clock" element={<ClockPage />} />
+              <Route path="/manage" element={<Manage />} />
+              <Route path="/activity" element={<ActivityPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
 
-            {/* Legacy route redirects — keep old bookmarks working */}
-            <Route path="/projects" element={<LegacyRedirect to="/quests?tab=ventures" />} />
-            <Route path="/projects/new" element={<LegacyRedirect to="/quests/ventures/new" />} />
-            <Route path="/projects/ingest" element={<LegacyRedirect to="/quests/ventures/ingest" />} />
-            <Route path="/projects/:id" element={<LegacyRedirectWithId />} />
-            <Route path="/chores" element={<LegacyRedirect to="/quests?tab=duties" />} />
-            <Route path="/homework" element={<LegacyRedirect to="/quests?tab=study" />} />
-            <Route path="/habits" element={<LegacyRedirect to="/quests?tab=rituals" />} />
-            <Route path="/inventory" element={<LegacyRedirect to="/bestiary?tab=satchel" />} />
-            <Route path="/stable" element={<LegacyRedirect to="/bestiary?tab=party" />} />
-            <Route path="/character" element={<LegacyRedirect to="/sigil" />} />
-            <Route path="/payments" element={<LegacyRedirect to="/treasury?tab=coffers" />} />
-            <Route path="/timecards" element={<LegacyRedirect to="/treasury?tab=wages" />} />
-            <Route path="/rewards" element={<LegacyRedirect to="/treasury?tab=bazaar" />} />
-            <Route path="/achievements" element={<LegacyRedirect to="/atlas?tab=skills" />} />
-            <Route path="/portfolio" element={<LegacyRedirect to="/atlas?tab=sketchbook" />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+              {/* Legacy route redirects — keep old bookmarks working */}
+              <Route path="/projects" element={<LegacyRedirect to="/quests?tab=ventures" />} />
+              <Route path="/projects/new" element={<LegacyRedirect to="/quests/ventures/new" />} />
+              <Route path="/projects/ingest" element={<LegacyRedirect to="/quests/ventures/ingest" />} />
+              <Route path="/projects/:id" element={<LegacyRedirectWithId />} />
+              <Route path="/chores" element={<LegacyRedirect to="/quests?tab=duties" />} />
+              <Route path="/homework" element={<LegacyRedirect to="/quests?tab=study" />} />
+              <Route path="/habits" element={<LegacyRedirect to="/quests?tab=rituals" />} />
+              <Route path="/inventory" element={<LegacyRedirect to="/bestiary?tab=satchel" />} />
+              <Route path="/stable" element={<LegacyRedirect to="/bestiary?tab=party" />} />
+              <Route path="/character" element={<LegacyRedirect to="/sigil" />} />
+              <Route path="/payments" element={<LegacyRedirect to="/treasury?tab=coffers" />} />
+              <Route path="/timecards" element={<LegacyRedirect to="/treasury?tab=wages" />} />
+              <Route path="/rewards" element={<LegacyRedirect to="/treasury?tab=bazaar" />} />
+              <Route path="/achievements" element={<LegacyRedirect to="/atlas?tab=skills" />} />
+              <Route path="/portfolio" element={<LegacyRedirect to="/atlas?tab=sketchbook" />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </SpriteCatalogProvider>
     </Sentry.ErrorBoundary>
   );
 }

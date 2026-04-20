@@ -217,4 +217,9 @@ export const handlers = [
   // Activity log (parent-only)
   http.get('*/api/activity/', () =>
     HttpResponse.json({ results: [], next: null, previous: null })),
+
+  // Sprites
+  http.get('*/api/sprites/catalog/', () =>
+    HttpResponse.json({ sprites: {}, etag: 'test-default-empty' }),
+  ),
 ];
