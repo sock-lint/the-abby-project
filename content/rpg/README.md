@@ -103,3 +103,20 @@ Adding a new content type (e.g. an ItemSet, DailyQuest, etc.):
 4. Call the new method from `ContentPack.load` in the correct
    dependency order.
 5. Add a test in `apps/rpg/tests/test_content_loader.py`.
+
+## Runtime sprite authoring
+
+Sprites referenced by `sprite_key` in content YAML are now resolved via the `SpriteAsset` database table rather than the Vite bundle. The `sprite_key` field itself is unchanged — only the lookup backend changed. The 71 legacy sprites were imported into the DB in migration `0014_import_legacy_sprites` with `pack="core"`.
+
+For authoring **new** sprites without touching the filesystem, use the MCP tools (parent-only):
+
+- `register_sprite` — upload a single sprite from base64 bytes or an HTTPS URL.
+- `register_sprite_batch` — slice one spritesheet into many named tiles in one call; per-tile failures go to a `skipped` list without aborting the batch.
+- `list_sprites` — enumerate catalog entries, optionally filtered by `pack`.
+- `delete_sprite` — remove a sprite (DB row + storage blob, blob deleted first per the storage-deletes invariant).
+
+These tools write directly to the `abby-sprites` Ceph bucket and the `SpriteAsset` table. No YAML edit or loader run is needed for runtime-authored sprites.
+
+The **legacy local-dev path** still exists for contributors who prefer committing sprites to git: edit `scripts/sprite_manifest.yaml`, slice with `scripts/slice_rpg_sprites.py`, then call the `register_sprite_assets` MCP tool (writes to the source tree, not the DB). Both pipelines coexist; the legacy one will be removed in a future Phase 3 cleanup.
+
+See `docs/superpowers/specs/2026-04-20-chat-to-prod-sprite-authoring-design.md` for the full architecture, bucket configuration, and content-hash filename scheme.

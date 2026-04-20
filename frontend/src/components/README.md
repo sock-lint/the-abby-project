@@ -84,3 +84,19 @@ When a `ProgressBar` or `QuillProgress` accepts an `aria-label`, prefer a contex
 ### Modal overlay tokens
 
 The four `.modal-*` classes in `index.css` (`modal-ink-wash`, `modal-vignette`, `modal-seal-ring`, `modal-seal-ring-strong`) reference per-cover-overridable `--color-modal-*` tokens. `themes.js` may diverge these per cover — e.g. Vigil's dark surface needs a lighter wash. Three Hyrule defaults (`--color-modal-wash`, `--color-modal-vignette-edge`, `--color-modal-shadow`) happen to share `rgba(45,31,21,0.45)` but represent three distinct semantic roles; do not dedupe.
+
+### RpgSprite
+
+`<RpgSprite spriteKey="slug" icon="🐉" size={32} alt="..." className="..." />`
+
+Renders an RPG-domain icon from the runtime sprite catalog. Call sites provide a `spriteKey` (slug string) and an `icon` emoji fallback — slug resolution and URL lookup happen internally via `useSpriteCatalog()` from `SpriteCatalogProvider`. The component has three render modes:
+
+- **Static** (`frames === 1`): renders `<img src={url} style="image-rendering: pixelated">`. Most sprites are static.
+- **Animated** (`frames > 1`): renders `<span role="img" aria-label={alt}>` with a CSS `background-position` step animation. The shared `@keyframes sprite-cycle` rule is injected once by `SpriteCatalogProvider`; each instance sets `--sprite-end-x` as an inline custom property so any render size works without separate keyframe declarations.
+- **Fallback** (unknown slug or catalog still loading): renders the `icon` emoji. The emoji contract means call sites never show an empty gap.
+
+Props: `spriteKey` (required), `icon` (required emoji fallback), `size` (px, default `32`), `alt` (accessible label, falls back to `spriteKey`), `className`.
+
+A11y: static `<img>` gets `alt`; the animated `<span>` gets `role="img"` + `aria-label`. The fallback emoji is wrapped in `aria-hidden` with a visually-hidden `<span>` carrying the label so screen readers announce the name, not the glyph. Animations respect `prefers-reduced-motion` via a one-line freeze rule in `index.css` — no per-instance logic needed.
+
+Do not call `fetchSpriteCatalog` or access `localStorage` directly in pages; go through `useSpriteCatalog().getSpriteUrl` / `.getSpriteMeta` for consistent cache behavior.
