@@ -107,9 +107,8 @@ describe('Timecards', () => {
     await waitFor(() => expect(disputed).toHaveBeenCalled());
   });
 
-  it('alerts on action error', async () => {
+  it('surfaces action errors via an ErrorAlert instead of window.alert', async () => {
     const user = userEvent.setup();
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
     renderPage(buildParent(), [
       http.get('*/api/timecards/', () =>
         HttpResponse.json([{ id: 4, week_start: '2026-04-10', total_hours: 1, total_earnings: 10, status: 'pending' }]),
@@ -124,8 +123,7 @@ describe('Timecards', () => {
     await waitFor(() => expect(screen.getByText('1h')).toBeInTheDocument());
     await user.click(screen.getByRole('button'));
     await user.click(await screen.findByRole('button', { name: /approve/i }));
-    await waitFor(() => expect(alertSpy).toHaveBeenCalled());
-    alertSpy.mockRestore();
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
   });
 
   it('collapses an expanded timecard on second click', async () => {
