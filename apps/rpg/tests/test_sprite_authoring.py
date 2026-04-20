@@ -45,3 +45,85 @@ class RegisterSpriteStaticTests(TestCase):
         self.assertEqual(row.frame_width_px, 32)
         self.assertTrue(row.image.name, "image blob must be saved (image.name should be non-empty)")
         self.assertIn("dragon-", row.image.name)
+
+
+class RegisterSpriteValidationTests(TestCase):
+    def setUp(self):
+        self.parent = User.objects.create_user(username="p", password="pw", role="parent")
+
+    def test_rejects_both_b64_and_url(self):
+        with self.assertRaises(SpriteAuthoringError):
+            register_sprite(
+                slug="x", image_b64="aa", image_url="http://e/a.png",
+                actor=self.parent,
+            )
+
+    def test_rejects_neither_b64_nor_url(self):
+        with self.assertRaises(SpriteAuthoringError) as ctx:
+            register_sprite(slug="x", actor=self.parent)
+        self.assertIn("exactly one", str(ctx.exception))
+
+    def test_rejects_malformed_base64(self):
+        with self.assertRaises(SpriteAuthoringError) as ctx:
+            register_sprite(slug="x", image_b64="not-base64!!!", actor=self.parent)
+        self.assertIn("base64", str(ctx.exception))
+
+    def test_rejects_non_png_bytes(self):
+        garbage_b64 = base64.b64encode(b"hello world not a png").decode()
+        with self.assertRaises(SpriteAuthoringError) as ctx:
+            register_sprite(slug="x", image_b64=garbage_b64, actor=self.parent)
+        self.assertIn("not a valid PNG", str(ctx.exception))
+
+    def test_rejects_unsupported_image_format(self):
+        import io as _io
+        from PIL import Image as _Image
+        # Build a valid JPEG (Pillow can open it, but our allow-list rejects it)
+        img = _Image.new("RGB", (32, 32), (255, 0, 0))
+        buf = _io.BytesIO()
+        img.save(buf, format="JPEG")
+        jpeg_b64 = base64.b64encode(buf.getvalue()).decode()
+
+        with self.assertRaises(SpriteAuthoringError) as ctx:
+            register_sprite(slug="x", image_b64=jpeg_b64, actor=self.parent)
+        self.assertIn("not supported", str(ctx.exception))
+        self.assertIn("PNG", str(ctx.exception))
+
+    def test_rejects_animated_strip_width_mismatch(self):
+        # 30×16 image with frame_count=4 → 30/4 is not an integer
+        png = _png_bytes((30, 16))
+        with self.assertRaises(SpriteAuthoringError) as ctx:
+            register_sprite(
+                slug="x", image_b64=base64.b64encode(png).decode(),
+                frame_count=4, fps=6, frame_layout="horizontal",
+                actor=self.parent,
+            )
+        self.assertIn("divisible", str(ctx.exception))
+
+    def test_slug_collision_without_overwrite(self):
+        b64 = base64.b64encode(_png_bytes()).decode()
+        register_sprite(slug="taken", image_b64=b64, actor=self.parent)
+        with self.assertRaises(SpriteAuthoringError) as ctx:
+            register_sprite(slug="taken", image_b64=b64, actor=self.parent)
+        self.assertIn("already exists", str(ctx.exception))
+
+    def test_slug_collision_with_overwrite_succeeds(self):
+        b64_a = base64.b64encode(_png_bytes((16, 16))).decode()
+        b64_b = base64.b64encode(_png_bytes((32, 32))).decode()
+        register_sprite(slug="replaceable", image_b64=b64_a, actor=self.parent)
+        result = register_sprite(
+            slug="replaceable", image_b64=b64_b, overwrite=True,
+            actor=self.parent,
+        )
+        self.assertEqual(result["frame_width_px"], 32)
+        self.assertEqual(SpriteAsset.objects.filter(slug="replaceable").count(), 1)
+
+    def test_rejects_animated_strip_height_mismatch_vertical(self):
+        # 16×30 image with frame_count=4, layout=vertical → 30/4 not integer
+        png = _png_bytes((16, 30))
+        with self.assertRaises(SpriteAuthoringError) as ctx:
+            register_sprite(
+                slug="x", image_b64=base64.b64encode(png).decode(),
+                frame_count=4, fps=6, frame_layout="vertical",
+                actor=self.parent,
+            )
+        self.assertIn("divisible", str(ctx.exception))
