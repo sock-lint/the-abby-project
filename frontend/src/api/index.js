@@ -352,6 +352,22 @@ export const assignQuest = (definitionId, userId) =>
   api.post(`/quests/${definitionId}/assign/`, { user_id: userId });
 export const getFamilyQuests = () => api.get('/quests/family/');
 
+// Sprites
+/**
+ * Fetches the runtime sprite catalog. No auth; endpoint is public.
+ * Supports ETag revalidation via the optional `etag` argument — pass
+ * the etag from a previous response and get 304 Not Modified back
+ * (returned as { notModified: true }) if nothing changed.
+ */
+export async function fetchSpriteCatalog(etag = null) {
+  const headers = { Accept: 'application/json' };
+  if (etag) headers['If-None-Match'] = `"${etag}"`;
+  const resp = await fetch('/api/sprites/catalog/', { headers });
+  if (resp.status === 304) return { notModified: true };
+  if (!resp.ok) throw new Error(`sprite catalog fetch failed: ${resp.status}`);
+  return resp.json();
+}
+
 // Activity log (parent-only)
 export const listActivity = (params = {}) => {
   const qs = Object.entries(params)
