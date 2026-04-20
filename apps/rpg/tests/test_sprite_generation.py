@@ -79,13 +79,24 @@ class StaticSpriteGenerationTests(TestCase):
 
 
 @override_settings(GEMINI_API_KEY="test-key")
-class IterativeSpriteGenerationTests(TestCase):
+class AnimatedSheetOutputShapeTests(TestCase):
     def setUp(self):
         self.parent = User.objects.create_user(username="p2", password="pw", role="parent")
 
     @patch("apps.rpg.sprite_generation._generate_frame")
-    def test_4_frames_stitch_into_horizontal_strip(self, mock_frame):
-        mock_frame.side_effect = [_png_bytes((128, 128)) for _ in range(4)]
+    def test_4_frame_sheet_stitches_to_256x64_strip(self, mock_frame):
+        # Gemini returns one 4-cell horizontal sheet (1024×256 is a typical
+        # Gemini image output size). Each cell has a centered subject.
+        def _sheet():
+            sheet = Image.new("RGBA", (1024, 256), (0, 0, 0, 0))
+            for i in range(4):
+                subject = Image.new("RGBA", (180, 180), (180, 60, 60, 255))
+                sheet.paste(subject, (i * 256 + 38, 38))
+            buf = io.BytesIO()
+            sheet.save(buf, format="PNG")
+            return buf.getvalue()
+
+        mock_frame.return_value = _sheet()
 
         result = generate_sprite_sheet(
             slug="fox-walk",
@@ -109,25 +120,6 @@ class IterativeSpriteGenerationTests(TestCase):
         self.assertEqual(img.width, 256)
         self.assertEqual(img.height, 64)
 
-    @patch("apps.rpg.sprite_generation._generate_frame")
-    def test_each_frame_after_first_passes_previous_as_reference(self, mock_frame):
-        mock_frame.side_effect = [_png_bytes((128, 128)) for _ in range(3)]
-
-        generate_sprite_sheet(
-            slug="trio",
-            prompt="x",
-            frame_count=3,
-            tile_size=64,
-            fps=8,
-            actor=self.parent,
-        )
-
-        self.assertEqual(mock_frame.call_count, 3)
-        calls = mock_frame.call_args_list
-        self.assertIsNone(calls[0].kwargs.get("reference_png"))
-        self.assertIsNotNone(calls[1].kwargs.get("reference_png"))
-        self.assertIsNotNone(calls[2].kwargs.get("reference_png"))
-
 
 @override_settings(GEMINI_API_KEY="test-key")
 class SpriteGenerationErrorSurfaceTests(TestCase):
@@ -135,17 +127,13 @@ class SpriteGenerationErrorSurfaceTests(TestCase):
         self.parent = User.objects.create_user(username="p3", password="pw", role="parent")
 
     @patch("apps.rpg.sprite_generation._generate_frame")
-    def test_api_failure_mid_iteration_rolls_back(self, mock_frame):
-        mock_frame.side_effect = [
-            _png_bytes((128, 128)),
-            _png_bytes((128, 128)),
-            SpriteGenerationError("upstream API down"),
-        ]
+    def test_api_failure_rolls_back_cleanly(self, mock_frame):
+        mock_frame.side_effect = SpriteGenerationError("upstream API down")
 
         with self.assertRaises(SpriteGenerationError):
             generate_sprite_sheet(
                 slug="aborted",
-                prompt="x",
+                prompt="pixel-art fox",
                 frame_count=4,
                 tile_size=64,
                 fps=8,
@@ -309,9 +297,18 @@ class MotionTemplateTests(TestCase):
     def setUp(self):
         self.parent = User.objects.create_user(username="p_motion", password="pw", role="parent")
 
+    def _single_sheet_png(self, frame_count=4):
+        sheet = Image.new("RGBA", (256 * frame_count, 256), (0, 0, 0, 0))
+        for i in range(frame_count):
+            subject = Image.new("RGBA", (128, 128), (180, 80, 80, 255))
+            sheet.paste(subject, (i * 256 + 64, 64))
+        buf = io.BytesIO()
+        sheet.save(buf, format="PNG")
+        return buf.getvalue()
+
     @patch("apps.rpg.sprite_generation._generate_frame")
     def test_default_motion_uses_idle_template(self, mock_frame):
-        mock_frame.side_effect = [_png_bytes((128, 128)) for _ in range(4)]
+        mock_frame.return_value = self._single_sheet_png()
 
         generate_sprite_sheet(
             slug="default-motion",
@@ -323,12 +320,12 @@ class MotionTemplateTests(TestCase):
             # motion not passed — must default to "idle"
         )
 
-        frame_1_prompt = mock_frame.call_args_list[0].kwargs["prompt"]
-        self.assertIn("idle", frame_1_prompt.lower())
+        prompt = mock_frame.call_args.kwargs["prompt"]
+        self.assertIn("idle", prompt.lower())
 
     @patch("apps.rpg.sprite_generation._generate_frame")
     def test_motion_walk_uses_walk_template(self, mock_frame):
-        mock_frame.side_effect = [_png_bytes((128, 128)) for _ in range(4)]
+        mock_frame.return_value = self._single_sheet_png()
 
         generate_sprite_sheet(
             slug="walk-motion",
@@ -340,12 +337,12 @@ class MotionTemplateTests(TestCase):
             actor=self.parent,
         )
 
-        frame_1_prompt = mock_frame.call_args_list[0].kwargs["prompt"]
-        self.assertIn("contact", frame_1_prompt.lower())
+        prompt = mock_frame.call_args.kwargs["prompt"]
+        self.assertIn("contact", prompt.lower())
 
     @patch("apps.rpg.sprite_generation._generate_frame")
     def test_motion_bounce_uses_bounce_template(self, mock_frame):
-        mock_frame.side_effect = [_png_bytes((128, 128)) for _ in range(4)]
+        mock_frame.return_value = self._single_sheet_png()
 
         generate_sprite_sheet(
             slug="bounce-motion",
@@ -357,8 +354,8 @@ class MotionTemplateTests(TestCase):
             actor=self.parent,
         )
 
-        frame_1_prompt = mock_frame.call_args_list[0].kwargs["prompt"]
-        self.assertIn("baseline", frame_1_prompt.lower())
+        prompt = mock_frame.call_args.kwargs["prompt"]
+        self.assertIn("baseline", prompt.lower())
 
     def test_unknown_motion_raises_before_api(self):
         with patch("apps.rpg.sprite_generation._generate_frame") as mock_frame:
@@ -397,46 +394,128 @@ class MotionTemplateTests(TestCase):
 
 
 @override_settings(GEMINI_API_KEY="test-key")
-class IterativeReferencePassesAutocenteredFrameTests(TestCase):
-    """After v1.1, the reference passed to frame N+1 must be the AUTOCENTERED
-    frame N — not the raw Gemini output. This is what normalizes the
-    reference position so iterative generation doesn't drift."""
+class OneShotPoseSheetTests(TestCase):
+    """v1.2 architecture: a single Gemini call produces all N poses as one
+    image, which is then sliced into N equal tiles and each tile autocentered
+    with a SHARED scale factor. This removes the iterative per-frame drift
+    that v1.1 couldn't eliminate and fixes the per-frame size variance that
+    v1.1's per-slice autocenter introduced."""
 
     def setUp(self):
         self.parent = User.objects.create_user(username="p5", password="pw", role="parent")
 
-    @patch("apps.rpg.sprite_generation._generate_frame")
-    def test_reference_passed_to_frame_2_is_tile_sized(self, mock_frame):
-        # Return a 512×512 image (Gemini's typical output) where the
-        # subject is in the top-left corner. Autocentering should crop +
-        # center it to 64×64 before passing back as reference.
-        def _big_offset_png():
-            img = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
-            subject = Image.new("RGBA", (80, 80), (200, 50, 50, 255))
-            img.paste(subject, (0, 0))
-            buf = io.BytesIO()
-            img.save(buf, format="PNG")
-            return buf.getvalue()
+    def _sheet_png(self, slice_configs):
+        """Build a horizontal sheet where each slice contains a subject rect.
 
-        mock_frame.side_effect = [_big_offset_png() for _ in range(2)]
+        ``slice_configs`` is a list of ``(rect_w, rect_h, color)`` — one
+        per slice. Each slice is 256×256 in the sheet, subject rect
+        centered within its slice.
+        """
+        n = len(slice_configs)
+        sheet = Image.new("RGBA", (256 * n, 256), (0, 0, 0, 0))
+        for i, (rw, rh, color) in enumerate(slice_configs):
+            subject = Image.new("RGBA", (rw, rh), color)
+            x = i * 256 + (256 - rw) // 2
+            y = (256 - rh) // 2
+            sheet.paste(subject, (x, y))
+        buf = io.BytesIO()
+        sheet.save(buf, format="PNG")
+        return buf.getvalue()
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_animated_uses_exactly_one_gemini_call(self, mock_frame):
+        """Regardless of frame_count, only one API call should fire —
+        that's the whole point of the one-shot architecture."""
+        mock_frame.return_value = self._sheet_png([
+            (80, 80, (200, 50, 50, 255)),
+        ] * 4)
 
         generate_sprite_sheet(
-            slug="ref-check",
-            prompt="pixel-art fox walking",
-            frame_count=2,
+            slug="one-shot-call",
+            prompt="pixel-art red fox",
+            frame_count=4,
             tile_size=64,
             fps=8,
             actor=self.parent,
         )
 
-        # Second call got a reference. Verify it's 64×64 (tile-sized,
-        # autocentered) — NOT 512×512 (raw Gemini output).
-        ref_bytes = mock_frame.call_args_list[1].kwargs["reference_png"]
-        ref_img = Image.open(io.BytesIO(ref_bytes))
-        self.assertEqual(ref_img.size, (64, 64))
-        # And the subject should be centered now, not top-left.
-        bbox = ref_img.getbbox()
-        self.assertIsNotNone(bbox)
-        left, top, right, bottom = bbox
-        self.assertLessEqual(abs(left - (64 - right)), 1)
-        self.assertLessEqual(abs(top - (64 - bottom)), 1)
+        self.assertEqual(mock_frame.call_count, 1)
+        # The single call must NOT use a reference image (no iterative mode).
+        self.assertIsNone(mock_frame.call_args.kwargs.get("reference_png"))
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_one_shot_prompt_lists_all_pose_phases(self, mock_frame):
+        """The single call's prompt must describe every frame's pose so
+        Gemini can draw the full motion sequence in one composition."""
+        mock_frame.return_value = self._sheet_png([(64, 64, (100, 100, 200, 255))] * 4)
+
+        generate_sprite_sheet(
+            slug="pose-list",
+            prompt="pixel-art wolf",
+            frame_count=4,
+            tile_size=64,
+            fps=8,
+            motion="walk",
+            actor=self.parent,
+        )
+
+        prompt = mock_frame.call_args.kwargs["prompt"]
+        # Every template phase should appear in the composite prompt.
+        from apps.rpg.sprite_generation import WALK_CYCLE_TEMPLATE
+        for phase in WALK_CYCLE_TEMPLATE:
+            # Use a distinctive substring from each phase.
+            key = phase.split(":", 1)[0]  # e.g. "right-contact pose"
+            self.assertIn(key, prompt, f"phase '{key}' missing from prompt")
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_size_consistency_across_frames_with_variable_subject_sizes(self, mock_frame):
+        """The v1.1 regression: different bbox sizes → different per-frame
+        scale factors → visible size variance. v1.2 uses a shared scale
+        computed from the largest bbox across all slices, so a sprawled
+        pose and a tucked pose end up at the same scale in the output."""
+        # Slice 1: tiny subject (20×20). Slice 2: large subject (120×120).
+        # Slice 3: medium (60×60). Slice 4: tall (40×100).
+        mock_frame.return_value = self._sheet_png([
+            (20, 20, (255, 0, 0, 255)),
+            (120, 120, (0, 255, 0, 255)),
+            (60, 60, (0, 0, 255, 255)),
+            (40, 100, (255, 255, 0, 255)),
+        ])
+
+        generate_sprite_sheet(
+            slug="size-check",
+            prompt="pixel-art variable",
+            frame_count=4,
+            tile_size=64,
+            fps=8,
+            actor=self.parent,
+        )
+
+        # Read the saved 4-tile strip and inspect each tile's subject bbox.
+        row = SpriteAsset.objects.get(slug="size-check")
+        with row.image.open("rb") as fh:
+            strip = Image.open(fh)
+            strip.load()
+        self.assertEqual(strip.size, (256, 64))
+
+        # The LARGEST subject (slice 2, 120×120) was the scale reference.
+        # Its bbox in the output should fill ~80% of the 64-tile. Smaller
+        # subjects from slices 1/3/4 should be proportionally smaller —
+        # so the largest-subject tile still dominates as expected.
+        tiles = [strip.crop((i * 64, 0, (i + 1) * 64, 64)) for i in range(4)]
+        bbox2 = tiles[1].getbbox()
+        self.assertIsNotNone(bbox2)
+        max2 = max(bbox2[2] - bbox2[0], bbox2[3] - bbox2[1])
+        # Slice 2 was the reference. It should fit the inner 80% window,
+        # which for tile_size=64 is 52px — give a couple of px for rounding.
+        self.assertGreaterEqual(max2, 48)
+        self.assertLessEqual(max2, 56)
+
+        # Slice 1 was 20×20 (one-sixth the size of slice 2's 120). Its
+        # tile output should also be about one-sixth the size — NOT scaled
+        # up to fill the same 80% (which was v1.1's bug).
+        bbox1 = tiles[0].getbbox()
+        self.assertIsNotNone(bbox1)
+        max1 = max(bbox1[2] - bbox1[0], bbox1[3] - bbox1[1])
+        # Expected ~ 52 * (20 / 120) ≈ 9. Give a wide tolerance.
+        self.assertLessEqual(max1, 14)

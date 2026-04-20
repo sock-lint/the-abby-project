@@ -168,10 +168,9 @@ def _autocenter_frame(png_bytes: bytes, tile_size: int) -> bytes:
     """Crop to the subject's alpha bounding box, scale to fit inside the
     tile with ``AUTOCENTER_PADDING_FRAC`` transparent border on each
     side, and paste onto a transparent canvas of exactly ``tile_size``
-    squared. Deterministic post-processing that fixes composition drift
-    in Gemini's per-frame output — the reference image passed to the
-    next call is always subject-centered at the same scale, so
-    iterative generation has a stable spatial grounding.
+    squared. Used for single-frame (static) sprites — the animated
+    path uses ``_slice_and_center_sheet`` which shares a scale across
+    all frames to avoid per-frame size variance.
     """
     try:
         src = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
@@ -181,7 +180,6 @@ def _autocenter_frame(png_bytes: bytes, tile_size: int) -> bytes:
     canvas = Image.new("RGBA", (tile_size, tile_size), (0, 0, 0, 0))
     bbox = src.getbbox()
     if bbox is None:
-        # Fully transparent input — return an empty tile rather than crash.
         out = io.BytesIO()
         canvas.save(out, format="PNG")
         return out.getvalue()
@@ -201,6 +199,111 @@ def _autocenter_frame(png_bytes: bytes, tile_size: int) -> bytes:
     out = io.BytesIO()
     canvas.save(out, format="PNG")
     return out.getvalue()
+
+
+def _slice_and_center_sheet(
+    sheet_png: bytes,
+    frame_count: int,
+    tile_size: int,
+) -> list[bytes]:
+    """Slice a single Gemini-generated pose sheet into ``frame_count`` equal
+    horizontal tiles, then scale every tile's subject using a SHARED scale
+    factor so size stays consistent across frames.
+
+    The shared scale is computed from the MAX subject dimension across all
+    slices — so the biggest pose fits inside the tile's inner 80% window,
+    and smaller poses end up proportionally smaller (not scaled up to
+    match, which was v1.1's size-variance bug). Each tile's subject is
+    centered on its own transparent canvas.
+    """
+    try:
+        src = Image.open(io.BytesIO(sheet_png)).convert("RGBA")
+    except (UnidentifiedImageError, OSError) as exc:
+        raise SpriteGenerationError(f"Gemini returned an invalid image: {exc}")
+
+    sheet_w, sheet_h = src.size
+    slice_w = sheet_w // frame_count
+
+    # Pass 1: slice the sheet and record each subject's bbox (within the slice).
+    slices: list[tuple[Image.Image, Optional[tuple[int, int, int, int]]]] = []
+    for i in range(frame_count):
+        left = i * slice_w
+        right = sheet_w if i == frame_count - 1 else (i + 1) * slice_w
+        slice_img = src.crop((left, 0, right, sheet_h))
+        slices.append((slice_img, slice_img.getbbox()))
+
+    # Compute the shared scale: fit the LARGEST subject into the inner 80%
+    # window. All other slices scale at the SAME factor, preserving
+    # relative size across frames.
+    max_dim = 1
+    for _, bbox in slices:
+        if bbox is None:
+            continue
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
+        max_dim = max(max_dim, w, h)
+    inner = max(1, int(round(tile_size * (1 - 2 * AUTOCENTER_PADDING_FRAC))))
+    shared_scale = inner / max_dim
+
+    # Pass 2: crop each slice to its subject, scale with the shared factor,
+    # center on a transparent tile canvas.
+    tiles: list[bytes] = []
+    for slice_img, bbox in slices:
+        canvas = Image.new("RGBA", (tile_size, tile_size), (0, 0, 0, 0))
+        if bbox is None:
+            buf = io.BytesIO()
+            canvas.save(buf, format="PNG")
+            tiles.append(buf.getvalue())
+            continue
+        cropped = slice_img.crop(bbox)
+        cw, ch = cropped.size
+        new_w = max(1, int(round(cw * shared_scale)))
+        new_h = max(1, int(round(ch * shared_scale)))
+        scaled = cropped.resize((new_w, new_h), Image.LANCZOS)
+        x = (tile_size - new_w) // 2
+        y = (tile_size - new_h) // 2
+        canvas.paste(scaled, (x, y))
+        buf = io.BytesIO()
+        canvas.save(buf, format="PNG")
+        tiles.append(buf.getvalue())
+    return tiles
+
+
+def _build_pose_sheet_prompt(
+    *,
+    subject: str,
+    template: tuple[str, ...],
+    frame_count: int,
+    style_hint: str = "",
+) -> str:
+    """Build the one-shot prompt asking Gemini to draw all ``frame_count``
+    poses as a single horizontal sprite sheet. Giving Gemini the whole
+    sequence in one composition is what makes character design, palette,
+    scale, and background consistent across frames — per-frame calls
+    couldn't deliver that no matter how strongly we prompted."""
+    pose_lines = "\n".join(
+        f"  Frame {i + 1}: {template[i % len(template)]}"
+        for i in range(frame_count)
+    )
+    style_clause = f" Style: {style_hint.strip()}." if style_hint.strip() else ""
+    return (
+        f"Generate a pixel-art SPRITE SHEET as a SINGLE IMAGE containing "
+        f"{frame_count} frames arranged HORIZONTALLY in a strip, left to "
+        f"right, equally spaced on one continuous transparent row.\n\n"
+        f"Each frame shows: {subject.strip()}.{style_clause}\n\n"
+        f"The {frame_count} frames, in order:\n{pose_lines}\n\n"
+        f"CRITICAL RULES:\n"
+        f"- Every frame MUST show the EXACT same character — identical "
+        f"head shape, body proportions, color palette, markings, "
+        f"silhouette, and overall size. Only the pose changes.\n"
+        f"- All {frame_count} frames MUST be at the exact same scale "
+        f"and vertically aligned on a shared baseline.\n"
+        f"- FULLY transparent background across the entire sheet — no "
+        f"scene, no ground, no shadow, no color fill.\n"
+        f"- No horizontal dividers, frame borders, numbering, or labels "
+        f"between poses — just the character poses on a continuous strip.\n"
+        f"- No text, no UI, no watermark, no caption."
+    )
 
 
 def _stitch_strip(frames: list[bytes], tile_size: int) -> bytes:
@@ -274,39 +377,25 @@ def generate_sprite_sheet(
 
     frames: list[bytes] = []
     if frame_count == 1:
+        # Static path unchanged: single call, autocenter, done.
         full_prompt = _build_prompt(subject=prompt, style_hint=style_hint)
         raw = _generate_frame(prompt=full_prompt)
         frames.append(_autocenter_frame(raw, tile_size))
     else:
+        # Animated path (v1.2): one-shot pose sheet + slice + shared-scale
+        # center. One Gemini call produces all N poses in a single
+        # composition, so character design, palette, and scale are
+        # consistent by construction — impossible to drift across frames
+        # the way iterative per-frame calls did.
         template = MOTION_TEMPLATES[motion]
-        # Frame 1 — text-only prompt, no reference.
-        first_note = f"Frame 1 of {frame_count}: {template[0]}"
-        first_raw = _generate_frame(prompt=_build_prompt(
-            subject=prompt, style_hint=style_hint, frame_note=first_note,
-        ))
-        frames.append(_autocenter_frame(first_raw, tile_size))
-        # Frames 2..N — each passes the previous autocentered frame as
-        # reference. Autocenter BEFORE using as reference so Gemini sees
-        # a subject-centered image, giving consistent spatial grounding
-        # across frames (prevents composition drift + makes the loop cycle).
-        for i in range(1, frame_count):
-            phase = template[i % len(template)]
-            frame_note = (
-                f"Frame {i + 1} of {frame_count}: {phase}. "
-                "This MUST be the EXACT same character from the reference "
-                "image — identical head shape, body proportions, color "
-                "palette, markings, and silhouette. Only the pose changes "
-                "to match the described phase. The character must occupy "
-                "the same central position and the same size as the "
-                "reference. Do not zoom, pan, or redesign the character."
-            )
-            raw = _generate_frame(
-                prompt=_build_prompt(
-                    subject=prompt, style_hint=style_hint, frame_note=frame_note,
-                ),
-                reference_png=frames[-1],
-            )
-            frames.append(_autocenter_frame(raw, tile_size))
+        sheet_prompt = _build_pose_sheet_prompt(
+            subject=prompt,
+            template=template,
+            frame_count=frame_count,
+            style_hint=style_hint,
+        )
+        sheet_bytes = _generate_frame(prompt=sheet_prompt)
+        frames = _slice_and_center_sheet(sheet_bytes, frame_count, tile_size)
 
     sheet_bytes = frames[0] if frame_count == 1 else _stitch_strip(frames, tile_size)
 
