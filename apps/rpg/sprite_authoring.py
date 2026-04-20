@@ -285,3 +285,30 @@ def delete_sprite(*, slug: str) -> dict[str, Any]:
     asset.image.delete(save=False)  # blob first
     asset.delete()
     return {"slug": slug, "deleted": True}
+
+
+def get_catalog() -> dict[str, Any]:
+    """Return the full slug → metadata map for the frontend catalog API.
+
+    Response shape matches the ``GET /api/sprites/catalog/`` contract.
+    The ``etag`` is a stable hash of (slug, image-key) pairs so a client
+    can send If-None-Match on subsequent fetches.
+    """
+    assets = SpriteAsset.objects.order_by("slug").only(
+        "slug", "image", "frame_count", "fps",
+        "frame_width_px", "frame_height_px", "frame_layout",
+    )
+    sprites: dict[str, dict[str, Any]] = {}
+    etag_parts: list[str] = []
+    for a in assets:
+        sprites[a.slug] = {
+            "url": a.image.url,
+            "frames": a.frame_count,
+            "fps": a.fps,
+            "w": a.frame_width_px,
+            "h": a.frame_height_px,
+            "layout": a.frame_layout,
+        }
+        etag_parts.append(f"{a.slug}:{a.image.name}")
+    etag = hashlib.sha256("|".join(etag_parts).encode()).hexdigest()[:16]
+    return {"sprites": sprites, "etag": etag}

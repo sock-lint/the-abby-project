@@ -11,6 +11,7 @@ from apps.rpg.sprite_authoring import (
     register_sprite,
     register_sprite_batch,
     delete_sprite,
+    get_catalog,
     SpriteAuthoringError,
 )
 
@@ -366,3 +367,48 @@ class DeleteSpriteTests(TestCase):
                     delete_sprite(slug="order")
 
         self.assertEqual(call_order, ["blob", "row"])
+
+
+class GetCatalogTests(TestCase):
+    def setUp(self):
+        self.parent = User.objects.create_user(username="p7", password="pw", role="parent")
+        b64 = base64.b64encode(_png_bytes((32, 32))).decode()
+        b64_anim = base64.b64encode(_png_bytes((128, 32))).decode()
+        register_sprite(slug="static-a", image_b64=b64, actor=self.parent)
+        register_sprite(slug="anim-b", image_b64=b64_anim,
+                        frame_count=4, fps=6, actor=self.parent)
+
+    def test_catalog_shape(self):
+        result = get_catalog()
+        self.assertIn("sprites", result)
+        self.assertIn("etag", result)
+        self.assertIsInstance(result["etag"], str)
+        self.assertEqual(len(result["etag"]), 16)  # sha256[:16]
+
+        sprites = result["sprites"]
+        self.assertIn("static-a", sprites)
+        self.assertIn("anim-b", sprites)
+
+        self.assertEqual(sprites["static-a"]["frames"], 1)
+        self.assertEqual(sprites["static-a"]["fps"], 0)
+        self.assertEqual(sprites["static-a"]["w"], 32)
+        self.assertEqual(sprites["static-a"]["layout"], "horizontal")
+        self.assertTrue(sprites["static-a"]["url"])
+
+        self.assertEqual(sprites["anim-b"]["frames"], 4)
+        self.assertEqual(sprites["anim-b"]["fps"], 6)
+
+    def test_catalog_etag_changes_on_write(self):
+        first = get_catalog()["etag"]
+        register_sprite(
+            slug="new-one",
+            image_b64=base64.b64encode(_png_bytes()).decode(),
+            actor=self.parent,
+        )
+        second = get_catalog()["etag"]
+        self.assertNotEqual(first, second)
+
+    def test_catalog_etag_stable_without_changes(self):
+        a = get_catalog()["etag"]
+        b = get_catalog()["etag"]
+        self.assertEqual(a, b)
