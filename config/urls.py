@@ -77,7 +77,16 @@ if not settings.USE_S3_STORAGE:
     ]
 
 # SPA catch-all — MUST be last. React Router owns every other path.
-# Exclude static/ so missing assets get a proper 404 instead of index.html
-# served as text/html (WhiteNoise handles real static files at the middleware
-# layer before the URL resolver runs).
-urlpatterns += [re_path(r"^(?!static/).*$", spa_view, name="spa")]
+# Exclude:
+#   - static/ so missing assets get a proper 404 instead of index.html
+#     served as text/html (WhiteNoise handles real static files at the
+#     middleware layer before the URL resolver runs).
+#   - .well-known/ so OAuth / MCP discovery probes (e.g. mcp-remote hitting
+#     /.well-known/oauth-protected-resource on connect) get a proper 404
+#     rather than index.html. HTML-when-JSON-expected crashes those clients
+#     before they ever send the Authorization header. We don't implement
+#     OAuth 2.1 PRD — a clean 404 is the right "not an OAuth server, use
+#     your configured bearer token" signal.
+urlpatterns += [
+    re_path(r"^(?!static/|\.well-known/).*$", spa_view, name="spa"),
+]
