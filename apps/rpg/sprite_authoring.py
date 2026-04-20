@@ -268,3 +268,20 @@ def register_sprite_batch(
             skipped.append({"slug": slug, "reason": str(exc)})
 
     return {"registered": registered, "skipped": skipped}
+
+
+def delete_sprite(*, slug: str) -> dict[str, Any]:
+    """Remove a sprite's DB row AND its Ceph blob.
+
+    Blob deletion runs first (per the project's storage-deletes
+    invariant): if Ceph rejects the delete, the DB row stays and we
+    don't end up with a live blob + missing row.
+    """
+    try:
+        asset = SpriteAsset.objects.get(slug=slug)
+    except SpriteAsset.DoesNotExist:
+        raise SpriteAuthoringError(f"sprite {slug!r} not found")
+
+    asset.image.delete(save=False)  # blob first
+    asset.delete()
+    return {"slug": slug, "deleted": True}

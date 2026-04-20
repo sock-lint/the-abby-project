@@ -7,7 +7,12 @@ from PIL import Image
 from django.test import TestCase
 from apps.accounts.models import User
 from apps.rpg.models import SpriteAsset
-from apps.rpg.sprite_authoring import register_sprite, register_sprite_batch, SpriteAuthoringError
+from apps.rpg.sprite_authoring import (
+    register_sprite,
+    register_sprite_batch,
+    delete_sprite,
+    SpriteAuthoringError,
+)
 
 
 def _png_bytes(size=(32, 32), color=(255, 0, 0, 255)):
@@ -317,3 +322,47 @@ class RegisterSpriteBatchPartialFailureTests(TestCase):
                     actor=self.parent,
                 )
             self.assertIn("tile_size", str(ctx.exception))
+
+
+class DeleteSpriteTests(TestCase):
+    def setUp(self):
+        self.parent = User.objects.create_user(username="p6", password="pw", role="parent")
+
+    def test_delete_removes_row_and_blob(self):
+        b64 = base64.b64encode(_png_bytes()).decode()
+        register_sprite(slug="gone", image_b64=b64, actor=self.parent)
+        self.assertEqual(SpriteAsset.objects.filter(slug="gone").count(), 1)
+
+        delete_sprite(slug="gone")
+
+        self.assertEqual(SpriteAsset.objects.filter(slug="gone").count(), 0)
+
+    def test_delete_unknown_slug_raises(self):
+        with self.assertRaises(SpriteAuthoringError) as ctx:
+            delete_sprite(slug="never-existed")
+        self.assertIn("not found", str(ctx.exception))
+
+    def test_delete_calls_blob_before_row(self):
+        from unittest.mock import patch
+        b64 = base64.b64encode(_png_bytes()).decode()
+        register_sprite(slug="order", image_b64=b64, actor=self.parent)
+        asset = SpriteAsset.objects.get(slug="order")
+
+        call_order: list[str] = []
+        orig_blob_delete = asset.image.delete
+        orig_row_delete = asset.delete
+
+        def record_blob(*a, **kw):
+            call_order.append("blob")
+            return orig_blob_delete(*a, **kw)
+
+        def record_row(*a, **kw):
+            call_order.append("row")
+            return orig_row_delete(*a, **kw)
+
+        with patch.object(SpriteAsset.objects, "get", return_value=asset):
+            with patch.object(asset.image, "delete", side_effect=record_blob):
+                with patch.object(asset, "delete", side_effect=record_row):
+                    delete_sprite(slug="order")
+
+        self.assertEqual(call_order, ["blob", "row"])
