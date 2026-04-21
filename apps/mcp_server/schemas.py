@@ -1394,6 +1394,12 @@ class GenerateSpriteSheetIn(_Base):
     # self-anchored bulk-animation workflow (animate an existing
     # static sprite by passing its own URL here).
     reference_image_url: Optional[str] = Field(default=None, max_length=500)
+    # Debug-only: when True, also save the raw Gemini output and the
+    # post-chroma-key output to the sprites bucket under a debug/
+    # prefix, and include their URLs in the response. Useful for
+    # diagnosing pipeline issues — inspect what Gemini actually
+    # produced before our post-processing touched it.
+    return_debug_raw: bool = False
     overwrite: bool = False
 
     @field_validator("tile_size")

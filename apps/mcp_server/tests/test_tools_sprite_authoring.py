@@ -422,3 +422,13 @@ class GenerateSpriteSheetSchemaTests(TestCase):
             m.reference_image_url,
             "https://s3.neato.digital/abby-sprites/rpg-sprites/turtle-abc.png",
         )
+
+    def test_return_debug_raw_defaults_false(self):
+        m = GenerateSpriteSheetIn(slug="ok", prompt="pixel-art fox")
+        self.assertFalse(m.return_debug_raw)
+
+    def test_return_debug_raw_accepts_true(self):
+        m = GenerateSpriteSheetIn(
+            slug="ok", prompt="pixel-art fox", return_debug_raw=True,
+        )
+        self.assertTrue(m.return_debug_raw)

@@ -302,6 +302,29 @@ def _generate_frame(
     return _extract_png_bytes(response)
 
 
+def _save_debug_artifact(slug: str, stage: str, png_bytes: bytes) -> str:
+    """Upload an intermediate pipeline artifact to the sprites bucket
+    under a ``rpg-sprites/debug/`` prefix and return the public URL.
+
+    Used when ``generate_sprite_sheet(return_debug_raw=True)`` — lets
+    the caller inspect what Gemini actually produced vs what ends up
+    in the final sprite after chroma-key + slice + ground-align +
+    orphan-prune. No DB row is created; these are raw Ceph objects
+    indexed by filename.
+    """
+    # Imports local so module-level loading stays cheap and test-friendly.
+    from django.core.files.base import ContentFile
+
+    from apps.rpg.storage import sprite_storage
+
+    storage = sprite_storage()
+    path = f"rpg-sprites/debug/{slug}-{stage}.png"
+    if storage.exists(path):
+        storage.delete(path)
+    storage.save(path, ContentFile(png_bytes))
+    return storage.url(path)
+
+
 def _fetch_reference_image(url: str) -> bytes:
     """Download an image URL for use as a Gemini reference. Validates
     content type and size. Raises ``SpriteGenerationError`` on any
@@ -681,6 +704,7 @@ def generate_sprite_sheet(
     style_hint: str = "",
     motion: str = DEFAULT_MOTION,
     reference_image_url: Optional[str] = None,
+    return_debug_raw: bool = False,
     overwrite: bool = False,
     actor: Optional[User] = None,
 ) -> dict[str, Any]:
@@ -729,6 +753,7 @@ def generate_sprite_sheet(
     if reference_image_url:
         ref_bytes = _fetch_reference_image(reference_image_url)
 
+    debug_urls: dict[str, str] = {}
     frames: list[bytes] = []
     if frame_count == 1:
         # Static path: single call, chroma-key, autocenter, prune orphans.
@@ -738,7 +763,11 @@ def generate_sprite_sheet(
             has_reference=ref_bytes is not None,
         )
         raw = _generate_frame(prompt=full_prompt, reference_png=ref_bytes)
+        if return_debug_raw:
+            debug_urls["raw_gemini_url"] = _save_debug_artifact(slug, "raw-gemini", raw)
         keyed = _chroma_key_to_transparent(raw)
+        if return_debug_raw:
+            debug_urls["post_chroma_key_url"] = _save_debug_artifact(slug, "post-chroma", keyed)
         centered = _autocenter_frame(keyed, tile_size)
         frames.append(_keep_largest_component(centered))
     else:
@@ -758,7 +787,11 @@ def generate_sprite_sheet(
             has_reference=ref_bytes is not None,
         )
         sheet_bytes = _generate_frame(prompt=sheet_prompt, reference_png=ref_bytes)
+        if return_debug_raw:
+            debug_urls["raw_gemini_url"] = _save_debug_artifact(slug, "raw-gemini", sheet_bytes)
         keyed_sheet = _chroma_key_to_transparent(sheet_bytes)
+        if return_debug_raw:
+            debug_urls["post_chroma_key_url"] = _save_debug_artifact(slug, "post-chroma", keyed_sheet)
         aligned_tiles = _slice_and_ground_align_sheet(keyed_sheet, frame_count, tile_size)
         # Per-tile orphan cleanup: chroma-key anti-alias fringes and any
         # cross-cell bleed fragments get filtered here, so each tile
@@ -768,7 +801,7 @@ def generate_sprite_sheet(
     sheet_bytes = frames[0] if frame_count == 1 else _stitch_strip(frames, tile_size)
 
     try:
-        return svc.register_sprite(
+        result = svc.register_sprite(
             slug=slug,
             image_b64=base64.b64encode(sheet_bytes).decode(),
             pack=pack,
@@ -780,3 +813,7 @@ def generate_sprite_sheet(
         )
     except SpriteAuthoringError as exc:
         raise SpriteGenerationError(str(exc))
+
+    if debug_urls:
+        result["debug"] = debug_urls
+    return result

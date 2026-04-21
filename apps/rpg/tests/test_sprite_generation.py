@@ -795,6 +795,83 @@ class MotionTemplateTests(TestCase):
 
 
 @override_settings(GEMINI_API_KEY="test-key")
+class DebugArtifactTests(TestCase):
+    """v1.3.1: when ``return_debug_raw=True``, the service also writes
+    the raw Gemini output and the post-chroma-key output to the
+    sprites bucket under a ``debug/`` prefix, and includes their URLs
+    in the response. Enables inspection of intermediate pipeline
+    artifacts — what did Gemini actually produce vs what ends up in
+    the final sprite sheet."""
+
+    def setUp(self):
+        self.parent = User.objects.create_user(username="dbg_parent", password="pw", role="parent")
+
+    def _sheet_png(self):
+        img = Image.new("RGBA", (256, 64), (255, 0, 255, 255))
+        for i in range(4):
+            sub = Image.new("RGBA", (40, 40), (80, 180, 80, 255))
+            img.paste(sub, (i * 64 + 12, 12))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_debug_flag_off_by_default_no_debug_in_response(self, mock_frame):
+        mock_frame.return_value = self._sheet_png()
+
+        result = generate_sprite_sheet(
+            slug="no-debug",
+            prompt="pixel-art thing",
+            frame_count=4,
+            tile_size=64,
+            fps=6,
+            motion="idle",
+            actor=self.parent,
+        )
+
+        self.assertNotIn("debug", result)
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_debug_flag_on_returns_raw_and_post_chroma_urls(self, mock_frame):
+        mock_frame.return_value = self._sheet_png()
+
+        result = generate_sprite_sheet(
+            slug="with-debug",
+            prompt="pixel-art thing",
+            frame_count=4,
+            tile_size=64,
+            fps=6,
+            motion="idle",
+            return_debug_raw=True,
+            actor=self.parent,
+        )
+
+        self.assertIn("debug", result)
+        self.assertIn("raw_gemini_url", result["debug"])
+        self.assertIn("post_chroma_key_url", result["debug"])
+        self.assertTrue(result["debug"]["raw_gemini_url"])
+        self.assertTrue(result["debug"]["post_chroma_key_url"])
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_debug_flag_on_also_works_for_static_sprites(self, mock_frame):
+        mock_frame.return_value = self._sheet_png()
+
+        result = generate_sprite_sheet(
+            slug="static-debug",
+            prompt="pixel-art thing",
+            frame_count=1,
+            tile_size=64,
+            fps=0,
+            return_debug_raw=True,
+            actor=self.parent,
+        )
+
+        self.assertIn("debug", result)
+        self.assertIn("raw_gemini_url", result["debug"])
+        self.assertIn("post_chroma_key_url", result["debug"])
+
+
+@override_settings(GEMINI_API_KEY="test-key")
 class ReferenceImageUrlTests(TestCase):
     """v1.3.0a: when the caller provides ``reference_image_url``, the
     service downloads that URL's bytes and passes them to Gemini
