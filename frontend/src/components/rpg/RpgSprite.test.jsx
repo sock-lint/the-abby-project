@@ -31,7 +31,15 @@ describe('RpgSprite', () => {
     expect(img.src).toBe('https://s/dragon.png');
   });
 
-  it('renders an animated sprite as a span with computed animation style', () => {
+  it('renders an animated sprite as a span with canonical step animation', () => {
+    // Canonical sprite-sheet animation technique: `steps(N)` (= jump-end)
+    // holds each of N frames for 1/N of the duration and "jumps" at t=1
+    // to the off-sheet position -N*size, which is never visible because
+    // the animation loops back to 0 instantly. The previous technique
+    // (`steps(N, jump-none)` with endX = -(N-1)*size) held the first N-1
+    // frames for 1/(N-1) each and flashed frame N-1 only at the loop
+    // boundary — users saw the last pose as a brief ghost, easily
+    // mistaken for a bleed or rendering artifact.
     renderWithCatalog(
       <RpgSprite spriteKey="flame" icon="🔥" size={32} alt="flame" />,
       { flame: { url: 'https://s/flame.png', frames: 4, fps: 6, w: 16, h: 16, layout: 'horizontal' } }
@@ -42,9 +50,12 @@ describe('RpgSprite', () => {
     expect(style).toContain('animation: sprite-cycle');
     // duration = frames/fps = 4/6 ≈ 0.667s — matches any 0.6x string
     expect(style).toMatch(/0\.6\d*s/);
-    expect(style).toContain('steps(4, jump-none)');
-    // With size=32 and frames=4: end-x = -3 * 32 = -96px
-    expect(style).toContain('--sprite-end-x: -96px');
+    // steps(4) is the default jump-end behavior. Must NOT be jump-none.
+    expect(style).toContain('steps(4)');
+    expect(style).not.toContain('jump-none');
+    // With size=32 and frames=4: end-x = -4 × 32 = -128px (off-sheet,
+    // never visible thanks to the instant loop at t=1).
+    expect(style).toContain('--sprite-end-x: -128px');
   });
 
   it('emoji-fallbacks for unknown slug', () => {

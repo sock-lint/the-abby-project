@@ -43,7 +43,15 @@ export default function RpgSprite({
   if (meta && meta.frames > 1) {
     const duration = (meta.frames / meta.fps).toFixed(3);
     const totalWidth = meta.frames * size;
-    const endX = -(meta.frames - 1) * size;
+    // Canonical sprite-sheet animation: endX is -N × size (off-sheet,
+    // transparent) and `steps(N)` (= jump-end) holds each of the N frames
+    // for 1/N of the duration. At t=1 the animation jumps to endX but
+    // immediately loops back to 0, so the off-sheet position is never
+    // visible. The previous `steps(N, jump-none)` + endX=-(N-1)×size
+    // technique held only the first N-1 frames for 1/(N-1) duration
+    // each and flashed frame N-1 briefly at the loop boundary — which
+    // looked to users like a bleed/ghosting artifact.
+    const endX = -meta.frames * size;
     return (
       <span
         role="img"
@@ -57,9 +65,7 @@ export default function RpgSprite({
           backgroundPositionX: 0,
           imageRendering: 'pixelated',
           '--sprite-end-x': `${endX}px`,
-          // steps(N, jump-none) visits N equally-spaced positions including
-          // both endpoints — frame 0 at start, frame N-1 at end.
-          animation: `sprite-cycle ${duration}s steps(${meta.frames}, jump-none) infinite`,
+          animation: `sprite-cycle ${duration}s steps(${meta.frames}) infinite`,
         }}
       />
     );
