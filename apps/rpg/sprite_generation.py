@@ -88,22 +88,33 @@ WALK_CYCLE_TEMPLATE = (
 # version invited Gemini to draw scene elements (motion trails, dust,
 # ground) around the moving subject; squash-and-stretch keeps the
 # subject stationary so there's nothing scene-like to draw. Classic
-# Disney/2D-game animation technique. Good for items, coins, pickups.
+# Disney/2D-game animation technique.
+#
+# v1.2.3: each phase explicitly forbids rotation because v1.2.2's
+# "subject changes shape between frames" got pattern-matched to
+# "coin flipping" — a rotation animation where the coin appears at
+# different viewing angles across frames. The "face-on view never
+# changes" language in every phase blocks that re-interpretation.
 BOUNCE_CYCLE_TEMPLATE = (
     "neutral rest pose: subject at its natural resting shape and "
-    "proportions, stationary in the exact center of the frame",
-    "anticipation squash: subject compressed vertically into a wider-"
-    "and-shorter shape as if pressing down just before a jump. The "
+    "proportions, stationary in the exact center of the frame. The "
+    "same face of the subject points straight at the viewer",
+    "anticipation squash: subject compressed vertically into a WIDER-"
+    "AND-SHORTER shape as if pressing down just before a jump. The "
     "subject stays stationary in the EXACT same frame position as the "
-    "previous pose — do not shift it up, down, left, or right. Only "
-    "the proportions change",
-    "stretch release: subject stretched vertically into a taller-and-"
-    "thinner shape as if springing upward. The subject stays stationary "
-    "in the EXACT same frame position — do not lift it off the ground "
-    "or shift it. Only the proportions change",
+    "previous pose — do not shift it up, down, left, or right, and do "
+    "NOT rotate, flip, spin, or turn it. The same face of the subject "
+    "still points straight at the viewer. Only the proportions change "
+    "(wider and shorter than the rest pose)",
+    "stretch release: subject stretched vertically into a TALLER-AND-"
+    "THINNER shape as if springing upward. The subject stays stationary "
+    "in the EXACT same frame position and the SAME face still points "
+    "at the viewer — do NOT rotate the subject, do NOT show it edge-on "
+    "or from the side, do NOT tilt it. Only the proportions change "
+    "(taller and narrower than the rest pose)",
     "recovery ease: subject returning toward normal proportions with a "
-    "slight residual stretch. Same frame position, easing back to the "
-    "resting shape",
+    "slight residual stretch. Same frame position, same face-on viewing "
+    "angle as every other frame, easing back to the resting shape",
 )
 
 MOTION_TEMPLATES: dict[str, tuple[str, ...]] = {
@@ -365,6 +376,12 @@ def _build_pose_sheet_prompt(
         f"- Every frame MUST show the EXACT same character — identical "
         f"head shape, body proportions, color palette, markings, "
         f"silhouette, and overall size. Only the pose changes.\n"
+        f"- The subject's viewing angle and orientation NEVER change "
+        f"across frames. Do NOT rotate, flip, spin, turn, or tilt the "
+        f"subject between poses. The same face of the subject points "
+        f"at the viewer in every single frame. Never show the subject "
+        f"edge-on, from the side when the rest pose is front-on, or "
+        f"at any angle different from the other frames.\n"
         f"- All {frame_count} frames MUST be at the exact same scale "
         f"and vertically aligned on a shared baseline.\n"
         f"- BACKGROUND: fill the entire sheet with SOLID BRIGHT MAGENTA "
