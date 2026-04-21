@@ -582,10 +582,45 @@ class MotionTemplateTests(TestCase):
         )
         static_prompt = mock_frame.call_args.kwargs["prompt"].lower()
 
-        # Each ban keyword must appear in BOTH prompts.
-        for banned in ("ground", "shadow", "dust", "motion line"):
+        # Each ban keyword must appear in BOTH prompts. Mix of
+        # under-the-subject bans (ground/shadow/dust), motion-indicator
+        # bans (motion line), and companion-object bans (bed, second
+        # creature, floating panel) added in v1.2.4 after Gemini started
+        # drawing cushions/tiles above idle subjects.
+        for banned in (
+            "ground", "shadow", "dust", "motion line",
+            "bed", "pillow", "cushion", "slab",
+            "second creature", "floating object",
+        ):
             self.assertIn(banned, animated_prompt, f"animated prompt missing ban on '{banned}'")
             self.assertIn(banned, static_prompt, f"static prompt missing ban on '{banned}'")
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_bounce_prompt_demands_dramatic_shape_change(self, mock_frame):
+        """v1.2.3's sequential-keyframe 'small incremental deltas' rule
+        flattened bounce because squash-and-stretch needs visibly
+        different shapes across frames. v1.2.4 overrides that for
+        bounce via explicit magnitude hints (30% shorter/taller) and
+        a direct 'DOES NOT apply' clause in the bounce template. Pin
+        the magnitude language so it doesn't silently get dropped."""
+        mock_frame.return_value = self._single_sheet_png()
+
+        generate_sprite_sheet(
+            slug="bounce-mag-check",
+            prompt="pixel-art coin",
+            frame_count=4,
+            tile_size=64,
+            fps=8,
+            motion="bounce",
+            actor=self.parent,
+        )
+        prompt = mock_frame.call_args.kwargs["prompt"].lower()
+
+        # Magnitude hints: percentage + "clearly visible" + explicit
+        # override of the small-delta rule.
+        self.assertIn("30%", prompt)
+        self.assertIn("clearly visible", prompt)
+        self.assertIn("does not apply", prompt)
 
     def test_unknown_motion_raises_before_api(self):
         with patch("apps.rpg.sprite_generation._generate_frame") as mock_frame:
