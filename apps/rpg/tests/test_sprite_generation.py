@@ -585,6 +585,56 @@ class MotionTemplateTests(TestCase):
         self.assertIn("squash", prompt.lower())
         self.assertIn("stretch", prompt.lower())
 
+    def _run_motion_and_get_prompt(self, motion, slug, mock_frame):
+        """Helper: fire a generation with the given motion and return
+        the prompt string (already lowercased) that Gemini saw."""
+        mock_frame.return_value = self._single_sheet_png()
+        generate_sprite_sheet(
+            slug=slug,
+            prompt="pixel-art subject",
+            frame_count=4,
+            tile_size=64,
+            fps=6,
+            motion=motion,
+            actor=self.parent,
+        )
+        return mock_frame.call_args.kwargs["prompt"].lower()
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_motion_bubble_uses_bubble_template(self, mock_frame):
+        # Bubble template for liquid containers (potions, cauldrons).
+        prompt = self._run_motion_and_get_prompt("bubble", "bub-check", mock_frame)
+        self.assertIn("bubble", prompt)
+        self.assertIn("liquid", prompt)
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_motion_flicker_uses_flicker_template(self, mock_frame):
+        # Flicker template for flames (cauldron-on-fire, torches).
+        prompt = self._run_motion_and_get_prompt("flicker", "fli-check", mock_frame)
+        self.assertIn("flame", prompt)
+        self.assertIn("ember", prompt)
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_motion_glow_uses_glow_template(self, mock_frame):
+        # Glow template for chests, magical items, rewards.
+        prompt = self._run_motion_and_get_prompt("glow", "glow-check", mock_frame)
+        self.assertIn("halo", prompt)
+        self.assertIn("glow", prompt)
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_motion_wobble_uses_wobble_template(self, mock_frame):
+        # Wobble template for eggs, unstable objects.
+        prompt = self._run_motion_and_get_prompt("wobble", "wob-check", mock_frame)
+        self.assertIn("tilted", prompt)
+        self.assertIn("lean", prompt)
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_motion_sway_uses_sway_template(self, mock_frame):
+        # Sway template for plants, flags.
+        prompt = self._run_motion_and_get_prompt("sway", "sway-check", mock_frame)
+        self.assertIn("leaning", prompt)
+        self.assertIn("base", prompt)
+
     @patch("apps.rpg.sprite_generation._generate_frame")
     def test_prompt_frames_task_as_sequential_keyframes(self, mock_frame):
         """v1.2.3 slideshow fix: frame the task to Gemini as a SEQUENCE

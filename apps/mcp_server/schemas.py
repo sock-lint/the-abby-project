@@ -1359,7 +1359,10 @@ class UpdateSpriteMetadataIn(_Base):
 
 
 SPRITE_TILE_SIZES = (32, 64, 128)
-SpriteMotion = Literal["idle", "walk", "bounce"]
+SpriteMotion = Literal[
+    "idle", "walk", "bounce",
+    "bubble", "flicker", "glow", "wobble", "sway",
+]
 
 
 class GenerateSpriteSheetIn(_Base):

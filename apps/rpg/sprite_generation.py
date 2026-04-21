@@ -128,10 +128,86 @@ BOUNCE_CYCLE_TEMPLATE = (
     "resting shape",
 )
 
+# Bubble: gentle liquid motion inside a container. Container (vial,
+# potion bottle, cauldron) stays stationary; interior contents shift.
+# Motion is entirely internal to the subject's silhouette.
+BUBBLE_CYCLE_TEMPLATE = (
+    "neutral pose: container with its liquid settled at the normal fill "
+    "line, one tiny bubble forming at the bottom of the liquid",
+    "bubble rising: the tiny bubble has traveled halfway up through "
+    "the liquid; a fresh second bubble just forming at the bottom",
+    "bubble surfacing: the first bubble reaches the top of the liquid "
+    "creating a small ripple; the second bubble is now halfway up",
+    "ripple fading: surface returning to calm; one small bubble still "
+    "rising near the top — flows back into the neutral pose",
+)
+
+# Flicker: fire/flame oscillation. Base of the flame is stationary;
+# flame tips dance. Appropriate for cauldron-on-fire, torches, anything
+# with a visible flame.
+FLICKER_CYCLE_TEMPLATE = (
+    "neutral flame pose: flame at medium height with rounded tips, "
+    "warm glowing colors from deep at the base to bright at the top",
+    "flame rising: flame tips extended slightly taller and narrower, "
+    "tiny spark or ember detaching near the top, colors slightly brighter",
+    "flame peaking: flame at its maximum height with pointed tips, "
+    "brightest moment of the cycle, one or two embers floating above",
+    "flame settling: flame tips lowering back toward neutral, slight "
+    "wider base as it relaxes — flows back into the neutral pose",
+)
+
+# Glow: subject emits a pulsing soft aura. Subject shape is static;
+# ambient halo intensity varies. Appropriate for chests hinting they're
+# openable, magic items, rewards.
+GLOW_CYCLE_TEMPLATE = (
+    "dim phase: subject in its natural appearance with a very faint "
+    "warm halo barely visible around its outline",
+    "growing phase: halo noticeably brighter, warm light spreading "
+    "a few pixels beyond the subject outline on all sides",
+    "peak phase: halo at its brightest point of the cycle, soft glow "
+    "visible around the entire subject, inner shadows slightly lifted",
+    "fading phase: halo dimming back toward the subtle state, subject "
+    "returning to its natural appearance — flows into the dim phase",
+)
+
+# Wobble: subject gently rocking side-to-side, bottom anchored. For
+# eggs about to hatch, unstable/wobbly objects, jellies.
+WOBBLE_CYCLE_TEMPLATE = (
+    "upright pose: subject centered and vertical, bottom anchored to "
+    "the ground baseline",
+    "tilted left: subject leaning slightly to the left (2-3 pixels of "
+    "lean at the top), bottom still anchored — the base does NOT move",
+    "upright pose (mid-cycle): subject passing back through vertical, "
+    "bottom still anchored",
+    "tilted right: subject leaning slightly to the right (2-3 pixels "
+    "of lean at the top), bottom still anchored — next frame returns "
+    "smoothly to upright",
+)
+
+# Sway: subject gently swaying from a fixed base. For plants, flags,
+# hanging items. Distinct from wobble because the base is more
+# grounded and the motion is softer / more organic.
+SWAY_CYCLE_TEMPLATE = (
+    "neutral resting pose: subject's upper parts (leaves, tips, "
+    "fronds) in their resting position, base firmly planted",
+    "leaning right: upper parts leaning gently to the right (a few "
+    "pixels of lean at the top), base firmly planted",
+    "neutral pose (mid-cycle): upper parts passing back through "
+    "resting position",
+    "leaning left: upper parts leaning gently to the left (a few "
+    "pixels of lean at the top), base firmly planted — flows back "
+    "into the neutral pose",
+)
+
 MOTION_TEMPLATES: dict[str, tuple[str, ...]] = {
     "idle": IDLE_CYCLE_TEMPLATE,
     "walk": WALK_CYCLE_TEMPLATE,
     "bounce": BOUNCE_CYCLE_TEMPLATE,
+    "bubble": BUBBLE_CYCLE_TEMPLATE,
+    "flicker": FLICKER_CYCLE_TEMPLATE,
+    "glow": GLOW_CYCLE_TEMPLATE,
+    "wobble": WOBBLE_CYCLE_TEMPLATE,
+    "sway": SWAY_CYCLE_TEMPLATE,
 }
 DEFAULT_MOTION = "idle"
 
