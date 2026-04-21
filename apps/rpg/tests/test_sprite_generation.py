@@ -500,6 +500,58 @@ class MotionTemplateTests(TestCase):
         self.assertIn("stretch", prompt.lower())
 
     @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_prompt_frames_task_as_sequential_keyframes(self, mock_frame):
+        """v1.2.3 slideshow fix: frame the task to Gemini as a SEQUENCE
+        of interlocking keyframes, not 4 independent poses. Name-check
+        hand-drawn-sprite-sheet references Gemini has in its training
+        data so it pattern-matches the right mental model. Pin the
+        language so it can't drift during future prompt cleanups."""
+        mock_frame.return_value = self._single_sheet_png()
+
+        generate_sprite_sheet(
+            slug="seq-check",
+            prompt="pixel-art fox",
+            frame_count=4,
+            tile_size=64,
+            fps=8,
+            motion="walk",
+            actor=self.parent,
+        )
+        prompt = mock_frame.call_args.kwargs["prompt"].lower()
+
+        for phrase in (
+            "sequential",
+            "keyframe",
+            "incremental",
+            "interlock",
+        ):
+            self.assertIn(phrase, prompt, f"prompt missing keyframe-framing phrase '{phrase}'")
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_bounce_prompt_forbids_rotation(self, mock_frame):
+        """v1.2.2's squash-and-stretch bounce got pattern-matched by
+        Gemini to coin rotation (drawing the coin at different viewing
+        angles — rest → rotating → edge-on → rest — like a Mario coin
+        flip). v1.2.3 enumerates anti-rotation bans in both the pose
+        sheet prompt and every BOUNCE_CYCLE_TEMPLATE phase."""
+        mock_frame.return_value = self._single_sheet_png()
+
+        generate_sprite_sheet(
+            slug="rot-check",
+            prompt="pixel-art coin",
+            frame_count=4,
+            tile_size=64,
+            fps=8,
+            motion="bounce",
+            actor=self.parent,
+        )
+
+        prompt = mock_frame.call_args.kwargs["prompt"].lower()
+        # Every anti-rotation verb that should show up at least once.
+        for banned in ("rotate", "flip", "spin"):
+            self.assertIn(banned, prompt, f"bounce prompt missing ban on '{banned}'")
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
     def test_prompt_enumerates_scene_element_bans(self, mock_frame):
         """Gemini got creative with ground strips + motion trails in v1.2.1
         because the negative prompt was too generic. v1.2.2 enumerates
