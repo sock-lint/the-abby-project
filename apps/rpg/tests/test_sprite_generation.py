@@ -16,6 +16,7 @@ from apps.rpg.models import SpriteAsset
 from apps.rpg.sprite_generation import (
     SpriteGenerationError,
     _autocenter_frame,
+    _chroma_key_to_transparent,
     _extract_png_bytes,
     generate_sprite_sheet,
 )
@@ -198,6 +199,144 @@ class MissingApiKeyTests(TestCase):
                 actor=self.parent,
             )
         self.assertIn("GEMINI_API_KEY", str(ctx.exception))
+
+
+class ChromaKeyTests(TestCase):
+    """Image models trained on web-scraped screenshots often draw the
+    Photoshop/Figma transparency CHECKERBOARD when asked for
+    'transparent background' — they've pattern-matched the visual
+    indicator of transparency as if it were transparency itself. We
+    work around this by prompting Gemini for SOLID MAGENTA
+    (RGB 255, 0, 255) and chroma-keying that color to real alpha=0
+    pixels after the fact. Magenta is the classic game-dev chroma-key
+    color because it essentially never appears in real subjects.
+    """
+
+    def _png_with_pixels(self, w, h, pixels_rgba):
+        """Build a PNG with the given (width*h) flat list of RGBA tuples."""
+        img = Image.new("RGBA", (w, h))
+        img.putdata(pixels_rgba)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    def test_pure_magenta_becomes_transparent(self):
+        # 2×1 image: [magenta, red]
+        png = self._png_with_pixels(2, 1, [
+            (255, 0, 255, 255),
+            (200, 50, 50, 255),
+        ])
+        out = _chroma_key_to_transparent(png)
+        result = list(Image.open(io.BytesIO(out)).getdata())
+        self.assertEqual(result[0][3], 0)  # magenta → alpha 0
+        self.assertEqual(result[1][3], 255)  # red → alpha preserved
+
+    def test_non_magenta_subject_pixels_preserved(self):
+        # A pixel that is NOT magenta — common subject colors.
+        png = self._png_with_pixels(4, 1, [
+            (255, 0, 0, 255),    # red
+            (0, 255, 0, 255),    # green
+            (0, 0, 255, 255),    # blue
+            (255, 255, 0, 255),  # yellow
+        ])
+        out = _chroma_key_to_transparent(png)
+        result = list(Image.open(io.BytesIO(out)).getdata())
+        for pixel in result:
+            self.assertEqual(pixel[3], 255, f"subject pixel {pixel} got keyed out")
+
+    def test_near_magenta_within_tolerance_is_keyed(self):
+        # Anti-aliased edges blend toward magenta. These should also
+        # be caught by the chroma-key so we don't get purple halos.
+        png = self._png_with_pixels(3, 1, [
+            (250, 20, 250, 255),  # near-magenta (anti-alias fringe)
+            (230, 40, 230, 255),  # slightly further
+            (100, 100, 100, 255),  # gray (NOT magenta) — must stay opaque
+        ])
+        out = _chroma_key_to_transparent(png)
+        result = list(Image.open(io.BytesIO(out)).getdata())
+        self.assertEqual(result[0][3], 0)    # near-magenta → transparent
+        self.assertEqual(result[1][3], 0)    # fringe → transparent
+        self.assertEqual(result[2][3], 255)  # gray → preserved
+
+    def test_already_transparent_pixels_stay_transparent(self):
+        # If a pixel was already alpha=0, chroma-key leaves it alone.
+        png = self._png_with_pixels(2, 1, [
+            (0, 0, 0, 0),        # fully transparent (color doesn't matter)
+            (100, 100, 100, 255),  # gray opaque
+        ])
+        out = _chroma_key_to_transparent(png)
+        result = list(Image.open(io.BytesIO(out)).getdata())
+        self.assertEqual(result[0][3], 0)
+        self.assertEqual(result[1][3], 255)
+
+    def test_invalid_image_raises(self):
+        with self.assertRaises(SpriteGenerationError):
+            _chroma_key_to_transparent(b"not a png")
+
+
+@override_settings(GEMINI_API_KEY="test-key")
+class ChromaKeyIntegrationTests(TestCase):
+    """Verify the chroma-key runs as part of generate_sprite_sheet's
+    pipeline, not only as a standalone function."""
+
+    def setUp(self):
+        self.parent = User.objects.create_user(username="p_chroma", password="pw", role="parent")
+
+    def _magenta_sheet_with_subject(self, frame_count=4):
+        """Build a sheet where each slice is filled with magenta, with
+        a single red subject rect in each cell. After chroma-key, the
+        magenta should become transparent, leaving just the red subject
+        — then autocenter can do its job properly."""
+        sheet = Image.new("RGBA", (256 * frame_count, 256), (255, 0, 255, 255))
+        for i in range(frame_count):
+            subject = Image.new("RGBA", (100, 100), (200, 50, 50, 255))
+            x = i * 256 + (256 - 100) // 2
+            y = (256 - 100) // 2
+            sheet.paste(subject, (x, y))
+        buf = io.BytesIO()
+        sheet.save(buf, format="PNG")
+        return buf.getvalue()
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_magenta_background_is_stripped_before_slicing(self, mock_frame):
+        """The whole point of v1.2.1: magenta fill from Gemini becomes
+        alpha=0, so bbox detection sees only the red subject — not
+        the full magenta cell."""
+        mock_frame.return_value = self._magenta_sheet_with_subject(4)
+
+        generate_sprite_sheet(
+            slug="chroma-check",
+            prompt="pixel-art red fox",
+            frame_count=4,
+            tile_size=64,
+            fps=8,
+            actor=self.parent,
+        )
+
+        # Read the stored strip and check each tile:
+        # - Should have transparent areas (no magenta fill bleeding through)
+        # - Subject bbox in each tile should be ~ 80% of the 64 tile
+        #   (because autocenter scales the 100×100 subject to fit)
+        row = SpriteAsset.objects.get(slug="chroma-check")
+        with row.image.open("rb") as fh:
+            strip = Image.open(fh)
+            strip.load()
+
+        # Scan tile 0's pixels — there should be NO magenta visible.
+        tile = strip.crop((0, 0, 64, 64))
+        data = list(tile.getdata())
+        magenta_pixels = [p for p in data if p[0] > 200 and p[1] < 60 and p[2] > 200 and p[3] > 0]
+        self.assertEqual(
+            len(magenta_pixels), 0,
+            f"found {len(magenta_pixels)} magenta pixels — chroma-key didn't run",
+        )
+
+        # And the subject bbox should fit the inner ~80% window.
+        bbox = tile.getbbox()
+        self.assertIsNotNone(bbox)
+        max_dim = max(bbox[2] - bbox[0], bbox[3] - bbox[1])
+        self.assertGreaterEqual(max_dim, 48)
+        self.assertLessEqual(max_dim, 56)
 
 
 class ExtractPngBytesTests(TestCase):

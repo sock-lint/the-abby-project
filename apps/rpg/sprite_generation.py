@@ -35,6 +35,20 @@ ALLOWED_TILE_SIZES = (32, 64, 128)
 # autocenter. 0.10 means the subject occupies the middle 80% of the tile.
 AUTOCENTER_PADDING_FRAC = 0.10
 
+# Chroma-key color that we ask Gemini to fill "transparent background"
+# areas with. Pure bright magenta is the classic game-dev chroma-key
+# choice because it essentially never appears in real subjects. We
+# strip pixels close to this color to real alpha=0 transparency after
+# every Gemini call — image models love to draw the Photoshop
+# transparency-checkerboard pattern when asked for "transparent
+# background," so we circumvent that by asking for a specific solid
+# color we can reliably remove.
+CHROMA_KEY_COLOR = (255, 0, 255)
+# Per-channel tolerance in absolute 0–255 distance. Moderately generous
+# so anti-aliased edges that blend toward magenta also get keyed out
+# and don't leave purple halos on the subject.
+CHROMA_KEY_TOLERANCE = 60
+
 # Motion templates — each is a 4-phase cyclic sequence keyed so frame 4
 # naturally leads back to frame 1. The ``motion`` arg to
 # ``generate_sprite_sheet`` picks one. Add new motions here and expose
@@ -90,11 +104,14 @@ MOTION_TEMPLATES: dict[str, tuple[str, ...]] = {
 DEFAULT_MOTION = "idle"
 
 PROMPT_SUFFIX = (
-    " Pixel art style. Fully transparent background — no scene, no ground, "
-    "no shadow. The subject MUST occupy the center of the frame with equal "
-    "space on all sides; do not place the subject in any corner. The subject "
-    "MUST be at the same scale as any reference image provided (do not zoom "
-    "in or out). No text, no UI, no borders, no watermark, no caption."
+    " Pixel art style. BACKGROUND: fill the entire image with SOLID BRIGHT "
+    "MAGENTA (RGB 255, 0, 255 / hex #ff00ff) as a flat solid color behind "
+    "the subject. DO NOT draw a checkerboard transparency pattern. DO NOT "
+    "use any other background color. The subject itself MUST NOT contain "
+    "magenta anywhere — use completely different colors for the character. "
+    "The subject MUST occupy the center of the frame with equal space on all "
+    "sides; do not place the subject in any corner. No text, no UI, no "
+    "borders, no watermark, no caption."
 )
 
 
@@ -162,6 +179,40 @@ def _generate_frame(
     except Exception as exc:  # noqa: BLE001
         raise SpriteGenerationError(f"Gemini API call failed: {exc}")
     return _extract_png_bytes(response)
+
+
+def _chroma_key_to_transparent(
+    png_bytes: bytes,
+    color: tuple[int, int, int] = CHROMA_KEY_COLOR,
+    tolerance: int = CHROMA_KEY_TOLERANCE,
+) -> bytes:
+    """Convert all pixels close to ``color`` to alpha=0 transparent.
+
+    Runs on every raw Gemini output before slicing or autocentering so
+    the "transparent background" the model painted (as magenta at our
+    request) becomes actual PNG alpha=0 transparency. Downstream bbox
+    detection then sees only the subject, not the whole cell.
+    """
+    try:
+        img = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
+    except (UnidentifiedImageError, OSError) as exc:
+        raise SpriteGenerationError(f"chroma-key got an invalid image: {exc}")
+
+    tr, tg, tb = color
+    pixels = list(img.getdata())
+    new_pixels = [
+        (r, g, b, 0) if (
+            abs(r - tr) <= tolerance
+            and abs(g - tg) <= tolerance
+            and abs(b - tb) <= tolerance
+        ) else (r, g, b, a)
+        for r, g, b, a in pixels
+    ]
+    img.putdata(new_pixels)
+
+    out = io.BytesIO()
+    img.save(out, format="PNG")
+    return out.getvalue()
 
 
 def _autocenter_frame(png_bytes: bytes, tile_size: int) -> bytes:
@@ -298,10 +349,14 @@ def _build_pose_sheet_prompt(
         f"silhouette, and overall size. Only the pose changes.\n"
         f"- All {frame_count} frames MUST be at the exact same scale "
         f"and vertically aligned on a shared baseline.\n"
-        f"- FULLY transparent background across the entire sheet — no "
-        f"scene, no ground, no shadow, no color fill.\n"
+        f"- BACKGROUND: fill the entire sheet with SOLID BRIGHT MAGENTA "
+        f"(RGB 255, 0, 255 / hex #ff00ff) as a flat solid color. DO NOT "
+        f"draw a checkerboard transparency pattern. DO NOT use any "
+        f"other background color. The subject itself must NOT contain "
+        f"magenta — use completely different colors for the character.\n"
         f"- No horizontal dividers, frame borders, numbering, or labels "
-        f"between poses — just the character poses on a continuous strip.\n"
+        f"between poses — just the character poses on the continuous "
+        f"magenta strip.\n"
         f"- No text, no UI, no watermark, no caption."
     )
 
@@ -377,16 +432,19 @@ def generate_sprite_sheet(
 
     frames: list[bytes] = []
     if frame_count == 1:
-        # Static path unchanged: single call, autocenter, done.
+        # Static path: single call, chroma-key, autocenter, done.
         full_prompt = _build_prompt(subject=prompt, style_hint=style_hint)
         raw = _generate_frame(prompt=full_prompt)
-        frames.append(_autocenter_frame(raw, tile_size))
+        keyed = _chroma_key_to_transparent(raw)
+        frames.append(_autocenter_frame(keyed, tile_size))
     else:
-        # Animated path (v1.2): one-shot pose sheet + slice + shared-scale
-        # center. One Gemini call produces all N poses in a single
-        # composition, so character design, palette, and scale are
-        # consistent by construction — impossible to drift across frames
-        # the way iterative per-frame calls did.
+        # Animated path: one-shot pose sheet + chroma-key + slice +
+        # shared-scale center. A single Gemini call produces all N
+        # poses in one composition, so character design / palette /
+        # scale are consistent by construction. Chroma-key strips the
+        # magenta fill we asked for as a background, converting it to
+        # real alpha=0 transparency before slicing so each tile's
+        # bbox detection sees only the subject.
         template = MOTION_TEMPLATES[motion]
         sheet_prompt = _build_pose_sheet_prompt(
             subject=prompt,
@@ -395,7 +453,8 @@ def generate_sprite_sheet(
             style_hint=style_hint,
         )
         sheet_bytes = _generate_frame(prompt=sheet_prompt)
-        frames = _slice_and_center_sheet(sheet_bytes, frame_count, tile_size)
+        keyed_sheet = _chroma_key_to_transparent(sheet_bytes)
+        frames = _slice_and_center_sheet(keyed_sheet, frame_count, tile_size)
 
     sheet_bytes = frames[0] if frame_count == 1 else _stitch_strip(frames, tile_size)
 
