@@ -18,6 +18,7 @@ from apps.rpg.sprite_generation import (
     _autocenter_frame,
     _chroma_key_to_transparent,
     _extract_png_bytes,
+    _keep_largest_component,
     generate_sprite_sheet,
 )
 
@@ -199,6 +200,91 @@ class MissingApiKeyTests(TestCase):
                 actor=self.parent,
             )
         self.assertIn("GEMINI_API_KEY", str(ctx.exception))
+
+
+class KeepLargestComponentTests(TestCase):
+    """Chroma-key leaves small near-magenta pixels opaque at anti-alias
+    edges; equal-width slicing can also drag cross-cell fragments into
+    a tile. Both show as "cut off portions from another frame" during
+    animation — ghosts that flash briefly. Connected-components
+    filtering keeps only the largest opaque cluster per tile, which
+    for our subjects (foxes, coins, items) is always the actual
+    character. Orphan clusters get alpha=0."""
+
+    def _png(self, w, h, opaque_regions):
+        """Build a PNG with ``opaque_regions`` = list of (x, y, w, h) rects
+        to paint as opaque red on an otherwise transparent canvas."""
+        img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        for x, y, rw, rh in opaque_regions:
+            subject = Image.new("RGBA", (rw, rh), (200, 50, 50, 255))
+            img.paste(subject, (x, y))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    def test_single_large_component_passes_through_unchanged(self):
+        # A single 30x30 subject with no orphans — nothing to remove.
+        png = self._png(64, 64, [(10, 10, 30, 30)])
+        out = _keep_largest_component(png)
+        before = Image.open(io.BytesIO(png)).convert("RGBA")
+        after = Image.open(io.BytesIO(out)).convert("RGBA")
+        # Same opaque-pixel count (the whole subject is one component).
+        before_opaque = sum(1 for p in before.getdata() if p[3] > 0)
+        after_opaque = sum(1 for p in after.getdata() if p[3] > 0)
+        self.assertEqual(before_opaque, after_opaque)
+        self.assertEqual(before_opaque, 30 * 30)
+
+    def test_large_subject_plus_small_orphans_removes_orphans(self):
+        # 30x30 main subject + three small orphan clusters.
+        png = self._png(64, 64, [
+            (15, 15, 30, 30),   # main subject: 900 pixels
+            (0, 0, 3, 3),       # orphan 1: 9 pixels
+            (60, 0, 2, 2),      # orphan 2: 4 pixels
+            (0, 62, 1, 1),      # orphan 3: 1 pixel
+        ])
+        out = _keep_largest_component(png)
+        after = Image.open(io.BytesIO(out)).convert("RGBA")
+        after_opaque = sum(1 for p in after.getdata() if p[3] > 0)
+        # Only the main subject (900 pixels) should remain.
+        self.assertEqual(after_opaque, 900)
+        # Verify the orphan regions are now transparent.
+        self.assertEqual(after.getpixel((0, 0))[3], 0)
+        self.assertEqual(after.getpixel((60, 0))[3], 0)
+        self.assertEqual(after.getpixel((0, 62))[3], 0)
+        # And the main subject is still there.
+        self.assertEqual(after.getpixel((20, 20))[3], 255)
+
+    def test_fully_transparent_input_passes_through(self):
+        img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        out = _keep_largest_component(buf.getvalue())
+        after = Image.open(io.BytesIO(out)).convert("RGBA")
+        self.assertEqual(after.size, (64, 64))
+        self.assertIsNone(after.getbbox())
+
+    def test_invalid_image_raises(self):
+        with self.assertRaises(SpriteGenerationError):
+            _keep_largest_component(b"not a png")
+
+    def test_orphan_bigger_than_half_main_still_gets_removed(self):
+        """Edge case: even a sizeable orphan (smaller than main but not
+        tiny) still gets removed. Catches the real bounce v1.2.5 case
+        where a 168-pixel orphan appeared alongside a 956-pixel main."""
+        # Non-overlapping coords: main is rows 10-49, cols 10-49;
+        # orphan is rows 0-20, cols 0-7 (gap of 2 rows and 2 cols
+        # between them so BFS treats them as separate components).
+        png = self._png(64, 64, [
+            (10, 10, 40, 40),   # main: 1600 pixels
+            (0, 0, 8, 21),      # orphan: 8 × 21 = 168 pixels
+        ])
+        out = _keep_largest_component(png)
+        after = Image.open(io.BytesIO(out)).convert("RGBA")
+        after_opaque = sum(1 for p in after.getdata() if p[3] > 0)
+        self.assertEqual(after_opaque, 1600)
+        # Orphan pixels are now transparent.
+        self.assertEqual(after.getpixel((0, 0))[3], 0)
+        self.assertEqual(after.getpixel((5, 10))[3], 0)
 
 
 class ChromaKeyTests(TestCase):

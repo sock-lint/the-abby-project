@@ -256,6 +256,64 @@ def _chroma_key_to_transparent(
     return out.getvalue()
 
 
+def _keep_largest_component(png_bytes: bytes) -> bytes:
+    """Keep only the largest connected opaque region; zero-alpha everything
+    else. Used to scrub chroma-key fringe orphans and cross-cell bleed
+    fragments that would otherwise flash as "cut-off portions from another
+    frame" during animation. For our subjects (foxes, coins, items) the
+    character is always a single connected blob, so this is safe. If we
+    ever get multi-blob subjects we'd switch to a size-threshold variant.
+    """
+    try:
+        img = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
+    except (UnidentifiedImageError, OSError) as exc:
+        raise SpriteGenerationError(f"orphan-cleanup got an invalid image: {exc}")
+
+    w, h = img.size
+    pix = img.load()
+    seen = [[False] * h for _ in range(w)]
+    components: list[list[tuple[int, int]]] = []
+
+    for sx in range(w):
+        for sy in range(h):
+            if seen[sx][sy] or pix[sx, sy][3] == 0:
+                continue
+            # BFS over 4-connected opaque neighborhood.
+            stack = [(sx, sy)]
+            comp: list[tuple[int, int]] = []
+            seen[sx][sy] = True
+            while stack:
+                cx, cy = stack.pop()
+                comp.append((cx, cy))
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nx, ny = cx + dx, cy + dy
+                    if (
+                        0 <= nx < w and 0 <= ny < h
+                        and not seen[nx][ny]
+                        and pix[nx, ny][3] > 0
+                    ):
+                        seen[nx][ny] = True
+                        stack.append((nx, ny))
+            components.append(comp)
+
+    if not components:
+        # Nothing to prune; return the input unchanged (already transparent).
+        out = io.BytesIO()
+        img.save(out, format="PNG")
+        return out.getvalue()
+
+    largest = max(components, key=len)
+    keep = set(largest)
+    new_img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    new_pix = new_img.load()
+    for px, py in keep:
+        new_pix[px, py] = pix[px, py]
+
+    out = io.BytesIO()
+    new_img.save(out, format="PNG")
+    return out.getvalue()
+
+
 def _autocenter_frame(png_bytes: bytes, tile_size: int) -> bytes:
     """Crop to the subject's alpha bounding box, scale to fit inside the
     tile with ``AUTOCENTER_PADDING_FRAC`` transparent border on each
@@ -521,11 +579,12 @@ def generate_sprite_sheet(
 
     frames: list[bytes] = []
     if frame_count == 1:
-        # Static path: single call, chroma-key, autocenter, done.
+        # Static path: single call, chroma-key, autocenter, prune orphans.
         full_prompt = _build_prompt(subject=prompt, style_hint=style_hint)
         raw = _generate_frame(prompt=full_prompt)
         keyed = _chroma_key_to_transparent(raw)
-        frames.append(_autocenter_frame(keyed, tile_size))
+        centered = _autocenter_frame(keyed, tile_size)
+        frames.append(_keep_largest_component(centered))
     else:
         # Animated path: one-shot pose sheet + chroma-key + slice +
         # shared-scale center. A single Gemini call produces all N
@@ -543,7 +602,11 @@ def generate_sprite_sheet(
         )
         sheet_bytes = _generate_frame(prompt=sheet_prompt)
         keyed_sheet = _chroma_key_to_transparent(sheet_bytes)
-        frames = _slice_and_ground_align_sheet(keyed_sheet, frame_count, tile_size)
+        aligned_tiles = _slice_and_ground_align_sheet(keyed_sheet, frame_count, tile_size)
+        # Per-tile orphan cleanup: chroma-key anti-alias fringes and any
+        # cross-cell bleed fragments get filtered here, so each tile
+        # contains only its single largest connected subject.
+        frames = [_keep_largest_component(t) for t in aligned_tiles]
 
     sheet_bytes = frames[0] if frame_count == 1 else _stitch_strip(frames, tile_size)
 
