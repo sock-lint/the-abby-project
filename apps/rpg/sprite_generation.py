@@ -293,20 +293,29 @@ def _autocenter_frame(png_bytes: bytes, tile_size: int) -> bytes:
     return out.getvalue()
 
 
-def _slice_and_center_sheet(
+def _slice_and_ground_align_sheet(
     sheet_png: bytes,
     frame_count: int,
     tile_size: int,
 ) -> list[bytes]:
     """Slice a single Gemini-generated pose sheet into ``frame_count`` equal
-    horizontal tiles, then scale every tile's subject using a SHARED scale
-    factor so size stays consistent across frames.
+    horizontal tiles, scale with a SHARED factor, then GROUND-ALIGN each
+    tile's subject to a shared baseline near the tile's bottom.
 
-    The shared scale is computed from the MAX subject dimension across all
-    slices — so the biggest pose fits inside the tile's inner 80% window,
-    and smaller poses end up proportionally smaller (not scaled up to
-    match, which was v1.1's size-variance bug). Each tile's subject is
-    centered on its own transparent canvas.
+    Ground-align is what classic hand-drawn sprite cycles use: the
+    character's feet stay planted on one ground line across every frame,
+    and variations in body height (walk-cycle passing poses rise, contact
+    poses fall; squash-stretch bounce's top edge oscillates) show up as
+    the subject's TOP being at different Y positions across frames. That
+    subtle bob IS the perceived animation motion. v1.2.4's vertical-
+    centering normalized every subject's bbox to the tile's midline,
+    erasing the bob and producing the 'slideshow' feel across all
+    motion types.
+
+    Horizontal positioning is still centered. Shared-scale logic is
+    unchanged — the largest subject's max dimension fills the tile's
+    inner 80% window and everything else scales proportionally. Only
+    the vertical placement rule differs.
     """
     try:
         src = Image.open(io.BytesIO(sheet_png)).convert("RGBA")
@@ -316,7 +325,7 @@ def _slice_and_center_sheet(
     sheet_w, sheet_h = src.size
     slice_w = sheet_w // frame_count
 
-    # Pass 1: slice the sheet and record each subject's bbox (within the slice).
+    # Pass 1: slice the sheet and record each subject's bbox.
     slices: list[tuple[Image.Image, Optional[tuple[int, int, int, int]]]] = []
     for i in range(frame_count):
         left = i * slice_w
@@ -324,9 +333,7 @@ def _slice_and_center_sheet(
         slice_img = src.crop((left, 0, right, sheet_h))
         slices.append((slice_img, slice_img.getbbox()))
 
-    # Compute the shared scale: fit the LARGEST subject into the inner 80%
-    # window. All other slices scale at the SAME factor, preserving
-    # relative size across frames.
+    # Shared scale: fit the LARGEST subject into the inner 80% window.
     max_dim = 1
     for _, bbox in slices:
         if bbox is None:
@@ -337,8 +344,14 @@ def _slice_and_center_sheet(
     inner = max(1, int(round(tile_size * (1 - 2 * AUTOCENTER_PADDING_FRAC))))
     shared_scale = inner / max_dim
 
-    # Pass 2: crop each slice to its subject, scale with the shared factor,
-    # center on a transparent tile canvas.
+    # Ground baseline: subject bottoms land at this Y in the tile. Matches
+    # the top padding so every tile has equal transparent margin top and
+    # bottom when the subject is tall; shorter subjects leave more empty
+    # space ABOVE (which is the bob).
+    padding_px = max(1, int(round(tile_size * AUTOCENTER_PADDING_FRAC)))
+    baseline_y = tile_size - padding_px
+
+    # Pass 2: crop to bbox, scale with shared factor, ground-align.
     tiles: list[bytes] = []
     for slice_img, bbox in slices:
         canvas = Image.new("RGBA", (tile_size, tile_size), (0, 0, 0, 0))
@@ -352,8 +365,9 @@ def _slice_and_center_sheet(
         new_w = max(1, int(round(cw * shared_scale)))
         new_h = max(1, int(round(ch * shared_scale)))
         scaled = cropped.resize((new_w, new_h), Image.LANCZOS)
+        # Horizontal: centered. Vertical: subject bottom at shared baseline.
         x = (tile_size - new_w) // 2
-        y = (tile_size - new_h) // 2
+        y = baseline_y - new_h
         canvas.paste(scaled, (x, y))
         buf = io.BytesIO()
         canvas.save(buf, format="PNG")
@@ -529,7 +543,7 @@ def generate_sprite_sheet(
         )
         sheet_bytes = _generate_frame(prompt=sheet_prompt)
         keyed_sheet = _chroma_key_to_transparent(sheet_bytes)
-        frames = _slice_and_center_sheet(keyed_sheet, frame_count, tile_size)
+        frames = _slice_and_ground_align_sheet(keyed_sheet, frame_count, tile_size)
 
     sheet_bytes = frames[0] if frame_count == 1 else _stitch_strip(frames, tile_size)
 

@@ -733,6 +733,70 @@ class OneShotPoseSheetTests(TestCase):
             self.assertIn(key, prompt, f"phase '{key}' missing from prompt")
 
     @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_ground_align_preserves_relative_vertical_position(self, mock_frame):
+        """v1.2.5 critical algorithm test. Classic hand-drawn sprite
+        cycles preserve body bob by keeping the character's feet on
+        a shared ground line and letting the body rise/fall above it
+        between frames. v1.2.4's center-align normalized every
+        subject's bbox to the tile's vertical center — erasing the
+        bob and producing the 'slideshow feel.' Ground-align anchors
+        each subject's BOTTOM to a shared baseline near the tile's
+        bottom edge; variations in bbox height then show as the
+        subject's TOP being at different Y positions across tiles,
+        which IS the bob.
+        """
+        def _sheet_with_varying_heights():
+            sheet = Image.new("RGBA", (512, 256), (0, 0, 0, 0))
+            # Slice 0: small 40×40 subject, centered in cell.
+            subj1 = Image.new("RGBA", (40, 40), (200, 60, 60, 255))
+            sheet.paste(subj1, ((256 - 40) // 2, (256 - 40) // 2))
+            # Slice 1: tall 80×80 subject, centered in cell.
+            subj2 = Image.new("RGBA", (80, 80), (60, 200, 60, 255))
+            sheet.paste(subj2, (256 + (256 - 80) // 2, (256 - 80) // 2))
+            buf = io.BytesIO()
+            sheet.save(buf, format="PNG")
+            return buf.getvalue()
+        mock_frame.return_value = _sheet_with_varying_heights()
+
+        generate_sprite_sheet(
+            slug="ground-align-check",
+            prompt="pixel-art subject",
+            frame_count=2,
+            tile_size=64,
+            fps=8,
+            actor=self.parent,
+        )
+
+        row = SpriteAsset.objects.get(slug="ground-align-check")
+        with row.image.open("rb") as fh:
+            strip = Image.open(fh)
+            strip.load()
+
+        tile0 = strip.crop((0, 0, 64, 64))
+        tile1 = strip.crop((64, 0, 128, 64))
+        bbox0 = tile0.getbbox()
+        bbox1 = tile1.getbbox()
+        self.assertIsNotNone(bbox0)
+        self.assertIsNotNone(bbox1)
+        # Shared baseline: both subjects' BOTTOMS within 1px of each other.
+        bottom0 = bbox0[3]
+        bottom1 = bbox1[3]
+        self.assertLessEqual(
+            abs(bottom0 - bbox1[3]), 1,
+            f"ground-align violated: bottom0={bottom0}, bottom1={bottom1}",
+        )
+        # Tops differ: tile 0 (smaller subject after shared scaling)
+        # must have its top LOWER in the tile than tile 1 (bigger
+        # subject). That's what preserves body-bob across frames.
+        top0 = bbox0[1]
+        top1 = bbox1[1]
+        self.assertGreater(
+            top0, top1,
+            f"smaller-subject top should be lower in tile (larger Y) than "
+            f"bigger-subject top; got top0={top0}, top1={top1}",
+        )
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
     def test_size_consistency_across_frames_with_variable_subject_sizes(self, mock_frame):
         """The v1.1 regression: different bbox sizes → different per-frame
         scale factors → visible size variance. v1.2 uses a shared scale
