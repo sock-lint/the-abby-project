@@ -509,6 +509,122 @@ def _autocenter_frame(png_bytes: bytes, tile_size: int) -> bytes:
     return out.getvalue()
 
 
+def _extract_frames_in_reading_order(
+    sheet_png: bytes,
+    frame_count: int,
+    tile_size: int,
+) -> list[bytes]:
+    """Find all opaque components in ``sheet_png``, take the ``frame_count``
+    largest, sort them into reading order (top-to-bottom then
+    left-to-right), scale with a shared factor, and ground-align each
+    onto a ``tile_size``-squared transparent canvas.
+
+    Works for ANY sheet layout Gemini produces (1×N horizontal,
+    2×2 grid, N×1 vertical, or irregular arrangements) because it
+    finds subjects by connectivity rather than fixed-column slicing.
+    Falls back to ``_slice_and_ground_align_sheet`` when fewer than
+    ``frame_count`` components are found (subjects merged — no
+    sensible way to separate them without risking bleed).
+    """
+    try:
+        src = Image.open(io.BytesIO(sheet_png)).convert("RGBA")
+    except (UnidentifiedImageError, OSError) as exc:
+        raise SpriteGenerationError(f"Gemini returned an invalid image: {exc}")
+
+    # Find ALL opaque components via iterative BFS. Slower than PIL's
+    # native image operations but no scipy dependency and easy to
+    # reason about.
+    w, h = src.size
+    pix = src.load()
+    seen = [[False] * h for _ in range(w)]
+    components: list[list[tuple[int, int]]] = []
+    for sx in range(w):
+        for sy in range(h):
+            if seen[sx][sy] or pix[sx, sy][3] == 0:
+                continue
+            stack = [(sx, sy)]
+            comp: list[tuple[int, int]] = []
+            seen[sx][sy] = True
+            while stack:
+                cx, cy = stack.pop()
+                comp.append((cx, cy))
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nx, ny = cx + dx, cy + dy
+                    if (
+                        0 <= nx < w and 0 <= ny < h
+                        and not seen[nx][ny]
+                        and pix[nx, ny][3] > 0
+                    ):
+                        seen[nx][ny] = True
+                        stack.append((nx, ny))
+            components.append(comp)
+
+    # Fewer components than frames → subjects merged or Gemini produced
+    # a single blob. Fall back to the old horizontal slicer.
+    if len(components) < frame_count:
+        return _slice_and_ground_align_sheet(sheet_png, frame_count, tile_size)
+
+    # Take the N largest components (ignore orphan specks, duplicate
+    # small elements, etc.)
+    components.sort(key=len, reverse=True)
+    top_n = components[:frame_count]
+
+    # Compute bbox + build a pixel-set for masked extraction.
+    frames_data: list[tuple[tuple[int, int, int, int], set[tuple[int, int]]]] = []
+    for comp in top_n:
+        xs = [p[0] for p in comp]
+        ys = [p[1] for p in comp]
+        # PIL bbox convention: (left, top, right, bottom) with exclusive right/bottom.
+        bbox = (min(xs), min(ys), max(xs) + 1, max(ys) + 1)
+        frames_data.append((bbox, set(comp)))
+
+    # Reading-order sort: group into rows by top-Y proximity, then sort
+    # within each row by left-X. Row break threshold = 2 × tile_size
+    # is conservative for typical Gemini outputs (1024-ish pixels).
+    row_break_threshold = max(tile_size * 2, 100)
+    frames_data.sort(key=lambda fd: fd[0][1])  # sort by top-Y first
+    rows: list[list] = [[frames_data[0]]]
+    for fd in frames_data[1:]:
+        prev_top = rows[-1][-1][0][1]
+        if fd[0][1] - prev_top > row_break_threshold:
+            rows.append([])
+        rows[-1].append(fd)
+    for row in rows:
+        row.sort(key=lambda fd: fd[0][0])  # within-row, sort by left-X
+    ordered = [fd for row in rows for fd in row]
+
+    # Shared scale so the largest subject fills the inner 80% window.
+    max_dim = 1
+    for bbox, _ in ordered:
+        max_dim = max(max_dim, bbox[2] - bbox[0], bbox[3] - bbox[1])
+    inner = max(1, int(round(tile_size * (1 - 2 * AUTOCENTER_PADDING_FRAC))))
+    shared_scale = inner / max_dim
+    padding_px = max(1, int(round(tile_size * AUTOCENTER_PADDING_FRAC)))
+    baseline_y = tile_size - padding_px
+
+    # Render each frame: mask to just this component's pixels, crop
+    # to bbox, scale, ground-align.
+    tiles: list[bytes] = []
+    for bbox, comp_set in ordered:
+        masked = Image.new("RGBA", src.size, (0, 0, 0, 0))
+        mpix = masked.load()
+        for (px_, py_) in comp_set:
+            mpix[px_, py_] = pix[px_, py_]
+        cropped = masked.crop(bbox)
+        cw, ch = cropped.size
+        new_w = max(1, int(round(cw * shared_scale)))
+        new_h = max(1, int(round(ch * shared_scale)))
+        scaled = cropped.resize((new_w, new_h), Image.LANCZOS)
+        canvas = Image.new("RGBA", (tile_size, tile_size), (0, 0, 0, 0))
+        x = (tile_size - new_w) // 2
+        y = baseline_y - new_h
+        canvas.paste(scaled, (x, y))
+        buf = io.BytesIO()
+        canvas.save(buf, format="PNG")
+        tiles.append(buf.getvalue())
+    return tiles
+
+
 def _slice_and_ground_align_sheet(
     sheet_png: bytes,
     frame_count: int,
@@ -826,7 +942,12 @@ def generate_sprite_sheet(
         keyed_sheet = _chroma_key_to_transparent(sheet_bytes)
         if return_debug_raw:
             debug_urls["post_chroma_key_url"] = _save_debug_artifact(slug, "post-chroma", keyed_sheet)
-        aligned_tiles = _slice_and_ground_align_sheet(keyed_sheet, frame_count, tile_size)
+        # v1.3.3: layout-aware extraction. Finds N components in the
+        # chroma-keyed sheet and sorts them into reading order, so we
+        # get the right frames whether Gemini drew a 1×N strip, 2×2
+        # grid, or something else. Falls back to horizontal slicing
+        # only when fewer than N components are detected.
+        aligned_tiles = _extract_frames_in_reading_order(keyed_sheet, frame_count, tile_size)
         # Per-tile orphan cleanup: chroma-key anti-alias fringes and any
         # cross-cell bleed fragments get filtered here, so each tile
         # contains only its single largest connected subject.

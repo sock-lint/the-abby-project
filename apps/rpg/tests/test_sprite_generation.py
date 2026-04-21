@@ -1070,6 +1070,199 @@ class ReferenceImageUrlTests(TestCase):
 
 
 @override_settings(GEMINI_API_KEY="test-key")
+class LayoutAwareExtractionTests(TestCase):
+    """v1.3.3: Gemini doesn't reliably respect 'horizontal strip' prompts —
+    it sometimes arranges sprites in a 2×2 grid, sometimes in a 4×1
+    vertical strip, etc. Our extractor finds connected opaque
+    components in the chroma-keyed sheet and sorts them into reading
+    order (top-to-bottom, then left-to-right) regardless of layout.
+
+    This replaces the fixed-column ``_slice_and_ground_align_sheet``
+    approach for the main path (old function kept as a fallback when
+    CC detection finds fewer than ``frame_count`` components)."""
+
+    def setUp(self):
+        self.parent = User.objects.create_user(username="lay_parent", password="pw", role="parent")
+
+    def _sheet_2x2_grid(self, size=512):
+        """Build a 1024×1024 sheet with 4 distinct subjects in a 2×2
+        grid, each a different color so we can verify extraction order
+        by inspecting colors of the output tiles."""
+        img = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
+        # Top-left (red), top-right (green), bottom-left (blue), bottom-right (yellow)
+        subjects = [
+            (100, 100, 200, 200, (220, 50, 50, 255)),    # TL red
+            (700, 100, 200, 200, (50, 220, 50, 255)),    # TR green
+            (100, 700, 200, 200, (50, 50, 220, 255)),    # BL blue
+            (700, 700, 200, 200, (220, 220, 50, 255)),   # BR yellow
+        ]
+        for x, y, w, h, color in subjects:
+            sub = Image.new("RGBA", (w, h), color)
+            img.paste(sub, (x, y))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    def _sheet_1x4_horizontal(self):
+        """4 subjects in a horizontal row."""
+        img = Image.new("RGBA", (1024, 256), (0, 0, 0, 0))
+        colors = [(220, 50, 50, 255), (50, 220, 50, 255),
+                  (50, 50, 220, 255), (220, 220, 50, 255)]
+        for i, color in enumerate(colors):
+            sub = Image.new("RGBA", (180, 180), color)
+            img.paste(sub, (i * 256 + 38, 38))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_2x2_grid_is_extracted_in_reading_order(self, mock_frame):
+        """Sheet has 4 colored subjects in a 2×2 grid. Output tiles
+        must be in reading order: TL → TR → BL → BR."""
+        mock_frame.return_value = self._sheet_2x2_grid()
+
+        generate_sprite_sheet(
+            slug="grid-order",
+            prompt="x",
+            frame_count=4,
+            tile_size=64,
+            fps=6,
+            motion="idle",
+            actor=self.parent,
+        )
+
+        row = SpriteAsset.objects.get(slug="grid-order")
+        with row.image.open("rb") as fh:
+            strip = Image.open(fh)
+            strip.load()
+        # Verify each tile has the correct color (reading order).
+        expected_colors = [
+            (220, 50, 50),   # TL red → tile 0
+            (50, 220, 50),   # TR green → tile 1
+            (50, 50, 220),   # BL blue → tile 2
+            (220, 220, 50),  # BR yellow → tile 3
+        ]
+        for i, expected in enumerate(expected_colors):
+            tile = strip.crop((i * 64, 0, (i + 1) * 64, 64))
+            bbox = tile.getbbox()
+            self.assertIsNotNone(bbox, f"tile {i} has no opaque pixels")
+            # Sample the center of the subject bbox.
+            cx = (bbox[0] + bbox[2]) // 2
+            cy = (bbox[1] + bbox[3]) // 2
+            r, g, b, _ = tile.getpixel((cx, cy))
+            # Each channel must be close to expected (with some
+            # tolerance for LANCZOS resampling edge smoothing).
+            self.assertLess(
+                abs(r - expected[0]) + abs(g - expected[1]) + abs(b - expected[2]),
+                90,
+                f"tile {i}: expected ~{expected}, got ({r},{g},{b})",
+            )
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_1x4_horizontal_is_extracted_left_to_right(self, mock_frame):
+        """Sheet already in the expected 1×4 horizontal layout. Output
+        tiles must be in left-to-right order."""
+        mock_frame.return_value = self._sheet_1x4_horizontal()
+
+        generate_sprite_sheet(
+            slug="row-order",
+            prompt="x",
+            frame_count=4,
+            tile_size=64,
+            fps=6,
+            motion="idle",
+            actor=self.parent,
+        )
+
+        row = SpriteAsset.objects.get(slug="row-order")
+        with row.image.open("rb") as fh:
+            strip = Image.open(fh)
+            strip.load()
+        expected_colors = [
+            (220, 50, 50),   # first in row → tile 0
+            (50, 220, 50),   # second → tile 1
+            (50, 50, 220),   # third → tile 2
+            (220, 220, 50),  # fourth → tile 3
+        ]
+        for i, expected in enumerate(expected_colors):
+            tile = strip.crop((i * 64, 0, (i + 1) * 64, 64))
+            bbox = tile.getbbox()
+            self.assertIsNotNone(bbox)
+            cx = (bbox[0] + bbox[2]) // 2
+            cy = (bbox[1] + bbox[3]) // 2
+            r, g, b, _ = tile.getpixel((cx, cy))
+            self.assertLess(
+                abs(r - expected[0]) + abs(g - expected[1]) + abs(b - expected[2]),
+                90,
+            )
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_all_tiles_ground_aligned_to_same_baseline(self, mock_frame):
+        """The tile 2 vertical-mis-alignment bug from v1.3.0 was caused
+        by the old slicer putting 2×2-grid subjects at wrong Y. With
+        CC extraction, every tile's subject bottom must land at the
+        same baseline — no more teleport during animation."""
+        mock_frame.return_value = self._sheet_2x2_grid()
+
+        generate_sprite_sheet(
+            slug="baseline-check",
+            prompt="x",
+            frame_count=4,
+            tile_size=64,
+            fps=6,
+            motion="idle",
+            actor=self.parent,
+        )
+
+        row = SpriteAsset.objects.get(slug="baseline-check")
+        with row.image.open("rb") as fh:
+            strip = Image.open(fh)
+            strip.load()
+        # All 4 tiles' subject bottoms must be within 1px of each other.
+        bottoms = []
+        for i in range(4):
+            tile = strip.crop((i * 64, 0, (i + 1) * 64, 64))
+            bbox = tile.getbbox()
+            self.assertIsNotNone(bbox)
+            bottoms.append(bbox[3])
+        self.assertLessEqual(
+            max(bottoms) - min(bottoms), 1,
+            f"subject bottoms not aligned: {bottoms}",
+        )
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_fallback_to_slicing_when_fewer_components_than_frames(self, mock_frame):
+        """Edge case: if Gemini somehow produces fewer distinct subjects
+        than frames requested (e.g., subjects connect), fall back to
+        the horizontal slicer rather than raising. Guarantees the
+        pipeline always produces a result."""
+        # Single-component sheet (one big red rectangle spanning most of
+        # the image — looks like all subjects touched/merged).
+        img = Image.new("RGBA", (1024, 256), (0, 0, 0, 0))
+        big = Image.new("RGBA", (900, 150), (220, 50, 50, 255))
+        img.paste(big, (50, 50))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        mock_frame.return_value = buf.getvalue()
+
+        # Should succeed without raising and produce 4 tiles.
+        generate_sprite_sheet(
+            slug="fallback-case",
+            prompt="x",
+            frame_count=4,
+            tile_size=64,
+            fps=6,
+            motion="idle",
+            actor=self.parent,
+        )
+        row = SpriteAsset.objects.get(slug="fallback-case")
+        with row.image.open("rb") as fh:
+            strip = Image.open(fh)
+            strip.load()
+        self.assertEqual(strip.size, (256, 64))
+
+
+@override_settings(GEMINI_API_KEY="test-key")
 class OneShotPoseSheetTests(TestCase):
     """v1.2 architecture: a single Gemini call produces all N poses as one
     image, which is then sliced into N equal tiles and each tile autocentered
