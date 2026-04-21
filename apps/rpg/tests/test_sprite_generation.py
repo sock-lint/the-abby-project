@@ -990,6 +990,63 @@ class ReferenceImageUrlTests(TestCase):
 
     @patch("apps.rpg.sprite_generation._fetch_reference_image")
     @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_reference_is_composited_onto_magenta_before_gemini(self, mock_frame, mock_fetch):
+        """v1.3.2: when a reference image has transparent pixels, Gemini
+        treats the implied (display-rendered) background as a style cue
+        and outputs on that color — overriding the text prompt's
+        'magenta background' instruction. The v1.3.0 turtle PoC proved
+        this: reference had transparent background, Gemini output on
+        white, chroma-key did nothing, final sprites came out tiny.
+
+        Fix: composite the reference onto a solid magenta canvas BEFORE
+        passing to Gemini. The model sees the character already on
+        magenta, replicates that, and the existing chroma-key step
+        cleans it normally."""
+        # Reference image: a 32×32 PNG with a red subject in the middle
+        # and transparent corners — mimics a typical core-pack sprite.
+        ref = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        subj = Image.new("RGBA", (16, 16), (220, 60, 60, 255))
+        ref.paste(subj, (8, 8))
+        buf = io.BytesIO()
+        ref.save(buf, format="PNG")
+        raw_ref_bytes = buf.getvalue()
+        mock_fetch.return_value = raw_ref_bytes
+        mock_frame.return_value = self._sheet_png()
+
+        generate_sprite_sheet(
+            slug="composite-check",
+            prompt="pixel-art subject",
+            frame_count=4,
+            tile_size=64,
+            fps=4,
+            motion="idle",
+            reference_image_url="https://example.com/ref.png",
+            actor=self.parent,
+        )
+
+        # Inspect the bytes that were actually passed to Gemini.
+        sent_ref = mock_frame.call_args.kwargs["reference_png"]
+        self.assertIsNotNone(sent_ref)
+        # Must NOT be the raw reference — pre-composite should have
+        # modified it (filled transparent → magenta).
+        self.assertNotEqual(
+            sent_ref, raw_ref_bytes,
+            "reference must be composited onto magenta before being "
+            "sent to Gemini; raw bytes were passed through unchanged",
+        )
+        # Decode and verify: every pixel is now opaque and the
+        # previously-transparent corners are magenta (255, 0, 255).
+        composited = Image.open(io.BytesIO(sent_ref)).convert("RGBA")
+        self.assertEqual(composited.size, (32, 32))
+        corner = composited.getpixel((0, 0))  # was transparent
+        self.assertEqual(corner[:3], (255, 0, 255), f"corner should be magenta; got {corner}")
+        self.assertEqual(corner[3], 255, "corner must be fully opaque (no alpha)")
+        # Subject pixel (middle) stays its original color.
+        center = composited.getpixel((16, 16))
+        self.assertEqual(center[:3], (220, 60, 60), f"subject should be preserved; got {center}")
+
+    @patch("apps.rpg.sprite_generation._fetch_reference_image")
+    @patch("apps.rpg.sprite_generation._generate_frame")
     def test_reference_url_also_works_for_static_sprites(self, mock_frame, mock_fetch):
         """Static sprite generation with a reference — useful for
         producing a new static in the style of an existing sprite

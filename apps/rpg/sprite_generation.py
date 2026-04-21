@@ -325,6 +325,37 @@ def _save_debug_artifact(slug: str, stage: str, png_bytes: bytes) -> str:
     return storage.url(path)
 
 
+def _preprocess_reference_image(png_bytes: bytes) -> bytes:
+    """Composite the reference image onto a solid magenta canvas
+    before handing it to Gemini.
+
+    Why this is necessary: when Gemini receives a reference image
+    as part of a generation prompt, it treats the image's visible
+    (display-rendered) background as a style cue for the output
+    background. Most existing sprites have transparent backgrounds
+    that image viewers render as WHITE — so Gemini outputs on white,
+    ignoring our text-prompt instruction to use magenta. Chroma-key
+    then does nothing and we end up with a huge solid-background
+    image that our slicer treats as one giant subject, shrinking
+    the actual character to a fraction of the tile size.
+
+    Fix: flatten the reference's transparent pixels to our chroma-key
+    color (magenta) so Gemini sees the character ALREADY on magenta
+    and replicates that. The subject color is preserved because
+    alpha_composite only fills transparent/partially-transparent
+    pixels.
+    """
+    try:
+        img = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
+    except (UnidentifiedImageError, OSError) as exc:
+        raise SpriteGenerationError(f"reference image invalid: {exc}")
+    magenta_canvas = Image.new("RGBA", img.size, (*CHROMA_KEY_COLOR, 255))
+    composite = Image.alpha_composite(magenta_canvas, img)
+    out = io.BytesIO()
+    composite.save(out, format="PNG")
+    return out.getvalue()
+
+
 def _fetch_reference_image(url: str) -> bytes:
     """Download an image URL for use as a Gemini reference. Validates
     content type and size. Raises ``SpriteGenerationError`` on any
@@ -747,11 +778,14 @@ def generate_sprite_sheet(
             f"motion must be one of {sorted(MOTION_TEMPLATES)}; got {motion!r}.",
         )
 
-    # When a reference image is provided, download it up front. Any
-    # fetch failure raises before we spend a Gemini call.
+    # When a reference image is provided, download it and flatten its
+    # transparent pixels to magenta BEFORE handing to Gemini. Without
+    # this, Gemini uses the reference's implied (white) background as
+    # a style cue and outputs on white, defeating the chroma-key step.
     ref_bytes: Optional[bytes] = None
     if reference_image_url:
-        ref_bytes = _fetch_reference_image(reference_image_url)
+        raw_ref = _fetch_reference_image(reference_image_url)
+        ref_bytes = _preprocess_reference_image(raw_ref)
 
     debug_urls: dict[str, str] = {}
     frames: list[bytes] = []
