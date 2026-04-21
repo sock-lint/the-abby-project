@@ -18,6 +18,7 @@ from apps.mcp_server.schemas import (
     DeleteSpriteIn,
     AnimatedSpriteTileDecl,
     GenerateSpriteSheetIn,
+    UpdateSpriteMetadataIn,
 )
 from apps.mcp_server.tools.sprite_authoring import (
     register_sprite as tool_register_sprite,
@@ -25,6 +26,7 @@ from apps.mcp_server.tools.sprite_authoring import (
     list_sprites as tool_list_sprites,
     delete_sprite as tool_delete_sprite,
     generate_sprite_sheet as tool_generate_sprite_sheet,
+    update_sprite_metadata as tool_update_sprite_metadata,
 )
 
 
@@ -126,6 +128,131 @@ class SpriteAuthoringToolTests(TestCase):
         self.assertIn("list_sprites", tool_names)
         self.assertIn("delete_sprite", tool_names)
         self.assertIn("generate_sprite_sheet", tool_names)
+        self.assertIn("update_sprite_metadata", tool_names)
+
+
+class UpdateSpriteMetadataToolTests(TestCase):
+    """v1.2.8: metadata-only edits on an existing sprite without
+    regenerating the image. Covers fps tuning (the first use case —
+    fix animation speed on already-good sprites) and pack reassignment
+    (useful for curation passes)."""
+
+    def setUp(self):
+        self.parent = User.objects.create_user(username="meta_parent", password="pw", role="parent")
+        self.child = User.objects.create_user(username="meta_kid", password="pw", role="child")
+
+    def _as_parent(self):
+        return set_current_user(self.parent)
+
+    def _as_child(self):
+        return set_current_user(self.child)
+
+    def _register_animated(self, slug="anim", fps=8, frame_count=4, pack="test"):
+        """Build a small animated sheet and register it so we have a
+        target to update. Uses a width divisible by frame_count so
+        register_sprite infers per-frame dimensions correctly."""
+        png_b64 = _png_b64((frame_count * 32, 32))
+        tok = self._as_parent()
+        try:
+            tool_register_sprite(RegisterSpriteIn(
+                slug=slug,
+                image_b64=png_b64,
+                pack=pack,
+                frame_count=frame_count,
+                fps=fps,
+                frame_layout="horizontal",
+            ))
+        finally:
+            reset_current_user(tok)
+
+    def test_requires_parent(self):
+        self._register_animated(slug="guarded")
+        tok = self._as_child()
+        try:
+            with self.assertRaises(MCPPermissionDenied):
+                tool_update_sprite_metadata(UpdateSpriteMetadataIn(slug="guarded", fps=4))
+        finally:
+            reset_current_user(tok)
+
+    def test_update_fps_changes_row_without_touching_image(self):
+        self._register_animated(slug="fps-test", fps=8)
+        original = SpriteAsset.objects.get(slug="fps-test")
+        original_image_name = original.image.name
+
+        tok = self._as_parent()
+        try:
+            result = tool_update_sprite_metadata(UpdateSpriteMetadataIn(slug="fps-test", fps=4))
+        finally:
+            reset_current_user(tok)
+
+        self.assertEqual(result["slug"], "fps-test")
+        self.assertEqual(result["fps"], 4)
+        updated = SpriteAsset.objects.get(slug="fps-test")
+        self.assertEqual(updated.fps, 4)
+        # Image blob untouched — same image.name, same content hash.
+        self.assertEqual(updated.image.name, original_image_name)
+
+    def test_update_pack_changes_row(self):
+        self._register_animated(slug="pack-test", pack="before")
+        tok = self._as_parent()
+        try:
+            result = tool_update_sprite_metadata(UpdateSpriteMetadataIn(slug="pack-test", pack="after"))
+        finally:
+            reset_current_user(tok)
+        self.assertEqual(result["pack"], "after")
+        self.assertEqual(SpriteAsset.objects.get(slug="pack-test").pack, "after")
+
+    def test_update_both_fields_in_one_call(self):
+        self._register_animated(slug="both-test", fps=8, pack="before")
+        tok = self._as_parent()
+        try:
+            tool_update_sprite_metadata(UpdateSpriteMetadataIn(
+                slug="both-test", fps=6, pack="after",
+            ))
+        finally:
+            reset_current_user(tok)
+        row = SpriteAsset.objects.get(slug="both-test")
+        self.assertEqual(row.fps, 6)
+        self.assertEqual(row.pack, "after")
+
+    def test_unknown_slug_raises_mcp_validation_error(self):
+        tok = self._as_parent()
+        try:
+            with self.assertRaises(MCPValidationError):
+                tool_update_sprite_metadata(UpdateSpriteMetadataIn(slug="does-not-exist", fps=4))
+        finally:
+            reset_current_user(tok)
+
+    def test_no_updates_is_rejected_at_schema_layer(self):
+        """Both fields None = no-op. Rejected by pydantic so the tool
+        never runs with an ambiguous intent."""
+        with self.assertRaises(ValidationError):
+            UpdateSpriteMetadataIn(slug="any")
+
+    def test_updating_static_sprite_to_nonzero_fps_rejected(self):
+        """SpriteAsset.clean() forbids fps>0 on a static sprite
+        (frame_count=1). The tool must surface that as
+        MCPValidationError, not let the DB silently end up invalid."""
+        # Register a static sprite.
+        png_b64 = _png_b64((32, 32))
+        tok = self._as_parent()
+        try:
+            tool_register_sprite(RegisterSpriteIn(
+                slug="static-test", image_b64=png_b64,
+                frame_count=1, fps=0, frame_layout="horizontal",
+            ))
+            with self.assertRaises(MCPValidationError):
+                tool_update_sprite_metadata(UpdateSpriteMetadataIn(slug="static-test", fps=8))
+        finally:
+            reset_current_user(tok)
+        # Ensure the DB row was NOT mutated despite the attempted update.
+        self.assertEqual(SpriteAsset.objects.get(slug="static-test").fps, 0)
+
+    def test_fps_out_of_range_rejected_by_schema(self):
+        with self.assertRaises(ValidationError):
+            UpdateSpriteMetadataIn(slug="x", fps=99)
+        with self.assertRaises(ValidationError):
+            UpdateSpriteMetadataIn(slug="x", fps=-1)
 
 
 def _png_bytes(size=(128, 128)):

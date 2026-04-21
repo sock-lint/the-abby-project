@@ -18,6 +18,7 @@ import io
 from typing import Any, Optional
 
 import requests
+from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from PIL import Image, UnidentifiedImageError
 
@@ -268,6 +269,58 @@ def register_sprite_batch(
             skipped.append({"slug": slug, "reason": str(exc)})
 
     return {"registered": registered, "skipped": skipped}
+
+
+def update_sprite_metadata(
+    *,
+    slug: str,
+    fps: Optional[int] = None,
+    pack: Optional[str] = None,
+) -> dict[str, Any]:
+    """Change metadata fields on an existing sprite without touching
+    the image blob. Image content stays on Ceph at the same URL —
+    only the ``SpriteAsset`` row changes.
+
+    Validates via ``full_clean()`` before saving, so updates that
+    would violate ``SpriteAsset``'s fps/frame_count invariants
+    (e.g. setting fps=8 on a static sprite) raise
+    ``SpriteAuthoringError`` and the row is left unchanged.
+    """
+    try:
+        asset = SpriteAsset.objects.get(slug=slug)
+    except SpriteAsset.DoesNotExist:
+        raise SpriteAuthoringError(f"sprite {slug!r} not found")
+
+    if fps is None and pack is None:
+        raise SpriteAuthoringError(
+            "update_sprite_metadata requires at least one of fps / pack",
+        )
+    if fps is not None:
+        asset.fps = fps
+    if pack is not None:
+        asset.pack = pack
+
+    try:
+        asset.full_clean()
+    except ValidationError as exc:
+        # Don't save — the row on disk stays valid.
+        messages = "; ".join(
+            f"{field}: {', '.join(errs)}"
+            for field, errs in exc.message_dict.items()
+        )
+        raise SpriteAuthoringError(f"invalid metadata update: {messages}")
+    asset.save(update_fields=["fps", "pack", "updated_at"])
+
+    return {
+        "slug": asset.slug,
+        "url": asset.image.url,
+        "pack": asset.pack,
+        "frame_count": asset.frame_count,
+        "fps": asset.fps,
+        "frame_width_px": asset.frame_width_px,
+        "frame_height_px": asset.frame_height_px,
+        "frame_layout": asset.frame_layout,
+    }
 
 
 def delete_sprite(*, slug: str) -> dict[str, Any]:

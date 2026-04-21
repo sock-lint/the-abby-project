@@ -27,6 +27,7 @@ from ..schemas import (
     ListSpritesIn,
     RegisterSpriteBatchIn,
     RegisterSpriteIn,
+    UpdateSpriteMetadataIn,
 )
 from ..server import tool
 
@@ -141,6 +142,28 @@ def generate_sprite_sheet(params: GenerateSpriteSheetIn) -> dict[str, Any]:
         motion=params.motion,
         overwrite=params.overwrite,
         actor=get_current_user(),
+    )
+
+
+@tool()
+@safe_tool
+def update_sprite_metadata(params: UpdateSpriteMetadataIn) -> dict[str, Any]:
+    """Update metadata (fps, pack) on an existing sprite without
+    regenerating the image.
+
+    Parent-only. Use this to tune animation speed on an already-good
+    sprite, or to reorganize sprites between packs during a curation
+    pass. Frame dimensions and frame_count are NOT editable — those
+    are tied to the underlying image content. To change them,
+    re-register the sprite with a new image via ``register_sprite``
+    or ``generate_sprite_sheet``.
+    """
+    require_parent()
+    return _wrap_svc_call(
+        svc.update_sprite_metadata,
+        slug=params.slug,
+        fps=params.fps,
+        pack=params.pack,
     )
 
 

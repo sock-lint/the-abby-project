@@ -1336,6 +1336,28 @@ class DeleteSpriteIn(_Base):
     slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
 
 
+class UpdateSpriteMetadataIn(_Base):
+    """Update metadata fields on an existing sprite WITHOUT regenerating
+    the image. Useful for fps tuning (adjusting animation speed on
+    already-good sprites) and pack reassignment (curation passes).
+    Dimensions and frame_count are NOT exposed because they're tied
+    to the underlying image content — changing them decoupled from
+    the image risks silent corruption of the rendering contract."""
+
+    slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
+    fps: Optional[int] = Field(default=None, ge=0, le=30)
+    pack: Optional[str] = Field(default=None, max_length=40)
+
+    @model_validator(mode="after")
+    def _require_at_least_one_update(self) -> "UpdateSpriteMetadataIn":
+        if self.fps is None and self.pack is None:
+            raise ValueError(
+                "at least one of fps / pack must be provided — a no-op "
+                "update would silently succeed with no effect",
+            )
+        return self
+
+
 SPRITE_TILE_SIZES = (32, 64, 128)
 SpriteMotion = Literal["idle", "walk", "bounce"]
 
