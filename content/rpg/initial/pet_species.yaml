@@ -22,6 +22,7 @@ species:
   - slug: wolf
     name: Wolf
     icon: "🐺"
+    sprite_key: wolf
     description: A loyal pack hunter
     food_preference: meat
     egg_rarity: common
@@ -30,6 +31,7 @@ species:
   - slug: dragon
     name: Dragon
     icon: "🐉"
+    sprite_key: dragon
     description: A fierce fire-breather
     food_preference: fish
     egg_rarity: uncommon
@@ -38,6 +40,7 @@ species:
   - slug: fox
     name: Fox
     icon: "🦊"
+    sprite_key: fox
     description: A clever forest dweller
     food_preference: berries
     egg_rarity: common
@@ -46,6 +49,7 @@ species:
   - slug: owl
     name: Owl
     icon: "🦉"
+    sprite_key: owl
     description: A wise night hunter
     food_preference: seeds
     egg_rarity: common
@@ -54,6 +58,7 @@ species:
   - slug: cat
     name: Cat
     icon: "🐱"
+    sprite_key: cat
     description: A graceful companion
     food_preference: fish
     egg_rarity: common
@@ -62,6 +67,7 @@ species:
   - slug: bear
     name: Bear
     icon: "🐻"
+    sprite_key: bear
     description: A powerful protector
     food_preference: honey
     egg_rarity: uncommon
@@ -70,6 +76,7 @@ species:
   - slug: phoenix
     name: Phoenix
     icon: "🔥"
+    sprite_key: phoenix
     description: A legendary fire bird
     food_preference: cake
     egg_rarity: rare
@@ -78,6 +85,7 @@ species:
   - slug: unicorn
     name: Unicorn
     icon: "🦄"
+    sprite_key: unicorn
     description: A magical horned steed
     food_preference: candy
     egg_rarity: rare
@@ -87,7 +95,7 @@ species:
   - slug: clownling
     name: Clownling
     icon: "🐠"
-    sprite_key: clownfish
+    sprite_key: clownling
     description: A bright-striped reef wanderer
     food_preference: fish
     egg_rarity: common
@@ -96,7 +104,7 @@ species:
   - slug: pondshell
     name: Pondshell
     icon: "🐢"
-    sprite_key: turtle
+    sprite_key: pondshell
     description: A patient little river turtle
     food_preference: vegetables
     egg_rarity: common

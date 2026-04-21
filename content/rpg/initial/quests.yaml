@@ -23,6 +23,7 @@ quests:
   - name: Dragon Slayer
     description: Deal 500 damage to the mighty dragon by completing tasks!
     icon: "🐉"
+    sprite_key: quest-dragon-slayer
     quest_type: boss
     target_value: 500
     duration_days: 7
@@ -36,6 +37,7 @@ quests:
   - name: Feather Collector
     description: Collect 10 phoenix feathers by completing any tasks.
     icon: "🪶"
+    sprite_key: quest-feather-collector
     quest_type: collection
     target_value: 10
     duration_days: 5
@@ -46,6 +48,7 @@ quests:
   - name: Chore Champion
     description: Complete 15 chores to prove your household mastery!
     icon: "🏆"
+    sprite_key: quest-chore-champion
     quest_type: collection
     target_value: 15
     duration_days: 7
@@ -58,6 +61,7 @@ quests:
   - name: Focus Master
     description: Clock 20 hours of focused project work to defeat the distraction monster!
     icon: "🧠"
+    sprite_key: quest-focus-master
     quest_type: boss
     target_value: 200
     duration_days: 14
@@ -141,6 +145,7 @@ quests:
   - name: Scholar's Week
     description: Log 5 homework assignments this week — share what you're working on!
     icon: "📓"
+    sprite_key: quest-scholars-week
     quest_type: collection
     target_value: 5
     duration_days: 7

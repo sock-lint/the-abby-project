@@ -585,7 +585,7 @@ items:
   - slug: streak-freeze
     name: Streak Freeze
     icon: "❄️"
-    sprite_key: magic-ice-1
+    sprite_key: reward-streak-freeze
     item_type: consumable
     rarity: rare
     coin_value: 30
