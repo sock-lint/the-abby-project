@@ -494,7 +494,46 @@ class MotionTemplateTests(TestCase):
         )
 
         prompt = mock_frame.call_args.kwargs["prompt"]
-        self.assertIn("baseline", prompt.lower())
+        # Squash-and-stretch is the v1.2.2 bounce template — motion via
+        # shape deformation, not vertical displacement.
+        self.assertIn("squash", prompt.lower())
+        self.assertIn("stretch", prompt.lower())
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_prompt_enumerates_scene_element_bans(self, mock_frame):
+        """Gemini got creative with ground strips + motion trails in v1.2.1
+        because the negative prompt was too generic. v1.2.2 enumerates
+        the specific bans; this test pins that list so the bans don't
+        get silently dropped during future prompt cleanups."""
+        mock_frame.return_value = self._single_sheet_png()
+
+        generate_sprite_sheet(
+            slug="ban-check-anim",
+            prompt="pixel-art fox",
+            frame_count=4,
+            tile_size=64,
+            fps=8,
+            actor=self.parent,
+        )
+        animated_prompt = mock_frame.call_args.kwargs["prompt"].lower()
+
+        mock_frame.reset_mock()
+        mock_frame.return_value = self._single_sheet_png(frame_count=1)
+        # Static path — also needs to enumerate bans.
+        generate_sprite_sheet(
+            slug="ban-check-static",
+            prompt="pixel-art fox",
+            frame_count=1,
+            tile_size=64,
+            fps=0,
+            actor=self.parent,
+        )
+        static_prompt = mock_frame.call_args.kwargs["prompt"].lower()
+
+        # Each ban keyword must appear in BOTH prompts.
+        for banned in ("ground", "shadow", "dust", "motion line"):
+            self.assertIn(banned, animated_prompt, f"animated prompt missing ban on '{banned}'")
+            self.assertIn(banned, static_prompt, f"static prompt missing ban on '{banned}'")
 
     def test_unknown_motion_raises_before_api(self):
         with patch("apps.rpg.sprite_generation._generate_frame") as mock_frame:

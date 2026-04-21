@@ -83,17 +83,27 @@ WALK_CYCLE_TEMPLATE = (
     "leg set from the previous passing pose)",
 )
 
-# Bounce: vertical hop loop — useful for items, power-ups, coins, pickups.
-# No legs required, so this works for anything the subject prompt describes.
+# Bounce: squash-and-stretch loop in PLACE — motion is implied by shape
+# deformation, not vertical displacement. v1.2.1's vertical-displacement
+# version invited Gemini to draw scene elements (motion trails, dust,
+# ground) around the moving subject; squash-and-stretch keeps the
+# subject stationary so there's nothing scene-like to draw. Classic
+# Disney/2D-game animation technique. Good for items, coins, pickups.
 BOUNCE_CYCLE_TEMPLATE = (
-    "baseline pose: subject at its resting position, neutral stance, "
-    "body centered vertically in the frame",
-    "mid-rise stretched: subject lifted a few pixels upward with body "
-    "stretched slightly taller, as if launching into a jump",
-    "peak: subject at the highest point of the bounce, body at its most "
-    "stretched, with a hint of transparent space below suggesting airborne",
-    "falling compressed: subject descending back toward baseline, body "
-    "slightly compressed/squashed as it anticipates landing",
+    "neutral rest pose: subject at its natural resting shape and "
+    "proportions, stationary in the exact center of the frame",
+    "anticipation squash: subject compressed vertically into a wider-"
+    "and-shorter shape as if pressing down just before a jump. The "
+    "subject stays stationary in the EXACT same frame position as the "
+    "previous pose — do not shift it up, down, left, or right. Only "
+    "the proportions change",
+    "stretch release: subject stretched vertically into a taller-and-"
+    "thinner shape as if springing upward. The subject stays stationary "
+    "in the EXACT same frame position — do not lift it off the ground "
+    "or shift it. Only the proportions change",
+    "recovery ease: subject returning toward normal proportions with a "
+    "slight residual stretch. Same frame position, easing back to the "
+    "resting shape",
 )
 
 MOTION_TEMPLATES: dict[str, tuple[str, ...]] = {
@@ -104,14 +114,22 @@ MOTION_TEMPLATES: dict[str, tuple[str, ...]] = {
 DEFAULT_MOTION = "idle"
 
 PROMPT_SUFFIX = (
-    " Pixel art style. BACKGROUND: fill the entire image with SOLID BRIGHT "
-    "MAGENTA (RGB 255, 0, 255 / hex #ff00ff) as a flat solid color behind "
-    "the subject. DO NOT draw a checkerboard transparency pattern. DO NOT "
-    "use any other background color. The subject itself MUST NOT contain "
-    "magenta anywhere — use completely different colors for the character. "
-    "The subject MUST occupy the center of the frame with equal space on all "
-    "sides; do not place the subject in any corner. No text, no UI, no "
-    "borders, no watermark, no caption."
+    " Pixel art style. "
+    "BACKGROUND: fill the entire image with SOLID BRIGHT MAGENTA "
+    "(RGB 255, 0, 255 / hex #ff00ff) as a flat solid color. "
+    "DO NOT draw a checkerboard transparency pattern. DO NOT use any "
+    "other background color. "
+    "STRICT: the subject exists alone on the magenta. ABSOLUTELY NOTHING "
+    "ELSE. Specifically forbidden: NO ground, floor, dirt, path, platform, "
+    "tile, or surface of any kind under the subject; NO shadow; NO dust, "
+    "smoke, sparks, particles, or effect indicators; NO motion lines, speed "
+    "marks, action arrows, or trajectory hints; NO borders, frames, boxes, "
+    "or scene elements; NO text, labels, numbers, captions, watermarks, "
+    "logos, or UI. The character floats in empty space on solid magenta. "
+    "The subject itself MUST NOT contain magenta anywhere — use completely "
+    "different colors for the character. "
+    "The subject MUST occupy the center of the frame with equal space on "
+    "all sides; do not place the subject in any corner."
 )
 
 
@@ -354,10 +372,17 @@ def _build_pose_sheet_prompt(
         f"draw a checkerboard transparency pattern. DO NOT use any "
         f"other background color. The subject itself must NOT contain "
         f"magenta — use completely different colors for the character.\n"
-        f"- No horizontal dividers, frame borders, numbering, or labels "
-        f"between poses — just the character poses on the continuous "
-        f"magenta strip.\n"
-        f"- No text, no UI, no watermark, no caption."
+        f"- STRICT: the character exists ALONE on the magenta. "
+        f"ABSOLUTELY NOTHING ELSE. Specifically forbidden in every "
+        f"frame: NO ground, floor, dirt, path, platform, tile, or "
+        f"surface of any kind under the character; NO shadow; NO dust, "
+        f"smoke, sparks, particles, or effect indicators; NO motion "
+        f"lines, speed marks, action arrows, or trajectory hints; "
+        f"NO borders, frames, or boxes around poses.\n"
+        f"- No horizontal dividers, frame borders, numbering, labels, "
+        f"or gaps between poses — just the character poses on the "
+        f"continuous magenta strip.\n"
+        f"- No text, no UI, no watermark, no caption, no logos."
     )
 
 
