@@ -140,6 +140,7 @@ def generate_sprite_sheet(params: GenerateSpriteSheetIn) -> dict[str, Any]:
         pack=params.pack,
         style_hint=params.style_hint,
         motion=params.motion,
+        reference_image_url=params.reference_image_url,
         overwrite=params.overwrite,
         actor=get_current_user(),
     )

@@ -20,12 +20,16 @@ import base64
 import io
 from typing import Any, Optional
 
+import requests
 from PIL import Image, UnidentifiedImageError
 from django.conf import settings
 
 from apps.accounts.models import User
 from apps.rpg import sprite_authoring as svc
 from apps.rpg.sprite_authoring import SpriteAuthoringError
+
+
+MAX_REFERENCE_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB — plenty for any sprite PNG
 
 
 DEFAULT_MAX_FRAMES = 8
@@ -220,6 +224,30 @@ def _generate_frame(
     except Exception as exc:  # noqa: BLE001
         raise SpriteGenerationError(f"Gemini API call failed: {exc}")
     return _extract_png_bytes(response)
+
+
+def _fetch_reference_image(url: str) -> bytes:
+    """Download an image URL for use as a Gemini reference. Validates
+    content type and size. Raises ``SpriteGenerationError`` on any
+    failure so the caller can surface a single clean error class."""
+    try:
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        raise SpriteGenerationError(
+            f"failed to fetch reference image at {url!r}: {exc}",
+        )
+    ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+    if ctype not in ("image/png", "image/webp", "image/jpeg"):
+        raise SpriteGenerationError(
+            f"reference image Content-Type {ctype!r} not accepted; "
+            f"expected image/png, image/webp, or image/jpeg",
+        )
+    if len(resp.content) > MAX_REFERENCE_IMAGE_BYTES:
+        raise SpriteGenerationError(
+            f"reference image exceeds {MAX_REFERENCE_IMAGE_BYTES} bytes",
+        )
+    return resp.content
 
 
 def _chroma_key_to_transparent(
@@ -439,21 +467,37 @@ def _build_pose_sheet_prompt(
     template: tuple[str, ...],
     frame_count: int,
     style_hint: str = "",
+    has_reference: bool = False,
 ) -> str:
     """Build the one-shot prompt asking Gemini to draw all ``frame_count``
     poses as a single horizontal sprite sheet. Giving Gemini the whole
     sequence in one composition is what makes character design, palette,
     scale, and background consistent across frames — per-frame calls
-    couldn't deliver that no matter how strongly we prompted."""
+    couldn't deliver that no matter how strongly we prompted.
+
+    When ``has_reference`` is True, the prompt tells Gemini to use the
+    reference image (passed alongside) as the authoritative source for
+    character appearance — the text prompt only describes motion."""
     pose_lines = "\n".join(
         f"  Frame {i + 1}: {template[i % len(template)]}"
         for i in range(frame_count)
     )
     style_clause = f" Style: {style_hint.strip()}." if style_hint.strip() else ""
+    reference_clause = (
+        "Every frame MUST depict the EXACT SAME CHARACTER shown in the "
+        "REFERENCE IMAGE provided — same character design, same head "
+        "shape, same body proportions, same color palette, same outline "
+        "style, same pixel-art treatment. The text description below is "
+        "supplementary; the reference image is the authoritative source "
+        "for what the character looks like. Do NOT redesign or recolor.\n\n"
+        if has_reference
+        else ""
+    )
     return (
         f"Generate a pixel-art SPRITE SHEET as a SINGLE IMAGE containing "
         f"{frame_count} frames arranged HORIZONTALLY in a strip, left to "
         f"right, equally spaced on one continuous transparent row.\n\n"
+        f"{reference_clause}"
         f"Each frame shows: {subject.strip()}.{style_clause}\n\n"
         f"This is ONE animation cycle broken into {frame_count} "
         f"SEQUENTIAL KEYFRAMES. Each frame is a SMALL incremental step "
@@ -519,18 +563,35 @@ def _stitch_strip(frames: list[bytes], tile_size: int) -> bytes:
     return out.getvalue()
 
 
+REFERENCE_IMAGE_CLAUSE = (
+    " A REFERENCE IMAGE is provided. The subject in the output MUST be "
+    "VISUALLY IDENTICAL to the character shown in the reference image — "
+    "same character design, same head shape, same body proportions, same "
+    "color palette, same outline style, same pixel-art treatment, same "
+    "level of detail. Do NOT redesign the character. Do NOT change its "
+    "colors. Use the reference image as the authoritative source for "
+    "what the subject looks like; use the text prompt only to describe "
+    "any pose/motion changes requested. If text prompt and reference "
+    "image conflict on character appearance, the reference wins."
+)
+
+
 def _build_prompt(
     *,
     subject: str,
     style_hint: str = "",
     frame_note: str = "",
+    has_reference: bool = False,
 ) -> str:
     parts = [subject.strip()]
     if style_hint.strip():
         parts.append(style_hint.strip())
     if frame_note:
         parts.append(frame_note)
-    return ". ".join(p for p in parts if p) + "." + PROMPT_SUFFIX
+    base = ". ".join(p for p in parts if p) + "." + PROMPT_SUFFIX
+    if has_reference:
+        base += REFERENCE_IMAGE_CLAUSE
+    return base
 
 
 def generate_sprite_sheet(
@@ -543,6 +604,7 @@ def generate_sprite_sheet(
     pack: str = "ai-generated",
     style_hint: str = "",
     motion: str = DEFAULT_MOTION,
+    reference_image_url: Optional[str] = None,
     overwrite: bool = False,
     actor: Optional[User] = None,
 ) -> dict[str, Any]:
@@ -552,6 +614,14 @@ def generate_sprite_sheet(
     callers can treat it as drop-in. ``motion`` picks the 4-phase
     template used for animated strips (see ``MOTION_TEMPLATES``) — it's
     silently ignored when ``frame_count == 1``.
+
+    When ``reference_image_url`` is provided, the service downloads that
+    URL's bytes and passes them to Gemini alongside the text prompt as
+    a style + character anchor. The generated sprite then matches the
+    reference image's character design, palette, and pixel-art style.
+    Enables the self-anchored bulk-animation workflow: pass an
+    existing static sprite's URL to produce an animated version with
+    identical visual treatment.
     """
     max_frames = getattr(settings, "SPRITE_GENERATION_MAX_FRAMES", DEFAULT_MAX_FRAMES)
     if frame_count < 1 or frame_count > max_frames:
@@ -577,11 +647,21 @@ def generate_sprite_sheet(
             f"motion must be one of {sorted(MOTION_TEMPLATES)}; got {motion!r}.",
         )
 
+    # When a reference image is provided, download it up front. Any
+    # fetch failure raises before we spend a Gemini call.
+    ref_bytes: Optional[bytes] = None
+    if reference_image_url:
+        ref_bytes = _fetch_reference_image(reference_image_url)
+
     frames: list[bytes] = []
     if frame_count == 1:
         # Static path: single call, chroma-key, autocenter, prune orphans.
-        full_prompt = _build_prompt(subject=prompt, style_hint=style_hint)
-        raw = _generate_frame(prompt=full_prompt)
+        full_prompt = _build_prompt(
+            subject=prompt,
+            style_hint=style_hint,
+            has_reference=ref_bytes is not None,
+        )
+        raw = _generate_frame(prompt=full_prompt, reference_png=ref_bytes)
         keyed = _chroma_key_to_transparent(raw)
         centered = _autocenter_frame(keyed, tile_size)
         frames.append(_keep_largest_component(centered))
@@ -599,8 +679,9 @@ def generate_sprite_sheet(
             template=template,
             frame_count=frame_count,
             style_hint=style_hint,
+            has_reference=ref_bytes is not None,
         )
-        sheet_bytes = _generate_frame(prompt=sheet_prompt)
+        sheet_bytes = _generate_frame(prompt=sheet_prompt, reference_png=ref_bytes)
         keyed_sheet = _chroma_key_to_transparent(sheet_bytes)
         aligned_tiles = _slice_and_ground_align_sheet(keyed_sheet, frame_count, tile_size)
         # Per-tile orphan cleanup: chroma-key anti-alias fringes and any

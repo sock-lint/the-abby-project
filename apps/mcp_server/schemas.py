@@ -1384,6 +1384,13 @@ class GenerateSpriteSheetIn(_Base):
     pack: str = Field(default="ai-generated", max_length=40)
     style_hint: str = Field(default="", max_length=200)
     motion: SpriteMotion = "idle"
+    # Optional style + character anchor. When provided, the service
+    # downloads this URL and passes the bytes to Gemini alongside the
+    # text prompt. The generated sprite must match the reference
+    # image's character design, palette, and style — enables the
+    # self-anchored bulk-animation workflow (animate an existing
+    # static sprite by passing its own URL here).
+    reference_image_url: Optional[str] = Field(default=None, max_length=500)
     overwrite: bool = False
 
     @field_validator("tile_size")

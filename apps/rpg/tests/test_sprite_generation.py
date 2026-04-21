@@ -745,6 +745,147 @@ class MotionTemplateTests(TestCase):
 
 
 @override_settings(GEMINI_API_KEY="test-key")
+class ReferenceImageUrlTests(TestCase):
+    """v1.3.0a: when the caller provides ``reference_image_url``, the
+    service downloads that URL's bytes and passes them to Gemini
+    alongside the text prompt as a style + character anchor. Enables
+    the self-anchored bulk animation workflow (animate an existing
+    static sprite by passing its own URL as the reference — Gemini
+    preserves character design and pack style by construction)."""
+
+    def setUp(self):
+        self.parent = User.objects.create_user(username="ref_parent", password="pw", role="parent")
+
+    def _make_ref_png(self):
+        img = Image.new("RGBA", (32, 32), (255, 100, 50, 255))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    def _sheet_png(self, w=256, h=64):
+        # 4-frame horizontal sheet with generic content.
+        img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        for i in range(4):
+            sub = Image.new("RGBA", (40, 40), (100, 200, 100, 255))
+            img.paste(sub, (i * 64 + 12, 12))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    @patch("apps.rpg.sprite_generation._fetch_reference_image")
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_reference_url_is_fetched_and_passed_to_gemini(self, mock_frame, mock_fetch):
+        ref_bytes = self._make_ref_png()
+        mock_fetch.return_value = ref_bytes
+        mock_frame.return_value = self._sheet_png()
+
+        generate_sprite_sheet(
+            slug="ref-anim",
+            prompt="pixel-art turtle",
+            frame_count=4,
+            tile_size=64,
+            fps=6,
+            motion="idle",
+            reference_image_url="https://s3.neato.digital/abby-sprites/rpg-sprites/turtle-abc.png",
+            actor=self.parent,
+        )
+
+        # Service must have downloaded the URL.
+        self.assertEqual(mock_fetch.call_count, 1)
+        self.assertEqual(
+            mock_fetch.call_args.args[0],
+            "https://s3.neato.digital/abby-sprites/rpg-sprites/turtle-abc.png",
+        )
+        # And passed the downloaded bytes as reference_png to Gemini.
+        self.assertEqual(mock_frame.call_args.kwargs["reference_png"], ref_bytes)
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_no_reference_url_means_no_reference_png(self, mock_frame):
+        """Default behavior unchanged — if caller doesn't pass
+        reference_image_url, the single-shot Gemini call must NOT
+        include a reference_png (pre-v1.3.0 behavior)."""
+        mock_frame.return_value = self._sheet_png()
+
+        generate_sprite_sheet(
+            slug="no-ref",
+            prompt="pixel-art thing",
+            frame_count=4,
+            tile_size=64,
+            fps=6,
+            motion="idle",
+            actor=self.parent,
+        )
+
+        self.assertIsNone(mock_frame.call_args.kwargs.get("reference_png"))
+
+    @patch("apps.rpg.sprite_generation._fetch_reference_image")
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_prompt_references_the_reference_image(self, mock_frame, mock_fetch):
+        mock_fetch.return_value = self._make_ref_png()
+        mock_frame.return_value = self._sheet_png()
+
+        generate_sprite_sheet(
+            slug="ref-prompt",
+            prompt="pixel-art turtle",
+            frame_count=4,
+            tile_size=64,
+            fps=6,
+            motion="idle",
+            reference_image_url="https://example.com/turtle.png",
+            actor=self.parent,
+        )
+
+        prompt = mock_frame.call_args.kwargs["prompt"].lower()
+        # Prompt must explicitly instruct Gemini to use the reference
+        # image as the authoritative character + style source.
+        self.assertIn("reference", prompt)
+        # And should emphasize identical character (not a new creature).
+        self.assertTrue(
+            "same character" in prompt or "exact character" in prompt or "identical" in prompt,
+            "prompt should require the generated subject to match the reference character",
+        )
+
+    @patch("apps.rpg.sprite_generation._fetch_reference_image")
+    def test_fetch_failure_raises_generation_error(self, mock_fetch):
+        mock_fetch.side_effect = SpriteGenerationError("reference image fetch failed")
+
+        with self.assertRaises(SpriteGenerationError):
+            generate_sprite_sheet(
+                slug="fetch-fails",
+                prompt="x",
+                frame_count=4,
+                tile_size=64,
+                fps=6,
+                motion="idle",
+                reference_image_url="https://bad.example.com/missing.png",
+                actor=self.parent,
+            )
+
+    @patch("apps.rpg.sprite_generation._fetch_reference_image")
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_reference_url_also_works_for_static_sprites(self, mock_frame, mock_fetch):
+        """Static sprite generation with a reference — useful for
+        producing a new static in the style of an existing sprite
+        (future use case). Should pass the ref through the same way."""
+        ref_bytes = self._make_ref_png()
+        mock_fetch.return_value = ref_bytes
+        mock_frame.return_value = self._make_ref_png()
+
+        generate_sprite_sheet(
+            slug="static-with-ref",
+            prompt="pixel-art new subject",
+            frame_count=1,
+            tile_size=64,
+            fps=0,
+            reference_image_url="https://example.com/ref.png",
+            actor=self.parent,
+        )
+
+        self.assertEqual(mock_fetch.call_count, 1)
+        self.assertEqual(mock_frame.call_args.kwargs["reference_png"], ref_bytes)
+
+
+@override_settings(GEMINI_API_KEY="test-key")
 class OneShotPoseSheetTests(TestCase):
     """v1.2 architecture: a single Gemini call produces all N poses as one
     image, which is then sliced into N equal tiles and each tile autocentered

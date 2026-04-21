@@ -407,3 +407,18 @@ class GenerateSpriteSheetSchemaTests(TestCase):
     def test_motion_rejects_unknown_value(self):
         with self.assertRaises(ValidationError):
             GenerateSpriteSheetIn(slug="x", prompt="pixel-art fox", motion="sprint")
+
+    def test_reference_image_url_defaults_to_none(self):
+        m = GenerateSpriteSheetIn(slug="ok", prompt="pixel-art fox")
+        self.assertIsNone(m.reference_image_url)
+
+    def test_reference_image_url_accepts_https_url(self):
+        m = GenerateSpriteSheetIn(
+            slug="ok",
+            prompt="pixel-art fox",
+            reference_image_url="https://s3.neato.digital/abby-sprites/rpg-sprites/turtle-abc.png",
+        )
+        self.assertEqual(
+            m.reference_image_url,
+            "https://s3.neato.digital/abby-sprites/rpg-sprites/turtle-abc.png",
+        )
