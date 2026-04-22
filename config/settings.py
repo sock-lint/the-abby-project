@@ -439,6 +439,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.chronicle.tasks.chronicle_chapter_transition",
         "schedule": crontab(hour=0, minute=25),
     },
+    "daily-challenge-rotation": {
+        "task": "apps.quests.tasks.rotate_daily_challenges_task",
+        "schedule": crontab(hour=0, minute=30),
+    },
 }
 
 # Session

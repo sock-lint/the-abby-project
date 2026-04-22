@@ -42,6 +42,10 @@ DUPLICATE_BADGES = [
     "Shutterbug",         # dup of "Documentarian"
     "Renaissance Maker",  # "Universal Genius" covers it
     "Speed Runner",       # renamed to "Speedrunner" with a real fast_project criterion
+    # 2026-04-22 review: identical criterion to Master Craftsman (legendary).
+    # Both fired on reach-L5-any-skill so kids earned both at once — retired
+    # the epic so the legendary is the single capstone moment.
+    "Mastery",
 ]
 
 # Retired quests — removed from YAML in the 2026-04-22 review because they

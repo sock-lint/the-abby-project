@@ -1,4 +1,5 @@
 import logging
+import random
 from datetime import timedelta
 
 from django.db import transaction
@@ -518,3 +519,164 @@ class QuestService:
             return participant.quest
         except QuestParticipant.DoesNotExist:
             return None
+
+
+# Trigger → DailyChallenge.ChallengeType progress increment map. Quantity
+# reflects the user-visible unit; clock_out quantizes by floor(minutes/60)
+# so half-hour sessions don't prematurely complete a 1-hour challenge.
+DAILY_CHALLENGE_TRIGGER_MAP = {
+    "clock_out": "clock_hour",
+    "chore_complete": "chores",
+    "habit_log": "habits",
+    "homework_complete": "homework",
+    "milestone_complete": "milestone",
+}
+
+# Curated daily-challenge templates the rotation task picks from. Each is
+# tuned so ~10 minutes of focused engagement will satisfy it — the slot is
+# supposed to feel like a small, friendly nudge, not a grind.
+DAILY_CHALLENGE_TEMPLATES = [
+    {"type": "clock_hour", "target": 1, "coins": 15, "xp": 25},
+    {"type": "chores", "target": 2, "coins": 10, "xp": 20},
+    {"type": "habits", "target": 2, "coins": 10, "xp": 20},
+    {"type": "homework", "target": 1, "coins": 15, "xp": 30},
+    {"type": "milestone", "target": 1, "coins": 20, "xp": 40},
+]
+
+
+class DailyChallengeService:
+    """Create, advance, and reward once-per-day micro-challenges.
+
+    Separate from QuestService by design — a Daily Challenge is always one
+    active slot per user per day, shares no lifecycle state with Quest, and
+    rotates automatically at 00:30 local (see ``rotate_daily_challenges_task``
+    in apps/quests/tasks.py).
+    """
+
+    @staticmethod
+    @transaction.atomic
+    def get_or_create_today(user):
+        """Return today's challenge for the user, creating one if missing.
+
+        Called from the Celery rotation task for every active child, and
+        opportunistically from ``GET /api/challenges/daily/`` so a user who
+        logs in mid-day before the rotation fires still sees a challenge.
+        """
+        from apps.quests.models import DailyChallenge
+
+        today = timezone.localdate()
+        existing = DailyChallenge.objects.filter(user=user, date=today).first()
+        if existing:
+            return existing
+
+        template = random.choice(DAILY_CHALLENGE_TEMPLATES)
+        return DailyChallenge.objects.create(
+            user=user,
+            challenge_type=template["type"],
+            target_value=template["target"],
+            coin_reward=template["coins"],
+            xp_reward=template["xp"],
+            date=today,
+        )
+
+    @staticmethod
+    @transaction.atomic
+    def record_progress(user, trigger_type, context=None):
+        """Bump today's challenge if the trigger matches the challenge type.
+
+        Returns a tuple of ``(challenge_or_None, newly_completed_bool)``.
+        Called from ``GameLoopService.on_task_completed`` alongside regular
+        quest progress. Safe to call with any trigger_type — it returns
+        ``(None, False)`` when the trigger doesn't map to a daily type.
+        """
+        from apps.quests.models import DailyChallenge
+
+        if context is None:
+            context = {}
+        mapped = DAILY_CHALLENGE_TRIGGER_MAP.get(str(trigger_type))
+        if mapped is None:
+            return (None, False)
+
+        today = timezone.localdate()
+        try:
+            challenge = DailyChallenge.objects.select_for_update().get(
+                user=user, date=today,
+            )
+        except DailyChallenge.DoesNotExist:
+            return (None, False)
+        if challenge.challenge_type != mapped:
+            return (challenge, False)
+        if challenge.is_complete:
+            return (challenge, False)
+
+        # clock_out increments by hours worked, not by "1 clock-out event".
+        increment = 1
+        if mapped == "clock_hour":
+            minutes = int(context.get("duration_minutes", 0))
+            increment = max(0, minutes // 60)
+        if increment <= 0:
+            return (challenge, False)
+
+        prior_complete = challenge.is_complete
+        challenge.current_progress = min(
+            challenge.target_value, challenge.current_progress + increment,
+        )
+        newly_complete = challenge.is_complete and not prior_complete
+        if newly_complete:
+            challenge.completed_at = timezone.now()
+        challenge.save(update_fields=[
+            "current_progress", "completed_at", "updated_at",
+        ])
+        return (challenge, newly_complete)
+
+    @staticmethod
+    @transaction.atomic
+    def claim_reward(user):
+        """Pay out a completed daily challenge's coin + XP reward once.
+
+        Idempotent — a second claim after the first no-ops and returns the
+        already-awarded state. Returns a dict describing the payout.
+        """
+        from apps.achievements.services import AwardService
+        from apps.quests.models import DailyChallenge
+
+        today = timezone.localdate()
+        try:
+            challenge = DailyChallenge.objects.select_for_update().get(
+                user=user, date=today,
+            )
+        except DailyChallenge.DoesNotExist:
+            raise ValueError("No daily challenge today")
+        if not challenge.is_complete:
+            raise ValueError("Complete the challenge before claiming")
+        if challenge.completed_at is None:
+            challenge.completed_at = timezone.now()
+            challenge.save(update_fields=["completed_at"])
+
+        # Award is idempotent on the claim boundary — a second call sees
+        # coin_reward=0 via the marker below and skips the award. We set
+        # reward values to 0 after the first claim.
+        if challenge.coin_reward == 0 and challenge.xp_reward == 0:
+            return {
+                "already_claimed": True,
+                "coins": 0,
+                "xp": 0,
+            }
+
+        coins = challenge.coin_reward
+        xp = challenge.xp_reward
+        AwardService.grant(
+            user,
+            coins=coins,
+            coin_reason="adjustment",
+            xp=xp,
+            xp_source_label="Daily Challenge",
+        )
+        challenge.coin_reward = 0
+        challenge.xp_reward = 0
+        challenge.save(update_fields=["coin_reward", "xp_reward"])
+        return {
+            "already_claimed": False,
+            "coins": coins,
+            "xp": xp,
+        }

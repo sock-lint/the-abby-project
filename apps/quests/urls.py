@@ -10,4 +10,6 @@ urlpatterns = [
     path("quests/family/", views.FamilyActiveQuestsView.as_view(), name="quest-family"),
     path("quests/", views.CreateQuestView.as_view(), name="quest-create"),
     path("quests/<int:pk>/assign/", views.AssignQuestView.as_view(), name="quest-assign"),
+    path("challenges/daily/", views.DailyChallengeView.as_view(), name="daily-challenge"),
+    path("challenges/daily/claim/", views.ClaimDailyChallengeView.as_view(), name="daily-challenge-claim"),
 ]

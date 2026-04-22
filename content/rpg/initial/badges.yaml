@@ -167,6 +167,20 @@ badges:
     criteria_value: {count: 10}
     rarity: uncommon
     xp_bonus: 20
+  - name: Documentarian II
+    description: Upload 50+ photos across projects
+    icon: "📷"
+    criteria_type: photos_uploaded
+    criteria_value: {count: 50}
+    rarity: rare
+    xp_bonus: 60
+  - name: Documentarian III
+    description: Upload 250+ photos across projects
+    icon: "🎞️"
+    criteria_type: photos_uploaded
+    criteria_value: {count: 250}
+    rarity: epic
+    xp_bonus: 200
   # Speedrunner (renamed from Speed Runner) — real "completed in ≤ N days" check.
   - name: Speedrunner
     description: Complete a project within 3 days of creating it
@@ -237,13 +251,11 @@ badges:
     criteria_value: {level: 4, count: 1}
     rarity: rare
     xp_bonus: 50
-  - name: Mastery
-    description: Reach Level 5 in any single skill
-    icon: "💎"
-    criteria_type: skill_level_reached
-    criteria_value: {level: 5, count: 1}
-    rarity: epic
-    xp_bonus: 100
+  # ``Mastery`` was retired 2026-04-22 — it used an identical
+  # ``skill_level_reached count=1 level=5`` criterion to Master Craftsman
+  # (legendary) so both fired at the same moment, diluting the capstone
+  # moment. Master Craftsman is now the single L5-in-any-skill recognition.
+  # See cleanup_rpg_catalog.DUPLICATE_BADGES for the prod DB removal.
   - name: Double Mastery
     description: Reach Level 5 in two skills
     icon: "💎💎"
@@ -370,6 +382,13 @@ badges:
     criteria_value: {amount: 100}
     rarity: rare
     xp_bonus: 200
+  - name: Quarter Thousand Club
+    description: Earn $250 total from projects
+    icon: "🏛️"
+    criteria_type: total_earned
+    criteria_value: {amount: 250}
+    rarity: epic
+    xp_bonus: 300
   - name: Jack of All Trades
     description: Unlock skills in 3 different categories
     icon: "🃏"
@@ -472,6 +491,20 @@ badges:
     criteria_value: {count: 25}
     rarity: rare
     xp_bonus: 75
+  - name: Milestone Foreman
+    description: Clear 75 project milestones
+    icon: "⛳"
+    criteria_type: milestones_completed
+    criteria_value: {count: 75}
+    rarity: epic
+    xp_bonus: 200
+  - name: Milestone Architect
+    description: Clear 200 project milestones
+    icon: "🏛️"
+    criteria_type: milestones_completed
+    criteria_value: {count: 200}
+    rarity: legendary
+    xp_bonus: 400
   - name: First Bounty
     description: Win your first bounty project
     icon: "🎯"
@@ -904,6 +937,188 @@ badges:
     criteria_value: {}
     rarity: rare
     xp_bonus: 60
+
+  # ── 2026-04-23 content-review additions ──────────────────────────────
+  # Each uses a criterion added in this review's migration 0010.
+
+  # Habits — Wayfinder ladder rewards cumulative positive taps; Ritualist
+  # rewards keeping several habits going at once (breadth + depth).
+  - name: Wayfinder
+    description: Log 100 positive habit taps
+    icon: "🧭"
+    criteria_type: habit_taps_lifetime
+    criteria_value: {count: 100}
+    rarity: uncommon
+    xp_bonus: 40
+  - name: Wayfinder II
+    description: Log 500 positive habit taps
+    icon: "🗺️"
+    criteria_type: habit_taps_lifetime
+    criteria_value: {count: 500}
+    rarity: rare
+    xp_bonus: 100
+  - name: Wayfinder III
+    description: Log 2,000 positive habit taps
+    icon: "🧙"
+    criteria_type: habit_taps_lifetime
+    criteria_value: {count: 2000}
+    rarity: legendary
+    xp_bonus: 300
+  - name: Ritualist
+    description: Keep 3 habits at +5 strength or higher at the same time
+    icon: "🕯️"
+    criteria_type: habit_count_at_strength
+    criteria_value: {count: 3, strength: 5}
+    rarity: rare
+    xp_bonus: 100
+
+  # Badge-of-badges — universal 'Collector' ladder that works regardless
+  # of which content path a kid gravitates toward.
+  - name: Badge Collector
+    description: Earn 25 different badges
+    icon: "🎖️"
+    criteria_type: badges_earned_count
+    criteria_value: {count: 25}
+    rarity: rare
+    xp_bonus: 100
+  - name: Veteran Collector
+    description: Earn 50 different badges
+    icon: "🏅"
+    criteria_type: badges_earned_count
+    criteria_value: {count: 50}
+    rarity: epic
+    xp_bonus: 200
+  - name: Grand Collector
+    description: Earn 100 different badges
+    icon: "🎗️"
+    criteria_type: badges_earned_count
+    criteria_value: {count: 100}
+    rarity: legendary
+    xp_bonus: 500
+
+  # Co-op / collaborator recognition — surfaces the ProjectCollaborator
+  # mechanic that previously had zero badge coverage.
+  - name: Better Together
+    description: Help finish a project as a collaborator
+    icon: "🤝"
+    criteria_type: co_op_project_completed
+    criteria_value: {count: 1}
+    rarity: uncommon
+    xp_bonus: 40
+  - name: Family Forge
+    description: Help finish 5 collaborative projects
+    icon: "🏘️"
+    criteria_type: co_op_project_completed
+    criteria_value: {count: 5}
+    rarity: rare
+    xp_bonus: 120
+
+  # Quest subtype ladders — the Quest Novice/Adept/Master ladder counts
+  # all quests equally; these reward specializing in one kind of challenge.
+  - name: Boss Slayer
+    description: Defeat 5 boss quests
+    icon: "⚔️"
+    criteria_type: boss_quests_completed
+    criteria_value: {count: 5}
+    rarity: rare
+    xp_bonus: 100
+  - name: Boss Vanquisher
+    description: Defeat 15 boss quests
+    icon: "🗡️"
+    criteria_type: boss_quests_completed
+    criteria_value: {count: 15}
+    rarity: epic
+    xp_bonus: 250
+  - name: Collector
+    description: Complete 5 collection quests
+    icon: "📦"
+    criteria_type: collection_quests_completed
+    criteria_value: {count: 5}
+    rarity: rare
+    xp_bonus: 100
+  - name: Archivist
+    description: Complete 15 collection quests
+    icon: "🗃️"
+    criteria_type: collection_quests_completed
+    criteria_value: {count: 15}
+    rarity: epic
+    xp_bonus: 250
+
+  # Chronicle / Yearbook integration — first criterion that reads from the
+  # Chronicle, not writes to it. Kids with long app histories have many
+  # milestones logged; this gives them a long-horizon recognition.
+  - name: Turning Point
+    description: Log 3 chronicle milestones (graduations, first-evers, etc.)
+    icon: "🗺️"
+    criteria_type: chronicle_milestones_logged
+    criteria_value: {count: 3}
+    rarity: rare
+    xp_bonus: 75
+  - name: Life Chronicler
+    description: Log 10 chronicle milestones
+    icon: "📖"
+    criteria_type: chronicle_milestones_logged
+    criteria_value: {count: 10}
+    rarity: epic
+    xp_bonus: 200
+
+  # Cosmetic set completionism — rewards owning every piece of a themed set.
+  # Scholar Set ships first; future sets add themselves by name here.
+  - name: Scholar's Wardrobe
+    description: Own the full Scholar cosmetic set (frame, title, theme)
+    icon: "📚"
+    criteria_type: cosmetic_set_owned
+    criteria_value:
+      slugs: [frame-scholar, title-scholar, theme-library]
+    rarity: rare
+    xp_bonus: 75
+  - name: Forgemaster's Regalia
+    description: Own the full Forgemaster cosmetic set (gold frame, legendary title, master crafter)
+    icon: "⚒️"
+    criteria_type: cosmetic_set_owned
+    criteria_value:
+      slugs: [frame-gold, title-legendary-forgemaster, title-master-crafter]
+    rarity: epic
+    xp_bonus: 150
+  - name: Ranger's Kit
+    description: Own the full Ranger cosmetic set (ranger's cap, trailblazer, forest theme)
+    icon: "🏹"
+    criteria_type: cosmetic_set_owned
+    criteria_value:
+      slugs: [frame-robin-hood, title-trailblazer, theme-forest]
+    rarity: rare
+    xp_bonus: 75
+
+  # Comeback recognition — triggers on completing the existing
+  # "Comeback Kid" quest (the streak-reset recovery path). Uses the
+  # quest_completed criterion with quest_name (no new criterion needed).
+  - name: Second Wind
+    description: Finish the Comeback Kid quest to rebuild a broken streak
+    icon: "🌬️"
+    criteria_type: quest_completed
+    criteria_value: {quest_name: "Comeback Kid"}
+    rarity: uncommon
+    xp_bonus: 50
+
+  # Wheel of the Year — complete the four seasonal quests (Spring Planting,
+  # Summer Solstice, Autumn Leaves, Winter Solstice) within any 12-month
+  # window. The quest_completed criterion's quest_names + count shape is
+  # load-bearing here: all four must be finished for the count to reach 4.
+  # Each seasonal quest is non-repeatable, so the count is inherently
+  # distinct even without an explicit "distinct" flag.
+  - name: Wheel of the Year
+    description: Complete all four seasonal quests — Spring Planting, Summer Solstice, Autumn Leaves, and Winter Solstice
+    icon: "☸️"
+    criteria_type: quest_completed
+    criteria_value:
+      quest_names:
+        - "Spring Planting"
+        - "Summer Solstice"
+        - "Autumn Leaves"
+        - "Winter Solstice"
+      count: 4
+    rarity: legendary
+    xp_bonus: 400
 
   # Birthday collection — one per Chronicle BIRTHDAY entry
   - name: First Birthday In-App

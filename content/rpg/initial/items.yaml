@@ -779,6 +779,54 @@ items:
     description: Opens to reveal a random common or uncommon non-cosmetic item. Like a lucky dip.
     metadata: {effect: mystery_box, rarities: [common, uncommon]}
 
+  # 2026-04-23 content review — consumable expansion. Each of these ships
+  # with a matching branch in ConsumableService._apply_effect and does not
+  # require any cross-service wiring.
+  - slug: lucky-dip
+    name: Lucky Dip
+    icon: "🎲"
+    item_type: consumable
+    rarity: rare
+    coin_value: 45
+    description: Rolls a random uncommon-or-rarer cosmetic from anywhere in the catalog. A wild card for stylists.
+    metadata: {effect: lucky_dip, rarities: [uncommon, rare, epic]}
+
+  - slug: quest-reroll
+    name: Quest Reroll
+    icon: "🎰"
+    item_type: consumable
+    rarity: rare
+    coin_value: 40
+    description: When you have no active quest, this spawns a random eligible quest on the spot.
+    metadata: {effect: quest_reroll}
+
+  - slug: pet-morale-tonic
+    name: Pet Morale Tonic
+    icon: "💫"
+    item_type: consumable
+    rarity: uncommon
+    coin_value: 25
+    description: Your next 5 pet feeds give double growth — the same kick as Growth Tonic but longer lasting.
+    metadata: {effect: morale_tonic, feeds: 5}
+
+  - slug: skill-tonic
+    name: Skill Tonic
+    icon: "📘"
+    item_type: consumable
+    rarity: uncommon
+    coin_value: 30
+    description: Instantly adds 50 XP to your highest-level skill. A finishing-move XP bolt.
+    metadata: {effect: skill_tonic, xp: 50}
+
+  - slug: autumns-gift
+    name: Autumn's Gift
+    icon: "🧺"
+    item_type: consumable
+    rarity: uncommon
+    coin_value: 20
+    description: Opens into two random food items — a harvest basket for your stable.
+    metadata: {effect: food_basket, count: 2}
+
   # ── Scholar Track (homework-themed cosmetics) ─────────────────────────
   # Unlocked through Planner/Punctual badges — see drops.yaml for routing.
   - slug: title-bookworm
@@ -928,6 +976,17 @@ items:
     rarity: uncommon
     coin_value: 15
     metadata: {text: Early Bird}
+
+  # 2026-04-23 content review — Birthday Celebrant title, one-shot reward
+  # from the Birthday Builder quest. Rare because it's only earnable on the
+  # user's birthday.
+  - slug: title-birthday-celebrant
+    name: Birthday Celebrant
+    icon: "🎂"
+    item_type: cosmetic_title
+    rarity: rare
+    coin_value: 40
+    metadata: {text: Birthday Celebrant}
 
   # Pet accessories
   - slug: accessory-sunglasses

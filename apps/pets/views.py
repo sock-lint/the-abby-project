@@ -109,3 +109,35 @@ class ActivateMountView(APIView):
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(UserMountSerializer(mount).data)
+
+
+class BreedMountsView(APIView):
+    """POST /api/mounts/breed/ — combine two mounts to yield egg + potion.
+
+    Body: ``{"mount_a_id": <int>, "mount_b_id": <int>}``. Returns the egg +
+    potion pair that landed in the user's inventory, plus a ``chromatic``
+    flag when the 1-in-50 wildcard upgrade fired.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        a_id = request.data.get("mount_a_id")
+        b_id = request.data.get("mount_b_id")
+        if not a_id or not b_id:
+            return Response(
+                {"error": "mount_a_id and mount_b_id are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            a_id = int(a_id)
+            b_id = int(b_id)
+        except (TypeError, ValueError):
+            return Response(
+                {"error": "mount ids must be integers"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            result = PetService.breed_mounts(request.user, a_id, b_id)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result, status=status.HTTP_201_CREATED)

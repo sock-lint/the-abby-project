@@ -10,6 +10,7 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
     active_title = serializers.SerializerMethodField()
     active_theme = serializers.SerializerMethodField()
     active_pet_accessory = serializers.SerializerMethodField()
+    active_trophy_badge = serializers.SerializerMethodField()
 
     class Meta:
         model = CharacterProfile
@@ -27,6 +28,7 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "active_title",
             "active_theme",
             "active_pet_accessory",
+            "active_trophy_badge",
             "created_at",
             "updated_at",
         ]
@@ -56,6 +58,18 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
 
     def get_active_pet_accessory(self, obj):
         return self._compact_item(obj.active_pet_accessory)
+
+    def get_active_trophy_badge(self, obj):
+        badge = obj.active_trophy_badge
+        if badge is None:
+            return None
+        return {
+            "id": badge.pk,
+            "name": badge.name,
+            "icon": badge.icon,
+            "rarity": badge.rarity,
+            "description": badge.description,
+        }
 
 
 class ItemDefinitionSerializer(serializers.ModelSerializer):

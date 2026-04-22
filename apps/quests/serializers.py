@@ -1,8 +1,33 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from .models import QuestDefinition, QuestRewardItem, Quest, QuestParticipant, QuestSkillTag
+from .models import (
+    DailyChallenge,
+    Quest,
+    QuestDefinition,
+    QuestParticipant,
+    QuestRewardItem,
+    QuestSkillTag,
+)
 from .validators import validate_trigger_filter
+
+
+class DailyChallengeSerializer(serializers.ModelSerializer):
+    challenge_type_display = serializers.CharField(
+        source="get_challenge_type_display", read_only=True,
+    )
+    is_complete = serializers.BooleanField(read_only=True)
+    progress_percent = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = DailyChallenge
+        fields = [
+            "id", "challenge_type", "challenge_type_display",
+            "target_value", "current_progress", "progress_percent",
+            "date", "completed_at", "coin_reward", "xp_reward",
+            "is_complete",
+        ]
+        read_only_fields = fields
 
 
 class QuestRewardItemSerializer(serializers.ModelSerializer):

@@ -172,11 +172,15 @@ species:
   # Companion: slow-burn pet for kids who don't log heavy project work.
   # Passive growth via StreakService's daily-check-in hook (see
   # PetService.auto_grow_companions). Can still be hand-fed via food.
+  #
+  # Accepts base + golden so kids who run the slow-burn companion path have
+  # an epic-tier endpoint to work toward — prior to 2026-04-22 the only
+  # hatch was common rarity with no progression gradient.
   - slug: companion
     name: Companion
     icon: "🧸"
     sprite_key: companion
     description: A friendly little buddy that grows alongside your daily habits
-    available_potions: [base]
+    available_potions: [base, golden]
     egg_rarity: common
     egg_coin_value: 3

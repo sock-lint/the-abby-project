@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Shield } from 'lucide-react';
+import { Play, Shield, Sword, X } from 'lucide-react';
 import {
   getActiveQuest, getAvailableQuests, startQuest, getQuestHistory, getFamilyQuests,
+  getChildren, createQuest,
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
@@ -17,12 +18,24 @@ import RpgSprite from '../components/rpg/RpgSprite';
 import { normalizeList } from '../utils/api';
 import { formatDate } from '../utils/format';
 import Button from '../components/Button';
+import { TextField, TextAreaField, SelectField } from '../components/form';
 
 const STATUS_TONE = {
   active: 'teal',
   completed: 'moss',
   expired: 'ink',
   failed: 'ember',
+};
+
+const DEFAULT_CHALLENGE = {
+  name: '',
+  description: '',
+  quest_type: 'collection',
+  target_value: 5,
+  duration_days: 7,
+  coin_reward: 20,
+  xp_reward: 40,
+  assigned_to: '',
 };
 
 export default function Quests() {
@@ -34,13 +47,44 @@ export default function Quests() {
     () => (isParent ? getFamilyQuests() : Promise.resolve({ results: [] })),
     [isParent],
   );
-  const { data: familyData, loading: loadingFamily } = useApi(fetchFamily, [isParent]);
+  const { data: familyData, loading: loadingFamily, reload: reloadFamily } = useApi(fetchFamily, [isParent]);
+  const fetchKids = useCallback(
+    () => (isParent ? getChildren() : Promise.resolve({ results: [] })),
+    [isParent],
+  );
+  const { data: childrenData } = useApi(fetchKids, [isParent]);
   const [tab, setTab] = useState('current');
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(null);
+  const [showChallenge, setShowChallenge] = useState(false);
+  const [challenge, setChallenge] = useState(DEFAULT_CHALLENGE);
+  const [issuing, setIssuing] = useState(false);
+  const children = normalizeList(childrenData);
 
   const loading = loadingActive || loadingAvailable || loadingHistory || loadingFamily;
   if (loading) return <Loader />;
+
+  const handleIssueChallenge = async () => {
+    if (!challenge.assigned_to || !challenge.name || !challenge.description) return;
+    setIssuing(true);
+    setError('');
+    try {
+      await createQuest({
+        name: challenge.name,
+        description: challenge.description,
+        quest_type: challenge.quest_type,
+        target_value: Number(challenge.target_value) || 1,
+        duration_days: Math.min(30, Math.max(1, Number(challenge.duration_days) || 7)),
+        coin_reward: Number(challenge.coin_reward) || 0,
+        xp_reward: Number(challenge.xp_reward) || 0,
+        assigned_to: Number(challenge.assigned_to),
+      });
+      setShowChallenge(false);
+      setChallenge(DEFAULT_CHALLENGE);
+      reloadFamily();
+    } catch (e) { setError(e.message); }
+    finally { setIssuing(false); }
+  };
 
   const available = normalizeList(availableData);
   const history = normalizeList(historyData);
@@ -68,6 +112,128 @@ export default function Quests() {
       </header>
 
       <ErrorAlert message={error} />
+
+      {/* Parent-only issue-challenge button */}
+      {isParent && children.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setShowChallenge(!showChallenge)}
+            className="flex items-center gap-1.5"
+          >
+            <Sword size={14} /> Issue Challenge
+          </Button>
+        </div>
+      )}
+
+      {/* Parent-only issue-challenge modal */}
+      {isParent && showChallenge && (
+        <ParchmentCard flourish seal>
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <div className="font-script text-xs text-ink-whisper uppercase tracking-widest">
+                custom campaign
+              </div>
+              <h3 className="font-display text-lg text-ink-primary">Issue a Challenge</h3>
+              <div className="text-tiny text-ink-whisper mt-1">
+                Authors a one-off quest and auto-assigns it to the chosen child.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowChallenge(false)}
+              aria-label="Close"
+              className="p-1 rounded-full hover:bg-ink-page-shadow/50 transition-colors"
+            >
+              <X size={16} className="text-ink-secondary" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <SelectField
+              id="challenge-kid"
+              label="Assign to"
+              value={challenge.assigned_to}
+              onChange={(e) => setChallenge({ ...challenge, assigned_to: e.target.value })}
+            >
+              <option value="">Select a child…</option>
+              {children.map((c) => (
+                <option key={c.id} value={c.id}>{c.display_label || c.username}</option>
+              ))}
+            </SelectField>
+            <SelectField
+              id="challenge-type"
+              label="Type"
+              value={challenge.quest_type}
+              onChange={(e) => setChallenge({ ...challenge, quest_type: e.target.value })}
+            >
+              <option value="collection">Collection (count)</option>
+              <option value="boss">Boss (damage)</option>
+            </SelectField>
+            <TextField
+              id="challenge-name"
+              label="Title"
+              value={challenge.name}
+              onChange={(e) => setChallenge({ ...challenge, name: e.target.value })}
+              placeholder="e.g. Weekend Kitchen Rally"
+            />
+            <TextField
+              id="challenge-target"
+              label="Target value"
+              type="number"
+              min="1"
+              value={challenge.target_value}
+              onChange={(e) => setChallenge({ ...challenge, target_value: e.target.value })}
+              helpText={challenge.quest_type === 'boss' ? 'HP to deal' : 'Items to collect'}
+            />
+            <TextField
+              id="challenge-days"
+              label="Duration (days)"
+              type="number"
+              min="1"
+              max="30"
+              value={challenge.duration_days}
+              onChange={(e) => setChallenge({ ...challenge, duration_days: e.target.value })}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <TextField
+                id="challenge-coins"
+                label="Coin reward"
+                type="number"
+                min="0"
+                value={challenge.coin_reward}
+                onChange={(e) => setChallenge({ ...challenge, coin_reward: e.target.value })}
+              />
+              <TextField
+                id="challenge-xp"
+                label="XP reward"
+                type="number"
+                min="0"
+                value={challenge.xp_reward}
+                onChange={(e) => setChallenge({ ...challenge, xp_reward: e.target.value })}
+              />
+            </div>
+          </div>
+          <TextAreaField
+            id="challenge-description"
+            label="Description"
+            value={challenge.description}
+            onChange={(e) => setChallenge({ ...challenge, description: e.target.value })}
+            rows={3}
+            className="mt-3"
+          />
+          <Button
+            onClick={handleIssueChallenge}
+            disabled={
+              !challenge.assigned_to || !challenge.name ||
+              !challenge.description || issuing
+            }
+            className="w-full mt-3"
+          >
+            {issuing ? 'Issuing…' : 'Issue the challenge'}
+          </Button>
+        </ParchmentCard>
+      )}
 
       {/* Parent-only family roll-up */}
       {isParent && familyRows.length > 0 && (

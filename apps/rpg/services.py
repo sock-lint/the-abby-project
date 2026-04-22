@@ -492,6 +492,31 @@ class GameLoopService:
             if quest_result and quest_result.get("completed"):
                 notifications.append(f"Quest complete: {quest_result['quest_name']}")
 
+            # Step 5b: Daily challenge progress — lightweight slot separate
+            # from the main quest. Wrapped so the parent flow never breaks
+            # if the daily-challenge subsystem is misbehaving.
+            daily_result = None
+            try:
+                from apps.quests.services import DailyChallengeService
+                challenge, newly_complete = DailyChallengeService.record_progress(
+                    user, trigger_type, context,
+                )
+                if challenge:
+                    daily_result = {
+                        "challenge_id": challenge.pk,
+                        "challenge_type": challenge.challenge_type,
+                        "progress": challenge.current_progress,
+                        "target": challenge.target_value,
+                        "newly_completed": newly_complete,
+                    }
+                    if newly_complete:
+                        notifications.append(
+                            f"Daily challenge complete: "
+                            f"{challenge.get_challenge_type_display()}"
+                        )
+            except Exception:
+                logger.exception("Daily-challenge progress hook failed")
+
             # Step 6: Chronicle firsts — wrapped so a chronicle failure never
             # breaks the parent flow.
             try:
@@ -508,6 +533,7 @@ class GameLoopService:
                 "notifications": notifications,
                 "drops": drops,
                 "quest": quest_result,
+                "daily_challenge": daily_result,
                 "chronicle": result_chronicle,
             }
 
@@ -724,6 +750,127 @@ class ConsumableService:
                 "granted_item_name": granted.name,
                 "granted_rarity": granted.rarity,
             }
+        if effect == "lucky_dip":
+            # Cosmetic-only version of mystery_box. Weighted toward lower rarity
+            # so legendary drops stay special. Honors already-owned: dupes
+            # salvage to coin_value like the drop path.
+            from apps.rewards.models import CoinLedger
+            from apps.rewards.services import CoinService
+            from apps.rpg.models import ItemDefinition, UserInventory
+            eligible = list(
+                ItemDefinition.objects.filter(
+                    rarity__in=meta.get("rarities", ["uncommon", "rare", "epic"]),
+                    item_type__startswith="cosmetic_",
+                )
+            )
+            if not eligible:
+                raise ValueError("Lucky dip has no eligible cosmetics to grant")
+            rarity_weights = {"common": 10, "uncommon": 6, "rare": 3, "epic": 1, "legendary": 1}
+            weights = [rarity_weights.get(i.rarity, 1) for i in eligible]
+            granted = random.choices(eligible, weights=weights, k=1)[0]
+            existing = UserInventory.objects.filter(
+                user=profile.user, item=granted,
+            ).first()
+            salvaged = False
+            if existing:
+                salvaged = True
+                if granted.coin_value > 0:
+                    CoinService.award_coins(
+                        profile.user, granted.coin_value, CoinLedger.Reason.ADJUSTMENT,
+                        description=f"Lucky Dip salvage: {granted.name}",
+                    )
+            else:
+                UserInventory.objects.create(
+                    user=profile.user, item=granted, quantity=1,
+                )
+            return {
+                "granted_item_id": granted.pk,
+                "granted_item_name": granted.name,
+                "granted_rarity": granted.rarity,
+                "salvaged": salvaged,
+            }
+        if effect == "quest_reroll":
+            # Rolls a random eligible QuestDefinition and starts it. Eligibility
+            # mirrors QuestService.start_quest's guards: not already active,
+            # system quest (parent quests can be hand-picked), badge gate passed.
+            from apps.achievements.models import UserBadge
+            from apps.quests.models import Quest, QuestDefinition
+            from apps.quests.services import QuestService
+            if Quest.objects.filter(
+                participants__user=profile.user, status=Quest.Status.ACTIVE,
+            ).exists():
+                raise ValueError(
+                    "You already have an active quest — finish it before rerolling"
+                )
+            user_badge_ids = set(
+                UserBadge.objects.filter(user=profile.user).values_list("badge_id", flat=True)
+            )
+            candidates = [
+                q for q in QuestDefinition.objects.filter(is_system=True)
+                if q.required_badge_id is None or q.required_badge_id in user_badge_ids
+            ]
+            if not candidates:
+                raise ValueError("No eligible quests to reroll into")
+            picked = random.choice(candidates)
+            quest = QuestService.start_quest(profile.user, picked.pk)
+            return {
+                "quest_id": quest.pk,
+                "quest_name": picked.name,
+                "quest_type": picked.quest_type,
+            }
+        if effect == "morale_tonic":
+            # Same field as growth_tonic (pet_growth_boost_remaining) but a
+            # longer duration by default. A distinct effect slug means it
+            # counts toward ``consumable_variety`` separately from growth_tonic.
+            feeds = int(meta.get("feeds", 5))
+            profile.pet_growth_boost_remaining += feeds
+            profile.save(update_fields=["pet_growth_boost_remaining", "updated_at"])
+            return {"pet_growth_boost_remaining": profile.pet_growth_boost_remaining}
+        if effect == "skill_tonic":
+            # Grants a fixed XP bolt to the user's highest-level SkillProgress
+            # row. No "pick a skill" UI needed — the tonic finds the leader
+            # and tops it up. Tiebreak: most recently updated.
+            from apps.achievements.models import SkillProgress, XP_THRESHOLDS
+            amount = int(meta.get("xp", 50))
+            progress = SkillProgress.objects.filter(
+                user=profile.user, unlocked=True,
+            ).order_by("-level", "-xp_points", "-id").first()
+            if progress is None:
+                raise ValueError("You need to unlock a skill first")
+            progress.xp_points += amount
+            # Promote levels while we can — mirrors SkillService's level math.
+            while progress.level + 1 in XP_THRESHOLDS and (
+                progress.xp_points >= XP_THRESHOLDS[progress.level + 1]
+            ):
+                progress.level += 1
+            progress.save(update_fields=["xp_points", "level"])
+            return {
+                "skill_id": progress.skill_id,
+                "skill_name": progress.skill.name,
+                "xp_awarded": amount,
+                "new_level": progress.level,
+                "new_xp": progress.xp_points,
+            }
+        if effect == "food_basket":
+            # Hands out N random food items — low-effort pet-prep kit for
+            # kids who want to build up a feeding stockpile.
+            from apps.rpg.models import ItemDefinition, UserInventory
+            count = int(meta.get("count", 2))
+            foods = list(ItemDefinition.objects.filter(
+                item_type=ItemDefinition.ItemType.FOOD,
+            ))
+            if not foods:
+                raise ValueError("Food basket has no eligible foods")
+            picks = random.choices(foods, k=count)
+            granted = []
+            for item in picks:
+                inv, _ = UserInventory.objects.get_or_create(
+                    user=profile.user, item=item, defaults={"quantity": 0},
+                )
+                inv.quantity += 1
+                inv.save(update_fields=["quantity", "updated_at"])
+                granted.append({"item_id": item.pk, "item_name": item.name})
+            return {"granted": granted, "count": count}
         raise ValueError(f"Unknown consumable effect: {effect!r}")
 
 

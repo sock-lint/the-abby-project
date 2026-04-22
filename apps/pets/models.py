@@ -79,6 +79,14 @@ class UserPet(TimestampedModel):
     growth_points = models.PositiveIntegerField(default=0)  # 0-100
     is_active = models.BooleanField(default=False)
     evolved_to_mount = models.BooleanField(default=False)
+    last_fed_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=(
+            "When this pet was last fed. Drives the ``happiness_level`` "
+            "computation — see HAPPINESS_THRESHOLDS in apps/pets/services.py. "
+            "Gentle-nudge intent: stale pets dim visually, never take damage."
+        ),
+    )
 
     class Meta:
         unique_together = ("user", "species", "potion")
@@ -91,6 +99,16 @@ class UserPet(TimestampedModel):
     @property
     def is_fully_grown(self):
         return self.growth_points >= 100
+
+    @property
+    def happiness_level(self):
+        """'happy' / 'bored' / 'stale' / 'away' based on time since last feed.
+
+        Evolved pets (mounts) always read as 'happy' — they're past the
+        feeding loop and their visual shouldn't degrade.
+        """
+        from apps.pets.services import happiness_for_pet
+        return happiness_for_pet(self)
 
 
 class UserMount(TimestampedModel):
@@ -108,6 +126,14 @@ class UserMount(TimestampedModel):
         PotionType, on_delete=models.CASCADE, related_name="user_mounts"
     )
     is_active = models.BooleanField(default=False)
+    last_bred_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=(
+            "When this mount last participated in a breeding. Used to enforce "
+            "the per-mount breeding cooldown — see MOUNT_BREEDING_COOLDOWN_DAYS "
+            "in apps/pets/services.py."
+        ),
+    )
 
     class Meta:
         unique_together = ("user", "species", "potion")

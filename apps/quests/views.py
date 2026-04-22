@@ -6,9 +6,14 @@ from rest_framework.views import APIView
 from config.permissions import IsParent
 from config.viewsets import get_child_or_404, child_not_found_response
 
-from .models import QuestDefinition, Quest, QuestParticipant
-from .serializers import QuestSerializer, QuestDefinitionSerializer, QuestWriteSerializer
-from .services import QuestService
+from .models import DailyChallenge, QuestDefinition, Quest, QuestParticipant
+from .serializers import (
+    DailyChallengeSerializer,
+    QuestSerializer,
+    QuestDefinitionSerializer,
+    QuestWriteSerializer,
+)
+from .services import DailyChallengeService, QuestService
 
 
 class ActiveQuestView(APIView):
@@ -141,3 +146,24 @@ class AssignQuestView(APIView):
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(QuestSerializer(quest).data, status=status.HTTP_201_CREATED)
+
+
+class DailyChallengeView(APIView):
+    """GET /api/challenges/daily/ — today's daily challenge, auto-created on first access."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        challenge = DailyChallengeService.get_or_create_today(request.user)
+        return Response(DailyChallengeSerializer(challenge).data)
+
+
+class ClaimDailyChallengeView(APIView):
+    """POST /api/challenges/daily/claim/ — award coin + XP for a completed daily."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        try:
+            result = DailyChallengeService.claim_reward(request.user)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result)

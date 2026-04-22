@@ -171,3 +171,55 @@ class QuestParticipant(TimestampedModel):
 
     def __str__(self):
         return f"{self.user} \u2192 {self.quest.definition.name} ({self.contribution})"
+
+
+class DailyChallenge(TimestampedModel):
+    """A lightweight once-a-day micro-quest — separate slot from Quest.
+
+    Rotated by the ``rotate_daily_challenges`` Celery task at 00:30 local.
+    Progress is recorded in GameLoopService.on_task_completed alongside the
+    regular quest progress flow, but DailyChallenge is intentionally
+    decoupled from QuestDefinition — its template list is a small enum
+    rather than a CRUD'able catalog, so the daily slot stays small and
+    doesn't compete with the real quest system for attention.
+    """
+
+    class ChallengeType(models.TextChoices):
+        CLOCK_HOUR = "clock_hour", "Clock an hour today"
+        CHORES = "chores", "Finish N chores today"
+        HABITS = "habits", "Log N habits today"
+        HOMEWORK = "homework", "Finish N homework today"
+        MILESTONE = "milestone", "Clear a milestone today"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="daily_challenges",
+    )
+    challenge_type = models.CharField(max_length=20, choices=ChallengeType.choices)
+    target_value = models.PositiveIntegerField(default=1)
+    current_progress = models.PositiveIntegerField(default=0)
+    date = models.DateField(db_index=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    coin_reward = models.PositiveIntegerField(default=10)
+    xp_reward = models.PositiveIntegerField(default=20)
+
+    class Meta:
+        unique_together = [("user", "date")]
+        ordering = ["-date"]
+
+    def __str__(self):
+        return (
+            f"{self.user} · {self.get_challenge_type_display()} "
+            f"({self.current_progress}/{self.target_value})"
+        )
+
+    @property
+    def is_complete(self):
+        return self.current_progress >= self.target_value
+
+    @property
+    def progress_percent(self):
+        if self.target_value == 0:
+            return 100
+        return min(100, int(self.current_progress / self.target_value * 100))

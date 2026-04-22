@@ -122,6 +122,60 @@ class UnequipCosmeticView(APIView):
         return Response(result)
 
 
+class TrophyBadgeView(APIView):
+    """POST /api/character/trophy/ — set or clear the displayed trophy badge.
+
+    Body: ``{"badge_id": <int|null>}``. Passing ``null`` (or omitting the key)
+    clears the slot. The user must have earned the badge — we look up via
+    ``UserBadge`` rather than just trusting the FK so parent-forced trophies
+    can't bypass the "earn it first" rule.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from apps.achievements.models import Badge, UserBadge
+        from .models import CharacterProfile
+
+        badge_id = request.data.get("badge_id")
+        profile, _ = CharacterProfile.objects.get_or_create(user=request.user)
+
+        if badge_id in (None, "", 0):
+            profile.active_trophy_badge = None
+            profile.save(update_fields=["active_trophy_badge", "updated_at"])
+            return Response({"active_trophy_badge_id": None})
+
+        try:
+            badge_id = int(badge_id)
+        except (TypeError, ValueError):
+            return Response(
+                {"error": "badge_id must be an integer"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not UserBadge.objects.filter(user=request.user, badge_id=badge_id).exists():
+            return Response(
+                {"error": "You haven't earned that badge yet"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            badge = Badge.objects.get(pk=badge_id)
+        except Badge.DoesNotExist:
+            return Response(
+                {"error": "Badge not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        profile.active_trophy_badge = badge
+        profile.save(update_fields=["active_trophy_badge", "updated_at"])
+        return Response({
+            "active_trophy_badge_id": badge.pk,
+            "badge_name": badge.name,
+            "badge_icon": badge.icon,
+            "badge_rarity": badge.rarity,
+        })
+
+
 class UseConsumableView(APIView):
     """POST /api/inventory/<item_id>/use/ — consume a single consumable item."""
     permission_classes = [permissions.IsAuthenticated]

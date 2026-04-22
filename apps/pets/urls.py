@@ -9,4 +9,5 @@ urlpatterns = [
     path("pets/<int:pk>/activate/", views.ActivatePetView.as_view(), name="pet-activate"),
     path("mounts/", views.MountsView.as_view(), name="mounts"),
     path("mounts/<int:pk>/activate/", views.ActivateMountView.as_view(), name="mount-activate"),
+    path("mounts/breed/", views.BreedMountsView.as_view(), name="mount-breed"),
 ]

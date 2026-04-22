@@ -198,6 +198,16 @@ class Badge(models.Model):
         GRADE_REACHED = "grade_reached", "Grade Reached"
         BIRTHDAYS_LOGGED = "birthdays_logged", "Birthdays Logged"
         COSMETIC_FULL_SET = "cosmetic_full_set", "All Cosmetic Slots Equipped"
+        # 2026-04-23 content review — new subsystem-recognition criteria.
+        # Each has a registered checker in ``apps/achievements/criteria.py``.
+        HABIT_TAPS_LIFETIME = "habit_taps_lifetime", "Habit Taps (lifetime)"
+        HABIT_COUNT_AT_STRENGTH = "habit_count_at_strength", "Habit Count at Strength"
+        BADGES_EARNED_COUNT = "badges_earned_count", "Badges Earned (count)"
+        CO_OP_PROJECT_COMPLETED = "co_op_project_completed", "Co-op Project Completed"
+        BOSS_QUESTS_COMPLETED = "boss_quests_completed", "Boss Quests Completed"
+        COLLECTION_QUESTS_COMPLETED = "collection_quests_completed", "Collection Quests Completed"
+        CHRONICLE_MILESTONES_LOGGED = "chronicle_milestones_logged", "Chronicle Milestones Logged"
+        COSMETIC_SET_OWNED = "cosmetic_set_owned", "Cosmetic Set Owned"
 
     class Rarity(models.TextChoices):
         COMMON = "common", "Common"

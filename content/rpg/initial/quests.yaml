@@ -560,6 +560,71 @@ quests:
       - {skill: "Outdoors::Weather & Stargazing", weight: 1}
       - {skill: "Life Skills::Persistence", weight: 1}
 
+  # 2026-04-23 content review — Wheel of the Year completes with Winter
+  # Solstice. Ship pattern mirrors Summer Solstice: parent-assigned, any
+  # trigger counts, rewards a seasonal theme cosmetic.
+  - name: Winter Solstice
+    description: Stand against the longest night — 7 habits, chores, or projects through the dark half of the year.
+    icon: "❄️"
+    sprite_key: quest-winter-solstice
+    quest_type: collection
+    target_value: 7
+    duration_days: 21
+    trigger_filter:
+      allowed_triggers: [clock_out, chore_complete, habit_log, milestone_complete]
+    coin_reward: 80
+    xp_reward: 120
+    is_system: true
+    reward_items:
+      - slug: theme-aurora
+        quantity: 1
+    skill_tags:
+      - {skill: "Outdoors::Weather & Stargazing", weight: 2}
+      - {skill: "Life Skills::Persistence", weight: 2}
+
+  - name: May Day
+    description: Ring in summer's approach — 5 outdoor or craft activities in the first days of May.
+    icon: "🌼"
+    sprite_key: quest-may-day
+    quest_type: collection
+    target_value: 5
+    duration_days: 14
+    trigger_filter:
+      allowed_triggers: [clock_out, chore_complete, milestone_complete]
+    coin_reward: 50
+    xp_reward: 75
+    is_system: true
+    reward_items:
+      - slug: accessory-flower-crown
+        quantity: 1
+    skill_tags:
+      - {skill: "Outdoors::Gardening", weight: 2}
+      - {skill: "Art & Crafts::Textile & Fiber", weight: 1}
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  # Birthday Builder — one-day quest parents assign on a child's birthday.
+  # Tight 24-hour window so it feels celebratory, not grindy. Reward is a
+  # generic Birthday Celebrant title; a year-specific cosmetic can be
+  # authored per-year if desired.
+  - name: Birthday Builder
+    description: Your birthday only comes once a year — log 3 things you love doing. One-day blitz.
+    icon: "🎂"
+    sprite_key: quest-birthday-builder
+    quest_type: collection
+    target_value: 3
+    duration_days: 1
+    trigger_filter:
+      allowed_triggers: [clock_out, chore_complete, habit_log, homework_complete, project_complete, milestone_complete]
+    coin_reward: 50
+    xp_reward: 75
+    is_system: true
+    reward_items:
+      - slug: title-birthday-celebrant
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+      - {skill: "Physical::Mindfulness", weight: 1}
+
   - name: Apprentice Path
     description: Unlock your first locked skill, then prove the apprentice knows the work — 200 damage across any trigger in 14 days.
     icon: "🔑"

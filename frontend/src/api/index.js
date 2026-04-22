@@ -339,6 +339,16 @@ export const feedPet = (petId, foodItemId) =>
 export const activatePet = (petId) => api.post(`/pets/${petId}/activate/`);
 export const getMounts = () => api.get('/mounts/');
 export const activateMount = (mountId) => api.post(`/mounts/${mountId}/activate/`);
+export const breedMounts = (mountAId, mountBId) =>
+  api.post('/mounts/breed/', { mount_a_id: mountAId, mount_b_id: mountBId });
+
+// Trophy shelf
+export const setTrophyBadge = (badgeId) =>
+  api.post('/character/trophy/', { badge_id: badgeId });
+
+// Daily challenges
+export const getDailyChallenge = () => api.get('/challenges/daily/');
+export const claimDailyChallenge = () => api.post('/challenges/daily/claim/');
 
 // Cosmetics
 export const getCosmetics = () => api.get('/cosmetics/');

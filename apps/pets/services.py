@@ -1,6 +1,9 @@
 import logging
+import random
+from datetime import timedelta
 
 from django.db import transaction
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +16,53 @@ EVOLUTION_THRESHOLD = 100
 # longer with streak breaks. Grows the slow-burn-bonding feel.
 COMPANION_DAILY_GROWTH = 2
 COMPANION_SPECIES_SLUG = "companion"
+
+# Pet breeding — added 2026-04-23. Each mount can only be bred once per
+# cooldown window. The chromatic-upgrade chance is the wildcard reward
+# path: 1-in-50 rolls hand out the legendary Cosmic potion regardless
+# of parent potions, so rare potion variants are earnable via stable
+# husbandry in addition to drops.
+MOUNT_BREEDING_COOLDOWN_DAYS = 7
+CHROMATIC_UPGRADE_CHANCE = 0.02
+CHROMATIC_POTION_SLUG = "cosmic"
+
+# Pet happiness thresholds — days since last feed. Values are tuned so a
+# kid who feeds their pet weekly never drops below 'bored', and a hard
+# 'away' state only appears when a pet has been ignored long enough that
+# the dashboard surface genuinely benefits from gently pointing it out.
+# Gentle-nudge doctrine: happiness level is PURELY visual — it never
+# penalizes coins, XP, drops, or growth progress.
+HAPPINESS_THRESHOLDS = {
+    "happy": 3,   # fed in the last 3 days
+    "bored": 7,   # fed in the last 7 days
+    "stale": 14,  # fed in the last 14 days
+    # > 14 days → "away"
+}
+
+
+def happiness_for_pet(pet):
+    """Bucket a UserPet into 'happy' / 'bored' / 'stale' / 'away'.
+
+    Evolved pets always read as 'happy' — they're past the feeding loop.
+    Pets with no feed history (just hatched) read as 'happy' for a grace
+    window until their ``last_fed_at`` is set on first feed. Falls back
+    on ``created_at`` if ``last_fed_at`` is still null, so an unfed pet
+    sitting in the stable still decays visually instead of staying happy
+    forever.
+    """
+    if getattr(pet, "evolved_to_mount", False):
+        return "happy"
+    reference = pet.last_fed_at or pet.created_at
+    if reference is None:
+        return "happy"
+    delta_days = (timezone.now() - reference).days
+    if delta_days <= HAPPINESS_THRESHOLDS["happy"]:
+        return "happy"
+    if delta_days <= HAPPINESS_THRESHOLDS["bored"]:
+        return "bored"
+    if delta_days <= HAPPINESS_THRESHOLDS["stale"]:
+        return "stale"
+    return "away"
 
 
 class PetService:
@@ -205,9 +255,10 @@ class PetService:
         else:
             food_inv.save(update_fields=["quantity", "updated_at"])
 
-        # Apply growth
+        # Apply growth and stamp last-fed for the happiness computation.
         pet.growth_points = min(pet.growth_points + growth, EVOLUTION_THRESHOLD)
-        pet.save(update_fields=["growth_points", "updated_at"])
+        pet.last_fed_at = timezone.now()
+        pet.save(update_fields=["growth_points", "last_fed_at", "updated_at"])
 
         # Check evolution
         evolved = False
@@ -270,6 +321,106 @@ class PetService:
         mount.is_active = True
         mount.save(update_fields=["is_active", "updated_at"])
         return mount
+
+    @staticmethod
+    @transaction.atomic
+    def breed_mounts(user, mount_a_id, mount_b_id):
+        """Combine two mature mounts to yield a hybrid egg + potion pair.
+
+        Each parent mount enters a cooldown (``MOUNT_BREEDING_COOLDOWN_DAYS``)
+        after breeding. The result is an egg of ONE parent's species (50/50)
+        plus a potion of ONE parent's potion (50/50), both deposited into the
+        user's inventory. A ``CHROMATIC_UPGRADE_CHANCE`` (1-in-50) wildcard
+        overrides the picked potion with Cosmic — gives the stable-husbandry
+        path a rare/legendary endpoint without relying on drops.
+
+        Same-mount pairs raise ``ValueError`` (can't breed with yourself).
+        Returns a dict summarizing the roll.
+        """
+        from apps.pets.models import UserMount
+        from apps.rpg.models import ItemDefinition, UserInventory
+
+        if mount_a_id == mount_b_id:
+            raise ValueError("A mount can't breed with itself — pick two different mounts")
+
+        try:
+            mounts = list(
+                UserMount.objects.select_for_update().select_related(
+                    "species", "potion",
+                ).filter(pk__in=[mount_a_id, mount_b_id], user=user)
+            )
+        except UserMount.DoesNotExist:
+            raise ValueError("One or both mounts not found")
+        if len(mounts) != 2:
+            raise ValueError("One or both mounts not found")
+
+        now = timezone.now()
+        cooldown = timedelta(days=MOUNT_BREEDING_COOLDOWN_DAYS)
+        for m in mounts:
+            if m.last_bred_at is not None and (now - m.last_bred_at) < cooldown:
+                remaining = cooldown - (now - m.last_bred_at)
+                days_left = max(1, remaining.days + (1 if remaining.seconds else 0))
+                raise ValueError(
+                    f"{m.species.name} is still resting — "
+                    f"{days_left} day(s) until it can breed again"
+                )
+
+        picked_species = random.choice([mounts[0].species, mounts[1].species])
+        picked_potion = random.choice([mounts[0].potion, mounts[1].potion])
+
+        chromatic = False
+        if random.random() < CHROMATIC_UPGRADE_CHANCE:
+            from apps.pets.models import PotionType
+            cosmic = PotionType.objects.filter(slug=CHROMATIC_POTION_SLUG).first()
+            if cosmic:
+                picked_potion = cosmic
+                chromatic = True
+
+        egg_item = ItemDefinition.objects.filter(
+            item_type=ItemDefinition.ItemType.EGG,
+            pet_species=picked_species,
+        ).first()
+        if egg_item is None:
+            raise ValueError(
+                f"No egg item registered for {picked_species.name} — content seed may be incomplete"
+            )
+        potion_item = ItemDefinition.objects.filter(
+            item_type=ItemDefinition.ItemType.POTION,
+            potion_type=picked_potion,
+        ).first()
+        if potion_item is None:
+            raise ValueError(
+                f"No potion item registered for {picked_potion.name} — content seed may be incomplete"
+            )
+
+        for item in (egg_item, potion_item):
+            inv, _ = UserInventory.objects.get_or_create(
+                user=user, item=item, defaults={"quantity": 0},
+            )
+            inv.quantity += 1
+            inv.save(update_fields=["quantity", "updated_at"])
+
+        for m in mounts:
+            m.last_bred_at = now
+            m.save(update_fields=["last_bred_at", "updated_at"])
+
+        logger.info(
+            "User %s bred mounts %s + %s → %s-%s egg%s",
+            user.username, mounts[0].pk, mounts[1].pk,
+            picked_species.slug, picked_potion.slug,
+            " (chromatic!)" if chromatic else "",
+        )
+
+        return {
+            "egg_item_id": egg_item.pk,
+            "egg_item_name": egg_item.name,
+            "potion_item_id": potion_item.pk,
+            "potion_item_name": potion_item.name,
+            "picked_species": picked_species.name,
+            "picked_potion": picked_potion.name,
+            "chromatic": chromatic,
+            "cooldown_days": MOUNT_BREEDING_COOLDOWN_DAYS,
+        }
 
     @staticmethod
     def get_stable(user):

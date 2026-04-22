@@ -442,13 +442,20 @@ def _fast_project(user, c):
 
 @criterion(Badge.CriteriaType.CATEGORY_MASTERY)
 def _category_mastery(user, c):
-    """Every skill in the named category at or above ``min_level``.
+    """Every unlocked-by-default skill in the category at or above ``min_level``.
 
     ``criteria_value`` shape::
 
         {"category": "Cooking", "min_level": 3}
 
-    Locked-by-default skills count — so you can't duck an advanced skill.
+    Locked-by-default skills (Driving, Martial Arts, Team Sports, etc.) are
+    excluded from the requirement so age- or prereq-gated content doesn't
+    trap the badge forever. Kids who DO unlock and level a gated skill still
+    need it — a SkillProgress row only exists for skills they've engaged
+    with, and gated skills that stay locked simply don't appear in the
+    required set. Prior to 2026-04-22 this required every skill including
+    locked-by-default, which made Life Skills and Physical effectively
+    unreachable for younger children.
     """
     from apps.achievements.models import Skill, SkillCategory
 
@@ -461,7 +468,9 @@ def _category_mastery(user, c):
         return False
     min_level = int(c.get("min_level", 3))
     required_skill_ids = set(
-        Skill.objects.filter(category=category).values_list("id", flat=True)
+        Skill.objects.filter(
+            category=category, is_locked_by_default=False,
+        ).values_list("id", flat=True)
     )
     if not required_skill_ids:
         return False
@@ -572,3 +581,151 @@ def _cosmetic_full_set(user, _c):
         "active_frame_id", "active_title_id",
         "active_theme_id", "active_pet_accessory_id",
     ))
+
+
+# ---------------------------------------------------------------------------
+# 2026-04-23 content-review criteria
+# ---------------------------------------------------------------------------
+
+@criterion(Badge.CriteriaType.HABIT_TAPS_LIFETIME)
+def _habit_taps_lifetime(user, c):
+    """Cumulative positive (+1) habit taps across every habit the user owns.
+
+    ``criteria_value`` shape::
+
+        {"count": 100}  # default: 50
+
+    Negative direction never counts — habits are "rituals", and we reward
+    the doing, not the acknowledging of a slip.
+    """
+    from apps.habits.models import HabitLog
+    target = int(c.get("count", 50))
+    return HabitLog.objects.filter(
+        user=user, direction=1,
+    ).count() >= target
+
+
+@criterion(Badge.CriteriaType.HABIT_COUNT_AT_STRENGTH)
+def _habit_count_at_strength(user, c):
+    """N distinct active habits currently at or above ``strength``.
+
+    ``criteria_value`` shape::
+
+        {"count": 3, "strength": 5}  # defaults: count=3, strength=5
+
+    Rewards breadth + depth simultaneously — the opposite of ``Rooted``
+    (one habit at +7) which only needs depth.
+    """
+    from apps.habits.models import Habit
+    target = int(c.get("count", 3))
+    threshold = int(c.get("strength", 5))
+    return Habit.objects.filter(
+        user=user, is_active=True, strength__gte=threshold,
+    ).count() >= target
+
+
+@criterion(Badge.CriteriaType.BADGES_EARNED_COUNT)
+def _badges_earned_count(user, c):
+    """Total distinct badges the user has earned (universal 'Collector' ladder).
+
+    ``criteria_value`` shape::
+
+        {"count": 25}  # default: 10
+
+    ``UserBadge`` is unique on ``(user, badge)`` so ``.count()`` IS the
+    distinct-badge count — no need to filter further.
+    """
+    from apps.achievements.models import UserBadge
+    return UserBadge.objects.filter(user=user).count() >= int(c.get("count", 10))
+
+
+@criterion(Badge.CriteriaType.CO_OP_PROJECT_COMPLETED)
+def _co_op_project_completed(user, c):
+    """Count of completed projects where the user is a collaborator.
+
+    ``criteria_value`` shape::
+
+        {"count": 1}  # default: 1 ("first co-op project")
+
+    Counts via ``ProjectCollaborator`` rows referencing a completed project.
+    A user who is assigned to a project (``assigned_to``) does NOT count
+    here — that's what ``PROJECTS_COMPLETED`` is for. This is specifically
+    for the "helped on someone else's project" signal.
+    """
+    from apps.projects.models import ProjectCollaborator
+    return ProjectCollaborator.objects.filter(
+        user=user, project__status="completed",
+    ).count() >= int(c.get("count", 1))
+
+
+@criterion(Badge.CriteriaType.BOSS_QUESTS_COMPLETED)
+def _boss_quests_completed(user, c):
+    """Count completed quests where the definition is a boss quest.
+
+    ``criteria_value`` shape::
+
+        {"count": 5}  # default: 5
+    """
+    from apps.quests.models import Quest, QuestDefinition
+    return Quest.objects.filter(
+        participants__user=user,
+        status=Quest.Status.COMPLETED,
+        definition__quest_type=QuestDefinition.QuestType.BOSS,
+    ).count() >= int(c.get("count", 5))
+
+
+@criterion(Badge.CriteriaType.COLLECTION_QUESTS_COMPLETED)
+def _collection_quests_completed(user, c):
+    """Count completed quests where the definition is a collection quest.
+
+    ``criteria_value`` shape::
+
+        {"count": 5}  # default: 5
+    """
+    from apps.quests.models import Quest, QuestDefinition
+    return Quest.objects.filter(
+        participants__user=user,
+        status=Quest.Status.COMPLETED,
+        definition__quest_type=QuestDefinition.QuestType.COLLECTION,
+    ).count() >= int(c.get("count", 5))
+
+
+@criterion(Badge.CriteriaType.CHRONICLE_MILESTONES_LOGGED)
+def _chronicle_milestones_logged(user, c):
+    """Count chronicle milestone entries recorded for the user.
+
+    ``criteria_value`` shape::
+
+        {"count": 3}  # default: 3
+
+    Distinct from ``BIRTHDAYS_LOGGED`` (which counts BIRTHDAY kind) — this
+    is for ``MILESTONE`` kind only, which fires on graduation, first-ever
+    events, etc.
+    """
+    from apps.chronicle.models import ChronicleEntry
+    return ChronicleEntry.objects.filter(
+        user=user, kind=ChronicleEntry.Kind.MILESTONE,
+    ).count() >= int(c.get("count", 3))
+
+
+@criterion(Badge.CriteriaType.COSMETIC_SET_OWNED)
+def _cosmetic_set_owned(user, c):
+    """Own every item in a specific named cosmetic set.
+
+    ``criteria_value`` shape::
+
+        {"slugs": ["frame-scholar", "title-scholar", "theme-library"]}
+
+    The user must have a ``UserInventory`` row with ``quantity >= 1`` for
+    every listed slug. Returns False if the list is empty or missing.
+    """
+    from apps.rpg.models import UserInventory
+    slugs = c.get("slugs") or []
+    if not slugs:
+        return False
+    owned = set(
+        UserInventory.objects.filter(
+            user=user, quantity__gte=1, item__slug__in=slugs,
+        ).values_list("item__slug", flat=True)
+    )
+    return set(slugs).issubset(owned)

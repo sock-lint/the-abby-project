@@ -41,12 +41,14 @@ class UserPetSerializer(serializers.ModelSerializer):
     species = PetSpeciesSerializer(read_only=True)
     potion = PotionTypeSerializer(read_only=True)
     is_fully_grown = serializers.BooleanField(read_only=True)
+    happiness_level = serializers.CharField(read_only=True)
 
     class Meta:
         model = UserPet
         fields = [
             "id", "species", "potion", "name", "growth_points",
             "is_active", "evolved_to_mount", "is_fully_grown",
+            "happiness_level", "last_fed_at",
             "created_at", "updated_at",
         ]
         read_only_fields = fields

@@ -72,6 +72,16 @@ class CharacterProfile(TimestampedModel):
         null=True, blank=True, related_name="equipped_as_pet_accessory",
         limit_choices_to={"item_type": "cosmetic_pet_accessory"},
     )
+    active_trophy_badge = models.ForeignKey(
+        "achievements.Badge", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="equipped_as_trophy",
+        help_text=(
+            "Optional hero badge the user has elected to display on their "
+            "profile and in notifications. Must be a badge they've earned; "
+            "enforcement lives in the trophy endpoint, not the schema, so the "
+            "FK can stay loose if badges are archived later."
+        ),
+    )
     unlocks = models.JSONField(default=dict, blank=True)
 
     class Meta:
