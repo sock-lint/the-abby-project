@@ -75,6 +75,38 @@ class DropTableTests(TestCase):
         self.assertEqual(str(entry), "Clock Out -> Common Egg (w=10)")
 
 
+class CharacterProfileUnlocksTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.user = User.objects.create(username="kid", role=User.Role.CHILD)
+        # CharacterProfile auto-created via post_save signal
+
+    def test_unlocks_defaults_to_empty_dict(self):
+        self.assertEqual(self.user.character_profile.unlocks, {})
+
+    def test_is_unlocked_false_for_missing_slug(self):
+        self.assertFalse(self.user.character_profile.is_unlocked("drivers_ed"))
+
+    def test_unlock_sets_enabled_true_and_timestamps(self):
+        self.user.character_profile.unlock("drivers_ed")
+        self.assertTrue(self.user.character_profile.is_unlocked("drivers_ed"))
+        entry = self.user.character_profile.unlocks["drivers_ed"]
+        self.assertTrue(entry["enabled"])
+        self.assertIn("enabled_at", entry)  # ISO date string
+
+    def test_lock_sets_enabled_false(self):
+        self.user.character_profile.unlock("first_job")
+        self.user.character_profile.lock("first_job")
+        self.assertFalse(self.user.character_profile.is_unlocked("first_job"))
+
+    def test_unlock_persists_to_db(self):
+        self.user.character_profile.unlock("college_prep")
+        self.user.character_profile.save()
+        self.user.character_profile.refresh_from_db()
+        self.assertTrue(self.user.character_profile.is_unlocked("college_prep"))
+
+
 class DropLogTests(TestCase):
     def test_create_drop_log(self):
         user = User.objects.create_user(username="dropchild", password="testpass", role="child")

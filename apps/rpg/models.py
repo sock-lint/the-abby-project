@@ -68,12 +68,30 @@ class CharacterProfile(TimestampedModel):
         null=True, blank=True, related_name="equipped_as_pet_accessory",
         limit_choices_to={"item_type": "cosmetic_pet_accessory"},
     )
+    unlocks = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["-level"]
 
     def __str__(self):
         return f"{self.user.display_label} (Level {self.level})"
+
+    def is_unlocked(self, slug: str) -> bool:
+        entry = self.unlocks.get(slug) or {}
+        return bool(entry.get("enabled"))
+
+    def unlock(self, slug: str, *, save: bool = False) -> None:
+        from datetime import date
+        self.unlocks[slug] = {"enabled": True, "enabled_at": date.today().isoformat()}
+        if save:
+            self.save(update_fields=["unlocks"])
+
+    def lock(self, slug: str, *, save: bool = False) -> None:
+        entry = self.unlocks.get(slug) or {}
+        entry["enabled"] = False
+        self.unlocks[slug] = entry
+        if save:
+            self.save(update_fields=["unlocks"])
 
 
 class ItemDefinition(TimestampedModel):
