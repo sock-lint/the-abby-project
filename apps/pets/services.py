@@ -87,6 +87,20 @@ class PetService:
         )
 
         logger.info("User %s hatched %s %s", user.username, potion_type.name, species.name)
+
+        # Chronicle hook — wrapped so a chronicle failure never breaks hatching.
+        try:
+            from apps.chronicle.services import ChronicleService
+            ChronicleService.record_first(
+                user,
+                event_slug="first_pet_hatched",
+                title=f"Hatched your first pet \u2014 {species.name}",
+                icon_slug="egg-crack",
+                related=("userpet", pet.pk),
+            )
+        except Exception:
+            logger.exception("Chronicle hook failed in hatch_pet")
+
         return pet
 
     @staticmethod
@@ -152,6 +166,19 @@ class PetService:
             )
             evolved = True
             logger.info("User %s evolved %s %s to mount", user.username, pet.potion.name, pet.species.name)
+
+            # Chronicle hook — wrapped so a chronicle failure never breaks evolution.
+            try:
+                from apps.chronicle.services import ChronicleService
+                ChronicleService.record_first(
+                    user,
+                    event_slug="first_mount_evolved",
+                    title=f"First mount \u2014 {pet.species.name}",
+                    icon_slug="mount-sigil",
+                    related=("usermount", mount.pk),
+                )
+            except Exception:
+                logger.exception("Chronicle hook failed in feed_pet evolve-to-mount")
 
         return {
             "growth_added": growth,

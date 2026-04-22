@@ -376,6 +376,26 @@ class ExchangeService:
             link="/rewards",
         )
 
+        # Chronicle hook — wrapped so a chronicle failure never breaks approval.
+        try:
+            from apps.chronicle.services import ChronicleService
+            ChronicleService.record_first(
+                exchange.user,
+                event_slug="first_exchange_approved",
+                title="First money \u2192 coins exchange",
+                icon_slug="coin-stack",
+                metadata={
+                    "dollar_amount": str(dollar_amount),
+                    "coin_amount": coin_amount,
+                    "exchange_rate": int(exchange.exchange_rate),
+                },
+            )
+        except Exception:
+            import logging as _logging
+            _logging.getLogger(__name__).exception(
+                "Chronicle hook failed in ExchangeService.approve"
+            )
+
         return exchange
 
     @staticmethod
