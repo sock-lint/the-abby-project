@@ -60,6 +60,7 @@ urlpatterns = [
     path("api/", include("apps.quests.urls")),
     path("api/", include("apps.google_integration.urls")),
     path("api/", include("apps.activity.urls")),
+    path("api/", include("apps.chronicle.urls")),
 ]
 
 # Serve /media/ through Django when uploads live on local disk. With
