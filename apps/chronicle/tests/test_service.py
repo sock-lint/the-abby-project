@@ -110,3 +110,50 @@ class RecordChapterTransitionTests(TestCase):
         ChronicleService.record_chapter_end(self.user, 2025)
         ChronicleService.record_chapter_end(self.user, 2025)
         self.assertEqual(ChronicleEntry.objects.filter(kind="chapter_end", chapter_year=2025).count(), 1)
+
+
+class FreezeRecapTests(TestCase):
+    def setUp(self):
+        from datetime import datetime, timezone
+
+        from apps.projects.models import Project
+        from apps.rewards.models import CoinLedger
+
+        self.user = User.objects.create(username="kid", role=User.Role.CHILD)
+        # Project.created_by is a required non-null FK; use the same user as creator.
+        # Project.completed_at is a DateTimeField — pass timezone-aware datetimes.
+        # Seed minimal fixtures that fall inside chapter_year=2025 (Aug 2025 - Jul 2026).
+        Project.objects.create(
+            assigned_to=self.user,
+            created_by=self.user,
+            title="Test project A",
+            status="completed",
+            completed_at=datetime(2025, 10, 15, 12, 0, tzinfo=timezone.utc),
+        )
+        Project.objects.create(
+            assigned_to=self.user,
+            created_by=self.user,
+            title="Test project B",
+            status="completed",
+            completed_at=datetime(2026, 2, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        # CoinLedger.amount is IntegerField — plain int, no Decimal.
+        CoinLedger.objects.create(
+            user=self.user,
+            amount=50,
+            reason=CoinLedger.Reason.ADJUSTMENT,
+        )
+
+    def test_freeze_recap_aggregates_into_metadata(self):
+        recap = ChronicleService.freeze_recap(self.user, 2025)
+        self.assertEqual(recap.kind, ChronicleEntry.Kind.RECAP)
+        self.assertEqual(recap.chapter_year, 2025)
+        self.assertEqual(recap.occurred_on, date(2026, 6, 1))
+        self.assertEqual(recap.metadata.get("projects_completed"), 2)
+        self.assertEqual(recap.metadata.get("coins_earned"), 50)
+
+    def test_freeze_recap_is_idempotent(self):
+        first = ChronicleService.freeze_recap(self.user, 2025)
+        second = ChronicleService.freeze_recap(self.user, 2025)
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(ChronicleEntry.objects.filter(kind="recap").count(), 1)

@@ -106,3 +106,74 @@ class ChronicleService:
             },
         )
         return entry
+
+    @staticmethod
+    def freeze_recap(user, chapter_year: int) -> ChronicleEntry:
+        """Aggregates stats for the chapter and writes a RECAP entry. Idempotent."""
+        from django.db.models import Sum
+
+        from apps.projects.models import Project
+        from apps.rewards.models import CoinLedger
+
+        start = date(chapter_year, 8, 1)
+        end = date(chapter_year + 1, 7, 31)
+
+        stats = {}
+
+        # Project.completed_at is a DateTimeField — use __date__range to compare
+        # the date portion so plain date boundaries work correctly.
+        stats["projects_completed"] = Project.objects.filter(
+            assigned_to=user,
+            status="completed",
+            completed_at__date__range=(start, end),
+        ).count()
+
+        # CoinLedger.amount is IntegerField; Sum returns int (or None when empty).
+        coins_earned = (
+            CoinLedger.objects.filter(
+                user=user,
+                created_at__date__range=(start, end),
+                amount__gt=0,
+            ).aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+        stats["coins_earned"] = coins_earned
+
+        # Optional additive aggregations — wrap each so a missing app
+        # doesn't break recap writes. Each block short-circuits on import
+        # failure without failing the overall freeze.
+        try:
+            from apps.homework.models import HomeworkSubmission
+
+            # HomeworkSubmission.decided_at is a DateTimeField (from ApprovalWorkflowModel).
+            stats["homework_approved"] = HomeworkSubmission.objects.filter(
+                assignment__assigned_to=user,
+                status="approved",
+                decided_at__date__range=(start, end),
+            ).count()
+        except Exception as exc:  # pragma: no cover
+            logger.debug("homework recap skipped: %s", exc)
+
+        try:
+            from apps.chores.models import ChoreCompletion
+
+            # ChoreCompletion.completed_date is a DateField — plain __range works.
+            stats["chores_approved"] = ChoreCompletion.objects.filter(
+                user=user,
+                status="approved",
+                completed_date__range=(start, end),
+            ).count()
+        except Exception as exc:  # pragma: no cover
+            logger.debug("chores recap skipped: %s", exc)
+
+        entry, _ = ChronicleEntry.objects.get_or_create(
+            user=user,
+            kind=ChronicleEntry.Kind.RECAP,
+            chapter_year=chapter_year,
+            defaults={
+                "occurred_on": date(chapter_year + 1, 6, 1),
+                "title": f"Chapter {chapter_year}-{str(chapter_year + 1)[-2:]} recap",
+                "metadata": stats,
+            },
+        )
+        return entry
