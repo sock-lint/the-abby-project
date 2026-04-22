@@ -150,6 +150,8 @@ COINS_PER_BADGE_RARITY = {
 }
 # How many Coins a child receives per $1.00 exchanged (money → coins).
 COINS_PER_DOLLAR = 10
+# Coins granted on a child's birthday, multiplied by age in years (tunable).
+BIRTHDAY_COINS_PER_YEAR = 100
 # How many Coins a child earns per $1.00 of a completed savings goal's
 # ``target_amount``. A $50 goal at the default rate of 2 yields 100 coins.
 COINS_PER_SAVINGS_GOAL_DOLLAR = 2
@@ -431,6 +433,10 @@ CELERY_BEAT_SCHEDULE = {
     "quest-boss-rage": {
         "task": "apps.quests.tasks.apply_boss_rage_task",
         "schedule": crontab(hour=0, minute=15),
+    },
+    "chronicle-birthday-check": {
+        "task": "apps.chronicle.tasks.chronicle_birthday_check",
+        "schedule": crontab(hour=0, minute=20),
     },
 }
 
