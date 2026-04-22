@@ -89,23 +89,81 @@ class ExchangeServiceHookTests(TestCase):
 
 class PetServiceHookTests(TestCase):
     def setUp(self):
+        from apps.pets.models import PetSpecies, PotionType
+        from apps.rpg.models import ItemDefinition, UserInventory
+
         self.user = User.objects.create_user(
             username="kid", password="pw", role=User.Role.CHILD,
         )
 
+        # Species and potion — matched via metadata name lookup (legacy path).
+        self.species = PetSpecies.objects.create(
+            name="Testfox", icon="\U0001f98a", food_preference="berries",
+        )
+        self.potion_type = PotionType.objects.create(
+            name="Gold", color_hex="#FFD700",
+        )
+
+        # Items — use the metadata-based legacy path so no typed FK migration needed.
+        self.egg_item = ItemDefinition.objects.create(
+            name="Testfox Egg", icon="\U0001f95a",
+            item_type=ItemDefinition.ItemType.EGG,
+            rarity="common",
+            metadata={"species": "testfox"},
+        )
+        self.potion_item = ItemDefinition.objects.create(
+            name="Gold Potion", icon="\U0001f9ea",
+            item_type=ItemDefinition.ItemType.POTION,
+            rarity="common",
+            metadata={"variant": "gold"},
+        )
+        self.food_item = ItemDefinition.objects.create(
+            name="Berries", icon="\U0001fad0",
+            item_type=ItemDefinition.ItemType.FOOD,
+            rarity="common",
+            metadata={"food_type": "berries"},
+        )
+
+        # Seed inventory.
+        UserInventory.objects.create(user=self.user, item=self.egg_item, quantity=1)
+        UserInventory.objects.create(user=self.user, item=self.potion_item, quantity=1)
+        UserInventory.objects.create(user=self.user, item=self.food_item, quantity=10)
+
     def test_hatching_first_pet_emits_first_pet_hatched(self):
-        # Fixture setup requires PetSpecies + PotionType + items in inventory.
-        # The rpg/pets content pack is loaded in production but not guaranteed
-        # in test DB; skip rather than duplicate the full YAML bootstrap here.
-        self.skipTest(
-            "Fill in fixture setup matching apps.pets.tests patterns — "
-            "requires PetSpecies, PotionType, egg + potion UserInventory rows."
+        from apps.pets.services import PetService
+
+        PetService.hatch_pet(self.user, self.egg_item.id, self.potion_item.id)
+
+        self.assertTrue(
+            ChronicleEntry.objects.filter(
+                user=self.user,
+                kind="first_ever",
+                event_slug="first_pet_hatched",
+            ).exists()
         )
 
     def test_evolving_pet_emits_first_mount_evolved(self):
-        # Same prerequisite as hatch test — evolution flows through feed_pet
-        # which also needs PetSpecies + potion type + food inventory.
-        self.skipTest(
-            "Fill in fixture setup matching apps.pets.tests patterns — "
-            "requires UserPet near EVOLUTION_THRESHOLD + food item."
+        from apps.pets.services import PetService
+
+        pet = PetService.hatch_pet(self.user, self.egg_item.id, self.potion_item.id)
+
+        # Force growth to 99 — one preferred-food feed (+15, capped at 100) triggers evolution.
+        pet.growth_points = 99
+        pet.save(update_fields=["growth_points"])
+
+        # Re-seed food (hatch consumed nothing; inventory row may still exist — just ensure qty).
+        from apps.rpg.models import UserInventory
+        UserInventory.objects.update_or_create(
+            user=self.user, item=self.food_item,
+            defaults={"quantity": 1},
+        )
+
+        PetService.feed_pet(self.user, pet.id, self.food_item.id)
+
+        self.assertTrue(
+            ChronicleEntry.objects.filter(
+                user=self.user,
+                kind="first_ever",
+                event_slug="first_mount_evolved",
+            ).exists()
         )

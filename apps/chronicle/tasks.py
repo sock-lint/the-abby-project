@@ -10,6 +10,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 
 from apps.chronicle.models import ChronicleEntry
+from apps.chronicle.services import ChronicleService
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -79,8 +80,6 @@ def _send_birthday_notification(user, coin_amount: int) -> None:
     except Exception:
         logger.exception("Birthday notification failed")
 
-
-from apps.chronicle.services import ChronicleService
 
 
 @shared_task(name="apps.chronicle.tasks.chronicle_chapter_transition")
