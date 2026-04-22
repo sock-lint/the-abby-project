@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from .models import QuestDefinition, QuestRewardItem, Quest, QuestParticipant
+from .models import QuestDefinition, QuestRewardItem, Quest, QuestParticipant, QuestSkillTag
 from .validators import validate_trigger_filter
 
 
@@ -16,8 +16,19 @@ class QuestRewardItemSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class QuestSkillTagSerializer(serializers.ModelSerializer):
+    skill_name = serializers.CharField(source="skill.name", read_only=True)
+    skill_category = serializers.CharField(source="skill.category.name", read_only=True)
+
+    class Meta:
+        model = QuestSkillTag
+        fields = ["id", "skill", "skill_name", "skill_category", "xp_weight"]
+        read_only_fields = ["id", "skill_name", "skill_category"]
+
+
 class QuestDefinitionSerializer(serializers.ModelSerializer):
     reward_items = QuestRewardItemSerializer(many=True, read_only=True)
+    skill_tags = QuestSkillTagSerializer(many=True, read_only=True)
     quest_type_display = serializers.CharField(source="get_quest_type_display", read_only=True)
 
     class Meta:
@@ -25,7 +36,7 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "description", "icon", "sprite_key", "quest_type", "quest_type_display",
             "target_value", "duration_days", "trigger_filter",
-            "coin_reward", "xp_reward", "reward_items",
+            "coin_reward", "xp_reward", "reward_items", "skill_tags",
             "is_repeatable", "is_system", "created_at",
         ]
         read_only_fields = fields

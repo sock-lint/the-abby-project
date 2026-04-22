@@ -59,3 +59,31 @@ class HabitLog(CreatedAtModel):
         # Preserve original table name so the move is a state-only migration.
         db_table = "rpg_habitlog"
         ordering = ["-created_at"]
+
+
+class HabitSkillTag(models.Model):
+    """Declares which skills a habit rewards on each positive tap.
+
+    Mirrors ``ProjectSkillTag`` — XP pool from ``Habit.xp_reward`` is
+    distributed proportionally by ``xp_weight`` across the linked skills
+    every time ``HabitService.log_tap`` records a positive direction.
+    Negative taps never award skill XP (matches the existing no-coins
+    rule for rituals).
+    """
+
+    habit = models.ForeignKey(
+        Habit, on_delete=models.CASCADE, related_name="skill_tags",
+    )
+    skill = models.ForeignKey(
+        "achievements.Skill", on_delete=models.CASCADE,
+    )
+    xp_weight = models.IntegerField(
+        default=1,
+        help_text="Relative share of Habit.xp_reward this skill receives.",
+    )
+
+    class Meta:
+        unique_together = [("habit", "skill")]
+
+    def __str__(self):
+        return f"{self.habit.name} — {self.skill.name} ({self.xp_weight}x)"

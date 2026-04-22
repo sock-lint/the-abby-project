@@ -7,7 +7,7 @@ import {
 import {
   getChores, createChore, updateChore, deleteChore, completeChore,
   getChoreCompletions, approveChoreCompletion, rejectChoreCompletion,
-  getChildren,
+  getChildren, getSkills,
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
@@ -20,6 +20,7 @@ import EmptyState from '../components/EmptyState';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
+import SkillTagEditor from '../components/SkillTagEditor';
 import { CoinIcon, ScrollIcon } from '../components/icons/JournalIcons';
 import { formatDate } from '../utils/format';
 import { normalizeList } from '../utils/api';
@@ -35,7 +36,7 @@ const STATUS_TONE = {
   rejected: 'ember',
 };
 
-function ChoreFormModal({ chore, children, onClose, onSaved }) {
+function ChoreFormModal({ chore, children, skills, onClose, onSaved }) {
   const isEdit = !!chore;
   const { form, set, saving, setSaving, error, setError } = useFormState({
     title: chore?.title || '',
@@ -43,12 +44,17 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
     icon: chore?.icon || '',
     reward_amount: chore?.reward_amount ?? '1.00',
     coin_reward: chore?.coin_reward ?? 2,
+    xp_reward: chore?.xp_reward ?? 10,
     recurrence: chore?.recurrence || 'daily',
     week_schedule: chore?.week_schedule || 'every_week',
     schedule_start_date: chore?.schedule_start_date || '',
     assigned_to: chore?.assigned_to ?? '',
     is_active: chore?.is_active ?? true,
     order: chore?.order ?? 0,
+    skill_tags: (chore?.skill_tags || []).map((t) => ({
+      skill_id: t.skill,
+      xp_weight: t.xp_weight,
+    })),
   });
 
   const onField = (k) => (e) => {
@@ -67,6 +73,7 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
         icon: form.icon,
         reward_amount: form.reward_amount,
         coin_reward: parseInt(form.coin_reward) || 0,
+        xp_reward: parseInt(form.xp_reward) || 0,
         recurrence: form.recurrence,
         week_schedule: form.recurrence === 'one_time' ? 'every_week' : form.week_schedule,
         schedule_start_date: form.week_schedule === 'alternating' && form.recurrence !== 'one_time'
@@ -74,6 +81,7 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
         assigned_to: form.assigned_to ? parseInt(form.assigned_to) : null,
         is_active: form.is_active,
         order: parseInt(form.order) || 0,
+        skill_tags: form.skill_tags,
       };
       if (isEdit) {
         await updateChore(chore.id, payload);
@@ -96,10 +104,11 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Title" value={form.title} onChange={onField('title')} required />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           <TextField label="Icon" value={form.icon} onChange={onField('icon')} placeholder="🧹" />
           <TextField label="Reward ($)" type="number" min="0" step="0.25" value={form.reward_amount} onChange={onField('reward_amount')} />
           <TextField label="Coins" type="number" min="0" value={form.coin_reward} onChange={onField('coin_reward')} />
+          <TextField label="XP pool" type="number" min="0" value={form.xp_reward} onChange={onField('xp_reward')} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <SelectField label="Recurrence" value={form.recurrence} onChange={onField('recurrence')}>
@@ -135,6 +144,11 @@ function ChoreFormModal({ chore, children, onClose, onSaved }) {
             </label>
           </div>
         </div>
+        <SkillTagEditor
+          skills={skills}
+          value={form.skill_tags}
+          onChange={(tags) => set({ skill_tags: tags })}
+        />
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-secondary hover:text-ink-primary transition-colors">
             Cancel
@@ -157,6 +171,7 @@ export default function Chores() {
     [isParent],
   );
   const { data: childrenData } = useApi(isParent ? getChildren : () => Promise.resolve([]), [isParent]);
+  const { data: skillsData } = useApi(isParent ? getSkills : () => Promise.resolve([]), [isParent]);
 
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -201,6 +216,7 @@ export default function Chores() {
   const chores = normalizeList(choresData);
   const completions = normalizeList(completionsData);
   const children = normalizeList(childrenData);
+  const skills = normalizeList(skillsData);
   const pendingCompletions = completions.filter((c) => c.status === 'pending');
 
   const doneCount = chores.filter(
@@ -415,6 +431,7 @@ export default function Chores() {
         <ChoreFormModal
           chore={editingChore}
           children={children}
+          skills={skills}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); refresh(); }}
         />

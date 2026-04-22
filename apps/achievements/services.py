@@ -43,14 +43,31 @@ class SkillService:
     def distribute_project_xp(cls, user, project, total_xp):
         """Distribute XP across a project's skill tags by weight ratio."""
         tags = ProjectSkillTag.objects.filter(project=project).select_related("skill")
-        if not tags.exists():
-            return
+        cls.distribute_tagged_xp(user, tags, total_xp)
 
-        total_weight = sum(tag.xp_weight for tag in tags)
-        for tag in tags:
+    @classmethod
+    def distribute_tagged_xp(cls, user, tags, total_xp):
+        """Generic weighted-tag XP distribution.
+
+        ``tags`` is any iterable of objects with ``.skill`` (Skill FK) and
+        ``.xp_weight`` (int). Used for ProjectSkillTag, ChoreSkillTag,
+        HabitSkillTag, QuestSkillTag — one helper for every entity that
+        declares "doing this exercises these skills." Returns the list of
+        per-skill XP amounts actually awarded (for logging).
+        """
+        tag_list = list(tags)
+        if not tag_list:
+            return []
+        total_weight = sum(tag.xp_weight for tag in tag_list)
+        if total_weight == 0:
+            return []
+        awarded = []
+        for tag in tag_list:
             skill_xp = round(total_xp * (tag.xp_weight / total_weight))
             if skill_xp > 0:
                 cls.award_xp(user, tag.skill, skill_xp)
+                awarded.append((tag.skill, skill_xp))
+        return awarded
 
     @classmethod
     def evaluate_unlocks(cls, user):
@@ -212,6 +229,8 @@ class AwardService:
         user,
         *,
         project=None,
+        xp_tags=None,
+        xp_source_label=None,
         xp=0,
         coins=0,
         coin_reason=None,
@@ -222,6 +241,18 @@ class AwardService:
         created_by=None,
     ):
         """Distribute XP + coins + optional money atomically and re-evaluate badges.
+
+        XP sources (mutually exclusive — first one that matches wins):
+          - ``project``: look up ``ProjectSkillTag`` rows for the project.
+            Legacy path for clock-out/project/milestone completion.
+          - ``xp_tags``: any iterable of tag objects with ``.skill`` and
+            ``.xp_weight``. Used for chore/habit/quest skill tags —
+            pass e.g. ``chore.skill_tags.all()``. ``xp_source_label``
+            (e.g. "Chore: Dishes") goes into the activity log summary.
+
+        If ``xp > 0`` but neither source is provided, XP is awarded to
+        ``_award_badge_xp`` which dilutes it across every unlocked skill.
+        That's the back-compat fallback for pre-skill-tag callers.
 
         ``money`` / ``money_entry_type`` are optional — pass them for paired
         award paths (clock-out hourly, chore reward, project/milestone bonus)
@@ -240,6 +271,10 @@ class AwardService:
             if project is not None and xp > 0:
                 xp_breakdown = AwardService._distribute_project_xp_logged(
                     user, project, xp,
+                )
+            elif xp_tags is not None and xp > 0:
+                xp_breakdown = AwardService._distribute_tagged_xp_logged(
+                    user, xp_tags, xp,
                 )
 
             if coins > 0 and coin_reason is not None:
@@ -293,11 +328,15 @@ class AwardService:
                 )
 
             if xp_breakdown:
+                summary_suffix = ""
+                if project:
+                    summary_suffix = f" · {project.title}"
+                elif xp_source_label:
+                    summary_suffix = f" · {xp_source_label}"
                 ActivityLogService.record(
                     category="award",
                     event_type="award.xp",
-                    summary=f"+{xp} XP distributed"
-                        + (f" · {project.title}" if project else ""),
+                    summary=f"+{xp} XP distributed{summary_suffix}",
                     actor=created_by,
                     subject=user,
                     xp_delta=int(xp),
@@ -309,21 +348,29 @@ class AwardService:
 
     @staticmethod
     def _distribute_project_xp_logged(user, project, total_xp):
-        """Mirror of SkillService.distribute_project_xp that returns per-skill breakdown.
-
-        Kept as a private helper on ``AwardService`` so the emitted
-        ``award.xp`` breakdown rows stay in lockstep with the actual XP
-        distribution — no risk of drift if ``SkillService`` signature
-        changes later.
-        """
+        """Thin wrapper — look up the project's tags and distribute."""
         tags = ProjectSkillTag.objects.filter(project=project).select_related("skill")
-        if not tags.exists():
+        return AwardService._distribute_tagged_xp_logged(user, tags, total_xp)
+
+    @staticmethod
+    def _distribute_tagged_xp_logged(user, tags, total_xp):
+        """Distribute ``total_xp`` across any weighted-tag iterable.
+
+        Used by project, chore, habit, and quest XP paths. Returns
+        activity-log breakdown rows in the shape the ``award.xp`` event
+        expects, so every source logs identically. Duplicates
+        ``SkillService.distribute_tagged_xp`` by-weight math on purpose —
+        keeps the activity-log write in lockstep with the actual award
+        without a second query.
+        """
+        tag_list = list(tags)
+        if not tag_list:
             return []
-        total_weight = sum(tag.xp_weight for tag in tags)
+        total_weight = sum(tag.xp_weight for tag in tag_list)
         if total_weight == 0:
             return []
         rows = []
-        for tag in tags:
+        for tag in tag_list:
             skill_xp = round(total_xp * (tag.xp_weight / total_weight))
             if skill_xp > 0:
                 SkillService.award_xp(user, tag.skill, skill_xp)

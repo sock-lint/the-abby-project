@@ -75,6 +75,19 @@ class HabitService:
             },
         )
 
+        # Skill-tree XP: positive taps only, only when the habit has tags.
+        # Pool = Habit.xp_reward, split proportionally across tagged skills.
+        # No tags → xp_reward silently drops (pre-life-RPG behaviour).
+        if direction == 1 and habit.xp_reward > 0:
+            from apps.achievements.services import AwardService
+            AwardService.grant(
+                user,
+                xp_tags=habit.skill_tags.select_related("skill"),
+                xp=habit.xp_reward,
+                xp_source_label=f"Habit: {habit.name}",
+                created_by=user,
+            )
+
         return {
             "direction": direction,
             "xp_reward": habit.xp_reward if direction == 1 else 0,

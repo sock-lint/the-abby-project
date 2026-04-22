@@ -336,7 +336,7 @@ def _savings_goal_completed(user, c):
     from apps.projects.models import SavingsGoal
     return SavingsGoal.objects.filter(
         user=user,
-        current_amount__gte=models.F("target_amount"),
+        is_completed=True,
     ).count() >= int(c.get("count", 1))
 
 

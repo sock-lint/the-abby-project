@@ -214,10 +214,16 @@ class ChoreService:
             },
         )
 
-        # Paired money + coin award through a single distribution call.
+        # Paired money + coin + skill-XP award through a single distribution
+        # call. When the chore has ChoreSkillTag rows, the skill-tree XP pool
+        # comes from ``Chore.xp_reward`` and is split proportionally by
+        # ``xp_weight``. No tags → no skill XP (chore is coin/money only).
         from apps.achievements.services import AwardService
         AwardService.grant(
             completion.user,
+            xp_tags=completion.chore.skill_tags.select_related("skill"),
+            xp=completion.chore.xp_reward,
+            xp_source_label=f"Chore: {completion.chore.title}",
             coins=completion.coin_reward_snapshot,
             coin_reason=CoinLedger.Reason.CHORE_REWARD,
             coin_description=f"Chore: {completion.chore.title}",

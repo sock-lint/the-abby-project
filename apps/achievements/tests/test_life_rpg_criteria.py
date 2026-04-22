@@ -255,10 +255,11 @@ class SavingsGoalCriterionTests(TestCase):
         goal = SavingsGoal.objects.create(
             title="Bike", user=self.user,
             target_amount=Decimal("100.00"),
-            current_amount=Decimal("50.00"),
         )
+        # A pending goal doesn't count — completion is the criterion now,
+        # not the derived current_amount.
         self.assertFalse(_savings_goal_completed(self.user, {"count": 1}))
-        goal.current_amount = Decimal("100.00")
+        goal.is_completed = True
         goal.save()
         self.assertTrue(_savings_goal_completed(self.user, {"count": 1}))
 

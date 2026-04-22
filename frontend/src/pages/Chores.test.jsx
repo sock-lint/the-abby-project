@@ -66,12 +66,63 @@ describe('Chores', () => {
       http.get('*/api/chores/', () => HttpResponse.json([])),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
       http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /new duty/i })).toBeInTheDocument(),
     );
     await user.click(screen.getByRole('button', { name: /new duty/i }));
     expect(await screen.findByRole('button', { name: /^create$/i })).toBeInTheDocument();
+  });
+
+  it('new-duty form includes SkillTagEditor with skills from /skills/', async () => {
+    const user = userEvent.setup();
+    renderPage(buildParent(), [
+      http.get('*/api/chores/', () => HttpResponse.json([])),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/skills/', () => HttpResponse.json([
+        { id: 1, name: 'Persistence', icon: '💪', category_name: 'Life Skills' },
+      ])),
+    ]);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /new duty/i })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('button', { name: /new duty/i }));
+    // Empty-state copy comes from SkillTagEditor — prove the component is mounted.
+    expect(
+      await screen.findByText(/no skills tagged/i, {}, { timeout: 2000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add skill/i })).toBeInTheDocument();
+  });
+
+  it('saving a new duty posts skill_tags alongside the chore', async () => {
+    const user = userEvent.setup();
+    const create = spyHandler('post', /\/api\/chores\/$/, { id: 1, title: 'Dishes' });
+    renderPage(buildParent(), [
+      http.get('*/api/chores/', () => HttpResponse.json([])),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/skills/', () => HttpResponse.json([
+        { id: 7, name: 'Persistence', icon: '💪', category_name: 'Life Skills' },
+      ])),
+      create.handler,
+    ]);
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /new duty/i })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('button', { name: /new duty/i }));
+    await screen.findByText(/no skills tagged/i);
+
+    await user.type(screen.getByLabelText('Title'), 'Dishes');
+    await user.click(screen.getByRole('button', { name: /add skill/i }));
+    await user.click(screen.getByRole('button', { name: /^create$/i }));
+
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    const body = create.calls[0].body;
+    expect(body.title).toBe('Dishes');
+    expect(body.skill_tags).toEqual([{ skill_id: 7, xp_weight: 1 }]);
   });
 
   it('parent sees approval queue when completions are pending', async () => {

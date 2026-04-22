@@ -44,12 +44,32 @@ describe('QuickActionsSheet', () => {
     ]);
     await waitFor(() => expect(screen.getByText(/clock in/i)).toBeInTheDocument());
     expect(screen.getByText(/add homework/i)).toBeInTheDocument();
+    // With zero goals the hoard affordance labels as "Set a savings goal".
+    await waitFor(() =>
+      expect(screen.getByText(/set a savings goal/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/view hoards/i)).not.toBeInTheDocument();
     // Guarded actions are NOT shown because preconditions aren't met.
     expect(screen.queryByText(/submit homework/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/start a quest/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/contribute to a hoard/i)).not.toBeInTheDocument();
     // Reward shop is intentionally excluded from quick actions.
     expect(screen.queryByText(/request a reward/i)).not.toBeInTheDocument();
+  });
+
+  it('swaps hoard label to "View hoards" when the child has an active goal', async () => {
+    renderSheet(buildUser(), [
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({ today: [], overdue: [], pending_submissions: [] })),
+      http.get('*/api/savings-goals/', () =>
+        HttpResponse.json([
+          { id: 1, title: 'Bike', target_amount: '100.00', is_completed: false },
+        ]),
+      ),
+      http.get('*/api/inventory/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() =>
+      expect(screen.getByText(/view hoards/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/set a savings goal/i)).not.toBeInTheDocument();
   });
 
   it('reveals Submit homework when an assignment is due', async () => {

@@ -21,9 +21,11 @@ from django.utils import timezone
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 
+from django.db import transaction
+
 from apps.achievements.models import Badge
 from apps.accounts.models import User
-from apps.quests.models import Quest, QuestDefinition, QuestParticipant
+from apps.quests.models import Quest, QuestDefinition, QuestParticipant, QuestSkillTag
 from apps.quests.services import QuestService
 from apps.quests.validators import validate_trigger_filter
 
@@ -41,6 +43,7 @@ from ..schemas import (
     GetQuestIn,
     ListQuestCatalogIn,
     ListQuestsIn,
+    SetQuestDefinitionSkillTagsIn,
 )
 from ..server import tool
 from ..shapes import to_plain
@@ -242,3 +245,46 @@ def cancel_quest(params: CancelQuestIn) -> dict[str, Any]:
     quest.status = Quest.Status.FAILED
     quest.save(update_fields=["status", "updated_at"])
     return _quest_to_dict(quest)
+
+
+@tool()
+@safe_tool
+def set_quest_definition_skill_tags(
+    params: SetQuestDefinitionSkillTagsIn,
+) -> dict[str, Any]:
+    """Replace the skill tags on a QuestDefinition (parent-only).
+
+    On completion, the definition's ``xp_reward`` pool is split across
+    these tags by ``xp_weight``. Passing an empty list removes all tags
+    and the quest awards coins + items only (no skill-tree credit) —
+    matches the pre-2026-04-21 behavior for untagged quests.
+    """
+    from apps.achievements.models import Skill
+    from apps.quests.serializers import QuestDefinitionSerializer
+
+    require_parent()
+    try:
+        definition = QuestDefinition.objects.get(pk=params.quest_definition_id)
+    except QuestDefinition.DoesNotExist:
+        raise MCPNotFoundError(
+            f"QuestDefinition {params.quest_definition_id} not found.",
+        )
+
+    skill_ids = [t.skill_id for t in params.skill_tags]
+    known = set(Skill.objects.filter(id__in=skill_ids).values_list("id", flat=True))
+    missing = [s for s in skill_ids if s not in known]
+    if missing:
+        raise MCPValidationError(f"Unknown skill IDs: {missing}")
+
+    with transaction.atomic():
+        QuestSkillTag.objects.filter(quest_definition=definition).delete()
+        QuestSkillTag.objects.bulk_create([
+            QuestSkillTag(
+                quest_definition=definition,
+                skill_id=t.skill_id,
+                xp_weight=t.xp_weight,
+            )
+            for t in params.skill_tags
+        ])
+    definition.refresh_from_db()
+    return to_plain(QuestDefinitionSerializer(definition).data)

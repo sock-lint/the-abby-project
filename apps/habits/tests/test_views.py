@@ -49,6 +49,77 @@ class HabitCRUDTests(_Fixture):
         resp = self.client.delete(f"/api/habits/{habit.pk}/")
         self.assertEqual(resp.status_code, 403)
 
+    def test_create_habit_with_skill_tags(self):
+        """Parent can POST skill_tags inline and the ViewSet applies them."""
+        from apps.achievements.models import Skill, SkillCategory
+        from apps.habits.models import Habit, HabitSkillTag
+
+        cat = SkillCategory.objects.create(name="Life Skills", icon="🌟")
+        s1 = Skill.objects.create(name="Persistence", category=cat)
+        s2 = Skill.objects.create(name="Communication", category=cat)
+
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post("/api/habits/", {
+            "name": "Read 20 min",
+            "icon": "📖",
+            "habit_type": "positive",
+            "user": self.child.id,
+            "xp_reward": 10,
+            "skill_tags": [
+                {"skill_id": s1.id, "xp_weight": 2},
+                {"skill_id": s2.id, "xp_weight": 1},
+            ],
+        }, format="json")
+        self.assertIn(resp.status_code, (200, 201), msg=resp.content)
+        habit = Habit.objects.get(name="Read 20 min")
+        self.assertEqual(HabitSkillTag.objects.filter(habit=habit).count(), 2)
+
+    def test_update_habit_replaces_skill_tags(self):
+        from apps.achievements.models import Skill, SkillCategory
+        from apps.habits.models import Habit, HabitSkillTag
+
+        cat = SkillCategory.objects.create(name="Life Skills", icon="🌟")
+        s1 = Skill.objects.create(name="Persistence", category=cat)
+        s2 = Skill.objects.create(name="Communication", category=cat)
+        habit = Habit.objects.create(
+            name="Read", habit_type="positive",
+            user=self.child, created_by=self.parent, xp_reward=10,
+        )
+        HabitSkillTag.objects.create(habit=habit, skill=s1, xp_weight=1)
+
+        self.client.force_authenticate(self.parent)
+        resp = self.client.patch(f"/api/habits/{habit.pk}/", {
+            "skill_tags": [{"skill_id": s2.id, "xp_weight": 4}],
+        }, format="json")
+        self.assertEqual(resp.status_code, 200, msg=resp.content)
+        tags = list(HabitSkillTag.objects.filter(habit=habit))
+        self.assertEqual(len(tags), 1)
+        self.assertEqual(tags[0].skill_id, s2.id)
+        self.assertEqual(tags[0].xp_weight, 4)
+
+    def test_update_habit_without_skill_tags_leaves_them_alone(self):
+        """Omitting skill_tags on PATCH must not wipe them."""
+        from apps.achievements.models import Skill, SkillCategory
+        from apps.habits.models import Habit, HabitSkillTag
+
+        cat = SkillCategory.objects.create(name="Life Skills", icon="🌟")
+        s1 = Skill.objects.create(name="Persistence", category=cat)
+        habit = Habit.objects.create(
+            name="Read", habit_type="positive",
+            user=self.child, created_by=self.parent, xp_reward=10,
+        )
+        HabitSkillTag.objects.create(habit=habit, skill=s1, xp_weight=2)
+
+        self.client.force_authenticate(self.parent)
+        resp = self.client.patch(f"/api/habits/{habit.pk}/", {
+            "name": "Read 20 min",
+        }, format="json")
+        self.assertEqual(resp.status_code, 200, msg=resp.content)
+        self.assertEqual(
+            HabitSkillTag.objects.filter(habit=habit).count(), 1,
+            "PATCH without skill_tags should leave tags untouched",
+        )
+
     def test_child_sees_own_habits(self):
         self.client.force_authenticate(self.child)
         self.client.post("/api/habits/", {

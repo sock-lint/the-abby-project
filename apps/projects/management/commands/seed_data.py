@@ -106,6 +106,7 @@ class Command(BaseCommand):
         self._create_sample_chores()
         self._create_sample_homework()
         self._create_sample_habits()
+        self._create_sample_savings_goals()
 
         self.stdout.write(self.style.SUCCESS("Seeding complete!"))
 
@@ -364,4 +365,40 @@ class Command(BaseCommand):
             )
             if created:
                 self.stdout.write(f"  Created habit: {habit.name}")
+
+    def _create_sample_savings_goals(self):
+        """Seed a mix of in-progress + completed sample goals per child.
+
+        ``current_amount`` is derived from ``PaymentService.get_balance``
+        at read time, so we don't — and can't — seed a stored amount.
+        The in-progress goal's visible progress will depend on whatever
+        balance the child accumulates through other seeded activity; for
+        a freshly seeded DB the balance is $0, which correctly renders
+        "$0 / $50" on the Hoards tab.
+        """
+        from apps.projects.models import SavingsGoal, User
+        from django.utils import timezone
+        from datetime import timedelta
+
+        for child in User.objects.filter(role="child"):
+            SavingsGoal.objects.get_or_create(
+                user=child,
+                title="Lego Set",
+                defaults={
+                    "target_amount": Decimal("50.00"),
+                    "icon": "🧱",
+                },
+            )
+            completed, created = SavingsGoal.objects.get_or_create(
+                user=child,
+                title="Headphones",
+                defaults={
+                    "target_amount": Decimal("25.00"),
+                    "icon": "🎧",
+                    "is_completed": True,
+                    "completed_at": timezone.now() - timedelta(days=5),
+                },
+            )
+            if created:
+                self.stdout.write(f"  Created sample savings goals for {child.username}")
 

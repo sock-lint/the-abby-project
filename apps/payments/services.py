@@ -60,6 +60,20 @@ class PaymentService(BaseLedgerService):
                     "timecard_id": timecard.pk if timecard else None,
                 },
             )
+
+        # Trigger savings-goal completion for any goal whose target the
+        # child's new balance now covers. Wrapped + logged — a failure
+        # downstream (badge evaluation, notifications) must never roll
+        # back the ledger entry itself.
+        try:
+            from apps.projects.savings_service import SavingsGoalService
+            SavingsGoalService.check_and_complete(user)
+        except Exception:
+            logger.exception(
+                "Savings-goal completion check failed for user %s "
+                "after PaymentLedger write %s", user.pk, entry.pk,
+            )
+
         return entry
 
     @classmethod

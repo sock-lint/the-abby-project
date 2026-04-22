@@ -63,5 +63,8 @@ class ProjectCollaboratorAdmin(admin.ModelAdmin):
 
 @admin.register(SavingsGoal)
 class SavingsGoalAdmin(admin.ModelAdmin):
-    list_display = ["user", "title", "target_amount", "current_amount", "is_completed"]
+    # ``current_amount`` was dropped in migration 0017 — goals now read
+    # the live balance from ``PaymentService.get_balance(user)`` rather
+    # than storing it. Admin shows the target + completion flag only.
+    list_display = ["user", "title", "target_amount", "is_completed", "completed_at"]
     list_filter = ["is_completed"]

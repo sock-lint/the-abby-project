@@ -321,29 +321,43 @@ export default function ChildDashboard({ data, reload }) {
           count={savings_goals.length}
           peek={`${savings_goals[0]?.title} · ${savings_goals[0]?.percent_complete ?? 0}%`}
         >
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {savings_goals.map((goal) => (
-              <ParchmentCard key={goal.id} seal>
-                <div className="flex items-center gap-2 mb-2">
-                  {goal.icon && <span className="text-xl">{goal.icon}</span>}
-                  <Target size={16} className="text-moss shrink-0" />
-                  <span className="font-display text-base leading-tight truncate">
-                    {goal.title}
-                  </span>
-                </div>
-                <div className="flex justify-between font-rune text-tiny text-ink-whisper mb-1">
-                  <span>{formatCurrency(goal.current_amount)}</span>
-                  <span>{formatCurrency(goal.target_amount)}</span>
-                </div>
-                <div className="h-2 rounded-full bg-ink-page-shadow/60 overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-moss to-gold-leaf"
-                    style={{ width: `${goal.percent_complete}%` }}
-                  />
-                </div>
-              </ParchmentCard>
+          <div className="grid md:grid-cols-2 gap-3">
+            {savings_goals.slice(0, 2).map((goal) => (
+              <button
+                key={goal.id}
+                type="button"
+                onClick={() => navigate('/treasury?tab=hoards')}
+                className="text-left"
+              >
+                <ParchmentCard seal className="hover:brightness-105 transition-[filter]">
+                  <div className="flex items-center gap-2 mb-2">
+                    {goal.icon && <span className="text-xl">{goal.icon}</span>}
+                    <Target size={16} className="text-moss shrink-0" />
+                    <span className="font-display text-base leading-tight truncate">
+                      {goal.title}
+                    </span>
+                  </div>
+                  <div className="flex justify-between font-rune text-tiny text-ink-whisper mb-1">
+                    <span>{formatCurrency(goal.current_amount)}</span>
+                    <span>{formatCurrency(goal.target_amount)}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-ink-page-shadow/60 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-moss to-gold-leaf"
+                      style={{ width: `${goal.percent_complete}%` }}
+                    />
+                  </div>
+                </ParchmentCard>
+              </button>
             ))}
           </div>
+          <button
+            type="button"
+            onClick={() => navigate('/treasury?tab=hoards')}
+            className="mt-3 font-script text-caption text-sheikah-teal-deep hover:text-sheikah-teal-deep/80"
+          >
+            View all in Treasury →
+          </button>
         </AccordionSection>
       )}
 

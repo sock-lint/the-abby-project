@@ -265,14 +265,12 @@ export default function QuickActionsSheet({
                   onClick={() => { onClose(); navigate('/quests?tab=trials'); }}
                 />
               )}
-              {hasGoals && (
-                <ActionRow
-                  icon={<Target size={18} />}
-                  label="Contribute to a hoard"
-                  tone="moss"
-                  onClick={() => { onClose(); navigate('/treasury?tab=coffers'); }}
-                />
-              )}
+              <ActionRow
+                icon={<Target size={18} />}
+                label={hasGoals ? 'View hoards' : 'Set a savings goal'}
+                tone="moss"
+                onClick={() => { onClose(); navigate('/treasury?tab=hoards'); }}
+              />
             </>
           )}
 

@@ -859,11 +859,6 @@ class CreateSavingsGoalIn(_Base):
     icon: str = ""
 
 
-class ContributeToGoalIn(_Base):
-    goal_id: int
-    amount: Decimal = Field(gt=Decimal("0"))
-
-
 # ---------------------------------------------------------------------------
 # Portfolio
 # ---------------------------------------------------------------------------
@@ -1026,6 +1021,33 @@ class PlanHomeworkIn(_Base):
 class HomeworkSkillTagDraft(_Base):
     skill_id: int
     xp_amount: int = Field(default=15, ge=0)
+
+
+class WeightedSkillTagDraft(_Base):
+    """Parallel to HomeworkSkillTagDraft but for weighted-pool entities.
+
+    Chore / Habit / Quest distribute a single XP pool across tags by
+    weight ratio (ProjectSkillTag pattern), unlike Homework which
+    awards xp_amount per tag directly.
+    """
+
+    skill_id: int
+    xp_weight: int = Field(default=1, ge=0)
+
+
+class SetChoreSkillTagsIn(_Base):
+    chore_id: int
+    skill_tags: list[WeightedSkillTagDraft]
+
+
+class SetHabitSkillTagsIn(_Base):
+    habit_id: int
+    skill_tags: list[WeightedSkillTagDraft]
+
+
+class SetQuestDefinitionSkillTagsIn(_Base):
+    quest_definition_id: int
+    skill_tags: list[WeightedSkillTagDraft]
 
 
 class UpdateHomeworkIn(_Base):

@@ -1,10 +1,7 @@
 """Savings goal MCP tools."""
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Any
-
-from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.projects.models import SavingsGoal
@@ -12,7 +9,6 @@ from apps.projects.models import SavingsGoal
 from ..context import get_current_user
 from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
 from ..schemas import (
-    ContributeToGoalIn,
     CreateSavingsGoalIn,
     DeleteSavingsGoalIn,
     ListSavingsGoalsIn,
@@ -57,31 +53,6 @@ def create_savings_goal(params: CreateSavingsGoalIn) -> dict[str, Any]:
         target_amount=params.target_amount,
         icon=params.icon,
     )
-    return savings_goal_to_dict(goal)
-
-
-@tool()
-@safe_tool
-def contribute_to_goal(params: ContributeToGoalIn) -> dict[str, Any]:
-    """Add to the current amount on a savings goal.
-
-    Marks the goal complete when ``current_amount`` reaches ``target_amount``.
-    Children may only contribute to their own goals.
-    """
-    user = get_current_user()
-    try:
-        goal = SavingsGoal.objects.get(pk=params.goal_id)
-    except SavingsGoal.DoesNotExist:
-        raise MCPNotFoundError(f"Savings goal {params.goal_id} not found.")
-
-    if goal.user_id != user.id and user.role != "parent":
-        raise MCPPermissionDenied("Cannot contribute to another user's goal.")
-
-    goal.current_amount = Decimal(str(goal.current_amount)) + params.amount
-    if goal.current_amount >= goal.target_amount and not goal.is_completed:
-        goal.is_completed = True
-        goal.completed_at = timezone.now()
-    goal.save()
     return savings_goal_to_dict(goal)
 
 

@@ -495,8 +495,8 @@ class ContentPack:
     def _load_quests(self, data: dict | None, write: Callable[[str], None]) -> None:
         if not data:
             return
-        from apps.achievements.models import Badge
-        from apps.quests.models import QuestDefinition, QuestRewardItem
+        from apps.achievements.models import Badge, Skill, SkillCategory
+        from apps.quests.models import QuestDefinition, QuestRewardItem, QuestSkillTag
         from apps.rpg.models import ItemDefinition
 
         for entry in data.get("quests", []) or []:
@@ -547,6 +547,54 @@ class ContentPack:
                     defaults={"quantity": int(reward.get("quantity", 1))},
                 )
                 self.stats.bump("created" if r_created else "updated", "quest_reward")
+
+            # Skill tags. Each entry is either "Category::Skill Name"
+            # (disambiguated) or "Skill Name" (unique across categories).
+            # Weight defaults to 1. Authored tags REPLACE existing rows so
+            # a rename in YAML doesn't leave orphan tags pointing at the
+            # old skill.
+            skill_tags = entry.get("skill_tags")
+            if skill_tags is not None:
+                QuestSkillTag.objects.filter(quest_definition=quest).delete()
+                for tag_entry in skill_tags or []:
+                    if isinstance(tag_entry, str):
+                        skill_ref = tag_entry
+                        weight = 1
+                    else:
+                        skill_ref = tag_entry["skill"]
+                        weight = int(tag_entry.get("weight", 1))
+                    if "::" in skill_ref:
+                        cat_name, skill_name = skill_ref.split("::", 1)
+                        try:
+                            skill = Skill.objects.get(
+                                category__name=cat_name, name=skill_name,
+                            )
+                        except Skill.DoesNotExist as exc:
+                            raise ContentPackError(
+                                f"quest {entry['name']!r} skill_tag references "
+                                f"unknown skill {skill_ref!r}"
+                            ) from exc
+                    else:
+                        matches = list(Skill.objects.filter(name=skill_ref))
+                        if not matches:
+                            raise ContentPackError(
+                                f"quest {entry['name']!r} skill_tag references "
+                                f"unknown skill {skill_ref!r}"
+                            )
+                        if len(matches) > 1:
+                            raise ContentPackError(
+                                f"quest {entry['name']!r} skill_tag {skill_ref!r} "
+                                f"matches {len(matches)} skills across categories — "
+                                f"use 'Category::Skill Name' form"
+                            )
+                        skill = matches[0]
+                    _, t_created = QuestSkillTag.objects.get_or_create(
+                        quest_definition=quest, skill=skill,
+                        defaults={"xp_weight": weight},
+                    )
+                    self.stats.bump(
+                        "created" if t_created else "updated", "quest_skill_tag",
+                    )
 
     # ---- rewards -------------------------------------------------------
 

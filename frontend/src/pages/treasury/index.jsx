@@ -2,14 +2,12 @@ import ChapterHub from '../../components/layout/ChapterHub';
 import Payments from '../Payments';
 import Timecards from '../Timecards';
 import Rewards from '../Rewards';
+import HoardsTab from './HoardsTab';
 
 /**
  * Treasury — hub page for "money and coins."
  *
- * Coffers (Payments) · Wages (Timecards) · Bazaar (Rewards)
- *
- * Note: Exchange and Hoard (Savings) are surfaced through Rewards / Today
- * in the current data model. Phase 4 may split them into their own tabs.
+ * Coffers (Payments) · Wages (Timecards) · Bazaar (Rewards) · Hoards (Savings)
  */
 export default function TreasuryHub() {
   return (
@@ -22,6 +20,7 @@ export default function TreasuryHub() {
         { id: 'coffers', label: 'Coffers', render: () => <Payments /> },
         { id: 'wages',   label: 'Wages',   render: () => <Timecards /> },
         { id: 'bazaar',  label: 'Bazaar',  render: () => <Rewards /> },
+        { id: 'hoards',  label: 'Hoards',  render: () => <HoardsTab /> },
       ]}
     />
   );

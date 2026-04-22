@@ -13,6 +13,9 @@ quests:
     reward_items:
       - slug: title-garden-hero
         quantity: 1
+    skill_tags:
+      - {skill: "Outdoors::Gardening", weight: 3}
+      - {skill: "Outdoors::Nature ID", weight: 1}
 
   - name: Spring Bloom Collector
     description: Gather fresh spring blooms and treasures from around the garden by completing your daily tasks.
@@ -23,3 +26,6 @@ quests:
     xp_reward: 100
     icon: "🌸"
     is_repeatable: false
+    skill_tags:
+      - {skill: "Outdoors::Gardening", weight: 2}
+      - {skill: "Outdoors::Nature ID", weight: 1}

@@ -1,7 +1,17 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.habits.models import Habit, HabitLog
+from apps.habits.models import Habit, HabitLog, HabitSkillTag
+
+
+class HabitSkillTagSerializer(serializers.ModelSerializer):
+    skill_name = serializers.CharField(source="skill.name", read_only=True)
+    skill_category = serializers.CharField(source="skill.category.name", read_only=True)
+
+    class Meta:
+        model = HabitSkillTag
+        fields = ["id", "skill", "skill_name", "skill_category", "xp_weight"]
+        read_only_fields = ["id", "skill_name", "skill_category"]
 
 
 class HabitSerializer(serializers.ModelSerializer):
@@ -10,6 +20,7 @@ class HabitSerializer(serializers.ModelSerializer):
     )
     color = serializers.SerializerMethodField()
     taps_today = serializers.SerializerMethodField()
+    skill_tags = HabitSkillTagSerializer(many=True, read_only=True)
 
     class Meta:
         model = Habit
@@ -27,6 +38,7 @@ class HabitSerializer(serializers.ModelSerializer):
             "strength",
             "color",
             "is_active",
+            "skill_tags",
             "created_at",
             "updated_at",
         ]
@@ -64,6 +76,16 @@ class HabitSerializer(serializers.ModelSerializer):
 
 
 class HabitWriteSerializer(serializers.ModelSerializer):
+    # Accept skill_tags in the same request body as habit create/update.
+    # Replacement semantics: passing a list overwrites the existing tag
+    # set; omitting the field leaves tags unchanged (no default=list).
+    # ``write_only=True`` — read surface is HabitSerializer.skill_tags
+    # (nested). Without it, DRF's ``create()`` response body serialization
+    # would run ListField over the reverse-FK manager and crash.
+    skill_tags = serializers.ListField(
+        child=serializers.DictField(), required=False, write_only=True,
+    )
+
     class Meta:
         model = Habit
         fields = [
@@ -74,6 +96,7 @@ class HabitWriteSerializer(serializers.ModelSerializer):
             "xp_reward",
             "max_taps_per_day",
             "is_active",
+            "skill_tags",
         ]
 
 

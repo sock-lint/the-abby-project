@@ -76,6 +76,22 @@ class ChronicleSummaryTests(APITestCase):
         # Past chapter reads stats from frozen RECAP.
         self.assertEqual(chapters[0]["stats"]["projects_completed"], 3)
 
+    def test_post_hs_label_uses_max_age_in_chapter_for_fall_birthday(self):
+        # Sept 22, 2011 birthday: in chapter 2029 (Aug 2029 - Jul 2030),
+        # student turns 18 on Sept 22, 2029. Max age in chapter = 18.
+        # Buggy heuristic produced "Age 17" because dob.month >= 8.
+        ChronicleEntry.objects.create(
+            user=self.child, kind="manual", occurred_on=date(2029, 10, 1),
+            chapter_year=2029, title="Post-HS memory",
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/chronicle/summary/")
+        self.assertEqual(resp.status_code, 200)
+        post_hs = next(c for c in resp.data["chapters"] if c["chapter_year"] == 2029)
+        self.assertEqual(post_hs["grade"], 13)
+        self.assertTrue(post_hs["is_post_hs"])
+        self.assertEqual(post_hs["label"], "Age 18 · 2029-30")
+
 
 class PendingCelebrationTests(APITestCase):
     def setUp(self):

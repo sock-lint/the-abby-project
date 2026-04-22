@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, ThumbsUp, ThumbsDown, Pencil, Trash2 } from 'lucide-react';
 import {
-  getHabits, createHabit, updateHabit, deleteHabit, logHabitTap, getChildren,
+  getHabits, createHabit, updateHabit, deleteHabit, logHabitTap,
+  getChildren, getSkills,
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
@@ -13,6 +14,7 @@ import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
+import SkillTagEditor from '../components/SkillTagEditor';
 import { ScrollIcon } from '../components/icons/JournalIcons';
 import Button from '../components/Button';
 import { TextField, SelectField } from '../components/form';
@@ -29,7 +31,7 @@ function getStrengthColor(strength) {
   return 'bg-royal text-ink-page-rune-glow';
 }
 
-function HabitFormModal({ habit, children, onClose, onSaved }) {
+function HabitFormModal({ habit, children, skills, onClose, onSaved }) {
   const isEdit = !!habit;
   const { form, set, saving, setSaving, error, setError } = useFormState({
     name: habit?.name || '',
@@ -38,6 +40,10 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
     user: habit?.user ?? '',
     xp_reward: habit?.xp_reward ?? 5,
     max_taps_per_day: habit?.max_taps_per_day ?? 1,
+    skill_tags: (habit?.skill_tags || []).map((t) => ({
+      skill_id: t.skill,
+      xp_weight: t.xp_weight,
+    })),
   });
 
   const onField = (k) => (e) => set({ [k]: e.target.value });
@@ -54,6 +60,7 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
         user: form.user ? parseInt(form.user) : null,
         xp_reward: parseInt(form.xp_reward) || 0,
         max_taps_per_day: Math.max(1, parseInt(form.max_taps_per_day) || 1),
+        skill_tags: form.skill_tags,
       };
       if (isEdit) {
         await updateHabit(habit.id, payload);
@@ -91,8 +98,13 @@ function HabitFormModal({ habit, children, onClose, onSaved }) {
         )}
         <div className="grid grid-cols-2 gap-3">
           <TextField label="Max taps / day" type="number" min="1" max="50" value={form.max_taps_per_day} onChange={onField('max_taps_per_day')} />
-          <TextField label="XP reward" type="number" min="0" value={form.xp_reward} onChange={onField('xp_reward')} />
+          <TextField label="XP pool" type="number" min="0" value={form.xp_reward} onChange={onField('xp_reward')} />
         </div>
+        <SkillTagEditor
+          skills={skills}
+          value={form.skill_tags}
+          onChange={(tags) => set({ skill_tags: tags })}
+        />
         <Button type="submit" disabled={saving} className="w-full">
           {saving ? 'Saving…' : isEdit ? 'Update ritual' : 'Create ritual'}
         </Button>
@@ -105,6 +117,7 @@ export default function Habits() {
   const { isParent } = useRole();
   const { data: rawHabits, loading, reload } = useApi(getHabits);
   const { data: rawChildren } = useApi(isParent ? getChildren : null);
+  const { data: rawSkills } = useApi(isParent ? getSkills : null);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
@@ -113,6 +126,7 @@ export default function Habits() {
 
   const habits = normalizeList(rawHabits);
   const children = normalizeList(rawChildren);
+  const skills = normalizeList(rawSkills);
 
   const handleTap = async (habit, direction) => {
     setTapping(`${habit.id}-${direction}`);
@@ -265,6 +279,7 @@ export default function Habits() {
         <HabitFormModal
           habit={editingHabit}
           children={isParent ? children : null}
+          skills={skills}
           onClose={() => { setShowForm(false); setEditingHabit(null); }}
           onSaved={() => { setShowForm(false); setEditingHabit(null); reload(); }}
         />

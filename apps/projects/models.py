@@ -322,16 +322,22 @@ class ProjectCollaborator(models.Model):
 
 
 class SavingsGoal(CreatedAtModel):
-    """A savings target set by the child."""
+    """A savings target set by the child.
+
+    ``current_amount`` is NOT stored — it's a derived view of the child's
+    live payment balance. See ``SavingsGoalSerializer.get_current_amount``
+    and ``SavingsGoalService.check_and_complete``.
+
+    Completion is one-shot: once ``is_completed`` flips to True, it stays
+    True forever even if the child's balance later drops below
+    ``target_amount``. ``completed_at`` is the permanent record.
+    """
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
         related_name="savings_goals",
     )
     title = models.CharField(max_length=200)
     target_amount = models.DecimalField(max_digits=8, decimal_places=2)
-    current_amount = models.DecimalField(
-        max_digits=8, decimal_places=2, default=Decimal("0.00")
-    )
     icon = models.CharField(max_length=50, blank=True)
     is_completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -340,12 +346,6 @@ class SavingsGoal(CreatedAtModel):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.user} — {self.title} (${self.current_amount}/${self.target_amount})"
-
-    @property
-    def percent_complete(self):
-        if self.target_amount <= 0:
-            return 100
-        return min(100, round(float(self.current_amount / self.target_amount) * 100))
+        return f"{self.user} — {self.title} (${self.target_amount})"
 
 

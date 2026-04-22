@@ -76,6 +76,36 @@ class QuestRewardItem(TimestampedModel):
         return f"{self.quest_definition.name} \u2192 {self.item.name} x{self.quantity}"
 
 
+class QuestSkillTag(models.Model):
+    """Declares which skills a quest rewards when completed.
+
+    Mirrors ``ProjectSkillTag`` — XP pool from ``QuestDefinition.xp_reward``
+    is distributed proportionally by ``xp_weight`` across the linked
+    skills in ``QuestService._complete_quest``, replacing the previous
+    "dilute XP evenly across every active skill" behaviour that
+    ``AwardService.grant(xp=...)`` fell back to for untagged callers.
+    """
+
+    quest_definition = models.ForeignKey(
+        QuestDefinition,
+        on_delete=models.CASCADE,
+        related_name="skill_tags",
+    )
+    skill = models.ForeignKey(
+        "achievements.Skill", on_delete=models.CASCADE,
+    )
+    xp_weight = models.IntegerField(
+        default=1,
+        help_text="Relative share of QuestDefinition.xp_reward this skill receives.",
+    )
+
+    class Meta:
+        unique_together = [("quest_definition", "skill")]
+
+    def __str__(self):
+        return f"{self.quest_definition.name} — {self.skill.name} ({self.xp_weight}x)"
+
+
 class Quest(TimestampedModel):
     """An active quest instance for a user."""
 

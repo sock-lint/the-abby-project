@@ -639,19 +639,14 @@ class SavingsGoalViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-    @action(detail=True, methods=["post"])
-    def update_amount(self, request, pk=None):
-        """Update the current saved amount (recalculated from balance)."""
-        from apps.payments.services import PaymentService
-        goal = self.get_object()
-        balance = PaymentService.get_balance(request.user)
-        goal.current_amount = max(balance, 0)
-        if goal.current_amount >= goal.target_amount and not goal.is_completed:
-            goal.is_completed = True
-            from django.utils import timezone
-            goal.completed_at = timezone.now()
-        goal.save()
-        return Response(SavingsGoalSerializer(goal).data)
+    def list(self, request, *args, **kwargs):
+        # Running completion detection here — rather than only from
+        # ``PaymentService.record_entry`` — guarantees any goal whose
+        # target was edited down below the current balance auto-completes
+        # on the next list fetch without requiring another ledger write.
+        from .savings_service import SavingsGoalService
+        SavingsGoalService.check_and_complete(request.user)
+        return super().list(request, *args, **kwargs)
 
 
 

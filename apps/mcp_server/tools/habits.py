@@ -13,7 +13,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.habits.models import Habit
+from django.db import transaction
+
+from apps.habits.models import Habit, HabitSkillTag
 from apps.habits.services import HabitService
 from apps.accounts.models import User
 from apps.rpg.services import GameLoopService
@@ -28,6 +30,7 @@ from ..errors import (
 from ..schemas import (
     CreateHabitIn,
     DeleteHabitIn,
+    SetHabitSkillTagsIn,
     GetHabitIn,
     ListHabitsIn,
     LogHabitIn,
@@ -162,3 +165,40 @@ def log_habit(params: LogHabitIn) -> dict[str, Any]:
             user, TriggerType.HABIT_LOG, {"habit_id": habit.pk},
         )
     return to_plain({**result, "game_event": game_event})
+
+
+@tool()
+@safe_tool
+def set_habit_skill_tags(params: SetHabitSkillTagsIn) -> dict[str, Any]:
+    """Replace the skill tags on a habit (parent-only for other users'
+    habits; child can tag their own).
+
+    Each positive tap splits the habit's ``xp_reward`` pool across the
+    tagged skills by ``xp_weight``. Passing an empty list removes tags
+    and makes positive taps skill-neutral (the XP silently drops, which
+    was the pre-2026-04-21 behavior for every habit).
+    """
+    from apps.achievements.models import Skill
+
+    user = get_current_user()
+    try:
+        habit = Habit.objects.get(pk=params.habit_id)
+    except Habit.DoesNotExist:
+        raise MCPNotFoundError(f"Habit {params.habit_id} not found.")
+    if user.role == "child" and habit.user_id != user.id:
+        raise MCPPermissionDenied("You can only tag your own habits.")
+
+    skill_ids = [t.skill_id for t in params.skill_tags]
+    known = set(Skill.objects.filter(id__in=skill_ids).values_list("id", flat=True))
+    missing = [s for s in skill_ids if s not in known]
+    if missing:
+        raise MCPValidationError(f"Unknown skill IDs: {missing}")
+
+    with transaction.atomic():
+        HabitSkillTag.objects.filter(habit=habit).delete()
+        HabitSkillTag.objects.bulk_create([
+            HabitSkillTag(habit=habit, skill_id=t.skill_id, xp_weight=t.xp_weight)
+            for t in params.skill_tags
+        ])
+    habit.refresh_from_db()
+    return _habit_to_dict(habit)

@@ -18,6 +18,11 @@
 #   reward_items:    (optional list)
 #     - slug: <item-slug>
 #       quantity: 1
+#   skill_tags:      (optional list) — declares which skills this quest
+#                    exercises. Quest's ``xp_reward`` is split across
+#                    them by weight. Entries are either "Skill Name"
+#                    (unique) or "Category::Skill Name" (disambiguated),
+#                    optionally wrapped in a {skill, weight} mapping.
 
 quests:
   - name: Dragon Slayer
@@ -33,6 +38,9 @@ quests:
     reward_items:
       - slug: wolf-egg
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 3}
+      - {skill: "Life Skills::Time Management", weight: 1}
 
   - name: Feather Collector
     description: Collect 10 phoenix feathers by completing any tasks.
@@ -44,6 +52,8 @@ quests:
     coin_reward: 25
     xp_reward: 50
     is_system: true
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
 
   - name: Chore Champion
     description: Complete 15 chores to prove your household mastery!
@@ -57,6 +67,9 @@ quests:
     coin_reward: 30
     xp_reward: 75
     is_system: true
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Life Skills::Project Planning", weight: 1}
 
   - name: Focus Master
     description: Clock 20 hours of focused project work to defeat the distraction monster!
@@ -73,6 +86,9 @@ quests:
     reward_items:
       - slug: wolf-egg
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Life Skills::Time Management", weight: 2}
 
   # ── New pixel-art quests ────────────────────────────────────────────────
   - name: Angler's Bounty
@@ -92,6 +108,9 @@ quests:
         quantity: 1
       - slug: clownling-egg
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+      - {skill: "Outdoors::Nature ID", weight: 1}
 
   - name: Backyard Botanist
     description: Care for 3 things and watch your garden quest grow to bloom.
@@ -108,6 +127,9 @@ quests:
     reward_items:
       - slug: accessory-tribal-necklace
         quantity: 1
+    skill_tags:
+      - {skill: "Outdoors::Gardening", weight: 3}
+      - {skill: "Life Skills::Persistence", weight: 1}
 
   - name: Iron Chef
     description: Stock the pantry — collect 10 food drops to win the cook-off!
@@ -124,6 +146,9 @@ quests:
     reward_items:
       - slug: scroll-amber
         quantity: 1
+    skill_tags:
+      - {skill: "Cooking::Flavor & Seasoning", weight: 2}
+      - {skill: "Cooking::Meal Planning", weight: 1}
 
   - name: Treasure Hunter
     description: Strike 400 damage against the locked vault to claim the hoard within!
@@ -140,6 +165,9 @@ quests:
     reward_items:
       - slug: pouch-treasure
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Budgeting", weight: 2}
+      - {skill: "Life Skills::Persistence", weight: 1}
 
   # ── Scholar Track — homework-themed quests ─────────────────────────
   - name: Scholar's Week
@@ -157,6 +185,9 @@ quests:
     reward_items:
       - slug: scroll-azure
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Technical Writing", weight: 2}
+      - {skill: "Life Skills::Project Planning", weight: 2}
 
   - name: On-Time Streak
     description: Submit 3 homework assignments on or before their due date.
@@ -173,6 +204,9 @@ quests:
     reward_items:
       - slug: title-bookworm
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Time Management", weight: 3}
+      - {skill: "Life Skills::Persistence", weight: 1}
 
   - name: Midnight Oil
     description: Deal 200 damage to the looming deadline by finishing homework.
@@ -188,6 +222,9 @@ quests:
     reward_items:
       - slug: frame-scholar
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 3}
+      - {skill: "Life Skills::Technical Writing", weight: 1}
 
   # ── Life-RPG additions (2026-04-21 review) ─────────────────────────────
   # Repeatable + seasonal + Perfect Day quests. Trigger filters use only
@@ -209,6 +246,8 @@ quests:
     reward_items:
       - slug: pouch-small
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
 
   - name: Bounty Hunter
     description: Win 3 bounty projects — the risky ones up for grabs.
@@ -225,6 +264,9 @@ quests:
     reward_items:
       - slug: pouch-large
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Life Skills::Project Planning", weight: 1}
 
   - name: Perfect Seven
     description: String together 7 Perfect Days within two weeks.
@@ -241,6 +283,9 @@ quests:
     reward_items:
       - slug: title-scholar
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 3}
+      - {skill: "Life Skills::Time Management", weight: 2}
 
   - name: Builder's Pride
     description: Deal 300 damage to the Sagging Backlog by clocking hours and finishing milestones.
@@ -257,6 +302,10 @@ quests:
     reward_items:
       - slug: accessory-crown
         quantity: 1
+    skill_tags:
+      - {skill: "Making & Fabrication::Tool Mastery", weight: 2}
+      - {skill: "Life Skills::Project Planning", weight: 1}
+      - {skill: "Life Skills::Persistence", weight: 1}
 
   - name: Pantry Patroller
     description: Do 10 household chores in a week — keep the house humming.
@@ -274,6 +323,9 @@ quests:
     reward_items:
       - slug: pouch-medium
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Cooking::Meal Planning", weight: 1}
 
   # Seasonal quests — flavor-matched to times of year. Use `duration_days` to
   # time-box; parents can skip or assign manually via the Quests MCP tools.
@@ -293,6 +345,10 @@ quests:
     reward_items:
       - slug: theme-sunset
         quantity: 1
+    skill_tags:
+      - {skill: "Outdoors::Gardening", weight: 2}
+      - {skill: "Physical::Endurance", weight: 1}
+      - {skill: "Outdoors::Nature ID", weight: 1}
 
   - name: Harvest Feast
     description: Gather the autumn bounty — finish 5 cooking or outdoors projects.
@@ -309,6 +365,9 @@ quests:
     reward_items:
       - slug: theme-forest
         quantity: 1
+    skill_tags:
+      - {skill: "Cooking::Meal Planning", weight: 2}
+      - {skill: "Outdoors::Gardening", weight: 1}
 
   - name: Cold Snap
     description: Winter break grind — 400 damage across homework + habits before school starts.
@@ -327,6 +386,9 @@ quests:
         quantity: 2
       - slug: frame-scholar
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Life Skills::Technical Writing", weight: 2}
 
   - name: Night Owl's Path
     description: Clock in after 9 PM on 5 different days — for when inspiration strikes after dark.
@@ -343,3 +405,6 @@ quests:
     reward_items:
       - slug: theme-wanderer-cloak
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Life Skills::Time Management", weight: 1}

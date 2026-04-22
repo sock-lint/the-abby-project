@@ -4,12 +4,14 @@ from __future__ import annotations
 from typing import Any
 
 
-from apps.chores.models import Chore, ChoreCompletion
+from django.db import transaction
+
+from apps.chores.models import Chore, ChoreCompletion, ChoreSkillTag
 from apps.chores.services import ChoreService
 from apps.accounts.models import User
 
 from ..context import get_current_user, require_parent, resolve_target_user
-from ..errors import MCPNotFoundError, safe_tool
+from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
     CompleteChoreIn,
     CreateChoreIn,
@@ -17,6 +19,7 @@ from ..schemas import (
     GetChoreIn,
     ListChoreCompletionsIn,
     ListChoresIn,
+    SetChoreSkillTagsIn,
     UpdateChoreIn,
 )
 from ..server import tool
@@ -183,3 +186,37 @@ def reject_chore_completion(params: DecideChoreCompletionIn) -> dict[str, Any]:
 
     updated = ChoreService.reject_completion(completion, parent)
     return chore_completion_to_dict(updated)
+
+
+@tool()
+@safe_tool
+def set_chore_skill_tags(params: SetChoreSkillTagsIn) -> dict[str, Any]:
+    """Replace the skill tags on a chore (parent-only).
+
+    When approved, the chore's ``xp_reward`` pool is split across these
+    tags by ``xp_weight`` and each slice awarded via ``SkillService``.
+    Passing an empty list strips tags; the chore then pays coins + money
+    only with no skill-tree credit.
+    """
+    from apps.achievements.models import Skill
+
+    require_parent()
+    try:
+        chore = Chore.objects.get(pk=params.chore_id)
+    except Chore.DoesNotExist:
+        raise MCPNotFoundError(f"Chore {params.chore_id} not found.")
+
+    skill_ids = [t.skill_id for t in params.skill_tags]
+    known = set(Skill.objects.filter(id__in=skill_ids).values_list("id", flat=True))
+    missing = [s for s in skill_ids if s not in known]
+    if missing:
+        raise MCPValidationError(f"Unknown skill IDs: {missing}")
+
+    with transaction.atomic():
+        ChoreSkillTag.objects.filter(chore=chore).delete()
+        ChoreSkillTag.objects.bulk_create([
+            ChoreSkillTag(chore=chore, skill_id=t.skill_id, xp_weight=t.xp_weight)
+            for t in params.skill_tags
+        ])
+    chore.refresh_from_db()
+    return chore_to_dict(chore)

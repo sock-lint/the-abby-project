@@ -206,8 +206,8 @@ const CASES = [
 
   ['getSavingsGoals', [], /\/api\/savings-goals\/$/, 'GET'],
   ['createSavingsGoal', [{}], /\/api\/savings-goals\/$/, 'POST'],
+  ['updateSavingsGoal', [5, {}], /\/api\/savings-goals\/5\/$/, 'PATCH'],
   ['deleteSavingsGoal', [5], /\/api\/savings-goals\/5\/$/, 'DELETE'],
-  ['updateGoalAmount', [5], /\/api\/savings-goals\/5\/update_amount\/$/, 'POST'],
 
   ['getProjectSuggestions', [], /\/api\/projects\/suggestions\/$/, 'GET'],
 

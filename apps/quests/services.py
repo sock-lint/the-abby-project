@@ -226,11 +226,20 @@ class QuestService:
             )
             rewards["coins"] = definition.coin_reward
 
-        # Award XP (AwardService.grant already runs BadgeService.evaluate_badges
-        # internally when xp > 0, so the QUEST_COMPLETED criterion picks up).
+        # Award XP — tag-distributed across QuestSkillTag rows when any
+        # exist. Quests without tags still award coins + items + trigger
+        # BadgeService.evaluate_badges (so QUEST_COMPLETED fires) but
+        # skip the skill-tree credit. Parents authoring custom quests
+        # should attach tags; every system quest in quests.yaml ships
+        # with a ``skill_tags:`` block.
         if definition.xp_reward > 0:
             from apps.achievements.services import AwardService
-            AwardService.grant(user, xp=definition.xp_reward)
+            AwardService.grant(
+                user,
+                xp_tags=definition.skill_tags.select_related("skill"),
+                xp=definition.xp_reward,
+                xp_source_label=f"Quest: {definition.name}",
+            )
             rewards["xp"] = definition.xp_reward
         else:
             # Quests with xp_reward == 0 still need badge evaluation so the

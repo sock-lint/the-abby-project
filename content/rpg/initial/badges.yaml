@@ -488,6 +488,13 @@ badges:
     criteria_value: {count: 1}
     rarity: uncommon
     xp_bonus: 50
+  - name: Thrifty
+    description: Complete 3 savings goals
+    icon: "💰"
+    criteria_type: savings_goal_completed
+    criteria_value: {count: 3}
+    rarity: rare
+    xp_bonus: 100
   - name: Big Saver
     description: Complete 5 savings goals
     icon: "🏦"

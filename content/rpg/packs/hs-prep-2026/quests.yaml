@@ -13,6 +13,10 @@ quests:
         quantity: 1
       - slug: title-freshman-warrior
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 3}
+      - {skill: "Life Skills::Project Planning", weight: 2}
+      - {skill: "Life Skills::Time Management", weight: 2}
 
   - slug: first-week-freshman
     name: First Week of Freshman Year
@@ -28,3 +32,6 @@ quests:
     reward_items:
       - slug: accessory-backpack-charm
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Life Skills::Time Management", weight: 2}

@@ -21,6 +21,9 @@ quests:
         quantity: 3
       - slug: frame-moonlit
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Life Skills::Communication", weight: 1}
 
   - name: Defeat the Doomscroll
     description: "The Doomscroll beast thrives on late-night phone time. Every chore completed, every habit logged, every project step done weakens it. Land the killing blow before the first day of school."
@@ -33,3 +36,6 @@ quests:
     reward_items:
       - slug: title-well-rested
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 3}
+      - {skill: "Life Skills::Time Management", weight: 2}

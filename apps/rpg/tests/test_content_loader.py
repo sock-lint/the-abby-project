@@ -112,6 +112,36 @@ class ContentPackInitialSeedTest(TestCase):
             "Dragon Slayer should have wolf-egg reward (from quests.yaml)",
         )
 
+    def test_quest_skill_tags_resolve(self):
+        """Quests authored with a ``skill_tags:`` block in YAML produce
+        QuestSkillTag rows that resolve to real skills (via the
+        Category::Skill disambiguation the loader accepts)."""
+        from apps.quests.models import QuestSkillTag
+
+        call_command("loadrpgcontent")
+        quest = QuestDefinition.objects.get(name="Dragon Slayer")
+        tags = QuestSkillTag.objects.filter(quest_definition=quest)
+        self.assertGreaterEqual(tags.count(), 1)
+        # Every tag should resolve to a real Skill row, with weight > 0.
+        for t in tags:
+            self.assertIsNotNone(t.skill_id)
+            self.assertGreater(t.xp_weight, 0)
+
+    def test_every_system_quest_has_skill_tags(self):
+        """2026-04-21 contract: no system-shipped quest leaves XP on the
+        table. Untagged quests award coins + items but skip the skill
+        tree — acceptable for parent-authored quests but not the
+        curated initial pack."""
+        call_command("loadrpgcontent")
+        missing_tags = []
+        for quest in QuestDefinition.objects.filter(is_system=True):
+            if not quest.skill_tags.exists():
+                missing_tags.append(quest.name)
+        self.assertFalse(
+            missing_tags,
+            f"System quests missing skill_tags: {missing_tags}",
+        )
+
 
 class IdempotencyTest(TestCase):
     def test_loading_twice_is_a_no_op_on_counts(self):

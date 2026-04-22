@@ -23,6 +23,14 @@ class Chore(TimestampedModel):
         max_digits=8, decimal_places=2, default=Decimal("0.00"),
     )
     coin_reward = models.PositiveIntegerField(default=0)
+    xp_reward = models.PositiveIntegerField(
+        default=10,
+        help_text=(
+            "Total XP pool distributed across ChoreSkillTag rows on approval. "
+            "Zero = chore awards coins/money only (legacy behaviour). "
+            "Split proportionally by each tag's xp_weight."
+        ),
+    )
     recurrence = models.CharField(
         max_length=10, choices=Recurrence.choices, default=Recurrence.DAILY,
     )
@@ -96,3 +104,30 @@ class ChoreCompletion(ApprovalWorkflowModel, CreatedAtModel):
 
     def __str__(self):
         return f"{self.user} — {self.chore.title} ({self.status})"
+
+
+class ChoreSkillTag(models.Model):
+    """Declares which skills a chore rewards when approved.
+
+    Mirrors ``ProjectSkillTag`` — XP pool from ``Chore.xp_reward`` is
+    distributed proportionally by ``xp_weight`` across the linked skills.
+    Added 2026-04-21 to close the life-RPG gap where duties were the one
+    approval flow that fed coins/money but never the skill tree.
+    """
+
+    chore = models.ForeignKey(
+        Chore, on_delete=models.CASCADE, related_name="skill_tags",
+    )
+    skill = models.ForeignKey(
+        "achievements.Skill", on_delete=models.CASCADE,
+    )
+    xp_weight = models.IntegerField(
+        default=1,
+        help_text="Relative share of Chore.xp_reward this skill receives.",
+    )
+
+    class Meta:
+        unique_together = [("chore", "skill")]
+
+    def __str__(self):
+        return f"{self.chore.title} — {self.skill.name} ({self.xp_weight}x)"
