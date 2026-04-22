@@ -30,7 +30,7 @@ class User(AbstractUser):
     date_of_birth = models.DateField(null=True, blank=True)
     grade_entry_year = models.PositiveIntegerField(
         null=True, blank=True,
-        help_text="Calendar year of August she entered 9th grade (e.g. 2025).",
+        help_text="Calendar year of August they entered 9th grade (e.g. 2025).",
     )
 
     objects = CustomUserManager()
@@ -66,7 +66,7 @@ class User(AbstractUser):
             years -= 1
         return years
 
-    def _chapter_year(self, today: date | None = None) -> int | None:
+    def _chapter_year(self, today: date | None = None) -> int:
         """The August-starting year covering `today`. 2025 = Aug 2025–Jul 2026."""
         today = today or date.today()
         return today.year if today.month >= 8 else today.year - 1
@@ -75,10 +75,7 @@ class User(AbstractUser):
     def current_grade(self) -> int | None:
         if self.grade_entry_year is None:
             return None
-        chapter_year = self._chapter_year()
-        if chapter_year is None:
-            return None
-        return 9 + (chapter_year - self.grade_entry_year)
+        return 9 + (self._chapter_year() - self.grade_entry_year)
 
     @property
     def school_year_label(self) -> str | None:

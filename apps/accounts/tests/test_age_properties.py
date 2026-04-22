@@ -128,6 +128,15 @@ class DaysUntilAdultTests(TestCase):
         # 18th birthday = 2029-04-21 — exactly 3 years = 1096 days (includes 2028 leap day)
         self.assertEqual(u.days_until_adult, 1096)
 
+    @patch("apps.accounts.models.date")
+    def test_feb_29_born_18th_falls_back_to_mar_1(self, mock_date):
+        mock_date.today.return_value = date(2026, 4, 21)
+        mock_date.side_effect = lambda *a, **k: date(*a, **k)
+        u = _make_child(dob=date(2012, 2, 29))
+        # 18th year = 2030 (not a leap year) → fallback to Mar 1, 2030
+        expected = (date(2030, 3, 1) - date(2026, 4, 21)).days
+        self.assertEqual(u.days_until_adult, expected)
+
     def test_no_dob_returns_none(self):
         u = _make_child(dob=None)
         self.assertIsNone(u.days_until_adult)
