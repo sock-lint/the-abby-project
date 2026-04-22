@@ -197,6 +197,7 @@ class Badge(models.Model):
         COINS_SPENT_LIFETIME = "coins_spent_lifetime", "Coins Spent (lifetime)"
         GRADE_REACHED = "grade_reached", "Grade Reached"
         BIRTHDAYS_LOGGED = "birthdays_logged", "Birthdays Logged"
+        COSMETIC_FULL_SET = "cosmetic_full_set", "All Cosmetic Slots Equipped"
 
     class Rarity(models.TextChoices):
         COMMON = "common", "Common"

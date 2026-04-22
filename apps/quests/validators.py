@@ -26,8 +26,11 @@ _KNOWN_FILTER_KEYS = frozenset(
     }
 )
 
+# savings_goal_id is now read by QuestService.record_progress (wired in
+# the 2026-04-22 review). streak_target and perfect_day_target still TBD —
+# acceptable keys to author content against, but no code reads them yet.
 _UNIMPLEMENTED_FILTER_KEYS = frozenset(
-    {"savings_goal_id", "streak_target", "perfect_day_target"}
+    {"streak_target", "perfect_day_target"}
 )
 
 

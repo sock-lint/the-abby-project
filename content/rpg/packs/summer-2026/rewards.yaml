@@ -1,0 +1,4 @@
+# Summer 2026 — no shop listings. Every summer-themed item is earned via
+# quest completion (see quests.yaml + badges.yaml) so the pack reads as a
+# season-long arc rather than an unlock-via-coins store.
+rewards: []

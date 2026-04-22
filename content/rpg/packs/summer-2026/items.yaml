@@ -1,0 +1,53 @@
+# Summer 2026 — sun-drenched treats + a beachy cosmetic trio.
+# Load with: python manage.py loadrpgcontent \
+#   --pack content/rpg/packs/summer-2026 --namespace summer-2026-
+items:
+  - slug: food-watermelon
+    name: Watermelon Slice
+    item_type: food
+    rarity: common
+    icon: "🍉"
+    coin_value: 1
+    description: Cold, sweet, and perfect after a hike.
+  - slug: food-popsicle
+    name: Frozen Popsicle
+    item_type: food
+    rarity: common
+    icon: "🍦"
+    coin_value: 1
+    description: Summer in a stick. Don't let it drip.
+  - slug: food-lemonade
+    name: Fresh Lemonade
+    item_type: food
+    rarity: common
+    icon: "🍋"
+    coin_value: 1
+    description: Made from real lemons, just like the stand out front.
+  - slug: food-grilled-corn
+    name: Grilled Corn on the Cob
+    item_type: food
+    rarity: uncommon
+    icon: "🌽"
+    coin_value: 2
+    description: Butter. Salt. Summer.
+  - slug: title-summer-adventurer
+    name: Summer Adventurer
+    item_type: cosmetic_title
+    rarity: rare
+    icon: "🏖️"
+    coin_value: 40
+    description: Awarded for surviving (and thriving in) summer break.
+  - slug: frame-seashell
+    name: Seashell Frame
+    item_type: cosmetic_frame
+    rarity: rare
+    icon: "🐚"
+    coin_value: 45
+    description: Sand-and-pearl border, smells faintly of the ocean.
+  - slug: theme-beach
+    name: Beach Day Theme
+    item_type: cosmetic_theme
+    rarity: rare
+    icon: "🌊"
+    coin_value: 40
+    description: Turquoise and coral tones, sand-texture backdrop.

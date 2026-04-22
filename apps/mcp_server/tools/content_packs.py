@@ -622,12 +622,22 @@ def list_rpg_catalog(params: ListRpgCatalogIn) -> dict[str, Any]:
         for p in PotionType.objects.all()[:limit]
     ]
 
-    drops_qs = DropTable.objects.select_related("item").all()
+    # Group drops by trigger BEFORE applying ``limit`` so callers always see
+    # every trigger that has entries — slicing ``DropTable.objects.all()``
+    # first would alphabetically truncate (e.g. chop off project_complete +
+    # quest_complete + perfect_day when the first ~200 rows are already
+    # consumed by badge_earned + chore_complete + clock_out). Per-trigger
+    # limit still honors ``limit_per_section`` so a single huge trigger
+    # can't blow the response size.
+    drops_qs = DropTable.objects.select_related("item")
     if params.trigger_type:
         drops_qs = drops_qs.filter(trigger_type=params.trigger_type)
     drops_by_trigger: dict[str, list[dict[str, Any]]] = {}
-    for d in drops_qs[:limit]:
-        drops_by_trigger.setdefault(d.trigger_type, []).append({
+    for d in drops_qs:
+        bucket = drops_by_trigger.setdefault(d.trigger_type, [])
+        if len(bucket) >= limit:
+            continue
+        bucket.append({
             "item_slug": d.item.slug,
             "item_name": d.item.name,
             "weight": d.weight,

@@ -1,0 +1,8 @@
+# Summer 2026 — the four summer foods drop from the most common triggers.
+# Cosmetic + title come from the quests; not available from drop tables so
+# they feel earned, not farmed.
+rules:
+  - triggers: [chore_complete, clock_out, homework_complete]
+    item_slugs: [food-watermelon, food-popsicle, food-lemonade, food-grilled-corn]
+    weight: 10
+    min_level: 0

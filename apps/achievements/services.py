@@ -265,16 +265,26 @@ class AwardService:
         per-skill distribution and the original description.
         """
         from apps.activity.services import ActivityLogService, activity_scope
+        from apps.rpg.services import xp_boost_multiplier
+
+        # Apply Scholar's Draught multiplier before distribution so the full
+        # boosted total flows through the tag-weighted split and the activity
+        # log. The original xp value is preserved in the event summary so
+        # parents can see base-vs-boosted.
+        boosted_xp = xp
+        xp_boost_mult = xp_boost_multiplier(user) if xp > 0 else 1.0
+        if xp_boost_mult > 1.0 and xp > 0:
+            boosted_xp = int(xp * xp_boost_mult)
 
         with activity_scope(suppress_inner_ledger=True):
             xp_breakdown = []
-            if project is not None and xp > 0:
+            if project is not None and boosted_xp > 0:
                 xp_breakdown = AwardService._distribute_project_xp_logged(
-                    user, project, xp,
+                    user, project, boosted_xp,
                 )
-            elif xp_tags is not None and xp > 0:
+            elif xp_tags is not None and boosted_xp > 0:
                 xp_breakdown = AwardService._distribute_tagged_xp_logged(
-                    user, xp_tags, xp,
+                    user, xp_tags, boosted_xp,
                 )
 
             if coins > 0 and coin_reason is not None:
@@ -333,15 +343,24 @@ class AwardService:
                     summary_suffix = f" · {project.title}"
                 elif xp_source_label:
                     summary_suffix = f" · {xp_source_label}"
+                boosted_suffix = (
+                    f" (boosted ×{xp_boost_mult:g})"
+                    if xp_boost_mult > 1.0 else ""
+                )
                 ActivityLogService.record(
                     category="award",
                     event_type="award.xp",
-                    summary=f"+{xp} XP distributed{summary_suffix}",
+                    summary=f"+{boosted_xp} XP distributed{summary_suffix}{boosted_suffix}",
                     actor=created_by,
                     subject=user,
-                    xp_delta=int(xp),
+                    xp_delta=int(boosted_xp),
                     breakdown=xp_breakdown,
-                    extras={"project_id": project.pk if project else None},
+                    extras={
+                        "project_id": project.pk if project else None,
+                        "xp_base": int(xp),
+                        "xp_boost_multiplier": xp_boost_mult,
+                        "xp_awarded": int(boosted_xp),
+                    },
                 )
 
             BadgeService.evaluate_badges(user, created_by=created_by)

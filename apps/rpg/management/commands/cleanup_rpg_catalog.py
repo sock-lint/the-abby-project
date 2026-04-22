@@ -44,6 +44,14 @@ DUPLICATE_BADGES = [
     "Speed Runner",       # renamed to "Speedrunner" with a real fast_project criterion
 ]
 
+# Retired quests — removed from YAML in the 2026-04-22 review because they
+# duplicated a repeatable sibling. The loader is upsert-only; it can't remove
+# rows whose YAML entry was deleted, so this list cleans up prod.
+RETIRED_QUESTS = [
+    "Chore Champion",          # overlaps with Pantry Patroller (repeatable, same 7d loop)
+    "Spring Bloom Collector",  # Spring Planting has a real trigger_filter — cleaner replacement
+]
+
 
 def cleanup(*, dry_run: bool = False) -> dict[str, int]:
     """Delete orphan rows. Returns a count dict."""
@@ -55,6 +63,7 @@ def cleanup(*, dry_run: bool = False) -> dict[str, int]:
         "skills_cascaded": 0,
         "badges": 0,
         "quests": 0,
+        "retired_quests": 0,
     }
 
     with transaction.atomic():
@@ -82,6 +91,12 @@ def cleanup(*, dry_run: bool = False) -> dict[str, int]:
             )
             counts["quests"] = quest_qs.count()
             quest_qs.delete()
+
+            # 4. Retired quests — named YAML removals that the upsert loader
+            # can't clean up on its own.
+            retired_qs = QuestDefinition.objects.filter(name__in=RETIRED_QUESTS)
+            counts["retired_quests"] = retired_qs.count()
+            retired_qs.delete()
 
             if dry_run:
                 transaction.savepoint_rollback(sid)
@@ -112,5 +127,6 @@ class Command(BaseCommand):
             f"{mode}: {counts['skill_categories']} skill categories "
             f"(+{counts['skills_cascaded']} skills cascaded), "
             f"{counts['badges']} badges, "
-            f"{counts['quests']} smoke-test quests"
+            f"{counts['quests']} smoke-test quests, "
+            f"{counts['retired_quests']} retired quests"
         )

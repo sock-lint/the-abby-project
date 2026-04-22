@@ -30,10 +30,78 @@ BASE_DROP_RATES = {
     # coin bonus (via multiplier) + Companion pet growth, not item drops.
     # Kept in the map so BASE_DROP_RATES.get() returns a sensible default.
     TriggerType.DAILY_CHECK_IN: 0.0,
+    # Savings-goal completion already has its own coin bonus in the service
+    # pipeline; the drop is a nice-to-have on top. High enough to feel like
+    # a celebration, low enough that farming it via repeated small goals
+    # doesn't out-farm normal play.
+    TriggerType.SAVINGS_GOAL_COMPLETE: 0.80,
 }
 
 STREAK_DROP_BONUS_PER_DAY = 0.05
 STREAK_DROP_BONUS_CAP = 0.50
+
+# Active-boost multipliers. Scholar's Draught doubles XP, Lucky Coin doubles
+# earn-kind coins, Drop Charm adds 20% to effective drop rate. Each is gated
+# by a timer on ``CharacterProfile`` — the ConsumableService sets the expiry,
+# these helpers read it.
+XP_BOOST_MULTIPLIER = 2.0
+COIN_BOOST_MULTIPLIER = 2.0
+DROP_BOOST_ADDITIVE = 0.20
+
+
+def _boost_active(user, field_name) -> bool:
+    """True when ``CharacterProfile.<field_name>`` is set to a future timestamp.
+
+    Used to read the three timer-gated consumable boosts. Returns False when
+    the user has no profile yet, the field is null, or the timer has lapsed.
+    Never raises — a lookup failure must not break an award path.
+    """
+    try:
+        row = CharacterProfile.objects.filter(user=user).values(
+            field_name,
+        ).first()
+    except Exception:
+        return False
+    if not row:
+        return False
+    expires_at = row.get(field_name)
+    if expires_at is None:
+        return False
+    return expires_at > timezone.now()
+
+
+def xp_boost_multiplier(user) -> float:
+    """Return 2.0 if Scholar's Draught is active, else 1.0."""
+    return XP_BOOST_MULTIPLIER if _boost_active(user, "xp_boost_expires_at") else 1.0
+
+
+def coin_boost_multiplier(user) -> float:
+    """Return 2.0 if Lucky Coin is active, else 1.0."""
+    return COIN_BOOST_MULTIPLIER if _boost_active(user, "coin_boost_expires_at") else 1.0
+
+
+def drop_boost_additive(user) -> float:
+    """Return +0.20 rate bonus if Drop Charm is active, else 0."""
+    return DROP_BOOST_ADDITIVE if _boost_active(user, "drop_boost_expires_at") else 0.0
+
+
+# Coin-reason set that gets doubled by an active Lucky Coin boost. Excludes
+# ADJUSTMENT (check-in, salvage, parent manual adjust — mixed signs), REFUND
+# (restores cost, not new earnings), REDEMPTION (spend), and EXCHANGE (has
+# its own 1:1 rate that shouldn't double).
+_BOOSTABLE_COIN_REASONS = frozenset({
+    "hourly",
+    "project_bonus",
+    "bounty_bonus",
+    "milestone_bonus",
+    "badge_bonus",
+    "chore_reward",
+})
+
+
+def is_boostable_coin_reason(reason) -> bool:
+    """True when a positive coin award for this reason should honor coin_boost."""
+    return str(reason) in _BOOSTABLE_COIN_REASONS
 
 
 class StreakService:
@@ -187,7 +255,8 @@ class DropService:
         from apps.activity.services import ActivityLogService
 
         base_rate = BASE_DROP_RATES.get(trigger_type, 0.20)
-        effective_rate = min(base_rate + streak_bonus, 1.0)
+        boost_bonus = drop_boost_additive(user)
+        effective_rate = min(base_rate + streak_bonus + boost_bonus, 1.0)
         roll = random.random()
 
         if roll > effective_rate:
@@ -198,7 +267,8 @@ class DropService:
                 subject=user,
                 breakdown=[
                     {"label": "base rate", "value": base_rate, "op": "+"},
-                    {"label": "streak bonus", "value": round(streak_bonus, 3), "op": "="},
+                    {"label": "streak bonus", "value": round(streak_bonus, 3), "op": "+"},
+                    {"label": "drop boost", "value": round(boost_bonus, 3), "op": "="},
                     {"label": "effective", "value": round(effective_rate, 3), "op": "note"},
                     {"label": "rolled", "value": round(roll, 3), "op": "note"},
                 ],
@@ -275,7 +345,8 @@ class DropService:
             target=drop_log,
             breakdown=[
                 {"label": "base rate", "value": base_rate, "op": "+"},
-                {"label": "streak bonus", "value": round(streak_bonus, 3), "op": "="},
+                {"label": "streak bonus", "value": round(streak_bonus, 3), "op": "+"},
+                {"label": "drop boost", "value": round(boost_bonus, 3), "op": "="},
                 {"label": "effective", "value": round(effective_rate, 3), "op": "note"},
                 {"label": "rolled", "value": round(roll, 3), "op": "note"},
                 {"label": "item", "value": f"{item.name} ({item.rarity})", "op": "note"},
@@ -691,6 +762,15 @@ class CosmeticService:
         profile, _ = CharacterProfile.objects.get_or_create(user=user)
         setattr(profile, slot, item)
         profile.save(update_fields=[slot, "updated_at"])
+
+        # Trigger badge eval so Dressed-for-the-Quest (cosmetic_full_set) and
+        # any future cosmetic-state badges can fire the moment the final slot
+        # is filled. Wrapped so a badge-eval error can't block the equip.
+        try:
+            from apps.achievements.services import BadgeService
+            BadgeService.evaluate_badges(user)
+        except Exception:
+            logger.exception("Badge evaluation after cosmetic equip failed")
 
         return {"slot": slot, "item_id": item.pk, "item_name": item.name}
 

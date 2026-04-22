@@ -1,0 +1,20 @@
+# Summer 2026 — completion badges. Both use quest_completed so they fire
+# immediately on quest win; no manual wiring needed.
+badges:
+  - name: Summer Adventurer
+    description: Completed the Summer Adventure quest — 45 days of outdoor living.
+    icon: "🏖️"
+    criteria_type: quest_completed
+    criteria_value:
+      quest_name: Summer Adventure
+    rarity: rare
+    award_coins: false
+
+  - name: Popsicle Crew
+    description: Kept the summer loop alive — finished the Popsicle Picnic quest.
+    icon: "🍦"
+    criteria_type: quest_completed
+    criteria_value:
+      quest_name: Popsicle Picnic
+    rarity: uncommon
+    award_coins: false

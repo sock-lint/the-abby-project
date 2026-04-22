@@ -26,7 +26,7 @@
 
 quests:
   - name: Dragon Slayer
-    description: Deal 500 damage to the mighty dragon by completing tasks!
+    description: The dragon returns every season — a blitz boss. One week to deal 500 damage. Every trigger counts. Best paired with a Scholar's Draught or Drop Charm.
     icon: "🐉"
     sprite_key: quest-dragon-slayer
     quest_type: boss
@@ -55,21 +55,9 @@ quests:
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 2}
 
-  - name: Chore Champion
-    description: Complete 15 chores to prove your household mastery!
-    icon: "🏆"
-    sprite_key: quest-chore-champion
-    quest_type: collection
-    target_value: 15
-    duration_days: 7
-    trigger_filter:
-      allowed_triggers: [chore_complete]
-    coin_reward: 30
-    xp_reward: 75
-    is_system: true
-    skill_tags:
-      - {skill: "Life Skills::Persistence", weight: 2}
-      - {skill: "Life Skills::Project Planning", weight: 1}
+  # Chore Champion (15 chores/7d, non-repeatable) was retired 2026-04-22 —
+  # Pantry Patroller (10 chores/7d, repeatable) covers the same loop and
+  # feels like a rhythm rather than a one-shot. Delete via cleanup_rpg_catalog.
 
   - name: Focus Master
     description: Clock 20 hours of focused project work to defeat the distraction monster!
@@ -418,12 +406,14 @@ quests:
   # loader is upsert-by-name, so authoring them here backfills both fields.
 
   - name: Defeat the Doomscroll
-    description: The Doomscroll beast thrives on late-night phone time. Every chore completed, every habit logged, every project step done weakens it. Land the killing blow before the first day of school.
+    description: The Doomscroll beast feeds on idle phone time. Only logged habits and finished homework weaken it — clock-ins and chores don't count. Land the killing blow before the first day of school.
     icon: "⚔️"
     sprite_key: quest-defeat-doomscroll
     quest_type: boss
     target_value: 250
     duration_days: 14
+    trigger_filter:
+      allowed_triggers: [habit_log, homework_complete, homework_created]
     coin_reward: 200
     xp_reward: 75
     is_system: true
@@ -434,12 +424,14 @@ quests:
       - {skill: "Physical::Mindfulness", weight: 1}
 
   - name: Garden Pest Hunter
-    description: A swarm of hungry aphids is devouring the spring garden! Complete tasks to drive them out and save the blossoms.
+    description: A swarm of hungry aphids is devouring the spring garden! Only outdoor work — chores, milestones, and focused project hours — drives them out.
     icon: "🐛"
     sprite_key: quest-garden-pest
     quest_type: boss
     target_value: 300
     duration_days: 7
+    trigger_filter:
+      allowed_triggers: [clock_out, chore_complete, milestone_complete]
     coin_reward: 150
     xp_reward: 200
     is_system: true
@@ -448,20 +440,9 @@ quests:
       - {skill: "Outdoors::Gardening", weight: 3}
       - {skill: "Outdoors::Nature ID", weight: 1}
 
-  - name: Spring Bloom Collector
-    description: Gather fresh spring blooms and treasures from around the garden by completing your daily tasks.
-    icon: "🌸"
-    sprite_key: quest-spring-bloom
-    quest_type: collection
-    target_value: 5
-    duration_days: 14
-    coin_reward: 75
-    xp_reward: 100
-    is_system: true
-    reward_items: []
-    skill_tags:
-      - {skill: "Outdoors::Gardening", weight: 2}
-      - {skill: "Outdoors::Nature ID", weight: 1}
+  # Spring Bloom Collector was retired 2026-04-22 — Spring Planting covers
+  # the same intent with a real trigger_filter (outdoor/cooking work instead
+  # of "any task"). Delete via cleanup_rpg_catalog.
 
   - name: Seven Nights of Stories
     description: Wind down the right way. Read (or listen to) a bedtime story for five nights in a row. No screens in the last 30 minutes before bed.
@@ -618,12 +599,14 @@ quests:
       - {skill: "Physical::Mindfulness", weight: 1}
 
   - name: Phoenix Rising
-    description: Rebuild something bigger than before. 30 days of consistent work — 500 damage across any trigger.
+    description: Rebuild something bigger than before. The Phoenix only rises from sustained rhythm — habits and homework keep the flame alive for 30 days.
     icon: "🔥"
     sprite_key: quest-phoenix-rising
     quest_type: boss
     target_value: 500
     duration_days: 30
+    trigger_filter:
+      allowed_triggers: [habit_log, homework_complete, milestone_complete, project_complete]
     coin_reward: 250
     xp_reward: 300
     is_system: true
@@ -652,3 +635,318 @@ quests:
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 1}
       - {skill: "Cooking::Meal Planning", weight: 1}
+
+  # ─── 2026-04-22 Category-themed monthly quests ──────────────────────────
+  # Eight new quests — one per skill category with no quest-line reinforcement.
+  # Each filters on project/milestone triggers + weights skill_tags toward the
+  # category's two most central skills, so 300 xp_reward splits cleanly.
+
+  - name: Coder's Crucible
+    description: 300 damage across coding project hours + milestones. Paint the terminal green.
+    icon: "💻"
+    sprite_key: quest-coders-crucible
+    quest_type: boss
+    target_value: 300
+    duration_days: 21
+    trigger_filter:
+      allowed_triggers: [clock_out, milestone_complete, project_complete]
+    coin_reward: 120
+    xp_reward: 200
+    is_system: true
+    reward_items:
+      - slug: scroll-emerald
+        quantity: 1
+    skill_tags:
+      - {skill: "Coding::Python", weight: 2}
+      - {skill: "Coding::Logic & Algorithms", weight: 1}
+      - {skill: "Coding::Version Control", weight: 1}
+
+  - name: Solder & Spark
+    description: Electronics boss fight. Land 250 damage by clocking soldering hours and clearing milestones.
+    icon: "⚡"
+    sprite_key: quest-solder-spark
+    quest_type: boss
+    target_value: 250
+    duration_days: 21
+    trigger_filter:
+      allowed_triggers: [clock_out, milestone_complete, project_complete]
+    coin_reward: 120
+    xp_reward: 200
+    is_system: true
+    reward_items:
+      - slug: scroll-emerald
+        quantity: 1
+    skill_tags:
+      - {skill: "Electronics::Through-Hole Soldering", weight: 2}
+      - {skill: "Electronics::Circuit Reading", weight: 1}
+      - {skill: "Electronics::Wiring & Connectors", weight: 1}
+
+  - name: Shop Class
+    description: Make something real. 300 damage across woodworking, making, and fab milestones — hand tools and CAD both count.
+    icon: "🔨"
+    sprite_key: quest-shop-class
+    quest_type: boss
+    target_value: 300
+    duration_days: 28
+    trigger_filter:
+      allowed_triggers: [clock_out, milestone_complete, project_complete]
+    coin_reward: 130
+    xp_reward: 220
+    is_system: true
+    reward_items:
+      - slug: frame-steampunk
+        quantity: 1
+    skill_tags:
+      - {skill: "Woodworking::Hand Tools", weight: 2}
+      - {skill: "Making & Fabrication::Tool Mastery", weight: 2}
+      - {skill: "Woodworking::Measuring & Marking", weight: 1}
+
+  - name: The Maestro's Month
+    description: Music boss. Instrument practice, ear training, and composition — 250 damage over 30 days.
+    icon: "🎼"
+    sprite_key: quest-maestros-month
+    quest_type: boss
+    target_value: 250
+    duration_days: 30
+    trigger_filter:
+      allowed_triggers: [clock_out, habit_log, milestone_complete, project_complete]
+    coin_reward: 120
+    xp_reward: 200
+    is_system: true
+    reward_items:
+      - slug: scroll-amber
+        quantity: 1
+    skill_tags:
+      - {skill: "Music::Instrument Practice", weight: 2}
+      - {skill: "Music::Rhythm", weight: 1}
+      - {skill: "Music::Ear Training", weight: 1}
+
+  - name: Sketchbook Sprint
+    description: Art & crafts collection quest. Finish 4 projects or 8 milestones — painting, drawing, or sculpture all count.
+    icon: "🎨"
+    sprite_key: quest-sketchbook-sprint
+    quest_type: collection
+    target_value: 4
+    duration_days: 21
+    trigger_filter:
+      allowed_triggers: [project_complete]
+    coin_reward: 80
+    xp_reward: 140
+    is_system: true
+    reward_items:
+      - slug: theme-aurora
+        quantity: 1
+    skill_tags:
+      - {skill: "Art & Crafts::Drawing", weight: 2}
+      - {skill: "Art & Crafts::Painting", weight: 1}
+      - {skill: "Art & Crafts::Color Theory", weight: 1}
+
+  - name: Lab Notebook
+    description: Science method boss. Every observation, measurement, and documented experiment is a hit — 200 damage over 21 days.
+    icon: "🔬"
+    sprite_key: quest-lab-notebook
+    quest_type: boss
+    target_value: 200
+    duration_days: 21
+    trigger_filter:
+      allowed_triggers: [clock_out, milestone_complete, project_complete, homework_complete]
+    coin_reward: 100
+    xp_reward: 180
+    is_system: true
+    reward_items:
+      - slug: scroll-azure
+        quantity: 1
+    skill_tags:
+      - {skill: "Science::Observation", weight: 1}
+      - {skill: "Science::Measurement", weight: 1}
+      - {skill: "Science::Experimentation", weight: 1}
+      - {skill: "Science::Documentation", weight: 1}
+
+  - name: Open Road
+    description: Physical endurance quest. Cycling, running, swimming — any body-work logged as chore, habit, or project chips away. 200 damage, 21 days.
+    icon: "🚴"
+    sprite_key: quest-open-road
+    quest_type: boss
+    target_value: 200
+    duration_days: 21
+    trigger_filter:
+      allowed_triggers: [clock_out, chore_complete, habit_log, project_complete]
+    coin_reward: 100
+    xp_reward: 180
+    is_system: true
+    reward_items:
+      - slug: title-earlybird
+        quantity: 1
+    skill_tags:
+      - {skill: "Physical::Endurance", weight: 2}
+      - {skill: "Physical::Cycling", weight: 1}
+      - {skill: "Physical::Strength", weight: 1}
+
+  - name: Wordsmith's Week
+    description: Life Skills language track. 5 homework assignments, essays, or technical writing drafts — on-time submissions count double.
+    icon: "📝"
+    sprite_key: quest-wordsmiths-week
+    quest_type: collection
+    target_value: 5
+    duration_days: 7
+    trigger_filter:
+      allowed_triggers: [homework_complete]
+    coin_reward: 60
+    xp_reward: 120
+    is_system: true
+    reward_items:
+      - slug: title-bookworm
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Technical Writing", weight: 2}
+      - {skill: "Life Skills::Communication", weight: 2}
+
+  # ─── Extra goal/trigger quests (2026-04-22) ─────────────────────────────
+
+  - name: Collector's Badge
+    description: Earn 3 badges in 14 days. Uses the rarely-filtered badge_earned trigger — any new badge counts.
+    icon: "🏅"
+    sprite_key: quest-collectors-badge
+    quest_type: collection
+    target_value: 3
+    duration_days: 14
+    trigger_filter:
+      allowed_triggers: [badge_earned]
+    coin_reward: 80
+    xp_reward: 140
+    is_system: true
+    reward_items:
+      - slug: scroll-sealed
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: Perfect Arc
+    description: 10 Perfect Days in 30. Ambitious companion to Perfect Seven — takes a full month of discipline.
+    icon: "🌠"
+    sprite_key: quest-perfect-arc
+    quest_type: collection
+    target_value: 10
+    duration_days: 30
+    trigger_filter:
+      allowed_triggers: [perfect_day]
+    coin_reward: 250
+    xp_reward: 350
+    is_system: true
+    reward_items:
+      - slug: frame-cosmic
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 3}
+      - {skill: "Life Skills::Time Management", weight: 2}
+
+  - name: Summer Reading List
+    description: Log 5 homework assignments this week. Give reading the quest-bar treatment it deserves.
+    icon: "📚"
+    sprite_key: quest-summer-reading
+    quest_type: collection
+    target_value: 5
+    duration_days: 7
+    trigger_filter:
+      allowed_triggers: [homework_created]
+    coin_reward: 40
+    xp_reward: 90
+    is_repeatable: true
+    is_system: true
+    reward_items:
+      - slug: title-bookworm
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Technical Writing", weight: 2}
+      - {skill: "Life Skills::Communication", weight: 1}
+
+  - name: Comeback Kid II
+    description: Longer-form recovery quest. 7 days to rebuild — log 10 habits or chores. For kids returning after a longer pause.
+    icon: "🔥"
+    sprite_key: quest-comeback-kid-ii
+    quest_type: collection
+    target_value: 10
+    duration_days: 7
+    trigger_filter:
+      allowed_triggers: [habit_log, chore_complete]
+    coin_reward: 80
+    xp_reward: 120
+    is_repeatable: true
+    is_system: true
+    reward_items:
+      - slug: streak-freeze
+        quantity: 2
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Physical::Mindfulness", weight: 1}
+
+  # ─── Apprentice → Journeyman → Master chain (2026-04-22) ────────────────
+  # Quest chain. Each rung mints a completion badge; the next rung
+  # ``required_badge`` gates on it. Apprentice Path already exists above
+  # (gated on Key Turner); Journeyman Trial is gated on Apprentice Path
+  # Complete; Master's Path is gated on Journeyman Trial Complete. Badges
+  # are declared in badges.yaml as quest_completed criteria.
+
+  - name: Journeyman Trial
+    description: Second rung of the Master-of-Craft ladder. Reach Level 3 in any skill, then deal 350 damage in 21 days — crack open the journey.
+    icon: "🔨"
+    sprite_key: quest-journeyman-trial
+    quest_type: boss
+    target_value: 350
+    duration_days: 21
+    required_badge: Apprentice Path Complete
+    coin_reward: 180
+    xp_reward: 250
+    is_system: true
+    reward_items:
+      - slug: title-artisan
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Life Skills::Project Planning", weight: 1}
+
+  - name: Master's Path
+    description: The capstone. 30-day, 600-damage boss. Only available after finishing Journeyman Trial. The badge at the end unlocks the Master Crafter title.
+    icon: "👑"
+    sprite_key: quest-masters-path
+    quest_type: boss
+    target_value: 600
+    duration_days: 30
+    required_badge: Journeyman Trial Complete
+    coin_reward: 400
+    xp_reward: 500
+    is_system: true
+    reward_items:
+      - slug: title-master-crafter
+        quantity: 1
+      - slug: frame-gold
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 3}
+      - {skill: "Life Skills::Project Planning", weight: 2}
+      - {skill: "Life Skills::Time Management", weight: 2}
+
+  # ─── Savings-goal quest (2026-04-22) ────────────────────────────────────
+  # Uses the ``savings_goal_id`` filter, wired into QuestService.record_progress
+  # in the same commit. Parent-assignable; target_value 1 because completion
+  # is a single event (the goal being marked complete).
+
+  - name: Hoard Builder
+    description: Finish a savings goal of your choosing. Parent-assignable — pick the goal when you assign the quest.
+    icon: "🏦"
+    sprite_key: quest-hoard-builder
+    quest_type: collection
+    target_value: 1
+    duration_days: 30
+    trigger_filter:
+      allowed_triggers: [savings_goal_complete]
+    coin_reward: 200
+    xp_reward: 150
+    is_repeatable: true
+    is_system: true
+    reward_items:
+      - slug: pouch-gold
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Budgeting", weight: 3}
+      - {skill: "Life Skills::Persistence", weight: 1}

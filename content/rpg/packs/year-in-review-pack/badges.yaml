@@ -1,0 +1,19 @@
+# Year-in-review pack — completion badges for the two capstone quests.
+badges:
+  - name: Farewell Sprint Champion
+    description: Closed the chapter year with a boss kill. Earned by completing Farewell Sprint.
+    icon: "🎓"
+    criteria_type: quest_completed
+    criteria_value:
+      quest_name: Farewell Sprint
+    rarity: epic
+    award_coins: false
+
+  - name: Looked Back
+    description: Finished the Chronicle Retrospective quest — a reflective end to the year.
+    icon: "📖"
+    criteria_type: quest_completed
+    criteria_value:
+      quest_name: Chronicle Retrospective
+    rarity: rare
+    award_coins: false

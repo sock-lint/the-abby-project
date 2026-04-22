@@ -1,0 +1,42 @@
+# Year-in-review pack — end-of-chapter-year commemorative items.
+# Authored as a two-week window capping the school/chapter year (June 1 →
+# June 14 by default) where the prior year's work gets a celebratory coda.
+# Load with namespace ``year-in-review-<chapter-start-year>-`` (e.g.
+# ``year-in-review-2025-``) so each year's cosmetics are uniquely addressable.
+items:
+  - slug: title-year-survivor
+    name: Year Survivor
+    item_type: cosmetic_title
+    rarity: rare
+    icon: "📅"
+    coin_value: 40
+    description: Finished another chapter. Here's to the next one.
+  - slug: title-chapter-champion
+    name: Chapter Champion
+    item_type: cosmetic_title
+    rarity: epic
+    icon: "📖"
+    coin_value: 75
+    description: For those who hit every milestone the year put in front of them.
+  - slug: frame-chronicle
+    name: Chronicle Frame
+    item_type: cosmetic_frame
+    rarity: epic
+    icon: "📜"
+    coin_value: 80
+    description: Aged-parchment border — the year's work, bound.
+  - slug: theme-golden-hour
+    name: Golden Hour Theme
+    item_type: cosmetic_theme
+    rarity: rare
+    icon: "🌇"
+    coin_value: 45
+    description: Warm retrospective tones — the late-afternoon light of a year well-spent.
+  - slug: food-celebration-feast
+    name: Celebration Feast
+    item_type: food
+    rarity: epic
+    icon: "🍽️"
+    coin_value: 10
+    description: The whole table. Big pet growth bonus.
+    metadata: {food_type: celebration, growth: 20}

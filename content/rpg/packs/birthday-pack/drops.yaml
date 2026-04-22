@@ -1,0 +1,8 @@
+# Birthday pack — birthday cake + party punch drop from common triggers,
+# scoped to the week. Party horn + cosmetics come via the quest so they
+# read as genuine one-per-year earns.
+rules:
+  - triggers: [chore_complete, clock_out, homework_complete, habit_log]
+    item_slugs: [food-birthday-cake, food-party-punch]
+    weight: 8
+    min_level: 0

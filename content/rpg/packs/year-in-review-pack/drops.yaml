@@ -1,0 +1,7 @@
+# Year-in-review pack — Celebration Feast drops from high-value triggers
+# during the final two weeks. Rare payoff that scales with serious work.
+rules:
+  - triggers: [project_complete, milestone_complete, perfect_day]
+    item_slugs: [food-celebration-feast]
+    weight: 4
+    min_level: 0

@@ -550,3 +550,25 @@ def _birthdays_logged(user, c):
     return ChronicleEntry.objects.filter(
         user=user, kind=ChronicleEntry.Kind.BIRTHDAY,
     ).count() >= int(c.get("count", 1))
+
+
+@criterion(Badge.CriteriaType.COSMETIC_FULL_SET)
+def _cosmetic_full_set(user, _c):
+    """All four cosmetic slots (frame/title/theme/pet accessory) populated.
+
+    Each ``CharacterProfile`` holds nullable FKs — this checker just
+    confirms every one is non-null. Unequipping any slot silently drops
+    the achievement state (badges are one-shot so the badge itself stays
+    earned after first award).
+    """
+    from apps.rpg.models import CharacterProfile
+    row = CharacterProfile.objects.filter(user=user).values(
+        "active_frame_id", "active_title_id",
+        "active_theme_id", "active_pet_accessory_id",
+    ).first()
+    if not row:
+        return False
+    return all(row[k] is not None for k in (
+        "active_frame_id", "active_title_id",
+        "active_theme_id", "active_pet_accessory_id",
+    ))

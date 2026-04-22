@@ -1,0 +1,42 @@
+# Year-in-review pack — two capstone quests. One is a "one more week" coda
+# (Farewell Sprint) for the kids who want a final push; the other is a
+# gentler reflective collection (Chronicle Retrospective) that rewards
+# opening and reviewing past entries.
+quests:
+  - name: Farewell Sprint
+    description: Close out the chapter year strong. 200 damage in 14 days — any trigger counts.
+    quest_type: boss
+    target_value: 200
+    duration_days: 14
+    icon: "🎓"
+    coin_reward: 150
+    xp_reward: 250
+    is_repeatable: false
+    reward_items:
+      - slug: title-chapter-champion
+        quantity: 1
+      - slug: frame-chronicle
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Life Skills::Project Planning", weight: 1}
+
+  - name: Chronicle Retrospective
+    description: Look back on the year. Log 5 habits during the final 14 days of the chapter — a reflective victory lap.
+    quest_type: collection
+    target_value: 5
+    duration_days: 14
+    icon: "📖"
+    trigger_filter:
+      allowed_triggers: [habit_log]
+    coin_reward: 80
+    xp_reward: 100
+    is_repeatable: false
+    reward_items:
+      - slug: title-year-survivor
+        quantity: 1
+      - slug: theme-golden-hour
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+      - {skill: "Physical::Mindfulness", weight: 2}

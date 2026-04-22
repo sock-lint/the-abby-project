@@ -27,6 +27,14 @@
 #         - skill: "Woodworking::Hand Tools", level: 2
 
 categories:
+  - name: Math
+    icon: "🔢"
+    color: "#3B82F6"
+    description: Numbers, shapes, patterns, and proofs
+  - name: Language Arts
+    icon: "📚"
+    color: "#8B5CF6"
+    description: Reading, writing, speaking — the language-first stack
   - name: Woodworking
     icon: "🪵"
     color: "#8B4513"
@@ -77,6 +85,35 @@ categories:
     description: Movement, sports, and taking care of your body
 
 subjects:
+  # Math
+  - name: Numeracy
+    category: Math
+    icon: "🧮"
+    order: 0
+    description: Arithmetic and number sense — the foundation
+  - name: Higher Math
+    category: Math
+    icon: "📐"
+    order: 1
+    description: Algebra, geometry, and spatial reasoning
+
+  # Language Arts
+  - name: Reading
+    category: Language Arts
+    icon: "📖"
+    order: 0
+    description: Comprehension, vocabulary, and reading fluency
+  - name: Writing
+    category: Language Arts
+    icon: "✒️"
+    order: 1
+    description: Creative writing, storytelling, and composition
+  - name: Languages
+    category: Language Arts
+    icon: "🗣️"
+    order: 2
+    description: Speaking other languages beyond English
+
   # Woodworking
   - name: Shop Basics
     category: Woodworking
@@ -228,6 +265,11 @@ subjects:
     icon: "🎼"
     order: 1
     description: Writing and producing music
+  - name: Performance
+    category: Music
+    icon: "🎤"
+    order: 2
+    description: Voice and stage presence
 
   # Physical
   - name: Body Work
@@ -242,6 +284,82 @@ subjects:
     description: Individual and team sports
 
 skills:
+  # Math
+  - name: Arithmetic
+    category: Math
+    subject: Numeracy
+    icon: "➕"
+    order: 0
+    levels: {"1": Count On, "2": Four Operations, "3": Fraction Wrangler, "4": Mental Math, "5": Number Whisperer}
+  - name: Algebra
+    category: Math
+    subject: Higher Math
+    icon: "🔡"
+    locked: true
+    order: 1
+    levels: {"1": Variable Curious, "2": Solver, "3": System Tamer, "4": Function Thinker, "5": Proof Ready}
+    prereqs:
+      - {skill: Arithmetic, level: 3}
+  - name: Geometry
+    category: Math
+    subject: Higher Math
+    icon: "📐"
+    locked: true
+    order: 2
+    levels: {"1": Shape Namer, "2": Angle Measurer, "3": Area & Volume, "4": Constructions, "5": Proof Geometer}
+    prereqs:
+      - {skill: Arithmetic, level: 2}
+  - name: Data Sense
+    category: Math
+    subject: Numeracy
+    icon: "📊"
+    order: 3
+    levels: {"1": Chart Reader, "2": Average Finder, "3": Graph Maker, "4": Stats Thinker, "5": Data Storyteller}
+
+  # Language Arts
+  - name: Reading Comprehension
+    category: Language Arts
+    subject: Reading
+    icon: "📖"
+    order: 0
+    levels: {"1": Picture Reader, "2": Early Chapter, "3": Fluent, "4": Active Reader, "5": Literary Critic}
+  - name: Vocabulary
+    category: Language Arts
+    subject: Reading
+    icon: "📝"
+    order: 1
+    levels: {"1": Word Spotter, "2": Context Clueer, "3": Word Builder, "4": Nuance Hearer, "5": Wordsmith}
+  - name: Creative Writing
+    category: Language Arts
+    subject: Writing
+    icon: "✍️"
+    order: 2
+    levels: {"1": Story Starter, "2": Scene Setter, "3": Character Builder, "4": Plotter, "5": Storyteller}
+  - name: Essay Craft
+    category: Language Arts
+    subject: Writing
+    icon: "📄"
+    locked: true
+    order: 3
+    levels: {"1": Thesis Finder, "2": Paragrapher, "3": Argumenter, "4": Editor, "5": Essayist}
+    prereqs:
+      - {skill: Reading Comprehension, level: 2}
+  - name: Public Speaking
+    category: Language Arts
+    subject: Languages
+    icon: "🎙️"
+    order: 4
+    levels: {"1": Whisperer, "2": Classroom Voice, "3": Stage Ready, "4": Presenter, "5": Orator}
+  - name: Foreign Language
+    category: Language Arts
+    subject: Languages
+    icon: "🌍"
+    locked: true
+    order: 5
+    levels: {"1": Hello & Goodbye, "2": Tourist, "3": Conversationalist, "4": Near-Fluent, "5": Bilingual}
+    prereqs:
+      - {skill: Vocabulary, level: 2}
+
   # Woodworking
   - name: Measuring & Marking
     category: Woodworking
@@ -532,6 +650,18 @@ skills:
     icon: "🌤️"
     order: 5
     levels: {"1": Sky Watcher, "2": Cloud Namer, "3": Forecaster, "4": Constellation Reader, "5": Almanac Keeper}
+  - name: Camping & Orienteering
+    category: Outdoors
+    subject: Field Skills
+    icon: "🏕️"
+    order: 6
+    levels: {"1": Daytripper, "2": Backyard Sleeper, "3": Trail Navigator, "4": Wilderness Camper, "5": Survivalist}
+  - name: Fishing
+    category: Outdoors
+    subject: Field Skills
+    icon: "🎣"
+    order: 7
+    levels: {"1": Hook Baiter, "2": Caster, "3": Line Reader, "4": Angler, "5": Master Angler}
 
   # Sewing & Textiles
   - name: Hand Sewing
@@ -620,6 +750,35 @@ skills:
     prereqs:
       - {skill: Measurement, level: 2}
       - {skill: Experimentation, level: 2}
+  - name: Biology Basics
+    category: Science
+    subject: Specializations
+    icon: "🧬"
+    locked: true
+    order: 5
+    levels: {"1": Cell Spotter, "2": System Namer, "3": Ecologist, "4": Field Biologist, "5": Naturalist Scientist}
+    prereqs:
+      - {skill: Observation, level: 2}
+      - {skill: Documentation, level: 2}
+  - name: Physics Basics
+    category: Science
+    subject: Specializations
+    icon: "⚛️"
+    locked: true
+    order: 6
+    levels: {"1": Force Feeler, "2": Motion Tracker, "3": Energy Thinker, "4": Wave Namer, "5": Field Analyst}
+    prereqs:
+      - {skill: Measurement, level: 2}
+      - {skill: Experimentation, level: 2}
+  - name: Astronomy
+    category: Science
+    subject: Specializations
+    icon: "🔭"
+    locked: true
+    order: 7
+    levels: {"1": Sky Gazer, "2": Planet Namer, "3": Constellation Reader, "4": Telescope User, "5": Astrophile}
+    prereqs:
+      - {skill: Observation, level: 2}
 
   # Making & Fabrication
   - name: Soldering Safety
@@ -762,6 +921,21 @@ skills:
     levels: {"1": DAW Opener, "2": Track Layerer, "3": Mixer, "4": Mastering Mind, "5": Engineer}
     prereqs:
       - {skill: Instrument Practice, level: 2}
+  - name: Vocal
+    category: Music
+    subject: Performance
+    icon: "🎤"
+    order: 5
+    levels: {"1": Hummer, "2": Singer, "3": Harmonizer, "4": Lead Vocalist, "5": Show-Stopper}
+  - name: Stage Performance
+    category: Music
+    subject: Performance
+    icon: "🎭"
+    locked: true
+    order: 6
+    levels: {"1": Nervous, "2": Rehearsed, "3": Confident, "4": Showman, "5": Captivator}
+    prereqs:
+      - {skill: Instrument Practice, level: 2}
 
   # Physical
   - name: Endurance
@@ -803,6 +977,37 @@ skills:
     levels: {"1": On the Bench, "2": Rotation Player, "3": Starter, "4": Captain, "5": MVP}
     prereqs:
       - {skill: Endurance, level: 2}
+  - name: Running
+    category: Physical
+    subject: Sports
+    icon: "🏃"
+    order: 7
+    levels: {"1": First Mile, "2": 5K Runner, "3": 10K Runner, "4": Half Marathoner, "5": Marathoner}
+  - name: Climbing
+    category: Physical
+    subject: Sports
+    icon: "🧗"
+    locked: true
+    order: 8
+    levels: {"1": First Hold, "2": Top-Roper, "3": Leader, "4": Sport Climber, "5": Route Setter}
+    prereqs:
+      - {skill: Strength, level: 2}
+  - name: Dance
+    category: Physical
+    subject: Sports
+    icon: "💃"
+    order: 9
+    levels: {"1": First Steps, "2": Moves the Moves, "3": Style & Timing, "4": Performer, "5": Choreographer}
+  - name: Martial Arts
+    category: Physical
+    subject: Sports
+    icon: "🥋"
+    locked: true
+    order: 10
+    levels: {"1": White Belt, "2": Form Follower, "3": Sparrer, "4": Advanced, "5": Black Belt}
+    prereqs:
+      - {skill: Strength, level: 2}
+      - {skill: Flexibility, level: 2}
   # New — pairs with Habits page and bridges the Physical/Life-Skills divide.
   - name: Mindfulness
     category: Physical

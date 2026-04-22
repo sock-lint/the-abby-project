@@ -34,9 +34,21 @@ class CoinService(BaseLedgerService):
     def award_coins(user, amount, reason, *, description="", created_by=None, redemption=None):
         if amount == 0:
             return None
+        # Apply Lucky Coin boost to earn-kind positive awards only. Skips
+        # ADJUSTMENT (check-in/salvage/parent-manual — mixed signs), REFUND
+        # (restores cost), REDEMPTION (spend), and EXCHANGE (has its own
+        # 1:1 rate). See is_boostable_coin_reason for the whitelist.
+        from apps.rpg.services import coin_boost_multiplier, is_boostable_coin_reason
+        boosted_amount = int(amount)
+        if amount > 0 and is_boostable_coin_reason(reason):
+            multiplier = coin_boost_multiplier(user)
+            if multiplier > 1.0:
+                boosted_amount = int(amount * multiplier)
+                if description:
+                    description = f"{description} (Lucky Coin ×{multiplier:g})"
         entry = CoinLedger.objects.create(
             user=user,
-            amount=int(amount),
+            amount=boosted_amount,
             reason=reason,
             description=description,
             created_by=created_by,

@@ -23,6 +23,10 @@ TRIGGER_DAMAGE = {
     TriggerType.BADGE_EARNED: 30,
     TriggerType.PROJECT_COMPLETE: 75,
     TriggerType.HABIT_LOG: 5,
+    # Savings goal completion is a one-shot event per goal; the flat 100
+    # matches its rarity. Collection-type quests (Hoard Builder) don't use
+    # this — they count 1 per qualifying trigger regardless.
+    TriggerType.SAVINGS_GOAL_COMPLETE: 100,
 }
 
 # Rage shield balance (boss quests only). Idle day climbs, active day decays.
@@ -207,6 +211,13 @@ class QuestService:
 
         # Check timeliness filter (homework on-time submissions, etc.)
         if trigger_filter.get("on_time") and not context.get("on_time"):
+            return None
+
+        # Check savings-goal filter. When set, only the named goal's completion
+        # counts — lets Hoard Builder be assigned against a specific goal.
+        if trigger_filter.get("savings_goal_id") and (
+            context.get("savings_goal_id") != trigger_filter["savings_goal_id"]
+        ):
             return None
 
         # Calculate damage/progress

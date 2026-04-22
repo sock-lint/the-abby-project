@@ -1,0 +1,22 @@
+# Birthday pack — one special quest that runs for the birthday week.
+# Short target, high reward, repeatable-style rewards so the week feels
+# celebratory rather than gated behind effort.
+quests:
+  - name: Birthday Week
+    description: Celebrate with 7 logged activities during your birthday week. Any trigger counts — it's your week.
+    quest_type: collection
+    target_value: 7
+    duration_days: 7
+    icon: "🎂"
+    coin_reward: 150
+    xp_reward: 150
+    is_repeatable: false
+    reward_items:
+      - slug: title-birthday-legend
+        quantity: 1
+      - slug: frame-confetti
+        quantity: 1
+      - slug: accessory-party-horn
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}

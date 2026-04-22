@@ -1,0 +1,13 @@
+# Birthday pack — one completion badge per birthday week. Pairs with the
+# existing birthdays_logged ladder (First Birthday In-App / Many Years /
+# Decade Marker / All the Years) — those track CHRONICLE entries; this one
+# tracks engagement DURING the week.
+badges:
+  - name: Birthday Week Champion
+    description: Stayed engaged all week — finished the Birthday Week quest.
+    icon: "🎂"
+    criteria_type: quest_completed
+    criteria_value:
+      quest_name: Birthday Week
+    rarity: rare
+    award_coins: false

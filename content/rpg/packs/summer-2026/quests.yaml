@@ -1,0 +1,41 @@
+# Summer 2026 — two quests: a big outdoor boss + a gentler collection loop.
+# Each is paired with a QUEST_COMPLETED badge in badges.yaml.
+quests:
+  - name: Summer Adventure
+    description: Every outdoor hour and every milestone chips away at the summer to-do list. 400 damage in 45 days — about a third of break.
+    quest_type: boss
+    target_value: 400
+    duration_days: 45
+    icon: "☀️"
+    trigger_filter:
+      allowed_triggers: [clock_out, chore_complete, milestone_complete, project_complete]
+    coin_reward: 200
+    xp_reward: 300
+    is_repeatable: false
+    reward_items:
+      - slug: title-summer-adventurer
+        quantity: 1
+      - slug: frame-seashell
+        quantity: 1
+    skill_tags:
+      - {skill: "Outdoors::Gardening", weight: 1}
+      - {skill: "Outdoors::Nature ID", weight: 1}
+      - {skill: "Physical::Endurance", weight: 2}
+
+  - name: Popsicle Picnic
+    description: Collect 6 sweet summer treats by knocking out chores and habits on warm days.
+    quest_type: collection
+    target_value: 6
+    duration_days: 14
+    icon: "🍦"
+    trigger_filter:
+      allowed_triggers: [chore_complete, habit_log]
+    coin_reward: 60
+    xp_reward: 90
+    is_repeatable: true
+    reward_items:
+      - slug: theme-beach
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Physical::Endurance", weight: 1}

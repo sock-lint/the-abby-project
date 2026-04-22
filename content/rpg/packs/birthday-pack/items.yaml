@@ -1,0 +1,41 @@
+# Birthday pack — celebratory items for the week around a child's birthday.
+# Intended to be loaded on-demand by a birthday-check Celery task that
+# spots upcoming Chronicle BIRTHDAY entries and loads the pack with the
+# namespace ``birthday-<year>-``. Items are exclusive and rare — the pack
+# unloads itself after the birthday week to keep the rarity real.
+items:
+  - slug: food-birthday-cake
+    name: Birthday Cake Slice
+    item_type: food
+    rarity: rare
+    icon: "🎂"
+    coin_value: 5
+    description: A slice of your own cake. Wish before you eat.
+  - slug: food-party-punch
+    name: Party Punch
+    item_type: food
+    rarity: uncommon
+    icon: "🥤"
+    coin_value: 3
+    description: Fruit juice with a splash of fizz. Birthday vintage.
+  - slug: title-birthday-legend
+    name: Birthday Legend
+    item_type: cosmetic_title
+    rarity: epic
+    icon: "🎉"
+    coin_value: 60
+    description: For one more year of being awesome.
+  - slug: frame-confetti
+    name: Confetti Frame
+    item_type: cosmetic_frame
+    rarity: rare
+    icon: "🎊"
+    coin_value: 40
+    description: Paper scraps in every color — a border that never stops celebrating.
+  - slug: accessory-party-horn
+    name: Party Horn
+    item_type: cosmetic_pet_accessory
+    rarity: uncommon
+    icon: "📯"
+    coin_value: 18
+    description: Toot toot. Your pet is celebrating too.
