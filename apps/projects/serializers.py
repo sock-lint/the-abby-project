@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 
 from rest_framework import serializers
 
@@ -35,14 +36,19 @@ class UserSerializer(serializers.ModelSerializer):
 
 class ChildSerializer(serializers.ModelSerializer):
     google_linked = serializers.SerializerMethodField()
+    age_years = serializers.IntegerField(read_only=True, allow_null=True)
+    current_grade = serializers.IntegerField(read_only=True, allow_null=True)
+    school_year_label = serializers.CharField(read_only=True, allow_null=True)
 
     class Meta:
         model = User
         fields = [
             "id", "username", "display_name", "role", "hourly_rate", "avatar", "theme",
             "google_linked",
+            "date_of_birth", "grade_entry_year",
+            "age_years", "current_grade", "school_year_label",
         ]
-        read_only_fields = ["id", "username", "role", "theme"]
+        read_only_fields = ["id", "username", "role", "theme", "age_years", "current_grade", "school_year_label"]
 
     def get_google_linked(self, obj):
         try:
@@ -282,7 +288,8 @@ class ProjectCollaboratorSerializer(serializers.ModelSerializer):
 
 
 class SavingsGoalSerializer(serializers.ModelSerializer):
-    percent_complete = serializers.ReadOnlyField()
+    current_amount = serializers.SerializerMethodField()
+    percent_complete = serializers.SerializerMethodField()
 
     class Meta:
         model = SavingsGoal
@@ -291,3 +298,30 @@ class SavingsGoalSerializer(serializers.ModelSerializer):
             "is_completed", "completed_at", "created_at", "percent_complete",
         ]
         read_only_fields = ["is_completed", "completed_at", "created_at"]
+
+    def _balance(self, obj):
+        from apps.payments.services import PaymentService
+        cache = self.context.setdefault("_savings_balance_cache", {})
+        if obj.user_id not in cache:
+            bal = PaymentService.get_balance(obj.user) or Decimal("0")
+            cache[obj.user_id] = max(bal, Decimal("0"))
+        return cache[obj.user_id]
+
+    def get_current_amount(self, obj):
+        return self._balance(obj)
+
+    def get_percent_complete(self, obj):
+        if obj.target_amount <= 0:
+            return 100
+        pct = float(self._balance(obj) / obj.target_amount) * 100
+        return min(100, round(pct))
+
+    def to_representation(self, instance):
+        # Lazy completion check: if the child's balance now covers an
+        # active goal (e.g. target was lowered, or a prior write missed
+        # the hook), auto-complete + run the reward pipeline on read.
+        if not instance.is_completed:
+            from .savings_service import SavingsGoalService
+            SavingsGoalService.check_and_complete(instance.user)
+            instance.refresh_from_db(fields=["is_completed", "completed_at"])
+        return super().to_representation(instance)
