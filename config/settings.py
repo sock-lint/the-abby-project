@@ -152,9 +152,6 @@ COINS_PER_BADGE_RARITY = {
 COINS_PER_DOLLAR = 10
 # Coins granted on a child's birthday, multiplied by age in years (tunable).
 BIRTHDAY_COINS_PER_YEAR = 100
-# How many Coins a child earns per $1.00 of a completed savings goal's
-# ``target_amount``. A $50 goal at the default rate of 2 yields 100 coins.
-COINS_PER_SAVINGS_GOAL_DOLLAR = 2
 
 # --- Homework timeliness ----------------------------------------------------
 # Homework pays no money and no coins — rewards are XP, drops, streaks, and
