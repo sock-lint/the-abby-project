@@ -38,6 +38,9 @@ class NotificationType(models.TextChoices):
     STREAK_MILESTONE = "streak_milestone", "Streak Milestone"
     PERFECT_DAY = "perfect_day", "Perfect Day"
     DAILY_CHECK_IN = "daily_check_in", "Daily Check-In"
+    SAVINGS_GOAL_COMPLETED = "savings_goal_completed", "Savings Goal Completed"
+    BIRTHDAY             = "birthday",             "Birthday"
+    CHRONICLE_FIRST_EVER = "chronicle_first_ever", "Chronicle — first ever"
 
 
 class Notification(CreatedAtModel):
