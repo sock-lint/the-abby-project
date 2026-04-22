@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import date
 
 from django.shortcuts import get_object_or_404
-from rest_framework import mixins, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -87,6 +87,37 @@ class ChronicleViewSet(
             })
 
         return Response({"chapters": chapters, "current_chapter_year": current_chapter})
+
+    @action(detail=False, methods=["get"], url_path="pending-celebration")
+    def pending_celebration(self, request):
+        """Return the single unviewed BIRTHDAY entry for today, or 204."""
+        today = date.today()
+        entry = (
+            ChronicleEntry.objects.filter(
+                user=request.user,
+                kind=ChronicleEntry.Kind.BIRTHDAY,
+                occurred_on=today,
+                viewed_at__isnull=True,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if entry is None:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(ChronicleEntrySerializer(entry).data)
+
+    @action(detail=True, methods=["post"], url_path="mark-viewed")
+    def mark_viewed(self, request, pk=None):
+        """Set viewed_at=now() if null — idempotent."""
+        from django.utils import timezone
+        entry = get_object_or_404(ChronicleEntry, pk=pk)
+        # Role-filter ownership: child sees own, parent sees their kids.
+        if request.user.role == "child" and entry.user_id != request.user.id:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        if entry.viewed_at is None:
+            entry.viewed_at = timezone.now()
+            entry.save(update_fields=["viewed_at"])
+        return Response(ChronicleEntrySerializer(entry).data)
 
 
 def _stats_for(user, chapter_year, entries, is_current):

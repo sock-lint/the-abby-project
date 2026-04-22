@@ -75,3 +75,77 @@ class ChronicleSummaryTests(APITestCase):
         self.assertEqual(chapters[0]["label"], "Freshman Year")
         # Past chapter reads stats from frozen RECAP.
         self.assertEqual(chapters[0]["stats"]["projects_completed"], 3)
+
+
+class PendingCelebrationTests(APITestCase):
+    def setUp(self):
+        self.child = User.objects.create(username="kid", role=User.Role.CHILD, date_of_birth=date(2011, 4, 21))
+
+    def test_returns_204_when_nothing_pending(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/chronicle/pending-celebration/")
+        self.assertEqual(resp.status_code, 204)
+
+    def test_returns_birthday_entry_today(self):
+        entry = ChronicleEntry.objects.create(
+            user=self.child, kind="birthday", occurred_on=date.today(),
+            chapter_year=date.today().year if date.today().month >= 8 else date.today().year - 1,
+            title="Turned 15", metadata={"gift_coins": 1500},
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/chronicle/pending-celebration/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["id"], entry.id)
+        self.assertEqual(resp.data["metadata"]["gift_coins"], 1500)
+
+    def test_does_not_return_already_viewed_entry(self):
+        from django.utils import timezone
+        ChronicleEntry.objects.create(
+            user=self.child, kind="birthday", occurred_on=date.today(),
+            chapter_year=2025, title="Turned 15", viewed_at=timezone.now(),
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/chronicle/pending-celebration/")
+        self.assertEqual(resp.status_code, 204)
+
+    def test_does_not_leak_across_users(self):
+        other_child = User.objects.create(username="sibling", role=User.Role.CHILD)
+        ChronicleEntry.objects.create(
+            user=other_child, kind="birthday", occurred_on=date.today(),
+            chapter_year=2025, title="Turned 10",
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/chronicle/pending-celebration/")
+        self.assertEqual(resp.status_code, 204)
+
+
+class MarkViewedTests(APITestCase):
+    def setUp(self):
+        self.child = User.objects.create(username="kid", role=User.Role.CHILD)
+        self.entry = ChronicleEntry.objects.create(
+            user=self.child, kind="birthday", occurred_on=date.today(),
+            chapter_year=2025, title="Turned 15",
+        )
+
+    def test_sets_viewed_at(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(f"/api/chronicle/{self.entry.id}/mark-viewed/")
+        self.assertEqual(resp.status_code, 200)
+        self.entry.refresh_from_db()
+        self.assertIsNotNone(self.entry.viewed_at)
+
+    def test_idempotent_does_not_rewrite_viewed_at(self):
+        from django.utils import timezone
+        fixed = timezone.now()
+        self.entry.viewed_at = fixed
+        self.entry.save()
+        self.client.force_authenticate(self.child)
+        self.client.post(f"/api/chronicle/{self.entry.id}/mark-viewed/")
+        self.entry.refresh_from_db()
+        self.assertEqual(self.entry.viewed_at, fixed)
+
+    def test_other_user_cannot_mark_viewed(self):
+        stranger = User.objects.create(username="stranger", role=User.Role.CHILD)
+        self.client.force_authenticate(stranger)
+        resp = self.client.post(f"/api/chronicle/{self.entry.id}/mark-viewed/")
+        self.assertIn(resp.status_code, (403, 404))
