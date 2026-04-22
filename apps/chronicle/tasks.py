@@ -78,3 +78,56 @@ def _send_birthday_notification(user, coin_amount: int) -> None:
         )
     except Exception:
         logger.exception("Birthday notification failed")
+
+
+from apps.chronicle.services import ChronicleService
+
+
+@shared_task(name="apps.chronicle.tasks.chronicle_chapter_transition")
+def chronicle_chapter_transition() -> dict:
+    """Fires daily at 00:25 local. No-op except on Aug 1 or Jun 1.
+
+    - Aug 1: for each child with DOB, record_chapter_start(user, current_chapter_year).
+    - Jun 1: for each child with DOB, record_chapter_end + freeze_recap for the chapter
+      that just closed. If that chapter corresponds to grade 12, mark the recap's
+      metadata.is_graduation=True and also emit a standalone MILESTONE entry
+      with event_slug='graduated_high_school'.
+    """
+    today = date.today()
+    if (today.month, today.day) not in ((8, 1), (6, 1)):
+        return {"noop": True}
+
+    children = User.objects.filter(role=User.Role.CHILD, date_of_birth__isnull=False)
+    results = {"starts": 0, "ends": 0, "recaps": 0, "graduations": 0}
+
+    for user in children:
+        if (today.month, today.day) == (8, 1):
+            ChronicleService.record_chapter_start(user, today.year)
+            results["starts"] += 1
+        else:  # Jun 1
+            closing_chapter_year = today.year - 1  # Aug (year-1) → Jun year
+            ChronicleService.record_chapter_end(user, closing_chapter_year)
+            recap = ChronicleService.freeze_recap(user, closing_chapter_year)
+            results["ends"] += 1
+            results["recaps"] += 1
+
+            # If the closing chapter was grade 12, flag + emit graduation milestone.
+            if user.grade_entry_year is not None:
+                grade_of_closing_chapter = 9 + (closing_chapter_year - user.grade_entry_year)
+                if grade_of_closing_chapter == 12:
+                    recap.metadata["is_graduation"] = True
+                    recap.save(update_fields=["metadata"])
+                    ChronicleEntry.objects.get_or_create(
+                        user=user,
+                        kind=ChronicleEntry.Kind.MILESTONE,
+                        event_slug="graduated_high_school",
+                        defaults={
+                            "chapter_year": closing_chapter_year,
+                            "occurred_on": today,
+                            "title": "🎓 Graduated high school",
+                            "icon_slug": "graduation-cap",
+                        },
+                    )
+                    results["graduations"] += 1
+
+    return results

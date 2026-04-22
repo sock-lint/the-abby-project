@@ -438,6 +438,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.chronicle.tasks.chronicle_birthday_check",
         "schedule": crontab(hour=0, minute=20),
     },
+    "chronicle-chapter-transition": {
+        "task": "apps.chronicle.tasks.chronicle_chapter_transition",
+        "schedule": crontab(hour=0, minute=25),
+    },
 }
 
 # Session
