@@ -239,3 +239,88 @@ class FoodBasketEffectTests(TestCase):
             for g in result["detail"]["granted"]
         }
         self.assertTrue(granted_slugs.issubset({"food-a", "food-b"}))
+
+
+@override_settings(CACHES=CACHE_OVERRIDE, CELERY_TASK_ALWAYS_EAGER=True)
+class ConsumableGrowthDailyCapTests(TestCase):
+    """Pins the 2026-04-23 per-pet daily cap on consumable-driven growth."""
+
+    def setUp(self):
+        from apps.pets.models import PetSpecies, PotionType, UserPet
+        self.user = User.objects.create_user(
+            username="child", password="pw", role="child",
+        )
+        CharacterProfile.objects.get_or_create(user=self.user)
+        self.species = PetSpecies.objects.create(slug="wolf", name="Wolf", icon="🐺")
+        self.potion = PotionType.objects.create(slug="base", name="Base")
+        self.pet = UserPet.objects.create(
+            user=self.user, species=self.species, potion=self.potion,
+            is_active=True, growth_points=0,
+        )
+
+    def _stack_inventory(self, slug, effect, growth, qty):
+        item = _consumable(slug, effect, {"growth": growth})
+        UserInventory.objects.create(user=self.user, item=item, quantity=qty)
+        return item
+
+    def test_growth_surge_caps_at_50_per_day(self):
+        # 4× +30 surges would naturally add 120; cap clamps the second hit
+        # to fill exactly the remaining 20, then later hits add 0.
+        item = self._stack_inventory("growth-surge", "growth_surge", 30, 4)
+
+        first = ConsumableService.use(self.user, item.pk)
+        self.assertEqual(first["detail"]["growth_added"], 30)
+        self.assertFalse(first["detail"]["growth_capped"])
+
+        second = ConsumableService.use(self.user, item.pk)
+        self.assertEqual(second["detail"]["growth_added"], 20)
+        self.assertTrue(second["detail"]["growth_capped"])
+
+        third = ConsumableService.use(self.user, item.pk)
+        self.assertEqual(third["detail"]["growth_added"], 0)
+        self.assertTrue(third["detail"]["growth_capped"])
+
+        self.pet.refresh_from_db()
+        # Cap is 50; pet started at 0, so growth lands at 50 even after 3
+        # surges spending 90 points worth of consumables.
+        self.assertEqual(self.pet.growth_points, 50)
+        self.assertEqual(self.pet.consumable_growth_today, 50)
+
+    def test_cap_resets_on_a_new_local_day(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        item = self._stack_inventory("growth-surge", "growth_surge", 30, 2)
+        ConsumableService.use(self.user, item.pk)
+        ConsumableService.use(self.user, item.pk)
+
+        self.pet.refresh_from_db()
+        self.assertEqual(self.pet.growth_points, 50)
+
+        # Roll the counter back a day to simulate next-day usage.
+        self.pet.consumable_growth_date = timezone.localdate() - timedelta(days=1)
+        self.pet.save(update_fields=["consumable_growth_date"])
+
+        UserInventory.objects.create(
+            user=self.user, item=item, quantity=1,
+        )
+        result = ConsumableService.use(self.user, item.pk)
+        # Fresh day → counter reset → first 30 lands in full again.
+        self.assertEqual(result["detail"]["growth_added"], 30)
+        self.assertFalse(result["detail"]["growth_capped"])
+
+    def test_feast_platter_caps_each_pet_independently(self):
+        from apps.pets.models import PotionType, UserPet
+        # Second pet: feast_platter should reach BOTH unevolved pets and
+        # each gets its own per-pet cap counter.
+        UserPet.objects.create(
+            user=self.user, species=self.species,
+            potion=PotionType.objects.create(slug="fire", name="Fire"),
+            growth_points=45,
+        )
+        item = self._stack_inventory("feast-platter", "feast_platter", 10, 1)
+        result = ConsumableService.use(self.user, item.pk)
+        # Both pets received 10 (each well under their cap) on their own
+        # counters — the cap is per-pet, not per-user.
+        self.assertEqual(result["detail"]["pets_fed"], 2)
+        self.assertEqual(set(result["detail"]["growth_per_pet_applied"]), {10})

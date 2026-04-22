@@ -107,4 +107,27 @@ describe('DropToastStack', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(6100); });
     await waitFor(() => expect(screen.queryByText(/runedrop/i)).toBeNull());
   });
+
+  // 2026-04-23 review (R3): single quest completions like Master's Path can
+  // fire a badge + an item drop + a frame + a title in the same poll window.
+  // Confirm the stack queues every distinct drop instead of dropping frames
+  // when many arrive together — the seenIds dedupe lives in useDropToasts.
+  it('queues every drop when a burst arrives in one poll', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(<DropToastStack />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+
+    pollState.drops = [
+      { id: 10, item_name: 'Capstone Frame', item_icon: '🖼️', item_sprite_key: 'frame', item_rarity: 'epic', was_salvaged: false },
+      { id: 11, item_name: 'Master Crafter Title', item_icon: '⚒️', item_sprite_key: '', item_rarity: 'legendary', was_salvaged: false },
+      { id: 12, item_name: 'Quest Scroll', item_icon: '📜', item_sprite_key: 'scroll', item_rarity: 'rare', was_salvaged: false },
+      { id: 13, item_name: 'Coin Pouch', item_icon: '👛', item_sprite_key: 'pouch', item_rarity: 'common', was_salvaged: false },
+    ];
+    await act(async () => { await vi.advanceTimersByTimeAsync(25000); });
+
+    await waitFor(() => expect(screen.getByText(/capstone frame/i)).toBeInTheDocument());
+    expect(screen.getByText(/master crafter title/i)).toBeInTheDocument();
+    expect(screen.getByText(/quest scroll/i)).toBeInTheDocument();
+    expect(screen.getByText(/coin pouch/i)).toBeInTheDocument();
+  });
 });

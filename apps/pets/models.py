@@ -87,6 +87,22 @@ class UserPet(TimestampedModel):
             "Gentle-nudge intent: stale pets dim visually, never take damage."
         ),
     )
+    consumable_growth_today = models.PositiveIntegerField(
+        default=0,
+        help_text=(
+            "Total growth this pet has received today from direct consumables "
+            "(growth_surge, feast_platter). Compared against "
+            "CONSUMABLE_GROWTH_DAILY_CAP in apps/pets/services.py. "
+            "Resets when consumable_growth_date != today."
+        ),
+    )
+    consumable_growth_date = models.DateField(
+        null=True, blank=True,
+        help_text=(
+            "Local date the consumable_growth_today counter applies to. "
+            "When stale, the counter is treated as 0 and reset on next apply."
+        ),
+    )
 
     class Meta:
         unique_together = ("user", "species", "potion")
@@ -99,6 +115,31 @@ class UserPet(TimestampedModel):
     @property
     def is_fully_grown(self):
         return self.growth_points >= 100
+
+    def apply_consumable_growth(self, requested):
+        """Apply ``requested`` growth points from a consumable, respecting the
+        daily cap. Caller is responsible for ``save()`` — this mutates fields
+        in-memory only so the surrounding handler can batch its writes.
+
+        Returns the actual growth applied (may be 0 if the daily cap is
+        already used up). Auto-resets the counter on a new local day.
+        """
+        from apps.pets.services import CONSUMABLE_GROWTH_DAILY_CAP
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        if self.consumable_growth_date != today:
+            self.consumable_growth_today = 0
+            self.consumable_growth_date = today
+
+        remaining = max(0, CONSUMABLE_GROWTH_DAILY_CAP - self.consumable_growth_today)
+        applied = min(requested, remaining)
+        if applied <= 0:
+            return 0
+
+        self.consumable_growth_today += applied
+        self.growth_points = min(100, self.growth_points + applied)
+        return applied
 
     @property
     def happiness_level(self):

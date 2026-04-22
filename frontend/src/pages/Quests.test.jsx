@@ -52,4 +52,36 @@ describe('Quests', () => {
     await user.click(historyTab);
     await waitFor(() => expect(screen.getByText(/old quest/i)).toBeInTheDocument());
   });
+
+  it('hides the Issue Challenge button from child users', async () => {
+    renderPage(buildUser({ role: 'child' }), [
+      http.get('*/api/quests/active/', () => HttpResponse.json(null)),
+      http.get('*/api/quests/available/', () => HttpResponse.json([])),
+      http.get('*/api/quests/history/', () => HttpResponse.json([])),
+    ]);
+    // Wait for quests page to settle (History tab is a stable signal).
+    await screen.findByRole('button', { name: /history/i });
+    expect(screen.queryByRole('button', { name: /issue challenge/i })).toBeNull();
+  });
+
+  it('exposes the Issue Challenge button to parents with children', async () => {
+    renderPage(buildUser({ role: 'parent' }), [
+      http.get('*/api/quests/active/', () => HttpResponse.json(null)),
+      http.get('*/api/quests/available/', () => HttpResponse.json([])),
+      http.get('*/api/quests/history/', () => HttpResponse.json([])),
+      http.get('*/api/quests/family/', () => HttpResponse.json({ results: [] })),
+      http.get('*/api/children/', () =>
+        HttpResponse.json([{ id: 1, username: 'kid', display_label: 'Kid' }]),
+      ),
+    ]);
+    const button = await screen.findByRole('button', { name: /issue challenge/i });
+    expect(button).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(button);
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /assign to/i })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('combobox', { name: /^type$/i })).toBeInTheDocument();
+  });
 });

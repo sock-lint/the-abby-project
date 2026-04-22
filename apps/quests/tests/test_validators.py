@@ -34,8 +34,9 @@ class ValidateTriggerFilterTests(TestCase):
             validate_trigger_filter({"allowed_triggers": "chore_complete"})
 
     def test_accepts_known_keys_and_values(self):
-        # Documented-but-unimplemented keys still pass — the validator is
-        # forward-compatible so content packs can reference them.
+        # Every key the validator accepts must have a matching reader in
+        # QuestService.record_progress — otherwise authoring against it
+        # produces silently-broken quests.
         validate_trigger_filter({
             "allowed_triggers": ["chore_complete", "homework_complete"],
             "project_id": 42,
@@ -43,9 +44,17 @@ class ValidateTriggerFilterTests(TestCase):
             "chore_ids": [1, 2, 3],
             "on_time": True,
             "savings_goal_id": 9,
-            "streak_target": 7,
-            "perfect_day_target": 3,
         })
+
+    def test_rejects_unimplemented_keys_removed_in_2026_04_23_review(self):
+        # ``streak_target`` and ``perfect_day_target`` were validated but
+        # never read by record_progress — quests authored against them
+        # silently never advanced. Removed from the allowlist; re-add only
+        # when a reader lands in QuestService.record_progress.
+        with self.assertRaises(ValidationError):
+            validate_trigger_filter({"streak_target": 7})
+        with self.assertRaises(ValidationError):
+            validate_trigger_filter({"perfect_day_target": 3})
 
 
 class QuestWriteSerializerTriggerFilterTests(TestCase):

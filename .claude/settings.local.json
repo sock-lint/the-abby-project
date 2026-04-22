@@ -31,7 +31,8 @@
       "mcp__abby__list_rpg_catalog",
       "mcp__abby__list_skill_categories",
       "mcp__abby__list_skills",
-      "mcp__abby__list_badges"
+      "mcp__abby__list_badges",
+      "mcp__abby__list_quest_catalog"
     ]
   }
 }

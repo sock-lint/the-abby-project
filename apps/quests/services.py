@@ -329,18 +329,49 @@ class QuestService:
             from apps.achievements.services import BadgeService
             BadgeService.evaluate_badges(user)
 
-        # Award item rewards
-        for reward_item in definition.reward_items.select_related("item").all():
+        # Award item rewards. Eggs auto-salvage to coins when the player
+        # already mounts the matching species — quests like Dragon Slayer
+        # (rewards Wolf Egg + Dragon Egg) would otherwise stack dead eggs
+        # in the inventory of a kid who's already evolved both lifecycles.
+        # Salvage value = item.coin_value × quantity, mirroring the
+        # cosmetic-dupe rule in DropService.
+        from apps.pets.models import UserMount
+        from apps.rpg.models import ItemDefinition
+        for reward_item in definition.reward_items.select_related(
+            "item", "item__pet_species",
+        ).all():
+            item = reward_item.item
+            is_owned_egg = (
+                item.item_type == ItemDefinition.ItemType.EGG
+                and item.pet_species_id is not None
+                and UserMount.objects.filter(
+                    user=user, species_id=item.pet_species_id,
+                ).exists()
+            )
+            if is_owned_egg and item.coin_value > 0:
+                salvage = item.coin_value * reward_item.quantity
+                CoinService.award_coins(
+                    user, salvage, CoinLedger.Reason.ADJUSTMENT,
+                    description=f"Quest egg salvage: {item.name}",
+                )
+                rewards["coins"] += salvage
+                rewards["items"].append({
+                    "item_name": item.name,
+                    "item_icon": item.icon,
+                    "quantity": reward_item.quantity,
+                    "salvaged_to_coins": salvage,
+                })
+                continue
             inv, created = UserInventory.objects.get_or_create(
-                user=user, item=reward_item.item,
+                user=user, item=item,
                 defaults={"quantity": reward_item.quantity},
             )
             if not created:
                 inv.quantity += reward_item.quantity
                 inv.save(update_fields=["quantity", "updated_at"])
             rewards["items"].append({
-                "item_name": reward_item.item.name,
-                "item_icon": reward_item.item.icon,
+                "item_name": item.name,
+                "item_icon": item.icon,
                 "quantity": reward_item.quantity,
             })
 

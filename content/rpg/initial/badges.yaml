@@ -607,7 +607,7 @@ badges:
     criteria_type: category_mastery
     criteria_value: {category: Woodworking, min_level: 3}
     rarity: rare
-    xp_bonus: 120
+    xp_bonus: 100
   - name: Master of Electronics
     description: Reach Level 3 in every Electronics skill
     icon: "⚡"
@@ -685,6 +685,23 @@ badges:
     criteria_value: {category: Physical, min_level: 3}
     rarity: rare
     xp_bonus: 100
+  # 2026-04-23 review — Math + Language Arts categories were added in the
+  # 2026 expansion but missed from the initial mastery roster. Adding here
+  # closes the coverage gap so all 14 categories have a parallel badge.
+  - name: Master of Math
+    description: Reach Level 3 in every Math skill
+    icon: "🔢"
+    criteria_type: category_mastery
+    criteria_value: {category: Math, min_level: 3}
+    rarity: rare
+    xp_bonus: 100
+  - name: Master of Language Arts
+    description: Reach Level 3 in every Language Arts skill
+    icon: "📚"
+    criteria_type: category_mastery
+    criteria_value: {category: "Language Arts", min_level: 3}
+    rarity: rare
+    xp_bonus: 100
 
   # Potion / consumable collectors
   - name: Full Potion Shelf
@@ -701,6 +718,16 @@ badges:
     criteria_value: {count: 5}
     rarity: rare
     xp_bonus: 80
+  # 2026-04-23 review — Alchemist→Master Alchemist jumped 5→9 with no rung
+  # in between. Alchemist II fills the dead-zone so the climb reads as a
+  # ladder, not a cliff.
+  - name: Alchemist II
+    description: Use 7 different consumable effects
+    icon: "🧪"
+    criteria_type: consumable_variety
+    criteria_value: {count: 7}
+    rarity: rare
+    xp_bonus: 120
   - name: Master Alchemist
     description: Use every consumable effect at least once
     icon: "🧙"

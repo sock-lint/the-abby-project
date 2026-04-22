@@ -23,8 +23,27 @@
 #                    them by weight. Entries are either "Skill Name"
 #                    (unique) or "Category::Skill Name" (disambiguated),
 #                    optionally wrapped in a {skill, weight} mapping.
+#
+# ── Reward rubric (informal — not validated, just a guide) ──────────────
+# Boss quests cluster into three loose tiers based on damage × duration.
+# Use these as a starting point when authoring; tweak for theme/difficulty.
+#
+#   Tier      Damage    Duration   coin_reward   xp_reward   item rewards
+#   ────      ──────    ────────   ───────────   ─────────   ────────────
+#   Easy       150–250  10–14d     80–100        120–180     1 cosmetic / scroll
+#   Standard   250–400  14–21d     120–180       180–250     1 cosmetic + 1 utility
+#   Epic       400–800  21–30d+    250–500       300–500+    Frame/title cosmetic
+#
+# Collection quests scale rewards by target × duration similarly. Examples
+# of well-balanced quests at each tier: Easy = Apprentice Path; Standard =
+# Cold Snap, Coder's Crucible; Epic = Phoenix Rising, Master's Path.
 
 quests:
+  # 2026-04-23 review — rewards bumped to match the difficulty curve. Dragon
+  # Slayer asks for 500 damage in 7 days (the most aggressive damage/day ratio
+  # of any boss); the prior 50c/100xp paid like a low-tier collection quest.
+  # New 150c/200xp lands it between Treasure Hunter (400dmg/10d→100c/200xp)
+  # and Phoenix Rising (500dmg/30d→250c/300xp).
   - name: Dragon Slayer
     description: The dragon returns every season — a blitz boss. One week to deal 500 damage. Every trigger counts. Best paired with a Scholar's Draught or Drop Charm.
     icon: "🐉"
@@ -32,8 +51,8 @@ quests:
     quest_type: boss
     target_value: 500
     duration_days: 7
-    coin_reward: 50
-    xp_reward: 100
+    coin_reward: 150
+    xp_reward: 200
     is_system: true
     reward_items:
       - slug: dragon-egg
@@ -59,6 +78,7 @@ quests:
   # Pantry Patroller (10 chores/7d, repeatable) covers the same loop and
   # feels like a rhythm rather than a one-shot. Delete via cleanup_rpg_catalog.
 
+  # 2026-04-23 — bumped from 75c to 100c to land in the Easy-tier band.
   - name: Focus Master
     description: Clock 20 hours of focused project work to defeat the distraction monster!
     icon: "🧠"
@@ -68,7 +88,7 @@ quests:
     duration_days: 14
     trigger_filter:
       allowed_triggers: [clock_out]
-    coin_reward: 75
+    coin_reward: 100
     xp_reward: 150
     is_system: true
     reward_items:
@@ -197,6 +217,10 @@ quests:
       - {skill: "Life Skills::Time Management", weight: 3}
       - {skill: "Life Skills::Persistence", weight: 1}
 
+  # 2026-04-23 — bumped from 60c/120xp to 90c/150xp. Worst-paid Easy-tier
+  # boss before the rebalance; the homework_complete-only trigger is harder
+  # than a generic "any trigger" Easy boss, so it sits at the higher end of
+  # the Easy band rather than the lower.
   - name: Midnight Oil
     description: Deal 200 damage to the looming deadline by finishing homework.
     icon: "🕯️"
@@ -206,8 +230,8 @@ quests:
     duration_days: 14
     trigger_filter:
       allowed_triggers: [homework_complete]
-    coin_reward: 60
-    xp_reward: 120
+    coin_reward: 90
+    xp_reward: 150
     is_system: true
     reward_items:
       - slug: frame-scholar

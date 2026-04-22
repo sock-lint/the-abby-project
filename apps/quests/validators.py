@@ -9,10 +9,12 @@ from django.core.exceptions import ValidationError
 
 from apps.rpg.constants import TriggerType
 
-# Keys the code actually reads today plus a few CLAUDE.md documents as
-# planned-but-not-yet-implemented. Accept all so the validator doesn't break
-# content shipped against the documented surface; callers can grep for
-# _UNIMPLEMENTED_FILTER_KEYS when they wire the remaining logic.
+# Keys the code actually reads today. Authorable-but-dead keys (like the
+# previously-accepted ``streak_target`` and ``perfect_day_target``) were
+# removed in the 2026-04-23 review — they let parents author quests that
+# silently never made progress. If a future feature adds new filter keys,
+# wire the reader in QuestService.record_progress AND add the key here in
+# the same change so the validator and the runtime stay in lockstep.
 _KNOWN_FILTER_KEYS = frozenset(
     {
         "allowed_triggers",
@@ -21,16 +23,7 @@ _KNOWN_FILTER_KEYS = frozenset(
         "chore_ids",
         "on_time",
         "savings_goal_id",
-        "streak_target",
-        "perfect_day_target",
     }
-)
-
-# savings_goal_id is now read by QuestService.record_progress (wired in
-# the 2026-04-22 review). streak_target and perfect_day_target still TBD —
-# acceptable keys to author content against, but no code reads them yet.
-_UNIMPLEMENTED_FILTER_KEYS = frozenset(
-    {"streak_target", "perfect_day_target"}
 )
 
 

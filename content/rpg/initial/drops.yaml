@@ -57,6 +57,17 @@ macros:
     item_type: quest_scroll
     weight_by_rarity: {uncommon: 4, rare: 2, epic: 1, legendary: 1}
 
+  # Savings-goal completion (rate 0.80 in BASE_DROP_RATES). Pre-2026-04-23 the
+  # rate was set but no items were eligible — drops never fired. Coin pouches
+  # + a chance at a quest scroll match the celebratory tone without flooding
+  # the cosmetic pool from a parent-controlled trigger.
+  - triggers: [savings_goal_complete]
+    item_type: coin_pouch
+    weight_by_rarity: {common: 10, uncommon: 6, rare: 3, epic: 1}
+  - triggers: [savings_goal_complete]
+    item_type: quest_scroll
+    weight_by_rarity: {uncommon: 3, rare: 2, epic: 1}
+
 rules:
   # Streak Freeze drops rarely from milestone/project completions — the
   # expected player path is earn → save → spend on a missed day. If drops

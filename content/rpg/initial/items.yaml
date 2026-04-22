@@ -1031,6 +1031,34 @@ items:
     rarity: epic
     coin_value: 60
 
+  # 2026-04-23 review — fills cosmetic-rarity gaps. Pet accessories had no
+  # legendary tier, so completionists collecting all four cosmetic-slot
+  # legendaries had no end goal for the pet-accessory slot. Themes had
+  # neither common (entry-level "first cosmetic ever" feel) nor legendary
+  # (chase-tier prestige) — only uncommon-to-epic.
+  - slug: accessory-celestial-halo
+    name: Celestial Halo
+    icon: "😇"
+    item_type: cosmetic_pet_accessory
+    rarity: legendary
+    coin_value: 150
+
+  - slug: theme-parchment
+    name: Parchment Theme
+    icon: "📜"
+    item_type: cosmetic_theme
+    rarity: common
+    coin_value: 8
+    metadata: {accent: "#C9A87C"}
+
+  - slug: theme-celestial-realm
+    name: Celestial Realm Theme
+    icon: "🌌"
+    item_type: cosmetic_theme
+    rarity: legendary
+    coin_value: 150
+    metadata: {accent: "#9B59B6"}
+
   # ── Coin pouch — bigger tier for the many-year horizon ────────────────
   - slug: pouch-mega
     name: Mega Hoard

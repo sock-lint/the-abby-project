@@ -134,18 +134,30 @@ class HomeworkService:
         child = assignment.assigned_to
         if child is not None:
             today = timezone.localdate()
-            # One drop roll per user per day for homework_created (anti-farm);
-            # streak + quest progress still fire every time.
-            drops_allowed = not HomeworkAssignment.objects.filter(
+            # Anti-farm: only the FIRST homework_created per child per local
+            # day fires the game loop. The query intentionally counts
+            # soft-deleted (is_active=False) rows too, so a parent-cooperated
+            # create→delete→create cycle on the same day still skips the
+            # second loop call. This stops:
+            #   • drop farming (would already skip via drops_allowed gate)
+            #   • streak credit (per-day idempotent — would no-op anyway)
+            #   • quest progress farming (Scholar's Week, Summer Reading List
+            #     count homework_created — pre-2026-04-23 the Nth create per
+            #     day still advanced these quests).
+            # The loop still runs on the first create so streak + drop +
+            # quest credit all fire normally; subsequent creates just don't
+            # fire it again.
+            is_first_today = not HomeworkAssignment.objects.filter(
                 assigned_to=child, created_at__date=today,
             ).exclude(pk=assignment.pk).exists()
 
-            from apps.rpg.constants import TriggerType
-            from apps.rpg.services import GameLoopService
-            GameLoopService.on_task_completed(
-                child, TriggerType.HOMEWORK_CREATED,
-                {"assignment_id": assignment.id, "drops_allowed": drops_allowed},
-            )
+            if is_first_today:
+                from apps.rpg.constants import TriggerType
+                from apps.rpg.services import GameLoopService
+                GameLoopService.on_task_completed(
+                    child, TriggerType.HOMEWORK_CREATED,
+                    {"assignment_id": assignment.id, "drops_allowed": True},
+                )
 
             # Planner badges depend on the new row existing, so evaluate now.
             BadgeService.evaluate_badges(child)

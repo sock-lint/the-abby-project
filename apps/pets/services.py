@@ -11,6 +11,15 @@ GROWTH_PREFERRED_FOOD = 15
 GROWTH_NEUTRAL_FOOD = 5
 EVOLUTION_THRESHOLD = 100
 
+# Daily cap on direct-grant growth from consumables (growth_surge,
+# feast_platter). Tonic-doubled feeds are NOT capped here — those still
+# require food items to exist, which is a natural limiter. Without this
+# cap a kid could fully evolve a pet (0 → 100) in one sitting by stacking
+# 3-4 hoarded surges; the design intent is real-world weeks of bonding.
+# Tunable per the gentle-nudge doctrine — bumping the cap doesn't break
+# anything, just lets evolution happen faster on heavy-consumable days.
+CONSUMABLE_GROWTH_DAILY_CAP = 50
+
 # Companion pet passive growth per daily check-in. Small on purpose —
 # a Companion reaches evolution (100) in ~50 consecutive active days,
 # longer with streak breaks. Grows the slow-burn-bonding feel.

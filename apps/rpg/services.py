@@ -12,7 +12,12 @@ from apps.rpg.models import CharacterProfile
 logger = logging.getLogger(__name__)
 
 BASE_CHECK_IN_COINS = 5
-STREAK_MULTIPLIER_PER_DAY = 0.07
+# 2026-04-23 review — rate bumped 0.07 → 0.10 so the check-in bonus reaches
+# its 3.0× cap (15 coins) at day 20 instead of day 28+. Pre-bump cadence felt
+# like a token relative to chore rewards (10–50c) and project completions
+# (50–200c+); the new curve still preserves the 5c→15c shape but rewards a
+# 3-week streak in calendar terms instead of a month-long one.
+STREAK_MULTIPLIER_PER_DAY = 0.10
 STREAK_MULTIPLIER_CAP = 3.0
 
 BASE_DROP_RATES = {
@@ -678,7 +683,8 @@ class ConsumableService:
         if effect == "growth_surge":
             # One-shot big growth boost to the user's currently active pet.
             # Applies directly to UserPet.growth_points, bypassing the food
-            # mechanic (so it stacks with a feed on the same day).
+            # mechanic (so it stacks with a feed on the same day). Honors
+            # the per-pet daily cap — see CONSUMABLE_GROWTH_DAILY_CAP.
             from apps.pets.models import UserMount, UserPet
             amount = int(meta.get("growth", 30))
             pet = UserPet.objects.filter(
@@ -686,27 +692,38 @@ class ConsumableService:
             ).first()
             if not pet:
                 raise ValueError("No active unevolved pet to accelerate")
-            pet.growth_points = min(100, pet.growth_points + amount)
+            applied = pet.apply_consumable_growth(amount)
             evolved_mount = None
             if pet.growth_points >= 100:
                 pet.evolved_to_mount = True
-                pet.save(update_fields=["growth_points", "evolved_to_mount", "updated_at"])
+                pet.save(update_fields=[
+                    "growth_points", "evolved_to_mount",
+                    "consumable_growth_today", "consumable_growth_date",
+                    "updated_at",
+                ])
                 mount, _ = UserMount.objects.get_or_create(
                     user=profile.user, species=pet.species, potion=pet.potion,
                 )
                 evolved_mount = mount.pk
             else:
-                pet.save(update_fields=["growth_points", "updated_at"])
+                pet.save(update_fields=[
+                    "growth_points",
+                    "consumable_growth_today", "consumable_growth_date",
+                    "updated_at",
+                ])
             return {
                 "pet_id": pet.pk,
-                "growth_added": amount,
+                "growth_requested": amount,
+                "growth_added": applied,
+                "growth_capped": applied < amount,
                 "new_growth": pet.growth_points,
                 "evolved_to_mount": bool(evolved_mount),
             }
         if effect == "feast_platter":
             # Sweeping small growth boost to every unevolved pet in the user's
             # stable. Only one pet can be "active" per user, but Feast Platter
-            # is a party treat — intentionally affects all.
+            # is a party treat — intentionally affects all. Each pet's share
+            # is independently subject to the per-pet daily cap.
             from apps.pets.models import UserPet
             per_pet = int(meta.get("growth", 10))
             pets = list(
@@ -716,12 +733,19 @@ class ConsumableService:
             )
             if not pets:
                 raise ValueError("No pets to feed")
+            applied_per_pet = []
             for pet in pets:
-                pet.growth_points = min(100, pet.growth_points + per_pet)
-                pet.save(update_fields=["growth_points", "updated_at"])
+                applied = pet.apply_consumable_growth(per_pet)
+                applied_per_pet.append(applied)
+                pet.save(update_fields=[
+                    "growth_points",
+                    "consumable_growth_today", "consumable_growth_date",
+                    "updated_at",
+                ])
             return {
                 "pets_fed": len(pets),
-                "growth_per_pet": per_pet,
+                "growth_per_pet_requested": per_pet,
+                "growth_per_pet_applied": applied_per_pet,
             }
         if effect == "mystery_box":
             # Grants a single random item from a weighted pool of common +

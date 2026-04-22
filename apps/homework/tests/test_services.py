@@ -134,8 +134,13 @@ class CreateAssignmentTests(_Fixture):
             })
         self.assertEqual(assignment.skill_tags.count(), 0)
 
-    def test_drops_allowed_only_for_first_create_today(self):
-        """Second assignment logged on the same day suppresses the drop roll."""
+    def test_game_loop_fires_only_for_first_create_today(self):
+        """2026-04-23 anti-farm tightening: subsequent same-day creates skip
+        the entire game loop call, not just the drop roll. Pre-fix the loop
+        ran every time with ``drops_allowed=False``, which still farmed
+        quest progress (Scholar's Week, Summer Reading List). Post-fix the
+        loop only fires for the first create per local day per child.
+        """
         with patch("apps.rpg.services.GameLoopService.on_task_completed") as gl:
             HomeworkService.create_assignment(self.parent, {
                 "title": "A",
@@ -151,11 +156,43 @@ class CreateAssignmentTests(_Fixture):
                 "due_date": self.tomorrow,
                 "assigned_to": self.child,
             })
-        self.assertEqual(gl.call_count, 2)
+            HomeworkService.create_assignment(self.parent, {
+                "title": "C",
+                "subject": "math",
+                "effort_level": 2,
+                "due_date": self.tomorrow,
+                "assigned_to": self.child,
+            })
+        self.assertEqual(gl.call_count, 1)
         first_ctx = gl.call_args_list[0].args[2]
-        second_ctx = gl.call_args_list[1].args[2]
         self.assertTrue(first_ctx.get("drops_allowed"))
-        self.assertFalse(second_ctx.get("drops_allowed"))
+
+    def test_create_then_delete_then_create_still_skips_second_loop(self):
+        """Soft-deleted assignments still count toward the daily cap, so a
+        parent-cooperated create→delete→create cycle on the same day can't
+        re-arm the loop. This is the load-bearing anti-farm property: the
+        DB query in create_assignment doesn't filter on ``is_active``.
+        """
+        with patch("apps.rpg.services.GameLoopService.on_task_completed") as gl:
+            first = HomeworkService.create_assignment(self.parent, {
+                "title": "A",
+                "subject": "math",
+                "effort_level": 2,
+                "due_date": self.tomorrow,
+                "assigned_to": self.child,
+            })
+            # Soft-delete, mirroring HomeworkAssignmentViewSet.perform_destroy.
+            first.is_active = False
+            first.save(update_fields=["is_active"])
+
+            HomeworkService.create_assignment(self.parent, {
+                "title": "B",
+                "subject": "math",
+                "effort_level": 2,
+                "due_date": self.tomorrow,
+                "assigned_to": self.child,
+            })
+        self.assertEqual(gl.call_count, 1)
 
 
 class SubmitCompletionTests(_Fixture):

@@ -374,10 +374,15 @@ export default function Stable() {
                           {working ? 'Setting…' : 'Set active'}
                         </button>
                       )}
+                      {!pet.evolved_to_mount && pet.species.slug === 'companion' && (
+                        <div className="font-script text-tiny text-ink-whisper italic">
+                          grows on its own — every daily check-in adds a little
+                        </div>
+                      )}
                       {!pet.evolved_to_mount && foods.length > 0 && (
                         <div>
                           <div className="font-script text-tiny text-ink-whisper mb-1">
-                            feed · prefers {pet.species.food_preference}
+                            feed{pet.species.food_preference ? ` · prefers ${pet.species.food_preference}` : ''}
                           </div>
                           <div className="flex flex-wrap gap-1">
                             {foods.map((f) => (
