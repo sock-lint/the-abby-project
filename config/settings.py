@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "apps.portfolio",
     "apps.rewards",
     "apps.chores",
+    "apps.chronicle",
     "apps.homework",
     "apps.mcp_server",
     "apps.google_integration",
@@ -149,6 +150,9 @@ COINS_PER_BADGE_RARITY = {
 }
 # How many Coins a child receives per $1.00 exchanged (money → coins).
 COINS_PER_DOLLAR = 10
+# How many Coins a child earns per $1.00 of a completed savings goal's
+# ``target_amount``. A $50 goal at the default rate of 2 yields 100 coins.
+COINS_PER_SAVINGS_GOAL_DOLLAR = 2
 
 # --- Homework timeliness ----------------------------------------------------
 # Homework pays no money and no coins — rewards are XP, drops, streaks, and
