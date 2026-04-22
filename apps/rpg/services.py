@@ -370,13 +370,51 @@ class GameLoopService:
             if quest_result and quest_result.get("completed"):
                 notifications.append(f"Quest complete: {quest_result['quest_name']}")
 
+            # Step 6: Chronicle firsts — wrapped so a chronicle failure never
+            # breaks the parent flow.
+            try:
+                result_chronicle = GameLoopService._record_chronicle_firsts(
+                    user, trigger_type, context
+                )
+            except Exception:  # pragma: no cover — defensive
+                logger.exception("Chronicle firsts hook failed")
+                result_chronicle = None
+
             return {
                 "trigger_type": trigger_type,
                 "streak": streak_result,
                 "notifications": notifications,
                 "drops": drops,
                 "quest": quest_result,
+                "chronicle": result_chronicle,
             }
+
+
+    @staticmethod
+    def _record_chronicle_firsts(user, trigger_type, context):
+        from apps.chronicle.firsts import slug_for
+        from apps.chronicle.services import ChronicleService
+
+        mapped = slug_for(trigger_type, context or {})
+        if mapped is None:
+            return None
+        event_slug, title, icon_slug = mapped
+        entry = ChronicleService.record_first(
+            user,
+            event_slug=event_slug,
+            title=title,
+            icon_slug=icon_slug,
+        )
+        if entry:
+            from apps.notifications.models import Notification, NotificationType
+
+            Notification.objects.create(
+                user=user,
+                notification_type=NotificationType.CHRONICLE_FIRST_EVER,
+                title=title,
+                message=f"{title} — added to your Yearbook.",
+            )
+        return {"entry_id": entry.id if entry else None, "event_slug": event_slug}
 
 
 @contextmanager
