@@ -223,11 +223,15 @@ export const createProjectFromTemplate = (id, assigned_to_id) =>
 export const saveProjectAsTemplate = (project_id, is_public = false) =>
   api.post('/templates/from-project/', { project_id, is_public });
 
-// Savings Goals
+// Savings Goals ("Hoards")
+// ``current_amount`` is computed by the backend from the live payment
+// balance — the client never writes it. Completion is handled server-side
+// (auto-fires on any ledger write that crosses a goal's target and on each
+// list fetch as a belt-and-suspenders backstop).
 export const getSavingsGoals = () => api.get('/savings-goals/');
 export const createSavingsGoal = (data) => api.post('/savings-goals/', data);
+export const updateSavingsGoal = (id, data) => api.patch(`/savings-goals/${id}/`, data);
 export const deleteSavingsGoal = (id) => api.delete(`/savings-goals/${id}/`);
-export const updateGoalAmount = (id) => api.post(`/savings-goals/${id}/update_amount/`);
 
 // AI Suggestions
 export const getProjectSuggestions = () => api.get('/projects/suggestions/');
@@ -367,6 +371,22 @@ export async function fetchSpriteCatalog(etag = null) {
   if (!resp.ok) throw new Error(`sprite catalog fetch failed: ${resp.status}`);
   return resp.json();
 }
+
+// Chronicle / Yearbook
+export const getChronicleEntries = (params = {}) => {
+  const qs = Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+  return api.get(`/chronicle/${qs ? `?${qs}` : ''}`);
+};
+export const getChronicleSummary = (userId) =>
+  api.get(`/chronicle/summary/${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`);
+export const getPendingCelebration = () => api.get('/chronicle/pending-celebration/');
+export const markChronicleViewed = (id) => api.post(`/chronicle/${id}/mark-viewed/`);
+export const createManualChronicleEntry = (data) => api.post('/chronicle/manual/', data);
+export const updateManualChronicleEntry = (id, data) => api.patch(`/chronicle/${id}/`, data);
+export const deleteChronicleEntry = (id) => api.delete(`/chronicle/${id}/`);
 
 // Activity log (parent-only)
 export const listActivity = (params = {}) => {

@@ -143,8 +143,8 @@ export const handlers = [
   // Savings Goals
   http.get('*/api/savings-goals/', empty),
   http.post('*/api/savings-goals/', ok),
+  http.patch(/\/api\/savings-goals\/\d+\/$/, ok),
   http.delete(/\/api\/savings-goals\/\d+\/$/, nullBody),
-  http.post(/\/api\/savings-goals\/\d+\/update_amount\/$/, ok),
 
   // Children
   http.get('*/api/children/', empty),
@@ -222,4 +222,15 @@ export const handlers = [
   http.get('*/api/sprites/catalog/', () =>
     HttpResponse.json({ sprites: {}, etag: 'test-default-empty' }),
   ),
+
+  // Chronicle / Yearbook
+  http.get('*/api/chronicle/', () => HttpResponse.json([])),
+  http.get('*/api/chronicle/summary/', () =>
+    HttpResponse.json({ chapters: [], current_chapter_year: 2025 }),
+  ),
+  http.get('*/api/chronicle/pending-celebration/', () => new HttpResponse(null, { status: 204 })),
+  http.post(/\/api\/chronicle\/\d+\/mark-viewed\/$/, () => HttpResponse.json({})),
+  http.post('*/api/chronicle/manual/', () => HttpResponse.json({ id: 1 }, { status: 201 })),
+  http.patch(/\/api\/chronicle\/\d+\/$/, () => HttpResponse.json({})),
+  http.delete(/\/api\/chronicle\/\d+\/$/, () => new HttpResponse(null, { status: 204 })),
 ];
