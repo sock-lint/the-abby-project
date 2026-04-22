@@ -17,12 +17,23 @@ logger = logging.getLogger(__name__)
 
 class UserSerializer(serializers.ModelSerializer):
     google_linked = serializers.SerializerMethodField()
+    age_years = serializers.IntegerField(read_only=True, allow_null=True)
+    current_grade = serializers.IntegerField(read_only=True, allow_null=True)
+    school_year_label = serializers.CharField(read_only=True, allow_null=True)
 
     class Meta:
         model = User
+        # date_of_birth + grade_entry_year are exposed on /auth/me/ because
+        # the child's Yearbook page gates its "Set your date of birth"
+        # empty state on ``user.date_of_birth``. Without these fields a
+        # parent could set the DOB via Manage but the child's next boot
+        # would still see an undefined field and stay trapped in the
+        # empty state.
         fields = [
             "id", "username", "display_name", "role", "hourly_rate", "avatar", "theme",
             "google_linked",
+            "date_of_birth", "grade_entry_year",
+            "age_years", "current_grade", "school_year_label",
         ]
         read_only_fields = fields
 

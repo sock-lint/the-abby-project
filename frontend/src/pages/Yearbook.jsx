@@ -3,25 +3,59 @@ import { useEffect, useState } from 'react'
 import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
 import Loader from '../components/Loader'
+import { SelectField } from '../components/form'
 import { useAuth } from '../hooks/useApi'
-import { getChronicleSummary } from '../api'
+import { getChildren, getChronicleSummary } from '../api'
+import { normalizeList } from '../utils/api'
 import ChapterCard from './yearbook/ChapterCard'
 import ManualEntryFormModal from './yearbook/ManualEntryFormModal'
 
 export default function Yearbook() {
   const { user } = useAuth()
+  const isParent = user?.role === 'parent'
   const [state, setState] = useState({ loading: true, chapters: [], error: null })
   const [showAdd, setShowAdd] = useState(false)
+  const [children, setChildren] = useState([])
+  const [selectedChildId, setSelectedChildId] = useState(null)
+
+  // The chronicle summary + the "Add memory" POST both need a target child.
+  // Children view their own yearbook; parents pick from their kid list.
+  const targetUserId = isParent ? selectedChildId : user?.id
+
+  // Parent path: fetch kid list + default-select the first.
+  useEffect(() => {
+    if (!isParent) return undefined
+    let cancelled = false
+    getChildren()
+      .then((res) => {
+        if (cancelled) return
+        const list = normalizeList(res)
+        setChildren(list)
+        if (list.length > 0) {
+          setSelectedChildId((prev) => prev ?? list[0].id)
+        } else {
+          setState({ loading: false, chapters: [], error: null })
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setState({ loading: false, chapters: [], error: err })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isParent])
 
   const fetchSummary = () => {
-    const isParentUser = user?.role === 'parent'
-    if (!isParentUser && !user?.date_of_birth) {
+    if (isParent && !targetUserId) {
       setState({ loading: false, chapters: [], error: null })
       return
     }
-    getChronicleSummary()
+    if (!isParent && !user?.date_of_birth) {
+      setState({ loading: false, chapters: [], error: null })
+      return
+    }
+    getChronicleSummary(isParent ? targetUserId : undefined)
       .then((res) => {
-        // api.get() returns raw data (res.json()), so res is already the payload
         const chapters = res?.chapters ?? []
         setState({ loading: false, chapters, error: null })
       })
@@ -30,12 +64,15 @@ export default function Yearbook() {
 
   useEffect(() => {
     let cancelled = false
-    const isParentUser = user?.role === 'parent'
-    if (!isParentUser && !user?.date_of_birth) {
+    if (isParent && !targetUserId) {
       setState({ loading: false, chapters: [], error: null })
-      return
+      return undefined
     }
-    getChronicleSummary()
+    if (!isParent && !user?.date_of_birth) {
+      setState({ loading: false, chapters: [], error: null })
+      return undefined
+    }
+    getChronicleSummary(isParent ? targetUserId : undefined)
       .then((res) => {
         if (cancelled) return
         const chapters = res?.chapters ?? []
@@ -47,11 +84,9 @@ export default function Yearbook() {
     return () => {
       cancelled = true
     }
-  }, [user?.id, user?.date_of_birth, user?.role])
+  }, [targetUserId, isParent, user?.id, user?.date_of_birth])
 
   if (state.loading) return <Loader />
-
-  const isParent = user?.role === 'parent'
 
   if (!isParent && !user?.date_of_birth) {
     return (
@@ -62,13 +97,37 @@ export default function Yearbook() {
     )
   }
 
-  const canAdd = isParent
+  if (isParent && children.length === 0) {
+    return (
+      <EmptyState>
+        <p className="font-semibold mb-1">No children yet</p>
+        <p>Create a child account on the Manage page to start a yearbook.</p>
+      </EmptyState>
+    )
+  }
 
   return (
     <div className="space-y-4">
-      {canAdd && (
-        <div className="flex justify-end">
-          <Button variant="secondary" onClick={() => setShowAdd(true)}>
+      {isParent && (
+        <div className="flex items-end justify-between gap-3">
+          <SelectField
+            id="yearbook-child-picker"
+            label="Viewing"
+            value={selectedChildId ?? ''}
+            onChange={(e) => setSelectedChildId(parseInt(e.target.value, 10))}
+            className="flex-1 max-w-xs"
+          >
+            {children.map((child) => (
+              <option key={child.id} value={child.id}>
+                {child.first_name || child.username}
+              </option>
+            ))}
+          </SelectField>
+          <Button
+            variant="secondary"
+            onClick={() => setShowAdd(true)}
+            disabled={!selectedChildId}
+          >
             Add memory
           </Button>
         </div>
@@ -76,9 +135,9 @@ export default function Yearbook() {
       {state.chapters.map((chapter) => (
         <ChapterCard key={chapter.chapter_year} chapter={chapter} />
       ))}
-      {showAdd && (
+      {showAdd && targetUserId && (
         <ManualEntryFormModal
-          userId={user?.id}
+          userId={targetUserId}
           onClose={() => setShowAdd(false)}
           onCreated={() => {
             setShowAdd(false)

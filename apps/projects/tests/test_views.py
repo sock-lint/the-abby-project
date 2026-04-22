@@ -199,3 +199,36 @@ class MeViewTests(_Fixture):
     def test_unauthenticated_rejected(self):
         resp = self.client.patch("/api/auth/me/", {"theme": "vigil"}, format="json")
         self.assertEqual(resp.status_code, 401)
+
+    def test_get_exposes_date_of_birth_for_child(self):
+        """The child's own /auth/me/ must ship date_of_birth + computed fields.
+
+        The Yearbook page gates its 'Set your date of birth' empty state on
+        ``user.date_of_birth``. Before 2026-04-22 the MeView UserSerializer
+        didn't include the field, so parents could set the DOB via Manage
+        but the child's next boot stayed stuck in the empty state forever.
+        """
+        from datetime import date
+        self.child.date_of_birth = date(2011, 9, 22)
+        self.child.grade_entry_year = 2025
+        self.child.save()
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/auth/me/")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["date_of_birth"], "2011-09-22")
+        self.assertEqual(body["grade_entry_year"], 2025)
+        # Computed properties should travel with the payload — the Yearbook
+        # page header displays them.
+        self.assertIn("age_years", body)
+        self.assertIn("current_grade", body)
+        self.assertIn("school_year_label", body)
+
+    def test_get_returns_null_dob_for_parent(self):
+        """Parents don't have DOB in this app — field is just null, not missing."""
+        self.client.force_authenticate(self.parent)
+        resp = self.client.get("/api/auth/me/")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertIn("date_of_birth", body)
+        self.assertIsNone(body["date_of_birth"])
