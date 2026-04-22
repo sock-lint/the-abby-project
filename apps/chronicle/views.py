@@ -86,11 +86,12 @@ class ChronicleViewSet(
                 elif grade < 9:
                     label = f"Grade {grade}"
                 else:
-                    # Post-HS — age during this chapter
+                    # Post-HS — max age reached during this chapter (Aug year – Jul year+1).
+                    # Aug–Dec birthdays land in calendar year `year`; Jan–Jul land in `year + 1`.
                     if target.date_of_birth:
                         age_in_chapter = year - target.date_of_birth.year
-                        if target.date_of_birth.month >= 8:
-                            age_in_chapter -= 1
+                        if target.date_of_birth.month < 8:
+                            age_in_chapter += 1
                         label = f"Age {age_in_chapter} · {year}-{str(year + 1)[-2:]}"
             chapters.append({
                 "chapter_year": year,
