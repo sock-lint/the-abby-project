@@ -141,13 +141,25 @@ badges:
     rarity: rare
     xp_bonus: 50
 
-  # Rare / Fun
-  - name: Night Owl
+  # Rare / Fun — all three fixed to use real criteria.
+  # Night Owl previously claimed "before 8 AM" but used bare first_clock_in
+  # with empty criteria_value, so the time check never ran. Split into two:
+  # Early Bird (before 8 AM) and Night Owl (after 9 PM), each on a real
+  # time-of-day criterion.
+  - name: Early Bird
     description: Clock in before 8 AM
+    icon: "🌅"
+    criteria_type: early_bird
+    criteria_value: {hour: 8}
+    rarity: uncommon
+    xp_bonus: 30
+  - name: Night Owl
+    description: Clock in after 9 PM
     icon: "🦉"
-    criteria_type: first_clock_in
-    rarity: rare
-    xp_bonus: 15
+    criteria_type: late_night
+    criteria_value: {hour: 21}
+    rarity: uncommon
+    xp_bonus: 30
   - name: Documentarian
     description: Upload 10+ photos across projects
     icon: "📸"
@@ -155,11 +167,12 @@ badges:
     criteria_value: {count: 10}
     rarity: uncommon
     xp_bonus: 20
-  - name: Speed Runner
-    description: Complete a project in under 3 days
+  # Speedrunner (renamed from Speed Runner) — real "completed in ≤ N days" check.
+  - name: Speedrunner
+    description: Complete a project within 3 days of creating it
     icon: "⚡"
-    criteria_type: projects_completed
-    criteria_value: {count: 1}
+    criteria_type: fast_project
+    criteria_value: {days: 3}
     rarity: rare
     xp_bonus: 40
   - name: Master Craftsman
@@ -318,3 +331,229 @@ badges:
     criteria_value: {count: 40}
     rarity: rare
     xp_bonus: 80
+
+  # ── Restored legacy badges (used to be seeded in Python, never moved
+  # to YAML, so the 2026-04-21 review found them as orphans). Kept because
+  # each marks a distinct milestone that has no duplicate in the YAML.
+  - name: Hour One
+    description: Log your first hour of work
+    icon: "🕐"
+    criteria_type: hours_worked
+    criteria_value: {hours: 1}
+    rarity: common
+    xp_bonus: 25
+  - name: First Dollar
+    description: Earn your first dollar from projects
+    icon: "💵"
+    criteria_type: total_earned
+    criteria_value: {amount: 1}
+    rarity: common
+    xp_bonus: 25
+  - name: Three Day Streak
+    description: Work on projects 3 days in a row
+    icon: "🔥"
+    criteria_type: streak_days
+    criteria_value: {days: 3}
+    rarity: common
+    xp_bonus: 50
+  - name: Fifty Dollar Maker
+    description: Earn $50 total from projects
+    icon: "💸"
+    criteria_type: total_earned
+    criteria_value: {amount: 50}
+    rarity: uncommon
+    xp_bonus: 100
+  - name: Hundred Dollar Club
+    description: Earn $100 total from projects
+    icon: "🏦"
+    criteria_type: total_earned
+    criteria_value: {amount: 100}
+    rarity: rare
+    xp_bonus: 200
+  - name: Jack of All Trades
+    description: Unlock skills in 3 different categories
+    icon: "🃏"
+    criteria_type: skill_categories_breadth
+    criteria_value: {count: 3}
+    rarity: rare
+    xp_bonus: 150
+  - name: Unstoppable
+    description: Work on projects 30 days in a row
+    icon: "🔥🔥🔥"
+    criteria_type: streak_days
+    criteria_value: {days: 30}
+    rarity: legendary
+    xp_bonus: 500
+  - name: Maker Legend
+    description: Complete 25 projects
+    icon: "👑"
+    criteria_type: projects_completed
+    criteria_value: {count: 25}
+    rarity: legendary
+    xp_bonus: 500
+
+  # ── Life-RPG additions (2026-04-21 review) — many-year progression for
+  # pets, chores, milestones, savings, habits, quests, and Perfect Days.
+  # Each references a CriteriaType in apps/achievements/models.py with a
+  # matching @criterion checker in apps/achievements/criteria.py.
+
+  # Pets & mounts
+  - name: Hatchling Friend
+    description: Hatch your first pet
+    icon: "🐣"
+    criteria_type: pets_hatched
+    criteria_value: {count: 1}
+    rarity: common
+    xp_bonus: 25
+  - name: Stable Keeper
+    description: Hatch 5 pets
+    icon: "🏡"
+    criteria_type: pets_hatched
+    criteria_value: {count: 5}
+    rarity: uncommon
+    xp_bonus: 50
+  - name: Beastmaster
+    description: Evolve 3 pets into mounts
+    icon: "🏇"
+    criteria_type: mounts_evolved
+    criteria_value: {count: 3}
+    rarity: rare
+    xp_bonus: 100
+  - name: Wild at Heart
+    description: Own 10 different pet species
+    icon: "🌾"
+    criteria_type: pet_species_owned
+    criteria_value: {count: 10}
+    rarity: epic
+    xp_bonus: 200
+
+  # Quests
+  - name: Quest Novice
+    description: Complete your first quest
+    icon: "📜"
+    criteria_type: quest_completed
+    criteria_value: {count: 1}
+    rarity: common
+    xp_bonus: 25
+  - name: Quest Adept
+    description: Complete 5 quests
+    icon: "📖"
+    criteria_type: quest_completed
+    criteria_value: {count: 5}
+    rarity: rare
+    xp_bonus: 75
+  - name: Quest Master
+    description: Complete 20 quests
+    icon: "📚"
+    criteria_type: quest_completed
+    criteria_value: {count: 20}
+    rarity: legendary
+    xp_bonus: 300
+
+  # Chores, milestones, bounties
+  - name: Chore Hero
+    description: Finish 25 approved chores
+    icon: "🧹"
+    criteria_type: chore_completions
+    criteria_value: {count: 25}
+    rarity: uncommon
+    xp_bonus: 40
+  - name: Chore Legend
+    description: Finish 100 approved chores
+    icon: "🧼"
+    criteria_type: chore_completions
+    criteria_value: {count: 100}
+    rarity: rare
+    xp_bonus: 150
+  - name: Milestone Marker
+    description: Clear 25 project milestones
+    icon: "🚩"
+    criteria_type: milestones_completed
+    criteria_value: {count: 25}
+    rarity: rare
+    xp_bonus: 75
+  - name: First Bounty
+    description: Win your first bounty project
+    icon: "🎯"
+    criteria_type: bounty_completed
+    criteria_value: {count: 1}
+    rarity: uncommon
+    xp_bonus: 30
+
+  # Savings + redemptions
+  - name: Saver
+    description: Complete a savings goal
+    icon: "🐖"
+    criteria_type: savings_goal_completed
+    criteria_value: {count: 1}
+    rarity: uncommon
+    xp_bonus: 50
+  - name: Big Saver
+    description: Complete 5 savings goals
+    icon: "🏦"
+    criteria_type: savings_goal_completed
+    criteria_value: {count: 5}
+    rarity: rare
+    xp_bonus: 150
+  - name: Treasurer
+    description: Redeem 10 rewards from the shop
+    icon: "🛍️"
+    criteria_type: reward_redeemed
+    criteria_value: {count: 10}
+    rarity: uncommon
+    xp_bonus: 40
+
+  # Perfect Days
+  - name: Perfect Day
+    description: Earn your first Perfect Day
+    icon: "🌟"
+    criteria_type: perfect_days_count
+    criteria_value: {count: 1}
+    rarity: common
+    xp_bonus: 25
+  - name: Perfect Week
+    description: Log 7 Perfect Days
+    icon: "✨"
+    criteria_type: perfect_days_count
+    criteria_value: {count: 7}
+    rarity: rare
+    xp_bonus: 100
+  - name: Perfect Month
+    description: Log 30 Perfect Days
+    icon: "🌠"
+    criteria_type: perfect_days_count
+    criteria_value: {count: 30}
+    rarity: legendary
+    xp_bonus: 500
+
+  # Habits & consumables
+  - name: Rooted
+    description: Keep a habit at +7 strength
+    icon: "🌳"
+    criteria_type: habit_max_strength
+    criteria_value: {strength: 7}
+    rarity: rare
+    xp_bonus: 60
+  - name: Frozen in Time
+    description: Use your first Streak Freeze
+    icon: "❄️"
+    criteria_type: streak_freeze_used
+    criteria_value: {count: 1}
+    rarity: common
+    xp_bonus: 20
+
+  # Subject mastery (wires up the SUBJECTS_COMPLETED enum that had no badge)
+  - name: Subject Scholar
+    description: Complete your first subject
+    icon: "🎓"
+    criteria_type: subjects_completed
+    criteria_value: {count: 1, min_level: 3}
+    rarity: uncommon
+    xp_bonus: 40
+  - name: Subject Polymath
+    description: Complete 5 subjects
+    icon: "🧑‍🎓"
+    criteria_type: subjects_completed
+    criteria_value: {count: 5, min_level: 3}
+    rarity: epic
+    xp_bonus: 200

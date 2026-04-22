@@ -259,6 +259,72 @@ items:
     coin_value: 1
     metadata: {food_type: treat, growth: 2}
 
+  # 2026-04-21 review — species-targeted foods so every pet has at least one
+  # preferred-food path. Before this, cat/clownling/deepkraken/drift-jelly/
+  # ripplecoil/stallion/unicorn all missed the +15 growth bonus.
+  - slug: food-plankton
+    name: Plankton Bloom
+    icon: "🦠"
+    item_type: food
+    rarity: uncommon
+    coin_value: 2
+    metadata: {food_type: plankton, growth: 8}
+    food_species: drift-jelly
+
+  - slug: food-tuna
+    name: Tuna Fillet
+    icon: "🍣"
+    item_type: food
+    rarity: uncommon
+    coin_value: 2
+    metadata: {food_type: fish, growth: 6}
+    food_species: clownling
+
+  - slug: food-kelp
+    name: Kraken Kelp
+    icon: "🌿"
+    item_type: food
+    rarity: rare
+    coin_value: 4
+    metadata: {food_type: seaweed, growth: 10}
+    food_species: deepkraken
+
+  - slug: food-crab
+    name: Tide Crab
+    icon: "🦀"
+    item_type: food
+    rarity: uncommon
+    coin_value: 2
+    metadata: {food_type: shellfish, growth: 6}
+    food_species: ripplecoil
+
+  - slug: food-oats
+    name: Oats
+    icon: "🌾"
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: grain, growth: 5}
+    food_species: stallion
+
+  - slug: food-sugar-cube
+    name: Sugar Cube
+    icon: "🍭"
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: treat, growth: 4}
+    food_species: unicorn
+
+  - slug: food-kitten-treat
+    name: Kitten Treat
+    icon: "🐟"
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: fish, growth: 4}
+    food_species: cat
+
   # ── Coin Pouches (originals + Shikashi expansions) ────────────────────
   - slug: pouch-small
     name: Small Coin Pouch
@@ -592,6 +658,58 @@ items:
     description: Protects your streak from a single missed day.
     metadata: {effect: streak_freeze, duration_days: 1}
 
+  # 2026-04-21 review expanded the consumables surface. Each effect slug below
+  # maps to a branch in ConsumableService._apply_effect.
+  - slug: scholar-draught
+    name: Scholar's Draught
+    icon: "📚"
+    sprite_key: scholar-draught
+    item_type: consumable
+    rarity: rare
+    coin_value: 40
+    description: Doubles XP from any trigger for the next 24 hours.
+    metadata: {effect: xp_boost, duration_hours: 24}
+
+  - slug: lucky-coin
+    name: Lucky Coin
+    icon: "🪙"
+    sprite_key: lucky-coin
+    item_type: consumable
+    rarity: uncommon
+    coin_value: 25
+    description: Coin drops are doubled for the next 24 hours.
+    metadata: {effect: coin_boost, duration_hours: 24}
+
+  - slug: drop-charm
+    name: Drop Charm
+    icon: "🍀"
+    sprite_key: drop-charm
+    item_type: consumable
+    rarity: rare
+    coin_value: 35
+    description: Everything drops more often for the next 24 hours.
+    metadata: {effect: drop_boost, duration_hours: 24}
+
+  - slug: growth-tonic
+    name: Growth Tonic
+    icon: "🌱"
+    sprite_key: growth-tonic
+    item_type: consumable
+    rarity: uncommon
+    coin_value: 20
+    description: Next 3 pet feeds give double growth.
+    metadata: {effect: growth_tonic, feeds: 3}
+
+  - slug: rage-breaker
+    name: Rage Breaker
+    icon: "💥"
+    sprite_key: rage-breaker
+    item_type: consumable
+    rarity: rare
+    coin_value: 50
+    description: Clears the rage shield on your active boss quest.
+    metadata: {effect: rage_breaker}
+
   # ── Scholar Track (homework-themed cosmetics) ─────────────────────────
   # Unlocked through Planner/Punctual badges — see drops.yaml for routing.
   - slug: title-bookworm
@@ -625,3 +743,172 @@ items:
     rarity: epic
     coin_value: 60
     metadata: {accent: "#6B3410"}
+
+  # ── Life-RPG cosmetics (2026-04-21 review) ─────────────────────────────
+  # Frames
+  - slug: frame-laurel
+    name: Laurel Wreath Frame
+    icon: "🥇"
+    item_type: cosmetic_frame
+    rarity: legendary
+    coin_value: 120
+    metadata: {border_color: "#B5A642"}
+
+  - slug: frame-rune-circle
+    name: Rune Circle Frame
+    icon: "🔯"
+    item_type: cosmetic_frame
+    rarity: rare
+    coin_value: 45
+    metadata: {border_color: "#4A90E2"}
+
+  - slug: frame-steampunk
+    name: Steampunk Gear Frame
+    icon: "⚙️"
+    item_type: cosmetic_frame
+    rarity: epic
+    coin_value: 70
+    metadata: {border_color: "#8B6F3A"}
+
+  - slug: frame-pixel
+    name: Pixel Pixel Frame
+    icon: "🔲"
+    item_type: cosmetic_frame
+    rarity: uncommon
+    coin_value: 20
+    metadata: {border_color: "#4CAF50"}
+
+  # Themes
+  - slug: theme-autumn-leaves
+    name: Autumn Leaves Theme
+    icon: "🍁"
+    item_type: cosmetic_theme
+    rarity: rare
+    coin_value: 40
+    metadata: {accent: "#B8552C"}
+
+  - slug: theme-aurora
+    name: Aurora Theme
+    icon: "🌌"
+    item_type: cosmetic_theme
+    rarity: epic
+    coin_value: 80
+    metadata: {accent: "#7FFFD4"}
+
+  - slug: theme-steampunk
+    name: Steampunk Workshop Theme
+    icon: "🔩"
+    item_type: cosmetic_theme
+    rarity: epic
+    coin_value: 70
+    metadata: {accent: "#8B6F3A"}
+
+  - slug: theme-underwater-ruin
+    name: Underwater Ruin Theme
+    icon: "🌊"
+    item_type: cosmetic_theme
+    rarity: rare
+    coin_value: 45
+    metadata: {accent: "#1F6F8B"}
+
+  # Titles (short, recognition-flavored)
+  - slug: title-hoarder
+    name: Hoarder
+    icon: "💰"
+    item_type: cosmetic_title
+    rarity: uncommon
+    coin_value: 15
+    metadata: {text: Hoarder}
+
+  - slug: title-trailblazer
+    name: Trailblazer
+    icon: "🧭"
+    item_type: cosmetic_title
+    rarity: rare
+    coin_value: 30
+    metadata: {text: Trailblazer}
+
+  - slug: title-perfectionist
+    name: Perfectionist
+    icon: "💎"
+    item_type: cosmetic_title
+    rarity: epic
+    coin_value: 50
+    metadata: {text: Perfectionist}
+
+  - slug: title-chore-hero
+    name: Chore Hero
+    icon: "🧹"
+    item_type: cosmetic_title
+    rarity: uncommon
+    coin_value: 15
+    metadata: {text: Chore Hero}
+
+  - slug: title-green-thumb
+    name: Green Thumb
+    icon: "🌱"
+    item_type: cosmetic_title
+    rarity: uncommon
+    coin_value: 15
+    metadata: {text: Green Thumb}
+
+  - slug: title-earlybird
+    name: Early Bird
+    icon: "🌅"
+    item_type: cosmetic_title
+    rarity: uncommon
+    coin_value: 15
+    metadata: {text: Early Bird}
+
+  # Pet accessories
+  - slug: accessory-sunglasses
+    name: Sunglasses
+    icon: "🕶️"
+    item_type: cosmetic_pet_accessory
+    rarity: uncommon
+    coin_value: 15
+
+  - slug: accessory-wizard-hat
+    name: Wizard Hat
+    icon: "🧙"
+    item_type: cosmetic_pet_accessory
+    rarity: rare
+    coin_value: 30
+
+  - slug: accessory-flower-crown
+    name: Flower Crown
+    icon: "🌸"
+    item_type: cosmetic_pet_accessory
+    rarity: uncommon
+    coin_value: 18
+
+  - slug: accessory-tiny-cape
+    name: Tiny Cape
+    icon: "🦸"
+    item_type: cosmetic_pet_accessory
+    rarity: rare
+    coin_value: 25
+
+  - slug: accessory-bandana
+    name: Bandana
+    icon: "🧣"
+    item_type: cosmetic_pet_accessory
+    rarity: common
+    coin_value: 8
+
+  - slug: accessory-armor-plate
+    name: Armor Plate
+    icon: "🛡️"
+    item_type: cosmetic_pet_accessory
+    rarity: epic
+    coin_value: 60
+
+  # ── Coin pouch — bigger tier for the many-year horizon ────────────────
+  - slug: pouch-mega
+    name: Mega Hoard
+    icon: "💎"
+    sprite_key: large-gold-coin-stack
+    item_type: coin_pouch
+    rarity: legendary
+    coin_value: 500
+    metadata: {coins: 500}

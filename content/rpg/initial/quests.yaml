@@ -188,3 +188,158 @@ quests:
     reward_items:
       - slug: frame-scholar
         quantity: 1
+
+  # ── Life-RPG additions (2026-04-21 review) ─────────────────────────────
+  # Repeatable + seasonal + Perfect Day quests. Trigger filters use only
+  # existing TriggerType values (see apps/rpg/constants.py).
+
+  - name: Weekly Reset
+    description: Log 5 habits in a single week. Auto-renews — your baseline loop.
+    icon: "🔄"
+    sprite_key: quest-weekly-reset
+    quest_type: collection
+    target_value: 5
+    duration_days: 7
+    trigger_filter:
+      allowed_triggers: [habit_log]
+    coin_reward: 20
+    xp_reward: 40
+    is_repeatable: true
+    is_system: true
+    reward_items:
+      - slug: pouch-small
+        quantity: 1
+
+  - name: Bounty Hunter
+    description: Win 3 bounty projects — the risky ones up for grabs.
+    icon: "🎯"
+    sprite_key: quest-bounty-hunter
+    quest_type: collection
+    target_value: 3
+    duration_days: 30
+    trigger_filter:
+      allowed_triggers: [project_complete]
+    coin_reward: 100
+    xp_reward: 150
+    is_system: true
+    reward_items:
+      - slug: pouch-large
+        quantity: 1
+
+  - name: Perfect Seven
+    description: String together 7 Perfect Days within two weeks.
+    icon: "✨"
+    sprite_key: quest-perfect-seven
+    quest_type: collection
+    target_value: 7
+    duration_days: 14
+    trigger_filter:
+      allowed_triggers: [perfect_day]
+    coin_reward: 120
+    xp_reward: 180
+    is_system: true
+    reward_items:
+      - slug: title-scholar
+        quantity: 1
+
+  - name: Builder's Pride
+    description: Deal 300 damage to the Sagging Backlog by clocking hours and finishing milestones.
+    icon: "🏗️"
+    sprite_key: quest-builders-pride
+    quest_type: boss
+    target_value: 300
+    duration_days: 14
+    trigger_filter:
+      allowed_triggers: [clock_out, milestone_complete, project_complete]
+    coin_reward: 80
+    xp_reward: 150
+    is_system: true
+    reward_items:
+      - slug: accessory-crown
+        quantity: 1
+
+  - name: Pantry Patroller
+    description: Do 10 household chores in a week — keep the house humming.
+    icon: "🏠"
+    sprite_key: quest-pantry-patroller
+    quest_type: collection
+    target_value: 10
+    duration_days: 7
+    trigger_filter:
+      allowed_triggers: [chore_complete]
+    coin_reward: 35
+    xp_reward: 70
+    is_repeatable: true
+    is_system: true
+    reward_items:
+      - slug: pouch-medium
+        quantity: 1
+
+  # Seasonal quests — flavor-matched to times of year. Use `duration_days` to
+  # time-box; parents can skip or assign manually via the Quests MCP tools.
+
+  - name: Summer Solstice
+    description: Celebrate the longest day — log 10 outdoor or hands-on activities in the sun.
+    icon: "☀️"
+    sprite_key: quest-summer-solstice
+    quest_type: collection
+    target_value: 10
+    duration_days: 21
+    trigger_filter:
+      allowed_triggers: [clock_out, chore_complete, milestone_complete]
+    coin_reward: 75
+    xp_reward: 100
+    is_system: true
+    reward_items:
+      - slug: theme-sunset
+        quantity: 1
+
+  - name: Harvest Feast
+    description: Gather the autumn bounty — finish 5 cooking or outdoors projects.
+    icon: "🍂"
+    sprite_key: quest-harvest-feast
+    quest_type: collection
+    target_value: 5
+    duration_days: 30
+    trigger_filter:
+      allowed_triggers: [project_complete, milestone_complete]
+    coin_reward: 100
+    xp_reward: 150
+    is_system: true
+    reward_items:
+      - slug: theme-forest
+        quantity: 1
+
+  - name: Cold Snap
+    description: Winter break grind — 400 damage across homework + habits before school starts.
+    icon: "❄️"
+    sprite_key: quest-cold-snap
+    quest_type: boss
+    target_value: 400
+    duration_days: 21
+    trigger_filter:
+      allowed_triggers: [homework_complete, homework_created, habit_log]
+    coin_reward: 150
+    xp_reward: 250
+    is_system: true
+    reward_items:
+      - slug: streak-freeze
+        quantity: 2
+      - slug: frame-scholar
+        quantity: 1
+
+  - name: Night Owl's Path
+    description: Clock in after 9 PM on 5 different days — for when inspiration strikes after dark.
+    icon: "🌙"
+    sprite_key: quest-night-owl-path
+    quest_type: collection
+    target_value: 5
+    duration_days: 21
+    trigger_filter:
+      allowed_triggers: [clock_out]
+    coin_reward: 60
+    xp_reward: 100
+    is_system: true
+    reward_items:
+      - slug: theme-wanderer-cloak
+        quantity: 1

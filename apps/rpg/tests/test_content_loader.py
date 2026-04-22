@@ -50,21 +50,21 @@ class ContentPackInitialSeedTest(TestCase):
         call_command("loadrpgcontent")
 
         counts = _counts()
-        # Parity floor — these are the minimum counts after seed_data.py's
-        # old Python lists have been moved into content/rpg/initial/*.yaml.
-        self.assertEqual(counts["pet_species"], 8)
+        # Lower bounds on the initial pack — tightened once after the
+        # 2026-04-21 life-RPG expansion. Exact counts drift as content
+        # gets added, so use assertGreaterEqual rather than pinning.
+        self.assertGreaterEqual(counts["pet_species"], 15)
         self.assertEqual(counts["potion_types"], 6)
-        self.assertEqual(counts["quests"], 4)
-        self.assertGreaterEqual(counts["badges"], 27)
-        self.assertGreaterEqual(counts["skills"], 40)
-        # Items: 8 eggs + 6 potions + 6 food + 3 pouches + 4 frames
-        # + 4 titles + 3 themes + 3 accessories = 37
-        self.assertEqual(counts["items"], 37)
+        self.assertGreaterEqual(counts["quests"], 20)
+        self.assertGreaterEqual(counts["badges"], 70)
+        self.assertGreaterEqual(counts["skills"], 70)
+        self.assertGreaterEqual(counts["items"], 100)
 
     def test_eggs_have_pet_species_fk_and_slugs(self):
         call_command("loadrpgcontent")
         eggs = ItemDefinition.objects.filter(item_type=ItemDefinition.ItemType.EGG)
-        self.assertEqual(eggs.count(), 8)
+        # One egg per pet species in pet_species.yaml — the loader fans out.
+        self.assertEqual(eggs.count(), PetSpecies.objects.count())
         for egg in eggs:
             self.assertTrue(egg.slug, f"{egg.name} has no slug")
             self.assertIsNotNone(
@@ -80,11 +80,23 @@ class ContentPackInitialSeedTest(TestCase):
             self.assertIsNotNone(p.potion_type_id)
 
     def test_food_items_have_food_species_fk(self):
+        """Species-preferred foods (those with `food_species` in YAML) must
+        resolve to a real FK. Generic foods (fruits, grain, etc.) without
+        `food_species` in YAML can coexist — the +5 neutral bonus still
+        applies via PetService.feed_pet."""
         call_command("loadrpgcontent")
         food = ItemDefinition.objects.filter(item_type=ItemDefinition.ItemType.FOOD)
-        self.assertEqual(food.count(), 6)
-        for f in food:
-            self.assertIsNotNone(f.food_species_id)
+        self.assertGreaterEqual(food.count(), 6)
+        preferred = food.filter(food_species__isnull=False)
+        # Every pet species should have at least one preferred food after
+        # the 2026-04-21 review filled in the mapping gaps.
+        preferred_species_ids = set(preferred.values_list("food_species_id", flat=True))
+        all_species_ids = set(PetSpecies.objects.values_list("id", flat=True))
+        missing = all_species_ids - preferred_species_ids
+        self.assertFalse(
+            missing,
+            f"Species without a preferred food: {missing}",
+        )
 
     def test_pet_species_have_all_potions_by_default(self):
         call_command("loadrpgcontent")

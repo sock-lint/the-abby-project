@@ -273,8 +273,164 @@ def _quest_completed(user, c):
             return False
         names = [name]
 
-    return Quest.objects.filter(
+    count = c.get("count")
+    qs = Quest.objects.filter(
         participants__user=user,
         status=Quest.Status.COMPLETED,
-        definition__name__in=list(names),
+    )
+    if names:
+        qs = qs.filter(definition__name__in=list(names))
+    if count is not None:
+        return qs.count() >= int(count)
+    return qs.exists()
+
+
+# ---------------------------------------------------------------------------
+# Pets / mounts collection criteria
+# ---------------------------------------------------------------------------
+
+@criterion(Badge.CriteriaType.PETS_HATCHED)
+def _pets_hatched(user, c):
+    from apps.pets.models import UserPet
+    return UserPet.objects.filter(user=user).count() >= int(c.get("count", 1))
+
+
+@criterion(Badge.CriteriaType.PET_SPECIES_OWNED)
+def _pet_species_owned(user, c):
+    from apps.pets.models import UserPet
+    return UserPet.objects.filter(user=user).values(
+        "species",
+    ).distinct().count() >= int(c.get("count", 1))
+
+
+@criterion(Badge.CriteriaType.MOUNTS_EVOLVED)
+def _mounts_evolved(user, c):
+    from apps.pets.models import UserMount
+    return UserMount.objects.filter(user=user).count() >= int(c.get("count", 1))
+
+
+# ---------------------------------------------------------------------------
+# Chore / milestone / savings-goal / bounty / reward criteria
+# ---------------------------------------------------------------------------
+
+@criterion(Badge.CriteriaType.CHORE_COMPLETIONS)
+def _chore_completions(user, c):
+    from apps.chores.models import ChoreCompletion
+    return ChoreCompletion.objects.filter(
+        user=user,
+        status=ChoreCompletion.Status.APPROVED,
+    ).count() >= int(c.get("count", 10))
+
+
+@criterion(Badge.CriteriaType.MILESTONES_COMPLETED)
+def _milestones_completed(user, c):
+    from apps.projects.models import Project, ProjectMilestone
+    return ProjectMilestone.objects.filter(
+        project__in=Project.objects.filter(assigned_to=user),
+        completed_at__isnull=False,
+    ).count() >= int(c.get("count", 5))
+
+
+@criterion(Badge.CriteriaType.SAVINGS_GOAL_COMPLETED)
+def _savings_goal_completed(user, c):
+    from apps.projects.models import SavingsGoal
+    return SavingsGoal.objects.filter(
+        user=user,
+        current_amount__gte=models.F("target_amount"),
+    ).count() >= int(c.get("count", 1))
+
+
+@criterion(Badge.CriteriaType.BOUNTY_COMPLETED)
+def _bounty_completed(user, c):
+    from apps.projects.models import Project
+    return Project.objects.filter(
+        assigned_to=user,
+        payment_kind=Project.PaymentKind.BOUNTY,
+        status=Project.Status.COMPLETED,
+    ).count() >= int(c.get("count", 1))
+
+
+@criterion(Badge.CriteriaType.REWARD_REDEEMED)
+def _reward_redeemed(user, c):
+    from apps.rewards.models import RewardRedemption
+    return RewardRedemption.objects.filter(
+        user=user,
+        status=RewardRedemption.Status.FULFILLED,
+    ).count() >= int(c.get("count", 1))
+
+
+# ---------------------------------------------------------------------------
+# RPG / CharacterProfile criteria
+# ---------------------------------------------------------------------------
+
+@criterion(Badge.CriteriaType.PERFECT_DAYS_COUNT)
+def _perfect_days_count(user, c):
+    from apps.rpg.models import CharacterProfile
+    # Query via ORM rather than `user.character_profile` to avoid the
+    # reverse OneToOne cache going stale after a direct profile.save().
+    row = CharacterProfile.objects.filter(user=user).values(
+        "perfect_days_count",
+    ).first()
+    if not row:
+        return False
+    return row["perfect_days_count"] >= int(c.get("count", 1))
+
+
+@criterion(Badge.CriteriaType.STREAK_FREEZE_USED)
+def _streak_freeze_used(user, c):
+    from apps.rpg.models import CharacterProfile
+    row = CharacterProfile.objects.filter(user=user).values(
+        "streak_freezes_used",
+    ).first()
+    if not row:
+        return False
+    return row["streak_freezes_used"] >= int(c.get("count", 1))
+
+
+@criterion(Badge.CriteriaType.HABIT_MAX_STRENGTH)
+def _habit_max_strength(user, c):
+    """Any habit at ≥ threshold strength means the child has kept it up."""
+    from apps.habits.models import Habit
+    threshold = int(c.get("strength", 7))
+    return Habit.objects.filter(
+        user=user, is_active=True, strength__gte=threshold,
     ).exists()
+
+
+# ---------------------------------------------------------------------------
+# Time-of-day + project-speed criteria (fixes for broken legacy badges)
+# ---------------------------------------------------------------------------
+
+@criterion(Badge.CriteriaType.EARLY_BIRD)
+def _early_bird(user, c):
+    """Child has clocked in before the cutoff hour at least once."""
+    from apps.timecards.models import TimeEntry
+    cutoff = int(c.get("hour", 8))
+    return TimeEntry.objects.filter(
+        user=user, clock_in__hour__lt=cutoff,
+    ).exists()
+
+
+@criterion(Badge.CriteriaType.LATE_NIGHT)
+def _late_night(user, c):
+    """Child has clocked in after the cutoff hour — complements Early Bird."""
+    from apps.timecards.models import TimeEntry
+    cutoff = int(c.get("hour", 21))
+    return TimeEntry.objects.filter(
+        user=user, clock_in__hour__gte=cutoff,
+    ).exists()
+
+
+@criterion(Badge.CriteriaType.FAST_PROJECT)
+def _fast_project(user, c):
+    """Completed a project within N days of creation. Replaces broken Speed Runner."""
+    from datetime import timedelta
+    from apps.projects.models import Project
+    days = int(c.get("days", 3))
+    for proj in Project.objects.filter(
+        assigned_to=user, status=Project.Status.COMPLETED,
+        completed_at__isnull=False,
+    ).only("created_at", "completed_at"):
+        if (proj.completed_at - proj.created_at) <= timedelta(days=days):
+            return True
+    return False

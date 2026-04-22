@@ -28,6 +28,26 @@ class CharacterProfile(TimestampedModel):
             "login streak. Consumed on use by the streak-freeze consumable."
         ),
     )
+    streak_freezes_used = models.PositiveIntegerField(
+        default=0,
+        help_text="Lifetime count of streak-freeze consumables used.",
+    )
+    xp_boost_expires_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="While in the future, Scholar's Draught multiplies XP gains.",
+    )
+    coin_boost_expires_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="While in the future, Lucky Coin multiplies coin drops.",
+    )
+    drop_boost_expires_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="While in the future, Drop Charm increases drop rates.",
+    )
+    pet_growth_boost_remaining = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Number of pet feeds that still get Growth Tonic's 2x multiplier.",
+    )
     active_frame = models.ForeignKey(
         "rpg.ItemDefinition", on_delete=models.SET_NULL,
         null=True, blank=True, related_name="equipped_as_frame",

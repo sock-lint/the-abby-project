@@ -431,14 +431,55 @@ class ConsumableService:
 
     @staticmethod
     def _apply_effect(profile, effect, item):
+        meta = item.metadata or {}
         if effect == "streak_freeze":
-            duration = int((item.metadata or {}).get("duration_days", 1))
+            duration = int(meta.get("duration_days", 1))
             today = timezone.localdate()
             profile.streak_freeze_expires_at = today + timedelta(days=duration)
-            profile.save(update_fields=["streak_freeze_expires_at", "updated_at"])
+            profile.streak_freezes_used += 1
+            profile.save(update_fields=[
+                "streak_freeze_expires_at", "streak_freezes_used", "updated_at",
+            ])
             return {
                 "streak_freeze_expires_at": profile.streak_freeze_expires_at.isoformat(),
             }
+        if effect == "xp_boost":
+            hours = int(meta.get("duration_hours", 24))
+            expires = timezone.now() + timedelta(hours=hours)
+            profile.xp_boost_expires_at = expires
+            profile.save(update_fields=["xp_boost_expires_at", "updated_at"])
+            return {"xp_boost_expires_at": expires.isoformat()}
+        if effect == "coin_boost":
+            hours = int(meta.get("duration_hours", 24))
+            expires = timezone.now() + timedelta(hours=hours)
+            profile.coin_boost_expires_at = expires
+            profile.save(update_fields=["coin_boost_expires_at", "updated_at"])
+            return {"coin_boost_expires_at": expires.isoformat()}
+        if effect == "drop_boost":
+            hours = int(meta.get("duration_hours", 24))
+            expires = timezone.now() + timedelta(hours=hours)
+            profile.drop_boost_expires_at = expires
+            profile.save(update_fields=["drop_boost_expires_at", "updated_at"])
+            return {"drop_boost_expires_at": expires.isoformat()}
+        if effect == "growth_tonic":
+            feeds = int(meta.get("feeds", 3))
+            profile.pet_growth_boost_remaining += feeds
+            profile.save(update_fields=["pet_growth_boost_remaining", "updated_at"])
+            return {"pet_growth_boost_remaining": profile.pet_growth_boost_remaining}
+        if effect == "rage_breaker":
+            from apps.quests.models import Quest
+            active = Quest.objects.filter(
+                participants__user=profile.user,
+                status=Quest.Status.ACTIVE,
+                definition__quest_type="boss",
+                rage_shield__gt=0,
+            ).first()
+            if not active:
+                raise ValueError("No active boss quest with a rage shield to break")
+            old_shield = active.rage_shield
+            active.rage_shield = 0
+            active.save(update_fields=["rage_shield", "updated_at"])
+            return {"quest_name": active.definition.name, "rage_cleared": old_shield}
         raise ValueError(f"Unknown consumable effect: {effect!r}")
 
 

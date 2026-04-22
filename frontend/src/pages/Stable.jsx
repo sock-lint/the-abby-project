@@ -315,7 +315,8 @@ export default function Stable() {
                 >
                   <div className="flex items-center justify-center h-16 mb-1">
                     <RpgSprite
-                      spriteKey={mount.species.sprite_key}
+                      spriteKey={`${mount.species.sprite_key}-mount`}
+                      fallbackSpriteKey={mount.species.sprite_key}
                       icon={mount.species.icon}
                       size={64}
                       alt={mount.species.name}

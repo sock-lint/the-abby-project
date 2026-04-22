@@ -52,6 +52,22 @@ categories:
     icon: "🔬"
     color: "#4169E1"
     description: Science experiments and research
+  - name: Making & Fabrication
+    icon: "🔨"
+    color: "#FF6B35"
+    description: 3D printing, enclosure building, shop tools, hardware hacks
+  - name: Life Skills
+    icon: "🌟"
+    color: "#9B59B6"
+    description: Money, planning, communication — the grown-up stack
+  - name: Music
+    icon: "🎵"
+    color: "#DA70D6"
+    description: Instruments, rhythm, composition, and a good ear
+  - name: Physical
+    icon: "💪"
+    color: "#E0475B"
+    description: Movement, sports, and taking care of your body
 
 skills:
   # Woodworking
@@ -360,3 +376,154 @@ skills:
     prereqs:
       - {skill: Measurement, level: 2}
       - {skill: Experimentation, level: 2}
+
+  # Making & Fabrication
+  - name: Soldering Safety
+    category: Making & Fabrication
+    icon: "🥽"
+    order: 0
+    levels: {"1": Goggles On, "2": Vent Aware, "3": Workspace Ready, "4": Safety Lead, "5": Shop Steward}
+  - name: Tool Mastery
+    category: Making & Fabrication
+    icon: "🛠️"
+    order: 1
+    levels: {"1": Tool Finder, "2": Right Tool Picker, "3": Handy, "4": Multi-Tool Master, "5": Tool Whisperer}
+  - name: Enclosure Design
+    category: Making & Fabrication
+    icon: "📦"
+    locked: true
+    order: 2
+    levels: {"1": Cardboard Prototyper, "2": Box Builder, "3": Snap-Fit Designer, "4": Enclosure Pro, "5": Industrial Designer}
+    prereqs:
+      - {skill: Tool Mastery, level: 2}
+  - name: 3D Printing
+    category: Making & Fabrication
+    icon: "🖨️"
+    locked: true
+    order: 3
+    levels: {"1": Slicer Newbie, "2": First Print, "3": Tuner, "4": Multi-Material, "5": Print Farm Boss}
+    prereqs:
+      - {skill: Tool Mastery, level: 2}
+  - name: CAD & Modeling
+    category: Making & Fabrication
+    icon: "📐"
+    locked: true
+    order: 4
+    levels: {"1": Sketcher, "2": Extruder, "3": Parametric, "4": Assembly Builder, "5": CAD Wizard}
+    prereqs:
+      - {skill: Tool Mastery, level: 2}
+
+  # Life Skills
+  - name: Budgeting
+    category: Life Skills
+    icon: "💰"
+    order: 0
+    levels: {"1": Penny Counter, "2": Tracker, "3": Planner, "4": Saver, "5": Financial Mind}
+  - name: Project Planning
+    category: Life Skills
+    icon: "📋"
+    order: 1
+    levels: {"1": To-Do Lister, "2": Milestone Setter, "3": Scheduler, "4": Project Manager, "5": Program Director}
+  - name: Presentation
+    category: Life Skills
+    icon: "🎤"
+    order: 2
+    levels: {"1": Shy Speaker, "2": Slide Maker, "3": Demo Driver, "4": Confident Speaker, "5": Keynote Voice}
+  - name: Persistence
+    category: Life Skills
+    icon: "💪"
+    order: 3
+    levels: {"1": Tries Once, "2": Dusts Off, "3": Iterator, "4": Grinder, "5": Unshakeable}
+  - name: Communication
+    category: Life Skills
+    icon: "💬"
+    order: 4
+    levels: {"1": One-Worder, "2": Listener, "3": Clear Explainer, "4": Negotiator, "5": Diplomat}
+  - name: Time Management
+    category: Life Skills
+    icon: "⏳"
+    order: 5
+    levels: {"1": Always Late, "2": On Time, "3": Buffered, "4": Calendar Master, "5": Time Lord}
+  - name: Technical Writing
+    category: Life Skills
+    icon: "📝"
+    order: 6
+    levels: {"1": Note Taker, "2": Drafter, "3": Editor, "4": Doc Owner, "5": Wiki Whisperer}
+  - name: Driving
+    category: Life Skills
+    icon: "🚗"
+    locked: true
+    order: 7
+    levels: {"1": Permit Holder, "2": Parking Lot, "3": Local Roads, "4": Highway Rider, "5": Road Warrior}
+    prereqs:
+      - {skill: Persistence, level: 2}
+      - {skill: Time Management, level: 2}
+
+  # Music
+  - name: Rhythm
+    category: Music
+    icon: "🥁"
+    order: 0
+    levels: {"1": Off Beat, "2": Clap Along, "3": In Time, "4": Polyrhythmer, "5": Metronome Soul}
+  - name: Ear Training
+    category: Music
+    icon: "👂"
+    order: 1
+    levels: {"1": Sound Spotter, "2": Pitch Hearer, "3": Interval Namer, "4": Chord Hearer, "5": Perfect Ear}
+  - name: Instrument Practice
+    category: Music
+    icon: "🎸"
+    order: 2
+    levels: {"1": First Notes, "2": Open Chords, "3": Song Player, "4": Technician, "5": Performer}
+  - name: Composition
+    category: Music
+    icon: "🎼"
+    locked: true
+    order: 3
+    levels: {"1": Doodler, "2": Melody Maker, "3": Chord Builder, "4": Arranger, "5": Songwriter}
+    prereqs:
+      - {skill: Ear Training, level: 2}
+      - {skill: Instrument Practice, level: 2}
+  - name: Audio Production
+    category: Music
+    icon: "🎧"
+    locked: true
+    order: 4
+    levels: {"1": DAW Opener, "2": Track Layerer, "3": Mixer, "4": Mastering Mind, "5": Engineer}
+    prereqs:
+      - {skill: Instrument Practice, level: 2}
+
+  # Physical
+  - name: Endurance
+    category: Physical
+    icon: "🏃"
+    order: 0
+    levels: {"1": Panter, "2": Jogger, "3": Runner, "4": Distance Pro, "5": Marathoner}
+  - name: Strength
+    category: Physical
+    icon: "🏋️"
+    order: 1
+    levels: {"1": Getting Started, "2": Form Follower, "3": Progressive, "4": Strong, "5": Iron Mind}
+  - name: Flexibility
+    category: Physical
+    icon: "🤸"
+    order: 2
+    levels: {"1": Stiff, "2": Loosening, "3": Bendy, "4": Limber, "5": Yoga Sage}
+  - name: Cycling
+    category: Physical
+    icon: "🚴"
+    order: 3
+    levels: {"1": Training Wheels, "2": Around the Block, "3": Road Cyclist, "4": Trail Rider, "5": Century Rider}
+  - name: Swimming
+    category: Physical
+    icon: "🏊"
+    order: 4
+    levels: {"1": Floaty, "2": Front Crawl, "3": Multi-Stroke, "4": Distance Swimmer, "5": Water Native}
+  - name: Team Sports
+    category: Physical
+    icon: "⚽"
+    locked: true
+    order: 5
+    levels: {"1": On the Bench, "2": Rotation Player, "3": Starter, "4": Captain, "5": MVP}
+    prereqs:
+      - {skill: Endurance, level: 2}

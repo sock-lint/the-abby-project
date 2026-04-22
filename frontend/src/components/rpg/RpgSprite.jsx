@@ -16,16 +16,23 @@ const SIZE_TO_TEXT_CLASS = {
  *  - static (frames=1): plain <img>
  *  - animated (frames>1): <span> with CSS background-position animation
  *  - unknown slug or catalog still loading: emoji fallback
+ *
+ * ``fallbackSpriteKey`` is tried when ``spriteKey`` isn't in the catalog.
+ * Use case: mount sprites named ``{species}-mount`` fall back to the
+ * base species sprite for species we haven't drawn evolved forms of yet.
  */
 export default function RpgSprite({
   spriteKey,
+  fallbackSpriteKey,
   icon,
   size = 32,
   className = '',
   alt = '',
 }) {
   const { getSpriteMeta } = useSpriteCatalog();
-  const meta = getSpriteMeta(spriteKey);
+  const meta = getSpriteMeta(spriteKey) || (
+    fallbackSpriteKey ? getSpriteMeta(fallbackSpriteKey) : null
+  );
 
   if (meta && meta.frames === 1) {
     return (

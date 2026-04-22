@@ -62,4 +62,43 @@ describe('RpgSprite', () => {
     renderWithCatalog(<RpgSprite spriteKey="missing" icon="✨" size={32} />, {});
     expect(screen.getByText('✨')).toBeInTheDocument();
   });
+
+  it('falls through to fallbackSpriteKey when primary slug is missing', () => {
+    // Mount-tier sprites are named `{species}-mount`; for species without
+    // drawn evolved forms the frontend passes the base sprite key as
+    // fallbackSpriteKey so UserMount rows still render a pixel-art tile.
+    renderWithCatalog(
+      <RpgSprite
+        spriteKey="fox-mount"
+        fallbackSpriteKey="fox"
+        icon="🦊"
+        size={32}
+        alt="fox mount"
+      />,
+      { fox: { url: 'https://s/fox.png', frames: 1, fps: 0, w: 32, h: 32, layout: 'horizontal' } }
+    );
+    const img = screen.getByAltText('fox mount');
+    expect(img.tagName).toBe('IMG');
+    expect(img.src).toBe('https://s/fox.png');
+  });
+
+  it('prefers primary spriteKey over fallback when both exist', () => {
+    renderWithCatalog(
+      <RpgSprite
+        spriteKey="wolf-mount"
+        fallbackSpriteKey="wolf"
+        icon="🐺"
+        size={32}
+        alt="wolf mount"
+      />,
+      {
+        wolf: { url: 'https://s/wolf.png', frames: 1, fps: 0, w: 32, h: 32, layout: 'horizontal' },
+        'wolf-mount': { url: 'https://s/wolf-mount.png', frames: 4, fps: 4, w: 32, h: 32, layout: 'horizontal' },
+      }
+    );
+    const el = screen.getByLabelText('wolf mount');
+    const style = el.getAttribute('style') || '';
+    expect(style).toContain('wolf-mount.png');
+    expect(style).not.toContain('wolf.png"');
+  });
 });

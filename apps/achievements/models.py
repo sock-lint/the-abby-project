@@ -174,6 +174,22 @@ class Badge(models.Model):
         QUEST_COMPLETED = "quest_completed", "Quest Completed"
         HOMEWORK_PLANNED_AHEAD = "homework_planned_ahead", "Homework Planned Ahead"
         HOMEWORK_ON_TIME_COUNT = "homework_on_time_count", "Homework On Time Count"
+        # Pet / mount collection
+        PETS_HATCHED = "pets_hatched", "Pets Hatched"
+        PET_SPECIES_OWNED = "pet_species_owned", "Pet Species Owned"
+        MOUNTS_EVOLVED = "mounts_evolved", "Mounts Evolved"
+        # Progression beats that had no badge coverage
+        CHORE_COMPLETIONS = "chore_completions", "Chore Completions Approved"
+        MILESTONES_COMPLETED = "milestones_completed", "Milestones Completed"
+        PERFECT_DAYS_COUNT = "perfect_days_count", "Perfect Days (lifetime)"
+        SAVINGS_GOAL_COMPLETED = "savings_goal_completed", "Savings Goal Completed"
+        BOUNTY_COMPLETED = "bounty_completed", "Bounty Project Completed"
+        REWARD_REDEEMED = "reward_redeemed", "Rewards Redeemed"
+        HABIT_MAX_STRENGTH = "habit_max_strength", "Habit Max Strength"
+        STREAK_FREEZE_USED = "streak_freeze_used", "Streak Freeze Used"
+        EARLY_BIRD = "early_bird", "Clock In Before 8 AM"
+        LATE_NIGHT = "late_night", "Clock In After 9 PM"
+        FAST_PROJECT = "fast_project", "Project Completed Quickly"
 
     class Rarity(models.TextChoices):
         COMMON = "common", "Common"
