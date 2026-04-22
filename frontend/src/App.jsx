@@ -1,8 +1,10 @@
 import * as Sentry from '@sentry/react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useAuth } from './hooks/useApi';
 import { applyTheme } from './themes';
+import { getPendingCelebration } from './api';
+import BirthdayCelebrationModal from './components/BirthdayCelebrationModal';
 import { SpriteCatalogProvider } from './providers/SpriteCatalogProvider';
 import JournalShell from './components/layout/JournalShell';
 import Login from './pages/Login';
@@ -49,11 +51,30 @@ function LegacyRedirect({ to }) {
 
 export default function App() {
   const { user, loading, login } = useAuth();
+  const [celebration, setCelebration] = useState(null);
 
   useEffect(() => {
     if (user?.theme) applyTheme(user.theme);
     else applyTheme('hyrule');
   }, [user?.theme]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    getPendingCelebration()
+      .then((res) => {
+        if (cancelled) return;
+        if (res && typeof res === 'object' && res.id) {
+          setCelebration(res);
+        }
+      })
+      .catch(() => {
+        // 204 / unauthenticated / network — treat as nothing pending.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   // Dev-only design showcase route bypasses auth so primitives can be QA'd
   // without a running backend. Matches the path before any other routing.
@@ -79,6 +100,12 @@ export default function App() {
 
   return (
     <Sentry.ErrorBoundary fallback={ErrorFallback} showDialog={false}>
+      {celebration && (
+        <BirthdayCelebrationModal
+          entry={celebration}
+          onDismiss={() => setCelebration(null)}
+        />
+      )}
       <SpriteCatalogProvider>
         <BrowserRouter>
           <Routes>

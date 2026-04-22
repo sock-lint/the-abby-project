@@ -57,3 +57,38 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText(/today's entry/i)).toBeInTheDocument());
   });
 });
+
+describe('App — birthday celebration boot', () => {
+  it('mounts BirthdayCelebrationModal when pending-celebration returns an entry', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () =>
+        HttpResponse.json(buildUser({ date_of_birth: '2011-04-21' })),
+      ),
+      http.get('*/api/chronicle/pending-celebration/', () =>
+        HttpResponse.json({
+          id: 9, kind: 'birthday', title: 'Turned 15',
+          occurred_on: '2026-04-21', chapter_year: 2025,
+          metadata: { gift_coins: 1500 },
+        }),
+      ),
+    );
+    renderApp();
+    await waitFor(() => {
+      expect(screen.getByRole('alertdialog', { name: /birthday/i })).toBeInTheDocument();
+    });
+  });
+
+  it('does not mount modal when endpoint returns 204', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () =>
+        HttpResponse.json(buildUser({ date_of_birth: '2011-04-21' })),
+      ),
+      http.get('*/api/chronicle/pending-celebration/', () =>
+        new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    renderApp();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(screen.queryByRole('alertdialog', { name: /birthday/i })).toBeNull();
+  });
+});
