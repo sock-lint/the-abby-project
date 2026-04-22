@@ -56,3 +56,53 @@ class ChronicleService:
                 )
         except IntegrityError:
             return None
+
+    @staticmethod
+    def record_birthday(user, *, on_date: Optional[date] = None) -> ChronicleEntry:
+        """Idempotent. Keyed on (user, kind=BIRTHDAY, occurred_on)."""
+        day = on_date or date.today()
+        age = None
+        if user.date_of_birth:
+            age = day.year - user.date_of_birth.year
+            if (day.month, day.day) < (user.date_of_birth.month, user.date_of_birth.day):
+                age -= 1
+        title = f"Turned {age}" if age is not None else "Birthday"
+        entry, _ = ChronicleEntry.objects.get_or_create(
+            user=user,
+            kind=ChronicleEntry.Kind.BIRTHDAY,
+            occurred_on=day,
+            defaults={
+                "chapter_year": _chapter_year_for(day),
+                "title": title,
+                "icon_slug": "birthday-candle",
+            },
+        )
+        return entry
+
+    @staticmethod
+    def record_chapter_start(user, chapter_year: int) -> ChronicleEntry:
+        day = date(chapter_year, 8, 1)
+        entry, _ = ChronicleEntry.objects.get_or_create(
+            user=user,
+            kind=ChronicleEntry.Kind.CHAPTER_START,
+            chapter_year=chapter_year,
+            defaults={
+                "occurred_on": day,
+                "title": "New chapter begins",
+            },
+        )
+        return entry
+
+    @staticmethod
+    def record_chapter_end(user, chapter_year: int) -> ChronicleEntry:
+        day = date(chapter_year + 1, 6, 1)
+        entry, _ = ChronicleEntry.objects.get_or_create(
+            user=user,
+            kind=ChronicleEntry.Kind.CHAPTER_END,
+            chapter_year=chapter_year,
+            defaults={
+                "occurred_on": day,
+                "title": "Chapter closes",
+            },
+        )
+        return entry
