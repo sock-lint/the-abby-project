@@ -149,3 +149,68 @@ class MarkViewedTests(APITestCase):
         self.client.force_authenticate(stranger)
         resp = self.client.post(f"/api/chronicle/{self.entry.id}/mark-viewed/")
         self.assertIn(resp.status_code, (403, 404))
+
+
+class ManualEntryTests(APITestCase):
+    def setUp(self):
+        self.parent = User.objects.create(username="mom", role=User.Role.PARENT)
+        self.child = User.objects.create(username="kid", role=User.Role.CHILD)
+
+    def test_parent_creates_manual_entry(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post("/api/chronicle/manual/", {
+            "user_id": self.child.id,
+            "title": "Rode a bike for the first time",
+            "summary": "Big Wednesday.",
+            "occurred_on": "2026-04-21",
+        }, format="json")
+        self.assertEqual(resp.status_code, 201)
+        self.assertTrue(ChronicleEntry.objects.filter(user=self.child, kind="manual").exists())
+
+    def test_child_cannot_create_manual_entry(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.post("/api/chronicle/manual/", {
+            "user_id": self.child.id,
+            "title": "Unauthorized",
+            "occurred_on": "2026-04-21",
+        }, format="json")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_parent_edits_manual_entry(self):
+        entry = ChronicleEntry.objects.create(
+            user=self.child, kind="manual", occurred_on=date(2026, 4, 21),
+            chapter_year=2025, title="Old title",
+        )
+        self.client.force_authenticate(self.parent)
+        resp = self.client.patch(f"/api/chronicle/{entry.id}/", {"title": "New title"}, format="json")
+        self.assertEqual(resp.status_code, 200)
+        entry.refresh_from_db()
+        self.assertEqual(entry.title, "New title")
+
+    def test_parent_cannot_edit_auto_entry(self):
+        entry = ChronicleEntry.objects.create(
+            user=self.child, kind="birthday", occurred_on=date(2026, 4, 21),
+            chapter_year=2025, title="Turned 15",
+        )
+        self.client.force_authenticate(self.parent)
+        resp = self.client.patch(f"/api/chronicle/{entry.id}/", {"title": "No"}, format="json")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_parent_deletes_manual_entry(self):
+        entry = ChronicleEntry.objects.create(
+            user=self.child, kind="manual", occurred_on=date(2026, 4, 21),
+            chapter_year=2025, title="Delete me",
+        )
+        self.client.force_authenticate(self.parent)
+        resp = self.client.delete(f"/api/chronicle/{entry.id}/")
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(ChronicleEntry.objects.filter(pk=entry.id).exists())
+
+    def test_parent_cannot_delete_auto_entry(self):
+        entry = ChronicleEntry.objects.create(
+            user=self.child, kind="recap", occurred_on=date(2026, 6, 1),
+            chapter_year=2025, title="Freshman recap",
+        )
+        self.client.force_authenticate(self.parent)
+        resp = self.client.delete(f"/api/chronicle/{entry.id}/")
+        self.assertEqual(resp.status_code, 403)

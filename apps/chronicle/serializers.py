@@ -20,3 +20,9 @@ class ManualEntryCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChronicleEntry
         fields = ("user_id", "title", "summary", "icon_slug", "occurred_on", "metadata")
+
+
+class ManualEntryUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChronicleEntry
+        fields = ("title", "summary", "icon_slug", "occurred_on", "metadata")

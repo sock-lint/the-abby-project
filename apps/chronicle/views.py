@@ -8,19 +8,35 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.chronicle.models import ChronicleEntry
-from apps.chronicle.serializers import ChronicleEntrySerializer, ManualEntryCreateSerializer
+from apps.chronicle.serializers import (
+    ChronicleEntrySerializer,
+    ManualEntryCreateSerializer,
+    ManualEntryUpdateSerializer,
+)
 from config.permissions import IsParent
-from config.viewsets import RoleFilteredQuerySetMixin, get_child_or_404
+from config.viewsets import RoleFilteredQuerySetMixin, child_not_found_response, get_child_or_404
 
 
 class ChronicleViewSet(
     RoleFilteredQuerySetMixin,
     mixins.ListModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
     serializer_class = ChronicleEntrySerializer
     permission_classes = [IsAuthenticated]
     role_filter_field = "user"
+
+    def get_permissions(self):
+        if self.action in ("update", "partial_update", "destroy", "manual"):
+            return [IsAuthenticated(), IsParent()]
+        return [IsAuthenticated()]
+
+    def get_serializer_class(self):
+        if self.action in ("update", "partial_update"):
+            return ManualEntryUpdateSerializer
+        return ChronicleEntrySerializer
 
     def get_queryset(self):
         qs = self.get_role_filtered_queryset(ChronicleEntry.objects.all())
@@ -118,6 +134,38 @@ class ChronicleViewSet(
             entry.viewed_at = timezone.now()
             entry.save(update_fields=["viewed_at"])
         return Response(ChronicleEntrySerializer(entry).data)
+
+    @action(detail=False, methods=["post"], url_path="manual")
+    def manual(self, request):
+        """Create a manual chronicle entry for a child. Parent-only."""
+        serializer = ManualEntryCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        user_id = data.pop("user_id")
+        target = get_child_or_404(user_id)
+        if target is None:
+            return child_not_found_response()
+        occurred_on: date = data["occurred_on"]
+        chapter_year = occurred_on.year if occurred_on.month >= 8 else occurred_on.year - 1
+        entry = ChronicleEntry.objects.create(
+            user=target,
+            kind=ChronicleEntry.Kind.MANUAL,
+            chapter_year=chapter_year,
+            **data,
+        )
+        return Response(ChronicleEntrySerializer(entry).data, status=status.HTTP_201_CREATED)
+
+    def perform_update(self, serializer):
+        if serializer.instance.kind != ChronicleEntry.Kind.MANUAL:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only manual entries are editable.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.kind != ChronicleEntry.Kind.MANUAL:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only manual entries are deletable.")
+        instance.delete()
 
 
 def _stats_for(user, chapter_year, entries, is_current):
