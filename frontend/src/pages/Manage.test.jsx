@@ -7,6 +7,7 @@ import Manage from './Manage.jsx';
 import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
 import { buildParent, buildUser } from '../test/factories.js';
+import { spyHandler } from '../test/spy.js';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -65,5 +66,46 @@ describe('Manage', () => {
     await waitFor(() =>
       expect(screen.getAllByText((t) => /codex/i.test(t)).length).toBeGreaterThan(0),
     );
+  });
+});
+
+describe('Manage — child DOB + grade_entry_year', () => {
+  it('saving patches /api/children/{id}/ with both fields', async () => {
+    const parent = buildParent();
+    const child = buildUser({ id: 7, role: 'child', display_name: 'Abby' });
+
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(parent)),
+      http.get('*/api/children/', () => HttpResponse.json([child])),
+    );
+
+    const spy = spyHandler('patch', /\/api\/children\/7\/?$/, {});
+    server.use(spy.handler);
+
+    const user = userEvent.setup();
+    renderPage();
+
+    // Click the Edit button on Abby's card
+    const editBtn = await screen.findByRole('button', { name: /edit/i });
+    await user.click(editBtn);
+
+    // Fill in the date-of-birth field
+    const dobInput = await screen.findByLabelText(/date of birth/i);
+    await user.clear(dobInput);
+    await user.type(dobInput, '2011-09-22');
+
+    // Select a grade entry year
+    const gradeSelect = await screen.findByLabelText(/grade entry year/i);
+    await user.selectOptions(gradeSelect, '2025');
+
+    // Submit the form
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(spy.calls).toHaveLength(1));
+    expect(spy.calls[0].body).toMatchObject({
+      date_of_birth: '2011-09-22',
+      grade_entry_year: 2025,
+    });
+    expect(spy.calls[0].url).toMatch(/\/api\/children\/7\/?$/);
   });
 });

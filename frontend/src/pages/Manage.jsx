@@ -135,6 +135,8 @@ function EditChildModal({ child, onClose, onSaved }) {
   const { form, set, saving, setSaving, error, setError } = useFormState({
     display_name: child.display_name || '',
     hourly_rate: child.hourly_rate || '',
+    date_of_birth: child.date_of_birth || '',
+    grade_entry_year: child.grade_entry_year ?? '',
   });
 
   const onField = (k) => (e) => set({ [k]: e.target.value });
@@ -147,6 +149,8 @@ function EditChildModal({ child, onClose, onSaved }) {
       await updateChild(child.id, {
         display_name: form.display_name,
         hourly_rate: form.hourly_rate,
+        date_of_birth: form.date_of_birth || null,
+        grade_entry_year: form.grade_entry_year !== '' ? Number(form.grade_entry_year) : null,
       });
       onSaved();
     } catch (err) {
@@ -182,6 +186,26 @@ function EditChildModal({ child, onClose, onSaved }) {
         <ErrorAlert message={error} />
         <TextField label="Display Name" value={form.display_name} onChange={onField('display_name')} placeholder={child.username} />
         <TextField label="Hourly Rate ($)" value={form.hourly_rate} onChange={onField('hourly_rate')} type="number" step="0.01" min="0" required />
+        <TextField
+          type="date"
+          label="Date of birth"
+          value={form.date_of_birth}
+          onChange={onField('date_of_birth')}
+          helpText="Used for birthday celebrations and chapter rollovers."
+        />
+        <SelectField
+          label="Grade entry year"
+          value={form.grade_entry_year}
+          onChange={(e) =>
+            set({ grade_entry_year: e.target.value ? Number(e.target.value) : '' })
+          }
+          helpText="Year she entered 9th grade (August)."
+        >
+          <option value="">—</option>
+          {Array.from({ length: 9 }, (_, i) => new Date().getFullYear() - 4 + i).map((year) => (
+            <option key={year} value={year}>{year} (9th grade Aug {year})</option>
+          ))}
+        </SelectField>
         <div>
           <label className="block text-xs text-ink-whisper mb-1">Google Account</label>
           {child.google_linked ? (
