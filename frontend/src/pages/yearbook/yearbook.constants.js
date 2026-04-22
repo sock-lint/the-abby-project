@@ -13,6 +13,7 @@ export const KIND_ICON = {
   milestone: '🏆',
   recap: '📜',
   manual: '🖋️',
+  journal: '🪶',
 }
 
 export const RECAP_STAT_FIELDS = [

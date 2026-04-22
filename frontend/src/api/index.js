@@ -397,6 +397,12 @@ export const markChronicleViewed = (id) => api.post(`/chronicle/${id}/mark-viewe
 export const createManualChronicleEntry = (data) => api.post('/chronicle/manual/', data);
 export const updateManualChronicleEntry = (id, data) => api.patch(`/chronicle/${id}/`, data);
 export const deleteChronicleEntry = (id) => api.delete(`/chronicle/${id}/`);
+// Child-authored journal entries. POST self-scopes to request.user;
+// PATCH is restricted to same-local-day edits by the backend.
+export const writeJournal = ({ title, summary }) =>
+  api.post('/chronicle/journal/', { title, summary });
+export const updateJournalEntry = (id, { title, summary }) =>
+  api.patch(`/chronicle/${id}/journal/`, { title, summary });
 
 // Activity log (parent-only)
 export const listActivity = (params = {}) => {

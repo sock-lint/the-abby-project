@@ -12,6 +12,11 @@ import {
 import { headingDisplay, headingScript } from '../constants/styles';
 import Button from '../components/Button';
 import { TextField, SelectField, TextAreaField } from '../components/form';
+import TomeShelf from './achievements/TomeShelf';
+import FolioSpread from './achievements/FolioSpread';
+import IlluminatedVersal from './achievements/IlluminatedVersal';
+import { PROGRESS_TIER } from './achievements/mastery.constants';
+import { useState } from 'react';
 
 export default function DesignShowcase() {
   return (
@@ -295,12 +300,149 @@ export default function DesignShowcase() {
         />
       </ParchmentCard>
 
+      <DeckleDivider glyph="dragon-crest" label="Skills · Tome Shelf & Folio" />
+
+      <SkillsShowcase />
+
       <DeckleDivider glyph="dragon-crest" />
 
       <footer className="text-center font-script text-ink-whisper text-sm pt-2 pb-8">
         End of entry · {new Date().toLocaleDateString()}
       </footer>
     </div>
+  );
+}
+
+const SHOWCASE_CATEGORIES = [
+  { id: 1, name: 'Woodworking', icon: '🪵' },
+  { id: 2, name: 'Cooking', icon: '🍳' },
+  { id: 3, name: 'Coding', icon: '💻' },
+  { id: 4, name: 'Sewing', icon: '🧵' },
+  { id: 5, name: 'Music', icon: '🎵' },
+  { id: 6, name: 'Art', icon: '🎨' },
+  { id: 7, name: 'Science', icon: '🔬' },
+];
+
+const SHOWCASE_SUMMARIES = {
+  1: { level: 4, total_xp: 1800 },
+  2: { level: 2, total_xp: 400 },
+  3: { level: 5, total_xp: 1700 },
+  4: { level: 1, total_xp: 120 },
+  5: { level: 3, total_xp: 680 },
+  6: { level: 0, total_xp: 40 },
+  7: { level: 6, total_xp: 2500 },
+};
+
+function buildShowcaseTree(id) {
+  const cat = SHOWCASE_CATEGORIES.find((c) => c.id === id) || SHOWCASE_CATEGORIES[0];
+  const summary = SHOWCASE_SUMMARIES[cat.id];
+  return {
+    category: cat,
+    summary,
+    subjects: [
+      {
+        id: 100 + cat.id,
+        name: 'Foundations',
+        icon: '📐',
+        summary: { level: Math.max(0, summary.level - 1), total_xp: Math.floor(summary.total_xp * 0.6) },
+        skills: [
+          {
+            id: 1000 + cat.id,
+            name: 'Measure & Mark',
+            icon: '📏',
+            level: 3,
+            xp_points: 780,
+            unlocked: true,
+            level_names: { 1: 'Novice', 2: 'Journeyman', 3: 'Adept', 4: 'Master', 5: 'Virtuoso', 6: 'Grand Master' },
+            prerequisites: [],
+          },
+          {
+            id: 1001 + cat.id,
+            name: 'Read a Plan',
+            icon: '📜',
+            level: 1,
+            xp_points: 220,
+            unlocked: true,
+            level_names: { 1: 'Novice', 2: 'Journeyman' },
+            prerequisites: [
+              { skill_id: 1000 + cat.id, skill_name: 'Measure & Mark', required_level: 2, met: true },
+            ],
+          },
+        ],
+      },
+      {
+        id: 200 + cat.id,
+        name: 'Techniques',
+        icon: '🔨',
+        summary: { level: summary.level, total_xp: Math.floor(summary.total_xp * 0.4) },
+        skills: [
+          {
+            id: 2000 + cat.id,
+            name: 'Dovetail Joint',
+            icon: '🔗',
+            level: 6,
+            xp_points: 2500,
+            unlocked: true,
+            level_names: { 6: 'Grand Master' },
+            prerequisites: [],
+          },
+          {
+            id: 2001 + cat.id,
+            name: 'Inlay Work',
+            icon: '✨',
+            level: 0,
+            xp_points: 0,
+            unlocked: false,
+            level_names: { 0: 'Locked' },
+            prerequisites: [
+              { skill_id: 2000 + cat.id, skill_name: 'Dovetail Joint', required_level: 4, met: true },
+              { skill_id: 9999, skill_name: 'Gilding (other category)', required_level: 3, met: false },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function SkillsShowcase() {
+  const [active, setActive] = useState(1);
+  return (
+    <section className="space-y-4">
+      <div>
+        <div className="font-script text-sheikah-teal-deep text-caption">
+          atlas · tome shelf opens onto the folio
+        </div>
+        <h2 className={headingDisplay + ' italic text-2xl'}>Skills</h2>
+      </div>
+
+      <div className="flex items-center gap-6 flex-wrap">
+        <Labeled label="locked">
+          <IlluminatedVersal letter="L" progressPct={0} tier={PROGRESS_TIER.locked} />
+        </Labeled>
+        <Labeled label="nascent 10%">
+          <IlluminatedVersal letter="N" progressPct={10} tier={PROGRESS_TIER.nascent} />
+        </Labeled>
+        <Labeled label="rising 45%">
+          <IlluminatedVersal letter="R" progressPct={45} tier={PROGRESS_TIER.rising} />
+        </Labeled>
+        <Labeled label="cresting 75%">
+          <IlluminatedVersal letter="C" progressPct={75} tier={PROGRESS_TIER.cresting} />
+        </Labeled>
+        <Labeled label="gilded 100%">
+          <IlluminatedVersal letter="G" progressPct={100} tier={PROGRESS_TIER.gilded} />
+        </Labeled>
+      </div>
+
+      <TomeShelf
+        categories={SHOWCASE_CATEGORIES}
+        activeId={active}
+        onSelect={setActive}
+        summaryByCategory={SHOWCASE_SUMMARIES}
+      />
+
+      <FolioSpread tree={buildShowcaseTree(active)} onSelectSkill={() => {}} />
+    </section>
   );
 }
 

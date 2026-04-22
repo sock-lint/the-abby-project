@@ -11,7 +11,7 @@ vi.mock('framer-motion', async () => {
 });
 
 beforeEach(() => {
-  // jsdom doesn't implement scrollIntoView; stub so CategoryRibbon's effect
+  // jsdom doesn't implement scrollIntoView; stub so TomeShelf's effect
   // doesn't throw after activeId changes.
   Element.prototype.scrollIntoView = vi.fn();
 });

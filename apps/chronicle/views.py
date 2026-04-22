@@ -10,9 +10,11 @@ from rest_framework.response import Response
 from apps.chronicle.models import ChronicleEntry
 from apps.chronicle.serializers import (
     ChronicleEntrySerializer,
+    JournalEntryWriteSerializer,
     ManualEntryCreateSerializer,
     ManualEntryUpdateSerializer,
 )
+from apps.chronicle.services import ChronicleService
 from config.permissions import IsParent
 from config.viewsets import RoleFilteredQuerySetMixin, child_not_found_response, get_child_or_404
 
@@ -29,6 +31,10 @@ class ChronicleViewSet(
     role_filter_field = "user"
 
     def get_permissions(self):
+        # Journal actions are self-authored by children and only need
+        # IsAuthenticated — the viewset binds writes to ``request.user``.
+        if self.action in ("journal", "journal_update"):
+            return [IsAuthenticated()]
         if self.action in ("update", "partial_update", "destroy", "manual"):
             return [IsAuthenticated(), IsParent()]
         return [IsAuthenticated()]
@@ -135,6 +141,56 @@ class ChronicleViewSet(
             entry.viewed_at = timezone.now()
             entry.save(update_fields=["viewed_at"])
         return Response(ChronicleEntrySerializer(entry).data)
+
+    @action(detail=False, methods=["post"], url_path="journal")
+    def journal(self, request):
+        """Child-authored journal entry. Always writes to request.user.
+
+        Any ``user_id`` in the body is ignored — this endpoint is self-scoped
+        so a child can't post a journal entry into another child's chronicle.
+        """
+        serializer = JournalEntryWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        entry = ChronicleService.write_journal(
+            request.user,
+            title=data.get("title", ""),
+            summary=data.get("summary", ""),
+        )
+        return Response(
+            ChronicleEntrySerializer(entry).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(
+        detail=True,
+        methods=["patch"],
+        url_path="journal",
+        url_name="journal-update",
+    )
+    def journal_update(self, request, pk=None):
+        """Same-day journal edit. Locked to the owner; 403 after midnight."""
+        from rest_framework.exceptions import PermissionDenied
+
+        # Pull the entry directly so the ownership check in the service runs
+        # before the role-filtered queryset hides it (which would return 404).
+        entry = get_object_or_404(ChronicleEntry, pk=pk)
+        serializer = JournalEntryWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            updated = ChronicleService.update_journal(
+                request.user,
+                entry,
+                title=data.get("title", ""),
+                summary=data.get("summary", ""),
+            )
+        except PermissionDenied as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response(ChronicleEntrySerializer(updated).data)
 
     @action(detail=False, methods=["post"], url_path="manual")
     def manual(self, request):

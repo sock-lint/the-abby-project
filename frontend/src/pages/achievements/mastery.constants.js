@@ -1,11 +1,12 @@
-// Shared by CategoryPennant, CategoryCapitulare, ChapterRubric, SkillStanza,
-// BadgeSigil, BadgeSigilGrid. Lives in a .js file because
+// Shared by TomeSpine, FolioSpread, ChapterRubric, SkillVerse,
+// IlluminatedVersal, BadgeSigil, BadgeSigilGrid. Lives in a .js file because
 // react-refresh/only-export-components forbids non-component exports from .jsx.
 
-// Progress tier drives the left-edge accent bar on SkillStanza and the level
-// chip ink. Tailwind class strings resolve through cover tokens, not hex — so
-// every journal cover (hyrule / vigil / sunlit / snowquill / verdant / harvest)
-// gets its own contrast-tuned shade without branching here.
+// Progress tier drives the gilt color on TomeSpine foot-bands, SkillVerse
+// level straps, and IlluminatedVersal fill. Tailwind class strings resolve
+// through cover tokens, not hex — so every journal cover (hyrule / vigil /
+// sunlit / snowquill / verdant / harvest) gets its own contrast-tuned shade
+// without branching here.
 export const PROGRESS_TIER = {
   locked: { bar: 'bg-ink-page-shadow/60', chip: 'text-ink-whisper' },
   nascent: { bar: 'bg-moss', chip: 'text-moss' },

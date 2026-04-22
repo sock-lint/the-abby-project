@@ -107,6 +107,35 @@ describe('QuickActionsSheet', () => {
     expect(screen.getByText(/adjust payment/i)).toBeInTheDocument();
     // No child-only actions surface for parents.
     expect(screen.queryByText(/add homework$/i)).not.toBeInTheDocument();
+    // "Write in journal" is a child self-authoring affordance only.
+    expect(screen.queryByText(/write in journal/i)).not.toBeInTheDocument();
+  });
+
+  it('shows "Write in journal" on the child menu', async () => {
+    renderSheet(buildUser(), [
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({ today: [], overdue: [], pending_submissions: [] })),
+      http.get('*/api/savings-goals/', () => HttpResponse.json([])),
+      http.get('*/api/inventory/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() =>
+      expect(screen.getByText(/write in journal/i)).toBeInTheDocument(),
+    );
+  });
+
+  it('opens the JournalEntryFormModal when "Write in journal" is clicked', async () => {
+    const u = userEvent.setup();
+    renderSheet(buildUser(), [
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({ today: [], overdue: [], pending_submissions: [] })),
+      http.get('*/api/savings-goals/', () => HttpResponse.json([])),
+      http.get('*/api/inventory/', () => HttpResponse.json([])),
+    ]);
+    const row = await screen.findByRole('button', { name: /write in journal/i });
+    await u.click(row);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('dialog', { name: /write in your journal/i }),
+      ).toBeInTheDocument(),
+    );
   });
 
   it('Add homework submits to POST /homework/ with a self-assign payload', async () => {

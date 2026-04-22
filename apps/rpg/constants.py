@@ -24,3 +24,4 @@ class TriggerType(models.TextChoices):
     HABIT_LOG = "habit_log", "Habit Log"
     DAILY_CHECK_IN = "daily_check_in", "Daily Check-In"
     SAVINGS_GOAL_COMPLETE = "savings_goal_complete", "Savings Goal Complete"
+    JOURNAL_ENTRY = "journal_entry", "Journal Entry"

@@ -1,7 +1,8 @@
 import BottomSheet from '../../components/BottomSheet';
 import QuillProgress from '../../components/QuillProgress';
+import IlluminatedVersal from './IlluminatedVersal';
 import PrereqChain from './PrereqChain';
-import { PROGRESS_TIER, tierForProgress } from './mastery.constants';
+import { tierForProgress } from './mastery.constants';
 import { XP_THRESHOLDS } from './skillTree.constants';
 
 /**
@@ -25,18 +26,30 @@ export default function SkillDetailSheet({ skill, onClose }) {
     .map(([lvl, name]) => ({ lvl: Number(lvl), name }))
     .sort((a, b) => a.lvl - b.lvl);
 
+  const firstLetter = (skill.name || '✦').trim().charAt(0).toUpperCase() || '✦';
+
   return (
     <BottomSheet title={skill.name} onClose={onClose}>
       <div className="space-y-4">
-        {/* Illuminated hero: glyph inside a double-ring ornate frame */}
+        {/* Illuminated hero: the skill's drop-capital, filling with gilt as
+            XP accrues, wearing a rarity-tier halo once cresting or gilded. */}
         <div className="flex flex-col items-center text-center">
-          <div className="relative w-24 h-24 rounded-full border-2 border-ink-page-shadow flex items-center justify-center bg-ink-page-rune-glow shadow-[0_0_0_4px_var(--color-ink-page-aged),0_0_0_5px_var(--color-ink-page-shadow)]">
-            <span aria-hidden="true" className="text-5xl leading-none">
-              {skill.icon || '✦'}
-            </span>
-          </div>
+          <IlluminatedVersal
+            letter={firstLetter}
+            progressPct={pct}
+            tier={tier}
+            size="xl"
+          />
+          {skill.icon && (
+            <div
+              aria-hidden="true"
+              className="mt-2 text-3xl leading-none opacity-80"
+            >
+              {skill.icon}
+            </div>
+          )}
           {skill.description && (
-            <p className="mt-3 text-body text-ink-whisper max-w-prose">
+            <p className="mt-3 font-body text-body text-ink-whisper max-w-prose">
               {skill.description}
             </p>
           )}

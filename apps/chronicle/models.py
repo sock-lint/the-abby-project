@@ -14,6 +14,7 @@ class ChronicleEntry(CreatedAtModel):
         MILESTONE     = "milestone", "Milestone"
         RECAP         = "recap", "Recap"
         MANUAL        = "manual", "Manual"
+        JOURNAL       = "journal", "Journal"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -33,6 +34,14 @@ class ChronicleEntry(CreatedAtModel):
     related_object_id = models.PositiveIntegerField(null=True, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
     viewed_at = models.DateTimeField(null=True, blank=True)
+    is_private = models.BooleanField(
+        default=False,
+        help_text=(
+            "True for child-authored journal entries — a privacy marker "
+            "surfaces in the Yearbook UI. Does not gate read access: parents "
+            "can still see the entry (the lock chip just makes privacy visible)."
+        ),
+    )
 
     class Meta:
         ordering = ["-occurred_on", "-created_at"]

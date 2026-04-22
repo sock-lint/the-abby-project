@@ -708,6 +708,53 @@ def _chronicle_milestones_logged(user, c):
     ).count() >= int(c.get("count", 3))
 
 
+@criterion(Badge.CriteriaType.JOURNAL_ENTRIES_WRITTEN)
+def _journal_entries_written(user, c):
+    """Lifetime count of child-authored Chronicle journal entries.
+
+    ``criteria_value`` shape::
+
+        {"count": 10}  # default: 1 (first-entry badge)
+    """
+    from apps.chronicle.models import ChronicleEntry
+    return ChronicleEntry.objects.filter(
+        user=user, kind=ChronicleEntry.Kind.JOURNAL,
+    ).count() >= int(c.get("count", 1))
+
+
+@criterion(Badge.CriteriaType.JOURNAL_STREAK_DAYS)
+def _journal_streak_days(user, c):
+    """Longest run of consecutive local-days with at least one journal entry.
+
+    ``criteria_value`` shape::
+
+        {"days": 7}  # default: 3
+
+    Multiple entries on the same day count as one calendar day.
+    """
+    from apps.chronicle.models import ChronicleEntry
+    target = int(c.get("days", 3))
+    days = sorted(
+        {
+            d
+            for d in ChronicleEntry.objects.filter(
+                user=user, kind=ChronicleEntry.Kind.JOURNAL,
+            ).values_list("occurred_on", flat=True)
+        }
+    )
+    if not days:
+        return False
+    best = 1
+    run = 1
+    for i in range(1, len(days)):
+        if (days[i] - days[i - 1]).days == 1:
+            run += 1
+            best = max(best, run)
+        else:
+            run = 1
+    return best >= target
+
+
 @criterion(Badge.CriteriaType.COSMETIC_SET_OWNED)
 def _cosmetic_set_owned(user, c):
     """Own every item in a specific named cosmetic set.

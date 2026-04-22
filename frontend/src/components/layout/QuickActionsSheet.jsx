@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Square, BookOpen, Target, CircleDollarSign, UserCog } from 'lucide-react';
+import { Play, Square, BookOpen, Target, CircleDollarSign, UserCog, PenTool } from 'lucide-react';
 import BottomSheet from '../BottomSheet';
 import { DragonIcon } from '../icons/JournalIcons';
 import {
@@ -12,6 +12,7 @@ import { useApi, useAuth } from '../../hooks/useApi';
 import { normalizeList } from '../../utils/api';
 import Button from '../Button';
 import { TextField, SelectField, TextAreaField } from '../form';
+import JournalEntryFormModal from '../../pages/yearbook/JournalEntryFormModal';
 
 function formatClock(secs) {
   const h = Math.floor(secs / 3600);
@@ -205,6 +206,7 @@ export default function QuickActionsSheet({
   const { user } = useAuth();
   const isParent = user?.role === 'parent';
   const [pane, setPane] = useState('menu'); // 'menu' | 'clock' | 'add-homework'
+  const [journalOpen, setJournalOpen] = useState(false);
 
   // Contextual enable/disable flags.
   const { data: hwDashboard } = useApi(isParent ? () => Promise.resolve(null) : getHomeworkDashboard);
@@ -224,6 +226,17 @@ export default function QuickActionsSheet({
   );
 
   return (
+    <>
+    {journalOpen && (
+      <JournalEntryFormModal
+        mode="create"
+        onClose={() => setJournalOpen(false)}
+        onSaved={() => {
+          setJournalOpen(false);
+          onClose();
+        }}
+      />
+    )}
     <BottomSheet title={pane === 'menu' ? 'Quick actions' : pane === 'clock' ? 'Clock' : 'Add homework'} onClose={onClose}>
       {pane === 'menu' && (
         <div className="space-y-2">
@@ -237,6 +250,13 @@ export default function QuickActionsSheet({
 
           {!isParent && (
             <>
+              <ActionRow
+                icon={<PenTool size={18} />}
+                label="Write in journal"
+                hint="Dictate or type a memory for today"
+                tone="royal"
+                onClick={() => setJournalOpen(true)}
+              />
               <ActionRow
                 icon={<BookOpen size={18} />}
                 label="Add homework"
@@ -316,5 +336,6 @@ export default function QuickActionsSheet({
         />
       )}
     </BottomSheet>
+    </>
   );
 }

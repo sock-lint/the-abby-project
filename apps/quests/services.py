@@ -28,6 +28,9 @@ TRIGGER_DAMAGE = {
     # matches its rarity. Collection-type quests (Hoard Builder) don't use
     # this — they count 1 per qualifying trigger regardless.
     TriggerType.SAVINGS_GOAL_COMPLETE: 100,
+    # Journal entries deal modest damage — matches habit logs. The service
+    # gates on first-of-day so repeat entries don't stack.
+    TriggerType.JOURNAL_ENTRY: 5,
 }
 
 # Rage shield balance (boss quests only). Idle day climbs, active day decays.

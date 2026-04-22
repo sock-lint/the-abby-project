@@ -231,6 +231,12 @@ export const handlers = [
   http.get('*/api/chronicle/pending-celebration/', () => new HttpResponse(null, { status: 204 })),
   http.post(/\/api\/chronicle\/\d+\/mark-viewed\/$/, () => HttpResponse.json({})),
   http.post('*/api/chronicle/manual/', () => HttpResponse.json({ id: 1 }, { status: 201 })),
+  http.post('*/api/chronicle/journal/', () =>
+    HttpResponse.json({ id: 1, kind: 'journal', is_private: true, title: 'Today' }, { status: 201 }),
+  ),
+  http.patch(/\/api\/chronicle\/\d+\/journal\/$/, () =>
+    HttpResponse.json({ id: 1, kind: 'journal', is_private: true, title: 'Today' }),
+  ),
   http.patch(/\/api\/chronicle\/\d+\/$/, () => HttpResponse.json({})),
   http.delete(/\/api\/chronicle\/\d+\/$/, () => new HttpResponse(null, { status: 204 })),
 ];

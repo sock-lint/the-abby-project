@@ -40,6 +40,11 @@ BASE_DROP_RATES = {
     # a celebration, low enough that farming it via repeated small goals
     # doesn't out-farm normal play.
     TriggerType.SAVINGS_GOAL_COMPLETE: 0.80,
+    # Journaling is rare-drop terrain — the reward for writing is skill XP
+    # plus streak credit plus the Scribe badge ladder, not a drop farm.
+    # Matches ``HABIT_LOG`` rate so writing a journal doesn't out-earn a
+    # habit tap. The service gates on first-of-day anyway.
+    TriggerType.JOURNAL_ENTRY: 0.10,
 }
 
 STREAK_DROP_BONUS_PER_DAY = 0.05

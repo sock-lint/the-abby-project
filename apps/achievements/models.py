@@ -208,6 +208,9 @@ class Badge(models.Model):
         COLLECTION_QUESTS_COMPLETED = "collection_quests_completed", "Collection Quests Completed"
         CHRONICLE_MILESTONES_LOGGED = "chronicle_milestones_logged", "Chronicle Milestones Logged"
         COSMETIC_SET_OWNED = "cosmetic_set_owned", "Cosmetic Set Owned"
+        # Journal-authoring criteria (Scribe badge line).
+        JOURNAL_ENTRIES_WRITTEN = "journal_entries_written", "Journal Entries Written"
+        JOURNAL_STREAK_DAYS = "journal_streak_days", "Journal Streak Days"
 
     class Rarity(models.TextChoices):
         COMMON = "common", "Common"

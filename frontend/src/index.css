@@ -207,6 +207,29 @@ h1, h2, h3, h4 {
   to   { transform: scaleX(1); opacity: 1;   }
 }
 
+/* Illuminated versal gilt — the gold-leaf overlay that fills a drop-capital
+   letter from the bottom up by `--versal-fill` (0–100%). Lives in CSS so
+   React never receives `backgroundImage` + `backgroundClip` as adjacent
+   inline style props (their shorthand/long-hand pairing trips React's style
+   normalization warning). Animate fill via a transition on the custom
+   property; prefers-reduced-motion freezes the transition. */
+.versal-gilt {
+  background-image: linear-gradient(
+    to top,
+    var(--color-gold-leaf) 0%,
+    var(--color-gold-leaf) var(--versal-fill, 0%),
+    transparent var(--versal-fill, 0%),
+    transparent 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transition: background-image 550ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .versal-gilt { transition: none; }
+}
+
 .animate-flame-flicker { animation: flame-flicker 2.4s ease-in-out infinite; transform-origin: 50% 85%; }
 .animate-rune-pulse    { animation: rune-pulse 2.6s ease-in-out infinite; }
 .animate-rune-band     { animation: rune-band-shimmer 3.2s linear infinite; }

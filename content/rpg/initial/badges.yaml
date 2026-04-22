@@ -1176,3 +1176,71 @@ badges:
     criteria_value: {count: 10}
     rarity: epic
     xp_bonus: 250
+
+  # Scribe — journal authoring ladder. Rewards the act of writing memories
+  # (distinct from the Creative Writing skill ladder, which rewards craft).
+  - name: First Page
+    description: Write your first journal entry
+    icon: "📝"
+    criteria_type: journal_entries_written
+    criteria_value: {count: 1}
+    rarity: common
+    xp_bonus: 15
+  - name: Scribe
+    description: Write 10 journal entries
+    icon: "✒️"
+    criteria_type: journal_entries_written
+    criteria_value: {count: 10}
+    rarity: uncommon
+    xp_bonus: 40
+  - name: Chronicler
+    description: Write 50 journal entries
+    icon: "📚"
+    criteria_type: journal_entries_written
+    criteria_value: {count: 50}
+    rarity: rare
+    xp_bonus: 100
+  - name: Historian
+    description: Write 100 journal entries
+    icon: "📜"
+    criteria_type: journal_entries_written
+    criteria_value: {count: 100}
+    rarity: epic
+    xp_bonus: 200
+  - name: A Year in Ink
+    description: Write 365 journal entries
+    icon: "🪶"
+    criteria_type: journal_entries_written
+    criteria_value: {count: 365}
+    rarity: legendary
+    xp_bonus: 500
+
+  # Journal-streak badges — reward consistency, not volume.
+  - name: Three-Night Quill
+    description: Journal 3 days in a row
+    icon: "🌙"
+    criteria_type: journal_streak_days
+    criteria_value: {days: 3}
+    rarity: common
+    xp_bonus: 20
+  - name: Weekly Diarist
+    description: Journal 7 days in a row
+    icon: "🌒"
+    criteria_type: journal_streak_days
+    criteria_value: {days: 7}
+    rarity: uncommon
+    xp_bonus: 60
+  - name: Lunar Scribe
+    description: Journal 30 days in a row
+    icon: "🌕"
+    criteria_type: journal_streak_days
+    criteria_value: {days: 30}
+    rarity: rare
+    xp_bonus: 150
+  - name: Constellation
+    description: Journal 100 days in a row
+    icon: "✨"
+    criteria_type: journal_streak_days
+    criteria_value: {days: 100}
+    rarity: legendary
+    xp_bonus: 400

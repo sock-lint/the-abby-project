@@ -42,7 +42,7 @@ Page-specific `*Card` components start as sibling files inside their owning page
 
 - `pages/Homework/AssignmentCard.jsx` — used only by `pages/Homework/index.jsx`
 - `pages/manage/CatalogCard.jsx` — used only by `pages/manage/CodexSection.jsx`
-- `pages/achievements/SkillStanza.jsx` + `CategoryPennant.jsx` + `CategoryRibbon.jsx` + `CategoryCapitulare.jsx` + `ChapterRubric.jsx` + `PrereqChain.jsx` + `SkillDetailSheet.jsx` — all used only by `pages/achievements/SkillTreeView.jsx`
+- `pages/achievements/TomeSpine.jsx` + `TomeShelf.jsx` + `FolioSpread.jsx` + `SkillVerse.jsx` + `IlluminatedVersal.jsx` + `ChapterRubric.jsx` + `PrereqChain.jsx` + `SkillDetailSheet.jsx` — all used only by `pages/achievements/SkillTreeView.jsx`. The "tome shelf opening onto an illuminated folio" metaphor replaced the older pennant-ribbon + stanza-grid in the 2026-04-23 Skills redesign.
 - `pages/achievements/BadgeSigil.jsx` + `BadgeSigilGrid.jsx` + `BadgeDetailSheet.jsx` — used only by `pages/Badges.jsx` (kept under `achievements/` because `ManagePanel.jsx` is the single cross-cutting admin surface for badges, so the files that describe badges still co-locate with it)
 - `pages/rewards/RewardCard.jsx` — used only by `pages/rewards/RewardShop.jsx`
 - `pages/rewards/CoinBalanceCard.jsx` — used only by `pages/rewards/Rewards.jsx`
@@ -57,7 +57,7 @@ Do not pre-emptively promote a card that has only one importer. The cost of movi
 
 When a page-area has constants used by both a parent and an extracted card (e.g. XP thresholds, type orderings), house them in a sibling `.constants.js` file rather than exporting from the parent component file. ESLint's `react-refresh/only-export-components` rule forbids non-component exports from a `.jsx` component file; using a separate `.constants.js` keeps both the lint rule happy and the constant in lockstep across consumers.
 
-Examples: [`pages/achievements/skillTree.constants.js`](../pages/achievements/skillTree.constants.js) holds `XP_THRESHOLDS` (the level curve, shared by `SkillTreeView.jsx`, `SkillStanza.jsx`, `SkillDetailSheet.jsx`, and `CategoryCapitulare.jsx`); [`pages/achievements/mastery.constants.js`](../pages/achievements/mastery.constants.js) holds the Illuminated Codex shared maps — `PROGRESS_TIER` (left-edge accent-bar tier by progress %), `RARITY_HALO` (glow around earned sigils), `CHAPTER_NUMERALS` + `chapterMark` (subject numbering), plus `tierForProgress`, `countIlluminated`, `isRecentlyEarned` helpers.
+Examples: [`pages/achievements/skillTree.constants.js`](../pages/achievements/skillTree.constants.js) holds `XP_THRESHOLDS` (the level curve, shared by `SkillTreeView.jsx`, `SkillVerse.jsx`, `SkillDetailSheet.jsx`, `FolioSpread.jsx`, and `TomeSpine.jsx`); [`pages/achievements/mastery.constants.js`](../pages/achievements/mastery.constants.js) holds the Illuminated Codex shared maps — `PROGRESS_TIER` (tier by progress %, drives gilt color on `TomeSpine` foot-bands, `SkillVerse` level straps, and `IlluminatedVersal` fill), `RARITY_HALO` (glow around mastered versals + earned sigils — applied in both Skills and Badges so the two pages share vocabulary), `CHAPTER_NUMERALS` + `chapterMark` (subject + folio numbering), plus `tierForProgress`, `countIlluminated`, `isRecentlyEarned` helpers.
 
 ### Accessibility roles
 
@@ -71,7 +71,7 @@ Shared primitives carry consistent ARIA roles. Match these when building new one
 | `ProgressBar` / `QuillProgress` | `progressbar` + `aria-valuenow/min/max` | Widget with measurable state |
 | `BottomSheet` | `dialog` + `aria-modal="true"` + `aria-labelledby` | Modal surface |
 | `ConfirmDialog` | `alertdialog` + `aria-modal="true"` + `aria-labelledby` + `aria-describedby` | Destructive-action modal |
-| `CategoryRibbon` / `CategoryPennant` | `tablist` + `tab` + `aria-selected` + `aria-orientation="horizontal"` | Keyboard-navigable category switcher |
+| `TomeShelf` / `TomeSpine` | `tablist` + `tab` + `aria-selected` + `aria-orientation="horizontal"` | Keyboard-navigable category switcher |
 
 Use React's `useId()` to generate per-instance IDs for `aria-labelledby` / `aria-describedby` so multiple stacked instances don't collide.
 
