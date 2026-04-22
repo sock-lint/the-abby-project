@@ -37,9 +37,11 @@ from ..errors import (
     safe_tool,
 )
 from ..schemas import (
+    AssignCoOpQuestIn,
     AssignQuestIn,
     CancelQuestIn,
     CreateQuestDefinitionIn,
+    DeleteQuestDefinitionIn,
     GetQuestIn,
     ListQuestCatalogIn,
     ListQuestsIn,
@@ -223,6 +225,61 @@ def assign_quest(params: AssignQuestIn) -> dict[str, Any]:
     except ValueError as exc:
         raise MCPValidationError(str(exc))
     return _quest_to_dict(quest)
+
+
+@tool()
+@safe_tool
+def assign_co_op_quest(params: AssignCoOpQuestIn) -> dict[str, Any]:
+    """Start ONE shared Quest with 2+ children as participants.
+
+    Parent-only. All children contribute to a single shared HP/collection
+    pool (``target_value``), and every participant receives the full
+    reward bundle on completion. Fails atomically if any participant is
+    already on an active quest or lacks the required badge.
+
+    The first UI to wire this up is parent Manage → Quests. Frontend can
+    present it as a "Family Co-op" flow; backend enforces no-partial-state.
+    """
+    require_parent()
+    users = list(User.objects.filter(pk__in=params.user_ids, role="child"))
+    if len(users) != len(params.user_ids):
+        found = {u.pk for u in users}
+        missing = [uid for uid in params.user_ids if uid not in found]
+        raise MCPValidationError(
+            f"user_ids don't match any child: {missing}",
+        )
+    if not QuestDefinition.objects.filter(pk=params.definition_id).exists():
+        raise MCPNotFoundError(
+            f"QuestDefinition {params.definition_id} not found.",
+        )
+    try:
+        quest = QuestService.start_co_op_quest(params.definition_id, users)
+    except ValueError as exc:
+        raise MCPValidationError(str(exc))
+    return _quest_to_dict(quest)
+
+
+@tool()
+@safe_tool
+def delete_quest_definition(params: DeleteQuestDefinitionIn) -> dict[str, Any]:
+    """Permanently remove a QuestDefinition (parent-only).
+
+    Cascades: every live ``Quest`` instance and its participants / progress
+    rows go with the definition. Use for cleaning up smoke-test or stale
+    parent-authored definitions. For day-to-day cancellation of an active
+    run, use ``cancel_quest`` instead (which just flips the Quest status).
+    """
+    require_parent()
+    try:
+        definition = QuestDefinition.objects.get(pk=params.quest_definition_id)
+    except QuestDefinition.DoesNotExist:
+        raise MCPNotFoundError(
+            f"QuestDefinition {params.quest_definition_id} not found.",
+        )
+    definition_id = definition.pk
+    name = definition.name
+    definition.delete()
+    return {"quest_definition_id": definition_id, "name": name, "deleted": True}
 
 
 @tool()

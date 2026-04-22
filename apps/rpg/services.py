@@ -26,6 +26,10 @@ BASE_DROP_RATES = {
     TriggerType.QUEST_COMPLETE: 1.00,
     TriggerType.PERFECT_DAY: 1.00,
     TriggerType.HABIT_LOG: 0.15,
+    # Check-in drops are intentionally 0 — the reward for daily_check_in is
+    # coin bonus (via multiplier) + Companion pet growth, not item drops.
+    # Kept in the map so BASE_DROP_RATES.get() returns a sensible default.
+    TriggerType.DAILY_CHECK_IN: 0.0,
 }
 
 STREAK_DROP_BONUS_PER_DAY = 0.05
@@ -56,6 +60,8 @@ class StreakService:
 
         # Streak logic — with streak-freeze grace for a single missed day.
         consumed_freeze = False
+        streak_broken = False
+        prior_streak = profile.login_streak
         save_fields = ["login_streak", "longest_login_streak", "last_active_date"]
 
         if profile.last_active_date is None:
@@ -78,6 +84,10 @@ class StreakService:
                 save_fields.append("streak_freeze_expires_at")
                 consumed_freeze = True
             else:
+                # A streak long enough to matter got broken — worth flagging.
+                # 3 is the existing "Three Day Streak" threshold; anything
+                # below that isn't really a streak worth a comeback nudge.
+                streak_broken = prior_streak >= 3
                 profile.login_streak = 1
 
         profile.last_active_date = activity_date
@@ -113,12 +123,53 @@ class StreakService:
             },
         )
 
+        # Companion pets passively grow from the daily check-in — the
+        # slow-burn bonding loop for kids whose engagement isn't heavy
+        # project work. Wrapped so a pet-service failure never breaks
+        # the streak flow.
+        try:
+            from apps.pets.services import PetService
+            PetService.auto_grow_companions(user)
+        except Exception:
+            logger.exception("Companion auto-growth hook failed")
+
+        # If the prior streak broke (not covered by freeze), offer a
+        # comeback-quest notification so the child sees a low-stakes
+        # path back. We don't auto-assign — the child opts in from the
+        # notification to respect the one-active-quest limit.
+        if streak_broken:
+            try:
+                from apps.notifications.models import NotificationType
+                from apps.notifications.services import notify
+                from apps.quests.models import Quest, QuestDefinition
+
+                has_active = Quest.objects.filter(
+                    participants__user=user, status=Quest.Status.ACTIVE,
+                ).exists()
+                comeback = QuestDefinition.objects.filter(name="Comeback Kid").first()
+                if not has_active and comeback:
+                    notify(
+                        user,
+                        title="Your streak reset — ready to rebuild?",
+                        message=(
+                            f"Your {prior_streak}-day streak just ended. "
+                            "The Comeback Kid quest asks for just 3 habit logs "
+                            "to rebuild the loop — claim a Streak Freeze when "
+                            "you finish it."
+                        ),
+                        notification_type=NotificationType.COMEBACK_SUGGESTED,
+                        link=f"/quests?suggest={comeback.pk}",
+                    )
+            except Exception:
+                logger.exception("Streak-break comeback suggestion failed")
+
         return {
             "is_first_today": True,
             "check_in_bonus_coins": bonus_coins,
             "streak": profile.login_streak,
             "multiplier": round(multiplier, 2),
             "freeze_consumed": consumed_freeze,
+            "streak_broken": streak_broken,
         }
 
 
@@ -454,6 +505,15 @@ class ConsumableService:
         profile, _ = CharacterProfile.objects.select_for_update().get_or_create(user=user)
         detail = ConsumableService._apply_effect(profile, effect, item)
 
+        # Track distinct effects ever used so Alchemist-style badges have a
+        # data source. Refetch to avoid a stale copy if _apply_effect saved.
+        profile.refresh_from_db(fields=["consumable_effects_used"])
+        used = list(profile.consumable_effects_used or [])
+        if effect not in used:
+            used.append(effect)
+            profile.consumable_effects_used = used
+            profile.save(update_fields=["consumable_effects_used", "updated_at"])
+
         inv.quantity -= 1
         if inv.quantity == 0:
             inv.delete()
@@ -518,6 +578,81 @@ class ConsumableService:
             active.rage_shield = 0
             active.save(update_fields=["rage_shield", "updated_at"])
             return {"quest_name": active.definition.name, "rage_cleared": old_shield}
+        if effect == "growth_surge":
+            # One-shot big growth boost to the user's currently active pet.
+            # Applies directly to UserPet.growth_points, bypassing the food
+            # mechanic (so it stacks with a feed on the same day).
+            from apps.pets.models import UserMount, UserPet
+            amount = int(meta.get("growth", 30))
+            pet = UserPet.objects.filter(
+                user=profile.user, is_active=True, evolved_to_mount=False,
+            ).first()
+            if not pet:
+                raise ValueError("No active unevolved pet to accelerate")
+            pet.growth_points = min(100, pet.growth_points + amount)
+            evolved_mount = None
+            if pet.growth_points >= 100:
+                pet.evolved_to_mount = True
+                pet.save(update_fields=["growth_points", "evolved_to_mount", "updated_at"])
+                mount, _ = UserMount.objects.get_or_create(
+                    user=profile.user, species=pet.species, potion=pet.potion,
+                )
+                evolved_mount = mount.pk
+            else:
+                pet.save(update_fields=["growth_points", "updated_at"])
+            return {
+                "pet_id": pet.pk,
+                "growth_added": amount,
+                "new_growth": pet.growth_points,
+                "evolved_to_mount": bool(evolved_mount),
+            }
+        if effect == "feast_platter":
+            # Sweeping small growth boost to every unevolved pet in the user's
+            # stable. Only one pet can be "active" per user, but Feast Platter
+            # is a party treat — intentionally affects all.
+            from apps.pets.models import UserPet
+            per_pet = int(meta.get("growth", 10))
+            pets = list(
+                UserPet.objects.select_for_update().filter(
+                    user=profile.user, evolved_to_mount=False,
+                )
+            )
+            if not pets:
+                raise ValueError("No pets to feed")
+            for pet in pets:
+                pet.growth_points = min(100, pet.growth_points + per_pet)
+                pet.save(update_fields=["growth_points", "updated_at"])
+            return {
+                "pets_fed": len(pets),
+                "growth_per_pet": per_pet,
+            }
+        if effect == "mystery_box":
+            # Grants a single random item from a weighted pool of common +
+            # uncommon non-cosmetic items. Simpler than trying to re-roll a
+            # previous drop; "open the box and see what you got" reads well.
+            from apps.rpg.models import ItemDefinition, UserInventory
+            eligible = list(
+                ItemDefinition.objects.filter(
+                    rarity__in=meta.get("rarities", ["common", "uncommon"]),
+                ).exclude(
+                    item_type__startswith="cosmetic_",
+                ).exclude(item_type=ItemDefinition.ItemType.CONSUMABLE)
+            )
+            if not eligible:
+                raise ValueError("Mystery box has no eligible items to grant")
+            weights = [5 if i.rarity == "common" else 2 for i in eligible]
+            granted = random.choices(eligible, weights=weights, k=1)[0]
+            inv, _ = UserInventory.objects.get_or_create(
+                user=profile.user, item=granted,
+                defaults={"quantity": 0},
+            )
+            inv.quantity += 1
+            inv.save(update_fields=["quantity", "updated_at"])
+            return {
+                "granted_item_id": granted.pk,
+                "granted_item_name": granted.name,
+                "granted_rarity": granted.rarity,
+            }
         raise ValueError(f"Unknown consumable effect: {effect!r}")
 
 

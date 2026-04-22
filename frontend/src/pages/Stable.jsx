@@ -206,7 +206,8 @@ export default function Stable() {
                         spriteKey={pet.species.sprite_key}
                         icon={pet.species.icon}
                         size={56}
-                        alt={pet.species.name}
+                        alt={`${pet.potion.name} ${pet.species.name}`}
+                        potionSlug={pet.potion.slug}
                       />
                     </div>
                     <div className="font-body text-sm font-medium leading-tight">
@@ -319,7 +320,8 @@ export default function Stable() {
                       fallbackSpriteKey={mount.species.sprite_key}
                       icon={mount.species.icon}
                       size={64}
-                      alt={mount.species.name}
+                      alt={`${mount.potion.name} ${mount.species.name}`}
+                      potionSlug={mount.potion.slug}
                     />
                   </div>
                   <div className="font-body text-sm font-medium leading-tight">

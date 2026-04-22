@@ -12,7 +12,7 @@ class PetSpeciesSerializer(serializers.ModelSerializer):
 class PotionTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = PotionType
-        fields = ["id", "name", "sprite_key", "color_hex", "rarity", "description"]
+        fields = ["id", "slug", "name", "sprite_key", "color_hex", "rarity", "description"]
         read_only_fields = fields
 
 
@@ -20,7 +20,7 @@ class PotionTypeMiniSerializer(serializers.ModelSerializer):
     """Compact potion info for the species catalog BottomSheet."""
     class Meta:
         model = PotionType
-        fields = ["id", "name", "color_hex", "rarity"]
+        fields = ["id", "slug", "name", "color_hex", "rarity"]
         read_only_fields = fields
 
 

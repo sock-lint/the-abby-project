@@ -36,7 +36,7 @@ quests:
     xp_reward: 100
     is_system: true
     reward_items:
-      - slug: wolf-egg
+      - slug: dragon-egg
         quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 3}
@@ -192,6 +192,7 @@ quests:
   - name: On-Time Streak
     description: Submit 3 homework assignments on or before their due date.
     icon: "⏱️"
+    sprite_key: quest-on-time-streak
     quest_type: collection
     target_value: 3
     duration_days: 10
@@ -211,6 +212,7 @@ quests:
   - name: Midnight Oil
     description: Deal 200 damage to the looming deadline by finishing homework.
     icon: "🕯️"
+    sprite_key: quest-midnight-oil
     quest_type: boss
     target_value: 200
     duration_days: 14
@@ -408,3 +410,245 @@ quests:
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 2}
       - {skill: "Life Skills::Time Management", weight: 1}
+
+  # ── Legacy quest repair (2026-04-22) ───────────────────────────────────
+  # These six quests existed in the DB from Python seeding and never had
+  # YAML entries; that meant parents/children saw them without sprite_key
+  # hero art and they awarded no skill XP (no skill_tags attached). The
+  # loader is upsert-by-name, so authoring them here backfills both fields.
+
+  - name: Defeat the Doomscroll
+    description: The Doomscroll beast thrives on late-night phone time. Every chore completed, every habit logged, every project step done weakens it. Land the killing blow before the first day of school.
+    icon: "⚔️"
+    sprite_key: quest-defeat-doomscroll
+    quest_type: boss
+    target_value: 250
+    duration_days: 14
+    coin_reward: 200
+    xp_reward: 75
+    is_system: true
+    reward_items: []
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Life Skills::Time Management", weight: 1}
+      - {skill: "Physical::Mindfulness", weight: 1}
+
+  - name: Garden Pest Hunter
+    description: A swarm of hungry aphids is devouring the spring garden! Complete tasks to drive them out and save the blossoms.
+    icon: "🐛"
+    sprite_key: quest-garden-pest
+    quest_type: boss
+    target_value: 300
+    duration_days: 7
+    coin_reward: 150
+    xp_reward: 200
+    is_system: true
+    reward_items: []
+    skill_tags:
+      - {skill: "Outdoors::Gardening", weight: 3}
+      - {skill: "Outdoors::Nature ID", weight: 1}
+
+  - name: Spring Bloom Collector
+    description: Gather fresh spring blooms and treasures from around the garden by completing your daily tasks.
+    icon: "🌸"
+    sprite_key: quest-spring-bloom
+    quest_type: collection
+    target_value: 5
+    duration_days: 14
+    coin_reward: 75
+    xp_reward: 100
+    is_system: true
+    reward_items: []
+    skill_tags:
+      - {skill: "Outdoors::Gardening", weight: 2}
+      - {skill: "Outdoors::Nature ID", weight: 1}
+
+  - name: Seven Nights of Stories
+    description: Wind down the right way. Read (or listen to) a bedtime story for five nights in a row. No screens in the last 30 minutes before bed.
+    icon: "📖"
+    sprite_key: quest-seven-nights
+    quest_type: collection
+    target_value: 5
+    duration_days: 7
+    trigger_filter:
+      allowed_triggers: [habit_log]
+    coin_reward: 150
+    xp_reward: 50
+    is_system: true
+    reward_items:
+      - slug: accessory-flower-crown  # placeholder — original Moonlit Frame item never made YAML
+        quantity: 1
+      - slug: food-cake
+        quantity: 3
+    skill_tags:
+      - {skill: "Physical::Mindfulness", weight: 2}
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: First Week of Freshman Year
+    description: Survive the first week of high school by keeping the routine alive. Log 5 habits to clear it.
+    icon: "🎒"
+    sprite_key: quest-first-week-freshman
+    quest_type: collection
+    target_value: 5
+    duration_days: 7
+    trigger_filter:
+      allowed_triggers: [habit_log]
+    coin_reward: 200
+    xp_reward: 150
+    is_system: true
+    reward_items: []
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Life Skills::Time Management", weight: 2}
+
+  - name: The Summer Before High School
+    description: A 90-day quest to build rock-solid habits before freshman year. Every habit tap, chore, and assignment chips away at the boss.
+    icon: "⚔️"
+    sprite_key: quest-summer-before-hs
+    quest_type: boss
+    target_value: 800
+    duration_days: 90
+    coin_reward: 500
+    xp_reward: 400
+    is_system: true
+    reward_items: []
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 3}
+      - {skill: "Life Skills::Time Management", weight: 2}
+      - {skill: "Life Skills::Project Planning", weight: 1}
+
+  # ── New quests (2026-04-22) ────────────────────────────────────────────
+
+  - name: Daily Rituals
+    description: Log 3 habits today — the short-loop version of Weekly Reset.
+    icon: "🔁"
+    sprite_key: quest-daily-rituals
+    quest_type: collection
+    target_value: 3
+    duration_days: 1
+    trigger_filter:
+      allowed_triggers: [habit_log]
+    coin_reward: 10
+    xp_reward: 20
+    is_repeatable: true
+    is_system: true
+    reward_items:
+      - slug: pouch-small
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+      - {skill: "Physical::Mindfulness", weight: 1}
+
+  - name: Spring Planting
+    description: Welcome the growing season — finish 5 outdoor or cooking projects/chores.
+    icon: "🌷"
+    sprite_key: quest-spring-planting
+    quest_type: collection
+    target_value: 5
+    duration_days: 21
+    trigger_filter:
+      allowed_triggers: [chore_complete, milestone_complete, project_complete]
+    coin_reward: 75
+    xp_reward: 100
+    is_system: true
+    reward_items:
+      - slug: theme-forest
+        quantity: 1
+    skill_tags:
+      - {skill: "Outdoors::Gardening", weight: 2}
+      - {skill: "Outdoors::Weather & Stargazing", weight: 1}
+      - {skill: "Cooking::Meal Planning", weight: 1}
+
+  - name: Autumn Leaves
+    description: Capture the shift of seasons — 7 outdoor activities before the leaves fall.
+    icon: "🍁"
+    sprite_key: quest-autumn-leaves
+    quest_type: collection
+    target_value: 7
+    duration_days: 21
+    trigger_filter:
+      allowed_triggers: [clock_out, chore_complete, milestone_complete]
+    coin_reward: 80
+    xp_reward: 120
+    is_system: true
+    reward_items:
+      - slug: theme-autumn-leaves
+        quantity: 1
+    skill_tags:
+      - {skill: "Outdoors::Nature ID", weight: 2}
+      - {skill: "Outdoors::Weather & Stargazing", weight: 1}
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: Apprentice Path
+    description: Unlock your first locked skill, then prove the apprentice knows the work — 200 damage across any trigger in 14 days.
+    icon: "🔑"
+    sprite_key: quest-apprentice-path
+    quest_type: boss
+    target_value: 200
+    duration_days: 14
+    required_badge: Key Turner
+    coin_reward: 100
+    xp_reward: 150
+    is_system: true
+    reward_items:
+      - slug: title-trailblazer
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Life Skills::Project Planning", weight: 1}
+
+  - name: Comeback Kid
+    description: Your streak broke — but the road back is clear. Log 3 habits to rebuild momentum. Parent-assignable after a streak reset.
+    icon: "🔥"
+    sprite_key: quest-comeback-kid
+    quest_type: collection
+    target_value: 3
+    duration_days: 7
+    trigger_filter:
+      allowed_triggers: [habit_log]
+    coin_reward: 40
+    xp_reward: 60
+    is_repeatable: true
+    is_system: true
+    reward_items:
+      - slug: streak-freeze
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 2}
+      - {skill: "Physical::Mindfulness", weight: 1}
+
+  - name: Phoenix Rising
+    description: Rebuild something bigger than before. 30 days of consistent work — 500 damage across any trigger.
+    icon: "🔥"
+    sprite_key: quest-phoenix-rising
+    quest_type: boss
+    target_value: 500
+    duration_days: 30
+    coin_reward: 250
+    xp_reward: 300
+    is_system: true
+    reward_items:
+      - slug: frame-laurel
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 3}
+      - {skill: "Life Skills::Time Management", weight: 2}
+
+  - name: Family Co-op — Spring Cleaning
+    description: Team-up quest. Everyone contributes chores toward one shared 20-chore goal. Parent must assign to multiple family members.
+    icon: "🏡"
+    sprite_key: quest-family-spring-cleaning
+    quest_type: collection
+    target_value: 20
+    duration_days: 14
+    trigger_filter:
+      allowed_triggers: [chore_complete]
+    coin_reward: 100
+    xp_reward: 100
+    is_system: true
+    reward_items:
+      - slug: pouch-large
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+      - {skill: "Cooking::Meal Planning", weight: 1}

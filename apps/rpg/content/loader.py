@@ -158,7 +158,7 @@ class ContentPack:
     def _load_skill_tree(self, data: dict | None, write: Callable[[str], None]) -> None:
         if not data:
             return
-        from apps.achievements.models import Skill, SkillPrerequisite
+        from apps.achievements.models import Skill, SkillPrerequisite, Subject
         from apps.achievements.models import SkillCategory
 
         # Categories
@@ -176,6 +176,26 @@ class ContentPack:
             cat_by_name[name] = obj
             self.stats.bump("created" if created else "updated", "skill_category")
 
+        # Subjects (grouping tier between Category and Skill). Unique per category.
+        subject_by_key: dict[str, Any] = {}
+        for entry in data.get("subjects", []) or []:
+            cat_name = entry["category"]
+            if cat_name not in cat_by_name:
+                raise ContentPackError(
+                    f"subject {entry['name']!r} references unknown category {cat_name!r}"
+                )
+            defaults = {
+                "icon": entry.get("icon", ""),
+                "order": entry.get("order", 0),
+                "description": entry.get("description", ""),
+            }
+            obj, created = Subject.objects.update_or_create(
+                name=entry["name"], category=cat_by_name[cat_name],
+                defaults=defaults,
+            )
+            subject_by_key[f"{cat_name}::{entry['name']}"] = obj
+            self.stats.bump("created" if created else "updated", "subject")
+
         # Skills (category resolved by name; skill has composite unique (category, name))
         skill_by_key: dict[str, Any] = {}
         skill_prereqs: list[dict] = []
@@ -192,6 +212,16 @@ class ContentPack:
                 "order": entry.get("order", 0),
                 "description": entry.get("description", ""),
             }
+            subject_name = entry.get("subject")
+            if subject_name:
+                subject_key = f"{cat_name}::{subject_name}"
+                subject = subject_by_key.get(subject_key)
+                if not subject:
+                    raise ContentPackError(
+                        f"skill {entry['name']!r} references unknown subject "
+                        f"{subject_name!r} in category {cat_name!r}"
+                    )
+                defaults["subject"] = subject
             obj, created = Skill.objects.update_or_create(
                 name=entry["name"], category=cat_by_name[cat_name],
                 defaults=defaults,

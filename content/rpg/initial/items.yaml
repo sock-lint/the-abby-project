@@ -325,6 +325,27 @@ items:
     metadata: {food_type: fish, growth: 4}
     food_species: cat
 
+  # 2026-04-22 — preferred foods for the two new species. Each species
+  # needs at least one food with its slug in ``food_species`` so the
+  # "every species has a preferred food" test passes.
+  - slug: food-stardust
+    name: Stardust Essence
+    icon: "✨"
+    item_type: food
+    rarity: epic
+    coin_value: 8
+    metadata: {food_type: cosmic, growth: 12}
+    food_species: archdragon
+
+  - slug: food-cuddle-cookie
+    name: Cuddle Cookie
+    icon: "🍪"
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: treat, growth: 4}
+    food_species: companion
+
   # ── Coin Pouches (originals + Shikashi expansions) ────────────────────
   - slug: pouch-small
     name: Small Coin Pouch
@@ -709,6 +730,54 @@ items:
     coin_value: 50
     description: Clears the rage shield on your active boss quest.
     metadata: {effect: rage_breaker}
+
+  # 2026-04-22 review — new consumable tier. Reuses existing effects (xp_boost
+  # / coin_boost) with longer durations, plus three new effects registered in
+  # apps/rpg/services.py::ConsumableService._apply_effect.
+  - slug: scholar-draught-ii
+    name: Scholar's Draught II
+    icon: "📚"
+    item_type: consumable
+    rarity: epic
+    coin_value: 80
+    description: Doubles XP from any trigger for the next 48 hours.
+    metadata: {effect: xp_boost, duration_hours: 48}
+
+  - slug: lucky-coin-ii
+    name: Lucky Coin II
+    icon: "🪙"
+    item_type: consumable
+    rarity: rare
+    coin_value: 50
+    description: Coin drops are doubled for the next 48 hours.
+    metadata: {effect: coin_boost, duration_hours: 48}
+
+  - slug: pet-evolution-accelerator
+    name: Pet Evolution Accelerator
+    icon: "⚡"
+    item_type: consumable
+    rarity: epic
+    coin_value: 75
+    description: Instantly adds 30 growth to your active pet. A finishing move on a 70-growth pet about to evolve.
+    metadata: {effect: growth_surge, growth: 30}
+
+  - slug: feast-platter
+    name: Feast Platter
+    icon: "🍽️"
+    item_type: consumable
+    rarity: rare
+    coin_value: 45
+    description: Sprinkles +10 growth on every unevolved pet in your stable. Party food.
+    metadata: {effect: feast_platter, growth: 10}
+
+  - slug: mystery-box
+    name: Mystery Box
+    icon: "🎁"
+    item_type: consumable
+    rarity: uncommon
+    coin_value: 25
+    description: Opens to reveal a random common or uncommon non-cosmetic item. Like a lucky dip.
+    metadata: {effect: mystery_box, rarities: [common, uncommon]}
 
   # ── Scholar Track (homework-themed cosmetics) ─────────────────────────
   # Unlocked through Planner/Punctual badges — see drops.yaml for routing.

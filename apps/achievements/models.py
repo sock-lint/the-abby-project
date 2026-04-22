@@ -190,6 +190,13 @@ class Badge(models.Model):
         EARLY_BIRD = "early_bird", "Clock In Before 8 AM"
         LATE_NIGHT = "late_night", "Clock In After 9 PM"
         FAST_PROJECT = "fast_project", "Project Completed Quickly"
+        # 2026-04-22 review — depth-in-one-dimension badges
+        CATEGORY_MASTERY = "category_mastery", "Category Mastery"
+        FULL_POTION_SHELF = "full_potion_shelf", "Full Potion Shelf"
+        CONSUMABLE_VARIETY = "consumable_variety", "Consumable Variety"
+        COINS_SPENT_LIFETIME = "coins_spent_lifetime", "Coins Spent (lifetime)"
+        GRADE_REACHED = "grade_reached", "Grade Reached"
+        BIRTHDAYS_LOGGED = "birthdays_logged", "Birthdays Logged"
 
     class Rarity(models.TextChoices):
         COMMON = "common", "Common"

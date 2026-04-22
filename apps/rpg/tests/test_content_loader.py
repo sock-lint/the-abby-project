@@ -108,8 +108,8 @@ class ContentPackInitialSeedTest(TestCase):
         call_command("loadrpgcontent")
         quest = QuestDefinition.objects.get(name="Dragon Slayer")
         self.assertTrue(
-            quest.reward_items.filter(item__slug="wolf-egg").exists(),
-            "Dragon Slayer should have wolf-egg reward (from quests.yaml)",
+            quest.reward_items.filter(item__slug="dragon-egg").exists(),
+            "Dragon Slayer should have dragon-egg reward (thematic match with the boss)",
         )
 
     def test_quest_skill_tags_resolve(self):

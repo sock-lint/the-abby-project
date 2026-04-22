@@ -155,3 +155,28 @@ species:
     food_preference: vegetables
     egg_rarity: epic
     egg_coin_value: 25
+
+  # ── 2026-04-22 review additions ───────────────────────────────────────
+  # Archdragon: legendary tier-2 species. Cosmic potion only, so the
+  # hatch UI presents it as a separate goal rather than a recolor path.
+  - slug: archdragon
+    name: Archdragon
+    icon: "🐲"
+    sprite_key: archdragon
+    description: A legendary cosmic dragon, the rarest creature in the stable
+    food_preference: fish
+    available_potions: [cosmic]
+    egg_rarity: legendary
+    egg_coin_value: 50
+
+  # Companion: slow-burn pet for kids who don't log heavy project work.
+  # Passive growth via StreakService's daily-check-in hook (see
+  # PetService.auto_grow_companions). Can still be hand-fed via food.
+  - slug: companion
+    name: Companion
+    icon: "🧸"
+    sprite_key: companion
+    description: A friendly little buddy that grows alongside your daily habits
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3

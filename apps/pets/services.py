@@ -8,6 +8,12 @@ GROWTH_PREFERRED_FOOD = 15
 GROWTH_NEUTRAL_FOOD = 5
 EVOLUTION_THRESHOLD = 100
 
+# Companion pet passive growth per daily check-in. Small on purpose —
+# a Companion reaches evolution (100) in ~50 consecutive active days,
+# longer with streak breaks. Grows the slow-burn-bonding feel.
+COMPANION_DAILY_GROWTH = 2
+COMPANION_SPECIES_SLUG = "companion"
+
 
 class PetService:
     """Manages pet lifecycle: hatching, feeding, evolution, activation."""
@@ -102,6 +108,54 @@ class PetService:
             logger.exception("Chronicle hook failed in hatch_pet")
 
         return pet
+
+    @staticmethod
+    @transaction.atomic
+    def auto_grow_companions(user):
+        """Grow every unevolved Companion pet the user owns by a small amount.
+
+        Fired from StreakService.record_activity on the first-today path so
+        Companion pets gain +2 growth per active day. Evolves automatically
+        when the growth threshold is reached; identical to a food-fed
+        evolution (creates a UserMount row).
+
+        Returns a dict summarizing the action. Never raises — missing
+        species, no pets, etc. all return cleanly so the streak flow
+        stays robust.
+        """
+        from apps.pets.models import UserPet, UserMount, PetSpecies
+
+        try:
+            species = PetSpecies.objects.get(slug=COMPANION_SPECIES_SLUG)
+        except PetSpecies.DoesNotExist:
+            return {"pets_grown": 0, "evolved": 0, "reason": "no_companion_species"}
+
+        pets = list(
+            UserPet.objects.select_for_update().filter(
+                user=user, species=species, evolved_to_mount=False,
+            )
+        )
+        evolved = 0
+        for pet in pets:
+            pet.growth_points = min(
+                pet.growth_points + COMPANION_DAILY_GROWTH, EVOLUTION_THRESHOLD,
+            )
+            if pet.growth_points >= EVOLUTION_THRESHOLD:
+                pet.evolved_to_mount = True
+                pet.save(update_fields=[
+                    "growth_points", "evolved_to_mount", "updated_at",
+                ])
+                UserMount.objects.get_or_create(
+                    user=user, species=pet.species, potion=pet.potion,
+                )
+                evolved += 1
+            else:
+                pet.save(update_fields=["growth_points", "updated_at"])
+        return {
+            "pets_grown": len(pets),
+            "evolved": evolved,
+            "growth_per_pet": COMPANION_DAILY_GROWTH,
+        }
 
     @staticmethod
     @transaction.atomic

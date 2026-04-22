@@ -564,3 +564,222 @@ badges:
     criteria_value: {count: 5, min_level: 3}
     rarity: epic
     xp_bonus: 200
+
+  # ── 2026-04-22 review additions ─────────────────────────────────────────
+  # Depth-in-one-category mastery. Each badge requires level 3+ in EVERY
+  # skill in its category, including the locked-by-default ones.
+  - name: Master of Woodworking
+    description: Reach Level 3 in every Woodworking skill
+    icon: "🪵"
+    criteria_type: category_mastery
+    criteria_value: {category: Woodworking, min_level: 3}
+    rarity: rare
+    xp_bonus: 120
+  - name: Master of Electronics
+    description: Reach Level 3 in every Electronics skill
+    icon: "⚡"
+    criteria_type: category_mastery
+    criteria_value: {category: Electronics, min_level: 3}
+    rarity: epic
+    xp_bonus: 150
+  - name: Master of Cooking
+    description: Reach Level 3 in every Cooking skill
+    icon: "🍳"
+    criteria_type: category_mastery
+    criteria_value: {category: Cooking, min_level: 3}
+    rarity: rare
+    xp_bonus: 100
+  - name: Master of Art & Crafts
+    description: Reach Level 3 in every Art & Crafts skill
+    icon: "🎨"
+    criteria_type: category_mastery
+    criteria_value: {category: "Art & Crafts", min_level: 3}
+    rarity: rare
+    xp_bonus: 100
+  - name: Master of Coding
+    description: Reach Level 3 in every Coding skill
+    icon: "💻"
+    criteria_type: category_mastery
+    criteria_value: {category: Coding, min_level: 3}
+    rarity: rare
+    xp_bonus: 100
+  - name: Master of Outdoors
+    description: Reach Level 3 in every Outdoors skill
+    icon: "🌿"
+    criteria_type: category_mastery
+    criteria_value: {category: Outdoors, min_level: 3}
+    rarity: rare
+    xp_bonus: 100
+  - name: Master of Sewing & Textiles
+    description: Reach Level 3 in every Sewing & Textiles skill
+    icon: "🧵"
+    criteria_type: category_mastery
+    criteria_value: {category: "Sewing & Textiles", min_level: 3}
+    rarity: epic
+    xp_bonus: 150
+  - name: Master of Science
+    description: Reach Level 3 in every Science skill
+    icon: "🔬"
+    criteria_type: category_mastery
+    criteria_value: {category: Science, min_level: 3}
+    rarity: rare
+    xp_bonus: 100
+  - name: Master of Making & Fabrication
+    description: Reach Level 3 in every Making & Fabrication skill
+    icon: "🔨"
+    criteria_type: category_mastery
+    criteria_value: {category: "Making & Fabrication", min_level: 3}
+    rarity: epic
+    xp_bonus: 150
+  - name: Master of Life Skills
+    description: Reach Level 3 in every Life Skill
+    icon: "🌟"
+    criteria_type: category_mastery
+    criteria_value: {category: "Life Skills", min_level: 3}
+    rarity: epic
+    xp_bonus: 150
+  - name: Master of Music
+    description: Reach Level 3 in every Music skill
+    icon: "🎵"
+    criteria_type: category_mastery
+    criteria_value: {category: Music, min_level: 3}
+    rarity: rare
+    xp_bonus: 100
+  - name: Master of Physical
+    description: Reach Level 3 in every Physical skill
+    icon: "💪"
+    criteria_type: category_mastery
+    criteria_value: {category: Physical, min_level: 3}
+    rarity: rare
+    xp_bonus: 100
+
+  # Potion / consumable collectors
+  - name: Full Potion Shelf
+    description: Own at least one of every potion variant
+    icon: "🧪"
+    criteria_type: full_potion_shelf
+    criteria_value: {}
+    rarity: rare
+    xp_bonus: 100
+  - name: Alchemist
+    description: Use 5 different consumable effects
+    icon: "⚗️"
+    criteria_type: consumable_variety
+    criteria_value: {count: 5}
+    rarity: rare
+    xp_bonus: 80
+  - name: Master Alchemist
+    description: Use every consumable effect at least once
+    icon: "🧙"
+    criteria_type: consumable_variety
+    criteria_value: {count: 9}
+    rarity: epic
+    xp_bonus: 200
+
+  # Coin-spender ladder (Treasurer handles "redeemed 10 rewards"; this
+  # parallel set tracks raw coin spend)
+  - name: Big Spender
+    description: Spend 500 coins at the reward shop (lifetime)
+    icon: "🛒"
+    criteria_type: coins_spent_lifetime
+    criteria_value: {amount: 500}
+    rarity: uncommon
+    xp_bonus: 40
+  - name: Tycoon
+    description: Spend 2,000 coins at the reward shop (lifetime)
+    icon: "💳"
+    criteria_type: coins_spent_lifetime
+    criteria_value: {amount: 2000}
+    rarity: rare
+    xp_bonus: 100
+  - name: Gilded Vault
+    description: Spend 5,000 coins at the reward shop (lifetime)
+    icon: "🏛️"
+    criteria_type: coins_spent_lifetime
+    criteria_value: {amount: 5000}
+    rarity: epic
+    xp_bonus: 200
+
+  # Pet / mount completionism (extends the existing Pet tier)
+  - name: Full Ark
+    description: Own all 15 pet species
+    icon: "🛳️"
+    criteria_type: pet_species_owned
+    criteria_value: {count: 15}
+    rarity: legendary
+    xp_bonus: 400
+  - name: Mount Cavalry
+    description: Evolve 5 pets into mounts
+    icon: "🏇"
+    criteria_type: mounts_evolved
+    criteria_value: {count: 5}
+    rarity: rare
+    xp_bonus: 150
+  - name: Mount Legion
+    description: Evolve 10 pets into mounts
+    icon: "🗡️"
+    criteria_type: mounts_evolved
+    criteria_value: {count: 10}
+    rarity: epic
+    xp_bonus: 300
+
+  # Grade / chapter progression — parent sets User.grade_entry_year to
+  # enable these.
+  - name: Freshman
+    description: Enter 9th grade
+    icon: "🎒"
+    criteria_type: grade_reached
+    criteria_value: {grade: 9}
+    rarity: common
+    xp_bonus: 50
+  - name: Sophomore
+    description: Enter 10th grade
+    icon: "📘"
+    criteria_type: grade_reached
+    criteria_value: {grade: 10}
+    rarity: uncommon
+    xp_bonus: 75
+  - name: Junior
+    description: Enter 11th grade
+    icon: "📗"
+    criteria_type: grade_reached
+    criteria_value: {grade: 11}
+    rarity: rare
+    xp_bonus: 100
+  - name: Senior
+    description: Enter 12th grade
+    icon: "🎓"
+    criteria_type: grade_reached
+    criteria_value: {grade: 12}
+    rarity: epic
+    xp_bonus: 150
+
+  # Birthday collection — one per Chronicle BIRTHDAY entry
+  - name: First Birthday In-App
+    description: Celebrate your first birthday with Abby
+    icon: "🎂"
+    criteria_type: birthdays_logged
+    criteria_value: {count: 1}
+    rarity: common
+    xp_bonus: 25
+  - name: Many Years
+    description: Celebrate 3 birthdays with Abby
+    icon: "🎉"
+    criteria_type: birthdays_logged
+    criteria_value: {count: 3}
+    rarity: uncommon
+    xp_bonus: 60
+  - name: Decade Marker
+    description: Celebrate 5 birthdays with Abby
+    icon: "🎈"
+    criteria_type: birthdays_logged
+    criteria_value: {count: 5}
+    rarity: rare
+    xp_bonus: 100
+  - name: All the Years
+    description: Celebrate 10 birthdays with Abby
+    icon: "🎊"
+    criteria_type: birthdays_logged
+    criteria_value: {count: 10}
+    rarity: epic
+    xp_bonus: 250

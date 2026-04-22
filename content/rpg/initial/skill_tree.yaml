@@ -1,4 +1,4 @@
-# Skill tree — categories, skills, and prerequisites.
+# Skill tree — categories, subjects, skills, and prerequisites.
 #
 # Schema:
 #   categories:
@@ -6,9 +6,16 @@
 #       icon        (optional)
 #       color       (optional hex, default "#888888")
 #       description (optional)
+#   subjects:         # intermediate grouping Category -> Subject -> Skill
+#     - name        (required, unique per category)
+#       category    (required, category name)
+#       icon        (optional)
+#       order       (optional, default 0)
+#       description (optional)
 #   skills:
 #     - name        (required; unique within category)
 #       category    (required, category name)
+#       subject     (optional, subject name — must exist under the same category)
 #       icon        (optional)
 #       locked      (optional, default false) — is_locked_by_default
 #       order       (optional, default 0)
@@ -69,20 +76,188 @@ categories:
     color: "#E0475B"
     description: Movement, sports, and taking care of your body
 
+subjects:
+  # Woodworking
+  - name: Shop Basics
+    category: Woodworking
+    icon: "🔨"
+    order: 0
+    description: Measuring, hand tools, finishing — the foundation
+  - name: Advanced Technique
+    category: Woodworking
+    icon: "🪚"
+    order: 1
+    description: Power tools, joinery, lumber literacy
+
+  # Electronics
+  - name: Fundamentals
+    category: Electronics
+    icon: "🔌"
+    order: 0
+    description: Wiring, through-hole soldering, reading schematics
+  - name: Advanced
+    category: Electronics
+    icon: "🤖"
+    order: 1
+    description: SMD, circuit design, microcontrollers, PCB layout
+
+  # Cooking
+  - name: Kitchen Basics
+    category: Cooking
+    icon: "🔪"
+    order: 0
+    description: Safe knife work, heat, food safety
+  - name: Creating Dishes
+    category: Cooking
+    icon: "🧂"
+    order: 1
+    description: Baking and flavor craft
+  - name: Culinary Craft
+    category: Cooking
+    icon: "🍽️"
+    order: 2
+    description: Planning meals, plating at restaurant quality
+
+  # Art & Crafts
+  - name: Drawing & Painting
+    category: Art & Crafts
+    icon: "✏️"
+    order: 0
+    description: Two-dimensional image-making
+  - name: 3D & Digital
+    category: Art & Crafts
+    icon: "💻"
+    order: 1
+    description: Sculpture and screen-based art
+  - name: Craft Work
+    category: Art & Crafts
+    icon: "🧶"
+    order: 2
+    description: Fiber and material craft
+
+  # Coding
+  - name: Fundamentals
+    category: Coding
+    icon: "🧩"
+    order: 0
+    description: Logic, algorithms, source control
+  - name: Languages & Apps
+    category: Coding
+    icon: "🌐"
+    order: 1
+    description: Python, web, application building
+  - name: Specializations
+    category: Coding
+    icon: "📊"
+    order: 2
+    description: Hardware + data deep-dives
+
+  # Outdoors
+  - name: Growing Things
+    category: Outdoors
+    icon: "🌱"
+    order: 0
+    description: Plants, water, living systems
+  - name: Field Skills
+    category: Outdoors
+    icon: "🧭"
+    order: 1
+    description: Reading the landscape, tools, building outside
+
+  # Sewing & Textiles
+  - name: Hand Work
+    category: Sewing & Textiles
+    icon: "🪡"
+    order: 0
+    description: Needle-and-thread crafts
+  - name: Garment Making
+    category: Sewing & Textiles
+    icon: "🧵"
+    order: 1
+    description: Machine sewing, patterns, fabric selection
+
+  # Science
+  - name: Scientific Method
+    category: Science
+    icon: "🔬"
+    order: 0
+    description: Observe, measure, test, record
+  - name: Specializations
+    category: Science
+    icon: "⚗️"
+    order: 1
+    description: Deeper science topics
+
+  # Making & Fabrication
+  - name: Shop Safety & Tools
+    category: Making & Fabrication
+    icon: "🥽"
+    order: 0
+    description: Safe, effective use of shop tools
+  - name: Digital Fab
+    category: Making & Fabrication
+    icon: "📐"
+    order: 1
+    description: CAD, 3D printing, enclosure design
+
+  # Life Skills
+  - name: Money & Planning
+    category: Life Skills
+    icon: "💰"
+    order: 0
+    description: Budgets, schedules, project work
+  - name: Communication
+    category: Life Skills
+    icon: "💬"
+    order: 1
+    description: Writing, speaking, negotiating
+  - name: Personal
+    category: Life Skills
+    icon: "🌟"
+    order: 2
+    description: Habits and grown-up life skills
+
+  # Music
+  - name: Foundation
+    category: Music
+    icon: "🥁"
+    order: 0
+    description: Rhythm, ear, and playing
+  - name: Creating
+    category: Music
+    icon: "🎼"
+    order: 1
+    description: Writing and producing music
+
+  # Physical
+  - name: Body Work
+    category: Physical
+    icon: "🏋️"
+    order: 0
+    description: Strength, flexibility, mindfulness
+  - name: Sports
+    category: Physical
+    icon: "⚽"
+    order: 1
+    description: Individual and team sports
+
 skills:
   # Woodworking
   - name: Measuring & Marking
     category: Woodworking
+    subject: Shop Basics
     icon: "📐"
     order: 0
     levels: {"1": Eyeballer, "2": Precise, "3": Dead-On, "4": Master Measurer, "5": Micron Maniac}
   - name: Hand Tools
     category: Woodworking
+    subject: Shop Basics
     icon: "🪚"
     order: 1
     levels: {"1": Sawdust Maker, "2": Handy, "3": Skilled, "4": Artisan, "5": Old School Master}
   - name: Power Tools
     category: Woodworking
+    subject: Advanced Technique
     icon: "⚡"
     locked: true
     order: 2
@@ -91,11 +266,13 @@ skills:
       - {skill: Hand Tools, level: 2}
   - name: Sanding & Finishing
     category: Woodworking
+    subject: Shop Basics
     icon: "🪵"
     order: 3
     levels: {"1": Rough, "2": Smooth Operator, "3": Satin Touch, "4": Glass Finish, "5": Mirror Polish}
   - name: Joinery
     category: Woodworking
+    subject: Advanced Technique
     icon: "🔗"
     locked: true
     order: 4
@@ -105,6 +282,7 @@ skills:
       - {skill: Measuring & Marking, level: 2}
   - name: Wood Selection
     category: Woodworking
+    subject: Advanced Technique
     icon: "🌳"
     locked: true
     order: 5
@@ -115,16 +293,19 @@ skills:
   # Electronics
   - name: Wiring & Connectors
     category: Electronics
+    subject: Fundamentals
     icon: "🔌"
     order: 0
     levels: {"1": Wire Stripper, "2": Connector, "3": Clean Runs, "4": Cable Artist, "5": Harness Pro}
   - name: Through-Hole Soldering
     category: Electronics
+    subject: Fundamentals
     icon: "🔥"
     order: 1
     levels: {"1": Cold Joints, "2": Tin Tipper, "3": Clean Cones, "4": Solder Surgeon, "5": Flux Master}
   - name: SMD Soldering
     category: Electronics
+    subject: Advanced
     icon: "🔬"
     locked: true
     order: 2
@@ -133,11 +314,13 @@ skills:
       - {skill: Through-Hole Soldering, level: 3}
   - name: Circuit Reading
     category: Electronics
+    subject: Fundamentals
     icon: "📋"
     order: 3
     levels: {"1": Confused, "2": Symbol Reader, "3": Trace Follower, "4": Schematic Thinker, "5": Circuit Sage}
   - name: Circuit Design
     category: Electronics
+    subject: Advanced
     icon: "✏️"
     locked: true
     order: 4
@@ -146,6 +329,7 @@ skills:
       - {skill: Circuit Reading, level: 2}
   - name: Microcontrollers
     category: Electronics
+    subject: Advanced
     icon: "🤖"
     locked: true
     order: 5
@@ -155,6 +339,7 @@ skills:
       - {skill: Circuit Reading, level: 2}
   - name: PCB Layout
     category: Electronics
+    subject: Advanced
     icon: "🟩"
     locked: true
     order: 6
@@ -165,26 +350,31 @@ skills:
   # Cooking
   - name: Knife Skills
     category: Cooking
+    subject: Kitchen Basics
     icon: "🔪"
     order: 0
     levels: {"1": Careful Chopper, "2": Dicer, "3": Julienne, "4": Brunoise, "5": Speed Demon}
   - name: Heat Control
     category: Cooking
+    subject: Kitchen Basics
     icon: "🔥"
     order: 1
     levels: {"1": Burner, "2": Temp Watcher, "3": Heat Surfer, "4": Flame Dancer, "5": Thermal Master}
   - name: Baking
     category: Cooking
+    subject: Creating Dishes
     icon: "🧁"
     order: 2
     levels: {"1": Box Mix, "2": From Scratch, "3": Baker, "4": Pastry Cook, "5": Pâtissier}
   - name: Flavor & Seasoning
     category: Cooking
+    subject: Creating Dishes
     icon: "🧂"
     order: 3
     levels: {"1": Salt & Pepper, "2": Herb User, "3": Spice Blender, "4": Palate Pro, "5": Flavor Architect}
   - name: Meal Planning
     category: Cooking
+    subject: Culinary Craft
     icon: "📝"
     locked: true
     order: 4
@@ -194,11 +384,13 @@ skills:
       - {skill: Heat Control, level: 2}
   - name: Food Safety
     category: Cooking
+    subject: Kitchen Basics
     icon: "🌡️"
     order: 5
     levels: {"1": Hand Washer, "2": Temp Checker, "3": Cross-Contam Aware, "4": HACCP Thinker, "5": Safety Inspector}
   - name: Plating & Presentation
     category: Cooking
+    subject: Culinary Craft
     icon: "🍽️"
     locked: true
     order: 6
@@ -210,21 +402,25 @@ skills:
   # Art & Crafts
   - name: Drawing
     category: Art & Crafts
+    subject: Drawing & Painting
     icon: "✏️"
     order: 0
     levels: {"1": Sketcher, "2": Renderer, "3": Illustrator, "4": Fine Artist, "5": Visionary}
   - name: Painting
     category: Art & Crafts
+    subject: Drawing & Painting
     icon: "🖌️"
     order: 1
     levels: {"1": Brush Holder, "2": Color Mixer, "3": Blender, "4": Painter, "5": Gallery Ready}
   - name: Color Theory
     category: Art & Crafts
+    subject: Drawing & Painting
     icon: "🌈"
     order: 2
     levels: {"1": Primary Knower, "2": Complementary, "3": Harmonizer, "4": Palette Master, "5": Color Sage}
   - name: Sculpture & 3D
     category: Art & Crafts
+    subject: 3D & Digital
     icon: "🗿"
     locked: true
     order: 3
@@ -233,6 +429,7 @@ skills:
       - {skill: Drawing, level: 2}
   - name: Digital Art
     category: Art & Crafts
+    subject: 3D & Digital
     icon: "💻"
     locked: true
     order: 4
@@ -242,6 +439,7 @@ skills:
       - {skill: Color Theory, level: 2}
   - name: Textile & Fiber
     category: Art & Crafts
+    subject: Craft Work
     icon: "🧶"
     order: 5
     levels: {"1": Tangler, "2": Stitcher, "3": Pattern Follower, "4": Pattern Maker, "5": Fiber Artist}
@@ -249,21 +447,25 @@ skills:
   # Coding
   - name: Logic & Algorithms
     category: Coding
+    subject: Fundamentals
     icon: "🧩"
     order: 0
     levels: {"1": If-Then, "2": Looper, "3": Sorter, "4": Optimizer, "5": Algorithm Designer}
   - name: Python
     category: Coding
+    subject: Languages & Apps
     icon: "🐍"
     order: 1
     levels: {"1": Print Hello, "2": Script Writer, "3": Module User, "4": Package Builder, "5": Pythonista}
   - name: Web Development
     category: Coding
+    subject: Languages & Apps
     icon: "🌐"
     order: 2
     levels: {"1": HTML Writer, "2": CSS Styler, "3": JS Scripter, "4": Full Pager, "5": Web App Builder}
   - name: Hardware Programming
     category: Coding
+    subject: Specializations
     icon: "🔧"
     locked: true
     order: 3
@@ -272,6 +474,7 @@ skills:
       - {skill: Python, level: 2}
   - name: Data & Visualization
     category: Coding
+    subject: Specializations
     icon: "📊"
     locked: true
     order: 4
@@ -280,6 +483,7 @@ skills:
       - {skill: Python, level: 2}
   - name: Version Control
     category: Coding
+    subject: Fundamentals
     icon: "📂"
     order: 5
     levels: {"1": Saver, "2": Committer, "3": Brancher, "4": Merger, "5": Git Wizard}
@@ -287,21 +491,25 @@ skills:
   # Outdoors
   - name: Gardening
     category: Outdoors
+    subject: Growing Things
     icon: "🌱"
     order: 0
     levels: {"1": Seed Planter, "2": Waterer, "3": Grower, "4": Green Thumb, "5": Garden Designer}
   - name: Tool Maintenance
     category: Outdoors
+    subject: Field Skills
     icon: "🔧"
     order: 1
     levels: {"1": Cleaner, "2": Sharpener, "3": Oiler, "4": Restorer, "5": Tool Whisperer}
   - name: Nature ID
     category: Outdoors
+    subject: Field Skills
     icon: "🍃"
     order: 2
     levels: {"1": Looker, "2": Spotter, "3": Identifier, "4": Naturalist, "5": Field Expert}
   - name: Building & Construction
     category: Outdoors
+    subject: Field Skills
     icon: "🏗️"
     locked: true
     order: 3
@@ -310,21 +518,31 @@ skills:
       - {skill: "Woodworking::Measuring & Marking", level: 2}
   - name: Water Systems
     category: Outdoors
+    subject: Growing Things
     icon: "💧"
     locked: true
     order: 4
     levels: {"1": Hose User, "2": Sprinkler Setter, "3": Drip Designer, "4": Irrigation Pro, "5": Hydro Engineer}
     prereqs:
       - {skill: Tool Maintenance, level: 2}
+  # New skill — seasonal/outdoors tie-in for Summer Solstice / Harvest Feast quests.
+  - name: Weather & Stargazing
+    category: Outdoors
+    subject: Field Skills
+    icon: "🌤️"
+    order: 5
+    levels: {"1": Sky Watcher, "2": Cloud Namer, "3": Forecaster, "4": Constellation Reader, "5": Almanac Keeper}
 
   # Sewing & Textiles
   - name: Hand Sewing
     category: Sewing & Textiles
+    subject: Hand Work
     icon: "🪡"
     order: 0
     levels: {"1": Button Sewer, "2": Straight Stitcher, "3": Hem Maker, "4": Hand Tailor, "5": Couture Stitcher}
   - name: Machine Sewing
     category: Sewing & Textiles
+    subject: Garment Making
     icon: "🧵"
     locked: true
     order: 1
@@ -333,11 +551,13 @@ skills:
       - {skill: Hand Sewing, level: 2}
   - name: Pattern Reading
     category: Sewing & Textiles
+    subject: Garment Making
     icon: "📐"
     order: 2
     levels: {"1": Confused, "2": Piece Finder, "3": Layout Pro, "4": Modifier, "5": Pattern Drafter}
   - name: Fabric Selection
     category: Sewing & Textiles
+    subject: Garment Making
     icon: "🏪"
     locked: true
     order: 3
@@ -345,30 +565,54 @@ skills:
     prereqs:
       - {skill: Hand Sewing, level: 2}
       - {skill: Pattern Reading, level: 2}
+  # New skills — the smallest tree gets two handcraft additions.
+  - name: Embroidery
+    category: Sewing & Textiles
+    subject: Hand Work
+    icon: "🪡"
+    order: 4
+    levels: {"1": First Stitch, "2": Cross-Stitcher, "3": Satin Stitcher, "4": Fine Embroiderer, "5": Thread Artist}
+    prereqs:
+      - {skill: Hand Sewing, level: 2}
+  - name: Quilting
+    category: Sewing & Textiles
+    subject: Hand Work
+    icon: "🪡"
+    locked: true
+    order: 5
+    levels: {"1": Patcher, "2": Block Builder, "3": Piecer, "4": Quilt Top Master, "5": Heirloom Quilter}
+    prereqs:
+      - {skill: Hand Sewing, level: 3}
+      - {skill: Pattern Reading, level: 2}
 
   # Science
   - name: Observation
     category: Science
+    subject: Scientific Method
     icon: "👁️"
     order: 0
     levels: {"1": Looker, "2": Noticer, "3": Recorder, "4": Analyst, "5": Scientific Observer}
   - name: Measurement
     category: Science
+    subject: Scientific Method
     icon: "📏"
     order: 1
     levels: {"1": Ruler User, "2": Multi-Tool, "3": Precise, "4": Calibrator, "5": Metrologist}
   - name: Experimentation
     category: Science
+    subject: Scientific Method
     icon: "🧪"
     order: 2
     levels: {"1": Mixer, "2": Hypothesis Maker, "3": Variable Controller, "4": Experimenter, "5": Research Scientist}
   - name: Documentation
     category: Science
+    subject: Scientific Method
     icon: "📓"
     order: 3
     levels: {"1": Note Taker, "2": Logger, "3": Report Writer, "4": Paper Author, "5": Lab Notebook Pro}
   - name: Chemistry Basics
     category: Science
+    subject: Specializations
     icon: "⚗️"
     locked: true
     order: 4
@@ -380,16 +624,19 @@ skills:
   # Making & Fabrication
   - name: Soldering Safety
     category: Making & Fabrication
+    subject: Shop Safety & Tools
     icon: "🥽"
     order: 0
     levels: {"1": Goggles On, "2": Vent Aware, "3": Workspace Ready, "4": Safety Lead, "5": Shop Steward}
   - name: Tool Mastery
     category: Making & Fabrication
+    subject: Shop Safety & Tools
     icon: "🛠️"
     order: 1
     levels: {"1": Tool Finder, "2": Right Tool Picker, "3": Handy, "4": Multi-Tool Master, "5": Tool Whisperer}
   - name: Enclosure Design
     category: Making & Fabrication
+    subject: Digital Fab
     icon: "📦"
     locked: true
     order: 2
@@ -398,6 +645,7 @@ skills:
       - {skill: Tool Mastery, level: 2}
   - name: 3D Printing
     category: Making & Fabrication
+    subject: Digital Fab
     icon: "🖨️"
     locked: true
     order: 3
@@ -406,6 +654,7 @@ skills:
       - {skill: Tool Mastery, level: 2}
   - name: CAD & Modeling
     category: Making & Fabrication
+    subject: Digital Fab
     icon: "📐"
     locked: true
     order: 4
@@ -416,41 +665,49 @@ skills:
   # Life Skills
   - name: Budgeting
     category: Life Skills
+    subject: Money & Planning
     icon: "💰"
     order: 0
     levels: {"1": Penny Counter, "2": Tracker, "3": Planner, "4": Saver, "5": Financial Mind}
   - name: Project Planning
     category: Life Skills
+    subject: Money & Planning
     icon: "📋"
     order: 1
     levels: {"1": To-Do Lister, "2": Milestone Setter, "3": Scheduler, "4": Project Manager, "5": Program Director}
   - name: Presentation
     category: Life Skills
+    subject: Communication
     icon: "🎤"
     order: 2
     levels: {"1": Shy Speaker, "2": Slide Maker, "3": Demo Driver, "4": Confident Speaker, "5": Keynote Voice}
   - name: Persistence
     category: Life Skills
+    subject: Personal
     icon: "💪"
     order: 3
     levels: {"1": Tries Once, "2": Dusts Off, "3": Iterator, "4": Grinder, "5": Unshakeable}
   - name: Communication
     category: Life Skills
+    subject: Communication
     icon: "💬"
     order: 4
     levels: {"1": One-Worder, "2": Listener, "3": Clear Explainer, "4": Negotiator, "5": Diplomat}
   - name: Time Management
     category: Life Skills
+    subject: Money & Planning
     icon: "⏳"
     order: 5
     levels: {"1": Always Late, "2": On Time, "3": Buffered, "4": Calendar Master, "5": Time Lord}
   - name: Technical Writing
     category: Life Skills
+    subject: Communication
     icon: "📝"
     order: 6
     levels: {"1": Note Taker, "2": Drafter, "3": Editor, "4": Doc Owner, "5": Wiki Whisperer}
   - name: Driving
     category: Life Skills
+    subject: Personal
     icon: "🚗"
     locked: true
     order: 7
@@ -458,25 +715,37 @@ skills:
     prereqs:
       - {skill: Persistence, level: 2}
       - {skill: Time Management, level: 2}
+  # New — personal health literacy. Pairs with Cooking but covers the
+  # "what to eat" side, not technique.
+  - name: Nutrition
+    category: Life Skills
+    subject: Personal
+    icon: "🥗"
+    order: 8
+    levels: {"1": Food Group Namer, "2": Label Reader, "3": Portion Planner, "4": Balanced Eater, "5": Nutrition Coach}
 
   # Music
   - name: Rhythm
     category: Music
+    subject: Foundation
     icon: "🥁"
     order: 0
     levels: {"1": Off Beat, "2": Clap Along, "3": In Time, "4": Polyrhythmer, "5": Metronome Soul}
   - name: Ear Training
     category: Music
+    subject: Foundation
     icon: "👂"
     order: 1
     levels: {"1": Sound Spotter, "2": Pitch Hearer, "3": Interval Namer, "4": Chord Hearer, "5": Perfect Ear}
   - name: Instrument Practice
     category: Music
+    subject: Foundation
     icon: "🎸"
     order: 2
     levels: {"1": First Notes, "2": Open Chords, "3": Song Player, "4": Technician, "5": Performer}
   - name: Composition
     category: Music
+    subject: Creating
     icon: "🎼"
     locked: true
     order: 3
@@ -486,6 +755,7 @@ skills:
       - {skill: Instrument Practice, level: 2}
   - name: Audio Production
     category: Music
+    subject: Creating
     icon: "🎧"
     locked: true
     order: 4
@@ -496,34 +766,47 @@ skills:
   # Physical
   - name: Endurance
     category: Physical
+    subject: Body Work
     icon: "🏃"
     order: 0
     levels: {"1": Panter, "2": Jogger, "3": Runner, "4": Distance Pro, "5": Marathoner}
   - name: Strength
     category: Physical
+    subject: Body Work
     icon: "🏋️"
     order: 1
     levels: {"1": Getting Started, "2": Form Follower, "3": Progressive, "4": Strong, "5": Iron Mind}
   - name: Flexibility
     category: Physical
+    subject: Body Work
     icon: "🤸"
     order: 2
     levels: {"1": Stiff, "2": Loosening, "3": Bendy, "4": Limber, "5": Yoga Sage}
   - name: Cycling
     category: Physical
+    subject: Sports
     icon: "🚴"
     order: 3
     levels: {"1": Training Wheels, "2": Around the Block, "3": Road Cyclist, "4": Trail Rider, "5": Century Rider}
   - name: Swimming
     category: Physical
+    subject: Sports
     icon: "🏊"
     order: 4
     levels: {"1": Floaty, "2": Front Crawl, "3": Multi-Stroke, "4": Distance Swimmer, "5": Water Native}
   - name: Team Sports
     category: Physical
+    subject: Sports
     icon: "⚽"
     locked: true
     order: 5
     levels: {"1": On the Bench, "2": Rotation Player, "3": Starter, "4": Captain, "5": MVP}
     prereqs:
       - {skill: Endurance, level: 2}
+  # New — pairs with Habits page and bridges the Physical/Life-Skills divide.
+  - name: Mindfulness
+    category: Physical
+    subject: Body Work
+    icon: "🧘"
+    order: 6
+    levels: {"1": Curious, "2": Breath Watcher, "3": Present, "4": Meditator, "5": Zen Keeper}

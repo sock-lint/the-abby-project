@@ -703,8 +703,33 @@ class AssignQuestIn(_Base):
     user_id: int
 
 
+class AssignCoOpQuestIn(_Base):
+    """Parent starts ONE shared Quest across multiple children.
+
+    Creates a single ``Quest`` row with one ``QuestParticipant`` per
+    user_id. All participants contribute to the same target_value pool,
+    and rewards go to every participant on completion. Fails atomically
+    if any participant is already on an active quest.
+    """
+
+    definition_id: int
+    user_ids: list[int] = Field(min_length=2, max_length=10)
+
+
 class CancelQuestIn(_Base):
     quest_id: int
+
+
+class DeleteQuestDefinitionIn(_Base):
+    """Permanently remove a QuestDefinition.
+
+    Parent-only. Cascades to any ``Quest`` instances (including their
+    ``QuestParticipant`` + progress rows) — use with care. Typically used
+    for cleaning up dev/smoke-test rows that have ``is_system=False`` and
+    no user-facing value.
+    """
+
+    quest_definition_id: int
 
 
 # --- Tier 2.3: Habits -----------------------------------------------------

@@ -101,4 +101,36 @@ describe('RpgSprite', () => {
     expect(style).toContain('wolf-mount.png');
     expect(style).not.toContain('wolf.png"');
   });
+
+  // Potion-based recolor — one base sprite covers N potion variants
+  // without a dedicated asset per (species, potion) combo.
+  it('applies a hue-rotate filter when potionSlug is set (static)', () => {
+    renderWithCatalog(
+      <RpgSprite spriteKey="wolf" icon="🐺" size={32} alt="shadow wolf" potionSlug="shadow" />,
+      { wolf: { url: 'https://s/wolf.png', frames: 1, fps: 0, w: 32, h: 32, layout: 'horizontal' } }
+    );
+    const img = screen.getByAltText('shadow wolf');
+    const style = img.getAttribute('style') || '';
+    expect(style).toMatch(/filter:\s*hue-rotate\(260deg\)/);
+  });
+
+  it('applies a hue-rotate filter when potionSlug is set (animated)', () => {
+    renderWithCatalog(
+      <RpgSprite spriteKey="dragon" icon="🐉" size={32} alt="fire dragon" potionSlug="fire" />,
+      { dragon: { url: 'https://s/dragon.png', frames: 4, fps: 4, w: 32, h: 32, layout: 'horizontal' } }
+    );
+    const el = screen.getByLabelText('fire dragon');
+    const style = el.getAttribute('style') || '';
+    expect(style).toMatch(/filter:\s*hue-rotate\(330deg\)/);
+  });
+
+  it('applies no filter when potionSlug is unset or is base', () => {
+    renderWithCatalog(
+      <RpgSprite spriteKey="wolf" icon="🐺" size={32} alt="natural wolf" potionSlug="base" />,
+      { wolf: { url: 'https://s/wolf.png', frames: 1, fps: 0, w: 32, h: 32, layout: 'horizontal' } }
+    );
+    const img = screen.getByAltText('natural wolf');
+    const style = img.getAttribute('style') || '';
+    expect(style).not.toMatch(/filter:\s*hue-rotate/);
+  });
 });

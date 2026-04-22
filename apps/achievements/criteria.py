@@ -434,3 +434,119 @@ def _fast_project(user, c):
         if (proj.completed_at - proj.created_at) <= timedelta(days=days):
             return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# Depth-in-one-dimension criteria (2026-04-22 review)
+# ---------------------------------------------------------------------------
+
+@criterion(Badge.CriteriaType.CATEGORY_MASTERY)
+def _category_mastery(user, c):
+    """Every skill in the named category at or above ``min_level``.
+
+    ``criteria_value`` shape::
+
+        {"category": "Cooking", "min_level": 3}
+
+    Locked-by-default skills count — so you can't duck an advanced skill.
+    """
+    from apps.achievements.models import Skill, SkillCategory
+
+    category_name = c.get("category")
+    if not category_name:
+        return False
+    try:
+        category = SkillCategory.objects.get(name=category_name)
+    except SkillCategory.DoesNotExist:
+        return False
+    min_level = int(c.get("min_level", 3))
+    required_skill_ids = set(
+        Skill.objects.filter(category=category).values_list("id", flat=True)
+    )
+    if not required_skill_ids:
+        return False
+    user_skill_ids = set(
+        SkillProgress.objects.filter(
+            user=user, skill_id__in=required_skill_ids, level__gte=min_level,
+        ).values_list("skill_id", flat=True)
+    )
+    return required_skill_ids.issubset(user_skill_ids)
+
+
+@criterion(Badge.CriteriaType.FULL_POTION_SHELF)
+def _full_potion_shelf(user, _c):
+    """Own at least one of every potion in the live catalog."""
+    from apps.pets.models import PotionType
+    from apps.rpg.models import UserInventory
+
+    all_potion_slugs = set(
+        PotionType.objects.values_list("slug", flat=True)
+    )
+    if not all_potion_slugs:
+        return False
+    owned_slugs = set(
+        UserInventory.objects.filter(
+            user=user, quantity__gte=1,
+            item__potion_type__isnull=False,
+        ).values_list("item__potion_type__slug", flat=True)
+    )
+    return all_potion_slugs.issubset(owned_slugs)
+
+
+@criterion(Badge.CriteriaType.CONSUMABLE_VARIETY)
+def _consumable_variety(user, c):
+    """Distinct consumable effects the user has ever used."""
+    from apps.rpg.models import CharacterProfile
+    row = CharacterProfile.objects.filter(user=user).values(
+        "consumable_effects_used",
+    ).first()
+    if not row:
+        return False
+    used = row["consumable_effects_used"] or []
+    return len(set(used)) >= int(c.get("count", 5))
+
+
+@criterion(Badge.CriteriaType.COINS_SPENT_LIFETIME)
+def _coins_spent_lifetime(user, c):
+    """Lifetime coins debited via redemption.
+
+    Redemption entries are negative on CoinLedger. We sum absolute values of
+    the negative REDEMPTION rows — refunds are separate ``refund`` entries
+    and net them out naturally if we also include those as positives.
+    """
+    from apps.rewards.models import CoinLedger
+    total_spent = abs(
+        CoinLedger.objects.filter(
+            user=user,
+            reason=CoinLedger.Reason.REDEMPTION,
+            amount__lt=0,
+        ).aggregate(total=Sum("amount"))["total"] or 0
+    )
+    refunded = CoinLedger.objects.filter(
+        user=user, reason=CoinLedger.Reason.REFUND, amount__gt=0,
+    ).aggregate(total=Sum("amount"))["total"] or 0
+    net_spent = total_spent - refunded
+    return net_spent >= int(c.get("amount", 50))
+
+
+@criterion(Badge.CriteriaType.GRADE_REACHED)
+def _grade_reached(user, c):
+    """Reached at least grade N (9-12) according to User.current_grade.
+
+    Driven by ``User.grade_entry_year`` which the parent sets on the profile.
+    Post-HS the property returns values above 12 — those still satisfy "reached
+    grade 12" but we don't emit higher-tier badges beyond Senior.
+    """
+    grade = user.current_grade if hasattr(user, "current_grade") else None
+    if grade is None:
+        return False
+    return grade >= int(c.get("grade", 9))
+
+
+@criterion(Badge.CriteriaType.BIRTHDAYS_LOGGED)
+def _birthdays_logged(user, c):
+    """Count Chronicle BIRTHDAY entries (one per year celebrated in-app)."""
+    from apps.chronicle.models import ChronicleEntry
+    return ChronicleEntry.objects.filter(
+        user=user, kind=ChronicleEntry.Kind.BIRTHDAY,
+    ).count() >= int(c.get("count", 1))

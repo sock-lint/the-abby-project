@@ -22,3 +22,4 @@ class TriggerType(models.TextChoices):
     QUEST_COMPLETE = "quest_complete", "Quest Complete"
     PERFECT_DAY = "perfect_day", "Perfect Day"
     HABIT_LOG = "habit_log", "Habit Log"
+    DAILY_CHECK_IN = "daily_check_in", "Daily Check-In"

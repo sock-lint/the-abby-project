@@ -90,6 +90,75 @@ class QuestService:
 
     @staticmethod
     @transaction.atomic
+    def start_co_op_quest(definition_id, users):
+        """Start one shared Quest with multiple participants.
+
+        Each user gets a ``QuestParticipant`` row tied to the same ``Quest``
+        so damage/contribution pools together toward the target. Same
+        one-active-quest-per-user invariant as ``start_quest`` — any user
+        already on an active quest causes the whole call to fail rather
+        than partially-assign.
+
+        Caller responsibility: verify parent auth. Returns the created
+        Quest. Raises ``ValueError`` on invalid input.
+        """
+        from apps.quests.models import QuestDefinition, Quest, QuestParticipant
+
+        users = list(users)
+        if not users:
+            raise ValueError("start_co_op_quest needs at least one user")
+        if len({u.pk for u in users}) != len(users):
+            raise ValueError("Duplicate user in co-op quest assignment")
+
+        # Pre-flight: no participant may already have an active quest.
+        # Doing this as one SQL query keeps the check atomic.
+        conflicting = Quest.objects.filter(
+            participants__user__in=users, status=Quest.Status.ACTIVE,
+        ).values_list("participants__user__username", flat=True)
+        if conflicting:
+            raise ValueError(
+                "Users already on active quests: "
+                + ", ".join(sorted(set(conflicting)))
+            )
+
+        try:
+            definition = QuestDefinition.objects.get(pk=definition_id)
+        except QuestDefinition.DoesNotExist:
+            raise ValueError("Quest not found")
+
+        # Badge gate applies to every participant — don't start if any
+        # participant can't satisfy it.
+        if definition.required_badge:
+            from apps.achievements.models import UserBadge
+            gated = set(
+                u.pk for u in users
+                if not UserBadge.objects.filter(
+                    user=u, badge=definition.required_badge,
+                ).exists()
+            )
+            if gated:
+                raise ValueError(
+                    f"Not every participant has the '{definition.required_badge.name}' badge "
+                    f"({len(gated)} missing)"
+                )
+
+        now = timezone.now()
+        quest = Quest.objects.create(
+            definition=definition,
+            start_date=now,
+            end_date=now + timedelta(days=definition.duration_days),
+        )
+        for u in users:
+            QuestParticipant.objects.create(quest=quest, user=u)
+
+        logger.info(
+            "Co-op quest started: %s with %d participants",
+            definition.name, len(users),
+        )
+        return quest
+
+    @staticmethod
+    @transaction.atomic
     def record_progress(user, trigger_type, context=None):
         """Record quest progress from a completed task.
 

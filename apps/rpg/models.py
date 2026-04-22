@@ -48,6 +48,10 @@ class CharacterProfile(TimestampedModel):
         default=0,
         help_text="Number of pet feeds that still get Growth Tonic's 2x multiplier.",
     )
+    consumable_effects_used = models.JSONField(
+        default=list, blank=True,
+        help_text="Distinct consumable effect slugs ever used (for Alchemist-style badges).",
+    )
     active_frame = models.ForeignKey(
         "rpg.ItemDefinition", on_delete=models.SET_NULL,
         null=True, blank=True, related_name="equipped_as_frame",
