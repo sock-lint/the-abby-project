@@ -17,6 +17,7 @@ import Manage from './pages/Manage';
 import ActivityPage from './pages/activity/ActivityPage';
 import SettingsPage from './pages/SettingsPage';
 import QuestsHub from './pages/quests';
+import Trials from './pages/Trials';
 import BestiaryHub from './pages/bestiary';
 import Character from './pages/Character';
 import TreasuryHub from './pages/treasury';
@@ -119,6 +120,10 @@ export default function App() {
               <Route path="/quests/ventures/ingest" element={<ProjectIngest />} />
               <Route path="/quests/ventures/:id" element={<ProjectDetail />} />
 
+              {/* Trials — the adventure overlay (time-boxed boss/collection quests),
+                  separated from the regular-cadence hub tabs. */}
+              <Route path="/trials" element={<Trials />} />
+
               {/* Chapter III — Bestiary */}
               <Route path="/bestiary" element={<BestiaryHub />} />
 
@@ -145,6 +150,7 @@ export default function App() {
               <Route path="/chores" element={<LegacyRedirect to="/quests?tab=duties" />} />
               <Route path="/homework" element={<LegacyRedirect to="/quests?tab=study" />} />
               <Route path="/habits" element={<LegacyRedirect to="/quests?tab=rituals" />} />
+              <Route path="/quests/trials" element={<LegacyRedirect to="/trials" />} />
               <Route path="/inventory" element={<LegacyRedirect to="/bestiary?tab=satchel" />} />
               <Route path="/stable" element={<LegacyRedirect to="/bestiary?tab=party" />} />
               <Route path="/character" element={<LegacyRedirect to="/sigil" />} />

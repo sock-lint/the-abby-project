@@ -18,6 +18,7 @@ import EmptyState from '../components/EmptyState';
 import SigilFrontispiece from './character/SigilFrontispiece';
 import CosmeticChapter from './character/CosmeticChapter';
 import TrophyBadgePicker from './character/TrophyBadgePicker';
+import AdventuresEntry from './character/AdventuresEntry';
 import { COSMETIC_CHAPTERS } from './character/character.constants';
 
 /**
@@ -94,6 +95,8 @@ export default function Character() {
         profile={profile}
         onOpenTrophyPicker={() => setPickerOpen(true)}
       />
+
+      <AdventuresEntry />
 
       <div className="space-y-4">
         {COSMETIC_CHAPTERS.map((chapter) => (

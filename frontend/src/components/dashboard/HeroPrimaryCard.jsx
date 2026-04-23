@@ -149,7 +149,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
             </div>
             <button
               type="button"
-              onClick={() => navigate('/quests')}
+              onClick={() => navigate('/trials')}
               className="mt-3 font-script text-sm text-sheikah-teal-deep hover:underline"
             >
               View quest →

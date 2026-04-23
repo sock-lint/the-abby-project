@@ -4,13 +4,16 @@ import Chores from '../Chores';
 import Homework from '../Homework';
 import Habits from '../Habits';
 import Movement from '../Movement';
-import LegacyQuests from '../Quests';
 
 /**
  * Quests — hub page consolidating all "things to do."
  *
  * Ventures (Projects) · Duties (Chores) · Study (Homework)
- * Trials   (RPG Quests) · Rituals (Habits) · Movement (sessions)
+ * Rituals (Habits) · Movement (sessions)
+ *
+ * Trials — the adventure overlay (time-boxed boss/collection quests) —
+ * lives at /trials, reached via the active-trial HeaderProgressBand,
+ * the QuickActions "Start a quest" shortcut, and the Sigil page.
  */
 export default function QuestsHub() {
   return (
@@ -23,7 +26,6 @@ export default function QuestsHub() {
         { id: 'ventures', label: 'Ventures', render: () => <Projects /> },
         { id: 'duties',   label: 'Duties',   render: () => <Chores /> },
         { id: 'study',    label: 'Study',    render: () => <Homework /> },
-        { id: 'trials',   label: 'Trials',   render: () => <LegacyQuests /> },
         { id: 'rituals',  label: 'Rituals',  render: () => <Habits /> },
         { id: 'movement', label: 'Movement', render: () => <Movement /> },
       ]}

@@ -28,4 +28,25 @@ describe('QuestsHub', () => {
     await waitFor(() => expect(screen.getByText('Quests')).toBeInTheDocument());
     expect(screen.getAllByText(/ventures/i).length).toBeGreaterThan(0);
   });
+
+  it('exposes five tabs (Ventures · Duties · Study · Rituals · Movement) — no Trials tab', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/projects/', () => HttpResponse.json([])),
+    );
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <QuestsHub />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByRole('tab', { name: /ventures/i })).toBeInTheDocument());
+    expect(screen.getByRole('tab', { name: /duties/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /study/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /rituals/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /movement/i })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /trials/i })).toBeNull();
+    expect(screen.getAllByRole('tab')).toHaveLength(5);
+  });
 });
