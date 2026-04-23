@@ -808,6 +808,57 @@ def _creation_skill_breadth(user, c):
     return len(primary_ids | secondary_ids) >= target
 
 
+# ---------------------------------------------------------------------------
+# Movement — self-reported physical-activity sessions
+# ---------------------------------------------------------------------------
+
+@criterion(Badge.CriteriaType.MOVEMENT_SESSIONS_LOGGED)
+def _movement_sessions_logged(user, c):
+    """Lifetime count of MovementSession rows logged by this user.
+
+    ``criteria_value`` shape::
+
+        {"count": 10}  # default: 1 (first-session badge)
+
+    Counts every session row regardless of whether XP was awarded — the
+    presence-and-effort track is the recognition; the daily reward cap
+    is purely a farming guard.
+    """
+    from apps.movement.models import MovementSession
+    return MovementSession.objects.filter(user=user).count() >= int(c.get("count", 1))
+
+
+@criterion(Badge.CriteriaType.MOVEMENT_TOTAL_MINUTES)
+def _movement_total_minutes(user, c):
+    """Lifetime sum of ``duration_minutes`` across all sessions.
+
+    ``criteria_value`` shape::
+
+        {"minutes": 600}  # default: 60
+    """
+    from apps.movement.models import MovementSession
+    target = int(c.get("minutes", 60))
+    total = MovementSession.objects.filter(user=user).aggregate(
+        total=models.Sum("duration_minutes"),
+    )["total"] or 0
+    return total >= target
+
+
+@criterion(Badge.CriteriaType.MOVEMENT_TYPE_BREADTH)
+def _movement_type_breadth(user, c):
+    """Sessions logged across at least N distinct MovementType rows.
+
+    ``criteria_value`` shape::
+
+        {"count": 3}  # default: 3 (Cross-Trainer)
+    """
+    from apps.movement.models import MovementSession
+    target = int(c.get("count", 3))
+    return MovementSession.objects.filter(user=user).values(
+        "movement_type_id",
+    ).distinct().count() >= target
+
+
 @criterion(Badge.CriteriaType.COSMETIC_SET_OWNED)
 def _cosmetic_set_owned(user, c):
     """Own every item in a specific named cosmetic set.

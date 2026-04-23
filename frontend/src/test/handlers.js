@@ -85,6 +85,11 @@ export const handlers = [
   http.post('*/api/skills/', ok),
 
   // Creations
+  http.get('*/api/movement-types/', empty),
+  http.get('*/api/movement-sessions/', empty),
+  http.post('*/api/movement-sessions/', ok),
+  http.delete(/\/api\/movement-sessions\/\d+\/$/, nullBody),
+
   http.get('*/api/creations/', empty),
   http.post('*/api/creations/', ok),
   http.delete(/\/api\/creations\/\d+\/$/, nullBody),

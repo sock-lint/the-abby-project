@@ -31,6 +31,11 @@ TRIGGER_DAMAGE = {
     # Journal entries deal modest damage — matches habit logs. The service
     # gates on first-of-day so repeat entries don't stack.
     TriggerType.JOURNAL_ENTRY: 5,
+    # Movement sessions deal flat damage per session, not duration-scaled,
+    # so the boss damage stays proportional to *commitment to show up*
+    # rather than rewarding marathon entries that already win at the XP
+    # layer. The service caps the reward path at 3 sessions per local day.
+    TriggerType.MOVEMENT_SESSION: 8,
 }
 
 # Rage shield balance (boss quests only). Idle day climbs, active day decays.

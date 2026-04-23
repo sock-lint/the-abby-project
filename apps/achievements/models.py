@@ -215,6 +215,10 @@ class Badge(models.Model):
         CREATIONS_LOGGED = "creations_logged", "Creations Logged"
         CREATIONS_APPROVED = "creations_approved", "Creations Approved"
         CREATION_SKILL_BREADTH = "creation_skill_breadth", "Creation Skill Breadth"
+        # Movement — self-reported physical-activity sessions.
+        MOVEMENT_SESSIONS_LOGGED = "movement_sessions_logged", "Movement Sessions Logged"
+        MOVEMENT_TOTAL_MINUTES = "movement_total_minutes", "Movement Total Minutes"
+        MOVEMENT_TYPE_BREADTH = "movement_type_breadth", "Movement Type Breadth"
 
     class Rarity(models.TextChoices):
         COMMON = "common", "Common"

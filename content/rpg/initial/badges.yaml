@@ -1315,3 +1315,73 @@ badges:
     criteria_value: {count: 5}
     rarity: rare
     xp_bonus: 120
+
+  # Movement — physical-activity sessions. Three ladders mirroring the
+  # Creations shape: count of sessions, total minutes, and breadth across
+  # distinct MovementType rows. The "showed up" act is the primary
+  # recognition; the daily-cap on XP is invisible at the badge layer.
+  - name: First Lap
+    description: Log your first movement session
+    icon: "🏃"
+    criteria_type: movement_sessions_logged
+    criteria_value: {count: 1}
+    rarity: common
+    xp_bonus: 15
+  - name: Regular
+    description: Log 10 movement sessions
+    icon: "🚴"
+    criteria_type: movement_sessions_logged
+    criteria_value: {count: 10}
+    rarity: uncommon
+    xp_bonus: 40
+  - name: Devoted
+    description: Log 50 movement sessions
+    icon: "🥋"
+    criteria_type: movement_sessions_logged
+    criteria_value: {count: 50}
+    rarity: rare
+    xp_bonus: 120
+  - name: Iron
+    description: Log 200 movement sessions
+    icon: "🏆"
+    criteria_type: movement_sessions_logged
+    criteria_value: {count: 200}
+    rarity: epic
+    xp_bonus: 300
+
+  - name: Hour One
+    description: Move for a total of 60 minutes
+    icon: "⏱️"
+    criteria_type: movement_total_minutes
+    criteria_value: {minutes: 60}
+    rarity: common
+    xp_bonus: 15
+  - name: Ten Hours
+    description: Move for a total of 600 minutes
+    icon: "⏰"
+    criteria_type: movement_total_minutes
+    criteria_value: {minutes: 600}
+    rarity: uncommon
+    xp_bonus: 50
+  - name: Marathoner
+    description: Move for a total of 3000 minutes
+    icon: "🏅"
+    criteria_type: movement_total_minutes
+    criteria_value: {minutes: 3000}
+    rarity: epic
+    xp_bonus: 250
+
+  - name: Cross-Trainer
+    description: Log sessions across 3 different movement types
+    icon: "🔀"
+    criteria_type: movement_type_breadth
+    criteria_value: {count: 3}
+    rarity: uncommon
+    xp_bonus: 60
+  - name: Decathlete
+    description: Log sessions across 6 different movement types
+    icon: "🏟️"
+    criteria_type: movement_type_breadth
+    criteria_value: {count: 6}
+    rarity: rare
+    xp_bonus: 150
