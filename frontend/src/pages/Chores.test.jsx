@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Chores from './Chores.jsx';
@@ -52,9 +52,13 @@ describe('Chores', () => {
 
   it('renders chore rows for a child', async () => {
     renderPage(buildUser(), [
-      http.get('*/api/chores/', () =>
-        HttpResponse.json([buildChore({ id: 1, title: 'Dishes', is_available: true, reward_amount: '1.00' })]),
-      ),
+      http.get('*/api/chores/', ({ request }) => {
+        const pending = new URL(request.url).searchParams.get('pending') === 'true';
+        return HttpResponse.json(pending
+          ? []
+          : [buildChore({ id: 1, title: 'Dishes', is_available: true, reward_amount: '1.00' })],
+        );
+      }),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
     ]);
     await waitFor(() => expect(screen.getByText('Dishes')).toBeInTheDocument());
@@ -144,9 +148,13 @@ describe('Chores', () => {
     const user = userEvent.setup();
     const complete = spyHandler('post', /\/api\/chores\/\d+\/complete\/$/, { ok: true });
     renderPage(buildUser(), [
-      http.get('*/api/chores/', () =>
-        HttpResponse.json([buildChore({ id: 12, title: 'Dishes', is_available: true, today_status: null })]),
-      ),
+      http.get('*/api/chores/', ({ request }) => {
+        const pending = new URL(request.url).searchParams.get('pending') === 'true';
+        return HttpResponse.json(pending
+          ? []
+          : [buildChore({ id: 12, title: 'Dishes', is_available: true, today_status: null })],
+        );
+      }),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
       complete.handler,
     ]);
@@ -178,6 +186,98 @@ describe('Chores', () => {
 
     await waitFor(() => expect(approve.calls).toHaveLength(1));
     expect(approve.calls[0].url).toMatch(/\/chore-completions\/22\/approve\/$/);
+  });
+
+  it('child sees "Propose a duty" button and form hides reward fields', async () => {
+    const user = userEvent.setup();
+    renderPage(buildUser(), [
+      http.get('*/api/chores/', () => HttpResponse.json([])),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+    ]);
+    const btn = await screen.findByRole('button', { name: /propose a duty/i });
+    await user.click(btn);
+    // Dialog header should mention "Propose" for children.
+    await screen.findByRole('dialog', { name: /propose a duty/i });
+    // Notice to the child: parent sets rewards.
+    expect(
+      screen.getByText(/your parent will set the rewards/i),
+    ).toBeInTheDocument();
+    // Reward inputs must NOT appear — only the "what it is" fields.
+    expect(screen.queryByLabelText(/reward \(\$\)/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^coins$/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^xp pool$/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add skill/i })).not.toBeInTheDocument();
+  });
+
+  it('child submitting a proposal posts to /chores/ without reward fields', async () => {
+    const user = userEvent.setup();
+    const create = spyHandler('post', /\/api\/chores\/$/, { id: 1, title: 'Feed cat' });
+    renderPage(buildUser(), [
+      http.get('*/api/chores/', () => HttpResponse.json([])),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      create.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: /propose a duty/i }));
+    await screen.findByRole('dialog', { name: /propose a duty/i });
+    await user.type(screen.getByLabelText('Title'), 'Feed cat');
+    await user.click(screen.getByRole('button', { name: /send to parent/i }));
+
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    const body = create.calls[0].body;
+    expect(body.title).toBe('Feed cat');
+    // Server strips these anyway, but the client shouldn't bother sending them.
+    expect(body.reward_amount).toBeUndefined();
+    expect(body.coin_reward).toBeUndefined();
+    expect(body.xp_reward).toBeUndefined();
+    expect(body.skill_tags).toBeUndefined();
+  });
+
+  it('parent reviewing a pending proposal posts to /chores/{id}/approve/ with rewards', async () => {
+    const user = userEvent.setup();
+    const approve = spyHandler('post', /\/api\/chores\/\d+\/approve\/$/, { id: 99, title: 'Feed cat' });
+    const proposal = {
+      id: 99,
+      title: 'Feed cat',
+      description: '',
+      icon: '🐈',
+      reward_amount: '0.00',
+      coin_reward: 0,
+      xp_reward: 10,
+      recurrence: 'daily',
+      week_schedule: 'every_week',
+      is_active: true,
+      pending_parent_review: true,
+      created_by: 2,
+      created_by_name: 'Abby',
+      skill_tags: [],
+    };
+    renderPage(buildParent(), [
+      // First call (no params) returns the regular list; same MSW handler
+      // serves the ?pending=true call too.
+      http.get('*/api/chores/', ({ request }) => {
+        const url = new URL(request.url);
+        return HttpResponse.json(url.searchParams.get('pending') === 'true' ? [proposal] : []);
+      }),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+      approve.handler,
+    ]);
+
+    const review = await screen.findByRole('button', { name: /review & publish/i });
+    await user.click(review);
+    const dialog = await screen.findByRole('dialog', { name: /approve duty proposal/i });
+    // The banner lives inside the modal; the row also mentions "proposed by",
+    // so scope the assertion to the dialog.
+    expect(within(dialog).getByText(/proposed by/i)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: /approve & publish/i }));
+
+    await waitFor(() => expect(approve.calls).toHaveLength(1));
+    expect(approve.calls[0].url).toMatch(/\/chores\/99\/approve\/$/);
+    // Parent's submission carries the reward block.
+    expect(approve.calls[0].body.reward_amount).toBeDefined();
+    expect(approve.calls[0].body.coin_reward).toBeDefined();
+    expect(approve.calls[0].body.xp_reward).toBeDefined();
   });
 
   it('parent rejecting a pending completion posts to /chore-completions/{id}/reject/', async () => {

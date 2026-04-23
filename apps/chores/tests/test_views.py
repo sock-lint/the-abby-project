@@ -27,12 +27,210 @@ class ChoreViewSetTests(_Fixture):
         }, format="json")
         self.assertIn(resp.status_code, (200, 201))
 
-    def test_child_cannot_create_chore(self):
+    def test_child_create_produces_pending_proposal(self):
+        """Children can now create chores, but they land as pending proposals."""
         self.client.force_authenticate(self.child)
         resp = self.client.post("/api/chores/", {
-            "title": "x", "reward_amount": "0.00",
+            "title": "Feed cat", "icon": "🐈", "recurrence": "daily",
+        }, format="json")
+        self.assertEqual(resp.status_code, 201, msg=resp.content)
+        chore = Chore.objects.get(title="Feed cat")
+        self.assertTrue(chore.pending_parent_review)
+        self.assertEqual(chore.created_by, self.child)
+        self.assertEqual(chore.assigned_to, self.child)
+
+    def test_child_create_strips_reward_fields(self):
+        """Payload reward fields from a child are ignored — parent sets them."""
+        self.client.force_authenticate(self.child)
+        resp = self.client.post("/api/chores/", {
+            "title": "Sneaky",
+            "reward_amount": "50.00",
+            "coin_reward": 500,
+            "xp_reward": 500,
+            "recurrence": "daily",
+        }, format="json")
+        self.assertEqual(resp.status_code, 201, msg=resp.content)
+        chore = Chore.objects.get(title="Sneaky")
+        self.assertEqual(chore.reward_amount, Decimal("0.00"))
+        self.assertEqual(chore.coin_reward, 0)
+        # xp_reward default is 10 — still the model default, not the 500 posted.
+        self.assertEqual(chore.xp_reward, 10)
+
+    def test_child_create_strips_skill_tags(self):
+        from apps.achievements.models import Skill, SkillCategory
+        from apps.chores.models import ChoreSkillTag
+
+        cat = SkillCategory.objects.create(name="Life Skills", icon="🌟")
+        skill = Skill.objects.create(name="Persistence", category=cat)
+        self.client.force_authenticate(self.child)
+        resp = self.client.post("/api/chores/", {
+            "title": "Tagged", "recurrence": "daily",
+            "skill_tags": [{"skill_id": skill.id, "xp_weight": 5}],
+        }, format="json")
+        self.assertEqual(resp.status_code, 201, msg=resp.content)
+        chore = Chore.objects.get(title="Tagged")
+        self.assertEqual(ChoreSkillTag.objects.filter(chore=chore).count(), 0)
+
+    def test_pending_proposal_hidden_from_child_list(self):
+        """A pending proposal must not appear in the child's tap surface."""
+        Chore.objects.create(
+            title="Proposed", created_by=self.child, assigned_to=self.child,
+            pending_parent_review=True,
+        )
+        Chore.objects.create(
+            title="Live", created_by=self.parent, reward_amount=Decimal("1"),
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/chores/")
+        self.assertEqual(resp.status_code, 200)
+        titles = [row["title"] for row in resp.json()]
+        self.assertIn("Live", titles)
+        self.assertNotIn("Proposed", titles)
+
+    def test_child_can_list_own_pending_proposals(self):
+        """?pending=true returns the child's own proposals so they can track them."""
+        Chore.objects.create(
+            title="Mine", created_by=self.child, assigned_to=self.child,
+            pending_parent_review=True,
+        )
+        other_child = User.objects.create_user(
+            username="c2", password="pw", role="child",
+        )
+        Chore.objects.create(
+            title="Sibling's", created_by=other_child, assigned_to=other_child,
+            pending_parent_review=True,
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/chores/?pending=true")
+        self.assertEqual(resp.status_code, 200)
+        rows = resp.json().get("results", resp.json())
+        titles = [row["title"] for row in rows]
+        self.assertEqual(titles, ["Mine"])
+
+    def test_parent_sees_all_pending_proposals(self):
+        Chore.objects.create(
+            title="From child", created_by=self.child, assigned_to=self.child,
+            pending_parent_review=True,
+        )
+        Chore.objects.create(
+            title="Live", created_by=self.parent, reward_amount=Decimal("1"),
+        )
+        self.client.force_authenticate(self.parent)
+        resp = self.client.get("/api/chores/?pending=true")
+        self.assertEqual(resp.status_code, 200)
+        rows = resp.json().get("results", resp.json())
+        titles = [row["title"] for row in rows]
+        self.assertEqual(titles, ["From child"])
+
+    def test_child_cannot_complete_pending_proposal(self):
+        """Child's queryset hides pending proposals, so /complete/ 404s.
+
+        The ``ChoreService.submit_completion`` belt-and-suspenders guard
+        is separately exercised by a service-level test — see
+        ``test_services.py``."""
+        chore = Chore.objects.create(
+            title="Pending", created_by=self.child, assigned_to=self.child,
+            pending_parent_review=True,
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(f"/api/chores/{chore.id}/complete/", format="json")
+        self.assertEqual(resp.status_code, 404)
+
+    def test_submit_completion_service_refuses_pending_chore(self):
+        """Direct service call also refuses, in case a caller bypasses the view."""
+        chore = Chore.objects.create(
+            title="Pending", created_by=self.child, assigned_to=self.child,
+            pending_parent_review=True,
+        )
+        from apps.chores.services import ChoreNotAvailableError, ChoreService
+
+        with self.assertRaises(ChoreNotAvailableError):
+            ChoreService.submit_completion(self.child, chore)
+
+    def test_parent_approves_proposal_with_rewards(self):
+        from apps.achievements.models import Skill, SkillCategory
+        from apps.chores.models import ChoreSkillTag
+
+        cat = SkillCategory.objects.create(name="Life Skills", icon="🌟")
+        skill = Skill.objects.create(name="Persistence", category=cat)
+        chore = Chore.objects.create(
+            title="Water plants", created_by=self.child, assigned_to=self.child,
+            pending_parent_review=True,
+        )
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post(f"/api/chores/{chore.id}/approve/", {
+            "reward_amount": "0.50", "coin_reward": 3, "xp_reward": 20,
+            "skill_tags": [{"skill_id": skill.id, "xp_weight": 1}],
+        }, format="json")
+        self.assertEqual(resp.status_code, 200, msg=resp.content)
+        chore.refresh_from_db()
+        self.assertFalse(chore.pending_parent_review)
+        self.assertEqual(chore.reward_amount, Decimal("0.50"))
+        self.assertEqual(chore.coin_reward, 3)
+        self.assertEqual(chore.xp_reward, 20)
+        self.assertEqual(ChoreSkillTag.objects.filter(chore=chore).count(), 1)
+
+    def test_child_cannot_approve_proposal(self):
+        chore = Chore.objects.create(
+            title="Mine", created_by=self.child, assigned_to=self.child,
+            pending_parent_review=True,
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(f"/api/chores/{chore.id}/approve/", {
+            "reward_amount": "10.00", "coin_reward": 100,
         }, format="json")
         self.assertEqual(resp.status_code, 403)
+
+    def test_approve_rejects_already_published_chore(self):
+        chore = Chore.objects.create(
+            title="Live", created_by=self.parent, reward_amount=Decimal("1"),
+        )
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post(f"/api/chores/{chore.id}/approve/", {
+            "reward_amount": "2.00",
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)
+
+    def test_parent_destroy_pending_notifies_proposer(self):
+        from apps.notifications.models import Notification, NotificationType
+
+        chore = Chore.objects.create(
+            title="Feed fish", created_by=self.child, assigned_to=self.child,
+            pending_parent_review=True,
+        )
+        self.client.force_authenticate(self.parent)
+        resp = self.client.delete(f"/api/chores/{chore.id}/")
+        self.assertIn(resp.status_code, (200, 204))
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.child,
+                notification_type=NotificationType.CHORE_PROPOSAL_REJECTED,
+            ).exists(),
+        )
+
+    def test_child_cannot_destroy_chore(self):
+        chore = Chore.objects.create(
+            title="Mine", created_by=self.child, assigned_to=self.child,
+            pending_parent_review=True,
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.delete(f"/api/chores/{chore.id}/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_propose_emits_parent_notification(self):
+        from apps.notifications.models import Notification, NotificationType
+
+        self.client.force_authenticate(self.child)
+        resp = self.client.post("/api/chores/", {
+            "title": "Feed cat", "recurrence": "daily",
+        }, format="json")
+        self.assertEqual(resp.status_code, 201, msg=resp.content)
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.parent,
+                notification_type=NotificationType.CHORE_PROPOSED,
+            ).exists(),
+        )
 
     def test_complete_action_child_submits(self):
         chore = Chore.objects.create(title="Trash", reward_amount=Decimal("1"), created_by=self.parent)

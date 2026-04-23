@@ -21,6 +21,9 @@ class ChoreSerializer(serializers.ModelSerializer):
     today_status = serializers.CharField(read_only=True, default=None)
     today_completion_id = serializers.IntegerField(read_only=True, default=None)
     skill_tags = ChoreSkillTagSerializer(many=True, read_only=True)
+    created_by_name = serializers.CharField(
+        source="created_by.display_label", read_only=True,
+    )
 
     class Meta:
         model = Chore
@@ -29,10 +32,14 @@ class ChoreSerializer(serializers.ModelSerializer):
             "reward_amount", "coin_reward", "xp_reward",
             "recurrence", "week_schedule", "schedule_start_date",
             "assigned_to", "assigned_to_name",
-            "is_active", "order",
+            "created_by", "created_by_name",
+            "is_active", "pending_parent_review", "order",
             "is_available", "today_status", "today_completion_id",
             "skill_tags",
             "created_at", "updated_at",
+        ]
+        read_only_fields = [
+            "pending_parent_review", "created_by", "created_by_name",
         ]
 
 

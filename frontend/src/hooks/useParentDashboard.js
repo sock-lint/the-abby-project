@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   getChoreCompletions, getHomeworkDashboard, getRedemptions, getDashboard,
-  listPendingCreations,
+  listPendingCreations, listPendingChoreProposals, listPendingHabitProposals,
 } from '../api';
 import { normalizeList } from '../utils/api';
 
@@ -47,6 +47,32 @@ function unifyCreation(c) {
   };
 }
 
+function unifyChoreProposal(c) {
+  return {
+    id: c.id,
+    kind: 'chore_proposal',
+    kidId: c.created_by ?? null,
+    kidName: c.created_by_name || 'Child',
+    title: c.title || 'Duty',
+    subtitle: 'proposed — parent must set rewards',
+    reward: null,
+    submittedAt: c.updated_at || c.created_at || null,
+  };
+}
+
+function unifyHabitProposal(h) {
+  return {
+    id: h.id,
+    kind: 'habit_proposal',
+    kidId: h.created_by ?? null,
+    kidName: h.created_by_name || 'Child',
+    title: h.name || 'Ritual',
+    subtitle: 'proposed — parent must set XP',
+    reward: null,
+    submittedAt: h.updated_at || h.created_at || null,
+  };
+}
+
 function unifyRedemption(r) {
   return {
     id: r.id,
@@ -83,12 +109,17 @@ export default function useParentDashboard() {
   const load = useCallback(async () => {
     setData((d) => ({ ...d, loading: true, error: null }));
     try {
-      const [chores, hw, reds, dashboardRes, creations] = await Promise.all([
+      const [
+        chores, hw, reds, dashboardRes, creations,
+        choreProposals, habitProposals,
+      ] = await Promise.all([
         getChoreCompletions('pending').catch(() => []),
         getHomeworkDashboard().catch(() => ({ pending_submissions: [] })),
         getRedemptions().catch(() => []),
         getDashboard().catch(() => null),
         listPendingCreations().catch(() => []),
+        listPendingChoreProposals().catch(() => []),
+        listPendingHabitProposals().catch(() => []),
       ]);
 
       const unified = [
@@ -96,6 +127,8 @@ export default function useParentDashboard() {
         ...normalizeList(hw?.pending_submissions).map(unifyHomework),
         ...normalizeList(reds).filter((r) => r.status === 'pending').map(unifyRedemption),
         ...normalizeList(creations).map(unifyCreation),
+        ...normalizeList(choreProposals).map(unifyChoreProposal),
+        ...normalizeList(habitProposals).map(unifyHabitProposal),
       ].sort(byRecent);
 
       // Week stats — if the dashboard payload has per-kid data in the future,

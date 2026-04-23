@@ -53,7 +53,7 @@ class ChoreService:
         if target_date is None:
             target_date = timezone.localdate()
 
-        qs = Chore.objects.filter(is_active=True)
+        qs = Chore.objects.filter(is_active=True, pending_parent_review=False)
 
         if user.role == "child":
             qs = qs.filter(Q(assigned_to=user) | Q(assigned_to__isnull=True))
@@ -121,6 +121,11 @@ class ChoreService:
         """Child marks a chore as done. Creates a pending ChoreCompletion."""
         if not chore.is_active:
             raise ChoreNotAvailableError("This chore is no longer active.")
+
+        if chore.pending_parent_review:
+            raise ChoreNotAvailableError(
+                "This duty is waiting for parent approval before it can be completed.",
+            )
 
         if user.role != "child":
             raise ChoreNotAvailableError("Only children can complete chores.")
