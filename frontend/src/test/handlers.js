@@ -83,6 +83,15 @@ export const handlers = [
   http.delete(/\/api\/subjects\/\d+\/$/, nullBody),
   http.get('*/api/skills/', empty),
   http.post('*/api/skills/', ok),
+
+  // Creations
+  http.get('*/api/creations/', empty),
+  http.post('*/api/creations/', ok),
+  http.delete(/\/api\/creations\/\d+\/$/, nullBody),
+  http.post(/\/api\/creations\/\d+\/submit\/$/, ok),
+  http.post(/\/api\/creations\/\d+\/approve\/$/, ok),
+  http.post(/\/api\/creations\/\d+\/reject\/$/, ok),
+  http.get('*/api/creations/pending/', empty),
   http.patch(/\/api\/skills\/\d+\/$/, ok),
   http.delete(/\/api\/skills\/\d+\/$/, nullBody),
   http.get(/\/api\/skills\/tree\/\d+\/$/, () =>
@@ -222,6 +231,15 @@ export const handlers = [
   http.get('*/api/sprites/catalog/', () =>
     HttpResponse.json({ sprites: {}, etag: 'test-default-empty' }),
   ),
+  http.get('*/api/sprites/admin/', empty),
+  http.post('*/api/sprites/admin/generate/', () =>
+    HttpResponse.json({ slug: 'x', frame_count: 1, frame_width_px: 64, frame_height_px: 64, fps: 0 }, { status: 201 }),
+  ),
+  http.post(/\/api\/sprites\/admin\/[^/]+\/reroll\/$/, () =>
+    HttpResponse.json({ slug: 'x', frame_count: 1, frame_width_px: 64, frame_height_px: 64, fps: 0 }),
+  ),
+  http.patch(/\/api\/sprites\/admin\/[^/]+\/$/, ok),
+  http.delete(/\/api\/sprites\/admin\/[^/]+\/$/, () => HttpResponse.json({ deleted: true })),
 
   // Chronicle / Yearbook
   http.get('*/api/chronicle/', () => HttpResponse.json([])),
@@ -237,6 +255,9 @@ export const handlers = [
   http.patch(/\/api\/chronicle\/\d+\/journal\/$/, () =>
     HttpResponse.json({ id: 1, kind: 'journal', is_private: true, title: 'Today' }),
   ),
+  // Default: no journal entry for today. Individual tests override with
+  // server.use() to simulate the "already wrote today" path.
+  http.get('*/api/chronicle/journal/today/', () => new HttpResponse(null, { status: 204 })),
   http.patch(/\/api\/chronicle\/\d+\/$/, () => HttpResponse.json({})),
   http.delete(/\/api\/chronicle\/\d+\/$/, () => new HttpResponse(null, { status: 204 })),
 ];

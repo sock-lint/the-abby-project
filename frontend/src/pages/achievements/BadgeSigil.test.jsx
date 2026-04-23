@@ -22,7 +22,6 @@ describe('BadgeSigil', () => {
     expect(sigil).not.toBeNull();
     expect(sigil.getAttribute('data-earned')).toBe('true');
     expect(sigil.getAttribute('data-rarity')).toBe('legendary');
-    // Halo uses ring on gold-leaf for legendary.
     expect(sigil.className).toMatch(/ring-gold-leaf/);
   });
 
@@ -33,8 +32,42 @@ describe('BadgeSigil', () => {
     );
     const sigil = container.querySelector('[data-sigil="true"]');
     expect(sigil.getAttribute('data-earned')).toBe('false');
-    // Unearned uses a dashed border and suppressed ink.
     expect(sigil.className).toMatch(/border-dashed/);
+    // Debossed ring carries an inset shadow that sells the pressed impression.
+    expect(sigil.className).toMatch(/shadow-\[inset/);
+  });
+
+  it('renders the unlock hint for unearned badges', () => {
+    const badge = buildBadge({
+      name: 'Centennial',
+      rarity: 'legendary',
+      criterion_type: 'projects_completed',
+      criterion_value: 10,
+    });
+    const { container } = renderWithProviders(
+      <BadgeSigil badge={badge} earned={false} onSelect={() => {}} />,
+    );
+    const hint = container.querySelector('[data-sigil-hint="true"]');
+    expect(hint).not.toBeNull();
+    expect(hint.textContent).toMatch(/Complete 10 projects/);
+  });
+
+  it('does not render an unlock hint on earned sigils', () => {
+    const badge = buildBadge({ criterion_type: 'projects_completed', criterion_value: 10 });
+    const { container } = renderWithProviders(
+      <BadgeSigil badge={badge} earned earnedAt="2026-04-10" onSelect={() => {}} />,
+    );
+    expect(container.querySelector('[data-sigil-hint="true"]')).toBeNull();
+  });
+
+  it('renders the XP ledge on earned sigils with xp_bonus > 0', () => {
+    const badge = buildBadge({ xp_bonus: 25 });
+    const { container } = renderWithProviders(
+      <BadgeSigil badge={badge} earned earnedAt="2026-04-15T10:00:00Z" onSelect={() => {}} />,
+    );
+    const xp = container.querySelector('[data-sigil-xp="true"]');
+    expect(xp).not.toBeNull();
+    expect(xp.textContent).toMatch(/\+25 XP/);
   });
 
   it('accessibly labels unearned sigils with "not yet earned"', () => {

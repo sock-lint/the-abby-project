@@ -14,6 +14,7 @@ export const KIND_ICON = {
   recap: '📜',
   manual: '🖋️',
   journal: '🪶',
+  creation: '🎨',
 }
 
 export const RECAP_STAT_FIELDS = [

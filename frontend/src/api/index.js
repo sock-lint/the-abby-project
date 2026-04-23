@@ -316,6 +316,17 @@ export const deleteHomeworkTemplate = (id) => api.delete(`/homework-templates/${
 export const createAssignmentFromTemplate = (templateId, data) =>
   api.post(`/homework-templates/${templateId}/create-assignment/`, data);
 
+// Creations — child-authored "I made a thing" entry type.
+export const listCreations = () => api.get('/creations/');
+export const createCreation = (formData) => api.upload('/creations/', formData);
+export const deleteCreation = (id) => api.delete(`/creations/${id}/`);
+export const submitCreation = (id) => api.post(`/creations/${id}/submit/`);
+export const approveCreation = (id, payload = {}) =>
+  api.post(`/creations/${id}/approve/`, payload);
+export const rejectCreation = (id, notes = '') =>
+  api.post(`/creations/${id}/reject/`, { notes });
+export const listPendingCreations = () => api.get('/creations/pending/');
+
 // RPG
 export const getCharacterProfile = () => api.get('/character/');
 export const getStreaks = () => api.get('/streaks/');
@@ -352,6 +363,7 @@ export const claimDailyChallenge = () => api.post('/challenges/daily/claim/');
 
 // Cosmetics
 export const getCosmetics = () => api.get('/cosmetics/');
+export const getCosmeticCatalog = () => api.get('/cosmetics/catalog/');
 export const equipCosmetic = (itemId) => api.post('/character/equip/', { item_id: itemId });
 export const unequipCosmetic = (slot) => api.post('/character/unequip/', { slot });
 
@@ -382,6 +394,17 @@ export async function fetchSpriteCatalog(etag = null) {
   return resp.json();
 }
 
+// Parent-only sprite admin surface (powers the /manage → Codex → Sprites panel).
+export const fetchSpriteAdminList = (pack) =>
+  api.get(`/sprites/admin/${pack ? `?pack=${encodeURIComponent(pack)}` : ''}`);
+export const generateSprite = (body) => api.post('/sprites/admin/generate/', body);
+export const rerollSprite = (slug, opts = {}) =>
+  api.post(`/sprites/admin/${encodeURIComponent(slug)}/reroll/`, opts);
+export const updateSpriteMeta = (slug, body) =>
+  api.patch(`/sprites/admin/${encodeURIComponent(slug)}/`, body);
+export const deleteSprite = (slug) =>
+  api.delete(`/sprites/admin/${encodeURIComponent(slug)}/`);
+
 // Chronicle / Yearbook
 export const getChronicleEntries = (params = {}) => {
   const qs = Object.entries(params)
@@ -397,12 +420,17 @@ export const markChronicleViewed = (id) => api.post(`/chronicle/${id}/mark-viewe
 export const createManualChronicleEntry = (data) => api.post('/chronicle/manual/', data);
 export const updateManualChronicleEntry = (id, data) => api.patch(`/chronicle/${id}/`, data);
 export const deleteChronicleEntry = (id) => api.delete(`/chronicle/${id}/`);
-// Child-authored journal entries. POST self-scopes to request.user;
-// PATCH is restricted to same-local-day edits by the backend.
+// Child-authored journal entries. POST self-scopes to request.user and
+// is one-per-local-day — a second POST returns 409 with the existing
+// entry in the `existing` key of the response body. PATCH is restricted
+// to same-local-day edits by the backend.
 export const writeJournal = ({ title, summary }) =>
   api.post('/chronicle/journal/', { title, summary });
 export const updateJournalEntry = (id, { title, summary }) =>
   api.patch(`/chronicle/${id}/journal/`, { title, summary });
+// Fetch today's journal entry for request.user; returns null when the
+// child hasn't written yet (the backend 204s and api.get resolves to null).
+export const getTodayJournal = () => api.get('/chronicle/journal/today/');
 
 // Activity log (parent-only)
 export const listActivity = (params = {}) => {

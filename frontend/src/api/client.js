@@ -68,7 +68,14 @@ async function request(path, options = {}) {
       );
     }
 
-    throw new Error(errorMessage);
+    // Attach status + parsed body so callers can branch on specific codes
+    // (e.g., the Journal modal treats 409 as "already wrote today, switch
+    // to edit mode" using `err.response.existing`). The default human
+    // message stays on .message so untyped `catch` blocks still work.
+    const apiError = new Error(errorMessage);
+    apiError.status = res.status;
+    apiError.response = err;
+    throw apiError;
   }
   if (res.status === 204) return null;
   // Guard against an upstream proxy returning a 200 with an HTML error page

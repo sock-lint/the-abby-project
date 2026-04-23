@@ -122,7 +122,7 @@ describe('QuickActionsSheet', () => {
     );
   });
 
-  it('opens the JournalEntryFormModal when "Write in journal" is clicked', async () => {
+  it('opens the JournalEntryFormModal in create mode when no entry exists yet', async () => {
     const u = userEvent.setup();
     renderSheet(buildUser(), [
       http.get('*/api/homework/dashboard/', () => HttpResponse.json({ today: [], overdue: [], pending_submissions: [] })),
@@ -134,6 +134,30 @@ describe('QuickActionsSheet', () => {
     await waitFor(() =>
       expect(
         screen.getByRole('dialog', { name: /write in your journal/i }),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it('flips label to "Edit today\u2019s journal" and opens the modal in edit mode when today\u2019s entry exists', async () => {
+    const u = userEvent.setup();
+    renderSheet(buildUser(), [
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({ today: [], overdue: [], pending_submissions: [] })),
+      http.get('*/api/savings-goals/', () => HttpResponse.json([])),
+      http.get('*/api/inventory/', () => HttpResponse.json([])),
+      http.get('*/api/chronicle/journal/today/', () =>
+        HttpResponse.json({
+          id: 42, kind: 'journal', is_private: true,
+          title: 'Earlier', summary: 'I already started',
+          occurred_on: '2026-04-22',
+        }),
+      ),
+    ]);
+    const row = await screen.findByRole('button', { name: /edit today.s journal/i });
+    expect(row).toBeInTheDocument();
+    await u.click(row);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('dialog', { name: /edit your journal entry/i }),
       ).toBeInTheDocument(),
     );
   });

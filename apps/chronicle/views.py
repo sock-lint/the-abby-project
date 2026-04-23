@@ -14,7 +14,7 @@ from apps.chronicle.serializers import (
     ManualEntryCreateSerializer,
     ManualEntryUpdateSerializer,
 )
-from apps.chronicle.services import ChronicleService
+from apps.chronicle.services import ChronicleService, JournalAlreadyExistsError
 from config.permissions import IsParent
 from config.viewsets import RoleFilteredQuerySetMixin, child_not_found_response, get_child_or_404
 
@@ -33,7 +33,7 @@ class ChronicleViewSet(
     def get_permissions(self):
         # Journal actions are self-authored by children and only need
         # IsAuthenticated — the viewset binds writes to ``request.user``.
-        if self.action in ("journal", "journal_update"):
+        if self.action in ("journal", "journal_update", "journal_today"):
             return [IsAuthenticated()]
         if self.action in ("update", "partial_update", "destroy", "manual"):
             return [IsAuthenticated(), IsParent()]
@@ -148,19 +148,57 @@ class ChronicleViewSet(
 
         Any ``user_id`` in the body is ignored — this endpoint is self-scoped
         so a child can't post a journal entry into another child's chronicle.
+
+        One journal entry per user per local day — a second POST returns
+        409 Conflict with the existing entry in the ``existing`` key so
+        the frontend modal can flip into edit mode instead of error-toasting.
         """
         serializer = JournalEntryWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        entry = ChronicleService.write_journal(
-            request.user,
-            title=data.get("title", ""),
-            summary=data.get("summary", ""),
-        )
+        try:
+            entry = ChronicleService.write_journal(
+                request.user,
+                title=data.get("title", ""),
+                summary=data.get("summary", ""),
+            )
+        except JournalAlreadyExistsError as exc:
+            existing_payload = (
+                ChronicleEntrySerializer(exc.entry).data if exc.entry else None
+            )
+            return Response(
+                {
+                    "detail": "You already wrote a journal entry today. Edit it instead.",
+                    "existing": existing_payload,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
         return Response(
             ChronicleEntrySerializer(entry).data,
             status=status.HTTP_201_CREATED,
         )
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="journal/today",
+        url_name="journal-today",
+    )
+    def journal_today(self, request):
+        """Return today's journal entry for request.user, or 204 if none.
+
+        Used by the Quick Actions FAB to open the modal in edit mode when
+        the child has already written today, avoiding a second-POST 409
+        round-trip for the common case.
+        """
+        entry = ChronicleEntry.objects.filter(
+            user=request.user,
+            kind=ChronicleEntry.Kind.JOURNAL,
+            occurred_on=date.today(),
+        ).first()
+        if entry is None:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(ChronicleEntrySerializer(entry).data)
 
     @action(
         detail=True,

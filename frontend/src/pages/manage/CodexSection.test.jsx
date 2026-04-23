@@ -37,4 +37,32 @@ describe('CodexSection', () => {
     render(<CodexSection />);
     await waitFor(() => expect(screen.getByText(/gold coin/i)).toBeInTheDocument());
   });
+
+  it('renders Mounts and Sprites sections', async () => {
+    server.use(
+      http.get('*/api/items/catalog/', () => HttpResponse.json([])),
+      http.get('*/api/pets/species/catalog/', () =>
+        HttpResponse.json([
+          { id: 1, name: 'Fox', sprite_key: 'fox', icon: '🦊', available_potions: [] },
+        ]),
+      ),
+      http.get('*/api/quests/catalog/', () => HttpResponse.json([])),
+      http.get('*/api/sprites/admin/', () =>
+        HttpResponse.json([
+          {
+            slug: 'fox-idle', pack: 'ai-generated', frame_count: 1, fps: 0,
+            frame_width_px: 64, frame_height_px: 64,
+            prompt: 'a fox', motion: 'idle', style_hint: '', tile_size: 64,
+            reference_image_url: '', created_by_name: '',
+          },
+        ]),
+      ),
+    );
+    render(<CodexSection />);
+    await waitFor(() => expect(screen.getByText('Mounts')).toBeInTheDocument());
+    expect(screen.getByText('Sprites')).toBeInTheDocument();
+    // The sprite admin row surfaces its slug — proves both the admin fetch
+    // fired and the SpritesBlock rendered it into the DOM.
+    await waitFor(() => expect(screen.getByText('fox-idle')).toBeInTheDocument());
+  });
 });

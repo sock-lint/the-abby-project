@@ -211,6 +211,10 @@ class Badge(models.Model):
         # Journal-authoring criteria (Scribe badge line).
         JOURNAL_ENTRIES_WRITTEN = "journal_entries_written", "Journal Entries Written"
         JOURNAL_STREAK_DAYS = "journal_streak_days", "Journal Streak Days"
+        # Creations — child-authored "I made a thing" entry type.
+        CREATIONS_LOGGED = "creations_logged", "Creations Logged"
+        CREATIONS_APPROVED = "creations_approved", "Creations Approved"
+        CREATION_SKILL_BREADTH = "creation_skill_breadth", "Creation Skill Breadth"
 
     class Rarity(models.TextChoices):
         COMMON = "common", "Common"

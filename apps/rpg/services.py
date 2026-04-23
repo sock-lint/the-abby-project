@@ -45,6 +45,11 @@ BASE_DROP_RATES = {
     # Matches ``HABIT_LOG`` rate so writing a journal doesn't out-earn a
     # habit tap. The service gates on first-of-day anyway.
     TriggerType.JOURNAL_ENTRY: 0.10,
+    # Creations are meaningful acts (a drawing, a song, a baked thing) but
+    # aren't parent-gated, so the rate sits between habit_log (0.15) and
+    # homework_complete (0.35). The service gates on the first 2 per local
+    # day — third+ Creations skip the game-loop call entirely.
+    TriggerType.CREATION_LOGGED: 0.25,
 }
 
 STREAK_DROP_BONUS_PER_DAY = 0.05

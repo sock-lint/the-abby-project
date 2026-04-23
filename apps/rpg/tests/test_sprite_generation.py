@@ -79,6 +79,31 @@ class StaticSpriteGenerationTests(TestCase):
         self.assertIn("a wolf", prompt)
         self.assertIn("gameboy palette", prompt)
 
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_authoring_inputs_persist_for_reroll(self, mock_frame):
+        """The generation service must write prompt/motion/style_hint/tile_size
+        back onto SpriteAsset so a future reroll can replay those inputs.
+        """
+        mock_frame.return_value = _png_bytes(size=(256, 256))
+
+        generate_sprite_sheet(
+            slug="archivable",
+            prompt="a stoic gargoyle",
+            frame_count=1,
+            tile_size=64,
+            fps=0,
+            style_hint="dark stone, moss tint",
+            motion="idle",
+            actor=self.parent,
+        )
+
+        asset = SpriteAsset.objects.get(slug="archivable")
+        self.assertEqual(asset.prompt, "a stoic gargoyle")
+        self.assertEqual(asset.style_hint, "dark stone, moss tint")
+        self.assertEqual(asset.motion, "idle")
+        self.assertEqual(asset.tile_size, 64)
+        self.assertEqual(asset.reference_image_url, "")
+
 
 @override_settings(GEMINI_API_KEY="test-key")
 class AnimatedSheetOutputShapeTests(TestCase):

@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "apps.pets",
     "apps.quests",
     "apps.activity",
+    "apps.creations",
 ]
 
 # --- MCP server -----------------------------------------------------------

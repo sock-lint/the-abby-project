@@ -755,6 +755,59 @@ def _journal_streak_days(user, c):
     return best >= target
 
 
+@criterion(Badge.CriteriaType.CREATIONS_LOGGED)
+def _creations_logged(user, c):
+    """Lifetime count of Creations logged by this user.
+
+    ``criteria_value`` shape::
+
+        {"count": 10}  # default: 1 (first-spark badge)
+
+    Counts every Creation row regardless of status — the proud-display track
+    is the primary recognition. Approved-bonus tier has its own ladder.
+    """
+    from apps.creations.models import Creation
+    return Creation.objects.filter(user=user).count() >= int(c.get("count", 1))
+
+
+@criterion(Badge.CriteriaType.CREATIONS_APPROVED)
+def _creations_approved(user, c):
+    """Count of Creations whose parent bonus was APPROVED.
+
+    ``criteria_value`` shape::
+
+        {"count": 5}  # default: 1
+    """
+    from apps.creations.models import Creation
+    return Creation.objects.filter(
+        user=user, status=Creation.Status.APPROVED,
+    ).count() >= int(c.get("count", 1))
+
+
+@criterion(Badge.CriteriaType.CREATION_SKILL_BREADTH)
+def _creation_skill_breadth(user, c):
+    """Creations tagged across at least N distinct creative skills.
+
+    Counts both primary and secondary skill tags — each distinct Skill a
+    user has ever tagged any of their Creations with contributes to breadth.
+
+    ``criteria_value`` shape::
+
+        {"count": 5}  # default: 5 (Polymath)
+    """
+    from apps.creations.models import Creation
+    target = int(c.get("count", 5))
+    primary_ids = set(
+        Creation.objects.filter(user=user).values_list("primary_skill_id", flat=True)
+    )
+    secondary_ids = set(
+        Creation.objects.filter(
+            user=user, secondary_skill__isnull=False,
+        ).values_list("secondary_skill_id", flat=True)
+    )
+    return len(primary_ids | secondary_ids) >= target
+
+
 @criterion(Badge.CriteriaType.COSMETIC_SET_OWNED)
 def _cosmetic_set_owned(user, c):
     """Own every item in a specific named cosmetic set.

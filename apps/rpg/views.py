@@ -105,6 +105,36 @@ class ItemCatalogView(ListAPIView):
         ).order_by("item_type", "rarity", "name")
 
 
+class CosmeticCatalogView(APIView):
+    """GET /api/cosmetics/catalog/ — every authored cosmetic, grouped by slot.
+
+    Unlike ``ItemCatalogView`` this is child-accessible: cosmetics are game
+    content (not private data), and children need to see what's earnable so
+    the Character page can render un-owned cosmetics as "locked" intaglios.
+    Response shape mirrors ``CosmeticsView`` so the frontend can dedupe
+    owned items against the catalog by ``id``.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .services import CosmeticService
+
+        slot_map = CosmeticService.COSMETIC_SLOT_MAP  # item_type → slot field
+        cosmetics = ItemDefinition.objects.filter(
+            item_type__in=list(slot_map.keys()),
+        ).order_by("item_type", "rarity", "name")
+
+        grouped = {slot: [] for slot in slot_map.values()}
+        for item in cosmetics:
+            slot = slot_map[item.item_type]
+            grouped[slot].append(item)
+
+        return Response({
+            slot: ItemDefinitionSerializer(items, many=True).data
+            for slot, items in grouped.items()
+        })
+
+
 class UnequipCosmeticView(APIView):
     """POST /api/character/unequip/ — clear a cosmetic slot."""
     permission_classes = [permissions.IsAuthenticated]

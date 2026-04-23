@@ -26,6 +26,7 @@ from django.conf import settings
 
 from apps.accounts.models import User
 from apps.rpg import sprite_authoring as svc
+from apps.rpg.models import SpriteAsset
 from apps.rpg.sprite_authoring import SpriteAuthoringError
 
 
@@ -968,6 +969,15 @@ def generate_sprite_sheet(
         )
     except SpriteAuthoringError as exc:
         raise SpriteGenerationError(str(exc))
+
+    # Persist authoring inputs so a future reroll can replay them verbatim.
+    SpriteAsset.objects.filter(slug=slug).update(
+        prompt=prompt,
+        motion=motion,
+        style_hint=style_hint or "",
+        tile_size=tile_size,
+        reference_image_url=reference_image_url or "",
+    )
 
     if debug_urls:
         result["debug"] = debug_urls

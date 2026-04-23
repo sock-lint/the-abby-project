@@ -1,9 +1,10 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { fetchSpriteCatalog } from '../api';
 
 const SpriteCatalogContext = createContext({
   getSpriteUrl: () => null,
   getSpriteMeta: () => null,
+  refetchCatalog: () => Promise.resolve(),
 });
 
 const STORAGE_KEY = 'spriteCatalog';
@@ -29,21 +30,32 @@ export function SpriteCatalogProvider({ children }) {
     }
   });
 
+  const refetchCatalog = useCallback(async ({ bypassEtag = false } = {}) => {
+    try {
+      const prevEtag = bypassEtag ? null : localStorage.getItem(ETAG_KEY);
+      const resp = await fetchSpriteCatalog(prevEtag);
+      if (resp.notModified) return;
+      setCatalog(resp);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(resp));
+      localStorage.setItem(ETAG_KEY, resp.etag);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('sprite catalog fetch failed', err);
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const prevEtag = localStorage.getItem(ETAG_KEY);
     fetchSpriteCatalog(prevEtag)
       .then((resp) => {
         if (cancelled) return;
-        if (resp.notModified) return; // cached catalog is still good
+        if (resp.notModified) return;
         setCatalog(resp);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(resp));
         localStorage.setItem(ETAG_KEY, resp.etag);
       })
       .catch((err) => {
-        // Network failure on cold start — let call sites emoji-fallback.
-        // Don't clear cached data; a stale catalog still beats no catalog.
-        // console.error so Sentry captures the regression in production.
         // eslint-disable-next-line no-console
         console.error('sprite catalog fetch failed', err);
       });
@@ -71,7 +83,8 @@ export function SpriteCatalogProvider({ children }) {
   const value = useMemo(() => ({
     getSpriteUrl: (slug) => (catalog?.sprites?.[slug]?.url ?? null),
     getSpriteMeta: (slug) => (catalog?.sprites?.[slug] ?? null),
-  }), [catalog]);
+    refetchCatalog,
+  }), [catalog, refetchCatalog]);
 
   return (
     <SpriteCatalogContext.Provider value={value}>

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { http, HttpResponse } from 'msw';
 import { renderWithProviders, screen, userEvent, waitFor, within } from '../../test/render';
 import { server } from '../../test/server';
 import { spyHandler } from '../../test/spy';
@@ -90,5 +91,54 @@ describe('JournalEntryFormModal', () => {
     );
     const dialog = getDialog();
     expect(within(dialog).getByText(/private to you/i)).toBeInTheDocument();
+  });
+
+  it('flips to edit mode when POST returns 409 with the existing entry', async () => {
+    // 409 path: the child is in create mode and submits, but the backend
+    // (via the unique-per-day constraint) reports that today's entry
+    // already exists. The modal should swap to edit mode, preserve the
+    // child's in-flight words, and surface a friendly error.
+    const existing = {
+      id: 77,
+      kind: 'journal',
+      is_private: true,
+      title: 'Earlier today',
+      summary: 'Some earlier thoughts.',
+      occurred_on: '2026-04-22',
+    };
+    server.use(
+      http.post('*/api/chronicle/journal/', () =>
+        HttpResponse.json(
+          {
+            detail: 'You already wrote a journal entry today. Edit it instead.',
+            existing,
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(
+      <JournalEntryFormModal mode="create" onClose={() => {}} onSaved={() => {}} />,
+    );
+    const dialog = getDialog();
+    await user.type(within(dialog).getByLabelText(/mind/i), 'New thought I typed');
+    await user.click(within(dialog).getByRole('button', { name: /save entry/i }));
+
+    // Title flips to the BottomSheet title for edit mode.
+    await waitFor(() =>
+      expect(
+        screen.getByRole('dialog', { name: /edit your journal entry/i }),
+      ).toBeInTheDocument(),
+    );
+    // Primary button label flips.
+    expect(
+      screen.getByRole('button', { name: /update entry/i }),
+    ).toBeInTheDocument();
+    // Friendly 409 error — not a raw status code.
+    expect(screen.getByRole('alert').textContent).toMatch(/already wrote today/i);
+    // The in-flight text survives, appended after the existing body.
+    expect(screen.getByLabelText(/mind/i).value).toContain('Some earlier thoughts.');
+    expect(screen.getByLabelText(/mind/i).value).toContain('New thought I typed');
   });
 });

@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Square, BookOpen, Target, CircleDollarSign, UserCog, PenTool } from 'lucide-react';
+import { Play, Square, BookOpen, Target, CircleDollarSign, UserCog, PenTool, Palette } from 'lucide-react';
 import BottomSheet from '../BottomSheet';
 import { DragonIcon } from '../icons/JournalIcons';
 import {
   clockIn, clockOut, getProjects,
   createHomework, getHomeworkDashboard,
   getSavingsGoals, getInventory,
+  getTodayJournal,
 } from '../../api';
 import { useApi, useAuth } from '../../hooks/useApi';
 import { normalizeList } from '../../utils/api';
 import Button from '../Button';
 import { TextField, SelectField, TextAreaField } from '../form';
 import JournalEntryFormModal from '../../pages/yearbook/JournalEntryFormModal';
+import CreationLogModal from '../CreationLogModal';
 
 function formatClock(secs) {
   const h = Math.floor(secs / 3600);
@@ -207,6 +209,25 @@ export default function QuickActionsSheet({
   const isParent = user?.role === 'parent';
   const [pane, setPane] = useState('menu'); // 'menu' | 'clock' | 'add-homework'
   const [journalOpen, setJournalOpen] = useState(false);
+  const [creationOpen, setCreationOpen] = useState(false);
+  // Child only: today's journal entry (if already written). Drives the row
+  // label + whether the modal opens in edit or create mode.
+  const { data: todayJournal } = useApi(
+    isParent ? () => Promise.resolve(null) : getTodayJournal,
+  );
+  const [journalMode, setJournalMode] = useState('create');
+  const [journalEntry, setJournalEntry] = useState(null);
+
+  const openJournal = () => {
+    if (todayJournal && todayJournal.id) {
+      setJournalEntry(todayJournal);
+      setJournalMode('edit');
+    } else {
+      setJournalEntry(null);
+      setJournalMode('create');
+    }
+    setJournalOpen(true);
+  };
 
   // Contextual enable/disable flags.
   const { data: hwDashboard } = useApi(isParent ? () => Promise.resolve(null) : getHomeworkDashboard);
@@ -229,10 +250,20 @@ export default function QuickActionsSheet({
     <>
     {journalOpen && (
       <JournalEntryFormModal
-        mode="create"
+        mode={journalMode}
+        entry={journalEntry}
         onClose={() => setJournalOpen(false)}
         onSaved={() => {
           setJournalOpen(false);
+          onClose();
+        }}
+      />
+    )}
+    {creationOpen && (
+      <CreationLogModal
+        onClose={() => setCreationOpen(false)}
+        onSaved={() => {
+          setCreationOpen(false);
           onClose();
         }}
       />
@@ -251,11 +282,22 @@ export default function QuickActionsSheet({
           {!isParent && (
             <>
               <ActionRow
+                icon={<Palette size={18} />}
+                label="Log a creation"
+                hint="Photo of something you made"
+                tone="gold"
+                onClick={() => setCreationOpen(true)}
+              />
+              <ActionRow
                 icon={<PenTool size={18} />}
-                label="Write in journal"
-                hint="Dictate or type a memory for today"
+                label={todayJournal && todayJournal.id ? 'Edit today\u2019s journal' : 'Write in journal'}
+                hint={
+                  todayJournal && todayJournal.id
+                    ? 'You already wrote today \u2014 edit it'
+                    : 'Dictate or type a memory for today'
+                }
                 tone="royal"
-                onClick={() => setJournalOpen(true)}
+                onClick={openJournal}
               />
               <ActionRow
                 icon={<BookOpen size={18} />}

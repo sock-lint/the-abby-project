@@ -3,11 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Image, Download, Plus, Camera, BookOpen,
   X, ChevronLeft, ChevronRight, Trash2, Clapperboard,
+  Palette, Music, Send,
 } from 'lucide-react';
 import SubjectBadge from '../components/SubjectBadge';
 import {
   getPortfolio, getProjects, uploadPhoto,
   deletePhoto, deleteHomeworkProof,
+  deleteCreation, submitCreation,
 } from '../api';
 import { useApi, useAuth } from '../hooks/useApi';
 import BottomSheet from '../components/BottomSheet';
@@ -25,6 +27,7 @@ const FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'projects', label: 'Projects' },
   { key: 'homework', label: 'Homework' },
+  { key: 'creations', label: 'Creations' },
   { key: 'timelapses', label: 'Timelapses' },
 ];
 
@@ -75,6 +78,24 @@ export default function Portfolio() {
         });
       });
     });
+    (data.creations || []).forEach((c) => {
+      out.push({
+        id: `cr-${c.id}`,
+        kind: 'creation',
+        rawId: c.id,
+        deleteId: c.id,
+        ownerId: c.user_id,
+        image: c.image,
+        audio: c.audio,
+        caption: c.caption,
+        groupKey: c.primary_skill_category || 'Creations',
+        groupLabel: c.primary_skill_name || 'Creation',
+        date: c.created_at,
+        isTimelapse: false,
+        creationStatus: c.status,
+        bonusXp: c.bonus_xp_awarded,
+      });
+    });
     return out;
   }, [data]);
 
@@ -82,6 +103,7 @@ export default function Portfolio() {
     all: allItems.length,
     projects: allItems.filter((i) => i.kind === 'project').length,
     homework: allItems.filter((i) => i.kind === 'homework').length,
+    creations: allItems.filter((i) => i.kind === 'creation').length,
     timelapses: allItems.filter((i) => i.isTimelapse).length,
   }), [allItems]);
 
@@ -89,6 +111,7 @@ export default function Portfolio() {
     if (filter === 'all') return allItems;
     if (filter === 'projects') return allItems.filter((i) => i.kind === 'project');
     if (filter === 'homework') return allItems.filter((i) => i.kind === 'homework');
+    if (filter === 'creations') return allItems.filter((i) => i.kind === 'creation');
     if (filter === 'timelapses') return allItems.filter((i) => i.isTimelapse);
     return allItems;
   }, [allItems, filter]);
@@ -149,7 +172,10 @@ export default function Portfolio() {
   const confirmDelete = async () => {
     if (!pendingDelete) return;
     const target = pendingDelete;
-    const fn = target.kind === 'project' ? deletePhoto : deleteHomeworkProof;
+    const fn =
+      target.kind === 'creation' ? deleteCreation
+        : target.kind === 'project' ? deletePhoto
+        : deleteHomeworkProof;
     setDeleting(true);
     setDeleteError('');
     try {
@@ -163,6 +189,16 @@ export default function Portfolio() {
       console.error('[Sketchbook] delete failed', { target, err });
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleSubmitForBonus = async (item) => {
+    try {
+      await submitCreation(item.rawId);
+      await reload();
+    } catch (err) {
+      const msg = err?.message || String(err) || 'Submit failed';
+      setDeleteError(`Couldn't submit that creation: ${msg}`);
     }
   };
 
@@ -270,6 +306,9 @@ export default function Portfolio() {
               {group.kind === 'homework' && (
                 <BookOpen size={18} className="text-sheikah-teal-deep" />
               )}
+              {group.kind === 'creation' && (
+                <Palette size={18} className="text-gold-leaf" />
+              )}
               {group.kind === 'homework'
                 ? <SubjectBadge subject={group.label} />
                 : group.label}
@@ -278,6 +317,7 @@ export default function Portfolio() {
               items={group.items}
               onOpen={openViewer}
               onRequestDelete={setPendingDelete}
+              onSubmitForBonus={handleSubmitForBonus}
               canDelete={canDelete}
             />
           </section>
@@ -292,6 +332,7 @@ export default function Portfolio() {
               items={month.items}
               onOpen={openViewer}
               onRequestDelete={setPendingDelete}
+              onSubmitForBonus={handleSubmitForBonus}
               canDelete={canDelete}
               showMeta
             />
@@ -334,7 +375,7 @@ export default function Portfolio() {
   );
 }
 
-function PhotoGrid({ items, onOpen, onRequestDelete, canDelete, showMeta }) {
+function PhotoGrid({ items, onOpen, onRequestDelete, onSubmitForBonus, canDelete, showMeta }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
       {items.map((item, i) => (
@@ -364,6 +405,40 @@ function PhotoGrid({ items, onOpen, onRequestDelete, canDelete, showMeta }) {
                 <Clapperboard size={12} />
               </div>
             )}
+            {item.kind === 'creation' && (
+              <div
+                aria-label="Creation"
+                className="absolute top-1.5 left-1.5 rounded-full bg-gold-leaf/85 text-ink-primary p-1"
+              >
+                <Palette size={12} />
+              </div>
+            )}
+            {item.kind === 'creation' && item.audio && (
+              <div
+                aria-label="Has audio"
+                className="absolute top-1.5 left-9 rounded-full bg-sheikah-teal-deep/85 text-ink-page-rune-glow p-1"
+                title="This creation has an audio attachment"
+              >
+                <Music size={12} />
+              </div>
+            )}
+            {item.kind === 'creation' && item.creationStatus === 'approved' && (
+              <div
+                aria-label={`Parent bonus: +${item.bonusXp} XP`}
+                className="absolute bottom-1.5 left-1.5 rounded-full bg-royal text-ink-page-rune-glow px-1.5 py-0.5 text-[10px] font-display"
+                title={`Parent bonus granted: +${item.bonusXp} XP`}
+              >
+                🏅 +{item.bonusXp}
+              </div>
+            )}
+            {item.kind === 'creation' && item.creationStatus === 'pending' && (
+              <div
+                aria-label="Bonus pending review"
+                className="absolute bottom-1.5 left-1.5 rounded-full bg-ink-primary/70 text-ink-page-rune-glow px-2 py-0.5 text-[10px] font-script"
+              >
+                pending
+              </div>
+            )}
             {(item.caption || showMeta || item.kind === 'homework') && (
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-ink-primary/85 to-transparent p-2 text-left">
                 <div className="font-script text-xs text-ink-page-rune-glow truncate">
@@ -377,6 +452,21 @@ function PhotoGrid({ items, onOpen, onRequestDelete, canDelete, showMeta }) {
               </div>
             )}
           </button>
+          {item.kind === 'creation' && item.creationStatus === 'logged' && onSubmitForBonus && (
+            <IconButton
+              aria-label={`Submit ${item.caption || item.groupLabel} for parent bonus`}
+              variant="ghost"
+              size="sm"
+              className="absolute bottom-1.5 right-1.5 !bg-royal/85 hover:!bg-royal !text-ink-page-rune-glow"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSubmitForBonus(item);
+              }}
+              title="Submit for parent bonus review"
+            >
+              <Send size={14} />
+            </IconButton>
+          )}
           {canDelete(item) && (
             <IconButton
               aria-label={`Delete ${item.caption || item.groupLabel}`}

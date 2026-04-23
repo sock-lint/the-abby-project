@@ -15,6 +15,7 @@ class ChronicleEntry(CreatedAtModel):
         RECAP         = "recap", "Recap"
         MANUAL        = "manual", "Manual"
         JOURNAL       = "journal", "Journal"
+        CREATION      = "creation", "Creation"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -55,6 +56,15 @@ class ChronicleEntry(CreatedAtModel):
                 fields=["user", "event_slug"],
                 condition=Q(kind="first_ever"),
                 name="unique_first_ever_per_user",
+            ),
+            # One journal entry per user per local day. Enforces the
+            # "write once a day" design rule at the DB layer so a race
+            # condition between two concurrent POSTs can't slip past the
+            # service-layer pre-check.
+            UniqueConstraint(
+                fields=["user", "occurred_on"],
+                condition=Q(kind="journal"),
+                name="unique_journal_per_user_per_day",
             ),
         ]
 

@@ -85,9 +85,43 @@ class PortfolioView(APIView):
                 "user_id": proof.submission.user_id,
             })
 
+        # Creations (2026-04-22 — new "I made a thing" entry type).
+        from apps.creations.models import Creation
+
+        creation_qs = filter_queryset_by_role(
+            user,
+            Creation.objects.select_related(
+                "primary_skill", "primary_skill__category", "secondary_skill",
+            ),
+            role_filter_field="user",
+        ).order_by("-created_at")
+
+        creations = [
+            {
+                "id": c.id,
+                "image": c.image.url if c.image else None,
+                "audio": c.audio.url if c.audio else None,
+                "caption": c.caption,
+                "primary_skill_name": c.primary_skill.name if c.primary_skill_id else None,
+                "primary_skill_category": (
+                    c.primary_skill.category.name if c.primary_skill_id else None
+                ),
+                "secondary_skill_name": (
+                    c.secondary_skill.name if c.secondary_skill_id else None
+                ),
+                "status": c.status,
+                "xp_awarded": c.xp_awarded,
+                "bonus_xp_awarded": c.bonus_xp_awarded,
+                "created_at": c.created_at.isoformat(),
+                "user_id": c.user_id,
+            }
+            for c in creation_qs
+        ]
+
         return Response({
             "projects": list(grouped.values()),
             "homework": list(hw_grouped.values()),
+            "creations": creations,
         })
 
 
@@ -137,6 +171,33 @@ class ExportPortfolioView(APIView):
                         zf.writestr(filename, proof.image.read())
                     except Exception:
                         logger.warning("Failed to add homework proof %s to export", proof.id, exc_info=True)
+
+            # Add creations — grouped by primary skill category.
+            from apps.creations.models import Creation
+
+            creations = filter_queryset_by_role(
+                request.user,
+                Creation.objects.select_related(
+                    "primary_skill", "primary_skill__category",
+                ),
+                role_filter_field="user",
+            )
+            for creation in creations:
+                if creation.image:
+                    cat = (
+                        creation.primary_skill.category.name
+                        if creation.primary_skill_id else "misc"
+                    )
+                    folder = f"creations/{cat}".replace("/", "_")
+                    label = (creation.caption or "creation")[:60]
+                    filename = f"{folder}/{creation.id}_{label}.jpg"
+                    try:
+                        zf.writestr(filename, creation.image.read())
+                    except Exception:
+                        logger.warning(
+                            "Failed to add creation %s to export",
+                            creation.id, exc_info=True,
+                        )
 
         buffer.seek(0)
         response = HttpResponse(buffer.getvalue(), content_type="application/zip")

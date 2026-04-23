@@ -42,6 +42,9 @@ class NotificationType(models.TextChoices):
     BIRTHDAY             = "birthday",             "Birthday"
     CHRONICLE_FIRST_EVER = "chronicle_first_ever", "Chronicle — first ever"
     COMEBACK_SUGGESTED   = "comeback_suggested",   "Comeback Quest Suggested"
+    CREATION_SUBMITTED   = "creation_submitted",   "Creation Submitted"
+    CREATION_APPROVED    = "creation_approved",    "Creation Approved"
+    CREATION_REJECTED    = "creation_rejected",    "Creation Rejected"
 
 
 class Notification(CreatedAtModel):

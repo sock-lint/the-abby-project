@@ -41,28 +41,51 @@ describe('Badges page', () => {
     );
   });
 
-  it('renders the header, sealed-count, and sigil grid', async () => {
+  it('renders the incipit band, sealed-count, and collection chapters', async () => {
     renderPage({
       handlers: [
         http.get('*/api/achievements/summary/', () =>
           HttpResponse.json({
             badges_earned: [
-              { badge: { id: 2, name: 'Perfect Joinery', rarity: 'rare', icon: '🏆' }, earned_at: '2026-04-10' },
+              {
+                badge: {
+                  id: 2,
+                  name: 'Perfect Joinery',
+                  rarity: 'rare',
+                  icon: '🏆',
+                  criterion_type: 'milestones_completed',
+                  criterion_value: 10,
+                },
+                earned_at: '2026-04-10',
+              },
             ],
           }),
         ),
         http.get('*/api/badges/', () =>
           HttpResponse.json([
-            { id: 1, name: 'First Stitch', rarity: 'common', icon: '🧵' },
-            { id: 2, name: 'Perfect Joinery', rarity: 'rare', icon: '🏆' },
+            { id: 1, name: 'First Stitch', rarity: 'common', icon: '🧵', criterion_type: 'first_project' },
+            {
+              id: 2,
+              name: 'Perfect Joinery',
+              rarity: 'rare',
+              icon: '🏆',
+              criterion_type: 'milestones_completed',
+              criterion_value: 10,
+            },
           ]),
         ),
       ],
     });
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Badges' })).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: 'Sigil Case' })).toBeInTheDocument(),
     );
-    expect(screen.getByText(/1 of 2 sealed/i)).toBeInTheDocument();
+    // Incipit shows the overall sealed count; Ventures chapter shows its own.
+    // Both render "1 of 2", so match the multiple.
+    const sealedCounts = screen.getAllByText(/1 of 2/);
+    expect(sealedCounts.length).toBeGreaterThanOrEqual(2);
+    // Both chapter regions present
+    expect(screen.getByRole('region', { name: 'Ventures' })).toBeInTheDocument();
+    // Both sigils rendered
     expect(screen.getByText('Perfect Joinery')).toBeInTheDocument();
     expect(screen.getByText('First Stitch')).toBeInTheDocument();
   });
@@ -74,12 +97,31 @@ describe('Badges page', () => {
         http.get('*/api/achievements/summary/', () =>
           HttpResponse.json({
             badges_earned: [
-              { badge: { id: 2, name: 'Perfect Joinery', rarity: 'rare', icon: '🏆' }, earned_at: '2026-04-10' },
+              {
+                badge: {
+                  id: 2,
+                  name: 'Perfect Joinery',
+                  rarity: 'rare',
+                  icon: '🏆',
+                  criterion_type: 'milestones_completed',
+                  criterion_value: 10,
+                },
+                earned_at: '2026-04-10',
+              },
             ],
           }),
         ),
         http.get('*/api/badges/', () =>
-          HttpResponse.json([{ id: 2, name: 'Perfect Joinery', rarity: 'rare', icon: '🏆' }]),
+          HttpResponse.json([
+            {
+              id: 2,
+              name: 'Perfect Joinery',
+              rarity: 'rare',
+              icon: '🏆',
+              criterion_type: 'milestones_completed',
+              criterion_value: 10,
+            },
+          ]),
         ),
       ],
     });

@@ -267,6 +267,11 @@ class SpriteAsset(TimestampedModel):
         blank=True,
         related_name="sprites_authored",
     )
+    prompt = models.TextField(blank=True, default="")
+    motion = models.CharField(max_length=16, blank=True, default="")
+    style_hint = models.CharField(max_length=200, blank=True, default="")
+    tile_size = models.PositiveSmallIntegerField(null=True, blank=True)
+    reference_image_url = models.URLField(max_length=500, blank=True, default="")
 
     class Meta:
         indexes = [models.Index(fields=["pack", "slug"])]

@@ -1,6 +1,7 @@
-// Shared by TomeSpine, FolioSpread, ChapterRubric, SkillVerse,
-// IlluminatedVersal, BadgeSigil, BadgeSigilGrid. Lives in a .js file because
-// react-refresh/only-export-components forbids non-component exports from .jsx.
+// Shared by Skills (TomeSpine, FolioSpread, ChapterRubric, SkillVerse,
+// IlluminatedVersal) and Badges (BadgeSigil, BadgeDetailSheet, CollectionFolio,
+// IncipitBand). Lives in a .js file because react-refresh/only-export-components
+// forbids non-component exports from .jsx.
 
 // Progress tier drives the gilt color on TomeSpine foot-bands, SkillVerse
 // level straps, and IlluminatedVersal fill. Tailwind class strings resolve

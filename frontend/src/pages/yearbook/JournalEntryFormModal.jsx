@@ -24,16 +24,23 @@ import { writeJournal, updateJournalEntry } from '../../api';
  * contextual aria-label.
  */
 export default function JournalEntryFormModal({
-  mode = 'create',
-  entry,
+  mode: initialMode = 'create',
+  entry: initialEntry,
   onSaved,
   onClose,
 }) {
-  const initialTitle = mode === 'edit' && entry ? entry.title || '' : '';
-  const initialSummary = mode === 'edit' && entry ? entry.summary || '' : '';
-
-  const [title, setTitle] = useState(initialTitle);
-  const [summary, setSummary] = useState(initialSummary);
+  // Local mode/entry can flip from "create" to "edit" mid-session if the
+  // server returns 409 on POST (a second entry was written between the
+  // Quick Actions pre-check and the submit — rare, but it should not
+  // feel like an error to the child).
+  const [mode, setMode] = useState(initialMode);
+  const [entry, setEntry] = useState(initialEntry || null);
+  const [title, setTitle] = useState(
+    initialMode === 'edit' && initialEntry ? initialEntry.title || '' : '',
+  );
+  const [summary, setSummary] = useState(
+    initialMode === 'edit' && initialEntry ? initialEntry.summary || '' : '',
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -68,6 +75,25 @@ export default function JournalEntryFormModal({
       // the entry is locked. Present it as a read-only fact.
       if (err?.status === 403) {
         setError("That entry is locked now — it's part of your chronicle.");
+      } else if (err?.status === 409 && err?.response?.existing) {
+        // Raced against an earlier POST (rare — Quick Actions pre-checks).
+        // Flip the modal into edit mode with the existing entry so the
+        // child can merge their thought instead of seeing a dead-end error.
+        const existing = err.response.existing;
+        setMode('edit');
+        setEntry(existing);
+        setTitle(existing.title || '');
+        // Keep whatever the child was typing in front of the existing
+        // body so their in-flight words don't vanish.
+        setSummary((current) => {
+          const prior = existing.summary || '';
+          if (!current) return prior;
+          if (current === prior) return current;
+          return `${prior}\n\n${current}`;
+        });
+        setError(
+          "You already wrote today — we've loaded your entry so you can add to it.",
+        );
       } else {
         setError(err?.message || 'Could not save your entry.');
       }

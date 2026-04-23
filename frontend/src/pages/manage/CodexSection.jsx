@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { Package, PawPrint, Swords } from 'lucide-react';
+import { Crown, Package, PawPrint, Sparkles, Swords } from 'lucide-react';
 import {
   getItemCatalog, getPetSpeciesCatalog, getQuestCatalog,
+  fetchSpriteAdminList,
 } from '../../api';
 import { useApi } from '../../hooks/useApi';
+import { useSpriteCatalog } from '../../providers/SpriteCatalogProvider';
 import BottomSheet from '../../components/BottomSheet';
+import Button from '../../components/Button';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import EmptyState from '../../components/EmptyState';
 import ErrorAlert from '../../components/ErrorAlert';
@@ -15,6 +18,10 @@ import {
 } from '../../constants/colors';
 import { normalizeList } from '../../utils/api';
 import CatalogCard from './CatalogCard';
+import MountsBlock from './MountsBlock';
+import SpritesBlock from './SpritesBlock';
+import SpriteGenerateModal from './SpriteGenerateModal';
+import SpriteDetailSheet from './SpriteDetailSheet';
 
 const RARITY_ORDER = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
 
@@ -299,23 +306,80 @@ function AdventureDetail({ quest }) {
   );
 }
 
+/* ── Mount detail sheet ──────────────────────────────────────────── */
+
+function MountDetail({ species, onRegenerate }) {
+  const mountSlug = `${species.sprite_key}-mount`;
+  return (
+    <div className="text-center space-y-3">
+      <div className="flex items-center justify-center gap-6">
+        <div>
+          <div className="flex items-center justify-center h-16">
+            <RpgSprite spriteKey={species.sprite_key} icon={species.icon} size={64} alt={species.name} />
+          </div>
+          <div className="text-tiny text-ink-whisper mt-1">pet</div>
+        </div>
+        <div className="text-xl text-ink-whisper">→</div>
+        <div>
+          <div className="flex items-center justify-center h-16">
+            <RpgSprite
+              spriteKey={mountSlug}
+              fallbackSpriteKey={species.sprite_key}
+              icon={species.icon}
+              size={64}
+              alt={`${species.name} mount`}
+            />
+          </div>
+          <div className="text-tiny text-ink-whisper mt-1">mount</div>
+        </div>
+      </div>
+      {species.description && (
+        <p className="text-sm text-ink-whisper">{species.description}</p>
+      )}
+      <div className="text-xs text-ink-secondary">
+        Mount sprite slug: <code className="font-mono text-ink-primary">{mountSlug}</code>
+      </div>
+      <div className="pt-2">
+        <Button variant="primary" size="sm" onClick={onRegenerate}>
+          Regenerate mount sprite
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main ────────────────────────────────────────────────────────── */
 
 export default function CodexSection() {
   const { data: itemsData, loading: itemsLoading, error: itemsError } = useApi(getItemCatalog);
   const { data: speciesData, loading: speciesLoading, error: speciesError } = useApi(getPetSpeciesCatalog);
   const { data: questsData, loading: questsLoading, error: questsError } = useApi(getQuestCatalog);
+  const {
+    data: spritesData, loading: spritesLoading, error: spritesError, reload: reloadSprites,
+  } = useApi(() => fetchSpriteAdminList());
+  const { refetchCatalog } = useSpriteCatalog();
 
   const items = normalizeList(itemsData);
   const species = normalizeList(speciesData);
   const quests = normalizeList(questsData);
+  const sprites = normalizeList(spritesData);
 
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedSpecies, setSelectedSpecies] = useState(null);
   const [selectedQuest, setSelectedQuest] = useState(null);
+  const [selectedMount, setSelectedMount] = useState(null);
+  const [selectedSprite, setSelectedSprite] = useState(null);
+  const [creatingSprite, setCreatingSprite] = useState(false);
+  // Mount regeneration piggybacks on the same modal with a pre-filled slug.
+  const [regeneratingMount, setRegeneratingMount] = useState(null);
 
   const loading = itemsLoading || speciesLoading || questsLoading;
   const error = itemsError || speciesError || questsError;
+
+  const onSpriteCatalogChanged = async () => {
+    await reloadSprites();
+    await refetchCatalog({ bypassEtag: true });
+  };
 
   return (
     <div className="space-y-6">
@@ -352,11 +416,38 @@ export default function CodexSection() {
 
           <ParchmentCard>
             <SectionHeader
+              icon={<Crown size={18} className="text-sheikah-teal-deep" />}
+              title="Mounts"
+              count={species.length}
+            />
+            <MountsBlock species={species} onSelect={setSelectedMount} />
+          </ParchmentCard>
+
+          <ParchmentCard>
+            <SectionHeader
               icon={<Swords size={18} className="text-sheikah-teal-deep" />}
               title="Adventures"
               count={quests.length}
             />
             <AdventuresBlock quests={quests} onSelect={setSelectedQuest} />
+          </ParchmentCard>
+
+          <ParchmentCard>
+            <SectionHeader
+              icon={<Sparkles size={18} className="text-sheikah-teal-deep" />}
+              title="Sprites"
+              count={sprites.length}
+            />
+            {spritesError && <ErrorAlert error={spritesError} />}
+            {spritesLoading ? (
+              <Loader />
+            ) : (
+              <SpritesBlock
+                sprites={sprites}
+                onSelect={setSelectedSprite}
+                onCreate={() => setCreatingSprite(true)}
+              />
+            )}
           </ParchmentCard>
         </>
       )}
@@ -375,6 +466,58 @@ export default function CodexSection() {
         <BottomSheet title={selectedQuest.name} onClose={() => setSelectedQuest(null)}>
           <AdventureDetail quest={selectedQuest} />
         </BottomSheet>
+      )}
+      {selectedMount && (
+        <BottomSheet
+          title={`${selectedMount.name} mount`}
+          onClose={() => setSelectedMount(null)}
+        >
+          <MountDetail
+            species={selectedMount}
+            onRegenerate={() => {
+              setRegeneratingMount(selectedMount);
+              setSelectedMount(null);
+            }}
+          />
+        </BottomSheet>
+      )}
+      {selectedSprite && (
+        <SpriteDetailSheet
+          sprite={selectedSprite}
+          onClose={() => setSelectedSprite(null)}
+          onChanged={onSpriteCatalogChanged}
+        />
+      )}
+      {creatingSprite && (
+        <SpriteGenerateModal
+          onClose={() => setCreatingSprite(false)}
+          onSuccess={async () => {
+            await onSpriteCatalogChanged();
+          }}
+        />
+      )}
+      {regeneratingMount && (
+        <SpriteGenerateModal
+          sprite={{
+            slug: `${regeneratingMount.sprite_key}-mount`,
+            prompt: '',
+            motion: 'idle',
+            frame_count: 1,
+            fps: 0,
+            pack: 'ai-generated',
+            style_hint: '',
+            tile_size: 64,
+            reference_image_url: '',
+            frame_width_px: 64,
+            frame_height_px: 64,
+          }}
+          mode="replace"
+          onClose={() => setRegeneratingMount(null)}
+          onSuccess={async () => {
+            setRegeneratingMount(null);
+            await onSpriteCatalogChanged();
+          }}
+        />
       )}
     </div>
   );

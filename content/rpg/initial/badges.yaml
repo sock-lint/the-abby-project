@@ -1244,3 +1244,74 @@ badges:
     criteria_value: {days: 100}
     rarity: legendary
     xp_bonus: 400
+
+  # Maker — Creations ladder. Rewards the "I made a thing" act across every
+  # creative skill. The proud-display track (any Creation, any status) drives
+  # this ladder; approved-bonus has its own tier below.
+  - name: First Spark
+    description: Log your first creation
+    icon: "🎨"
+    criteria_type: creations_logged
+    criteria_value: {count: 1}
+    rarity: common
+    xp_bonus: 15
+  - name: Maker
+    description: Log 10 creations
+    icon: "🖼️"
+    criteria_type: creations_logged
+    criteria_value: {count: 10}
+    rarity: uncommon
+    xp_bonus: 40
+  - name: Prolific
+    description: Log 50 creations
+    icon: "🏺"
+    criteria_type: creations_logged
+    criteria_value: {count: 50}
+    rarity: rare
+    xp_bonus: 100
+  - name: Artisan
+    description: Log 100 creations
+    icon: "🗿"
+    criteria_type: creations_logged
+    criteria_value: {count: 100}
+    rarity: epic
+    xp_bonus: 200
+  - name: A Year of Making
+    description: Log 365 creations
+    icon: "🎭"
+    criteria_type: creations_logged
+    criteria_value: {count: 365}
+    rarity: legendary
+    xp_bonus: 500
+
+  # Parent-approved "this one's real" tier — recognises bonus-approved work.
+  - name: Framed
+    description: 5 of your creations earned a parent bonus
+    icon: "🖌️"
+    criteria_type: creations_approved
+    criteria_value: {count: 5}
+    rarity: uncommon
+    xp_bonus: 50
+  - name: Featured
+    description: 25 of your creations earned a parent bonus
+    icon: "🏅"
+    criteria_type: creations_approved
+    criteria_value: {count: 25}
+    rarity: rare
+    xp_bonus: 150
+  - name: Legacy
+    description: 100 of your creations earned a parent bonus
+    icon: "🏛️"
+    criteria_type: creations_approved
+    criteria_value: {count: 100}
+    rarity: epic
+    xp_bonus: 350
+
+  # Skill-breadth one-shot. Rewards exercising the whole creative horizon.
+  - name: Polymath
+    description: Log creations across 5 different creative skills
+    icon: "🌈"
+    criteria_type: creation_skill_breadth
+    criteria_value: {count: 5}
+    rarity: rare
+    xp_bonus: 120

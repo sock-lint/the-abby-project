@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   getChoreCompletions, getHomeworkDashboard, getRedemptions, getDashboard,
+  listPendingCreations,
 } from '../api';
 import { normalizeList } from '../utils/api';
 
@@ -27,6 +28,22 @@ function unifyHomework(h) {
     subtitle: h.timeliness ? `submitted ${h.timeliness}` : null,
     reward: h.reward_amount_snapshot ?? null,
     submittedAt: h.submitted_at || h.created_at || null,
+  };
+}
+
+function unifyCreation(c) {
+  return {
+    id: c.id,
+    kind: 'creation',
+    kidId: c.user ?? c.user_id ?? null,
+    kidName: c.user_display || 'Unassigned',
+    title: c.caption || `${c.primary_skill_name || 'Creation'}`,
+    subtitle: c.primary_skill_name
+      ? `${c.primary_skill_category || ''} · ${c.primary_skill_name}`.trim()
+      : null,
+    reward: null,
+    submittedAt: c.updated_at || c.created_at || null,
+    image: c.image || null,
   };
 }
 
@@ -66,17 +83,19 @@ export default function useParentDashboard() {
   const load = useCallback(async () => {
     setData((d) => ({ ...d, loading: true, error: null }));
     try {
-      const [chores, hw, reds, dashboardRes] = await Promise.all([
+      const [chores, hw, reds, dashboardRes, creations] = await Promise.all([
         getChoreCompletions('pending').catch(() => []),
         getHomeworkDashboard().catch(() => ({ pending_submissions: [] })),
         getRedemptions().catch(() => []),
         getDashboard().catch(() => null),
+        listPendingCreations().catch(() => []),
       ]);
 
       const unified = [
         ...normalizeList(chores).map(unifyChore),
         ...normalizeList(hw?.pending_submissions).map(unifyHomework),
         ...normalizeList(reds).filter((r) => r.status === 'pending').map(unifyRedemption),
+        ...normalizeList(creations).map(unifyCreation),
       ].sort(byRecent);
 
       // Week stats — if the dashboard payload has per-kid data in the future,

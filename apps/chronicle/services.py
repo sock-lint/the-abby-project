@@ -30,6 +30,20 @@ from apps.rpg.constants import TriggerType  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
+
+class JournalAlreadyExistsError(Exception):
+    """Raised when a child tries to write a second journal entry in one day.
+
+    Carries the existing entry on ``.entry`` so the view can surface it in
+    the 409 response body — the frontend uses it to flip the modal into
+    edit mode instead of error-toasting.
+    """
+
+    def __init__(self, entry):
+        super().__init__("A journal entry already exists for today.")
+        self.entry = entry
+
+
 JOURNAL_XP_POOL = 15
 # Order matters — the weights split the pool 2:1. Creative Writing gets
 # the bulk (10 XP) because it's the primary skill being exercised;
@@ -187,6 +201,37 @@ class ChronicleService:
         return entry
 
     @staticmethod
+    def record_creation(
+        user,
+        *,
+        creation_id: int,
+        title: str,
+        caption: str = "",
+        occurred_on: Optional[date] = None,
+    ) -> ChronicleEntry:
+        """Emit a ChronicleEntry of kind=CREATION for a Creation row.
+
+        Idempotent per (user, related_object_type='creation', related_object_id).
+        Callers pass the Creation's ``id`` and a pre-resolved title. Not
+        ``is_private`` — creations are meant to be seen on the timeline.
+        """
+        day = occurred_on or timezone.localdate()
+        entry, _ = ChronicleEntry.objects.get_or_create(
+            user=user,
+            related_object_type="creation",
+            related_object_id=creation_id,
+            defaults={
+                "kind": ChronicleEntry.Kind.CREATION,
+                "occurred_on": day,
+                "chapter_year": _chapter_year_for(day),
+                "title": title[:160],
+                "summary": caption or "",
+                "icon_slug": "palette",
+            },
+        )
+        return entry
+
+    @staticmethod
     @transaction.atomic
     def write_journal(
         user,
@@ -197,66 +242,83 @@ class ChronicleService:
     ) -> ChronicleEntry:
         """Create a child-authored journal entry for the given user.
 
-        Always sets ``kind=JOURNAL`` and ``is_private=True``. Multiple entries
-        per local day are allowed. When the entry is the first journal entry
-        of the user's local day, awards XP to Creative Writing + Vocabulary
-        (hardcoded 10/5 split) and fires the RPG game loop so the child earns
-        streak credit, a drop roll, and quest progress.
+        Always sets ``kind=JOURNAL`` and ``is_private=True``. At most one
+        journal entry per user per local day — a second call raises
+        ``JournalAlreadyExistsError`` carrying the existing entry. Creation
+        awards XP to Creative Writing + Vocabulary (hardcoded 10/5 split)
+        and fires the RPG game loop so the child earns streak credit, a
+        drop roll, and quest progress. The one-per-day constraint makes
+        the anti-farm gate trivial: every create IS the day's only write.
         """
         day = occurred_on or timezone.localdate()
-        resolved_title = _autofill_journal_title(title, summary, day)
-        entry = ChronicleEntry.objects.create(
+
+        # Service-layer pre-check — gives callers a clean exception with
+        # the existing entry attached so the view can 409 with context.
+        # The partial unique index on (user, occurred_on) where kind=journal
+        # is the DB-layer backstop for concurrent-POST races.
+        existing = ChronicleEntry.objects.filter(
             user=user,
             kind=ChronicleEntry.Kind.JOURNAL,
-            is_private=True,
             occurred_on=day,
-            chapter_year=_chapter_year_for(day),
-            title=resolved_title,
-            summary=summary or "",
-        )
+        ).first()
+        if existing is not None:
+            raise JournalAlreadyExistsError(existing)
 
-        # First-of-local-day gate — prevents farming streak/drops/quest
-        # progress by writing many short entries in one sitting. Mirrors the
-        # ``homework_created`` anti-farm pattern.
-        is_first_today = not ChronicleEntry.objects.filter(
-            user=user, kind=ChronicleEntry.Kind.JOURNAL, occurred_on=day,
-        ).exclude(pk=entry.pk).exists()
+        resolved_title = _autofill_journal_title(title, summary, day)
+        try:
+            entry = ChronicleEntry.objects.create(
+                user=user,
+                kind=ChronicleEntry.Kind.JOURNAL,
+                is_private=True,
+                occurred_on=day,
+                chapter_year=_chapter_year_for(day),
+                title=resolved_title,
+                summary=summary or "",
+            )
+        except IntegrityError:
+            # Race condition: two POSTs landed between the pre-check and
+            # create. Re-read and surface the winner as the "existing" row.
+            existing = ChronicleEntry.objects.filter(
+                user=user,
+                kind=ChronicleEntry.Kind.JOURNAL,
+                occurred_on=day,
+            ).first()
+            raise JournalAlreadyExistsError(existing)
 
-        if is_first_today:
-            # Award paired XP + badge re-eval via the unified pipeline.
-            try:
-                from apps.achievements.services import AwardService
+        # Award paired XP + badge re-eval via the unified pipeline.
+        try:
+            from apps.achievements.services import AwardService
 
-                tags = _journal_xp_tags()
-                if tags:
-                    AwardService.grant(
-                        user,
-                        xp_tags=tags,
-                        xp=JOURNAL_XP_POOL,
-                        xp_source_label="Journal entry",
-                    )
-                else:
-                    # No Language Arts skills seeded yet — still run badge
-                    # evaluation so the entries_written / streak badges can
-                    # fire on an unseeded test DB.
-                    from apps.achievements.services import BadgeService
-
-                    BadgeService.evaluate_badges(user)
-            except Exception:
-                # An award failure must not block the write — the entry is
-                # the canonical record; rewards are a bonus.
-                logger.exception("Journal XP award hook failed for user %s", user.pk)
-
-            try:
-                GameLoopService.on_task_completed(
+            tags = _journal_xp_tags()
+            if tags:
+                AwardService.grant(
                     user,
-                    TriggerType.JOURNAL_ENTRY,
-                    {"entry_id": entry.pk},
+                    xp_tags=tags,
+                    xp=JOURNAL_XP_POOL,
+                    xp_source_label="Journal entry",
                 )
-            except Exception:
-                # Same defensive stance — the write succeeded; streak/drops
-                # are best-effort downstream effects.
-                logger.exception("Journal game-loop hook failed for user %s", user.pk)
+            else:
+                # No Language Arts skills seeded yet — still run badge
+                # evaluation so the entries_written / streak badges can
+                # fire on an unseeded test DB.
+                from apps.achievements.services import BadgeService
+
+                BadgeService.evaluate_badges(user)
+        except Exception:
+            # An award failure must not block the write — the entry is
+            # the canonical record; rewards are a bonus.
+            logger.exception("Journal XP award hook failed for user %s", user.pk)
+
+        try:
+            GameLoopService.on_task_completed(
+                user,
+                TriggerType.JOURNAL_ENTRY,
+                {"entry_id": entry.pk},
+            )
+        except Exception:
+            # Same defensive stance — the write succeeded; streak/drops
+            # are best-effort downstream effects.
+            logger.exception("Journal game-loop hook failed for user %s", user.pk)
 
         return entry
 

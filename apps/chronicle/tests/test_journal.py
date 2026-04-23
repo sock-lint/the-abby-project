@@ -120,15 +120,28 @@ class WriteJournalTests(TestCase):
             self.assertEqual(args[0], self.user)
             self.assertEqual(str(args[1]), "journal_entry")
 
-    def test_second_entry_today_does_not_fire_game_loop(self):
-        ChronicleService.write_journal(
+    def test_second_entry_today_raises_and_does_not_fire_game_loop(self):
+        from apps.chronicle.services import JournalAlreadyExistsError
+
+        first = ChronicleService.write_journal(
             self.user, title="", summary="First.",
         )
         with mock.patch("apps.chronicle.services.GameLoopService") as mock_loop:
-            ChronicleService.write_journal(
-                self.user, title="", summary="Second.",
-            )
+            with self.assertRaises(JournalAlreadyExistsError) as ctx:
+                ChronicleService.write_journal(
+                    self.user, title="", summary="Second.",
+                )
             mock_loop.on_task_completed.assert_not_called()
+        # The exception carries the existing entry so the view can return
+        # it in the 409 body for the frontend to flip into edit mode.
+        self.assertEqual(ctx.exception.entry.pk, first.pk)
+        # And no second row was written.
+        self.assertEqual(
+            ChronicleEntry.objects.filter(
+                user=self.user, kind=ChronicleEntry.Kind.JOURNAL,
+            ).count(),
+            1,
+        )
 
     def test_awards_xp_to_creative_writing_and_vocabulary(self):
         # Seed the skills; assert the award fans out weighted 2:1.
@@ -279,6 +292,46 @@ class JournalAPITests(TestCase):
         journal = next(e for e in entries if e["kind"] == "journal")
         self.assertTrue(journal["is_private"])
 
+    def test_second_post_same_day_returns_409_with_existing(self):
+        first = self.client.post(
+            "/api/chronicle/journal/",
+            {"title": "A", "summary": "First entry"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+
+        second = self.client.post(
+            "/api/chronicle/journal/",
+            {"title": "B", "summary": "Attempted second"},
+            format="json",
+        )
+        self.assertEqual(second.status_code, status.HTTP_409_CONFLICT)
+        body = second.json()
+        self.assertIn("detail", body)
+        self.assertIsNotNone(body.get("existing"))
+        self.assertEqual(body["existing"]["id"], first.json()["id"])
+        # No second row was created.
+        self.assertEqual(
+            ChronicleEntry.objects.filter(
+                user=self.child, kind=ChronicleEntry.Kind.JOURNAL,
+            ).count(),
+            1,
+        )
+
+    def test_journal_today_returns_204_when_no_entry(self):
+        resp = self.client.get("/api/chronicle/journal/today/")
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_journal_today_returns_existing_entry(self):
+        entry = ChronicleService.write_journal(
+            self.child, title="Today", summary="Wrote a thing.",
+        )
+        resp = self.client.get("/api/chronicle/journal/today/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        body = resp.json()
+        self.assertEqual(body["id"], entry.pk)
+        self.assertEqual(body["kind"], "journal")
+
 
 class JournalBadgeCriteriaTests(TestCase):
     """The two new badge criteria — journal_entries_written + streak_days."""
@@ -390,7 +443,14 @@ class JournalBadgeCriteriaTests(TestCase):
         )
         self.assertFalse(criteria.check(self.user, badge))
 
-    def test_streak_days_dedupes_multiple_same_day_entries(self):
+    def test_streak_days_counts_distinct_calendar_days(self):
+        """The checker reduces to a set of ``occurred_on`` before counting.
+
+        The DB unique-per-day constraint makes true same-day duplicates
+        impossible via the service, but the checker's set() reduction is
+        still the correct shape — a direct ORM write (e.g., from a data
+        migration) can never inflate a streak count either.
+        """
         from apps.achievements import criteria
 
         badge = Badge.objects.create(
@@ -400,16 +460,15 @@ class JournalBadgeCriteriaTests(TestCase):
             criteria_value={"days": 2},
         )
         today = date.today()
-        # Two entries on the same day count as one calendar day.
-        for _ in range(3):
-            ChronicleEntry.objects.create(
-                user=self.user,
-                kind=ChronicleEntry.Kind.JOURNAL,
-                is_private=True,
-                occurred_on=today,
-                chapter_year=2025,
-                title="same day",
-            )
+        # One entry today — not enough for a 2-day streak.
+        ChronicleEntry.objects.create(
+            user=self.user,
+            kind=ChronicleEntry.Kind.JOURNAL,
+            is_private=True,
+            occurred_on=today,
+            chapter_year=2025,
+            title="today",
+        )
         self.assertFalse(criteria.check(self.user, badge))
         ChronicleEntry.objects.create(
             user=self.user,

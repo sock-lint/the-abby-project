@@ -104,6 +104,33 @@ describe('api errors', () => {
     await expect(api.get('/boom/')).rejects.toThrow('boom');
     expect(Sentry.captureException).toHaveBeenCalledTimes(1);
   });
+
+  it('attaches .status + .response to the thrown error so callers can branch on HTTP code', async () => {
+    // Pin the error-shape contract used by JournalEntryFormModal (409 → edit)
+    // and the 403 "entry locked" path. String-matching .message is fragile;
+    // callers read .status and .response directly.
+    server.use(
+      http.post('*/api/chronicle/journal/', () =>
+        HttpResponse.json(
+          { detail: 'You already wrote a journal entry today.', existing: { id: 77 } },
+          { status: 409 },
+        ),
+      ),
+    );
+    let caught;
+    try {
+      await api.post('/chronicle/journal/', { title: '', summary: 'x' });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught.status).toBe(409);
+    expect(caught.response).toEqual({
+      detail: 'You already wrote a journal entry today.',
+      existing: { id: 77 },
+    });
+    expect(caught.message).toBe('You already wrote a journal entry today.');
+  });
 });
 
 describe('cache bypass', () => {

@@ -1,44 +1,57 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Crown, Palette, Sparkles, X, Check, Flame, Star } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import {
-  getCharacterProfile, getCosmetics, equipCosmetic, unequipCosmetic,
+  getCharacterProfile,
+  getCosmetics,
+  getCosmeticCatalog,
+  getBadges,
+  getAchievementsSummary,
+  equipCosmetic,
+  unequipCosmetic,
+  setTrophyBadge,
 } from '../api';
-import { useApi } from '../hooks/useApi';
+import { useApi, useAuth } from '../hooks/useApi';
+import { normalizeList } from '../utils/api';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import EmptyState from '../components/EmptyState';
-import ParchmentCard from '../components/journal/ParchmentCard';
-import DeckleDivider from '../components/journal/DeckleDivider';
-import RuneBadge from '../components/journal/RuneBadge';
-import StreakFlame from '../components/journal/StreakFlame';
-import RpgSprite from '../components/rpg/RpgSprite';
-import { RARITY_RING_COLORS } from '../constants/colors';
+import SigilFrontispiece from './character/SigilFrontispiece';
+import CosmeticChapter from './character/CosmeticChapter';
+import TrophyBadgePicker from './character/TrophyBadgePicker';
+import { COSMETIC_CHAPTERS } from './character/character.constants';
 
-const SLOT_ICONS = {
-  active_frame: Palette,
-  active_title: Crown,
-  active_theme: Palette,
-  active_pet_accessory: Sparkles,
-};
-
-const SLOT_LABELS = {
-  active_frame: { label: 'Avatar Frame', kicker: 'a border of renown' },
-  active_title: { label: 'Title', kicker: 'hard-won honorific' },
-  active_theme: { label: 'Journal Cover', kicker: 'the page aesthetic' },
-  active_pet_accessory: { label: 'Pet Accessory', kicker: 'a saddle, a sash' },
-};
-
+/**
+ * Character (`/sigil`) — the Frontispiece. Thin orchestrator that merges
+ * the character profile, owned cosmetics, the full cosmetic catalog,
+ * and the earned/all badges feeds, then renders the hero frontispiece
+ * above four cosmetic folios. Trophy picker is a BottomSheet mounted
+ * under AnimatePresence so it can slide in and out without refetching.
+ */
 export default function Character() {
+  const { user } = useAuth();
   const { data: profile, loading: loadingProfile, reload: reloadProfile } = useApi(getCharacterProfile);
   const { data: cosmetics, loading: loadingCosmetics, reload: reloadCosmetics } = useApi(getCosmetics);
+  const { data: catalog, loading: loadingCatalog } = useApi(getCosmeticCatalog);
+  const { data: allBadgesData, loading: loadingBadges } = useApi(getBadges);
+  const { data: summary, loading: loadingSummary } = useApi(getAchievementsSummary);
+
   const [error, setError] = useState('');
   const [working, setWorking] = useState(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
-  if (loadingProfile || loadingCosmetics) return <Loader />;
+  const allBadges = useMemo(() => normalizeList(allBadgesData), [allBadgesData]);
+  const earnedBadges = useMemo(() => summary?.badges_earned || [], [summary]);
+
+  const anyLoading =
+    loadingProfile || loadingCosmetics || loadingCatalog || loadingBadges || loadingSummary;
+
+  if (anyLoading) return <Loader />;
   if (!profile) return <EmptyState>Unable to load sigil.</EmptyState>;
 
-  const refresh = () => { reloadProfile(); reloadCosmetics(); };
+  const refresh = () => {
+    reloadProfile();
+    reloadCosmetics();
+  };
 
   const handleEquip = async (itemId) => {
     setWorking(itemId);
@@ -60,139 +73,55 @@ export default function Character() {
     finally { setWorking(null); }
   };
 
-  const frameColor = profile.active_frame?.metadata?.border_color || 'var(--color-sheikah-teal-deep)';
-  const titleText = profile.active_title?.metadata?.text || profile.active_title?.name;
-  const initial = (profile.display_name || profile.username || '?')[0].toUpperCase();
+  const handleSelectTrophy = async (badgeId) => {
+    setWorking('trophy');
+    setError('');
+    try {
+      await setTrophyBadge(badgeId);
+      reloadProfile();
+      setPickerOpen(false);
+    } catch (e) { setError(e.message); }
+    finally { setWorking(null); }
+  };
+
+  const currentThemeName = user?.theme || 'hyrule';
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <header>
-        <div className="font-script text-sheikah-teal-deep text-base">
-          the sigil · who you are
-        </div>
-        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          Sigil
-        </h1>
-      </header>
-
+    <div className="space-y-5 max-w-4xl mx-auto">
       <ErrorAlert message={error} />
 
-      {/* Hero profile card */}
-      <ParchmentCard flourish tone="bright" className="text-center py-8">
-        <div
-          className="w-28 h-28 mx-auto rounded-full bg-sheikah-teal/20 flex items-center justify-center font-display text-5xl text-sheikah-teal-deep"
-          style={profile.active_frame ? { border: `4px solid ${frameColor}`, padding: '3px' } : { border: '2px solid var(--color-ink-page-shadow)' }}
-        >
-          {initial}
-        </div>
-        <div className="mt-3 font-display italic text-2xl text-ink-primary">
-          {profile.display_name || profile.username}
-        </div>
-        {titleText && (
-          <div className="font-script text-gold-leaf text-lg flex items-center justify-center gap-1 mt-0.5">
-            <Crown size={14} className="text-gold-leaf" /> {titleText}
-          </div>
+      <SigilFrontispiece
+        profile={profile}
+        onOpenTrophyPicker={() => setPickerOpen(true)}
+      />
+
+      <div className="space-y-4">
+        {COSMETIC_CHAPTERS.map((chapter) => (
+          <CosmeticChapter
+            key={chapter.slot}
+            chapter={chapter}
+            owned={cosmetics?.[chapter.slot] || []}
+            catalog={catalog?.[chapter.slot] || []}
+            activeId={profile[chapter.slot]?.id || null}
+            currentThemeName={currentThemeName}
+            busy={working}
+            onEquip={handleEquip}
+            onUnequip={handleUnequip}
+          />
+        ))}
+      </div>
+
+      <AnimatePresence>
+        {pickerOpen && (
+          <TrophyBadgePicker
+            allBadges={allBadges}
+            earnedBadges={earnedBadges}
+            currentTrophyId={profile.active_trophy_badge?.id || null}
+            onSelect={handleSelectTrophy}
+            onClose={() => setPickerOpen(false)}
+          />
         )}
-        <div className="mt-2">
-          <RuneBadge tone="teal" size="md">level {profile.level}</RuneBadge>
-        </div>
-
-        <div className="grid grid-cols-3 gap-3 mt-5 max-w-md mx-auto">
-          <div className="rounded-lg bg-ink-page/60 border border-ink-page-shadow py-2">
-            <Flame size={18} className="mx-auto text-ember-deep" />
-            <div className="font-rune text-xl font-bold text-ink-primary">
-              {profile.login_streak}
-            </div>
-            <div className="font-script text-xs text-ink-whisper">streak</div>
-          </div>
-          <div className="rounded-lg bg-ink-page/60 border border-ink-page-shadow py-2">
-            <Star size={18} className="mx-auto text-gold-leaf" />
-            <div className="font-rune text-xl font-bold text-ink-primary">
-              {profile.perfect_days_count}
-            </div>
-            <div className="font-script text-xs text-ink-whisper">perfect days</div>
-          </div>
-          <div className="rounded-lg bg-ink-page/60 border border-ink-page-shadow py-2">
-            <Flame size={18} className="mx-auto text-royal" />
-            <div className="font-rune text-xl font-bold text-ink-primary">
-              {profile.longest_login_streak}
-            </div>
-            <div className="font-script text-xs text-ink-whisper">best streak</div>
-          </div>
-        </div>
-      </ParchmentCard>
-
-      {/* Cosmetic slots */}
-      {Object.entries(SLOT_LABELS).map(([slot, meta], idx) => {
-        const owned = cosmetics?.[slot] || [];
-        const active = profile[slot];
-        const SlotIcon = SLOT_ICONS[slot];
-
-        return (
-          <section key={slot}>
-            {idx > 0 && <DeckleDivider glyph="flourish-corner" />}
-            <div className="flex items-center gap-2 mb-3">
-              <SlotIcon size={16} className="text-sheikah-teal-deep" />
-              <div className="flex-1">
-                <div className="font-script text-xs text-ink-whisper">{meta.kicker}</div>
-                <h2 className="font-display text-lg text-ink-primary leading-tight">
-                  {meta.label}
-                </h2>
-              </div>
-              {active && (
-                <button
-                  type="button"
-                  onClick={() => handleUnequip(slot)}
-                  disabled={working === slot}
-                  className="font-script text-xs text-ember-deep hover:text-ember flex items-center gap-1 transition-colors"
-                >
-                  <X size={12} /> unequip
-                </button>
-              )}
-            </div>
-
-            {owned.length === 0 ? (
-              <EmptyState>none owned yet — earn drops from tasks</EmptyState>
-            ) : (
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {owned.map((item) => {
-                  const isActive = active?.id === item.id;
-                  return (
-                    <motion.button
-                      key={item.id}
-                      type="button"
-                      whileHover={{ y: -2 }}
-                      onClick={() => !isActive && handleEquip(item.id)}
-                      className={`text-center p-2.5 rounded-xl bg-ink-page-aged border border-ink-page-shadow transition-all
-                        ${isActive
-                          ? `ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[item.rarity] || 'ring-sheikah-teal'}`
-                          : 'hover:border-sheikah-teal/50 cursor-pointer'
-                        }`}
-                    >
-                      <div className="flex items-center justify-center h-9 mb-0.5">
-                        <RpgSprite
-                          spriteKey={item.sprite_key}
-                          icon={item.icon}
-                          size={32}
-                          alt={item.name}
-                        />
-                      </div>
-                      <div className="font-body text-tiny font-medium truncate">
-                        {item.name}
-                      </div>
-                      {isActive && (
-                        <div className="font-script text-micro text-moss flex items-center justify-center gap-0.5 mt-0.5">
-                          <Check size={10} /> equipped
-                        </div>
-                      )}
-                    </motion.button>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        );
-      })}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X, ClipboardCheck, BookOpen, Gift } from 'lucide-react';
+import { Check, X, ClipboardCheck, BookOpen, Gift, Palette } from 'lucide-react';
 import EmptyState from '../EmptyState';
 import ParchmentCard from '../journal/ParchmentCard';
 import RuneBadge from '../journal/RuneBadge';
@@ -9,12 +9,14 @@ import {
   approveChoreCompletion, rejectChoreCompletion,
   approveHomeworkSubmission, rejectHomeworkSubmission,
   approveRedemption, rejectRedemption,
+  approveCreation, rejectCreation,
 } from '../../api';
 
 const KIND_LABELS = {
   chore: { label: 'duty', tone: 'moss', icon: ClipboardCheck },
   homework: { label: 'study', tone: 'royal', icon: BookOpen },
   redemption: { label: 'reward', tone: 'gold', icon: Gift },
+  creation: { label: 'creation', tone: 'gold', icon: Palette },
 };
 
 function mutationsFor(kind) {
@@ -23,6 +25,13 @@ function mutationsFor(kind) {
   }
   if (kind === 'homework') {
     return { approve: approveHomeworkSubmission, reject: rejectHomeworkSubmission };
+  }
+  if (kind === 'creation') {
+    // Default bonus XP (15) is applied server-side when no overrides are passed.
+    return {
+      approve: (id) => approveCreation(id, {}),
+      reject: (id) => rejectCreation(id, ''),
+    };
   }
   return { approve: approveRedemption, reject: rejectRedemption };
 }
