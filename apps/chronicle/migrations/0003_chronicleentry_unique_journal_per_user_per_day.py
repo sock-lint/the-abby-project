@@ -4,6 +4,43 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def dedupe_journal_entries(apps, schema_editor):
+    """Merge pre-existing duplicate journal rows before the unique index lands.
+
+    The constraint was added after the service-layer one-per-day rule had
+    already shipped, so a handful of production rows slipped through a race
+    between the pre-check and create. Delete-then-constraint would destroy
+    the child's words; instead, keep the newest row per (user, occurred_on)
+    and fold the older summaries into it so the prose survives.
+    """
+    ChronicleEntry = apps.get_model("chronicle", "ChronicleEntry")
+
+    dup_groups = (
+        ChronicleEntry.objects.filter(kind="journal")
+        .values("user_id", "occurred_on")
+        .annotate(n=models.Count("id"))
+        .filter(n__gt=1)
+    )
+
+    for group in dup_groups:
+        entries = list(
+            ChronicleEntry.objects.filter(
+                kind="journal",
+                user_id=group["user_id"],
+                occurred_on=group["occurred_on"],
+            ).order_by("-created_at", "-id")
+        )
+        keeper, *older = entries
+        merged_parts = [keeper.summary or ""]
+        for entry in older:
+            body = (entry.summary or "").strip()
+            if body:
+                merged_parts.append(body)
+        keeper.summary = "\n\n---\n\n".join(part for part in merged_parts if part)
+        keeper.save(update_fields=["summary"])
+        ChronicleEntry.objects.filter(id__in=[e.id for e in older]).delete()
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -12,6 +49,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(dedupe_journal_entries, migrations.RunPython.noop),
         migrations.AddConstraint(
             model_name='chronicleentry',
             constraint=models.UniqueConstraint(condition=models.Q(('kind', 'journal')), fields=('user', 'occurred_on'), name='unique_journal_per_user_per_day'),
