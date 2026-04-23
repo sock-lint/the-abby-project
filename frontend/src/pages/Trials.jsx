@@ -38,7 +38,7 @@ const DEFAULT_CHALLENGE = {
   assigned_to: '',
 };
 
-export default function Quests() {
+export default function Trials() {
   const { isParent } = useRole();
   const { data: activeQuest, loading: loadingActive, reload: reloadActive } = useApi(getActiveQuest);
   const { data: availableData, loading: loadingAvailable } = useApi(getAvailableQuests);

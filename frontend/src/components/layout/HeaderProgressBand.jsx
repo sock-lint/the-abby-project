@@ -6,7 +6,7 @@ import { useApi } from '../../hooks/useApi';
  * HeaderProgressBand — thin full-width band under the header.
  *  - Inert hairline (page divider) when no quest is active.
  *  - Sheikah-teal gradient scaled to quest progress when one is active, tap
- *    routes to Quests page.
+ *    routes to the Trials page.
  */
 export default function HeaderProgressBand() {
   const navigate = useNavigate();
@@ -31,7 +31,7 @@ export default function HeaderProgressBand() {
   return (
     <button
       type="button"
-      onClick={() => navigate('/quests')}
+      onClick={() => navigate('/trials')}
       aria-label={`${title} · ${percent}% complete`}
       title={`${title} · ${percent}%`}
       className="group relative w-full h-1 md:h-1.5 hover:h-2 transition-all bg-ink-page-shadow/50 focus:outline-none"

@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import Quests from './Quests.jsx';
+import Trials from './Trials.jsx';
 import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
 import { buildUser } from '../test/factories.js';
@@ -21,13 +21,13 @@ function renderPage(user = buildUser(), handlers = []) {
   return render(
     <MemoryRouter>
       <AuthProvider>
-        <Quests />
+        <Trials />
       </AuthProvider>
     </MemoryRouter>,
   );
 }
 
-describe('Quests', () => {
+describe('Trials', () => {
   it('renders empty current state', async () => {
     renderPage(buildUser(), [
       http.get('*/api/quests/active/', () => HttpResponse.json(null)),

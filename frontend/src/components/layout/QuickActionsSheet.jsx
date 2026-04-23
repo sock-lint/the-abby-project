@@ -342,7 +342,7 @@ export default function QuickActionsSheet({
                   label="Start a quest"
                   hint="Spend a scroll"
                   tone="moss"
-                  onClick={() => { onClose(); navigate('/quests?tab=trials'); }}
+                  onClick={() => { onClose(); navigate('/trials'); }}
                 />
               )}
               <ActionRow
