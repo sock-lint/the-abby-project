@@ -168,6 +168,7 @@ export const handlers = [
   http.post(/\/api\/chores\/\d+\/complete\/$/, ok),
   http.get('*/api/chore-completions/', empty),
   http.post(/\/api\/chore-completions\/\d+\/(approve|reject)\/$/, ok),
+  http.post(/\/api\/chores\/\d+\/approve\/$/, ok),
 
   // Greenlight
   http.post('*/api/greenlight/import/', ok),
@@ -199,6 +200,7 @@ export const handlers = [
   http.patch(/\/api\/habits\/\d+\/$/, ok),
   http.delete(/\/api\/habits\/\d+\/$/, nullBody),
   http.post(/\/api\/habits\/\d+\/log\/$/, ok),
+  http.post(/\/api\/habits\/\d+\/approve\/$/, ok),
   http.get('*/api/inventory/', empty),
   http.get('*/api/drops/recent/', empty),
   http.get('*/api/cosmetics/', empty),

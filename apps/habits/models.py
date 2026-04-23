@@ -33,6 +33,7 @@ class Habit(TimestampedModel):
     max_taps_per_day = models.PositiveSmallIntegerField(default=1)
     strength = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    pending_parent_review = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         # Preserve original table name so the move is a state-only migration.

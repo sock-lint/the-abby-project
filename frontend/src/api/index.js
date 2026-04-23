@@ -264,6 +264,13 @@ export const approveChoreCompletion = (id) =>
   api.post(`/chore-completions/${id}/approve/`);
 export const rejectChoreCompletion = (id) =>
   api.post(`/chore-completions/${id}/reject/`);
+// Chore proposals (child-authored, parent-gated rewards).
+export const listPendingChoreProposals = () =>
+  api.get('/chores/?pending=true');
+export const listMyChoreProposals = () =>
+  api.get('/chores/?pending=true');
+export const approveChoreProposal = (id, payload) =>
+  api.post(`/chores/${id}/approve/`, payload);
 
 // Greenlight Import
 export const importGreenlight = (user_id, csv_data) =>
@@ -336,6 +343,13 @@ export const updateHabit = (id, data) => api.patch(`/habits/${id}/`, data);
 export const deleteHabit = (id) => api.delete(`/habits/${id}/`);
 export const logHabitTap = (id, direction) =>
   api.post(`/habits/${id}/log/`, { direction });
+// Habit proposals (child-authored, parent-gated rewards).
+export const listPendingHabitProposals = () =>
+  api.get('/habits/?pending=true');
+export const listMyHabitProposals = () =>
+  api.get('/habits/?pending=true');
+export const approveHabitProposal = (id, payload) =>
+  api.post(`/habits/${id}/approve/`, payload);
 export const getInventory = () => api.get('/inventory/');
 export const useConsumable = (itemId) =>
   api.post(`/inventory/${itemId}/use/`);

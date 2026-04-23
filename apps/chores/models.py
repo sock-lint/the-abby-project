@@ -55,6 +55,7 @@ class Chore(TimestampedModel):
         related_name="created_chores",
     )
     is_active = models.BooleanField(default=True)
+    pending_parent_review = models.BooleanField(default=False, db_index=True)
     order = models.IntegerField(default=0)
 
     class Meta:

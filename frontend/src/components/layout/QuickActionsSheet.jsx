@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Square, BookOpen, Target, CircleDollarSign, UserCog, PenTool, Palette } from 'lucide-react';
+import { Play, Square, BookOpen, Target, CircleDollarSign, UserCog, PenTool, Palette, Sparkles, Feather } from 'lucide-react';
 import BottomSheet from '../BottomSheet';
 import { DragonIcon } from '../icons/JournalIcons';
 import {
@@ -327,6 +327,20 @@ export default function QuickActionsSheet({
                   onClick={() => { onClose(); navigate('/quests?tab=trials'); }}
                 />
               )}
+              <ActionRow
+                icon={<Sparkles size={18} />}
+                label="Propose a duty"
+                hint="Suggest a chore — parent sets the reward"
+                tone="gold"
+                onClick={() => { onClose(); navigate('/chores?propose=1'); }}
+              />
+              <ActionRow
+                icon={<Feather size={18} />}
+                label="Propose a ritual"
+                hint="Suggest a habit — parent sets the XP"
+                tone="royal"
+                onClick={() => { onClose(); navigate('/habits?propose=1'); }}
+              />
               <ActionRow
                 icon={<Target size={18} />}
                 label={hasGoals ? 'View hoards' : 'Set a savings goal'}

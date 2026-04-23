@@ -45,6 +45,12 @@ class NotificationType(models.TextChoices):
     CREATION_SUBMITTED   = "creation_submitted",   "Creation Submitted"
     CREATION_APPROVED    = "creation_approved",    "Creation Approved"
     CREATION_REJECTED    = "creation_rejected",    "Creation Rejected"
+    CHORE_PROPOSED          = "chore_proposed",          "Duty Proposed"
+    HABIT_PROPOSED          = "habit_proposed",          "Ritual Proposed"
+    CHORE_PROPOSAL_APPROVED = "chore_proposal_approved", "Duty Proposal Approved"
+    HABIT_PROPOSAL_APPROVED = "habit_proposal_approved", "Ritual Proposal Approved"
+    CHORE_PROPOSAL_REJECTED = "chore_proposal_rejected", "Duty Proposal Rejected"
+    HABIT_PROPOSAL_REJECTED = "habit_proposal_rejected", "Ritual Proposal Rejected"
 
 
 class Notification(CreatedAtModel):

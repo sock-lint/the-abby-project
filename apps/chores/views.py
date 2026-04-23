@@ -1,12 +1,12 @@
 from django.db import transaction
-from rest_framework import status, viewsets
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
+from config.permissions import IsParent
 from config.viewsets import (
-    ApprovalActionMixin, ParentWritePermissionMixin,
-    RoleFilteredQuerySetMixin, WriteReadSerializerMixin,
+    ApprovalActionMixin, RoleFilteredQuerySetMixin, WriteReadSerializerMixin,
 )
 
 from .models import Chore, ChoreCompletion, ChoreSkillTag
@@ -14,6 +14,15 @@ from .serializers import (
     ChoreCompletionSerializer, ChoreSerializer, ChoreWriteSerializer,
 )
 from .services import ChoreNotAvailableError, ChoreService
+
+
+# Reward + gatekeeping fields children can never set on a proposal.
+# Homework strips the same shape (``apps/homework/services.py:74``) — single
+# source of truth for "child created this, parent must fill in later".
+_CHILD_STRIPPED_FIELDS = (
+    "reward_amount", "coin_reward", "xp_reward",
+    "assigned_to", "is_active", "order",
+)
 
 
 def _apply_skill_tags(chore, tag_dicts):
@@ -49,17 +58,31 @@ def _apply_skill_tags(chore, tag_dicts):
     ])
 
 
-class ChoreViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewsets.ModelViewSet):
+class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
     serializer_class = ChoreSerializer
     write_serializer_class = ChoreWriteSerializer
 
+    def get_permissions(self):
+        # Children can CREATE (proposals). Everything else — updates,
+        # destroy, approve — stays parent-only.
+        if self.action in ("update", "partial_update", "destroy", "approve"):
+            return [IsParent()]
+        return [permissions.IsAuthenticated()]
+
     def get_queryset(self):
         user = self.request.user
+        qs = Chore.objects.prefetch_related("skill_tags__skill")
         if user.role == "parent":
-            return Chore.objects.prefetch_related("skill_tags__skill")
-        return Chore.objects.filter(is_active=True).prefetch_related(
-            "skill_tags__skill",
-        )
+            # Parents can filter to just pending proposals for the review queue.
+            if self.request.query_params.get("pending") == "true":
+                qs = qs.filter(pending_parent_review=True)
+            return qs
+        # Children see active, non-pending chores; their own pending
+        # proposals are fetched via the explicit ``?mine=true&pending=true``
+        # branch so they can track what they've asked for.
+        if self.request.query_params.get("pending") == "true":
+            return qs.filter(pending_parent_review=True, created_by=user)
+        return qs.filter(is_active=True, pending_parent_review=False)
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -69,9 +92,30 @@ class ChoreViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewset
         # @transaction.atomic is load-bearing: if _apply_skill_tags raises
         # ValidationError on a bad skill_id the Chore row rolls back, so
         # the 400 response matches reality — no half-built chore left over.
+        user = self.request.user
         tags = serializer.validated_data.pop("skill_tags", [])
-        chore = serializer.save(created_by=self.request.user)
-        _apply_skill_tags(chore, tags)
+        if user.role == "child":
+            # Child proposals: strip every reward + access field regardless
+            # of what was posted. Parent finalizes later via /approve/.
+            for field in _CHILD_STRIPPED_FIELDS:
+                serializer.validated_data.pop(field, None)
+            chore = serializer.save(
+                created_by=user,
+                assigned_to=user,
+                pending_parent_review=True,
+            )
+            from apps.notifications.models import NotificationType
+            from apps.notifications.services import get_display_name, notify_parents
+            display = get_display_name(user)
+            notify_parents(
+                title=f"New duty proposed: {chore.title}",
+                message=f'{display} proposed a new duty "{chore.title}". Set rewards and approve to publish.',
+                notification_type=NotificationType.CHORE_PROPOSED,
+                link="/manage",
+            )
+        else:
+            chore = serializer.save(created_by=user)
+            _apply_skill_tags(chore, tags)
 
     @transaction.atomic
     def perform_update(self, serializer):
@@ -83,8 +127,31 @@ class ChoreViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewset
         if tags is not None:
             _apply_skill_tags(chore, tags)
 
+    def perform_destroy(self, instance):
+        # Rejecting a pending proposal: notify the proposer before the
+        # row disappears so they know a human looked at it.
+        was_pending = instance.pending_parent_review
+        proposer = instance.created_by
+        title = instance.title
+        super().perform_destroy(instance)
+        if was_pending and proposer and proposer.role == "child":
+            from apps.notifications.models import NotificationType
+            from apps.notifications.services import notify
+            notify(
+                proposer,
+                title=f"Duty proposal declined: {title}",
+                message=f'Your proposed duty "{title}" was declined.',
+                notification_type=NotificationType.CHORE_PROPOSAL_REJECTED,
+                link="/chores",
+            )
+
     def list(self, request, *args, **kwargs):
         user = request.user
+        # Parent review list bypasses the get_available_chores helper —
+        # pending proposals haven't been priced yet and shouldn't be
+        # annotated with tap availability.
+        if request.query_params.get("pending") == "true":
+            return super().list(request, *args, **kwargs)
         if user.role == "child":
             chores = ChoreService.get_available_chores(user)
             data = []
@@ -110,6 +177,50 @@ class ChoreViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewset
             ChoreCompletionSerializer(completion).data,
             status=status.HTTP_201_CREATED,
         )
+
+    @action(detail=True, methods=["post"])
+    @transaction.atomic
+    def approve(self, request, pk=None):
+        """Parent approves a child-proposed duty and sets the rewards.
+
+        Body accepts reward_amount, coin_reward, xp_reward, skill_tags,
+        and optionally the gatekeeping fields parents routinely set
+        (assigned_to, is_active). Anything not provided keeps its
+        existing value. Clears ``pending_parent_review`` and notifies
+        the proposer.
+        """
+        chore = self.get_object()
+        if not chore.pending_parent_review:
+            return Response(
+                {"error": "This duty is already published."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ChoreWriteSerializer(chore, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        tags = serializer.validated_data.pop("skill_tags", None)
+        chore = serializer.save()
+        chore.pending_parent_review = False
+        chore.save(update_fields=["pending_parent_review"])
+        if tags is not None:
+            _apply_skill_tags(chore, tags)
+
+        proposer = chore.created_by
+        if proposer and proposer.role == "child":
+            from apps.notifications.models import NotificationType
+            from apps.notifications.services import notify
+            notify(
+                proposer,
+                title=f"Duty published: {chore.title}",
+                message=(
+                    f'Your proposed duty "{chore.title}" was approved '
+                    f'and is now in your duty list.'
+                ),
+                notification_type=NotificationType.CHORE_PROPOSAL_APPROVED,
+                link="/chores",
+            )
+
+        return Response(ChoreSerializer(chore).data)
 
 
 class ChoreCompletionViewSet(

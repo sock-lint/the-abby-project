@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, ThumbsUp, ThumbsDown, Pencil, Trash2 } from 'lucide-react';
 import {
   getHabits, createHabit, updateHabit, deleteHabit, logHabitTap,
+  listMyHabitProposals, listPendingHabitProposals, approveHabitProposal,
   getChildren, getSkills,
 } from '../api';
 import { useApi } from '../hooks/useApi';
@@ -14,6 +15,7 @@ import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
+import RuneBadge from '../components/journal/RuneBadge';
 import SkillTagEditor from '../components/SkillTagEditor';
 import { ScrollIcon } from '../components/icons/JournalIcons';
 import Button from '../components/Button';
@@ -31,8 +33,12 @@ function getStrengthColor(strength) {
   return 'bg-royal text-ink-page-rune-glow';
 }
 
-function HabitFormModal({ habit, children, skills, onClose, onSaved }) {
-  const isEdit = !!habit;
+function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSaved }) {
+  const resolvedMode = mode || (habit ? 'edit' : 'create');
+  const isApprove = resolvedMode === 'approve';
+  const isEdit = resolvedMode === 'edit';
+  const canSetRewards = isParent;
+
   const { form, set, saving, setSaving, error, setError } = useFormState({
     name: habit?.name || '',
     icon: habit?.icon || '',
@@ -53,16 +59,22 @@ function HabitFormModal({ habit, children, skills, onClose, onSaved }) {
     setSaving(true);
     setError(null);
     try {
-      const payload = {
+      const base = {
         name: form.name,
         icon: form.icon,
         habit_type: form.habit_type,
+        max_taps_per_day: Math.max(1, parseInt(form.max_taps_per_day) || 1),
+      };
+      const parentExtras = canSetRewards ? {
         user: form.user ? parseInt(form.user) : null,
         xp_reward: parseInt(form.xp_reward) || 0,
-        max_taps_per_day: Math.max(1, parseInt(form.max_taps_per_day) || 1),
         skill_tags: form.skill_tags,
-      };
-      if (isEdit) {
+      } : {};
+      const payload = { ...base, ...parentExtras };
+
+      if (isApprove) {
+        await approveHabitProposal(habit.id, payload);
+      } else if (isEdit) {
         await updateHabit(habit.id, payload);
       } else {
         await createHabit(payload);
@@ -75,10 +87,31 @@ function HabitFormModal({ habit, children, skills, onClose, onSaved }) {
     }
   };
 
+  const title = isApprove
+    ? 'Approve ritual proposal'
+    : isEdit
+      ? 'Edit Ritual'
+      : isParent ? 'New Ritual' : 'Propose a Ritual';
+  const submitLabel = isApprove
+    ? 'Approve & publish'
+    : isEdit ? 'Update ritual'
+    : isParent ? 'Create ritual' : 'Send to parent';
+
   return (
-    <BottomSheet title={isEdit ? 'Edit Ritual' : 'New Ritual'} onClose={onClose}>
+    <BottomSheet title={title} onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
+        {isApprove && habit?.created_by_name && (
+          <div className="rounded-md border border-gold-leaf/40 bg-gold-leaf/10 px-3 py-2 font-script text-sm text-ink-primary">
+            Proposed by <span className="font-body font-medium">{habit.created_by_name}</span>
+            {' — set XP + skill tags below and publish to their ritual list.'}
+          </div>
+        )}
+        {!canSetRewards && !isApprove && (
+          <div className="rounded-md border border-gold-leaf/40 bg-gold-leaf/10 px-3 py-2 font-script text-sm text-ink-primary">
+            Your parent will set the rewards when they approve this.
+          </div>
+        )}
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
         <div className="grid grid-cols-2 gap-3">
           <TextField label="Icon" value={form.icon} onChange={onField('icon')} placeholder="⚡" />
@@ -88,7 +121,15 @@ function HabitFormModal({ habit, children, skills, onClose, onSaved }) {
             <option value="both">Both</option>
           </SelectField>
         </div>
-        {children?.length > 0 && (
+        <TextField
+          label="Max taps / day"
+          type="number"
+          min="1"
+          max="50"
+          value={form.max_taps_per_day}
+          onChange={onField('max_taps_per_day')}
+        />
+        {canSetRewards && children?.length > 0 && (
           <SelectField label="Child" value={form.user} onChange={onField('user')}>
             <option value="">-- Select child --</option>
             {children.map((c) => (
@@ -96,17 +137,18 @@ function HabitFormModal({ habit, children, skills, onClose, onSaved }) {
             ))}
           </SelectField>
         )}
-        <div className="grid grid-cols-2 gap-3">
-          <TextField label="Max taps / day" type="number" min="1" max="50" value={form.max_taps_per_day} onChange={onField('max_taps_per_day')} />
-          <TextField label="XP pool" type="number" min="0" value={form.xp_reward} onChange={onField('xp_reward')} />
-        </div>
-        <SkillTagEditor
-          skills={skills}
-          value={form.skill_tags}
-          onChange={(tags) => set({ skill_tags: tags })}
-        />
+        {canSetRewards && (
+          <>
+            <TextField label="XP pool" type="number" min="0" value={form.xp_reward} onChange={onField('xp_reward')} />
+            <SkillTagEditor
+              skills={skills}
+              value={form.skill_tags}
+              onChange={(tags) => set({ skill_tags: tags })}
+            />
+          </>
+        )}
         <Button type="submit" disabled={saving} className="w-full">
-          {saving ? 'Saving…' : isEdit ? 'Update ritual' : 'Create ritual'}
+          {saving ? 'Saving…' : submitLabel}
         </Button>
       </form>
     </BottomSheet>
@@ -116,17 +158,44 @@ function HabitFormModal({ habit, children, skills, onClose, onSaved }) {
 export default function Habits() {
   const { isParent } = useRole();
   const { data: rawHabits, loading, reload } = useApi(getHabits);
+  const { data: rawProposals, reload: reloadProposals } = useApi(
+    isParent ? listPendingHabitProposals : listMyHabitProposals,
+    [isParent],
+  );
   const { data: rawChildren } = useApi(isParent ? getChildren : null);
   const { data: rawSkills } = useApi(isParent ? getSkills : null);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
+  const [formMode, setFormMode] = useState('create');
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [tapping, setTapping] = useState(null);
 
   const habits = normalizeList(rawHabits);
+  const proposals = normalizeList(rawProposals);
   const children = normalizeList(rawChildren);
   const skills = normalizeList(rawSkills);
+
+  const refreshAll = () => {
+    reload();
+    reloadProposals();
+  };
+
+  const openCreate = () => {
+    setEditingHabit(null);
+    setFormMode('create');
+    setShowForm(true);
+  };
+  const openEdit = (habit) => {
+    setEditingHabit(habit);
+    setFormMode('edit');
+    setShowForm(true);
+  };
+  const openApprove = (habit) => {
+    setEditingHabit(habit);
+    setFormMode('approve');
+    setShowForm(true);
+  };
 
   const handleTap = async (habit, direction) => {
     setTapping(`${habit.id}-${direction}`);
@@ -147,7 +216,7 @@ export default function Habits() {
     try {
       await deleteHabit(confirmDelete.id);
       setConfirmDelete(null);
-      reload();
+      refreshAll();
     } catch (err) {
       setError(err.message);
     }
@@ -166,18 +235,64 @@ export default function Habits() {
             Rituals
           </h2>
         </div>
-        {isParent && (
-          <Button
-            size="sm"
-            onClick={() => { setEditingHabit(null); setShowForm(true); }}
-            className="flex items-center gap-1.5"
-          >
-            <Plus size={16} /> New ritual
-          </Button>
-        )}
+        <Button
+          size="sm"
+          onClick={openCreate}
+          className="flex items-center gap-1.5"
+        >
+          <Plus size={16} /> {isParent ? 'New ritual' : 'Propose a ritual'}
+        </Button>
       </header>
 
       <ErrorAlert message={error} />
+
+      {proposals.length > 0 && (
+        <section aria-labelledby="habit-proposals-heading">
+          <h3
+            id="habit-proposals-heading"
+            className="font-display text-lg text-ink-primary mb-3"
+          >
+            {isParent ? 'Ritual proposals awaiting review' : 'Your proposals'}
+          </h3>
+          <div className="space-y-2">
+            {proposals.map((p) => (
+              <ParchmentCard key={p.id} className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-body text-sm font-medium text-ink-primary flex items-center gap-2">
+                    <span className="text-lg">{p.icon || '⚡'}</span>
+                    {p.name}
+                    <RuneBadge tone="ember" size="sm">pending</RuneBadge>
+                  </div>
+                  <div className="font-script text-xs text-ink-whisper">
+                    {isParent
+                      ? `proposed by ${p.created_by_name || 'child'}`
+                      : 'waiting for parent to set XP'}
+                  </div>
+                </div>
+                <div className="shrink-0 flex gap-1">
+                  {isParent ? (
+                    <>
+                      <Button size="sm" onClick={() => openApprove(p)}>
+                        Review &amp; publish
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete(p)}
+                        aria-label="Decline proposal"
+                        className="p-1.5 bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <RuneBadge tone="ink" size="sm">pending</RuneBadge>
+                  )}
+                </div>
+              </ParchmentCard>
+            ))}
+          </div>
+        </section>
+      )}
 
       {habits.length === 0 ? (
         <EmptyState icon={<ScrollIcon size={32} />}>
@@ -251,7 +366,7 @@ export default function Habits() {
                       <div className="flex gap-1">
                         <button
                           type="button"
-                          onClick={() => { setEditingHabit(habit); setShowForm(true); }}
+                          onClick={() => openEdit(habit)}
                           aria-label="Edit ritual"
                           className="p-1.5 text-ink-secondary hover:text-ink-primary transition-colors"
                         >
@@ -280,8 +395,10 @@ export default function Habits() {
           habit={editingHabit}
           children={isParent ? children : null}
           skills={skills}
+          isParent={isParent}
+          mode={formMode}
           onClose={() => { setShowForm(false); setEditingHabit(null); }}
-          onSaved={() => { setShowForm(false); setEditingHabit(null); reload(); }}
+          onSaved={() => { setShowForm(false); setEditingHabit(null); refreshAll(); }}
         />
       )}
 

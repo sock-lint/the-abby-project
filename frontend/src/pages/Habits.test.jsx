@@ -40,11 +40,15 @@ describe('Habits', () => {
 
   it('renders a habit row', async () => {
     renderPage(buildUser(), [
-      http.get('*/api/habits/', () =>
-        HttpResponse.json([
-          { id: 1, name: 'Read 20 min', icon: '📖', habit_type: 'positive', strength: 3, color: 'green' },
-        ]),
-      ),
+      http.get('*/api/habits/', ({ request }) => {
+        const pending = new URL(request.url).searchParams.get('pending') === 'true';
+        return HttpResponse.json(pending
+          ? { results: [] }
+          : { results: [
+            { id: 1, name: 'Read 20 min', icon: '📖', habit_type: 'positive', strength: 3, color: 'green' },
+          ] },
+        );
+      }),
     ]);
     await waitFor(() => expect(screen.getByText(/read 20 min/i)).toBeInTheDocument());
   });
@@ -107,6 +111,83 @@ describe('Habits', () => {
     expect(button).toBeDisabled();
     // Count badge is shown as "2/2 today".
     expect(screen.getByText(/2\/2 today/)).toBeInTheDocument();
+  });
+
+  it('child sees "Propose a ritual" button and form hides xp + skill tags', async () => {
+    const user = userEvent.setup();
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', () => HttpResponse.json([])),
+    ]);
+    const btn = await screen.findByRole('button', { name: /propose a ritual/i });
+    await user.click(btn);
+    await screen.findByRole('dialog', { name: /propose a ritual/i });
+    expect(
+      screen.getByText(/your parent will set the rewards/i),
+    ).toBeInTheDocument();
+    // XP + skill tags must not appear for the child.
+    expect(screen.queryByLabelText(/^xp pool$/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add skill/i })).not.toBeInTheDocument();
+  });
+
+  it('child submitting a proposal posts to /habits/ without xp_reward or skill_tags', async () => {
+    const user = userEvent.setup();
+    const create = spyHandler('post', /\/api\/habits\/$/, { id: 1 });
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', () => HttpResponse.json([])),
+      create.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: /propose a ritual/i }));
+    const submit = await screen.findByRole('button', { name: /send to parent/i });
+    await user.type(screen.getByLabelText('Name'), 'Stretch');
+    await user.click(submit);
+
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    const body = create.calls[0].body;
+    expect(body.name).toBe('Stretch');
+    expect(body.xp_reward).toBeUndefined();
+    expect(body.skill_tags).toBeUndefined();
+    expect(body.user).toBeUndefined();
+  });
+
+  it('parent reviewing a pending ritual proposal posts to /habits/{id}/approve/ with xp', async () => {
+    const user = userEvent.setup();
+    const approve = spyHandler('post', /\/api\/habits\/\d+\/approve\/$/, { id: 77 });
+    const proposal = {
+      id: 77,
+      name: 'Stretch',
+      icon: '🧘',
+      habit_type: 'positive',
+      user: 2,
+      xp_reward: 5,
+      max_taps_per_day: 1,
+      strength: 0,
+      color: 'yellow',
+      taps_today: 0,
+      pending_parent_review: true,
+      created_by: 2,
+      created_by_name: 'Abby',
+      skill_tags: [],
+    };
+    renderPage(buildParent(), [
+      http.get('*/api/habits/', ({ request }) => {
+        const url = new URL(request.url);
+        return HttpResponse.json(url.searchParams.get('pending') === 'true'
+          ? { results: [proposal] }
+          : { results: [] });
+      }),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+      approve.handler,
+    ]);
+
+    const review = await screen.findByRole('button', { name: /review & publish/i });
+    await user.click(review);
+    await screen.findByRole('dialog', { name: /approve ritual proposal/i });
+    await user.click(screen.getByRole('button', { name: /approve & publish/i }));
+
+    await waitFor(() => expect(approve.calls).toHaveLength(1));
+    expect(approve.calls[0].url).toMatch(/\/habits\/77\/approve\/$/);
+    expect(approve.calls[0].body.xp_reward).toBeDefined();
   });
 
   it('create-habit form submits max_taps_per_day and no coin_reward', async () => {

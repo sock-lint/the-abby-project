@@ -15,6 +15,11 @@ class HabitService:
         if direction not in (1, -1):
             raise ValueError(f"direction must be +1 or -1, got {direction}")
 
+        if habit.pending_parent_review:
+            raise ValueError(
+                "This ritual is waiting for parent approval before it can be tapped.",
+            )
+
         # Type compatibility checks
         if habit.habit_type == "positive" and direction == -1:
             raise ValueError("Positive habits do not accept negative taps.")

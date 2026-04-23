@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X, ClipboardCheck, BookOpen, Gift, Palette } from 'lucide-react';
+import { Check, X, ClipboardCheck, BookOpen, Gift, Palette, Sparkles, Feather } from 'lucide-react';
 import EmptyState from '../EmptyState';
 import ParchmentCard from '../journal/ParchmentCard';
 import RuneBadge from '../journal/RuneBadge';
@@ -10,6 +11,7 @@ import {
   approveHomeworkSubmission, rejectHomeworkSubmission,
   approveRedemption, rejectRedemption,
   approveCreation, rejectCreation,
+  deleteChore, deleteHabit,
 } from '../../api';
 
 const KIND_LABELS = {
@@ -17,7 +19,13 @@ const KIND_LABELS = {
   homework: { label: 'study', tone: 'royal', icon: BookOpen },
   redemption: { label: 'reward', tone: 'gold', icon: Gift },
   creation: { label: 'creation', tone: 'gold', icon: Palette },
+  chore_proposal: { label: 'duty proposal', tone: 'gold', icon: Sparkles },
+  habit_proposal: { label: 'ritual proposal', tone: 'royal', icon: Feather },
 };
+
+// Proposals need the parent to FILL IN rewards; we can't approve inline.
+// They navigate to the owning page where the full approve modal renders.
+const PROPOSAL_KINDS = new Set(['chore_proposal', 'habit_proposal']);
 
 function mutationsFor(kind) {
   if (kind === 'chore') {
@@ -33,16 +41,32 @@ function mutationsFor(kind) {
       reject: (id) => rejectCreation(id, ''),
     };
   }
+  if (kind === 'chore_proposal') {
+    return { approve: null, reject: deleteChore };
+  }
+  if (kind === 'habit_proposal') {
+    return { approve: null, reject: deleteHabit };
+  }
   return { approve: approveRedemption, reject: rejectRedemption };
 }
 
 function Row({ item, onDone, onError }) {
+  const navigate = useNavigate();
   const [busy, setBusy] = useState(null); // 'approve' | 'reject' | null
   const [error, setError] = useState('');
   const [hidden, setHidden] = useState(false);
   const { approve, reject } = mutationsFor(item.kind);
   const meta = KIND_LABELS[item.kind] || KIND_LABELS.chore;
   const Icon = meta.icon;
+  const isProposal = PROPOSAL_KINDS.has(item.kind);
+
+  const openProposalReview = () => {
+    if (item.kind === 'chore_proposal') {
+      navigate('/chores');
+    } else if (item.kind === 'habit_proposal') {
+      navigate('/habits');
+    }
+  };
 
   const run = async (action, fn) => {
     setBusy(action);
@@ -89,15 +113,27 @@ function Row({ item, onDone, onError }) {
         </div>
       )}
       <div className="flex items-center gap-1.5 shrink-0">
-        <button
-          type="button"
-          aria-label={`Approve ${item.title}`}
-          disabled={!!busy}
-          onClick={() => run('approve', approve)}
-          className="w-8 h-8 rounded-full border border-moss/60 text-moss hover:bg-moss/10 disabled:opacity-50 flex items-center justify-center"
-        >
-          <Check size={15} />
-        </button>
+        {isProposal ? (
+          <button
+            type="button"
+            aria-label={`Review ${item.title}`}
+            disabled={!!busy}
+            onClick={openProposalReview}
+            className="px-3 h-8 rounded-full border border-gold-leaf/70 text-gold-leaf hover:bg-gold-leaf/10 disabled:opacity-50 flex items-center justify-center font-body text-xs"
+          >
+            Review
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label={`Approve ${item.title}`}
+            disabled={!!busy}
+            onClick={() => run('approve', approve)}
+            className="w-8 h-8 rounded-full border border-moss/60 text-moss hover:bg-moss/10 disabled:opacity-50 flex items-center justify-center"
+          >
+            <Check size={15} />
+          </button>
+        )}
         <button
           type="button"
           aria-label={`Reject ${item.title}`}
