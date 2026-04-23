@@ -107,6 +107,7 @@ class Command(BaseCommand):
         self._create_sample_homework()
         self._create_sample_habits()
         self._create_sample_savings_goals()
+        self._create_sample_movement_types(skill_map)
 
         self.stdout.write(self.style.SUCCESS("Seeding complete!"))
 
@@ -401,4 +402,64 @@ class Command(BaseCommand):
             )
             if created:
                 self.stdout.write(f"  Created sample savings goals for {child.username}")
+
+    def _create_sample_movement_types(self, skill_map):
+        """Seed the MovementType catalog and default skill-tag fan-outs.
+
+        Each entry maps a session activity to one or more Physical-category
+        skills with weights — these become the parent-authored defaults
+        that ``MovementSessionService.log_session`` distributes XP across.
+        Skill names lookup against ``skill_map``; missing skills are
+        skipped silently so this seed survives a partial skill_tree.yaml
+        edit. Re-running is a no-op via ``get_or_create`` on slug.
+        """
+        from apps.movement.models import MovementType, MovementTypeSkillTag
+
+        # (slug, name, icon, default_intensity, [(skill_name, weight)])
+        # Locked-by-default skills (Team Sports, Climbing, Martial Arts) are
+        # paired with at least one always-unlocked skill so a brand-new user
+        # always has somewhere for XP to land. Endurance is the universal
+        # back-stop because it's the foundational unlock for the Sports
+        # subject and gates Team Sports / Running.
+        SAMPLE_TYPES = [
+            ("run", "Run", "🏃", "medium", [("Running", 3), ("Endurance", 2)]),
+            ("cycle", "Cycle", "🚴", "medium", [("Cycling", 3), ("Endurance", 2)]),
+            ("swim", "Swim", "🏊", "medium", [("Swimming", 3), ("Endurance", 2)]),
+            ("soccer-practice", "Soccer practice", "⚽", "high",
+             [("Endurance", 2), ("Team Sports", 3)]),
+            ("yoga", "Yoga", "🧘", "low",
+             [("Flexibility", 3), ("Mindfulness", 2)]),
+            ("strength", "Strength", "🏋️", "high", [("Strength", 4)]),
+            ("climb", "Climb", "🧗", "high", [("Strength", 2), ("Climbing", 3)]),
+            ("dance", "Dance", "💃", "medium",
+             [("Dance", 3), ("Flexibility", 1), ("Endurance", 1)]),
+            ("martial-arts", "Martial arts", "🥋", "high",
+             [("Strength", 1), ("Flexibility", 1), ("Martial Arts", 3)]),
+            ("walk", "Walk", "🚶", "low", [("Endurance", 2)]),
+        ]
+
+        for order, (slug, name, icon, intensity, tags) in enumerate(SAMPLE_TYPES):
+            mt, created = MovementType.objects.get_or_create(
+                slug=slug,
+                defaults={
+                    "name": name,
+                    "icon": icon,
+                    "default_intensity": intensity,
+                    "is_active": True,
+                    "order": order,
+                },
+            )
+            if created:
+                self.stdout.write(f"  Created movement type: {mt.name}")
+            # Idempotent skill-tag fan-out — only inserts missing rows.
+            for skill_name, weight in tags:
+                skill = skill_map.get(skill_name) or skill_map.get(
+                    f"Physical::{skill_name}"
+                )
+                if skill is None:
+                    continue
+                MovementTypeSkillTag.objects.get_or_create(
+                    movement_type=mt, skill=skill,
+                    defaults={"xp_weight": weight},
+                )
 

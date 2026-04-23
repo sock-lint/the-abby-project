@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Square, BookOpen, Target, CircleDollarSign, UserCog, PenTool, Palette, Sparkles, Feather } from 'lucide-react';
+import { Play, Square, BookOpen, Target, CircleDollarSign, UserCog, PenTool, Palette, Sparkles, Feather, Activity } from 'lucide-react';
 import BottomSheet from '../BottomSheet';
 import { DragonIcon } from '../icons/JournalIcons';
 import {
@@ -15,6 +15,7 @@ import Button from '../Button';
 import { TextField, SelectField, TextAreaField } from '../form';
 import JournalEntryFormModal from '../../pages/yearbook/JournalEntryFormModal';
 import CreationLogModal from '../CreationLogModal';
+import MovementSessionLogModal from '../MovementSessionLogModal';
 
 function formatClock(secs) {
   const h = Math.floor(secs / 3600);
@@ -210,6 +211,7 @@ export default function QuickActionsSheet({
   const [pane, setPane] = useState('menu'); // 'menu' | 'clock' | 'add-homework'
   const [journalOpen, setJournalOpen] = useState(false);
   const [creationOpen, setCreationOpen] = useState(false);
+  const [movementOpen, setMovementOpen] = useState(false);
   // Child only: today's journal entry (if already written). Drives the row
   // label + whether the modal opens in edit or create mode.
   const { data: todayJournal } = useApi(
@@ -268,6 +270,15 @@ export default function QuickActionsSheet({
         }}
       />
     )}
+    {movementOpen && (
+      <MovementSessionLogModal
+        onClose={() => setMovementOpen(false)}
+        onSaved={() => {
+          setMovementOpen(false);
+          onClose();
+        }}
+      />
+    )}
     <BottomSheet title={pane === 'menu' ? 'Quick actions' : pane === 'clock' ? 'Clock' : 'Add homework'} onClose={onClose}>
       {pane === 'menu' && (
         <div className="space-y-2">
@@ -287,6 +298,13 @@ export default function QuickActionsSheet({
                 hint="Photo of something you made"
                 tone="gold"
                 onClick={() => setCreationOpen(true)}
+              />
+              <ActionRow
+                icon={<Activity size={18} />}
+                label="Log a session"
+                hint="Workout, practice, run — self-reported"
+                tone="moss"
+                onClick={() => setMovementOpen(true)}
               />
               <ActionRow
                 icon={<PenTool size={18} />}

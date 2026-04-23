@@ -323,6 +323,13 @@ export const deleteHomeworkTemplate = (id) => api.delete(`/homework-templates/${
 export const createAssignmentFromTemplate = (templateId, data) =>
   api.post(`/homework-templates/${templateId}/create-assignment/`, data);
 
+// Movement — self-reported physical-activity sessions.
+export const listMovementTypes = () => api.get('/movement-types/');
+export const listMovementSessions = () => api.get('/movement-sessions/');
+export const logMovementSession = (data) => api.post('/movement-sessions/', data);
+export const deleteMovementSession = (id) =>
+  api.delete(`/movement-sessions/${id}/`);
+
 // Creations — child-authored "I made a thing" entry type.
 export const listCreations = () => api.get('/creations/');
 export const createCreation = (formData) => api.upload('/creations/', formData);

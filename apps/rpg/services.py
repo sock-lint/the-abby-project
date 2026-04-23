@@ -50,6 +50,12 @@ BASE_DROP_RATES = {
     # homework_complete (0.35). The service gates on the first 2 per local
     # day — third+ Creations skip the game-loop call entirely.
     TriggerType.CREATION_LOGGED: 0.25,
+    # Movement sessions sit just under creations — higher-effort than a
+    # habit tap (and duration-scaled XP is the primary reward) but not
+    # quite the artifact-producing act of a creation. The service caps
+    # the reward path at the first 3 sessions per local day; session 4+
+    # logs silently and skips the drop roll entirely.
+    TriggerType.MOVEMENT_SESSION: 0.20,
 }
 
 STREAK_DROP_BONUS_PER_DAY = 0.05
