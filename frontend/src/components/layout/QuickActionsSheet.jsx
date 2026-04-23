@@ -301,7 +301,7 @@ export default function QuickActionsSheet({
               />
               <ActionRow
                 icon={<Activity size={18} />}
-                label="Log a session"
+                label="Log movement"
                 hint="Workout, practice, run — self-reported"
                 tone="moss"
                 onClick={() => setMovementOpen(true)}
