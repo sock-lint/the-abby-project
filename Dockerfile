@@ -69,8 +69,10 @@ RUN python manage.py collectstatic --noinput
 # UID 1000 (or world-writable) or the MCP ``write_pack_file`` tool
 # will fail with EACCES. On a fresh deploy host:
 #   sudo chown -R 1000:1000 /opt/the-abby-project/content/rpg/packs
-RUN groupadd --system --gid 1000 app \
-    && useradd --system --uid 1000 --gid 1000 --create-home --shell /sbin/nologin app \
+# --system is intentionally omitted: on Debian it caps IDs at
+# SYS_UID_MAX=999 and rejects an explicit --uid 1000.
+RUN groupadd --gid 1000 app \
+    && useradd --uid 1000 --gid 1000 --create-home --shell /sbin/nologin app \
     && chown -R app:app /app
 USER app
 
