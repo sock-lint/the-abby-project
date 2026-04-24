@@ -1,4 +1,5 @@
 import hashlib
+import re
 
 from django.conf import settings
 from django.contrib import admin
@@ -78,6 +79,44 @@ if not settings.USE_S3_STORAGE:
             {"document_root": str(settings.MEDIA_ROOT)},
         ),
     ]
+
+# PWA root files — these MUST be served from / (not /static/) so the service
+# worker has root scope and the manifest serves with the right content type.
+# Inserted before the SPA catch-all so it doesn't intercept them.
+_PWA_ROOT_FILES = [
+    "sw.js",
+    "registerSW.js",
+    "manifest.webmanifest",
+    "pwa-192x192.png",
+    "pwa-512x512.png",
+    "maskable-icon-512x512.png",
+    "apple-touch-icon.png",
+    "favicon.svg",
+]
+
+
+def _pwa_static_serve(request, path):
+    """Serve a PWA root file from frontend_dist with the right cache headers.
+    sw.js MUST carry Cache-Control: no-cache so the browser revalidates on
+    every page load — otherwise users get stuck on a stale SW that controls
+    a bundle that no longer exists."""
+    response = static_serve(
+        request,
+        path,
+        document_root=str(settings.BASE_DIR / "frontend_dist"),
+    )
+    if path == "sw.js":
+        response["Cache-Control"] = "no-cache"
+    return response
+
+
+urlpatterns += [
+    re_path(
+        rf"^(?P<path>{'|'.join(re.escape(f) for f in _PWA_ROOT_FILES)})$",
+        _pwa_static_serve,
+        name="pwa-root-file",
+    ),
+]
 
 # SPA catch-all — MUST be last. React Router owns every other path.
 # Exclude:
