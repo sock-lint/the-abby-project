@@ -50,7 +50,7 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
       <nav
         role="tablist"
         aria-label={`${title} sections`}
-        className="mt-3 flex flex-wrap gap-1.5 border-b border-ink-page-shadow pb-0"
+        className="mt-3 flex flex-nowrap gap-1.5 border-b border-ink-page-shadow pb-0 overflow-x-auto scrollbar-hide"
       >
         {tabs.map((tab) => {
           const active = tab.id === activeTab.id;
@@ -61,7 +61,7 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
               type="button"
               aria-selected={active}
               onClick={() => setTab(tab.id)}
-              className={`relative px-4 py-2 font-display text-sm md:text-base tracking-wide transition-colors rounded-t-lg border border-transparent -mb-px
+              className={`relative shrink-0 whitespace-nowrap px-4 py-2 font-display text-sm md:text-base tracking-wide transition-colors rounded-t-lg border border-transparent -mb-px
                 ${active
                   ? 'bg-ink-page-aged text-ink-primary border-ink-page-shadow border-b-ink-page-aged'
                   : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/40'
