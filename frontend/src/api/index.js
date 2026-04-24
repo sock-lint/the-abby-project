@@ -325,6 +325,8 @@ export const createAssignmentFromTemplate = (templateId, data) =>
 
 // Movement — self-reported physical-activity sessions.
 export const listMovementTypes = () => api.get('/movement-types/');
+export const createMovementType = (data) => api.post('/movement-types/', data);
+export const deleteMovementType = (id) => api.delete(`/movement-types/${id}/`);
 export const listMovementSessions = () => api.get('/movement-sessions/');
 export const logMovementSession = (data) => api.post('/movement-sessions/', data);
 export const deleteMovementSession = (id) =>

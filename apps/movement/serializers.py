@@ -24,8 +24,28 @@ class MovementTypeSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "slug", "icon",
             "default_intensity", "is_active", "order", "skill_tags",
+            "created_by",
         ]
         read_only_fields = fields
+
+
+class MovementTypeWriteSerializer(serializers.Serializer):
+    """Write payload for POST /api/movement-types/.
+
+    Routes into ``MovementTypeService.create_type``.
+    """
+
+    name = serializers.CharField(required=True, max_length=64, allow_blank=False)
+    icon = serializers.CharField(required=False, allow_blank=True, max_length=10)
+    default_intensity = serializers.ChoiceField(
+        choices=MovementType.Intensity.choices,
+        required=False,
+        default=MovementType.Intensity.MEDIUM,
+    )
+    primary_skill_id = serializers.IntegerField(required=True)
+    secondary_skill_id = serializers.IntegerField(
+        required=False, allow_null=True,
+    )
 
 
 class MovementSessionSerializer(serializers.ModelSerializer):

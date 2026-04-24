@@ -1,3 +1,4 @@
+from django.db.models import ProtectedError
 from rest_framework import permissions, status, viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
@@ -13,16 +14,28 @@ from .serializers import (
     MovementSessionSerializer,
     MovementSessionWriteSerializer,
     MovementTypeSerializer,
+    MovementTypeWriteSerializer,
 )
-from .services import MovementSessionError, MovementSessionService
+from .services import (
+    MovementSessionError,
+    MovementSessionService,
+    MovementTypeError,
+    MovementTypeService,
+)
 
 
-class MovementTypeViewSet(viewsets.ReadOnlyModelViewSet):
-    """Read-only catalog of session activity kinds.
+class MovementTypeViewSet(viewsets.ModelViewSet):
+    """Catalog of session activity kinds — readable by everyone, writable by any user.
 
-    Visible to both parents and children — the picker on the log modal
-    needs to render these regardless of role. Authoring lives in
-    ``seed_data`` + parent /manage CRUD (future).
+    GET is visible to both parents and children — the picker on the log
+    modal needs to render these regardless of role. POST lets a child (or
+    parent) add a new activity kind on the fly; child-created types become
+    globally available, matching the self-reported doctrine that governs
+    ``MovementSession``. DELETE is restricted to the creator (or a parent)
+    and blocks when any session already references the type.
+
+    No PATCH/PUT — types are write-once for now. If a name needs fixing,
+    delete and re-create before anyone has logged against it.
     """
 
     serializer_class = MovementTypeSerializer
@@ -30,6 +43,60 @@ class MovementTypeViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = MovementType.objects.filter(is_active=True).prefetch_related(
         "skill_tags__skill__category",
     )
+    http_method_names = ["get", "post", "delete", "head", "options"]
+
+    def create(self, request, *args, **kwargs):
+        write = MovementTypeWriteSerializer(data=request.data)
+        write.is_valid(raise_exception=True)
+
+        try:
+            movement_type = MovementTypeService.create_type(
+                request.user,
+                name=write.validated_data["name"],
+                icon=write.validated_data.get("icon", ""),
+                default_intensity=write.validated_data.get(
+                    "default_intensity", MovementType.Intensity.MEDIUM,
+                ),
+                primary_skill_id=write.validated_data["primary_skill_id"],
+                secondary_skill_id=write.validated_data.get("secondary_skill_id"),
+            )
+        except MovementTypeError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Re-fetch with prefetches so the response carries skill_tags.
+        movement_type = (
+            MovementType.objects.prefetch_related("skill_tags__skill__category")
+            .get(pk=movement_type.pk)
+        )
+        return Response(
+            MovementTypeSerializer(movement_type).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        """Creator or parent can delete; any existing session blocks it."""
+        instance = self.get_object()
+        is_parent = request.user.role == "parent"
+        is_creator = (
+            instance.created_by_id is not None
+            and instance.created_by_id == request.user.id
+        )
+        if not (is_parent or is_creator):
+            raise PermissionDenied(
+                "You can only delete activities you created.",
+            )
+
+        try:
+            instance.delete()
+        except ProtectedError:
+            session_count = MovementSession.objects.filter(
+                movement_type=instance,
+            ).count()
+            return Response(
+                {"error": f"Already used in {session_count} session(s)."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class MovementSessionViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):

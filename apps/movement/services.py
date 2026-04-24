@@ -20,20 +20,28 @@ from __future__ import annotations
 import logging
 from datetime import date
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
+from django.utils.text import slugify
 
 from apps.movement.models import (
     MovementDailyCounter,
     MovementSession,
     MovementType,
+    MovementTypeSkillTag,
 )
 
 logger = logging.getLogger(__name__)
 
+PHYSICAL_CATEGORY_NAME = "Physical"
+
 
 class MovementSessionError(Exception):
     """Raised when a session cannot be logged (bad type, bad inputs, etc.)."""
+
+
+class MovementTypeError(Exception):
+    """Raised when a user-authored MovementType cannot be created or removed."""
 
 
 class MovementSessionService:
@@ -169,3 +177,153 @@ class MovementSessionService:
                 "Movement game loop failed for user %s, session %s",
                 user.pk, session.pk,
             )
+
+
+class MovementTypeService:
+    """User-authored ``MovementType`` rows.
+
+    Child-serve: a child picks a name + icon + primary Physical skill (and
+    optionally a secondary). The row becomes globally visible in the type
+    picker and is tagged against the Physical skill tree via
+    ``MovementTypeSkillTag`` at 70/30 weight when both skills are set, or
+    100% to primary when solo. No approval step — matches the self-reported
+    doctrine that already governs ``MovementSession``.
+
+    Anti-spam: ``DAILY_CREATE_LIMIT`` caps how many types a single user can
+    author per local day. The unique ``name`` constraint naturally blocks
+    cheap re-submissions of the same activity.
+    """
+
+    DAILY_CREATE_LIMIT = 5
+    MAX_NAME_LEN = 64
+    MAX_ICON_LEN = 10
+
+    PRIMARY_WEIGHT_WITH_SECONDARY = 7
+    SECONDARY_WEIGHT = 3
+    PRIMARY_WEIGHT_SOLO = 1
+
+    @classmethod
+    def _validate_physical_skill(cls, skill_id, label):
+        """Return the Skill row if it lives in the Physical category.
+
+        Imported here to avoid a module-load cycle with achievements.
+        """
+        from apps.achievements.models import Skill
+
+        try:
+            skill = Skill.objects.select_related("category").get(pk=skill_id)
+        except Skill.DoesNotExist as exc:
+            raise MovementTypeError(f"{label} skill not found.") from exc
+        if skill.category.name != PHYSICAL_CATEGORY_NAME:
+            raise MovementTypeError(
+                f"{label} skill must belong to the Physical category.",
+            )
+        return skill
+
+    @classmethod
+    def _unique_slug(cls, base: str) -> str:
+        """Slugify and auto-suffix until unique."""
+        root = slugify(base)[: MovementType._meta.get_field("slug").max_length - 6]
+        if not root:
+            root = "activity"
+        candidate = root
+        suffix = 2
+        while MovementType.objects.filter(slug=candidate).exists():
+            candidate = f"{root}-{suffix}"
+            suffix += 1
+        return candidate
+
+    @classmethod
+    @transaction.atomic
+    def create_type(
+        cls,
+        user,
+        *,
+        name: str,
+        icon: str = "",
+        default_intensity: str = MovementType.Intensity.MEDIUM,
+        primary_skill_id: int,
+        secondary_skill_id: int | None = None,
+    ) -> MovementType:
+        """Create a user-authored MovementType + its skill tags.
+
+        Raises ``MovementTypeError`` on bad inputs (empty name, non-Physical
+        skill, duplicate primary/secondary, daily limit reached, duplicate
+        name).
+        """
+        cleaned_name = (name or "").strip()
+        if not cleaned_name:
+            raise MovementTypeError("Name is required.")
+        if len(cleaned_name) > cls.MAX_NAME_LEN:
+            raise MovementTypeError(
+                f"Name must be {cls.MAX_NAME_LEN} characters or fewer.",
+            )
+
+        if default_intensity not in {i.value for i in MovementType.Intensity}:
+            raise MovementTypeError(
+                f"Unknown intensity '{default_intensity}'. Use low / medium / high.",
+            )
+
+        if not primary_skill_id:
+            raise MovementTypeError("Primary skill is required.")
+        if secondary_skill_id and secondary_skill_id == primary_skill_id:
+            raise MovementTypeError(
+                "Primary and secondary skills must be different.",
+            )
+
+        primary = cls._validate_physical_skill(primary_skill_id, "Primary")
+        secondary = None
+        if secondary_skill_id:
+            secondary = cls._validate_physical_skill(secondary_skill_id, "Secondary")
+
+        today = timezone.localdate()
+        daily_count = MovementType.objects.filter(
+            created_by=user, created_at__date=today,
+        ).count()
+        if daily_count >= cls.DAILY_CREATE_LIMIT:
+            raise MovementTypeError(
+                f"Daily limit reached ({cls.DAILY_CREATE_LIMIT} new activities per day).",
+            )
+
+        if MovementType.objects.filter(name__iexact=cleaned_name).exists():
+            raise MovementTypeError(
+                f"An activity called '{cleaned_name}' already exists.",
+            )
+
+        slug = cls._unique_slug(cleaned_name)
+        cleaned_icon = (icon or "")[: cls.MAX_ICON_LEN]
+
+        try:
+            movement_type = MovementType.objects.create(
+                name=cleaned_name,
+                slug=slug,
+                icon=cleaned_icon,
+                default_intensity=default_intensity,
+                created_by=user,
+            )
+        except IntegrityError as exc:
+            # Race against the name-uniqueness check above — surface the
+            # same user-facing message.
+            raise MovementTypeError(
+                f"An activity called '{cleaned_name}' already exists.",
+            ) from exc
+
+        if secondary is not None:
+            MovementTypeSkillTag.objects.create(
+                movement_type=movement_type,
+                skill=primary,
+                xp_weight=cls.PRIMARY_WEIGHT_WITH_SECONDARY,
+            )
+            MovementTypeSkillTag.objects.create(
+                movement_type=movement_type,
+                skill=secondary,
+                xp_weight=cls.SECONDARY_WEIGHT,
+            )
+        else:
+            MovementTypeSkillTag.objects.create(
+                movement_type=movement_type,
+                skill=primary,
+                xp_weight=cls.PRIMARY_WEIGHT_SOLO,
+            )
+
+        return movement_type
