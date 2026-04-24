@@ -13,6 +13,7 @@ import RuneBadge from '../components/journal/RuneBadge';
 import HeroPrimaryCard from '../components/dashboard/HeroPrimaryCard';
 import VitalPipStrip from '../components/dashboard/VitalPipStrip';
 import AccordionSection from '../components/dashboard/AccordionSection';
+import DailyChallengeCard from '../components/dashboard/DailyChallengeCard';
 import HomeworkSubmitSheet from '../components/HomeworkSubmitSheet';
 import { CoinIcon } from '../components/icons/JournalIcons';
 import { BookOpen, Sparkles, Flame, Target } from 'lucide-react';
@@ -132,6 +133,8 @@ export default function ChildDashboard({ data, reload }) {
           onOpenHomework: handleOpenHomework,
         }}
       />
+
+      <DailyChallengeCard />
 
       <VitalPipStrip
         coinBalance={coin_balance}
