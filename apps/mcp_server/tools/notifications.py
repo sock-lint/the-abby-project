@@ -7,7 +7,12 @@ from apps.notifications.models import Notification
 
 from ..context import get_current_user
 from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
-from ..schemas import ListNotificationsIn, MarkNotificationReadIn
+from ..schemas import (
+    GetUnreadNotificationCountIn,
+    ListNotificationsIn,
+    MarkAllNotificationsReadIn,
+    MarkNotificationReadIn,
+)
 from ..server import tool
 from ..shapes import notification_to_dict
 
@@ -45,3 +50,20 @@ def mark_notification_read(params: MarkNotificationReadIn) -> dict[str, Any]:
         notification.is_read = True
         notification.save(update_fields=["is_read"])
     return notification_to_dict(notification)
+
+
+@tool()
+@safe_tool
+def mark_all_notifications_read(params: MarkAllNotificationsReadIn) -> dict[str, Any]:
+    """Bulk mark every unread notification for the caller as read."""
+    user = get_current_user()
+    updated = user.notifications.filter(is_read=False).update(is_read=True)
+    return {"marked_read": updated}
+
+
+@tool()
+@safe_tool
+def get_unread_notification_count(params: GetUnreadNotificationCountIn) -> dict[str, Any]:
+    """Return the count of unread notifications for the caller."""
+    user = get_current_user()
+    return {"count": user.notifications.filter(is_read=False).count()}

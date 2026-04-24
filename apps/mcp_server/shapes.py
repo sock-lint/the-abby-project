@@ -266,3 +266,121 @@ def homework_submission_to_dict(submission) -> dict[str, Any]:
 
 def many(items: Iterable[Any], mapper) -> list[dict[str, Any]]:
     return [mapper(item) for item in items]
+
+
+# ---------------------------------------------------------------------------
+# Movement
+# ---------------------------------------------------------------------------
+
+
+def movement_session_to_dict(session) -> dict[str, Any]:
+    from apps.movement.serializers import MovementSessionSerializer
+
+    return to_plain(MovementSessionSerializer(session).data)
+
+
+def movement_type_to_dict(mt) -> dict[str, Any]:
+    from apps.movement.serializers import MovementTypeSerializer
+
+    return to_plain(MovementTypeSerializer(mt).data)
+
+
+# ---------------------------------------------------------------------------
+# Creations
+# ---------------------------------------------------------------------------
+
+
+def creation_to_dict(creation) -> dict[str, Any]:
+    from apps.creations.serializers import CreationSerializer
+
+    return to_plain(CreationSerializer(creation).data)
+
+
+# ---------------------------------------------------------------------------
+# Pets / Mounts
+# ---------------------------------------------------------------------------
+
+
+def user_pet_to_dict(pet) -> dict[str, Any]:
+    from apps.pets.serializers import UserPetSerializer
+
+    return to_plain(UserPetSerializer(pet).data)
+
+
+def user_mount_to_dict(mount) -> dict[str, Any]:
+    from apps.pets.serializers import UserMountSerializer
+
+    return to_plain(UserMountSerializer(mount).data)
+
+
+def pet_species_to_dict(species) -> dict[str, Any]:
+    from apps.pets.serializers import PetSpeciesCatalogSerializer
+
+    return to_plain(PetSpeciesCatalogSerializer(species).data)
+
+
+def potion_type_to_dict(potion) -> dict[str, Any]:
+    from apps.pets.serializers import PotionTypeSerializer
+
+    return to_plain(PotionTypeSerializer(potion).data)
+
+
+# ---------------------------------------------------------------------------
+# Money ↔ Coins exchange
+# ---------------------------------------------------------------------------
+
+
+def exchange_request_to_dict(exchange) -> dict[str, Any]:
+    from apps.rewards.serializers import ExchangeRequestSerializer
+
+    return to_plain(ExchangeRequestSerializer(exchange).data)
+
+
+# ---------------------------------------------------------------------------
+# Chronicle
+# ---------------------------------------------------------------------------
+
+
+def chronicle_entry_to_dict(entry) -> dict[str, Any]:
+    from apps.chronicle.serializers import ChronicleEntrySerializer
+
+    return to_plain(ChronicleEntrySerializer(entry).data)
+
+
+# ---------------------------------------------------------------------------
+# Inventory & cosmetics
+# ---------------------------------------------------------------------------
+
+
+def item_definition_to_dict(item) -> dict[str, Any]:
+    return {
+        "id": item.id,
+        "slug": item.slug,
+        "name": item.name,
+        "description": item.description,
+        "icon": item.icon,
+        "sprite_key": item.sprite_key,
+        "item_type": item.item_type,
+        "rarity": item.rarity,
+        "coin_value": item.coin_value,
+        "metadata": item.metadata or {},
+    }
+
+
+def inventory_entry_to_dict(entry) -> dict[str, Any]:
+    return {
+        "id": entry.id,
+        "quantity": entry.quantity,
+        "item": item_definition_to_dict(entry.item),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Daily challenges
+# ---------------------------------------------------------------------------
+
+
+def daily_challenge_to_dict(challenge) -> dict[str, Any]:
+    from apps.quests.serializers import DailyChallengeSerializer
+
+    return to_plain(DailyChallengeSerializer(challenge).data)

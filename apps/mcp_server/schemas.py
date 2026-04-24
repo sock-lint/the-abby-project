@@ -1463,3 +1463,417 @@ class GenerateSpriteSheetIn(_Base):
         if self.frame_count > 1 and self.fps < 1:
             raise ValueError("animated sprites (frame_count > 1) require fps >= 1")
         return self
+
+
+class RerollSpriteIn(_Base):
+    """Re-run ``generate_sprite_sheet`` with the inputs stored on the existing
+    ``SpriteAsset`` row. Mirrors ``POST /api/sprites/admin/<slug>/reroll/``.
+
+    Fails when the sprite's stored ``prompt`` is empty (e.g. legacy
+    ``register_sprite`` uploads). The caller should re-author with
+    ``generate_sprite_sheet`` directly in that case.
+    """
+
+    slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
+    return_debug_raw: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Movement sessions
+# ---------------------------------------------------------------------------
+
+
+MovementIntensity = Literal["low", "medium", "high"]
+
+
+class ListMovementTypesIn(_Base):
+    active_only: bool = True
+
+
+class ListMovementSessionsIn(_Base):
+    user_id: Optional[int] = None
+    since: Optional[date] = None
+    limit: int = Field(default=50, ge=1, le=200)
+
+
+class GetMovementSessionIn(_Base):
+    session_id: int
+
+
+class LogMovementSessionIn(_Base):
+    movement_type_id: int
+    duration_minutes: int = Field(ge=1, le=600)
+    intensity: MovementIntensity = "medium"
+    notes: str = Field(default="", max_length=200)
+    user_id: Optional[int] = Field(
+        default=None,
+        description="Parent-only: log a session on a child's behalf. Children "
+                    "can only log for themselves.",
+    )
+
+
+class DeleteMovementSessionIn(_Base):
+    session_id: int
+
+
+class SetMovementTypeSkillTagsIn(_Base):
+    movement_type_id: int
+    skill_tags: list["WeightedSkillTagDraft"]
+
+
+# ---------------------------------------------------------------------------
+# Creations
+# ---------------------------------------------------------------------------
+
+
+CreationStatus = Literal["logged", "pending", "approved", "rejected"]
+
+
+class ListCreationsIn(_Base):
+    user_id: Optional[int] = None
+    status: Optional[CreationStatus] = None
+    limit: int = Field(default=50, ge=1, le=200)
+
+
+class GetCreationIn(_Base):
+    creation_id: int
+
+
+class LogCreationIn(_Base):
+    """Log a child-authored Creation.
+
+    ``image_b64`` carries the photo bytes (PNG/JPEG/WebP). The MCP entry
+    point doesn't accept multipart, so the caller embeds bytes directly —
+    the same shape used by ``register_sprite``. ``audio_b64`` is optional.
+    """
+
+    image_b64: str = Field(
+        min_length=1,
+        description="Base64-encoded PNG/JPEG/WebP image bytes.",
+    )
+    primary_skill_id: int
+    secondary_skill_id: Optional[int] = None
+    audio_b64: Optional[str] = Field(
+        default=None,
+        description="Optional base64-encoded audio bytes (M4A/MP3/WAV).",
+    )
+    caption: str = Field(default="", max_length=200)
+    user_id: Optional[int] = Field(
+        default=None,
+        description="Parent-only: log a Creation on a child's behalf.",
+    )
+
+
+class DeleteCreationIn(_Base):
+    creation_id: int
+
+
+class SubmitCreationIn(_Base):
+    creation_id: int
+
+
+class CreationSkillTagDraft(_Base):
+    skill_id: int
+    xp_weight: int = Field(default=1, ge=1)
+
+
+class ApproveCreationIn(_Base):
+    creation_id: int
+    bonus_xp: int = Field(
+        default=15, ge=0, le=100,
+        description="Parent-granted bonus XP pool. Default 15.",
+    )
+    skill_tags: list[CreationSkillTagDraft] = Field(
+        default_factory=list,
+        description="Optional parent-authored skill fan-out for the bonus pool. "
+                    "Empty = fall back to the child's primary skill.",
+    )
+    notes: str = Field(default="", max_length=500)
+
+
+class RejectCreationIn(_Base):
+    creation_id: int
+    notes: str = Field(default="", max_length=500)
+
+
+class ListPendingCreationsIn(_Base):
+    limit: int = Field(default=50, ge=1, le=200)
+
+
+# ---------------------------------------------------------------------------
+# Pets / Mounts / Breeding
+# ---------------------------------------------------------------------------
+
+
+class ListPetsIn(_Base):
+    user_id: Optional[int] = None
+
+
+class GetPetStableIn(_Base):
+    user_id: Optional[int] = None
+
+
+class HatchPetIn(_Base):
+    egg_item_id: int
+    potion_item_id: int
+    user_id: Optional[int] = Field(
+        default=None,
+        description="Parent-only: hatch on behalf of a child.",
+    )
+
+
+class FeedPetIn(_Base):
+    pet_id: int
+    food_item_id: int
+    user_id: Optional[int] = Field(default=None)
+
+
+class ActivatePetIn(_Base):
+    pet_id: int
+    user_id: Optional[int] = Field(default=None)
+
+
+class ListMountsIn(_Base):
+    user_id: Optional[int] = None
+
+
+class ActivateMountIn(_Base):
+    mount_id: int
+    user_id: Optional[int] = Field(default=None)
+
+
+class BreedMountsIn(_Base):
+    mount_a_id: int
+    mount_b_id: int
+    user_id: Optional[int] = Field(default=None)
+
+
+# ---------------------------------------------------------------------------
+# Money ↔ Coins exchange
+# ---------------------------------------------------------------------------
+
+
+ExchangeStatus = Literal["pending", "approved", "denied"]
+
+
+class GetExchangeRateIn(_Base):
+    pass
+
+
+class ListExchangeRequestsIn(_Base):
+    user_id: Optional[int] = None
+    status: Optional[ExchangeStatus] = None
+    limit: int = Field(default=50, ge=1, le=200)
+
+
+class RequestExchangeIn(_Base):
+    dollar_amount: Decimal = Field(
+        ge=Decimal("1.00"),
+        description="Minimum $1.00. Rate (COINS_PER_DOLLAR) is snapshotted on "
+                    "the request and applied at approval time.",
+    )
+
+
+class DecideExchangeIn(_Base):
+    exchange_id: int
+    notes: str = Field(default="", max_length=500)
+
+
+# ---------------------------------------------------------------------------
+# Chronicle / Journal
+# ---------------------------------------------------------------------------
+
+
+ChronicleKind = Literal[
+    "birthday", "chapter_start", "chapter_end", "first_ever",
+    "milestone", "recap", "manual", "journal", "creation",
+]
+
+
+class ListChronicleEntriesIn(_Base):
+    user_id: Optional[int] = None
+    chapter_year: Optional[int] = None
+    kind: Optional[ChronicleKind] = None
+    limit: int = Field(default=100, ge=1, le=500)
+
+
+class GetChronicleSummaryIn(_Base):
+    user_id: Optional[int] = None
+
+
+class MarkChronicleViewedIn(_Base):
+    entry_id: int
+
+
+class GetPendingCelebrationIn(_Base):
+    pass
+
+
+class WriteJournalIn(_Base):
+    title: str = Field(default="", max_length=160)
+    summary: str = Field(default="", max_length=10_000)
+
+
+class UpdateJournalIn(_Base):
+    entry_id: int
+    title: str = Field(default="", max_length=160)
+    summary: str = Field(default="", max_length=10_000)
+
+
+class GetTodayJournalIn(_Base):
+    pass
+
+
+class CreateManualEntryIn(_Base):
+    """Parent-only manual chronicle entry on a child's timeline."""
+
+    user_id: int
+    title: str = Field(min_length=1, max_length=160)
+    summary: str = Field(default="", max_length=10_000)
+    icon_slug: str = Field(default="", max_length=80)
+    occurred_on: date
+    metadata: dict = Field(default_factory=dict)
+
+
+class UpdateManualEntryIn(_Base):
+    entry_id: int
+    title: Optional[str] = Field(default=None, min_length=1, max_length=160)
+    summary: Optional[str] = Field(default=None, max_length=10_000)
+    icon_slug: Optional[str] = Field(default=None, max_length=80)
+    occurred_on: Optional[date] = None
+    metadata: Optional[dict] = None
+
+
+class DeleteChronicleEntryIn(_Base):
+    entry_id: int
+
+
+# ---------------------------------------------------------------------------
+# Time entries: clock in / out / void
+# ---------------------------------------------------------------------------
+
+
+class ClockInIn(_Base):
+    project_id: int
+    user_id: Optional[int] = Field(
+        default=None,
+        description="Parent-only: clock in on behalf of a child. The child "
+                    "must own the project.",
+    )
+
+
+class ClockOutIn(_Base):
+    notes: str = Field(default="", max_length=500)
+    user_id: Optional[int] = Field(default=None)
+
+
+class VoidTimeEntryIn(_Base):
+    entry_id: int
+
+
+class GenerateTimecardIn(_Base):
+    user_id: int
+    week_start: date
+
+
+class MarkTimecardPaidIn(_Base):
+    timecard_id: int
+    amount: Optional[Decimal] = Field(
+        default=None,
+        description="Override payout amount. Defaults to the timecard's "
+                    "total_earnings when omitted.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# RPG inventory & cosmetics
+# ---------------------------------------------------------------------------
+
+
+CosmeticSlot = Literal[
+    "active_frame", "active_title", "active_theme", "active_pet_accessory",
+]
+
+
+class ListInventoryIn(_Base):
+    user_id: Optional[int] = None
+    item_type: Optional[str] = Field(
+        default=None,
+        description="Filter by ItemDefinition.item_type slug "
+                    "(egg / potion / food / cosmetic_frame / consumable / ...).",
+    )
+
+
+class UseConsumableIn(_Base):
+    item_id: int
+    user_id: Optional[int] = Field(default=None)
+
+
+class ListCosmeticsIn(_Base):
+    user_id: Optional[int] = None
+
+
+class EquipCosmeticIn(_Base):
+    item_id: int
+    user_id: Optional[int] = Field(default=None)
+
+
+class UnequipCosmeticIn(_Base):
+    slot: CosmeticSlot
+    user_id: Optional[int] = Field(default=None)
+
+
+class SetTrophyBadgeIn(_Base):
+    badge_id: Optional[int] = Field(
+        default=None,
+        description="Pass null to clear the current trophy.",
+    )
+    user_id: Optional[int] = Field(default=None)
+
+
+# ---------------------------------------------------------------------------
+# Daily challenges
+# ---------------------------------------------------------------------------
+
+
+class GetDailyChallengeIn(_Base):
+    user_id: Optional[int] = None
+
+
+class ClaimDailyChallengeIn(_Base):
+    user_id: Optional[int] = None
+
+
+# ---------------------------------------------------------------------------
+# Notifications: bulk + count
+# ---------------------------------------------------------------------------
+
+
+class MarkAllNotificationsReadIn(_Base):
+    pass
+
+
+class GetUnreadNotificationCountIn(_Base):
+    pass
+
+
+# ---------------------------------------------------------------------------
+# Portfolio: photo + proof delete + ZIP export
+# ---------------------------------------------------------------------------
+
+
+class DeleteProjectPhotoIn(_Base):
+    photo_id: int
+
+
+class DeleteHomeworkProofIn(_Base):
+    proof_id: int
+
+
+class ExportPortfolioIn(_Base):
+    user_id: Optional[int] = Field(
+        default=None,
+        description="Parent-only: export a specific child's portfolio. "
+                    "Returns a manifest (file paths + sizes), NOT the ZIP "
+                    "bytes — use the REST endpoint to download.",
+    )

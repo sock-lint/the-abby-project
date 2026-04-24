@@ -20,13 +20,14 @@ from apps.rpg.sprite_authoring import SpriteAuthoringError
 from apps.rpg.sprite_generation import SpriteGenerationError
 
 from ..context import require_parent, get_current_user
-from ..errors import MCPValidationError, safe_tool
+from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
     DeleteSpriteIn,
     GenerateSpriteSheetIn,
     ListSpritesIn,
     RegisterSpriteBatchIn,
     RegisterSpriteIn,
+    RerollSpriteIn,
     UpdateSpriteMetadataIn,
 )
 from ..server import tool
@@ -180,3 +181,42 @@ def delete_sprite(params: DeleteSpriteIn) -> dict[str, Any]:
     """
     require_parent()
     return _wrap_svc_call(svc.delete_sprite, slug=params.slug)
+
+
+@tool()
+@safe_tool
+def reroll_sprite(params: RerollSpriteIn) -> dict[str, Any]:
+    """Re-run generation for an existing sprite using its stored inputs.
+
+    Parent-only. Mirrors ``POST /api/sprites/admin/<slug>/reroll/`` —
+    replays the row's stored ``prompt / motion / style_hint / tile_size /
+    reference_image_url / frame_count / fps / pack`` with ``overwrite=True``.
+    Returns 400 if the sprite has no stored prompt (legacy upload —
+    use ``generate_sprite_sheet`` directly).
+    """
+    require_parent()
+    try:
+        asset = SpriteAsset.objects.get(slug=params.slug)
+    except SpriteAsset.DoesNotExist:
+        raise MCPNotFoundError(f"Sprite {params.slug!r} not found.")
+    if not asset.prompt:
+        raise MCPValidationError(
+            "no stored prompt — use generate_sprite_sheet to author from scratch.",
+        )
+    tile_size = asset.tile_size or asset.frame_width_px or 64
+    motion = asset.motion or "idle"
+    return _wrap_svc_call(
+        gen_svc.generate_sprite_sheet,
+        slug=asset.slug,
+        prompt=asset.prompt,
+        frame_count=asset.frame_count,
+        tile_size=tile_size,
+        fps=asset.fps,
+        pack=asset.pack,
+        style_hint=asset.style_hint,
+        motion=motion,
+        reference_image_url=asset.reference_image_url or None,
+        return_debug_raw=params.return_debug_raw,
+        overwrite=True,
+        actor=get_current_user(),
+    )
