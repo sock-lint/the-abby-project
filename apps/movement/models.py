@@ -47,6 +47,15 @@ class MovementType(models.Model):
     )
     is_active = models.BooleanField(default=True)
     order = models.PositiveSmallIntegerField(default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="authored_movement_types",
+        help_text="Null for seed data; set for user-authored types.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     class Meta:
         ordering = ["order", "name"]
