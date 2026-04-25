@@ -7,6 +7,9 @@ import { getPendingCelebration } from './api';
 import BirthdayCelebrationModal from './components/BirthdayCelebrationModal';
 import { SpriteCatalogProvider } from './providers/SpriteCatalogProvider';
 import JournalShell from './components/layout/JournalShell';
+import { PwaStatusProvider } from './pwa/PwaStatusProvider';
+import UpdateBanner from './pwa/UpdateBanner';
+import OfflineReadyToast from './pwa/OfflineReadyToast';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ProjectDetail from './pages/ProjectDetail';
@@ -101,15 +104,17 @@ export default function App() {
 
   return (
     <Sentry.ErrorBoundary fallback={ErrorFallback} showDialog={false}>
-      {celebration && (
-        <BirthdayCelebrationModal
-          entry={celebration}
-          onDismiss={() => setCelebration(null)}
-        />
-      )}
-      <SpriteCatalogProvider>
-        <BrowserRouter>
-          <Routes>
+      <PwaStatusProvider>
+        <UpdateBanner />
+        {celebration && (
+          <BirthdayCelebrationModal
+            entry={celebration}
+            onDismiss={() => setCelebration(null)}
+          />
+        )}
+        <SpriteCatalogProvider>
+          <BrowserRouter>
+            <Routes>
             <Route element={<JournalShell />}>
               {/* Chapter I — Today */}
               <Route path="/" element={<Dashboard />} />
@@ -160,9 +165,11 @@ export default function App() {
               <Route path="/achievements" element={<LegacyRedirect to="/atlas?tab=skills" />} />
               <Route path="/portfolio" element={<LegacyRedirect to="/atlas?tab=sketchbook" />} />
             </Route>
-          </Routes>
-        </BrowserRouter>
-      </SpriteCatalogProvider>
+            </Routes>
+          </BrowserRouter>
+          <OfflineReadyToast />
+        </SpriteCatalogProvider>
+      </PwaStatusProvider>
     </Sentry.ErrorBoundary>
   );
 }
