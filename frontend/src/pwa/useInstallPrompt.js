@@ -26,10 +26,16 @@ const InstallPromptContext = createContext({
  * shortly after boot). Components deeper in the tree (e.g. InstallCard)
  * read the captured state via useInstallPrompt().
  */
+function readStashedPrompt() {
+  if (typeof window === 'undefined') return null;
+  return window.__deferredInstallPrompt || null;
+}
+
 export function InstallPromptProvider({ children }) {
-  const [canInstall, setCanInstall] = useState(false);
+  const stashed = readStashedPrompt();
+  const [canInstall, setCanInstall] = useState(Boolean(stashed));
   const [isStandalone, setIsStandalone] = useState(detectStandalone);
-  const eventRef = useRef(null);
+  const eventRef = useRef(stashed);
 
   useEffect(() => {
     function onBeforeInstallPrompt(event) {
@@ -39,6 +45,7 @@ export function InstallPromptProvider({ children }) {
     }
     function onAppInstalled() {
       eventRef.current = null;
+      if (typeof window !== 'undefined') window.__deferredInstallPrompt = null;
       setCanInstall(false);
       setIsStandalone(true);
     }
@@ -56,6 +63,7 @@ export function InstallPromptProvider({ children }) {
     await event.prompt();
     const choice = await event.userChoice;
     eventRef.current = null;
+    if (typeof window !== 'undefined') window.__deferredInstallPrompt = null;
     setCanInstall(false);
     return choice;
   }, []);

@@ -38,6 +38,7 @@ describe('useInstallPrompt', () => {
   beforeEach(() => {
     setMatchMedia(false);
     delete window.navigator.standalone;
+    delete window.__deferredInstallPrompt;
   });
 
   it('starts with canInstall=false and isStandalone=false', () => {
@@ -116,6 +117,38 @@ describe('useInstallPrompt', () => {
     });
     expect(result.current.canInstall).toBe(false);
     expect(result.current.isStandalone).toBe(true);
+  });
+
+  it('picks up a beforeinstallprompt event stashed on window before mount', async () => {
+    // Simulate main.jsx's early listener having captured the event before
+    // React mounted InstallPromptProvider.
+    const promptFn = vi.fn(() => Promise.resolve());
+    window.__deferredInstallPrompt = new window.BeforeInstallPromptEvent('beforeinstallprompt', {
+      prompt: promptFn,
+      userChoice: Promise.resolve({ outcome: 'accepted' }),
+    });
+
+    const { result } = renderHook(() => useInstallPrompt(), { wrapper });
+    expect(result.current.canInstall).toBe(true);
+
+    await act(async () => {
+      await result.current.install();
+    });
+    expect(promptFn).toHaveBeenCalledTimes(1);
+    expect(result.current.canInstall).toBe(false);
+    expect(window.__deferredInstallPrompt).toBeNull();
+  });
+
+  it('clears the window stash on appinstalled', async () => {
+    window.__deferredInstallPrompt = new window.BeforeInstallPromptEvent('beforeinstallprompt');
+    const { result } = renderHook(() => useInstallPrompt(), { wrapper });
+    expect(result.current.canInstall).toBe(true);
+    act(() => {
+      fireAppInstalled();
+    });
+    expect(result.current.canInstall).toBe(false);
+    expect(result.current.isStandalone).toBe(true);
+    expect(window.__deferredInstallPrompt).toBeNull();
   });
 
   it('returns safe defaults when used outside the provider', () => {

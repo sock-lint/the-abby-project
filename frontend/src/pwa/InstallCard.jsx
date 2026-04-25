@@ -1,4 +1,4 @@
-import { Smartphone, Share } from 'lucide-react';
+import { Smartphone, Share, MoreVertical } from 'lucide-react';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import Button from '../components/Button';
 import { useInstallPrompt } from './useInstallPrompt';
@@ -9,13 +9,28 @@ function isIosSafari() {
   return /iPhone|iPad|iPod/.test(ua) && /Safari/.test(ua) && !/CriOS|FxiOS/.test(ua);
 }
 
+function isAndroidChrome() {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent;
+  if (!/Android/.test(ua)) return false;
+  if (!/Chrome\//.test(ua)) return false;
+  // Chrome-derived Android browsers that either ship their own install path
+  // or run in a WebView without the menu item.
+  if (/EdgA\//.test(ua)) return false;
+  if (/OPR\//.test(ua)) return false;
+  if (/SamsungBrowser\//.test(ua)) return false;
+  if (/FBAV\//.test(ua) || /FBAN\//.test(ua)) return false;
+  return true;
+}
+
 /**
  * InstallCard — a Settings page card that handles PWA install across the
- * three relevant cases:
+ * relevant cases:
  *   1. Already installed → render nothing
- *   2. Chrome/Edge/Android with captured beforeinstallprompt → button
+ *   2. Any browser with a captured beforeinstallprompt → button
  *   3. iOS Safari (which never fires beforeinstallprompt) → instructions
- *   4. Anything else → soft fallback message
+ *   4. Android Chrome without beforeinstallprompt → menu instructions
+ *   5. Anything else → soft fallback message
  */
 export default function InstallCard() {
   const { canInstall, install, isStandalone } = useInstallPrompt();
@@ -55,7 +70,16 @@ export default function InstallCard() {
         </div>
       )}
 
-      {!canInstall && !isIosSafari() && (
+      {!canInstall && !isIosSafari() && isAndroidChrome() && (
+        <div className="flex items-start gap-2 rounded-md border border-ink-whisper/30 bg-ink-page-aged/40 px-3 py-2 text-caption text-ink-secondary">
+          <MoreVertical size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>
+            In Chrome: tap the menu (<strong>⋮</strong>), then <strong>Add to Home Screen</strong> or <strong>Install app</strong>.
+          </span>
+        </div>
+      )}
+
+      {!canInstall && !isIosSafari() && !isAndroidChrome() && (
         <p className="text-caption text-ink-whisper italic">
           Your browser doesn&apos;t support installing this app yet — try Chrome or Edge on Android, or Safari on iOS.
         </p>

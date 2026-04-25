@@ -54,10 +54,35 @@ describe('InstallCard', () => {
     expect(screen.getByText(/add to home screen/i)).toBeInTheDocument();
   });
 
-  it('renders the unsupported fallback when not installable and not iOS', () => {
+  it('renders Chrome menu instructions on Android Chrome without canInstall', () => {
+    setUserAgent(
+      'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+    );
     mockHook({ canInstall: false, install: vi.fn(), isStandalone: false });
     render(<InstallCard />);
     expect(screen.queryByRole('button', { name: /install app/i })).not.toBeInTheDocument();
-    expect(screen.getByText(/your browser/i)).toBeInTheDocument();
+    expect(screen.queryByText(/your browser doesn/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/tap the menu/i)).toBeInTheDocument();
+    expect(screen.getByText(/add to home screen/i)).toBeInTheDocument();
+  });
+
+  it('renders the generic unsupported fallback on desktop Firefox', () => {
+    setUserAgent(
+      'Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0',
+    );
+    mockHook({ canInstall: false, install: vi.fn(), isStandalone: false });
+    render(<InstallCard />);
+    expect(screen.queryByRole('button', { name: /install app/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/your browser doesn/i)).toBeInTheDocument();
+  });
+
+  it('does NOT show the Chrome menu card on Samsung Internet (Android)', () => {
+    setUserAgent(
+      'Mozilla/5.0 (Linux; Android 14; SM-S911U) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/23.0 Chrome/115.0.0.0 Mobile Safari/537.36',
+    );
+    mockHook({ canInstall: false, install: vi.fn(), isStandalone: false });
+    render(<InstallCard />);
+    expect(screen.queryByText(/tap the menu/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/your browser doesn/i)).toBeInTheDocument();
   });
 });
