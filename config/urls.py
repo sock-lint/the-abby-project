@@ -63,6 +63,7 @@ urlpatterns = [
     path("api/", include("apps.activity.urls")),
     path("api/", include("apps.chronicle.urls")),
     path("api/", include("apps.creations.urls")),
+    path("api/", include("apps.lorebook.urls")),
     path("api/", include("apps.movement.urls")),
 ]
 

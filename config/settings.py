@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "apps.habits",
     "apps.pets",
     "apps.quests",
+    "apps.lorebook",
     "apps.activity",
     "apps.creations",
     "apps.movement",
