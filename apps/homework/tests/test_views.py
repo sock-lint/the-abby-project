@@ -207,3 +207,101 @@ class HomeworkDashboardTests(_Fixture):
         resp = self.client.get("/api/homework/dashboard/")
         self.assertEqual(resp.status_code, 200)
         self.assertIn("pending_submissions", resp.json())
+
+
+class HomeworkPlanActionTests(_Fixture):
+    """Long-lead self-serve gate on POST /api/homework/<id>/plan/.
+
+    plan_assignment itself is mocked — it calls Anthropic. The tests here
+    only verify the permission gate.
+    """
+
+    def _make(self, *, due_offset_days, assigned_to=None):
+        return HomeworkAssignment.objects.create(
+            title="Math project", subject="math", effort_level=4,
+            due_date=timezone.localdate() + timedelta(days=due_offset_days),
+            assigned_to=assigned_to or self.child,
+            created_by=self.parent,
+        )
+
+    @patch("apps.homework.views.HomeworkService.plan_assignment")
+    def test_child_can_plan_long_lead(self, mock_plan):
+        mock_plan.return_value = self._make(due_offset_days=7)
+        hw = self._make(due_offset_days=7)
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(f"/api/homework/{hw.pk}/plan/")
+        self.assertEqual(resp.status_code, 200)
+        mock_plan.assert_called_once()
+
+    def test_child_blocked_short_lead(self):
+        hw = self._make(due_offset_days=1)
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(f"/api/homework/{hw.pk}/plan/")
+        self.assertEqual(resp.status_code, 403)
+        self.assertIn("Ask a parent", resp.json()["error"])
+
+    @patch("apps.homework.views.HomeworkService.plan_assignment")
+    def test_parent_can_plan_short_lead(self, mock_plan):
+        hw = self._make(due_offset_days=1)
+        mock_plan.return_value = hw
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post(f"/api/homework/{hw.pk}/plan/")
+        self.assertEqual(resp.status_code, 200)
+        mock_plan.assert_called_once()
+
+    def test_unauthenticated_rejected(self):
+        hw = self._make(due_offset_days=7)
+        resp = self.client.post(f"/api/homework/{hw.pk}/plan/")
+        self.assertEqual(resp.status_code, 401)
+
+    def test_child_cannot_plan_other_childs_assignment(self):
+        other = User.objects.create_user(
+            username="other", password="pw", role="child",
+        )
+        hw = self._make(due_offset_days=7, assigned_to=other)
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(f"/api/homework/{hw.pk}/plan/")
+        # Filtered out by RoleFilteredQuerySetMixin → 404 (not visible).
+        self.assertEqual(resp.status_code, 404)
+
+
+class HomeworkAssignmentSerializerCanPlanTests(_Fixture):
+    """The can_plan field surfaces the same gate to the frontend."""
+
+    def test_can_plan_true_for_child_long_lead(self):
+        HomeworkAssignment.objects.create(
+            title="HW", subject="math", effort_level=3,
+            due_date=timezone.localdate() + timedelta(days=7),
+            assigned_to=self.child, created_by=self.parent,
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/homework/")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        rows = data["results"] if isinstance(data, dict) else data
+        self.assertEqual(len(rows), 1)
+        self.assertTrue(rows[0]["can_plan"])
+
+    def test_can_plan_false_for_child_short_lead(self):
+        HomeworkAssignment.objects.create(
+            title="HW", subject="math", effort_level=3,
+            due_date=timezone.localdate() + timedelta(days=1),
+            assigned_to=self.child, created_by=self.parent,
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/homework/")
+        data = resp.json()
+        rows = data["results"] if isinstance(data, dict) else data
+        self.assertFalse(rows[0]["can_plan"])
+
+    def test_can_plan_true_for_parent_short_lead(self):
+        HomeworkAssignment.objects.create(
+            title="HW", subject="math", effort_level=3,
+            due_date=timezone.localdate() + timedelta(days=1),
+            assigned_to=self.child, created_by=self.parent,
+        )
+        self.client.force_authenticate(self.parent)
+        resp = self.client.get("/api/homework/")
+        data = resp.json()
+        rows = data["results"] if isinstance(data, dict) else data
+        self.assertTrue(rows[0]["can_plan"])
