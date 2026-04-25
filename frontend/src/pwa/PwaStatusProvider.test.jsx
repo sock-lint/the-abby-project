@@ -199,6 +199,62 @@ describe('PwaStatusProvider', () => {
     });
   });
 
+  describe('reload-attempt suppression', () => {
+    const PWA_RELOAD_KEY = 'pwa:last-reload-attempt';
+
+    it('applyUpdate flips updateReady back to false immediately', async () => {
+      const user = userEvent.setup();
+      render(
+        <PwaStatusProvider>
+          <StatusProbe />
+          <ApplyButton />
+        </PwaStatusProvider>,
+      );
+      await waitFor(() => expect(mockState.registerSW).not.toBeNull());
+      act(() => {
+        mockState.registerSW.onNeedRefresh();
+      });
+      expect(screen.getByTestId('update-ready').textContent).toBe('true');
+      await user.click(screen.getByText('apply'));
+      expect(screen.getByTestId('update-ready').textContent).toBe('false');
+    });
+
+    it('swallows onNeedRefresh that fires inside the suppression window', async () => {
+      window.localStorage.setItem(PWA_RELOAD_KEY, String(Date.now()));
+      render(
+        <PwaStatusProvider>
+          <StatusProbe />
+        </PwaStatusProvider>,
+      );
+      await waitFor(() => expect(mockState.registerSW).not.toBeNull());
+      act(() => {
+        mockState.registerSW.onNeedRefresh();
+      });
+      expect(screen.getByTestId('update-ready').textContent).toBe('false');
+      // The suppression key is one-shot — cleared after the swallow so a
+      // second genuine onNeedRefresh later in the same session still surfaces.
+      expect(window.localStorage.getItem(PWA_RELOAD_KEY)).toBeNull();
+    });
+
+    it('honors onNeedRefresh once the stored timestamp is older than the window', async () => {
+      // 2 minutes ago — well past the 60s suppression window.
+      window.localStorage.setItem(
+        PWA_RELOAD_KEY,
+        String(Date.now() - 2 * 60_000),
+      );
+      render(
+        <PwaStatusProvider>
+          <StatusProbe />
+        </PwaStatusProvider>,
+      );
+      await waitFor(() => expect(mockState.registerSW).not.toBeNull());
+      act(() => {
+        mockState.registerSW.onNeedRefresh();
+      });
+      expect(screen.getByTestId('update-ready').textContent).toBe('true');
+    });
+  });
+
   it('dismissOfflineReady flips offlineReady back to false', async () => {
     const user = userEvent.setup();
     render(
