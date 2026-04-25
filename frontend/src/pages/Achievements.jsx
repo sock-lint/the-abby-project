@@ -47,6 +47,9 @@ export default function Achievements() {
           <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
             Skills
           </h1>
+          <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+            skills grow from clocked ventures, approved duties, study, rituals, quests, and journal entries
+          </div>
         </div>
         {isParent && (
           <div

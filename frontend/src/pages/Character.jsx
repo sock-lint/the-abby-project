@@ -98,6 +98,10 @@ export default function Character() {
 
       <AdventuresEntry />
 
+      <p className="font-script text-sm text-ink-whisper text-center max-w-xl mx-auto">
+        your inside-cover plate · choose a trophy seal you've earned, equip cosmetics from the four chapters below
+      </p>
+
       <div className="space-y-4">
         {COSMETIC_CHAPTERS.map((chapter) => (
           <CosmeticChapter

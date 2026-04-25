@@ -216,6 +216,9 @@ export default function Portfolio() {
           <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
             Sketchbook
           </h1>
+          <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+            every photo from your ventures, study proofs, and creations · tap a tile to leaf through
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {hasContent && (
@@ -288,6 +291,11 @@ export default function Portfolio() {
               By date
             </button>
           </div>
+          {filter === 'creations' && (
+            <p className="font-script text-tiny text-ink-whisper text-center">
+              creations log what you made — first two of the day earn XP; submit for a bonus seal
+            </p>
+          )}
         </div>
       )}
 

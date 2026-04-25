@@ -94,6 +94,9 @@ export default function Rewards() {
           <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
             Bazaar
           </h1>
+          <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+            barter coins earned from work, duties, rituals, and badges · some treasures need a parent's nod first
+          </div>
         </div>
         {isParent && (
           <div className="flex gap-2">

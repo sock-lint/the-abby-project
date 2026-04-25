@@ -81,6 +81,9 @@ export default function DailyChallengeCard() {
             {challenge_type_display}
           </div>
         )}
+        <div className="font-script text-tiny text-ink-whisper mt-1">
+          a fresh micro-quest each dawn — claim its coin once the bar fills
+        </div>
 
         <div className="mt-3">
           <QuillProgress

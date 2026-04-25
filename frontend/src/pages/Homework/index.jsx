@@ -107,6 +107,9 @@ export default function Homework() {
           <h2 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight">
             Study
           </h2>
+          <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+            submit each assignment with a proof photo · approval awards XP through the skill tags
+          </div>
         </div>
         <Button
           size="sm"

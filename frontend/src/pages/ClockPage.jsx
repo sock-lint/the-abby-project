@@ -90,6 +90,9 @@ export default function ClockPage() {
         <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
           Clock
         </h1>
+        <div className="font-script text-sm text-ink-whisper mt-1">
+          each hour at a venture inks coins, XP, and weekly wages
+        </div>
       </header>
 
       {/* Timer Display */}
@@ -128,7 +131,9 @@ export default function ClockPage() {
                 >
                   <Square size={36} />
                 </motion.button>
-                <div className="font-script text-sm text-ink-whisper mt-3">tap to close the entry</div>
+                <div className="font-script text-sm text-ink-whisper mt-3">
+                  tap to close the entry · the hour rolls into your weekly wages
+                </div>
               </motion.div>
             ) : (
               <motion.div key="idle" initial={{ scale: 0.85 }} animate={{ scale: 1 }}>
@@ -155,7 +160,9 @@ export default function ClockPage() {
                 >
                   <Play size={36} className="ml-1" />
                 </motion.button>
-                <div className="font-script text-sm text-ink-whisper mt-3">tap to begin inking</div>
+                <div className="font-script text-sm text-ink-whisper mt-3">
+                  tap to begin inking · earns coins and XP per hour
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -216,7 +223,7 @@ export default function ClockPage() {
 
       {entries.length === 0 && (
         <RuneBadge tone="ink" size="md" className="mx-auto">
-          no entries yet — clock in to begin the log
+          no entries yet — clock in to begin the log · each hour earns coin, XP, and a weekly wage
         </RuneBadge>
       )}
 
