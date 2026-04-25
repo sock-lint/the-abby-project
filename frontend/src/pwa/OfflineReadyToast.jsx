@@ -29,6 +29,7 @@ export default function OfflineReadyToast() {
             initial={{ x: 300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 300, opacity: 0 }}
+            // intentional: raw green Tailwind colors borrowed from DropToastStack's rarity tier styling
             className="flex items-center gap-3 rounded-lg border border-green-400 bg-green-700 px-3 py-2 text-caption text-white shadow-lg pointer-events-auto"
           >
             <CheckCircle2 size={18} aria-hidden="true" />

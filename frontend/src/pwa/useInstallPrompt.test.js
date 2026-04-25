@@ -1,18 +1,20 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useInstallPrompt } from './useInstallPrompt';
+import { InstallPromptProvider, useInstallPrompt } from './useInstallPrompt';
 
 function fireBeforeInstallPrompt(promptFn = vi.fn(() => Promise.resolve()), choice = { outcome: 'accepted' }) {
   const event = new window.BeforeInstallPromptEvent('beforeinstallprompt', {
     prompt: promptFn,
     userChoice: Promise.resolve(choice),
   });
-  // jsdom doesn't auto-prevent default on synthetic events; the hook calls
-  // preventDefault() to suppress the browser's own banner. Stub it so the
-  // call doesn't throw.
   event.preventDefault = vi.fn();
   window.dispatchEvent(event);
   return event;
+}
+
+function fireAppInstalled() {
+  window.dispatchEvent(new Event('appinstalled'));
 }
 
 function setMatchMedia(matches) {
@@ -28,6 +30,10 @@ function setMatchMedia(matches) {
   }));
 }
 
+function wrapper({ children }) {
+  return React.createElement(InstallPromptProvider, null, children);
+}
+
 describe('useInstallPrompt', () => {
   beforeEach(() => {
     setMatchMedia(false);
@@ -35,13 +41,13 @@ describe('useInstallPrompt', () => {
   });
 
   it('starts with canInstall=false and isStandalone=false', () => {
-    const { result } = renderHook(() => useInstallPrompt());
+    const { result } = renderHook(() => useInstallPrompt(), { wrapper });
     expect(result.current.canInstall).toBe(false);
     expect(result.current.isStandalone).toBe(false);
   });
 
   it('captures beforeinstallprompt and flips canInstall to true', async () => {
-    const { result } = renderHook(() => useInstallPrompt());
+    const { result } = renderHook(() => useInstallPrompt(), { wrapper });
     act(() => {
       fireBeforeInstallPrompt();
     });
@@ -50,7 +56,7 @@ describe('useInstallPrompt', () => {
 
   it('detects standalone via display-mode media query', () => {
     setMatchMedia(true);
-    const { result } = renderHook(() => useInstallPrompt());
+    const { result } = renderHook(() => useInstallPrompt(), { wrapper });
     expect(result.current.isStandalone).toBe(true);
   });
 
@@ -59,13 +65,13 @@ describe('useInstallPrompt', () => {
       value: true,
       configurable: true,
     });
-    const { result } = renderHook(() => useInstallPrompt());
+    const { result } = renderHook(() => useInstallPrompt(), { wrapper });
     expect(result.current.isStandalone).toBe(true);
   });
 
   it('install() calls event.prompt() and clears the captured event', async () => {
     const promptFn = vi.fn(() => Promise.resolve());
-    const { result } = renderHook(() => useInstallPrompt());
+    const { result } = renderHook(() => useInstallPrompt(), { wrapper });
     act(() => {
       fireBeforeInstallPrompt(promptFn);
     });
@@ -78,7 +84,7 @@ describe('useInstallPrompt', () => {
   });
 
   it('install() is a no-op when no event has been captured', async () => {
-    const { result } = renderHook(() => useInstallPrompt());
+    const { result } = renderHook(() => useInstallPrompt(), { wrapper });
     await act(async () => {
       await result.current.install();
     });
@@ -86,12 +92,41 @@ describe('useInstallPrompt', () => {
   });
 
   it('preventDefault is called on the captured event', () => {
-    const { result } = renderHook(() => useInstallPrompt());
+    const { result } = renderHook(() => useInstallPrompt(), { wrapper });
     let event;
     act(() => {
       event = fireBeforeInstallPrompt();
     });
     expect(event.preventDefault).toHaveBeenCalled();
     expect(result.current).toBeDefined();
+  });
+
+  it('appinstalled event flips canInstall back to false and isStandalone to true', async () => {
+    const { result } = renderHook(() => useInstallPrompt(), { wrapper });
+    // First capture an install event
+    act(() => {
+      fireBeforeInstallPrompt();
+    });
+    await waitFor(() => expect(result.current.canInstall).toBe(true));
+    expect(result.current.isStandalone).toBe(false);
+
+    // Then simulate the browser firing `appinstalled` after the user installs
+    act(() => {
+      fireAppInstalled();
+    });
+    expect(result.current.canInstall).toBe(false);
+    expect(result.current.isStandalone).toBe(true);
+  });
+
+  it('returns safe defaults when used outside the provider', () => {
+    // Don't crash; just expose the no-op shape so isolated component tests
+    // that don't wrap in the provider still work.
+    const { result } = renderHook(() => useInstallPrompt());
+    expect(result.current.canInstall).toBe(false);
+    expect(result.current.isStandalone).toBe(false);
+    // install() shouldn't throw
+    return expect(result.current.install()).resolves.toMatchObject({
+      outcome: 'dismissed',
+    });
   });
 });

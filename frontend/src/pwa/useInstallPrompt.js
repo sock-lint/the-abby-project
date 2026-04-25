@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 function detectStandalone() {
   if (typeof window === 'undefined') return false;
@@ -11,21 +11,22 @@ function detectStandalone() {
   return false;
 }
 
+const noop = () => Promise.resolve({ outcome: 'dismissed' });
+
+const InstallPromptContext = createContext({
+  canInstall: false,
+  install: noop,
+  isStandalone: false,
+});
+
 /**
- * useInstallPrompt — captures the browser's beforeinstallprompt event so
- * we can trigger the install prompt from a user gesture later (Settings
- * page "Install app" button). The event only fires once per page load,
- * so this hook should be mounted near the top of the tree (App.jsx).
- *
- * Returns:
- *   - canInstall: boolean, true when an install event has been captured
- *     and the user hasn't installed yet
- *   - install(): triggers the prompt; returns a Promise that resolves to
- *     the user's choice ('accepted'|'dismissed')
- *   - isStandalone: boolean, true when the app is already running as an
- *     installed PWA (display-mode: standalone or navigator.standalone)
+ * InstallPromptProvider — mounts ONCE at the top of the tree (App.jsx) so
+ * the window-level beforeinstallprompt listener is in place before the
+ * browser fires the event (which only happens once per page load,
+ * shortly after boot). Components deeper in the tree (e.g. InstallCard)
+ * read the captured state via useInstallPrompt().
  */
-export function useInstallPrompt() {
+export function InstallPromptProvider({ children }) {
   const [canInstall, setCanInstall] = useState(false);
   const [isStandalone, setIsStandalone] = useState(detectStandalone);
   const eventRef = useRef(null);
@@ -59,5 +60,22 @@ export function useInstallPrompt() {
     return choice;
   }, []);
 
-  return { canInstall, install, isStandalone };
+  return React.createElement(
+    InstallPromptContext.Provider,
+    { value: { canInstall, install, isStandalone } },
+    children,
+  );
 }
+
+/**
+ * useInstallPrompt — reads the captured install-prompt state from the
+ * InstallPromptProvider. Safe to call outside the provider (returns the
+ * default no-op shape) so isolated component tests don't crash.
+ */
+export function useInstallPrompt() {
+  return useContext(InstallPromptContext);
+}
+
+// Exported for tests that need to inject a custom context value without
+// re-running the Provider's side-effectful useEffect.
+export { InstallPromptContext };

@@ -8,6 +8,7 @@ import BirthdayCelebrationModal from './components/BirthdayCelebrationModal';
 import { SpriteCatalogProvider } from './providers/SpriteCatalogProvider';
 import JournalShell from './components/layout/JournalShell';
 import { PwaStatusProvider } from './pwa/PwaStatusProvider';
+import { InstallPromptProvider } from './pwa/useInstallPrompt';
 import UpdateBanner from './pwa/UpdateBanner';
 import OfflineReadyToast from './pwa/OfflineReadyToast';
 import Login from './pages/Login';
@@ -104,8 +105,9 @@ export default function App() {
 
   return (
     <Sentry.ErrorBoundary fallback={ErrorFallback} showDialog={false}>
-      <PwaStatusProvider>
-        <UpdateBanner />
+      <InstallPromptProvider>
+        <PwaStatusProvider>
+          <UpdateBanner />
         {celebration && (
           <BirthdayCelebrationModal
             entry={celebration}
@@ -169,7 +171,8 @@ export default function App() {
           </BrowserRouter>
           <OfflineReadyToast />
         </SpriteCatalogProvider>
-      </PwaStatusProvider>
+        </PwaStatusProvider>
+      </InstallPromptProvider>
     </Sentry.ErrorBoundary>
   );
 }

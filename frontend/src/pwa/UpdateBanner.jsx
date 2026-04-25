@@ -18,6 +18,7 @@ export default function UpdateBanner() {
     >
       <RefreshCw size={14} aria-hidden="true" />
       <span>New version available.</span>
+      {/* intentional: raw <button> with inline link styling — the Button primitive's variants don't fit this "underlined text link inside a colored bar" treatment */}
       <button
         type="button"
         onClick={applyUpdate}
