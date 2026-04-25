@@ -14,6 +14,7 @@ import { useAuth } from '../hooks/useApi';
 import { themes, applyTheme, LEGACY_THEME_ALIASES } from '../themes';
 import { downscaleImage } from '../utils/image';
 import Button from '../components/Button';
+import InstallCard from '../pwa/InstallCard';
 
 export default function SettingsPage() {
   const { user, logout: onLogout, setUser } = useAuth();
@@ -221,6 +222,8 @@ export default function SettingsPage() {
           </div>
         </div>
       </ParchmentCard>
+
+      <InstallCard />
 
       {confirmRemoveAvatar && (
         <ConfirmDialog
