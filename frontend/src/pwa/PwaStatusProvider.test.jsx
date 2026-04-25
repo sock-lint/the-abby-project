@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -92,6 +92,111 @@ describe('PwaStatusProvider', () => {
     await waitFor(() => expect(mockState.registerSW).not.toBeNull());
     await user.click(screen.getByText('apply'));
     expect(mockState.updateSW).toHaveBeenCalledWith(true);
+  });
+
+  describe('applyUpdate reload safety net', () => {
+    // Same pattern as client.test.js's 401 self-heal block: jsdom marks
+    // Location.reload as non-configurable, so swap window.location with a
+    // stub for this nested describe. Also stub navigator.serviceWorker so
+    // the controllerchange listener is registered without throwing.
+    let reloadSpy;
+    let originalLocation;
+    let swListeners;
+
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      reloadSpy = vi.fn();
+      originalLocation = window.location;
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        writable: true,
+        value: {
+          href: originalLocation.href,
+          origin: originalLocation.origin,
+          protocol: originalLocation.protocol,
+          host: originalLocation.host,
+          hostname: originalLocation.hostname,
+          port: originalLocation.port,
+          pathname: originalLocation.pathname,
+          search: originalLocation.search,
+          hash: originalLocation.hash,
+          reload: reloadSpy,
+        },
+      });
+      swListeners = {};
+      Object.defineProperty(navigator, 'serviceWorker', {
+        configurable: true,
+        value: {
+          addEventListener: vi.fn((type, listener) => {
+            swListeners[type] = listener;
+          }),
+          removeEventListener: vi.fn(),
+          controller: null,
+          ready: Promise.resolve({}),
+          register: vi.fn(() => Promise.resolve({})),
+        },
+      });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        writable: true,
+        value: originalLocation,
+      });
+    });
+
+    it('reloads when controllerchange fires after applyUpdate', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(
+        <PwaStatusProvider>
+          <ApplyButton />
+        </PwaStatusProvider>,
+      );
+      await waitFor(() => expect(mockState.registerSW).not.toBeNull());
+      await user.click(screen.getByText('apply'));
+      expect(typeof swListeners.controllerchange).toBe('function');
+      expect(reloadSpy).not.toHaveBeenCalled();
+      act(() => {
+        swListeners.controllerchange();
+      });
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('reloads via the timeout fallback when controllerchange never fires', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(
+        <PwaStatusProvider>
+          <ApplyButton />
+        </PwaStatusProvider>,
+      );
+      await waitFor(() => expect(mockState.registerSW).not.toBeNull());
+      await user.click(screen.getByText('apply'));
+      expect(reloadSpy).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('reloads exactly once when both controllerchange and the fallback fire', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(
+        <PwaStatusProvider>
+          <ApplyButton />
+        </PwaStatusProvider>,
+      );
+      await waitFor(() => expect(mockState.registerSW).not.toBeNull());
+      await user.click(screen.getByText('apply'));
+      act(() => {
+        swListeners.controllerchange();
+      });
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('dismissOfflineReady flips offlineReady back to false', async () => {
