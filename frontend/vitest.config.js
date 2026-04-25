@@ -6,6 +6,15 @@ import react from '@vitejs/plugin-react';
 // here because the build pipeline needs JSX transform during tests too.
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      // vite-plugin-pwa injects this virtual module at build/dev time.
+      // In tests the module is always vi.mock'd, but Vite's import-analysis
+      // pass still needs a resolvable path — point it at an identity stub so
+      // transform succeeds before the mock takes over.
+      'virtual:pwa-register': new URL('./src/test/pwa-register-stub.js', import.meta.url).pathname,
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,

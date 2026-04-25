@@ -76,6 +76,36 @@ if (typeof HTMLCanvasElement !== 'undefined') {
   };
 }
 
+// --- Service Worker / PWA stubs ------------------------------------------
+// jsdom doesn't ship a ServiceWorkerContainer. Tests that exercise PWA
+// registration mock virtual:pwa-register directly, but a few branches
+// touch navigator.serviceWorker for feature detection.
+if (!('serviceWorker' in navigator)) {
+  Object.defineProperty(navigator, 'serviceWorker', {
+    value: {
+      register: vi.fn(() => Promise.resolve({})),
+      ready: Promise.resolve({}),
+      controller: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    },
+    configurable: true,
+  });
+}
+
+// BeforeInstallPromptEvent isn't a standard jsdom global. Tests for
+// useInstallPrompt construct synthetic events that mimic its shape.
+if (typeof window.BeforeInstallPromptEvent === 'undefined') {
+  window.BeforeInstallPromptEvent = class extends Event {
+    constructor(type, init = {}) {
+      super(type, init);
+      this.platforms = init.platforms || ['web'];
+      this.userChoice = init.userChoice || Promise.resolve({ outcome: 'accepted' });
+      this.prompt = init.prompt || vi.fn(() => Promise.resolve());
+    }
+  };
+}
+
 // --- Lifecycle ------------------------------------------------------------
 beforeAll(() => {
   server.listen({ onUnhandledRequest: 'error' });
