@@ -4,6 +4,7 @@ import QuickActionsFab from './QuickActionsFab';
 import NotificationBell from '../NotificationBell';
 import AvatarMenu from '../AvatarMenu';
 import DropToastStack from '../DropToastStack';
+import FirstEncounterSheet from '../lorebook/FirstEncounterSheet';
 import SavingsToastStack from '../SavingsToastStack';
 import PageTurnTransition from '../journal/PageTurnTransition';
 import HeaderStatusPips from './HeaderStatusPips';
@@ -28,6 +29,7 @@ export default function JournalShell() {
     <div className="flex min-h-screen relative">
       <DropToastStack />
       <SavingsToastStack />
+      <FirstEncounterSheet />
       <ChapterSidebar user={user} onLogout={logout} />
 
       <main className="flex-1 ml-0 md:ml-60 pb-28 md:pb-8 min-w-0">

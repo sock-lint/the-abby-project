@@ -31,6 +31,7 @@ class UserSerializer(serializers.ModelSerializer):
         # empty state.
         fields = [
             "id", "username", "display_name", "role", "hourly_rate", "avatar", "theme",
+            "lorebook_flags",
             "google_linked",
             "date_of_birth", "grade_entry_year",
             "age_years", "current_grade", "school_year_label",

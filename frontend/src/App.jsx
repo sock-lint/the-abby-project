@@ -166,6 +166,7 @@ export default function App() {
               <Route path="/rewards" element={<LegacyRedirect to="/treasury?tab=bazaar" />} />
               <Route path="/achievements" element={<LegacyRedirect to="/atlas?tab=skills" />} />
               <Route path="/portfolio" element={<LegacyRedirect to="/atlas?tab=sketchbook" />} />
+              <Route path="/lorebook" element={<LegacyRedirect to="/atlas?tab=lorebook" />} />
             </Route>
             </Routes>
           </BrowserRouter>

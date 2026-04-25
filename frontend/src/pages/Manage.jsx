@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import {
-  Users, BookTemplate, BookOpen, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink,
+  Users, BookTemplate, BookOpen, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink,
 } from 'lucide-react';
 import {
   getChildren, updateChild,
@@ -10,6 +10,7 @@ import {
   getCategories, getGoogleAuthUrl, unlinkGoogleAccount,
 } from '../api';
 import CodexSection from './manage/CodexSection';
+import GuideSection from './manage/GuideSection';
 import { useApi } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
 import BottomSheet from '../components/BottomSheet';
@@ -24,12 +25,13 @@ import IconButton from '../components/IconButton';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 import { normalizeList } from '../utils/api';
 
-const tabs = ['Children', 'Templates', 'Codex'];
+const tabs = ['Children', 'Templates', 'Codex', 'Guide'];
 
 const TAB_ICONS = {
   Children: Users,
   Templates: BookTemplate,
   Codex: BookOpen,
+  Guide: ScrollText,
 };
 
 export default function Manage() {
@@ -70,6 +72,7 @@ export default function Manage() {
       {activeTab === 'Children' && <ChildrenSection />}
       {activeTab === 'Templates' && <TemplatesSection />}
       {activeTab === 'Codex' && <CodexSection />}
+      {activeTab === 'Guide' && <GuideSection />}
     </div>
   );
 }

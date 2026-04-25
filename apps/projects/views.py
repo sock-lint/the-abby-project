@@ -79,6 +79,15 @@ class MeView(APIView):
             user.avatar.delete(save=False)
             user.avatar = None
             user.save(update_fields=["avatar"])
+        if "lorebook_flags" in request.data:
+            flags = request.data["lorebook_flags"]
+            if not isinstance(flags, dict):
+                return Response(
+                    {"error": "lorebook_flags must be an object"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            user.lorebook_flags = {**(user.lorebook_flags or {}), **flags}
+            user.save(update_fields=["lorebook_flags"])
         return Response(UserSerializer(user).data)
 
 
@@ -155,6 +164,11 @@ class DashboardView(APIView):
         from apps.rewards.services import CoinService
         coin_balance = CoinService.get_balance(user)
 
+        from apps.lorebook.services import newly_unlocked_entries
+        newly_unlocked_lorebook = (
+            newly_unlocked_entries(user) if user.role == "child" else []
+        )
+
         # Chores summary
         from apps.chores.services import ChoreService
         from apps.chores.models import ChoreCompletion
@@ -230,6 +244,7 @@ class DashboardView(APIView):
             "next_actions": next_actions,
             "pending_chore_approvals": pending_chore_approvals,
             "rpg": rpg_data,
+            "newly_unlocked_lorebook": newly_unlocked_lorebook,
         })
 
 

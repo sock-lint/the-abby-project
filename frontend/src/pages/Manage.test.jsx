@@ -67,6 +67,43 @@ describe('Manage', () => {
       expect(screen.getAllByText((t) => /codex/i.test(t)).length).toBeGreaterThan(0),
     );
   });
+
+  it('switches to the guide tab', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/lorebook/', () =>
+        HttpResponse.json({
+          counts: { unlocked: 1, total: 1 },
+          entries: [
+            {
+              slug: 'study',
+              title: 'Study',
+              icon: '📚',
+              chapter: 'daily_life',
+              summary: 'Homework is practice, not paid work.',
+              kid_voice: 'Study earns mastery.',
+              mechanics: ['Homework pays no money and no Coins.'],
+              parent_knobs: {},
+              economy: {
+                money: false,
+                coins: false,
+                xp: true,
+                drops: true,
+                quest_progress: true,
+                streak_credit: true,
+              },
+              unlocked: true,
+            },
+          ],
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /guide/i }));
+    expect(await screen.findByRole('heading', { name: /economy diagram/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /study/i })).toBeInTheDocument();
+  });
 });
 
 describe('Manage — child DOB + grade_entry_year', () => {

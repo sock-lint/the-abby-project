@@ -26,8 +26,13 @@ export const handlers = [
   http.post('*/api/auth/google/calendar/sync/', ok),
 
   // Dashboard / Balance
-  http.get('*/api/dashboard/', () => HttpResponse.json({ next_actions: [] })),
+  http.get('*/api/dashboard/', () =>
+    HttpResponse.json({ next_actions: [], newly_unlocked_lorebook: [] }),
+  ),
   http.get('*/api/balance/', () => HttpResponse.json({ balance: 0, breakdown: {} })),
+  http.get('*/api/lorebook/', () =>
+    HttpResponse.json({ entries: [], counts: { unlocked: 0, total: 0 } }),
+  ),
 
   // Projects
   http.get('*/api/projects/', empty),

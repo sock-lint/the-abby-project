@@ -11,6 +11,7 @@ from rest_framework.test import APIClient
 from apps.chores.models import Chore
 from apps.homework.models import HomeworkAssignment
 from apps.projects.models import User
+from apps.rewards.models import CoinLedger
 
 
 class DashboardNextActionsTests(TestCase):
@@ -25,7 +26,9 @@ class DashboardNextActionsTests(TestCase):
         self.client.force_authenticate(self.parent)
         resp = self.client.get("/api/dashboard/")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json()["next_actions"], [])
+        data = resp.json()
+        self.assertEqual(data["next_actions"], [])
+        self.assertEqual(data["newly_unlocked_lorebook"], [])
 
     def test_child_receives_scored_next_actions(self):
         HomeworkAssignment.objects.create(
@@ -70,3 +73,37 @@ class DashboardNextActionsTests(TestCase):
         self.assertEqual(chore_item["tone"], "moss")
         self.assertEqual(chore_item["action_url"], "/chores")
         self.assertIsNone(chore_item["due_at"])
+
+    def test_newly_unlocked_lorebook_excludes_seen_flags(self):
+        CoinLedger.objects.create(
+            user=self.child,
+            amount=5,
+            reason=CoinLedger.Reason.ADJUSTMENT,
+            description="seed",
+            created_by=self.parent,
+        )
+        self.child.lorebook_flags = {"coins_seen": True}
+        self.child.save(update_fields=["lorebook_flags"])
+
+        self.client.force_authenticate(self.child)
+        data = self.client.get("/api/dashboard/").json()
+        self.assertIn("newly_unlocked_lorebook", data)
+        self.assertNotIn("coins", data["newly_unlocked_lorebook"])
+
+    def test_newly_unlocked_lorebook_includes_unseen_unlocks(self):
+        CoinLedger.objects.create(
+            user=self.child,
+            amount=5,
+            reason=CoinLedger.Reason.ADJUSTMENT,
+            description="seed",
+            created_by=self.parent,
+        )
+
+        self.client.force_authenticate(self.child)
+        data = self.client.get("/api/dashboard/").json()
+        self.assertIn("coins", data["newly_unlocked_lorebook"])
+
+    def test_parent_receives_no_new_lorebook_unlocks(self):
+        self.client.force_authenticate(self.parent)
+        data = self.client.get("/api/dashboard/").json()
+        self.assertEqual(data["newly_unlocked_lorebook"], [])

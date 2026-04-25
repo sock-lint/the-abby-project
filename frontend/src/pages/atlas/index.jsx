@@ -1,6 +1,7 @@
 import ChapterHub from '../../components/layout/ChapterHub';
 import Achievements from '../Achievements';
 import Badges from '../Badges';
+import Lorebook from '../Lorebook';
 import Portfolio from '../Portfolio';
 import Yearbook from '../Yearbook';
 
@@ -23,6 +24,7 @@ export default function AtlasHub() {
         { id: 'badges',     label: 'Badges',     render: () => <Badges /> },
         { id: 'sketchbook', label: 'Sketchbook', render: () => <Portfolio /> },
         { id: 'yearbook',   label: 'Yearbook',   render: () => <Yearbook /> },
+        { id: 'lorebook',   label: 'Lorebook',   render: () => <Lorebook /> },
       ]}
     />
   );

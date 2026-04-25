@@ -66,3 +66,37 @@ class ChildAgeFieldsEndpointTests(APITestCase):
         self.assertIsNone(resp.data["age_years"])
         self.assertIsNone(resp.data["current_grade"])
         self.assertIsNone(resp.data["school_year_label"])
+
+
+class MeLorebookFlagsEndpointTests(APITestCase):
+    def setUp(self):
+        self.child = User.objects.create(
+            username="kid",
+            role=User.Role.CHILD,
+            lorebook_flags={"pets_seen": True},
+        )
+
+    def test_me_includes_lorebook_flags(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/auth/me/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["lorebook_flags"], {"pets_seen": True})
+
+    def test_patch_merges_lorebook_flags(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.patch("/api/auth/me/", {
+            "lorebook_flags": {"quests_seen": True},
+        }, format="json")
+        self.assertEqual(resp.status_code, 200)
+        self.child.refresh_from_db()
+        self.assertEqual(
+            self.child.lorebook_flags,
+            {"pets_seen": True, "quests_seen": True},
+        )
+
+    def test_patch_rejects_non_object_lorebook_flags(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.patch("/api/auth/me/", {
+            "lorebook_flags": ["pets_seen"],
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)

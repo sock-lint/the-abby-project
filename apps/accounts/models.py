@@ -32,6 +32,7 @@ class User(AbstractUser):
         null=True, blank=True,
         help_text="Calendar year of August they entered 9th grade (e.g. 2025).",
     )
+    lorebook_flags = models.JSONField(default=dict, blank=True)
 
     objects = CustomUserManager()
 

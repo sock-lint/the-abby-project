@@ -19,6 +19,9 @@ export const updateMe = (data) => api.patch('/auth/me/', data);
 // Dashboard
 export const getDashboard = () => api.get('/dashboard/');
 
+// Lorebook — shared mechanics explainer for parents and kids
+export const getLorebook = () => api.get('/lorebook/');
+
 // Projects
 export const getProjects = () => api.get('/projects/');
 export const getProject = (id) => api.get(`/projects/${id}/`);
