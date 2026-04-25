@@ -3,6 +3,12 @@ import { registerSW } from 'virtual:pwa-register';
 
 const noop = () => {};
 
+// Safety-net delay: if `controllerchange` hasn't fired by then, force the
+// reload anyway. iOS Safari PWAs and some Android browsers don't reliably
+// fire the event after SKIP_WAITING, which leaves the banner visible
+// indefinitely after the user clicks Reload.
+const RELOAD_FALLBACK_MS = 1500;
+
 export const PwaStatusContext = createContext({
   updateReady: false,
   offlineReady: false,
@@ -33,6 +39,22 @@ export function PwaStatusProvider({ children }) {
     if (typeof fn === 'function') {
       fn(true);
     }
+    // Own the reload instead of trusting vite-plugin-pwa's internal
+    // controllerchange listener — that listener is unreliable on iOS Safari
+    // PWAs and silently no-ops when there's no real waiting SW, which is
+    // the failure mode behind "the banner is always there".
+    let reloaded = false;
+    const reload = () => {
+      if (reloaded) return;
+      reloaded = true;
+      window.location.reload();
+    };
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+      navigator.serviceWorker.addEventListener('controllerchange', reload, {
+        once: true,
+      });
+    }
+    setTimeout(reload, RELOAD_FALLBACK_MS);
   }, []);
 
   const dismissOfflineReady = useCallback(() => {
