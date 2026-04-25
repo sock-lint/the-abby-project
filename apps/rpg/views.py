@@ -220,6 +220,20 @@ class UseConsumableView(APIView):
         return Response(result)
 
 
+class OpenCoinPouchView(APIView):
+    """POST /api/inventory/<item_id>/open/ — convert one coin pouch to coins."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, item_id):
+        from .services import InventoryItemService
+
+        try:
+            result = InventoryItemService.open_coin_pouch(request.user, item_id)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result)
+
+
 class SpriteCatalogView(APIView):
     """Public read-only sprite catalog used by the frontend provider.
 

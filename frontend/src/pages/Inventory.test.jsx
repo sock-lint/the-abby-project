@@ -1,15 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { render, screen, waitFor } from '@testing-library/react';
 import Inventory from './Inventory.jsx';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
 
+function renderInventory() {
+  return render(
+    <MemoryRouter initialEntries={['/bestiary?tab=satchel']}>
+      <Routes>
+        <Route path="/bestiary" element={<Inventory />} />
+        <Route path="/trials" element={<div>Trials destination</div>} />
+        <Route path="/sigil" element={<div>Sigil destination</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe('Inventory', () => {
   it('renders empty state when satchel is empty', async () => {
     server.use(http.get('*/api/inventory/', () => HttpResponse.json([])));
-    render(<Inventory />);
+    renderInventory();
     await waitFor(() =>
       expect(screen.getAllByText((t) => /empty|satchel|no items/i.test(t)).length).toBeGreaterThan(0),
     );
@@ -24,7 +37,7 @@ describe('Inventory', () => {
         ]),
       ),
     );
-    render(<Inventory />);
+    renderInventory();
     await waitFor(() => expect(screen.getByText(/eggs/i)).toBeInTheDocument());
     expect(screen.getByText(/potions/i)).toBeInTheDocument();
     expect(screen.getByText('Ember Egg')).toBeInTheDocument();
@@ -42,6 +55,7 @@ describe('Inventory', () => {
         sprite_key: 'magic-ice-1',
         icon: '❄️',
       },
+      available_actions: [{ id: 'use', label: 'Use' }],
     };
     server.use(http.get('*/api/inventory/', () => HttpResponse.json([freeze])));
 
@@ -51,7 +65,7 @@ describe('Inventory', () => {
     server.use(use.handler);
 
     const user = userEvent.setup();
-    render(<Inventory />);
+    renderInventory();
     const button = await screen.findByRole('button', { name: /use/i });
     await user.click(button);
 
@@ -68,8 +82,59 @@ describe('Inventory', () => {
         ]),
       ),
     );
-    render(<Inventory />);
+    renderInventory();
     await waitFor(() => expect(screen.getByText('Ember Egg')).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: /use/i })).toBeNull();
+  });
+
+  it('opens coin pouches through the inventory action endpoint', async () => {
+    const pouch = {
+      id: 5,
+      quantity: 1,
+      item: {
+        id: 11,
+        name: 'Small Coin Pouch',
+        item_type: 'coin_pouch',
+        rarity: 'common',
+        sprite_key: 'money-purse',
+        icon: '👛',
+      },
+      available_actions: [{ id: 'open', label: 'Open' }],
+    };
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json([pouch])));
+    const open = spyHandler('post', /\/api\/inventory\/11\/open\/$/, {
+      item_id: 11, item_name: 'Small Coin Pouch', coins_awarded: 5,
+    });
+    server.use(open.handler);
+
+    const user = userEvent.setup();
+    renderInventory();
+    await user.click(await screen.findByRole('button', { name: /open/i }));
+
+    await waitFor(() => expect(open.calls).toHaveLength(1));
+    expect(open.calls[0].method).toBe('POST');
+  });
+
+  it('routes contextual actions to their owning pages', async () => {
+    const scroll = {
+      id: 6,
+      quantity: 1,
+      item: {
+        id: 12,
+        name: 'Trial Scroll',
+        item_type: 'quest_scroll',
+        rarity: 'rare',
+        sprite_key: 'scroll',
+        icon: '📜',
+      },
+      available_actions: [{ id: 'start_quest', label: 'Start trial', to: '/trials?scroll=12' }],
+    };
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json([scroll])));
+
+    const user = userEvent.setup();
+    renderInventory();
+    await user.click(await screen.findByRole('button', { name: /start trial/i }));
+
+    expect(await screen.findByText(/trials destination/i)).toBeInTheDocument();
   });
 });

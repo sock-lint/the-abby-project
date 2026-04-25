@@ -45,6 +45,12 @@ export default function RewardCard({ reward, isParent, coinBalance, onRedeem, on
           {reward.description}
         </div>
       )}
+      {reward.fulfillment_kind && reward.fulfillment_kind !== 'real_world' && (
+        <div className="mt-2 rounded-full border border-sheikah-teal/40 bg-sheikah-teal-deep/10 px-2 py-1 text-center font-script text-tiny text-sheikah-teal-deep">
+          Adds {reward.item_definition_detail?.name || 'an item'} to Satchel
+          {reward.fulfillment_kind === 'both' ? ' + parent follow-up' : ''}
+        </div>
+      )}
       <div className="flex items-center justify-center gap-1 mt-2 text-gold-leaf font-rune font-bold">
         <CoinIcon size={14} className="text-gold-leaf" />
         {reward.cost_coins}

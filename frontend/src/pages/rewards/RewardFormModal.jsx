@@ -1,17 +1,26 @@
 import { useState } from 'react';
-import { createReward, updateReward } from '../../api';
+import { createReward, getItemCatalog, updateReward } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
+import { useApi } from '../../hooks/useApi';
 import { formLabelClass } from '../../constants/styles';
 import Button from '../../components/Button';
 import { TextField, SelectField, TextAreaField } from '../../components/form';
 import { downscaleImage } from '../../utils/image';
+import { normalizeList } from '../../utils/api';
 
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+const FULFILLMENT_KINDS = [
+  { value: 'real_world', label: 'Real-world reward' },
+  { value: 'digital_item', label: 'Digital item' },
+  { value: 'both', label: 'Both' },
+];
 
 export default function RewardFormModal({ reward, onClose, onSaved }) {
   const isEdit = !!reward;
+  const { data: itemCatalogData } = useApi(getItemCatalog);
+  const itemCatalog = normalizeList(itemCatalogData);
   const { form, set, saving, setSaving, error, setError } = useFormState({
     name: reward?.name || '',
     description: reward?.description || '',
@@ -22,6 +31,8 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
     requires_parent_approval: reward?.requires_parent_approval ?? true,
     is_active: reward?.is_active ?? true,
     order: reward?.order ?? 0,
+    fulfillment_kind: reward?.fulfillment_kind || 'real_world',
+    item_definition: reward?.item_definition || '',
   });
   const [imageFile, setImageFile] = useState(null);
 
@@ -45,6 +56,12 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
       fd.append('requires_parent_approval', form.requires_parent_approval);
       fd.append('is_active', form.is_active);
       fd.append('order', parseInt(form.order) || 0);
+      fd.append('fulfillment_kind', form.fulfillment_kind);
+      if (form.fulfillment_kind !== 'real_world') {
+        fd.append('item_definition', form.item_definition);
+      } else {
+        fd.append('item_definition', '');
+      }
       if (imageFile) fd.append('image', await downscaleImage(imageFile));
       if (isEdit) await updateReward(reward.id, fd);
       else await createReward(fd);
@@ -86,8 +103,38 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <TextField label="Order" type="number" value={form.order} onChange={onField('order')} />
-          <div />
+          <SelectField
+            label="Fulfillment"
+            value={form.fulfillment_kind}
+            onChange={(e) => {
+              const fulfillmentKind = e.target.value;
+              set({
+                fulfillment_kind: fulfillmentKind,
+                item_definition: fulfillmentKind === 'real_world' ? '' : form.item_definition,
+              });
+            }}
+          >
+            {FULFILLMENT_KINDS.map((kind) => (
+              <option key={kind.value} value={kind.value}>{kind.label}</option>
+            ))}
+          </SelectField>
         </div>
+        {form.fulfillment_kind !== 'real_world' && (
+          <SelectField
+            label="Inventory item"
+            value={form.item_definition}
+            onChange={onField('item_definition')}
+            required
+            helpText="The selected item is added to the child's Satchel when the reward is fulfilled."
+          >
+            <option value="">Choose an item…</option>
+            {itemCatalog.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.icon || '🎁'} {item.name} · {item.type_display || item.item_type}
+              </option>
+            ))}
+          </SelectField>
+        )}
         <div className="flex gap-4">
           <label className="flex items-center gap-2 text-sm">
             <input

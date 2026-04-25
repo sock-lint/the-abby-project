@@ -11,6 +11,11 @@ urlpatterns = [
         views.UseConsumableView.as_view(),
         name="use-consumable",
     ),
+    path(
+        "inventory/<int:item_id>/open/",
+        views.OpenCoinPouchView.as_view(),
+        name="open-coin-pouch",
+    ),
     path("items/catalog/", views.ItemCatalogView.as_view(), name="item-catalog"),
     path("drops/recent/", views.RecentDropsView.as_view(), name="recent-drops"),
     path("cosmetics/", views.CosmeticsView.as_view(), name="cosmetics"),

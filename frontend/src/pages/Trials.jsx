@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { Play, Shield, Sword, X } from 'lucide-react';
 import {
   getActiveQuest, getAvailableQuests, startQuest, getQuestHistory, getFamilyQuests,
@@ -39,6 +40,8 @@ const DEFAULT_CHALLENGE = {
 };
 
 export default function Trials() {
+  const [searchParams] = useSearchParams();
+  const scrollItemId = searchParams.get('scroll') || undefined;
   const { isParent } = useRole();
   const { data: activeQuest, loading: loadingActive, reload: reloadActive } = useApi(getActiveQuest);
   const { data: availableData, loading: loadingAvailable } = useApi(getAvailableQuests);
@@ -94,7 +97,7 @@ export default function Trials() {
     setStarting(defId);
     setError('');
     try {
-      await startQuest(defId);
+      await startQuest(defId, scrollItemId);
       reloadActive();
     } catch (e) { setError(e.message); }
     finally { setStarting(null); }
@@ -446,7 +449,7 @@ export default function Trials() {
                     disabled={starting === qd.id}
                     className="flex items-center gap-1 text-xs shrink-0"
                   >
-                    <Play size={12} /> {starting === qd.id ? 'Starting…' : 'Begin'}
+                    <Play size={12} /> {starting === qd.id ? 'Starting…' : scrollItemId ? 'Begin with scroll' : 'Begin'}
                   </Button>
                 )}
               </ParchmentCard>

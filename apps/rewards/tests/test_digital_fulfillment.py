@@ -63,6 +63,18 @@ class DigitalItemFulfillmentTests(TestCase):
         inv = UserInventory.objects.get(user=self.child, item=self.item)
         self.assertEqual(inv.quantity, 1)
 
+    def test_auto_fulfilled_digital_item_credits_inventory(self) -> None:
+        reward = self._make_reward(
+            fulfillment_kind=Reward.FulfillmentKind.DIGITAL_ITEM,
+            item=self.item,
+            require_approval=False,
+        )
+        redemption = RewardService.request_redemption(self.child, reward)
+        redemption.refresh_from_db()
+        self.assertEqual(redemption.status, RewardRedemption.Status.FULFILLED)
+        inv = UserInventory.objects.get(user=self.child, item=self.item)
+        self.assertEqual(inv.quantity, 1)
+
     def test_both_approval_credits_inventory(self) -> None:
         reward = self._make_reward(
             fulfillment_kind=Reward.FulfillmentKind.BOTH,
