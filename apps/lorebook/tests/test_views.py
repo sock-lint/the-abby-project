@@ -18,7 +18,11 @@ from apps.rewards.models import CoinLedger
 from apps.rpg.models import CharacterProfile, DropLog, ItemDefinition
 from apps.timecards.models import TimeEntry
 
-from ..services import EXPECTED_ENTRY_SLUGS, load_lorebook_catalog
+from ..services import (
+    EXPECTED_ENTRY_SLUGS,
+    load_lorebook_catalog,
+    newly_unlocked_entries,
+)
 
 
 class LorebookViewTests(APITestCase):
@@ -33,6 +37,22 @@ class LorebookViewTests(APITestCase):
     def test_catalog_contains_expected_entries(self):
         slugs = {entry["slug"] for entry in load_lorebook_catalog()}
         self.assertEqual(slugs, EXPECTED_ENTRY_SLUGS)
+        for entry in load_lorebook_catalog():
+            with self.subTest(entry=entry["slug"]):
+                self.assertIsInstance(entry.get("summary"), str)
+                self.assertTrue(entry["summary"].strip())
+                self.assertIsInstance(entry.get("economy"), dict)
+                for key in [
+                    "money",
+                    "coins",
+                    "xp",
+                    "drops",
+                    "quest_progress",
+                    "streak_credit",
+                ]:
+                    self.assertIn(key, entry["economy"])
+                    self.assertIsInstance(entry["economy"][key], bool)
+                self.assertIsInstance(entry.get("parent_knobs"), dict)
 
     def test_parent_gets_full_reference_unlocked(self):
         self.client.force_authenticate(self.parent)
@@ -45,6 +65,10 @@ class LorebookViewTests(APITestCase):
         self.assertTrue(
             all(entry["unlocked_reason"] == "parent_reference" for entry in data["entries"])
         )
+        study = next(entry for entry in data["entries"] if entry["slug"] == "study")
+        self.assertFalse(study["economy"]["money"])
+        self.assertFalse(study["economy"]["coins"])
+        self.assertTrue(study["economy"]["xp"])
 
     def test_fresh_child_sees_entries_locked(self):
         self.client.force_authenticate(self.child)
@@ -163,3 +187,18 @@ class LorebookViewTests(APITestCase):
         data = self.client.get("/api/lorebook/").json()
         unlocked = {entry["slug"] for entry in data["entries"] if entry["unlocked"]}
         self.assertEqual(unlocked, EXPECTED_ENTRY_SLUGS)
+
+    def test_newly_unlocked_entries_respects_seen_flags(self):
+        CoinLedger.objects.create(
+            user=self.child,
+            amount=5,
+            reason=CoinLedger.Reason.ADJUSTMENT,
+            description="test",
+            created_by=self.parent,
+        )
+        self.assertIn("coins", newly_unlocked_entries(self.child))
+
+        self.child.lorebook_flags = {"coins_seen": True}
+        self.child.save(update_fields=["lorebook_flags"])
+        self.child.refresh_from_db()
+        self.assertNotIn("coins", newly_unlocked_entries(self.child))

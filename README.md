@@ -137,7 +137,12 @@ the-abby-project/
 │   ├── google_integration/  # OAuth2, GoogleAccount, CalendarEventMapping
 │   ├── activity/            # Cross-app activity feed
 │   ├── movement/            # Step counts / wearable integration scaffolding
+│   ├── lorebook/            # Static mechanics explainer API backed by
+│   │                        #   content/lorebook/entries.yaml
 │   └── mcp_server/          # FastMCP server with 14+ tool modules
+├── content/
+│   ├── lorebook/            # Dual-audience mechanics explainer entries
+│   └── rpg/                 # YAML-authored RPG catalog and content packs
 ├── frontend/                # React 19 + Vite 8 + Tailwind 4 frontend
 │   └── src/
 │       ├── api/             # API client and endpoint functions
@@ -150,7 +155,8 @@ the-abby-project/
 │       └── pages/           # Dashboard router (Child/ParentDashboard), QuestsHub,
 │                            #   AtlasHub (Skills/Badges/Sketchbook/Yearbook), BestiaryHub
 │                            #   (Inventory/Stable), TreasuryHub (Payments/Timecards/
-│                            #   Rewards), Trials, Character (Sigil Frontispiece),
+│                            #   Rewards), Atlas Lorebook mechanics guide,
+│                            #   Trials, Character (Sigil Frontispiece),
 │                            #   ClockPage, Manage, SettingsPage, Login, …
 ├── Dockerfile               # Multi-stage: Node build → Python + Django + WhiteNoise
 ├── docker-compose.yml       # db, redis, django, celery_worker, celery_beat
