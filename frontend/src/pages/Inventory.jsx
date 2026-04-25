@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { getInventory, openCoinPouch, useConsumable } from '../api';
+import { consumeInventoryItem, getInventory, openCoinPouch } from '../api';
 import { useApi } from '../hooks/useApi';
 import Button from '../components/Button';
 import Loader from '../components/Loader';
@@ -47,7 +47,7 @@ export default function Inventory() {
       if (action.id === 'open') {
         result = await openCoinPouch(entry.item.id);
       } else if (action.id === 'use') {
-        result = await useConsumable(entry.item.id);
+        result = await consumeInventoryItem(entry.item.id);
       } else {
         throw new Error('That item action is not available yet.');
       }

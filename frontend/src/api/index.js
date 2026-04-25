@@ -363,7 +363,7 @@ export const listMyHabitProposals = () =>
 export const approveHabitProposal = (id, payload) =>
   api.post(`/habits/${id}/approve/`, payload);
 export const getInventory = () => api.get('/inventory/');
-export const useConsumable = (itemId) =>
+export const consumeInventoryItem = (itemId) =>
   api.post(`/inventory/${itemId}/use/`);
 export const openCoinPouch = (itemId) =>
   api.post(`/inventory/${itemId}/open/`);

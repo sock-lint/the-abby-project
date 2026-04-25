@@ -4,7 +4,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RewardFormModal from './RewardFormModal.jsx';
 import { server } from '../../test/server.js';
-import { spyHandler } from '../../test/spy.js';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -50,8 +49,15 @@ describe('RewardFormModal', () => {
         ]),
       ),
     );
-    const create = spyHandler('post', /\/api\/rewards\/$/, { id: 2 });
-    server.use(create.handler);
+    const calls = [];
+    server.use(http.post(/\/api\/rewards\/$/, async ({ request }) => {
+      const form = await request.formData();
+      calls.push({
+        fulfillment_kind: form.get('fulfillment_kind'),
+        item_definition: form.get('item_definition'),
+      });
+      return HttpResponse.json({ id: 2 });
+    }));
 
     render(<RewardFormModal onClose={vi.fn()} onSaved={onSaved} />);
     const inputs = screen.getAllByRole('textbox');
@@ -61,9 +67,9 @@ describe('RewardFormModal', () => {
     await user.selectOptions(await screen.findByLabelText(/inventory item/i), '9');
     await user.click(screen.getByRole('button', { name: /^create$/i }));
 
-    await waitFor(() => expect(create.calls).toHaveLength(1));
-    expect(create.calls[0].body.get('fulfillment_kind')).toBe('digital_item');
-    expect(create.calls[0].body.get('item_definition')).toBe('9');
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0].fulfillment_kind).toBe('digital_item');
+    expect(calls[0].item_definition).toBe('9');
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { Play, Shield, Sword, X } from 'lucide-react';
@@ -43,8 +43,6 @@ export default function Trials() {
   const [searchParams] = useSearchParams();
   const scrollItemId = searchParams.get('scroll') || undefined;
   const { isParent } = useRole();
-  const [searchParams] = useSearchParams();
-  const scrollItemId = searchParams.get('scroll');
   const { data: activeQuest, loading: loadingActive, reload: reloadActive } = useApi(getActiveQuest);
   const { data: availableData, loading: loadingAvailable } = useApi(getAvailableQuests);
   const { data: historyData, loading: loadingHistory } = useApi(getQuestHistory);
