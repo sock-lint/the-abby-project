@@ -22,6 +22,8 @@ Tests live next to source as `*.test.{js,jsx}`. The shared scaffolding in
 - `server.js` + `handlers.js` — MSW node server with permissive default handlers for every `/api` route. Override with `server.use(http.get(…))` per test for specific responses.
 - `render.jsx` — `renderWithProviders(ui, { route, routePath, withAuth })` wraps in `<MemoryRouter>` + `<AuthProvider>`. Re-exports RTL helpers and a configured `userEvent`.
 - `factories.js` — `buildUser`, `buildParent`, `buildProject`, `buildBadge`, `buildChore`, `buildNotification` fixture builders.
+- `pwa-register-stub.js` — vitest aliases `virtual:pwa-register` to this stub so PWA-aware components don't choke on Vite's virtual module under jsdom.
+- `spy.js` — `spyHandler(method, urlPattern, response)` for interaction tests that need to assert on the exact body / URL of an outgoing API call.
 
 Coverage thresholds are enforced in CI (see `vitest.config.js > coverage.thresholds`). Decorative SVGs, framer-motion animation primitives, and the dev-only `/__design` route are excluded.
 
