@@ -5,17 +5,18 @@ import BottomSheet from '../BottomSheet';
 import { DragonIcon } from '../icons/JournalIcons';
 import {
   clockIn, clockOut, getProjects,
-  createHomework, getHomeworkDashboard,
+  getHomeworkDashboard,
   getSavingsGoals, getInventory,
   getTodayJournal,
 } from '../../api';
 import { useApi, useAuth } from '../../hooks/useApi';
 import { normalizeList } from '../../utils/api';
 import Button from '../Button';
-import { TextField, SelectField, TextAreaField } from '../form';
+import { SelectField, TextAreaField } from '../form';
 import JournalEntryFormModal from '../../pages/yearbook/JournalEntryFormModal';
 import CreationLogModal from '../CreationLogModal';
 import MovementSessionLogModal from '../MovementSessionLogModal';
+import HomeworkFormModal from '../../pages/Homework/HomeworkFormModal';
 
 function formatClock(secs) {
   const h = Math.floor(secs / 3600);
@@ -137,62 +138,6 @@ function ClockPane({ status, isClocked, elapsedSecs, onBack, onClockReload }) {
   );
 }
 
-function AddHomeworkPane({ onBack, onDone }) {
-  const [title, setTitle] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!title.trim()) { setError('Title is required'); return; }
-    setBusy(true); setError('');
-    try {
-      await createHomework({
-        title: title.trim(),
-        due_date: dueDate || null,
-      });
-      onDone && onDone();
-      onBack();
-    } catch (err) {
-      setError(err?.message || 'Could not save assignment.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <form onSubmit={submit} className="space-y-3">
-      <button type="button" onClick={onBack} className="font-script text-sm text-sheikah-teal-deep hover:underline">
-        ← Back
-      </button>
-      <TextField
-        id="qa-hw-title"
-        label="Title"
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="e.g. Math worksheet"
-        autoFocus
-      />
-      <TextField
-        id="qa-hw-due"
-        label="Due date"
-        type="date"
-        value={dueDate}
-        onChange={(e) => setDueDate(e.target.value)}
-      />
-      {error && <div className="text-ember-deep text-sm font-script">{error}</div>}
-      <div className="flex gap-2">
-        <Button variant="secondary" onClick={onBack} className="flex-1">Cancel</Button>
-        <Button type="submit" disabled={busy} className="flex-1">
-          {busy ? 'Saving…' : 'Add homework'}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
 /**
  * QuickActionsSheet — contextual action launcher shown by QuickActionsFab.
  * Role-aware and hide rules:
@@ -208,10 +153,11 @@ export default function QuickActionsSheet({
   const navigate = useNavigate();
   const { user } = useAuth();
   const isParent = user?.role === 'parent';
-  const [pane, setPane] = useState('menu'); // 'menu' | 'clock' | 'add-homework'
+  const [pane, setPane] = useState('menu'); // 'menu' | 'clock'
   const [journalOpen, setJournalOpen] = useState(false);
   const [creationOpen, setCreationOpen] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
+  const [homeworkOpen, setHomeworkOpen] = useState(false);
   // Child only: today's journal entry (if already written). Drives the row
   // label + whether the modal opens in edit or create mode.
   const { data: todayJournal } = useApi(
@@ -279,7 +225,17 @@ export default function QuickActionsSheet({
         }}
       />
     )}
-    <BottomSheet title={pane === 'menu' ? 'Quick actions' : pane === 'clock' ? 'Clock' : 'Add homework'} onClose={onClose}>
+    {homeworkOpen && (
+      <HomeworkFormModal
+        isParent={false}
+        onClose={() => setHomeworkOpen(false)}
+        onSaved={() => {
+          setHomeworkOpen(false);
+          onClose();
+        }}
+      />
+    )}
+    <BottomSheet title={pane === 'menu' ? 'Quick actions' : 'Clock'} onClose={onClose}>
       {pane === 'menu' && (
         <div className="space-y-2">
           <ActionRow
@@ -322,7 +278,7 @@ export default function QuickActionsSheet({
                 label="Add homework"
                 hint="Self-assign an assignment"
                 tone="royal"
-                onClick={() => setPane('add-homework')}
+                onClick={() => setHomeworkOpen(true)}
               />
               {hasDueHw && (
                 <ActionRow
@@ -400,13 +356,6 @@ export default function QuickActionsSheet({
           elapsedSecs={elapsedSecs}
           onBack={() => setPane('menu')}
           onClockReload={onClockReload}
-        />
-      )}
-
-      {pane === 'add-homework' && (
-        <AddHomeworkPane
-          onBack={() => setPane('menu')}
-          onDone={() => { /* parent may wish to reload */ }}
         />
       )}
     </BottomSheet>
