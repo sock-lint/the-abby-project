@@ -106,14 +106,34 @@ class HomeworkAssignmentViewSet(
             status=status.HTTP_201_CREATED,
         )
 
-    @action(detail=True, methods=["post"], permission_classes=[IsParent])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[permissions.IsAuthenticated],
+    )
     def plan(self, request, pk=None):
         """Trigger AI planning — creates a linked Project via Claude.
 
-        Parent-only: AI calls are non-trivial and cost real money; children
-        request planning by asking a parent in the UI.
+        Parents: always allowed.
+        Children: allowed for their own assignments when the due date is at
+        least ``settings.HOMEWORK_SELF_PLAN_LEAD_DAYS`` days out (the
+        "planning ahead" virtue). Short-lead assignments stay parent-only —
+        the conversation matters more than the AI plan when a child has
+        waited too long.
         """
         assignment = self.get_object()
+        if request.user.role == "child" and not HomeworkService.can_self_plan(
+            request.user, assignment,
+        ):
+            return Response(
+                {
+                    "error": (
+                        "Ask a parent to plan this — it's due too soon "
+                        "to self-serve."
+                    ),
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
         try:
             updated = HomeworkService.plan_assignment(assignment, request.user)
         except HomeworkError as exc:

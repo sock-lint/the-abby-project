@@ -419,5 +419,78 @@ describe('Homework — edit & delete', () => {
   });
 });
 
+describe('Homework — child self-plan gate', () => {
+  it('shows "Plan it out" to a child when can_plan is true (long-lead)', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({
+          today: [],
+          upcoming: [
+            buildAssignment({
+              id: 100, title: 'Big project', can_plan: true,
+            }),
+          ],
+          overdue: [],
+          stats: { completion_rate: 0, on_time_rate: 0, total_approved: 0 },
+        }),
+      ),
+    ]);
+    await screen.findByText(/big project/i);
+    expect(screen.getByRole('button', { name: /plan it out/i })).toBeInTheDocument();
+  });
+
+  it('hides "Plan it out" from a child when can_plan is false (short-lead)', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({
+          today: [
+            buildAssignment({
+              id: 101, title: 'Due tomorrow', can_plan: false,
+            }),
+          ],
+          upcoming: [],
+          overdue: [],
+          stats: { completion_rate: 0, on_time_rate: 0, total_approved: 0 },
+        }),
+      ),
+    ]);
+    await screen.findByText(/due tomorrow/i);
+    expect(screen.queryByRole('button', { name: /plan it out/i })).toBeNull();
+  });
+
+  it('child clicking "Plan it out" POSTs to /api/homework/<id>/plan/', async () => {
+    const user = userEvent.setup();
+    const plan = spyHandler('post', /\/api\/homework\/\d+\/plan\/$/, {
+      project_id: 555,
+    });
+    // Stub window.location.href to avoid jsdom navigation noise.
+    const origHref = window.location.href;
+    delete window.location;
+    window.location = { href: origHref };
+
+    renderPage(buildUser(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({
+          today: [],
+          upcoming: [
+            buildAssignment({
+              id: 200, title: 'Long lead project', can_plan: true,
+            }),
+          ],
+          overdue: [],
+          stats: { completion_rate: 0, on_time_rate: 0, total_approved: 0 },
+        }),
+      ),
+      plan.handler,
+    ]);
+
+    const button = await screen.findByRole('button', { name: /plan it out/i });
+    await user.click(button);
+
+    await waitFor(() => expect(plan.calls).toHaveLength(1));
+    expect(plan.calls[0].url).toMatch(/\/homework\/200\/plan\/$/);
+  });
+});
+
 // NOTE: child submit-with-proof is not covered here — it requires File/Blob fixtures
 // and the downscaleImage canvas pipeline, which deserves its own focused test.

@@ -60,6 +60,7 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
     submission_status = serializers.SerializerMethodField()
     timeliness_preview = serializers.SerializerMethodField()
     has_project = serializers.SerializerMethodField()
+    can_plan = serializers.SerializerMethodField()
 
     class Meta:
         model = HomeworkAssignment
@@ -69,7 +70,7 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
             "assigned_to", "assigned_to_name",
             "created_by", "created_by_name",
             "is_active", "notes",
-            "project", "has_project",
+            "project", "has_project", "can_plan",
             "skill_tags",
             "submission_status", "timeliness_preview",
             "created_at", "updated_at",
@@ -91,6 +92,14 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
 
     def get_has_project(self, obj):
         return obj.project_id is not None
+
+    def get_can_plan(self, obj):
+        request = self.context.get("request")
+        if not request or not getattr(request.user, "is_authenticated", False):
+            return False
+        from .services import HomeworkService
+
+        return HomeworkService.can_self_plan(request.user, obj)
 
 
 class HomeworkAssignmentWriteSerializer(serializers.ModelSerializer):

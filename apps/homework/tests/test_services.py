@@ -8,6 +8,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.utils import timezone
 
+from django.test import override_settings
+
 from apps.homework.models import (
     HomeworkAssignment,
     HomeworkSkillTag,
@@ -317,3 +319,62 @@ class TemplateTests(_Fixture):
         self.assertEqual(new_assignment.title, "Weekly Reading")
         self.assertEqual(new_assignment.due_date, new_due)
         self.assertEqual(new_assignment.assigned_to, self.child)
+
+
+@override_settings(HOMEWORK_SELF_PLAN_LEAD_DAYS=3)
+class CanSelfPlanTests(_Fixture):
+    def _make(self, *, due_offset_days, assigned_to=None, has_project=False):
+        assignment = HomeworkAssignment.objects.create(
+            title="HW", subject="math", effort_level=3,
+            due_date=timezone.localdate() + timedelta(days=due_offset_days),
+            assigned_to=assigned_to or self.child,
+            created_by=self.parent,
+        )
+        if has_project:
+            from apps.projects.models import Project
+            project = Project.objects.create(
+                title="Plan", description="x",
+                assigned_to=assigned_to or self.child,
+                created_by=self.parent,
+            )
+            assignment.project = project
+            assignment.save(update_fields=["project"])
+        return assignment
+
+    def test_parent_always_allowed(self):
+        a = self._make(due_offset_days=1)
+        self.assertTrue(HomeworkService.can_self_plan(self.parent, a))
+
+    def test_child_allowed_long_lead(self):
+        a = self._make(due_offset_days=7)
+        self.assertTrue(HomeworkService.can_self_plan(self.child, a))
+
+    def test_child_allowed_at_threshold(self):
+        a = self._make(due_offset_days=3)
+        self.assertTrue(HomeworkService.can_self_plan(self.child, a))
+
+    def test_child_blocked_below_threshold(self):
+        a = self._make(due_offset_days=2)
+        self.assertFalse(HomeworkService.can_self_plan(self.child, a))
+
+    def test_child_blocked_short_lead(self):
+        a = self._make(due_offset_days=1)
+        self.assertFalse(HomeworkService.can_self_plan(self.child, a))
+
+    def test_child_blocked_when_already_planned(self):
+        a = self._make(due_offset_days=7, has_project=True)
+        self.assertFalse(HomeworkService.can_self_plan(self.child, a))
+
+    def test_parent_blocked_when_already_planned(self):
+        # Already-planned is a domain rule, not a permission gate — but
+        # can_self_plan still returns False so the UI button hides for
+        # everyone. The view layer relies on plan_assignment for the 400.
+        a = self._make(due_offset_days=7, has_project=True)
+        self.assertFalse(HomeworkService.can_self_plan(self.parent, a))
+
+    def test_child_blocked_for_other_childs_assignment(self):
+        other = User.objects.create_user(
+            username="other", password="pw", role="child",
+        )
+        a = self._make(due_offset_days=7, assigned_to=other)
+        self.assertFalse(HomeworkService.can_self_plan(self.child, a))

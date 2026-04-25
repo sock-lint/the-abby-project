@@ -508,6 +508,26 @@ class HomeworkService:
     )
 
     @staticmethod
+    def can_self_plan(user, assignment) -> bool:
+        """Whether ``user`` may trigger ``plan_assignment`` on ``assignment``.
+
+        Parents always can. Children can self-trigger only on their own
+        assignments, only when the due date is at least
+        ``settings.HOMEWORK_SELF_PLAN_LEAD_DAYS`` days out — the
+        "planning ahead" virtue rule. Short-lead / urgent assignments stay
+        parent-only on purpose: the conversation matters more than the AI
+        plan when a child has waited too long.
+        """
+        if assignment.project_id is not None:
+            return False
+        if user.role == "parent":
+            return True
+        if assignment.assigned_to_id != user.id:
+            return False
+        lead_days = (assignment.due_date - timezone.localdate()).days
+        return lead_days >= settings.HOMEWORK_SELF_PLAN_LEAD_DAYS
+
+    @staticmethod
     @transaction.atomic
     def plan_assignment(assignment, parent):
         """Use Claude + project model to generate a multi-step Project for a homework assignment.

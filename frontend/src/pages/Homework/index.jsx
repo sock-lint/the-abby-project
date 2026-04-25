@@ -90,7 +90,7 @@ export default function Homework() {
       onSubmit={() => setShowSubmit(a)}
       onPlan={() => handlePlan(a)}
       planning={planning === a.id}
-      canPlan={isParent}
+      canPlan={a.can_plan}
       canManage={isParent}
       onEdit={() => openEdit(a)}
       onDelete={() => setDeleteConfirm(a.id)}
@@ -163,7 +163,7 @@ export default function Homework() {
                 key={a.id} assignment={a}
                 onPlan={() => handlePlan(a)}
                 planning={planning === a.id}
-                canPlan
+                canPlan={a.can_plan}
                 canManage
                 onEdit={() => openEdit(a)}
                 onDelete={() => setDeleteConfirm(a.id)}

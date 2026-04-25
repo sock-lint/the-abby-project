@@ -163,6 +163,13 @@ BIRTHDAY_COINS_PER_YEAR = 100
 # ``late`` so badges and UI can show the right state.
 HOMEWORK_LATE_CUTOFF_DAYS = 3
 
+# --- Homework planning self-serve gate -------------------------------------
+# Children can self-trigger ``POST /api/homework/{id}/plan/`` on their own
+# assignments only when the due date is at least this many days out. Parents
+# always can, regardless of due date. Default 3 — tuned so "planning ahead"
+# earns autonomy while panic-mode still requires a parent conversation.
+HOMEWORK_SELF_PLAN_LEAD_DAYS = 3
+
 # --- Anthropic / Claude ---------------------------------------------------
 # Optional. When set, enables Claude-powered ingestion enrichment and
 # project suggestion flows. Both call sites should import these names
