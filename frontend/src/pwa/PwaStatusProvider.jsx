@@ -9,6 +9,43 @@ const noop = () => {};
 // indefinitely after the user clicks Reload.
 const RELOAD_FALLBACK_MS = 1500;
 
+// After the user clicks Reload we stash a timestamp in localStorage and
+// swallow any onNeedRefresh that fires within this window on the next page
+// load. Without this, environments with byte-level sw.js drift across
+// requests (e.g. rolling deploys serving slightly different builds across
+// replicas) re-fire onNeedRefresh on the fresh page within milliseconds —
+// indistinguishable from "the banner never cleared" to the user.
+const RELOAD_SUPPRESS_WINDOW_MS = 60_000;
+const PWA_RELOAD_KEY = 'pwa:last-reload-attempt';
+
+function recentlyAttemptedReload() {
+  try {
+    const raw = window.localStorage.getItem(PWA_RELOAD_KEY);
+    if (!raw) return false;
+    const ts = Number(raw);
+    if (!Number.isFinite(ts)) return false;
+    return Date.now() - ts < RELOAD_SUPPRESS_WINDOW_MS;
+  } catch {
+    return false;
+  }
+}
+
+function clearReloadAttempt() {
+  try {
+    window.localStorage.removeItem(PWA_RELOAD_KEY);
+  } catch {
+    // ignore — Safari private mode and similar throw on storage writes
+  }
+}
+
+function markReloadAttempt() {
+  try {
+    window.localStorage.setItem(PWA_RELOAD_KEY, String(Date.now()));
+  } catch {
+    // ignore
+  }
+}
+
 export const PwaStatusContext = createContext({
   updateReady: false,
   offlineReady: false,
@@ -28,13 +65,25 @@ export function PwaStatusProvider({ children }) {
     // In production, MODE === 'production' and registration proceeds.
     if (import.meta.env.MODE === 'development') return undefined;
     updateSWRef.current = registerSW({
-      onNeedRefresh: () => setUpdateReady(true),
+      onNeedRefresh: () => {
+        if (recentlyAttemptedReload()) {
+          clearReloadAttempt();
+          return;
+        }
+        setUpdateReady(true);
+      },
       onOfflineReady: () => setOfflineReady(true),
     });
     return undefined;
   }, []);
 
   const applyUpdate = useCallback(() => {
+    // Hide the banner instantly so the user sees a response to their click
+    // even if the SW handshake or page reload takes a beat. Also stamp a
+    // timestamp so the post-reload mount can swallow a re-firing
+    // onNeedRefresh from a still-drifting sw.js fetch.
+    setUpdateReady(false);
+    markReloadAttempt();
     const fn = updateSWRef.current;
     if (typeof fn === 'function') {
       fn(true);
