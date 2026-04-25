@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import QuickActionsSheet from './QuickActionsSheet';
@@ -162,7 +162,7 @@ describe('QuickActionsSheet', () => {
     );
   });
 
-  it('Add homework submits to POST /homework/ with a self-assign payload', async () => {
+  it('Add homework opens the canonical HomeworkFormModal and POSTs a self-assign payload', async () => {
     const u = userEvent.setup();
     const create = spyHandler('post', /\/api\/homework\/$/, { ok: true, id: 42 });
     renderSheet(buildUser(), [
@@ -171,20 +171,28 @@ describe('QuickActionsSheet', () => {
       http.get('*/api/inventory/', () => HttpResponse.json([])),
       create.handler,
     ]);
-    // Open the Add homework pane.
+
+    // Quick-add reuses the same HomeworkFormModal used on /quests?tab=study,
+    // which opens as a dialog titled "New assignment" and includes the
+    // canonical fields (title, description, subject, due-date chips).
     const addRow = await screen.findByRole('button', { name: /add homework/i });
     await u.click(addRow);
 
-    const form = screen.getByRole('textbox');
-    await u.type(form, 'Science poster');
-
-    // The submit button lives inside the form.
-    const submit = screen.getByRole('button', { name: /^add homework$/i });
-    await u.click(submit);
+    const dialog = await screen.findByRole('dialog', { name: /new assignment/i });
+    await u.type(within(dialog).getByPlaceholderText(/^title$/i), 'Science poster');
+    // Use a quick-due chip so the required date input is populated without
+    // driving the native date picker.
+    await u.click(within(dialog).getByRole('button', { name: /tomorrow/i }));
+    await u.click(within(dialog).getByRole('button', { name: /create assignment/i }));
 
     await waitFor(() => expect(create.calls).toHaveLength(1));
-    expect(create.calls[0].body).toMatchObject({ title: 'Science poster' });
-    // due_date is null when left blank.
-    expect(create.calls[0].body.due_date).toBeNull();
+    expect(create.calls[0].body).toMatchObject({
+      title: 'Science poster',
+      subject: 'math',
+    });
+    expect(create.calls[0].body.due_date).toBeTruthy();
+    // Child path doesn't surface effort_level or assigned_to.
+    expect(create.calls[0].body.effort_level).toBeUndefined();
+    expect(create.calls[0].body.assigned_to).toBeUndefined();
   });
 });
