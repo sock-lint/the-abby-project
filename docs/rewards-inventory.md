@@ -155,7 +155,7 @@ flowchart TD
 - Project/milestone/bounty completion (same signals as money) at [apps/projects/signals.py:72](../apps/projects/signals.py)
 - Chore approval at [apps/chores/services.py:198](../apps/chores/services.py)
 - Badge earn → `COINS_PER_BADGE_RARITY[rarity]` (common 5 → legendary 150) at [apps/achievements/services.py:274](../apps/achievements/services.py)
-- Daily check-in (first activity of the day) at [apps/rpg/services.py](../apps/rpg/services.py) — `5 × min(1 + streak × 0.07, 3.0)` (5c at day 1, 15c cap at day 30+)
+- Daily check-in (first activity of the day) at [apps/rpg/services.py](../apps/rpg/services.py) — `5 × min(1 + streak × 0.10, 3.0)` (5c at day 1, 15c cap at day 20+)
 - Perfect Day bonus (+15) at [apps/rpg/tasks.py:40](../apps/rpg/tasks.py)
 - Quest completion reward at [apps/quests/services.py:185](../apps/quests/services.py)
 - Cosmetic-drop salvage (dup cosmetics auto-convert to `item.coin_value`) at [apps/rpg/services.py:141](../apps/rpg/services.py)
@@ -180,8 +180,19 @@ flowchart TD
 
 ### Badges
 **Purpose:** Named achievement unlocks scoped to specific accomplishments. Display on `/achievements`, gate some quests, award coins + XP on earn.
-**Model:** [apps/achievements/models.py:154](../apps/achievements/models.py) — `Badge.CriteriaType` (20 types)
-**Criteria types (21):** `projects_completed`, `hours_worked`, `category_projects`, `streak_days`, `first_project`, `first_clock_in`, `materials_under_budget`, `perfect_timecard`, `skill_level_reached`, `skills_unlocked`, `skill_categories_breadth`, `subjects_completed`, `hours_in_day`, `photos_uploaded`, `total_earned` (money lifetime), `total_coins_earned` (coin lifetime, ignores spends and refunds), `days_worked`, `cross_category_unlock`, `quest_completed`, `homework_planned_ahead`, `homework_on_time_count`. Seed "Bronze Saver" (500 coins) and "Gold Saver" (5000 coins) badges ship in [badges.yaml](../content/rpg/initial/badges.yaml) using the coin-earned criterion.
+**Model:** [apps/achievements/models.py:154](../apps/achievements/models.py) — `Badge.CriteriaType` (48 types)
+**Criteria families:**
+- *time:* `hours_worked`, `hours_in_day`, `days_worked`, `first_clock_in`, `early_bird` (before 8 AM), `late_night` (after 9 PM)
+- *projects/milestones:* `projects_completed`, `first_project`, `category_projects`, `materials_under_budget`, `perfect_timecard`, `photos_uploaded`, `bounty_completed`, `milestones_completed`, `fast_project`, `co_op_project_completed`
+- *skills:* `skill_level_reached`, `skills_unlocked`, `skill_categories_breadth`, `subjects_completed`, `cross_category_unlock`, `category_mastery`
+- *economy:* `total_earned` (money lifetime), `total_coins_earned` (coin lifetime — ignores spends), `coins_spent_lifetime`, `savings_goal_completed`, `reward_redeemed`
+- *homework:* `homework_planned_ahead`, `homework_on_time_count`
+- *creations:* `creations_logged`, `creations_approved`, `creation_skill_breadth`
+- *RPG progression:* `streak_days`, `perfect_days_count`, `streak_freeze_used`, `habit_max_strength`, `habit_count_at_strength`, `habit_taps_lifetime`, `chore_completions`, `quest_completed`, `boss_quests_completed`, `collection_quests_completed`, `pets_hatched`, `pet_species_owned`, `mounts_evolved`
+- *journal:* `journal_entries_written`, `journal_streak_days`
+- *meta:* `badges_earned_count`, `cosmetic_set_owned`, `cosmetic_full_set`, `full_potion_shelf`, `consumable_variety`, `chronicle_milestones_logged`, `grade_reached`, `birthdays_logged`
+
+Seed "Bronze Saver" (500 coins) and "Gold Saver" (5000 coins) badges ship in [badges.yaml](../content/rpg/initial/badges.yaml) using the `total_coins_earned` criterion.
 **Service:** `BadgeService.evaluate_badges` — [apps/achievements/services.py:247](../apps/achievements/services.py)
 **Paths to earn (every call site that triggers re-evaluation):**
 - Any `AwardService.grant` — [apps/achievements/services.py:233](../apps/achievements/services.py)
@@ -235,18 +246,17 @@ flowchart TD
 **Model:** `ItemDefinition.ItemType.CONSUMABLE` — metadata-dispatched by `ConsumableService._apply_effect`.
 **Service:** `ConsumableService` — [apps/rpg/services.py](../apps/rpg/services.py)
 **Endpoint:** `POST /api/inventory/<item_id>/use/`
-**Currently shipped effects:**
-- `streak_freeze` — sets `CharacterProfile.streak_freeze_expires_at = today + metadata.duration_days`. When `StreakService.record_activity` next sees a gap > 1 day, it consumes the freeze if expiry covers the first missed day; streak continues and the field clears.
+**Currently shipped effects (14):** `streak_freeze` (one-shot grace day), `xp_boost` (timer-gated multiplier on XP awards via `xp_boost_multiplier`), `coin_boost` (timer-gated multiplier on coin earns whitelisted by `is_boostable_coin_reason`), `drop_boost` (additive bonus to drop rate via `drop_boost_additive`), `growth_tonic` (+2× growth for next N pet feeds), `rage_breaker` (clears the user's active boss-quest rage shield), `growth_surge` (+30 to active pet, daily-capped), `feast_platter` (+10 to every unevolved pet, daily-capped), `mystery_box` (random common/uncommon non-cosmetic item), `lucky_dip` (random uncommon-or-rarer cosmetic; auto-salvages dupes), `quest_reroll` (spawns an eligible system quest when the slot is empty), `morale_tonic` (longer-duration `growth_tonic` variant — distinct slug so `consumable_variety` counts both), `skill_tonic` (+N XP to the user's highest-level skill, with level-up math), `food_basket` (N random food items).
 **Paths to obtain:**
 - Drop rule in [content/rpg/initial/drops.yaml](../content/rpg/initial/drops.yaml) — rarely from milestone/project/badge/perfect triggers
-- Purchase from reward shop — seeded in [content/rpg/initial/rewards.yaml](../content/rpg/initial/rewards.yaml) at 60 coins, `fulfillment_kind: digital_item` (credits the item on approve)
-**Adding a new consumable:** add YAML entry with `item_type: consumable` + `metadata.effect: <slug>`, then add the matching branch in `_apply_effect`. Unknown effects raise `ValueError`.
+- Purchase from reward shop — seeded in [content/rpg/initial/rewards.yaml](../content/rpg/initial/rewards.yaml), `fulfillment_kind: digital_item` (credits the item on approve)
+**Adding a new consumable:** add YAML entry with `item_type: consumable` + `metadata.effect: <slug>`, then add the matching branch in `_apply_effect`. Unknown effects raise `ValueError` so a YAML typo doesn't silently no-op.
 
 ### Quests (boss + collection)
 **Purpose:** Time-boxed, opt-in goals with bundled rewards. Gated by badges for late-game content.
 **Model:** [apps/quests/models.py](../apps/quests/models.py) — `Quest.quest_type` = `boss` (HP pool) or `collection` (item count).
 **Damage table** (`TRIGGER_DAMAGE` in [apps/quests/services.py](../apps/quests/services.py), keyed by `TriggerType`): clock_out 10/hr, chore 15, homework_complete 25, homework_created 5, milestone 50, badge 30, project_complete 75, habit_log 5. `QUEST_COMPLETE` and `PERFECT_DAY` are intentionally absent — they're rewards, not damage sources.
-**Filter knobs:** `QuestDefinition.trigger_filter` JSON (validated by [apps/quests/validators.py](../apps/quests/validators.py)) — `allowed_triggers` (must be valid `TriggerType` values), `project_id`, `skill_category_id`, `chore_ids`, `savings_goal_id`, `streak_target`, `perfect_day_target`, `on_time` (only counts on-time/early homework). Unknown keys or trigger values raise `ValidationError` in model `clean()`, `QuestWriteSerializer`, and the MCP `create_quest_definition` tool — a typo like `allowed_trigger` (missing `s`) no longer silently accepts every trigger.
+**Filter knobs:** `QuestDefinition.trigger_filter` JSON (validated by [apps/quests/validators.py](../apps/quests/validators.py)) — `allowed_triggers` (must be valid `TriggerType` values), `project_id`, `skill_category_id`, `chore_ids`, `savings_goal_id`, `on_time` (only counts on-time/early homework). Unknown keys or trigger values raise `ValidationError` in model `clean()`, `QuestWriteSerializer`, and the MCP `create_quest_definition` tool — a typo like `allowed_trigger` (missing `s`) no longer silently accepts every trigger. The 2026-04-23 review removed `streak_target` and `perfect_day_target` from the allowlist — they were validated but never read; re-add only when a reader lands in `QuestService.record_progress`.
 **Paths:**
 - Progress: `QuestService.record_progress` called from `GameLoopService.on_task_completed` at [apps/rpg/services.py](../apps/rpg/services.py)
 - On complete: coins (`coin_reward`) + XP (`xp_reward` via `AwardService.grant` → triggers `quest_completed` badge check) + any `QuestRewardItem` entries added to `UserInventory`
@@ -262,7 +272,7 @@ flowchart TD
 **Model:** `CharacterProfile.login_streak` + `longest_login_streak` — [apps/rpg/models.py:16](../apps/rpg/models.py)
 **Paths:**
 - `StreakService.record_activity` called from `GameLoopService.on_task_completed` on every trigger ([apps/rpg/services.py](../apps/rpg/services.py))
-- First activity of day awards streak-scaled coin bonus: `5 × min(1 + streak × 0.07, 3.0)` (day 1 = 5c, day 30+ = 15c cap)
+- First activity of day awards streak-scaled coin bonus: `5 × min(1 + streak × 0.10, 3.0)` (day 1 = 5c, day 20+ = 15c cap)
 - Milestone notifications at streaks of **3 / 7 / 14 / 30 / 60 / 100** days
 - Gap > 1 day resets streak to 1 (flame dims — no coin/XP/item loss) **unless a Streak Freeze is armed** (see Consumables) — in that case the streak survives and the freeze is consumed. Result dict gains `freeze_consumed: true` when this happens.
 
