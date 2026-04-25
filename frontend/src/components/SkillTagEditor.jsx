@@ -65,6 +65,9 @@ export default function SkillTagEditor({ skills = [], value = [], onChange }) {
           </span>
         )}
       </div>
+      <p className="font-script text-tiny text-ink-whisper -mt-1">
+        tags route XP to skills on approval — weights split the pool
+      </p>
       {tags.length === 0 && (
         <p className="font-body text-caption text-ink-secondary italic">
           No skills tagged — this awards coins only, nothing in the skill tree.

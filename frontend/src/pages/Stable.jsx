@@ -109,6 +109,9 @@ export default function Stable() {
           <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
             Party
           </h1>
+          <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+            feed companions to grow them — at full bloom they evolve into mounts you can ride · breed two mounts for a fresh egg
+          </div>
         </div>
         <div className="flex gap-2 flex-wrap">
           {eggs.length > 0 && potions.length > 0 && (
@@ -164,6 +167,9 @@ export default function Stable() {
               <X size={16} className="text-ink-secondary" />
             </button>
           </div>
+          <p className="font-script text-sm text-ink-whisper mb-3">
+            pair an egg with a potion to summon a new companion · the potion tints its colour
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <SelectField
               id="hatch-egg"

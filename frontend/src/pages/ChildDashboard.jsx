@@ -268,6 +268,9 @@ export default function ChildDashboard({ data, reload }) {
             <div className="font-display text-xl font-semibold text-ink-primary">{formatCurrency(this_week?.earnings)}</div>
           </motion.div>
         </motion.div>
+        <div className="font-script text-xs text-ink-whisper mt-3 leading-relaxed">
+          balance: pay from clocked ventures · coins: earned across all your work, spent in the bazaar · hours and earnings: this week's clocked time
+        </div>
       </AccordionSection>
 
       {active_projects?.length > 0 && (

@@ -44,6 +44,7 @@ export default function AssignmentCard({
             type="button"
             onClick={onPlan}
             disabled={planning}
+            title="turn this assignment into a planned venture with steps and materials"
             className="flex items-center gap-1 px-3 py-1 bg-royal/20 hover:bg-royal/30 text-royal border border-royal/50 disabled:opacity-50 rounded-lg text-xs font-body font-medium transition-colors"
           >
             <Sparkles size={12} /> {planning ? 'Planning…' : 'Plan it out'}

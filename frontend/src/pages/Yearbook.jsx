@@ -92,7 +92,7 @@ export default function Yearbook() {
     return (
       <EmptyState>
         <p className="font-semibold mb-1">Set your date of birth</p>
-        <p>A parent can set it on the Manage page. Then your Yearbook will start filling in.</p>
+        <p>A parent can set it on the Manage page — then birthdays, chapters, and yearly recaps can ink themselves.</p>
       </EmptyState>
     )
   }
@@ -108,6 +108,9 @@ export default function Yearbook() {
 
   return (
     <div className="space-y-4">
+      <p className="font-script text-sm text-ink-whisper text-center max-w-xl mx-auto">
+        a lifelong journal of chapters, milestones, and daily entries · birthdays and graduations land here too
+      </p>
       {isParent && (
         <div className="flex items-end justify-between gap-3">
           <SelectField

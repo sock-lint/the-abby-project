@@ -234,6 +234,9 @@ export default function Habits() {
           <h2 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight">
             Rituals
           </h2>
+          <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+            tap a virtue to strengthen it; missed days drift it back · colour shows the current pull
+          </div>
         </div>
         <Button
           size="sm"

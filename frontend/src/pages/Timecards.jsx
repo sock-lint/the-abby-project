@@ -56,7 +56,7 @@ export default function Timecards() {
       <header className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
-            the wages · every week sealed & stamped
+            the wages · every week sealed & stamped, rolled up from your daily clock-ins
           </div>
           <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
             Wages
@@ -145,6 +145,9 @@ export default function Timecards() {
                               {formatCurrency(detail.total_earnings)}
                             </div>
                           </div>
+                        </div>
+                        <div className="font-script text-tiny text-ink-whisper text-center -mt-1 mb-2">
+                          hourly comes from clocked time · bonuses are completion and milestone payouts
                         </div>
                         {detail.entries?.map((e) => (
                           <div

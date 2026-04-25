@@ -150,6 +150,10 @@ export default function ProjectDetail() {
 
       <ErrorAlert message={error} />
 
+      <p className="font-script text-sm text-ink-whisper text-center">
+        plan the chapters, gather the materials, then clock hours from the timer
+      </p>
+
       <div className="flex gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow">
         {tabs.map((tab) => (
           <button

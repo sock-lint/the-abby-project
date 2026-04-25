@@ -67,6 +67,9 @@ export default function Inventory() {
         <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
           The Satchel
         </h1>
+        <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+          drops fall from clocked work, duties, study, and quests · the ringed colour is rarity, common to legendary
+        </div>
       </header>
 
       {flash && (
@@ -86,7 +89,10 @@ export default function Inventory() {
 
       {populatedCompartments.length === 0 ? (
         <EmptyState icon={<EggIcon size={36} />}>
-          No items yet. Complete quests, chores, and homework to earn drops.
+          <div>No items yet. Complete quests, chores, and homework to earn drops.</div>
+          <div className="font-script text-sm text-ink-whisper mt-2 not-italic">
+            eggs hatch pets, potions tint them, food feeds them, cosmetics dress your sigil, consumables fire one effect
+          </div>
         </EmptyState>
       ) : (
         populatedCompartments.map((compartment, idx) => (

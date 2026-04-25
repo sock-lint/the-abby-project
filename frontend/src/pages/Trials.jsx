@@ -109,6 +109,9 @@ export default function Trials() {
         <h2 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight">
           Trials
         </h2>
+        <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+          boss trials take damage from your work and study · collection trials count items earned · only one active at a time
+        </div>
       </header>
 
       <ErrorAlert message={error} />
