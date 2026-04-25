@@ -64,6 +64,23 @@ describe('RewardCard', () => {
     expect(screen.getByRole('button', { name: /out of stock/i })).toBeDisabled();
   });
 
+  it('labels digital rewards as Satchel items', () => {
+    render(
+      <RewardCard
+        reward={buildReward({
+          fulfillment_kind: 'digital_item',
+          item_definition_detail: { name: 'Streak Freeze' },
+        })}
+        isParent={false}
+        coinBalance={999}
+        onRedeem={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/adds streak freeze to satchel/i)).toBeInTheDocument();
+  });
+
   it('hides redeem button for parent and wires edit/delete callbacks', async () => {
     const onEdit = vi.fn();
     const onDelete = vi.fn();

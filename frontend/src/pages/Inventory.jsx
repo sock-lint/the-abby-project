@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { getInventory, useConsumable } from '../api';
+import { useNavigate } from 'react-router-dom';
+import { getInventory, openCoinPouch, useConsumable } from '../api';
 import { useApi } from '../hooks/useApi';
 import Button from '../components/Button';
 import Loader from '../components/Loader';
@@ -28,17 +29,33 @@ const TYPE_COMPARTMENTS = [
 ];
 
 export default function Inventory() {
+  const navigate = useNavigate();
   const { data, loading, reload } = useApi(getInventory);
   const items = normalizeList(data);
   const [busyId, setBusyId] = useState(null);
   const [flash, setFlash] = useState(null);
 
-  const handleUse = async (entry) => {
+  const handleAction = async (entry, action) => {
+    if (action.to) {
+      navigate(action.to);
+      return;
+    }
     if (busyId) return;
     setBusyId(entry.id);
     try {
-      const result = await useConsumable(entry.item.id);
-      setFlash({ name: entry.item.name, effect: result?.effect });
+      let result;
+      if (action.id === 'open') {
+        result = await openCoinPouch(entry.item.id);
+      } else if (action.id === 'use') {
+        result = await useConsumable(entry.item.id);
+      } else {
+        throw new Error('That item action is not available yet.');
+      }
+      setFlash({
+        name: entry.item.name,
+        effect: result?.effect,
+        coins: result?.coins_awarded,
+      });
       if (reload) await reload();
     } catch (err) {
       setFlash({ error: err?.message || 'Could not use item.' });
@@ -83,7 +100,9 @@ export default function Inventory() {
         >
           {flash.error
             ? flash.error
-            : `Used ${flash.name}. Your streak is protected for the next missed day.`}
+            : flash.coins
+              ? `Opened ${flash.name}. You gained ${flash.coins} coins.`
+              : `Used ${flash.name}. ${effectMessage(flash.effect)}`}
         </div>
       )}
 
@@ -142,16 +161,18 @@ export default function Inventory() {
                         {entry.item.rarity_display}
                       </span>
                     </div>
-                    {entry.item.item_type === 'consumable' && (
+                    {(entry.available_actions || []).map((action) => (
                       <Button
+                        key={action.id}
                         size="sm"
-                        onClick={() => handleUse(entry)}
+                        variant={action.to ? 'secondary' : 'primary'}
+                        onClick={() => handleAction(entry, action)}
                         disabled={busyId === entry.id}
                         className="mt-2 w-full"
                       >
-                        {busyId === entry.id ? 'Using…' : 'Use'}
+                        {busyId === entry.id ? 'Working…' : action.label}
                       </Button>
-                    )}
+                    ))}
                     {entry.quantity > 1 && (
                       <div className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1 rounded-full bg-ember-deep text-ink-page-rune-glow font-rune text-tiny font-bold flex items-center justify-center border border-ember">
                         ×{entry.quantity}
@@ -166,4 +187,24 @@ export default function Inventory() {
       )}
     </div>
   );
+}
+
+function effectMessage(effect) {
+  const messages = {
+    streak_freeze: 'Your streak is protected for the next missed day.',
+    xp_boost: 'Your next XP gains are boosted.',
+    coin_boost: 'Your coin earnings are boosted.',
+    drop_boost: 'Your drop chances are boosted.',
+    growth_tonic: 'Your next pet feeds will grow more.',
+    morale_tonic: 'Your next pet feeds will grow more.',
+    rage_breaker: 'A boss rage shield was cleared.',
+    growth_surge: 'Your active pet gained growth.',
+    feast_platter: 'Your pets shared the feast.',
+    mystery_box: 'A surprise item was added to your Satchel.',
+    lucky_dip: 'A cosmetic prize was drawn.',
+    quest_reroll: 'A new trial has started.',
+    skill_tonic: 'One of your skills gained XP.',
+    food_basket: 'Food was added to your Satchel.',
+  };
+  return messages[effect] || 'Its effect has been applied.';
 }

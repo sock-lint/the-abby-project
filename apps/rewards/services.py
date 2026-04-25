@@ -170,6 +170,7 @@ class RewardService:
                 activity_subject=user,
                 activity_extras={"reward_id": reward.pk, "auto": True},
             )
+            RewardService._maybe_credit_digital_item(redemption)
         else:
             display = get_display_name(user)
             notify_parents(

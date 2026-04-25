@@ -365,6 +365,8 @@ export const approveHabitProposal = (id, payload) =>
 export const getInventory = () => api.get('/inventory/');
 export const useConsumable = (itemId) =>
   api.post(`/inventory/${itemId}/use/`);
+export const openCoinPouch = (itemId) =>
+  api.post(`/inventory/${itemId}/open/`);
 export const getRecentDrops = () => api.get('/drops/recent/');
 
 // Pets

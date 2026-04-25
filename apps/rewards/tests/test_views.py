@@ -8,6 +8,7 @@ from apps.payments.services import PaymentService
 from apps.projects.models import User
 from apps.rewards.models import CoinLedger, ExchangeRequest, Reward, RewardRedemption
 from apps.rewards.services import CoinService, RewardService
+from apps.rpg.models import ItemDefinition
 
 
 class _Fixture(TestCase):
@@ -51,6 +52,34 @@ class RewardViewSetTests(_Fixture):
             "name": "New reward", "cost_coins": 25,
         }, format="json")
         self.assertIn(resp.status_code, (200, 201))
+
+    def test_parent_can_create_digital_reward(self):
+        item = ItemDefinition.objects.create(
+            name="Shop Tonic",
+            icon="!",
+            item_type=ItemDefinition.ItemType.CONSUMABLE,
+            metadata={"effect": "xp_boost"},
+        )
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post("/api/rewards/", {
+            "name": "XP Tonic",
+            "cost_coins": 25,
+            "fulfillment_kind": Reward.FulfillmentKind.DIGITAL_ITEM,
+            "item_definition": item.pk,
+        }, format="json")
+        self.assertIn(resp.status_code, (200, 201))
+        self.assertEqual(resp.json()["fulfillment_kind"], Reward.FulfillmentKind.DIGITAL_ITEM)
+        self.assertEqual(resp.json()["item_definition"], item.pk)
+
+    def test_digital_reward_requires_item(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post("/api/rewards/", {
+            "name": "Broken",
+            "cost_coins": 25,
+            "fulfillment_kind": Reward.FulfillmentKind.DIGITAL_ITEM,
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("item_definition", resp.json())
 
     def test_child_cannot_create_reward(self):
         self.client.force_authenticate(self.child)

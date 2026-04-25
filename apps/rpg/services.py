@@ -914,6 +914,55 @@ class ConsumableService:
         raise ValueError(f"Unknown consumable effect: {effect!r}")
 
 
+class InventoryItemService:
+    """Applies direct actions for inventory item types.
+
+    Most item interactions live in domain services because they need extra
+    choices (egg + potion, pet + food, cosmetic slot state). Coin pouches are
+    the one simple owned-item action: open one pouch and convert it to coins.
+    """
+
+    @staticmethod
+    @transaction.atomic
+    def open_coin_pouch(user, item_id):
+        from apps.rewards.models import CoinLedger
+        from apps.rewards.services import CoinService
+        from apps.rpg.models import ItemDefinition, UserInventory
+
+        try:
+            inv = UserInventory.objects.select_for_update().get(
+                user=user, item_id=item_id, quantity__gte=1,
+            )
+        except UserInventory.DoesNotExist:
+            raise ValueError("You don't own that item")
+
+        item = inv.item
+        if item.item_type != ItemDefinition.ItemType.COIN_POUCH:
+            raise ValueError("That item is not a coin pouch")
+
+        amount = int((item.metadata or {}).get("coins") or item.coin_value or 0)
+        if amount <= 0:
+            raise ValueError("That coin pouch has no coins configured")
+
+        inv.quantity -= 1
+        if inv.quantity == 0:
+            inv.delete()
+        else:
+            inv.save(update_fields=["quantity", "updated_at"])
+
+        CoinService.award_coins(
+            user,
+            amount,
+            CoinLedger.Reason.ADJUSTMENT,
+            description=f"Opened coin pouch: {item.name}",
+        )
+        return {
+            "item_id": item.pk,
+            "item_name": item.name,
+            "coins_awarded": amount,
+        }
+
+
 class CosmeticService:
     """Manages equipping/unequipping cosmetic items."""
 

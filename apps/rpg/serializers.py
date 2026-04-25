@@ -91,11 +91,60 @@ class ItemDefinitionSerializer(serializers.ModelSerializer):
 
 class UserInventorySerializer(serializers.ModelSerializer):
     item = ItemDefinitionSerializer(read_only=True)
+    available_actions = serializers.SerializerMethodField()
 
     class Meta:
         model = UserInventory
-        fields = ["id", "item", "quantity", "updated_at"]
+        fields = ["id", "item", "quantity", "updated_at", "available_actions"]
         read_only_fields = fields
+
+    def get_available_actions(self, obj):
+        item_type = obj.item.item_type
+        item_id = obj.item_id
+        action_map = {
+            ItemDefinition.ItemType.CONSUMABLE: [{
+                "id": "use",
+                "label": "Use",
+                "endpoint": f"/api/inventory/{item_id}/use/",
+            }],
+            ItemDefinition.ItemType.COIN_POUCH: [{
+                "id": "open",
+                "label": "Open",
+                "endpoint": f"/api/inventory/{item_id}/open/",
+            }],
+            ItemDefinition.ItemType.EGG: [{
+                "id": "hatch",
+                "label": "Hatch in Party",
+                "to": "/bestiary?tab=party",
+            }],
+            ItemDefinition.ItemType.POTION: [{
+                "id": "hatch",
+                "label": "Hatch in Party",
+                "to": "/bestiary?tab=party",
+            }],
+            ItemDefinition.ItemType.FOOD: [{
+                "id": "feed",
+                "label": "Feed in Party",
+                "to": "/bestiary?tab=party",
+            }],
+            ItemDefinition.ItemType.QUEST_SCROLL: [{
+                "id": "start_quest",
+                "label": "Start trial",
+                "to": f"/trials?scroll_item={item_id}",
+            }],
+        }
+        if item_type in (
+            ItemDefinition.ItemType.COSMETIC_FRAME,
+            ItemDefinition.ItemType.COSMETIC_TITLE,
+            ItemDefinition.ItemType.COSMETIC_THEME,
+            ItemDefinition.ItemType.COSMETIC_PET_ACCESSORY,
+        ):
+            return [{
+                "id": "equip",
+                "label": "Equip in Sigil",
+                "to": "/sigil",
+            }]
+        return action_map.get(item_type, [])
 
 
 class DropLogSerializer(serializers.ModelSerializer):
