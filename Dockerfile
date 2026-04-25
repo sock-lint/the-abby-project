@@ -3,7 +3,7 @@ FROM node:20-alpine AS frontend-build
 
 WORKDIR /app/frontend
 
-COPY frontend/package.json frontend/package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
 RUN npm ci
 
 COPY frontend/ ./
