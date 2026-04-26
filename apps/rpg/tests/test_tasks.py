@@ -4,7 +4,9 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from apps.chores.models import Chore, ChoreCompletion
+from apps.notifications.models import Notification
 from apps.projects.models import User
+from apps.rewards.models import CoinLedger
 from apps.rpg.tasks import evaluate_perfect_day_task
 
 
@@ -65,6 +67,89 @@ class PerfectDayTaskTests(TestCase):
         """User not active today gets no perfect day."""
         self.profile.last_active_date = date(2026, 1, 1)
         self.profile.save(update_fields=["last_active_date"])
+
+        result = evaluate_perfect_day_task()
+        self.assertIn("0/", result)
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.perfect_days_count, 0)
+
+    def test_no_perfect_day_when_no_daily_chores_configured(self):
+        """Active child with zero daily chores must not earn a perfect day."""
+        result = evaluate_perfect_day_task()
+        self.assertIn("0/", result)
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.perfect_days_count, 0)
+        self.assertEqual(
+            CoinLedger.objects.filter(user=self.child).count(), 0,
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                user=self.child, notification_type="perfect_day",
+            ).exists(),
+        )
+
+    def test_no_perfect_day_with_partial_completion(self):
+        """Two daily chores, only one approved, no perfect day."""
+        chore_a = Chore.objects.create(
+            title="Make bed",
+            recurrence=Chore.Recurrence.DAILY,
+            assigned_to=self.child,
+            created_by=self.parent,
+        )
+        Chore.objects.create(
+            title="Brush teeth",
+            recurrence=Chore.Recurrence.DAILY,
+            assigned_to=self.child,
+            created_by=self.parent,
+        )
+        ChoreCompletion.objects.create(
+            chore=chore_a,
+            user=self.child,
+            completed_date=timezone.localdate(),
+            status=ChoreCompletion.Status.APPROVED,
+            reward_amount_snapshot=chore_a.reward_amount,
+            coin_reward_snapshot=chore_a.coin_reward,
+        )
+
+        result = evaluate_perfect_day_task()
+        self.assertIn("0/", result)
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.perfect_days_count, 0)
+
+    def test_rejected_completion_does_not_count(self):
+        """A REJECTED completion leaves the chore unfinished — no perfect day."""
+        chore = Chore.objects.create(
+            title="Make bed",
+            recurrence=Chore.Recurrence.DAILY,
+            assigned_to=self.child,
+            created_by=self.parent,
+        )
+        ChoreCompletion.objects.create(
+            chore=chore,
+            user=self.child,
+            completed_date=timezone.localdate(),
+            status=ChoreCompletion.Status.REJECTED,
+            reward_amount_snapshot=chore.reward_amount,
+            coin_reward_snapshot=chore.coin_reward,
+        )
+
+        result = evaluate_perfect_day_task()
+        self.assertIn("0/", result)
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.perfect_days_count, 0)
+
+    def test_only_weekly_chore_no_perfect_day(self):
+        """Weekly chores don't satisfy the daily-chore requirement."""
+        Chore.objects.create(
+            title="Mow lawn",
+            recurrence=Chore.Recurrence.WEEKLY,
+            assigned_to=self.child,
+            created_by=self.parent,
+        )
 
         result = evaluate_perfect_day_task()
         self.assertIn("0/", result)

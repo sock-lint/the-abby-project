@@ -29,8 +29,8 @@ def evaluate_perfect_day_task():
         available = ChoreService.get_available_chores(child, today)
         daily_chores = [c for c in available if c.recurrence == Chore.Recurrence.DAILY]
 
-        # If daily chores exist, all must be done
-        if daily_chores and not all(c.is_done_today for c in daily_chores):
+        # Require at least one daily chore AND every one of them done.
+        if not daily_chores or not all(c.is_done_today for c in daily_chores):
             continue
 
         # Award perfect day
