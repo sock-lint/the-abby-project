@@ -1,16 +1,19 @@
 import ChapterHub from '../../components/layout/ChapterHub';
-import Stable from '../Stable';
+import Companions from './party/Companions';
+import Mounts from './party/Mounts';
 import BestiaryCodex from './codex/BestiaryCodex';
 import Hatchery from './hatchery/Hatchery';
 
 /**
  * Bestiary — hub page for "every creature in the journal."
  *
- * Party (Stable — owned companions + mounts) · Codex (every species,
- *   discovered or silhouetted, with lore + per-potion evolution preview)
- *   · Hatchery (hatch eggs + breed mounts; cooldown ticker + chromatic odds)
+ * Companions (owned, growing) · Mounts (evolved, rideable) · Codex
+ *   (every species, discovered or silhouetted, with lore + per-potion
+ *   evolution preview) · Hatchery (hatch eggs + breed mounts; cooldown
+ *   ticker + chromatic odds)
  *
- * The Satchel moved to /treasury?tab=satchel — see TreasuryHub.
+ * Companions + Mounts replaced the single "Party" tab — see
+ * pages/bestiary/party/. The Satchel moved to /treasury?tab=satchel.
  *
  * Note: Sigil (Character) lives at its own route /sigil, surfaced via the
  * avatar menu in the header/sidebar — see AvatarMenu.jsx.
@@ -21,11 +24,12 @@ export default function BestiaryHub() {
       title="Bestiary"
       kicker="Chapter III · Creatures, Codex & Hatchery"
       glyph="dragon-crest"
-      defaultTabId="party"
+      defaultTabId="companions"
       tabs={[
-        { id: 'party',    label: 'Party',    render: () => <Stable /> },
-        { id: 'codex',    label: 'Codex',    render: () => <BestiaryCodex /> },
-        { id: 'hatchery', label: 'Hatchery', render: () => <Hatchery /> },
+        { id: 'companions', label: 'Companions', render: () => <Companions /> },
+        { id: 'mounts',     label: 'Mounts',     render: () => <Mounts /> },
+        { id: 'codex',      label: 'Codex',      render: () => <BestiaryCodex /> },
+        { id: 'hatchery',   label: 'Hatchery',   render: () => <Hatchery /> },
       ]}
     />
   );

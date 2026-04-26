@@ -11,24 +11,9 @@ import { EggIcon, DragonIcon } from '../../../components/icons/JournalIcons';
 import { normalizeList } from '../../../utils/api';
 import Button from '../../../components/Button';
 import { SelectField } from '../../../components/form';
+import { BREEDING_COOLDOWN_DAYS, daysUntilReady } from '../party/party.constants';
 
-// Mirrors apps/pets/services.py constants. These are stable game-design
-// values, not deploy-time config — safe to live client-side.
-const BREEDING_COOLDOWN_DAYS = 7;
 const CHROMATIC_UPGRADE_RATE = '1 in 50';
-
-// Returns null when the mount is ready to breed again, otherwise the
-// integer days remaining (rounded up so "less than a day" still reads as 1).
-function daysUntilReady(lastBredAt) {
-  if (!lastBredAt) return null;
-  const last = new Date(lastBredAt).getTime();
-  if (Number.isNaN(last)) return null;
-  const now = Date.now();
-  const elapsedMs = now - last;
-  const cooldownMs = BREEDING_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
-  if (elapsedMs >= cooldownMs) return null;
-  return Math.max(1, Math.ceil((cooldownMs - elapsedMs) / (24 * 60 * 60 * 1000)));
-}
 
 /**
  * Hatchery — dedicated tab for the two ritual flows that used to live as

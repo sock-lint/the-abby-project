@@ -114,18 +114,18 @@ class UserInventorySerializer(serializers.ModelSerializer):
             }],
             ItemDefinition.ItemType.EGG: [{
                 "id": "hatch",
-                "label": "Hatch in Party",
-                "to": "/bestiary?tab=party",
+                "label": "Hatch in Hatchery",
+                "to": "/bestiary?tab=hatchery",
             }],
             ItemDefinition.ItemType.POTION: [{
                 "id": "hatch",
-                "label": "Hatch in Party",
-                "to": "/bestiary?tab=party",
+                "label": "Hatch in Hatchery",
+                "to": "/bestiary?tab=hatchery",
             }],
             ItemDefinition.ItemType.FOOD: [{
                 "id": "feed",
-                "label": "Feed in Party",
-                "to": "/bestiary?tab=party",
+                "label": "Feed a companion",
+                "to": "/bestiary?tab=companions",
             }],
             ItemDefinition.ItemType.QUEST_SCROLL: [{
                 "id": "start_quest",

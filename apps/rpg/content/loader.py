@@ -372,7 +372,7 @@ class ContentPack:
             # Auto-materialize an egg ItemDefinition.
             # Eggs use the generic "big-egg" sprite by default so they read as
             # eggs in the inventory; the species sprite is reserved for the
-            # hatched pet on Stable.jsx. YAML can override via egg_sprite_key.
+            # hatched pet on Companions.jsx. YAML can override via egg_sprite_key.
             egg_slug = self._ns(f"{entry['slug']}-egg")
             egg_defaults = {
                 "name": entry.get("egg_name", f"{entry['name']} Egg"),
