@@ -6,7 +6,7 @@ import EmptyState from '../../components/EmptyState';
  *
  * Mounts aren't a separate catalog table — they're a species × potion derivation.
  * We render one tile per PetSpecies using the `{sprite_key}-mount` convention
- * (same one Stable.jsx uses) with `fallbackSpriteKey={sprite_key}` so species
+ * (same one Mounts.jsx uses) with `fallbackSpriteKey={sprite_key}` so species
  * without a drawn mount sprite still render something recognizable.
  */
 export default function MountsBlock({ species, onSelect }) {

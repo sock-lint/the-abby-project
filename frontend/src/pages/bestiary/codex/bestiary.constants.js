@@ -20,7 +20,7 @@ export function mountSpriteKey(speciesSpriteKey) {
 }
 
 // Compose the human-readable mount label from species + potion (mirrors
-// Stable.jsx's existing "Fire Dragon" composition).
+// the "Fire Dragon" composition used by Companions.jsx + Mounts.jsx).
 export function mountLabel(speciesName, potionName) {
   return `${potionName} ${speciesName}`;
 }

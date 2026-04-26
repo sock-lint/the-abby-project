@@ -61,12 +61,12 @@ describe('VitalPipStrip', () => {
     expect(screen.getByTestId('loc')).toHaveTextContent('/treasury?tab=satchel');
   });
 
-  it('pet pip navigates to /bestiary?tab=party when a pet is active', async () => {
+  it('pet pip navigates to /bestiary?tab=companions when a pet is active', async () => {
     const user = userEvent.setup();
     renderStrip({
       activePet: { growth_points: 45, species: { name: 'Tortle', icon_url: null } },
     });
     await user.click(screen.getByRole('button', { name: /tortle growth/i }));
-    expect(screen.getByTestId('loc')).toHaveTextContent('/bestiary?tab=party');
+    expect(screen.getByTestId('loc')).toHaveTextContent('/bestiary?tab=companions');
   });
 });
