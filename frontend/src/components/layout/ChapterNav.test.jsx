@@ -14,9 +14,9 @@ function renderSidebar(user, onLogout = vi.fn()) {
 }
 
 describe('ChapterSidebar', () => {
-  it('renders the five chapter links for any user', () => {
+  it('renders the six chapter links for any user', () => {
     renderSidebar(buildUser());
-    for (const label of ['Today', 'Quests', 'Bestiary', 'Treasury', 'Atlas']) {
+    for (const label of ['Today', 'Quests', 'Bestiary', 'Treasury', 'Atlas', 'Chronicle']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
@@ -51,13 +51,13 @@ describe('ChapterSidebar', () => {
 });
 
 describe('ChapterBottomBar', () => {
-  it('renders the five chapter links', () => {
+  it('renders the six chapter links', () => {
     render(
       <MemoryRouter>
         <ChapterBottomBar />
       </MemoryRouter>,
     );
-    for (const label of ['Today', 'Quests', 'Bestiary', 'Treasury', 'Atlas']) {
+    for (const label of ['Today', 'Quests', 'Bestiary', 'Treasury', 'Atlas', 'Chronicle']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
