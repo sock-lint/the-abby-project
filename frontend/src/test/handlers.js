@@ -220,6 +220,9 @@ export const handlers = [
 
   // Pets
   http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [] })),
+  http.get('*/api/pets/codex/', () =>
+    HttpResponse.json({ species: [], potions: [], totals: { species: 0, discovered_species: 0, mounts_possible: 0, mounts_owned: 0 } }),
+  ),
   http.post('*/api/pets/hatch/', ok),
   http.post(/\/api\/pets\/\d+\/feed\/$/, ok),
   http.post(/\/api\/pets\/\d+\/activate\/$/, ok),

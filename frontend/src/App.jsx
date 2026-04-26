@@ -162,7 +162,7 @@ export default function App() {
               <Route path="/homework" element={<LegacyRedirect to="/quests?tab=study" />} />
               <Route path="/habits" element={<LegacyRedirect to="/quests?tab=rituals" />} />
               <Route path="/quests/trials" element={<LegacyRedirect to="/trials" />} />
-              <Route path="/inventory" element={<LegacyRedirect to="/bestiary?tab=satchel" />} />
+              <Route path="/inventory" element={<LegacyRedirect to="/treasury?tab=satchel" />} />
               <Route path="/stable" element={<LegacyRedirect to="/bestiary?tab=party" />} />
               <Route path="/character" element={<LegacyRedirect to="/sigil" />} />
               <Route path="/payments" element={<LegacyRedirect to="/treasury?tab=coffers" />} />

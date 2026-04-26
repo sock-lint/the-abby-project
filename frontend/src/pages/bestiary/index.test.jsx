@@ -13,12 +13,19 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('BestiaryHub', () => {
-  it('renders the bestiary hub', async () => {
+  function stubAll() {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [], total_possible: 0 })),
       http.get('*/api/inventory/', () => HttpResponse.json([])),
+      http.get('*/api/pets/codex/', () =>
+        HttpResponse.json({ species: [], potions: [], totals: { species: 0, discovered_species: 0, mounts_possible: 0, mounts_owned: 0 } }),
+      ),
     );
+  }
+
+  it('renders the bestiary hub', async () => {
+    stubAll();
     render(
       <MemoryRouter>
         <AuthProvider>
@@ -27,5 +34,20 @@ describe('BestiaryHub', () => {
       </MemoryRouter>,
     );
     await waitFor(() => expect(screen.getByText('Bestiary')).toBeInTheDocument());
+  });
+
+  it('exposes Party, Codex, and Hatchery tabs', async () => {
+    stubAll();
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <BestiaryHub />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    await screen.findByRole('tab', { name: 'Party' });
+    expect(screen.getByRole('tab', { name: 'Codex' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Hatchery' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Satchel' })).toBeNull();
   });
 });

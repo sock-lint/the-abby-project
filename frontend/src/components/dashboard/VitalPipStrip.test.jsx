@@ -54,11 +54,11 @@ describe('VitalPipStrip', () => {
     expect(screen.getByTestId('loc')).toHaveTextContent('/sigil');
   });
 
-  it('pet pip navigates to /bestiary?tab=satchel when no pet', async () => {
+  it('pet pip navigates to /treasury?tab=satchel when no pet', async () => {
     const user = userEvent.setup();
     renderStrip();
     await user.click(screen.getByRole('button', { name: /find a pet/i }));
-    expect(screen.getByTestId('loc')).toHaveTextContent('/bestiary?tab=satchel');
+    expect(screen.getByTestId('loc')).toHaveTextContent('/treasury?tab=satchel');
   });
 
   it('pet pip navigates to /bestiary?tab=party when a pet is active', async () => {

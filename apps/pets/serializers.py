@@ -37,6 +37,33 @@ class PetSpeciesCatalogSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class PetCodexEntrySerializer(serializers.ModelSerializer):
+    """Child-readable codex entry — species + per-user ownership state.
+
+    ``discovered`` flips true once the user has ever owned a pet OR mount of
+    this species (set on the view, not computed here). ``owned_mount_potion_ids``
+    lets the frontend illuminate the right tile in the 6-potion evolution row.
+    """
+    slug = serializers.CharField(read_only=True)
+    available_potions = PotionTypeMiniSerializer(many=True, read_only=True)
+    discovered = serializers.BooleanField(read_only=True)
+    owned_pet_ids = serializers.ListField(
+        child=serializers.IntegerField(), read_only=True
+    )
+    owned_mount_potion_ids = serializers.ListField(
+        child=serializers.IntegerField(), read_only=True
+    )
+
+    class Meta:
+        model = PetSpecies
+        fields = [
+            "id", "slug", "name", "icon", "sprite_key", "description",
+            "food_preference", "available_potions",
+            "discovered", "owned_pet_ids", "owned_mount_potion_ids",
+        ]
+        read_only_fields = fields
+
+
 class UserPetSerializer(serializers.ModelSerializer):
     species = PetSpeciesSerializer(read_only=True)
     potion = PotionTypeSerializer(read_only=True)

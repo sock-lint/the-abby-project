@@ -9,9 +9,9 @@ import { spyHandler } from '../test/spy.js';
 
 function renderInventory() {
   return render(
-    <MemoryRouter initialEntries={['/bestiary?tab=satchel']}>
+    <MemoryRouter initialEntries={['/treasury?tab=satchel']}>
       <Routes>
-        <Route path="/bestiary" element={<Inventory />} />
+        <Route path="/treasury" element={<Inventory />} />
         <Route path="/trials" element={<div>Trials destination</div>} />
         <Route path="/sigil" element={<div>Sigil destination</div>} />
       </Routes>

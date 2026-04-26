@@ -5,9 +5,11 @@ from rest_framework.views import APIView
 
 from config.permissions import IsParent
 
-from .models import PetSpecies, UserPet, UserMount
+from .models import PetSpecies, PotionType, UserPet, UserMount
 from .serializers import (
+    PetCodexEntrySerializer,
     PetSpeciesCatalogSerializer,
+    PotionTypeSerializer,
     UserMountSerializer,
     UserPetSerializer,
 )
@@ -97,6 +99,64 @@ class PetSpeciesCatalogView(ListAPIView):
 
     def get_queryset(self):
         return PetSpecies.objects.prefetch_related("available_potions").order_by("name")
+
+
+class PetCodexView(APIView):
+    """GET /api/pets/codex/ — child-readable bestiary codex.
+
+    Returns every species annotated with the requesting user's ownership
+    state (discovered, which pets/mounts they own per species), plus the
+    full potion catalog so the frontend can render an evolution preview
+    for every species/potion combination.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        species_qs = PetSpecies.objects.prefetch_related("available_potions").order_by("name")
+
+        owned_pets = list(
+            UserPet.objects.filter(user=user).values_list("species_id", "id")
+        )
+        owned_mounts = list(
+            UserMount.objects.filter(user=user).values_list("species_id", "potion_id")
+        )
+
+        pets_by_species = {}
+        for species_id, pet_id in owned_pets:
+            pets_by_species.setdefault(species_id, []).append(pet_id)
+
+        mount_potions_by_species = {}
+        for species_id, potion_id in owned_mounts:
+            mount_potions_by_species.setdefault(species_id, []).append(potion_id)
+
+        entries = []
+        discovered_count = 0
+        for species in species_qs:
+            owned_pet_ids = pets_by_species.get(species.id, [])
+            owned_mount_potion_ids = mount_potions_by_species.get(species.id, [])
+            discovered = bool(owned_pet_ids or owned_mount_potion_ids)
+            if discovered:
+                discovered_count += 1
+            species.discovered = discovered
+            species.owned_pet_ids = owned_pet_ids
+            species.owned_mount_potion_ids = owned_mount_potion_ids
+            entries.append(species)
+
+        potions_qs = PotionType.objects.order_by("rarity", "name")
+        total_species = len(entries)
+        total_potions = potions_qs.count()
+
+        return Response({
+            "species": PetCodexEntrySerializer(entries, many=True).data,
+            "potions": PotionTypeSerializer(potions_qs, many=True).data,
+            "totals": {
+                "species": total_species,
+                "discovered_species": discovered_count,
+                "mounts_possible": total_species * total_potions,
+                "mounts_owned": len(owned_mounts),
+            },
+        })
 
 
 class ActivateMountView(APIView):
