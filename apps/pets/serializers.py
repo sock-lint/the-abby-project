@@ -88,6 +88,8 @@ class UserMountSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserMount
         fields = [
-            "id", "species", "potion", "is_active", "created_at", "updated_at",
+            "id", "species", "potion", "is_active",
+            "last_bred_at",
+            "created_at", "updated_at",
         ]
         read_only_fields = fields
