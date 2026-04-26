@@ -89,10 +89,12 @@ export function groupEntriesByChapter(entries = []) {
   return LOREBOOK_CHAPTERS.map((chapter) => {
     const chapterEntries = buckets.get(chapter.id) ?? [];
     const unlocked = chapterEntries.filter((entry) => entry.unlocked).length;
+    const trained = chapterEntries.filter((entry) => entry.trained).length;
     return {
       chapter,
       entries: chapterEntries,
       unlocked,
+      trained,
       total: chapterEntries.length,
     };
   });

@@ -27,6 +27,12 @@ entries:
       drops: true
       quest_progress: true
       streak_credit: true
+    trial_template: tap_and_reward
+    trial:
+      prompt: "Tap the dish to wash it."
+      payoff: "+1 coin · +5 XP"
+      target_icon: "🍽️"
+      reward_icon: "🪙"
 
   - slug: rituals
     title: Rituals
@@ -57,6 +63,12 @@ entries:
       drops: true
       quest_progress: true
       streak_credit: true
+    trial_template: tap_and_reward
+    trial:
+      prompt: "Tap to log your reading ritual."
+      payoff: "+5 XP · the strength thread tightens"
+      target_icon: "📖"
+      reward_icon: "🌿"
 
   - slug: study
     title: Study
@@ -94,6 +106,12 @@ entries:
       drops: true
       quest_progress: true
       streak_credit: true
+    trial_template: tap_and_reward
+    trial:
+      prompt: "Tap to submit your math sheet."
+      payoff: "+10 XP · timeliness logged"
+      target_icon: "📝"
+      reward_icon: "📚"
 
   - slug: journal
     title: Journal
@@ -123,6 +141,12 @@ entries:
       drops: true
       quest_progress: true
       streak_credit: true
+    trial_template: scribe
+    trial:
+      prompt: "Inscribe what mattered today."
+      payoff: "+15 XP across Creative Writing & Vocabulary"
+      placeholder: "Today I…"
+      min_length: 8
 
   - slug: creations
     title: Creations
@@ -154,6 +178,12 @@ entries:
       drops: true
       quest_progress: true
       streak_credit: true
+    trial_template: tap_and_reward
+    trial:
+      prompt: "Tap to log the doodle you just made."
+      payoff: "+10 XP · a new Sketchbook page"
+      target_icon: "🖼️"
+      reward_icon: "🎨"
 
   - slug: ventures
     title: Ventures
@@ -192,6 +222,11 @@ entries:
       drops: true
       quest_progress: true
       streak_credit: true
+    trial_template: observe
+    trial:
+      prompt: "Watch the venture light up as the work clocks in."
+      payoff: "+10 XP/hr distributed across the project's skill tags"
+      caption: "Hours in. Milestones close. Coins arrive at clock-out."
 
   - slug: skills
     title: Skills
@@ -225,6 +260,11 @@ entries:
       drops: false
       quest_progress: false
       streak_credit: false
+    trial_template: observe
+    trial:
+      prompt: "Watch XP flow into the Woodworking versal — one drop, one branch."
+      payoff: "Versal gilds at the next threshold"
+      caption: "Tagged practice fills the right skill. Levels are shared across the tree."
 
   - slug: badges
     title: Badges
@@ -256,6 +296,11 @@ entries:
       drops: true
       quest_progress: true
       streak_credit: false
+    trial_template: observe
+    trial:
+      prompt: "Watch the wax seal stamp the criterion you just met."
+      payoff: "Sigil + rarity-scaled coins"
+      caption: "Earning a badge is the page bound permanently into your reliquary."
 
   - slug: chronicle
     title: Chronicle
@@ -289,6 +334,11 @@ entries:
       drops: false
       quest_progress: false
       streak_credit: false
+    trial_template: observe
+    trial:
+      prompt: "Watch the chapter timeline scroll from birth to today."
+      payoff: "A page is added; nothing on the spine is ever erased."
+      caption: "Birthdays, chapter starts, firsts, milestones, recaps, journals, creations."
 
   - slug: quests
     title: Quests
@@ -321,6 +371,17 @@ entries:
       drops: true
       quest_progress: true
       streak_credit: false
+    trial_template: choice
+    trial:
+      prompt: "Pick the trial that calls you."
+      payoff: "Quest begins · progress tracks every action"
+      choices:
+        - label: "Boss · Dragon"
+          icon: "🐉"
+          outcome: "HP ticks down with every duty, hour, and habit."
+        - label: "Collection · Pebbles"
+          icon: "🪨"
+          outcome: "Each find adds one to the count."
 
   - slug: pets
     title: Pets
@@ -352,6 +413,14 @@ entries:
       drops: false
       quest_progress: false
       streak_credit: false
+    trial_template: sequence
+    trial:
+      prompt: "Hatch, feed, evolve — care begets a mount."
+      payoff: "Egg → Pet → Mount"
+      steps:
+        - "Combine an egg and a potion to hatch a unique pet."
+        - "Feed preferred food to climb growth fastest."
+        - "At growth 100 the pet evolves; the original stays in the stable."
 
   - slug: mounts
     title: Mounts
@@ -381,6 +450,11 @@ entries:
       drops: false
       quest_progress: false
       streak_credit: false
+    trial_template: observe
+    trial:
+      prompt: "Watch a fully-grown pet rise into its mount form."
+      payoff: "The stable gains a rideable companion."
+      caption: "Mounts ride and breed on cooldown; the original pet stays."
 
   - slug: drops
     title: Drops
@@ -408,6 +482,12 @@ entries:
       drops: true
       quest_progress: false
       streak_credit: false
+    trial_template: tap_and_reward
+    trial:
+      prompt: "Tap the chest to roll a drop."
+      payoff: "Maybe an egg · maybe a potion · maybe a coin pouch"
+      target_icon: "📦"
+      reward_icon: "🎁"
 
   - slug: streaks
     title: Streaks
@@ -438,6 +518,12 @@ entries:
       drops: true
       quest_progress: false
       streak_credit: true
+    trial_template: tap_and_reward
+    trial:
+      prompt: "Tap each rune to mark seven days in a row."
+      payoff: "Flame brightens · check-in coins climb"
+      target_icon: "🔥"
+      reward_icon: "🪙"
 
   - slug: coins
     title: Coins
@@ -477,6 +563,13 @@ entries:
       drops: false
       quest_progress: false
       streak_credit: false
+    trial_template: drag_to_target
+    trial:
+      prompt: "Drag a coin into the reward."
+      payoff: "Reward redeemed (mock)"
+      source_icon: "🪙"
+      target_icon: "🎁"
+      source_count: 5
 
   - slug: money
     title: Money
@@ -509,6 +602,13 @@ entries:
       drops: false
       quest_progress: false
       streak_credit: false
+    trial_template: drag_to_target
+    trial:
+      prompt: "Drag a dollar onto the savings goal."
+      payoff: "Goal climbs toward complete."
+      source_icon: "💵"
+      target_icon: "🏦"
+      source_count: 3
 
   - slug: cosmetics
     title: Cosmetics
@@ -539,3 +639,17 @@ entries:
       drops: false
       quest_progress: false
       streak_credit: false
+    trial_template: choice
+    trial:
+      prompt: "Pick a frame for your sigil."
+      payoff: "Frame equipped · the look is yours."
+      choices:
+        - label: "Bookworm"
+          icon: "📖"
+          outcome: "A modest, gold-leaf border."
+        - label: "Scholar"
+          icon: "🎓"
+          outcome: "A study-hall ribbon and laurel."
+        - label: "Hyrule"
+          icon: "✨"
+          outcome: "A champion's filigree."

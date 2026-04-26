@@ -26,6 +26,7 @@ export default function Lorebook() {
       mode="kid"
       showEconomyDiagram={false}
       parentPanelsDefaultOpen={false}
+      onTrained={() => reload()}
     />
   );
 }

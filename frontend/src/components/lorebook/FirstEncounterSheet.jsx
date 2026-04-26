@@ -1,15 +1,14 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFirstEncounter } from '../../hooks/useFirstEncounter';
 import BottomSheet from '../BottomSheet';
 import Button from '../Button';
-
-function firstParagraph(text = '') {
-  return String(text).split(/\n\s*\n/).find(Boolean) || '';
-}
+import IlluminatedVersal from '../../pages/achievements/IlluminatedVersal';
 
 export default function FirstEncounterSheet({ pollIntervalMs }) {
   const { activeEntry: entry, dismiss } = useFirstEncounter(pollIntervalMs);
   const [saving, setSaving] = useState(false);
+  const navigate = useNavigate();
 
   if (!entry) return null;
 
@@ -22,11 +21,25 @@ export default function FirstEncounterSheet({ pollIntervalMs }) {
     }
   };
 
+  const handleTakeMeThere = async () => {
+    setSaving(true);
+    try {
+      await dismiss();
+      navigate(`/atlas?tab=lorebook&trial=${entry.slug}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const letter = (entry.title || entry.slug || '?').slice(0, 1);
+
   return (
-    <BottomSheet title="New Lorebook page" onClose={handleDismiss} disabled={saving}>
+    <BottomSheet title="A new page is open" onClose={handleDismiss} disabled={saving}>
       <div className="space-y-4 text-center">
-        <div className="text-5xl" aria-hidden="true">{entry.icon || '📖'}</div>
-        <div>
+        <div className="flex justify-center">
+          <IlluminatedVersal letter={letter} size="lg" tier="rising" progressPct={0} />
+        </div>
+        <div className="space-y-1">
           <div className="font-script text-sheikah-teal-deep text-base">
             discovered · {entry.audience_title || entry.title}
           </div>
@@ -35,14 +48,21 @@ export default function FirstEncounterSheet({ pollIntervalMs }) {
           </h2>
         </div>
         <p className="text-sm leading-relaxed text-ink-secondary">
-          {firstParagraph(entry.kid_voice) || entry.summary}
+          A new training awaits you in your Lorebook.
         </p>
-        <p className="text-caption text-ink-whisper">
-          This page is now open in your Atlas Lorebook.
-        </p>
-        <Button onClick={handleDismiss} disabled={saving} className="w-full">
-          {saving ? 'Inking...' : 'Add it to my Lorebook'}
-        </Button>
+        <div className="flex flex-col gap-2 pt-1">
+          <Button onClick={handleTakeMeThere} disabled={saving} className="w-full">
+            {saving ? 'Inking…' : 'Take me there'}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={handleDismiss}
+            disabled={saving}
+            className="w-full"
+          >
+            Later
+          </Button>
+        </div>
       </div>
     </BottomSheet>
   );
