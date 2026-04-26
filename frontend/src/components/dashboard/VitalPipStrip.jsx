@@ -87,7 +87,7 @@ export default function VitalPipStrip({
         label={activePet ? 'pet' : 'no pet'}
         tone="royal"
         ariaLabel={activePet ? `${activePet.species?.name || 'pet'} growth` : 'Find a pet'}
-        onClick={() => navigate(activePet ? '/bestiary?tab=party' : '/bestiary?tab=satchel')}
+        onClick={() => navigate(activePet ? '/bestiary?tab=party' : '/treasury?tab=satchel')}
       />
     </div>
   );

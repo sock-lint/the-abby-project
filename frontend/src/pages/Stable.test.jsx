@@ -20,7 +20,7 @@ describe('Stable', () => {
     );
     render(<Stable />);
     await waitFor(() =>
-      expect(screen.getByText((t) => /hatch|no pets|no companions/i.test(t))).toBeInTheDocument(),
+      expect(screen.getByText(/no companions yet/i)).toBeInTheDocument(),
     );
   });
 
@@ -46,25 +46,7 @@ describe('Stable', () => {
     }
   });
 
-  it('hides the Breed button when the user has fewer than 2 mounts', async () => {
-    server.use(
-      http.get('*/api/pets/stable/', () =>
-        HttpResponse.json({
-          pets: [],
-          mounts: [{ id: 9, species: { name: 'Griffon' }, potion: { name: 'Sky' }, is_active: false }],
-          total_possible: 48,
-        }),
-      ),
-      http.get('*/api/inventory/', () => HttpResponse.json([])),
-    );
-    render(<Stable />);
-    // Wait for the tab strip to render (presence of a "Mounts" tab signals
-    // the stable data finished loading).
-    await screen.findByRole('button', { name: /mounts/i });
-    expect(screen.queryByRole('button', { name: /breed mounts/i })).toBeNull();
-  });
-
-  it('shows the Breed button and opens a modal with both mount pickers when 2+ mounts are owned', async () => {
+  it('does not render Hatch or Breed buttons (those moved to the Hatchery tab)', async () => {
     server.use(
       http.get('*/api/pets/stable/', () =>
         HttpResponse.json({
@@ -79,16 +61,8 @@ describe('Stable', () => {
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     );
     render(<Stable />);
-    const user = userEvent.setup();
-
-    const breedButton = await screen.findByRole('button', { name: /breed mounts/i });
-    await user.click(breedButton);
-
-    await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: /first mount/i })).toBeInTheDocument(),
-    );
-    expect(screen.getByRole('combobox', { name: /second mount/i })).toBeInTheDocument();
-    // The confirm-CTA shows up before anything is picked, disabled until both are set.
-    expect(screen.getByRole('button', { name: /breed the pair/i })).toBeDisabled();
+    await screen.findByRole('button', { name: /mounts/i });
+    expect(screen.queryByRole('button', { name: /breed mounts/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /hatch pet/i })).toBeNull();
   });
 });

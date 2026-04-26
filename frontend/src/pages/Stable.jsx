@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Crown, Star, X } from 'lucide-react';
-import { getStable, getInventory, feedPet, activatePet, activateMount, hatchPet, breedMounts } from '../api';
+import { Crown, Star } from 'lucide-react';
+import { getStable, getInventory, feedPet, activatePet, activateMount } from '../api';
 import { useApi } from '../hooks/useApi';
 import Loader from '../components/Loader';
 import EmptyState from '../components/EmptyState';
@@ -12,23 +12,23 @@ import DeckleDivider from '../components/journal/DeckleDivider';
 import { EggIcon, DragonIcon } from '../components/icons/JournalIcons';
 import RpgSprite from '../components/rpg/RpgSprite';
 import { normalizeList } from '../utils/api';
-import { RARITY_RING_COLORS, RARITY_TEXT_COLORS } from '../constants/colors';
-import Button from '../components/Button';
-import { SelectField } from '../components/form';
+import { RARITY_TEXT_COLORS } from '../constants/colors';
 
+/**
+ * Stable / Party — owned companions and mounts.
+ *
+ * Hatch + Breed live on the dedicated Hatchery tab now (see
+ * pages/bestiary/hatchery/Hatchery.jsx). When mounted inside a hub that
+ * exposes that tab separately, callers should leave hatch/breed off this
+ * page entirely; nothing on Stable currently re-shows them, but the
+ * data fetches stay so the food picker continues to work.
+ */
 export default function Stable() {
   const { data: stableData, loading: loadingStable, reload: reloadStable } = useApi(getStable);
   const { data: inventoryData, loading: loadingInventory, reload: reloadInventory } = useApi(getInventory);
   const [tab, setTab] = useState('pets');
   const [error, setError] = useState('');
   const [selectedPet, setSelectedPet] = useState(null);
-  const [showHatch, setShowHatch] = useState(false);
-  const [hatchEgg, setHatchEgg] = useState('');
-  const [hatchPotion, setHatchPotion] = useState('');
-  const [showBreed, setShowBreed] = useState(false);
-  const [breedA, setBreedA] = useState('');
-  const [breedB, setBreedB] = useState('');
-  const [breedResult, setBreedResult] = useState(null);
   const [working, setWorking] = useState(false);
 
   if (loadingStable || loadingInventory) return <Loader />;
@@ -38,25 +38,9 @@ export default function Stable() {
   const totalPossible = stableData?.total_possible || 0;
 
   const inventory = normalizeList(inventoryData);
-  const eggs = inventory.filter((e) => e.item.item_type === 'egg');
-  const potions = inventory.filter((e) => e.item.item_type === 'potion');
   const foods = inventory.filter((e) => e.item.item_type === 'food');
 
   const refresh = () => { reloadStable(); reloadInventory(); };
-
-  const handleHatch = async () => {
-    if (!hatchEgg || !hatchPotion) return;
-    setWorking(true);
-    setError('');
-    try {
-      await hatchPet(hatchEgg, hatchPotion);
-      setShowHatch(false);
-      setHatchEgg('');
-      setHatchPotion('');
-      refresh();
-    } catch (e) { setError(e.message); }
-    finally { setWorking(false); }
-  };
 
   const handleFeed = async (petId, foodItemId) => {
     setWorking(true);
@@ -85,54 +69,17 @@ export default function Stable() {
     finally { setWorking(false); }
   };
 
-  const handleBreed = async () => {
-    if (!breedA || !breedB || breedA === breedB) return;
-    setWorking(true);
-    setError('');
-    try {
-      const result = await breedMounts(breedA, breedB);
-      setBreedResult(result);
-      setBreedA('');
-      setBreedB('');
-      refresh();
-    } catch (e) { setError(e.message); }
-    finally { setWorking(false); }
-  };
-
   return (
     <div className="space-y-6">
-      <header className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <div className="font-script text-sheikah-teal-deep text-base">
-            the party · companions, mounts & eggs
-          </div>
-          <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-            Party
-          </h1>
-          <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
-            feed companions to grow them — at full bloom they evolve into mounts you can ride · breed two mounts for a fresh egg
-          </div>
+      <header>
+        <div className="font-script text-sheikah-teal-deep text-base">
+          the party · companions and mounts you've raised
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {eggs.length > 0 && potions.length > 0 && (
-            <Button
-              size="sm"
-              onClick={() => setShowHatch(!showHatch)}
-              className="flex items-center gap-1.5"
-            >
-              <Sparkles size={14} /> Hatch Pet
-            </Button>
-          )}
-          {mounts.length >= 2 && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => { setShowBreed(!showBreed); setBreedResult(null); }}
-              className="flex items-center gap-1.5"
-            >
-              <Crown size={14} /> Breed Mounts
-            </Button>
-          )}
+        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+          Party
+        </h1>
+        <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+          feed companions to grow them — at full bloom they evolve into mounts you can ride · hatch and breed live on the Hatchery tab
         </div>
       </header>
 
@@ -147,152 +94,6 @@ export default function Stable() {
           mounts {mounts.length}/{totalPossible}
         </RuneBadge>
       </div>
-
-      {/* Hatch modal */}
-      {showHatch && (
-        <ParchmentCard flourish seal>
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <div className="font-script text-xs text-ink-whisper uppercase tracking-widest">
-                ritual casting
-              </div>
-              <h3 className="font-display text-lg text-ink-primary">Hatch a New Pet</h3>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowHatch(false)}
-              aria-label="Close"
-              className="p-1 rounded-full hover:bg-ink-page-shadow/50 transition-colors"
-            >
-              <X size={16} className="text-ink-secondary" />
-            </button>
-          </div>
-          <p className="font-script text-sm text-ink-whisper mb-3">
-            pair an egg with a potion to summon a new companion · the potion tints its colour
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <SelectField
-              id="hatch-egg"
-              label="Egg"
-              value={hatchEgg}
-              onChange={(e) => setHatchEgg(e.target.value)}
-            >
-              <option value="">Select an egg…</option>
-              {eggs.map((e) => (
-                <option key={e.item.id} value={e.item.id}>
-                  {e.item.icon} {e.item.name} (×{e.quantity})
-                </option>
-              ))}
-            </SelectField>
-            <SelectField
-              id="hatch-potion"
-              label="Potion"
-              value={hatchPotion}
-              onChange={(e) => setHatchPotion(e.target.value)}
-            >
-              <option value="">Select a potion…</option>
-              {potions.map((e) => (
-                <option key={e.item.id} value={e.item.id}>
-                  {e.item.icon} {e.item.name} (×{e.quantity})
-                </option>
-              ))}
-            </SelectField>
-          </div>
-          <Button
-            onClick={handleHatch}
-            disabled={!hatchEgg || !hatchPotion || working}
-            className="w-full mt-3"
-          >
-            {working ? 'Hatching…' : 'Perform the ritual'}
-          </Button>
-        </ParchmentCard>
-      )}
-
-      {/* Breed modal */}
-      {showBreed && (
-        <ParchmentCard flourish seal>
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <div className="font-script text-xs text-ink-whisper uppercase tracking-widest">
-                stable husbandry
-              </div>
-              <h3 className="font-display text-lg text-ink-primary">Breed Two Mounts</h3>
-              <div className="text-tiny text-ink-whisper mt-1">
-                Yields a hybrid egg + potion pair. Each mount rests 7 days between pairings.
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => { setShowBreed(false); setBreedResult(null); }}
-              aria-label="Close"
-              className="p-1 rounded-full hover:bg-ink-page-shadow/50 transition-colors"
-            >
-              <X size={16} className="text-ink-secondary" />
-            </button>
-          </div>
-          {breedResult ? (
-            <div className="space-y-2 text-body">
-              {breedResult.chromatic && (
-                <div className="font-script text-gold-leaf">
-                  ✨ Chromatic upgrade! A Cosmic potion fell from the stars.
-                </div>
-              )}
-              <div>
-                You received <strong>{breedResult.egg_item_name}</strong> and{' '}
-                <strong>{breedResult.potion_item_name}</strong>.
-              </div>
-              <div className="text-tiny text-ink-whisper">
-                Both parent mounts are resting for {breedResult.cooldown_days} days.
-              </div>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => setBreedResult(null)}
-              >
-                Breed more
-              </Button>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <SelectField
-                  id="breed-a"
-                  label="First mount"
-                  value={breedA}
-                  onChange={(e) => setBreedA(e.target.value)}
-                >
-                  <option value="">Select a mount…</option>
-                  {mounts.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.species.icon} {m.potion.name} {m.species.name}
-                    </option>
-                  ))}
-                </SelectField>
-                <SelectField
-                  id="breed-b"
-                  label="Second mount"
-                  value={breedB}
-                  onChange={(e) => setBreedB(e.target.value)}
-                >
-                  <option value="">Select a mount…</option>
-                  {mounts.filter((m) => String(m.id) !== String(breedA)).map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.species.icon} {m.potion.name} {m.species.name}
-                    </option>
-                  ))}
-                </SelectField>
-              </div>
-              <Button
-                onClick={handleBreed}
-                disabled={!breedA || !breedB || breedA === breedB || working}
-                className="w-full mt-3"
-              >
-                {working ? 'Breeding…' : 'Breed the pair'}
-              </Button>
-            </>
-          )}
-        </ParchmentCard>
-      )}
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-ink-page-shadow">

@@ -211,7 +211,7 @@ export default function ChildDashboard({ data, reload }) {
                 key={d.id}
                 type="button"
                 whileHover={{ y: -2 }}
-                onClick={() => navigate('/bestiary?tab=satchel')}
+                onClick={() => navigate('/treasury?tab=satchel')}
                 className={`shrink-0 w-24 p-3 rounded-xl bg-ink-page-aged border border-ink-page-shadow text-center ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[d.rarity] || 'ring-transparent'}`}
               >
                 <div className="text-3xl mb-1">{d.item_icon || '📦'}</div>

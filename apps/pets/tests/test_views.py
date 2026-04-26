@@ -113,6 +113,70 @@ class ActivatePetTests(_Fixture):
         self.assertTrue(pet2.is_active)
 
 
+class PetCodexTests(_Fixture):
+    def setUp(self):
+        super().setUp()
+        self.species_b = PetSpecies.objects.create(
+            name="Phoenix", icon="🔥", slug="phoenix",
+            description="Reborn from ashes.",
+        )
+        self.potion_b = PotionType.objects.create(name="Ice", color_hex="#00BBFF")
+        self.species.available_potions.add(self.potion, self.potion_b)
+        self.species_b.available_potions.add(self.potion)
+
+    def test_codex_is_child_readable(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/pets/codex/")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("species", data)
+        self.assertIn("potions", data)
+        self.assertIn("totals", data)
+
+    def test_codex_marks_undiscovered_until_owned(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/pets/codex/")
+        species = {s["name"]: s for s in resp.json()["species"]}
+        self.assertFalse(species["Dragon"]["discovered"])
+        self.assertFalse(species["Phoenix"]["discovered"])
+        self.assertEqual(resp.json()["totals"]["discovered_species"], 0)
+
+    def test_codex_discovers_species_after_hatch(self):
+        UserPet.objects.create(user=self.child, species=self.species, potion=self.potion)
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/pets/codex/")
+        species = {s["name"]: s for s in resp.json()["species"]}
+        self.assertTrue(species["Dragon"]["discovered"])
+        self.assertFalse(species["Phoenix"]["discovered"])
+        self.assertEqual(resp.json()["totals"]["discovered_species"], 1)
+
+    def test_codex_owned_mount_potion_ids_match(self):
+        UserMount.objects.create(user=self.child, species=self.species, potion=self.potion)
+        UserMount.objects.create(user=self.child, species=self.species, potion=self.potion_b)
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/pets/codex/")
+        dragon = next(s for s in resp.json()["species"] if s["name"] == "Dragon")
+        self.assertCountEqual(
+            dragon["owned_mount_potion_ids"],
+            [self.potion.id, self.potion_b.id],
+        )
+        self.assertEqual(resp.json()["totals"]["mounts_owned"], 2)
+
+    def test_codex_excludes_other_users_data(self):
+        UserPet.objects.create(user=self.parent, species=self.species, potion=self.potion)
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/pets/codex/")
+        dragon = next(s for s in resp.json()["species"] if s["name"] == "Dragon")
+        self.assertFalse(dragon["discovered"])
+
+    def test_codex_includes_available_potions(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/pets/codex/")
+        dragon = next(s for s in resp.json()["species"] if s["name"] == "Dragon")
+        potion_ids = {p["id"] for p in dragon["available_potions"]}
+        self.assertEqual(potion_ids, {self.potion.id, self.potion_b.id})
+
+
 class MountsTests(_Fixture):
     def test_list_mounts(self):
         UserMount.objects.create(

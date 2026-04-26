@@ -371,6 +371,7 @@ export const getRecentDrops = () => api.get('/drops/recent/');
 
 // Pets
 export const getStable = () => api.get('/pets/stable/');
+export const getPetCodex = () => api.get('/pets/codex/');
 export const hatchPet = (eggItemId, potionItemId) =>
   api.post('/pets/hatch/', { egg_item_id: eggItemId, potion_item_id: potionItemId });
 export const feedPet = (petId, foodItemId) =>
