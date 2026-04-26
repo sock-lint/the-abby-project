@@ -1,14 +1,14 @@
 import { NavLink } from 'react-router-dom';
 import { SlidersHorizontal, Settings, LogOut, History } from 'lucide-react';
 import {
-  TodayIcon, QuestsIcon, BestiaryIcon, TreasuryIcon, AtlasIcon,
+  TodayIcon, QuestsIcon, BestiaryIcon, TreasuryIcon, AtlasIcon, ChronicleIcon,
 } from '../icons/JournalIcons';
 import AvatarMenu from '../AvatarMenu';
 
 /**
- * ChapterNav — renders the five-chapter nav in two flavors:
+ * ChapterNav — renders the six-chapter nav in two flavors:
  *   - desktop : left-side parchment rail with chapter icons + labels
- *   - mobile  : bottom tab bar, five equal columns
+ *   - mobile  : bottom tab bar, six equal columns
  *
  * The Clock is NOT a chapter — it lives in ClockFab (floating action).
  * Manage (parent-only) and Settings sit in the desktop sidebar footer.
@@ -17,11 +17,12 @@ import AvatarMenu from '../AvatarMenu';
  */
 
 const CHAPTERS = [
-  { to: '/',           icon: TodayIcon,     label: 'Today',    shortLabel: 'Today' },
-  { to: '/quests',     icon: QuestsIcon,    label: 'Quests',   shortLabel: 'Quests' },
-  { to: '/bestiary',   icon: BestiaryIcon,  label: 'Bestiary', shortLabel: 'Bestiary' },
-  { to: '/treasury',   icon: TreasuryIcon,  label: 'Treasury', shortLabel: 'Treasury' },
-  { to: '/atlas',      icon: AtlasIcon,     label: 'Atlas',    shortLabel: 'Atlas' },
+  { to: '/',           icon: TodayIcon,     label: 'Today',     shortLabel: 'Today' },
+  { to: '/quests',     icon: QuestsIcon,    label: 'Quests',    shortLabel: 'Quests' },
+  { to: '/bestiary',   icon: BestiaryIcon,  label: 'Bestiary',  shortLabel: 'Bestiary' },
+  { to: '/treasury',   icon: TreasuryIcon,  label: 'Treasury',  shortLabel: 'Treasury' },
+  { to: '/atlas',      icon: AtlasIcon,     label: 'Atlas',     shortLabel: 'Atlas' },
+  { to: '/chronicle',  icon: ChronicleIcon, label: 'Chronicle', shortLabel: 'Chronicle' },
 ];
 
 export function ChapterSidebar({ user, onLogout }) {

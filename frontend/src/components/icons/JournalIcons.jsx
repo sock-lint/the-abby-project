@@ -3,12 +3,13 @@
  * aesthetic. Each icon uses `currentColor` for stroke so tailwind text-*
  * classes color them. Sized via `size` prop (default 20).
  *
- * Five primary icons match the five journal chapters:
+ * Six primary icons match the six journal chapters:
  *   TodayIcon     — open book with a teardrop/flame
  *   QuestsIcon    — crossed quill + sword
  *   BestiaryIcon  — dragon head silhouette
  *   TreasuryIcon  — treasure chest with keyhole
  *   AtlasIcon     — folded map with rune marker
+ *   ChronicleIcon — journal cover with bookmark ribbon + quill
  *
  * Plus a few action/feature icons used across the app.
  */
@@ -80,6 +81,22 @@ export function AtlasIcon({ size = 20, className = '' }) {
       <path d="M9 4 L 9 18 M15 6 L 15 20" />
       <circle cx="6.5" cy="13" r="1.2" fill="currentColor" />
       <path d="M6.5 11.8 L 6.5 9" />
+    </svg>
+  );
+}
+
+export function ChronicleIcon({ size = 20, className = '' }) {
+  return (
+    <svg {...baseProps(size)} className={className}>
+      {/* Bound journal cover */}
+      <path d="M5 3 L 18 3 L 19 5 L 19 21 L 5 21 Z" />
+      {/* Spine */}
+      <path d="M5 3 L 5 21" />
+      {/* Bookmark ribbon trailing from the top */}
+      <path d="M14 3 L 14 9 L 16 7.5 L 18 9 L 18 3" fill="currentColor" fillOpacity="0.2" />
+      {/* Quill nib resting on the cover */}
+      <path d="M8 17 C 9 14, 11 12, 13 11 C 12 13, 11 15, 9 17 Z" />
+      <path d="M8 17 L 7 19" />
     </svg>
   );
 }

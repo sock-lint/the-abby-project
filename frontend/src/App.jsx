@@ -26,6 +26,7 @@ import BestiaryHub from './pages/bestiary';
 import Character from './pages/Character';
 import TreasuryHub from './pages/treasury';
 import AtlasHub from './pages/atlas';
+import ChronicleHub from './pages/chronicle';
 import DesignShowcase from './pages/__design';
 import Loader from './components/Loader';
 
@@ -143,6 +144,9 @@ export default function App() {
               {/* Chapter V — Atlas */}
               <Route path="/atlas" element={<AtlasHub />} />
 
+              {/* Chapter VI — Chronicle (memoir: Sketchbook · Journal · Yearbook) */}
+              <Route path="/chronicle" element={<ChronicleHub />} />
+
               {/* Utility */}
               <Route path="/clock" element={<ClockPage />} />
               <Route path="/manage" element={<Manage />} />
@@ -165,8 +169,9 @@ export default function App() {
               <Route path="/timecards" element={<LegacyRedirect to="/treasury?tab=wages" />} />
               <Route path="/rewards" element={<LegacyRedirect to="/treasury?tab=bazaar" />} />
               <Route path="/achievements" element={<LegacyRedirect to="/atlas?tab=skills" />} />
-              <Route path="/portfolio" element={<LegacyRedirect to="/atlas?tab=sketchbook" />} />
+              <Route path="/portfolio" element={<LegacyRedirect to="/chronicle?tab=sketchbook" />} />
               <Route path="/lorebook" element={<LegacyRedirect to="/atlas?tab=lorebook" />} />
+              <Route path="/yearbook" element={<LegacyRedirect to="/chronicle?tab=yearbook" />} />
             </Route>
             </Routes>
           </BrowserRouter>
