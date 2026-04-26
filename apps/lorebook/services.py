@@ -35,7 +35,16 @@ EXPECTED_ENTRY_SLUGS = {
     "cosmetics",
 }
 
-REQUIRED_FIELDS = {"slug", "title", "chapter", "kid_voice", "mechanics"}
+REQUIRED_FIELDS = {"slug", "title", "chapter", "kid_voice", "mechanics", "trial_template", "trial"}
+
+TRIAL_TEMPLATES = frozenset({
+    "tap_and_reward",
+    "scribe",
+    "observe",
+    "choice",
+    "drag_to_target",
+    "sequence",
+})
 
 
 class LorebookCatalogError(ValueError):
@@ -79,6 +88,20 @@ def load_lorebook_catalog() -> list[dict[str, Any]]:
         economy = entry.get("economy") or {}
         if not isinstance(economy, dict):
             raise LorebookCatalogError(f"{slug}: economy must be a mapping")
+
+        template = entry.get("trial_template")
+        if template not in TRIAL_TEMPLATES:
+            raise LorebookCatalogError(
+                f"{slug}: trial_template must be one of {sorted(TRIAL_TEMPLATES)}, got {template!r}"
+            )
+
+        trial = entry.get("trial")
+        if not isinstance(trial, dict):
+            raise LorebookCatalogError(f"{slug}: trial must be a mapping")
+        for key in ("prompt", "payoff"):
+            value = trial.get(key)
+            if not isinstance(value, str) or not value.strip():
+                raise LorebookCatalogError(f"{slug}: trial.{key} must be a non-empty string")
 
         catalog.append(dict(entry))
 
@@ -194,28 +217,46 @@ def compute_lorebook_unlocks(user) -> dict[str, dict[str, Any]]:
     return unlocks
 
 
+def _trained_state(user, slug: str) -> bool:
+    """True when the child has completed (or, for parents, is exempt from) the trial."""
+
+    if getattr(user, "role", None) == "parent":
+        return True
+    flags = getattr(user, "lorebook_flags", {}) or {}
+    return bool(flags.get(f"{slug}_trained"))
+
+
 def serialize_lorebook(user) -> dict[str, Any]:
     catalog = load_lorebook_catalog()
     unlocks = compute_lorebook_unlocks(user)
     serialized = []
     unlocked_count = 0
+    trained_count = 0
 
     for entry in catalog:
         state = unlocks.get(entry["slug"], {"unlocked": False, "reason": ""})
         unlocked = bool(state.get("unlocked"))
+        trained = _trained_state(user, entry["slug"])
         if unlocked:
             unlocked_count += 1
+        if trained:
+            trained_count += 1
         serialized.append(
             {
                 **entry,
                 "unlocked": unlocked,
                 "unlocked_reason": state.get("reason", ""),
+                "trained": trained,
             }
         )
 
     return {
         "entries": serialized,
-        "counts": {"unlocked": unlocked_count, "total": len(serialized)},
+        "counts": {
+            "unlocked": unlocked_count,
+            "trained": trained_count,
+            "total": len(serialized),
+        },
     }
 
 

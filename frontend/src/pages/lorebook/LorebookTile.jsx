@@ -1,18 +1,66 @@
 export default function LorebookTile({ entry, onSelect }) {
   const unlocked = !!entry.unlocked;
+  const trained = !!entry.trained;
   const shellBase =
     'relative rounded-2xl p-3 flex flex-col items-center gap-1.5 min-h-[142px] transition-transform';
-  const unlockedShell =
+  const trainedShell =
     'bg-ink-page-rune-glow/95 border border-ink-page-shadow hover:shadow-lg active:scale-[0.98]';
+  const encounteredShell =
+    'bg-ink-page-aged border border-sheikah-teal-deep/50 shadow-[0_0_0_1px_rgba(0,0,0,0)] hover:border-sheikah-teal-deep hover:shadow-md active:scale-[0.98]';
   const lockedShell =
     'border border-dashed border-ink-whisper/30 bg-ink-page-aged/40 text-ink-whisper/60 shadow-[inset_0_2px_6px_-2px_rgba(45,31,21,0.25),inset_0_-1px_0_rgba(255,248,224,0.4)]';
+
+  let shell;
+  let runeLabel;
+  let kicker;
+  let stateText;
+  let mode;
+
+  if (!unlocked) {
+    shell = lockedShell;
+    runeLabel = 'undiscovered';
+    kicker = 'discover by trying it in the app';
+    stateText = `${entry.title} · not yet discovered`;
+    mode = null;
+  } else if (!trained) {
+    shell = encounteredShell;
+    runeLabel = 'untrained';
+    kicker = 'tap to begin training';
+    stateText = `${entry.title} · ready to train`;
+    mode = 'trial';
+  } else {
+    shell = trainedShell;
+    runeLabel = 'inked';
+    kicker = entry.summary;
+    stateText = `${entry.title} · inked`;
+    mode = 'detail';
+  }
 
   const body = (
     <div
       data-lorebook-tile="true"
       data-unlocked={unlocked ? 'true' : 'false'}
-      className={`${shellBase} ${unlocked ? unlockedShell : lockedShell}`}
+      data-trained={trained ? 'true' : 'false'}
+      className={`${shellBase} ${shell}`}
     >
+      {unlocked && !trained && (
+        <span
+          aria-hidden="true"
+          className="absolute top-1.5 right-1.5 inline-flex items-center rounded-full bg-sheikah-teal-deep px-2 py-0.5 text-micro font-rune uppercase tracking-wider text-ink-page"
+        >
+          train
+        </span>
+      )}
+      {unlocked && trained && (
+        <span
+          aria-hidden="true"
+          className="absolute top-1.5 right-1.5 text-base leading-none"
+          title="Inked"
+        >
+          🪶
+        </span>
+      )}
+
       <div
         className={`relative w-14 h-14 rounded-full flex items-center justify-center ${
           unlocked
@@ -41,7 +89,7 @@ export default function LorebookTile({ entry, onSelect }) {
           unlocked ? 'text-sheikah-teal-deep' : 'text-ink-whisper/55'
         }`}
       >
-        {unlocked ? 'discovered' : 'undiscovered'}
+        {runeLabel}
       </div>
 
       <div
@@ -49,18 +97,14 @@ export default function LorebookTile({ entry, onSelect }) {
           unlocked ? 'text-ink-whisper' : 'text-ink-whisper/80'
         }`}
       >
-        {unlocked ? entry.summary : 'not yet discovered'}
+        {kicker}
       </div>
     </div>
   );
 
-  if (!unlocked) {
+  if (!mode) {
     return (
-      <div
-        aria-label={`${entry.title} · not yet discovered`}
-        role="img"
-        className="w-full"
-      >
+      <div aria-label={stateText} role="img" className="w-full">
         {body}
       </div>
     );
@@ -69,8 +113,8 @@ export default function LorebookTile({ entry, onSelect }) {
   return (
     <button
       type="button"
-      onClick={() => onSelect?.(entry)}
-      aria-label={`${entry.title} · discovered`}
+      onClick={() => onSelect?.(entry, mode)}
+      aria-label={stateText}
       className="w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal rounded-2xl"
     >
       {body}

@@ -59,9 +59,10 @@ class LorebookViewTests(APITestCase):
         resp = self.client.get("/api/lorebook/")
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
-        self.assertEqual(data["counts"], {"unlocked": 17, "total": 17})
+        self.assertEqual(data["counts"], {"unlocked": 17, "trained": 17, "total": 17})
         self.assertEqual(len(data["entries"]), 17)
         self.assertTrue(all(entry["unlocked"] for entry in data["entries"]))
+        self.assertTrue(all(entry["trained"] for entry in data["entries"]))
         self.assertTrue(
             all(entry["unlocked_reason"] == "parent_reference" for entry in data["entries"])
         )
@@ -69,6 +70,29 @@ class LorebookViewTests(APITestCase):
         self.assertFalse(study["economy"]["money"])
         self.assertFalse(study["economy"]["coins"])
         self.assertTrue(study["economy"]["xp"])
+        self.assertIn(study["trial_template"], {
+            "tap_and_reward", "scribe", "observe", "choice", "drag_to_target", "sequence",
+        })
+        self.assertIn("prompt", study["trial"])
+        self.assertIn("payoff", study["trial"])
+
+    def test_child_trained_flag_reads_from_lorebook_flags(self):
+        self.client.force_authenticate(self.child)
+        data = self.client.get("/api/lorebook/").json()
+        by_slug = {entry["slug"]: entry for entry in data["entries"]}
+        # Fresh child: no entries trained.
+        self.assertEqual(data["counts"]["trained"], 0)
+        self.assertFalse(by_slug["duties"]["trained"])
+
+        self.child.lorebook_flags = {"duties_trained": True}
+        self.child.save(update_fields=["lorebook_flags"])
+        self.child.refresh_from_db()
+        data = self.client.get("/api/lorebook/").json()
+        by_slug = {entry["slug"]: entry for entry in data["entries"]}
+        self.assertEqual(data["counts"]["trained"], 1)
+        self.assertTrue(by_slug["duties"]["trained"])
+        # Other entries are unaffected.
+        self.assertFalse(by_slug["rituals"]["trained"])
 
     def test_fresh_child_sees_entries_locked(self):
         self.client.force_authenticate(self.child)
@@ -187,6 +211,62 @@ class LorebookViewTests(APITestCase):
         data = self.client.get("/api/lorebook/").json()
         unlocked = {entry["slug"] for entry in data["entries"] if entry["unlocked"]}
         self.assertEqual(unlocked, EXPECTED_ENTRY_SLUGS)
+
+    def _load_with_yaml(self, yaml_text):
+        """Helper: swap LOREBOOK_PATH for a tmp file and reload the catalog."""
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from .. import services
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(yaml_text)
+            tmp_path = Path(f.name)
+        try:
+            with patch.object(services, "LOREBOOK_PATH", tmp_path):
+                services.load_lorebook_catalog.cache_clear()
+                return services.load_lorebook_catalog()
+        finally:
+            tmp_path.unlink(missing_ok=True)
+            services.load_lorebook_catalog.cache_clear()
+
+    def test_yaml_validator_rejects_unknown_trial_template(self):
+        from .. import services
+
+        bad_yaml = """
+entries:
+  - slug: duties
+    title: Duties
+    chapter: daily_life
+    kid_voice: |
+      Test
+    mechanics:
+      - "x"
+    trial_template: not_a_real_template
+    trial:
+      prompt: "x"
+      payoff: "x"
+"""
+        with self.assertRaises(services.LorebookCatalogError) as ctx:
+            self._load_with_yaml(bad_yaml)
+        self.assertIn("trial_template", str(ctx.exception))
+
+    def test_yaml_validator_rejects_missing_trial_block(self):
+        from .. import services
+
+        bad_yaml = """
+entries:
+  - slug: duties
+    title: Duties
+    chapter: daily_life
+    kid_voice: |
+      Test
+    mechanics:
+      - "x"
+    trial_template: tap_and_reward
+"""
+        with self.assertRaises(services.LorebookCatalogError):
+            self._load_with_yaml(bad_yaml)
 
     def test_newly_unlocked_entries_respects_seen_flags(self):
         CoinLedger.objects.create(

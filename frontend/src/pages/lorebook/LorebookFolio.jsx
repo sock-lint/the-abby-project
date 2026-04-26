@@ -9,11 +9,15 @@ export default function LorebookFolio({
   chapter,
   entries = [],
   unlocked = 0,
+  trained = 0,
   total = 0,
   onSelect,
 }) {
   const headingId = useId();
-  const progressPct = total ? (unlocked / total) * 100 : 0;
+  // Progress band represents inked-page progress (the new training goal),
+  // while a quieter whisper line still reports discovery so the auto-element
+  // is visible.
+  const progressPct = total ? (trained / total) * 100 : 0;
   const tier = tierForProgress({ unlocked: total > 0, progressPct, level: 0 });
 
   return (
@@ -44,8 +48,13 @@ export default function LorebookFolio({
             </div>
           </div>
         </div>
-        <div className="shrink-0 text-right font-script text-caption text-ink-whisper pt-1">
-          <span className="tabular-nums">{unlocked} of {total}</span> discovered
+        <div className="shrink-0 text-right font-script text-caption text-ink-whisper pt-1 leading-snug">
+          <div>
+            <span className="tabular-nums">{trained} of {total}</span> inked
+          </div>
+          <div className="text-micro text-ink-whisper/70">
+            <span className="tabular-nums">{unlocked} of {total}</span> discovered
+          </div>
         </div>
       </header>
 

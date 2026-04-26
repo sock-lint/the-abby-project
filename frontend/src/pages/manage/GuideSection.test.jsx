@@ -46,6 +46,9 @@ const entries = [
       streak_credit: true,
     },
     unlocked: true,
+    trained: true,
+    trial_template: 'tap_and_reward',
+    trial: { prompt: 'tap to feel it', payoff: '+5 XP' },
   },
   {
     slug: 'streaks',
@@ -65,6 +68,9 @@ const entries = [
       streak_credit: true,
     },
     unlocked: true,
+    trained: true,
+    trial_template: 'tap_and_reward',
+    trial: { prompt: 'tap to feel it', payoff: '+5 XP' },
   },
 ];
 
@@ -72,7 +78,7 @@ function mockLorebook() {
   server.use(
     http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
     http.get('*/api/lorebook/', () =>
-      HttpResponse.json({ entries, counts: { unlocked: 2, total: 2 } }),
+      HttpResponse.json({ entries, counts: { unlocked: 2, trained: 2, total: 2 } }),
     ),
   );
 }
@@ -96,7 +102,7 @@ describe('GuideSection', () => {
     const user = userEvent.setup();
     renderWithProviders(<GuideSection />, { withAuth: 'parent' });
 
-    await user.click(await screen.findByRole('button', { name: /study · discovered/i }));
+    await user.click(await screen.findByRole('button', { name: /study · inked/i }));
 
     await screen.findByRole('dialog', { name: /study/i });
     expect(screen.getByText(/homework pays no money and no coins/i)).toBeInTheDocument();
