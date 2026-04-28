@@ -12,6 +12,7 @@ import { InstallPromptProvider } from './pwa/useInstallPrompt';
 import UpdateBanner from './pwa/UpdateBanner';
 import OfflineReadyToast from './pwa/OfflineReadyToast';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectNew from './pages/ProjectNew';
@@ -56,7 +57,7 @@ function LegacyRedirect({ to }) {
 }
 
 export default function App() {
-  const { user, loading, login } = useAuth();
+  const { user, loading, login, signup } = useAuth();
   const [celebration, setCelebration] = useState(null);
 
   useEffect(() => {
@@ -101,7 +102,16 @@ export default function App() {
   }
 
   if (!user) {
-    return <Login onLogin={login} />;
+    // Public routes: signup + login. Any other path falls back to Login so
+    // bookmarks of authenticated routes still surface the sign-in form.
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/signup" element={<Signup onSignup={signup} />} />
+          <Route path="*" element={<Login onLogin={login} />} />
+        </Routes>
+      </BrowserRouter>
+    );
   }
 
   return (
@@ -152,6 +162,10 @@ export default function App() {
               <Route path="/manage" element={<Manage />} />
               <Route path="/activity" element={<ActivityPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+
+              {/* Authed users hitting public auth routes bounce home. */}
+              <Route path="/signup" element={<LegacyRedirect to="/" />} />
+              <Route path="/login" element={<LegacyRedirect to="/" />} />
 
               {/* Legacy route redirects — keep old bookmarks working */}
               <Route path="/projects" element={<LegacyRedirect to="/quests?tab=ventures" />} />

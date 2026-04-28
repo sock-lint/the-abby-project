@@ -6,6 +6,13 @@ export const login = async (username, password) => {
   if (data && data.token) setToken(data.token);
   return data;
 };
+export const signup = async ({ username, password, display_name, family_name }) => {
+  const data = await api.post('/auth/signup/', {
+    username, password, display_name, family_name,
+  });
+  if (data && data.token) setToken(data.token);
+  return data;
+};
 export const logout = async () => {
   try {
     await api.post('/auth/', { action: 'logout' });
@@ -249,6 +256,7 @@ export const addCollaborator = (projectId, user_id, pay_split_percent) =>
 
 // Children (parent-only)
 export const getChildren = () => api.get('/children/');
+export const createChild = (data) => api.post('/children/', data);
 export const updateChild = (id, data) => api.patch(`/children/${id}/`, data);
 
 // Chores

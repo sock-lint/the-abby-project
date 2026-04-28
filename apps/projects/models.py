@@ -214,13 +214,32 @@ class ProjectTemplate(CreatedAtModel):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
         related_name="created_templates",
     )
-    is_public = models.BooleanField(default=False)
+    family = models.ForeignKey(
+        "families.Family",
+        on_delete=models.CASCADE,
+        related_name="project_templates",
+    )
+    is_public = models.BooleanField(
+        default=False,
+        help_text="When True, visible to other families' Templates list.",
+    )
 
     class Meta:
         ordering = ["-created_at"]
 
     def __str__(self):
         return f"Template: {self.title}"
+
+    def save(self, *args, **kwargs):
+        # Safety net for legacy callers — see Reward.save() for rationale.
+        if self.family_id is None:
+            from apps.families.models import Family
+            family, _ = Family.objects.get_or_create(
+                slug="default-family",
+                defaults={"name": "Default Family"},
+            )
+            self.family = family
+        super().save(*args, **kwargs)
 
 
 class TemplateMilestone(models.Model):

@@ -190,6 +190,7 @@ class ChoreService:
             message=f'{display} completed "{chore.title}" and is waiting for approval.',
             notification_type=NotificationType.CHORE_SUBMITTED,
             link="/chores",
+            about_user=user,
         )
 
         return completion

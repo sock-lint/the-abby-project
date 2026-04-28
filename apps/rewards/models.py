@@ -73,7 +73,12 @@ class Reward(CreatedAtModel):
         DIGITAL_ITEM = "digital_item", "Digital item (inventory credit)"
         BOTH = "both", "Both"
 
-    name = models.CharField(max_length=100, unique=True)
+    family = models.ForeignKey(
+        "families.Family",
+        on_delete=models.CASCADE,
+        related_name="rewards",
+    )
+    name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     icon = models.CharField(max_length=50, blank=True)
     image = models.ImageField(upload_to="rewards/", blank=True, null=True)
@@ -107,9 +112,30 @@ class Reward(CreatedAtModel):
 
     class Meta:
         ordering = ["order", "cost_coins", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["family", "name"],
+                name="reward_unique_name_per_family",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.icon} {self.name} ({self.cost_coins}c)"
+
+    def save(self, *args, **kwargs):
+        # Defense-in-depth: legacy callers (tests, fixtures) may still create
+        # Reward rows without ``family``; route them to the default Family so
+        # the row lands somewhere sensible rather than raising IntegrityError.
+        # Production paths (RewardViewSet.perform_create, MCP tools) always
+        # supply an explicit family — this is purely a safety net.
+        if self.family_id is None:
+            from apps.families.models import Family
+            family, _ = Family.objects.get_or_create(
+                slug="default-family",
+                defaults={"name": "Default Family"},
+            )
+            self.family = family
+        super().save(*args, **kwargs)
 
 
 class RewardRedemption(ApprovalWorkflowModel, CreatedAtModel):

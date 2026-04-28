@@ -178,6 +178,7 @@ class RewardService:
                 message=f"{display} wants to redeem {reward.name} for {reward.cost_coins} coins.",
                 notification_type=NotificationType.REDEMPTION_REQUESTED,
                 link="/rewards",
+                about_user=user,
             )
         return redemption
 
@@ -326,6 +327,7 @@ class ExchangeService:
             message=f"{display} wants to exchange ${dollar_amount} for {coin_amount} coins.",
             notification_type=NotificationType.EXCHANGE_REQUESTED,
             link="/rewards",
+            about_user=user,
         )
 
         return exchange

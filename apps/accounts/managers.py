@@ -7,6 +7,8 @@ class CustomUserManager(BaseUserManager):
             raise ValueError("Username is required")
         user = self.model(username=username, **extra_fields)
         user.set_password(password)
+        # User.save() auto-attaches to the default Family when ``family`` is
+        # not in extra_fields — see User.save().
         user.save(using=self._db)
         return user
 

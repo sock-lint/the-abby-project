@@ -13,6 +13,16 @@ const nullBody = () => new HttpResponse(null, { status: 204 });
 export const handlers = [
   // Auth
   http.post('*/api/auth/', ok),
+  http.post('*/api/auth/signup/', () =>
+    HttpResponse.json({
+      token: 'test-token',
+      user: {
+        id: 1, username: 'mike', role: 'parent',
+        family: { id: 1, name: 'Test Family' },
+      },
+      family: { id: 1, name: 'Test Family' },
+    }, { status: 201 }),
+  ),
   http.get('*/api/auth/me/', () =>
     HttpResponse.json({ detail: 'Authentication credentials were not provided.' }, { status: 401 }),
   ),
@@ -167,6 +177,9 @@ export const handlers = [
 
   // Children
   http.get('*/api/children/', empty),
+  http.post('*/api/children/', () =>
+    HttpResponse.json({ id: 99, username: 'newkid', role: 'child' }, { status: 201 }),
+  ),
   http.patch(/\/api\/children\/\d+\/$/, ok),
 
   // Chores

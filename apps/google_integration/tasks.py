@@ -170,14 +170,30 @@ def send_daily_reminders_task():
             )
             reminders_sent += 1
 
-    # ── Parent approval reminders ────────────────────────────────────
-    pending_timecards = Timecard.objects.filter(status="pending").count()
-    pending_chores = ChoreCompletion.objects.filter(status="pending").count()
-    pending_redemptions = RewardRedemption.objects.filter(status="pending").count()
-    pending_exchanges = ExchangeRequest.objects.filter(status="pending").count()
-    total_pending = pending_timecards + pending_chores + pending_redemptions + pending_exchanges
+    # ── Parent approval reminders — scoped per family ────────────────
+    from apps.families.models import Family
 
-    if total_pending > 0:
+    for family in Family.objects.all():
+        pending_timecards = Timecard.objects.filter(
+            status="pending", user__family=family,
+        ).count()
+        pending_chores = ChoreCompletion.objects.filter(
+            status="pending", user__family=family,
+        ).count()
+        pending_redemptions = RewardRedemption.objects.filter(
+            status="pending", user__family=family,
+        ).count()
+        pending_exchanges = ExchangeRequest.objects.filter(
+            status="pending", user__family=family,
+        ).count()
+        total_pending = (
+            pending_timecards + pending_chores
+            + pending_redemptions + pending_exchanges
+        )
+
+        if total_pending == 0:
+            continue
+
         parts = []
         if pending_timecards:
             parts.append(f"{pending_timecards} timecard{'s' if pending_timecards != 1 else ''}")
@@ -188,9 +204,12 @@ def send_daily_reminders_task():
         if pending_exchanges:
             parts.append(f"{pending_exchanges} exchange{'s' if pending_exchanges != 1 else ''}")
 
-        message = f"You have {total_pending} item{'s' if total_pending != 1 else ''} awaiting approval: {', '.join(parts)}."
+        message = (
+            f"You have {total_pending} item{'s' if total_pending != 1 else ''} "
+            f"awaiting approval: {', '.join(parts)}."
+        )
 
-        parents = User.objects.filter(role="parent", is_active=True)
+        parents = User.objects.filter(role="parent", is_active=True, family=family)
         for parent in parents:
             notify(
                 parent,

@@ -82,6 +82,11 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
           <span className="block font-script text-ink-whisper text-xs capitalize leading-tight">
             {user?.role}
           </span>
+          {user?.family?.name && (
+            <span className="block font-script text-ink-whisper text-tiny leading-tight truncate">
+              {user.family.name}
+            </span>
+          )}
         </span>
       </button>
 
@@ -108,6 +113,11 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
               <div className="font-script text-sheikah-teal-deep text-xs capitalize leading-tight mt-0.5">
                 {user?.role || 'traveler'}
               </div>
+              {user?.family?.name && (
+                <div className="font-script text-ink-whisper text-tiny leading-tight mt-0.5 truncate">
+                  {user.family.name}
+                </div>
+              )}
             </div>
 
             <nav className="p-2" role="none">

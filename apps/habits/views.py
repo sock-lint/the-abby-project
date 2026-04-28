@@ -97,6 +97,7 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                 message=f'{display} proposed a new ritual "{habit.name}". Set XP and approve to publish.',
                 notification_type=NotificationType.HABIT_PROPOSED,
                 link="/manage",
+                about_user=user,
             )
         else:
             habit = serializer.save(created_by=user)

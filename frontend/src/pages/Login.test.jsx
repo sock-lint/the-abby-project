@@ -1,23 +1,50 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import Login from './Login.jsx';
 import { server } from '../test/server.js';
 
 afterEach(() => {
   window.history.replaceState({}, '', '/');
+  vi.unstubAllEnvs();
 });
+
+const renderLogin = (props) =>
+  render(
+    <MemoryRouter>
+      <Login onLogin={props?.onLogin || (() => {})} />
+    </MemoryRouter>,
+  );
 
 describe('Login', () => {
   it('renders the form fields', () => {
     server.use(
       http.get('*/api/auth/google/login/', () => HttpResponse.json({})),
     );
-    render(<Login onLogin={() => {}} />);
+    renderLogin();
     expect(screen.getByLabelText(/name in the ledger/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/secret word/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /enter/i })).toBeInTheDocument();
+  });
+
+  it('shows the "Create a family" link by default', () => {
+    server.use(
+      http.get('*/api/auth/google/login/', () => HttpResponse.json({})),
+    );
+    renderLogin();
+    const link = screen.getByRole('link', { name: /create a family/i });
+    expect(link).toHaveAttribute('href', '/signup');
+  });
+
+  it('hides the "Create a family" link when VITE_ALLOW_SIGNUP is false', () => {
+    vi.stubEnv('VITE_ALLOW_SIGNUP', 'false');
+    server.use(
+      http.get('*/api/auth/google/login/', () => HttpResponse.json({})),
+    );
+    renderLogin();
+    expect(screen.queryByRole('link', { name: /create a family/i })).toBeNull();
   });
 
   it('calls onLogin with entered credentials', async () => {
@@ -26,7 +53,7 @@ describe('Login', () => {
     );
     const onLogin = vi.fn().mockResolvedValue();
     const user = userEvent.setup();
-    render(<Login onLogin={onLogin} />);
+    renderLogin({ onLogin });
     await user.type(screen.getByLabelText(/name in the ledger/i), 'abby');
     await user.type(screen.getByLabelText(/secret word/i), 'pw');
     await user.click(screen.getByRole('button', { name: /enter/i }));
@@ -39,7 +66,7 @@ describe('Login', () => {
     );
     const onLogin = vi.fn().mockRejectedValue(new Error('bad password'));
     const user = userEvent.setup();
-    render(<Login onLogin={onLogin} />);
+    renderLogin({ onLogin });
     await user.type(screen.getByLabelText(/name in the ledger/i), 'a');
     await user.type(screen.getByLabelText(/secret word/i), 'b');
     await user.click(screen.getByRole('button', { name: /enter/i }));
@@ -52,7 +79,7 @@ describe('Login', () => {
         HttpResponse.json({ authorization_url: 'https://accounts.google.com/…' }),
       ),
     );
-    render(<Login onLogin={() => {}} />);
+    renderLogin();
     await waitFor(() => expect(screen.getByText(/sign in with google/i)).toBeInTheDocument());
   });
 
@@ -64,7 +91,7 @@ describe('Login', () => {
       ),
     );
     const user = userEvent.setup();
-    render(<Login onLogin={() => {}} />);
+    renderLogin();
     await waitFor(() => expect(screen.getByText(/sign in with google/i)).toBeInTheDocument());
     // Stub window.location via defineProperty so assignment doesn't actually
     // navigate jsdom.
@@ -87,7 +114,7 @@ describe('Login', () => {
       http.get('*/api/auth/google/login/', () => HttpResponse.json({})),
     );
     window.history.pushState({}, '', '/?google_error=no_account');
-    render(<Login onLogin={() => {}} />);
+    renderLogin();
     expect(screen.getByText(/no linked google account/i)).toBeInTheDocument();
   });
 
@@ -96,7 +123,7 @@ describe('Login', () => {
       http.get('*/api/auth/google/login/', () => HttpResponse.json({})),
     );
     window.history.pushState({}, '', '/?google_error=inactive');
-    render(<Login onLogin={() => {}} />);
+    renderLogin();
     expect(screen.getByText(/account is inactive/i)).toBeInTheDocument();
   });
 
@@ -106,7 +133,7 @@ describe('Login', () => {
         HttpResponse.json({ error: 'nope' }, { status: 500 }),
       ),
     );
-    render(<Login onLogin={() => {}} />);
+    renderLogin();
     // Wait a tick; the button must never appear.
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByText(/sign in with google/i)).toBeNull();
@@ -119,7 +146,7 @@ describe('Login', () => {
       ),
     );
     const user = userEvent.setup();
-    render(<Login onLogin={() => {}} />);
+    renderLogin();
     await waitFor(() => expect(screen.getByText(/sign in with google/i)).toBeInTheDocument());
     // Second call (on click) fails:
     server.use(

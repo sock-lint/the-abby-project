@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import {
-  Users, BookTemplate, BookOpen, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink,
+  Users, UserPlus, BookTemplate, BookOpen, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink,
 } from 'lucide-react';
 import {
-  getChildren, updateChild,
+  getChildren, createChild, updateChild,
   getTemplates, updateTemplate, deleteTemplate, createProjectFromTemplate,
   getCategories, getGoogleAuthUrl, unlinkGoogleAccount,
 } from '../api';
@@ -82,14 +82,20 @@ export default function Manage() {
 function ChildrenSection() {
   const { data, loading, reload } = useApi(getChildren);
   const [editChild, setEditChild] = useState(null);
+  const [creating, setCreating] = useState(false);
   const children = normalizeList(data);
 
   if (loading) return <Loader />;
 
   return (
     <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button onClick={() => setCreating(true)} className="flex items-center gap-1">
+          <UserPlus size={14} /> New child
+        </Button>
+      </div>
       {children.length === 0 && (
-        <EmptyState>No children found. Create child accounts in Django admin.</EmptyState>
+        <EmptyState>No children yet — tap <span className="font-semibold">New child</span> to add one.</EmptyState>
       )}
       {children.map((child) => (
         <ParchmentCard key={child.id} className="flex items-center gap-4">
@@ -129,8 +135,90 @@ function ChildrenSection() {
             onSaved={() => { setEditChild(null); reload(); }}
           />
         )}
+        {creating && (
+          <CreateChildModal
+            onClose={() => setCreating(false)}
+            onCreated={() => { setCreating(false); reload(); }}
+          />
+        )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function CreateChildModal({ onClose, onCreated }) {
+  const { form, set, saving, setSaving, error, setError } = useFormState({
+    username: '',
+    password: '',
+    display_name: '',
+    hourly_rate: '8.00',
+  });
+
+  const onField = (k) => (e) => set({ [k]: e.target.value });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await createChild({
+        username: form.username.trim(),
+        password: form.password,
+        display_name: form.display_name.trim(),
+        hourly_rate: form.hourly_rate,
+      });
+      onCreated();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <BottomSheet title="New child" onClose={onClose} disabled={saving}>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <ErrorAlert message={error} />
+        <TextField
+          label="Sign-in name"
+          value={form.username}
+          onChange={onField('username')}
+          required
+          autoComplete="off"
+        />
+        <TextField
+          label="Display name"
+          value={form.display_name}
+          onChange={onField('display_name')}
+          placeholder={form.username}
+        />
+        <TextField
+          label="Secret word"
+          type="password"
+          value={form.password}
+          onChange={onField('password')}
+          required
+          autoComplete="new-password"
+        />
+        <TextField
+          label="Hourly rate ($)"
+          value={form.hourly_rate}
+          onChange={onField('hourly_rate')}
+          type="number"
+          step="0.01"
+          min="0"
+          required
+        />
+        <div className="flex gap-2 justify-end pt-2">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? 'Creating…' : 'Create child'}
+          </Button>
+        </div>
+      </form>
+    </BottomSheet>
   );
 }
 

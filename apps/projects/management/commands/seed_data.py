@@ -125,30 +125,53 @@ class Command(BaseCommand):
 
     def _create_users(self):
         from apps.projects.models import User
+        from apps.families.models import Family
 
         parent_pw = os.environ.get("PARENT_PASSWORD", "summerforge2025")
         child_pw = os.environ.get("CHILD_PASSWORD", "summerforge2025")
 
+        family, _ = Family.objects.get_or_create(
+            slug="default-family",
+            defaults={"name": "Default Family"},
+        )
+
         parent, created = User.objects.get_or_create(
             username="dad",
-            defaults={"display_name": "Dad", "role": "parent", "is_staff": True},
+            defaults={
+                "display_name": "Dad", "role": "parent",
+                "is_staff": True, "family": family,
+            },
         )
         if created:
             parent.set_password(parent_pw)
             parent.save()
             self.stdout.write(f"  Created parent: {parent.username}")
         else:
+            if parent.family_id != family.id:
+                parent.family = family
+                parent.save(update_fields=["family"])
             self.stdout.write(f"  Parent already exists: {parent.username}")
+
+        if family.primary_parent_id is None:
+            family.primary_parent = parent
+            family.save(update_fields=["primary_parent"])
 
         child, created = User.objects.get_or_create(
             username="abby",
-            defaults={"display_name": "Abby", "role": "child", "hourly_rate": Decimal("8.00")},
+            defaults={
+                "display_name": "Abby", "role": "child",
+                "hourly_rate": Decimal("8.00"),
+                "family": family,
+            },
         )
         if created:
             child.set_password(child_pw)
             child.save()
             self.stdout.write(f"  Created child: {child.username}")
         else:
+            if child.family_id != family.id:
+                child.family = family
+                child.save(update_fields=["family"])
             self.stdout.write(f"  Child already exists: {child.username}")
 
     def _create_sample_projects(self, categories, skill_map):

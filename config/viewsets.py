@@ -6,19 +6,25 @@ from config.permissions import IsParent
 
 
 def filter_queryset_by_role(user, queryset, role_filter_field="user"):
-    """Filter a queryset by user role: parents see all, children see own.
+    """Filter a queryset by user role: parents see their family, children see own.
 
     Usable from viewsets (via :class:`RoleFilteredQuerySetMixin`) and from
     APIViews that need to apply the same rule to multiple querysets with
     different filter fields.
+
+    The ``role_filter_field`` is the lookup pointing to a User on the row
+    (e.g. ``"user"``, ``"assigned_to"``, ``"project__assigned_to"``). For
+    parents we append ``__family`` to scope through that User's family.
     """
     if user.role == "parent":
-        return queryset
+        return queryset.filter(
+            **{f"{role_filter_field}__family": user.family},
+        )
     return queryset.filter(**{role_filter_field: user})
 
 
 class RoleFilteredQuerySetMixin:
-    """Filter queryset by user role: parents see all, children see their own.
+    """Filter queryset by user role: parents see their family, children see their own.
 
     Subclasses set ``role_filter_field`` (default ``"user"``) to the lookup
     used when filtering for children, e.g. ``"assigned_to"`` or
@@ -48,12 +54,24 @@ class NestedProjectResourceMixin:
         serializer.save(project_id=self.kwargs["project_pk"])
 
 
-def get_child_or_404(child_id):
-    """Look up a child user by ID, returning None if not found."""
-    from apps.projects.models import User
+def get_child_or_404(child_id, requesting_user=None):
+    """Look up a child user by ID, returning None if not found.
 
+    When ``requesting_user`` is provided, scope to the same family — a parent
+    asking for a child outside their family gets ``None`` (treated as 404 by
+    the caller). Children can only ever target themselves so the family
+    check is a no-op for them.
+    """
+    from apps.accounts.models import User
+
+    qs = User.objects.filter(id=child_id, role="child")
+    if requesting_user is not None:
+        family_id = getattr(requesting_user, "family_id", None)
+        if family_id is None:
+            return None
+        qs = qs.filter(family_id=family_id)
     try:
-        return User.objects.get(id=child_id, role="child")
+        return qs.get()
     except User.DoesNotExist:
         return None
 
@@ -123,7 +141,9 @@ def resolve_target_user(request, source="query_params"):
     """Resolve a target child user from the request.
 
     For parents, looks up ``user_id`` from *source* (``"query_params"``
-    or ``"data"``).  Children are always the target themselves.
+    or ``"data"``). The looked-up child is family-scoped — a parent
+    cannot target a child in another family. Children are always the
+    target themselves.
 
     Returns ``(user, None)`` on success or ``(None, Response)`` on error.
     """
@@ -133,7 +153,7 @@ def resolve_target_user(request, source="query_params"):
         bucket = request.query_params if source == "query_params" else request.data
         child_id = bucket.get("user_id")
         if child_id:
-            target_user = get_child_or_404(child_id)
+            target_user = get_child_or_404(child_id, requesting_user=user)
             if target_user is None:
                 return None, child_not_found_response()
     return target_user, None

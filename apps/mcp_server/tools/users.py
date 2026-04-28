@@ -26,8 +26,11 @@ def list_children(params: ListChildrenIn) -> dict[str, Any]:
     ``assigned_to_id`` requires a child ID, and this is the lookup table.
     """
     del params  # schema has no fields
-    require_parent()
-    children = list(User.objects.filter(role="child").order_by("display_name", "username"))
+    caller = require_parent()
+    children = list(
+        User.objects.filter(role="child", family=caller.family)
+        .order_by("display_name", "username")
+    )
     return {"children": [child_to_dict(c) for c in children]}
 
 
@@ -43,6 +46,8 @@ def get_user(params: GetUserIn) -> dict[str, Any]:
         target = User.objects.get(pk=target_id)
     except User.DoesNotExist:
         raise MCPNotFoundError(f"User {target_id} not found.")
+    if target.id != user.id and target.family_id != getattr(user, "family_id", None):
+        raise MCPNotFoundError(f"User {target_id} not found.")
     return user_to_dict(target)
 
 
@@ -56,9 +61,11 @@ def update_child(params: UpdateChildIn) -> dict[str, Any]:
     admin. The ``avatar`` image is parent-UI-only (MCP can't upload
     files).
     """
-    require_parent()
+    caller = require_parent()
     try:
-        target = User.objects.get(pk=params.user_id, role="child")
+        target = User.objects.get(
+            pk=params.user_id, role="child", family=caller.family,
+        )
     except User.DoesNotExist:
         raise MCPNotFoundError(f"Child {params.user_id} not found.")
     data = params.model_dump(exclude={"user_id"}, exclude_unset=True)

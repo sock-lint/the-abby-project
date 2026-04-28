@@ -4,6 +4,7 @@ from django.test import TestCase
 from apps.notifications.models import Notification, NotificationType
 from apps.notifications.services import get_display_name, notify, notify_parents
 from apps.projects.models import User
+from config.tests.factories import make_family
 
 
 class GetDisplayNameTests(TestCase):
@@ -37,19 +38,58 @@ class NotifyTests(TestCase):
 
 
 class NotifyParentsTests(TestCase):
-    def test_notifies_all_parents(self):
-        User.objects.create_user(username="p1", password="pw", role="parent")
-        User.objects.create_user(username="p2", password="pw", role="parent")
-        User.objects.create_user(username="c", password="pw", role="child")
-
-        notify_parents("Alert", "msg", NotificationType.CHORE_SUBMITTED)
-        # Only parents get notified (2 parents, 0 children).
-        self.assertEqual(Notification.objects.count(), 2)
-        self.assertFalse(
-            Notification.objects.filter(user__role="child").exists()
+    def test_notifies_only_parents_in_family(self):
+        fam = make_family(
+            "A",
+            parents=[{"username": "p1"}, {"username": "p2"}],
+            children=[{"username": "c"}],
         )
+        notify_parents(
+            "Alert", "msg", NotificationType.CHORE_SUBMITTED,
+            about_user=fam.children[0],
+        )
+        self.assertEqual(Notification.objects.count(), 2)
+        self.assertFalse(Notification.objects.filter(user__role="child").exists())
 
     def test_no_parents_creates_no_notifications(self):
-        User.objects.create_user(username="c", password="pw", role="child")
-        notify_parents("Alert", "msg", NotificationType.CHORE_SUBMITTED)
+        fam = make_family("A", children=[{"username": "c"}])
+        notify_parents(
+            "Alert", "msg", NotificationType.CHORE_SUBMITTED,
+            about_user=fam.children[0],
+        )
         self.assertEqual(Notification.objects.count(), 0)
+
+    def test_only_notifies_same_family(self):
+        a = make_family(
+            "A",
+            parents=[{"username": "a_p"}],
+            children=[{"username": "a_c"}],
+        )
+        b = make_family(
+            "B",
+            parents=[{"username": "b_p"}],
+            children=[{"username": "b_c"}],
+        )
+        notify_parents(
+            "Alert", "msg", NotificationType.CHORE_SUBMITTED,
+            about_user=a.children[0],
+        )
+        self.assertEqual(Notification.objects.count(), 1)
+        notification = Notification.objects.get()
+        self.assertEqual(notification.user, a.parents[0])
+
+    def test_requires_family_or_about_user(self):
+        with self.assertRaises(ValueError):
+            notify_parents("Alert", "msg", NotificationType.CHORE_SUBMITTED)
+
+    def test_accepts_explicit_family_kwarg(self):
+        fam = make_family(
+            "A",
+            parents=[{"username": "p1"}],
+            children=[{"username": "c"}],
+        )
+        notify_parents(
+            "Alert", "msg", NotificationType.CHORE_SUBMITTED,
+            family=fam.family,
+        )
+        self.assertEqual(Notification.objects.count(), 1)

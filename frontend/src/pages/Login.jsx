@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import ErrorAlert from '../components/ErrorAlert';
 import { getGoogleLoginUrl } from '../api';
 import ParchmentCard from '../components/journal/ParchmentCard';
@@ -96,6 +97,15 @@ export default function Login({ onLogin }) {
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? 'Unsealing…' : 'Enter'}
             </Button>
+
+            {import.meta.env.VITE_ALLOW_SIGNUP !== 'false' && (
+              <Link
+                to="/signup"
+                className="block text-center font-script text-sheikah-teal-deep text-xs hover:underline"
+              >
+                Create a family
+              </Link>
+            )}
 
             {googleAvailable && (
               <>

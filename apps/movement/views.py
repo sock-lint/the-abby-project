@@ -119,7 +119,7 @@ class MovementSessionViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         if request.user.role == "parent":
             child_id = request.data.get("user_id")
             if child_id:
-                target_user = get_child_or_404(child_id)
+                target_user = get_child_or_404(child_id, requesting_user=request.user)
                 if target_user is None:
                     return child_not_found_response()
 

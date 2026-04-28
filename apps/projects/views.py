@@ -94,10 +94,21 @@ class MeView(APIView):
 class ChildViewSet(viewsets.ModelViewSet):
     serializer_class = ChildSerializer
     permission_classes = [IsParent]
-    http_method_names = ["get", "patch", "head", "options"]
+    http_method_names = ["get", "post", "patch", "head", "options"]
 
     def get_queryset(self):
-        return User.objects.filter(role="child")
+        family = getattr(self.request.user, "family", None)
+        if family is None:
+            return User.objects.none()
+        return User.objects.filter(role="child", family=family)
+
+    def perform_create(self, serializer):
+        # ``password`` flows through validated_data; ChildSerializer.create
+        # pops it and uses ``User.objects.create_user`` to hash it.
+        serializer.save(
+            role="child",
+            family=self.request.user.family,
+        )
 
 
 class DashboardView(APIView):
@@ -497,13 +508,24 @@ class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
     serializer_class = ProjectTemplateSerializer
 
     def get_queryset(self):
+        from django.db.models import Q
         user = self.request.user
+        family = getattr(user, "family", None)
+        if family is None:
+            return ProjectTemplate.objects.filter(is_public=True)
         if user.role == "parent":
-            return ProjectTemplate.objects.all()
-        return ProjectTemplate.objects.filter(is_public=True)
+            return ProjectTemplate.objects.filter(
+                Q(family=family) | Q(is_public=True),
+            ).distinct()
+        return ProjectTemplate.objects.filter(
+            Q(family=family) | Q(is_public=True),
+        ).distinct()
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        serializer.save(
+            created_by=self.request.user,
+            family=self.request.user.family,
+        )
 
     @action(detail=False, methods=["get"])
     def shared(self, request):
@@ -575,12 +597,23 @@ class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="from-project")
     def create_from_project(self, request):
-        """Save a completed project as a template."""
+        """Save a completed project as a template (parent's own family only)."""
         project_id = request.data.get("project_id")
         try:
             project = Project.objects.get(id=project_id)
         except Project.DoesNotExist:
             return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Cross-family guard: only template a project the parent's family owns.
+        owner_family_id = (
+            getattr(project.assigned_to, "family_id", None)
+            or getattr(project.created_by, "family_id", None)
+        )
+        if owner_family_id and owner_family_id != request.user.family_id:
+            return Response(
+                {"error": "Project not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         template = ProjectTemplate.objects.create(
             title=project.title,
@@ -592,6 +625,7 @@ class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
             materials_budget=project.materials_budget,
             source_project=project,
             created_by=request.user,
+            family=request.user.family,
             is_public=request.data.get("is_public", False),
         )
 
@@ -685,7 +719,7 @@ class GreenlightImportView(APIView):
         if not child_id:
             return Response({"error": "user_id required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        child = get_child_or_404(child_id)
+        child = get_child_or_404(child_id, requesting_user=request.user)
         if child is None:
             return child_not_found_response()
 

@@ -205,7 +205,7 @@ class HomeworkTemplateViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        child = get_child_or_404(assigned_to_id)
+        child = get_child_or_404(assigned_to_id, requesting_user=request.user)
         if child is None:
             return child_not_found_response()
 

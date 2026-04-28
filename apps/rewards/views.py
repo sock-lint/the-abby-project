@@ -27,9 +27,15 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
     write_serializer_class = RewardWriteSerializer
 
     def get_queryset(self):
+        family = getattr(self.request.user, "family", None)
+        if family is None:
+            return Reward.objects.none()
         if self.request.user.role == "parent":
-            return Reward.objects.all()
-        return Reward.objects.filter(is_active=True)
+            return Reward.objects.filter(family=family)
+        return Reward.objects.filter(family=family, is_active=True)
+
+    def perform_create(self, serializer):
+        serializer.save(family=self.request.user.family)
 
     @action(detail=True, methods=["post"])
     def redeem(self, request, pk=None):

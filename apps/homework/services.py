@@ -120,6 +120,7 @@ class HomeworkService:
                 message=f"{display} added homework: \"{assignment.title}\" due {assignment.due_date}.",
                 notification_type=NotificationType.HOMEWORK_CREATED,
                 link="/homework",
+                about_user=user,
             )
         else:
             notify(
@@ -243,6 +244,7 @@ class HomeworkService:
             ),
             notification_type=NotificationType.HOMEWORK_SUBMITTED,
             link="/homework",
+            about_user=user,
         )
 
         return submission

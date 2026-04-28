@@ -46,11 +46,16 @@ class ChronicleViewSet(
 
     def get_queryset(self):
         qs = self.get_role_filtered_queryset(ChronicleEntry.objects.all())
-        # Parents can further scope with ?user_id=
+        # Parents can further scope with ?user_id= — but only to a child in
+        # the same family. The role-filtered queryset already family-scopes,
+        # so the explicit user_id filter is layered on top.
         if self.request.user.role == "parent":
             user_id = self.request.query_params.get("user_id")
             if user_id:
-                qs = qs.filter(user_id=user_id)
+                qs = qs.filter(
+                    user_id=user_id,
+                    user__family=self.request.user.family,
+                )
         chapter_year = self.request.query_params.get("chapter_year")
         if chapter_year:
             qs = qs.filter(chapter_year=chapter_year)
@@ -62,7 +67,12 @@ class ChronicleViewSet(
         target = request.user
         if request.user.role == "parent" and (uid := request.query_params.get("user_id")):
             from django.contrib.auth import get_user_model
-            target = get_object_or_404(get_user_model(), pk=uid, role="child")
+            target = get_object_or_404(
+                get_user_model(),
+                pk=uid,
+                role="child",
+                family=request.user.family,
+            )
 
         entries = list(
             ChronicleEntry.objects.filter(user=target).order_by("-chapter_year", "-occurred_on")
@@ -237,7 +247,7 @@ class ChronicleViewSet(
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         user_id = data.pop("user_id")
-        target = get_child_or_404(user_id)
+        target = get_child_or_404(user_id, requesting_user=request.user)
         if target is None:
             return child_not_found_response()
         occurred_on: date = data["occurred_on"]

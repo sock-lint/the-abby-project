@@ -161,6 +161,7 @@ class SavingsGoalService:
                 title=f"{get_display_name(user)} completed a savings goal",
                 message=f"{goal.title} (${goal.target_amount})",
                 notification_type=NotificationType.SAVINGS_GOAL_COMPLETED,
+                about_user=user,
             )
         except Exception:
             logger.exception(

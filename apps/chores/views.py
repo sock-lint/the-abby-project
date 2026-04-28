@@ -112,6 +112,7 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                 message=f'{display} proposed a new duty "{chore.title}". Set rewards and approve to publish.',
                 notification_type=NotificationType.CHORE_PROPOSED,
                 link="/manage",
+                about_user=user,
             )
         else:
             chore = serializer.save(created_by=user)

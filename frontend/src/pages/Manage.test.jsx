@@ -106,6 +106,90 @@ describe('Manage', () => {
   });
 });
 
+describe('Manage — create child flow', () => {
+  it('opens the BottomSheet when "New child" is clicked', async () => {
+    const parent = buildParent();
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(parent)),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+    );
+
+    const user = userEvent.setup();
+    renderPage();
+
+    const newChildBtn = await screen.findByRole('button', { name: /new child/i });
+    await user.click(newChildBtn);
+
+    // BottomSheet portals to body, so query off document not container.
+    expect(
+      await screen.findByRole('dialog', { name: /new child/i }),
+    ).toBeInTheDocument();
+    // Form fields render.
+    expect(screen.getByLabelText(/sign-in name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/secret word/i)).toBeInTheDocument();
+  });
+
+  it('posts to /api/children/ with the typed values, then refetches', async () => {
+    const parent = buildParent();
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(parent)),
+    );
+
+    const childrenList = spyHandler('get', /\/api\/children\/?$/, []);
+    server.use(childrenList.handler);
+
+    const create = spyHandler('post', /\/api\/children\/?$/, {
+      id: 99, username: 'newkid', role: 'child',
+    });
+    server.use(create.handler);
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /new child/i }));
+
+    await user.type(await screen.findByLabelText(/sign-in name/i), 'newkid');
+    await user.type(screen.getByLabelText(/display name/i), 'New Kid');
+    await user.type(screen.getByLabelText(/secret word/i), 'ApbBy1!Strong');
+    await user.click(screen.getByRole('button', { name: /create child/i }));
+
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].body).toMatchObject({
+      username: 'newkid',
+      password: 'ApbBy1!Strong',
+      display_name: 'New Kid',
+      hourly_rate: '8.00',
+    });
+
+    // After successful create the children list refetches — count >= 2 (mount + reload).
+    await waitFor(() => expect(childrenList.calls.length).toBeGreaterThanOrEqual(2));
+  });
+
+  it('surfaces a 400 error inline without closing the modal', async () => {
+    const parent = buildParent();
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(parent)),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.post('*/api/children/', () =>
+        HttpResponse.json({ username: ['already taken'] }, { status: 400 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /new child/i }));
+    await user.type(await screen.findByLabelText(/sign-in name/i), 'taken');
+    await user.type(screen.getByLabelText(/secret word/i), 'pw');
+    await user.click(screen.getByRole('button', { name: /create child/i }));
+
+    expect(await screen.findByText(/already taken/i)).toBeInTheDocument();
+    // Modal stayed open.
+    expect(screen.getByRole('dialog', { name: /new child/i })).toBeInTheDocument();
+  });
+});
+
+
 describe('Manage — child DOB + grade_entry_year', () => {
   it('saving patches /api/children/{id}/ with both fields', async () => {
     const parent = buildParent();

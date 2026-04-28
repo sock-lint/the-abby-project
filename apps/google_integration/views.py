@@ -37,7 +37,7 @@ def _target_user(request):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    child = get_child_or_404(for_user_id)
+    child = get_child_or_404(for_user_id, requesting_user=request.user)
     if child is None:
         return None, child_not_found_response()
     return child, None

@@ -13,6 +13,13 @@ class User(AbstractUser):
         CHILD = "child", "Child"
 
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.CHILD)
+    family = models.ForeignKey(
+        "families.Family",
+        on_delete=models.CASCADE,
+        related_name="members",
+        db_index=True,
+        help_text="Household scope.",
+    )
     hourly_rate = models.DecimalField(
         max_digits=5, decimal_places=2, default=Decimal("8.00")
     )
@@ -39,6 +46,21 @@ class User(AbstractUser):
     class Meta:
         # Preserve original table name so the move is a state-only migration.
         db_table = "projects_user"
+
+    def save(self, *args, **kwargs):
+        # Defense-in-depth: any path that lands here without a family
+        # (legacy tests, fixtures, ``User.objects.create(...)`` shortcuts)
+        # gets stamped to the default family rather than 500'ing on the
+        # NOT NULL constraint. Production paths (signup view, ChildViewSet
+        # POST) always supply an explicit family.
+        if self.family_id is None:
+            from apps.families.models import Family
+            family, _ = Family.objects.get_or_create(
+                slug="default-family",
+                defaults={"name": "Default Family"},
+            )
+            self.family_id = family.id
+        super().save(*args, **kwargs)
 
     @property
     def display_label(self) -> str:

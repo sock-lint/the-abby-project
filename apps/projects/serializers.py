@@ -20,6 +20,7 @@ class UserSerializer(serializers.ModelSerializer):
     age_years = serializers.IntegerField(read_only=True, allow_null=True)
     current_grade = serializers.IntegerField(read_only=True, allow_null=True)
     school_year_label = serializers.CharField(read_only=True, allow_null=True)
+    family = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -35,6 +36,7 @@ class UserSerializer(serializers.ModelSerializer):
             "google_linked",
             "date_of_birth", "grade_entry_year",
             "age_years", "current_grade", "school_year_label",
+            "family",
         ]
         read_only_fields = fields
 
@@ -45,22 +47,39 @@ class UserSerializer(serializers.ModelSerializer):
             logger.debug("google_linked check failed for user %s", obj.pk, exc_info=True)
             return False
 
+    def get_family(self, obj):
+        family = getattr(obj, "family", None)
+        if family is None:
+            return None
+        return {
+            "id": family.id,
+            "name": family.name,
+            "slug": family.slug,
+            "timezone": family.timezone,
+            "default_theme": family.default_theme,
+        }
+
 
 class ChildSerializer(serializers.ModelSerializer):
     google_linked = serializers.SerializerMethodField()
     age_years = serializers.IntegerField(read_only=True, allow_null=True)
     current_grade = serializers.IntegerField(read_only=True, allow_null=True)
     school_year_label = serializers.CharField(read_only=True, allow_null=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=False)
 
     class Meta:
         model = User
         fields = [
-            "id", "username", "display_name", "role", "hourly_rate", "avatar", "theme",
+            "id", "username", "password", "display_name", "role", "hourly_rate",
+            "avatar", "theme",
             "google_linked",
             "date_of_birth", "grade_entry_year",
             "age_years", "current_grade", "school_year_label",
         ]
-        read_only_fields = ["id", "username", "role", "theme", "age_years", "current_grade", "school_year_label"]
+        read_only_fields = [
+            "id", "role",
+            "age_years", "current_grade", "school_year_label",
+        ]
 
     def get_google_linked(self, obj):
         try:
@@ -68,6 +87,18 @@ class ChildSerializer(serializers.ModelSerializer):
         except Exception:
             logger.debug("google_linked check failed for user %s", obj.pk, exc_info=True)
             return False
+
+    def validate_username(self, value):
+        if self.instance is None and User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username is already taken.")
+        return value
+
+    def create(self, validated_data):
+        # ``role`` and ``family`` are stamped in by ``ChildViewSet.perform_create``.
+        password = validated_data.pop("password", None)
+        if not password:
+            raise serializers.ValidationError({"password": "Password is required."})
+        return User.objects.create_user(password=password, **validated_data)
 
 
 class ProjectMilestoneSerializer(serializers.ModelSerializer):

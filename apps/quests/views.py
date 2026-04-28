@@ -88,7 +88,7 @@ class CreateQuestView(APIView):
         # If assigned_to provided, auto-start for that child
         assigned_to_id = data.get("assigned_to")
         if assigned_to_id:
-            child = get_child_or_404(assigned_to_id)
+            child = get_child_or_404(assigned_to_id, requesting_user=request.user)
             if not child:
                 return child_not_found_response()
             try:
@@ -118,7 +118,10 @@ class FamilyActiveQuestsView(APIView):
     def get(self, request):
         from apps.projects.models import User
 
-        children = User.objects.filter(role="child").order_by("display_name", "username")
+        children = (
+            User.objects.filter(role="child", family=request.user.family)
+            .order_by("display_name", "username")
+        )
         rows = []
         for child in children:
             quest = QuestService.get_active_quest(child)
@@ -138,7 +141,7 @@ class AssignQuestView(APIView):
         user_id = request.data.get("user_id")
         if not user_id:
             return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-        child = get_child_or_404(user_id)
+        child = get_child_or_404(user_id, requesting_user=request.user)
         if not child:
             return child_not_found_response()
         try:

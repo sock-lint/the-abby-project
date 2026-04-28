@@ -84,11 +84,17 @@ def get_dashboard(params: GetDashboardIn) -> dict[str, Any]:
         target = User.objects.get(pk=target_id)
     except User.DoesNotExist:
         raise MCPNotFoundError(f"User {target_id} not found.")
+    if target.id != user.id and target.family_id != getattr(user, "family_id", None):
+        # Don't leak existence — surface as not-found.
+        raise MCPNotFoundError(f"User {target_id} not found.")
 
     result = _build_user_dashboard(target)
 
     if user.role == "parent" and params.user_id is None:
-        children = User.objects.filter(role="child").order_by("display_name", "username")
+        children = (
+            User.objects.filter(role="child", family=user.family)
+            .order_by("display_name", "username")
+        )
         result["children"] = [_build_user_dashboard(c) for c in children]
 
     return result

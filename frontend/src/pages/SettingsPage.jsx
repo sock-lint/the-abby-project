@@ -223,6 +223,18 @@ export default function SettingsPage() {
         </div>
       </ParchmentCard>
 
+      {user?.role === 'parent' && user?.family && (
+        <ParchmentCard>
+          <h2 className="font-display text-xl text-ink-primary mb-2">Family</h2>
+          <div className="font-display text-base text-ink-primary">
+            {user.family.name}
+          </div>
+          <div className="font-script text-ink-whisper text-xs mt-1">
+            chapter scoped to this household
+          </div>
+        </ParchmentCard>
+      )}
+
       <InstallCard />
 
       {confirmRemoveAvatar && (

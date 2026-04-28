@@ -239,6 +239,7 @@ class CreationService:
             )[:250],
             notification_type=NotificationType.CREATION_SUBMITTED,
             link="/sketchbook",
+            about_user=creation.user,
         )
         return creation
 

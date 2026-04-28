@@ -54,12 +54,12 @@ def is_parent() -> bool:
 
 
 def resolve_target_user(user: "User", requested_id: int | None) -> "User":
-    """Return the target user, enforcing child → self scoping.
+    """Return the target user, enforcing child → self + same-family scoping.
 
     If ``requested_id`` is ``None`` or matches the caller, return the caller.
-    Otherwise the caller must be a parent and the requested user must exist.
-    Used by tools that accept an optional ``user_id`` for parents to act on
-    behalf of a specific child.
+    Otherwise the caller must be a parent and the requested user must (a)
+    exist and (b) belong to the same family. A cross-family request raises
+    ``MCPNotFoundError`` (NOT permission-denied — don't leak existence).
     """
     from apps.accounts.models import User as UserModel
     if requested_id is None or requested_id == user.id:
@@ -67,9 +67,12 @@ def resolve_target_user(user: "User", requested_id: int | None) -> "User":
     if getattr(user, "role", None) != "parent":
         raise MCPPermissionDenied("Children can only view their own data.")
     try:
-        return UserModel.objects.get(pk=requested_id)
+        target = UserModel.objects.get(pk=requested_id)
     except UserModel.DoesNotExist:
         raise MCPNotFoundError(f"User {requested_id} not found.")
+    if target.family_id != getattr(user, "family_id", None):
+        raise MCPNotFoundError(f"User {requested_id} not found.")
+    return target
 
 
 @contextlib.contextmanager

@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "django_celery_beat",
     # Local apps — accounts first (owns AUTH_USER_MODEL)
     "apps.accounts",
+    "apps.families",
     "apps.projects",
     "apps.notifications",
     "apps.ingestion",
@@ -367,7 +368,18 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    # Per-IP throttle on parent self-signup. Other endpoints opt in by
+    # setting ``throttle_classes = [ScopedRateThrottle]`` + ``throttle_scope``.
+    "DEFAULT_THROTTLE_RATES": {
+        "signup": "5/hour",
+    },
 }
+
+# Parent self-signup creates a new Family + founding parent. Set to "false"
+# to disable signup at deploy time (e.g. closed-beta deployments).
+ALLOW_PARENT_SIGNUP = (
+    os.environ.get("ALLOW_PARENT_SIGNUP", "True").lower() in ("true", "1", "yes")
+)
 
 # CORS
 #
