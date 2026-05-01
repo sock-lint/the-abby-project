@@ -24,6 +24,7 @@ from django.utils import timezone
 
 from apps.creations.constants import CREATIVE_CATEGORY_NAMES
 from apps.creations.models import Creation, CreationBonusSkillTag, CreationDailyCounter
+from config.services import bump_daily_counter
 
 logger = logging.getLogger(__name__)
 
@@ -98,22 +99,6 @@ class CreationService:
         ]
 
     @classmethod
-    def _bump_counter(cls, user, day: date) -> int:
-        """Read-modify-write of ``CreationDailyCounter`` for (user, day).
-
-        Returns the PRE-increment count so callers can gate on the old
-        value (i.e. the first call returns 0, the second 1, etc.).
-        Survives ``Creation.delete()`` — that's the whole point.
-        """
-        counter, _ = CreationDailyCounter.objects.select_for_update().get_or_create(
-            user=user, occurred_on=day, defaults={"count": 0},
-        )
-        prior = counter.count
-        counter.count = prior + 1
-        counter.save(update_fields=["count"])
-        return prior
-
-    @classmethod
     @transaction.atomic
     def log_creation(
         cls,
@@ -137,7 +122,7 @@ class CreationService:
         )
 
         day = timezone.localdate()
-        prior_count = cls._bump_counter(user, day)
+        prior_count = bump_daily_counter(CreationDailyCounter, user, day)
         is_xp_eligible = prior_count < cls.DAILY_XP_LIMIT
 
         creation = Creation.objects.create(

@@ -19,10 +19,10 @@ log → delete → log cycle on the same day cannot re-arm rewards.
 from django.conf import settings
 from django.db import models
 
-from config.base_models import CreatedAtModel
+from config.base_models import CreatedAtModel, DailyCounterModel
 
 
-class MovementType(models.Model):
+class MovementType(CreatedAtModel):
     """Catalog of sessionable activity kinds.
 
     Parent-extensible later; seeded with ~10 rows covering the Sports +
@@ -55,7 +55,6 @@ class MovementType(models.Model):
         related_name="authored_movement_types",
         help_text="Null for seed data; set for user-authored types.",
     )
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     class Meta:
         ordering = ["order", "name"]
@@ -135,7 +134,7 @@ class MovementSession(CreatedAtModel):
         return f"{self.user_id}·{self.movement_type.name}·{self.duration_minutes}min"
 
 
-class MovementDailyCounter(models.Model):
+class MovementDailyCounter(DailyCounterModel):
     """Per-user per-day session counter for the anti-farm gate.
 
     Bumped on every ``log_session`` call. Survives
@@ -144,14 +143,5 @@ class MovementDailyCounter(models.Model):
     daily XP window.
     """
 
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="movement_daily_counters",
-    )
-    occurred_on = models.DateField()
-    count = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        unique_together = [("user", "occurred_on")]
-        indexes = [models.Index(fields=["user", "occurred_on"])]
+    class Meta(DailyCounterModel.Meta):
+        pass

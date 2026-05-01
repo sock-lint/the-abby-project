@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import models
 
-from config.base_models import TimestampedModel
+from config.base_models import DailyCounterModel, TimestampedModel
 
 
 class Creation(TimestampedModel):
@@ -82,7 +82,7 @@ class Creation(TimestampedModel):
         return f"{self.user_id}·creation·{self.caption[:40] or self.primary_skill_id}"
 
 
-class CreationDailyCounter(models.Model):
+class CreationDailyCounter(DailyCounterModel):
     """Persistent per-user per-day counter used by the anti-farm gate.
 
     Incremented on every ``log_creation`` call. Survives ``Creation.delete()``
@@ -91,17 +91,8 @@ class CreationDailyCounter(models.Model):
     See ``CreationAntifarmTests.test_create_two_then_delete_one_then_create_still_skips_xp``.
     """
 
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="creation_daily_counters",
-    )
-    occurred_on = models.DateField()
-    count = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        unique_together = [("user", "occurred_on")]
-        indexes = [models.Index(fields=["user", "occurred_on"])]
+    class Meta(DailyCounterModel.Meta):
+        pass
 
 
 class CreationBonusSkillTag(models.Model):

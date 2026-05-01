@@ -306,14 +306,14 @@ export default function QuickActionsSheet({
                 label="Propose a duty"
                 hint="Suggest a chore — parent sets the reward"
                 tone="gold"
-                onClick={() => { onClose(); navigate('/chores?propose=1'); }}
+                onClick={() => { onClose(); navigate('/quests?tab=duties&propose=1'); }}
               />
               <ActionRow
                 icon={<Feather size={18} />}
                 label="Propose a ritual"
                 hint="Suggest a habit — parent sets the XP"
                 tone="royal"
-                onClick={() => { onClose(); navigate('/habits?propose=1'); }}
+                onClick={() => { onClose(); navigate('/quests?tab=rituals&propose=1'); }}
               />
               <ActionRow
                 icon={<Target size={18} />}

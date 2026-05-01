@@ -18,7 +18,6 @@ soft-farm doctrine used by ``CreationService``.
 from __future__ import annotations
 
 import logging
-from datetime import date
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -30,6 +29,7 @@ from apps.movement.models import (
     MovementType,
     MovementTypeSkillTag,
 )
+from config.services import bump_daily_counter
 
 logger = logging.getLogger(__name__)
 
@@ -71,22 +71,6 @@ class MovementSessionService:
         return int(ten_minute_blocks * cls.XP_PER_10_MIN * mult)
 
     @classmethod
-    def _bump_counter(cls, user, day: date) -> int:
-        """Read-modify-write the per-user per-day counter under a row lock.
-
-        Returns the PRE-increment count. The lock is required so two
-        concurrent logs from the same user can't both read 0 and both
-        award XP past the cap.
-        """
-        counter, _ = MovementDailyCounter.objects.select_for_update().get_or_create(
-            user=user, occurred_on=day, defaults={"count": 0},
-        )
-        prior = counter.count
-        counter.count = prior + 1
-        counter.save(update_fields=["count"])
-        return prior
-
-    @classmethod
     @transaction.atomic
     def log_session(
         cls,
@@ -119,7 +103,7 @@ class MovementSessionService:
         clamped_minutes = min(int(duration_minutes), cls.MAX_DURATION_MINUTES)
         day = (occurred_at or timezone.now()).date() if occurred_at else timezone.localdate()
 
-        prior_count = cls._bump_counter(user, day)
+        prior_count = bump_daily_counter(MovementDailyCounter, user, day)
         is_xp_eligible = prior_count < cls.DAILY_REWARD_LIMIT
 
         session = MovementSession.objects.create(

@@ -1,7 +1,12 @@
 from django.conf import settings
 from django.db import models
 
-from config.base_models import ApprovalWorkflowModel, CreatedAtModel, TimestampedModel
+from config.base_models import (
+    ApprovalWorkflowModel,
+    CreatedAtModel,
+    DailyCounterModel,
+    TimestampedModel,
+)
 
 
 class HomeworkAssignment(TimestampedModel):
@@ -146,3 +151,17 @@ class HomeworkTemplate(TimestampedModel):
 
     def __str__(self):
         return f"Template: {self.title} ({self.get_subject_display()})"
+
+
+class HomeworkDailyCounter(DailyCounterModel):
+    """Per-assignee per-day counter for the homework_created game-loop gate.
+
+    Bumped at the top of ``HomeworkService.create_assignment`` under a
+    ``select_for_update`` lock. Survives ``HomeworkAssignment`` soft-delete
+    (``is_active=False``) AND hard-delete — the row stays so a parent
+    cooperating with a child can't re-arm streak / drops / quest credit by
+    create→delete→create within the same local day.
+    """
+
+    class Meta(DailyCounterModel.Meta):
+        pass
