@@ -169,11 +169,11 @@ class CreateAssignmentTests(_Fixture):
         first_ctx = gl.call_args_list[0].args[2]
         self.assertTrue(first_ctx.get("drops_allowed"))
 
-    def test_create_then_delete_then_create_still_skips_second_loop(self):
-        """Soft-deleted assignments still count toward the daily cap, so a
+    def test_create_then_soft_delete_then_create_still_skips_second_loop(self):
+        """Soft-deleted assignments still count toward the daily cap.
+        ``HomeworkDailyCounter`` is independent of the assignment row, so a
         parent-cooperated create→delete→create cycle on the same day can't
-        re-arm the loop. This is the load-bearing anti-farm property: the
-        DB query in create_assignment doesn't filter on ``is_active``.
+        re-arm the loop.
         """
         with patch("apps.rpg.services.GameLoopService.on_task_completed") as gl:
             first = HomeworkService.create_assignment(self.parent, {
@@ -186,6 +186,31 @@ class CreateAssignmentTests(_Fixture):
             # Soft-delete, mirroring HomeworkAssignmentViewSet.perform_destroy.
             first.is_active = False
             first.save(update_fields=["is_active"])
+
+            HomeworkService.create_assignment(self.parent, {
+                "title": "B",
+                "subject": "math",
+                "effort_level": 2,
+                "due_date": self.tomorrow,
+                "assigned_to": self.child,
+            })
+        self.assertEqual(gl.call_count, 1)
+
+    def test_create_then_hard_delete_then_create_still_skips_second_loop(self):
+        """Hard-delete cannot re-arm the loop either. The pre-2026 DB-query
+        gate would have failed this case (row gone → filter returns nothing
+        → is_first_today flips back to True). The counter-row approach
+        survives any delete because it doesn't reference the assignment.
+        """
+        with patch("apps.rpg.services.GameLoopService.on_task_completed") as gl:
+            first = HomeworkService.create_assignment(self.parent, {
+                "title": "A",
+                "subject": "math",
+                "effort_level": 2,
+                "due_date": self.tomorrow,
+                "assigned_to": self.child,
+            })
+            first.delete()
 
             HomeworkService.create_assignment(self.parent, {
                 "title": "B",
