@@ -25,6 +25,30 @@ class TimestampedModel(CreatedAtModel):
         abstract = True
 
 
+class DailyCounterModel(models.Model):
+    """Abstract base for per-user per-day anti-farm counters.
+
+    Subclasses persist a small row (user, occurred_on, count) that survives
+    deletes of the entity they're gating, so a child + cooperating parent
+    can't farm rewards by create→delete→create within the same local day.
+    Use :func:`config.services.bump_daily_counter` to increment under a
+    row lock.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="+",
+    )
+    occurred_on = models.DateField()
+    count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        abstract = True
+        unique_together = [("user", "occurred_on")]
+        indexes = [models.Index(fields=["user", "occurred_on"])]
+
+
 class ApprovalWorkflowModel(models.Model):
     """Shared audit fields for submit-then-approve workflow models.
 

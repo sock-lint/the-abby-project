@@ -8,10 +8,11 @@ from django.utils import timezone
 from apps.achievements.services import BadgeService, SkillService
 from apps.notifications.models import NotificationType
 from apps.notifications.services import get_display_name, notify, notify_parents
-from config.services import finalize_decision
+from config.services import bump_daily_counter, finalize_decision
 
 from .models import (
     HomeworkAssignment,
+    HomeworkDailyCounter,
     HomeworkProof,
     HomeworkSkillTag,
     HomeworkSubmission,
@@ -134,25 +135,20 @@ class HomeworkService:
         # RPG game loop + planner badge evaluation.
         child = assignment.assigned_to
         if child is not None:
-            today = timezone.localdate()
             # Anti-farm: only the FIRST homework_created per child per local
-            # day fires the game loop. The query intentionally counts
-            # soft-deleted (is_active=False) rows too, so a parent-cooperated
-            # create→delete→create cycle on the same day still skips the
-            # second loop call. This stops:
+            # day fires the game loop. ``HomeworkDailyCounter`` survives both
+            # soft-delete (``is_active=False``) and hard-delete, so a
+            # parent-cooperated create→delete→create cycle on the same day
+            # still skips the second loop call. Closes:
             #   • drop farming (would already skip via drops_allowed gate)
             #   • streak credit (per-day idempotent — would no-op anyway)
             #   • quest progress farming (Scholar's Week, Summer Reading List
             #     count homework_created — pre-2026-04-23 the Nth create per
             #     day still advanced these quests).
-            # The loop still runs on the first create so streak + drop +
-            # quest credit all fire normally; subsequent creates just don't
-            # fire it again.
-            is_first_today = not HomeworkAssignment.objects.filter(
-                assigned_to=child, created_at__date=today,
-            ).exclude(pk=assignment.pk).exists()
-
-            if is_first_today:
+            prior_count = bump_daily_counter(
+                HomeworkDailyCounter, child, timezone.localdate(),
+            )
+            if prior_count == 0:
                 from apps.rpg.constants import TriggerType
                 from apps.rpg.services import GameLoopService
                 GameLoopService.on_task_completed(

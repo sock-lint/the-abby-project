@@ -6,6 +6,7 @@ from rest_framework.response import Response
 
 from config.permissions import IsParent
 from config.viewsets import (
+    ApprovalActionMixin,
     RoleFilteredQuerySetMixin,
     child_not_found_response,
     get_child_or_404,
@@ -20,7 +21,9 @@ from .serializers import (
 from .services import CreationError, CreationService
 
 
-class CreationViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
+class CreationViewSet(
+    ApprovalActionMixin, RoleFilteredQuerySetMixin, viewsets.ModelViewSet,
+):
     serializer_class = CreationSerializer
     queryset = (
         Creation.objects.select_related(
@@ -33,6 +36,11 @@ class CreationViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
     role_filter_field = "user"
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     http_method_names = ["get", "post", "delete", "head", "options"]
+    # ``approve`` is overridden below to accept ``bonus_xp`` /
+    # ``skill_tags`` / ``notes``; ``reject`` falls through to the mixin
+    # default which dispatches ``CreationService.reject_bonus``.
+    approval_service = CreationService
+    approval_reject_method = "reject_bonus"
 
     def get_queryset(self):
         return self.get_role_filtered_queryset(super().get_queryset())
@@ -105,14 +113,6 @@ class CreationViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             )
         except CreationError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(CreationSerializer(creation).data)
-
-    @action(detail=True, methods=["post"], permission_classes=[IsParent])
-    def reject(self, request, pk=None):
-        creation = self.get_object()
-        CreationService.reject_bonus(
-            creation, request.user, notes=request.data.get("notes", ""),
-        )
         return Response(CreationSerializer(creation).data)
 
     @action(detail=False, methods=["get"], permission_classes=[IsParent])

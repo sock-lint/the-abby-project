@@ -2,6 +2,29 @@ from django.db.models import Sum
 from django.utils import timezone
 
 
+def bump_daily_counter(counter_model, user, day):
+    """Read-modify-write a per-user per-day counter under a row lock.
+
+    Returns the PRE-increment count so callers can gate on the old value
+    (i.e. the first call for a given day returns 0, the second 1, etc.).
+
+    The lock is required so two concurrent calls from the same user can't
+    both read 0 and both fire downstream rewards. Counter rows survive
+    parent-row deletes — that's the point of the anti-farm gate, since a
+    create→delete→create cycle still observes the row.
+
+    ``counter_model`` is any concrete subclass of
+    :class:`config.base_models.DailyCounterModel`.
+    """
+    counter, _ = counter_model.objects.select_for_update().get_or_create(
+        user=user, occurred_on=day, defaults={"count": 0},
+    )
+    prior = counter.count
+    counter.count = prior + 1
+    counter.save(update_fields=["count"])
+    return prior
+
+
 def finalize_decision(instance, new_status, parent, notes="", *,
                       activity_category=None, activity_event_type=None,
                       activity_summary=None, activity_subject=None,
