@@ -84,7 +84,11 @@ class UpdateProjectTests(_Base):
         self.assertEqual(self.project.description, "desc")
 
     def test_unknown_assignee_rejected(self) -> None:
-        with override_user(self.parent), self.assertRaises(MCPValidationError):
+        # Unknown assignee now routes through ``resolve_target_user``, which
+        # raises ``MCPNotFoundError`` for both "doesn't exist" and
+        # "exists but in another family" — same error shape on purpose so
+        # the tool can't leak existence of foreign-family users.
+        with override_user(self.parent), self.assertRaises(MCPNotFoundError):
             project_tools.update_project(UpdateProjectIn(
                 project_id=self.project.id, assigned_to_id=999999,
             ))

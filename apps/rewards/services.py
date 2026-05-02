@@ -223,14 +223,22 @@ class RewardService:
                 reward.pk, reward.fulfillment_kind,
             )
             return
+        from django.db.models import F
         from apps.rpg.models import UserInventory
+        # ``select_for_update`` already locks the row, but pairing with
+        # ``F("quantity") + 1`` makes the increment correct under any
+        # locking regime — no read-modify-write window the lock has to
+        # cover. Refresh after to keep the in-memory object consistent
+        # in case the caller inspects it.
         inv, _ = UserInventory.objects.select_for_update().get_or_create(
             user=redemption.user,
             item=reward.item_definition,
             defaults={"quantity": 0},
         )
-        inv.quantity = inv.quantity + 1
-        inv.save(update_fields=["quantity"])
+        UserInventory.objects.filter(pk=inv.pk).update(
+            quantity=F("quantity") + 1,
+        )
+        inv.refresh_from_db(fields=["quantity"])
 
     @staticmethod
     @transaction.atomic

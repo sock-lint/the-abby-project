@@ -16,6 +16,11 @@ env/
 # Django
 db.sqlite3
 db.sqlite3-journal
+# Catch ad-hoc dev sqlite DBs created via DATABASE_URL=sqlite:///some.db
+# (e.g. dev_local.db, tmp_test.db, tmp_migration_check.db) so they don't
+# get committed by accident — same shape as the entries above.
+*.db
+*.db-journal
 media/
 staticfiles/
 *.log

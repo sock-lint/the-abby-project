@@ -127,7 +127,11 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
         }
 
         with transaction.atomic():
-            serializer = ProjectDetailSerializer(data=payload)
+            # Pass request context so ProjectDetailSerializer's family-scoping
+            # validator on assigned_to_id can read request.user.family.
+            serializer = ProjectDetailSerializer(
+                data=payload, context={"request": request},
+            )
             serializer.is_valid(raise_exception=True)
             project = serializer.save(created_by=request.user)
 

@@ -572,6 +572,16 @@ class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
             [template], "milestones", "materials", "steps", "resources",
         )
         assigned_to_id = request.data.get("assigned_to_id")
+        # Cross-family safety: a parent can only spin a template for a child
+        # in their own family. ``get_child_or_404`` returns None on miss
+        # (treated as 404 here) so we don't leak existence of other families.
+        assigned_to = None
+        if assigned_to_id is not None:
+            assigned_to = get_child_or_404(
+                assigned_to_id, requesting_user=request.user,
+            )
+            if assigned_to is None:
+                return child_not_found_response()
 
         project = Project.objects.create(
             title=template.title,
@@ -582,7 +592,7 @@ class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
             bonus_amount=template.bonus_amount,
             materials_budget=template.materials_budget,
             created_by=request.user,
-            assigned_to_id=assigned_to_id,
+            assigned_to=assigned_to,
             status="in_progress",
         )
 

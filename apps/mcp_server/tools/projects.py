@@ -17,7 +17,6 @@ from apps.achievements.models import (
     Skill,
 )
 from apps.achievements.services import AwardService, SkillService
-from apps.accounts.models import User
 from apps.projects.models import (
     MaterialItem,
     Project,
@@ -186,12 +185,10 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
     """
     parent = require_parent()
 
-    try:
-        assignee = User.objects.get(pk=params.assigned_to_id)
-    except User.DoesNotExist:
-        raise MCPValidationError(
-            f"assigned_to_id {params.assigned_to_id} does not match any user.",
-        )
+    # Cross-family safety: must be a child in the calling parent's family.
+    # ``resolve_target_user`` raises MCPNotFoundError on miss / cross-family,
+    # never leaking existence of foreign users.
+    assignee = resolve_target_user(parent, params.assigned_to_id)
 
     category = None
     if params.category_id is not None:
@@ -470,16 +467,15 @@ def update_project(params: UpdateProjectIn) -> dict[str, Any]:
     status changes so it can't bypass the completion-hooks there.
     """
     project = _get_project_parent_only(params.project_id)
+    parent = require_parent()
 
     data = params.model_dump(exclude={"project_id"}, exclude_unset=True)
 
     if "assigned_to_id" in data:
-        try:
-            User.objects.get(pk=data["assigned_to_id"])
-        except User.DoesNotExist:
-            raise MCPValidationError(
-                f"assigned_to_id {data['assigned_to_id']} does not match any user.",
-            )
+        # Cross-family safety: same as create_project — only assign to a
+        # child in this parent's family. resolve_target_user raises
+        # MCPNotFoundError on cross-family.
+        resolve_target_user(parent, data["assigned_to_id"])
     if "category_id" in data and data["category_id"] is not None:
         try:
             SkillCategory.objects.get(pk=data["category_id"])

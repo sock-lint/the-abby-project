@@ -11,7 +11,6 @@ from typing import Any
 from django.db import transaction
 
 from apps.ingestion.models import ProjectIngestionJob
-from apps.accounts.models import User
 from apps.projects.models import (
     MaterialItem,
     Project,
@@ -19,7 +18,7 @@ from apps.projects.models import (
 )
 from apps.achievements.models import SkillCategory
 
-from ..context import require_parent
+from ..context import require_parent, resolve_target_user
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
     CommitIngestionJobIn,
@@ -125,12 +124,10 @@ def commit_ingestion_job(params: CommitIngestionJobIn) -> dict[str, Any]:
 
     assigned_to = None
     if params.assigned_to_id is not None:
-        try:
-            assigned_to = User.objects.get(pk=params.assigned_to_id)
-        except User.DoesNotExist:
-            raise MCPValidationError(
-                f"assigned_to_id {params.assigned_to_id} does not match any user.",
-            )
+        # Cross-family safety: only commit to a child in this parent's
+        # family. resolve_target_user raises MCPNotFoundError on miss /
+        # cross-family without leaking existence.
+        assigned_to = resolve_target_user(parent, params.assigned_to_id)
 
     category = None
     if category_id is not None:

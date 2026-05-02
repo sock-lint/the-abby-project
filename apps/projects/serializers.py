@@ -203,6 +203,22 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
         write_only=True, required=False, allow_null=True,
     )
 
+    def validate_assigned_to_id(self, value):
+        # Cross-family safety: never let a parent assign a project to a
+        # child outside their own family. The PrimaryKeyRelatedField queryset
+        # is unscoped because the field doesn't know the requesting user;
+        # we enforce the family check here. 404-shaped error mirrors
+        # ``get_child_or_404`` so we don't leak existence of foreign children.
+        if value is None:
+            return value
+        request = self.context.get("request")
+        if request is None:
+            return value
+        family_id = getattr(request.user, "family_id", None)
+        if family_id is None or value.family_id != family_id:
+            raise serializers.ValidationError("Child not found in your family.")
+        return value
+
     # Write-only nested creation — lets ProjectViewSet.create and the MCP tool
     # ship a fully-formed project (with steps and resources) in a single call.
     # Resources can reference a step via 0-based ``step_index`` (or null for
@@ -339,7 +355,25 @@ class ProjectCollaboratorSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProjectCollaborator
         fields = ["id", "project", "user", "user_id", "pay_split_percent", "joined_at"]
-        read_only_fields = ["joined_at"]
+        # ``project`` comes from the nested URL (``NestedProjectResourceMixin``
+        # injects ``project_id`` in ``perform_create``); marking it read-only
+        # so DRF doesn't require it in the request body.
+        read_only_fields = ["project", "joined_at"]
+
+    def validate_user_id(self, value):
+        # Same family guard as ProjectDetailSerializer.assigned_to_id —
+        # collaborators can only be added from the requesting parent's
+        # family. Without this a parent could attach an arbitrary cross-
+        # family user to one of their projects.
+        if value is None:
+            return value
+        request = self.context.get("request")
+        if request is None:
+            return value
+        family_id = getattr(request.user, "family_id", None)
+        if family_id is None or value.family_id != family_id:
+            raise serializers.ValidationError("User not found in your family.")
+        return value
 
 
 class SavingsGoalSerializer(serializers.ModelSerializer):
