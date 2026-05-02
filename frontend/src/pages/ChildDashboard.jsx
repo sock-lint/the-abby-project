@@ -383,7 +383,7 @@ export default function ChildDashboard({ data, reload }) {
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
             {recent_badges.map((b, i) => (
               <motion.button
-                key={i}
+                key={b.badge__id}
                 type="button"
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}

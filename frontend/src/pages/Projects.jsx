@@ -222,7 +222,7 @@ export default function Projects() {
           <div className="grid md:grid-cols-3 gap-3">
             {suggestions.map((s, i) => (
               <motion.div
-                key={i}
+                key={s.title}
                 initial={{ y: 10, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: i * 0.08 }}

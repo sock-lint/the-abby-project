@@ -161,7 +161,7 @@ class DashboardView(APIView):
         recent_badges = list(
             UserBadge.objects.filter(user=user).select_related("badge")
             .order_by("-earned_at")[:5]
-            .values("badge__name", "badge__icon", "earned_at")
+            .values("badge__id", "badge__name", "badge__icon", "earned_at")
         )
 
         streak = TimeEntryService.current_streak(user)
