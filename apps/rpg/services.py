@@ -1,3 +1,30 @@
+"""RPG game-loop services and balance constants.
+
+The module-level constants below (``BASE_CHECK_IN_COINS``,
+``STREAK_MULTIPLIER_*``, ``BASE_DROP_RATES``, ``STREAK_DROP_BONUS_*``)
+are **game-design tunables**, not deploy-time settings. They live here
+on purpose — hot-reloading them via Django settings would let a
+deployment knock the whole reward curve off-balance with one env-var
+typo. Any change to a value here should pair with a CLAUDE.md edit so
+the documented curve stays in sync. See also:
+
+- ``apps/quests/services.py``: ``TRIGGER_DAMAGE`` (boss-quest damage
+  per trigger) and ``RAGE_SHIELD_*`` (idle-day boss escalation).
+- ``apps/pets/services.py``: ``GROWTH_PREFERRED_FOOD`` /
+  ``GROWTH_NEUTRAL_FOOD`` / ``EVOLUTION_THRESHOLD`` /
+  ``CONSUMABLE_GROWTH_DAILY_CAP`` (pet feeding loop).
+
+Tunables that DO belong in settings (deploy-toggleable):
+``COINS_PER_HOUR``, ``COINS_PER_DOLLAR``, ``COINS_PER_BADGE_RARITY``,
+``BIRTHDAY_COINS_PER_YEAR``, ``HOMEWORK_LATE_CUTOFF_DAYS``,
+``HOMEWORK_SELF_PLAN_LEAD_DAYS``, ``ALLOW_PARENT_SIGNUP``,
+``SPRITE_GENERATION_MAX_FRAMES``. Those live in ``config/settings.py``.
+
+The ``apps/rpg/tests/test_trigger_parity.py`` gate enforces that every
+``TriggerType`` member appears in ``BASE_DROP_RATES`` (or is in the
+explicit exempt set with a comment). Adding a new trigger fails CI
+until the rate is set, which is the intended forcing function.
+"""
 import logging
 import random
 from contextlib import contextmanager
@@ -399,6 +426,37 @@ class DropService:
 
 
 STREAK_MILESTONES = {3, 7, 14, 30, 60, 100}
+
+
+def safe_game_loop_call(user, trigger_type, context=None, *, log=None):
+    """Call ``GameLoopService.on_task_completed`` with try/except wrapping.
+
+    A downstream failure inside the game loop (a botched drop roll, a quest
+    progress crash, a streak service hiccup) must NEVER unwind the upstream
+    ledger write that triggered it. Some callers wrap themselves; some
+    forget. This helper centralizes the policy so all approval / completion
+    flows have the same resilience without each call site re-implementing
+    try/except + logger.exception.
+
+    Returns the dict that ``on_task_completed`` would return on success, or
+    ``None`` on failure. Callers that read the return value (e.g. habit
+    views constructing a response payload) should handle ``None`` as
+    "no game-loop output, proceed with the upstream result".
+
+    ``log`` defaults to the rpg services logger when not provided so the
+    failure is still observable.
+    """
+    if log is None:
+        log = logger
+    try:
+        return GameLoopService.on_task_completed(user, trigger_type, context)
+    except Exception:
+        log.exception(
+            "GameLoopService.on_task_completed crashed for user=%s trigger=%s",
+            getattr(user, "pk", "?"),
+            trigger_type,
+        )
+        return None
 
 
 class GameLoopService:

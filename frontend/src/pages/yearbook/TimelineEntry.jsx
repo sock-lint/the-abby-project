@@ -3,17 +3,17 @@ import { Lock } from 'lucide-react'
 import { KIND_ICON } from './yearbook.constants'
 import EntryDetailSheet from './EntryDetailSheet'
 import RuneBadge from '../../components/journal/RuneBadge'
-import { useAuth } from '../../hooks/useApi'
+import { useRole } from '../../hooks/useRole'
 
 export default function TimelineEntry({ entry }) {
   const [open, setOpen] = useState(false)
-  const { user } = useAuth()
+  const { isParent } = useRole()
   // Show the lock chip to parents only — Abby's own view of her private
   // journal never renders the lock (it would feel surveillance-y).
   const showLock =
     entry.kind === 'journal' &&
     entry.is_private &&
-    user?.role === 'parent'
+    isParent
 
   return (
     <>

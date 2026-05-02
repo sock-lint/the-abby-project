@@ -1,10 +1,10 @@
 from django.conf import settings
 from django.db import models
 
-from config.base_models import DailyCounterModel, TimestampedModel
+from config.base_models import ApprovalWorkflowModel, DailyCounterModel, TimestampedModel
 
 
-class Creation(TimestampedModel):
+class Creation(ApprovalWorkflowModel, TimestampedModel):
     """A child-authored "I made a thing" entry.
 
     Past-tense, artifact-first: the child logs a photo (+ optional audio + caption)
@@ -54,14 +54,6 @@ class Creation(TimestampedModel):
     bonus_xp_awarded = models.PositiveIntegerField(
         default=0,
         help_text="Additional XP pool granted by parent on approve.",
-    )
-    decided_at = models.DateTimeField(null=True, blank=True)
-    decided_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="+",
     )
     chronicle_entry = models.ForeignKey(
         "chronicle.ChronicleEntry",

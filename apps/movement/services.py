@@ -125,7 +125,7 @@ class MovementSessionService:
         """Distribute XP + fire game loop for a within-cap session."""
         from apps.achievements.services import AwardService
         from apps.rpg.constants import TriggerType
-        from apps.rpg.services import GameLoopService
+        from apps.rpg.services import safe_game_loop_call
 
         xp_pool = cls.compute_xp_pool(session.duration_minutes, session.intensity)
         if xp_pool > 0:
@@ -145,22 +145,17 @@ class MovementSessionService:
             session.xp_awarded = xp_pool
             session.save(update_fields=["xp_awarded"])
 
-        try:
-            GameLoopService.on_task_completed(
-                user,
-                TriggerType.MOVEMENT_SESSION,
-                {
-                    "session_id": session.id,
-                    "movement_type_id": session.movement_type_id,
-                    "duration_minutes": session.duration_minutes,
-                    "intensity": session.intensity,
-                },
-            )
-        except Exception:
-            logger.exception(
-                "Movement game loop failed for user %s, session %s",
-                user.pk, session.pk,
-            )
+        safe_game_loop_call(
+            user,
+            TriggerType.MOVEMENT_SESSION,
+            {
+                "session_id": session.id,
+                "movement_type_id": session.movement_type_id,
+                "duration_minutes": session.duration_minutes,
+                "intensity": session.intensity,
+            },
+            log=logger,
+        )
 
 
 class MovementTypeService:

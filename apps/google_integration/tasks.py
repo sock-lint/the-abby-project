@@ -133,10 +133,10 @@ def send_daily_reminders_task():
             reminders_sent += 1
 
     # ── Chore reminders (for children) ───────────────────────────────
-    children = User.objects.filter(role="child", is_active=True)
+    from apps.families.queries import children_across_families
     active_chores = Chore.objects.filter(is_active=True)
 
-    for child in children:
+    for _family, child in children_across_families():
         for chore in active_chores:
             # Skip chores assigned to other children
             if chore.assigned_to_id and chore.assigned_to_id != child.id:
@@ -209,8 +209,8 @@ def send_daily_reminders_task():
             f"awaiting approval: {', '.join(parts)}."
         )
 
-        parents = User.objects.filter(role="parent", is_active=True, family=family)
-        for parent in parents:
+        from apps.families.queries import parents_in
+        for parent in parents_in(family):
             notify(
                 parent,
                 f"{total_pending} item{'s' if total_pending != 1 else ''} awaiting approval",

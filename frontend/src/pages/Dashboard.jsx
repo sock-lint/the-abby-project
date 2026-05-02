@@ -1,5 +1,6 @@
 import { getDashboard } from '../api';
-import { useApi, useAuth } from '../hooks/useApi';
+import { useApi } from '../hooks/useApi';
+import { useRole } from '../hooks/useRole';
 import Button from '../components/Button';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
@@ -14,7 +15,7 @@ import { formatWeekdayDate } from './_dashboardShared';
  */
 export default function Dashboard() {
   const { data, loading, error, reload } = useApi(getDashboard);
-  const { user } = useAuth();
+  const { isParent } = useRole();
 
   if (loading) return <Loader />;
   if (error || !data) {
@@ -30,7 +31,6 @@ export default function Dashboard() {
     );
   }
 
-  const isParent = user?.role === 'parent';
   return isParent ? <ParentDashboard /> : <ChildDashboard data={data} reload={reload} />;
 }
 

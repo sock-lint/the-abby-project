@@ -24,7 +24,7 @@ from django.utils import timezone
 
 from apps.creations.constants import CREATIVE_CATEGORY_NAMES
 from apps.creations.models import Creation, CreationBonusSkillTag, CreationDailyCounter
-from config.services import bump_daily_counter
+from config.services import bump_daily_counter, finalize_decision
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +149,7 @@ class CreationService:
         """Distribute baseline XP + fire game loop for a first-of-day creation."""
         from apps.achievements.services import AwardService
         from apps.rpg.constants import TriggerType
-        from apps.rpg.services import GameLoopService
+        from apps.rpg.services import safe_game_loop_call
 
         tags = cls._build_baseline_tags(primary, secondary)
         try:
@@ -167,17 +167,10 @@ class CreationService:
         creation.xp_awarded = cls.BASELINE_XP
         creation.save(update_fields=["xp_awarded"])
 
-        try:
-            GameLoopService.on_task_completed(
-                user,
-                TriggerType.CREATION_LOGGED,
-                {"creation_id": creation.id},
-            )
-        except Exception:
-            logger.exception(
-                "Creation game loop failed for user %s, creation %s",
-                user.pk, creation.pk,
-            )
+        safe_game_loop_call(
+            user, TriggerType.CREATION_LOGGED, {"creation_id": creation.id},
+            log=logger,
+        )
 
     @classmethod
     def _emit_chronicle(cls, user, creation: Creation, primary, day: date) -> None:
@@ -279,14 +272,26 @@ class CreationService:
                 "Creation bonus award failed for creation %s", creation.pk,
             )
 
-        creation.status = Creation.Status.APPROVED
+        # ``bonus_xp_awarded`` is creation-specific so we save it explicitly;
+        # ``finalize_decision`` then stamps the shared status / decided_at /
+        # decided_by trio used by every other approval workflow.
         creation.bonus_xp_awarded = bonus_xp
-        creation.decided_at = timezone.now()
-        creation.decided_by = parent
-        creation.save(
-            update_fields=[
-                "status", "bonus_xp_awarded", "decided_at", "decided_by", "updated_at",
-            ]
+        creation.save(update_fields=["bonus_xp_awarded", "updated_at"])
+        # Creation has no ``parent_notes`` field; preserve the caller's
+        # text on the activity-log extras so the audit trail still has it.
+        finalize_decision(
+            creation, Creation.Status.APPROVED, parent, "",
+            activity_category="approval",
+            activity_event_type="creation.approve_bonus",
+            activity_summary=(
+                f"Creation bonus approved: +{bonus_xp} XP "
+                f"({creation.primary_skill.name})"
+            ),
+            activity_subject=creation.user,
+            activity_extras={
+                "bonus_xp": bonus_xp,
+                "parent_notes": notes or None,
+            },
         )
 
         from apps.notifications.models import NotificationType
@@ -305,11 +310,15 @@ class CreationService:
     @transaction.atomic
     def reject_bonus(cls, creation: Creation, parent, notes: str = "") -> Creation:
         """Mark REJECTED. Baseline XP stays — matches every other flow."""
-        creation.status = Creation.Status.REJECTED
-        creation.decided_at = timezone.now()
-        creation.decided_by = parent
-        creation.save(
-            update_fields=["status", "decided_at", "decided_by", "updated_at"]
+        finalize_decision(
+            creation, Creation.Status.REJECTED, parent, "",
+            activity_category="approval",
+            activity_event_type="creation.reject_bonus",
+            activity_summary=(
+                f"Creation bonus rejected ({creation.primary_skill.name})"
+            ),
+            activity_subject=creation.user,
+            activity_extras={"parent_notes": notes or None},
         )
 
         from apps.notifications.models import NotificationType

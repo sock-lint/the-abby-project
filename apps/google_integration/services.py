@@ -18,6 +18,15 @@ SCOPES = [
     "https://www.googleapis.com/auth/calendar.events",
 ]
 
+# ``oauthlib`` rejects token responses whose ``scope`` differs from what we
+# requested — Google returns scopes in a different order, which is benign
+# here. Setting this once at module load time is thread-safe; the previous
+# pattern (set/pop around each ``fetch_token`` call) raced under any
+# threaded server (Celery workers, async views) because ``os.environ`` is
+# process-global. Setting it once is fine because every OAuth flow in this
+# module accepts the same relaxed-scope semantics.
+os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
+
 
 def _derive_key():
     """Derive a 32-byte key from Django's SECRET_KEY for AES-like encryption."""
@@ -121,11 +130,9 @@ class GoogleAuthService:
             scopes=SCOPES,
             redirect_uri=settings.GOOGLE_REDIRECT_URI,
         )
-        os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
-        try:
-            flow.fetch_token(code=code, code_verifier=code_verifier)
-        finally:
-            os.environ.pop("OAUTHLIB_RELAX_TOKEN_SCOPE", None)
+        # OAUTHLIB_RELAX_TOKEN_SCOPE is set once at module load time; see
+        # the comment near the top of this file.
+        flow.fetch_token(code=code, code_verifier=code_verifier)
         credentials = flow.credentials
 
         # Verify the ID token to get user info
@@ -353,8 +360,6 @@ class GoogleCalendarService:
     @classmethod
     def sync_chore(cls, chore):
         """Create/update a recurring calendar event for a chore."""
-        from apps.projects.models import User
-
         tz = settings.TIME_ZONE
         today = timezone.localdate()
 
@@ -380,9 +385,18 @@ class GoogleCalendarService:
         if rrule:
             event_body["recurrence"] = [rrule]
 
-        # Sync to all child users (chores aren't assigned to a specific child)
-        children = User.objects.filter(role="child")
-        for child in children:
+        # Sync to children in the chore's family. If the chore is assigned to
+        # a specific child, only push to that child; otherwise fan out to every
+        # child in the family. NEVER sync globally — that would push another
+        # household's chore into a different family's calendar.
+        if chore.assigned_to_id:
+            cls._upsert_event(chore.assigned_to, "chore", chore.id, event_body)
+            return
+
+        family = getattr(chore.created_by, "family", None)
+        if family is None:
+            return
+        for child in family.members.filter(role="child", is_active=True):
             cls._upsert_event(child, "chore", chore.id, event_body)
 
     @classmethod

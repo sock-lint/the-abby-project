@@ -11,7 +11,8 @@ import {
   deletePhoto, deleteHomeworkProof,
   deleteCreation, submitCreation,
 } from '../api';
-import { useApi, useAuth } from '../hooks/useApi';
+import { useApi } from '../hooks/useApi';
+import { useRole } from '../hooks/useRole';
 import BottomSheet from '../components/BottomSheet';
 import EmptyState from '../components/EmptyState';
 import Loader from '../components/Loader';
@@ -33,7 +34,7 @@ const FILTERS = [
 ];
 
 export default function Portfolio() {
-  const { user } = useAuth();
+  const { user, isParent } = useRole();
   const { data, loading, reload } = useApi(getPortfolio);
   const { data: projectsData } = useApi(getProjects);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -165,7 +166,7 @@ export default function Portfolio() {
   const viewerNext = () =>
     setViewer((v) => ({ ...v, index: Math.min(v.items.length - 1, v.index + 1) }));
 
-  const canDelete = (item) => user?.role === 'parent' || item.ownerId === user?.id;
+  const canDelete = (item) => isParent || item.ownerId === user?.id;
 
   const confirmDelete = async () => {
     if (!pendingDelete) return;
@@ -263,11 +264,16 @@ export default function Portfolio() {
               </button>
             ))}
           </div>
-          <div className="flex gap-2 text-xs font-script text-ink-whisper items-center justify-end">
-            <span>Arrange:</span>
+          <div
+            className="flex gap-2 text-xs font-script text-ink-whisper items-center justify-end"
+            role="group"
+            aria-label="Sort"
+          >
+            <span aria-hidden="true">Arrange:</span>
             <button
               type="button"
               onClick={() => setSortMode('project')}
+              aria-pressed={sortMode === 'project'}
               className={
                 sortMode === 'project'
                   ? 'text-sheikah-teal-deep underline'
@@ -280,6 +286,7 @@ export default function Portfolio() {
             <button
               type="button"
               onClick={() => setSortMode('date')}
+              aria-pressed={sortMode === 'date'}
               className={
                 sortMode === 'date'
                   ? 'text-sheikah-teal-deep underline'
@@ -431,7 +438,7 @@ function PhotoGrid({ items, onOpen, onRequestDelete, onSubmitForBonus, canDelete
             {item.kind === 'creation' && item.creationStatus === 'approved' && (
               <div
                 aria-label={`Parent bonus: +${item.bonusXp} XP`}
-                className="absolute bottom-1.5 left-1.5 rounded-full bg-royal text-ink-page-rune-glow px-1.5 py-0.5 text-[10px] font-display"
+                className="absolute bottom-1.5 left-1.5 rounded-full bg-royal text-ink-page-rune-glow px-1.5 py-0.5 text-micro font-display"
                 title={`Parent bonus granted: +${item.bonusXp} XP`}
               >
                 🏅 +{item.bonusXp}
@@ -440,7 +447,7 @@ function PhotoGrid({ items, onOpen, onRequestDelete, onSubmitForBonus, canDelete
             {item.kind === 'creation' && item.creationStatus === 'pending' && (
               <div
                 aria-label="Bonus pending review"
-                className="absolute bottom-1.5 left-1.5 rounded-full bg-ink-primary/70 text-ink-page-rune-glow px-2 py-0.5 text-[10px] font-script"
+                className="absolute bottom-1.5 left-1.5 rounded-full bg-ink-primary/70 text-ink-page-rune-glow px-2 py-0.5 text-micro font-script"
               >
                 pending
               </div>
@@ -451,7 +458,7 @@ function PhotoGrid({ items, onOpen, onRequestDelete, onSubmitForBonus, canDelete
                   {item.caption || item.groupLabel}
                 </div>
                 {showMeta && item.caption && (
-                  <div className="font-script text-[10px] text-ink-page-rune-glow/80 truncate">
+                  <div className="font-script text-micro text-ink-page-rune-glow/80 truncate">
                     {item.groupLabel}
                   </div>
                 )}

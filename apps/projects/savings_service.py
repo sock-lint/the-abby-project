@@ -130,20 +130,16 @@ class SavingsGoalService:
             )
 
         # 2b. RPG trigger — lets the Hoard Builder quest + other
-        # savings_goal_complete-tied content count progress. Wrapped because
-        # a GameLoop failure must never block the completion pipeline.
-        try:
-            from apps.rpg.constants import TriggerType
-            from apps.rpg.services import GameLoopService
-            GameLoopService.on_task_completed(
-                user,
-                TriggerType.SAVINGS_GOAL_COMPLETE,
-                {"savings_goal_id": goal.pk},
-            )
-        except Exception:
-            logger.exception(
-                "Savings goal %s: RPG trigger failed", goal.pk,
-            )
+        # savings_goal_complete-tied content count progress. The shared
+        # helper guarantees a GameLoop failure never blocks the completion
+        # pipeline.
+        from apps.rpg.constants import TriggerType
+        from apps.rpg.services import safe_game_loop_call
+        safe_game_loop_call(
+            user, TriggerType.SAVINGS_GOAL_COMPLETE,
+            {"savings_goal_id": goal.pk},
+            log=logger,
+        )
 
         # 3. Notifications
         try:

@@ -229,11 +229,14 @@ class Command(BaseCommand):
 
     def _create_sample_chores(self):
         from apps.chores.models import Chore
-        from apps.projects.models import User
+        from apps.families.models import Family
         from datetime import date
 
-        parent = User.objects.filter(role="parent").first()
-        child = User.objects.filter(role="child").first()
+        family = Family.objects.filter(slug="default-family").first()
+        if not family:
+            return
+        parent = family.members.filter(role="parent").first()
+        child = family.members.filter(role="child").first()
         if not parent:
             return
 
@@ -286,10 +289,13 @@ class Command(BaseCommand):
         from datetime import timedelta
 
         from apps.homework.models import HomeworkAssignment, HomeworkTemplate
-        from apps.projects.models import User
+        from apps.families.models import Family
 
-        parent = User.objects.filter(role="parent").first()
-        child = User.objects.filter(role="child").first()
+        family = Family.objects.filter(slug="default-family").first()
+        if not family:
+            return
+        parent = family.members.filter(role="parent").first()
+        child = family.members.filter(role="child").first()
         if not parent or not child:
             return
 
@@ -361,11 +367,15 @@ class Command(BaseCommand):
 
     def _create_sample_habits(self):
         from apps.habits.models import Habit
-        from apps.projects.models import User
+        from apps.families.models import Family
         from apps.rpg.models import CharacterProfile
 
-        parent = User.objects.filter(role="parent").first()
-        child = User.objects.filter(role="child").first()
+        family = Family.objects.filter(slug="default-family").first()
+        if not family:
+            self.stdout.write("  Skipping habits: default family not found")
+            return
+        parent = family.members.filter(role="parent").first()
+        child = family.members.filter(role="child").first()
         if not parent or not child:
             self.stdout.write("  Skipping habits: no parent/child found")
             return
@@ -400,11 +410,12 @@ class Command(BaseCommand):
         a freshly seeded DB the balance is $0, which correctly renders
         "$0 / $50" on the Hoards tab.
         """
-        from apps.projects.models import SavingsGoal, User
+        from apps.projects.models import SavingsGoal
+        from apps.families.queries import children_across_families
         from django.utils import timezone
         from datetime import timedelta
 
-        for child in User.objects.filter(role="child"):
+        for _family, child in children_across_families(active_only=False):
             SavingsGoal.objects.get_or_create(
                 user=child,
                 title="Lego Set",

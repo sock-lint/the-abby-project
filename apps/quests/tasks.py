@@ -25,12 +25,12 @@ def rotate_daily_challenges_task():
     (user, date), so a re-run within the same day is a no-op. Skips users
     with role != "child" so parents don't accumulate daily-challenge clutter.
     """
-    from apps.projects.models import User
+    from apps.families.queries import children_across_families
     from apps.quests.services import DailyChallengeService
 
     created = 0
     skipped = 0
-    for user in User.objects.filter(role="child", is_active=True):
+    for _family, user in children_across_families():
         challenge = DailyChallengeService.get_or_create_today(user)
         if challenge.current_progress == 0 and challenge.completed_at is None:
             created += 1

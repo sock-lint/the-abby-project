@@ -160,16 +160,28 @@ class ProjectListSerializer(serializers.ModelSerializer):
             "steps_total", "steps_completed",
         ]
 
+    # The four count fields below prefer annotated attrs (set by
+    # ``ProjectViewSet.get_queryset`` so a list view fires zero extra
+    # queries); they fall back to ``.count()`` so callers that build a
+    # serializer outside the viewset (tests, ad-hoc cloning) still work.
     def get_milestones_total(self, obj):
-        return obj.milestones.count()
+        annotated = getattr(obj, "milestones_total_count", None)
+        return annotated if annotated is not None else obj.milestones.count()
 
     def get_milestones_completed(self, obj):
+        annotated = getattr(obj, "milestones_completed_count", None)
+        if annotated is not None:
+            return annotated
         return obj.milestones.filter(is_completed=True).count()
 
     def get_steps_total(self, obj):
-        return obj.steps.count()
+        annotated = getattr(obj, "steps_total_count", None)
+        return annotated if annotated is not None else obj.steps.count()
 
     def get_steps_completed(self, obj):
+        annotated = getattr(obj, "steps_completed_count", None)
+        if annotated is not None:
+            return annotated
         return obj.steps.filter(is_completed=True).count()
 
 

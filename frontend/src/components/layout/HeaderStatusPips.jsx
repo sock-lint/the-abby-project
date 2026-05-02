@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Flame } from 'lucide-react';
-import { getDashboard, getChoreCompletions, getHomeworkDashboard, getRedemptions } from '../../api';
+import { getDashboard } from '../../api';
 import { useApi } from '../../hooks/useApi';
+import useParentPendingCounts from '../../hooks/useParentPendingCounts';
 import { CoinIcon } from '../icons/JournalIcons';
-import { normalizeList } from '../../utils/api';
 
 function formatElapsedMins(mins) {
   if (mins == null) return '';
@@ -44,33 +44,20 @@ function Pip({ icon, label, tone = 'ink', active = false, onClick, ariaLabel }) 
  */
 export default function HeaderStatusPips({ user }) {
   const navigate = useNavigate();
+  // Caller passes ``user`` so we still respect the prop API. Use the
+  // shared role check to keep the convention consistent.
   const isParent = user?.role === 'parent';
+  // NOTE: HeaderStatusPips is mounted inside JournalShell which receives
+  // ``user`` as a prop, so it doesn't read from useRole(). When the
+  // shell is migrated to context-only, this can drop the prop and use
+  // ``useRole().isParent`` directly.
 
   const { data: dashboard } = useApi(getDashboard);
 
-  // Parent-only: gather unified pending count without blocking render.
-  const [pending, setPending] = useState(0);
-  useEffect(() => {
-    if (!isParent) return undefined;
-    let cancelled = false;
-    (async () => {
-      try {
-        const [chores, hw, reds] = await Promise.all([
-          getChoreCompletions('pending').catch(() => []),
-          getHomeworkDashboard().catch(() => ({ pending_submissions: [] })),
-          getRedemptions().catch(() => []),
-        ]);
-        if (cancelled) return;
-        const cCount = normalizeList(chores).length;
-        const hwCount = normalizeList(hw?.pending_submissions).length;
-        const rCount = normalizeList(reds).filter((r) => r.status === 'pending').length;
-        setPending(cCount + hwCount + rCount);
-      } catch {
-        if (!cancelled) setPending(0);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [isParent]);
+  // Parent-only pending counts. Shared with ``useParentDashboard`` via the
+  // ``useParentPendingCounts`` hook so the two callers don't fork the
+  // Promise.all of the same three endpoints.
+  const { total: pending } = useParentPendingCounts({ enabled: isParent });
 
   const activeTimer = dashboard?.active_timer || null;
   const coins = dashboard?.coin_balance ?? 0;
@@ -94,7 +81,7 @@ export default function HeaderStatusPips({ user }) {
       out.push({
         key: 'approvals',
         // retained: pixel-perfect seal glyph
-        icon: <span aria-hidden="true" className="font-display text-[13px] leading-none">seal</span>,
+        icon: <span aria-hidden="true" className="font-display text-caption leading-none">seal</span>,
         label: String(pending),
         tone: pending > 0 ? 'ember' : 'ink',
         ariaLabel: `${pending} pending approvals`,

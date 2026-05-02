@@ -68,9 +68,8 @@ def create_chore(params: CreateChoreIn) -> dict[str, Any]:
 
     assigned_to = None
     if params.assigned_to_id:
-        try:
-            assigned_to = User.objects.get(pk=params.assigned_to_id, role="child")
-        except User.DoesNotExist:
+        assigned_to = resolve_target_user(parent, params.assigned_to_id)
+        if getattr(assigned_to, "role", None) != "child":
             raise MCPNotFoundError(f"Child {params.assigned_to_id} not found.")
 
     chore = Chore.objects.create(
@@ -94,7 +93,7 @@ def create_chore(params: CreateChoreIn) -> dict[str, Any]:
 @safe_tool
 def update_chore(params: UpdateChoreIn) -> dict[str, Any]:
     """Update an existing chore (parent-only)."""
-    require_parent()
+    parent = require_parent()
     try:
         chore = Chore.objects.get(pk=params.chore_id)
     except Chore.DoesNotExist:
@@ -107,10 +106,10 @@ def update_chore(params: UpdateChoreIn) -> dict[str, Any]:
         if aid is None:
             chore.assigned_to = None
         else:
-            try:
-                chore.assigned_to = User.objects.get(pk=aid, role="child")
-            except User.DoesNotExist:
+            target = resolve_target_user(parent, aid)
+            if getattr(target, "role", None) != "child":
                 raise MCPNotFoundError(f"Child {aid} not found.")
+            chore.assigned_to = target
 
     for field, value in updates.items():
         setattr(chore, field, value)

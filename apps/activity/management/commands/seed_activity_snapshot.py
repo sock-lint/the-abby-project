@@ -1,4 +1,3 @@
-from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
 from apps.activity.services import ActivityLogService
@@ -16,18 +15,16 @@ class Command(BaseCommand):
     help = "Seed an activity snapshot per child user."
 
     def handle(self, *args, **options):
-        User = get_user_model()
-        children = User.objects.filter(role="child")
-        if not children.exists():
-            self.stdout.write("No child users found — nothing to snapshot.")
-            return
+        from apps.families.queries import children_across_families
 
         from apps.payments.services import PaymentService
         from apps.rewards.services import CoinService
         from apps.rpg.models import CharacterProfile
 
         total = 0
-        for child in children:
+        seen = False
+        for _family, child in children_across_families(active_only=False):
+            seen = True
             coins = CoinService.get_balance(child)
             money = PaymentService.get_balance(child)
             profile = CharacterProfile.objects.filter(user=child).first()
@@ -57,4 +54,7 @@ class Command(BaseCommand):
             )
             total += 1
 
+        if not seen:
+            self.stdout.write("No child users found — nothing to snapshot.")
+            return
         self.stdout.write(self.style.SUCCESS(f"Snapshotted {total} child(ren)."))

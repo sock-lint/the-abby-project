@@ -96,11 +96,12 @@ def handle_project_status_change(sender, instance, created, **kwargs):
                 created_by=instance.created_by,
             )
 
-        # RPG game loop
+        # RPG game loop — wrapped via shared helper so a downstream crash
+        # can't unwind the ledger writes posted above.
         from apps.rpg.constants import TriggerType
-        from apps.rpg.services import GameLoopService
+        from apps.rpg.services import safe_game_loop_call
         if instance.assigned_to:
-            GameLoopService.on_task_completed(
+            safe_game_loop_call(
                 instance.assigned_to, TriggerType.PROJECT_COMPLETE,
                 {"project_id": instance.pk},
             )
@@ -179,11 +180,11 @@ def handle_milestone_completed(sender, instance, created, **kwargs):
 
     BadgeService.evaluate_badges(user)
 
-    # RPG game loop
+    # RPG game loop — wrapped via shared helper.
     from apps.rpg.constants import TriggerType
-    from apps.rpg.services import GameLoopService
+    from apps.rpg.services import safe_game_loop_call
     if instance.project.assigned_to:
-        GameLoopService.on_task_completed(
+        safe_game_loop_call(
             instance.project.assigned_to, TriggerType.MILESTONE_COMPLETE,
             {"project_id": instance.project_id, "milestone_id": instance.pk},
         )

@@ -4,15 +4,14 @@ import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
 import Loader from '../components/Loader'
 import { SelectField } from '../components/form'
-import { useAuth } from '../hooks/useApi'
+import { useRole } from '../hooks/useRole'
 import { getChildren, getChronicleSummary } from '../api'
 import { normalizeList } from '../utils/api'
 import ChapterCard from './yearbook/ChapterCard'
 import ManualEntryFormModal from './yearbook/ManualEntryFormModal'
 
 export default function Yearbook() {
-  const { user } = useAuth()
-  const isParent = user?.role === 'parent'
+  const { user, isParent } = useRole()
   const [state, setState] = useState({ loading: true, chapters: [], error: null })
   const [showAdd, setShowAdd] = useState(false)
   const [children, setChildren] = useState([])

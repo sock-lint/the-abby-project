@@ -193,12 +193,10 @@ def update_journal(params: UpdateJournalIn) -> dict[str, Any]:
 @safe_tool
 def create_manual_entry(params: CreateManualEntryIn) -> dict[str, Any]:
     """Create a parent-authored manual chronicle entry on a child's timeline."""
-    require_parent()
-    from apps.accounts.models import User
+    parent = require_parent()
 
-    try:
-        target = User.objects.get(pk=params.user_id, role="child")
-    except User.DoesNotExist:
+    target = resolve_target_user(parent, params.user_id)
+    if getattr(target, "role", None) != "child":
         raise MCPNotFoundError(f"Child {params.user_id} not found.")
 
     entry = ChronicleEntry.objects.create(

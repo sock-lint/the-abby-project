@@ -4,7 +4,7 @@ import BottomSheet from '../../components/BottomSheet'
 import Button from '../../components/Button'
 import RuneBadge from '../../components/journal/RuneBadge'
 import JournalEntryFormModal from './JournalEntryFormModal'
-import { useAuth } from '../../hooks/useApi'
+import { useRole } from '../../hooks/useRole'
 
 function todayISO() {
   const now = new Date()
@@ -15,13 +15,13 @@ function todayISO() {
 }
 
 export default function EntryDetailSheet({ entry, onClose }) {
-  const { user } = useAuth()
+  const { user, isParent } = useRole()
   const [editing, setEditing] = useState(false)
   const isJournal = entry.kind === 'journal'
   const isOwner = isJournal && entry.user === user?.id
   const isSameDay = isJournal && entry.occurred_on === todayISO()
   const canEdit = isOwner && isSameDay
-  const showLock = isJournal && entry.is_private && user?.role === 'parent'
+  const showLock = isJournal && entry.is_private && isParent
 
   if (editing) {
     return (

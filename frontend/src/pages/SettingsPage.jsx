@@ -223,6 +223,9 @@ export default function SettingsPage() {
         </div>
       </ParchmentCard>
 
+      {/* Use the inline check rather than ``useRole`` so we don't fork the
+          ``useAuth`` context already destructured above for ``setUser`` /
+          ``logout``. ``useRole`` is preferred when those aren't needed. */}
       {user?.role === 'parent' && user?.family && (
         <ParchmentCard>
           <h2 className="font-display text-xl text-ink-primary mb-2">Family</h2>

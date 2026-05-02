@@ -11,17 +11,18 @@ def evaluate_perfect_day_task():
     """Award 'Perfect Day' bonus to children who completed all daily chores."""
     from apps.chores.models import Chore
     from apps.chores.services import ChoreService
+    from apps.families.queries import children_across_families
     from apps.notifications.services import notify
-    from apps.projects.models import User
     from apps.rewards.models import CoinLedger
     from apps.rewards.services import CoinService
     from apps.rpg.models import CharacterProfile
 
     today = timezone.localdate()
-    children = User.objects.filter(role="child")
     awarded = 0
+    seen = 0
 
-    for child in children:
+    for _family, child in children_across_families():
+        seen += 1
         profile = CharacterProfile.objects.filter(user=child).first()
         if not profile or profile.last_active_date != today:
             continue
@@ -74,4 +75,4 @@ def evaluate_perfect_day_task():
         )
         awarded += 1
 
-    return f"Perfect day evaluated: {awarded}/{children.count()} children awarded."
+    return f"Perfect day evaluated: {awarded}/{seen} children awarded."

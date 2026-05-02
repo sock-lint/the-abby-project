@@ -12,7 +12,6 @@ from apps.homework.models import (
     HomeworkTemplate,
 )
 from apps.homework.services import HomeworkError, HomeworkService
-from apps.accounts.models import User
 
 from ..context import get_current_user, require_parent, resolve_target_user
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
@@ -81,9 +80,8 @@ def create_homework(params: CreateHomeworkIn) -> dict[str, Any]:
     """Create a homework assignment. Both parents and children can create."""
     user = get_current_user()
 
-    try:
-        child = User.objects.get(pk=params.assigned_to_id, role="child")
-    except User.DoesNotExist:
+    child = resolve_target_user(user, params.assigned_to_id)
+    if getattr(child, "role", None) != "child":
         raise MCPNotFoundError(f"Child {params.assigned_to_id} not found.")
 
     data = {
@@ -387,9 +385,8 @@ def create_homework_from_template(
         )
     except HomeworkTemplate.DoesNotExist:
         raise MCPNotFoundError(f"Template {params.template_id} not found.")
-    try:
-        child = User.objects.get(pk=params.assigned_to_id, role="child")
-    except User.DoesNotExist:
+    child = resolve_target_user(parent, params.assigned_to_id)
+    if getattr(child, "role", None) != "child":
         raise MCPValidationError(
             f"Child {params.assigned_to_id} not found.",
         )
