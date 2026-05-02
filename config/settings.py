@@ -187,7 +187,7 @@ CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
 
 # Ollama (local LAN). Empty base URL disables the backend.
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:latest")
 OLLAMA_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "120"))
 
 # --- Google Gemini (sprite generation) ------------------------------------

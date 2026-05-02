@@ -12,7 +12,7 @@ Settings (read via ``django.conf.settings``):
 - ``ANTHROPIC_API_KEY``   secret; when set + backend allows, Anthropic wins
 - ``CLAUDE_MODEL``        Anthropic model id (default haiku)
 - ``OLLAMA_BASE_URL``     e.g. "http://ollama.lan:11434" (no trailing /api)
-- ``OLLAMA_MODEL``        e.g. "llama3.1:8b" (default)
+- ``OLLAMA_MODEL``        e.g. "gemma4:latest" (default)
 - ``OLLAMA_TIMEOUT``      seconds for a single request (default 120)
 
 "auto" picks Anthropic when a key is set, then Ollama when a base URL is
@@ -128,7 +128,7 @@ def _ollama_complete(*, prompt: str, max_tokens: int, system: str | None) -> str
     import requests  # locally available via requirements.txt
 
     base_url = (getattr(settings, "OLLAMA_BASE_URL", "") or "").rstrip("/")
-    model = getattr(settings, "OLLAMA_MODEL", "llama3.1:8b")
+    model = getattr(settings, "OLLAMA_MODEL", "gemma4:latest")
     timeout = float(getattr(settings, "OLLAMA_TIMEOUT", 120))
     if not base_url:
         raise LLMError("OLLAMA_BASE_URL is not set")
