@@ -48,7 +48,7 @@ describe('ChildDashboard', () => {
           active_projects: [
             { id: 1, title: 'P1', status: 'in_progress', difficulty: 2, milestones_total: 3, milestones_completed: 1 },
           ],
-          recent_badges: [{ badge__name: 'Gold', badge__icon: '🏅' }],
+          recent_badges: [{ badge__id: 1, badge__name: 'Gold', badge__icon: '🏅' }],
           savings_goals: [{ id: 1, title: 'Bike', icon: '🚲', current_amount: 20, target_amount: 100, percent_complete: 20 }],
           chores_today: [{ id: 1, title: 'dishes', reward_amount: '1', coin_reward: 5, is_done: false }],
           pending_chore_approvals: 0,

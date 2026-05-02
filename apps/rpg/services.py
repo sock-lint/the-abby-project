@@ -31,6 +31,7 @@ from contextlib import contextmanager
 from datetime import timedelta
 
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 from apps.rpg.constants import TriggerType
@@ -378,8 +379,11 @@ class DropService:
                 defaults={"quantity": 1},
             )
             if not created:
-                inv.quantity += 1
-                inv.save(update_fields=["quantity", "updated_at"])
+                # F-expression closes the read-modify-write window — same
+                # pattern as RewardService._maybe_credit_digital_item.
+                UserInventory.objects.filter(pk=inv.pk).update(
+                    quantity=F("quantity") + 1,
+                )
 
         # Log the drop
         drop_log = DropLog.objects.create(
@@ -844,8 +848,9 @@ class ConsumableService:
                 user=profile.user, item=granted,
                 defaults={"quantity": 0},
             )
-            inv.quantity += 1
-            inv.save(update_fields=["quantity", "updated_at"])
+            UserInventory.objects.filter(pk=inv.pk).update(
+                quantity=F("quantity") + 1,
+            )
             return {
                 "granted_item_id": granted.pk,
                 "granted_item_name": granted.name,
@@ -968,8 +973,9 @@ class ConsumableService:
                 inv, _ = UserInventory.objects.get_or_create(
                     user=profile.user, item=item, defaults={"quantity": 0},
                 )
-                inv.quantity += 1
-                inv.save(update_fields=["quantity", "updated_at"])
+                UserInventory.objects.filter(pk=inv.pk).update(
+                    quantity=F("quantity") + 1,
+                )
                 granted.append({"item_id": item.pk, "item_name": item.name})
             return {"granted": granted, "count": count}
         raise ValueError(f"Unknown consumable effect: {effect!r}")

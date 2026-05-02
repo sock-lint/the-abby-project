@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.conf import settings as django_settings
 from django.db import transaction
+from django.db.models import F
 
 from apps.notifications.models import NotificationType
 from apps.notifications.services import get_display_name, notify, notify_parents
@@ -138,7 +139,7 @@ class RewardService:
             redemption=redemption,
         )
         if reward.stock is not None:
-            Reward.objects.filter(pk=reward.pk).update(stock=reward.stock - 1)
+            Reward.objects.filter(pk=reward.pk).update(stock=F("stock") - 1)
 
         from apps.activity.services import ActivityLogService
         ActivityLogService.record(
@@ -223,7 +224,6 @@ class RewardService:
                 reward.pk, reward.fulfillment_kind,
             )
             return
-        from django.db.models import F
         from apps.rpg.models import UserInventory
         # ``select_for_update`` already locks the row, but pairing with
         # ``F("quantity") + 1`` makes the increment correct under any
@@ -262,7 +262,7 @@ class RewardService:
         )
         reward = redemption.reward
         if reward.stock is not None:
-            Reward.objects.filter(pk=reward.pk).update(stock=reward.stock + 1)
+            Reward.objects.filter(pk=reward.pk).update(stock=F("stock") + 1)
         finalize_decision(
             redemption, RewardRedemption.Status.DENIED, parent, notes,
             activity_category="approval",
