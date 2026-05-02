@@ -1,7 +1,4 @@
-import json
 import logging
-
-from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -9,11 +6,12 @@ logger = logging.getLogger(__name__)
 def get_project_suggestions(user):
     """
     Generate AI project suggestions based on user's skill progress and completed projects.
-    Returns a list of suggestion dicts if the API key is available, otherwise returns
-    curated fallback suggestions.
+    Returns a list of suggestion dicts when an LLM backend is configured
+    (see :mod:`config.llm`), otherwise returns curated fallback suggestions.
     """
     from apps.achievements.models import SkillCategory, SkillProgress
     from apps.projects.models import Project
+    from config.llm import LLMError, LLMUnavailable, complete_json
 
     # Build user context
     completed = list(
@@ -27,65 +25,57 @@ def get_project_suggestions(user):
     )
     categories = list(SkillCategory.objects.values_list("name", flat=True))
 
-    api_key = getattr(settings, "ANTHROPIC_API_KEY", "")
-    if not api_key:
-        return _fallback_suggestions(completed, skills, categories)
+    completed_text = "\n".join(
+        f"- {title} (category: {cat}, difficulty: {diff})"
+        for title, cat, diff in completed
+    ) or "None yet"
+
+    skills_text = "\n".join(
+        f"- {name} ({cat}): Level {level}"
+        for name, cat, level in skills
+    ) or "No skills leveled yet"
+
+    prompt = (
+        "You are a project advisor for a teen's summer maker program. "
+        "Based on their completed projects and skill levels, suggest 3 new project ideas.\n\n"
+        f"Completed projects:\n{completed_text}\n\n"
+        f"Current skills:\n{skills_text}\n\n"
+        f"Available categories: {', '.join(categories)}\n\n"
+        "Return a JSON object with a single key ``suggestions`` whose value is "
+        "an array of exactly 3 objects, each containing:\n"
+        '- "title": project name\n'
+        '- "description": 2-3 sentence description\n'
+        '- "category": one of the available categories\n'
+        '- "difficulty": 1-5\n'
+        '- "estimated_hours": number\n'
+        '- "why": one sentence explaining why this is a good next project\n\n'
+        "Return ONLY the JSON object, no other text."
+    )
 
     try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=api_key)
-
-        completed_text = "\n".join(
-            f"- {title} (category: {cat}, difficulty: {diff})"
-            for title, cat, diff in completed
-        ) or "None yet"
-
-        skills_text = "\n".join(
-            f"- {name} ({cat}): Level {level}"
-            for name, cat, level in skills
-        ) or "No skills leveled yet"
-
-        message = client.messages.create(
-            model=getattr(settings, "CLAUDE_MODEL", "claude-haiku-4-5-20251001"),
-            max_tokens=1024,
-            messages=[{
-                "role": "user",
-                "content": (
-                    "You are a project advisor for a teen's summer maker program. "
-                    "Based on their completed projects and skill levels, suggest 3 new project ideas.\n\n"
-                    f"Completed projects:\n{completed_text}\n\n"
-                    f"Current skills:\n{skills_text}\n\n"
-                    f"Available categories: {', '.join(categories)}\n\n"
-                    "For each suggestion, provide a JSON array with objects containing:\n"
-                    '- "title": project name\n'
-                    '- "description": 2-3 sentence description\n'
-                    '- "category": one of the available categories\n'
-                    '- "difficulty": 1-5\n'
-                    '- "estimated_hours": number\n'
-                    '- "why": one sentence explaining why this is a good next project\n\n'
-                    "Return ONLY the JSON array, no other text."
-                ),
-            }],
-        )
-
-        text = message.content[0].text.strip()
-        # Extract JSON from response
-        if text.startswith("["):
-            suggestions = json.loads(text)
-        else:
-            # Try to find JSON array in the response
-            start = text.find("[")
-            end = text.rfind("]") + 1
-            if start >= 0 and end > start:
-                suggestions = json.loads(text[start:end])
-            else:
-                return _fallback_suggestions(completed, skills, categories)
-
-        return suggestions[:3]
-
-    except Exception:
+        result = complete_json(prompt=prompt, max_tokens=1024)
+    except LLMUnavailable:
+        return _fallback_suggestions(completed, skills, categories)
+    except LLMError as exc:
+        logger.warning("AI project suggestions failed for user %s: %s", user, exc)
+        return _fallback_suggestions(completed, skills, categories)
+    except Exception:  # noqa: BLE001 — defensive; never block the page
         logger.exception("AI project suggestions failed for user %s", user)
         return _fallback_suggestions(completed, skills, categories)
+
+    # Backwards-compatible: accept either a top-level array (old Anthropic
+    # path used to coerce to one) or a wrapped {"suggestions": [...]}, which
+    # is what Ollama's JSON mode produces reliably (it requires an object).
+    if isinstance(result, list):
+        suggestions = result
+    elif isinstance(result, dict):
+        suggestions = result.get("suggestions") or []
+    else:
+        suggestions = []
+
+    if not suggestions:
+        return _fallback_suggestions(completed, skills, categories)
+    return suggestions[:3]
 
 
 def _fallback_suggestions(completed, skills, categories):

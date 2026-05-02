@@ -172,12 +172,23 @@ HOMEWORK_LATE_CUTOFF_DAYS = 3
 # earns autonomy while panic-mode still requires a parent conversation.
 HOMEWORK_SELF_PLAN_LEAD_DAYS = 3
 
-# --- Anthropic / Claude ---------------------------------------------------
-# Optional. When set, enables Claude-powered ingestion enrichment and
-# project suggestion flows. Both call sites should import these names
-# from django.conf.settings (never re-read os.environ).
+# --- Text LLM (ingestion enrich, project suggestions, homework planning) --
+# All three call sites route through ``config.llm.complete_json``. The
+# active backend is picked by ``LLM_BACKEND`` (auto|anthropic|ollama|none).
+# ``auto`` (default) prefers Anthropic when a key is set, then Ollama when a
+# base URL is set, then falls back to the non-AI path each call site already
+# ships. Settings should always be read via ``django.conf.settings`` — never
+# re-read os.environ in app code.
+LLM_BACKEND = os.environ.get("LLM_BACKEND", "auto")
+
+# Anthropic (hosted Claude)
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+
+# Ollama (local LAN). Empty base URL disables the backend.
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:latest")
+OLLAMA_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "120"))
 
 # --- Google Gemini (sprite generation) ------------------------------------
 # Optional. When set, enables the ``generate_sprite_sheet`` MCP tool which
