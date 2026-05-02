@@ -137,12 +137,12 @@ flowchart TD
 **Service:** `PaymentService` extends `BaseLedgerService` — [apps/payments/services.py:11](../apps/payments/services.py)
 **Paths to earn:**
 - Clock-out → weekly timecard generation at [apps/timecards/services.py:218](../apps/timecards/services.py) (hourly)
-- Project completion signal at [apps/projects/signals.py:61](../apps/projects/signals.py) (`project_bonus` for required, `bounty_payout` for bounty; bounty pays 2.5× multiplier)
-- Milestone completion at [apps/projects/signals.py:136](../apps/projects/signals.py) (`bonus_amount` field on milestone)
-- Chore approval at [apps/chores/services.py:188](../apps/chores/services.py)
-- Parent payout at [apps/payments/services.py:43](../apps/payments/services.py) (negative — cash withdrawn)
-- Parent manual adjust at [apps/payments/views.py:83](../apps/payments/views.py) (and MCP tool)
-- Money→coins exchange approval at [apps/rewards/services.py:241](../apps/rewards/services.py) (negative — money out)
+- Project completion signal at [apps/projects/signals.py:81](../apps/projects/signals.py) (`project_bonus` for required, `bounty_payout` for bounty; bounty pays 2.5× multiplier)
+- Milestone completion at [apps/projects/signals.py:171](../apps/projects/signals.py) (`bonus_amount` field on milestone)
+- Chore approval at [apps/chores/services.py:200](../apps/chores/services.py)
+- Parent payout at [apps/payments/services.py:80](../apps/payments/services.py) (negative — cash withdrawn)
+- Parent manual adjust at [apps/payments/views.py:57](../apps/payments/views.py) (and MCP tool)
+- Money→coins exchange approval at [apps/rewards/services.py:337](../apps/rewards/services.py) (negative — money out)
 - **Homework pays no money** (intentional — school duty, not work-for-hire)
 
 ### Coins — `CoinLedger`
@@ -152,15 +152,15 @@ flowchart TD
 **Service:** `CoinService` extends `BaseLedgerService` — [apps/rewards/services.py:28](../apps/rewards/services.py)
 **Paths to earn:**
 - Clock-out: `COINS_PER_HOUR × hours` (default 5/hr)
-- Project/milestone/bounty completion (same signals as money) at [apps/projects/signals.py:72](../apps/projects/signals.py)
-- Chore approval at [apps/chores/services.py:198](../apps/chores/services.py)
-- Badge earn → `COINS_PER_BADGE_RARITY[rarity]` (common 5 → legendary 150) at [apps/achievements/services.py:274](../apps/achievements/services.py)
+- Project/milestone/bounty completion (same signals as money) at [apps/projects/signals.py:81](../apps/projects/signals.py)
+- Chore approval at [apps/chores/services.py:200](../apps/chores/services.py)
+- Badge earn → `COINS_PER_BADGE_RARITY[rarity]` (common 5 → legendary 150) at [apps/achievements/services.py:463](../apps/achievements/services.py)
 - Daily check-in (first activity of the day) at [apps/rpg/services.py](../apps/rpg/services.py) — `5 × min(1 + streak × 0.10, 3.0)` (5c at day 1, 15c cap at day 20+)
-- Perfect Day bonus (+15) at [apps/rpg/tasks.py:40](../apps/rpg/tasks.py)
-- Quest completion reward at [apps/quests/services.py:185](../apps/quests/services.py)
-- Cosmetic-drop salvage (dup cosmetics auto-convert to `item.coin_value`) at [apps/rpg/services.py:141](../apps/rpg/services.py)
-- Redemption refund on parent rejection at [apps/rewards/services.py:165](../apps/rewards/services.py)
-- Money→coins exchange approval at [apps/rewards/services.py:249](../apps/rewards/services.py)
+- Perfect Day bonus (+15) at [apps/rpg/tasks.py:45](../apps/rpg/tasks.py)
+- Quest completion reward at [apps/quests/services.py:296](../apps/quests/services.py)
+- Cosmetic-drop salvage (dup cosmetics auto-convert to `item.coin_value`) at [apps/rpg/services.py:354](../apps/rpg/services.py)
+- Redemption refund on parent rejection at [apps/rewards/services.py:237](../apps/rewards/services.py)
+- Money→coins exchange approval at [apps/rewards/services.py:337](../apps/rewards/services.py)
 - Parent manual adjust (`/api/coins/adjust/`) — validates balance on negatives
 
 ---
@@ -172,11 +172,11 @@ flowchart TD
 **Model:** [apps/achievements/models.py:96](../apps/achievements/models.py) — `SkillProgress.xp_points` + derived `level` via `XP_THRESHOLDS` (0 / 100 / 300 / 600 / 1000 / 1500 / 2500).
 **Service:** `SkillService.award_xp` + `AwardService.grant` — [apps/achievements/services.py:13](../apps/achievements/services.py)
 **Paths to earn:**
-- Clock-out distributes `10 XP × hours` across `ProjectSkillTag.xp_weight` at [apps/timecards/services.py:126](../apps/timecards/services.py)
-- Milestone completion → `MilestoneSkillTag.xp_amount` (or falls back to project XP distribution) at [apps/projects/signals.py:130](../apps/projects/signals.py)
-- Homework approval distributes XP across `HomeworkSkillTag`s at [apps/homework/services.py:222](../apps/homework/services.py)
-- Badge earn: `badge.xp_bonus` distributed evenly across active skills at [apps/achievements/services.py:293](../apps/achievements/services.py)
-- Quest completion `xp_reward` at [apps/quests/services.py:195](../apps/quests/services.py)
+- Clock-out distributes `10 XP × hours` across `ProjectSkillTag.xp_weight` at [apps/timecards/services.py:121](../apps/timecards/services.py) (inside `ClockService.clock_out`)
+- Milestone completion → `MilestoneSkillTag.xp_amount` (or falls back to project XP distribution) at [apps/projects/signals.py:164](../apps/projects/signals.py)
+- Homework approval distributes XP across `HomeworkSkillTag`s at [apps/homework/services.py:267](../apps/homework/services.py) (inside `approve_submission`)
+- Badge earn: `badge.xp_bonus` distributed evenly across active skills at [apps/achievements/services.py:490](../apps/achievements/services.py)
+- Quest completion `xp_reward` at [apps/quests/services.py:296](../apps/quests/services.py) (inside `_complete_quest`)
 
 ### Badges
 **Purpose:** Named achievement unlocks scoped to specific accomplishments. Display on `/achievements`, gate some quests, award coins + XP on earn.
@@ -193,14 +193,14 @@ flowchart TD
 - *meta:* `badges_earned_count`, `cosmetic_set_owned`, `cosmetic_full_set`, `full_potion_shelf`, `consumable_variety`, `chronicle_milestones_logged`, `grade_reached`, `birthdays_logged`
 
 Seed "Bronze Saver" (500 coins) and "Gold Saver" (5000 coins) badges ship in [badges.yaml](../content/rpg/initial/badges.yaml) using the `total_coins_earned` criterion.
-**Service:** `BadgeService.evaluate_badges` — [apps/achievements/services.py:247](../apps/achievements/services.py)
+**Service:** `BadgeService.evaluate_badges` — [apps/achievements/services.py:410](../apps/achievements/services.py)
 **Paths to earn (every call site that triggers re-evaluation):**
-- Any `AwardService.grant` — [apps/achievements/services.py:233](../apps/achievements/services.py)
-- Homework creation (planner badges — rewards filing early) at [apps/homework/services.py:129](../apps/homework/services.py)
-- Homework approval (on-time count) at [apps/homework/services.py:225](../apps/homework/services.py)
-- Milestone completion at [apps/projects/signals.py:144](../apps/projects/signals.py)
-- Timecard approval (perfect timecard) at [apps/timecards/services.py:241](../apps/timecards/services.py)
-- Quest completion at [apps/quests/services.py:202](../apps/quests/services.py)
+- Any `AwardService.grant` — [apps/achievements/services.py:241](../apps/achievements/services.py)
+- Homework creation (planner badges — rewards filing early) at [apps/homework/services.py:174](../apps/homework/services.py)
+- Homework approval (on-time count) at [apps/homework/services.py:325](../apps/homework/services.py)
+- Milestone completion at [apps/projects/signals.py:181](../apps/projects/signals.py)
+- Timecard approval (perfect timecard) at [apps/timecards/services.py:281](../apps/timecards/services.py)
+- Quest completion at [apps/quests/services.py:296](../apps/quests/services.py) (inside `_complete_quest`)
 
 ### Habit strength (progression metric, not spendable)
 **Purpose:** Self-tracked behavior color bar (red → green → blue). **Pays no coins/money** — the reward is just the visual streak and an RPG-loop tick.
@@ -216,17 +216,17 @@ Seed "Bronze Saver" (500 coins) and "Gold Saver" (5000 coins) badges ship in [ba
 
 ### Drops (ItemDefinition → UserInventory)
 **Purpose:** Randomized loot pulls on task completion. The "surprise" reward layer that makes consistent engagement pay off in cosmetics/consumables.
-**Model:** [apps/rpg/models.py:48](../apps/rpg/models.py)
+**Model:** [apps/rpg/models.py:195](../apps/rpg/models.py) — `DropTable`; `ItemDefinition` at [apps/rpg/models.py:111](../apps/rpg/models.py)
 **Item types (10):** `egg`, `potion`, `food`, `cosmetic_frame`, `cosmetic_title`, `cosmetic_theme`, `cosmetic_pet_accessory`, `quest_scroll`, `coin_pouch`, `consumable`
 **Rarities (5):** common, uncommon, rare, epic, legendary
-**Service:** `DropService.process_drops` — [apps/rpg/services.py:91](../apps/rpg/services.py)
+**Service:** `DropService.process_drops` — [apps/rpg/services.py:300](../apps/rpg/services.py)
 **Base drop rates** (`BASE_DROP_RATES`, keyed by [`TriggerType`](../apps/rpg/constants.py)): `CLOCK_OUT` 0.40, `CHORE_COMPLETE` 0.30, `HOMEWORK_COMPLETE` 0.35, `HOMEWORK_CREATED` 0.15 (daily-capped — see below), `MILESTONE_COMPLETE` 0.80, `PROJECT_COMPLETE` 1.00, `BADGE_EARNED` 1.00, `QUEST_COMPLETE` 1.00, `PERFECT_DAY` 1.00, `HABIT_LOG` 0.15. Streak adds `+0.05/day` up to `+0.50`. The content-pack loader validates every trigger string in `drops.yaml` against this enum and raises `ContentPackError` on typos.
 **Paths to earn:** Called by `GameLoopService.on_task_completed` from every activity trigger. `homework_created` beyond the first assignment of the day passes `drops_allowed=False` to suppress the roll (anti-farming cap in `HomeworkService.create_assignment`).
 
 ### Pets → Mounts
 **Purpose:** Collectible companions that evolve. Long-tail goal that makes egg/potion/food drops meaningful.
 **Model:** [apps/pets/models.py:64](../apps/pets/models.py) — `UserPet` (growth 0–100), `UserMount` (evolved).
-**Service:** `PetService` — [apps/pets/services.py:12](../apps/pets/services.py)
+**Service:** `PetService` — [apps/pets/services.py:77](../apps/pets/services.py)
 **Paths:**
 - **Hatch:** consume 1 egg + 1 potion (`PetService.hatch_pet`). Species × potion combo gated by `PetSpecies.available_potions` M2M.
 - **Feed:** consume food → +15 growth if preferred species match, +5 neutral.
@@ -269,7 +269,7 @@ Seed "Bronze Saver" (500 coins) and "Gold Saver" (5000 coins) badges ship in [ba
 
 ### Login streak + daily check-in
 **Purpose:** Rewards consistency; drives return visits.
-**Model:** `CharacterProfile.login_streak` + `longest_login_streak` — [apps/rpg/models.py:16](../apps/rpg/models.py)
+**Model:** `CharacterProfile.login_streak` + `longest_login_streak` — [apps/rpg/models.py:11](../apps/rpg/models.py)
 **Paths:**
 - `StreakService.record_activity` called from `GameLoopService.on_task_completed` on every trigger ([apps/rpg/services.py](../apps/rpg/services.py))
 - First activity of day awards streak-scaled coin bonus: `5 × min(1 + streak × 0.10, 3.0)` (day 1 = 5c, day 20+ = 15c cap)
@@ -279,7 +279,7 @@ Seed "Bronze Saver" (500 coins) and "Gold Saver" (5000 coins) badges ship in [ba
 ### Perfect Day
 **Purpose:** Rewards fully completing a day's chores while staying active.
 **Paths:**
-- `evaluate_perfect_day_task` Celery at 23:55 local ([apps/rpg/tasks.py:10](../apps/rpg/tasks.py)) — if active today AND every daily chore approved: `perfect_days_count += 1`, +15 coins, `perfect_day` notification, triggers a `perfect_day` drop roll (base rate 1.00)
+- `evaluate_perfect_day_task` Celery at 23:55 local ([apps/rpg/tasks.py:10](../apps/rpg/tasks.py)) — if active today AND **at least one daily chore is scheduled** AND every daily chore approved: `perfect_days_count += 1`, +15 coins, `perfect_day` notification, triggers a `perfect_day` drop roll (base rate 1.00). The "at least one daily chore" guard (added 2026-04-26) prevents days with zero scheduled chores from auto-qualifying for the bonus — pinned by [apps/rpg/tests/test_tasks.py](../apps/rpg/tests/test_tasks.py).
 
 ---
 
@@ -287,12 +287,12 @@ Seed "Bronze Saver" (500 coins) and "Gold Saver" (5000 coins) badges ship in [ba
 
 ### Reward shop (Coins → real-world or digital items)
 **Purpose:** The end-of-funnel spend. Gives coins somewhere to land.
-**Model:** `Reward`, `RewardRedemption` ([apps/rewards/models.py:50](../apps/rewards/models.py))
-**Fulfillment:** `real_world` (parent delivers), `digital_item` (auto-credit ItemDefinition to inventory on approve), `both`
+**Model:** `Reward` ([apps/rewards/models.py:49](../apps/rewards/models.py)), `RewardRedemption` ([apps/rewards/models.py:141](../apps/rewards/models.py))
+**Fulfillment:** `real_world` (parent delivers), `digital_item` (auto-credit `ItemDefinition` to inventory on approve via `RewardService._maybe_credit_digital_item` at [apps/rewards/services.py:205](../apps/rewards/services.py)), `both`
 **Flow:**
-1. Child requests → `RewardService.request_redemption` at [apps/rewards/services.py:79](../apps/rewards/services.py) — coins immediately **held** (spent into a pending row)
-2. Parent approves → `fulfilled`, digital item (if any) credited to `UserInventory`
-3. Parent rejects → `refund` reason on `CoinLedger`, stock restored
+1. Child requests → `RewardService.request_redemption` at [apps/rewards/services.py:110](../apps/rewards/services.py) — coins immediately **held** (spent into a pending row)
+2. Parent approves → `RewardService.approve` at [apps/rewards/services.py:187](../apps/rewards/services.py); status flips to `fulfilled`, digital item (if any) credited to `UserInventory`
+3. Parent rejects → `RewardService.reject` at [apps/rewards/services.py:237](../apps/rewards/services.py); `refund` reason on `CoinLedger`, stock restored
 
 ### Money → Coins exchange
 **Purpose:** Child can turn earned money into coins at rate `COINS_PER_DOLLAR` (default 10).

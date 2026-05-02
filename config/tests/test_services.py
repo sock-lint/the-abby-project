@@ -1,15 +1,18 @@
-"""Tests for config.services — finalize_decision and BaseLedgerService."""
+"""Tests for config.services — finalize_decision, BaseLedgerService,
+and bump_daily_counter."""
+import datetime
 from decimal import Decimal
 
 from django.test import TestCase
 from django.utils import timezone
 
+from apps.creations.models import CreationDailyCounter
 from apps.payments.models import PaymentLedger
 from apps.payments.services import PaymentService
 from apps.projects.models import User
 from apps.rewards.models import CoinLedger
 from apps.rewards.services import CoinService
-from config.services import finalize_decision
+from config.services import bump_daily_counter, finalize_decision
 
 
 class _Fixture(TestCase):
@@ -87,3 +90,68 @@ class BaseLedgerServiceCoinTests(_Fixture):
         CoinService.award_coins(self.child, 50, CoinLedger.Reason.HOURLY)
         CoinService.award_coins(self.child, -10, CoinLedger.Reason.REDEMPTION)
         self.assertEqual(CoinService.get_balance(self.child), 40)
+
+
+class BumpDailyCounterTests(_Fixture):
+    """Pin the read-modify-write semantics of the helper used by every
+    DailyCounterModel subclass (CreationDailyCounter, HomeworkDailyCounter,
+    MovementDailyCounter). Anti-farm gates rely on the pre-increment return
+    so the first call gates as ``prior == 0`` regardless of sibling rows.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.today = datetime.date(2026, 5, 1)
+        self.yesterday = datetime.date(2026, 4, 30)
+
+    def test_first_call_returns_zero_and_creates_row_at_one(self):
+        prior = bump_daily_counter(CreationDailyCounter, self.child, self.today)
+        self.assertEqual(prior, 0)
+        row = CreationDailyCounter.objects.get(user=self.child, occurred_on=self.today)
+        self.assertEqual(row.count, 1)
+
+    def test_second_call_same_day_returns_one_and_increments(self):
+        bump_daily_counter(CreationDailyCounter, self.child, self.today)
+        prior = bump_daily_counter(CreationDailyCounter, self.child, self.today)
+        self.assertEqual(prior, 1)
+        row = CreationDailyCounter.objects.get(user=self.child, occurred_on=self.today)
+        self.assertEqual(row.count, 2)
+
+    def test_new_day_creates_fresh_row_without_touching_prior_day(self):
+        bump_daily_counter(CreationDailyCounter, self.child, self.yesterday)
+        bump_daily_counter(CreationDailyCounter, self.child, self.yesterday)
+        prior = bump_daily_counter(CreationDailyCounter, self.child, self.today)
+        self.assertEqual(prior, 0, "new day must reset to 0, not carry forward")
+        yesterday_row = CreationDailyCounter.objects.get(
+            user=self.child, occurred_on=self.yesterday,
+        )
+        today_row = CreationDailyCounter.objects.get(
+            user=self.child, occurred_on=self.today,
+        )
+        self.assertEqual(yesterday_row.count, 2)
+        self.assertEqual(today_row.count, 1)
+
+    def test_different_users_keep_separate_counters(self):
+        other_child = User.objects.create_user(
+            username="other", password="pw", role="child",
+        )
+        bump_daily_counter(CreationDailyCounter, self.child, self.today)
+        bump_daily_counter(CreationDailyCounter, self.child, self.today)
+        prior_other = bump_daily_counter(CreationDailyCounter, other_child, self.today)
+        self.assertEqual(
+            prior_other, 0,
+            "other_child's counter must not see self.child's row",
+        )
+
+    def test_repeated_calls_keep_returning_increasing_priors(self):
+        """First-of-day gating callers branch on ``prior == 0``; deeper-tier
+        gates (e.g. Creations' ``DAILY_XP_LIMIT == 2``) branch on
+        ``prior < N``. Pin that the helper is monotonic across many calls.
+        """
+        priors = [
+            bump_daily_counter(CreationDailyCounter, self.child, self.today)
+            for _ in range(5)
+        ]
+        self.assertEqual(priors, [0, 1, 2, 3, 4])
+        row = CreationDailyCounter.objects.get(user=self.child, occurred_on=self.today)
+        self.assertEqual(row.count, 5)
