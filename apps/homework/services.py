@@ -566,12 +566,12 @@ class HomeworkService:
     @staticmethod
     @transaction.atomic
     def plan_assignment(assignment, parent):
-        """Use Claude + project model to generate a multi-step Project for a homework assignment.
+        """Use an LLM to generate a multi-step Project for a homework assignment.
 
         Raises HomeworkError if:
         - the assignment already has a linked project,
-        - ANTHROPIC_API_KEY is not configured, or
-        - the Claude call / JSON parse fails.
+        - no LLM backend is configured (see :mod:`config.llm`), or
+        - the LLM call / JSON parse fails.
         """
         from apps.projects.models import (
             MaterialItem,
@@ -579,18 +579,10 @@ class HomeworkService:
             ProjectMilestone,
             ProjectStep,
         )
+        from config.llm import LLMError, LLMUnavailable, complete_json
 
         if assignment.project_id:
             raise HomeworkError("This assignment already has a linked project.")
-
-        api_key = getattr(settings, "ANTHROPIC_API_KEY", "")
-        if not api_key:
-            raise HomeworkError("AI planning is not configured (ANTHROPIC_API_KEY missing).")
-
-        try:
-            import anthropic  # type: ignore
-        except ImportError as exc:
-            raise HomeworkError("AI planning requires the 'anthropic' package.") from exc
 
         prompt = HomeworkService._PLAN_PROMPT.format(
             title=assignment.title,
@@ -601,19 +593,12 @@ class HomeworkService:
         )
 
         try:
-            client = anthropic.Anthropic(api_key=api_key)
-            message = client.messages.create(
-                model=getattr(settings, "CLAUDE_MODEL", "claude-haiku-4-5-20251001"),
-                max_tokens=2048,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            text = (message.content[0].text or "").strip()
-            if text.startswith("```"):
-                text = text.strip("`")
-                if text.startswith("json"):
-                    text = text[4:].strip()
-            import json as _json
-            spec = _json.loads(text)
+            spec = complete_json(prompt=prompt, max_tokens=2048)
+        except LLMUnavailable as exc:
+            raise HomeworkError("AI planning is not configured.") from exc
+        except LLMError as exc:
+            logger.warning("Homework AI planning failed for assignment %s: %s", assignment.pk, exc)
+            raise HomeworkError(f"AI planning failed: {exc}") from exc
         except Exception as exc:  # noqa: BLE001
             logger.exception("Homework AI planning failed for assignment %s", assignment.pk)
             raise HomeworkError(f"AI planning failed: {exc}") from exc

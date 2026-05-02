@@ -1,14 +1,13 @@
-"""Pipeline stage that asks Claude to enrich an ingested item.
+"""Pipeline stage that asks an LLM to enrich an ingested item.
 
-No-op when ``ANTHROPIC_API_KEY`` is not set. The stage writes structured
-suggestions to ``item.ai_suggestions`` but does NOT mutate the existing
-``title``, ``description``, ``steps``, ``milestones``, ``materials``, or
-``resources`` fields — the frontend renders AI suggestions as opt-in chips
-so the child can accept or ignore them.
+No-op when no LLM backend is configured (see :mod:`config.llm`). The stage
+writes structured suggestions to ``item.ai_suggestions`` but does NOT
+mutate the existing ``title``, ``description``, ``steps``, ``milestones``,
+``materials``, or ``resources`` fields — the frontend renders AI
+suggestions as opt-in chips so the child can accept or ignore them.
 """
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -75,50 +74,38 @@ class EnrichStage:
     max_content_chars: int = 12_000
 
     def __call__(self, item: IngestionItem, context: dict[str, Any]) -> IngestionItem:
-        from django.conf import settings
-        api_key = getattr(settings, "ANTHROPIC_API_KEY", "")
-        if not api_key:
-            return item
+        from config.llm import LLMError, LLMUnavailable, complete_json
 
         content = item.markdown or item.description or ""
         if not content.strip():
-            return item
-
-        try:
-            import anthropic  # type: ignore
-        except ImportError:
-            item.pipeline_warnings.append("enrich: anthropic package not installed")
             return item
 
         # Keep this import local so the pipeline module stays Django-agnostic.
         from apps.achievements.models import SkillCategory
         categories = list(SkillCategory.objects.values_list("name", flat=True))
 
+        prompt = PROMPT.format(
+            categories=", ".join(categories) or "(none)",
+            title=item.title or "(untitled)",
+            markdown=content[: self.max_content_chars],
+        )
+
         try:
-            client = anthropic.Anthropic(api_key=api_key)
-            prompt = PROMPT.format(
-                categories=", ".join(categories) or "(none)",
-                title=item.title or "(untitled)",
-                markdown=content[: self.max_content_chars],
-            )
-            message = client.messages.create(
-                model=getattr(settings, "CLAUDE_MODEL", "claude-haiku-4-5-20251001"),
-                # Bumped from 1024 to 2048: the response now carries ordered
-                # walkthrough steps and per-step resources alongside the
-                # original category/difficulty/skill_tags payload.
-                max_tokens=2048,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            text = (message.content[0].text or "").strip()
-            if text.startswith("```"):
-                # Strip code fences if Claude returned them.
-                text = text.strip("`")
-                if text.startswith("json"):
-                    text = text[4:].strip()
-            suggestions = json.loads(text)
-            if isinstance(suggestions, dict):
-                item.ai_suggestions = suggestions
-        except Exception as exc:  # noqa: BLE001
+            # max_tokens bumped from 1024 to 2048: response now carries
+            # ordered walkthrough steps and per-step resources alongside the
+            # original category/difficulty/skill_tags payload.
+            suggestions = complete_json(prompt=prompt, max_tokens=2048)
+        except LLMUnavailable:
+            return item
+        except LLMError as exc:
+            item.pipeline_warnings.append(f"enrich: {exc}")
+            logger.warning("AI enrichment failed for item '%s': %s", item.title, exc)
+            return item
+        except Exception as exc:  # noqa: BLE001 — defensive belt-and-braces
             item.pipeline_warnings.append(f"enrich: {exc}")
             logger.exception("AI enrichment failed for item '%s'", item.title)
+            return item
+
+        if isinstance(suggestions, dict):
+            item.ai_suggestions = suggestions
         return item
