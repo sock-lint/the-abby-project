@@ -154,8 +154,8 @@ the-abby-project/
 │       ├── hooks/           # useApi, useAuth, useParentDashboard, useDropToasts, …
 │       └── pages/           # Dashboard router (Child/ParentDashboard), QuestsHub,
 │                            #   AtlasHub (Skills/Badges/Sketchbook/Yearbook), BestiaryHub
-│                            #   (Inventory/Stable), TreasuryHub (Payments/Timecards/
-│                            #   Rewards), Atlas Lorebook mechanics guide,
+│                            #   (Companions/Mounts/Codex/Hatchery), TreasuryHub (Payments/
+│                            #   Timecards/Rewards/Satchel), Lorebook mechanics guide,
 │                            #   Trials, Character (Sigil Frontispiece),
 │                            #   ClockPage, Manage, SettingsPage, Login, …
 ├── Dockerfile               # Multi-stage: Node build → Python + Django + WhiteNoise
@@ -718,8 +718,8 @@ The app organizes pages into five "chapter" hubs plus utility routes. The legacy
 | Project Ingest | `/quests/ventures/ingest` | AI import preview — edit milestones, steps, materials before commit |
 | Trials | `/trials` | Time-boxed boss/collection quests overlay (separate from the regular-cadence Quests hub) |
 | Atlas Hub | `/atlas` | Tabs: Skills (Illuminated Atlas tome shelf), Badges (Reliquary Codex sigil case), Sketchbook (project + homework gallery), Yearbook (lifelong chronicle timeline) |
-| Bestiary Hub | `/bestiary` | Tabs: Satchel (Inventory), Party (Pet + Mount stable with breeding) |
-| Treasury Hub | `/treasury` | Tabs: Coffers (Payments), Wages (Timecards), Bazaar (Rewards + coin balance + exchange) |
+| Bestiary Hub | `/bestiary` | Tabs: Companions (active pets + feeding), Mounts (evolved + breeding), Codex (species browse), Hatchery (egg + potion → pet, mount breeding) |
+| Treasury Hub | `/treasury` | Tabs: Coffers (Payments), Wages (Timecards), Bazaar (Rewards + coin balance + exchange), Satchel (Inventory — drops, cosmetics, consumables), Hoards (Savings goals) |
 | Sigil (Character) | `/sigil` | Frontispiece — illuminated initial, trophy badge picker, four cosmetic chapters with locked intaglios + live theme preview |
 | Clock | `/clock` | Large circular timer, project selector, one-tap clock in/out |
 | Manage | `/manage` | Parent CRUD for children, templates, rewards, categories, subjects, skills, badges, sprites (Codex authoring surface) |
