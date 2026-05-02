@@ -6,7 +6,7 @@ import ErrorAlert from '../../components/ErrorAlert';
 import Loader from '../../components/Loader';
 import RuneBadge from '../../components/journal/RuneBadge';
 import { SelectField } from '../../components/form';
-import { useAuth } from '../../hooks/useApi';
+import { useRole } from '../../hooks/useRole';
 import { getChildren, getChronicleSummary, getTodayJournal } from '../../api';
 import { normalizeList } from '../../utils/api';
 import JournalEntryFormModal from '../yearbook/JournalEntryFormModal';
@@ -23,8 +23,7 @@ import JournalEntryFormModal from '../yearbook/JournalEntryFormModal';
  * lock, dictation) stay in lockstep across both entry points.
  */
 export default function JournalReader() {
-  const { user } = useAuth();
-  const isParent = user?.role === 'parent';
+  const { user, isParent } = useRole();
 
   // children === null means "not fetched yet" — distinct from [] which
   // means "fetched, parent has no kids." Without this distinction the

@@ -9,7 +9,8 @@ import {
   getSavingsGoals, getInventory,
   getTodayJournal,
 } from '../../api';
-import { useApi, useAuth } from '../../hooks/useApi';
+import { useApi } from '../../hooks/useApi';
+import { useRole } from '../../hooks/useRole';
 import { normalizeList } from '../../utils/api';
 import Button from '../Button';
 import { SelectField, TextAreaField } from '../form';
@@ -151,8 +152,7 @@ export default function QuickActionsSheet({
   status, isClocked, elapsedSecs, onClose, onClockReload,
 }) {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const isParent = user?.role === 'parent';
+  const { user, isParent } = useRole();
   const [pane, setPane] = useState('menu'); // 'menu' | 'clock'
   const [journalOpen, setJournalOpen] = useState(false);
   const [creationOpen, setCreationOpen] = useState(false);

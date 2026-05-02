@@ -2,13 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import RuneBadge from '../journal/RuneBadge';
+import { STORAGE_KEYS } from '../../constants/storage';
 
 function slugify(s) {
   return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
 function storageKey(title) {
-  return `dashboard-accordion-${slugify(title)}`;
+  return `${STORAGE_KEYS.DASHBOARD_ACCORDION_PREFIX}${slugify(title)}`;
 }
 
 function readStored(title, fallback) {

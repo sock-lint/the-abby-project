@@ -161,10 +161,9 @@ def generate_timecard(params: GenerateTimecardIn) -> dict[str, Any]:
     Returns ``null`` when the child has no completed entries in that week.
     Posts hourly PaymentLedger entries on first creation only.
     """
-    require_parent()
-    try:
-        child = User.objects.get(pk=params.user_id, role="child")
-    except User.DoesNotExist:
+    parent = require_parent()
+    child = resolve_target_user(parent, params.user_id)
+    if getattr(child, "role", None) != "child":
         raise MCPNotFoundError(f"Child {params.user_id} not found.")
     timecard = TimecardService.generate_weekly_timecard(child, params.week_start)
     if timecard is None:

@@ -64,3 +64,15 @@ export const fadeBackdrop = {
   animate: { opacity: 1, transition: { duration: 0.2 } },
   exit:    { opacity: 0, transition: { duration: 0.15 } },
 };
+
+// Generic card / row fade-in. Used by pages that have a small list of
+// motion.div children and just want them to settle in. Matches the
+// most common ad-hoc pattern (``initial={{ opacity: 0, y: 8 }}``) so the
+// page can swap the inline literal for ``variants={cardFadeIn}``.
+// ``staggerItem`` is the same shape — kept distinct because callers
+// often want one or the other intent (sequenced vs. one-shot).
+export const cardFadeIn = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+  exit:    { opacity: 0, y: -4, transition: { duration: 0.15 } },
+};

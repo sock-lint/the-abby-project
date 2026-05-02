@@ -173,10 +173,11 @@ class ClockService:
                 coin_description=f"Hourly coins: {entry.project.title}",
             )
 
-            # RPG game loop
+            # RPG game loop — wrapped via shared helper so a downstream
+            # crash can't unwind the hourly award above.
             from apps.rpg.constants import TriggerType
-            from apps.rpg.services import GameLoopService
-            GameLoopService.on_task_completed(
+            from apps.rpg.services import safe_game_loop_call
+            safe_game_loop_call(
                 user, TriggerType.CLOCK_OUT,
                 {"project_id": entry.project_id, "hours": hours},
             )

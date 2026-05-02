@@ -29,7 +29,7 @@ from apps.quests.models import Quest, QuestDefinition, QuestParticipant, QuestSk
 from apps.quests.services import QuestService
 from apps.quests.validators import validate_trigger_filter
 
-from ..context import get_current_user, require_parent
+from ..context import get_current_user, require_parent, resolve_target_user
 from ..errors import (
     MCPNotFoundError,
     MCPPermissionDenied,
@@ -186,9 +186,8 @@ def create_quest_definition(
         "quest": None,
     }
     if params.assigned_to_id is not None:
-        try:
-            child = User.objects.get(pk=params.assigned_to_id, role="child")
-        except User.DoesNotExist:
+        child = resolve_target_user(parent, params.assigned_to_id)
+        if getattr(child, "role", None) != "child":
             raise MCPValidationError(
                 f"assigned_to_id {params.assigned_to_id} does not match any child.",
             )
@@ -209,10 +208,9 @@ def assign_quest(params: AssignQuestIn) -> dict[str, Any]:
     Parent-only. Mirrors ``POST /api/quests/{id}/assign/``. Raises if the
     child already has an active quest or doesn't meet the badge gate.
     """
-    require_parent()
-    try:
-        child = User.objects.get(pk=params.user_id, role="child")
-    except User.DoesNotExist:
+    parent = require_parent()
+    child = resolve_target_user(parent, params.user_id)
+    if getattr(child, "role", None) != "child":
         raise MCPValidationError(
             f"user_id {params.user_id} does not match any child.",
         )
@@ -240,8 +238,14 @@ def assign_co_op_quest(params: AssignCoOpQuestIn) -> dict[str, Any]:
     The first UI to wire this up is parent Manage → Quests. Frontend can
     present it as a "Family Co-op" flow; backend enforces no-partial-state.
     """
-    require_parent()
-    users = list(User.objects.filter(pk__in=params.user_ids, role="child"))
+    parent = require_parent()
+    users = list(
+        User.objects.filter(
+            pk__in=params.user_ids,
+            role="child",
+            family=parent.family,
+        )
+    )
     if len(users) != len(params.user_ids):
         found = {u.pk for u in users}
         missing = [uid for uid in params.user_ids if uid not in found]

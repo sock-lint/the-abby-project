@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { getSavingsGoals } from '../api';
+import { STORAGE_KEYS } from '../constants/storage';
 import { normalizeList } from '../utils/api';
 
-const STORAGE_KEY = 'seenSavingsCompletions';
+const STORAGE_KEY = STORAGE_KEYS.SEEN_SAVINGS_COMPLETIONS;
 const POLL_INTERVAL_MS = 30000;
 const COINS_PER_DOLLAR = 2;
 

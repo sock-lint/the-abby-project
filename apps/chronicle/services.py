@@ -309,6 +309,9 @@ class ChronicleService:
             # the canonical record; rewards are a bonus.
             logger.exception("Journal XP award hook failed for user %s", user.pk)
 
+        # Note: kept inline (rather than ``safe_game_loop_call``) so journal
+        # tests can patch ``apps.chronicle.services.GameLoopService`` —
+        # see the import-hoist comment at the top of this module.
         try:
             GameLoopService.on_task_completed(
                 user,

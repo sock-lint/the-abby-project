@@ -23,17 +23,17 @@ def chronicle_birthday_check() -> dict:
     - on first creation, grant BIRTHDAY_COINS_PER_YEAR × age_years coins
     - fire a BIRTHDAY notification
     """
+    from apps.families.queries import children_across_families
+
     today = date.today()
     coins_per_year = getattr(settings, "BIRTHDAY_COINS_PER_YEAR", 100)
 
-    children = User.objects.filter(
-        role=User.Role.CHILD,
+    results = {"birthdays": 0, "gifts": 0}
+    for _family, user in children_across_families(
+        active_only=False,
         date_of_birth__month=today.month,
         date_of_birth__day=today.day,
-    )
-
-    results = {"birthdays": 0, "gifts": 0}
-    for user in children:
+    ):
         with transaction.atomic():
             entry, created = ChronicleEntry.objects.get_or_create(
                 user=user,
@@ -92,14 +92,17 @@ def chronicle_chapter_transition() -> dict:
       metadata.is_graduation=True and also emit a standalone MILESTONE entry
       with event_slug='graduated_high_school'.
     """
+    from apps.families.queries import children_across_families
+
     today = date.today()
     if (today.month, today.day) not in ((8, 1), (6, 1)):
         return {"noop": True}
 
-    children = User.objects.filter(role=User.Role.CHILD, date_of_birth__isnull=False)
     results = {"starts": 0, "ends": 0, "recaps": 0, "graduations": 0}
 
-    for user in children:
+    for _family, user in children_across_families(
+        active_only=False, date_of_birth__isnull=False,
+    ):
         if (today.month, today.day) == (8, 1):
             ChronicleService.record_chapter_start(user, today.year)
             results["starts"] += 1

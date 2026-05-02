@@ -265,7 +265,32 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
     role_filter_field = "assigned_to"
 
     def get_queryset(self):
-        return self.get_role_filtered_queryset(super().get_queryset())
+        from django.db.models import Count, Q
+
+        qs = self.get_role_filtered_queryset(super().get_queryset())
+        if self.action == "list":
+            # Annotate the four counts the list serializer used to compute
+            # via per-row .count() / .filter().count() queries — those
+            # queries scale O(rows × 4) and dominated the dashboard list
+            # endpoint. Using Count(..., distinct=True) avoids the JOIN
+            # cross-product that would otherwise inflate the totals.
+            qs = qs.annotate(
+                milestones_total_count=Count(
+                    "milestones", distinct=True,
+                ),
+                milestones_completed_count=Count(
+                    "milestones",
+                    filter=Q(milestones__is_completed=True),
+                    distinct=True,
+                ),
+                steps_total_count=Count("steps", distinct=True),
+                steps_completed_count=Count(
+                    "steps",
+                    filter=Q(steps__is_completed=True),
+                    distinct=True,
+                ),
+            ).select_related("assigned_to", "category")
+        return qs
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -537,7 +562,15 @@ class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="create-project")
     def create_project_from_template(self, request, pk=None):
         """Create a new project from this template."""
+        from django.db.models import prefetch_related_objects
+
         template = self.get_object()
+        # Prefetch the four related sets we iterate below so the clone
+        # doesn't fire 4 + N queries (one per .all() + one per nested
+        # step.resources.all()).
+        prefetch_related_objects(
+            [template], "milestones", "materials", "steps", "resources",
+        )
         assigned_to_id = request.data.get("assigned_to_id")
 
         project = Project.objects.create(
@@ -600,7 +633,9 @@ class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
         """Save a completed project as a template (parent's own family only)."""
         project_id = request.data.get("project_id")
         try:
-            project = Project.objects.get(id=project_id)
+            project = Project.objects.prefetch_related(
+                "milestones", "materials", "steps", "resources",
+            ).get(id=project_id)
         except Project.DoesNotExist:
             return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
 

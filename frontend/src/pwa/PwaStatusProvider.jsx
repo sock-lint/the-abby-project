@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { registerSW } from 'virtual:pwa-register';
 
+import { STORAGE_KEYS } from '../constants/storage';
+
 const noop = () => {};
 
 // Safety-net delay: if `controllerchange` hasn't fired by then, force the
@@ -16,7 +18,7 @@ const RELOAD_FALLBACK_MS = 1500;
 // replicas) re-fire onNeedRefresh on the fresh page within milliseconds —
 // indistinguishable from "the banner never cleared" to the user.
 const RELOAD_SUPPRESS_WINDOW_MS = 60_000;
-const PWA_RELOAD_KEY = 'pwa:last-reload-attempt';
+const PWA_RELOAD_KEY = STORAGE_KEYS.PWA_LAST_RELOAD;
 
 function recentlyAttemptedReload() {
   try {

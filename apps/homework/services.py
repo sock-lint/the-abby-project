@@ -1,11 +1,12 @@
 import logging
+from dataclasses import dataclass
 from decimal import Decimal
 
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from apps.achievements.services import BadgeService, SkillService
+from apps.achievements.services import AwardService, BadgeService
 from apps.notifications.models import NotificationType
 from apps.notifications.services import get_display_name, notify, notify_parents
 from config.services import bump_daily_counter, finalize_decision
@@ -20,6 +21,19 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _HomeworkXpTag:
+    """Duck-type shim so HomeworkSkillTag rows fit AwardService.grant.
+
+    AwardService distributes a pool by ``xp_weight``; HomeworkSkillTag stores
+    a fixed ``xp_amount`` per tag. Setting weight=amount and pool=sum(amounts)
+    yields the same per-skill totals (see ``approve_submission``).
+    """
+
+    skill: object
+    xp_weight: int
 
 
 class HomeworkError(Exception):
@@ -150,8 +164,8 @@ class HomeworkService:
             )
             if prior_count == 0:
                 from apps.rpg.constants import TriggerType
-                from apps.rpg.services import GameLoopService
-                GameLoopService.on_task_completed(
+                from apps.rpg.services import safe_game_loop_call
+                safe_game_loop_call(
                     child, TriggerType.HOMEWORK_CREATED,
                     {"assignment_id": assignment.id, "drops_allowed": True},
                 )
@@ -265,7 +279,10 @@ class HomeworkService:
             return submission
 
         finalize_decision(
-            submission, HomeworkSubmission.Status.APPROVED, parent, notes,
+            # HomeworkSubmission has no ``parent_notes`` field — the
+            # caller's note is preserved on the activity-log row instead
+            # so the audit trail still has it.
+            submission, HomeworkSubmission.Status.APPROVED, parent, "",
             activity_category="approval",
             activity_event_type="homework.approve",
             activity_summary=f"Homework approved: {submission.assignment.title}",
@@ -273,33 +290,39 @@ class HomeworkService:
             activity_extras={
                 "assignment_id": submission.assignment_id,
                 "timeliness": submission.timeliness,
+                "parent_notes": notes or None,
             },
         )
 
         assignment = submission.assignment
 
-        # Distribute XP via HomeworkSkillTags.
-        from apps.activity.services import ActivityLogService
-        xp_rows = []
-        total_xp = 0
-        for tag in assignment.skill_tags.select_related("skill"):
-            SkillService.award_xp(submission.user, tag.skill, tag.xp_amount)
-            xp_rows.append({"label": tag.skill.name, "value": tag.xp_amount, "op": "+"})
-            total_xp += tag.xp_amount
-        if xp_rows:
-            ActivityLogService.record(
-                category="award",
-                event_type="award.xp",
-                summary=f"+{total_xp} XP · {assignment.title}",
-                actor=parent,
-                subject=submission.user,
-                xp_delta=total_xp,
-                breakdown=xp_rows,
-                extras={"assignment_id": assignment.pk, "source": "homework"},
+        # Distribute XP via HomeworkSkillTags through the unified award path.
+        # ``HomeworkSkillTag.xp_amount`` is fixed-per-tag, but
+        # ``AwardService.grant`` distributes a pool by ``xp_weight``. Using
+        # ``xp_weight = xp_amount`` and ``xp = sum(amounts)`` is mathematically
+        # identical (each tag's share is ``total * weight/sum_of_weights``,
+        # which collapses back to ``xp_amount``) while routing through the
+        # same XP-boost-aware pipeline that chores / projects / quests use.
+        # Going through AwardService also re-evaluates badges, so the
+        # explicit BadgeService.evaluate_badges call that used to live here
+        # is no longer needed.
+        homework_tags = list(assignment.skill_tags.select_related("skill"))
+        total_xp = sum(tag.xp_amount for tag in homework_tags)
+        if total_xp > 0:
+            shim_tags = [
+                _HomeworkXpTag(skill=tag.skill, xp_weight=tag.xp_amount)
+                for tag in homework_tags
+            ]
+            AwardService.grant(
+                submission.user,
+                xp_tags=shim_tags,
+                xp=total_xp,
+                xp_source_label=f"Homework: {assignment.title}",
+                created_by=parent,
             )
-
-        # Evaluate badges.
-        BadgeService.evaluate_badges(submission.user, created_by=parent)
+        else:
+            # No skill tags → still re-evaluate badges so on_time counters tick.
+            BadgeService.evaluate_badges(submission.user, created_by=parent)
 
         # Notify child.
         notify(
@@ -321,8 +344,8 @@ class HomeworkService:
             HomeworkSubmission.Timeliness.ON_TIME,
         )
         from apps.rpg.constants import TriggerType
-        from apps.rpg.services import GameLoopService
-        GameLoopService.on_task_completed(
+        from apps.rpg.services import safe_game_loop_call
+        safe_game_loop_call(
             submission.user, TriggerType.HOMEWORK_COMPLETE,
             {"assignment_id": assignment.id, "on_time": on_time},
         )
@@ -340,12 +363,15 @@ class HomeworkService:
             return submission
 
         finalize_decision(
-            submission, HomeworkSubmission.Status.REJECTED, parent, notes,
+            submission, HomeworkSubmission.Status.REJECTED, parent, "",
             activity_category="approval",
             activity_event_type="homework.reject",
             activity_summary=f"Homework rejected: {submission.assignment.title}",
             activity_subject=submission.user,
-            activity_extras={"assignment_id": submission.assignment_id},
+            activity_extras={
+                "assignment_id": submission.assignment_id,
+                "parent_notes": notes or None,
+            },
         )
 
         notify(

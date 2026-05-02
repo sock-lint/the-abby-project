@@ -23,14 +23,13 @@ def auto_clock_out_task():
 @shared_task
 def generate_weekly_timecards_task():
     """Generate weekly timecards for all child users (runs Sunday midnight)."""
-    from apps.projects.models import User
+    from apps.families.queries import children_across_families
     from .services import TimecardService
 
     week_start = _week_start(timezone.localdate())
 
-    children = User.objects.filter(role="child")
     created = 0
-    for child in children:
+    for _family, child in children_across_families():
         timecard = TimecardService.generate_weekly_timecard(child, week_start)
         if timecard:
             created += 1
@@ -42,16 +41,17 @@ def send_weekly_email_summaries():
     """Send weekly summary emails to all users (runs Sunday morning)."""
     from django.core.mail import send_mail
     from django.conf import settings as django_settings
-    from apps.projects.models import User
-    from apps.payments.services import PaymentService
     from apps.achievements.models import UserBadge
+    from apps.families.queries import children_across_families, parents_in
+    from apps.families.models import Family
+    from apps.payments.services import PaymentService
     from apps.timecards.models import TimeEntry
     from django.db.models import Sum
 
     week_start = _week_start(timezone.localdate())
     week_end = week_start + timedelta(days=6)
 
-    for child in User.objects.filter(role="child"):
+    for _family, child in children_across_families(active_only=False):
         entries = TimeEntry.objects.filter(
             user=child, status="completed",
             clock_in__date__gte=week_start,
@@ -90,11 +90,10 @@ def send_weekly_email_summaries():
 
     # Parent summary — scoped per family so a parent only sees their own
     # household's children + their own pending timecard queue.
-    from apps.families.models import Family
     from apps.timecards.models import Timecard
 
     for family in Family.objects.all():
-        family_children = User.objects.filter(family=family, role="child")
+        family_children = family.members.filter(role="child")
         child_summaries = []
         for child in family_children:
             entries = TimeEntry.objects.filter(
@@ -114,7 +113,7 @@ def send_weekly_email_summaries():
             status="pending", user__family=family,
         ).count()
 
-        for parent in User.objects.filter(role="parent", family=family, is_active=True):
+        for parent in parents_in(family):
             try:
                 send_mail(
                     subject=f"The Abby Project Parent Summary — {week_start.strftime('%b %d')}",

@@ -201,14 +201,17 @@ class ChoreService:
         """Parent approves. Posts to PaymentLedger + CoinLedger.
 
         ``notes`` is accepted for uniform signature with other approval
-        services; ChoreCompletion has no parent_notes field so the value
-        is silently dropped by ``finalize_decision``.
+        services; ChoreCompletion has no ``parent_notes`` field, so we
+        forward an empty string to ``finalize_decision`` and stash the
+        caller's text on the activity-log row instead. (Previously the
+        notes were silently dropped — ``finalize_decision`` now raises
+        on a notes-less model, so we have to make the drop explicit.)
         """
         if completion.status != ChoreCompletion.Status.PENDING:
             return completion
 
         finalize_decision(
-            completion, ChoreCompletion.Status.APPROVED, parent, notes,
+            completion, ChoreCompletion.Status.APPROVED, parent, "",
             activity_category="approval",
             activity_event_type="chore.approve",
             activity_summary=f"Chore approved: {completion.chore.title}",
@@ -217,6 +220,10 @@ class ChoreService:
                 "chore_id": completion.chore_id,
                 "reward_snapshot": str(completion.reward_amount_snapshot),
                 "coin_snapshot": completion.coin_reward_snapshot,
+                # Notes don't have a column on ChoreCompletion; preserve
+                # them on the audit trail so a future migration can
+                # backfill ``parent_notes`` from this extras blob.
+                "parent_notes": notes or None,
             },
         )
 
@@ -251,10 +258,12 @@ class ChoreService:
             link="/chores",
         )
 
-        # RPG game loop
+        # RPG game loop — wrapped so a downstream crash can't unwind the
+        # ledger write above. Shared helper so every approval flow uses
+        # the same resilience policy.
         from apps.rpg.constants import TriggerType
-        from apps.rpg.services import GameLoopService
-        GameLoopService.on_task_completed(
+        from apps.rpg.services import safe_game_loop_call
+        safe_game_loop_call(
             completion.user, TriggerType.CHORE_COMPLETE, {"chore_id": completion.chore_id},
         )
 
@@ -271,11 +280,14 @@ class ChoreService:
             return completion
 
         finalize_decision(
-            completion, ChoreCompletion.Status.REJECTED, parent, notes,
+            completion, ChoreCompletion.Status.REJECTED, parent, "",
             activity_category="approval",
             activity_event_type="chore.reject",
             activity_summary=f"Chore rejected: {completion.chore.title}",
             activity_subject=completion.user,
-            activity_extras={"chore_id": completion.chore_id},
+            activity_extras={
+                "chore_id": completion.chore_id,
+                "parent_notes": notes or None,
+            },
         )
         return completion

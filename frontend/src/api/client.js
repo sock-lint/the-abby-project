@@ -1,18 +1,18 @@
 import * as Sentry from '@sentry/react';
 
+import { STORAGE_KEYS } from '../constants/storage';
+
 const BASE = `${import.meta.env.VITE_API_URL || ''}/api`;
 
-const TOKEN_KEY = 'abby_auth_token';
-
 export function getToken() {
-  return localStorage.getItem(TOKEN_KEY) || '';
+  return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) || '';
 }
 
 export function setToken(token) {
   if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
   } else {
-    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
   }
 }
 

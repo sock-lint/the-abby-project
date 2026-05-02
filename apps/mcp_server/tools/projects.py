@@ -29,7 +29,7 @@ from apps.projects.models import (
 from apps.achievements.models import SkillCategory
 from apps.rewards.models import CoinLedger
 
-from ..context import get_current_user, require_parent
+from ..context import get_current_user, require_parent, resolve_target_user
 from ..errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError, safe_tool
 from ..schemas import (
     AddCollaboratorIn,
@@ -921,9 +921,9 @@ def add_collaborator(params: AddCollaboratorIn) -> dict[str, Any]:
     assignee; splits are tracked for reporting.
     """
     project = _get_project_parent_only(params.project_id)
-    try:
-        child = User.objects.get(pk=params.user_id, role="child")
-    except User.DoesNotExist:
+    parent = require_parent()
+    child = resolve_target_user(parent, params.user_id)
+    if getattr(child, "role", None) != "child":
         raise MCPValidationError(
             f"user_id {params.user_id} does not match any child.",
         )

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { fetchSpriteCatalog } from '../api';
+import { STORAGE_KEYS } from '../constants/storage';
 
 const SpriteCatalogContext = createContext({
   getSpriteUrl: () => null,
@@ -7,8 +8,8 @@ const SpriteCatalogContext = createContext({
   refetchCatalog: () => Promise.resolve(),
 });
 
-const STORAGE_KEY = 'spriteCatalog';
-const ETAG_KEY = 'spriteCatalogEtag';
+const STORAGE_KEY = STORAGE_KEYS.SPRITE_CATALOG;
+const ETAG_KEY = STORAGE_KEYS.SPRITE_CATALOG_ETAG;
 
 /**
  * Fetches the sprite catalog once at mount, caches it in localStorage

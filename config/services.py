@@ -46,7 +46,19 @@ def finalize_decision(instance, new_status, parent, notes="", *,
     instance.decided_at = timezone.now()
     instance.decided_by = parent
     update_fields = ["status", "decided_at", "decided_by"]
-    if notes and any(f.name == "parent_notes" for f in instance._meta.fields):
+    has_notes_field = any(f.name == "parent_notes" for f in instance._meta.fields)
+    if notes:
+        if not has_notes_field:
+            # Don't silently swallow operator-supplied notes against a model
+            # that has no field for them — the audit trail just lost data.
+            # Models without a parent_notes column should accept ``notes=""``
+            # only; callers passing real text are signalling an expectation
+            # that doesn't match the schema.
+            raise ValueError(
+                f"{type(instance).__name__} has no parent_notes field; "
+                f"cannot store notes={notes!r}. Either add the field or "
+                f"drop the notes argument at the call site."
+            )
         instance.parent_notes = notes
         update_fields.append("parent_notes")
     instance.save(update_fields=update_fields)
