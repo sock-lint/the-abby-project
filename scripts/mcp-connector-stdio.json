@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "abby-local": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "compose", "exec", "-T", "mcp",
+        "python", "manage.py", "runmcp",
+        "--transport", "stdio",
+        "--as-user", "matt"
+      ],
+      "cwd": "/path/to/the-abby-project"
+    }
+  }
+}

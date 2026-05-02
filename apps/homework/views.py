@@ -66,7 +66,9 @@ class HomeworkAssignmentViewSet(
         except HomeworkError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(
-            HomeworkAssignmentSerializer(assignment).data,
+            HomeworkAssignmentSerializer(
+                assignment, context={"request": request},
+            ).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -144,7 +146,9 @@ class HomeworkAssignmentViewSet(
                 else status.HTTP_400_BAD_REQUEST
             )
             return Response({"error": message}, status=http_status)
-        return Response(HomeworkAssignmentSerializer(updated).data)
+        return Response(HomeworkAssignmentSerializer(
+            updated, context={"request": request},
+        ).data)
 
 
 class HomeworkSubmissionViewSet(
@@ -217,7 +221,9 @@ class HomeworkTemplateViewSet(viewsets.ModelViewSet):
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(
-            HomeworkAssignmentSerializer(assignment).data,
+            HomeworkAssignmentSerializer(
+                assignment, context={"request": request},
+            ).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -227,17 +233,21 @@ class HomeworkDashboardView(APIView):
 
     def get(self, request):
         user = request.user
+        ctx = {"request": request}
         if user.role == "child":
             dashboard = HomeworkService.get_child_dashboard(user)
             return Response({
                 "today": HomeworkAssignmentSerializer(
-                    [item["assignment"] for item in dashboard["today"]], many=True,
+                    [item["assignment"] for item in dashboard["today"]],
+                    many=True, context=ctx,
                 ).data,
                 "upcoming": HomeworkAssignmentSerializer(
-                    [item["assignment"] for item in dashboard["upcoming"]], many=True,
+                    [item["assignment"] for item in dashboard["upcoming"]],
+                    many=True, context=ctx,
                 ).data,
                 "overdue": HomeworkAssignmentSerializer(
-                    [item["assignment"] for item in dashboard["overdue"]], many=True,
+                    [item["assignment"] for item in dashboard["overdue"]],
+                    many=True, context=ctx,
                 ).data,
                 "stats": dashboard["stats"],
             })
@@ -248,6 +258,6 @@ class HomeworkDashboardView(APIView):
                     overview["pending_submissions"], many=True,
                 ).data,
                 "assignments": HomeworkAssignmentSerializer(
-                    overview["assignments"], many=True,
+                    overview["assignments"], many=True, context=ctx,
                 ).data,
             })

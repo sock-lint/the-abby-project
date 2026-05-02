@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "abby": {
+      "url": "https://abby.bos.lol/mcp",
+      "headers": {
+        "Authorization": "Token eba0e12e18f2f904a51a34e1fe6694c7304d882b"
+      }
+    }
+  }
+}
