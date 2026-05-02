@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { X, Plus } from 'lucide-react';
 import { SelectField } from './form';
+import Button from './Button';
 import IconButton from './IconButton';
 
 /**
@@ -138,14 +139,16 @@ export default function SkillTagEditor({ skills = [], value = [], onChange }) {
         })}
       </ul>
       {unused && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={addRow}
-          className="flex items-center gap-1 font-body text-sm text-sheikah-teal-deep hover:text-sheikah-teal transition-colors"
+          className="inline-flex items-center gap-1"
         >
           <Plus className="w-4 h-4" />
           Add skill
-        </button>
+        </Button>
       )}
     </div>
   );

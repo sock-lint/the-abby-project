@@ -300,21 +300,25 @@ function EditChildModal({ child, onClose, onSaved }) {
         <div>
           <label className="block text-xs text-ink-whisper mb-1">Google Account</label>
           {child.google_linked ? (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={handleUnlinkGoogle}
-              className="flex items-center gap-2 text-sm text-ember-deep hover:text-red-300 transition-colors"
+              className="!text-ember-deep hover:!text-red-300 inline-flex items-center gap-2"
             >
               <Unlink size={14} /> Unlink Google Account
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={handleLinkGoogle}
-              className="flex items-center gap-2 text-sm text-ink-whisper hover:text-sheikah-teal-deep transition-colors"
+              className="!text-ink-whisper hover:!text-sheikah-teal-deep inline-flex items-center gap-2"
             >
               <Link2 size={14} /> Link Google Account
-            </button>
+            </Button>
           )}
         </div>
         <div className="flex gap-2">

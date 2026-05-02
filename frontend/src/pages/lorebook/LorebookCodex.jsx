@@ -26,6 +26,10 @@ export default function LorebookCodex({
   const navigate = useNavigate();
 
   // Deep-link from FirstEncounterSheet: ?trial=<slug> auto-opens that trial.
+  // Idempotent: once the param is stripped, subsequent runs find no slug
+  // and return early, so depending on the full location.search + entries
+  // array is safe — and prevents the prior bug where a navigation that
+  // arrived before entries finished loading would silently miss the trial.
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const slug = params.get('trial');
@@ -40,8 +44,7 @@ export default function LorebookCodex({
       { pathname: location.pathname, search: params.toString() },
       { replace: true },
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries.length]);
+  }, [entries, location.pathname, location.search, navigate]);
 
   const handleSelect = (entry, selectMode) => {
     if (selectMode === 'trial') setTrialEntry(entry);

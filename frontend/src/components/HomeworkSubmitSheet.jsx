@@ -80,6 +80,9 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
             {images.map((img, i) => (
               <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-ink-page-shadow">
                 <img src={URL.createObjectURL(img)} alt="" className="w-full h-full object-cover" />
+                {/* intentional: corner-flush remove badge on the photo
+                    thumbnail. IconButton's default padding + rounding
+                    breaks the in-image overlay shape. */}
                 <button
                   type="button"
                   onClick={() => setImages(images.filter((_, j) => j !== i))}
@@ -92,6 +95,8 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
             ))}
             <label className="w-16 h-16 rounded-lg border-2 border-dashed border-ink-page-shadow hover:border-sheikah-teal/60 flex items-center justify-center cursor-pointer transition-colors">
               <Camera size={20} className="text-ink-secondary" />
+              {/* intentional: file picker label/input pattern — design-system
+                  primitives don't yet wrap multi-file native pickers. */}
               <input
                 type="file" accept="image/*" multiple className="hidden"
                 onChange={(e) => setImages([...images, ...Array.from(e.target.files)])}

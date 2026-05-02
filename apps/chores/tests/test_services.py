@@ -149,6 +149,39 @@ class ApprovalTests(_Fixture):
         # Only one ledger row written.
         self.assertEqual(PaymentLedger.objects.filter(user=self.child).count(), 1)
 
+    def test_approve_with_stale_in_memory_status_is_noop(self):
+        """Race-guard regression: if another worker has already approved
+        the row but the current request is holding a stale in-memory
+        instance still showing PENDING, ``approve_completion`` must not
+        double-pay. The ``select_for_update`` re-fetch closes that gap.
+        """
+        # Worker A approved already.
+        ChoreService.approve_completion(self.completion, self.parent)
+        # Build a stale snapshot of the same row mirroring what worker B
+        # would have read before A's commit.
+        stale = ChoreCompletion.objects.get(pk=self.completion.pk)
+        stale.status = ChoreCompletion.Status.PENDING
+        # Worker B calls approve again with the stale object — should
+        # detect the real status under the lock and no-op.
+        ChoreService.approve_completion(stale, self.parent)
+        self.assertEqual(PaymentLedger.objects.filter(user=self.child).count(), 1)
+        self.assertEqual(
+            CoinLedger.objects.filter(
+                user=self.child, reason=CoinLedger.Reason.CHORE_REWARD,
+            ).count(),
+            1,
+        )
+
+    def test_reject_with_stale_in_memory_status_is_noop(self):
+        """Same race shape, but the loser is a reject racing an approve."""
+        ChoreService.approve_completion(self.completion, self.parent)
+        stale = ChoreCompletion.objects.get(pk=self.completion.pk)
+        stale.status = ChoreCompletion.Status.PENDING
+        ChoreService.reject_completion(stale, self.parent)
+        # Status stays APPROVED — the reject was racing and lost.
+        self.completion.refresh_from_db()
+        self.assertEqual(self.completion.status, ChoreCompletion.Status.APPROVED)
+
     def test_zero_reward_skips_chore_ledger_entries(self):
         """Zero-reward chore doesn't post CHORE_REWARD entries. Game-loop side
         effects (e.g. daily check-in coin bonus via RPG) are out of scope

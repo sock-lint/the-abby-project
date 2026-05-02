@@ -207,6 +207,13 @@ class ChoreService:
         notes were silently dropped — ``finalize_decision`` now raises
         on a notes-less model, so we have to make the drop explicit.)
         """
+        # Race guard: two parents tapping "approve" within ms of each other
+        # would each see ``status == PENDING`` and double-pay XP/coins/money.
+        # Re-fetch under a row-level lock so the status check + state
+        # transition are serialized.
+        completion = ChoreCompletion.objects.select_for_update().get(
+            pk=completion.pk,
+        )
         if completion.status != ChoreCompletion.Status.PENDING:
             return completion
 
@@ -276,6 +283,11 @@ class ChoreService:
 
         ``notes`` is accepted for uniform signature; see ``approve_completion``.
         """
+        # Race guard mirrors approve_completion — without the lock, an
+        # approve + reject racing on the same row could both succeed.
+        completion = ChoreCompletion.objects.select_for_update().get(
+            pk=completion.pk,
+        )
         if completion.status != ChoreCompletion.Status.PENDING:
             return completion
 

@@ -275,6 +275,13 @@ class HomeworkService:
         services; HomeworkSubmission has no parent_notes field so the value
         is silently dropped by ``finalize_decision``.
         """
+        # Race guard: two parents tapping "approve" within ms of each
+        # other would each see ``status == PENDING`` and double-fire the
+        # XP grant + RPG game loop. Re-fetch under a row lock so the
+        # status check + state transition are serialized.
+        submission = HomeworkSubmission.objects.select_for_update().get(
+            pk=submission.pk,
+        )
         if submission.status != HomeworkSubmission.Status.PENDING:
             return submission
 
@@ -359,6 +366,11 @@ class HomeworkService:
 
         ``notes`` is accepted for uniform signature; see ``approve_submission``.
         """
+        # Race guard mirrors approve_submission — without the lock, an
+        # approve + reject racing on the same row could both succeed.
+        submission = HomeworkSubmission.objects.select_for_update().get(
+            pk=submission.pk,
+        )
         if submission.status != HomeworkSubmission.Status.PENDING:
             return submission
 

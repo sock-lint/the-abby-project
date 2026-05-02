@@ -25,7 +25,7 @@ from apps.projects.models import (
 )
 from apps.achievements.models import SkillCategory
 
-from ..context import get_current_user, require_parent
+from ..context import get_current_user, require_parent, resolve_target_user
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
     CreateProjectFromTemplateIn,
@@ -314,12 +314,10 @@ def create_project_from_template(
         template = ProjectTemplate.objects.get(pk=params.template_id)
     except ProjectTemplate.DoesNotExist:
         raise MCPNotFoundError(f"Template {params.template_id} not found.")
-    try:
-        assignee = User.objects.get(pk=params.assigned_to_id)
-    except User.DoesNotExist:
-        raise MCPValidationError(
-            f"assigned_to_id {params.assigned_to_id} does not match any user.",
-        )
+    # Cross-family safety: only spawn a project for a child in this
+    # parent's family. resolve_target_user raises MCPNotFoundError on
+    # cross-family without leaking existence.
+    assignee = resolve_target_user(parent, params.assigned_to_id)
 
     with transaction.atomic():
         project = Project.objects.create(

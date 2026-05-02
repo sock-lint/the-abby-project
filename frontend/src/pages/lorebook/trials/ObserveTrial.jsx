@@ -1,9 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 
 export default function ObserveTrial({ entry, onReady }) {
   const trial = entry.trial || {};
   const [progress, setProgress] = useState(0);
+
+  // Pin the latest onReady in a ref so the animation effect can keep its
+  // mount-only deps array (don't want to restart the rAF on prop change)
+  // while still firing whichever onReady the parent has passed *most
+  // recently* — closing over the mount-time value would silently call a
+  // stale callback after a re-render.
+  const onReadyRef = useRef(onReady);
+  useEffect(() => {
+    onReadyRef.current = onReady;
+  }, [onReady]);
 
   useEffect(() => {
     let frame;
@@ -17,12 +27,11 @@ export default function ObserveTrial({ entry, onReady }) {
       if (ratio < 1) {
         frame = requestAnimationFrame(tick);
       } else {
-        onReady?.();
+        onReadyRef.current?.();
       }
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
