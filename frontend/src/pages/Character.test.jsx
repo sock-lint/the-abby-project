@@ -1,11 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
 import Character from './Character.jsx';
-import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
+import { renderWithProviders } from '../test/render.jsx';
 import { buildUser } from '../test/factories.js';
 
 vi.mock('framer-motion', async () => {
@@ -32,13 +31,7 @@ function stubRoutes({
 }
 
 function renderPage() {
-  return render(
-    <MemoryRouter>
-      <AuthProvider>
-        <Character />
-      </AuthProvider>
-    </MemoryRouter>,
-  );
+  return renderWithProviders(<Character />);
 }
 
 describe('Character (/sigil)', () => {

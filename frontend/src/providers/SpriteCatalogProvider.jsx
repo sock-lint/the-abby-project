@@ -45,21 +45,22 @@ export function SpriteCatalogProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     const prevEtag = localStorage.getItem(ETAG_KEY);
-    fetchSpriteCatalog(prevEtag)
+    fetchSpriteCatalog(prevEtag, { signal: controller.signal })
       .then((resp) => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         if (resp.notModified) return;
         setCatalog(resp);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(resp));
         localStorage.setItem(ETAG_KEY, resp.etag);
       })
       .catch((err) => {
+        if (err?.name === 'AbortError') return;
         // eslint-disable-next-line no-console
         console.error('sprite catalog fetch failed', err);
       });
-    return () => { cancelled = true; };
+    return () => controller.abort();
   }, []);
 
   // Emit the shared @keyframes sprite-cycle rule when the catalog contains

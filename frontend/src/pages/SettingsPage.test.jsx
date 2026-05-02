@@ -1,11 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
 import SettingsPage from './SettingsPage.jsx';
-import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
+import { renderWithProviders } from '../test/render.jsx';
 import { spyHandler } from '../test/spy.js';
 import { buildUser } from '../test/factories.js';
 
@@ -19,13 +18,7 @@ function renderPage(handlers = []) {
     http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
     ...handlers,
   );
-  return render(
-    <MemoryRouter>
-      <AuthProvider>
-        <SettingsPage />
-      </AuthProvider>
-    </MemoryRouter>,
-  );
+  return renderWithProviders(<SettingsPage />);
 }
 
 describe('SettingsPage', () => {
@@ -79,13 +72,7 @@ describe('SettingsPage', () => {
       http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
       spy.handler,
     );
-    render(
-      <MemoryRouter>
-        <AuthProvider>
-          <SettingsPage />
-        </AuthProvider>
-      </MemoryRouter>,
-    );
+    renderWithProviders(<SettingsPage />);
     await waitFor(() => expect(screen.getByText(/journal cover/i)).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /Pick Night Vigil cover/i }));
     await waitFor(() => expect(spy.calls).toHaveLength(1));
@@ -160,13 +147,7 @@ describe('SettingsPage', () => {
       http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
       spy.handler,
     );
-    render(
-      <MemoryRouter>
-        <AuthProvider>
-          <SettingsPage />
-        </AuthProvider>
-      </MemoryRouter>,
-    );
+    renderWithProviders(<SettingsPage />);
     await waitFor(() => expect(screen.getByText(/profile/i)).toBeInTheDocument());
 
     const file = new File([new Uint8Array([137, 80, 78, 71])], 'me.png', { type: 'image/png' });
@@ -186,13 +167,7 @@ describe('SettingsPage', () => {
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser({ avatar: '/media/avatars/x.png' }))),
       http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
     );
-    render(
-      <MemoryRouter>
-        <AuthProvider>
-          <SettingsPage />
-        </AuthProvider>
-      </MemoryRouter>,
-    );
+    renderWithProviders(<SettingsPage />);
     await waitFor(() => expect(screen.getByRole('button', { name: /change avatar/i })).toBeInTheDocument());
     expect(screen.getByRole('button', { name: /^remove$/i })).toBeInTheDocument();
   });

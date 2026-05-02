@@ -21,6 +21,7 @@ import IconButton from '../components/IconButton';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { TextField, SelectField } from '../components/form';
 import { downscaleImage } from '../utils/image';
+import { formatMonth } from '../utils/format';
 import { normalizeList } from '../utils/api';
 
 const FILTERS = [
@@ -141,10 +142,7 @@ export default function Portfolio() {
     sorted.forEach((it) => {
       const d = new Date(it.date);
       const monthKey = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}`;
-      const monthLabel = d.toLocaleDateString(undefined, {
-        month: 'long',
-        year: 'numeric',
-      });
+      const monthLabel = formatMonth(it.date);
       if (!map.has(monthKey)) map.set(monthKey, { key: monthKey, label: monthLabel, items: [] });
       map.get(monthKey).items.push(it);
     });

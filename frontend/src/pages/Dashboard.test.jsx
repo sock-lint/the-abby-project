@@ -1,21 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { screen, waitFor } from '@testing-library/react';
 import Dashboard from './Dashboard.jsx';
-import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
+import { renderWithProviders } from '../test/render.jsx';
 import { buildUser } from '../test/factories.js';
 
 function renderDashboard(extraHandlers = []) {
   server.use(...extraHandlers);
-  return render(
-    <MemoryRouter>
-      <AuthProvider>
-        <Dashboard />
-      </AuthProvider>
-    </MemoryRouter>,
-  );
+  return renderWithProviders(<Dashboard />);
 }
 
 describe('Dashboard (router)', () => {

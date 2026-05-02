@@ -55,19 +55,32 @@ class SkillService:
         declares "doing this exercises these skills." Returns the list of
         per-skill XP amounts actually awarded (for logging).
         """
+        awarded = []
+        for skill, skill_xp in cls._iter_tagged_xp(tags, total_xp):
+            cls.award_xp(user, skill, skill_xp)
+            awarded.append((skill, skill_xp))
+        return awarded
+
+    @staticmethod
+    def _iter_tagged_xp(tags, total_xp):
+        """Yield ``(skill, xp_amount)`` for each tag with a positive share.
+
+        Pure-math helper: no DB writes, no awards. Used by both
+        ``distribute_tagged_xp`` (which awards) and
+        ``AwardService._distribute_tagged_xp_logged`` (which awards + records
+        an activity-log breakdown). Centralizing the by-weight math here
+        guarantees the two paths can never diverge.
+        """
         tag_list = list(tags)
         if not tag_list:
-            return []
+            return
         total_weight = sum(tag.xp_weight for tag in tag_list)
         if total_weight == 0:
-            return []
-        awarded = []
+            return
         for tag in tag_list:
             skill_xp = round(total_xp * (tag.xp_weight / total_weight))
             if skill_xp > 0:
-                cls.award_xp(user, tag.skill, skill_xp)
-                awarded.append((tag.skill, skill_xp))
-        return awarded
+                yield tag.skill, skill_xp
 
     @classmethod
     def evaluate_unlocks(cls, user):
@@ -377,27 +390,18 @@ class AwardService:
 
         Used by project, chore, habit, and quest XP paths. Returns
         activity-log breakdown rows in the shape the ``award.xp`` event
-        expects, so every source logs identically. Duplicates
-        ``SkillService.distribute_tagged_xp`` by-weight math on purpose —
-        keeps the activity-log write in lockstep with the actual award
-        without a second query.
+        expects, so every source logs identically. Shares the underlying
+        by-weight math with ``SkillService.distribute_tagged_xp`` via
+        ``_iter_tagged_xp`` — they cannot diverge.
         """
-        tag_list = list(tags)
-        if not tag_list:
-            return []
-        total_weight = sum(tag.xp_weight for tag in tag_list)
-        if total_weight == 0:
-            return []
         rows = []
-        for tag in tag_list:
-            skill_xp = round(total_xp * (tag.xp_weight / total_weight))
-            if skill_xp > 0:
-                SkillService.award_xp(user, tag.skill, skill_xp)
-                rows.append({
-                    "label": tag.skill.name,
-                    "value": skill_xp,
-                    "op": "+",
-                })
+        for skill, skill_xp in SkillService._iter_tagged_xp(tags, total_xp):
+            SkillService.award_xp(user, skill, skill_xp)
+            rows.append({
+                "label": skill.name,
+                "value": skill_xp,
+                "op": "+",
+            })
         return rows
 
 
@@ -418,7 +422,15 @@ class BadgeService:
 
         for badge in all_badges:
             if cls._check_criteria(user, badge):
-                user_badge = UserBadge.objects.create(user=user, badge=badge)
+                # Use get_or_create against the unique constraint so two
+                # concurrent evaluations can't double-award. The losing
+                # transaction returns ``created=False`` and skips the inner
+                # award block — only the winner pays out.
+                user_badge, created = UserBadge.objects.get_or_create(
+                    user=user, badge=badge,
+                )
+                if not created:
+                    continue
                 # Suppress inner ledger emissions — ``award.badge`` below is
                 # the canonical row. The rarity->coin breakdown captures the
                 # same numeric data without a separate ``ledger.coins.*``.

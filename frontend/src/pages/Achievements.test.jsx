@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { screen, waitFor } from '@testing-library/react';
 import Achievements from './Achievements.jsx';
-import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
+import { renderWithProviders } from '../test/render.jsx';
 import { buildParent, buildUser } from '../test/factories.js';
 
 vi.mock('framer-motion', async () => {
@@ -17,13 +16,7 @@ function renderPage({ user = buildUser(), handlers = [] } = {}) {
     http.get('*/api/auth/me/', () => HttpResponse.json(user)),
     ...handlers,
   );
-  return render(
-    <MemoryRouter>
-      <AuthProvider>
-        <Achievements />
-      </AuthProvider>
-    </MemoryRouter>,
-  );
+  return renderWithProviders(<Achievements />);
 }
 
 describe('Achievements (Skills page)', () => {
