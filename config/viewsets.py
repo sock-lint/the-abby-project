@@ -84,10 +84,20 @@ def child_not_found_response():
 
 
 class ParentWritePermissionMixin:
-    """Return IsParent for write actions, IsAuthenticated for read actions."""
+    """Return IsParent for CRUD writes, IsAuthenticated for read + custom actions.
+
+    The action list is deliberately scoped to the standard ViewSet CRUD
+    methods only — custom ``@action(...)`` endpoints handle their own auth
+    (e.g. RewardViewSet.redeem is child-accessible while the underlying
+    POST/PUT/PATCH/DELETE remain parent-only). If a future custom action
+    needs parent-only gating, set ``permission_classes=[IsParent]`` on the
+    decorator at the call site.
+    """
+
+    _PARENT_ONLY_ACTIONS = ("create", "update", "partial_update", "destroy")
 
     def get_permissions(self):
-        if self.action in ("create", "update", "partial_update", "destroy"):
+        if self.action in self._PARENT_ONLY_ACTIONS:
             return [IsParent()]
         return [permissions.IsAuthenticated()]
 

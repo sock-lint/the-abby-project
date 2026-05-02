@@ -75,13 +75,16 @@ def _boost_active(user, field_name) -> bool:
 
     Used to read the three timer-gated consumable boosts. Returns False when
     the user has no profile yet, the field is null, or the timer has lapsed.
-    Never raises — a lookup failure must not break an award path.
+    Never raises — a lookup failure must not break an award path, but we DO
+    log it so Sentry surfaces the underlying issue rather than silently
+    handing every user a "no boost" answer.
     """
     try:
         row = CharacterProfile.objects.filter(user=user).values(
             field_name,
         ).first()
     except Exception:
+        logger.exception("Boost lookup failed for user %s field %s", user.pk, field_name)
         return False
     if not row:
         return False

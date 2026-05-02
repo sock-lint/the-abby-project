@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -62,8 +62,14 @@ export default function ChildDashboard({ data, reload }) {
 
   const activePet = stableData?.pets?.find((p) => p.is_active) || null;
 
-  const handleCompleteChore = (id) => completeChore(id).then(reload).catch(() => {});
-  const handleTapHabit = (id) => logHabitTap(id, 1).then(reload).catch(() => {});
+  const handleCompleteChore = useCallback(
+    (id) => completeChore(id).then(reload).catch(() => {}),
+    [reload],
+  );
+  const handleTapHabit = useCallback(
+    (id) => logHabitTap(id, 1).then(reload).catch(() => {}),
+    [reload],
+  );
   // Open the homework submit sheet inline. We accept either a plain id
   // (from the hero's NextAction handler) or an action object (from the
   // quest log row); the sheet only needs `{id, title}`.

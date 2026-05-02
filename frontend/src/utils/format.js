@@ -22,3 +22,10 @@ export function formatDateTime(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleString();
 }
+
+export function formatMonth(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString(undefined, {
+    year: 'numeric', month: 'long',
+  });
+}

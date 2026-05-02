@@ -422,10 +422,10 @@ export const getFamilyQuests = () => api.get('/quests/family/');
  * the etag from a previous response and get 304 Not Modified back
  * (returned as { notModified: true }) if nothing changed.
  */
-export async function fetchSpriteCatalog(etag = null) {
+export async function fetchSpriteCatalog(etag = null, { signal } = {}) {
   const headers = { Accept: 'application/json' };
   if (etag) headers['If-None-Match'] = `"${etag}"`;
-  const resp = await fetch('/api/sprites/catalog/', { headers });
+  const resp = await fetch('/api/sprites/catalog/', { headers, signal });
   if (resp.status === 304) return { notModified: true };
   if (!resp.ok) throw new Error(`sprite catalog fetch failed: ${resp.status}`);
   return resp.json();

@@ -177,21 +177,15 @@ def _photos_uploaded(user, c):
 
 @criterion(Badge.CriteriaType.TOTAL_EARNED)
 def _total_earned(user, c):
-    from apps.payments.models import PaymentLedger
-    total = PaymentLedger.objects.filter(
-        user=user, amount__gt=0,
-    ).aggregate(total=Sum("amount"))["total"] or 0
-    return total >= c.get("amount", 500)
+    from apps.payments.services import PaymentService
+    return PaymentService.get_positive_total(user) >= c.get("amount", 500)
 
 
 @criterion(Badge.CriteriaType.TOTAL_COINS_EARNED)
 def _total_coins_earned(user, c):
     """Sum lifetime positive coin earnings (ignores spends and refunds)."""
-    from apps.rewards.models import CoinLedger
-    total = CoinLedger.objects.filter(
-        user=user, amount__gt=0,
-    ).aggregate(total=Sum("amount"))["total"] or 0
-    return total >= c.get("amount", 500)
+    from apps.rewards.services import CoinService
+    return CoinService.get_positive_total(user) >= c.get("amount", 500)
 
 
 # ---------------------------------------------------------------------------

@@ -94,6 +94,20 @@ class BaseLedgerService:
         return type(cls.default_value)(total or cls.default_value)
 
     @classmethod
+    def get_positive_total(cls, user):
+        """Sum lifetime positive-amount entries (lifetime "earned").
+
+        Excludes spends, refunds, and any other negative entries. Shared by
+        badge criteria (TOTAL_EARNED / TOTAL_COINS_EARNED) so the definition
+        of "lifetime earned" lives in one place across PaymentLedger and
+        CoinLedger.
+        """
+        total = cls.ledger_model.objects.filter(
+            user=user, amount__gt=0,
+        ).aggregate(total=Sum("amount"))["total"]
+        return type(cls.default_value)(total or cls.default_value)
+
+    @classmethod
     def get_breakdown(cls, user):
         entries = (
             cls.ledger_model.objects.filter(user=user)

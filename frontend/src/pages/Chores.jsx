@@ -26,6 +26,7 @@ import { CoinIcon, ScrollIcon } from '../components/icons/JournalIcons';
 import { formatDate } from '../utils/format';
 import { normalizeList } from '../utils/api';
 import Button from '../components/Button';
+import ModalActions from '../components/ModalActions';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 
 const RECURRENCE_LABELS = { daily: 'Daily', weekly: 'Weekly', one_time: 'One-time' };
@@ -183,14 +184,11 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
             />
           </>
         )}
-        <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-secondary hover:text-ink-primary transition-colors">
-            Cancel
-          </button>
-          <Button type="submit" size="sm" disabled={saving}>
-            {saving ? 'Saving…' : submitLabel}
-          </Button>
-        </div>
+        <ModalActions
+          onClose={onClose}
+          submitLabel={submitLabel}
+          saving={saving}
+        />
       </form>
     </BottomSheet>
   );

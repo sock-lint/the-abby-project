@@ -1,4 +1,4 @@
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -174,6 +174,14 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             )
         except ChoreNotAvailableError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except IntegrityError:
+            # Unique-constraint hit — the user already submitted this chore
+            # for the current period (and the constraint excludes rejected
+            # rows). Surface as 400, not 500.
+            return Response(
+                {"error": "You've already submitted this duty for today."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         return Response(
             ChoreCompletionSerializer(completion).data,
             status=status.HTTP_201_CREATED,
