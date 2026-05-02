@@ -323,6 +323,27 @@ class ApproveRejectTests(_Fixture):
             PaymentLedger.objects.filter(user=self.child).count(), 0,
         )
 
+    def test_approve_with_stale_in_memory_status_is_noop(self):
+        """Race-guard regression: a stale in-memory ``submission`` that
+        still shows PENDING after another worker has approved must not
+        re-fire XP or the RPG game loop. The ``select_for_update``
+        re-fetch closes that gap.
+        """
+        with patch("apps.rpg.services.GameLoopService.on_task_completed") as gl:
+            HomeworkService.approve_submission(self.submission, self.parent)
+        self.assertEqual(gl.call_count, 1)
+
+        # Simulate worker B holding a snapshot taken before A's commit.
+        from apps.homework.models import HomeworkSubmission
+        stale = HomeworkSubmission.objects.get(pk=self.submission.pk)
+        stale.status = HomeworkSubmission.Status.PENDING
+
+        with patch("apps.rpg.services.GameLoopService.on_task_completed") as gl2:
+            HomeworkService.approve_submission(stale, self.parent)
+        # No second game-loop fire — the lock + re-fetch caught the stale
+        # status before the XP grant + on_task_completed call.
+        gl2.assert_not_called()
+
 
 class TemplateTests(_Fixture):
     def test_save_and_create_from_template(self):

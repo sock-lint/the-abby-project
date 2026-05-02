@@ -134,6 +134,17 @@ services:
       retries: 5
       start_period: 120s
     restart: unless-stopped
+    # Memory caps: defense against a runaway worker, not a perf budget.
+    # Coolify can override these per-deploy. 1G covers the steady-state
+    # 3-gunicorn-worker process tree with ~150MB headroom for Sentry +
+    # connection pools + occasional ingestion-pipeline allocs (PDF parse,
+    # crawl4ai). Bump to 1.5G if a dashboard endpoint OOMs under load.
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+        reservations:
+          memory: 512M
     logging:
       driver: json-file
       options:
@@ -162,6 +173,15 @@ services:
       retries: 3
       start_period: 30s
     restart: unless-stopped
+    # 768M for 4 worker processes — each worker holds Django + a chunk of
+    # the in-memory image-processing path (sprite generation can burst
+    # to ~150MB during chroma-key + frame extraction).
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 256M
     logging:
       driver: json-file
       options:
@@ -190,6 +210,15 @@ services:
       retries: 3
       start_period: 30s
     restart: unless-stopped
+    # 192M is plenty — celery_beat is a single scheduler process that
+    # only enqueues jobs. The Django + DjangoCeleryBeat scheduler bring
+    # the floor up to ~120M.
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+        reservations:
+          memory: 96M
     logging:
       driver: json-file
       options:

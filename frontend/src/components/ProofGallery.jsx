@@ -9,12 +9,16 @@ export default function ProofGallery({ proofs = [] }) {
 
   return (
     <>
-      {/* Thumbnail strip */}
+      {/* Thumbnail strip — image-content button, not a primitive: wrapping
+          an <img> in <Button> would inject the parchment styling under the
+          photo. ``type="button"`` keeps it from submitting an enclosing form. */}
       <div className="flex gap-2 overflow-x-auto py-1">
         {proofs.map((proof, i) => (
           <button
             key={proof.id}
+            type="button"
             onClick={() => setViewerIndex(i)}
+            aria-label={`View ${proof.caption || `proof ${i + 1}`}`}
             className="shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition-colors"
           >
             <img src={proof.image} alt={proof.caption || `Proof ${i + 1}`} className="w-full h-full object-cover" />
