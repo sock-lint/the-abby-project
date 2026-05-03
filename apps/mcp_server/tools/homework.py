@@ -122,6 +122,8 @@ def list_homework_submissions(params: ListHomeworkSubmissionsIn) -> dict[str, An
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
 
+    # Audit C3: when a parent calls without user_id, scope to their family
+    # rather than returning every household's submissions in the deployment.
     qs = HomeworkSubmission.objects.select_related(
         "assignment", "user",
     ).prefetch_related("proofs")
@@ -130,6 +132,8 @@ def list_homework_submissions(params: ListHomeworkSubmissionsIn) -> dict[str, An
         qs = qs.filter(user=target)
     elif params.user_id:
         qs = qs.filter(user=target)
+    else:
+        qs = qs.filter(user__family=user.family)
 
     if params.status:
         qs = qs.filter(status=params.status)

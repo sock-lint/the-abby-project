@@ -17,10 +17,9 @@ from apps.achievements.services import SkillService
 from apps.accounts.models import User
 from apps.achievements.models import SkillCategory
 
-from ..context import get_current_user, require_parent
+from ..context import get_current_user, require_parent, resolve_target_user
 from ..errors import (
     MCPNotFoundError,
-    MCPPermissionDenied,
     MCPValidationError,
     safe_tool,
 )
@@ -55,17 +54,6 @@ from ..shapes import (
 )
 
 
-def _resolve_target(user, requested_id: int | None) -> User:
-    if requested_id is None or requested_id == user.id:
-        return user
-    if user.role != "parent":
-        raise MCPPermissionDenied("Children can only view their own achievements.")
-    try:
-        return User.objects.get(pk=requested_id)
-    except User.DoesNotExist:
-        raise MCPNotFoundError(f"User {requested_id} not found.")
-
-
 @tool()
 @safe_tool
 def list_skill_categories(params: ListSkillCategoriesIn) -> dict[str, Any]:
@@ -97,7 +85,7 @@ def list_skills(params: ListSkillsIn) -> dict[str, Any]:
 def get_skill_tree(params: GetSkillTreeIn) -> dict[str, Any]:
     """Full nested skill tree for a category with the target user's progress."""
     user = get_current_user()
-    target = _resolve_target(user, params.user_id)
+    target = resolve_target_user(user, params.user_id)
 
     try:
         category = SkillCategory.objects.get(pk=params.category_id)
@@ -128,7 +116,7 @@ def list_badges(params: ListBadgesIn) -> dict[str, Any]:
 def list_earned_badges(params: ListEarnedBadgesIn) -> dict[str, Any]:
     """List badges the target user has earned, newest first."""
     user = get_current_user()
-    target = _resolve_target(user, params.user_id)
+    target = resolve_target_user(user, params.user_id)
 
     earned = list(
         UserBadge.objects.select_related("badge").filter(user=target)

@@ -14,13 +14,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.accounts.models import User
 from apps.projects.models import Project
 from apps.timecards.models import Timecard, TimeEntry
 from apps.timecards.services import ClockService, TimecardService
 
 from ..context import get_current_user, require_parent, resolve_target_user
-from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
+from ..errors import MCPNotFoundError, safe_tool
 from ..schemas import (
     ApproveTimecardIn,
     ClockInIn,
@@ -36,23 +35,12 @@ from ..server import tool
 from ..shapes import time_entry_to_dict, timecard_to_dict
 
 
-def _resolve_target(user, requested_id: int | None) -> User:
-    if requested_id is None or requested_id == user.id:
-        return user
-    if user.role != "parent":
-        raise MCPPermissionDenied("Children can only view their own time data.")
-    try:
-        return User.objects.get(pk=requested_id)
-    except User.DoesNotExist:
-        raise MCPNotFoundError(f"User {requested_id} not found.")
-
-
 @tool()
 @safe_tool
 def list_time_entries(params: ListTimeEntriesIn) -> dict[str, Any]:
     """List TimeEntry rows for a user (children forced to self)."""
     user = get_current_user()
-    target = _resolve_target(user, params.user_id)
+    target = resolve_target_user(user, params.user_id)
 
     qs = TimeEntry.objects.select_related("project").filter(user=target)
     if params.status:
@@ -69,7 +57,7 @@ def list_time_entries(params: ListTimeEntriesIn) -> dict[str, Any]:
 def get_active_entry(params: GetActiveEntryIn) -> dict[str, Any]:
     """Return the user's current active TimeEntry, or null if not clocked in."""
     user = get_current_user()
-    target = _resolve_target(user, params.user_id)
+    target = resolve_target_user(user, params.user_id)
     entry = ClockService.get_active_entry(target)
     return {"entry": time_entry_to_dict(entry) if entry else None}
 
@@ -79,7 +67,7 @@ def get_active_entry(params: GetActiveEntryIn) -> dict[str, Any]:
 def list_timecards(params: ListTimecardsIn) -> dict[str, Any]:
     """List weekly timecards for a user (children forced to self)."""
     user = get_current_user()
-    target = _resolve_target(user, params.user_id)
+    target = resolve_target_user(user, params.user_id)
 
     qs = Timecard.objects.filter(user=target)
     if params.status:
@@ -118,7 +106,7 @@ def clock_in(params: ClockInIn) -> dict[str, Any]:
     if it was ``active``.
     """
     user = get_current_user()
-    target = _resolve_target(user, params.user_id)
+    target = resolve_target_user(user, params.user_id)
     try:
         project = Project.objects.get(pk=params.project_id)
     except Project.DoesNotExist:
@@ -134,7 +122,7 @@ def clock_out(params: ClockOutIn) -> dict[str, Any]:
     fires the RPG game loop (streak, drops, quest progress).
     """
     user = get_current_user()
-    target = _resolve_target(user, params.user_id)
+    target = resolve_target_user(user, params.user_id)
     entry = ClockService.clock_out(target, notes=params.notes)
     return time_entry_to_dict(entry)
 
