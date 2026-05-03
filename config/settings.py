@@ -401,10 +401,19 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
-    # Per-IP throttle on parent self-signup. Other endpoints opt in by
-    # setting ``throttle_classes = [ScopedRateThrottle]`` + ``throttle_scope``.
+    # Per-IP throttles. Endpoints opt in via
+    # ``throttle_classes = [ScopedRateThrottle]`` + ``throttle_scope``.
+    #
+    #   signup — parent self-signup: ALLOW_PARENT_SIGNUP creates a Family +
+    #   founding parent + auth token. 5/hour caps drive-by spam.
+    #
+    #   login — audit C5. Caps unauthenticated brute-force at 10/min per IP.
+    #   Tuned conservatively: a fat-fingering household sees the limit only
+    #   after 10 wrong passwords in a minute. Pair with a per-username
+    #   AnonRateThrottle if IP rotation becomes a concern.
     "DEFAULT_THROTTLE_RATES": {
         "signup": "5/hour",
+        "login": "10/min",
     },
 }
 

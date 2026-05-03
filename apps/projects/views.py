@@ -1,11 +1,13 @@
 import logging
 
 from django.contrib.auth import authenticate
+from django.db import transaction
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
@@ -34,7 +36,25 @@ from .serializers import (
 
 
 class AuthView(APIView):
+    """Login / logout endpoint.
+
+    Audit C5: throttled at ``REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["login"]``
+    (10/min per IP by default) so unauthenticated callers can't grind a
+    password dictionary against a known username. The rate counts every
+    POST to this endpoint — both login attempts and logouts — but logouts
+    require an existing token so they're naturally rare.
+
+    Audit H2: login rotates the token. Previously ``Token.objects.get_or_create``
+    returned the same key forever — once leaked (XSS, lost device, copy-pasted
+    into chat), it was a permanent backdoor with no rotation path. Each
+    successful login now mints a fresh token and revokes any prior one,
+    which has the side effect of "logging in elsewhere kicks out previous
+    sessions" — a documented security feature, not a bug.
+    """
+
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"
 
     def post(self, request):
         action = request.data.get("action")
@@ -43,7 +63,14 @@ class AuthView(APIView):
             password = request.data.get("password")
             user = authenticate(request, username=username, password=password)
             if user:
-                token, _ = Token.objects.get_or_create(user=user)
+                # Audit H2: rotate on every successful login. The
+                # transaction wraps delete + create so we never leave a
+                # user without any token between the two writes (otherwise
+                # a parallel request from the same user could see "no
+                # token" mid-rotation and 401 unnecessarily).
+                with transaction.atomic():
+                    Token.objects.filter(user=user).delete()
+                    token = Token.objects.create(user=user)
                 data = UserSerializer(user).data
                 data["token"] = token.key
                 return Response(data)
