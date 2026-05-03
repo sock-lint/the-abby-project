@@ -5,9 +5,11 @@ from typing import Any
 
 from apps.payments.models import PaymentLedger
 from apps.payments.services import PaymentService
-from apps.accounts.models import User
 
-from ..context import get_current_user, require_parent, resolve_target_user
+from ..context import (
+    get_current_user, require_parent,
+    resolve_child_in_family, resolve_target_user,
+)
 from ..errors import MCPNotFoundError, safe_tool
 from ..schemas import (
     AdjustPaymentIn,
@@ -58,16 +60,15 @@ def list_payment_ledger(params: ListPaymentLedgerIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def record_payout(params: RecordPayoutIn) -> dict[str, Any]:
-    """Record a payout to a child (parent-only).
+    """Record a payout to a child (parent-only, same-family).
 
     Wraps :meth:`PaymentService.record_payout` which writes a negative
-    PaymentLedger entry tagged ``payout``.
+    PaymentLedger entry tagged ``payout``. Audit C3: ``resolve_child_in_family``
+    enforces that ``user_id`` is a child in the caller's own family — without
+    it, a parent in family A could record a payout against a child in family B.
     """
     parent = require_parent()
-    try:
-        child = User.objects.get(pk=params.user_id)
-    except User.DoesNotExist:
-        raise MCPNotFoundError(f"User {params.user_id} not found.")
+    child = resolve_child_in_family(parent, params.user_id)
 
     entry = PaymentService.record_payout(child, params.amount, parent)
     if params.description:
@@ -79,12 +80,12 @@ def record_payout(params: RecordPayoutIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def adjust_payment(params: AdjustPaymentIn) -> dict[str, Any]:
-    """Apply a positive or negative manual adjustment to a child's balance."""
+    """Apply a positive or negative manual adjustment to a child's balance.
+
+    Audit C3: family-scoped via ``resolve_child_in_family``.
+    """
     parent = require_parent()
-    try:
-        child = User.objects.get(pk=params.user_id)
-    except User.DoesNotExist:
-        raise MCPNotFoundError(f"User {params.user_id} not found.")
+    child = resolve_child_in_family(parent, params.user_id)
 
     entry = PaymentService.record_entry(
         child,
