@@ -13,7 +13,9 @@ from apps.homework.models import (
 )
 from apps.homework.services import HomeworkError, HomeworkService
 
-from ..context import get_current_user, require_parent, resolve_target_user
+from ..context import (
+    get_current_user, get_in_family, require_parent, resolve_target_user,
+)
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
     CreateHomeworkFromTemplateIn,
@@ -103,12 +105,10 @@ def create_homework(params: CreateHomeworkIn) -> dict[str, Any]:
 @safe_tool
 def submit_homework(params: SubmitHomeworkIn) -> dict[str, Any]:
     """Submit homework for review (child-only). Note: images must be uploaded via the REST API."""
-    user = get_current_user()
-    try:
-        assignment = HomeworkAssignment.objects.get(pk=params.assignment_id)
-    except HomeworkAssignment.DoesNotExist:
-        raise MCPNotFoundError(f"Assignment {params.assignment_id} not found.")
-
+    # Audit H12: the previous version did a cross-family ``HomeworkAssignment.get``
+    # before raising — letting any caller probe assignment existence by id
+    # via the 404-vs-500 distinction. The error is unconditional, so the
+    # lookup served no purpose; just raise.
     raise HomeworkError(
         "Homework submission requires image uploads. "
         "Use the REST API endpoint POST /api/homework/{id}/submit/ with multipart form data."
@@ -149,12 +149,20 @@ def list_homework_submissions(params: ListHomeworkSubmissionsIn) -> dict[str, An
 @tool()
 @safe_tool
 def approve_homework_submission(params: DecideHomeworkSubmissionIn) -> dict[str, Any]:
-    """Approve a pending homework submission (parent-only). Awards XP + fires the RPG loop."""
+    """Approve a pending homework submission (parent-only). Awards XP + fires the RPG loop.
+
+    Audit C8: family-scoped lookup. Without this, a parent in family A
+    could approve any pending submission in any other family — credits
+    XP + fires the game loop on the foreign child.
+    """
     parent = require_parent()
+    family_id = getattr(parent, "family_id", None)
+    if family_id is None:
+        raise MCPNotFoundError(f"Submission {params.submission_id} not found.")
     try:
         submission = HomeworkSubmission.objects.select_related(
             "assignment", "user",
-        ).get(pk=params.submission_id)
+        ).get(pk=params.submission_id, user__family_id=family_id)
     except HomeworkSubmission.DoesNotExist:
         raise MCPNotFoundError(f"Submission {params.submission_id} not found.")
 
@@ -165,12 +173,18 @@ def approve_homework_submission(params: DecideHomeworkSubmissionIn) -> dict[str,
 @tool()
 @safe_tool
 def reject_homework_submission(params: DecideHomeworkSubmissionIn) -> dict[str, Any]:
-    """Reject a pending homework submission (parent-only). Child can re-submit."""
+    """Reject a pending homework submission (parent-only). Child can re-submit.
+
+    Audit C8: family-scoped lookup matches the approve path.
+    """
     parent = require_parent()
+    family_id = getattr(parent, "family_id", None)
+    if family_id is None:
+        raise MCPNotFoundError(f"Submission {params.submission_id} not found.")
     try:
         submission = HomeworkSubmission.objects.select_related(
             "assignment", "user",
-        ).get(pk=params.submission_id)
+        ).get(pk=params.submission_id, user__family_id=family_id)
     except HomeworkSubmission.DoesNotExist:
         raise MCPNotFoundError(f"Submission {params.submission_id} not found.")
 
@@ -184,11 +198,15 @@ def reject_homework_submission(params: DecideHomeworkSubmissionIn) -> dict[str, 
 
 
 def _get_assignment_parent_only(assignment_id: int) -> HomeworkAssignment:
-    require_parent()
-    try:
-        return HomeworkAssignment.objects.get(pk=assignment_id)
-    except HomeworkAssignment.DoesNotExist:
-        raise MCPNotFoundError(f"Assignment {assignment_id} not found.")
+    """Audit C8: family-scope every parent-only assignment lookup. Without
+    this, a parent in family A could edit, soft-delete, retag, or trigger
+    AI planning on any other family's homework via the MCP channel.
+    """
+    parent = require_parent()
+    return get_in_family(
+        HomeworkAssignment, assignment_id, actor=parent,
+        family_path="assigned_to__family",
+    )
 
 
 @tool()
@@ -267,10 +285,13 @@ def plan_homework(params: PlanHomeworkIn) -> dict[str, Any]:
     project or if AI planning is not yet configured.
     """
     parent = require_parent()
-    try:
-        assignment = HomeworkAssignment.objects.get(pk=params.assignment_id)
-    except HomeworkAssignment.DoesNotExist:
-        raise MCPNotFoundError(f"Assignment {params.assignment_id} not found.")
+    # Audit C8 / H3: family-scope so a parent in family A can't trigger an
+    # LLM call against another family's assignment (and writes a Project
+    # row attached to the foreign child).
+    assignment = get_in_family(
+        HomeworkAssignment, params.assignment_id, actor=parent,
+        family_path="assigned_to__family",
+    )
     if assignment.project_id:
         raise MCPValidationError(
             "This assignment already has a linked project "

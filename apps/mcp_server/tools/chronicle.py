@@ -24,7 +24,9 @@ from rest_framework.exceptions import PermissionDenied as DRFPermissionDenied
 from apps.chronicle.models import ChronicleEntry
 from apps.chronicle.services import ChronicleService, JournalAlreadyExistsError
 
-from ..context import get_current_user, require_parent, resolve_target_user
+from ..context import (
+    get_current_user, get_in_family, require_parent, resolve_target_user,
+)
 from ..errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError, safe_tool
 from ..schemas import (
     CreateManualEntryIn,
@@ -83,7 +85,11 @@ def get_chronicle_summary(params: GetChronicleSummaryIn) -> dict[str, Any]:
     for e in entries:
         by_year[e.chapter_year].append(e)
 
-    today = date.today()
+    # Audit H11: use Phoenix-local date, not server UTC. ``date.today()``
+    # returns the wrong day around midnight Phoenix (it's already next-day
+    # in UTC), causing today's birthday / today's journal to vanish from
+    # the lookup.
+    today = timezone.localdate()
     current_chapter = _chapter_year_for(today)
 
     chapters = []
@@ -101,14 +107,25 @@ def get_chronicle_summary(params: GetChronicleSummaryIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def mark_chronicle_viewed(params: MarkChronicleViewedIn) -> dict[str, Any]:
-    """Set ``viewed_at=now()`` on an entry the caller can see. Idempotent."""
+    """Set ``viewed_at=now()`` on an entry the caller can see. Idempotent.
+
+    Audit C8: scope by family for parents and by ownership for children.
+    Without scoping, a parent could stamp ``viewed_at`` on any family's
+    entry (low-impact alone but violates the scoping doctrine).
+    """
     user = get_current_user()
+    qs = ChronicleEntry.objects.all()
+    if user.role == "parent":
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            raise MCPNotFoundError(f"ChronicleEntry {params.entry_id} not found.")
+        qs = qs.filter(user__family_id=family_id)
+    else:
+        qs = qs.filter(user=user)
     try:
-        entry = ChronicleEntry.objects.get(pk=params.entry_id)
+        entry = qs.get(pk=params.entry_id)
     except ChronicleEntry.DoesNotExist:
         raise MCPNotFoundError(f"ChronicleEntry {params.entry_id} not found.")
-    if user.role != "parent" and entry.user_id != user.id:
-        raise MCPPermissionDenied("Children can only mark their own entries.")
     if entry.viewed_at is None:
         entry.viewed_at = timezone.now()
         entry.save(update_fields=["viewed_at"])
@@ -120,7 +137,11 @@ def mark_chronicle_viewed(params: MarkChronicleViewedIn) -> dict[str, Any]:
 def get_pending_celebration(params: GetPendingCelebrationIn) -> dict[str, Any]:
     """Return today's unviewed BIRTHDAY entry for the caller, or ``null``."""
     user = get_current_user()
-    today = date.today()
+    # Audit H11: use Phoenix-local date, not server UTC. ``date.today()``
+    # returns the wrong day around midnight Phoenix (it's already next-day
+    # in UTC), causing today's birthday / today's journal to vanish from
+    # the lookup.
+    today = timezone.localdate()
     entry = (
         ChronicleEntry.objects.filter(
             user=user,
@@ -142,7 +163,7 @@ def get_today_journal(params: GetTodayJournalIn) -> dict[str, Any]:
     entry = ChronicleEntry.objects.filter(
         user=user,
         kind=ChronicleEntry.Kind.JOURNAL,
-        occurred_on=date.today(),
+        occurred_on=timezone.localdate(),
     ).first()
     return {"entry": chronicle_entry_to_dict(entry) if entry else None}
 
@@ -174,10 +195,16 @@ def write_journal(params: WriteJournalIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def update_journal(params: UpdateJournalIn) -> dict[str, Any]:
-    """Edit today's journal entry. Locked to owner; 403 after midnight."""
+    """Edit today's journal entry. Locked to owner; 403 after midnight.
+
+    Audit C8: scope to caller's own entries up front. The service-layer
+    owner check would still block the actual write, but a probe could
+    distinguish "exists in another family" from "doesn't exist" via the
+    403-vs-404 status. Scoping here closes the leak.
+    """
     user = get_current_user()
     try:
-        entry = ChronicleEntry.objects.get(pk=params.entry_id)
+        entry = ChronicleEntry.objects.get(pk=params.entry_id, user=user)
     except ChronicleEntry.DoesNotExist:
         raise MCPNotFoundError(f"ChronicleEntry {params.entry_id} not found.")
     try:
@@ -215,12 +242,16 @@ def create_manual_entry(params: CreateManualEntryIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def update_manual_entry(params: UpdateManualEntryIn) -> dict[str, Any]:
-    """Edit a manual chronicle entry (parent-only, MANUAL-kind only)."""
-    require_parent()
-    try:
-        entry = ChronicleEntry.objects.get(pk=params.entry_id)
-    except ChronicleEntry.DoesNotExist:
-        raise MCPNotFoundError(f"ChronicleEntry {params.entry_id} not found.")
+    """Edit a manual chronicle entry (parent-only, MANUAL-kind only).
+
+    Audit C8: family-scope so a parent can't edit another family's
+    manual chronicle row.
+    """
+    parent = require_parent()
+    entry = get_in_family(
+        ChronicleEntry, params.entry_id, actor=parent,
+        family_path="user__family",
+    )
     if entry.kind != ChronicleEntry.Kind.MANUAL:
         raise MCPPermissionDenied(
             "Only manual entries are editable. Birthdays / firsts / recaps are immutable history.",
@@ -238,12 +269,15 @@ def update_manual_entry(params: UpdateManualEntryIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def delete_chronicle_entry(params: DeleteChronicleEntryIn) -> dict[str, Any]:
-    """Delete a manual chronicle entry (parent-only, MANUAL-kind only)."""
-    require_parent()
-    try:
-        entry = ChronicleEntry.objects.get(pk=params.entry_id)
-    except ChronicleEntry.DoesNotExist:
-        raise MCPNotFoundError(f"ChronicleEntry {params.entry_id} not found.")
+    """Delete a manual chronicle entry (parent-only, MANUAL-kind only).
+
+    Audit C8: family-scope so a parent can't delete another family's row.
+    """
+    parent = require_parent()
+    entry = get_in_family(
+        ChronicleEntry, params.entry_id, actor=parent,
+        family_path="user__family",
+    )
     if entry.kind != ChronicleEntry.Kind.MANUAL:
         raise MCPPermissionDenied(
             "Only manual entries are deletable. Birthdays / firsts / recaps are immutable history.",

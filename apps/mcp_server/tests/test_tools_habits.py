@@ -5,6 +5,7 @@ from django.test import TestCase
 
 from apps.mcp_server.context import override_user
 from apps.mcp_server.errors import (
+    MCPNotFoundError,
     MCPPermissionDenied,
     MCPValidationError,
 )
@@ -106,7 +107,9 @@ class LogHabitTests(_Base):
         habit = Habit.objects.create(
             name="h", user=other, created_by=other,
         )
-        with override_user(self.child), self.assertRaises(MCPPermissionDenied):
+        # Audit C8: cross-user lookup now returns NotFound (no existence
+        # leak between siblings).
+        with override_user(self.child), self.assertRaises(MCPNotFoundError):
             hb.log_habit(LogHabitIn(habit_id=habit.id))
 
     def test_negative_tap_on_positive_habit_rejected(self) -> None:
@@ -160,5 +163,6 @@ class ListAndGetTests(_Base):
         habit = Habit.objects.create(
             name="h", user=other, created_by=other,
         )
-        with override_user(self.child), self.assertRaises(MCPPermissionDenied):
+        # Audit C8: same doctrine — cross-user lookups return NotFound.
+        with override_user(self.child), self.assertRaises(MCPNotFoundError):
             hb.get_habit(GetHabitIn(habit_id=habit.id))

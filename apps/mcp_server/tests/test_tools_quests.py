@@ -162,7 +162,9 @@ class ListAndGetTests(_Base):
             username="o", password="pw", role="child",
         )
         quest = self._make_quest(other)
-        with override_user(self.child), self.assertRaises(MCPPermissionDenied):
+        # Audit C8: cross-user quest lookup returns NotFound — same
+        # existence-leak doctrine as resolve_target_user.
+        with override_user(self.child), self.assertRaises(MCPNotFoundError):
             q.get_quest(GetQuestIn(quest_id=quest.id))
 
 
@@ -191,6 +193,11 @@ class CancelQuestTests(_Base):
             end_date=now + timedelta(days=7),
             status=Quest.Status.COMPLETED,
         )
+        # Audit C8: cancel_quest now requires the quest to belong to the
+        # caller's family (via a participant in the same family). Add
+        # the participant so the lookup matches and we exercise the
+        # status check, not the family filter.
+        QuestParticipant.objects.create(quest=quest, user=self.child)
         with override_user(self.parent), self.assertRaises(MCPValidationError):
             q.cancel_quest(CancelQuestIn(quest_id=quest.id))
 

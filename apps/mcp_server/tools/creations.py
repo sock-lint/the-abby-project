@@ -17,8 +17,10 @@ from django.core.files.base import ContentFile
 from apps.creations.models import Creation
 from apps.creations.services import CreationService
 
-from ..context import get_current_user, require_parent, resolve_target_user
-from ..errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError, safe_tool
+from ..context import (
+    get_current_user, get_in_family, require_parent, resolve_target_user,
+)
+from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
     ApproveCreationIn,
     DeleteCreationIn,
@@ -58,16 +60,26 @@ def list_creations(params: ListCreationsIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def get_creation(params: GetCreationIn) -> dict[str, Any]:
-    """Fetch a single creation. Children may only read their own."""
+    """Fetch a single creation. Children may only read their own.
+
+    Audit C8: parent path scopes by family. Without it, a parent could
+    read any other family's creation by id.
+    """
     user = get_current_user()
+    qs = Creation.objects.select_related(
+        "primary_skill", "secondary_skill", "user",
+    )
+    if user.role == "child":
+        qs = qs.filter(user=user)
+    else:
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            raise MCPNotFoundError(f"Creation {params.creation_id} not found.")
+        qs = qs.filter(user__family_id=family_id)
     try:
-        creation = Creation.objects.select_related(
-            "primary_skill", "secondary_skill", "user",
-        ).get(pk=params.creation_id)
+        creation = qs.get(pk=params.creation_id)
     except Creation.DoesNotExist:
         raise MCPNotFoundError(f"Creation {params.creation_id} not found.")
-    if user.role != "parent" and creation.user_id != user.id:
-        raise MCPPermissionDenied("Children can only read their own creations.")
     return creation_to_dict(creation)
 
 
@@ -106,14 +118,23 @@ def log_creation(params: LogCreationIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def delete_creation(params: DeleteCreationIn) -> dict[str, Any]:
-    """Delete a creation (owner or parent). Blob-first; counter NOT decremented."""
+    """Delete a creation (owner or parent). Blob-first; counter NOT decremented.
+
+    Audit C8: parent path scopes by family.
+    """
     user = get_current_user()
+    qs = Creation.objects.all()
+    if user.role == "child":
+        qs = qs.filter(user=user)
+    else:
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            raise MCPNotFoundError(f"Creation {params.creation_id} not found.")
+        qs = qs.filter(user__family_id=family_id)
     try:
-        creation = Creation.objects.get(pk=params.creation_id)
+        creation = qs.get(pk=params.creation_id)
     except Creation.DoesNotExist:
         raise MCPNotFoundError(f"Creation {params.creation_id} not found.")
-    if user.role != "parent" and creation.user_id != user.id:
-        raise MCPPermissionDenied("You can only delete your own creations.")
     if creation.image:
         creation.image.delete(save=False)
     if creation.audio:
@@ -125,16 +146,23 @@ def delete_creation(params: DeleteCreationIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def submit_creation(params: SubmitCreationIn) -> dict[str, Any]:
-    """Submit a Creation for parent bonus approval (owner or parent)."""
+    """Submit a Creation for parent bonus approval (owner or parent).
+
+    Audit C8: parent path scopes by family.
+    """
     user = get_current_user()
+    qs = Creation.objects.select_related("primary_skill", "user")
+    if user.role == "child":
+        qs = qs.filter(user=user)
+    else:
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            raise MCPNotFoundError(f"Creation {params.creation_id} not found.")
+        qs = qs.filter(user__family_id=family_id)
     try:
-        creation = Creation.objects.select_related("primary_skill", "user").get(
-            pk=params.creation_id,
-        )
+        creation = qs.get(pk=params.creation_id)
     except Creation.DoesNotExist:
         raise MCPNotFoundError(f"Creation {params.creation_id} not found.")
-    if user.role != "parent" and creation.user_id != user.id:
-        raise MCPPermissionDenied("Only the owner or a parent can submit.")
     updated = CreationService.submit_for_bonus(creation)
     return creation_to_dict(updated)
 
@@ -149,12 +177,12 @@ def approve_creation(params: ApproveCreationIn) -> dict[str, Any]:
     weight 1. Baseline XP from the original log is NOT re-awarded.
     """
     parent = require_parent()
-    try:
-        creation = Creation.objects.select_related("primary_skill", "user").get(
-            pk=params.creation_id,
-        )
-    except Creation.DoesNotExist:
-        raise MCPNotFoundError(f"Creation {params.creation_id} not found.")
+    # Audit C8: family-scope so a parent can't approve another family's
+    # creation — that would credit XP + chronicle to the foreign child.
+    creation = get_in_family(
+        Creation, params.creation_id, actor=parent,
+        family_path="user__family",
+    )
     extra = [
         {"skill_id": t.skill_id, "xp_weight": t.xp_weight}
         for t in params.skill_tags
@@ -172,14 +200,15 @@ def approve_creation(params: ApproveCreationIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def reject_creation(params: RejectCreationIn) -> dict[str, Any]:
-    """Reject a Creation's bonus (parent-only). Baseline XP stays intact."""
+    """Reject a Creation's bonus (parent-only). Baseline XP stays intact.
+
+    Audit C8: family-scope mirrors the approve path.
+    """
     parent = require_parent()
-    try:
-        creation = Creation.objects.select_related("primary_skill", "user").get(
-            pk=params.creation_id,
-        )
-    except Creation.DoesNotExist:
-        raise MCPNotFoundError(f"Creation {params.creation_id} not found.")
+    creation = get_in_family(
+        Creation, params.creation_id, actor=parent,
+        family_path="user__family",
+    )
     updated = CreationService.reject_bonus(creation, parent, notes=params.notes)
     return creation_to_dict(updated)
 

@@ -264,7 +264,10 @@ class StepCrudTests(_Base):
             username="other", password="pw", role="child",
         )
         step = ProjectStep.objects.create(project=self.project, title="s")
-        with override_user(other_child), self.assertRaises(MCPPermissionDenied):
+        # Audit C8: child step access is now scoped via the queryset
+        # (assignee or collaborator), so a non-member sees NotFound
+        # rather than PermissionDenied — closes the existence-leak.
+        with override_user(other_child), self.assertRaises(MCPNotFoundError):
             project_tools.complete_step(StepActionIn(step_id=step.id))
 
     def test_uncomplete_step(self) -> None:

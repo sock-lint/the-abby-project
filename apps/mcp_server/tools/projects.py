@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
 from apps.achievements.models import (
@@ -28,7 +28,9 @@ from apps.projects.models import (
 from apps.achievements.models import SkillCategory
 from apps.rewards.models import CoinLedger
 
-from ..context import get_current_user, require_parent, resolve_target_user
+from ..context import (
+    get_current_user, get_in_family, require_parent, resolve_target_user,
+)
 from ..errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError, safe_tool
 from ..schemas import (
     AddCollaboratorIn,
@@ -73,9 +75,19 @@ from ..shapes import (
 
 
 def _get_project_for_user(project_id: int, user) -> Project:
-    """Fetch a project respecting role-based visibility."""
+    """Fetch a project respecting role-based visibility.
+
+    Audit C8: parent path now scopes by ``assigned_to__family`` so a parent
+    in family A can't read another family's project by id. Children stay
+    self-scoped via ``assigned_to=user``.
+    """
     qs = Project.objects.all()
-    if user.role != "parent":
+    if user.role == "parent":
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            raise MCPNotFoundError(f"Project {project_id} not found.")
+        qs = qs.filter(assigned_to__family_id=family_id)
+    else:
         qs = qs.filter(assigned_to=user)
     try:
         return qs.select_related("assigned_to", "created_by", "category").get(
@@ -142,10 +154,18 @@ def list_projects(params: ListProjectsIn) -> dict[str, Any]:
         "assigned_to", "category",
     ).prefetch_related("milestones")
 
-    if user.role != "parent":
+    # Audit C8: family-scope every parent query. Without this filter, the
+    # MCP ``list_projects`` returned every household's projects to every
+    # parent in the deployment.
+    if user.role == "parent":
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            return {"projects": [], "count": 0}
+        qs = qs.filter(assigned_to__family_id=family_id)
+        if params.assigned_to_id is not None:
+            qs = qs.filter(assigned_to_id=params.assigned_to_id)
+    else:
         qs = qs.filter(assigned_to=user)
-    elif params.assigned_to_id is not None:
-        qs = qs.filter(assigned_to_id=params.assigned_to_id)
 
     if params.status is not None:
         qs = qs.filter(status=params.status)
@@ -407,11 +427,11 @@ def set_project_skill_tags(params: SetProjectSkillTagsIn) -> dict[str, Any]:
 
     Lets parents route XP to different skills after project creation.
     """
-    require_parent()
-    try:
-        project = Project.objects.get(pk=params.project_id)
-    except Project.DoesNotExist:
-        raise MCPNotFoundError(f"Project {params.project_id} not found.")
+    parent = require_parent()
+    project = get_in_family(
+        Project, params.project_id, actor=parent,
+        family_path="assigned_to__family",
+    )
 
     with transaction.atomic():
         _replace_project_skill_tags(
@@ -425,15 +445,20 @@ def set_project_skill_tags(params: SetProjectSkillTagsIn) -> dict[str, Any]:
 def mark_material_purchased(params: MarkMaterialPurchasedIn) -> dict[str, Any]:
     """Mark a material as purchased; children may only modify their own projects."""
     user = get_current_user()
+    # Audit C8: scope the lookup. Parent path was previously unrestricted —
+    # any parent could mark materials on any family's project as purchased.
+    qs = MaterialItem.objects.select_related("project")
+    if user.role == "parent":
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            raise MCPNotFoundError(f"Material {params.material_id} not found.")
+        qs = qs.filter(project__assigned_to__family_id=family_id)
+    else:
+        qs = qs.filter(project__assigned_to=user)
     try:
-        material = MaterialItem.objects.select_related("project").get(
-            pk=params.material_id,
-        )
+        material = qs.get(pk=params.material_id)
     except MaterialItem.DoesNotExist:
         raise MCPNotFoundError(f"Material {params.material_id} not found.")
-
-    if user.role != "parent" and material.project.assigned_to_id != user.id:
-        raise MCPPermissionDenied("Material is not on your project.")
 
     material.is_purchased = True
     material.purchased_at = timezone.now()
@@ -451,11 +476,16 @@ def mark_material_purchased(params: MarkMaterialPurchasedIn) -> dict[str, Any]:
 
 
 def _get_project_parent_only(project_id: int) -> Project:
-    require_parent()
-    try:
-        return Project.objects.get(pk=project_id)
-    except Project.DoesNotExist:
-        raise MCPNotFoundError(f"Project {project_id} not found.")
+    """Audit C8: family-scope every parent-only project lookup. Without
+    this scope, a parent in family A could enumerate, edit, complete, or
+    delete any other family's project by id via the MCP channel — every
+    one of the 18+ ``_get_project_parent_only`` call sites was vulnerable.
+    """
+    parent = require_parent()
+    return get_in_family(
+        Project, project_id, actor=parent,
+        family_path="assigned_to__family",
+    )
 
 
 @tool()
@@ -559,10 +589,16 @@ def request_project_changes(params: RequestProjectChangesIn) -> dict[str, Any]:
 
 
 def _get_milestone_parent_only(milestone_id: int) -> ProjectMilestone:
-    require_parent()
+    """Audit C8: scope through ``project.assigned_to.family`` so a parent
+    can't reach into another family's milestone by id."""
+    parent = require_parent()
+    family_id = getattr(parent, "family_id", None)
+    if family_id is None:
+        raise MCPNotFoundError(f"Milestone {milestone_id} not found.")
     try:
         return ProjectMilestone.objects.select_related("project").get(
             pk=milestone_id,
+            project__assigned_to__family_id=family_id,
         )
     except ProjectMilestone.DoesNotExist:
         raise MCPNotFoundError(f"Milestone {milestone_id} not found.")
@@ -631,9 +667,16 @@ def delete_milestone(params: DeleteMilestoneIn) -> dict[str, Any]:
 
 
 def _get_step_editable(step_id: int) -> ProjectStep:
-    require_parent()
+    """Audit C8: scope through the parent project's family."""
+    parent = require_parent()
+    family_id = getattr(parent, "family_id", None)
+    if family_id is None:
+        raise MCPNotFoundError(f"Step {step_id} not found.")
     try:
-        return ProjectStep.objects.select_related("project").get(pk=step_id)
+        return ProjectStep.objects.select_related("project").get(
+            pk=step_id,
+            project__assigned_to__family_id=family_id,
+        )
     except ProjectStep.DoesNotExist:
         raise MCPNotFoundError(f"Step {step_id} not found.")
 
@@ -725,11 +768,38 @@ def delete_step(params: DeleteStepIn) -> dict[str, Any]:
 
 
 def _can_toggle_step(user, project) -> bool:
+    # Audit C8: family-scope the parent path. Without this, a parent in
+    # family A could toggle any step in any other family's project.
     if user.role == "parent":
-        return True
+        return project.assigned_to_id is not None and (
+            project.assigned_to.family_id == getattr(user, "family_id", None)
+        )
     if project.assigned_to_id == user.id:
         return True
     return project.collaborators.filter(user=user).exists()
+
+
+def _get_toggleable_step(step_id: int, user) -> ProjectStep:
+    """Fetch a step the user can toggle, family-scoped (Audit C8).
+
+    Replaces a bare ``ProjectStep.objects.get(pk=...)`` that allowed any
+    authenticated parent to enumerate steps from any family by id.
+    """
+    qs = ProjectStep.objects.select_related("project")
+    if user.role == "parent":
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            raise MCPNotFoundError(f"Step {step_id} not found.")
+        qs = qs.filter(project__assigned_to__family_id=family_id)
+    else:
+        qs = qs.filter(
+            models.Q(project__assigned_to=user)
+            | models.Q(project__collaborators__user=user),
+        ).distinct()
+    try:
+        return qs.get(pk=step_id)
+    except ProjectStep.DoesNotExist:
+        raise MCPNotFoundError(f"Step {step_id} not found.")
 
 
 @tool()
@@ -737,12 +807,7 @@ def _can_toggle_step(user, project) -> bool:
 def complete_step(params: StepActionIn) -> dict[str, Any]:
     """Mark a step complete. Child-safe: assignee or collaborators may toggle."""
     user = get_current_user()
-    try:
-        step = ProjectStep.objects.select_related("project").get(pk=params.step_id)
-    except ProjectStep.DoesNotExist:
-        raise MCPNotFoundError(f"Step {params.step_id} not found.")
-    if not _can_toggle_step(user, step.project):
-        raise MCPPermissionDenied("Step is not on your project.")
+    step = _get_toggleable_step(params.step_id, user)
     step.is_completed = True
     step.completed_at = timezone.now()
     step.save(update_fields=["is_completed", "completed_at", "updated_at"])
@@ -754,12 +819,7 @@ def complete_step(params: StepActionIn) -> dict[str, Any]:
 def uncomplete_step(params: StepActionIn) -> dict[str, Any]:
     """Un-mark a step. Child-safe: assignee or collaborators may toggle."""
     user = get_current_user()
-    try:
-        step = ProjectStep.objects.select_related("project").get(pk=params.step_id)
-    except ProjectStep.DoesNotExist:
-        raise MCPNotFoundError(f"Step {params.step_id} not found.")
-    if not _can_toggle_step(user, step.project):
-        raise MCPPermissionDenied("Step is not on your project.")
+    step = _get_toggleable_step(params.step_id, user)
     step.is_completed = False
     step.completed_at = None
     step.save(update_fields=["is_completed", "completed_at", "updated_at"])
@@ -770,9 +830,16 @@ def uncomplete_step(params: StepActionIn) -> dict[str, Any]:
 
 
 def _get_material_parent_only(material_id: int) -> MaterialItem:
-    require_parent()
+    """Audit C8: scope through the parent project's family."""
+    parent = require_parent()
+    family_id = getattr(parent, "family_id", None)
+    if family_id is None:
+        raise MCPNotFoundError(f"Material {material_id} not found.")
     try:
-        return MaterialItem.objects.select_related("project").get(pk=material_id)
+        return MaterialItem.objects.select_related("project").get(
+            pk=material_id,
+            project__assigned_to__family_id=family_id,
+        )
     except MaterialItem.DoesNotExist:
         raise MCPNotFoundError(f"Material {material_id} not found.")
 
@@ -817,10 +884,15 @@ def delete_material(params: DeleteMaterialIn) -> dict[str, Any]:
 
 
 def _get_resource_parent_only(resource_id: int) -> ProjectResource:
-    require_parent()
+    """Audit C8: scope through the parent project's family."""
+    parent = require_parent()
+    family_id = getattr(parent, "family_id", None)
+    if family_id is None:
+        raise MCPNotFoundError(f"Resource {resource_id} not found.")
     try:
         return ProjectResource.objects.select_related("project", "step").get(
             pk=resource_id,
+            project__assigned_to__family_id=family_id,
         )
     except ProjectResource.DoesNotExist:
         raise MCPNotFoundError(f"Resource {resource_id} not found.")

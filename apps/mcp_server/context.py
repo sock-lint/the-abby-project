@@ -10,12 +10,13 @@ from __future__ import annotations
 
 import contextlib
 import contextvars
-from typing import TYPE_CHECKING, Iterator, Optional
+from typing import TYPE_CHECKING, Any, Iterator, Optional
 
 from .errors import MCPNotFoundError, MCPPermissionDenied
 
 if TYPE_CHECKING:
     from apps.accounts.models import User
+    from django.db.models import Model
 
 
 _CURRENT_USER: contextvars.ContextVar[Optional["User"]] = contextvars.ContextVar(
@@ -45,6 +46,24 @@ def require_parent() -> "User":
     user = get_current_user()
     if getattr(user, "role", None) != "parent":
         raise MCPPermissionDenied("This tool is restricted to parent accounts.")
+    return user
+
+
+def require_staff_parent() -> "User":
+    """Return the current user if they are a STAFF parent, else raise.
+
+    Use this on MCP tools that mirror REST endpoints gated by
+    ``IsStaffParent`` — global content authoring (Skills, Badges, Lorebook,
+    sprite catalog, etc.). A self-signup parent has ``is_staff=False`` and
+    must NOT be able to mutate content visible to every other family.
+    Founding superusers (``createsuperuser``) get ``is_staff=True``
+    automatically; the seed-data parent does too.
+    """
+    user = require_parent()
+    if not getattr(user, "is_staff", False):
+        raise MCPPermissionDenied(
+            "This tool is restricted to staff parents (global content authoring).",
+        )
     return user
 
 
@@ -108,6 +127,46 @@ def resolve_child_in_family(parent: "User", child_id: int) -> "User":
     except UserModel.DoesNotExist:
         raise MCPNotFoundError(f"User {child_id} not found.")
     return target
+
+
+def get_in_family(
+    model: type["Model"],
+    pk: Any,
+    *,
+    actor: "User",
+    family_path: str = "user__family",
+) -> Any:
+    """Fetch a single row by primary key, scoped to ``actor``'s family.
+
+    The default ``family_path="user__family"`` works for any model with a
+    direct ``user`` FK to a family-bearing User row (Habit, SavingsGoal,
+    Creation, ChronicleEntry, RewardRedemption, HomeworkSubmission, Quest's
+    ``QuestParticipant``-anchored lookups). Override for other shapes:
+
+      * ``"assigned_to__family"`` — Project, HomeworkAssignment
+      * ``"family"`` — Reward, ProjectTemplate, Chore (per-family content)
+      * ``"submission__user__family"`` — HomeworkProof
+      * ``"created_by__family"`` — parent-authored QuestDefinition
+        (system-content rows are caller-handled — they're family-agnostic)
+
+    Cross-family / nonexistent / family-less actor all raise
+    ``MCPNotFoundError`` — never permission-denied — so probing tools can't
+    distinguish "doesn't exist" from "exists in another family". This is the
+    same existence-leak doctrine used by ``resolve_target_user`` and
+    ``resolve_child_in_family``.
+
+    Audit C8: the bare ``Model.objects.get(pk=...)`` pattern was repeated
+    across 25+ MCP tool files after a ``require_parent()`` check, with no
+    family scoping — letting any parent enumerate, edit, approve, or delete
+    any other family's data via the MCP channel. This helper is the single
+    chokepoint that closes the pattern.
+    """
+    if getattr(actor, "family_id", None) is None:
+        raise MCPNotFoundError(f"{model.__name__} {pk} not found.")
+    try:
+        return model.objects.get(**{"pk": pk, family_path: actor.family})
+    except model.DoesNotExist:
+        raise MCPNotFoundError(f"{model.__name__} {pk} not found.")
 
 
 @contextlib.contextmanager

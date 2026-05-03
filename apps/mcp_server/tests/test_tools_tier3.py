@@ -154,7 +154,10 @@ class SavingsGoalUpdateDeleteTests(_Base):
         goal = SavingsGoal.objects.create(
             user=other, title="t", target_amount=Decimal("100"),
         )
-        with override_user(self.child), self.assertRaises(MCPPermissionDenied):
+        # Audit C8: cross-user lookup now returns MCPNotFoundError (not
+        # PermissionDenied) so a probe can't distinguish "exists, not
+        # mine" from "doesn't exist". Same doctrine as resolve_target_user.
+        with override_user(self.child), self.assertRaises(MCPNotFoundError):
             sv.update_savings_goal(UpdateSavingsGoalIn(
                 goal_id=goal.id, title="hacked",
             ))

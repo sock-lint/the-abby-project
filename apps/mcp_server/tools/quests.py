@@ -32,7 +32,6 @@ from apps.quests.validators import validate_trigger_filter
 from ..context import get_current_user, require_parent, resolve_target_user
 from ..errors import (
     MCPNotFoundError,
-    MCPPermissionDenied,
     MCPValidationError,
     safe_tool,
 )
@@ -80,12 +79,19 @@ def list_quests(params: ListQuestsIn) -> dict[str, Any]:
 
     Children see only their own participations; parents see all by default
     or filter to a child with ``user_id``.
+
+    Audit C8: parent path was previously unscoped — returned every
+    family's quests to every parent in the deployment.
     """
     user = get_current_user()
     qs = Quest.objects.select_related("definition").prefetch_related(
         "participants",
     )
     if user.role == "parent":
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            return {"quests": []}
+        qs = qs.filter(participants__user__family_id=family_id)
         if params.user_id is not None:
             qs = qs.filter(participants__user_id=params.user_id)
     else:
@@ -99,14 +105,24 @@ def list_quests(params: ListQuestsIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def get_quest(params: GetQuestIn) -> dict[str, Any]:
-    """Get a quest instance with its progress + participants."""
+    """Get a quest instance with its progress + participants.
+
+    Audit C8: parent path scopes by family via the participants link;
+    children stay scoped to their own participations.
+    """
     user = get_current_user()
+    qs = Quest.objects.select_related("definition")
+    if user.role == "parent":
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            raise MCPNotFoundError(f"Quest {params.quest_id} not found.")
+        qs = qs.filter(participants__user__family_id=family_id).distinct()
+    else:
+        qs = qs.filter(participants__user=user).distinct()
     try:
-        quest = Quest.objects.select_related("definition").get(pk=params.quest_id)
+        quest = qs.get(pk=params.quest_id)
     except Quest.DoesNotExist:
         raise MCPNotFoundError(f"Quest {params.quest_id} not found.")
-    if user.role != "parent" and not quest.participants.filter(user=user).exists():
-        raise MCPPermissionDenied("This quest is not yours.")
     return _quest_to_dict(quest)
 
 
@@ -266,16 +282,30 @@ def assign_co_op_quest(params: AssignCoOpQuestIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def delete_quest_definition(params: DeleteQuestDefinitionIn) -> dict[str, Any]:
-    """Permanently remove a QuestDefinition (parent-only).
+    """Permanently remove a parent-authored QuestDefinition (parent-only).
 
     Cascades: every live ``Quest`` instance and its participants / progress
     rows go with the definition. Use for cleaning up smoke-test or stale
     parent-authored definitions. For day-to-day cancellation of an active
     run, use ``cancel_quest`` instead (which just flips the Quest status).
+
+    Audit C8: scope to parent-authored definitions in the caller's family.
+    System quests (``is_system=True``) come from content packs — they are
+    global content and can't be deleted via MCP. Parent-authored quests
+    can only be deleted by a parent in the creating parent's family.
     """
-    require_parent()
+    parent = require_parent()
+    family_id = getattr(parent, "family_id", None)
+    if family_id is None:
+        raise MCPNotFoundError(
+            f"QuestDefinition {params.quest_definition_id} not found.",
+        )
     try:
-        definition = QuestDefinition.objects.get(pk=params.quest_definition_id)
+        definition = QuestDefinition.objects.get(
+            pk=params.quest_definition_id,
+            is_system=False,
+            created_by__family_id=family_id,
+        )
     except QuestDefinition.DoesNotExist:
         raise MCPNotFoundError(
             f"QuestDefinition {params.quest_definition_id} not found.",
@@ -293,10 +323,18 @@ def cancel_quest(params: CancelQuestIn) -> dict[str, Any]:
 
     Use this to cancel / abandon a quest mid-run — doesn't refund the
     quest scroll (if one was used to start it).
+
+    Audit C8: family-scope so a parent can't cancel another family's
+    active quest.
     """
-    require_parent()
+    parent = require_parent()
+    family_id = getattr(parent, "family_id", None)
+    if family_id is None:
+        raise MCPNotFoundError(f"Quest {params.quest_id} not found.")
     try:
-        quest = Quest.objects.get(pk=params.quest_id)
+        quest = Quest.objects.filter(
+            participants__user__family_id=family_id,
+        ).distinct().get(pk=params.quest_id)
     except Quest.DoesNotExist:
         raise MCPNotFoundError(f"Quest {params.quest_id} not found.")
     if quest.status != Quest.Status.ACTIVE:
@@ -323,9 +361,21 @@ def set_quest_definition_skill_tags(
     from apps.achievements.models import Skill
     from apps.quests.serializers import QuestDefinitionSerializer
 
-    require_parent()
+    parent = require_parent()
+    family_id = getattr(parent, "family_id", None)
+    if family_id is None:
+        raise MCPNotFoundError(
+            f"QuestDefinition {params.quest_definition_id} not found.",
+        )
+    # Audit C8: scope to parent-authored definitions in the caller's
+    # family. System quests are global content and shouldn't be retagged
+    # via MCP — same gate as ``delete_quest_definition``.
     try:
-        definition = QuestDefinition.objects.get(pk=params.quest_definition_id)
+        definition = QuestDefinition.objects.get(
+            pk=params.quest_definition_id,
+            is_system=False,
+            created_by__family_id=family_id,
+        )
     except QuestDefinition.DoesNotExist:
         raise MCPNotFoundError(
             f"QuestDefinition {params.quest_definition_id} not found.",

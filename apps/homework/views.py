@@ -173,9 +173,25 @@ class HomeworkSubmissionViewSet(
         return qs
 
 
-class HomeworkProofViewSet(mixins.DestroyModelMixin, viewsets.GenericViewSet):
-    queryset = HomeworkProof.objects.select_related("submission")
+class HomeworkProofViewSet(
+    RoleFilteredQuerySetMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    # Audit C2: ``RoleFilteredQuerySetMixin`` was missing on this viewset,
+    # so the class-level queryset returned every family's proofs and
+    # ``destroy``'s in-handler check short-circuited on ``role == "parent"``
+    # — letting any parent delete any proof in any family. Mixing in the
+    # filter via ``submission__user`` scopes the queryset to the caller's
+    # family for parents and to the owning child for children. The
+    # in-handler check below now only matters for the (rare) child trying
+    # to delete a sibling's proof inside the same family.
+    queryset = HomeworkProof.objects.select_related("submission__user")
     serializer_class = HomeworkSubmissionSerializer  # unused; required by GenericViewSet
+    role_filter_field = "submission__user"
+
+    def get_queryset(self):
+        return self.get_role_filtered_queryset(super().get_queryset())
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

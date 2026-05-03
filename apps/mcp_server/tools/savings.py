@@ -6,7 +6,7 @@ from typing import Any
 from apps.projects.models import SavingsGoal
 
 from ..context import get_current_user, resolve_target_user
-from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
+from ..errors import MCPNotFoundError, safe_tool
 from ..schemas import (
     CreateSavingsGoalIn,
     DeleteSavingsGoalIn,
@@ -47,14 +47,24 @@ def create_savings_goal(params: CreateSavingsGoalIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def update_savings_goal(params: UpdateSavingsGoalIn) -> dict[str, Any]:
-    """Edit a savings goal's metadata (owner or parent only)."""
+    """Edit a savings goal's metadata (owner or parent only).
+
+    Audit C8: parent path scopes by family. Children stay scoped to their
+    own goals.
+    """
     user = get_current_user()
+    qs = SavingsGoal.objects.all()
+    if user.role == "child":
+        qs = qs.filter(user=user)
+    else:
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            raise MCPNotFoundError(f"Savings goal {params.goal_id} not found.")
+        qs = qs.filter(user__family_id=family_id)
     try:
-        goal = SavingsGoal.objects.get(pk=params.goal_id)
+        goal = qs.get(pk=params.goal_id)
     except SavingsGoal.DoesNotExist:
         raise MCPNotFoundError(f"Savings goal {params.goal_id} not found.")
-    if goal.user_id != user.id and user.role != "parent":
-        raise MCPPermissionDenied("Cannot edit another user's goal.")
     data = params.model_dump(exclude={"goal_id"}, exclude_unset=True)
     for field, value in data.items():
         setattr(goal, field, value)
@@ -65,14 +75,23 @@ def update_savings_goal(params: UpdateSavingsGoalIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def delete_savings_goal(params: DeleteSavingsGoalIn) -> dict[str, Any]:
-    """Delete a savings goal (owner or parent only)."""
+    """Delete a savings goal (owner or parent only).
+
+    Audit C8: parent path scopes by family.
+    """
     user = get_current_user()
+    qs = SavingsGoal.objects.all()
+    if user.role == "child":
+        qs = qs.filter(user=user)
+    else:
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            raise MCPNotFoundError(f"Savings goal {params.goal_id} not found.")
+        qs = qs.filter(user__family_id=family_id)
     try:
-        goal = SavingsGoal.objects.get(pk=params.goal_id)
+        goal = qs.get(pk=params.goal_id)
     except SavingsGoal.DoesNotExist:
         raise MCPNotFoundError(f"Savings goal {params.goal_id} not found.")
-    if goal.user_id != user.id and user.role != "parent":
-        raise MCPPermissionDenied("Cannot delete another user's goal.")
     goal_id = goal.pk
     goal.delete()
     return {"goal_id": goal_id, "deleted": True}

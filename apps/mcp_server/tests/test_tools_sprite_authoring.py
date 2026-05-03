@@ -39,7 +39,7 @@ def _png_b64(size=(32, 32)):
 
 class SpriteAuthoringToolTests(TestCase):
     def setUp(self):
-        self.parent = User.objects.create_user(username="parent", password="pw", role="parent")
+        self.parent = User.objects.create_user(username="parent", password="pw", role="parent", is_staff=True)
         self.child = User.objects.create_user(username="kid", password="pw", role="child")
 
     def _as_parent(self):
@@ -138,7 +138,7 @@ class UpdateSpriteMetadataToolTests(TestCase):
     (useful for curation passes)."""
 
     def setUp(self):
-        self.parent = User.objects.create_user(username="meta_parent", password="pw", role="parent")
+        self.parent = User.objects.create_user(username="meta_parent", password="pw", role="parent", is_staff=True)
         self.child = User.objects.create_user(username="meta_kid", password="pw", role="child")
 
     def _as_parent(self):
@@ -265,7 +265,7 @@ def _png_bytes(size=(128, 128)):
 @override_settings(GEMINI_API_KEY="test-key")
 class GenerateSpriteSheetToolTests(TestCase):
     def setUp(self):
-        self.parent = User.objects.create_user(username="gen_parent", password="pw", role="parent")
+        self.parent = User.objects.create_user(username="gen_parent", password="pw", role="parent", is_staff=True)
         self.child = User.objects.create_user(username="gen_kid", password="pw", role="child")
 
     def _as_parent(self):

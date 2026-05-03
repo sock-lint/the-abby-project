@@ -200,7 +200,10 @@ class HomeworkProofDeleteTests(_Fixture):
     def test_other_child_cannot_delete(self):
         self.client.force_authenticate(self.other_child)
         resp = self.client.delete(f"/api/homework-proofs/{self.proof.pk}/")
-        self.assertEqual(resp.status_code, 403)
+        # Audit C2: HomeworkProofViewSet now uses RoleFilteredQuerySetMixin,
+        # so a non-owning child sees 404 rather than 403 — matches the
+        # "don't leak existence" doctrine used elsewhere.
+        self.assertEqual(resp.status_code, 404)
         self.assertTrue(HomeworkProof.objects.filter(pk=self.proof.pk).exists())
 
     def test_unauthenticated_rejected(self):

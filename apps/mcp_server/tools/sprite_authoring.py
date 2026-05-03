@@ -19,7 +19,7 @@ from apps.rpg.models import SpriteAsset
 from apps.rpg.sprite_authoring import SpriteAuthoringError
 from apps.rpg.sprite_generation import SpriteGenerationError
 
-from ..context import require_parent, get_current_user
+from ..context import require_parent, require_staff_parent, get_current_user
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
     DeleteSpriteIn,
@@ -45,11 +45,12 @@ def _wrap_svc_call(fn, **kwargs) -> dict[str, Any]:
 def register_sprite(params: RegisterSpriteIn) -> dict[str, Any]:
     """Register one sprite (static or animation strip) from bytes or a URL.
 
-    Parent-only. Returns the sprite's URL + dimensions + animation metadata
-    so the LLM can confirm the upload and reference the slug in
+    Staff-parent only (Audit C5 — sprite catalog is global content visible
+    to every family). Returns the sprite's URL + dimensions + animation
+    metadata so the LLM can confirm the upload and reference the slug in
     subsequent content YAML.
     """
-    require_parent()
+    require_staff_parent()
     return _wrap_svc_call(
         svc.register_sprite,
         slug=params.slug,
@@ -69,11 +70,12 @@ def register_sprite(params: RegisterSpriteIn) -> dict[str, Any]:
 def register_sprite_batch(params: RegisterSpriteBatchIn) -> dict[str, Any]:
     """Upload one spritesheet and register many named tiles in one call.
 
-    Parent-only. Per-tile errors surface in the ``skipped`` list without
-    aborting the batch, so a partial sheet registration always completes.
-    Source sheet is NOT persisted — re-authoring requires re-upload.
+    Staff-parent only (Audit C5). Per-tile errors surface in the
+    ``skipped`` list without aborting the batch, so a partial sheet
+    registration always completes. Source sheet is NOT persisted —
+    re-authoring requires re-upload.
     """
-    require_parent()
+    require_staff_parent()
     tiles = [t.model_dump() for t in params.tiles]
     return _wrap_svc_call(
         svc.register_sprite_batch,
@@ -129,8 +131,13 @@ def generate_sprite_sheet(params: GenerateSpriteSheetIn) -> dict[str, Any]:
 
     Requires ``GEMINI_API_KEY`` in settings. ``frame_count`` is capped by
     ``SPRITE_GENERATION_MAX_FRAMES`` (default 8).
+
+    Audit C5: gated on ``require_staff_parent`` to match the equivalent
+    HTTP endpoint (``SpriteGenerateView`` uses ``IsStaffParent``). The
+    sprite catalog is global content visible to every family; a self-signup
+    parent must not be able to write to it via the MCP channel either.
     """
-    require_parent()
+    require_staff_parent()
     return _wrap_svc_call(
         gen_svc.generate_sprite_sheet,
         slug=params.slug,
@@ -154,14 +161,14 @@ def update_sprite_metadata(params: UpdateSpriteMetadataIn) -> dict[str, Any]:
     """Update metadata (fps, pack) on an existing sprite without
     regenerating the image.
 
-    Parent-only. Use this to tune animation speed on an already-good
-    sprite, or to reorganize sprites between packs during a curation
-    pass. Frame dimensions and frame_count are NOT editable — those
-    are tied to the underlying image content. To change them,
+    Staff-parent only (Audit C5). Use this to tune animation speed on an
+    already-good sprite, or to reorganize sprites between packs during a
+    curation pass. Frame dimensions and frame_count are NOT editable —
+    those are tied to the underlying image content. To change them,
     re-register the sprite with a new image via ``register_sprite``
     or ``generate_sprite_sheet``.
     """
-    require_parent()
+    require_staff_parent()
     return _wrap_svc_call(
         svc.update_sprite_metadata,
         slug=params.slug,
@@ -175,11 +182,12 @@ def update_sprite_metadata(params: UpdateSpriteMetadataIn) -> dict[str, Any]:
 def delete_sprite(params: DeleteSpriteIn) -> dict[str, Any]:
     """Remove a sprite (DB row + Ceph blob, blob-first).
 
-    Parent-only. Dangling ``sprite_key`` references in content YAML or
-    model rows are NOT cleaned up — they emoji-fallback in the UI, which
-    is the existing contract when a slug is unknown.
+    Staff-parent only (Audit C5 — sprite catalog is global content).
+    Dangling ``sprite_key`` references in content YAML or model rows are
+    NOT cleaned up — they emoji-fallback in the UI, which is the existing
+    contract when a slug is unknown.
     """
-    require_parent()
+    require_staff_parent()
     return _wrap_svc_call(svc.delete_sprite, slug=params.slug)
 
 
@@ -188,13 +196,18 @@ def delete_sprite(params: DeleteSpriteIn) -> dict[str, Any]:
 def reroll_sprite(params: RerollSpriteIn) -> dict[str, Any]:
     """Re-run generation for an existing sprite using its stored inputs.
 
-    Parent-only. Mirrors ``POST /api/sprites/admin/<slug>/reroll/`` —
-    replays the row's stored ``prompt / motion / style_hint / tile_size /
-    reference_image_url / frame_count / fps / pack`` with ``overwrite=True``.
-    Returns 400 if the sprite has no stored prompt (legacy upload —
-    use ``generate_sprite_sheet`` directly).
+    Audit C5: gated on ``require_staff_parent`` to match the equivalent
+    HTTP endpoint (``SpriteRerollView`` uses ``IsStaffParent``). Reroll
+    burns Gemini API budget on a global-content row — a regular signup
+    parent must not be able to trigger it via the MCP channel.
+
+    Mirrors ``POST /api/sprites/admin/<slug>/reroll/`` — replays the row's
+    stored ``prompt / motion / style_hint / tile_size / reference_image_url
+    / frame_count / fps / pack`` with ``overwrite=True``. Returns 400 if
+    the sprite has no stored prompt (legacy upload — use
+    ``generate_sprite_sheet`` directly).
     """
-    require_parent()
+    require_staff_parent()
     try:
         asset = SpriteAsset.objects.get(slug=params.slug)
     except SpriteAsset.DoesNotExist:

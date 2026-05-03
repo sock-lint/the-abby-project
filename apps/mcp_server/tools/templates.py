@@ -25,7 +25,9 @@ from apps.projects.models import (
 )
 from apps.achievements.models import SkillCategory
 
-from ..context import get_current_user, require_parent, resolve_target_user
+from ..context import (
+    get_current_user, get_in_family, require_parent, resolve_target_user,
+)
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
     CreateProjectFromTemplateIn,
@@ -62,11 +64,22 @@ def _template_to_dict(template: ProjectTemplate) -> dict[str, Any]:
 def list_templates(params: ListTemplatesIn) -> dict[str, Any]:
     """List project templates visible to the current user.
 
-    Parents see all templates; children only see public ones. Use
-    ``is_public_only=True`` to filter even parents down to public.
+    Parents see their family's templates; children only see their family's
+    public templates. Use ``is_public_only=True`` to filter parents down
+    to public.
+
+    Audit C8: ``ProjectTemplate`` is per-family content. Without scoping,
+    parents saw every household's private templates and children could see
+    public templates authored in other families. Both paths now scope by
+    ``ProjectTemplate.family``.
     """
     user = get_current_user()
-    qs = ProjectTemplate.objects.select_related("category", "created_by")
+    family_id = getattr(user, "family_id", None)
+    if family_id is None:
+        return {"templates": [], "count": 0}
+    qs = ProjectTemplate.objects.select_related("category", "created_by").filter(
+        family_id=family_id,
+    )
     if user.role != "parent" or params.is_public_only:
         qs = qs.filter(is_public=True)
     qs = qs.order_by("-created_at")[: params.limit]
@@ -77,13 +90,21 @@ def list_templates(params: ListTemplatesIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def get_template(params: GetTemplateIn) -> dict[str, Any]:
-    """Return one template with its milestones, materials, steps, resources."""
+    """Return one template with its milestones, materials, steps, resources.
+
+    Audit C8: scope by ``ProjectTemplate.family``. Children additionally
+    require ``is_public=True`` to match the previous semantics.
+    """
     user = get_current_user()
-    try:
-        template = ProjectTemplate.objects.get(pk=params.template_id)
-    except ProjectTemplate.DoesNotExist:
+    family_id = getattr(user, "family_id", None)
+    if family_id is None:
         raise MCPNotFoundError(f"Template {params.template_id} not found.")
-    if user.role != "parent" and not template.is_public:
+    qs = ProjectTemplate.objects.filter(family_id=family_id)
+    if user.role != "parent":
+        qs = qs.filter(is_public=True)
+    try:
+        template = qs.get(pk=params.template_id)
+    except ProjectTemplate.DoesNotExist:
         raise MCPNotFoundError(f"Template {params.template_id} not found.")
     return _template_to_dict(template)
 
@@ -104,6 +125,9 @@ def create_template(params: CreateTemplateIn) -> dict[str, Any]:
     after the parent rows are inserted.
     """
     parent = require_parent()
+    family = getattr(parent, "family", None)
+    if family is None:
+        raise MCPValidationError("Calling parent has no family attached.")
 
     category = None
     if params.category_id is not None:
@@ -133,6 +157,8 @@ def create_template(params: CreateTemplateIn) -> dict[str, Any]:
             )
 
     with transaction.atomic():
+        # Audit C8: stamp ``family`` from the calling parent so the
+        # template lands in the right per-family bucket.
         template = ProjectTemplate.objects.create(
             title=params.title,
             description=params.description,
@@ -143,6 +169,7 @@ def create_template(params: CreateTemplateIn) -> dict[str, Any]:
             materials_budget=params.materials_budget,
             created_by=parent,
             is_public=params.is_public,
+            family=family,
         )
         created_milestones: list[TemplateMilestone] = []
         for ms in params.milestones:
@@ -201,11 +228,12 @@ def update_template(params: UpdateTemplateIn) -> dict[str, Any]:
     delete and recreate the template for structural changes, or edit the
     source project and call ``save_project_as_template`` again.
     """
-    require_parent()
-    try:
-        template = ProjectTemplate.objects.get(pk=params.template_id)
-    except ProjectTemplate.DoesNotExist:
-        raise MCPNotFoundError(f"Template {params.template_id} not found.")
+    parent = require_parent()
+    # Audit C8: per-family content; scope by ProjectTemplate.family.
+    template = get_in_family(
+        ProjectTemplate, params.template_id, actor=parent,
+        family_path="family",
+    )
     data = params.model_dump(exclude={"template_id"}, exclude_unset=True)
     if "category_id" in data and data["category_id"] is not None:
         try:
@@ -223,12 +251,15 @@ def update_template(params: UpdateTemplateIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def delete_template(params: DeleteTemplateIn) -> dict[str, Any]:
-    """Delete a template and all its nested rows (parent-only)."""
-    require_parent()
-    try:
-        template = ProjectTemplate.objects.get(pk=params.template_id)
-    except ProjectTemplate.DoesNotExist:
-        raise MCPNotFoundError(f"Template {params.template_id} not found.")
+    """Delete a template and all its nested rows (parent-only).
+
+    Audit C8: per-family content; scope by ProjectTemplate.family.
+    """
+    parent = require_parent()
+    template = get_in_family(
+        ProjectTemplate, params.template_id, actor=parent,
+        family_path="family",
+    )
     template_id = template.pk
     template.delete()
     return {"template_id": template_id, "deleted": True}
@@ -243,10 +274,15 @@ def save_project_as_template(params: SaveProjectAsTemplateIn) -> dict[str, Any]:
     the step→milestone linkage via an internal ID map.
     """
     parent = require_parent()
-    try:
-        project = Project.objects.get(pk=params.project_id)
-    except Project.DoesNotExist:
-        raise MCPNotFoundError(f"Project {params.project_id} not found.")
+    family = getattr(parent, "family", None)
+    if family is None:
+        raise MCPValidationError("Calling parent has no family attached.")
+    # Audit C8: source project must be in the calling parent's family;
+    # template is stamped with that family too.
+    project = get_in_family(
+        Project, params.project_id, actor=parent,
+        family_path="assigned_to__family",
+    )
 
     with transaction.atomic():
         template = ProjectTemplate.objects.create(
@@ -260,6 +296,7 @@ def save_project_as_template(params: SaveProjectAsTemplateIn) -> dict[str, Any]:
             source_project=project,
             created_by=parent,
             is_public=params.is_public,
+            family=family,
         )
         ms_id_map: dict[int, TemplateMilestone] = {}
         for ms in project.milestones.all():
@@ -310,10 +347,13 @@ def create_project_from_template(
     to rename the instance (e.g. "Birdhouse (Abby's)").
     """
     parent = require_parent()
-    try:
-        template = ProjectTemplate.objects.get(pk=params.template_id)
-    except ProjectTemplate.DoesNotExist:
-        raise MCPNotFoundError(f"Template {params.template_id} not found.")
+    # Audit C8: scope template lookup to caller's family — without this
+    # a parent could spawn a project for their own child from another
+    # family's private template.
+    template = get_in_family(
+        ProjectTemplate, params.template_id, actor=parent,
+        family_path="family",
+    )
     # Cross-family safety: only spawn a project for a child in this
     # parent's family. resolve_target_user raises MCPNotFoundError on
     # cross-family without leaking existence.

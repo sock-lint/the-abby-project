@@ -17,8 +17,11 @@ from typing import Any
 from apps.projects.models import Project
 from apps.timecards.models import Timecard, TimeEntry
 from apps.timecards.services import ClockService, TimecardService
+from config.viewsets import filter_projects_accessible_to
 
-from ..context import get_current_user, require_parent, resolve_target_user
+from ..context import (
+    get_current_user, get_in_family, require_parent, resolve_target_user,
+)
 from ..errors import MCPNotFoundError, safe_tool
 from ..schemas import (
     ApproveTimecardIn,
@@ -86,10 +89,14 @@ def approve_timecard(params: ApproveTimecardIn) -> dict[str, Any]:
     audit fields and re-evaluates badges for the timecard owner.
     """
     parent = require_parent()
-    try:
-        timecard = Timecard.objects.select_related("user").get(pk=params.timecard_id)
-    except Timecard.DoesNotExist:
-        raise MCPNotFoundError(f"Timecard {params.timecard_id} not found.")
+    # Audit C8: family-scope so a parent can't approve another family's
+    # timecard (the approve action stamps audit fields and re-evaluates
+    # badges on the timecard owner — both are cross-family writes).
+    timecard = get_in_family(
+        Timecard, params.timecard_id, actor=parent,
+        family_path="user__family",
+    )
+    timecard = Timecard.objects.select_related("user").get(pk=timecard.pk)
 
     updated = TimecardService.approve_timecard(timecard, parent, notes=params.notes)
     return timecard_to_dict(updated)
@@ -107,8 +114,13 @@ def clock_in(params: ClockInIn) -> dict[str, Any]:
     """
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
+    # Audit H4 / C8: scope the project lookup through the caller's family
+    # (or self, for children). ClockService.clock_in would still reject
+    # cross-family with "Project is not assigned to you", but the bare
+    # ``get`` leaks 404-vs-error existence between families.
+    qs = filter_projects_accessible_to(user, Project.objects.all())
     try:
-        project = Project.objects.get(pk=params.project_id)
+        project = qs.get(pk=params.project_id)
     except Project.DoesNotExist:
         raise MCPNotFoundError(f"Project {params.project_id} not found.")
     entry = ClockService.clock_in(target, project)

@@ -7,7 +7,8 @@ from apps.rewards.models import CoinLedger, Reward, RewardRedemption
 from apps.rewards.services import CoinService, RewardService
 
 from ..context import (
-    get_current_user, require_parent, resolve_child_in_family, resolve_target_user,
+    get_current_user, get_in_family, require_parent,
+    resolve_child_in_family, resolve_target_user,
 )
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
@@ -32,9 +33,19 @@ from ..shapes import (
 @tool()
 @safe_tool
 def list_rewards(params: ListRewardsIn) -> dict[str, Any]:
-    """List rewards in the shop along with the current user's coin balance."""
+    """List rewards in the shop along with the current user's coin balance.
+
+    Audit C8: ``Reward`` is per-family content (``Reward.family`` FK).
+    Without scoping, this returned every household's shop to every user.
+    """
     user = get_current_user()
-    qs = Reward.objects.all()
+    family_id = getattr(user, "family_id", None)
+    if family_id is None:
+        return {
+            "rewards": [],
+            "balance": CoinService.get_balance(user),
+        }
+    qs = Reward.objects.filter(family_id=family_id)
     if params.active_only:
         qs = qs.filter(is_active=True)
     rewards = list(qs.order_by("order", "cost_coins", "name"))
@@ -73,19 +84,33 @@ def request_redemption(params: RequestRedemptionIn) -> dict[str, Any]:
     approval. Delegates to :class:`RewardService.request_redemption`.
     """
     user = get_current_user()
-    try:
-        reward = Reward.objects.get(pk=params.reward_id)
-    except Reward.DoesNotExist:
-        raise MCPNotFoundError(f"Reward {params.reward_id} not found.")
+    # Audit C8: Reward is per-family content. Without family-scoping a child
+    # could redeem rewards from any other family's shop — spending their
+    # own coins, decrementing the foreign family's stock, and creating a
+    # pending redemption row that the foreign parents would see.
+    reward = get_in_family(
+        Reward, params.reward_id, actor=user, family_path="family",
+    )
 
     redemption = RewardService.request_redemption(user, reward)
     return redemption_to_dict(redemption)
 
 
-def _get_pending_redemption(redemption_id: int) -> RewardRedemption:
+def _get_pending_redemption(redemption_id: int, parent) -> RewardRedemption:
+    """Fetch a pending redemption family-scoped to the calling parent.
+
+    Audit C8 + H13: previously bare ``get(pk=...)`` with no status filter
+    or family scope. A parent could approve another family's pending
+    redemption (crediting the foreign child with the digital item) or
+    probe arbitrary redemption ids by 404-vs-success distinction.
+    """
+    family_id = getattr(parent, "family_id", None)
+    if family_id is None:
+        raise MCPNotFoundError(f"Redemption {redemption_id} not found.")
     try:
         return RewardRedemption.objects.select_related("user", "reward").get(
             pk=redemption_id,
+            user__family_id=family_id,
         )
     except RewardRedemption.DoesNotExist:
         raise MCPNotFoundError(f"Redemption {redemption_id} not found.")
@@ -96,7 +121,7 @@ def _get_pending_redemption(redemption_id: int) -> RewardRedemption:
 def approve_redemption(params: DecideRedemptionIn) -> dict[str, Any]:
     """Approve a pending redemption (parent-only)."""
     parent = require_parent()
-    redemption = _get_pending_redemption(params.redemption_id)
+    redemption = _get_pending_redemption(params.redemption_id, parent)
     updated = RewardService.approve(redemption, parent, notes=params.notes)
     return redemption_to_dict(updated)
 
@@ -106,7 +131,7 @@ def approve_redemption(params: DecideRedemptionIn) -> dict[str, Any]:
 def reject_redemption(params: DecideRedemptionIn) -> dict[str, Any]:
     """Reject a pending redemption and refund the held coins (parent-only)."""
     parent = require_parent()
-    redemption = _get_pending_redemption(params.redemption_id)
+    redemption = _get_pending_redemption(params.redemption_id, parent)
     updated = RewardService.reject(redemption, parent, notes=params.notes)
     return redemption_to_dict(updated)
 
@@ -141,14 +166,18 @@ def create_reward(params: CreateRewardIn) -> dict[str, Any]:
     The ``image`` field is parent-UI-only (MCP can't upload files). Leave
     unset here and attach art via /manage when needed.
     """
-    require_parent()
+    parent = require_parent()
     item_def = _resolve_item_definition(params.item_definition_slug)
     if params.fulfillment_kind != "real_world" and item_def is None:
         raise MCPValidationError(
             "fulfillment_kind requires item_definition_slug for non-real_world "
             "rewards.",
         )
-    if Reward.objects.filter(name=params.name).exists():
+    family = getattr(parent, "family", None)
+    if family is None:
+        raise MCPValidationError("Calling parent has no family attached.")
+    # Audit C8: name uniqueness is per-family — Reward is per-family content.
+    if Reward.objects.filter(name=params.name, family=family).exists():
         raise MCPValidationError(f"A reward named {params.name!r} already exists.")
     reward = Reward.objects.create(
         name=params.name,
@@ -162,6 +191,7 @@ def create_reward(params: CreateRewardIn) -> dict[str, Any]:
         order=params.order,
         fulfillment_kind=params.fulfillment_kind,
         item_definition=item_def,
+        family=family,
     )
     return reward_to_dict(reward)
 
@@ -175,11 +205,11 @@ def update_reward(params: UpdateRewardIn) -> dict[str, Any]:
     ``clear_item_definition=True`` to unlink from an RPG item. Otherwise
     only the fields you set are updated.
     """
-    require_parent()
-    try:
-        reward = Reward.objects.get(pk=params.reward_id)
-    except Reward.DoesNotExist:
-        raise MCPNotFoundError(f"Reward {params.reward_id} not found.")
+    parent = require_parent()
+    # Audit C8: per-family content; scope by Reward.family.
+    reward = get_in_family(
+        Reward, params.reward_id, actor=parent, family_path="family",
+    )
 
     data = params.model_dump(
         exclude={
@@ -188,9 +218,10 @@ def update_reward(params: UpdateRewardIn) -> dict[str, Any]:
         },
         exclude_unset=True,
     )
-    if "name" in data and Reward.objects.filter(name=data["name"]).exclude(
-        pk=reward.pk,
-    ).exists():
+    # Audit C8: name uniqueness is per-family.
+    if "name" in data and Reward.objects.filter(
+        name=data["name"], family_id=reward.family_id,
+    ).exclude(pk=reward.pk).exists():
         raise MCPValidationError(
             f"Another reward is already named {data['name']!r}.",
         )
@@ -218,11 +249,11 @@ def delete_reward(params: DeleteRewardIn) -> dict[str, Any]:
     receipts keep their reward reference. Deactivate via ``update_reward
     is_active=False`` instead.
     """
-    require_parent()
-    try:
-        reward = Reward.objects.get(pk=params.reward_id)
-    except Reward.DoesNotExist:
-        raise MCPNotFoundError(f"Reward {params.reward_id} not found.")
+    parent = require_parent()
+    # Audit C8: per-family content; scope by Reward.family.
+    reward = get_in_family(
+        Reward, params.reward_id, actor=parent, family_path="family",
+    )
     if reward.redemptions.exists():
         raise MCPValidationError(
             f"Reward {params.reward_id} has redemption history and cannot be "

@@ -52,8 +52,19 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
     write_serializer_class = HabitWriteSerializer
 
     def get_queryset(self):
+        # Audit C1: family-scope every query against the Habit catalog.
+        # Without this filter the parent branch returned every household's
+        # habits to every parent in the deployment (see the matching fix
+        # on ChoreViewSet for the pattern). Children are still narrowed
+        # to ``user=user`` below; the family filter on the parent path
+        # closes the cross-family read/write/delete surface.
         user = self.request.user
-        qs = Habit.objects.prefetch_related("skill_tags__skill")
+        family = getattr(user, "family", None)
+        if family is None:
+            return Habit.objects.none()
+        qs = Habit.objects.prefetch_related("skill_tags__skill").filter(
+            user__family=family,
+        )
         pending_filter = self.request.query_params.get("pending") == "true"
         if user.role == "child":
             qs = qs.filter(user=user)

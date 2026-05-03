@@ -19,7 +19,9 @@ from apps.habits.models import Habit, HabitSkillTag
 from apps.habits.services import HabitService
 from apps.rpg.services import GameLoopService
 
-from ..context import get_current_user, require_parent, resolve_child_in_family
+from ..context import (
+    get_current_user, get_in_family, require_parent, resolve_child_in_family,
+)
 from ..errors import (
     MCPNotFoundError,
     MCPPermissionDenied,
@@ -48,13 +50,22 @@ def _habit_to_dict(habit: Habit) -> dict[str, Any]:
 @tool()
 @safe_tool
 def list_habits(params: ListHabitsIn) -> dict[str, Any]:
-    """List habits. Parents see all; children see their own only."""
+    """List habits. Parents see their family; children see their own only.
+
+    Audit C8: parent path was previously unscoped — returned every
+    household's habits to every parent in the deployment.
+    """
     user = get_current_user()
     qs = Habit.objects.all()
     if user.role == "child":
         qs = qs.filter(user=user)
-    elif params.user_id is not None:
-        qs = qs.filter(user_id=params.user_id)
+    else:
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            return {"habits": []}
+        qs = qs.filter(user__family_id=family_id)
+        if params.user_id is not None:
+            qs = qs.filter(user_id=params.user_id)
     qs = qs.order_by("name")[: params.limit]
     return {"habits": [_habit_to_dict(h) for h in qs]}
 
@@ -62,14 +73,23 @@ def list_habits(params: ListHabitsIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def get_habit(params: GetHabitIn) -> dict[str, Any]:
-    """Get a single habit with its current strength + color."""
+    """Get a single habit with its current strength + color.
+
+    Audit C8: family-scope for parents; self-scope for children.
+    """
     user = get_current_user()
+    qs = Habit.objects.all()
+    if user.role == "child":
+        qs = qs.filter(user=user)
+    else:
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            raise MCPNotFoundError(f"Habit {params.habit_id} not found.")
+        qs = qs.filter(user__family_id=family_id)
     try:
-        habit = Habit.objects.get(pk=params.habit_id)
+        habit = qs.get(pk=params.habit_id)
     except Habit.DoesNotExist:
         raise MCPNotFoundError(f"Habit {params.habit_id} not found.")
-    if user.role != "parent" and habit.user_id != user.id:
-        raise MCPPermissionDenied("Habit is not yours.")
     return _habit_to_dict(habit)
 
 
@@ -109,12 +129,14 @@ def create_habit(params: CreateHabitIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def update_habit(params: UpdateHabitIn) -> dict[str, Any]:
-    """Edit a habit. Parent-only (mirrors REST)."""
-    require_parent()
-    try:
-        habit = Habit.objects.get(pk=params.habit_id)
-    except Habit.DoesNotExist:
-        raise MCPNotFoundError(f"Habit {params.habit_id} not found.")
+    """Edit a habit. Parent-only (mirrors REST).
+
+    Audit C8: family-scope so a parent can't edit another family's habits.
+    """
+    parent = require_parent()
+    habit = get_in_family(
+        Habit, params.habit_id, actor=parent, family_path="user__family",
+    )
     data = params.model_dump(exclude={"habit_id"}, exclude_unset=True)
     for field, value in data.items():
         setattr(habit, field, value)
@@ -125,12 +147,14 @@ def update_habit(params: UpdateHabitIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def delete_habit(params: DeleteHabitIn) -> dict[str, Any]:
-    """Delete a habit (parent-only, mirrors REST)."""
-    require_parent()
-    try:
-        habit = Habit.objects.get(pk=params.habit_id)
-    except Habit.DoesNotExist:
-        raise MCPNotFoundError(f"Habit {params.habit_id} not found.")
+    """Delete a habit (parent-only, mirrors REST).
+
+    Audit C8: family-scope so a parent can't delete another family's habits.
+    """
+    parent = require_parent()
+    habit = get_in_family(
+        Habit, params.habit_id, actor=parent, family_path="user__family",
+    )
     habit_id = habit.pk
     habit.delete()
     return {"habit_id": habit_id, "deleted": True}
@@ -143,14 +167,15 @@ def log_habit(params: LogHabitIn) -> dict[str, Any]:
 
     Can only be logged by the habit's owner. Positive taps fire the RPG
     game loop (streaks, drops, quest progress).
+
+    Audit C8: scope to caller-owned habits up front so a non-owner can't
+    even probe habit existence by id.
     """
     user = get_current_user()
     try:
-        habit = Habit.objects.get(pk=params.habit_id)
+        habit = Habit.objects.get(pk=params.habit_id, user=user)
     except Habit.DoesNotExist:
         raise MCPNotFoundError(f"Habit {params.habit_id} not found.")
-    if habit.user_id != user.id:
-        raise MCPPermissionDenied("You can only log your own habits.")
     try:
         result = HabitService.log_tap(user, habit, params.amount)
     except ValueError as exc:
@@ -178,13 +203,20 @@ def set_habit_skill_tags(params: SetHabitSkillTagsIn) -> dict[str, Any]:
     """
     from apps.achievements.models import Skill
 
+    # Audit C8: parent path scopes by family; child path scopes to self.
     user = get_current_user()
+    qs = Habit.objects.all()
+    if user.role == "child":
+        qs = qs.filter(user=user)
+    else:
+        family_id = getattr(user, "family_id", None)
+        if family_id is None:
+            raise MCPNotFoundError(f"Habit {params.habit_id} not found.")
+        qs = qs.filter(user__family_id=family_id)
     try:
-        habit = Habit.objects.get(pk=params.habit_id)
+        habit = qs.get(pk=params.habit_id)
     except Habit.DoesNotExist:
         raise MCPNotFoundError(f"Habit {params.habit_id} not found.")
-    if user.role == "child" and habit.user_id != user.id:
-        raise MCPPermissionDenied("You can only tag your own habits.")
 
     skill_ids = [t.skill_id for t in params.skill_tags]
     known = set(Skill.objects.filter(id__in=skill_ids).values_list("id", flat=True))
