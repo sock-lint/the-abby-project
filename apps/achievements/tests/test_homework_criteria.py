@@ -77,6 +77,64 @@ class PlannerCriterionTests(TestCase):
             self.child, {"count": 1, "days_ahead": 2},
         ))
 
+    def test_late_evening_creation_uses_local_date_not_utc(self):
+        """Regression: with USE_TZ=True and TIME_ZONE='America/Phoenix',
+        an assignment created at 17:30 Phoenix has ``created_at.date()``
+        in UTC = next-day. Pre-fix, the lead-time computation used the
+        UTC date and was off by one for any creation in the late-evening
+        window — failing the badge for users who legitimately planned
+        ahead.
+        """
+        import datetime as dt
+        # Phoenix is UTC-7; local 23:30 on 2026-04-30 = UTC 06:30 on 2026-05-01.
+        # Date difference: due_date 2026-05-03 minus UTC date 2026-05-01 = 2 days,
+        # but minus local date 2026-04-30 = 3 days (the user's intent).
+        local_evening_utc = dt.datetime(
+            2026, 5, 1, 6, 30, 0, tzinfo=dt.timezone.utc,
+        )
+        assignment = HomeworkAssignment.objects.create(
+            title="Late-night-planned",
+            subject="math",
+            due_date=dt.date(2026, 5, 3),
+            assigned_to=self.child,
+            created_by=self.child,
+        )
+        # auto_now_add can't be set at create, so backdate explicitly.
+        HomeworkAssignment.objects.filter(pk=assignment.pk).update(
+            created_at=local_evening_utc,
+        )
+        # Three days of lead time in local terms — should qualify.
+        self.assertTrue(_homework_planned_ahead(
+            self.child, {"count": 1, "days_ahead": 3},
+        ))
+
+    def test_uses_single_count_query_not_python_loop(self):
+        """Audit follow-up: pre-fix the checker pulled every active
+        HomeworkAssignment row into Python and looped to count.
+        """
+        from django.test.utils import CaptureQueriesContext
+        from django.db import connection
+        # Seed 5 assignments so a Python-loop version would issue
+        # ≥1 SELECT pulling all rows.
+        for n in (2, 3, 4, 5, 6):
+            self._logged_days_ahead(n)
+        with CaptureQueriesContext(connection) as ctx:
+            _homework_planned_ahead(
+                self.child, {"count": 3, "days_ahead": 2},
+            )
+        homework_queries = [
+            q for q in ctx.captured_queries
+            if "homework_homeworkassignment" in q["sql"].lower()
+        ]
+        # Single COUNT(*) — the whole point of the ORM rewrite.
+        self.assertEqual(
+            len(homework_queries), 1,
+            f"Expected 1 HomeworkAssignment query; got {len(homework_queries)}: "
+            f"{[q['sql'] for q in homework_queries]}",
+        )
+        # And it IS a COUNT, not a SELECT-then-loop.
+        self.assertIn("COUNT", homework_queries[0]["sql"].upper())
+
 
 class PunctualCriterionTests(TestCase):
     def setUp(self):
