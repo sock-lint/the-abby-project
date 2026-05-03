@@ -68,8 +68,13 @@ class ProjectStepPermissionTests(_Fixture):
         resp = self.client.post(
             f"/api/projects/{self.project.id}/steps/{step.id}/complete/",
         )
-        # The "other" child isn't assigned or a collaborator — should be blocked.
-        self.assertEqual(resp.status_code, 403)
+        # Audit H5: the queryset filter on NestedProjectResourceMixin
+        # hides projects the user doesn't own / collaborate on / share a
+        # family with — so the step disappears from get_object() and the
+        # response is 404 rather than the previous 403 from
+        # _can_edit_project_step. 404 is the right behaviour: it hides
+        # existence rather than confirming "this exists, you can't touch it".
+        self.assertEqual(resp.status_code, 404)
         step.refresh_from_db()
         self.assertFalse(step.is_completed)
 

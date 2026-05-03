@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from apps.projects.models import Project
 from config.permissions import IsParent
-from config.viewsets import RoleFilteredQuerySetMixin
+from config.viewsets import RoleFilteredQuerySetMixin, filter_projects_accessible_to
 
 from .models import Timecard, TimeEntry
 from .serializers import (
@@ -26,9 +26,14 @@ class ClockView(APIView):
         action = request.data.get("action")
         if action == "in":
             project_id = request.data.get("project_id")
-            try:
-                project = Project.objects.get(id=project_id)
-            except Project.DoesNotExist:
+            # Audit H6: scope the project lookup so a child can't clock in
+            # against a foreign-family project by guessing the id.
+            # ``filter_projects_accessible_to`` returns parents' family
+            # projects + children's own/collaborator projects.
+            project = filter_projects_accessible_to(
+                request.user, Project.objects.all(),
+            ).filter(id=project_id).first()
+            if project is None:
                 return Response(
                     {"error": "Project not found"},
                     status=status.HTTP_404_NOT_FOUND,
