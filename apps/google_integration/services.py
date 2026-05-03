@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import hmac
 import json
@@ -5,6 +6,9 @@ import logging
 import os
 from datetime import datetime, timedelta
 
+from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from django.conf import settings
 from django.utils import timezone
 
@@ -28,35 +32,75 @@ SCOPES = [
 os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 
 
-def _derive_key():
-    """Derive a 32-byte key from Django's SECRET_KEY for AES-like encryption."""
+def _derive_legacy_key():
+    """Derive the 32-byte key the pre-Fernet ``_legacy_decrypt`` used.
+
+    Kept solely so credentials encrypted before audit H3 landed still
+    decrypt — the next refresh re-encrypts with Fernet.
+    """
     return hashlib.sha256(settings.SECRET_KEY.encode()).digest()
 
 
-def _encrypt(plaintext_bytes):
-    """Simple HMAC-authenticated encryption using XOR with a derived key stream.
+def _fernet() -> Fernet:
+    """Return a Fernet instance keyed off ``SECRET_KEY`` via HKDF.
 
-    Format: salt (16) || ciphertext || hmac (32)
-    This is simpler than Fernet but avoids the `cryptography` C-extension
-    dependency which can be fragile in some environments.
+    Audit H3: replaces a hand-rolled HMAC-keystream-XOR construction with
+    a standard, reviewed AEAD. Key derivation is deterministic from
+    ``SECRET_KEY`` so no extra env var is needed. Rotating ``SECRET_KEY``
+    invalidates stored OAuth tokens (users will need to re-link Google)
+    — same operational property as the prior scheme.
+
+    Future rotation note: if you ever need to migrate to a separately-
+    managed key, switch this to return ``MultiFernet([new, old])`` and
+    keep the legacy ``_decrypt`` path until rows have rolled over.
     """
-    key = _derive_key()
-    salt = os.urandom(16)
-    # Derive a key stream via repeated HMAC
-    stream = b""
-    block = salt
-    while len(stream) < len(plaintext_bytes):
-        block = hmac.new(key, block, hashlib.sha256).digest()
-        stream += block
-    ciphertext = bytes(a ^ b for a, b in zip(plaintext_bytes, stream))
-    tag = hmac.new(key, salt + ciphertext, hashlib.sha256).digest()
-    return salt + ciphertext + tag
+    secret = settings.SECRET_KEY.encode("utf-8")
+    key_bytes = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        # Static app-context salt — we want deterministic keys, not
+        # per-message rotation. The label namespaces the derived key in
+        # case the same SECRET_KEY is reused for other crypto in the app.
+        salt=b"abby:google_oauth:fernet:v1",
+        info=b"GoogleAccount.encrypted_credentials",
+    ).derive(secret)
+    return Fernet(base64.urlsafe_b64encode(key_bytes))
 
 
-def _decrypt(encrypted_bytes):
-    """Decrypt data encrypted by _encrypt(). Raises ValueError on tamper."""
-    key = _derive_key()
-    if len(encrypted_bytes) < 48:  # 16 salt + 0 data + 32 hmac
+def _encrypt(plaintext_bytes: bytes) -> bytes:
+    """Encrypt with Fernet AEAD (audit H3)."""
+    return _fernet().encrypt(plaintext_bytes)
+
+
+def _decrypt(encrypted_bytes) -> bytes:
+    """Decrypt Fernet-encrypted credentials.
+
+    Falls back to the pre-Fernet HMAC-XOR construction for tokens minted
+    before audit H3 landed. The legacy path is read-only — the next
+    ``refresh_if_needed`` save() re-encrypts with Fernet so the legacy
+    branch becomes dead code as production rows roll over. All decrypt
+    failures collapse to a single ``ValueError`` so callers don't need
+    to discriminate.
+    """
+    encrypted_bytes = bytes(encrypted_bytes)
+    try:
+        return _fernet().decrypt(encrypted_bytes)
+    except InvalidToken:
+        # Fall through to the legacy HMAC-XOR scheme.
+        try:
+            return _legacy_decrypt(encrypted_bytes)
+        except (ValueError, IndexError):
+            # Both schemes failed — surface a single clean ValueError.
+            raise ValueError("Credential decryption failed") from None
+
+
+def _legacy_decrypt(encrypted_bytes: bytes) -> bytes:
+    """Pre-audit-H3 HMAC-XOR decrypt. KEEP until production rows have all
+    been re-encrypted with Fernet via ``refresh_if_needed``. Format is
+    ``salt(16) || ciphertext || hmac(32)``.
+    """
+    key = _derive_legacy_key()
+    if len(encrypted_bytes) < 48:
         raise ValueError("Encrypted data too short")
     salt = encrypted_bytes[:16]
     tag = encrypted_bytes[-32:]
@@ -70,6 +114,24 @@ def _decrypt(encrypted_bytes):
         block = hmac.new(key, block, hashlib.sha256).digest()
         stream += block
     return bytes(a ^ b for a, b in zip(ciphertext, stream))
+
+
+def _legacy_encrypt(plaintext_bytes: bytes) -> bytes:
+    """Pre-audit-H3 HMAC-XOR encrypt — kept for tests only.
+
+    Production code never calls this; tests use it to generate
+    legacy-format ciphertext for the backward-compat decrypt path.
+    """
+    key = _derive_legacy_key()
+    salt = os.urandom(16)
+    stream = b""
+    block = salt
+    while len(stream) < len(plaintext_bytes):
+        block = hmac.new(key, block, hashlib.sha256).digest()
+        stream += block
+    ciphertext = bytes(a ^ b for a, b in zip(plaintext_bytes, stream))
+    tag = hmac.new(key, salt + ciphertext, hashlib.sha256).digest()
+    return salt + ciphertext + tag
 
 
 class GoogleAuthService:
