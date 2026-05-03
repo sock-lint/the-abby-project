@@ -29,10 +29,13 @@ from ..shapes import chore_completion_to_dict, chore_to_dict, many
 @tool()
 @safe_tool
 def list_chores(params: ListChoresIn) -> dict[str, Any]:
-    """List chores. Parents see all; children see assigned + unassigned active chores with today's availability."""
+    """List chores. Parents see all in their family; children see assigned + unassigned active chores in their family with today's availability."""
     user = get_current_user()
 
     if user.role == "child":
+        # ``get_available_chores`` already filters by the child's family
+        # (it walks ``user.family`` internally) — leaving this branch
+        # untouched.
         chores = ChoreService.get_available_chores(user)
         results = []
         for c in chores:
@@ -42,7 +45,10 @@ def list_chores(params: ListChoresIn) -> dict[str, Any]:
             results.append(d)
         return {"chores": results}
 
-    qs = Chore.objects.all()
+    # Audit C1: family-scope for parents. Without this filter, list_chores
+    # returned every household's chores — same shape as the REST viewset
+    # leak.
+    qs = Chore.objects.filter(family=user.family)
     if params.assigned_to_id:
         qs = qs.filter(assigned_to_id=params.assigned_to_id)
     return {"chores": many(qs[: params.limit], chore_to_dict)}
@@ -51,10 +57,13 @@ def list_chores(params: ListChoresIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def get_chore(params: GetChoreIn) -> dict[str, Any]:
-    """Get details for a single chore."""
-    get_current_user()
+    """Get details for a single chore (family-scoped)."""
+    user = get_current_user()
+    # Audit C1: scope by family. Cross-family lookup → 404 (matches the
+    # leak-suppression pattern from resolve_target_user — never
+    # permission-denied, always not-found).
     try:
-        chore = Chore.objects.get(pk=params.chore_id)
+        chore = Chore.objects.get(pk=params.chore_id, family=user.family)
     except Chore.DoesNotExist:
         raise MCPNotFoundError(f"Chore {params.chore_id} not found.")
     return chore_to_dict(chore)
@@ -72,6 +81,9 @@ def create_chore(params: CreateChoreIn) -> dict[str, Any]:
         if getattr(assigned_to, "role", None) != "child":
             raise MCPNotFoundError(f"Child {params.assigned_to_id} not found.")
 
+    # Audit C1: stamp family from the caller. ``resolve_target_user`` above
+    # already proves the assigned child (if set) is in this parent's
+    # family, so a single ``family=parent.family`` is consistent.
     chore = Chore.objects.create(
         title=params.title,
         description=params.description,
@@ -85,6 +97,7 @@ def create_chore(params: CreateChoreIn) -> dict[str, Any]:
         created_by=parent,
         is_active=params.is_active,
         order=params.order,
+        family=parent.family,
     )
     return chore_to_dict(chore)
 
@@ -92,10 +105,12 @@ def create_chore(params: CreateChoreIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def update_chore(params: UpdateChoreIn) -> dict[str, Any]:
-    """Update an existing chore (parent-only)."""
+    """Update an existing chore (parent-only, same-family)."""
     parent = require_parent()
+    # Audit C1: family-scope the lookup so a parent can't mutate another
+    # family's chore.
     try:
-        chore = Chore.objects.get(pk=params.chore_id)
+        chore = Chore.objects.get(pk=params.chore_id, family=parent.family)
     except Chore.DoesNotExist:
         raise MCPNotFoundError(f"Chore {params.chore_id} not found.")
 
@@ -120,10 +135,14 @@ def update_chore(params: UpdateChoreIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def complete_chore(params: CompleteChoreIn) -> dict[str, Any]:
-    """Mark a chore as done (creates a pending completion for parent approval)."""
+    """Mark a chore as done (creates a pending completion for parent approval).
+
+    Audit C1: family-scoped. A child can't complete a chore from another
+    family even if they guess the id.
+    """
     user = get_current_user()
     try:
-        chore = Chore.objects.get(pk=params.chore_id)
+        chore = Chore.objects.get(pk=params.chore_id, family=user.family)
     except Chore.DoesNotExist:
         raise MCPNotFoundError(f"Chore {params.chore_id} not found.")
 
@@ -203,9 +222,11 @@ def set_chore_skill_tags(params: SetChoreSkillTagsIn) -> dict[str, Any]:
     """
     from apps.achievements.models import Skill
 
-    require_parent()
+    parent = require_parent()
+    # Audit C1: family-scope the lookup so a parent can't tag a chore in
+    # another family.
     try:
-        chore = Chore.objects.get(pk=params.chore_id)
+        chore = Chore.objects.get(pk=params.chore_id, family=parent.family)
     except Chore.DoesNotExist:
         raise MCPNotFoundError(f"Chore {params.chore_id} not found.")
 
