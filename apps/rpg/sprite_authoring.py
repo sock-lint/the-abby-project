@@ -17,12 +17,12 @@ import hashlib
 import io
 from typing import Any, Optional
 
-import requests
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from PIL import Image, UnidentifiedImageError
 
 from apps.accounts.models import User
+from config.url_safety import UnsafeURLError, safe_get
 from apps.rpg.models import SpriteAsset
 
 
@@ -69,10 +69,16 @@ def _validate_png(png_bytes: bytes) -> tuple[int, int, str]:
 
 
 def _fetch_url(url: str, max_bytes: int = MAX_IMAGE_BYTES) -> bytes:
+    # Audit H4: routes through ``safe_get`` so the parent-supplied URL
+    # can't aim at cloud-metadata, loopback, or LAN-only hosts.
     try:
-        resp = requests.get(url, timeout=15)
+        resp = safe_get(url, timeout=15)
         resp.raise_for_status()
-    except requests.RequestException as exc:
+    except UnsafeURLError as exc:
+        raise SpriteAuthoringError(f"refused to fetch image: {exc}")
+    except Exception as exc:
+        # ``requests.RequestException`` covers transport failures; the
+        # broader catch keeps the public API one-exception-per-failure.
         raise SpriteAuthoringError(f"failed to fetch image: {exc}")
     ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
     if ctype not in ("image/png", "image/webp"):

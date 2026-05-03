@@ -20,7 +20,6 @@ import base64
 import io
 from typing import Any, Optional
 
-import requests
 from PIL import Image, UnidentifiedImageError
 from django.conf import settings
 
@@ -28,6 +27,7 @@ from apps.accounts.models import User
 from apps.rpg import sprite_authoring as svc
 from apps.rpg.models import SpriteAsset
 from apps.rpg.sprite_authoring import SpriteAuthoringError
+from config.url_safety import UnsafeURLError, safe_get
 
 
 MAX_REFERENCE_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB — plenty for any sprite PNG
@@ -360,11 +360,20 @@ def _preprocess_reference_image(png_bytes: bytes) -> bytes:
 def _fetch_reference_image(url: str) -> bytes:
     """Download an image URL for use as a Gemini reference. Validates
     content type and size. Raises ``SpriteGenerationError`` on any
-    failure so the caller can surface a single clean error class."""
+    failure so the caller can surface a single clean error class.
+
+    Audit H4: routes through ``safe_get`` so a parent-supplied (or
+    LLM-supplied via MCP) URL can't aim at cloud-metadata, loopback, or
+    LAN-only hosts.
+    """
     try:
-        resp = requests.get(url, timeout=15)
+        resp = safe_get(url, timeout=15)
         resp.raise_for_status()
-    except requests.RequestException as exc:
+    except UnsafeURLError as exc:
+        raise SpriteGenerationError(
+            f"refused to fetch reference image at {url!r}: {exc}",
+        )
+    except Exception as exc:
         raise SpriteGenerationError(
             f"failed to fetch reference image at {url!r}: {exc}",
         )

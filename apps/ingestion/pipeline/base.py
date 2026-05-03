@@ -5,8 +5,9 @@ import hashlib
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-import requests
 from django.core.cache import cache
+
+from config.url_safety import UnsafeURLError, safe_get
 
 
 USER_AGENT = "Mozilla/5.0 (compatible; TheAbbyProject/1.0)"
@@ -162,17 +163,26 @@ class BaseIngestor:
 
     @staticmethod
     def fetch_cached(url: str, cache_prefix: str) -> str:
-        """GET a URL with a 24h Redis cache and standard User-Agent."""
+        """GET a URL with a 24h Redis cache and standard User-Agent.
+
+        Audit H4: routes through ``safe_get`` so a parent-supplied
+        ingestion URL can't aim at cloud-metadata, loopback, or LAN-only
+        hosts. ``UnsafeURLError`` is re-raised as ``ValueError`` (the
+        existing exception contract for this method) so the per-source
+        ingestors keep their single-error-class handling.
+        """
         key = f"{cache_prefix}:{hashlib.md5(url.encode()).hexdigest()}"
         cached = cache.get(key)
         if cached is not None:
             return cached
         try:
-            resp = requests.get(
+            resp = safe_get(
                 url, timeout=FETCH_TIMEOUT, headers={"User-Agent": USER_AGENT}
             )
             resp.raise_for_status()
-        except requests.RequestException as exc:
+        except UnsafeURLError as exc:
+            raise ValueError(f"Refused to fetch URL: {exc}") from exc
+        except Exception as exc:
             raise ValueError(f"Failed to fetch URL: {exc}") from exc
         cache.set(key, resp.text, timeout=CACHE_TTL_SECONDS)
         return resp.text
