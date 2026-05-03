@@ -5,7 +5,10 @@
 # Adding a new common env var here propagates to every service that
 # merges the anchor; without this, the same key has to be added 3×.
 x-app-env: &app-env
-  SECRET_KEY: ${SECRET_KEY:-django-insecure-dev-key-change-me-in-production}
+  # Audit C4: no SECRET_KEY default. The ``${SECRET_KEY:?...}`` form makes
+  # compose refuse to start if the env var isn't set, which is much safer
+  # than silently booting with a hardcoded "insecure" key.
+  SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in your environment / .env file}
   DEBUG: ${DEBUG:-False}
   DATABASE_URL: ${DATABASE_URL:-postgres://summerforge:changeme@db:5432/summerforge}
   REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -14,6 +17,15 @@ x-app-env: &app-env
   SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
   SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.2}
   SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+  # Email (audit H11) — passed through; Django defaults to SMTP backend
+  # when DEBUG=False and falls back to console only in dev.
+  EMAIL_BACKEND: ${EMAIL_BACKEND:-}
+  DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@summerforge.local}
+  EMAIL_HOST: ${EMAIL_HOST:-}
+  EMAIL_PORT: ${EMAIL_PORT:-587}
+  EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+  EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+  EMAIL_USE_TLS: ${EMAIL_USE_TLS:-True}
 
 x-app-storage: &app-storage
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
