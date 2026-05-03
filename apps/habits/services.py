@@ -91,6 +91,8 @@ class HabitService:
                 xp=habit.xp_reward,
                 xp_source_label=f"Habit: {habit.name}",
                 created_by=user,
+                # Audit H8: habit tap moves habit ladders, skill XP, and meta.
+                badge_scopes={"habit", "skill_xp", "badges"},
             )
 
         return {

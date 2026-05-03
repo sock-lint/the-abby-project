@@ -303,7 +303,10 @@ class ChronicleService:
                 # fire on an unseeded test DB.
                 from apps.achievements.services import BadgeService
 
-                BadgeService.evaluate_badges(user)
+                # Audit H8: chronicle events move chronicle ladders + meta.
+                BadgeService.evaluate_badges(
+                    user, scopes={"chronicle", "badges"},
+                )
         except Exception:
             # An award failure must not block the write — the entry is
             # the canonical record; rewards are a bonus.

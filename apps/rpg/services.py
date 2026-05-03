@@ -1071,7 +1071,9 @@ class CosmeticService:
         # is filled. Wrapped so a badge-eval error can't block the equip.
         try:
             from apps.achievements.services import BadgeService
-            BadgeService.evaluate_badges(user)
+            # Audit H8: cosmetic equip can flip COSMETIC_FULL_SET /
+            # COSMETIC_SET_OWNED + meta. Skip everything else.
+            BadgeService.evaluate_badges(user, scopes={"rpg_inventory", "badges"})
         except Exception:
             logger.exception("Badge evaluation after cosmetic equip failed")
 

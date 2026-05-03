@@ -252,6 +252,7 @@ class AwardService:
         money_entry_type=None,
         money_description="",
         created_by=None,
+        badge_scopes=None,
     ):
         """Distribute XP + coins + optional money atomically and re-evaluate badges.
 
@@ -276,6 +277,13 @@ class AwardService:
         stay silent inside this block; this method emits consolidated
         ``award.xp`` / ``award.coins`` / ``award.money`` events with the
         per-skill distribution and the original description.
+
+        ``badge_scopes`` (audit H8) is forwarded to ``evaluate_badges`` so
+        the per-grant badge re-eval only checks criteria that could
+        plausibly have moved. Pass an iterable of strings — see
+        ``apps.achievements.criteria._CRITERIA_SCOPES`` for the
+        vocabulary. Default ``None`` evaluates every unearned badge
+        (the pre-PR behaviour).
         """
         from apps.activity.services import ActivityLogService, activity_scope
         from apps.rpg.services import xp_boost_multiplier
@@ -376,7 +384,9 @@ class AwardService:
                     },
                 )
 
-            BadgeService.evaluate_badges(user, created_by=created_by)
+            BadgeService.evaluate_badges(
+                user, created_by=created_by, scopes=badge_scopes,
+            )
 
     @staticmethod
     def _distribute_project_xp_logged(user, project, total_xp):
@@ -407,8 +417,20 @@ class AwardService:
 
 class BadgeService:
     @classmethod
-    def evaluate_badges(cls, user, *, created_by=None):
-        """Check all unearned badges and award any newly qualified."""
+    def evaluate_badges(cls, user, *, created_by=None, scopes=None):
+        """Check unearned badges and award any newly qualified.
+
+        Audit H8: ``scopes`` is an optional iterable of strings (see
+        ``apps.achievements.criteria._CRITERIA_SCOPES`` for the
+        vocabulary) declaring which subsystems just changed. When set,
+        only badges whose criteria_type lists at least one matching
+        scope (or no scope, treated as always-relevant) are evaluated —
+        avoids re-running ~57 checkers on every chore approval. When
+        ``scopes`` is None (default) the full unearned set is scanned,
+        preserving the original semantics for callers that haven't
+        opted in yet.
+        """
+        from apps.achievements.criteria import criteria_types_for_scopes
         from apps.activity.services import (
             ActivityLogService,
             activity_scope,
@@ -418,6 +440,9 @@ class BadgeService:
             UserBadge.objects.filter(user=user).values_list("badge_id", flat=True)
         )
         all_badges = Badge.objects.exclude(id__in=earned_ids)
+        if scopes:
+            relevant_types = criteria_types_for_scopes(scopes)
+            all_badges = all_badges.filter(criteria_type__in=relevant_types)
         newly_earned = []
 
         for badge in all_badges:

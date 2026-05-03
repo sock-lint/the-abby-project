@@ -158,6 +158,8 @@ class CreationService:
                 xp_tags=tags,
                 xp=cls.BASELINE_XP,
                 xp_source_label="Creation",
+                # Audit H8: creation log moves creation ladders + skill XP + meta.
+                badge_scopes={"creation", "skill_xp", "badges"},
             )
         except Exception:
             logger.exception(
@@ -266,6 +268,8 @@ class CreationService:
                 xp_tags=tag_objects,
                 xp=bonus_xp,
                 xp_source_label="Creation bonus",
+                # Audit H8: same scopes as the baseline log.
+                badge_scopes={"creation", "skill_xp", "badges"},
             )
         except Exception:
             logger.exception(

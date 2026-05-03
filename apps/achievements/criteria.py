@@ -17,11 +17,48 @@ from .models import Badge, SkillProgress
 
 _CRITERIA_CHECKERS = {}
 
+# Audit H8: per-criterion scope tags. ``BadgeService.evaluate_badges``
+# accepts a ``scopes=`` filter and uses this map to skip criteria whose
+# data couldn't possibly have changed since the last grant. Conservative
+# by default: a criterion with no declared scopes is treated as
+# "always relevant" (still evaluated on every call).
+#
+# Scope vocabulary (informal — strings, not an enum, to keep the
+# decorator call sites short):
+#   "time"             — clock entries, daily activity, perfect timecard
+#   "project"          — project rows / status / due dates
+#   "milestone"        — milestone completion
+#   "skill_xp"         — any XP gain on a Skill (clock-out, chore, homework, ...)
+#   "chore"            — ChoreCompletion rows
+#   "homework_create"  — HomeworkAssignment created (planner ladder)
+#   "homework_complete" — HomeworkSubmission approved
+#   "habit"            — HabitLog rows / Habit.strength
+#   "quest"            — Quest status changes
+#   "pet"              — UserPet / UserMount rows
+#   "rpg_inventory"    — drops, cosmetics owned, consumables used
+#   "coin"             — CoinLedger rows
+#   "money"            — PaymentLedger rows
+#   "savings"          — SavingsGoal rows
+#   "rewards"          — RewardRedemption rows
+#   "chronicle"        — ChronicleEntry rows
+#   "creation"         — Creation rows
+#   "movement"         — MovementSession rows
+#   "badges"           — UserBadge rows (the meta "Collector" ladder)
+_CRITERIA_SCOPES: dict = {}
 
-def criterion(criteria_type):
-    """Register a checker function for a ``Badge.CriteriaType`` value."""
+
+def criterion(criteria_type, *, scopes: set | None = None):
+    """Register a checker function for a ``Badge.CriteriaType`` value.
+
+    ``scopes`` is an optional set of strings (see ``_CRITERIA_SCOPES``
+    docs above) declaring which subsystems can move this criterion's
+    result. When omitted, the criterion is treated as always-relevant
+    by ``BadgeService.evaluate_badges``.
+    """
     def wrap(fn):
         _CRITERIA_CHECKERS[criteria_type] = fn
+        if scopes is not None:
+            _CRITERIA_SCOPES[criteria_type] = frozenset(scopes)
         return fn
     return wrap
 
@@ -34,17 +71,37 @@ def check(user, badge):
     return fn(user, badge.criteria_value or {})
 
 
+def criteria_types_for_scopes(scopes) -> set:
+    """Return every CriteriaType potentially moved by any of ``scopes``.
+
+    A criterion with no declared scopes is always included — defensive,
+    so missing tags don't silently skip an unlock. Pass the result as
+    ``criteria_type__in`` to filter the badge queryset.
+    """
+    if not scopes:
+        return set()
+    requested = frozenset(scopes)
+    out = set()
+    for ctype in _CRITERIA_CHECKERS:
+        registered = _CRITERIA_SCOPES.get(ctype)
+        # Untagged criteria are conservatively considered relevant for
+        # every scope set — better to over-evaluate than miss an unlock.
+        if registered is None or registered & requested:
+            out.add(ctype)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Time-tracking criteria
 # ---------------------------------------------------------------------------
 
-@criterion(Badge.CriteriaType.FIRST_CLOCK_IN)
+@criterion(Badge.CriteriaType.FIRST_CLOCK_IN, scopes={"time"})
 def _first_clock_in(user, _c):
     from apps.timecards.services import TimeEntryService
     return TimeEntryService.completed_entries(user).exists()
 
 
-@criterion(Badge.CriteriaType.HOURS_WORKED)
+@criterion(Badge.CriteriaType.HOURS_WORKED, scopes={"time"})
 def _hours_worked(user, c):
     from apps.timecards.services import TimeEntryService
     total = TimeEntryService.completed_entries(user).aggregate(
@@ -53,7 +110,7 @@ def _hours_worked(user, c):
     return (total / 60) >= c.get("hours", 0)
 
 
-@criterion(Badge.CriteriaType.HOURS_IN_DAY)
+@criterion(Badge.CriteriaType.HOURS_IN_DAY, scopes={"time"})
 def _hours_in_day(user, c):
     from apps.timecards.services import TimeEntryService
     target = c.get("hours", 4)
@@ -62,19 +119,19 @@ def _hours_in_day(user, c):
     ).exists()
 
 
-@criterion(Badge.CriteriaType.DAYS_WORKED)
+@criterion(Badge.CriteriaType.DAYS_WORKED, scopes={"time"})
 def _days_worked(user, c):
     from apps.timecards.services import TimeEntryService
     return len(TimeEntryService.distinct_days(user)) >= c.get("count", 5)
 
 
-@criterion(Badge.CriteriaType.STREAK_DAYS)
+@criterion(Badge.CriteriaType.STREAK_DAYS, scopes={"time"})
 def _streak_days(user, c):
     from apps.timecards.services import TimeEntryService
     return TimeEntryService.longest_streak_at_least(user, c.get("days", 7))
 
 
-@criterion(Badge.CriteriaType.PERFECT_TIMECARD)
+@criterion(Badge.CriteriaType.PERFECT_TIMECARD, scopes={"time"})
 def _perfect_timecard(user, _c):
     return user.timecards.filter(status="approved").exists()
 
@@ -83,17 +140,17 @@ def _perfect_timecard(user, _c):
 # Project criteria
 # ---------------------------------------------------------------------------
 
-@criterion(Badge.CriteriaType.FIRST_PROJECT)
+@criterion(Badge.CriteriaType.FIRST_PROJECT, scopes={"project"})
 def _first_project(user, _c):
     return user.assigned_projects.filter(status="completed").exists()
 
 
-@criterion(Badge.CriteriaType.PROJECTS_COMPLETED)
+@criterion(Badge.CriteriaType.PROJECTS_COMPLETED, scopes={"project"})
 def _projects_completed(user, c):
     return user.assigned_projects.filter(status="completed").count() >= c.get("count", 1)
 
 
-@criterion(Badge.CriteriaType.CATEGORY_PROJECTS)
+@criterion(Badge.CriteriaType.CATEGORY_PROJECTS, scopes={"project"})
 def _category_projects(user, c):
     count = c.get("count", 3)
     category_count = c.get("categories")
@@ -107,7 +164,7 @@ def _category_projects(user, c):
     ).count() >= count
 
 
-@criterion(Badge.CriteriaType.MATERIALS_UNDER_BUDGET)
+@criterion(Badge.CriteriaType.MATERIALS_UNDER_BUDGET, scopes={"project"})
 def _materials_under_budget(user, _c):
     from apps.projects.models import Project
     return Project.objects.filter(
@@ -123,21 +180,21 @@ def _materials_under_budget(user, _c):
 # Skill criteria
 # ---------------------------------------------------------------------------
 
-@criterion(Badge.CriteriaType.SKILL_LEVEL_REACHED)
+@criterion(Badge.CriteriaType.SKILL_LEVEL_REACHED, scopes={"skill_xp"})
 def _skill_level_reached(user, c):
     return SkillProgress.objects.filter(
         user=user, level__gte=c.get("level", 2),
     ).count() >= c.get("count", 1)
 
 
-@criterion(Badge.CriteriaType.SKILLS_UNLOCKED)
+@criterion(Badge.CriteriaType.SKILLS_UNLOCKED, scopes={"skill_xp"})
 def _skills_unlocked(user, c):
     return SkillProgress.objects.filter(
         user=user, unlocked=True, skill__is_locked_by_default=True,
     ).count() >= c.get("count", 1)
 
 
-@criterion(Badge.CriteriaType.SUBJECTS_COMPLETED)
+@criterion(Badge.CriteriaType.SUBJECTS_COMPLETED, scopes={"skill_xp"})
 def _subjects_completed(user, c):
     return SkillProgress.objects.filter(
         user=user,
@@ -146,14 +203,14 @@ def _subjects_completed(user, c):
     ).values("skill__subject").distinct().count() >= c.get("count", 1)
 
 
-@criterion(Badge.CriteriaType.SKILL_CATEGORIES_BREADTH)
+@criterion(Badge.CriteriaType.SKILL_CATEGORIES_BREADTH, scopes={"skill_xp"})
 def _skill_categories_breadth(user, c):
     return SkillProgress.objects.filter(
         user=user, level__gte=c.get("min_level", 1),
     ).values("skill__category").distinct().count() >= c.get("categories", 4)
 
 
-@criterion(Badge.CriteriaType.CROSS_CATEGORY_UNLOCK)
+@criterion(Badge.CriteriaType.CROSS_CATEGORY_UNLOCK, scopes={"skill_xp"})
 def _cross_category_unlock(user, _c):
     from apps.achievements.models import SkillPrerequisite
     unlocked_skills = SkillProgress.objects.filter(
@@ -170,18 +227,18 @@ def _cross_category_unlock(user, _c):
 # Misc criteria
 # ---------------------------------------------------------------------------
 
-@criterion(Badge.CriteriaType.PHOTOS_UPLOADED)
+@criterion(Badge.CriteriaType.PHOTOS_UPLOADED, scopes={"project"})
 def _photos_uploaded(user, c):
     return user.photos.count() >= c.get("count", 10)
 
 
-@criterion(Badge.CriteriaType.TOTAL_EARNED)
+@criterion(Badge.CriteriaType.TOTAL_EARNED, scopes={"money"})
 def _total_earned(user, c):
     from apps.payments.services import PaymentService
     return PaymentService.get_positive_total(user) >= c.get("amount", 500)
 
 
-@criterion(Badge.CriteriaType.TOTAL_COINS_EARNED)
+@criterion(Badge.CriteriaType.TOTAL_COINS_EARNED, scopes={"coin"})
 def _total_coins_earned(user, c):
     """Sum lifetime positive coin earnings (ignores spends and refunds)."""
     from apps.rewards.services import CoinService
@@ -192,7 +249,7 @@ def _total_coins_earned(user, c):
 # Homework criteria
 # ---------------------------------------------------------------------------
 
-@criterion(Badge.CriteriaType.HOMEWORK_PLANNED_AHEAD)
+@criterion(Badge.CriteriaType.HOMEWORK_PLANNED_AHEAD, scopes={"homework_create"})
 def _homework_planned_ahead(user, c):
     """Count assignments the child logged ≥N days before the due date.
 
@@ -219,7 +276,7 @@ def _homework_planned_ahead(user, c):
     return qualifying >= target
 
 
-@criterion(Badge.CriteriaType.HOMEWORK_ON_TIME_COUNT)
+@criterion(Badge.CriteriaType.HOMEWORK_ON_TIME_COUNT, scopes={"homework_complete"})
 def _homework_on_time_count(user, c):
     """Count approved homework submissions that were early or on-time.
 
@@ -244,7 +301,7 @@ def _homework_on_time_count(user, c):
 # Quest criteria
 # ---------------------------------------------------------------------------
 
-@criterion(Badge.CriteriaType.QUEST_COMPLETED)
+@criterion(Badge.CriteriaType.QUEST_COMPLETED, scopes={"quest"})
 def _quest_completed(user, c):
     """Badge awarded when the user has completed a specific quest.
 
@@ -283,13 +340,13 @@ def _quest_completed(user, c):
 # Pets / mounts collection criteria
 # ---------------------------------------------------------------------------
 
-@criterion(Badge.CriteriaType.PETS_HATCHED)
+@criterion(Badge.CriteriaType.PETS_HATCHED, scopes={"pet"})
 def _pets_hatched(user, c):
     from apps.pets.models import UserPet
     return UserPet.objects.filter(user=user).count() >= int(c.get("count", 1))
 
 
-@criterion(Badge.CriteriaType.PET_SPECIES_OWNED)
+@criterion(Badge.CriteriaType.PET_SPECIES_OWNED, scopes={"pet"})
 def _pet_species_owned(user, c):
     from apps.pets.models import UserPet
     return UserPet.objects.filter(user=user).values(
@@ -297,7 +354,7 @@ def _pet_species_owned(user, c):
     ).distinct().count() >= int(c.get("count", 1))
 
 
-@criterion(Badge.CriteriaType.MOUNTS_EVOLVED)
+@criterion(Badge.CriteriaType.MOUNTS_EVOLVED, scopes={"pet"})
 def _mounts_evolved(user, c):
     from apps.pets.models import UserMount
     return UserMount.objects.filter(user=user).count() >= int(c.get("count", 1))
@@ -307,7 +364,7 @@ def _mounts_evolved(user, c):
 # Chore / milestone / savings-goal / bounty / reward criteria
 # ---------------------------------------------------------------------------
 
-@criterion(Badge.CriteriaType.CHORE_COMPLETIONS)
+@criterion(Badge.CriteriaType.CHORE_COMPLETIONS, scopes={"chore"})
 def _chore_completions(user, c):
     from apps.chores.models import ChoreCompletion
     return ChoreCompletion.objects.filter(
@@ -316,7 +373,7 @@ def _chore_completions(user, c):
     ).count() >= int(c.get("count", 10))
 
 
-@criterion(Badge.CriteriaType.MILESTONES_COMPLETED)
+@criterion(Badge.CriteriaType.MILESTONES_COMPLETED, scopes={"milestone"})
 def _milestones_completed(user, c):
     from apps.projects.models import Project, ProjectMilestone
     return ProjectMilestone.objects.filter(
@@ -325,7 +382,7 @@ def _milestones_completed(user, c):
     ).count() >= int(c.get("count", 5))
 
 
-@criterion(Badge.CriteriaType.SAVINGS_GOAL_COMPLETED)
+@criterion(Badge.CriteriaType.SAVINGS_GOAL_COMPLETED, scopes={"savings"})
 def _savings_goal_completed(user, c):
     from apps.projects.models import SavingsGoal
     return SavingsGoal.objects.filter(
@@ -334,7 +391,7 @@ def _savings_goal_completed(user, c):
     ).count() >= int(c.get("count", 1))
 
 
-@criterion(Badge.CriteriaType.BOUNTY_COMPLETED)
+@criterion(Badge.CriteriaType.BOUNTY_COMPLETED, scopes={"project"})
 def _bounty_completed(user, c):
     from apps.projects.models import Project
     return Project.objects.filter(
@@ -344,7 +401,7 @@ def _bounty_completed(user, c):
     ).count() >= int(c.get("count", 1))
 
 
-@criterion(Badge.CriteriaType.REWARD_REDEEMED)
+@criterion(Badge.CriteriaType.REWARD_REDEEMED, scopes={"rewards"})
 def _reward_redeemed(user, c):
     from apps.rewards.models import RewardRedemption
     return RewardRedemption.objects.filter(
@@ -357,7 +414,7 @@ def _reward_redeemed(user, c):
 # RPG / CharacterProfile criteria
 # ---------------------------------------------------------------------------
 
-@criterion(Badge.CriteriaType.PERFECT_DAYS_COUNT)
+@criterion(Badge.CriteriaType.PERFECT_DAYS_COUNT, scopes={"time"})
 def _perfect_days_count(user, c):
     from apps.rpg.models import CharacterProfile
     # Query via ORM rather than `user.character_profile` to avoid the
@@ -370,7 +427,7 @@ def _perfect_days_count(user, c):
     return row["perfect_days_count"] >= int(c.get("count", 1))
 
 
-@criterion(Badge.CriteriaType.STREAK_FREEZE_USED)
+@criterion(Badge.CriteriaType.STREAK_FREEZE_USED, scopes={"rpg_inventory"})
 def _streak_freeze_used(user, c):
     from apps.rpg.models import CharacterProfile
     row = CharacterProfile.objects.filter(user=user).values(
@@ -381,7 +438,7 @@ def _streak_freeze_used(user, c):
     return row["streak_freezes_used"] >= int(c.get("count", 1))
 
 
-@criterion(Badge.CriteriaType.HABIT_MAX_STRENGTH)
+@criterion(Badge.CriteriaType.HABIT_MAX_STRENGTH, scopes={"habit"})
 def _habit_max_strength(user, c):
     """Any habit at ≥ threshold strength means the child has kept it up."""
     from apps.habits.models import Habit
@@ -395,7 +452,7 @@ def _habit_max_strength(user, c):
 # Time-of-day + project-speed criteria (fixes for broken legacy badges)
 # ---------------------------------------------------------------------------
 
-@criterion(Badge.CriteriaType.EARLY_BIRD)
+@criterion(Badge.CriteriaType.EARLY_BIRD, scopes={"time"})
 def _early_bird(user, c):
     """Child has clocked in before the cutoff hour at least once."""
     from apps.timecards.models import TimeEntry
@@ -405,7 +462,7 @@ def _early_bird(user, c):
     ).exists()
 
 
-@criterion(Badge.CriteriaType.LATE_NIGHT)
+@criterion(Badge.CriteriaType.LATE_NIGHT, scopes={"time"})
 def _late_night(user, c):
     """Child has clocked in after the cutoff hour — complements Early Bird."""
     from apps.timecards.models import TimeEntry
@@ -415,7 +472,7 @@ def _late_night(user, c):
     ).exists()
 
 
-@criterion(Badge.CriteriaType.FAST_PROJECT)
+@criterion(Badge.CriteriaType.FAST_PROJECT, scopes={"project"})
 def _fast_project(user, c):
     """Completed a project within N days of creation. Replaces broken Speed Runner."""
     from datetime import timedelta
@@ -434,7 +491,7 @@ def _fast_project(user, c):
 # Depth-in-one-dimension criteria (2026-04-22 review)
 # ---------------------------------------------------------------------------
 
-@criterion(Badge.CriteriaType.CATEGORY_MASTERY)
+@criterion(Badge.CriteriaType.CATEGORY_MASTERY, scopes={"skill_xp"})
 def _category_mastery(user, c):
     """Every unlocked-by-default skill in the category at or above ``min_level``.
 
@@ -476,7 +533,7 @@ def _category_mastery(user, c):
     return required_skill_ids.issubset(user_skill_ids)
 
 
-@criterion(Badge.CriteriaType.FULL_POTION_SHELF)
+@criterion(Badge.CriteriaType.FULL_POTION_SHELF, scopes={"rpg_inventory"})
 def _full_potion_shelf(user, _c):
     """Own at least one of every potion in the live catalog."""
     from apps.pets.models import PotionType
@@ -496,7 +553,7 @@ def _full_potion_shelf(user, _c):
     return all_potion_slugs.issubset(owned_slugs)
 
 
-@criterion(Badge.CriteriaType.CONSUMABLE_VARIETY)
+@criterion(Badge.CriteriaType.CONSUMABLE_VARIETY, scopes={"rpg_inventory"})
 def _consumable_variety(user, c):
     """Distinct consumable effects the user has ever used."""
     from apps.rpg.models import CharacterProfile
@@ -509,7 +566,7 @@ def _consumable_variety(user, c):
     return len(set(used)) >= int(c.get("count", 5))
 
 
-@criterion(Badge.CriteriaType.COINS_SPENT_LIFETIME)
+@criterion(Badge.CriteriaType.COINS_SPENT_LIFETIME, scopes={"coin"})
 def _coins_spent_lifetime(user, c):
     """Lifetime coins debited via redemption.
 
@@ -532,7 +589,7 @@ def _coins_spent_lifetime(user, c):
     return net_spent >= int(c.get("amount", 50))
 
 
-@criterion(Badge.CriteriaType.GRADE_REACHED)
+@criterion(Badge.CriteriaType.GRADE_REACHED, scopes={"chronicle"})
 def _grade_reached(user, c):
     """Reached at least grade N (9-12) according to User.current_grade.
 
@@ -546,7 +603,7 @@ def _grade_reached(user, c):
     return grade >= int(c.get("grade", 9))
 
 
-@criterion(Badge.CriteriaType.BIRTHDAYS_LOGGED)
+@criterion(Badge.CriteriaType.BIRTHDAYS_LOGGED, scopes={"chronicle"})
 def _birthdays_logged(user, c):
     """Count Chronicle BIRTHDAY entries (one per year celebrated in-app)."""
     from apps.chronicle.models import ChronicleEntry
@@ -555,7 +612,7 @@ def _birthdays_logged(user, c):
     ).count() >= int(c.get("count", 1))
 
 
-@criterion(Badge.CriteriaType.COSMETIC_FULL_SET)
+@criterion(Badge.CriteriaType.COSMETIC_FULL_SET, scopes={"rpg_inventory"})
 def _cosmetic_full_set(user, _c):
     """All four cosmetic slots (frame/title/theme/pet accessory) populated.
 
@@ -581,7 +638,7 @@ def _cosmetic_full_set(user, _c):
 # 2026-04-23 content-review criteria
 # ---------------------------------------------------------------------------
 
-@criterion(Badge.CriteriaType.HABIT_TAPS_LIFETIME)
+@criterion(Badge.CriteriaType.HABIT_TAPS_LIFETIME, scopes={"habit"})
 def _habit_taps_lifetime(user, c):
     """Cumulative positive (+1) habit taps across every habit the user owns.
 
@@ -599,7 +656,7 @@ def _habit_taps_lifetime(user, c):
     ).count() >= target
 
 
-@criterion(Badge.CriteriaType.HABIT_COUNT_AT_STRENGTH)
+@criterion(Badge.CriteriaType.HABIT_COUNT_AT_STRENGTH, scopes={"habit"})
 def _habit_count_at_strength(user, c):
     """N distinct active habits currently at or above ``strength``.
 
@@ -618,7 +675,7 @@ def _habit_count_at_strength(user, c):
     ).count() >= target
 
 
-@criterion(Badge.CriteriaType.BADGES_EARNED_COUNT)
+@criterion(Badge.CriteriaType.BADGES_EARNED_COUNT, scopes={"badges"})
 def _badges_earned_count(user, c):
     """Total distinct badges the user has earned (universal 'Collector' ladder).
 
@@ -633,7 +690,7 @@ def _badges_earned_count(user, c):
     return UserBadge.objects.filter(user=user).count() >= int(c.get("count", 10))
 
 
-@criterion(Badge.CriteriaType.CO_OP_PROJECT_COMPLETED)
+@criterion(Badge.CriteriaType.CO_OP_PROJECT_COMPLETED, scopes={"project"})
 def _co_op_project_completed(user, c):
     """Count of completed projects where the user is a collaborator.
 
@@ -652,7 +709,7 @@ def _co_op_project_completed(user, c):
     ).count() >= int(c.get("count", 1))
 
 
-@criterion(Badge.CriteriaType.BOSS_QUESTS_COMPLETED)
+@criterion(Badge.CriteriaType.BOSS_QUESTS_COMPLETED, scopes={"quest"})
 def _boss_quests_completed(user, c):
     """Count completed quests where the definition is a boss quest.
 
@@ -668,7 +725,7 @@ def _boss_quests_completed(user, c):
     ).count() >= int(c.get("count", 5))
 
 
-@criterion(Badge.CriteriaType.COLLECTION_QUESTS_COMPLETED)
+@criterion(Badge.CriteriaType.COLLECTION_QUESTS_COMPLETED, scopes={"quest"})
 def _collection_quests_completed(user, c):
     """Count completed quests where the definition is a collection quest.
 
@@ -684,7 +741,7 @@ def _collection_quests_completed(user, c):
     ).count() >= int(c.get("count", 5))
 
 
-@criterion(Badge.CriteriaType.CHRONICLE_MILESTONES_LOGGED)
+@criterion(Badge.CriteriaType.CHRONICLE_MILESTONES_LOGGED, scopes={"chronicle"})
 def _chronicle_milestones_logged(user, c):
     """Count chronicle milestone entries recorded for the user.
 
@@ -702,7 +759,7 @@ def _chronicle_milestones_logged(user, c):
     ).count() >= int(c.get("count", 3))
 
 
-@criterion(Badge.CriteriaType.JOURNAL_ENTRIES_WRITTEN)
+@criterion(Badge.CriteriaType.JOURNAL_ENTRIES_WRITTEN, scopes={"chronicle"})
 def _journal_entries_written(user, c):
     """Lifetime count of child-authored Chronicle journal entries.
 
@@ -716,7 +773,7 @@ def _journal_entries_written(user, c):
     ).count() >= int(c.get("count", 1))
 
 
-@criterion(Badge.CriteriaType.JOURNAL_STREAK_DAYS)
+@criterion(Badge.CriteriaType.JOURNAL_STREAK_DAYS, scopes={"chronicle"})
 def _journal_streak_days(user, c):
     """Longest run of consecutive local-days with at least one journal entry.
 
@@ -749,7 +806,7 @@ def _journal_streak_days(user, c):
     return best >= target
 
 
-@criterion(Badge.CriteriaType.CREATIONS_LOGGED)
+@criterion(Badge.CriteriaType.CREATIONS_LOGGED, scopes={"creation"})
 def _creations_logged(user, c):
     """Lifetime count of Creations logged by this user.
 
@@ -764,7 +821,7 @@ def _creations_logged(user, c):
     return Creation.objects.filter(user=user).count() >= int(c.get("count", 1))
 
 
-@criterion(Badge.CriteriaType.CREATIONS_APPROVED)
+@criterion(Badge.CriteriaType.CREATIONS_APPROVED, scopes={"creation"})
 def _creations_approved(user, c):
     """Count of Creations whose parent bonus was APPROVED.
 
@@ -778,7 +835,7 @@ def _creations_approved(user, c):
     ).count() >= int(c.get("count", 1))
 
 
-@criterion(Badge.CriteriaType.CREATION_SKILL_BREADTH)
+@criterion(Badge.CriteriaType.CREATION_SKILL_BREADTH, scopes={"creation"})
 def _creation_skill_breadth(user, c):
     """Creations tagged across at least N distinct creative skills.
 
@@ -806,7 +863,7 @@ def _creation_skill_breadth(user, c):
 # Movement — self-reported physical-activity sessions
 # ---------------------------------------------------------------------------
 
-@criterion(Badge.CriteriaType.MOVEMENT_SESSIONS_LOGGED)
+@criterion(Badge.CriteriaType.MOVEMENT_SESSIONS_LOGGED, scopes={"movement"})
 def _movement_sessions_logged(user, c):
     """Lifetime count of MovementSession rows logged by this user.
 
@@ -822,7 +879,7 @@ def _movement_sessions_logged(user, c):
     return MovementSession.objects.filter(user=user).count() >= int(c.get("count", 1))
 
 
-@criterion(Badge.CriteriaType.MOVEMENT_TOTAL_MINUTES)
+@criterion(Badge.CriteriaType.MOVEMENT_TOTAL_MINUTES, scopes={"movement"})
 def _movement_total_minutes(user, c):
     """Lifetime sum of ``duration_minutes`` across all sessions.
 
@@ -838,7 +895,7 @@ def _movement_total_minutes(user, c):
     return total >= target
 
 
-@criterion(Badge.CriteriaType.MOVEMENT_TYPE_BREADTH)
+@criterion(Badge.CriteriaType.MOVEMENT_TYPE_BREADTH, scopes={"movement"})
 def _movement_type_breadth(user, c):
     """Sessions logged across at least N distinct MovementType rows.
 
@@ -853,7 +910,7 @@ def _movement_type_breadth(user, c):
     ).distinct().count() >= target
 
 
-@criterion(Badge.CriteriaType.COSMETIC_SET_OWNED)
+@criterion(Badge.CriteriaType.COSMETIC_SET_OWNED, scopes={"rpg_inventory"})
 def _cosmetic_set_owned(user, c):
     """Own every item in a specific named cosmetic set.
 

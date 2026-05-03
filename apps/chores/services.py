@@ -251,6 +251,10 @@ class ChoreService:
             money_entry_type=PaymentLedger.EntryType.CHORE_REWARD,
             money_description=f"Chore: {completion.chore.title}",
             created_by=parent,
+            # Audit H8: chore approval moves chore counters, skill XP,
+            # coin + money ledgers, and (transitively) the BADGES_EARNED
+            # meta-ladder. Skip the other ~45 criteria types entirely.
+            badge_scopes={"chore", "skill_xp", "coin", "money", "badges"},
         )
 
         # Notify child.
