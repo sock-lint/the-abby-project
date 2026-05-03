@@ -3,14 +3,26 @@ import sys
 from pathlib import Path
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get(
-    "SECRET_KEY", "django-insecure-dev-key-change-me-in-production"
-)
-
+# DEBUG is read first so the production guards on SECRET_KEY / DATABASE_URL
+# below can branch on it. Defaults to True for local convenience; production
+# deploys MUST set DEBUG=False (the compose / Coolify configs already do).
 DEBUG = os.environ.get("DEBUG", "True").lower() in ("true", "1", "yes")
+
+# Audit C4: refuse to boot in production with a missing or insecure SECRET_KEY.
+# Prior versions defaulted to "django-insecure-dev-key-change-me-in-production",
+# so a deploy that forgot the env var would silently sign tokens / sessions
+# with a known key. Local dev still gets a (clearly-marked) placeholder.
+SECRET_KEY = os.environ.get("SECRET_KEY", "")
+if not DEBUG and (not SECRET_KEY or SECRET_KEY.startswith("django-insecure")):
+    raise ImproperlyConfigured(
+        "SECRET_KEY must be set to a strong, unique value when DEBUG=False."
+    )
+if not SECRET_KEY:
+    SECRET_KEY = "django-insecure-dev-only-DO-NOT-USE-in-production"
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
@@ -242,10 +254,20 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # Database
-
+#
+# Audit H12: refuse to boot in production with no DATABASE_URL. The prior
+# default fell through to ``sqlite:///db.sqlite3`` inside the ephemeral
+# container filesystem — migrations would succeed, traffic would serve, and
+# the next deploy would wipe everything. Local dev still falls through to
+# SQLite for zero-config development.
+_db_url = os.environ.get("DATABASE_URL", "")
+if not DEBUG and not _db_url:
+    raise ImproperlyConfigured(
+        "DATABASE_URL is required when DEBUG=False (refusing to fall back to SQLite)."
+    )
 DATABASES = {
-    "default": dj_database_url.config(
-        default="sqlite:///db.sqlite3",
+    "default": dj_database_url.parse(
+        _db_url or "sqlite:///db.sqlite3",
         conn_max_age=600,
     )
 }
@@ -483,9 +505,24 @@ CELERY_BEAT_SCHEDULE = {
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
-# Email (console backend for development)
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = "noreply@summerforge.local"
+# Email
+#
+# Audit H11: prior versions hardcoded the console backend, so the Sunday
+# 08:00 weekly-summary email task wrote into ``docker logs`` in production
+# instead of reaching parents. Now reads from env; defaults to console only
+# when DEBUG=True so local dev keeps zero-config behaviour.
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend"
+    if DEBUG
+    else "django.core.mail.backends.smtp.EmailBackend",
+)
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@summerforge.local")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
 
 # ──────────────────────────────────────────────────────────────────────────
 # Logging
@@ -558,7 +595,12 @@ if SENTRY_DSN:
         dsn=SENTRY_DSN,
         environment=SENTRY_ENVIRONMENT,
         traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
-        send_default_pii=True,
+        # Audit H10: ``send_default_pii=True`` attaches IPs, request headers
+        # (incl. Authorization), cookies, and request bodies to every Sentry
+        # event — far more than this app's userbase (which includes minors)
+        # should be sending to a self-hosted Sentry. ``SentryUserMiddleware``
+        # already attaches the user fields we actually want; keep it explicit.
+        send_default_pii=False,
         release=os.environ.get("SENTRY_RELEASE", None),
         integrations=[
             DjangoIntegration(),
