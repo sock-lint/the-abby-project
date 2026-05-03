@@ -335,7 +335,12 @@ class QuestService:
             # QUEST_COMPLETED criterion fires. AwardService is the usual
             # doorway; when it isn't called, evaluate directly.
             from apps.achievements.services import BadgeService
-            BadgeService.evaluate_badges(user)
+            # Audit H8: quest completion moves quest counters + meta, plus
+            # coin (quest reward already paid) and skill_xp (untagged
+            # quest case where AwardService isn't reached).
+            BadgeService.evaluate_badges(
+                user, scopes={"quest", "coin", "skill_xp", "badges"},
+            )
 
         # Award item rewards. Eggs auto-salvage to coins when the player
         # already mounts the matching species — quests like Dragon Slayer

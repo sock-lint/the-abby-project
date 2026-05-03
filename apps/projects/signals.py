@@ -178,7 +178,11 @@ def handle_milestone_completed(sender, instance, created, **kwargs):
             project=instance.project,
         )
 
-    BadgeService.evaluate_badges(user)
+    # Audit H8: milestone completion moves milestone counters, skill XP
+    # (per MilestoneSkillTag), money (bonus), and the BADGES_EARNED meta.
+    BadgeService.evaluate_badges(
+        user, scopes={"milestone", "skill_xp", "money", "badges"},
+    )
 
     # RPG game loop — wrapped via shared helper.
     from apps.rpg.constants import TriggerType

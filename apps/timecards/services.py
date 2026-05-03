@@ -171,6 +171,9 @@ class ClockService:
                 coins=coins,
                 coin_reason=CoinLedger.Reason.HOURLY,
                 coin_description=f"Hourly coins: {entry.project.title}",
+                # Audit H8: clock-out moves time-tracking criteria, skill
+                # XP (per ProjectSkillTag), and coins. Skip everything else.
+                badge_scopes={"time", "skill_xp", "coin", "badges"},
             )
 
             # RPG game loop — wrapped via shared helper so a downstream
@@ -300,7 +303,14 @@ class TimecardService:
         )
 
         from apps.achievements.services import BadgeService
-        BadgeService.evaluate_badges(timecard.user, created_by=parent_user)
+        # Audit H8: timecard approval moves PERFECT_TIMECARD (time-scoped)
+        # and the BADGES_EARNED meta. Nothing else flips between week-end
+        # and approval.
+        BadgeService.evaluate_badges(
+            timecard.user,
+            created_by=parent_user,
+            scopes={"time", "badges"},
+        )
 
         return timecard
 

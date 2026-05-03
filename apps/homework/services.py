@@ -171,7 +171,8 @@ class HomeworkService:
                 )
 
             # Planner badges depend on the new row existing, so evaluate now.
-            BadgeService.evaluate_badges(child)
+            # Audit H8: only the planner ladder + meta can flip on create.
+            BadgeService.evaluate_badges(child, scopes={"homework_create", "badges"})
 
         return assignment
 
@@ -326,10 +327,17 @@ class HomeworkService:
                 xp=total_xp,
                 xp_source_label=f"Homework: {assignment.title}",
                 created_by=parent,
+                # Audit H8: homework approval moves on-time counters,
+                # skill XP, and the BADGES_EARNED meta. No coin/money.
+                badge_scopes={"homework_complete", "skill_xp", "badges"},
             )
         else:
             # No skill tags → still re-evaluate badges so on_time counters tick.
-            BadgeService.evaluate_badges(submission.user, created_by=parent)
+            BadgeService.evaluate_badges(
+                submission.user,
+                created_by=parent,
+                scopes={"homework_complete", "badges"},
+            )
 
         # Notify child.
         notify(

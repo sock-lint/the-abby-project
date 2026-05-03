@@ -121,9 +121,9 @@ class SavingsGoalService:
                 "Savings goal %s: coin bonus failed", goal.pk,
             )
 
-        # 2. Badge evaluation
+        # 2. Badge evaluation — audit H8: only the savings ladder + meta.
         try:
-            BadgeService.evaluate_badges(user)
+            BadgeService.evaluate_badges(user, scopes={"savings", "badges"})
         except Exception:
             logger.exception(
                 "Savings goal %s: badge evaluation failed", goal.pk,
