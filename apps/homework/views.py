@@ -255,7 +255,7 @@ class HomeworkDashboardView(APIView):
                 "stats": dashboard["stats"],
             })
         else:
-            overview = HomeworkService.get_parent_overview()
+            overview = HomeworkService.get_parent_overview(user)
             return Response({
                 "pending_submissions": HomeworkSubmissionSerializer(
                     overview["pending_submissions"], many=True,

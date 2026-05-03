@@ -680,23 +680,29 @@ class HomeworkService:
         return assignment
 
     @staticmethod
-    def get_parent_overview():
+    def get_parent_overview(parent):
         """Return pending submissions + active assignments list for parents.
 
-        Parents manage (edit/delete) assignments from the ``assignments`` list
-        — it's ordered by due date ascending so anything overdue floats to the
-        top of the list.
+        Scoped to ``parent.family`` — without this filter a parent in family A
+        would see pending homework + assignments from every other family on
+        the deployment. Parents manage (edit/delete) assignments from the
+        ``assignments`` list — ordered by due date ascending so overdue floats
+        to the top.
         """
+        family = parent.family
         pending = (
             HomeworkSubmission.objects
-            .filter(status=HomeworkSubmission.Status.PENDING)
+            .filter(
+                status=HomeworkSubmission.Status.PENDING,
+                user__family=family,
+            )
             .select_related("assignment", "user")
             .prefetch_related("proofs")
             .order_by("created_at")
         )
         assignments = (
             HomeworkAssignment.objects
-            .filter(is_active=True)
+            .filter(is_active=True, assigned_to__family=family)
             .select_related("assigned_to", "created_by")
             .prefetch_related("skill_tags__skill", "submissions")
             .order_by("due_date")

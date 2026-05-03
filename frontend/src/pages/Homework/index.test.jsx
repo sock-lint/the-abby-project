@@ -180,6 +180,49 @@ describe('Homework', () => {
     );
   });
 
+  it('parent new-assignment form renders the assignee dropdown when /api/children/ returns the DRF paginated shape', async () => {
+    // Pin: production /api/children/ returns {count, results: [...]} (DRF
+    // PageNumberPagination), not a raw array. A previous build read .length
+    // off the wrapper, so the dropdown silently never rendered for any parent.
+    const user = userEvent.setup();
+    renderPage(buildParent(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({ pending_submissions: [] }),
+      ),
+      http.get('*/api/children/', () =>
+        HttpResponse.json({
+          count: 1,
+          next: null,
+          previous: null,
+          results: [buildUser({ id: 7, display_name: 'Abby' })],
+        }),
+      ),
+    ]);
+    await user.click(await screen.findByRole('button', { name: /new assignment/i }));
+    const dialog = await screen.findByRole('dialog', { name: /new assignment/i });
+    const select = await within(dialog).findByRole('combobox', { name: /assign to/i });
+    expect(select).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: /abby/i })).toBeInTheDocument();
+  });
+
+  it('parent new-assignment form shows "add a child first" empty-state when no children exist', async () => {
+    const user = userEvent.setup();
+    renderPage(buildParent(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({ pending_submissions: [] }),
+      ),
+      http.get('*/api/children/', () =>
+        HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+      ),
+    ]);
+    await user.click(await screen.findByRole('button', { name: /new assignment/i }));
+    const dialog = await screen.findByRole('dialog', { name: /new assignment/i });
+    expect(
+      await within(dialog).findByText(/no children registered yet/i),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole('combobox', { name: /assign to/i })).not.toBeInTheDocument();
+  });
+
   it('parent new-assignment form blocks submit when no child is selected', async () => {
     const user = userEvent.setup();
     const create = spyHandler('post', /\/api\/homework\/$/, { ok: true });

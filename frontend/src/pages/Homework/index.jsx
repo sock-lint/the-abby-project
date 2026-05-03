@@ -11,6 +11,7 @@ import {
   planHomework, getChildren,
   deleteHomework,
 } from '../../api';
+import { normalizeList } from '../../utils/api';
 import ApprovalQueue from '../../components/ApprovalQueue';
 import Loader from '../../components/Loader';
 import ErrorAlert from '../../components/ErrorAlert';
@@ -29,8 +30,16 @@ export default function Homework() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const { data: dashboard, loading, error, reload } = useApi(getHomeworkDashboard);
-  const { data: childrenData } = useApi(isParent ? getChildren : null);
-  const children = childrenData || [];
+  // useApi's default deps=[] means a first call during auth-load (isParent=false)
+  // would freeze apiFn=null and never re-fetch when isParent later flips. Pass
+  // [isParent] so the call re-runs once auth resolves — matches the Chores /
+  // Habits pattern. Empty resolver instead of `null` so the test's unblocked
+  // AuthProvider doesn't error on `null(controller.signal)`.
+  const { data: childrenData } = useApi(
+    isParent ? getChildren : () => Promise.resolve({ results: [] }),
+    [isParent],
+  );
+  const children = normalizeList(childrenData);
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);

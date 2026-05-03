@@ -150,14 +150,20 @@ export default function HomeworkFormModal({
         )}
         {isParent && childrenList.length > 0 && (
           <SelectField
+            label="Assign to"
             value={form.assigned_to} required
             onChange={(e) => set({ assigned_to: e.target.value })}
           >
-            <option value="">Assign to…</option>
+            <option value="">Choose a child…</option>
             {childrenList.map((c) => (
               <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
             ))}
           </SelectField>
+        )}
+        {isParent && childrenList.length === 0 && (
+          <p className="font-script text-sm text-ember-deep italic">
+            No children registered yet — add one in <a href="/manage" className="underline">Manage</a> before creating homework.
+          </p>
         )}
         {error && <ErrorAlert message={error} />}
         <div className="flex justify-end gap-2 pt-2">

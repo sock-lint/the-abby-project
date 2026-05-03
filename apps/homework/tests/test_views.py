@@ -226,6 +226,61 @@ class HomeworkDashboardTests(_Fixture):
         self.assertIn("pending_submissions", resp.json())
 
 
+class HomeworkParentDashboardFamilyScopingTests(TestCase):
+    """Parent overview must NOT leak homework across families.
+
+    Pinned because the previous implementation listed all pending submissions
+    + active assignments globally — a parent in Family A would see homework
+    assigned to Family B's children.
+    """
+
+    def setUp(self):
+        from config.tests.factories import make_family
+        self.a = make_family(
+            "Family A",
+            parents=[{"username": "ap"}],
+            children=[{"username": "ac"}],
+        )
+        self.b = make_family(
+            "Family B",
+            parents=[{"username": "bp"}],
+            children=[{"username": "bc"}],
+        )
+        # One assignment + pending submission in each family.
+        for fam, label in ((self.a, "A"), (self.b, "B")):
+            hw = HomeworkAssignment.objects.create(
+                title=f"HW-{label}", subject="math",
+                due_date=timezone.localdate() + timedelta(days=2),
+                assigned_to=fam.children[0], created_by=fam.parents[0],
+            )
+            HomeworkSubmission.objects.create(
+                assignment=hw, user=fam.children[0],
+                status=HomeworkSubmission.Status.PENDING,
+                timeliness="on_time",
+            )
+
+    def test_parent_sees_only_own_familys_assignments(self):
+        client = APIClient()
+        client.force_authenticate(self.a.parents[0])
+        resp = client.get("/api/homework/dashboard/")
+        self.assertEqual(resp.status_code, 200)
+        titles = {a["title"] for a in resp.json()["assignments"]}
+        self.assertEqual(titles, {"HW-A"})
+
+    def test_parent_sees_only_own_familys_pending_submissions(self):
+        client = APIClient()
+        client.force_authenticate(self.a.parents[0])
+        resp = client.get("/api/homework/dashboard/")
+        self.assertEqual(resp.status_code, 200)
+        usernames = {s["user_name"] for s in resp.json()["pending_submissions"]}
+        # Only Family A's child appears.
+        self.assertNotIn("bc", usernames)
+        # Family A child is in there (display_name falls back to username).
+        a_child = self.a.children[0]
+        expected = a_child.display_name or a_child.username
+        self.assertIn(expected, usernames)
+
+
 class HomeworkPlanActionTests(_Fixture):
     """Long-lead self-serve gate on POST /api/homework/<id>/plan/.
 
