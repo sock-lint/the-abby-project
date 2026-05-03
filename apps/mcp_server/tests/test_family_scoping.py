@@ -91,3 +91,52 @@ class MCPUpdateChildCrossFamilyTests(TestCase):
                         display_name="hax",
                     ),
                 )
+
+
+class MCPListPendingCreationsFamilyScopingTests(TestCase):
+    """Audit C3: list_pending_creations is the MCP twin of
+    ``CreationViewSet.pending`` and must be scoped to the parent's family.
+    """
+
+    def setUp(self):
+        from apps.achievements.models import Skill, SkillCategory
+        self.a = make_family(
+            "A",
+            parents=[{"username": "ap"}],
+            children=[{"username": "ac"}],
+        )
+        self.b = make_family(
+            "B",
+            parents=[{"username": "bp"}],
+            children=[{"username": "bc"}],
+        )
+        self.cat = SkillCategory.objects.create(name="Art & Crafts", icon="🎨")
+        self.skill = Skill.objects.create(category=self.cat, name="Drawing")
+
+    def _submit(self, child):
+        import io
+        from unittest.mock import patch
+        from PIL import Image
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.creations.services import CreationService
+
+        buf = io.BytesIO()
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(buf, format="JPEG")
+        img = SimpleUploadedFile("art.jpg", buf.getvalue(), content_type="image/jpeg")
+        with patch("apps.rpg.services.GameLoopService.on_task_completed"):
+            c = CreationService.log_creation(child, image=img, primary_skill_id=self.skill.id)
+        CreationService.submit_for_bonus(c)
+        return c
+
+    def test_pending_queue_excludes_other_families(self):
+        from apps.mcp_server.schemas import ListPendingCreationsIn
+        from apps.mcp_server.tools.creations import list_pending_creations
+
+        own = self._submit(self.a.children[0])
+        self._submit(self.b.children[0])
+
+        with override_user(self.a.parents[0]):
+            result = list_pending_creations(ListPendingCreationsIn())
+
+        ids = [row["id"] for row in result["creations"]]
+        self.assertEqual(ids, [own.id])

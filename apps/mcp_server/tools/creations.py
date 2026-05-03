@@ -187,9 +187,21 @@ def reject_creation(params: RejectCreationIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def list_pending_creations(params: ListPendingCreationsIn) -> dict[str, Any]:
-    """Parent-only queue of submitted-pending Creations awaiting bonus review."""
-    require_parent()
-    qs = Creation.objects.select_related(
-        "primary_skill", "primary_skill__category", "user",
-    ).filter(status=Creation.Status.PENDING).order_by("-updated_at")[: params.limit]
+    """Parent-only queue of submitted-pending Creations awaiting bonus review.
+
+    Audit C3: scope to the parent's family. Without ``user__family=parent.family``
+    a parent in family A would see pending creations from every other family
+    in the deployment (mirrors the same fix on ``CreationViewSet.pending``).
+    """
+    parent = require_parent()
+    qs = (
+        Creation.objects.select_related(
+            "primary_skill", "primary_skill__category", "user",
+        )
+        .filter(
+            status=Creation.Status.PENDING,
+            user__family=parent.family,
+        )
+        .order_by("-updated_at")[: params.limit]
+    )
     return {"creations": many(qs, creation_to_dict)}

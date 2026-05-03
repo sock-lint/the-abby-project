@@ -219,6 +219,50 @@ class CreationApproveRejectTests(_Fixture):
         self.assertEqual(len(_unwrap(resp.data)), 1)
 
 
+class PendingQueueFamilyScopingTests(TestCase):
+    """Audit C3: ``CreationViewSet.pending`` must be scoped to the parent's
+    family. Without ``user__family=request.user.family`` a parent in family A
+    sees pending creations from every other family in the deployment.
+    """
+
+    def setUp(self):
+        from config.tests.factories import make_family
+
+        self.fam_a = make_family(
+            "Alpha",
+            parents=[{"username": "alpha_parent"}],
+            children=[{"username": "alpha_kid"}],
+        )
+        self.fam_b = make_family(
+            "Bravo",
+            parents=[{"username": "bravo_parent"}],
+            children=[{"username": "bravo_kid"}],
+        )
+        self.art_cat = SkillCategory.objects.create(name="Art & Crafts", icon="🎨")
+        self.draw = Skill.objects.create(category=self.art_cat, name="Drawing")
+        self.client = APIClient()
+
+    def _submit(self, child):
+        from apps.creations.services import CreationService
+        with patch("apps.rpg.services.GameLoopService.on_task_completed"):
+            c = CreationService.log_creation(
+                child, image=_fake_image(), primary_skill_id=self.draw.id,
+            )
+        CreationService.submit_for_bonus(c)
+        return c
+
+    def test_pending_queue_excludes_other_families(self):
+        own = self._submit(self.fam_a.children[0])
+        self._submit(self.fam_b.children[0])
+
+        self.client.force_authenticate(self.fam_a.parents[0])
+        resp = self.client.get("/api/creations/pending/")
+        self.assertEqual(resp.status_code, 200)
+        rows = _unwrap(resp.data)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["id"], own.id)
+
+
 class CreationListTests(_Fixture):
     @patch("apps.rpg.services.GameLoopService.on_task_completed")
     def test_parent_sees_all_children_creations(self, _gl):
