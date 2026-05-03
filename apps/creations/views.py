@@ -119,10 +119,14 @@ class CreationViewSet(
     def pending(self, request):
         """Parent-only queue of submitted Creations awaiting approval.
 
-        Returned as a flat list shaped for ``useParentDashboard`` consumption.
+        Family-scoped (audit C3): without ``user__family=request.user.family``
+        a parent in family A would see pending creations from every other
+        family in the deployment. Returned as a flat list shaped for
+        ``useParentDashboard`` consumption.
         """
         pending = Creation.objects.filter(
             status=Creation.Status.PENDING,
+            user__family=request.user.family,
         ).select_related(
             "user", "primary_skill", "primary_skill__category",
         ).order_by("-updated_at")

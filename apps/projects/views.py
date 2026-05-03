@@ -156,7 +156,12 @@ class DashboardView(APIView):
 
         pending_timecards = Timecard.objects.filter(user=user, status="pending").count()
         if user.role == "parent":
-            pending_timecards = Timecard.objects.filter(status="pending").count()
+            # Audit C3: scope to the parent's family. Without the family filter
+            # the count returns pending timecards across every household in the
+            # deployment.
+            pending_timecards = Timecard.objects.filter(
+                status="pending", user__family=user.family,
+            ).count()
 
         recent_badges = list(
             UserBadge.objects.filter(user=user).select_related("badge")
@@ -198,8 +203,12 @@ class DashboardView(APIView):
                     "status": c.today_completion_status,
                 })
         elif user.role == "parent":
+            # Audit C3: scope to the parent's family. Without the family filter
+            # this returns pending completions across every household in the
+            # deployment — drives the parent dashboard's approvals badge.
             pending_chore_approvals = ChoreCompletion.objects.filter(
                 status=ChoreCompletion.Status.PENDING,
+                user__family=user.family,
             ).count()
 
         # RPG profile

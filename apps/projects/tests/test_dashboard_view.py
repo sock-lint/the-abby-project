@@ -8,10 +8,12 @@ from decimal import Decimal
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.chores.models import Chore
+from apps.chores.models import Chore, ChoreCompletion
 from apps.homework.models import HomeworkAssignment
 from apps.projects.models import User
 from apps.rewards.models import CoinLedger
+from apps.timecards.models import Timecard
+from config.tests.factories import make_family
 
 
 class DashboardNextActionsTests(TestCase):
@@ -107,3 +109,74 @@ class DashboardNextActionsTests(TestCase):
         self.client.force_authenticate(self.parent)
         data = self.client.get("/api/dashboard/").json()
         self.assertEqual(data["newly_unlocked_lorebook"], [])
+
+
+class DashboardParentPendingFamilyScopingTests(TestCase):
+    """Audit C3: parent's pending_timecards / pending_chore_approvals counts
+    must be scoped to the parent's family, not aggregated across the whole
+    deployment.
+    """
+
+    def setUp(self):
+        self.fam_a = make_family(
+            "Alpha",
+            parents=[{"username": "alpha_parent"}],
+            children=[{"username": "alpha_kid"}],
+        )
+        self.fam_b = make_family(
+            "Bravo",
+            parents=[{"username": "bravo_parent"}],
+            children=[{"username": "bravo_kid"}],
+        )
+        self.parent_a = self.fam_a.parents[0]
+        self.kid_a = self.fam_a.children[0]
+        self.kid_b = self.fam_b.children[0]
+        self.client = APIClient()
+
+    def test_pending_chore_approvals_excludes_other_families(self):
+        chore_a = Chore.objects.create(
+            title="Trash A", recurrence="daily",
+            assigned_to=self.kid_a, created_by=self.parent_a,
+        )
+        chore_b = Chore.objects.create(
+            title="Trash B", recurrence="daily",
+            assigned_to=self.kid_b, created_by=self.fam_b.parents[0],
+        )
+        ChoreCompletion.objects.create(
+            chore=chore_a, user=self.kid_a,
+            status=ChoreCompletion.Status.PENDING,
+            completed_date=datetime.date.today(),
+            reward_amount_snapshot=Decimal("0.00"),
+            coin_reward_snapshot=0,
+        )
+        ChoreCompletion.objects.create(
+            chore=chore_b, user=self.kid_b,
+            status=ChoreCompletion.Status.PENDING,
+            completed_date=datetime.date.today(),
+            reward_amount_snapshot=Decimal("0.00"),
+            coin_reward_snapshot=0,
+        )
+
+        self.client.force_authenticate(self.parent_a)
+        data = self.client.get("/api/dashboard/").json()
+        self.assertEqual(data["pending_chore_approvals"], 1)
+
+    def test_pending_timecards_excludes_other_families(self):
+        today = datetime.date.today()
+        week_start = today - datetime.timedelta(days=today.weekday())
+        Timecard.objects.create(
+            user=self.kid_a,
+            week_start=week_start,
+            week_end=week_start + datetime.timedelta(days=6),
+            status="pending",
+        )
+        Timecard.objects.create(
+            user=self.kid_b,
+            week_start=week_start,
+            week_end=week_start + datetime.timedelta(days=6),
+            status="pending",
+        )
+
+        self.client.force_authenticate(self.parent_a)
+        data = self.client.get("/api/dashboard/").json()
+        self.assertEqual(data["pending_timecards"], 1)
