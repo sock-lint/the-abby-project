@@ -517,18 +517,24 @@ class HomeworkService:
     # ------------------------------------------------------------------
     # AI planning — generate a linked Project via Claude
     # ------------------------------------------------------------------
+    # NOTE: this template is rendered via ``str.format(...)`` below, so every
+    # literal ``{`` / ``}`` in the JSON example block is doubled (``{{`` /
+    # ``}}``) to escape it. Only the actual placeholders at the bottom
+    # (``{title}``, ``{subject}``, ``{effort_level}``, ``{due_date}``,
+    # ``{description}``) use single braces. Adding a new literal-JSON example
+    # here? Double the braces, or you'll get a KeyError at format time.
     _PLAN_PROMPT = (
         "You are helping break a homework assignment into a kid-friendly "
         "multi-step project so a child can work through it and check off "
         "progress. Return ONLY a JSON object with this shape:\n"
-        '{\n'
+        '{{\n'
         '  "title": "short project title (<= 80 chars)",\n'
         '  "description": "1-2 sentence plain-English summary for a kid",\n'
         '  "difficulty": 1-5 integer (1 easiest, 5 hardest),\n'
-        '  "milestones": [ {"title": "chapter title", "description": "1-2 sentences"}, ... ],\n'
-        '  "steps": [ {"title": "short \'do this next\' (<= 60 chars)", "description": "1-3 kid-friendly sentences", "milestone_index": 0-based index into milestones or null} ],\n'
-        '  "materials": [ {"name": "string", "description": "string", "estimated_cost": number-or-null} ]\n'
-        "}\n\n"
+        '  "milestones": [ {{"title": "chapter title", "description": "1-2 sentences"}}, ... ],\n'
+        '  "steps": [ {{"title": "short \'do this next\' (<= 60 chars)", "description": "1-3 kid-friendly sentences", "milestone_index": 0-based index into milestones or null}} ],\n'
+        '  "materials": [ {{"name": "string", "description": "string", "estimated_cost": number-or-null}} ]\n'
+        "}}\n\n"
         "Rules:\n"
         "- 2-5 milestones, 4-12 steps total.\n"
         "- Every step should belong to a milestone (milestone_index non-null) when possible.\n"

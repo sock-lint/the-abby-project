@@ -424,3 +424,57 @@ class CanSelfPlanTests(_Fixture):
         )
         a = self._make(due_offset_days=7, assigned_to=other)
         self.assertFalse(HomeworkService.can_self_plan(self.child, a))
+
+
+class PlanAssignmentPromptFormatTests(TestCase):
+    """Regression: ``HomeworkService._PLAN_PROMPT`` is rendered via
+    ``str.format(...)``, so any literal ``{`` / ``}`` in the embedded JSON
+    example block has to be escaped (doubled). The previous version raised
+    ``KeyError: '\\n  "title"'`` at format time — every plan_assignment call
+    crashed before reaching the LLM.
+    """
+
+    def test_format_does_not_raise_with_literal_json_braces(self):
+        # Direct call to the underlying template with the same kwargs the
+        # service uses. Pre-fix this raised KeyError on the unescaped
+        # ``{\n  "title"`` block.
+        rendered = HomeworkService._PLAN_PROMPT.format(
+            title="Math workbook",
+            subject="Math",
+            effort_level=3,
+            due_date="2026-05-10",
+            description="Show your work for problems 1-12.",
+        )
+        # Sanity-check that the placeholders interpolated AND the literal
+        # JSON example survived (now single-braced after format-unescaping).
+        self.assertIn("Title: Math workbook", rendered)
+        self.assertIn("Subject: Math", rendered)
+        self.assertIn('"title": "short project title', rendered)
+        # No double-braces in the rendered output.
+        self.assertNotIn("{{", rendered)
+        self.assertNotIn("}}", rendered)
+
+    def test_plan_assignment_reaches_llm_layer_when_unconfigured(self):
+        # End-to-end: with no LLM backend configured, ``plan_assignment`` must
+        # raise HomeworkError("AI planning is not configured.") — meaning the
+        # prompt formatted successfully and ``complete_json`` raised
+        # ``LLMUnavailable``. Pre-fix this crashed earlier with KeyError
+        # before reaching the LLM seam.
+        parent = User.objects.create_user(
+            username="parent2", password="pw", role="parent",
+        )
+        child = User.objects.create_user(
+            username="child2", password="pw", role="child",
+        )
+        assignment = HomeworkAssignment.objects.create(
+            title="Read chapter 3",
+            subject="reading",
+            effort_level=2,
+            due_date=timezone.localdate() + timedelta(days=5),
+            assigned_to=child,
+            created_by=parent,
+        )
+        with override_settings(LLM_BACKEND="none"):
+            with self.assertRaises(HomeworkError) as cm:
+                HomeworkService.plan_assignment(assignment, parent=parent)
+        self.assertIn("not configured", str(cm.exception))
