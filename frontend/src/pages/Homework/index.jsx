@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
@@ -27,6 +27,7 @@ import HomeworkFormModal from './HomeworkFormModal';
 
 export default function Homework() {
   const { isParent } = useRole();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const { data: dashboard, loading, error, reload } = useApi(getHomeworkDashboard);
@@ -91,7 +92,12 @@ export default function Homework() {
       const result = await planHomework(assignment.id);
       const projectId = result?.project_id || result?.project?.id || result?.project;
       if (projectId) {
-        window.location.href = `/quests/ventures/${projectId}`;
+        // Audit H9: SPA navigation rather than ``window.location.href``,
+        // which tore down all React state, refetched ``/api/auth/me/``,
+        // and briefly flashed the prior shell under PWA. ``useNavigate``
+        // keeps the auth context, the sprite catalog, and the cached
+        // dashboard data warm.
+        navigate(`/quests/ventures/${projectId}`);
         return;
       }
       reload();

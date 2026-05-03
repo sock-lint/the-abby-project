@@ -316,7 +316,14 @@ describe('401 self-heal', () => {
   let reloadSpy;
   let originalLocation;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Audit L5: the self-heal-reload coalescer is module-level state.
+    // In production the flag self-resets via the reload (the module is
+    // re-imported on the new page load); in tests we mock reload so the
+    // flag would otherwise leak across cases.
+    const { __resetSelfHealForTesting } = await import('./client');
+    __resetSelfHealForTesting();
+
     reloadSpy = vi.fn();
     originalLocation = window.location;
     Object.defineProperty(window, 'location', {
@@ -418,5 +425,25 @@ describe('401 self-heal', () => {
     await expect(getBlob('/timecards/export.csv')).rejects.toThrow();
 
     expect(reloadSpy).not.toHaveBeenCalled();
+  });
+
+  it('coalesces concurrent 401s into a single reload (audit L5)', async () => {
+    setToken('stale-token');
+    server.use(
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({ detail: 'Invalid token.' }, { status: 401 }),
+      ),
+    );
+
+    // Fire three parallel requests that all 401 on the same stale token.
+    // Pre-fix each one called window.location.reload() independently.
+    await Promise.allSettled([
+      api.get('/dashboard/'),
+      api.get('/dashboard/'),
+      api.get('/dashboard/'),
+    ]);
+
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem('abby_auth_token')).toBeNull();
   });
 });

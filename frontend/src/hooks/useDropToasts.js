@@ -14,6 +14,13 @@ export function useDropToasts(pollIntervalMs = 20000) {
     let cancelled = false;
 
     const poll = async () => {
+      // Audit L6: skip polls while the tab is hidden. Burning a request
+      // every 20s on a backgrounded tab is wasted server work for every
+      // inactive user; on a slow network those queued GETs can also pile
+      // up and 401-cascade on token rotation. The visibilitychange
+      // handler below kicks an immediate poll on tab focus so a
+      // backgrounded tab catches up the moment it returns.
+      if (typeof document !== 'undefined' && document.hidden) return;
       try {
         const drops = await getRecentDrops();
         const list = Array.isArray(drops) ? drops : (drops?.results || []);
@@ -48,9 +55,22 @@ export function useDropToasts(pollIntervalMs = 20000) {
     poll();
     const interval = setInterval(poll, pollIntervalMs);
 
+    // Catch up immediately when the tab becomes visible again so a user
+    // returning to a long-backgrounded tab sees fresh drops without
+    // waiting up to ``pollIntervalMs``.
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && !document.hidden) poll();
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibility);
+    }
+
     return () => {
       cancelled = true;
       clearInterval(interval);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
     };
   }, [pollIntervalMs]);
 

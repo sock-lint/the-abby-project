@@ -16,6 +16,27 @@ export function setToken(token) {
   }
 }
 
+// Audit L5: coalesce concurrent 401-triggered reloads. If a page issues
+// multiple parallel API calls and the stored token is stale, every
+// failing call hits the self-heal path and would queue its own
+// ``window.location.reload()``. Browsers usually merge these but not
+// always; the flag guarantees only the first 401 reloads. Reset on
+// module load (i.e. after the reload completes) is automatic.
+let _reloadInFlight = false;
+function _selfHealReload() {
+  if (_reloadInFlight) return;
+  _reloadInFlight = true;
+  setToken(null);
+  window.location.reload();
+}
+
+// Test-only escape hatch: in real-page lifetime the flag resets via the
+// reload itself, but in tests the reload is mocked so the flag would
+// otherwise leak between cases. Tests call this in ``beforeEach``.
+export function __resetSelfHealForTesting() {
+  _reloadInFlight = false;
+}
+
 async function request(path, options = {}) {
   const url = `${BASE}${path}`;
   const token = getToken();
@@ -56,9 +77,9 @@ async function request(path, options = {}) {
     // without requiring users to manually purge browser session data.
     // Skipped when no auth header was sent — that path is legitimate
     // anonymous access (boot-time getMe, login-form credential retries).
+    // Concurrent 401s coalesce via ``_selfHealReload`` — see audit L5.
     if (res.status === 401 && hadAuth) {
-      setToken(null);
-      window.location.reload();
+      _selfHealReload();
     }
 
     if (res.status >= 500) {
@@ -124,8 +145,7 @@ export async function getBlob(path) {
 
     // Same self-heal path as `request()` — see that function's comment.
     if (res.status === 401 && hadAuth) {
-      setToken(null);
-      window.location.reload();
+      _selfHealReload();
     }
 
     if (res.status >= 500) {
