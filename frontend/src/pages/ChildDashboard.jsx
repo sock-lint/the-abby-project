@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import * as Sentry from '@sentry/react';
 import {
   completeChore, getActiveQuest, getRecentDrops, getStable, logHabitTap,
 } from '../api';
@@ -62,13 +63,29 @@ export default function ChildDashboard({ data, reload }) {
 
   const activePet = stableData?.pets?.find((p) => p.is_active) || null;
 
+  // Audit M8: surface fast-action errors instead of silently swallowing
+  // them. Pre-fix, ``.catch(() => {})`` masked 400s ("you've already
+  // tapped this habit today"), 403s ("locked"), and 5xxs alike — the
+  // user clicked, nothing happened, and operators had no signal.
+  // ``actionError`` flips into a soft inline banner; everything also
+  // hits Sentry so prod regressions are visible.
+  const [actionError, setActionError] = useState('');
+  const handleActionError = useCallback((err, label) => {
+    Sentry.captureException(err, { extra: { handler: label } });
+    setActionError(err?.response?.error || err?.message || `${label} failed.`);
+  }, []);
+
   const handleCompleteChore = useCallback(
-    (id) => completeChore(id).then(reload).catch(() => {}),
-    [reload],
+    (id) => completeChore(id)
+      .then(reload)
+      .catch((err) => handleActionError(err, 'Mark duty done')),
+    [reload, handleActionError],
   );
   const handleTapHabit = useCallback(
-    (id) => logHabitTap(id, 1).then(reload).catch(() => {}),
-    [reload],
+    (id) => logHabitTap(id, 1)
+      .then(reload)
+      .catch((err) => handleActionError(err, 'Tap ritual')),
+    [reload, handleActionError],
   );
   // Open the homework submit sheet inline. We accept either a plain id
   // (from the hero's NextAction handler) or an action object (from the
@@ -125,6 +142,25 @@ export default function ChildDashboard({ data, reload }) {
           Today&apos;s Entry
         </h1>
       </header>
+
+      {actionError && (
+        // Audit M8: surface fast-action errors. Auto-dismissable so a
+        // stale message doesn't hang around when the next action succeeds.
+        <div
+          role="alert"
+          className="rounded-lg border border-rose/40 bg-rose/10 px-4 py-2 text-sm text-rose flex items-start gap-3"
+        >
+          <span className="flex-1">{actionError}</span>
+          <button
+            type="button"
+            onClick={() => setActionError('')}
+            className="text-rose/70 hover:text-rose"
+            aria-label="Dismiss error"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       <HeroPrimaryCard
         role="child"

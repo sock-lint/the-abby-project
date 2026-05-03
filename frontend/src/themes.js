@@ -220,5 +220,11 @@ export function applyTheme(themeName) {
   root.style.setProperty('--color-amber-highlight', theme.accentBright);
   root.style.setProperty('--color-amber-glow', theme.accentGlow);
 
-  document.body.style.background = theme.page;
+  // Audit L4: deliberately NOT setting ``document.body.style.background``.
+  // ``index.css`` already has ``body { background-color: var(--color-ink-page) }``
+  // and we update ``--color-ink-page`` above — so the body picks up the
+  // new theme automatically. Inline-styling body fights Tailwind class
+  // specificity (anything ``bg-ink-page`` on body would be silently
+  // overridden) and made the live theme-preview hover restore-path
+  // brittle.
 }
