@@ -17,10 +17,9 @@ from django.db import transaction
 
 from apps.habits.models import Habit, HabitSkillTag
 from apps.habits.services import HabitService
-from apps.accounts.models import User
 from apps.rpg.services import GameLoopService
 
-from ..context import get_current_user, require_parent
+from ..context import get_current_user, require_parent, resolve_child_in_family
 from ..errors import (
     MCPNotFoundError,
     MCPPermissionDenied,
@@ -90,12 +89,11 @@ def create_habit(params: CreateHabitIn) -> dict[str, Any]:
             raise MCPPermissionDenied(
                 "Children can only create habits for themselves.",
             )
-        try:
-            target = User.objects.get(pk=params.user_id)
-        except User.DoesNotExist:
-            raise MCPValidationError(
-                f"user_id {params.user_id} does not match any user.",
-            )
+        # Audit C3: family-scope the on-behalf path. Without this, a parent
+        # in family A could create habits in family B's children's profiles.
+        # ``resolve_child_in_family`` also pins ``role="child"`` so a parent
+        # can't author a habit on another parent.
+        target = resolve_child_in_family(user, params.user_id)
     habit = Habit.objects.create(
         name=params.name,
         icon=params.icon,

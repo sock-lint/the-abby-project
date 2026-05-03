@@ -12,11 +12,10 @@ from typing import Any
 from django.db.models import Sum
 
 from apps.portfolio.models import ProjectPhoto
-from apps.accounts.models import User
 from apps.projects.models import Project
 from apps.timecards.models import TimeEntry
 
-from ..context import get_current_user, resolve_target_user
+from ..context import get_current_user, resolve_child_in_family, resolve_target_user
 from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
 from ..schemas import (
     DeleteHomeworkProofIn,
@@ -185,11 +184,14 @@ def get_portfolio_export_manifest(params: ExportPortfolioIn) -> dict[str, Any]:
     from apps.homework.models import HomeworkProof, HomeworkSubmission
 
     user = get_current_user()
-    target = (
-        User.objects.get(pk=params.user_id)
-        if (params.user_id and user.role == "parent")
-        else user
-    )
+    # Audit C3: family-scope the parent-on-behalf path. Without
+    # ``resolve_child_in_family`` a parent in family A could ask for an
+    # export manifest containing family B's child's photos / homework proofs
+    # / creations.
+    if params.user_id and user.role == "parent" and params.user_id != user.id:
+        target = resolve_child_in_family(user, params.user_id)
+    else:
+        target = user
 
     files: list[dict[str, Any]] = []
 

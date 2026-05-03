@@ -1,8 +1,10 @@
 """MCP family-scoping: list_children, get_user, update_child, dashboard."""
 from django.test import TestCase
 
-from apps.mcp_server.context import override_user, resolve_target_user
-from apps.mcp_server.errors import MCPNotFoundError
+from apps.mcp_server.context import (
+    override_user, resolve_child_in_family, resolve_target_user,
+)
+from apps.mcp_server.errors import MCPNotFoundError, MCPPermissionDenied
 from apps.mcp_server.schemas import GetUserIn, ListChildrenIn, UpdateChildIn
 from apps.mcp_server.tools.users import get_user, list_children, update_child
 from config.tests.factories import make_family
@@ -305,3 +307,133 @@ class MCPParentDefaultListFamilyScopingTests(TestCase):
             result = list_homework_submissions(ListHomeworkSubmissionsIn())
         ids = [row["id"] for row in result["submissions"]]
         self.assertEqual(ids, [self.submission_a.id])
+
+
+class MCPResolveChildInFamilyHelperTests(TestCase):
+    """Direct tests for the resolve_child_in_family helper."""
+
+    def setUp(self):
+        self.a = make_family(
+            "Alpha",
+            parents=[{"username": "alpha_parent_h"}],
+            children=[{"username": "alpha_kid_h"}],
+        )
+        self.b = make_family(
+            "Bravo",
+            parents=[{"username": "bravo_parent_h"}],
+            children=[{"username": "bravo_kid_h"}],
+        )
+
+    def test_parent_resolves_own_child(self):
+        target = resolve_child_in_family(
+            self.a.parents[0], self.a.children[0].id,
+        )
+        self.assertEqual(target, self.a.children[0])
+
+    def test_parent_cannot_resolve_cross_family_child_raises_404(self):
+        with self.assertRaises(MCPNotFoundError):
+            resolve_child_in_family(self.a.parents[0], self.b.children[0].id)
+
+    def test_parent_cannot_resolve_cross_family_parent_raises_404(self):
+        # Wrong family AND wrong role — both reasons for 404. Caller can't
+        # distinguish "doesn't exist" / "wrong family" / "wrong role".
+        with self.assertRaises(MCPNotFoundError):
+            resolve_child_in_family(self.a.parents[0], self.b.parents[0].id)
+
+    def test_parent_cannot_resolve_same_family_parent_raises_404(self):
+        # Same family but target is a parent, not a child — still 404.
+        # Habit/Coin/Payment writes shouldn't target other parents.
+        another_parent = make_family(
+            "Alpha-extra",
+            parents=[
+                {"username": "alpha_p1"},
+                {"username": "alpha_p2"},
+            ],
+        )
+        with self.assertRaises(MCPNotFoundError):
+            resolve_child_in_family(
+                another_parent.parents[0], another_parent.parents[1].id,
+            )
+
+    def test_child_caller_raises_permission_denied(self):
+        with self.assertRaises(MCPPermissionDenied):
+            resolve_child_in_family(self.a.children[0], self.a.children[0].id)
+
+
+class MCPParentOnBehalfFamilyScopingTests(TestCase):
+    """Audit C3 sweep — five MCP write tools used to do
+    User.objects.get(pk=params.user_id) without a family check. Pin each
+    one against a cross-family probe.
+    """
+
+    def setUp(self):
+        self.a = make_family(
+            "Alpha",
+            parents=[{"username": "alpha_parent_o"}],
+            children=[{"username": "alpha_kid_o"}],
+        )
+        self.b = make_family(
+            "Bravo",
+            parents=[{"username": "bravo_parent_o"}],
+            children=[{"username": "bravo_kid_o"}],
+        )
+        self.parent_a = self.a.parents[0]
+        self.kid_b = self.b.children[0]
+
+    def test_record_payout_cross_family_404(self):
+        from decimal import Decimal
+        from apps.mcp_server.schemas import RecordPayoutIn
+        from apps.mcp_server.tools.payments import record_payout
+
+        with override_user(self.parent_a):
+            with self.assertRaises(MCPNotFoundError):
+                record_payout(RecordPayoutIn(
+                    user_id=self.kid_b.id,
+                    amount=Decimal("5.00"),
+                ))
+
+    def test_adjust_payment_cross_family_404(self):
+        from decimal import Decimal
+        from apps.mcp_server.schemas import AdjustPaymentIn
+        from apps.mcp_server.tools.payments import adjust_payment
+
+        with override_user(self.parent_a):
+            with self.assertRaises(MCPNotFoundError):
+                adjust_payment(AdjustPaymentIn(
+                    user_id=self.kid_b.id,
+                    amount=Decimal("1.00"),
+                    description="hax",
+                ))
+
+    def test_adjust_coins_cross_family_404(self):
+        from apps.mcp_server.schemas import AdjustCoinsIn
+        from apps.mcp_server.tools.rewards import adjust_coins
+
+        with override_user(self.parent_a):
+            with self.assertRaises(MCPNotFoundError):
+                adjust_coins(AdjustCoinsIn(
+                    user_id=self.kid_b.id,
+                    amount=10,
+                    description="hax",
+                ))
+
+    def test_create_habit_on_behalf_cross_family_404(self):
+        from apps.mcp_server.schemas import CreateHabitIn
+        from apps.mcp_server.tools.habits import create_habit
+
+        with override_user(self.parent_a):
+            with self.assertRaises(MCPNotFoundError):
+                create_habit(CreateHabitIn(
+                    name="Stolen", icon="x",
+                    user_id=self.kid_b.id,
+                ))
+
+    def test_export_portfolio_cross_family_404(self):
+        from apps.mcp_server.schemas import ExportPortfolioIn
+        from apps.mcp_server.tools.portfolio import get_portfolio_export_manifest
+
+        with override_user(self.parent_a):
+            with self.assertRaises(MCPNotFoundError):
+                get_portfolio_export_manifest(ExportPortfolioIn(
+                    user_id=self.kid_b.id,
+                ))

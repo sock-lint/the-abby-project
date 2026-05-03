@@ -6,7 +6,9 @@ from typing import Any
 from apps.rewards.models import CoinLedger, Reward, RewardRedemption
 from apps.rewards.services import CoinService, RewardService
 
-from ..context import get_current_user, require_parent, resolve_target_user
+from ..context import (
+    get_current_user, require_parent, resolve_child_in_family, resolve_target_user,
+)
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
     AdjustCoinsIn,
@@ -234,18 +236,16 @@ def delete_reward(params: DeleteRewardIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def adjust_coins(params: AdjustCoinsIn) -> dict[str, Any]:
-    """Grant or revoke coins for a child (parent-only).
+    """Grant or revoke coins for a child (parent-only, same-family).
 
     Mirrors the ``POST /api/coins/adjust/`` endpoint. Positive amounts
     grant coins; negative amounts revoke — the service re-validates the
     balance before posting a negative entry to prevent going below zero.
+    Audit C3: ``resolve_child_in_family`` enforces that ``user_id`` is a
+    child in the caller's own family.
     """
     parent = require_parent()
-    try:
-        from apps.accounts.models import User
-        target = User.objects.get(pk=params.user_id)
-    except User.DoesNotExist:
-        raise MCPValidationError(f"user_id {params.user_id} not found.")
+    target = resolve_child_in_family(parent, params.user_id)
     if params.amount == 0:
         raise MCPValidationError("amount must not be 0.")
     if params.amount > 0:
