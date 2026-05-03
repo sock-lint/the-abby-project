@@ -70,8 +70,17 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
+        # Audit C1: family-scope every query against the Chore catalog.
+        # Without this filter, ChoreViewSet returned every household's
+        # chores to every parent and let any child see/complete a chore
+        # from another family. Parents see all of their family's chores
+        # (incl. inactive + pending); children see only active, non-pending
+        # chores in their own family.
         user = self.request.user
-        qs = Chore.objects.prefetch_related("skill_tags__skill")
+        family = getattr(user, "family", None)
+        if family is None:
+            return Chore.objects.none()
+        qs = Chore.objects.prefetch_related("skill_tags__skill").filter(family=family)
         if user.role == "parent":
             # Parents can filter to just pending proposals for the review queue.
             if self.request.query_params.get("pending") == "true":
@@ -99,10 +108,15 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             # of what was posted. Parent finalizes later via /approve/.
             for field in _CHILD_STRIPPED_FIELDS:
                 serializer.validated_data.pop(field, None)
+            # Audit C1: stamp family from the caller. Service layer / ViewSet
+            # is the only path that should ever set ``family`` on a Chore;
+            # the model's auto-attach is defense-in-depth for legacy paths
+            # (tests, fixtures, the backfill migration).
             chore = serializer.save(
                 created_by=user,
                 assigned_to=user,
                 pending_parent_review=True,
+                family=user.family,
             )
             from apps.notifications.models import NotificationType
             from apps.notifications.services import get_display_name, notify_parents
@@ -115,7 +129,7 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                 about_user=user,
             )
         else:
-            chore = serializer.save(created_by=user)
+            chore = serializer.save(created_by=user, family=user.family)
             _apply_skill_tags(chore, tags)
 
     @transaction.atomic

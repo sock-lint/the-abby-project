@@ -16,6 +16,15 @@ class Chore(TimestampedModel):
         EVERY_WEEK = "every_week", "Every Week"
         ALTERNATING = "alternating", "Alternating Weeks"
 
+    # Audit C1: per-family content. Without this FK, ChoreViewSet returned
+    # every household's chores to every parent and let any child complete a
+    # chore from another family. Mirrors the Reward / ProjectTemplate
+    # per-family pattern.
+    family = models.ForeignKey(
+        "families.Family",
+        on_delete=models.CASCADE,
+        related_name="chores",
+    )
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     icon = models.CharField(max_length=50, blank=True)
@@ -63,6 +72,23 @@ class Chore(TimestampedModel):
 
     def __str__(self):
         return f"{self.icon} {self.title}".strip()
+
+    def save(self, *args, **kwargs):
+        # Defense-in-depth: legacy callers (tests, fixtures, the per-family
+        # backfill migration) may still create Chore rows without
+        # ``family``; route them to the default Family so the row lands
+        # somewhere sensible rather than raising IntegrityError. Production
+        # paths (ChoreViewSet.perform_create, MCP create_chore) always
+        # supply an explicit family — this is purely a safety net mirroring
+        # the same pattern on User / Reward / ProjectTemplate.
+        if self.family_id is None:
+            from apps.families.models import Family
+            family, _ = Family.objects.get_or_create(
+                slug="default-family",
+                defaults={"name": "Default Family"},
+            )
+            self.family = family
+        super().save(*args, **kwargs)
 
 
 class ChoreCompletion(ApprovalWorkflowModel, CreatedAtModel):
