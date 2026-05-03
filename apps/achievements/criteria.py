@@ -261,18 +261,50 @@ def _homework_planned_ahead(user, c):
     the creation date was at least ``days_ahead`` days before the due date.
     Assignment status doesn't matter — the signal we're rewarding is the
     planning, not the completion (which gets its own badge line).
+
+    Audit follow-up: the previous Python-loop version pulled every active
+    HomeworkAssignment row into Python and was also wrong — comparing
+    ``due_date`` to ``created_at.date()`` (UTC) instead of the local date.
+    With ``USE_TZ=True`` and ``TIME_ZONE='America/Phoenix'``, an
+    assignment created at 17:30 Phoenix (00:30 UTC the next day) had
+    ``created_at.date()`` one day past the local date, knocking the
+    lead-time computation off by one for assignments created in the
+    late-evening window. Now done in the database via ``TruncDate`` with
+    the configured timezone, and the comparison stays as a single
+    ``COUNT(*)`` query.
     """
+    from datetime import timedelta
+
+    from django.db.models import DateField, ExpressionWrapper, F
+    from django.db.models.functions import TruncDate
+    from django.utils import timezone
+
     from apps.homework.models import HomeworkAssignment
 
     target = int(c.get("count", 3))
     days_ahead = int(c.get("days_ahead", 2))
-    rows = HomeworkAssignment.objects.filter(
-        assigned_to=user, is_active=True,
-    ).values_list("due_date", "created_at")
-    qualifying = sum(
-        1 for due, created in rows
-        if (due - created.date()).days >= days_ahead
-    )
+
+    qualifying = HomeworkAssignment.objects.filter(
+        assigned_to=user,
+        is_active=True,
+    ).annotate(
+        # Convert ``created_at`` (UTC datetime) to its local date in
+        # ``settings.TIME_ZONE`` so the lead-time math matches what the
+        # child sees on the dashboard. Without ``tzinfo=...`` Django
+        # truncates against UTC.
+        created_local_date=TruncDate(
+            "created_at",
+            tzinfo=timezone.get_current_timezone(),
+        ),
+    ).filter(
+        # ``due_date >= created_local_date + days_ahead`` — DateField +
+        # timedelta needs ExpressionWrapper to keep the output type
+        # explicit on every backend.
+        due_date__gte=ExpressionWrapper(
+            F("created_local_date") + timedelta(days=days_ahead),
+            output_field=DateField(),
+        ),
+    ).count()
     return qualifying >= target
 
 
