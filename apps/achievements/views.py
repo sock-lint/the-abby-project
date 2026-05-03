@@ -2,7 +2,7 @@ from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from config.viewsets import ParentWritePermissionMixin, WriteReadSerializerMixin
+from config.viewsets import StaffParentWritePermissionMixin, WriteReadSerializerMixin
 
 from .models import Badge, Skill, SkillCategory, SkillProgress, Subject, UserBadge
 from .serializers import (
@@ -13,12 +13,16 @@ from .serializers import (
 from .services import SkillService
 
 
-class SkillCategoryViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
+# All four ViewSets author GLOBAL content shared across every family in a
+# deployment. Gate writes on IsStaffParent so a signup-created parent in one
+# family can't rename/delete a Skill or Badge that other families' children
+# are progressing toward. Reads stay open to any authenticated user.
+class SkillCategoryViewSet(StaffParentWritePermissionMixin, viewsets.ModelViewSet):
     queryset = SkillCategory.objects.all()
     serializer_class = SkillCategorySerializer
 
 
-class BadgeViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewsets.ModelViewSet):
+class BadgeViewSet(WriteReadSerializerMixin, StaffParentWritePermissionMixin, viewsets.ModelViewSet):
     queryset = Badge.objects.all()
     serializer_class = BadgeSerializer
     write_serializer_class = BadgeWriteSerializer
@@ -33,13 +37,13 @@ class UserBadgeViewSet(viewsets.ReadOnlyModelViewSet):
         ).select_related("badge")
 
 
-class SubjectViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewsets.ModelViewSet):
+class SubjectViewSet(WriteReadSerializerMixin, StaffParentWritePermissionMixin, viewsets.ModelViewSet):
     queryset = Subject.objects.select_related("category").all()
     serializer_class = SubjectSerializer
     write_serializer_class = SubjectWriteSerializer
 
 
-class SkillViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewsets.ModelViewSet):
+class SkillViewSet(WriteReadSerializerMixin, StaffParentWritePermissionMixin, viewsets.ModelViewSet):
     queryset = Skill.objects.select_related("category").all()
     serializer_class = SkillSerializer
     write_serializer_class = SkillWriteSerializer

@@ -2,7 +2,7 @@ from rest_framework import permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from config.permissions import IsParent
+from config.permissions import IsParent, IsStaffParent
 
 
 def filter_queryset_by_role(user, queryset, role_filter_field="user"):
@@ -99,6 +99,26 @@ class ParentWritePermissionMixin:
     def get_permissions(self):
         if self.action in self._PARENT_ONLY_ACTIONS:
             return [IsParent()]
+        return [permissions.IsAuthenticated()]
+
+
+class StaffParentWritePermissionMixin:
+    """Return IsStaffParent for CRUD writes, IsAuthenticated for read.
+
+    Use on global-content-authoring viewsets (Skills, Badges, Subjects,
+    SkillCategories, Lorebook, RPG sprite catalog) so that a regular
+    signup-created parent in family A can't mutate content visible to
+    every other family. Founding superusers (``createsuperuser``) and the
+    seed-data parent get ``is_staff=True`` automatically; signup parents
+    do not. Same action scope as ``ParentWritePermissionMixin`` — custom
+    ``@action`` endpoints set their own ``permission_classes``.
+    """
+
+    _STAFF_PARENT_ONLY_ACTIONS = ("create", "update", "partial_update", "destroy")
+
+    def get_permissions(self):
+        if self.action in self._STAFF_PARENT_ONLY_ACTIONS:
+            return [IsStaffParent()]
         return [permissions.IsAuthenticated()]
 
 

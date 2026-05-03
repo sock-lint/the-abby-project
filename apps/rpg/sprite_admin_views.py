@@ -11,7 +11,7 @@ from rest_framework import permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from config.permissions import IsParent
+from config.permissions import IsParent, IsStaffParent
 
 from . import sprite_authoring as svc
 from .models import SpriteAsset
@@ -70,9 +70,14 @@ class SpriteAdminListView(APIView):
 
 
 class SpriteGenerateView(APIView):
-    """POST /api/sprites/admin/generate/ — create or replace via Gemini."""
+    """POST /api/sprites/admin/generate/ — create or replace via Gemini.
 
-    permission_classes = [permissions.IsAuthenticated, IsParent]
+    Sprites are GLOBAL content shared across every family — gate on
+    IsStaffParent so a signup-created parent can't burn a deployment's
+    Gemini budget seeding the public catalog with junk.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, IsStaffParent]
 
     def post(self, request):
         data = request.data
@@ -90,7 +95,7 @@ class SpriteGenerateView(APIView):
 class SpriteRerollView(APIView):
     """POST /api/sprites/admin/<slug>/reroll/ — replay stored inputs."""
 
-    permission_classes = [permissions.IsAuthenticated, IsParent]
+    permission_classes = [permissions.IsAuthenticated, IsStaffParent]
 
     def post(self, request, slug):
         try:
@@ -131,7 +136,7 @@ class SpriteRerollView(APIView):
 class SpriteAdminDetailView(APIView):
     """PATCH / DELETE /api/sprites/admin/<slug>/ — metadata edit + delete."""
 
-    permission_classes = [permissions.IsAuthenticated, IsParent]
+    permission_classes = [permissions.IsAuthenticated, IsStaffParent]
 
     def patch(self, request, slug):
         fps = request.data.get("fps")

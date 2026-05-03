@@ -13,7 +13,14 @@ from apps.projects.models import User
 
 class _Fixture(TestCase):
     def setUp(self):
+        # ``parent`` is a regular signup-created parent — not is_staff, so they
+        # cannot author global content (Skills/Badges/Subjects/Categories).
+        # ``staff_parent`` mirrors what ``createsuperuser`` and the seed-data
+        # founding parent get: is_staff=True, allowed to mutate global content.
         self.parent = User.objects.create_user(username="p", password="pw", role="parent")
+        self.staff_parent = User.objects.create_user(
+            username="sp", password="pw", role="parent", is_staff=True,
+        )
         self.child = User.objects.create_user(username="c", password="pw", role="child")
         self.client = APIClient()
         self.category = SkillCategory.objects.create(name="Cooking", icon="chef")
@@ -57,8 +64,19 @@ class BadgeViewSetTests(_Fixture):
         }, format="json")
         self.assertEqual(resp.status_code, 403)
 
-    def test_parent_can_create_badge(self):
+    def test_non_staff_parent_cannot_create_badge(self):
+        # Signup-created parents are not is_staff and must not be able to
+        # mutate the global Badge catalog visible to every other family.
         self.client.force_authenticate(self.parent)
+        resp = self.client.post("/api/badges/", {
+            "name": "Should Fail", "description": "x", "criteria_type": "first_project",
+            "criteria_value": {},
+        }, format="json")
+        self.assertEqual(resp.status_code, 403)
+        self.assertFalse(Badge.objects.filter(name="Should Fail").exists())
+
+    def test_staff_parent_can_create_badge(self):
+        self.client.force_authenticate(self.staff_parent)
         resp = self.client.post("/api/badges/", {
             "name": "Created", "description": "x", "criteria_type": "first_project",
             "criteria_value": {},
@@ -94,13 +112,21 @@ class UserBadgeModelScopingTests(_Fixture):
 
 
 class SubjectViewSetTests(_Fixture):
-    def test_parent_can_create_subject(self):
-        self.client.force_authenticate(self.parent)
+    def test_staff_parent_can_create_subject(self):
+        self.client.force_authenticate(self.staff_parent)
         resp = self.client.post("/api/subjects/", {
             "name": "Grilling", "category": self.category.id,
         }, format="json")
         self.assertIn(resp.status_code, (200, 201))
         self.assertTrue(Subject.objects.filter(name="Grilling").exists())
+
+    def test_non_staff_parent_cannot_create_subject(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post("/api/subjects/", {
+            "name": "Grilling", "category": self.category.id,
+        }, format="json")
+        self.assertEqual(resp.status_code, 403)
+        self.assertFalse(Subject.objects.filter(name="Grilling").exists())
 
     def test_child_cannot_create_subject(self):
         self.client.force_authenticate(self.child)
@@ -111,9 +137,35 @@ class SubjectViewSetTests(_Fixture):
 
 
 class SkillViewSetTests(_Fixture):
-    def test_parent_can_create_skill(self):
-        self.client.force_authenticate(self.parent)
+    def test_staff_parent_can_create_skill(self):
+        self.client.force_authenticate(self.staff_parent)
         resp = self.client.post("/api/skills/", {
             "name": "Searing", "category": self.category.id, "subject": self.subject.id,
         }, format="json")
         self.assertIn(resp.status_code, (200, 201))
+
+    def test_non_staff_parent_cannot_create_skill(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post("/api/skills/", {
+            "name": "Searing", "category": self.category.id, "subject": self.subject.id,
+        }, format="json")
+        self.assertEqual(resp.status_code, 403)
+        self.assertFalse(Skill.objects.filter(name="Searing").exists())
+
+
+class SkillCategoryViewSetTests(_Fixture):
+    def test_staff_parent_can_create_category(self):
+        self.client.force_authenticate(self.staff_parent)
+        resp = self.client.post("/api/categories/", {
+            "name": "Music", "icon": "music",
+        }, format="json")
+        self.assertIn(resp.status_code, (200, 201))
+        self.assertTrue(SkillCategory.objects.filter(name="Music").exists())
+
+    def test_non_staff_parent_cannot_create_category(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post("/api/categories/", {
+            "name": "Music", "icon": "music",
+        }, format="json")
+        self.assertEqual(resp.status_code, 403)
+        self.assertFalse(SkillCategory.objects.filter(name="Music").exists())

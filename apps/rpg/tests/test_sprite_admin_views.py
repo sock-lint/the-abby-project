@@ -78,7 +78,13 @@ class SpriteAdminListTests(TestCase):
 @override_settings(GEMINI_API_KEY="test-key")
 class SpriteGenerateViewTests(TestCase):
     def setUp(self):
+        # Sprites are global content shared across families; only staff parents
+        # may mutate the catalog. Non-staff signup parents (``parent`` here)
+        # must get 403.
         self.parent = User.objects.create_user(username="p", password="pw", role="parent")
+        self.staff_parent = User.objects.create_user(
+            username="sp", password="pw", role="parent", is_staff=True,
+        )
         self.child = User.objects.create_user(username="c", password="pw", role="child")
         self.client = APIClient()
 
@@ -91,10 +97,20 @@ class SpriteGenerateViewTests(TestCase):
         )
         self.assertEqual(resp.status_code, 403)
 
+    def test_generate_forbidden_for_non_staff_parent(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post(
+            reverse("sprite-admin-generate"),
+            {"slug": "should-fail", "prompt": "a fox"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 403)
+        self.assertFalse(SpriteAsset.objects.filter(slug="should-fail").exists())
+
     @patch("apps.rpg.sprite_generation._generate_frame")
     def test_generate_happy_path_persists_inputs(self, mock_frame):
         mock_frame.return_value = _png_bytes(size=(512, 512))
-        self.client.force_authenticate(self.parent)
+        self.client.force_authenticate(self.staff_parent)
         resp = self.client.post(
             reverse("sprite-admin-generate"),
             {
@@ -115,10 +131,10 @@ class SpriteGenerateViewTests(TestCase):
         self.assertEqual(asset.style_hint, "nes palette")
         self.assertEqual(asset.motion, "idle")
         self.assertEqual(asset.tile_size, 64)
-        self.assertEqual(asset.created_by, self.parent)
+        self.assertEqual(asset.created_by, self.staff_parent)
 
     def test_generate_missing_prompt_returns_400(self):
-        self.client.force_authenticate(self.parent)
+        self.client.force_authenticate(self.staff_parent)
         resp = self.client.post(
             reverse("sprite-admin-generate"),
             {"slug": "newt"},
@@ -132,16 +148,25 @@ class SpriteGenerateViewTests(TestCase):
 class SpriteRerollViewTests(TestCase):
     def setUp(self):
         self.parent = User.objects.create_user(username="p", password="pw", role="parent")
+        self.staff_parent = User.objects.create_user(
+            username="sp", password="pw", role="parent", is_staff=True,
+        )
         self.client = APIClient()
+        register_sprite(slug="rocky", image_b64=_png_b64(), actor=self.staff_parent)
+
+    def test_reroll_forbidden_for_non_staff_parent(self):
         self.client.force_authenticate(self.parent)
-        register_sprite(slug="rocky", image_b64=_png_b64(), actor=self.parent)
+        resp = self.client.post(reverse("sprite-admin-reroll", kwargs={"slug": "rocky"}))
+        self.assertEqual(resp.status_code, 403)
 
     def test_reroll_refuses_when_no_stored_prompt(self):
+        self.client.force_authenticate(self.staff_parent)
         resp = self.client.post(reverse("sprite-admin-reroll", kwargs={"slug": "rocky"}))
         self.assertEqual(resp.status_code, 400)
         self.assertIn("no stored prompt", resp.json()["detail"])
 
     def test_reroll_404_for_unknown_slug(self):
+        self.client.force_authenticate(self.staff_parent)
         resp = self.client.post(reverse("sprite-admin-reroll", kwargs={"slug": "ghost"}))
         self.assertEqual(resp.status_code, 404)
 
@@ -152,6 +177,7 @@ class SpriteRerollViewTests(TestCase):
             prompt="granite boulder", motion="idle", style_hint="moss",
             tile_size=64, reference_image_url="",
         )
+        self.client.force_authenticate(self.staff_parent)
 
         resp = self.client.post(reverse("sprite-admin-reroll", kwargs={"slug": "rocky"}))
         self.assertEqual(resp.status_code, 200, resp.content)
@@ -164,11 +190,30 @@ class SpriteRerollViewTests(TestCase):
 class SpriteAdminDetailTests(TestCase):
     def setUp(self):
         self.parent = User.objects.create_user(username="p", password="pw", role="parent")
+        self.staff_parent = User.objects.create_user(
+            username="sp", password="pw", role="parent", is_staff=True,
+        )
         self.client = APIClient()
+        register_sprite(slug="zed", image_b64=_png_b64(), pack="default", actor=self.staff_parent)
+
+    def test_patch_forbidden_for_non_staff_parent(self):
         self.client.force_authenticate(self.parent)
-        register_sprite(slug="zed", image_b64=_png_b64(), pack="default", actor=self.parent)
+        resp = self.client.patch(
+            reverse("sprite-admin-detail", kwargs={"slug": "zed"}),
+            {"pack": "custom"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(SpriteAsset.objects.get(slug="zed").pack, "default")
+
+    def test_delete_forbidden_for_non_staff_parent(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.delete(reverse("sprite-admin-detail", kwargs={"slug": "zed"}))
+        self.assertEqual(resp.status_code, 403)
+        self.assertTrue(SpriteAsset.objects.filter(slug="zed").exists())
 
     def test_patch_updates_pack(self):
+        self.client.force_authenticate(self.staff_parent)
         resp = self.client.patch(
             reverse("sprite-admin-detail", kwargs={"slug": "zed"}),
             {"pack": "custom"},
@@ -178,6 +223,7 @@ class SpriteAdminDetailTests(TestCase):
         self.assertEqual(SpriteAsset.objects.get(slug="zed").pack, "custom")
 
     def test_patch_empty_body_returns_400(self):
+        self.client.force_authenticate(self.staff_parent)
         resp = self.client.patch(
             reverse("sprite-admin-detail", kwargs={"slug": "zed"}),
             {},
@@ -186,10 +232,12 @@ class SpriteAdminDetailTests(TestCase):
         self.assertEqual(resp.status_code, 400)
 
     def test_delete_removes_row(self):
+        self.client.force_authenticate(self.staff_parent)
         resp = self.client.delete(reverse("sprite-admin-detail", kwargs={"slug": "zed"}))
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(SpriteAsset.objects.filter(slug="zed").exists())
 
     def test_delete_unknown_slug_returns_400(self):
+        self.client.force_authenticate(self.staff_parent)
         resp = self.client.delete(reverse("sprite-admin-detail", kwargs={"slug": "ghost"}))
         self.assertEqual(resp.status_code, 400)
