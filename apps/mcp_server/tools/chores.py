@@ -138,11 +138,15 @@ def list_chore_completions(params: ListChoreCompletionsIn) -> dict[str, Any]:
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
 
+    # Audit C3: when a parent calls without user_id, scope to their family
+    # rather than returning every household's completions in the deployment.
     qs = ChoreCompletion.objects.select_related("chore", "user")
     if user.role != "parent":
         qs = qs.filter(user=target)
     elif params.user_id:
         qs = qs.filter(user=target)
+    else:
+        qs = qs.filter(user__family=user.family)
 
     if params.status:
         qs = qs.filter(status=params.status)

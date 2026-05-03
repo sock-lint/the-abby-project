@@ -7,8 +7,8 @@ from apps.payments.models import PaymentLedger
 from apps.payments.services import PaymentService
 from apps.accounts.models import User
 
-from ..context import get_current_user, require_parent
-from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
+from ..context import get_current_user, require_parent, resolve_target_user
+from ..errors import MCPNotFoundError, safe_tool
 from ..schemas import (
     AdjustPaymentIn,
     GetPaymentBalanceIn,
@@ -19,23 +19,12 @@ from ..server import tool
 from ..shapes import payment_entry_to_dict, to_plain
 
 
-def _resolve_target(user, requested_id: int | None) -> User:
-    if requested_id is None or requested_id == user.id:
-        return user
-    if user.role != "parent":
-        raise MCPPermissionDenied("Children can only view their own payments.")
-    try:
-        return User.objects.get(pk=requested_id)
-    except User.DoesNotExist:
-        raise MCPNotFoundError(f"User {requested_id} not found.")
-
-
 @tool()
 @safe_tool
 def get_payment_balance(params: GetPaymentBalanceIn) -> dict[str, Any]:
     """Return monetary balance + breakdown, parallel to coin balance."""
     user = get_current_user()
-    target = _resolve_target(user, params.user_id)
+    target = resolve_target_user(user, params.user_id)
 
     balance = PaymentService.get_balance(target)
     breakdown = PaymentService.get_breakdown(target)
@@ -54,7 +43,7 @@ def get_payment_balance(params: GetPaymentBalanceIn) -> dict[str, Any]:
 def list_payment_ledger(params: ListPaymentLedgerIn) -> dict[str, Any]:
     """List PaymentLedger entries, optionally filtered by entry_type/since."""
     user = get_current_user()
-    target = _resolve_target(user, params.user_id)
+    target = resolve_target_user(user, params.user_id)
 
     qs = PaymentLedger.objects.filter(user=target)
     if params.entry_type:

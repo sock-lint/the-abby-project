@@ -16,7 +16,7 @@ from apps.accounts.models import User
 from apps.projects.models import Project
 from apps.timecards.models import TimeEntry
 
-from ..context import get_current_user
+from ..context import get_current_user, resolve_target_user
 from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
 from ..schemas import (
     DeleteHomeworkProofIn,
@@ -28,17 +28,6 @@ from ..schemas import (
 )
 from ..server import tool
 from ..shapes import project_photo_to_dict
-
-
-def _resolve_target(user, requested_id: int | None) -> User:
-    if requested_id is None or requested_id == user.id:
-        return user
-    if user.role != "parent":
-        raise MCPPermissionDenied("Children can only view their own portfolio.")
-    try:
-        return User.objects.get(pk=requested_id)
-    except User.DoesNotExist:
-        raise MCPNotFoundError(f"User {requested_id} not found.")
 
 
 @tool()
@@ -68,7 +57,7 @@ def list_project_photos(params: ListProjectPhotosIn) -> dict[str, Any]:
 def get_portfolio_summary(params: GetPortfolioSummaryIn) -> dict[str, Any]:
     """Aggregate counts for a user's portfolio: projects, photos, hours."""
     user = get_current_user()
-    target = _resolve_target(user, params.user_id)
+    target = resolve_target_user(user, params.user_id)
 
     completed_projects = Project.objects.filter(
         assigned_to=target, status="completed",
@@ -99,7 +88,7 @@ def list_portfolio_media(params: ListPortfolioMediaIn) -> dict[str, Any]:
     from apps.homework.models import HomeworkProof
 
     user = get_current_user()
-    target = _resolve_target(user, params.user_id)
+    target = resolve_target_user(user, params.user_id)
 
     photos = list(
         ProjectPhoto.objects.select_related("project")

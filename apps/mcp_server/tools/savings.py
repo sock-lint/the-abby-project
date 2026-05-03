@@ -3,10 +3,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.accounts.models import User
 from apps.projects.models import SavingsGoal
 
-from ..context import get_current_user
+from ..context import get_current_user, resolve_target_user
 from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
 from ..schemas import (
     CreateSavingsGoalIn,
@@ -18,23 +17,12 @@ from ..server import tool
 from ..shapes import savings_goal_to_dict
 
 
-def _resolve_target(user, requested_id: int | None) -> User:
-    if requested_id is None or requested_id == user.id:
-        return user
-    if user.role != "parent":
-        raise MCPPermissionDenied("Children can only view their own savings goals.")
-    try:
-        return User.objects.get(pk=requested_id)
-    except User.DoesNotExist:
-        raise MCPNotFoundError(f"User {requested_id} not found.")
-
-
 @tool()
 @safe_tool
 def list_savings_goals(params: ListSavingsGoalsIn) -> dict[str, Any]:
     """List a user's savings goals (children forced to self)."""
     user = get_current_user()
-    target = _resolve_target(user, params.user_id)
+    target = resolve_target_user(user, params.user_id)
 
     qs = SavingsGoal.objects.filter(user=target)
     if not params.include_completed:
