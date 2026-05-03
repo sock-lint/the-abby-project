@@ -184,7 +184,7 @@ class RegisterSpriteFromUrlTests(TestCase):
     def setUp(self):
         self.parent = User.objects.create_user(username="p3", password="pw", role="parent")
 
-    @patch("apps.rpg.sprite_authoring.requests.get")
+    @patch("apps.rpg.sprite_authoring.safe_get")
     def test_fetches_url_and_registers(self, mock_get):
         png_bytes = _png_bytes((32, 32))
         mock_get.return_value.status_code = 200
@@ -199,7 +199,7 @@ class RegisterSpriteFromUrlTests(TestCase):
         self.assertEqual(result["slug"], "fetched")
         mock_get.assert_called_once_with("https://example.com/a.png", timeout=15)
 
-    @patch("apps.rpg.sprite_authoring.requests.get")
+    @patch("apps.rpg.sprite_authoring.safe_get")
     def test_rejects_non_image_mime(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.content = b"<html>"
@@ -209,7 +209,7 @@ class RegisterSpriteFromUrlTests(TestCase):
             register_sprite(slug="x", image_url="http://e/x", actor=self.parent)
         self.assertIn("Content-Type", str(ctx.exception))
 
-    @patch("apps.rpg.sprite_authoring.requests.get")
+    @patch("apps.rpg.sprite_authoring.safe_get")
     def test_rejects_http_error(self, mock_get):
         mock_get.return_value.status_code = 404
         mock_get.return_value.raise_for_status = (
