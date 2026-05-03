@@ -1,4 +1,4 @@
-from rest_framework import mixins, permissions, status, viewsets
+from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
@@ -51,10 +51,13 @@ class HomeworkAssignmentViewSet(
         data = serializer.validated_data.copy()
         data["skill_tags"] = self.request.data.get("skill_tags", [])
 
-        # Children auto-assign to self.
         user = self.request.user
         if user.role == "child":
             data["assigned_to"] = user
+        elif not data.get("assigned_to"):
+            raise serializers.ValidationError(
+                {"assigned_to": "Parents must assign homework to a child."}
+            )
 
         return HomeworkService.create_assignment(user, data)
 

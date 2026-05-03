@@ -38,13 +38,13 @@ vi.mock('framer-motion', async () => {
   return { ...a, AnimatePresence: ({ children }) => children };
 });
 
-function renderPage(user, handlers = []) {
+function renderPage(user, handlers = [], { route = '/homework' } = {}) {
   server.use(
     http.get('*/api/auth/me/', () => HttpResponse.json(user)),
     ...handlers,
   );
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[route]}>
       <AuthProvider>
         <Homework />
       </AuthProvider>
@@ -165,6 +165,44 @@ describe('Homework', () => {
     expect(screen.queryByText(/^coins$/i)).not.toBeInTheDocument();
     // Child-facing helper copy explains the new reward shape.
     expect(screen.getByText(/xp, streaks, and a chance at loot/i)).toBeInTheDocument();
+  });
+
+  it('parent visiting /homework?new=1 from quick action auto-opens the form modal', async () => {
+    renderPage(buildParent(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({ pending_submissions: [] }),
+      ),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser({ id: 3 })])),
+    ], { route: '/homework?new=1' });
+    // Form modal should auto-open on mount, not require clicking "New assignment".
+    await waitFor(() =>
+      expect(screen.getByRole('dialog', { name: /new assignment/i })).toBeInTheDocument(),
+    );
+  });
+
+  it('parent new-assignment form blocks submit when no child is selected', async () => {
+    const user = userEvent.setup();
+    const create = spyHandler('post', /\/api\/homework\/$/, { ok: true });
+    renderPage(buildParent(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({ pending_submissions: [] }),
+      ),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser({ id: 3 })])),
+      create.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: /new assignment/i }));
+    await user.type(await screen.findByPlaceholderText(/^title$/i), 'No assignee yet');
+    const dialog = screen.getByRole('dialog', { name: /new assignment/i });
+    const dateInput = dialog.querySelector('input[type="date"]');
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    await user.type(dateInput, tomorrow);
+    // Bypass the HTML5 required attr to exercise the JS guard directly.
+    dialog.querySelector('form').noValidate = true;
+    await user.click(screen.getByRole('button', { name: /create assignment/i }));
+    expect(create.calls).toHaveLength(0);
+    expect(
+      await within(dialog).findByText(/please select a child/i),
+    ).toBeInTheDocument();
   });
 
   it('parent new-assignment form renders effort input but no currency inputs', async () => {

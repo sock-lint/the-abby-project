@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
@@ -25,6 +26,7 @@ import HomeworkFormModal from './HomeworkFormModal';
 
 export default function Homework() {
   const { isParent } = useRole();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { data: dashboard, loading, error, reload } = useApi(getHomeworkDashboard);
   const { data: childrenData } = useApi(isParent ? getChildren : null);
@@ -41,6 +43,16 @@ export default function Homework() {
   const openCreate = () => { setEditing(null); setShowForm(true); };
   const openEdit = (a) => { setEditing(a); setShowForm(true); };
   const closeForm = () => { setShowForm(false); setEditing(null); };
+
+  const didAutoOpen = useRef(false);
+  useEffect(() => {
+    if (!didAutoOpen.current && searchParams.get('new') === '1') {
+      didAutoOpen.current = true;
+      openCreate();
+      searchParams.delete('new');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleApprove = async (id) => {
     await approveHomeworkSubmission(id);

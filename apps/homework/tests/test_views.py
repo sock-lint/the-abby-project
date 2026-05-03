@@ -49,6 +49,23 @@ class HomeworkAssignmentCreateTests(_Fixture):
         self.assertNotIn("rewards_pending_review", resp.data)
 
     @patch("apps.rpg.services.GameLoopService.on_task_completed")
+    def test_parent_create_without_assigned_to_returns_400(self, _gl):
+        # The serializer marks ``assigned_to`` optional so children can omit
+        # it (auto-assigned to self in the viewset). For parents, the viewset
+        # requires it explicitly — without this guard the service would hit a
+        # NOT NULL FK and 500.
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post("/api/homework/", {
+            "title": "test thing",
+            "description": "longer test",
+            "subject": "math",
+            "due_date": (timezone.localdate() + timedelta(days=9)).isoformat(),
+            "effort_level": 3,
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("assigned_to", resp.data)
+
+    @patch("apps.rpg.services.GameLoopService.on_task_completed")
     def test_child_creates_auto_assigns_self(self, _gl):
         self.client.force_authenticate(self.child)
         resp = self.client.post("/api/homework/", {

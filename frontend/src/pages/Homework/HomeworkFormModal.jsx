@@ -44,6 +44,10 @@ export default function HomeworkFormModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isParent && !form.assigned_to) {
+      setError('Please select a child to assign this to.');
+      return;
+    }
     const payload = {
       title: form.title,
       description: form.description,

@@ -33,7 +33,9 @@
       "mcp__abby__list_skills",
       "mcp__abby__list_badges",
       "mcp__abby__list_quest_catalog",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(npm install *)",
+      "Bash(DATABASE_URL=\"sqlite:///tmp_test.db\" SECRET_KEY=\"x\" DJANGO_SETTINGS_MODULE=config.settings_test python manage.py test apps.homework -v2)"
     ]
   }
 }
