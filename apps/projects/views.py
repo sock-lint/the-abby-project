@@ -14,6 +14,7 @@ from config.permissions import IsParent
 from config.viewsets import (
     NestedProjectResourceMixin, ParentWritePermissionMixin,
     RoleFilteredQuerySetMixin,
+    filter_projects_accessible_to,
     get_child_or_404, child_not_found_response,
 )
 
@@ -529,7 +530,14 @@ class ProjectSuggestionsView(APIView):
 
 
 class ProjectQRCodeView(APIView):
-    """Generate a QR code for quick clock-in to a project."""
+    """Generate a QR code for quick clock-in to a project.
+
+    Audit H6: scopes the project lookup so a user can't generate a QR
+    (which leaks the project's title) for a foreign-family project by
+    guessing the id. Same access semantics as clock-in: the project must
+    be in the parent's family or assigned to / collaborated on by the
+    requesting child.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk=None):
@@ -537,9 +545,10 @@ class ProjectQRCodeView(APIView):
         import io
         from django.http import HttpResponse
 
-        try:
-            project = Project.objects.get(pk=pk)
-        except Project.DoesNotExist:
+        project = filter_projects_accessible_to(
+            request.user, Project.objects.all(),
+        ).filter(pk=pk).first()
+        if project is None:
             return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # QR data is a JSON payload with project ID and action

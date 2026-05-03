@@ -39,15 +39,60 @@ class RoleFilteredQuerySetMixin:
         )
 
 
+def filter_projects_accessible_to(user, queryset):
+    """Filter a ``Project`` queryset to those the user can see.
+
+    Parents see all projects in their family. Children see only projects
+    they're assigned to or collaborating on. Use this for any standalone
+    project lookup (clock-in, QR code) that takes a parent-supplied
+    project id — without it, a child can guess project ids from another
+    family and clock-in time / generate QR codes against them.
+    """
+    from django.db.models import Q
+    if user.role == "parent":
+        return queryset.filter(assigned_to__family=user.family)
+    return queryset.filter(
+        Q(assigned_to=user) | Q(collaborators__user=user),
+    ).distinct()
+
+
+def filter_resources_under_accessible_projects(
+    user, queryset, *, project_field="project",
+):
+    """Filter a queryset of project-nested resources to those whose parent
+    project the user can see (audit H5).
+
+    Mirrors :func:`filter_projects_accessible_to` but follows a
+    ``project_field`` lookup to traverse to the parent. Used by
+    :class:`NestedProjectResourceMixin` so a single fix propagates to
+    every nested viewset.
+    """
+    from django.db.models import Q
+    if user.role == "parent":
+        return queryset.filter(
+            **{f"{project_field}__assigned_to__family": user.family},
+        )
+    fa = f"{project_field}__assigned_to"
+    fc = f"{project_field}__collaborators__user"
+    return queryset.filter(Q(**{fa: user}) | Q(**{fc: user})).distinct()
+
+
 class NestedProjectResourceMixin:
     """Shared get_queryset/perform_create for resources nested under a project.
 
-    Expects the URL conf to capture ``project_pk``.
+    Expects the URL conf to capture ``project_pk``. Audit H5: also family-
+    scopes the result through the parent project so a user can't reach into
+    another family's project's nested rows by guessing an id. The standalone
+    ``project_id=`` filter narrows by the URL's project; the accessibility
+    filter blocks the cross-family path.
     """
 
     def get_queryset(self):
-        return super().get_queryset().filter(
+        qs = super().get_queryset().filter(
             project_id=self.kwargs.get("project_pk"),
+        )
+        return filter_resources_under_accessible_projects(
+            self.request.user, qs,
         )
 
     def perform_create(self, serializer):
