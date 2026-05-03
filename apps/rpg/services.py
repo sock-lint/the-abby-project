@@ -464,17 +464,30 @@ def safe_game_loop_call(user, trigger_type, context=None, *, log=None):
 
 
 class GameLoopService:
-    """Central orchestrator called after any task completion."""
+    """Central orchestrator called after any task completion.
+
+    Audit H7: implemented as a step pipeline (mirroring
+    ``apps/ingestion/pipeline/pipeline.py``). Each step runs inside its
+    own ``transaction.atomic()`` savepoint with a try/except so a
+    late-stage failure (a quest crash, a chronicle hiccup) can't
+    silently roll back early-stage writes (the streak update, the
+    check-in coin grant). The shared activity-correlation scope sits
+    OUTSIDE the per-step savepoints — every downstream emission still
+    shares one UUID, but the transactional fates are independent.
+
+    The previous implementation wrapped everything in a single outer
+    ``@transaction.atomic`` and mixed raise-or-swallow semantics across
+    steps. A drop-roll exception would unwind step 1's streak update;
+    a chronicle exception couldn't (caught), but the buffered writes
+    from earlier steps were still in-flight until the function returned.
+    """
 
     @staticmethod
-    @transaction.atomic
     def on_task_completed(user, trigger_type, context=None):
         if context is None:
             context = {}
 
-        from apps.activity.services import (
-            ActivityLogService, activity_scope, current_correlation_id,
-        )
+        from apps.activity.services import activity_scope, current_correlation_id
 
         # Re-enter the same scope if one is already open (chore approval
         # already wrapped us); otherwise open a fresh correlation scope so
@@ -486,142 +499,7 @@ class GameLoopService:
         )
 
         with scope_cm:
-            notifications = []
-
-            # Step 1: record daily activity
-            streak_result = StreakService.record_activity(user)
-
-            # Step 2: award check-in bonus coins if first activity today
-            bonus = streak_result["check_in_bonus_coins"]
-            if streak_result["is_first_today"] and bonus > 0:
-                from apps.rewards.models import CoinLedger
-                from apps.rewards.services import CoinService
-
-                # Suppress the inner ledger.coins.adjustment emission — the
-                # rpg.check_in_bonus row below is the canonical record of
-                # this calculation (base × multiplier = result).
-                with activity_scope(suppress_inner_ledger=True):
-                    CoinService.award_coins(
-                        user,
-                        bonus,
-                        CoinLedger.Reason.ADJUSTMENT,
-                        description="Daily check-in bonus",
-                    )
-                ActivityLogService.record(
-                    category="rpg",
-                    event_type="rpg.check_in_bonus",
-                    summary=f"Daily check-in bonus: +{bonus} coins",
-                    subject=user,
-                    coins_delta=int(bonus),
-                    breakdown=[
-                        {"label": "base", "value": BASE_CHECK_IN_COINS, "op": "×"},
-                        {"label": f"day {streak_result['streak']} multiplier",
-                         "value": streak_result["multiplier"], "op": "="},
-                        {"label": "coins awarded", "value": bonus, "op": "note"},
-                    ],
-                    extras={
-                        "base": BASE_CHECK_IN_COINS,
-                        "multiplier": streak_result["multiplier"],
-                        "streak": streak_result["streak"],
-                    },
-                )
-
-            # Step 3: streak milestone notification
-            streak = streak_result["streak"]
-            if streak in STREAK_MILESTONES:
-                from apps.notifications.services import notify
-
-                msg = f"Keep it up! You've been active {streak} days in a row."
-                notify(
-                    user,
-                    title=f"\U0001f525 {streak}-day streak!",
-                    message=msg,
-                    notification_type="streak_milestone",
-                    link="/",
-                )
-                notifications.append(f"{streak}-day streak milestone")
-
-            # Step 4: Drop roll
-            # Callers can set ``context["drops_allowed"]=False`` to suppress the
-            # drop roll while still recording streak + quest progress — used by
-            # daily-capped triggers like ``homework_created`` to prevent farming
-            # via "create 50 assignments then delete them."
-            streak_bonus = min(
-                streak_result["streak"] * STREAK_DROP_BONUS_PER_DAY,
-                STREAK_DROP_BONUS_CAP,
-            )
-            if context.get("drops_allowed", True):
-                drops = DropService.process_drops(user, trigger_type, streak_bonus)
-            else:
-                drops = []
-
-            if drops:
-                from apps.notifications.services import notify
-
-                drop_names = ", ".join(d["item_name"] for d in drops)
-                notify(
-                    user,
-                    title=f"Item dropped: {drop_names}",
-                    message=f"You found {drop_names}!",
-                    notification_type="badge_earned",
-                    link="/inventory",
-                )
-
-            # Step 5: Quest progress
-            quest_result = None
-            try:
-                from apps.quests.services import QuestService
-                quest_result = QuestService.record_progress(user, trigger_type, context)
-            except Exception:
-                logger.exception("Quest progress failed for user %s", user.pk)
-
-            if quest_result and quest_result.get("completed"):
-                notifications.append(f"Quest complete: {quest_result['quest_name']}")
-
-            # Step 5b: Daily challenge progress — lightweight slot separate
-            # from the main quest. Wrapped so the parent flow never breaks
-            # if the daily-challenge subsystem is misbehaving.
-            daily_result = None
-            try:
-                from apps.quests.services import DailyChallengeService
-                challenge, newly_complete = DailyChallengeService.record_progress(
-                    user, trigger_type, context,
-                )
-                if challenge:
-                    daily_result = {
-                        "challenge_id": challenge.pk,
-                        "challenge_type": challenge.challenge_type,
-                        "progress": challenge.current_progress,
-                        "target": challenge.target_value,
-                        "newly_completed": newly_complete,
-                    }
-                    if newly_complete:
-                        notifications.append(
-                            f"Daily challenge complete: "
-                            f"{challenge.get_challenge_type_display()}"
-                        )
-            except Exception:
-                logger.exception("Daily-challenge progress hook failed")
-
-            # Step 6: Chronicle firsts — wrapped so a chronicle failure never
-            # breaks the parent flow.
-            try:
-                result_chronicle = GameLoopService._record_chronicle_firsts(
-                    user, trigger_type, context
-                )
-            except Exception:  # pragma: no cover — defensive
-                logger.exception("Chronicle firsts hook failed")
-                result_chronicle = None
-
-            return {
-                "trigger_type": trigger_type,
-                "streak": streak_result,
-                "notifications": notifications,
-                "drops": drops,
-                "quest": quest_result,
-                "daily_challenge": daily_result,
-                "chronicle": result_chronicle,
-            }
+            return _GameLoopPipeline.run(user, trigger_type, context)
 
 
     @staticmethod
@@ -655,6 +533,203 @@ class GameLoopService:
 def _noop_scope():
     """No-op context manager used when we're already inside an activity scope."""
     yield
+
+
+# ===========================================================================
+# Game-loop pipeline (audit H7)
+# ===========================================================================
+#
+# Each step is a small function that takes (user, trigger_type, context,
+# result) and mutates result in place. ``_GameLoopPipeline.run`` iterates
+# the steps; each runs inside its own ``transaction.atomic()`` savepoint
+# with try/except, so a late-stage failure (a quest crash, a chronicle
+# hiccup) can't unwind the early-stage writes (the streak update, the
+# check-in coin grant). Step ordering is preserved exactly from the
+# pre-refactor implementation — the dependencies are:
+#
+#   record_activity → check_in_bonus  (bonus reads streak result)
+#   record_activity → milestone_notify (reads streak number)
+#   record_activity → drops            (reads streak for bonus rate)
+#
+# Steps that follow only read context-passed args, not mutated DB state
+# from earlier steps, so per-savepoint failure is safe — at worst a
+# downstream step works against slightly-stale data, never a half-applied
+# upstream write.
+
+def _step_record_activity(user, trigger_type, context, result):
+    """Step 1: streak + first-of-day flag. Required for the rest."""
+    result["streak"] = StreakService.record_activity(user)
+
+
+def _step_check_in_bonus(user, trigger_type, context, result):
+    """Step 2: award daily check-in coin bonus when first activity today."""
+    streak_result = result.get("streak")
+    if not streak_result:
+        return  # step 1 failed; nothing to award
+    bonus = streak_result["check_in_bonus_coins"]
+    if not (streak_result["is_first_today"] and bonus > 0):
+        return
+
+    from apps.activity.services import ActivityLogService, activity_scope
+    from apps.rewards.models import CoinLedger
+    from apps.rewards.services import CoinService
+
+    # Suppress the inner ledger.coins.adjustment emission — the
+    # rpg.check_in_bonus row below is the canonical record.
+    with activity_scope(suppress_inner_ledger=True):
+        CoinService.award_coins(
+            user,
+            bonus,
+            CoinLedger.Reason.ADJUSTMENT,
+            description="Daily check-in bonus",
+        )
+    ActivityLogService.record(
+        category="rpg",
+        event_type="rpg.check_in_bonus",
+        summary=f"Daily check-in bonus: +{bonus} coins",
+        subject=user,
+        coins_delta=int(bonus),
+        breakdown=[
+            {"label": "base", "value": BASE_CHECK_IN_COINS, "op": "×"},
+            {"label": f"day {streak_result['streak']} multiplier",
+             "value": streak_result["multiplier"], "op": "="},
+            {"label": "coins awarded", "value": bonus, "op": "note"},
+        ],
+        extras={
+            "base": BASE_CHECK_IN_COINS,
+            "multiplier": streak_result["multiplier"],
+            "streak": streak_result["streak"],
+        },
+    )
+
+
+def _step_streak_milestone(user, trigger_type, context, result):
+    """Step 3: notify on milestone streak day (3, 7, 14, …)."""
+    streak_result = result.get("streak")
+    if not streak_result:
+        return
+    streak = streak_result["streak"]
+    if streak not in STREAK_MILESTONES:
+        return
+    from apps.notifications.services import notify
+    msg = f"Keep it up! You've been active {streak} days in a row."
+    notify(
+        user,
+        title=f"\U0001f525 {streak}-day streak!",
+        message=msg,
+        notification_type="streak_milestone",
+        link="/",
+    )
+    result["notifications"].append(f"{streak}-day streak milestone")
+
+
+def _step_drops(user, trigger_type, context, result):
+    """Step 4: drop roll. Suppressible via context['drops_allowed']=False
+    for daily-capped triggers (e.g. ``homework_created``) that record
+    streak + quest progress without re-rolling drops."""
+    streak_result = result.get("streak")
+    streak = streak_result["streak"] if streak_result else 0
+    streak_bonus = min(
+        streak * STREAK_DROP_BONUS_PER_DAY,
+        STREAK_DROP_BONUS_CAP,
+    )
+    if not context.get("drops_allowed", True):
+        result["drops"] = []
+        return
+    drops = DropService.process_drops(user, trigger_type, streak_bonus)
+    result["drops"] = drops
+    if drops:
+        from apps.notifications.services import notify
+        drop_names = ", ".join(d["item_name"] for d in drops)
+        notify(
+            user,
+            title=f"Item dropped: {drop_names}",
+            message=f"You found {drop_names}!",
+            notification_type="badge_earned",
+            link="/inventory",
+        )
+
+
+def _step_quest_progress(user, trigger_type, context, result):
+    """Step 5: advance the user's active quest if any matches the trigger."""
+    from apps.quests.services import QuestService
+    quest_result = QuestService.record_progress(user, trigger_type, context)
+    result["quest"] = quest_result
+    if quest_result and quest_result.get("completed"):
+        result["notifications"].append(
+            f"Quest complete: {quest_result['quest_name']}",
+        )
+
+
+def _step_daily_challenge(user, trigger_type, context, result):
+    """Step 5b: advance today's daily challenge if its type matches."""
+    from apps.quests.services import DailyChallengeService
+    challenge, newly_complete = DailyChallengeService.record_progress(
+        user, trigger_type, context,
+    )
+    if not challenge:
+        return
+    result["daily_challenge"] = {
+        "challenge_id": challenge.pk,
+        "challenge_type": challenge.challenge_type,
+        "progress": challenge.current_progress,
+        "target": challenge.target_value,
+        "newly_completed": newly_complete,
+    }
+    if newly_complete:
+        result["notifications"].append(
+            f"Daily challenge complete: "
+            f"{challenge.get_challenge_type_display()}",
+        )
+
+
+def _step_chronicle_firsts(user, trigger_type, context, result):
+    """Step 6: record first-ever events to the chronicle if applicable."""
+    result["chronicle"] = GameLoopService._record_chronicle_firsts(
+        user, trigger_type, context,
+    )
+
+
+class _GameLoopPipeline:
+    """Step list + per-step savepoint runner. See module-level audit-H7
+    block for the design rationale."""
+
+    STEPS = (
+        _step_record_activity,
+        _step_check_in_bonus,
+        _step_streak_milestone,
+        _step_drops,
+        _step_quest_progress,
+        _step_daily_challenge,
+        _step_chronicle_firsts,
+    )
+
+    @classmethod
+    def run(cls, user, trigger_type, context):
+        result = {
+            "trigger_type": trigger_type,
+            "streak": None,
+            "notifications": [],
+            "drops": [],
+            "quest": None,
+            "daily_challenge": None,
+            "chronicle": None,
+        }
+        for step in cls.STEPS:
+            try:
+                with transaction.atomic():
+                    step(user, trigger_type, context, result)
+            except Exception:
+                # One failed step never blocks subsequent steps. The
+                # savepoint rollback contains the failed step's writes;
+                # earlier and later steps remain committed.
+                logger.exception(
+                    "GameLoop step %s failed for user=%s trigger=%s",
+                    step.__name__,
+                    getattr(user, "pk", "?"),
+                    trigger_type,
+                )
+        return result
 
 
 class ConsumableService:
