@@ -98,6 +98,31 @@ class CreationViewSet(
         CreationService.submit_for_bonus(creation)
         return Response(CreationSerializer(creation).data)
 
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def withdraw(self, request, pk=None):
+        """Owner (or parent) cancels a pending bonus request.
+
+        Reverts the status from PENDING back to LOGGED. The creation
+        itself stays in the sketchbook with its baseline XP intact —
+        only the bonus-review queue entry goes away. 400s on any other
+        status so an approved bonus can't be silently un-awarded.
+        """
+        creation = self.get_object()
+        if request.user.role != "parent" and creation.user_id != request.user.id:
+            raise PermissionDenied("You can only withdraw your own creations.")
+        if creation.status != Creation.Status.PENDING:
+            return Response(
+                {
+                    "error": (
+                        "Only pending bonus requests can be withdrawn. "
+                        "Approved or rejected ones are part of the record."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        CreationService.withdraw_bonus_request(creation)
+        return Response(CreationSerializer(creation).data)
+
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def approve(self, request, pk=None):
         creation = self.get_object()

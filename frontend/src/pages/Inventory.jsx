@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { consumeInventoryItem, getInventory, openCoinPouch } from '../api';
+import {
+  consumeInventoryItem,
+  getCharacterProfile,
+  getInventory,
+  openCoinPouch,
+} from '../api';
 import { useApi } from '../hooks/useApi';
 import Button from '../components/Button';
 import Loader from '../components/Loader';
@@ -11,6 +16,7 @@ import DeckleDivider from '../components/journal/DeckleDivider';
 import RuneBadge from '../components/journal/RuneBadge';
 import { EggIcon } from '../components/icons/JournalIcons';
 import RpgSprite from '../components/rpg/RpgSprite';
+import BoostStrip from '../components/rpg/BoostStrip';
 import { normalizeList } from '../utils/api';
 import { RARITY_PILL_COLORS, RARITY_RING_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem } from '../motion/variants';
@@ -28,12 +34,27 @@ const TYPE_COMPARTMENTS = [
   { id: 'consumable', label: 'Consumables', kicker: 'one-use charms', glyph: 'wax-seal' },
 ];
 
+// Effects whose timer / single-target nature means using N at once is
+// useless — the backend rejects ``quantity > 1`` for these. Mirror the
+// list so the UI doesn't show a stepper that would always 400.
+const STACK_UNSAFE_EFFECTS = new Set([
+  'streak_freeze', 'xp_boost', 'coin_boost', 'drop_boost',
+  'rage_breaker', 'quest_reroll',
+]);
+
 export default function Inventory() {
   const navigate = useNavigate();
   const { data, loading, reload } = useApi(getInventory);
+  const { data: profile, reload: reloadProfile } = useApi(getCharacterProfile);
   const items = normalizeList(data);
   const [busyId, setBusyId] = useState(null);
   const [flash, setFlash] = useState(null);
+  // Per-entry pending "use N" amount, keyed by inventory row id.
+  // Defaults to 1; only matters for stack-safe consumables with qty > 1.
+  const [bulkAmounts, setBulkAmounts] = useState({});
+
+  const setBulk = (entryId, value) =>
+    setBulkAmounts((prev) => ({ ...prev, [entryId]: value }));
 
   const handleAction = async (entry, action) => {
     if (action.to) {
@@ -47,7 +68,11 @@ export default function Inventory() {
       if (action.id === 'open') {
         result = await openCoinPouch(entry.item.id);
       } else if (action.id === 'use') {
-        result = await consumeInventoryItem(entry.item.id);
+        const quantity = Math.max(
+          1,
+          Math.min(bulkAmounts[entry.id] || 1, entry.quantity || 1),
+        );
+        result = await consumeInventoryItem(entry.item.id, quantity);
       } else {
         throw new Error('That item action is not available yet.');
       }
@@ -55,8 +80,18 @@ export default function Inventory() {
         name: entry.item.name,
         effect: result?.effect,
         coins: result?.coins_awarded,
+        used: result?.quantity_used,
       });
+      // Reset the per-row stepper after a successful bulk use so the
+      // next interaction starts at 1 instead of inheriting the just-used
+      // value (especially relevant after a partial consumption that
+      // leaves some quantity behind).
+      setBulk(entry.id, 1);
       if (reload) await reload();
+      // Boost timers live on CharacterProfile, not on the inventory row —
+      // refetch separately so the BoostStrip reflects the consumable we
+      // just used (or the count drop on growth_tonic feeds).
+      if (reloadProfile) await reloadProfile();
     } catch (err) {
       setFlash({ error: err?.message || 'Could not use item.' });
     } finally {
@@ -87,6 +122,7 @@ export default function Inventory() {
         <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
           drops fall from clocked work, duties, study, and quests · the ringed colour is rarity, common to legendary
         </div>
+        <BoostStrip profile={profile} className="mt-3" />
       </header>
 
       {flash && (
@@ -102,7 +138,9 @@ export default function Inventory() {
             ? flash.error
             : flash.coins
               ? `Opened ${flash.name}. You gained ${flash.coins} coins.`
-              : `Used ${flash.name}. ${effectMessage(flash.effect)}`}
+              : flash.used && flash.used > 1
+                ? `Used ${flash.used} × ${flash.name}. ${effectMessage(flash.effect)}`
+                : `Used ${flash.name}. ${effectMessage(flash.effect)}`}
         </div>
       )}
 
@@ -161,18 +199,43 @@ export default function Inventory() {
                         {entry.item.rarity_display}
                       </span>
                     </div>
-                    {(entry.available_actions || []).map((action) => (
-                      <Button
-                        key={action.id}
-                        size="sm"
-                        variant={action.to ? 'secondary' : 'primary'}
-                        onClick={() => handleAction(entry, action)}
-                        disabled={busyId === entry.id}
-                        className="mt-2 w-full"
-                      >
-                        {busyId === entry.id ? 'Working…' : action.label}
-                      </Button>
-                    ))}
+                    {(entry.available_actions || []).map((action) => {
+                      const effect = entry.item.metadata?.effect;
+                      const isStackable =
+                        action.id === 'use'
+                        && entry.quantity > 1
+                        && effect
+                        && !STACK_UNSAFE_EFFECTS.has(effect);
+                      const useAmount = Math.max(
+                        1,
+                        Math.min(bulkAmounts[entry.id] || 1, entry.quantity),
+                      );
+                      return (
+                        <div key={action.id} className="mt-2 w-full">
+                          {isStackable && (
+                            <BulkStepper
+                              value={useAmount}
+                              max={entry.quantity}
+                              onChange={(v) => setBulk(entry.id, v)}
+                              disabled={busyId === entry.id}
+                            />
+                          )}
+                          <Button
+                            size="sm"
+                            variant={action.to ? 'secondary' : 'primary'}
+                            onClick={() => handleAction(entry, action)}
+                            disabled={busyId === entry.id}
+                            className="w-full"
+                          >
+                            {busyId === entry.id
+                              ? 'Working…'
+                              : isStackable
+                              ? `${action.label} × ${useAmount}`
+                              : action.label}
+                          </Button>
+                        </div>
+                      );
+                    })}
                     {entry.quantity > 1 && (
                       <div className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1 rounded-full bg-ember-deep text-ink-page-rune-glow font-rune text-tiny font-bold flex items-center justify-center border border-ember">
                         ×{entry.quantity}
@@ -185,6 +248,45 @@ export default function Inventory() {
           </section>
         ))
       )}
+    </div>
+  );
+}
+
+function BulkStepper({ value, max, onChange, disabled }) {
+  const dec = () => onChange(Math.max(1, value - 1));
+  const inc = () => onChange(Math.min(max, value + 1));
+  const useAll = () => onChange(max);
+  return (
+    <div className="flex items-center justify-center gap-1.5 mb-1.5">
+      <button
+        type="button"
+        onClick={dec}
+        disabled={disabled || value <= 1}
+        aria-label="Use one fewer"
+        className="w-6 h-6 rounded-full bg-ink-page-shadow/40 hover:bg-ink-page-shadow/70 text-ink-primary text-sm leading-none disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        −
+      </button>
+      <span className="font-script text-tiny text-ink-secondary tabular-nums min-w-[2.5rem] text-center">
+        {value} / {max}
+      </span>
+      <button
+        type="button"
+        onClick={inc}
+        disabled={disabled || value >= max}
+        aria-label="Use one more"
+        className="w-6 h-6 rounded-full bg-ink-page-shadow/40 hover:bg-ink-page-shadow/70 text-ink-primary text-sm leading-none disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        +
+      </button>
+      <button
+        type="button"
+        onClick={useAll}
+        disabled={disabled || value >= max}
+        className="font-script text-tiny text-sheikah-teal-deep hover:text-sheikah-teal underline-offset-2 hover:underline disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        all
+      </button>
     </div>
   );
 }

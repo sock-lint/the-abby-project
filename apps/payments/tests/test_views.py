@@ -45,6 +45,82 @@ class PaymentLedgerViewSetTests(_Fixture):
         self.assertEqual(resp.status_code, 401)
 
 
+class PaymentLedgerFilterTests(_Fixture):
+    def setUp(self):
+        super().setUp()
+        PaymentService.record_entry(self.child, Decimal("5"), PaymentLedger.EntryType.HOURLY)
+        PaymentService.record_entry(self.child, Decimal("3"), PaymentLedger.EntryType.CHORE_REWARD)
+        PaymentService.record_entry(self.other_child, Decimal("7"), PaymentLedger.EntryType.HOURLY)
+
+    def test_entry_type_filter_narrows_results(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.get("/api/payments/?entry_type=chore_reward")
+        items = resp.json().get("results", resp.json())
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["entry_type"], "chore_reward")
+
+    def test_entry_type_supports_multiple_csv(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.get("/api/payments/?entry_type=hourly,chore_reward")
+        items = resp.json().get("results", resp.json())
+        self.assertEqual(len(items), 3)
+
+    def test_unknown_entry_type_silently_ignored(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.get("/api/payments/?entry_type=fake_type")
+        # No matches — but the response is still 200 (not 400) so the
+        # filter UI doesn't break on a typo.
+        items = resp.json().get("results", resp.json())
+        self.assertEqual(len(items), 3)
+
+    def test_user_id_filter_narrows_to_one_child(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.get(f"/api/payments/?user_id={self.child.id}")
+        items = resp.json().get("results", resp.json())
+        self.assertEqual(len(items), 2)
+        self.assertTrue(all(it["user"] == self.child.id for it in items))
+
+    def test_child_user_id_param_is_ignored(self):
+        """A child passing user_id=<sibling> sees only their own rows.
+
+        The user_id narrowing only applies for parent callers; for
+        children the role filter has already scoped the queryset to
+        self, and the param is silently ignored. Cross-family widening
+        was never on the table.
+        """
+        self.client.force_authenticate(self.child)
+        resp = self.client.get(f"/api/payments/?user_id={self.other_child.id}")
+        items = resp.json().get("results", resp.json())
+        self.assertEqual(len(items), 2)
+        self.assertTrue(all(it["user"] == self.child.id for it in items))
+
+    def test_csv_export_returns_streamable_csv_for_parent(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.get("/api/payments/export/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "text/csv")
+        self.assertIn("payment-ledger.csv", resp["Content-Disposition"])
+        body = resp.content.decode("utf-8").splitlines()
+        # Header + 3 data rows.
+        self.assertEqual(len(body), 4)
+        self.assertEqual(
+            body[0],
+            "created_at,user,entry_type,amount,description,id",
+        )
+
+    def test_csv_export_honors_filters(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.get("/api/payments/export/?entry_type=hourly")
+        body = resp.content.decode("utf-8").splitlines()
+        # Header + 2 hourly rows.
+        self.assertEqual(len(body), 3)
+
+    def test_csv_export_child_forbidden(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/payments/export/")
+        self.assertEqual(resp.status_code, 403)
+
+
 class BalanceViewTests(_Fixture):
     def test_balance_for_self(self):
         PaymentService.record_entry(self.child, Decimal("10"), PaymentLedger.EntryType.HOURLY)

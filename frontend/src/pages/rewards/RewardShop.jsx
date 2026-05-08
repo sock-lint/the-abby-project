@@ -3,7 +3,7 @@ import RewardCard from './RewardCard';
 
 export default function RewardShop({
   rewards, isParent, coinBalance,
-  onRedeem, onEdit, onDelete,
+  onRedeem, onEdit, onDelete, onToggleWishlist,
 }) {
   return (
     <section>
@@ -26,6 +26,7 @@ export default function RewardShop({
             onRedeem={onRedeem}
             onEdit={onEdit}
             onDelete={onDelete}
+            onToggleWishlist={onToggleWishlist}
           />
         ))}
       </div>

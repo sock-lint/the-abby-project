@@ -36,6 +36,22 @@ class _HomeworkXpTag:
     xp_weight: int
 
 
+# Effort-level XP scaling. effort_level is a 1-5 hint set when an assignment
+# is created — previously it only affected sort order and the AI planning
+# prompt. We now multiply the per-tag XP pool by these factors so a harder
+# assignment is genuinely worth more. Effort 3 (the default) is 1.0x — i.e.
+# pre-existing assignments keep their current reward shape; only 1/2 (easy)
+# get a smaller pool and only 4/5 (hard) get a bigger one. Tuned so a 5-effort
+# assignment is roughly 3x the XP of a 1-effort one with the same tags.
+EFFORT_XP_FACTOR = {1: 0.6, 2: 0.8, 3: 1.0, 4: 1.4, 5: 1.8}
+
+
+def _scale_xp_by_effort(total_xp, effort_level):
+    """Apply the effort multiplier and round to int. Defensive on missing keys."""
+    factor = EFFORT_XP_FACTOR.get(effort_level, 1.0)
+    return int(round(total_xp * factor))
+
+
 class HomeworkError(Exception):
     pass
 
@@ -315,7 +331,13 @@ class HomeworkService:
         # explicit BadgeService.evaluate_badges call that used to live here
         # is no longer needed.
         homework_tags = list(assignment.skill_tags.select_related("skill"))
-        total_xp = sum(tag.xp_amount for tag in homework_tags)
+        # Scale the per-tag pool by effort_level (1-5). Default effort 3 is
+        # 1.0x so existing assignments keep their current reward shape.
+        # AwardService distributes pool * weight / sum_of_weights to each
+        # tag, so multiplying just the pool propagates the factor evenly
+        # across all tags without changing their proportional split.
+        raw_xp = sum(tag.xp_amount for tag in homework_tags)
+        total_xp = _scale_xp_by_effort(raw_xp, assignment.effort_level)
         if total_xp > 0:
             shim_tags = [
                 _HomeworkXpTag(skill=tag.skill, xp_weight=tag.xp_amount)

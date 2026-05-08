@@ -163,6 +163,45 @@ class HomeworkSubmissionViewSetTests(_Fixture):
         self.assertEqual(len(resp.json()["results"]), 1)
 
 
+class HomeworkSubmissionWithdrawTests(_Fixture):
+    def setUp(self):
+        super().setUp()
+        self.hw = HomeworkAssignment.objects.create(
+            title="Essay", subject="writing", effort_level=3,
+            due_date=timezone.localdate() + timedelta(days=1),
+            assigned_to=self.child, created_by=self.parent,
+        )
+        self.submission = HomeworkSubmission.objects.create(
+            assignment=self.hw, user=self.child, status="pending",
+            timeliness="on_time",
+        )
+        self.proof = HomeworkProof.objects.create(
+            submission=self.submission, caption="page 1",
+        )
+
+    def test_owner_can_withdraw_pending(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(f"/api/homework-submissions/{self.submission.id}/withdraw/")
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(HomeworkSubmission.objects.filter(id=self.submission.id).exists())
+        # Cascading proofs go with it.
+        self.assertFalse(HomeworkProof.objects.filter(id=self.proof.id).exists())
+        # Assignment itself stays — only the submission was undone.
+        self.assertTrue(HomeworkAssignment.objects.filter(id=self.hw.id).exists())
+
+    def test_parent_cannot_withdraw_others_submission(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post(f"/api/homework-submissions/{self.submission.id}/withdraw/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_cannot_withdraw_after_approval(self):
+        self.submission.status = "approved"
+        self.submission.save()
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(f"/api/homework-submissions/{self.submission.id}/withdraw/")
+        self.assertEqual(resp.status_code, 400)
+
+
 
 class HomeworkProofDeleteTests(_Fixture):
     def setUp(self):

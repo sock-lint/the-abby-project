@@ -4,9 +4,12 @@ from decimal import Decimal
 from django.test import TestCase
 from rest_framework.test import APIClient
 
+from apps.notifications.models import Notification, NotificationType
 from apps.payments.services import PaymentService
 from apps.projects.models import User
-from apps.rewards.models import CoinLedger, ExchangeRequest, Reward, RewardRedemption
+from apps.rewards.models import (
+    CoinLedger, ExchangeRequest, Reward, RewardRedemption, RewardWishlist,
+)
 from apps.rewards.services import CoinService, RewardService
 from apps.rpg.models import ItemDefinition
 
@@ -99,6 +102,126 @@ class RewardViewSetTests(_Fixture):
         self.client.force_authenticate(self.child)
         resp = self.client.post(f"/api/rewards/{self.active.pk}/redeem/")
         self.assertEqual(resp.status_code, 400)
+
+
+class RewardOutOfStockAndWishlistTests(_Fixture):
+    """Wishlist toggle + 409 OOS payload + restock fanout."""
+
+    def setUp(self):
+        super().setUp()
+        # Two rewards in the same family — one out of stock, one as a peer.
+        self.oos = Reward.objects.create(
+            name="Sold-Out Sticker", cost_coins=20, stock=0, is_active=True,
+        )
+        self.peer = Reward.objects.create(
+            name="Peer Sticker", cost_coins=22, stock=5, is_active=True,
+        )
+        # Make sure both are in the same family so the queryset includes them.
+        self.peer.family = self.oos.family
+        self.peer.save()
+        CoinService.award_coins(self.child, 200, CoinLedger.Reason.HOURLY)
+
+    def test_redeem_oos_returns_409_with_similar(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(f"/api/rewards/{self.oos.pk}/redeem/")
+        self.assertEqual(resp.status_code, 409)
+        body = resp.json()
+        self.assertEqual(body["code"], "out_of_stock")
+        # At least one similar reward returned.
+        self.assertGreaterEqual(len(body["similar"]), 1)
+        peer_ids = {r["id"] for r in body["similar"]}
+        self.assertIn(self.peer.pk, peer_ids)
+        # The OOS reward itself is excluded from "similar".
+        self.assertNotIn(self.oos.pk, peer_ids)
+
+    def test_post_to_wishlist_creates_entry(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(f"/api/rewards/{self.oos.pk}/wishlist/")
+        self.assertEqual(resp.status_code, 201)
+        self.assertTrue(
+            RewardWishlist.objects.filter(user=self.child, reward=self.oos).exists()
+        )
+
+    def test_post_to_wishlist_is_idempotent(self):
+        self.client.force_authenticate(self.child)
+        self.client.post(f"/api/rewards/{self.oos.pk}/wishlist/")
+        resp = self.client.post(f"/api/rewards/{self.oos.pk}/wishlist/")
+        # Second POST returns 200 not 201 — the row already existed.
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            RewardWishlist.objects.filter(user=self.child, reward=self.oos).count(),
+            1,
+        )
+
+    def test_delete_wishlist_removes_entry(self):
+        RewardWishlist.objects.create(user=self.child, reward=self.oos)
+        self.client.force_authenticate(self.child)
+        resp = self.client.delete(f"/api/rewards/{self.oos.pk}/wishlist/")
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(
+            RewardWishlist.objects.filter(user=self.child, reward=self.oos).exists()
+        )
+
+    def test_restock_notifies_wishlisted_users_and_clears(self):
+        """When stock flips 0 → ≥1, notify every wishlist user once and
+        wipe their wishlist rows so a future cycle doesn't re-spam."""
+        RewardWishlist.objects.create(user=self.child, reward=self.oos)
+        self.client.force_authenticate(self.parent)
+        resp = self.client.patch(
+            f"/api/rewards/{self.oos.pk}/", {"stock": 5}, format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        # Notification fired exactly once for the wishlist user.
+        notifs = Notification.objects.filter(
+            user=self.child,
+            notification_type=NotificationType.REWARD_RESTOCKED,
+        )
+        self.assertEqual(notifs.count(), 1)
+        # Wishlist row cleared so re-out-of-stock → re-restock doesn't re-fire.
+        self.assertFalse(
+            RewardWishlist.objects.filter(user=self.child, reward=self.oos).exists()
+        )
+
+    def test_no_restock_notification_when_stock_unchanged(self):
+        """A PATCH that leaves stock at 0 must NOT fire a restock alert."""
+        RewardWishlist.objects.create(user=self.child, reward=self.oos)
+        self.client.force_authenticate(self.parent)
+        # Edit name only — stock stays 0.
+        self.client.patch(
+            f"/api/rewards/{self.oos.pk}/", {"name": "Renamed"}, format="json",
+        )
+        notifs = Notification.objects.filter(
+            user=self.child,
+            notification_type=NotificationType.REWARD_RESTOCKED,
+        )
+        self.assertEqual(notifs.count(), 0)
+        # Wishlist row left alone since no restock happened.
+        self.assertTrue(
+            RewardWishlist.objects.filter(user=self.child, reward=self.oos).exists()
+        )
+
+    def test_my_wishlist_lists_only_own(self):
+        other_child = User.objects.create_user(
+            username="c2", password="pw", role="child",
+        )
+        RewardWishlist.objects.create(user=self.child, reward=self.oos)
+        RewardWishlist.objects.create(user=other_child, reward=self.peer)
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/rewards/my-wishlist/")
+        self.assertEqual(resp.status_code, 200)
+        ids = [r["id"] for r in resp.json()]
+        self.assertEqual(ids, [self.oos.pk])
+
+    def test_serializer_exposes_on_my_wishlist(self):
+        RewardWishlist.objects.create(user=self.child, reward=self.oos)
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/rewards/")
+        body = resp.json()
+        # DRF list view may be paginated (results: [...]) or flat — handle both.
+        items = body.get("results") if isinstance(body, dict) else body
+        rewards = {r["id"]: r for r in items}
+        self.assertTrue(rewards[self.oos.pk]["on_my_wishlist"])
+        self.assertFalse(rewards[self.peer.pk]["on_my_wishlist"])
 
 
 # ── RewardRedemptionViewSet ──────────────────────────────────────────────

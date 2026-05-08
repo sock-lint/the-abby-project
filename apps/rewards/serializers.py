@@ -10,6 +10,7 @@ class RewardSerializer(serializers.ModelSerializer):
     item_definition_detail = ItemDefinitionSerializer(
         source="item_definition", read_only=True,
     )
+    on_my_wishlist = serializers.SerializerMethodField()
 
     class Meta:
         model = Reward
@@ -17,7 +18,24 @@ class RewardSerializer(serializers.ModelSerializer):
             "id", "name", "description", "icon", "image", "cost_coins",
             "rarity", "stock", "requires_parent_approval", "is_active", "order",
             "fulfillment_kind", "item_definition", "item_definition_detail",
+            "on_my_wishlist",
         ]
+
+    def get_on_my_wishlist(self, obj):
+        request = self.context.get("request")
+        if not request or not getattr(request.user, "is_authenticated", False):
+            return False
+        # Use the prefetched manager when present (list view) so we don't
+        # fire one query per row. Falls back to a direct query when the
+        # serializer is invoked outside the viewset (e.g. from a
+        # redemption response).
+        cached = getattr(obj, "_my_wishlist_user_ids", None)
+        if cached is not None:
+            return request.user.id in cached
+        from .models import RewardWishlist
+        return RewardWishlist.objects.filter(
+            user=request.user, reward=obj,
+        ).exists()
 
 
 class RewardWriteSerializer(serializers.ModelSerializer):

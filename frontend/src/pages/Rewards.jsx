@@ -4,6 +4,7 @@ import {
   approveExchange, approveRedemption, rejectExchange, rejectRedemption,
   deleteReward, getCoinBalance, getExchangeRate, getExchangeRequests,
   getRedemptions, getRewards, redeemReward,
+  addRewardToWishlist, removeRewardFromWishlist,
 } from '../api';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ErrorAlert from '../components/ErrorAlert';
@@ -36,6 +37,7 @@ export default function Rewards() {
   const [editingReward, setEditingReward] = useState(null);
   const [showCoinAdjust, setShowCoinAdjust] = useState(false);
   const [showExchange, setShowExchange] = useState(false);
+  const [outOfStock, setOutOfStock] = useState(null);
   const { confirmState, askConfirm, closeConfirm } = useConfirmState();
 
   const refresh = () => {
@@ -47,6 +49,26 @@ export default function Rewards() {
     try {
       await redeemReward(reward.id);
       refresh();
+    } catch (e) {
+      // 409 with code:"out_of_stock" → degrade to a friendly modal that
+      // offers similar rewards + a "notify me" toggle, instead of just
+      // bouncing an error toast that leaves the kid stranded.
+      if (e?.status === 409 && e.response?.code === 'out_of_stock') {
+        setOutOfStock({ reward, similar: e.response.similar || [] });
+        return;
+      }
+      setError(e.message);
+    }
+  };
+
+  const handleToggleWishlist = async (reward) => {
+    try {
+      if (reward.on_my_wishlist) {
+        await removeRewardFromWishlist(reward.id);
+      } else {
+        await addRewardToWishlist(reward.id);
+      }
+      reloadRewards();
     } catch (e) { setError(e.message); }
   };
 
@@ -149,6 +171,7 @@ export default function Rewards() {
         onRedeem={handleRedeem}
         onEdit={handleEditReward}
         onDelete={handleDeleteReward}
+        onToggleWishlist={isParent ? undefined : handleToggleWishlist}
       />
 
       <RedemptionHistory redemptions={redemptions} isParent={isParent} />
@@ -190,6 +213,78 @@ export default function Rewards() {
           onCancel={closeConfirm}
         />
       )}
+
+      {outOfStock && (
+        <OutOfStockSheet
+          state={outOfStock}
+          onClose={() => setOutOfStock(null)}
+          onWishlist={async () => {
+            try {
+              await addRewardToWishlist(outOfStock.reward.id);
+              await reloadRewards();
+              setOutOfStock(null);
+            } catch (e) { setError(e.message); }
+          }}
+          onPickSimilar={async (similar) => {
+            setOutOfStock(null);
+            await handleRedeem(similar);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function OutOfStockSheet({ state, onClose, onWishlist, onPickSimilar }) {
+  const { reward, similar } = state;
+  return (
+    <div
+      role="dialog"
+      aria-labelledby="oos-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-primary/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-ink-page rounded-lg shadow-xl max-w-md w-full p-5 space-y-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="oos-title" className="font-display text-xl text-ink-primary">
+          {reward.icon} {reward.name} — sold out
+        </h2>
+        <p className="font-body text-sm text-ink-secondary">
+          This one's been claimed for now. Want a heads-up when it's back?
+        </p>
+        <Button onClick={onWishlist} variant="primary" size="sm" className="w-full">
+          Notify me when restocked
+        </Button>
+        {similar.length > 0 && (
+          <div>
+            <div className="font-script text-sm text-sheikah-teal-deep mt-2 mb-1.5">
+              you might also like
+            </div>
+            <div className="space-y-1.5">
+              {similar.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => onPickSimilar(s)}
+                  className="w-full text-left flex items-center justify-between gap-2 p-2 bg-ink-page-aged hover:bg-ink-page-shadow/50 rounded transition-colors"
+                >
+                  <span className="font-body text-sm text-ink-primary truncate">
+                    {s.icon} {s.name}
+                  </span>
+                  <span className="font-script text-tiny text-gold-leaf shrink-0">
+                    {s.cost_coins}c
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <Button onClick={onClose} variant="ghost" size="sm" className="w-full">
+          Close
+        </Button>
+      </div>
     </div>
   );
 }

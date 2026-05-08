@@ -207,14 +207,22 @@ class TrophyBadgeView(APIView):
 
 
 class UseConsumableView(APIView):
-    """POST /api/inventory/<item_id>/use/ — consume a single consumable item."""
+    """POST /api/inventory/<item_id>/use/ — consume one or more of a consumable.
+
+    Body accepts an optional ``quantity`` (default 1). Timer-based effects
+    (xp_boost, coin_boost, drop_boost, streak_freeze) and single-target
+    effects (rage_breaker, quest_reroll) reject quantity > 1; additive /
+    counter / random-roll effects honor the count and apply N times in a
+    single transaction.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, item_id):
         from .services import ConsumableService
 
+        quantity = request.data.get("quantity", 1)
         try:
-            result = ConsumableService.use(request.user, item_id)
+            result = ConsumableService.use(request.user, item_id, quantity=quantity)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(result)

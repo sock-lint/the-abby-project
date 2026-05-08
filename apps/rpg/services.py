@@ -68,11 +68,12 @@ BASE_DROP_RATES = {
     # a celebration, low enough that farming it via repeated small goals
     # doesn't out-farm normal play.
     TriggerType.SAVINGS_GOAL_COMPLETE: 0.80,
-    # Journaling is rare-drop terrain — the reward for writing is skill XP
-    # plus streak credit plus the Scribe badge ladder, not a drop farm.
-    # Matches ``HABIT_LOG`` rate so writing a journal doesn't out-earn a
-    # habit tap. The service gates on first-of-day anyway.
-    TriggerType.JOURNAL_ENTRY: 0.10,
+    # Journaling drop rate is bumped above ``HABIT_LOG`` (0.15) because the
+    # DB constraint already throttles journal writes to one per local day —
+    # whereas a kid can fire 4+ habit taps in a single afternoon. The 0.20
+    # rate keeps journal drops feeling meaningful relative to the bigger
+    # emotional ask of writing an entry vs. a quick habit tap.
+    TriggerType.JOURNAL_ENTRY: 0.20,
     # Creations are meaningful acts (a drawing, a song, a baked thing) but
     # aren't parent-gated, so the rate sits between habit_log (0.15) and
     # homework_complete (0.35). The service gates on the first 2 per local
@@ -748,17 +749,48 @@ class ConsumableService:
     a typo in content YAML doesn't quietly no-op.
     """
 
+    # Effects that overwrite a timer/expiry or operate on a single shared
+    # target — applying them N times in a row gains nothing (later calls
+    # just reset the same field) or errors (rage_breaker / quest_reroll
+    # can only act on the one current target). Reject quantity > 1 with
+    # a clear message rather than silently consuming N items for one
+    # effect's worth of benefit.
+    STACK_UNSAFE_EFFECTS = frozenset({
+        "streak_freeze",
+        "xp_boost",
+        "coin_boost",
+        "drop_boost",
+        "rage_breaker",
+        "quest_reroll",
+    })
+
     @staticmethod
     @transaction.atomic
-    def use(user, item_id):
+    def use(user, item_id, quantity=1):
+        """Consume ``quantity`` of one consumable in a single API call.
+
+        Stack-unsafe effects (timer-based, single-target) reject ``quantity > 1``
+        with 400 because applying them N times produces less than N times the
+        benefit. Stack-safe effects (additive counters, random rolls) loop the
+        apply path N times atomically — failing partway through rolls back the
+        whole batch so a kid never loses items without the corresponding
+        effect.
+        """
         from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
 
         try:
+            quantity = int(quantity)
+        except (TypeError, ValueError):
+            raise ValueError("quantity must be a positive integer")
+        if quantity < 1:
+            raise ValueError("quantity must be at least 1")
+
+        try:
             inv = UserInventory.objects.select_for_update().get(
-                user=user, item_id=item_id, quantity__gte=1,
+                user=user, item_id=item_id, quantity__gte=quantity,
             )
         except UserInventory.DoesNotExist:
-            raise ValueError("You don't own that item")
+            raise ValueError("You don't own enough of that item")
 
         item = inv.item
         if item.item_type != ItemDefinition.ItemType.CONSUMABLE:
@@ -768,8 +800,20 @@ class ConsumableService:
         if not effect:
             raise ValueError("That consumable has no effect configured")
 
+        if quantity > 1 and effect in ConsumableService.STACK_UNSAFE_EFFECTS:
+            raise ValueError(
+                "That consumable can only be used one at a time — "
+                "stacking would just reset the same effect."
+            )
+
         profile, _ = CharacterProfile.objects.select_for_update().get_or_create(user=user)
-        detail = ConsumableService._apply_effect(profile, effect, item)
+
+        # Apply N times. For stack-safe effects this gives N independent
+        # rolls / N additive applications. For stack-unsafe effects we
+        # already returned 400 above, so the loop runs exactly once.
+        details = []
+        for _ in range(quantity):
+            details.append(ConsumableService._apply_effect(profile, effect, item))
 
         # Track distinct effects ever used so Alchemist-style badges have a
         # data source. Refetch to avoid a stale copy if _apply_effect saved.
@@ -780,7 +824,7 @@ class ConsumableService:
             profile.consumable_effects_used = used
             profile.save(update_fields=["consumable_effects_used", "updated_at"])
 
-        inv.quantity -= 1
+        inv.quantity -= quantity
         if inv.quantity == 0:
             inv.delete()
         else:
@@ -790,7 +834,12 @@ class ConsumableService:
             "item_id": item.pk,
             "item_name": item.name,
             "effect": effect,
-            "detail": detail,
+            "quantity_used": quantity,
+            # Single-use call sites still get ``detail`` for back-compat;
+            # bulk callers can read ``details`` for the per-application
+            # outcomes (e.g. mystery_box drops 5 different items).
+            "detail": details[-1] if details else None,
+            "details": details,
         }
 
     @staticmethod

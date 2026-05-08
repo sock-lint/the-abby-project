@@ -1,6 +1,7 @@
 import { Crown } from 'lucide-react';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import RuneBadge from '../../components/journal/RuneBadge';
+import BoostStrip from '../../components/rpg/BoostStrip';
 import IlluminatedVersal from '../achievements/IlluminatedVersal';
 import { tierForProgress } from '../achievements/mastery.constants';
 import StreakGlyph from './StreakGlyph';
@@ -99,6 +100,8 @@ export default function SigilFrontispiece({ profile, onOpenTrophyPicker }) {
         <StreakGlyph kind="perfect" value={profile.perfect_days_count ?? 0} />
         <StreakGlyph kind="best" value={profile.longest_login_streak ?? 0} />
       </div>
+
+      <BoostStrip profile={profile} className="mt-4 justify-center md:justify-start" />
     </ParchmentCard>
   );
 }

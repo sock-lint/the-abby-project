@@ -1,4 +1,4 @@
-import { Send, ExternalLink, Sparkles, Pencil, Trash2 } from 'lucide-react';
+import { Send, ExternalLink, Sparkles, Pencil, Trash2, Undo2 } from 'lucide-react';
 import SubjectBadge from '../../components/SubjectBadge';
 import StarRating from '../../components/StarRating';
 import StatusBadge from '../../components/StatusBadge';
@@ -7,11 +7,12 @@ import Button from '../../components/Button';
 
 export default function AssignmentCard({
   assignment, onSubmit, onPlan, planning, canPlan,
-  canManage, onEdit, onDelete,
+  canManage, onEdit, onDelete, onWithdraw,
 }) {
   const a = assignment;
   const sub = a.submission_status;
   const hasProject = a.has_project;
+  const canWithdraw = sub && sub.status === 'pending' && typeof onWithdraw === 'function';
 
   return (
     <ParchmentCard className="space-y-2">
@@ -38,6 +39,16 @@ export default function AssignmentCard({
           >
             <Send size={12} /> Submit
           </Button>
+        )}
+        {canWithdraw && (
+          <button
+            type="button"
+            onClick={() => onWithdraw(sub.id)}
+            title="Pull this submission back so you can re-photo or re-submit"
+            className="flex items-center gap-1 px-3 py-1 bg-ink-page border border-ink-page-shadow hover:border-ember/60 rounded-lg text-xs font-body text-ink-secondary hover:text-ember-deep transition-colors"
+          >
+            <Undo2 size={12} /> Withdraw
+          </button>
         )}
         {!hasProject && canPlan && (
           <button

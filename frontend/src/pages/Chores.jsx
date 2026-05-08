@@ -7,6 +7,7 @@ import {
 import {
   getChores, createChore, updateChore, deleteChore, completeChore,
   getChoreCompletions, approveChoreCompletion, rejectChoreCompletion,
+  withdrawChoreCompletion,
   listMyChoreProposals, listPendingChoreProposals, approveChoreProposal,
   getChildren, getSkills,
 } from '../api';
@@ -238,6 +239,12 @@ export default function Chores() {
 
   const handleReject = async (id) => {
     try { await rejectChoreCompletion(id); refresh(); }
+    catch (e) { setError(e.message); }
+  };
+
+  const handleWithdraw = async (completionId) => {
+    if (!completionId) return;
+    try { await withdrawChoreCompletion(completionId); refresh(); }
     catch (e) { setError(e.message); }
   };
 
@@ -475,9 +482,22 @@ export default function Chores() {
                         </button>
                       </div>
                     ) : isDone ? (
-                      <RuneBadge tone={STATUS_TONE[chore.today_status] || 'ember'} size="sm">
-                        {chore.today_status}
-                      </RuneBadge>
+                      <div className="flex items-center gap-2">
+                        <RuneBadge tone={STATUS_TONE[chore.today_status] || 'ember'} size="sm">
+                          {chore.today_status}
+                        </RuneBadge>
+                        {chore.today_status === 'pending' && chore.today_completion_id && (
+                          <button
+                            type="button"
+                            onClick={() => handleWithdraw(chore.today_completion_id)}
+                            aria-label="Withdraw this duty submission"
+                            title="Withdraw — pulls it out of the queue so you can re-do it"
+                            className="font-script text-tiny text-ink-whisper hover:text-ember-deep underline-offset-2 hover:underline transition-colors"
+                          >
+                            ↩ withdraw
+                          </button>
+                        )}
+                      </div>
                     ) : isRejected ? (
                       <Button
                         size="sm"

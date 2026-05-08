@@ -172,6 +172,43 @@ class HomeworkSubmissionViewSet(
             qs = qs.filter(status=status_filter)
         return qs
 
+    @action(detail=True, methods=["post"])
+    def withdraw(self, request, pk=None):
+        """Owner withdraws a pending homework submission.
+
+        Hard-deletes the submission AND its proof rows so the kid can
+        re-submit a fresh photo. Each proof's image goes via
+        ``image.delete(save=False)`` first (blob-first invariant) so a
+        Ceph delete failure leaves the DB rows intact rather than
+        orphaning blobs. The parent ``HomeworkAssignment`` stays — only
+        the submission is undone.
+        """
+        submission = self.get_object()
+        if submission.user_id != request.user.id:
+            return Response(
+                {"error": "Only the submitter can withdraw a homework submission."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if submission.status != HomeworkSubmission.Status.PENDING:
+            return Response(
+                {
+                    "error": (
+                        "Only pending submissions can be withdrawn. "
+                        "Approved or rejected ones are part of the record."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # Blob-first: delete each proof's image bytes from storage before
+        # the DB row, so a network failure leaves the rows pointing at
+        # live blobs rather than orphaning files. Same pattern as
+        # HomeworkProofViewSet.destroy.
+        for proof in submission.proofs.all():
+            if proof.image:
+                proof.image.delete(save=False)
+        submission.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class HomeworkProofViewSet(
     RoleFilteredQuerySetMixin,

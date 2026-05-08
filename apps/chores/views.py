@@ -261,3 +261,33 @@ class ChoreCompletionViewSet(
         if status_filter:
             qs = qs.filter(status=status_filter)
         return qs
+
+    @action(detail=True, methods=["post"])
+    def withdraw(self, request, pk=None):
+        """Owner withdraws a pending submission they no longer want reviewed.
+
+        Hard-deletes the row so the kid can re-submit fresh (the unique
+        constraint on (chore, user, completed_date) excludes rejected
+        rows but treats pending rows as live — leaving a withdrawn row
+        sitting around would block the next submission). The blast
+        radius is small: a withdrawn pending submission has no XP /
+        coin / money grants to unwind, so deletion is symmetric.
+        """
+        completion = self.get_object()
+        if completion.user_id != request.user.id:
+            return Response(
+                {"error": "Only the submitter can withdraw a duty submission."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if completion.status != ChoreCompletion.Status.PENDING:
+            return Response(
+                {
+                    "error": (
+                        "Only pending submissions can be withdrawn. "
+                        "Approved or rejected ones are part of the record."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        completion.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

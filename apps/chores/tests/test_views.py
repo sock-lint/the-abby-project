@@ -411,3 +411,42 @@ class ChoreCompletionViewSetTests(_Fixture):
         self.client.force_authenticate(self.child)
         resp = self.client.post(f"/api/chore-completions/{self.completion.id}/approve/")
         self.assertEqual(resp.status_code, 403)
+
+    def test_owner_can_withdraw_pending(self):
+        completion_id = self.completion.id
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(f"/api/chore-completions/{completion_id}/withdraw/")
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(ChoreCompletion.objects.filter(id=completion_id).exists())
+
+    def test_withdraw_then_resubmit_succeeds(self):
+        """The unique constraint on (chore, user, completed_date) treats
+        pending rows as live, so a withdraw must hard-delete cleanly to
+        let the kid re-submit fresh."""
+        self.client.force_authenticate(self.child)
+        self.client.post(f"/api/chore-completions/{self.completion.id}/withdraw/")
+        # Re-submit — should land a brand-new pending row, not 400.
+        new_completion = ChoreService.submit_completion(self.child, self.chore)
+        self.assertEqual(new_completion.status, ChoreCompletion.Status.PENDING)
+
+    def test_non_owner_cannot_withdraw(self):
+        # Same family, but a sibling didn't submit it.
+        sibling = User.objects.create_user(
+            username="sib", password="pw", role="child", family=self.parent.family,
+        )
+        self.client.force_authenticate(sibling)
+        resp = self.client.post(f"/api/chore-completions/{self.completion.id}/withdraw/")
+        # 403 (own-only) — could also be 404 if the queryset filters siblings,
+        # but the family-scope here puts this row in the sibling's queryset.
+        self.assertIn(resp.status_code, (403, 404))
+        self.assertTrue(ChoreCompletion.objects.filter(id=self.completion.id).exists())
+
+    def test_cannot_withdraw_after_approval(self):
+        """Approved submissions are part of the audit trail — withdraw 400s."""
+        self.client.force_authenticate(self.parent)
+        self.client.post(f"/api/chore-completions/{self.completion.id}/approve/")
+
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(f"/api/chore-completions/{self.completion.id}/withdraw/")
+        self.assertEqual(resp.status_code, 400)
+        self.assertTrue(ChoreCompletion.objects.filter(id=self.completion.id).exists())

@@ -132,6 +132,35 @@ export const markTimecardPaid = (id, amount) =>
 // Payments
 export const getBalance = () => api.get('/balance/');
 export const getPayments = () => api.get('/payments/');
+// Filtered ledger fetch — accepts { entry_type, start_date, end_date, user_id }.
+// entry_type may be a comma-joined string for multi-select; everything else is
+// scalar. Empty / null values are dropped so the URL stays clean. Used by the
+// Payments page filter UI below the breakdown.
+export const getPaymentLedger = (filters = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') qs.append(k, v);
+  });
+  const query = qs.toString();
+  return api.get(`/payments/${query ? `?${query}` : ''}`);
+};
+// Parent-only CSV export URL — opened directly via <a href> rather than fetch'd
+// because the browser handles the download dialog for free that way. Includes
+// the bearer token via querystring? — no, the export endpoint sits on the
+// authenticated API so the helper just builds the URL string and the page
+// adds the token via a `<form method="get">` submit-with-Authorization-header
+// pattern. For now we expose it as a function that returns the relative URL
+// with the same filter shape; the page uses fetch+blob to keep the auth
+// header in the request.
+export const buildPaymentLedgerExportUrl = (filters = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') qs.append(k, v);
+  });
+  return `/payments/export/${qs.toString() ? `?${qs}` : ''}`;
+};
+export const downloadPaymentLedgerCsv = (filters = {}) =>
+  getBlob(buildPaymentLedgerExportUrl(filters));
 export const recordPayout = (user_id, amount) =>
   api.post('/payments/payout/', { user_id, amount });
 export const adjustPayment = (user_id, amount, description = '') =>
@@ -275,6 +304,8 @@ export const approveChoreCompletion = (id) =>
   api.post(`/chore-completions/${id}/approve/`);
 export const rejectChoreCompletion = (id, notes = '') =>
   api.post(`/chore-completions/${id}/reject/`, { notes });
+export const withdrawChoreCompletion = (id) =>
+  api.post(`/chore-completions/${id}/withdraw/`);
 // Chore proposals (child-authored, parent-gated rewards).
 export const listPendingChoreProposals = () =>
   api.get('/chores/?pending=true');
@@ -328,6 +359,8 @@ export const approveHomeworkSubmission = (id) =>
   api.post(`/homework-submissions/${id}/approve/`);
 export const rejectHomeworkSubmission = (id, notes = '') =>
   api.post(`/homework-submissions/${id}/reject/`, { notes });
+export const withdrawHomeworkSubmission = (id) =>
+  api.post(`/homework-submissions/${id}/withdraw/`);
 export const getHomeworkTemplates = () => api.get('/homework-templates/');
 export const createHomeworkTemplate = (data) => api.post('/homework-templates/', data);
 export const deleteHomeworkTemplate = (id) => api.delete(`/homework-templates/${id}/`);
@@ -349,6 +382,7 @@ export const getCreationTodayStatus = () => api.get('/creations/today_status/');
 export const createCreation = (formData) => api.upload('/creations/', formData);
 export const deleteCreation = (id) => api.delete(`/creations/${id}/`);
 export const submitCreation = (id) => api.post(`/creations/${id}/submit/`);
+export const withdrawCreation = (id) => api.post(`/creations/${id}/withdraw/`);
 export const approveCreation = (id, payload = {}) =>
   api.post(`/creations/${id}/approve/`, payload);
 export const rejectCreation = (id, notes = '') =>
@@ -371,9 +405,17 @@ export const listMyHabitProposals = () =>
   api.get('/habits/?pending=true');
 export const approveHabitProposal = (id, payload) =>
   api.post(`/habits/${id}/approve/`, payload);
+// Reward wishlist — child taps "notify me" on an out-of-stock or
+// any reward; parent restock fans out a notification.
+export const addRewardToWishlist = (rewardId) =>
+  api.post(`/rewards/${rewardId}/wishlist/`);
+export const removeRewardFromWishlist = (rewardId) =>
+  api.delete(`/rewards/${rewardId}/wishlist/`);
+export const getMyRewardWishlist = () => api.get('/rewards/my-wishlist/');
+
 export const getInventory = () => api.get('/inventory/');
-export const consumeInventoryItem = (itemId) =>
-  api.post(`/inventory/${itemId}/use/`);
+export const consumeInventoryItem = (itemId, quantity = 1) =>
+  api.post(`/inventory/${itemId}/use/`, { quantity });
 export const openCoinPouch = (itemId) =>
   api.post(`/inventory/${itemId}/open/`);
 export const getRecentDrops = () => api.get('/drops/recent/');

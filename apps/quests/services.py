@@ -38,10 +38,18 @@ TRIGGER_DAMAGE = {
     TriggerType.MOVEMENT_SESSION: 8,
 }
 
-# Rage shield balance (boss quests only). Idle day climbs, active day decays.
-# Cap matches the original per-day step of 20 so the cliff is 5 idle days.
-RAGE_SHIELD_STEP = 20
+# Rage shield balance (boss quests only). Idle days climb the shield;
+# active days decay it. Asymmetric on purpose — climb is gentler than
+# decay so a child returning from a multi-day absence can claw back
+# faster than they fell behind. With CLIMB=15 / DECAY=25, a 4-day
+# absence (+60) clears in roughly 2.5 active days. Cap stays at 100.
+RAGE_SHIELD_CLIMB_STEP = 15
+RAGE_SHIELD_DECAY_STEP = 25
 RAGE_SHIELD_CAP = 100
+
+# Back-compat alias — some external content/tests may still import the
+# original name. Points at the climb step (the "growth" direction).
+RAGE_SHIELD_STEP = RAGE_SHIELD_CLIMB_STEP
 
 
 class QuestService:
@@ -467,13 +475,14 @@ class QuestService:
 
         Called by nightly Celery task.
 
-        - Idle day (no participant progress): rage climbs by RAGE_SHIELD_STEP,
-          capped at RAGE_SHIELD_CAP. The cap prevents an absent user's quest
-          from spiraling into unwinnable territory.
+        - Idle day (no participant progress): rage climbs by
+          RAGE_SHIELD_CLIMB_STEP, capped at RAGE_SHIELD_CAP. The cap
+          prevents an absent user's quest from spiraling into unwinnable
+          territory.
         - Active day (any participant made progress): rage decays by
-          RAGE_SHIELD_STEP toward 0. This preserves the "catch up when you're
-          back" signal while staying consistent with the project's
-          gentle-nudge doctrine.
+          RAGE_SHIELD_DECAY_STEP toward 0. Decay is faster than climb so
+          coming back after an absence isn't punished proportionally to
+          the absence — preserves the gentle-nudge doctrine.
 
         Returns a dict with ``raged`` and ``decayed`` counts.
         """
@@ -497,7 +506,8 @@ class QuestService:
             prior = quest.rage_shield
             if not had_progress and quest.rage_shield < RAGE_SHIELD_CAP:
                 quest.rage_shield = min(
-                    quest.rage_shield + RAGE_SHIELD_STEP, RAGE_SHIELD_CAP,
+                    quest.rage_shield + RAGE_SHIELD_CLIMB_STEP,
+                    RAGE_SHIELD_CAP,
                 )
                 quest.save(update_fields=["rage_shield", "updated_at"])
                 raged += 1
@@ -505,7 +515,9 @@ class QuestService:
                     quest, prior, direction="up",
                 )
             elif had_progress and quest.rage_shield > 0:
-                quest.rage_shield = max(quest.rage_shield - RAGE_SHIELD_STEP, 0)
+                quest.rage_shield = max(
+                    quest.rage_shield - RAGE_SHIELD_DECAY_STEP, 0,
+                )
                 quest.save(update_fields=["rage_shield", "updated_at"])
                 decayed += 1
                 QuestService._log_rage_event(
@@ -535,9 +547,9 @@ class QuestService:
                     {
                         "label": "step",
                         "value": (
-                            f"+{RAGE_SHIELD_STEP}"
+                            f"+{RAGE_SHIELD_CLIMB_STEP}"
                             if direction == "up"
-                            else f"-{RAGE_SHIELD_STEP}"
+                            else f"-{RAGE_SHIELD_DECAY_STEP}"
                         ),
                         "op": "=",
                     },
