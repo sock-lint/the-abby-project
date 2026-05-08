@@ -12,7 +12,9 @@ from config.viewsets import (
     get_child_or_404,
 )
 
-from .models import Creation
+from django.utils import timezone
+
+from .models import Creation, CreationDailyCounter
 from .serializers import (
     CreationApproveSerializer,
     CreationSerializer,
@@ -114,6 +116,26 @@ class CreationViewSet(
         except CreationError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(CreationSerializer(creation).data)
+
+    @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    def today_status(self, request):
+        """Today's creation count for the requesting user vs. the XP cap.
+
+        Counter row survives hard delete (anti-farm), so a child can't reset
+        their cap by deleting earlier entries. The frontend reads this before
+        showing the log-creation modal so the cap is visible up front.
+        """
+        day = timezone.localdate()
+        counter = CreationDailyCounter.objects.filter(
+            user=request.user, occurred_on=day,
+        ).first()
+        count = counter.count if counter else 0
+        limit = CreationService.DAILY_XP_LIMIT
+        return Response({
+            "count": count,
+            "limit": limit,
+            "remaining_with_xp": max(0, limit - count),
+        })
 
     @action(detail=False, methods=["get"], permission_classes=[IsParent])
     def pending(self, request):

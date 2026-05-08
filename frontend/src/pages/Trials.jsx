@@ -4,8 +4,9 @@ import { useSearchParams } from 'react-router-dom';
 import { Play, Shield, Sword, X } from 'lucide-react';
 import {
   getActiveQuest, getAvailableQuests, startQuest, getQuestHistory, getFamilyQuests,
-  getChildren, createQuest,
+  getChildren, createQuest, getSkills,
 } from '../api';
+import SkillTagEditor from '../components/SkillTagEditor';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
 import Loader from '../components/Loader';
@@ -37,7 +38,28 @@ const DEFAULT_CHALLENGE = {
   coin_reward: 20,
   xp_reward: 40,
   assigned_to: '',
+  is_coop: false,
+  coop_user_ids: [], // array of stringified ids
+  skill_tags: [], // [{skill_id, xp_weight}]
+  allowed_triggers: [], // empty = all triggers count (matches backend default)
+  on_time_only: false,
 };
+
+// Trigger options that make sense for parent-authored quests. Mirrors
+// apps.rpg.constants.TriggerType but trims to the ones that produce
+// readable damage/collection contributions on a custom campaign.
+const TRIGGER_OPTIONS = [
+  ['chore_complete', 'Duty completed'],
+  ['homework_complete', 'Homework approved'],
+  ['homework_created', 'Homework planned ahead'],
+  ['habit_log', 'Ritual tap'],
+  ['clock_out', 'Clock-out hour'],
+  ['milestone_complete', 'Milestone hit'],
+  ['project_complete', 'Project complete'],
+  ['journal_entry', 'Journal entry'],
+  ['creation_logged', 'Creation logged'],
+  ['savings_goal_complete', 'Savings goal hit'],
+];
 
 export default function Trials() {
   const [searchParams] = useSearchParams();
@@ -56,6 +78,12 @@ export default function Trials() {
     [isParent],
   );
   const { data: childrenData } = useApi(fetchKids, [isParent]);
+  const fetchSkills = useCallback(
+    () => (isParent ? getSkills() : Promise.resolve({ results: [] })),
+    [isParent],
+  );
+  const { data: skillsData } = useApi(fetchSkills, [isParent]);
+  const skills = normalizeList(skillsData);
   const [tab, setTab] = useState('current');
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(null);
@@ -68,11 +96,14 @@ export default function Trials() {
   if (loading) return <Loader />;
 
   const handleIssueChallenge = async () => {
-    if (!challenge.assigned_to || !challenge.name || !challenge.description) return;
+    const assigneeReady = challenge.is_coop
+      ? challenge.coop_user_ids.length >= 2
+      : Boolean(challenge.assigned_to);
+    if (!assigneeReady || !challenge.name || !challenge.description) return;
     setIssuing(true);
     setError('');
     try {
-      await createQuest({
+      const payload = {
         name: challenge.name,
         description: challenge.description,
         quest_type: challenge.quest_type,
@@ -80,13 +111,48 @@ export default function Trials() {
         duration_days: Math.min(30, Math.max(1, Number(challenge.duration_days) || 7)),
         coin_reward: Number(challenge.coin_reward) || 0,
         xp_reward: Number(challenge.xp_reward) || 0,
-        assigned_to: Number(challenge.assigned_to),
-      });
+      };
+      if (challenge.is_coop) {
+        payload.coop_user_ids = challenge.coop_user_ids.map(Number);
+      } else {
+        payload.assigned_to = Number(challenge.assigned_to);
+      }
+      // trigger_filter — only attach when the parent narrowed the quest.
+      const tf = {};
+      if (challenge.allowed_triggers.length > 0) {
+        tf.allowed_triggers = challenge.allowed_triggers;
+      }
+      if (challenge.on_time_only) tf.on_time = true;
+      if (Object.keys(tf).length > 0) payload.trigger_filter = tf;
+      // skill_tags — attach when authored.
+      if (challenge.skill_tags.length > 0) {
+        payload.skill_tags = challenge.skill_tags;
+      }
+      await createQuest(payload);
       setShowChallenge(false);
       setChallenge(DEFAULT_CHALLENGE);
       reloadFamily();
     } catch (e) { setError(e.message); }
     finally { setIssuing(false); }
+  };
+
+  const toggleCoopChild = (id) => {
+    setChallenge((prev) => {
+      const ids = new Set(prev.coop_user_ids);
+      const key = String(id);
+      if (ids.has(key)) ids.delete(key);
+      else ids.add(key);
+      return { ...prev, coop_user_ids: [...ids] };
+    });
+  };
+
+  const toggleAllowedTrigger = (slug) => {
+    setChallenge((prev) => {
+      const set = new Set(prev.allowed_triggers);
+      if (set.has(slug)) set.delete(slug);
+      else set.add(slug);
+      return { ...prev, allowed_triggers: [...set] };
+    });
   };
 
   const available = normalizeList(availableData);
@@ -156,17 +222,47 @@ export default function Trials() {
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <SelectField
-              id="challenge-kid"
-              label="Assign to"
-              value={challenge.assigned_to}
-              onChange={(e) => setChallenge({ ...challenge, assigned_to: e.target.value })}
-            >
-              <option value="">Select a child…</option>
-              {children.map((c) => (
-                <option key={c.id} value={c.id}>{c.display_label || c.username}</option>
-              ))}
-            </SelectField>
+            {challenge.is_coop ? (
+              <div className="md:col-span-1">
+                <div className="font-script text-xs text-ink-whisper uppercase tracking-wider mb-1">
+                  Co-op participants
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto rounded-lg border border-ink-page-shadow bg-ink-page p-2">
+                  {children.map((c) => {
+                    const checked = challenge.coop_user_ids.includes(String(c.id));
+                    return (
+                      <label
+                        key={c.id}
+                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs font-body cursor-pointer ${checked ? 'border-sheikah-teal bg-sheikah-teal/15 text-sheikah-teal-deep' : 'border-ink-page-shadow text-ink-secondary'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={checked}
+                          onChange={() => toggleCoopChild(c.id)}
+                        />
+                        {c.display_label || c.username}
+                      </label>
+                    );
+                  })}
+                </div>
+                <div className="text-tiny text-ink-whisper mt-1">
+                  Pick at least 2 — damage / collection pools across them.
+                </div>
+              </div>
+            ) : (
+              <SelectField
+                id="challenge-kid"
+                label="Assign to"
+                value={challenge.assigned_to}
+                onChange={(e) => setChallenge({ ...challenge, assigned_to: e.target.value })}
+              >
+                <option value="">Select a child…</option>
+                {children.map((c) => (
+                  <option key={c.id} value={c.id}>{c.display_label || c.username}</option>
+                ))}
+              </SelectField>
+            )}
             <SelectField
               id="challenge-type"
               label="Type"
@@ -228,11 +324,89 @@ export default function Trials() {
             rows={3}
             className="mt-3"
           />
+
+          <label className="mt-3 flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={challenge.is_coop}
+              onChange={(e) =>
+                setChallenge({
+                  ...challenge,
+                  is_coop: e.target.checked,
+                  coop_user_ids: e.target.checked ? challenge.coop_user_ids : [],
+                  assigned_to: e.target.checked ? '' : challenge.assigned_to,
+                })
+              }
+            />
+            <span className="font-body text-sm text-ink-primary">Co-op campaign (multiple kids on one shared quest)</span>
+          </label>
+
+          <details className="mt-3">
+            <summary className="cursor-pointer font-display italic text-sm text-ink-secondary">
+              Advanced — narrow which actions count
+            </summary>
+            <div className="mt-2 space-y-2">
+              <div className="font-script text-xs text-ink-whisper">
+                Leave all unchecked to count every action. Checking some
+                limits damage / collection to those triggers.
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {TRIGGER_OPTIONS.map(([slug, label]) => {
+                  const checked = challenge.allowed_triggers.includes(slug);
+                  return (
+                    <label
+                      key={slug}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs font-body cursor-pointer ${checked ? 'border-sheikah-teal bg-sheikah-teal/15 text-sheikah-teal-deep' : 'border-ink-page-shadow text-ink-secondary'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={checked}
+                        onChange={() => toggleAllowedTrigger(slug)}
+                      />
+                      {label}
+                    </label>
+                  );
+                })}
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={challenge.on_time_only}
+                  onChange={(e) =>
+                    setChallenge({ ...challenge, on_time_only: e.target.checked })
+                  }
+                />
+                <span className="font-body text-sm text-ink-secondary">
+                  Only count homework submitted on time / early
+                </span>
+              </label>
+            </div>
+          </details>
+
+          <details className="mt-3">
+            <summary className="cursor-pointer font-display italic text-sm text-ink-secondary">
+              Skill XP fanout (optional)
+            </summary>
+            <div className="mt-2 space-y-2">
+              <div className="font-script text-xs text-ink-whisper">
+                Without tags the XP reward goes to no skill in particular.
+                Tag 1-3 skills so kids see XP land where they earned it.
+              </div>
+              <SkillTagEditor
+                skills={skills}
+                value={challenge.skill_tags}
+                onChange={(next) => setChallenge({ ...challenge, skill_tags: next })}
+              />
+            </div>
+          </details>
+
           <Button
             onClick={handleIssueChallenge}
             disabled={
-              !challenge.assigned_to || !challenge.name ||
-              !challenge.description || issuing
+              (!challenge.is_coop && !challenge.assigned_to) ||
+              (challenge.is_coop && challenge.coop_user_ids.length < 2) ||
+              !challenge.name || !challenge.description || issuing
             }
             className="w-full mt-3"
           >

@@ -140,6 +140,29 @@ class RewardService:
         )
         if reward.stock is not None:
             Reward.objects.filter(pk=reward.pk).update(stock=F("stock") - 1)
+            # Low-stock signal — fire once when stock crosses into the
+            # 0/1 zone so parents can restock or retire the prize before
+            # an awkward "out of stock" conversation. We refresh from DB
+            # because F() doesn't touch the in-memory instance.
+            try:
+                reward.refresh_from_db(fields=["stock"])
+                if reward.stock is not None and reward.stock in (0, 1):
+                    notify_parents(
+                        title=(
+                            f"Reward low: {reward.name} ({reward.stock} left)"
+                            if reward.stock == 1
+                            else f"Reward sold out: {reward.name}"
+                        ),
+                        message=(
+                            "Restock or retire it on the Manage page so the "
+                            "shop stays fresh."
+                        ),
+                        notification_type=NotificationType.LOW_REWARD_STOCK,
+                        link="/manage",
+                        about_user=user,
+                    )
+            except Exception:
+                logger.exception("Low-stock notification failed for reward %s", reward.pk)
 
         from apps.activity.services import ActivityLogService
         ActivityLogService.record(

@@ -106,6 +106,9 @@ export const handlers = [
   http.delete(/\/api\/movement-sessions\/\d+\/$/, nullBody),
 
   http.get('*/api/creations/', empty),
+  http.get('*/api/creations/today_status/', () =>
+    HttpResponse.json({ count: 0, limit: 2, remaining_with_xp: 2 }),
+  ),
   http.post('*/api/creations/', ok),
   http.delete(/\/api\/creations\/\d+\/$/, nullBody),
   http.post(/\/api\/creations\/\d+\/submit\/$/, ok),

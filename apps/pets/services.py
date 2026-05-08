@@ -294,6 +294,25 @@ class PetService:
             except Exception:
                 logger.exception("Chronicle hook failed in feed_pet evolve-to-mount")
 
+            try:
+                from apps.notifications.services import notify, notify_parents
+                title = f"{pet.species.name} evolved into a mount!"
+                msg = f"{pet.potion.name} {pet.species.name} is ready to ride."
+                notify(
+                    user, title=title, message=msg,
+                    notification_type="pet_evolved",
+                    link="/bestiary?tab=mounts",
+                )
+                notify_parents(
+                    title=f"{user.display_name or user.username}'s pet evolved",
+                    message=msg,
+                    notification_type="pet_evolved",
+                    about_user=user,
+                    link="/bestiary?tab=mounts",
+                )
+            except Exception:
+                logger.exception("Notification hook failed in feed_pet evolve-to-mount")
+
         return {
             "growth_added": growth,
             "new_growth": pet.growth_points,
@@ -419,6 +438,29 @@ class PetService:
             picked_species.slug, picked_potion.slug,
             " (chromatic!)" if chromatic else "",
         )
+
+        try:
+            from apps.notifications.services import notify, notify_parents
+            chrome_tag = " (Cosmic!)" if chromatic else ""
+            title = f"Bred a {picked_potion.name} {picked_species.name} egg{chrome_tag}"
+            msg = (
+                f"{egg_item.name} and {potion_item.name} are in your inventory. "
+                "Hatch them to meet your hybrid."
+            )
+            notify(
+                user, title=title, message=msg,
+                notification_type="mount_bred",
+                link="/bestiary?tab=hatchery",
+            )
+            notify_parents(
+                title=f"{user.display_name or user.username} bred mounts",
+                message=msg,
+                notification_type="mount_bred",
+                about_user=user,
+                link="/bestiary?tab=hatchery",
+            )
+        except Exception:
+            logger.exception("Notification hook failed in breed_mounts")
 
         return {
             "egg_item_id": egg_item.pk,

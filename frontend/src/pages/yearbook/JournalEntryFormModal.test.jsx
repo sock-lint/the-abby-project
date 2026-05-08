@@ -98,13 +98,17 @@ describe('JournalEntryFormModal', () => {
     // (via the unique-per-day constraint) reports that today's entry
     // already exists. The modal should swap to edit mode, preserve the
     // child's in-flight words, and surface a friendly error.
+    // Today's entry — use a real "today" date so the modal's lock-after-
+    // midnight gate (compares entry.occurred_on to today's local date)
+    // doesn't kick in. The 409 path always returns today's row by
+    // construction; matching here keeps that contract honest.
     const existing = {
       id: 77,
       kind: 'journal',
       is_private: true,
       title: 'Earlier today',
       summary: 'Some earlier thoughts.',
-      occurred_on: '2026-04-22',
+      occurred_on: new Date().toLocaleDateString('en-CA'),
     };
     server.use(
       http.post('*/api/chronicle/journal/', () =>

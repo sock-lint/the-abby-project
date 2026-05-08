@@ -645,7 +645,7 @@ def _step_drops(user, trigger_type, context, result):
             user,
             title=f"Item dropped: {drop_names}",
             message=f"You found {drop_names}!",
-            notification_type="badge_earned",
+            notification_type="drop_received",
             link="/inventory",
         )
 
@@ -658,6 +658,14 @@ def _step_quest_progress(user, trigger_type, context, result):
     if quest_result and quest_result.get("completed"):
         result["notifications"].append(
             f"Quest complete: {quest_result['quest_name']}",
+        )
+        from apps.notifications.services import notify
+        notify(
+            user,
+            title=f"Quest complete: {quest_result['quest_name']}",
+            message="The trial is finished — claim your spoils.",
+            notification_type="quest_completed",
+            link="/quests",
         )
 
 

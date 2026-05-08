@@ -542,10 +542,21 @@ function Lightbox({ viewer, onClose, onPrev, onNext }) {
       <img
         src={current.image}
         alt={current.caption || current.groupLabel}
-        className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg"
+        className="max-h-[75vh] max-w-[90vw] object-contain rounded-lg"
         onClick={(e) => e.stopPropagation()}
       />
-      <div className="absolute bottom-6 text-center left-0 right-0 px-4">
+      <div className="absolute bottom-6 text-center left-0 right-0 px-4 space-y-2">
+        {current.kind === 'creation' && current.audio && (
+          <audio
+            controls
+            src={current.audio}
+            preload="metadata"
+            className="mx-auto max-w-[90vw] w-80"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Your browser doesn&apos;t support inline audio.
+          </audio>
+        )}
         <div className="font-script text-white/90 text-sm">
           {current.caption || current.groupLabel}
         </div>

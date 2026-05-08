@@ -8,7 +8,7 @@ import { formLabelClass } from '../constants/styles';
 import { useApi } from '../hooks/useApi';
 import { normalizeList } from '../utils/api';
 import { downscaleImage } from '../utils/image';
-import { createCreation, getSkills } from '../api';
+import { createCreation, getCreationTodayStatus, getSkills } from '../api';
 
 // Creative-subset allow-list — must match apps/creations/constants.py.
 const CREATIVE_CATEGORY_NAMES = new Set([
@@ -25,9 +25,14 @@ const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export default function CreationLogModal({ onClose, onSaved }) {
   const { data: skillsData, loading: skillsLoading } = useApi(getSkills);
+  const { data: todayStatus } = useApi(getCreationTodayStatus);
   const skills = normalizeList(skillsData).filter((s) =>
     CREATIVE_CATEGORY_NAMES.has(s.category_name)
   );
+
+  const remainingWithXp = todayStatus?.remaining_with_xp;
+  const todayCount = todayStatus?.count;
+  const xpLimit = todayStatus?.limit;
 
   // Group by category for the <optgroup> rendering.
   const skillsByCategory = useMemo(() => {
@@ -88,9 +93,26 @@ export default function CreationLogModal({ onClose, onSaved }) {
     }
   };
 
+  let capHint = null;
+  if (typeof remainingWithXp === 'number' && typeof xpLimit === 'number') {
+    if (remainingWithXp > 0) {
+      capHint = `First ${xpLimit} per day earn XP — this would be ${todayCount + 1} of ${xpLimit}.`;
+    } else {
+      capHint = `You've already logged ${todayCount} today. This one will save to your sketchbook but won't earn XP.`;
+    }
+  }
+
   return (
     <BottomSheet title="Log a creation" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
+        {capHint && (
+          <p
+            role="status"
+            className={`font-script text-xs px-3 py-2 rounded-lg border ${remainingWithXp > 0 ? 'border-moss/40 bg-moss/5 text-moss-deep' : 'border-ember/40 bg-ember/5 text-ember-deep'}`}
+          >
+            {capHint}
+          </p>
+        )}
         <label className={formLabelClass}>
           Photo (required)
           <input
