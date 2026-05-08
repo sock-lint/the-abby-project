@@ -24,6 +24,7 @@ class NotificationType(models.TextChoices):
     REDEMPTION_REQUESTED = "redemption_requested", "Redemption Requested"
     CHORE_SUBMITTED = "chore_submitted", "Chore Submitted"
     CHORE_APPROVED = "chore_approved", "Chore Approved"
+    CHORE_REJECTED = "chore_rejected", "Chore Rejected"
     EXCHANGE_REQUESTED = "exchange_requested", "Exchange Requested"
     EXCHANGE_APPROVED = "exchange_approved", "Exchange Approved"
     EXCHANGE_DENIED = "exchange_denied", "Exchange Denied"

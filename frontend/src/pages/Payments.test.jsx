@@ -57,21 +57,41 @@ describe('Payments', () => {
     await waitFor(() => expect(screen.getByText(/nothing inked yet/i)).toBeInTheDocument());
   });
 
-  it('parent opens the adjust balance modal and submits', async () => {
+  it('adjust modal lists children by name and submits the chosen id', async () => {
     const user = userEvent.setup();
+    const adjustSpy = [];
     renderPage(buildParent(), [
       http.get('*/api/balance/', () =>
         HttpResponse.json({ balance: 0, breakdown: {}, recent_transactions: [] }),
       ),
-      http.post('*/api/payments/adjust/', () => HttpResponse.json({})),
+      http.get('*/api/children/', () =>
+        HttpResponse.json([
+          { id: 7, username: 'abby', display_name: 'Abby', role: 'child' },
+          { id: 8, username: 'beck', display_name: 'Beck', role: 'child' },
+        ]),
+      ),
+      http.post('*/api/payments/adjust/', async ({ request }) => {
+        adjustSpy.push(await request.clone().json());
+        return HttpResponse.json({});
+      }),
     ]);
     await waitFor(() => expect(screen.getByText(/adjust balance/i)).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /adjust balance/i }));
-    const fields = screen.getAllByRole('spinbutton');
-    await user.type(fields[0], '3');
-    await user.type(fields[1], '10');
+
+    const kidPicker = await screen.findByLabelText(/^kid$/i);
+    // Wait for children options to populate.
+    await waitFor(() =>
+      expect(screen.getByRole('option', { name: 'Abby' })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('option', { name: 'Beck' })).toBeInTheDocument();
+    await user.selectOptions(kidPicker, '8');
+
+    const amount = screen.getByRole('spinbutton');
+    await user.type(amount, '10');
     await user.click(screen.getByRole('button', { name: /^adjust$/i }));
-    await waitFor(() => expect(screen.queryByRole('button', { name: /^adjust$/i })).toBeNull());
+
+    await waitFor(() => expect(adjustSpy).toHaveLength(1));
+    expect(adjustSpy[0]).toEqual({ user_id: 8, amount: 10, description: '' });
   });
 
   it('adjust modal surfaces server error', async () => {
@@ -80,15 +100,20 @@ describe('Payments', () => {
       http.get('*/api/balance/', () =>
         HttpResponse.json({ balance: 0, breakdown: {}, recent_transactions: [] }),
       ),
+      http.get('*/api/children/', () =>
+        HttpResponse.json([{ id: 7, username: 'abby', display_name: 'Abby', role: 'child' }]),
+      ),
       http.post('*/api/payments/adjust/', () =>
         HttpResponse.json({ error: 'bad amount' }, { status: 400 }),
       ),
     ]);
     await waitFor(() => expect(screen.getByText(/adjust balance/i)).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /adjust balance/i }));
-    const fields = screen.getAllByRole('spinbutton');
-    await user.type(fields[0], '3');
-    await user.type(fields[1], '1');
+    await waitFor(() =>
+      expect(screen.getByRole('option', { name: 'Abby' })).toBeInTheDocument(),
+    );
+    await user.selectOptions(screen.getByLabelText(/^kid$/i), '7');
+    await user.type(screen.getByRole('spinbutton'), '1');
     await user.click(screen.getByRole('button', { name: /^adjust$/i }));
     expect(await screen.findByText(/bad amount/i)).toBeInTheDocument();
   });

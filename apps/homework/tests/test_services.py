@@ -17,6 +17,7 @@ from apps.homework.models import (
     HomeworkTemplate,
 )
 from apps.homework.services import HomeworkError, HomeworkService
+from apps.notifications.models import Notification, NotificationType
 from apps.payments.models import PaymentLedger
 from apps.projects.models import User
 from apps.rewards.models import CoinLedger
@@ -322,6 +323,19 @@ class ApproveRejectTests(_Fixture):
         self.assertEqual(
             PaymentLedger.objects.filter(user=self.child).count(), 0,
         )
+
+    def test_reject_notification_includes_note(self):
+        """The rejection notification embeds the parent's note so the kid
+        gets context, not just a silent rejection."""
+        HomeworkService.reject_submission(
+            self.submission, self.parent, notes="proof photo too blurry",
+        )
+        notif = Notification.objects.filter(
+            user=self.child,
+            notification_type=NotificationType.HOMEWORK_REJECTED,
+        ).first()
+        self.assertIsNotNone(notif)
+        self.assertIn("proof photo too blurry", notif.message)
 
     def test_approve_with_stale_in_memory_status_is_noop(self):
         """Race-guard regression: a stale in-memory ``submission`` that

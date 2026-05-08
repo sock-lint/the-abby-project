@@ -273,8 +273,8 @@ export const getChoreCompletions = (status) => {
 };
 export const approveChoreCompletion = (id) =>
   api.post(`/chore-completions/${id}/approve/`);
-export const rejectChoreCompletion = (id) =>
-  api.post(`/chore-completions/${id}/reject/`);
+export const rejectChoreCompletion = (id, notes = '') =>
+  api.post(`/chore-completions/${id}/reject/`, { notes });
 // Chore proposals (child-authored, parent-gated rewards).
 export const listPendingChoreProposals = () =>
   api.get('/chores/?pending=true');
@@ -326,8 +326,8 @@ export const getHomeworkSubmissions = (status) => {
 };
 export const approveHomeworkSubmission = (id) =>
   api.post(`/homework-submissions/${id}/approve/`);
-export const rejectHomeworkSubmission = (id) =>
-  api.post(`/homework-submissions/${id}/reject/`);
+export const rejectHomeworkSubmission = (id, notes = '') =>
+  api.post(`/homework-submissions/${id}/reject/`, { notes });
 export const getHomeworkTemplates = () => api.get('/homework-templates/');
 export const createHomeworkTemplate = (data) => api.post('/homework-templates/', data);
 export const deleteHomeworkTemplate = (id) => api.delete(`/homework-templates/${id}/`);
