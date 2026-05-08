@@ -145,6 +145,7 @@ def _child_extras(user, today) -> dict[str, Any]:
 
 def _parent_extras(user) -> dict[str, Any]:
     from apps.chores.models import ChoreCompletion
+    from apps.families.queries import children_in
     from apps.timecards.models import Timecard
 
     # Audit C3: family-scope every parent counter. The leak this prevents
@@ -156,11 +157,13 @@ def _parent_extras(user) -> dict[str, Any]:
         status=ChoreCompletion.Status.PENDING,
         user__family=user.family,
     ).count()
+    children_count = children_in(user.family).count() if user.family_id else 0
 
     return {
         "chores_today": [],
         "pending_chore_approvals": pending_chore_approvals,
         "pending_timecards": pending_timecards,
+        "children_count": children_count,
     }
 
 

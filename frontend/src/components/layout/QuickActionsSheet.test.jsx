@@ -148,7 +148,9 @@ describe('QuickActionsSheet', () => {
         HttpResponse.json({
           id: 42, kind: 'journal', is_private: true,
           title: 'Earlier', summary: 'I already started',
-          occurred_on: '2026-04-22',
+          // Real today date so the form modal's lock-after-midnight gate
+          // doesn't flip the title to "locked".
+          occurred_on: new Date().toLocaleDateString('en-CA'),
         }),
       ),
     ]);

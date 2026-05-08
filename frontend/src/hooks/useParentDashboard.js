@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   getChoreCompletions, getHomeworkDashboard, getRedemptions, getDashboard,
   listPendingCreations, listPendingChoreProposals, listPendingHabitProposals,
+  getExchangeRequests,
 } from '../api';
 import { normalizeList } from '../utils/api';
 
@@ -86,6 +87,21 @@ function unifyRedemption(r) {
   };
 }
 
+function unifyExchange(e) {
+  const dollars = Number(e.dollar_amount);
+  const coins = Number(e.coin_amount);
+  return {
+    id: e.id,
+    kind: 'exchange',
+    kidId: e.user ?? e.user_id ?? null,
+    kidName: e.user_name || 'Unassigned',
+    title: Number.isFinite(dollars) ? `Exchange $${dollars.toFixed(2)} → coins` : 'Exchange request',
+    subtitle: Number.isFinite(coins) ? `${coins} coins at the current rate` : null,
+    reward: null,
+    submittedAt: e.created_at || null,
+  };
+}
+
 function byRecent(a, b) {
   const ta = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
   const tb = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
@@ -111,7 +127,7 @@ export default function useParentDashboard() {
     try {
       const [
         chores, hw, reds, dashboardRes, creations,
-        choreProposals, habitProposals,
+        choreProposals, habitProposals, exchanges,
       ] = await Promise.all([
         getChoreCompletions('pending').catch(() => []),
         getHomeworkDashboard().catch(() => ({ pending_submissions: [] })),
@@ -120,6 +136,7 @@ export default function useParentDashboard() {
         listPendingCreations().catch(() => []),
         listPendingChoreProposals().catch(() => []),
         listPendingHabitProposals().catch(() => []),
+        getExchangeRequests().catch(() => []),
       ]);
 
       const unified = [
@@ -129,6 +146,7 @@ export default function useParentDashboard() {
         ...normalizeList(creations).map(unifyCreation),
         ...normalizeList(choreProposals).map(unifyChoreProposal),
         ...normalizeList(habitProposals).map(unifyHabitProposal),
+        ...normalizeList(exchanges).filter((e) => e.status === 'pending').map(unifyExchange),
       ].sort(byRecent);
 
       // Week stats — if the dashboard payload has per-kid data in the future,

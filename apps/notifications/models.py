@@ -52,6 +52,11 @@ class NotificationType(models.TextChoices):
     HABIT_PROPOSAL_APPROVED = "habit_proposal_approved", "Ritual Proposal Approved"
     CHORE_PROPOSAL_REJECTED = "chore_proposal_rejected", "Duty Proposal Rejected"
     HABIT_PROPOSAL_REJECTED = "habit_proposal_rejected", "Ritual Proposal Rejected"
+    QUEST_COMPLETED         = "quest_completed",         "Quest Completed"
+    DROP_RECEIVED           = "drop_received",           "Drop Received"
+    PET_EVOLVED             = "pet_evolved",             "Pet Evolved"
+    MOUNT_BRED              = "mount_bred",              "Mount Bred"
+    LOW_REWARD_STOCK        = "low_reward_stock",        "Reward Stock Low"
 
 
 class Notification(CreatedAtModel):

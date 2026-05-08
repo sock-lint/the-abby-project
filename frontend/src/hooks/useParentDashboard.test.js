@@ -41,6 +41,32 @@ describe('useParentDashboard', () => {
     ]);
   });
 
+  it('includes pending money→coins exchange requests', async () => {
+    server.use(
+      http.get('*/api/coins/exchange/list/', () =>
+        HttpResponse.json([
+          {
+            id: 7, user: 2, user_name: 'Abby', dollar_amount: '5.00',
+            coin_amount: 50, status: 'pending', created_at: '2026-04-16T11:00:00Z',
+          },
+          {
+            id: 8, user: 2, user_name: 'Abby', dollar_amount: '2.00',
+            coin_amount: 20, status: 'approved', created_at: '2026-04-16T07:00:00Z',
+          },
+        ]),
+      ),
+    );
+
+    const { result } = renderHook(() => useParentDashboard());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const exchanges = result.current.pending.filter((i) => i.kind === 'exchange');
+    expect(exchanges).toHaveLength(1);
+    expect(exchanges[0].id).toBe(7);
+    expect(exchanges[0].title).toContain('5.00');
+    expect(exchanges[0].subtitle).toContain('50 coins');
+  });
+
   it('tolerates individual endpoint failures without throwing', async () => {
     server.use(
       http.get('*/api/chore-completions/', () => HttpResponse.json({ error: 'nope' }, { status: 500 })),

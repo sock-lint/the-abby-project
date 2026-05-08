@@ -56,8 +56,14 @@ export default function RewardCard({ reward, isParent, coinBalance, onRedeem, on
         {reward.cost_coins}
       </div>
       {reward.stock != null && (
-        <div className="font-script text-xs text-ink-whisper text-center">
-          {reward.stock} left
+        <div
+          className={`font-script text-xs text-center ${reward.stock <= 1 ? 'text-ember-deep font-semibold' : 'text-ink-whisper'}`}
+        >
+          {reward.stock === 0
+            ? 'sold out'
+            : reward.stock === 1
+              ? 'last one'
+              : `${reward.stock} left`}
         </div>
       )}
       {!isParent && (

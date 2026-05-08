@@ -102,9 +102,21 @@ export default function JournalEntryFormModal({
     }
   };
 
+  // A journal entry locks at the next local midnight. If the modal opens on a
+  // prior-day entry (e.g. tap "today" right after midnight, or open from
+  // history) the body becomes read-only — saving would 403 on the backend.
+  // Compute "today" in local time (matches Django ``timezone.localdate()``)
+  // and compare against ``entry.occurred_on`` (YYYY-MM-DD ISO string).
+  const todayIso = new Date().toLocaleDateString('en-CA');
+  const isLocked =
+    mode === 'edit' && entry?.occurred_on && entry.occurred_on !== todayIso;
+
   const primaryLabel = mode === 'edit' ? 'Update entry' : 'Save entry';
-  const modalTitle =
-    mode === 'edit' ? 'Edit your journal entry' : 'Write in your journal';
+  const modalTitle = isLocked
+    ? 'Journal entry — locked'
+    : mode === 'edit'
+      ? 'Edit your journal entry'
+      : 'Write in your journal';
   const micAriaLabel = !supported
     ? 'Dictation not supported in this browser'
     : isListening
@@ -114,11 +126,20 @@ export default function JournalEntryFormModal({
   return (
     <BottomSheet title={modalTitle} onClose={onClose} disabled={saving}>
       <form onSubmit={submit} className="space-y-4">
+        {isLocked && (
+          <p className="font-script text-xs px-3 py-2 rounded-lg border border-gold-leaf/40 bg-gold-leaf/10 text-ink-secondary flex items-start gap-2">
+            <Lock size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <span>
+              This entry is part of your chronicle now — the words stay as you wrote them.
+            </span>
+          </p>
+        )}
         <TextField
           label="Title"
           placeholder="(leave blank — we'll use the first line)"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          disabled={isLocked}
         />
 
         <div>
@@ -142,7 +163,7 @@ export default function JournalEntryFormModal({
                 type="button"
                 aria-label={micAriaLabel}
                 onClick={handleMic}
-                disabled={!supported}
+                disabled={!supported || isLocked}
                 className={`relative ${isListening ? 'text-ember-deep' : ''}`}
               >
                 {isListening ? <MicOff size={18} /> : <Mic size={18} />}
@@ -155,6 +176,7 @@ export default function JournalEntryFormModal({
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
             placeholder="Write or tap the mic to dictate…"
+            disabled={isLocked}
           />
           {isListening && interim && (
             <p className="font-script text-tiny text-sheikah-teal-deep italic mt-1.5">
@@ -172,11 +194,13 @@ export default function JournalEntryFormModal({
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" type="button" onClick={onClose} disabled={saving}>
-            Cancel
+            {isLocked ? 'Close' : 'Cancel'}
           </Button>
-          <Button variant="primary" type="submit" disabled={saving}>
-            {saving ? 'Saving…' : primaryLabel}
-          </Button>
+          {!isLocked && (
+            <Button variant="primary" type="submit" disabled={saving}>
+              {saving ? 'Saving…' : primaryLabel}
+            </Button>
+          )}
         </div>
       </form>
     </BottomSheet>

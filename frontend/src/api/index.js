@@ -345,6 +345,7 @@ export const deleteMovementSession = (id) =>
 
 // Creations — child-authored "I made a thing" entry type.
 export const listCreations = () => api.get('/creations/');
+export const getCreationTodayStatus = () => api.get('/creations/today_status/');
 export const createCreation = (formData) => api.upload('/creations/', formData);
 export const deleteCreation = (id) => api.delete(`/creations/${id}/`);
 export const submitCreation = (id) => api.post(`/creations/${id}/submit/`);

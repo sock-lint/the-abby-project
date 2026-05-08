@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X, ClipboardCheck, BookOpen, Gift, Palette, Sparkles, Feather, CheckCheck } from 'lucide-react';
+import { Check, X, ClipboardCheck, BookOpen, Gift, Palette, Sparkles, Feather, CheckCheck, Coins } from 'lucide-react';
 import EmptyState from '../EmptyState';
 import ParchmentCard from '../journal/ParchmentCard';
 import RuneBadge from '../journal/RuneBadge';
@@ -15,6 +15,7 @@ import {
   approveHomeworkSubmission, rejectHomeworkSubmission,
   approveRedemption, rejectRedemption,
   approveCreation, rejectCreation,
+  approveExchange, rejectExchange,
   deleteChore, deleteHabit,
 } from '../../api';
 
@@ -25,6 +26,7 @@ const KIND_LABELS = {
   creation: { label: 'creation', tone: 'gold', icon: Palette },
   chore_proposal: { label: 'duty proposal', tone: 'gold', icon: Sparkles },
   habit_proposal: { label: 'ritual proposal', tone: 'royal', icon: Feather },
+  exchange: { label: 'exchange', tone: 'ember', icon: Coins },
 };
 
 // Proposals need the parent to FILL IN rewards; we can't approve inline.
@@ -39,6 +41,7 @@ function approveFor(kind) {
   if (kind === 'chore') return approveChoreCompletion;
   if (kind === 'homework') return approveHomeworkSubmission;
   if (kind === 'creation') return (id) => approveCreation(id, {});
+  if (kind === 'exchange') return approveExchange;
   if (PROPOSAL_KINDS.has(kind)) return null; // not bulk-approvable
   return approveRedemption;
 }
@@ -47,6 +50,7 @@ function rejectFor(kind) {
   if (kind === 'chore') return rejectChoreCompletion;
   if (kind === 'homework') return rejectHomeworkSubmission;
   if (kind === 'creation') return (id, notes) => rejectCreation(id, notes);
+  if (kind === 'exchange') return rejectExchange;
   if (kind === 'chore_proposal') return deleteChore;
   if (kind === 'habit_proposal') return deleteHabit;
   return rejectRedemption;
