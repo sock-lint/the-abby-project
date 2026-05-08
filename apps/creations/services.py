@@ -196,6 +196,23 @@ class CreationService:
 
     @classmethod
     @transaction.atomic
+    def withdraw_bonus_request(cls, creation: Creation) -> Creation:
+        """Flip a PENDING creation back to LOGGED.
+
+        Symmetric counterpart to ``submit_for_bonus`` — the kid (or parent
+        on their behalf) decided not to ask for the bonus after all. The
+        creation row, image, and any baseline XP already granted on log
+        all stay; only the review state is undone. APPROVED / REJECTED /
+        LOGGED are no-ops so concurrent calls are safe.
+        """
+        if creation.status != Creation.Status.PENDING:
+            return creation
+        creation.status = Creation.Status.LOGGED
+        creation.save(update_fields=["status", "updated_at"])
+        return creation
+
+    @classmethod
+    @transaction.atomic
     def submit_for_bonus(cls, creation: Creation) -> Creation:
         """Flip status to PENDING and notify parents."""
         if creation.status in {Creation.Status.PENDING, Creation.Status.APPROVED}:

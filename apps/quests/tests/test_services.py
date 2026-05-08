@@ -81,11 +81,13 @@ class QuestServiceTest(TestCase):
         QuestParticipant.objects.filter(quest=quest).update(
             updated_at=timezone.now() - timedelta(days=1),
         )
+        from apps.quests.services import RAGE_SHIELD_CLIMB_STEP
+
         result = QuestService.apply_boss_rage()
         self.assertEqual(result["raged"], 1)
         self.assertEqual(result["decayed"], 0)
         quest.refresh_from_db()
-        self.assertEqual(quest.rage_shield, 20)
+        self.assertEqual(quest.rage_shield, RAGE_SHIELD_CLIMB_STEP)
 
     def test_get_active_quest(self):
         QuestService.start_quest(self.child, self.boss_def.pk)

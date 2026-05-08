@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory, DropLog
@@ -11,6 +12,16 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
     active_theme = serializers.SerializerMethodField()
     active_pet_accessory = serializers.SerializerMethodField()
     active_trophy_badge = serializers.SerializerMethodField()
+    # Active-boost timers — surface the seconds-remaining so the frontend
+    # can render a countdown chip. Null when the boost is inactive (either
+    # never used or already expired). The model still owns the absolute
+    # ``*_expires_at`` timestamps for the multiplier logic; this is just
+    # the display projection.
+    xp_boost_seconds_remaining = serializers.SerializerMethodField()
+    coin_boost_seconds_remaining = serializers.SerializerMethodField()
+    drop_boost_seconds_remaining = serializers.SerializerMethodField()
+    # Counter-style boost: number of doubled pet feeds left, not a timer.
+    pet_growth_boost_remaining = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = CharacterProfile
@@ -24,6 +35,13 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "last_active_date",
             "perfect_days_count",
             "streak_freeze_expires_at",
+            "xp_boost_expires_at",
+            "coin_boost_expires_at",
+            "drop_boost_expires_at",
+            "xp_boost_seconds_remaining",
+            "coin_boost_seconds_remaining",
+            "drop_boost_seconds_remaining",
+            "pet_growth_boost_remaining",
             "active_frame",
             "active_title",
             "active_theme",
@@ -33,6 +51,23 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+    @staticmethod
+    def _seconds_until(expires_at):
+        if expires_at is None:
+            return None
+        delta = expires_at - timezone.now()
+        seconds = int(delta.total_seconds())
+        return seconds if seconds > 0 else None
+
+    def get_xp_boost_seconds_remaining(self, obj):
+        return self._seconds_until(obj.xp_boost_expires_at)
+
+    def get_coin_boost_seconds_remaining(self, obj):
+        return self._seconds_until(obj.coin_boost_expires_at)
+
+    def get_drop_boost_seconds_remaining(self, obj):
+        return self._seconds_until(obj.drop_boost_expires_at)
 
     @staticmethod
     def _compact_item(item):

@@ -1,11 +1,14 @@
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Bell, BellRing } from 'lucide-react';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import { CoinIcon } from '../../components/icons/JournalIcons';
 import { RARITY_COLORS } from '../../constants/colors';
 
-export default function RewardCard({ reward, isParent, coinBalance, onRedeem, onEdit, onDelete }) {
+export default function RewardCard({
+  reward, isParent, coinBalance, onRedeem, onEdit, onDelete, onToggleWishlist,
+}) {
   const affordable = coinBalance >= reward.cost_coins;
   const outOfStock = reward.stock != null && reward.stock <= 0;
+  const wishlisted = !!reward.on_my_wishlist;
 
   return (
     <ParchmentCard
@@ -67,14 +70,32 @@ export default function RewardCard({ reward, isParent, coinBalance, onRedeem, on
         </div>
       )}
       {!isParent && (
-        <button
-          type="button"
-          disabled={!affordable || outOfStock}
-          onClick={() => onRedeem(reward)}
-          className="mt-2 w-full bg-sheikah-teal-deep hover:bg-sheikah-teal disabled:opacity-40 disabled:cursor-not-allowed text-ink-page-rune-glow text-xs font-body font-semibold py-1.5 rounded-lg border border-sheikah-teal-deep/60 transition-colors"
-        >
-          {outOfStock ? 'Out of stock' : affordable ? 'Barter' : 'Not enough coin'}
-        </button>
+        <div className="mt-2 flex items-stretch gap-1.5">
+          <button
+            type="button"
+            disabled={!affordable || outOfStock}
+            onClick={() => onRedeem(reward)}
+            className="flex-1 bg-sheikah-teal-deep hover:bg-sheikah-teal disabled:opacity-40 disabled:cursor-not-allowed text-ink-page-rune-glow text-xs font-body font-semibold py-1.5 rounded-lg border border-sheikah-teal-deep/60 transition-colors"
+          >
+            {outOfStock ? 'Out of stock' : affordable ? 'Barter' : 'Not enough coin'}
+          </button>
+          {onToggleWishlist && (
+            <button
+              type="button"
+              onClick={() => onToggleWishlist(reward)}
+              aria-label={wishlisted ? `Remove ${reward.name} from wishlist` : `Add ${reward.name} to wishlist`}
+              aria-pressed={wishlisted}
+              title={wishlisted ? 'On your wishlist — tap to remove' : 'Notify me when restocked / save for later'}
+              className={`shrink-0 px-2 rounded-lg border transition-colors ${
+                wishlisted
+                  ? 'bg-gold-leaf/20 border-gold-leaf/60 text-gold-leaf'
+                  : 'bg-ink-page-aged hover:bg-ink-page-shadow/50 border-ink-page-shadow/30 text-ink-whisper hover:text-gold-leaf'
+              }`}
+            >
+              {wishlisted ? <BellRing size={14} /> : <Bell size={14} />}
+            </button>
+          )}
+        </div>
       )}
     </ParchmentCard>
   );

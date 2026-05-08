@@ -3,13 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Image, Download, Plus, Camera, BookOpen,
   X, ChevronLeft, ChevronRight, Trash2, Clapperboard,
-  Palette, Music, Send,
+  Palette, Music, Send, Undo2,
 } from 'lucide-react';
 import SubjectBadge from '../components/SubjectBadge';
 import {
   getPortfolio, getProjects, uploadPhoto,
   deletePhoto, deleteHomeworkProof,
-  deleteCreation, submitCreation,
+  deleteCreation, submitCreation, withdrawCreation,
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
@@ -201,6 +201,16 @@ export default function Portfolio() {
     }
   };
 
+  const handleWithdrawCreation = async (item) => {
+    try {
+      await withdrawCreation(item.rawId);
+      await reload();
+    } catch (err) {
+      const msg = err?.message || String(err) || 'Withdraw failed';
+      setDeleteError(`Couldn't withdraw that creation: ${msg}`);
+    }
+  };
+
   const projects = normalizeList(projectsData);
   const hasContent = allItems.length > 0;
 
@@ -331,6 +341,7 @@ export default function Portfolio() {
               onOpen={openViewer}
               onRequestDelete={setPendingDelete}
               onSubmitForBonus={handleSubmitForBonus}
+              onWithdrawCreation={handleWithdrawCreation}
               canDelete={canDelete}
             />
           </section>
@@ -346,6 +357,7 @@ export default function Portfolio() {
               onOpen={openViewer}
               onRequestDelete={setPendingDelete}
               onSubmitForBonus={handleSubmitForBonus}
+              onWithdrawCreation={handleWithdrawCreation}
               canDelete={canDelete}
               showMeta
             />
@@ -388,7 +400,10 @@ export default function Portfolio() {
   );
 }
 
-function PhotoGrid({ items, onOpen, onRequestDelete, onSubmitForBonus, canDelete, showMeta }) {
+function PhotoGrid({
+  items, onOpen, onRequestDelete, onSubmitForBonus, onWithdrawCreation,
+  canDelete, showMeta,
+}) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
       {items.map((item, i) => (
@@ -478,6 +493,21 @@ function PhotoGrid({ items, onOpen, onRequestDelete, onSubmitForBonus, canDelete
               title="Submit for parent bonus review"
             >
               <Send size={14} />
+            </IconButton>
+          )}
+          {item.kind === 'creation' && item.creationStatus === 'pending' && onWithdrawCreation && (
+            <IconButton
+              aria-label={`Withdraw ${item.caption || item.groupLabel} from bonus review`}
+              variant="ghost"
+              size="sm"
+              className="absolute bottom-1.5 right-1.5 !bg-ink-primary/70 hover:!bg-ember-deep/85 !text-ink-page-rune-glow"
+              onClick={(e) => {
+                e.stopPropagation();
+                onWithdrawCreation(item);
+              }}
+              title="Withdraw from bonus review"
+            >
+              <Undo2 size={14} />
             </IconButton>
           )}
           {canDelete(item) && (

@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { DollarSign, TrendingUp, ArrowDownRight, ArrowUpRight, ArrowRightLeft, Target, Plus } from 'lucide-react';
-import { getBalance, adjustPayment, getChildren } from '../api';
+import { DollarSign, TrendingUp, ArrowDownRight, ArrowUpRight, ArrowRightLeft, Target, Plus, Download, Filter, X } from 'lucide-react';
+import {
+  getBalance, adjustPayment, getChildren,
+  getPaymentLedger, downloadPaymentLedgerCsv,
+} from '../api';
 import { useApi } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
 import { useRole } from '../hooks/useRole';
@@ -109,6 +112,114 @@ export default function Payments() {
   const { isParent } = useRole();
   const { data, loading, error, reload } = useApi(getBalance);
   const [showAdjust, setShowAdjust] = useState(false);
+  const [filters, setFilters] = useState({
+    entry_types: [],   // multi-select array
+    start_date: '',
+    end_date: '',
+    user_id: '',
+  });
+  const [filteredLedger, setFilteredLedger] = useState(null);
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [exportError, setExportError] = useState('');
+  const { data: childrenData } = useApi(
+    isParent ? getChildren : () => Promise.resolve({ results: [] }),
+    [isParent],
+  );
+  const children = useMemo(() => normalizeList(childrenData), [childrenData]);
+
+  // Any filter active? Drives whether we fetch the ledger directly vs.
+  // showing the summary's recent_transactions slice.
+  const hasFilter = useMemo(
+    () =>
+      filters.entry_types.length > 0
+      || !!filters.start_date
+      || !!filters.end_date
+      || !!filters.user_id,
+    [filters],
+  );
+
+  // Re-fetch the filtered ledger when filters become active or change.
+  // ``filteredLedger`` is only consumed in render when ``hasFilter`` is
+  // true (see ``entriesToRender`` below), so we leave any stale value
+  // sitting in state when filters are cleared rather than calling
+  // setFilteredLedger(null) here — that would be a synchronous setState
+  // inside an effect body for no externally-visible reason. The stale
+  // value is shadowed at render time, and replaced wholesale on the
+  // next filter activation.
+  useEffect(() => {
+    if (!hasFilter) return;
+    // Marking "loading" before kicking off the fetch is a legitimate
+    // synchronization-with-external-system pattern — the rule's
+    // "don't setState in an effect" guidance targets effects that
+    // should be derived state, not ones that wrap async network IO.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFilterLoading(true);
+    const params = {
+      start_date: filters.start_date || undefined,
+      end_date: filters.end_date || undefined,
+      user_id: filters.user_id || undefined,
+      entry_type: filters.entry_types.length
+        ? filters.entry_types.join(',')
+        : undefined,
+    };
+    let cancelled = false;
+    getPaymentLedger(params)
+      .then((resp) => {
+        if (cancelled) return;
+        setFilteredLedger(normalizeList(resp));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFilteredLedger([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setFilterLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [filters, hasFilter]);
+
+  const toggleEntryType = (type) => {
+    setFilters((prev) => {
+      const has = prev.entry_types.includes(type);
+      return {
+        ...prev,
+        entry_types: has
+          ? prev.entry_types.filter((t) => t !== type)
+          : [...prev.entry_types, type],
+      };
+    });
+  };
+
+  const clearFilters = () =>
+    setFilters({ entry_types: [], start_date: '', end_date: '', user_id: '' });
+
+  const handleExport = async () => {
+    setExportError('');
+    try {
+      const blob = await downloadPaymentLedgerCsv({
+        start_date: filters.start_date || undefined,
+        end_date: filters.end_date || undefined,
+        user_id: filters.user_id || undefined,
+        entry_type: filters.entry_types.length
+          ? filters.entry_types.join(',')
+          : undefined,
+      });
+      // Trigger a real browser download — the blob comes back via fetch
+      // so the auth header is honored, then we hand the bytes to the
+      // browser via a temporary <a download> click.
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'payment-ledger.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError(err?.message || 'Could not export the ledger.');
+    }
+  };
 
   if (loading) return <Loader />;
   if (error || !data) {
@@ -123,6 +234,13 @@ export default function Payments() {
   }
 
   const { balance, breakdown, recent_transactions } = data;
+  // Render the filtered ledger when any filter is active; otherwise show
+  // the small recent_transactions slice from the balance summary. The
+  // ``hasFilter`` shadow is what lets the effect leave stale filteredLedger
+  // values in state without leaking them into the UI.
+  const entriesToRender = hasFilter
+    ? (filteredLedger ?? [])
+    : (recent_transactions ?? []);
 
   return (
     <div className="space-y-6">
@@ -136,15 +254,28 @@ export default function Payments() {
           </h1>
         </div>
         {isParent && (
-          <Button
-            size="sm"
-            onClick={() => setShowAdjust(true)}
-            className="flex items-center gap-1"
-          >
-            <Plus size={14} /> Adjust Balance
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleExport}
+              className="flex items-center gap-1"
+              title="Export current view to CSV"
+            >
+              <Download size={14} /> Export CSV
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowAdjust(true)}
+              className="flex items-center gap-1"
+            >
+              <Plus size={14} /> Adjust Balance
+            </Button>
+          </div>
         )}
       </header>
+
+      {exportError && <ErrorAlert message={exportError} />}
 
       {/* Balance hero — rendered as a wax-sealed ledger entry */}
       <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
@@ -191,12 +322,81 @@ export default function Payments() {
         </section>
       )}
 
-      {/* Recent transactions */}
-      {recent_transactions?.length > 0 && (
+      {/* Filter strip — entry-type pills, optional date range + child select */}
+      <section aria-labelledby="ledger-filters-heading">
+        <DeckleDivider glyph="flourish-corner" label="recent entries" />
+        <div className="flex flex-wrap items-center gap-1.5 mb-2" id="ledger-filters-heading">
+          <Filter size={12} className="text-ink-whisper" aria-hidden="true" />
+          {Object.entries(typeLabels).map(([type, label]) => {
+            const active = filters.entry_types.includes(type);
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => toggleEntryType(type)}
+                aria-pressed={active}
+                className={`px-2 py-0.5 text-tiny font-script rounded-full border transition-colors ${
+                  active
+                    ? 'bg-sheikah-teal-deep/15 text-sheikah-teal-deep border-sheikah-teal-deep/40'
+                    : 'bg-ink-page-aged hover:bg-ink-page-shadow/40 text-ink-whisper border-ink-page-shadow/30'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+          {hasFilter && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="px-2 py-0.5 text-tiny font-script rounded-full bg-ember-deep/10 text-ember-deep border border-ember-deep/30 hover:bg-ember-deep/20 flex items-center gap-1"
+              aria-label="Clear all filters"
+            >
+              <X size={10} aria-hidden="true" /> clear
+            </button>
+          )}
+        </div>
+        {isParent && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-2">
+            <input
+              type="date"
+              value={filters.start_date}
+              onChange={(e) => setFilters((p) => ({ ...p, start_date: e.target.value }))}
+              aria-label="Filter from date"
+              className="px-2 py-1 text-tiny font-script rounded border border-ink-page-shadow/30 bg-ink-page-aged"
+            />
+            <input
+              type="date"
+              value={filters.end_date}
+              onChange={(e) => setFilters((p) => ({ ...p, end_date: e.target.value }))}
+              aria-label="Filter to date"
+              className="px-2 py-1 text-tiny font-script rounded border border-ink-page-shadow/30 bg-ink-page-aged"
+            />
+            <select
+              value={filters.user_id}
+              onChange={(e) => setFilters((p) => ({ ...p, user_id: e.target.value }))}
+              aria-label="Filter by kid"
+              className="px-2 py-1 text-tiny font-script rounded border border-ink-page-shadow/30 bg-ink-page-aged"
+            >
+              <option value="">All kids</option>
+              {children.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.display_name || c.username}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </section>
+
+      {/* Ledger entries — switches to filtered ledger when any filter is active */}
+      {entriesToRender.length > 0 && (
         <section>
-          <DeckleDivider glyph="flourish-corner" label="recent entries" />
           <div className="space-y-2">
-            {recent_transactions.map((tx) => {
+            {filterLoading && (
+              <div className="font-script text-tiny text-ink-whisper">filtering…</div>
+            )}
+            {entriesToRender.map((tx) => {
               const { icon: Icon, tone } = typeIcons[tx.entry_type] || typeIcons.adjustment;
               const isPositive = parseFloat(tx.amount) >= 0;
               return (
@@ -234,8 +434,11 @@ export default function Payments() {
         </section>
       )}
 
-      {!breakdown && !recent_transactions?.length && (
+      {!breakdown && !entriesToRender.length && (
         <RuneBadge tone="ink">nothing inked yet — complete some quests to see entries here</RuneBadge>
+      )}
+      {hasFilter && entriesToRender.length === 0 && !filterLoading && (
+        <RuneBadge tone="ink">no entries match those filters</RuneBadge>
       )}
 
       {showAdjust && (

@@ -155,6 +155,49 @@ class CreationSubmitTests(_Fixture):
         self.assertEqual(resp.status_code, 200)
 
 
+class CreationWithdrawTests(_Fixture):
+    def _make_pending(self):
+        from apps.creations.services import CreationService
+
+        with patch("apps.rpg.services.GameLoopService.on_task_completed"):
+            c = CreationService.log_creation(
+                self.child, image=_fake_image(), primary_skill_id=self.draw.id,
+            )
+        CreationService.submit_for_bonus(c)
+        return c
+
+    def test_owner_withdraws_pending_back_to_logged(self):
+        c = self._make_pending()
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(f"/api/creations/{c.id}/withdraw/")
+        self.assertEqual(resp.status_code, 200)
+        c.refresh_from_db()
+        # Creation row stays — only the bonus-review state was undone.
+        self.assertEqual(c.status, Creation.Status.LOGGED)
+
+    def test_other_child_cannot_withdraw(self):
+        c = self._make_pending()
+        self.client.force_authenticate(self.other_child)
+        resp = self.client.post(f"/api/creations/{c.id}/withdraw/")
+        self.assertEqual(resp.status_code, 404)
+        c.refresh_from_db()
+        self.assertEqual(c.status, Creation.Status.PENDING)
+
+    def test_cannot_withdraw_logged_creation(self):
+        from apps.creations.services import CreationService
+
+        with patch("apps.rpg.services.GameLoopService.on_task_completed"):
+            c = CreationService.log_creation(
+                self.child, image=_fake_image(), primary_skill_id=self.draw.id,
+            )
+        # Already LOGGED — withdraw is a no-op semantically; we 400 so
+        # the frontend can detect "the kid pressed withdraw on something
+        # that wasn't pending" and not flash a misleading toast.
+        self.client.force_authenticate(self.child)
+        resp = self.client.post(f"/api/creations/{c.id}/withdraw/")
+        self.assertEqual(resp.status_code, 400)
+
+
 class CreationApproveRejectTests(_Fixture):
     def _make_pending(self):
         from apps.creations.services import CreationService

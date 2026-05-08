@@ -8,6 +8,7 @@ import {
   getHomeworkDashboard,
   approveHomeworkSubmission,
   rejectHomeworkSubmission,
+  withdrawHomeworkSubmission,
   planHomework, getChildren,
   deleteHomework,
 } from '../../api';
@@ -74,6 +75,16 @@ export default function Homework() {
     reload();
   };
 
+  const handleWithdraw = async (submissionId) => {
+    setActionError('');
+    try {
+      await withdrawHomeworkSubmission(submissionId);
+      reload();
+    } catch (err) {
+      setActionError(err?.message || 'Could not withdraw that submission.');
+    }
+  };
+
   const handleDelete = async () => {
     setActionError('');
     try {
@@ -121,6 +132,7 @@ export default function Homework() {
       canManage={isParent}
       onEdit={() => openEdit(a)}
       onDelete={() => setDeleteConfirm(a.id)}
+      onWithdraw={isParent ? undefined : handleWithdraw}
     />
   );
 

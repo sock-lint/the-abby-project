@@ -168,6 +168,43 @@ class RewardRedemption(ApprovalWorkflowModel, CreatedAtModel):
         return f"{self.user} → {self.reward.name} ({self.status})"
 
 
+class RewardWishlist(CreatedAtModel):
+    """A child has bookmarked this reward — nudge them when stock returns.
+
+    A lightweight (user, reward) pair. Created when a child taps
+    "Notify me" on an out-of-stock reward (or any reward), and cleared
+    automatically when (a) the user redeems it, or (b) it's been
+    notified-about-restock so a single toggle doesn't spam.
+
+    Per-family scoping is implicit through ``reward.family`` — a child
+    can only wishlist a reward in their own family because the rewards
+    list is already family-filtered. We don't enforce it again at the
+    DB layer (the reward FK is enough; cross-family POSTs 404 from the
+    queryset filter before they reach this row).
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="reward_wishlist_entries",
+    )
+    reward = models.ForeignKey(
+        Reward, on_delete=models.CASCADE, related_name="wishlist_entries",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "reward"],
+                name="reward_wishlist_unique_user_reward",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user} ★ {self.reward.name}"
+
+
 class ExchangeRequest(ApprovalWorkflowModel, CreatedAtModel):
     """A request to exchange money for coins, pending parent approval."""
 

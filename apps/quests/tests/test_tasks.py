@@ -55,13 +55,15 @@ class ApplyBossRageTaskTests(_Fixture):
         return quest
 
     def test_adds_rage_shield_to_idle_boss_quest(self):
+        from apps.quests.services import RAGE_SHIELD_CLIMB_STEP
+
         quest = self._make_idle_quest()
         apply_boss_rage_task()
         quest.refresh_from_db()
-        self.assertEqual(quest.rage_shield, 20)
+        self.assertEqual(quest.rage_shield, RAGE_SHIELD_CLIMB_STEP)
 
     def test_rage_shield_caps_at_100(self):
-        """Rage climbs 20/day until it hits the cap, then plateaus."""
+        """Rage climbs each idle day until it hits the cap, then plateaus."""
         from apps.quests.services import QuestService, RAGE_SHIELD_CAP
 
         quest = self._make_idle_quest(rage_shield=0)
@@ -73,7 +75,7 @@ class ApplyBossRageTaskTests(_Fixture):
 
     def test_rage_shield_decays_when_progress_resumes(self):
         """Once the user returns and makes progress, rage bleeds off."""
-        from apps.quests.services import QuestService
+        from apps.quests.services import QuestService, RAGE_SHIELD_DECAY_STEP
 
         quest = self._make_idle_quest(rage_shield=60)
         # Touch the participant as if they made progress today.
@@ -81,7 +83,7 @@ class ApplyBossRageTaskTests(_Fixture):
 
         result = QuestService.apply_boss_rage()
         quest.refresh_from_db()
-        self.assertEqual(quest.rage_shield, 40)
+        self.assertEqual(quest.rage_shield, 60 - RAGE_SHIELD_DECAY_STEP)
         self.assertEqual(result["decayed"], 1)
         self.assertEqual(result["raged"], 0)
 
@@ -95,3 +97,13 @@ class ApplyBossRageTaskTests(_Fixture):
         QuestService.apply_boss_rage()
         quest.refresh_from_db()
         self.assertEqual(quest.rage_shield, 0)
+
+    def test_rage_decay_outpaces_climb(self):
+        """Asymmetric tuning: 1 active day undoes more than 1 idle day."""
+        from apps.quests.services import (
+            QuestService,
+            RAGE_SHIELD_CLIMB_STEP,
+            RAGE_SHIELD_DECAY_STEP,
+        )
+
+        self.assertGreater(RAGE_SHIELD_DECAY_STEP, RAGE_SHIELD_CLIMB_STEP)

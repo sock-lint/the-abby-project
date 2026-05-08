@@ -441,7 +441,9 @@ quests:
     coin_reward: 200
     xp_reward: 75
     is_system: true
-    reward_items: []
+    reward_items:
+      - slug: accessory-prayer-beads
+        quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 2}
       - {skill: "Life Skills::Time Management", weight: 1}
@@ -459,7 +461,9 @@ quests:
     coin_reward: 150
     xp_reward: 200
     is_system: true
-    reward_items: []
+    reward_items:
+      - slug: title-green-thumb
+        quantity: 1
     skill_tags:
       - {skill: "Outdoors::Gardening", weight: 3}
       - {skill: "Outdoors::Nature ID", weight: 1}
@@ -501,7 +505,9 @@ quests:
     coin_reward: 200
     xp_reward: 150
     is_system: true
-    reward_items: []
+    reward_items:
+      - slug: title-bookworm
+        quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 2}
       - {skill: "Life Skills::Time Management", weight: 2}
@@ -516,7 +522,13 @@ quests:
     coin_reward: 500
     xp_reward: 400
     is_system: true
-    reward_items: []
+    # 90-day epic — the marquee long-haul quest. Both a frame and a title
+    # so the kid actually wears the achievement on their profile.
+    reward_items:
+      - slug: frame-laurel
+        quantity: 1
+      - slug: title-trailblazer
+        quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 3}
       - {skill: "Life Skills::Time Management", weight: 2}

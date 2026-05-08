@@ -30,6 +30,47 @@ class CharacterViewTests(_Fixture):
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(CharacterProfile.objects.filter(user=self.child).exists())
 
+    def test_boost_timers_in_response(self):
+        """The four boost fields are exposed so the frontend can render
+        a countdown chip after a kid uses an XP/coin/drop/growth potion."""
+        from datetime import timedelta
+        from django.utils import timezone
+
+        profile = CharacterProfile.objects.get(user=self.child)
+        profile.xp_boost_expires_at = timezone.now() + timedelta(hours=2)
+        profile.pet_growth_boost_remaining = 3
+        profile.save()
+
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/character/")
+        data = resp.json()
+
+        self.assertIn("xp_boost_seconds_remaining", data)
+        self.assertIn("coin_boost_seconds_remaining", data)
+        self.assertIn("drop_boost_seconds_remaining", data)
+        self.assertIn("pet_growth_boost_remaining", data)
+        # XP boost is active (~7200s) — must be a positive integer.
+        self.assertIsNotNone(data["xp_boost_seconds_remaining"])
+        self.assertGreater(data["xp_boost_seconds_remaining"], 6000)
+        # Inactive boosts surface as null, not 0 or a negative number.
+        self.assertIsNone(data["coin_boost_seconds_remaining"])
+        self.assertIsNone(data["drop_boost_seconds_remaining"])
+        self.assertEqual(data["pet_growth_boost_remaining"], 3)
+
+    def test_expired_boost_returns_null_not_negative(self):
+        """A timer that's already past must read null, not a negative
+        number — the frontend never wants 'remaining: -42s' on a chip."""
+        from datetime import timedelta
+        from django.utils import timezone
+
+        profile = CharacterProfile.objects.get(user=self.child)
+        profile.xp_boost_expires_at = timezone.now() - timedelta(hours=1)
+        profile.save()
+
+        self.client.force_authenticate(self.child)
+        data = self.client.get("/api/character/").json()
+        self.assertIsNone(data["xp_boost_seconds_remaining"])
+
 
 class StreakViewTests(_Fixture):
     def test_get_streaks(self):

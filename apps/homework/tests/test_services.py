@@ -359,6 +359,28 @@ class ApproveRejectTests(_Fixture):
         gl2.assert_not_called()
 
 
+class EffortLevelXpScalingTests(TestCase):
+    """Effort 1-5 scales the XP pool. Effort 3 (default) is 1.0x."""
+
+    def test_helper_factors(self):
+        from apps.homework.services import EFFORT_XP_FACTOR, _scale_xp_by_effort
+
+        self.assertEqual(EFFORT_XP_FACTOR[3], 1.0)
+        self.assertGreater(EFFORT_XP_FACTOR[5], EFFORT_XP_FACTOR[3])
+        self.assertLess(EFFORT_XP_FACTOR[1], EFFORT_XP_FACTOR[3])
+        # 30 XP at effort 3 → 30; at effort 5 → 54; at effort 1 → 18.
+        self.assertEqual(_scale_xp_by_effort(30, 3), 30)
+        self.assertEqual(_scale_xp_by_effort(30, 5), 54)
+        self.assertEqual(_scale_xp_by_effort(30, 1), 18)
+
+    def test_unknown_effort_falls_back_to_1x(self):
+        """Defensive: a corrupted DB row with effort_level=0 still grants XP."""
+        from apps.homework.services import _scale_xp_by_effort
+
+        self.assertEqual(_scale_xp_by_effort(20, 0), 20)
+        self.assertEqual(_scale_xp_by_effort(20, 99), 20)
+
+
 class TemplateTests(_Fixture):
     def test_save_and_create_from_template(self):
         assignment = HomeworkAssignment.objects.create(
