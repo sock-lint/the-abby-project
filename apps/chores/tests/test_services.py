@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.chores.models import Chore, ChoreCompletion
 from apps.chores.services import ChoreNotAvailableError, ChoreService
+from apps.notifications.models import Notification, NotificationType
 from apps.payments.models import PaymentLedger
 from apps.projects.models import User
 from apps.rewards.models import CoinLedger
@@ -142,6 +143,31 @@ class ApprovalTests(_Fixture):
         self.assertFalse(CoinLedger.objects.filter(
             user=self.child, reason=CoinLedger.Reason.CHORE_REWARD,
         ).exists())
+
+    def test_reject_emits_notification_with_note(self):
+        """Reject sends a CHORE_REJECTED notification; when a note is
+        supplied, it's woven into the message body so the kid sees *why*
+        without having to ask. Closes the silent-rejection gap from the
+        2026-05 review."""
+        ChoreService.reject_completion(
+            self.completion, self.parent, notes="add a photo of the bin",
+        )
+        notif = Notification.objects.filter(
+            user=self.child,
+            notification_type=NotificationType.CHORE_REJECTED,
+        ).first()
+        self.assertIsNotNone(notif)
+        self.assertIn(self.chore.title, notif.title)
+        self.assertIn("add a photo of the bin", notif.message)
+
+    def test_reject_without_note_still_emits_notification(self):
+        ChoreService.reject_completion(self.completion, self.parent)
+        notif = Notification.objects.filter(
+            user=self.child,
+            notification_type=NotificationType.CHORE_REJECTED,
+        ).first()
+        self.assertIsNotNone(notif)
+        self.assertNotIn("Note from your parent", notif.message)
 
     def test_approving_already_approved_is_noop(self):
         ChoreService.approve_completion(self.completion, self.parent)

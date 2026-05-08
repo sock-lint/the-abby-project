@@ -286,6 +286,8 @@ class ChoreService:
         """Parent rejects. No payment.
 
         ``notes`` is accepted for uniform signature; see ``approve_completion``.
+        When provided, the note is woven into the rejection notification so
+        the child knows *why* without having to ask.
         """
         # Race guard mirrors approve_completion — without the lock, an
         # approve + reject racing on the same row could both succeed.
@@ -305,5 +307,20 @@ class ChoreService:
                 "chore_id": completion.chore_id,
                 "parent_notes": notes or None,
             },
+        )
+
+        title = f"Duty rejected: {completion.chore.title}"
+        body = (
+            f'Your duty "{completion.chore.title}" was not approved. '
+            f"You can complete it again."
+        )
+        if notes:
+            body = f'{body}\n\nNote from your parent: "{notes.strip()}"'
+        notify(
+            completion.user,
+            title=title,
+            message=body,
+            notification_type=NotificationType.CHORE_REJECTED,
+            link="/quests?tab=duties",
         )
         return completion

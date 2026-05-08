@@ -394,13 +394,16 @@ class HomeworkService:
             },
         )
 
+        body = (
+            f'Your homework "{submission.assignment.title}" was not approved. '
+            f"You can re-submit with updated proof."
+        )
+        if notes:
+            body = f'{body}\n\nNote from your parent: "{notes.strip()}"'
         notify(
             submission.user,
             title=f"Homework rejected: {submission.assignment.title}",
-            message=(
-                f'Your homework "{submission.assignment.title}" was not approved. '
-                f"You can re-submit with updated proof."
-            ),
+            message=body,
             notification_type=NotificationType.HOMEWORK_REJECTED,
             link="/homework",
         )
