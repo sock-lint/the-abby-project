@@ -13,6 +13,7 @@ import RpgSprite from '../../../components/rpg/RpgSprite';
 import { normalizeList } from '../../../utils/api';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { COMPANION_FILTERS, compareByRarityThenName } from './party.constants';
+import PetCeremonyModal from '../PetCeremonyModal';
 
 /**
  * Companions — owned, unevolved pets. Lifted from the old Stable.jsx
@@ -26,6 +27,7 @@ export default function Companions() {
   const [error, setError] = useState('');
   const [selectedPet, setSelectedPet] = useState(null);
   const [working, setWorking] = useState(false);
+  const [evolveCeremony, setEvolveCeremony] = useState(null);
 
   const pets = useMemo(() => stableData?.pets || [], [stableData]);
   const totalPossible = stableData?.total_possible || 0;
@@ -49,12 +51,15 @@ export default function Companions() {
 
   const refresh = () => { reloadStable(); reloadInventory(); };
 
-  const handleFeed = async (petId, foodItemId) => {
+  const handleFeed = async (pet, foodItemId) => {
     setWorking(true);
     setError('');
     try {
-      await feedPet(petId, foodItemId);
+      const result = await feedPet(pet.id, foodItemId);
       setSelectedPet(null);
+      if (result?.evolved) {
+        setEvolveCeremony({ species: pet.species, potion: pet.potion });
+      }
       refresh();
     } catch (e) { setError(e.message); }
     finally { setWorking(false); }
@@ -70,6 +75,14 @@ export default function Companions() {
 
   return (
     <div className="space-y-6">
+      {evolveCeremony && (
+        <PetCeremonyModal
+          mode="evolve"
+          species={evolveCeremony.species}
+          potion={evolveCeremony.potion}
+          onDismiss={() => setEvolveCeremony(null)}
+        />
+      )}
       <header>
         <div className="font-script text-sheikah-teal-deep text-base">
           your party · companions you've raised
@@ -208,7 +221,7 @@ export default function Companions() {
                             <button
                               key={f.item.id}
                               type="button"
-                              onClick={(e) => { e.stopPropagation(); handleFeed(pet.id, f.item.id); }}
+                              onClick={(e) => { e.stopPropagation(); handleFeed(pet, f.item.id); }}
                               disabled={working}
                               title={f.item.name}
                               className="font-body text-xs px-2 py-1 rounded bg-ink-page border border-ink-page-shadow hover:border-sheikah-teal/50 transition-colors flex items-center gap-1"

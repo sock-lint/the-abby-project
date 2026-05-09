@@ -388,9 +388,9 @@ export default function Chores() {
                         type="button"
                         onClick={() => setDeleteConfirm(p.id)}
                         aria-label="Decline proposal"
-                        className="p-1.5 bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
+                        className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={16} />
                       </button>
                     </>
                   ) : (
@@ -468,17 +468,17 @@ export default function Chores() {
                           type="button"
                           onClick={() => openEdit(chore)}
                           aria-label="Edit duty"
-                          className="p-1.5 bg-ink-page hover:bg-ink-page-shadow/70 rounded text-ink-secondary hover:text-ink-primary transition-colors"
+                          className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] bg-ink-page hover:bg-ink-page-shadow/70 rounded text-ink-secondary hover:text-ink-primary transition-colors"
                         >
-                          <Pencil size={14} />
+                          <Pencil size={16} />
                         </button>
                         <button
                           type="button"
                           onClick={() => setDeleteConfirm(chore.id)}
                           aria-label="Delete duty"
-                          className="p-1.5 bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
+                          className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     ) : isDone ? (

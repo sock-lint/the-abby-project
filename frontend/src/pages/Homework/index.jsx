@@ -198,21 +198,23 @@ export default function Homework() {
       {/* Parent view */}
       {isParent && (
         <>
-        {dashboard?.assignments?.length > 0 && (
-          <Section title="Active assignments" items={dashboard.assignments}>
-            {(a) => (
-              <AssignmentCard
-                key={a.id} assignment={a}
-                onPlan={() => handlePlan(a)}
-                planning={planning === a.id}
-                canPlan={a.can_plan}
-                canManage
-                onEdit={() => openEdit(a)}
-                onDelete={() => setDeleteConfirm(a.id)}
-              />
-            )}
-          </Section>
-        )}
+        <Section
+          title="Active assignments"
+          items={dashboard?.assignments}
+          emptyText="No active assignments. Tap “New homework” to add one."
+        >
+          {(a) => (
+            <AssignmentCard
+              key={a.id} assignment={a}
+              onPlan={() => handlePlan(a)}
+              planning={planning === a.id}
+              canPlan={a.can_plan}
+              canManage
+              onEdit={() => openEdit(a)}
+              onDelete={() => setDeleteConfirm(a.id)}
+            />
+          )}
+        </Section>
         <ApprovalQueue
           items={dashboard?.pending_submissions}
           title="Awaiting your seal"

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   getCharacterProfile,
   getCosmetics,
@@ -39,6 +39,25 @@ export default function Character() {
   const [error, setError] = useState('');
   const [working, setWorking] = useState(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Equip toast — `{ msg, key }`. The key bumps on each equip so the
+  // toast re-animates even when the same slot is changed twice.
+  const [equipToast, setEquipToast] = useState(null);
+
+  // Auto-dismiss the equip toast after 3.2s.
+  useEffect(() => {
+    if (!equipToast) return undefined;
+    const id = setTimeout(() => setEquipToast(null), 3200);
+    return () => clearTimeout(id);
+  }, [equipToast]);
+
+  // Helper: find the cosmetic name we just equipped for the toast copy.
+  const cosmeticName = (slot, itemId) => {
+    const owned = cosmetics?.[slot] || [];
+    const fromOwned = owned.find((c) => c.id === itemId);
+    if (fromOwned) return fromOwned.name;
+    const fromCatalog = (catalog?.[slot] || []).find((c) => c.id === itemId);
+    return fromCatalog?.name || '';
+  };
 
   const allBadges = useMemo(() => normalizeList(allBadgesData), [allBadgesData]);
   const earnedBadges = useMemo(() => summary?.badges_earned || [], [summary]);
@@ -54,11 +73,16 @@ export default function Character() {
     reloadCosmetics();
   };
 
-  const handleEquip = async (itemId) => {
+  const handleEquip = async (itemId, slot) => {
     setWorking(itemId);
     setError('');
     try {
       await equipCosmetic(itemId);
+      const name = cosmeticName(slot, itemId);
+      setEquipToast({
+        msg: name ? `Now wearing ${name}` : 'Cosmetic equipped',
+        key: Date.now(),
+      });
       refresh();
     } catch (e) { setError(e.message); }
     finally { setWorking(null); }
@@ -69,6 +93,7 @@ export default function Character() {
     setError('');
     try {
       await unequipCosmetic(slot);
+      setEquipToast({ msg: 'Cosmetic unequipped', key: Date.now() });
       refresh();
     } catch (e) { setError(e.message); }
     finally { setWorking(null); }
@@ -91,6 +116,23 @@ export default function Character() {
     <div className="space-y-5 max-w-4xl mx-auto">
       <ErrorAlert message={error} />
 
+      <AnimatePresence>
+        {equipToast && (
+          <motion.div
+            key={equipToast.key}
+            initial={{ y: -8, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -8, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            role="status"
+            aria-live="polite"
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 rounded-full bg-gold-leaf/90 text-ink-primary px-4 py-1.5 font-script text-sm shadow-lg"
+          >
+            {equipToast.msg}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <SigilFrontispiece
         profile={profile}
         onOpenTrophyPicker={() => setPickerOpen(true)}
@@ -112,7 +154,7 @@ export default function Character() {
             activeId={profile[chapter.slot]?.id || null}
             currentThemeName={currentThemeName}
             busy={working}
-            onEquip={handleEquip}
+            onEquip={(itemId) => handleEquip(itemId, chapter.slot)}
             onUnequip={handleUnequip}
           />
         ))}

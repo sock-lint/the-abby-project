@@ -46,6 +46,18 @@ export default function Rewards() {
 
   const handleRedeem = async (reward) => {
     setError('');
+    // Pre-flight check: if the cached balance is short, render a
+    // concrete delta ("you need 12 more coins") rather than waiting on
+    // a generic 4xx string. Backend re-validates on submit so this is
+    // safe even if the cached balance is stale.
+    const balance = balanceData?.balance ?? 0;
+    if (reward.cost > balance) {
+      const short = reward.cost - balance;
+      setError(
+        `Not enough coins yet — need ${short} more (cost: ${reward.cost}, you have ${balance}).`,
+      );
+      return;
+    }
     try {
       await redeemReward(reward.id);
       refresh();
