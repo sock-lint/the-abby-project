@@ -1,16 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, BookTemplate, BookOpen, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink,
+  TestTubeDiagonal,
 } from 'lucide-react';
 import {
   getChildren, createChild, updateChild,
   getTemplates, updateTemplate, deleteTemplate, createProjectFromTemplate,
   getCategories, getGoogleAuthUrl, unlinkGoogleAccount,
+  devToolsPing,
 } from '../api';
 import CodexSection from './manage/CodexSection';
 import GuideSection from './manage/GuideSection';
+import TestSection from './manage/TestSection';
 import { useApi } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
 import BottomSheet from '../components/BottomSheet';
@@ -25,17 +28,31 @@ import IconButton from '../components/IconButton';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 import { normalizeList } from '../utils/api';
 
-const tabs = ['Children', 'Templates', 'Codex', 'Guide'];
+const BASE_TABS = ['Children', 'Templates', 'Codex', 'Guide'];
 
 const TAB_ICONS = {
   Children: Users,
   Templates: BookTemplate,
   Codex: BookOpen,
   Guide: ScrollText,
+  Test: TestTubeDiagonal,
 };
 
 export default function Manage() {
   const [activeTab, setActiveTab] = useState('Children');
+  // The Test tab is parent + DEBUG/DEV_TOOLS_ENABLED only. The backend
+  // gate is the source of truth — we ping it once on mount; 200 → tab
+  // visible, anything else → tab hidden. Anonymous + child + production
+  // parents all hit 401/403 here and the tab never appears.
+  const [devToolsEnabled, setDevToolsEnabled] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    devToolsPing()
+      .then(() => { if (alive) setDevToolsEnabled(true); })
+      .catch(() => { if (alive) setDevToolsEnabled(false); });
+    return () => { alive = false; };
+  }, []);
+  const tabs = devToolsEnabled ? [...BASE_TABS, 'Test'] : BASE_TABS;
 
   return (
     <div className="space-y-6">
@@ -73,6 +90,7 @@ export default function Manage() {
       {activeTab === 'Templates' && <TemplatesSection />}
       {activeTab === 'Codex' && <CodexSection />}
       {activeTab === 'Guide' && <GuideSection />}
+      {activeTab === 'Test' && devToolsEnabled && <TestSection />}
     </div>
   );
 }

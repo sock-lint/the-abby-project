@@ -68,6 +68,11 @@ urlpatterns = [
     path("api/", include("apps.creations.urls")),
     path("api/", include("apps.lorebook.urls")),
     path("api/", include("apps.movement.urls")),
+    # Dev-tools REST surface. URLs always mount — the gate runs at the
+    # view permission layer (``IsDevToolsEnabled``) so it's re-checked
+    # per request and survives runtime ``DEV_TOOLS_ENABLED`` toggles.
+    # See ``apps/dev_tools/gate.py`` + ``apps/dev_tools/permissions.py``.
+    path("api/dev/", include("apps.dev_tools.urls")),
 ]
 
 # Serve /media/ through Django when uploads live on local disk. With

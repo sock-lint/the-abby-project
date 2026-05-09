@@ -229,4 +229,29 @@ describe('Manage — child DOB + grade_entry_year', () => {
     });
     expect(spy.calls[0].url).toMatch(/\/api\/children\/7\/?$/);
   });
+
+  it('hides the Test tab when /api/dev/ping/ returns 403', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/dev/ping/', () => new HttpResponse(null, { status: 403 })),
+    );
+    renderPage();
+    await screen.findByText(/children/i);
+    // Wait a tick so the ping resolves either way.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByRole('button', { name: /^Test$/ })).toBeNull();
+  });
+
+  it('shows the Test tab when /api/dev/ping/ returns 200', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/dev/ping/', () => HttpResponse.json({ enabled: true, user: 'dad' })),
+    );
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Test$/ })).toBeInTheDocument();
+    });
+  });
 });
