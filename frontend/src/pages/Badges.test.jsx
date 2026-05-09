@@ -145,4 +145,29 @@ describe('Badges page', () => {
       expect(screen.getByText(/no badges have been forged yet/i)).toBeInTheDocument(),
     );
   });
+
+  it('filters badges by name when the user types in the search', async () => {
+    const user = userEvent.setup();
+    renderPage({
+      handlers: [
+        http.get('*/api/achievements/summary/', () => HttpResponse.json({ badges_earned: [] })),
+        http.get('*/api/badges/', () =>
+          HttpResponse.json([
+            { id: 1, name: 'First Stitch', rarity: 'common', icon: '🧵', criterion_type: 'first_project' },
+            {
+              id: 2, name: 'Perfect Joinery', rarity: 'rare', icon: '🏆',
+              criterion_type: 'milestones_completed', criterion_value: 10,
+            },
+          ]),
+        ),
+      ],
+    });
+    await waitFor(() => expect(screen.getByText('First Stitch')).toBeInTheDocument());
+
+    const search = screen.getByRole('searchbox', { name: /filter badges/i });
+    await user.type(search, 'joinery');
+
+    expect(screen.queryByText('First Stitch')).not.toBeInTheDocument();
+    expect(screen.getByText('Perfect Joinery')).toBeInTheDocument();
+  });
 });

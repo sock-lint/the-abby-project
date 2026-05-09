@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import Achievements from './Achievements.jsx';
 import { server } from '../test/server.js';
 import { renderWithProviders } from '../test/render.jsx';
@@ -49,6 +50,46 @@ describe('Achievements (Skills page)', () => {
     expect(screen.queryByRole('tab', { name: 'Manage' })).toBeNull();
     // Category pennant renders as a tab.
     expect(screen.getByRole('tab', { name: /Woodworking/ })).toBeInTheDocument();
+  });
+
+  it('reveals the search and filters skills inside the loaded folio', async () => {
+    const user = userEvent.setup();
+    renderPage({
+      handlers: [
+        http.get('*/api/achievements/summary/', () => HttpResponse.json({ badges_earned: [] })),
+        http.get('*/api/categories/', () =>
+          HttpResponse.json([{ id: 1, name: 'Woodworking', icon: '🪵' }]),
+        ),
+        http.get('*/api/skills/tree/1/', () =>
+          HttpResponse.json({
+            category: { id: 1, name: 'Woodworking', icon: '🪵' },
+            summary: { level: 1, total_xp: 50 },
+            subjects: [{
+              id: 10,
+              name: 'Joinery',
+              skills: [
+                { id: 100, name: 'Mortise and Tenon', level: 1, xp_points: 10, unlocked: true },
+                { id: 101, name: 'Dovetail', level: 0, xp_points: 0, unlocked: true },
+              ],
+            }],
+            skills: [],
+          }),
+        ),
+      ],
+    });
+    // No search before a tome is opened.
+    expect(screen.queryByRole('searchbox', { name: /filter skills/i })).toBeNull();
+
+    await user.click(await screen.findByRole('tab', { name: /Woodworking/ }));
+    await waitFor(() => expect(screen.getByText('Mortise and Tenon')).toBeInTheDocument());
+
+    const search = screen.getByRole('searchbox', { name: /filter skills/i });
+    await user.type(search, 'dovetail');
+
+    await waitFor(() => {
+      expect(screen.queryByText('Mortise and Tenon')).not.toBeInTheDocument();
+      expect(screen.getByText('Dovetail')).toBeInTheDocument();
+    });
   });
 
   it('parent sees the View | Manage toggle', async () => {
