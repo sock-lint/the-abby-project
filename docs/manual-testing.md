@@ -382,8 +382,12 @@ Run `python manage.py <command> --help` for full flag docs.
   NotificationType values that lack frontend meta entries — it does NOT catch
   new visual states. The dev panel + this checklist are the second line of
   defense.
-- **Dev panel** lives at `/manage → Test` (parent + DEBUG-gated, see
-  `apps/dev_tools/permissions.py` for the gate). Phase 4 of the strategy.
+- **Dev panel** lives at `/manage → Test` (staff-parent + DEBUG /
+  DEV_TOOLS_ENABLED-gated). The `is_staff` requirement keeps the panel
+  limited to the founding `createsuperuser` parent in multi-family
+  production deploys — signup-created parents stay locked out even
+  with `DEV_TOOLS_ENABLED=true`. See `apps/dev_tools/permissions.py`
+  for the exact check + `apps/dev_tools/gate.py` for the env toggle.
 - **Seed scenarios** at `python manage.py seed_test_scenarios` spin up named
   users in pre-baked edge states (`t-streak-99`, `t-locked-journal`, etc.) —
   Phase 3 of the strategy. Until that ships, `seed_data` + the force commands

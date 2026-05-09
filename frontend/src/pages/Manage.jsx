@@ -40,10 +40,12 @@ const TAB_ICONS = {
 
 export default function Manage() {
   const [activeTab, setActiveTab] = useState('Children');
-  // The Test tab is parent + DEBUG/DEV_TOOLS_ENABLED only. The backend
-  // gate is the source of truth — we ping it once on mount; 200 → tab
-  // visible, anything else → tab hidden. Anonymous + child + production
-  // parents all hit 401/403 here and the tab never appears.
+  // The Test tab is staff-parent + DEBUG/DEV_TOOLS_ENABLED only. The
+  // backend gate is the source of truth — we ping it once on mount;
+  // 200 → tab visible, anything else → tab hidden. Anonymous + child +
+  // signup-created parents (is_staff=False) all hit 401/403 here and
+  // the tab never appears, even on a deployment that ships with
+  // DEV_TOOLS_ENABLED=true.
   const [devToolsEnabled, setDevToolsEnabled] = useState(false);
   useEffect(() => {
     let alive = true;

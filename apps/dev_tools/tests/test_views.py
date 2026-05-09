@@ -28,7 +28,7 @@ def _login(client, user):
 class GateTests(APITestCase):
     def setUp(self):
         fam = make_family(
-            parents=[{"username": "parent_a"}],
+            parents=[{"username": "parent_a", "is_staff": True}],
             children=[{"username": "child_a"}],
         )
         self.parent = fam.parents[0]
@@ -49,6 +49,18 @@ class GateTests(APITestCase):
         self.assertEqual(r.status_code, 200)
         self.assertTrue(r.data["enabled"])
 
+    def test_non_staff_parent_blocked(self):
+        # Signup-created parents have is_staff=False — production deploys
+        # only let the founding superuser into /api/dev/. Pinned so a
+        # future loosening of the gate is loud.
+        non_staff = make_family(
+            name="non-staff",
+            parents=[{"username": "regular_parent"}],  # is_staff defaults False
+        ).parents[0]
+        _login(self.client, non_staff)
+        r = self.client.get("/api/dev/ping/")
+        self.assertEqual(r.status_code, 403)
+
     @override_settings(DEBUG=False, DEV_TOOLS_ENABLED=False)
     def test_gate_off_blocks_parent_via_view_permission(self):
         # Even if the URL is mounted (we only mount when gate-on at startup),
@@ -66,12 +78,12 @@ class CrossFamilySafetyTests(APITestCase):
 
         a = make_family(
             name="A",
-            parents=[{"username": "parent_a"}],
+            parents=[{"username": "parent_a", "is_staff": True}],
             children=[{"username": "child_a"}],
         )
         b = make_family(
             name="B",
-            parents=[{"username": "parent_b"}],
+            parents=[{"username": "parent_b", "is_staff": True}],
             children=[{"username": "child_b"}],
         )
         self.parent_a = a.parents[0]
@@ -148,7 +160,7 @@ class HappyPathTests(APITestCase):
         from apps.rpg.models import ItemDefinition
 
         fam = make_family(
-            parents=[{"username": "parent"}],
+            parents=[{"username": "parent", "is_staff": True}],
             children=[{"username": "child"}],
         )
         self.parent = fam.parents[0]
