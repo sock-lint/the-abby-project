@@ -72,7 +72,17 @@ INSTALLED_APPS = [
     "apps.activity",
     "apps.creations",
     "apps.movement",
+    "apps.dev_tools",
 ]
+
+# --- Dev tools ------------------------------------------------------------
+# Manual-testing helpers (``python manage.py force_drop`` etc.) are gated
+# behind ``DEBUG=True`` OR ``DEV_TOOLS_ENABLED=True``. Production deploys
+# ship with both False so the commands no-op (raise CommandError) on
+# accidental invocation. See ``apps/dev_tools/gate.py``.
+DEV_TOOLS_ENABLED = os.environ.get(
+    "DEV_TOOLS_ENABLED", "False"
+).lower() in ("true", "1", "yes")
 
 # --- MCP server -----------------------------------------------------------
 # Exposed via ``python manage.py runmcp`` and the ``mcp`` compose service.
