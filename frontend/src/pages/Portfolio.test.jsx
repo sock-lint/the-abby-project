@@ -225,6 +225,9 @@ describe('Portfolio', () => {
     await user.click(screen.getByRole('button', { name: /Withdraw oil pastel/i }));
     await waitFor(() => expect(spy.calls).toHaveLength(1));
     expect(spy.calls[0].url).toMatch(/\/api\/creations\/88\/withdraw\/$/);
+    // Withdraw takes no body — backend reads only the route param.
+    const body = spy.calls[0].body;
+    expect(body == null || Object.keys(body).length === 0).toBe(true);
   });
 
   it('lightbox renders an <audio controls> when the active creation has an audio attachment', async () => {
@@ -290,7 +293,10 @@ describe('Portfolio', () => {
     const { user } = renderWithProviders(<Portfolio />);
     const tile = await screen.findByRole('button', { name: /^view silent piece$/i });
     await user.click(tile);
-    expect(document.querySelector('audio')).toBeNull();
+    // Wait for the lightbox dialog to render before negating <audio> —
+    // otherwise a synchronous querySelector races the modal mount.
+    const dialog = await screen.findByRole('dialog', { name: /photo viewer/i });
+    expect(dialog.querySelector('audio')).toBeNull();
   });
 
   it('opens the upload sheet and guards against empty submit', async () => {

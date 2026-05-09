@@ -151,11 +151,18 @@ class StartCoOpQuestViewTests(TestCase):
             format="json",
         )
         self.assertEqual(resp.status_code, 201, resp.content)
-        # One Quest, two participants — co-op shape.
+        # One Quest, two participants — verify exact membership, not just count,
+        # so a future regression that drops a kid + over-subscribes a different
+        # one would still be caught.
         quest = Quest.objects.get(definition=self.definition, status="active")
-        self.assertEqual(
-            QuestParticipant.objects.filter(quest=quest).count(),
-            2,
+        participant_ids = set(
+            QuestParticipant.objects.filter(quest=quest).values_list(
+                "user_id", flat=True,
+            )
+        )
+        self.assertSetEqual(
+            participant_ids,
+            {self.fam_a.children[0].pk, self.fam_a.children[1].pk},
         )
 
     def test_child_caller_forbidden(self):
