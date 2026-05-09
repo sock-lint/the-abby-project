@@ -135,6 +135,49 @@ describe('ParentDashboard', () => {
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
   });
 
+  it('shows the NoChildrenWelcome empty state when children_count is 0 and pending queue is empty', async () => {
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({ ...emptyDashboard, children_count: 0 }),
+      ),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({ pending_submissions: [] })),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/coins/exchange/list/', () => HttpResponse.json([])),
+      http.get('*/api/creations/pending/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() =>
+      expect(screen.getByText(/welcome — let's add your first kid/i)).toBeInTheDocument(),
+    );
+    const link = screen.getByRole('link', { name: /add a child/i });
+    expect(link).toHaveAttribute('href', '/manage');
+    // The "nothing needs your seal" hero (which lives on the populated path)
+    // must NOT render — that copy is reserved for parents who already have
+    // kids but a clean queue.
+    expect(screen.queryByText(/nothing needs your seal/i)).toBeNull();
+  });
+
+  it('hides NoChildrenWelcome when children_count is positive', async () => {
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({ ...emptyDashboard, children_count: 2 }),
+      ),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({ pending_submissions: [] })),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/coins/exchange/list/', () => HttpResponse.json([])),
+      http.get('*/api/creations/pending/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() =>
+      expect(screen.getByText(/nothing needs your seal/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/welcome — let's add your first kid/i)).toBeNull();
+  });
+
   it('approving a redemption fires /redemptions/{id}/approve/ with notes body', async () => {
     const user = userEvent.setup();
     const approve = spyHandler('post', /\/api\/redemptions\/\d+\/approve\/$/, { ok: true });

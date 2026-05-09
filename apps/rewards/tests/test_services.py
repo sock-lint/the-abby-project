@@ -146,6 +146,68 @@ class RewardServiceTests(_Fixture):
         self.assertEqual(result.status, RewardRedemption.Status.DENIED)
 
 
+class LowStockSignalTests(_Fixture):
+    """``request_redemption`` fires ``LOW_REWARD_STOCK`` to parents the first
+    time stock drops into the 0/1 zone — added 2026-05 so parents can restock
+    or retire a prize before an awkward "out of stock" conversation."""
+    def setUp(self):
+        super().setUp()
+        from apps.notifications.models import NotificationType
+        self.NotificationType = NotificationType
+        CoinService.award_coins(self.child, 1000, CoinLedger.Reason.HOURLY)
+
+    def _build_reward(self, *, stock):
+        return Reward.objects.create(
+            name=f"Prize-stock-{stock}",
+            cost_coins=10,
+            is_active=True,
+            requires_parent_approval=True,
+            stock=stock,
+        )
+
+    def test_redemption_dropping_to_one_left_fires_low_stock(self):
+        reward = self._build_reward(stock=2)
+        RewardService.request_redemption(self.child, reward)
+        self.assertTrue(
+            Notification.objects.filter(
+                notification_type=self.NotificationType.LOW_REWARD_STOCK,
+                user=self.parent,
+            ).exists(),
+        )
+
+    def test_redemption_dropping_to_zero_fires_low_stock(self):
+        reward = self._build_reward(stock=1)
+        RewardService.request_redemption(self.child, reward)
+        self.assertTrue(
+            Notification.objects.filter(
+                notification_type=self.NotificationType.LOW_REWARD_STOCK,
+                user=self.parent,
+            ).exists(),
+        )
+
+    def test_redemption_with_plenty_of_stock_does_not_fire(self):
+        reward = self._build_reward(stock=5)
+        RewardService.request_redemption(self.child, reward)
+        self.assertFalse(
+            Notification.objects.filter(
+                notification_type=self.NotificationType.LOW_REWARD_STOCK,
+            ).exists(),
+        )
+
+    def test_unlimited_stock_never_fires(self):
+        # ``stock=None`` means unlimited — the low-stock branch must skip.
+        reward = Reward.objects.create(
+            name="Unlimited Prize", cost_coins=10, is_active=True,
+            requires_parent_approval=True, stock=None,
+        )
+        RewardService.request_redemption(self.child, reward)
+        self.assertFalse(
+            Notification.objects.filter(
+                notification_type=self.NotificationType.LOW_REWARD_STOCK,
+            ).exists(),
+        )
+
+
 # ── ExchangeService ──────────────────────────────────────────────────────
 
 class ExchangeServiceTests(_Fixture):
