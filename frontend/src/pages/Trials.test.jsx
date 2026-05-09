@@ -84,4 +84,76 @@ describe('Trials', () => {
     );
     expect(screen.getByRole('combobox', { name: /^type$/i })).toBeInTheDocument();
   });
+
+  it('parent toggling Co-op swaps the single-child select for a multi-child picker', async () => {
+    const user = userEvent.setup();
+    renderPage(buildUser({ role: 'parent' }), [
+      http.get('*/api/quests/active/', () => HttpResponse.json(null)),
+      http.get('*/api/quests/available/', () => HttpResponse.json([])),
+      http.get('*/api/quests/history/', () => HttpResponse.json([])),
+      http.get('*/api/quests/family/', () => HttpResponse.json({ results: [] })),
+      http.get('*/api/children/', () =>
+        HttpResponse.json([
+          { id: 1, username: 'a', display_label: 'Abby' },
+          { id: 2, username: 'b', display_label: 'Beck' },
+        ]),
+      ),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+    ]);
+    await user.click(await screen.findByRole('button', { name: /issue challenge/i }));
+    // Single-child Assign to is the default; toggling co-op swaps it out.
+    expect(screen.getByRole('combobox', { name: /assign to/i })).toBeInTheDocument();
+    const coopToggle = await screen.findByLabelText(/co-op campaign/i);
+    await user.click(coopToggle);
+    expect(screen.queryByRole('combobox', { name: /assign to/i })).toBeNull();
+    expect(screen.getByText(/co-op participants/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/abby/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/beck/i)).toBeInTheDocument();
+  });
+
+  it('parent submitting a co-op challenge posts coop_user_ids + on_time trigger filter', async () => {
+    const user = userEvent.setup();
+    const createCalls = [];
+    renderPage(buildUser({ role: 'parent' }), [
+      http.get('*/api/quests/active/', () => HttpResponse.json(null)),
+      http.get('*/api/quests/available/', () => HttpResponse.json([])),
+      http.get('*/api/quests/history/', () => HttpResponse.json([])),
+      http.get('*/api/quests/family/', () => HttpResponse.json({ results: [] })),
+      http.get('*/api/children/', () =>
+        HttpResponse.json([
+          { id: 1, username: 'a', display_label: 'Abby' },
+          { id: 2, username: 'b', display_label: 'Beck' },
+        ]),
+      ),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+      http.post('*/api/quests/', async ({ request }) => {
+        createCalls.push(await request.clone().json());
+        return HttpResponse.json({ id: 99 }, { status: 201 });
+      }),
+    ]);
+    await user.click(await screen.findByRole('button', { name: /issue challenge/i }));
+    // Required fields: title + description (the form uses TextField "Title").
+    await user.type(screen.getByLabelText(/^title$/i), 'Tag-team week');
+    await user.type(
+      screen.getByLabelText(/description/i),
+      'Both kids attack the same boss',
+    );
+    // Toggle co-op + pick two kids.
+    await user.click(screen.getByLabelText(/co-op campaign/i));
+    await user.click(screen.getByLabelText(/abby/i));
+    await user.click(screen.getByLabelText(/beck/i));
+    // Toggle on_time_only inside Advanced details (rendered as <details>/<summary>).
+    const onTimeBox = screen.getByLabelText(/only count homework submitted on time/i);
+    await user.click(onTimeBox);
+    // Submit — the in-modal button reads "Issue the challenge".
+    await user.click(screen.getByRole('button', { name: /issue the challenge/i }));
+
+    await waitFor(() => expect(createCalls).toHaveLength(1));
+    const body = createCalls[0];
+    // Co-op id pair landed (numbers, not strings).
+    expect(body.coop_user_ids?.slice().sort()).toEqual([1, 2]);
+    expect(body.assigned_to).toBeUndefined();
+    // on_time_only flowed into trigger_filter.on_time.
+    expect(body.trigger_filter).toEqual({ on_time: true });
+  });
 });

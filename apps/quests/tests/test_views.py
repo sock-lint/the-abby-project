@@ -1,10 +1,11 @@
-"""Tests for quest views — active, available, start, history, catalog, create."""
+"""Tests for quest views — active, available, start, history, catalog, create, co-op."""
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.projects.models import User
 from apps.quests.models import Quest, QuestDefinition, QuestParticipant
+from config.tests.factories import make_family
 
 
 class _Fixture(TestCase):
@@ -113,3 +114,88 @@ class CreateQuestTests(_Fixture):
             "target_value": 1,
         }, format="json")
         self.assertEqual(resp.status_code, 403)
+
+
+class StartCoOpQuestViewTests(TestCase):
+    """POST /api/quests/{definition_id}/co-op/ — parent-only family-scoped fanout."""
+    def setUp(self):
+        self.fam_a = make_family(
+            "Alpha",
+            parents=[{"username": "alpha_parent"}],
+            children=[{"username": "alpha_a"}, {"username": "alpha_b"}],
+        )
+        self.fam_b = make_family(
+            "Bravo",
+            parents=[{"username": "bravo_parent"}],
+            children=[{"username": "bravo_kid"}],
+        )
+        self.definition = QuestDefinition.objects.create(
+            name="Co-op Boss",
+            description="Tag-team",
+            quest_type="boss",
+            target_value=200,
+            duration_days=7,
+            coin_reward=80,
+            xp_reward=120,
+        )
+        self.client = APIClient()
+
+    def _start_url(self):
+        return f"/api/quests/{self.definition.pk}/co-op/"
+
+    def test_parent_starts_co_op_for_two_same_family_children(self):
+        self.client.force_authenticate(self.fam_a.parents[0])
+        resp = self.client.post(
+            self._start_url(),
+            {"user_ids": [self.fam_a.children[0].pk, self.fam_a.children[1].pk]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        # One Quest, two participants — co-op shape.
+        quest = Quest.objects.get(definition=self.definition, status="active")
+        self.assertEqual(
+            QuestParticipant.objects.filter(quest=quest).count(),
+            2,
+        )
+
+    def test_child_caller_forbidden(self):
+        self.client.force_authenticate(self.fam_a.children[0])
+        resp = self.client.post(
+            self._start_url(),
+            {"user_ids": [self.fam_a.children[0].pk, self.fam_a.children[1].pk]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    def test_too_few_user_ids_returns_400(self):
+        self.client.force_authenticate(self.fam_a.parents[0])
+        resp = self.client.post(
+            self._start_url(),
+            {"user_ids": [self.fam_a.children[0].pk]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_cross_family_user_id_returns_404_no_leak(self):
+        """A parent in family Alpha cannot start a co-op quest for a child in family Bravo.
+
+        Existence-leak prevention: the response must be the same 404 whether the
+        user_id is real-but-cross-family or completely bogus. ``get_child_or_404``
+        with ``requesting_user=`` enforces this at chokepoint (3).
+        """
+        self.client.force_authenticate(self.fam_a.parents[0])
+        resp = self.client.post(
+            self._start_url(),
+            {
+                "user_ids": [
+                    self.fam_a.children[0].pk,
+                    self.fam_b.children[0].pk,  # cross-family
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 404)
+        # No quest got created — atomic.
+        self.assertFalse(
+            Quest.objects.filter(definition=self.definition, status="active").exists()
+        )

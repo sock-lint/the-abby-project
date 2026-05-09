@@ -105,6 +105,46 @@ describe('CreationLogModal', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
+  it('shows the moss "first 2 per day earn XP" hint when remaining_with_xp > 0', async () => {
+    stubSkills();
+    server.use(
+      http.get('*/api/creations/today_status/', () =>
+        HttpResponse.json({ count: 1, limit: 2, remaining_with_xp: 1 }),
+      ),
+    );
+    renderWithProviders(<CreationLogModal onClose={() => {}} onSaved={() => {}} />);
+    await waitFor(() => {
+      expect(
+        screen.getByText(/this would be 2 of 2/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('shows the ember "no XP" warning when remaining_with_xp is 0', async () => {
+    stubSkills();
+    server.use(
+      http.get('*/api/creations/today_status/', () =>
+        HttpResponse.json({ count: 2, limit: 2, remaining_with_xp: 0 }),
+      ),
+    );
+    renderWithProviders(<CreationLogModal onClose={() => {}} onSaved={() => {}} />);
+    await waitFor(() => {
+      expect(
+        screen.getByText(/won.t earn xp/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('omits the cap hint until the today_status payload lands', async () => {
+    stubSkills();
+    // No ``today_status`` handler override — default permissive handler
+    // returns an empty list, which the modal treats as "data not present".
+    renderWithProviders(<CreationLogModal onClose={() => {}} onSaved={() => {}} />);
+    // Status hint ``role="status"`` is the only one in this modal — assert
+    // it's absent at first paint (the form itself has no other role="status").
+    expect(screen.queryByText(/will earn xp|won.t earn xp/i)).toBeNull();
+  });
+
   it('rejects audio files over 10 MB with an inline error', async () => {
     stubSkills();
     const { user } = renderWithProviders(

@@ -190,6 +190,65 @@ describe('Habits', () => {
     expect(approve.calls[0].body.xp_reward).toBeDefined();
   });
 
+  it('optimistically bumps strength on tap before the server roundtrip lands', async () => {
+    const user = userEvent.setup();
+    // Delay the log endpoint so the optimistic state is observable in the
+    // DOM between click and reconcile.
+    let releaseTap;
+    const tapPromise = new Promise((resolve) => { releaseTap = resolve; });
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', () =>
+        HttpResponse.json([
+          buildHabit({ id: 9, max_taps_per_day: 3, taps_today: 0, strength: 3 }),
+        ]),
+      ),
+      http.post(/\/api\/habits\/\d+\/log\/$/, async () => {
+        await tapPromise;
+        return HttpResponse.json({ ok: true });
+      }),
+    ]);
+
+    expect(await screen.findByText('3')).toBeInTheDocument();
+    const button = await screen.findByRole('button', { name: /virtue/i });
+    await user.click(button);
+
+    // While the POST is in-flight, the medallion shows the bumped value.
+    await waitFor(() => expect(screen.getByText('4')).toBeInTheDocument());
+    // taps_today bumped from 0/3 → 1/3.
+    expect(screen.getByText(/1\/3 today/)).toBeInTheDocument();
+    // Let the POST resolve so the test cleans up cleanly.
+    releaseTap();
+  });
+
+  it('rolls back the optimistic strength bump when the tap endpoint errors', async () => {
+    const user = userEvent.setup();
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', () =>
+        HttpResponse.json([
+          buildHabit({ id: 9, max_taps_per_day: 3, taps_today: 0, strength: 3 }),
+        ]),
+      ),
+      // Tap endpoint returns a server error — the optimistic delta MUST
+      // roll back so the medallion doesn't ghost a phantom value.
+      http.post(/\/api\/habits\/\d+\/log\/$/, () =>
+        HttpResponse.json({ error: 'limit reached' }, { status: 400 }),
+      ),
+    ]);
+
+    expect(await screen.findByText('3')).toBeInTheDocument();
+    const button = await screen.findByRole('button', { name: /virtue/i });
+    await user.click(button);
+
+    // After the error lands, strength is back to 3 (rollback fired).
+    await waitFor(() => {
+      const matches = screen.queryAllByText('4');
+      expect(matches.length).toBe(0);
+    });
+    expect(screen.getByText('3')).toBeInTheDocument();
+    // Counter line stays at 0/3 today — no increment leaked.
+    expect(screen.getByText(/0\/3 today/)).toBeInTheDocument();
+  });
+
   it('create-habit form submits max_taps_per_day and no coin_reward', async () => {
     const user = userEvent.setup();
     const create = spyHandler('post', /\/api\/habits\/$/, { id: 42 });

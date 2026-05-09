@@ -193,6 +193,106 @@ describe('Portfolio', () => {
     expect(screen.queryByRole('button', { name: /Delete theirs/ })).toBeNull();
   });
 
+  it('child clicking Withdraw on a pending creation posts to /creations/{id}/withdraw/', async () => {
+    mockAuth(buildUser({ id: 1, role: 'child' }));
+    server.use(
+      http.get('*/api/portfolio/', () =>
+        HttpResponse.json({
+          projects: [],
+          homework: [],
+          creations: [{
+            id: 88,
+            image: '/c.jpg',
+            caption: 'oil pastel',
+            user: 1,
+            status: 'pending',
+            primary_skill: 'Drawing',
+            primary_skill_category: 'Art & Crafts',
+            secondary_skill: null,
+            secondary_skill_category: null,
+            occurred_on: '2026-05-01',
+            created_at: '2026-05-01T00:00:00Z',
+            audio: null,
+          }],
+        }),
+      ),
+    );
+    const spy = spyHandler('post', /\/api\/creations\/88\/withdraw\/$/, { ok: true });
+    server.use(spy.handler);
+    const { user } = renderWithProviders(<Portfolio />);
+    await waitFor(() => expect(screen.getByText('oil pastel')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /Withdraw oil pastel/i }));
+    await waitFor(() => expect(spy.calls).toHaveLength(1));
+    expect(spy.calls[0].url).toMatch(/\/api\/creations\/88\/withdraw\/$/);
+  });
+
+  it('lightbox renders an <audio controls> when the active creation has an audio attachment', async () => {
+    mockAuth(buildUser({ id: 1, role: 'child' }));
+    server.use(
+      http.get('*/api/portfolio/', () =>
+        HttpResponse.json({
+          projects: [],
+          homework: [],
+          creations: [{
+            id: 12,
+            image: '/c.jpg',
+            caption: 'song sketch',
+            user: 1,
+            status: 'logged',
+            primary_skill: 'Music',
+            primary_skill_category: 'Music',
+            secondary_skill: null,
+            secondary_skill_category: null,
+            occurred_on: '2026-05-01',
+            created_at: '2026-05-01T00:00:00Z',
+            audio: '/song.mp3',
+          }],
+        }),
+      ),
+    );
+    const { user } = renderWithProviders(<Portfolio />);
+    const tile = await screen.findByRole('button', { name: /^view song sketch$/i });
+    await user.click(tile);
+    // Lightbox is open. Audio element renders with src=/song.mp3.
+    await waitFor(() => {
+      const audio = document.querySelector('audio');
+      expect(audio).not.toBeNull();
+      expect(audio?.getAttribute('src')).toBe('/song.mp3');
+      expect(audio?.hasAttribute('controls')).toBe(true);
+    });
+  });
+
+  it('lightbox does NOT render <audio> for a creation without an audio attachment', async () => {
+    mockAuth(buildUser({ id: 1, role: 'child' }));
+    server.use(
+      http.get('*/api/portfolio/', () =>
+        HttpResponse.json({
+          projects: [],
+          homework: [],
+          creations: [{
+            id: 13,
+            image: '/c2.jpg',
+            caption: 'silent piece',
+            user: 1,
+            status: 'logged',
+            primary_skill: 'Drawing',
+            primary_skill_category: 'Art & Crafts',
+            secondary_skill: null,
+            secondary_skill_category: null,
+            occurred_on: '2026-05-01',
+            created_at: '2026-05-01T00:00:00Z',
+            audio: null,
+          }],
+        }),
+      ),
+    );
+    const { user } = renderWithProviders(<Portfolio />);
+    const tile = await screen.findByRole('button', { name: /^view silent piece$/i });
+    await user.click(tile);
+    expect(document.querySelector('audio')).toBeNull();
+  });
+
   it('opens the upload sheet and guards against empty submit', async () => {
     mockAuth(buildUser({ id: 1 }));
     server.use(

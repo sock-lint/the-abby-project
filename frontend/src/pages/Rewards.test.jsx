@@ -125,6 +125,37 @@ describe('Rewards', () => {
     expect(approve.calls[0].body).toEqual({ notes: '' });
   });
 
+  it('insufficient-coins disables Barter and labels the button "Not enough coin"', async () => {
+    // First-line signal: when balance < cost the button is disabled outright.
+    // The "need N more" toast in Rewards.jsx is defense-in-depth for stale
+    // balances, but the standard render path leans on the disabled button so
+    // a kid never wastes a tap on a cost they can't pay.
+    const redeem = spyHandler('post', /\/api\/rewards\/\d+\/redeem\/$/, { ok: true });
+    renderPage(buildUser(), [
+      http.get('*/api/rewards/', () =>
+        HttpResponse.json([{
+          id: 13,
+          name: 'Ice Cream',
+          cost: 50,
+          cost_coins: 50,
+          stock: 5,
+          rarity: 'common',
+          is_active: true,
+        }]),
+      ),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/coins/', () => HttpResponse.json({ balance: 38, recent: [] })),
+      http.get('*/api/coins/exchange/list/', () => HttpResponse.json([])),
+      http.get('*/api/coins/exchange/rate/', () => HttpResponse.json({ coins_per_dollar: 10 })),
+      redeem.handler,
+    ]);
+
+    const button = await screen.findByRole('button', { name: /not enough coin/i });
+    expect(button).toBeDisabled();
+    // No /redeem/ call ever fires — the button's disabled, the click is a no-op.
+    expect(redeem.calls).toHaveLength(0);
+  });
+
   it('parent approving an exchange posts to /coins/exchange/{id}/approve/', async () => {
     const user = userEvent.setup();
     const approve = spyHandler('post', /\/api\/coins\/exchange\/\d+\/approve\/$/, { ok: true });

@@ -105,6 +105,25 @@ class FeedPetTest(PetServiceTestBase):
         self.assertTrue(self.pet.evolved_to_mount)
         self.assertTrue(UserMount.objects.filter(pk=result["mount_id"]).exists())
 
+    def test_feed_pet_evolution_fires_pet_evolved_notification(self):
+        """Cross-the-threshold feeds emit a PET_EVOLVED notification to the
+        owner. Added in migration 0008 — before that, evolution was silent."""
+        from apps.notifications.models import Notification, NotificationType
+
+        self.pet.growth_points = 90
+        self.pet.save(update_fields=["growth_points"])
+        UserInventory.objects.create(user=self.child, item=self.preferred_food, quantity=1)
+
+        PetService.feed_pet(self.child, self.pet.pk, self.preferred_food.pk)
+
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.child,
+                notification_type=NotificationType.PET_EVOLVED,
+            ).exists(),
+            "Expected a PET_EVOLVED notification on the child after evolution.",
+        )
+
 
 class SetActivePetTest(PetServiceTestBase):
     def test_set_active_pet(self):

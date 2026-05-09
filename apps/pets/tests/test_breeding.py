@@ -160,3 +160,18 @@ class BreedMountsTests(TestCase):
         )
         with self.assertRaises(ValueError):
             PetService.breed_mounts(self.user, self.mount_a.pk, other_mount.pk)
+
+    def test_breeding_emits_mount_bred_notification(self):
+        """Successful breeding fires a MOUNT_BRED notification on the owner.
+        Added in migration 0008 — earlier breeds were silent."""
+        from apps.notifications.models import Notification, NotificationType
+
+        with patch("apps.pets.services.random.random", return_value=0.5):
+            PetService.breed_mounts(self.user, self.mount_a.pk, self.mount_b.pk)
+
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.user,
+                notification_type=NotificationType.MOUNT_BRED,
+            ).exists(),
+        )
