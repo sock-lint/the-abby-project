@@ -51,6 +51,27 @@ describe('NotificationBell (real timers)', () => {
     await waitFor(() => expect(screen.queryByText('go')).toBeNull());
   });
 
+  it('falls back to the type-default route when link is empty', async () => {
+    server.use(
+      http.get('*/api/notifications/unread_count/', () => HttpResponse.json({ count: 1 })),
+      http.get('*/api/notifications/', () =>
+        HttpResponse.json([{
+          id: 9, title: 'Sealed!', is_read: true,
+          notification_type: 'badge_earned', link: '', created_at: 'x',
+        }]),
+      ),
+    );
+    const user = userEvent.setup();
+    renderBell();
+    await user.click(screen.getAllByRole('button')[0]);
+    const row = await screen.findByText('Sealed!');
+    // The type-default route closes the dropdown the same way an explicit
+    // link would — that confirms a click was treated as navigation rather
+    // than a no-op.
+    await user.click(row);
+    await waitFor(() => expect(screen.queryByText('Sealed!')).toBeNull());
+  });
+
   it('opens the dropdown and loads notifications on click', async () => {
     server.use(
       http.get('*/api/notifications/unread_count/', () => HttpResponse.json({ count: 1 })),

@@ -23,6 +23,15 @@ const POTION_FILTERS = {
   cosmic:  'hue-rotate(230deg) saturate(1.4) brightness(0.9) contrast(1.1)',
 };
 
+// Gentle-nudge dimming applied to pet sprites whose happiness has slipped.
+// Purely visual — never penalizes coins / XP / drops / growth. ``happy`` is
+// the default state and renders unaffected so the sprite stays vibrant.
+const DIM_FILTERS = {
+  bored: 'grayscale(0.25) opacity(0.85)',
+  stale: 'grayscale(0.5) opacity(0.7)',
+  away:  'grayscale(0.75) opacity(0.55)',
+};
+
 /**
  * Renders an RPG entity icon. Branches on sprite metadata:
  *  - static (frames=1): plain <img>
@@ -45,12 +54,15 @@ export default function RpgSprite({
   className = '',
   alt = '',
   potionSlug = null,
+  dim = null,
 }) {
   const { getSpriteMeta } = useSpriteCatalog();
   const meta = getSpriteMeta(spriteKey) || (
     fallbackSpriteKey ? getSpriteMeta(fallbackSpriteKey) : null
   );
   const potionFilter = potionSlug ? POTION_FILTERS[potionSlug] : undefined;
+  const dimFilter = dim ? DIM_FILTERS[dim] : undefined;
+  const composedFilter = [potionFilter, dimFilter].filter(Boolean).join(' ') || undefined;
 
   if (meta && meta.frames === 1) {
     return (
@@ -59,11 +71,12 @@ export default function RpgSprite({
         alt={alt || spriteKey || 'sprite'}
         width={size}
         height={size}
+        data-dim={dim || undefined}
         style={{
           imageRendering: 'pixelated',
           width: size,
           height: size,
-          filter: potionFilter,
+          filter: composedFilter,
         }}
         className={className}
       />
@@ -86,6 +99,7 @@ export default function RpgSprite({
       <span
         role="img"
         aria-label={alt || spriteKey || 'sprite'}
+        data-dim={dim || undefined}
         className={`inline-block ${className}`}
         style={{
           width: size,
@@ -94,7 +108,7 @@ export default function RpgSprite({
           backgroundSize: `${totalWidth}px ${size}px`,
           backgroundPositionX: 0,
           imageRendering: 'pixelated',
-          filter: potionFilter,
+          filter: composedFilter,
           '--sprite-end-x': `${endX}px`,
           animation: `sprite-cycle ${duration}s steps(${meta.frames}) infinite`,
         }}
@@ -106,7 +120,12 @@ export default function RpgSprite({
   const cls = SIZE_TO_TEXT_CLASS[size];
   if (cls) {
     return (
-      <span className={`leading-none inline-block ${cls} ${className}`} aria-label={alt}>
+      <span
+        className={`leading-none inline-block ${cls} ${className}`}
+        aria-label={alt}
+        data-dim={dim || undefined}
+        style={composedFilter ? { filter: composedFilter } : undefined}
+      >
         {icon || '✨'}
       </span>
     );
@@ -114,8 +133,9 @@ export default function RpgSprite({
   return (
     <span
       className={`leading-none inline-block ${className}`}
-      style={{ fontSize: size }}
+      style={{ fontSize: size, filter: composedFilter }}
       aria-label={alt}
+      data-dim={dim || undefined}
     >
       {icon || '✨'}
     </span>

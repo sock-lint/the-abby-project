@@ -120,6 +120,21 @@ describe('ParentDashboard', () => {
     expect(approve.calls[0].url).toMatch(/\/homework-submissions\/22\/approve\/$/);
   });
 
+  it('shows a retry-able banner when an approval queue fails to load', async () => {
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/dashboard/', () => HttpResponse.json(emptyDashboard)),
+      http.get('*/api/chore-completions/', () => HttpResponse.json({ error: 'boom' }, { status: 500 })),
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({ pending_submissions: [] })),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/chore approvals/i),
+    );
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+  });
+
   it('approving a redemption fires /redemptions/{id}/approve/ with notes body', async () => {
     const user = userEvent.setup();
     const approve = spyHandler('post', /\/api\/redemptions\/\d+\/approve\/$/, { ok: true });

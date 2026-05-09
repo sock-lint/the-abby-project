@@ -22,6 +22,7 @@ class CoinLedger(CreatedAtModel):
         ADJUSTMENT = "adjustment", "Adjustment"
         CHORE_REWARD = "chore_reward", "Chore Reward"
         EXCHANGE = "exchange", "Exchange"
+        DAILY_CHALLENGE = "daily_challenge", "Daily Challenge"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,

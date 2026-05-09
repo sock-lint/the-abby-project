@@ -12,7 +12,7 @@ import { EggIcon } from '../../../components/icons/JournalIcons';
 import RpgSprite from '../../../components/rpg/RpgSprite';
 import { normalizeList } from '../../../utils/api';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
-import { COMPANION_FILTERS, compareByRarityThenName } from './party.constants';
+import { COMPANION_FILTERS, HAPPINESS_WHISPER, compareByRarityThenName } from './party.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 
 /**
@@ -157,6 +157,13 @@ export default function Companions() {
                       size={56}
                       alt={`${pet.potion.name} ${pet.species.name}`}
                       potionSlug={pet.potion.slug}
+                      dim={
+                        pet.evolved_to_mount
+                          ? null
+                          : pet.happiness_level && pet.happiness_level !== 'happy'
+                            ? pet.happiness_level
+                            : null
+                      }
                     />
                   </div>
                   <div className="font-body text-sm font-medium leading-tight">
@@ -169,6 +176,11 @@ export default function Companions() {
                   >
                     {pet.potion.rarity}
                   </div>
+                  {!pet.evolved_to_mount && HAPPINESS_WHISPER[pet.happiness_level] && (
+                    <div className="font-script text-tiny text-ink-whisper italic mt-0.5">
+                      {HAPPINESS_WHISPER[pet.happiness_level]}
+                    </div>
+                  )}
                   {!pet.evolved_to_mount && (
                     <div className="mt-2">
                       <div className="h-1.5 rounded-full bg-ink-page-shadow/60 overflow-hidden">

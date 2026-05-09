@@ -5,6 +5,7 @@ trigger-matching + hour quantization, and claim idempotency.
 """
 from __future__ import annotations
 
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
@@ -18,6 +19,8 @@ CACHE_OVERRIDE = {
 from apps.projects.models import User
 from apps.quests.models import DailyChallenge
 from apps.quests.services import DailyChallengeService
+from apps.rewards.models import CoinLedger
+from apps.rpg.models import CharacterProfile
 
 
 @override_settings(CACHES=CACHE_OVERRIDE, CELERY_TASK_ALWAYS_EAGER=True)
@@ -121,3 +124,32 @@ class DailyChallengeServiceTests(TestCase):
         second = DailyChallengeService.claim_reward(self.user)
         self.assertTrue(second["already_claimed"])
         self.assertEqual(second["coins"], 0)
+
+    def test_claim_coins_are_boosted_by_active_lucky_coin(self):
+        """An active Lucky Coin must double the daily challenge coin payout
+        (the boost flag was previously masked by the ``adjustment`` reason)."""
+        profile, _ = CharacterProfile.objects.get_or_create(user=self.user)
+        profile.coin_boost_expires_at = timezone.now() + timedelta(hours=1)
+        profile.save(update_fields=["coin_boost_expires_at"])
+
+        with patch(
+            "apps.quests.services.random.choice",
+            return_value={
+                "type": DailyChallenge.ChallengeType.CHORES,
+                "target": 1, "coins": 10, "xp": 20,
+            },
+        ):
+            DailyChallengeService.get_or_create_today(self.user)
+        DailyChallengeService.record_progress(self.user, "chore_complete")
+
+        result = DailyChallengeService.claim_reward(self.user)
+        self.assertFalse(result["already_claimed"])
+        # Service-reported value is the pre-boost amount; the ledger entry
+        # written by ``CoinService.award_coins`` is what actually lands.
+        entry = (
+            CoinLedger.objects
+            .filter(user=self.user, reason=CoinLedger.Reason.DAILY_CHALLENGE)
+            .first()
+        )
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.amount, 20)

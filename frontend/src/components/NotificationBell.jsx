@@ -5,6 +5,7 @@ import { Bell } from 'lucide-react';
 import { getNotifications, getUnreadCount, markAllRead as markAllReadApi, markNotificationRead } from '../api';
 import { formatDate } from '../utils/format';
 import IconButton from './IconButton';
+import { metaForNotification } from './notifications.constants';
 
 export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -37,9 +38,11 @@ export default function NotificationBell() {
         setUnreadCount(prev => Math.max(0, prev - 1));
       } catch { /* network errors here are non-fatal */ }
     }
-    if (notification.link) {
+    const { defaultRoute } = metaForNotification(notification);
+    const target = notification.link || defaultRoute;
+    if (target) {
       setOpen(false);
-      navigate(notification.link);
+      navigate(target);
     }
   };
 
@@ -114,30 +117,39 @@ export default function NotificationBell() {
                   No notifications
                 </div>
               ) : (
-                notifications.slice(0, 20).map((n) => (
-                  <div
-                    key={n.id}
-                    onClick={() => handleNotificationClick(n)}
-                    className={`p-3 border-b border-ink-page-shadow/50 last:border-0 transition-colors ${
-                      !n.is_read ? 'bg-amber-primary/5' : ''
-                    } ${n.link ? 'cursor-pointer hover:bg-ink-page-shadow/60/30' : ''}`}
-                  >
-                    <div className="flex items-start gap-2">
-                      {!n.is_read && (
-                        <span className="w-2 h-2 bg-amber-primary rounded-full mt-1.5 shrink-0" />
-                      )}
-                      <div className={!n.is_read ? '' : 'ml-4'}>
-                        <div className="text-sm font-medium">{n.title}</div>
-                        {n.message && (
-                          <div className="text-xs text-ink-whisper mt-0.5">{n.message}</div>
+                notifications.slice(0, 20).map((n) => {
+                  const { Icon, accentClass, defaultRoute } = metaForNotification(n);
+                  const clickable = Boolean(n.link || defaultRoute);
+                  return (
+                    <div
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      className={`p-3 border-b border-ink-page-shadow/50 last:border-0 transition-colors ${
+                        !n.is_read ? 'bg-amber-primary/5' : ''
+                      } ${clickable ? 'cursor-pointer hover:bg-ink-page-shadow/60/30' : ''}`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {!n.is_read && (
+                          <span className="w-2 h-2 bg-amber-primary rounded-full mt-1.5 shrink-0" />
                         )}
-                        <div className="text-micro text-ink-whisper mt-1">
-                          {formatDate(n.created_at)}
+                        <Icon
+                          size={16}
+                          aria-hidden="true"
+                          className={`mt-0.5 shrink-0 ${accentClass}`}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium">{n.title}</div>
+                          {n.message && (
+                            <div className="text-xs text-ink-whisper mt-0.5">{n.message}</div>
+                          )}
+                          <div className="text-micro text-ink-whisper mt-1">
+                            {formatDate(n.created_at)}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </motion.div>
