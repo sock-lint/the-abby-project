@@ -52,6 +52,16 @@ class CharacterProfile(TimestampedModel):
         default=list, blank=True,
         help_text="Distinct consumable effect slugs ever used (for Alchemist-style badges).",
     )
+    pending_companion_growth = models.JSONField(
+        default=list, blank=True,
+        help_text=(
+            "Queue of unseen companion auto-growth events surfaced as toasts on "
+            "next page load. Appended by PetService.auto_grow_companions on each "
+            "daily check-in; cleared by the /pets/companion-growth/seen/ endpoint. "
+            "Survives multi-day gaps so a returning user sees every tick they "
+            "missed without flooding the UI."
+        ),
+    )
     active_frame = models.ForeignKey(
         "rpg.ItemDefinition", on_delete=models.SET_NULL,
         null=True, blank=True, related_name="equipped_as_frame",

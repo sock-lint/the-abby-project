@@ -8,6 +8,7 @@ import FirstEncounterSheet from '../lorebook/FirstEncounterSheet';
 import SavingsToastStack from '../SavingsToastStack';
 import ApprovalToastStack from '../ApprovalToastStack';
 import QuestProgressToastStack from '../QuestProgressToastStack';
+import CompanionGrowthToastStack from '../CompanionGrowthToastStack';
 import PageTurnTransition from '../journal/PageTurnTransition';
 import HeaderStatusPips from './HeaderStatusPips';
 import HeaderProgressBand from './HeaderProgressBand';
@@ -33,6 +34,7 @@ export default function JournalShell() {
       <SavingsToastStack />
       <ApprovalToastStack />
       <QuestProgressToastStack />
+      <CompanionGrowthToastStack />
       <FirstEncounterSheet />
       <ChapterSidebar user={user} onLogout={logout} />
 

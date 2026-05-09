@@ -34,7 +34,7 @@ export default function Hatchery() {
   const [hatchCeremony, setHatchCeremony] = useState(null);
   const [breedA, setBreedA] = useState('');
   const [breedB, setBreedB] = useState('');
-  const [breedResult, setBreedResult] = useState(null);
+  const [breedCeremony, setBreedCeremony] = useState(null);
 
   if (loadingStable || loadingInventory) return <Loader />;
 
@@ -73,9 +73,16 @@ export default function Hatchery() {
     if (!breedA || !breedB || breedA === breedB) return;
     setWorking(true);
     setError('');
+    // Capture the parent mount objects BEFORE refresh — the dropdowns
+    // clear and reloadStable swaps the array, so we'd lose the species/
+    // potion data the celebration needs.
+    const parentA = mounts.find((m) => String(m.id) === String(breedA));
+    const parentB = mounts.find((m) => String(m.id) === String(breedB));
     try {
       const result = await breedMounts(breedA, breedB);
-      setBreedResult(result);
+      if (parentA && parentB) {
+        setBreedCeremony({ parents: [parentA, parentB], result });
+      }
       setBreedA('');
       setBreedB('');
       refresh();
@@ -92,6 +99,14 @@ export default function Hatchery() {
           mode="hatch"
           pet={hatchCeremony}
           onDismiss={() => setHatchCeremony(null)}
+        />
+      )}
+      {breedCeremony && (
+        <PetCeremonyModal
+          mode="breed"
+          parents={breedCeremony.parents}
+          result={breedCeremony.result}
+          onDismiss={() => setBreedCeremony(null)}
         />
       )}
       <header>
@@ -201,83 +216,57 @@ export default function Hatchery() {
               )}
             </div>
 
-            {breedResult ? (
-              <div className="space-y-2 text-body">
-                {breedResult.chromatic && (
-                  <div className="font-script text-gold-leaf">
-                    ✨ Chromatic upgrade! A Cosmic potion fell from the stars.
-                  </div>
-                )}
-                <div>
-                  You received <strong>{breedResult.egg_item_name}</strong> and{' '}
-                  <strong>{breedResult.potion_item_name}</strong>.
-                </div>
-                <div className="text-tiny text-ink-whisper">
-                  Both parent mounts are resting for {breedResult.cooldown_days} days.
-                </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setBreedResult(null)}
-                >
-                  Breed more
-                </Button>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <SelectField
-                    id="breed-a"
-                    label="First mount"
-                    value={breedA}
-                    onChange={(e) => setBreedA(e.target.value)}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <SelectField
+                id="breed-a"
+                label="First mount"
+                value={breedA}
+                onChange={(e) => setBreedA(e.target.value)}
+              >
+                <option value="">Select a mount…</option>
+                {mountReadiness.map(({ mount, cooldownDaysLeft }) => (
+                  <option
+                    key={mount.id}
+                    value={mount.id}
+                    disabled={cooldownDaysLeft !== null}
                   >
-                    <option value="">Select a mount…</option>
-                    {mountReadiness.map(({ mount, cooldownDaysLeft }) => (
-                      <option
-                        key={mount.id}
-                        value={mount.id}
-                        disabled={cooldownDaysLeft !== null}
-                      >
-                        {mount.species.icon} {mount.potion.name} {mount.species.name}
-                        {cooldownDaysLeft !== null
-                          ? ` · resting ${cooldownDaysLeft}d`
-                          : ' · ready'}
-                      </option>
-                    ))}
-                  </SelectField>
-                  <SelectField
-                    id="breed-b"
-                    label="Second mount"
-                    value={breedB}
-                    onChange={(e) => setBreedB(e.target.value)}
-                  >
-                    <option value="">Select a mount…</option>
-                    {mountReadiness
-                      .filter(({ mount }) => String(mount.id) !== String(breedA))
-                      .map(({ mount, cooldownDaysLeft }) => (
-                        <option
-                          key={mount.id}
-                          value={mount.id}
-                          disabled={cooldownDaysLeft !== null}
-                        >
-                          {mount.species.icon} {mount.potion.name} {mount.species.name}
-                          {cooldownDaysLeft !== null
-                            ? ` · resting ${cooldownDaysLeft}d`
-                            : ' · ready'}
-                        </option>
-                      ))}
-                  </SelectField>
-                </div>
-                <Button
-                  onClick={handleBreed}
-                  disabled={!breedA || !breedB || breedA === breedB || working}
-                  className="w-full"
-                >
-                  {working ? 'Breeding…' : 'Breed the pair'}
-                </Button>
-              </>
-            )}
+                    {mount.species.icon} {mount.potion.name} {mount.species.name}
+                    {cooldownDaysLeft !== null
+                      ? ` · resting ${cooldownDaysLeft}d`
+                      : ' · ready'}
+                  </option>
+                ))}
+              </SelectField>
+              <SelectField
+                id="breed-b"
+                label="Second mount"
+                value={breedB}
+                onChange={(e) => setBreedB(e.target.value)}
+              >
+                <option value="">Select a mount…</option>
+                {mountReadiness
+                  .filter(({ mount }) => String(mount.id) !== String(breedA))
+                  .map(({ mount, cooldownDaysLeft }) => (
+                    <option
+                      key={mount.id}
+                      value={mount.id}
+                      disabled={cooldownDaysLeft !== null}
+                    >
+                      {mount.species.icon} {mount.potion.name} {mount.species.name}
+                      {cooldownDaysLeft !== null
+                        ? ` · resting ${cooldownDaysLeft}d`
+                        : ' · ready'}
+                    </option>
+                  ))}
+              </SelectField>
+            </div>
+            <Button
+              onClick={handleBreed}
+              disabled={!breedA || !breedB || breedA === breedB || working}
+              className="w-full"
+            >
+              {working ? 'Breeding…' : 'Breed the pair'}
+            </Button>
           </div>
         )}
       </ParchmentCard>

@@ -104,4 +104,53 @@ describe('Hatchery', () => {
     expect(breed.calls[0].body).toEqual({ mount_a_id: '9', mount_b_id: '10' });
     expect(breed.calls[0].url).toMatch(/\/api\/mounts\/breed\/$/);
   });
+
+  it('mounts the PetCeremonyModal in breed mode with the selected parents after a successful breed', async () => {
+    server.use(
+      http.get('*/api/pets/stable/', () =>
+        HttpResponse.json({
+          pets: [],
+          mounts: [
+            { id: 9, species: { icon: '🐺', name: 'Wolf', sprite_key: 'wolf' }, potion: { name: 'Base', slug: 'base' }, is_active: false, last_bred_at: null },
+            { id: 10, species: { icon: '🦊', name: 'Fox', sprite_key: 'fox' }, potion: { name: 'Fire', slug: 'fire' }, is_active: false, last_bred_at: null },
+          ],
+          total_possible: 48,
+        }),
+      ),
+      http.get('*/api/inventory/', () => HttpResponse.json([])),
+      http.post('*/api/mounts/breed/', () =>
+        HttpResponse.json({
+          egg_item_id: 99,
+          egg_item_name: 'Wolf Egg',
+          egg_item_icon: '🥚',
+          egg_item_sprite_key: 'big-egg',
+          potion_item_id: 100,
+          potion_item_name: 'Fire Potion',
+          potion_item_icon: '🧪',
+          potion_item_sprite_key: '',
+          picked_species: 'Wolf',
+          picked_species_slug: 'wolf',
+          picked_potion: 'Fire',
+          picked_potion_slug: 'fire',
+          chromatic: false,
+          cooldown_days: 7,
+        }),
+      ),
+    );
+
+    renderHatchery();
+    const user = userEvent.setup();
+
+    await user.selectOptions(await screen.findByRole('combobox', { name: /first mount/i }), '9');
+    await user.selectOptions(screen.getByRole('combobox', { name: /second mount/i }), '10');
+    await user.click(screen.getByRole('button', { name: /breed the pair/i }));
+
+    // The celebration modal mounts and renders the result egg headline +
+    // the "hybrid is conceived" kicker (non-chromatic path).
+    await waitFor(() => {
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    });
+    expect(screen.getByText(/wolf egg/i)).toBeInTheDocument();
+    expect(screen.getByText(/a hybrid is conceived/i)).toBeInTheDocument();
+  });
 });

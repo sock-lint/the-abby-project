@@ -244,6 +244,17 @@ export const handlers = [
   http.post(/\/api\/pets\/\d+\/activate\/$/, ok),
   http.get('*/api/mounts/', empty),
   http.post(/\/api\/mounts\/\d+\/activate\/$/, ok),
+  http.post('*/api/mounts/breed/', () =>
+    HttpResponse.json({
+      egg_item_id: 11, egg_item_name: 'Companion Egg', egg_item_icon: '🥚', egg_item_sprite_key: 'big-egg',
+      potion_item_id: 22, potion_item_name: 'Fire Potion', potion_item_icon: '🧪', potion_item_sprite_key: '',
+      picked_species: 'Companion', picked_species_slug: 'companion',
+      picked_potion: 'Fire', picked_potion_slug: 'fire',
+      chromatic: false, cooldown_days: 7,
+    }),
+  ),
+  http.get('*/api/pets/companion-growth/recent/', () => HttpResponse.json({ events: [] })),
+  http.post('*/api/pets/companion-growth/seen/', ok),
 
   // Quests
   http.get('*/api/quests/active/', () => HttpResponse.json(null)),

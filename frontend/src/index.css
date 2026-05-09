@@ -207,6 +207,28 @@ h1, h2, h3, h4 {
   to   { transform: scaleX(1); opacity: 1;   }
 }
 
+/* Wobble-pulse — egg-about-to-hatch shimmy. Three asymmetric oscillations
+   with a small lift, building a sense of something pushing out. Driven
+   from PetCeremonyModal's hatch sequence, plays once. */
+@keyframes wobble-pulse {
+  0%   { transform: translateY(0)   rotate(0deg)  scale(1);    }
+  15%  { transform: translateY(-1px) rotate(-6deg) scale(1.02); }
+  30%  { transform: translateY(0)   rotate(5deg)  scale(0.98); }
+  50%  { transform: translateY(-2px) rotate(-7deg) scale(1.04); }
+  70%  { transform: translateY(0)   rotate(6deg)  scale(0.99); }
+  85%  { transform: translateY(-1px) rotate(-3deg) scale(1.01); }
+  100% { transform: translateY(0)   rotate(0deg)  scale(1);    }
+}
+
+/* Cosmic-burst — full-overlay radial flash for hatch crack + evolve burst.
+   Starts as a tight bright disc, expands rapidly while fading. One-shot. */
+@keyframes cosmic-burst {
+  0%   { transform: scale(0.4); opacity: 0;   }
+  20%  { opacity: 0.9; }
+  60%  { opacity: 0.5; }
+  100% { transform: scale(2.4); opacity: 0;   }
+}
+
 /* Illuminated versal gilt — the gold-leaf overlay that fills a drop-capital
    letter from the bottom up by `--versal-fill` (0–100%). Lives in CSS so
    React never receives `backgroundImage` + `backgroundClip` as adjacent
@@ -255,6 +277,8 @@ h1, h2, h3, h4 {
   animation: gilded-glint 1.4s ease-out 0.2s both;
 }
 .animate-quill-stroke-in { animation: quill-stroke-in 0.7s ease-out both; transform-origin: left center; }
+.animate-wobble-pulse    { animation: wobble-pulse 0.8s ease-in-out both; transform-origin: 50% 90%; }
+.animate-cosmic-burst    { animation: cosmic-burst 0.55s ease-out both; transform-origin: center; }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-flame-flicker,
@@ -263,7 +287,9 @@ h1, h2, h3, h4 {
   .animate-ink-bleed,
   .animate-seal-pulse,
   .animate-halo-rise,
-  .animate-quill-stroke-in { animation: none !important; }
+  .animate-quill-stroke-in,
+  .animate-wobble-pulse,
+  .animate-cosmic-burst { animation: none !important; }
   .animate-gilded-glint::after { animation: none !important; opacity: 0; }
   html { scroll-behavior: auto; }
 }

@@ -434,6 +434,8 @@ export const getMounts = () => api.get('/mounts/');
 export const activateMount = (mountId) => api.post(`/mounts/${mountId}/activate/`);
 export const breedMounts = (mountAId, mountBId) =>
   api.post('/mounts/breed/', { mount_a_id: mountAId, mount_b_id: mountBId });
+export const getRecentCompanionGrowth = () => api.get('/pets/companion-growth/recent/');
+export const markCompanionGrowthSeen = () => api.post('/pets/companion-growth/seen/');
 
 // Trophy shelf
 export const setTrophyBadge = (badgeId) =>

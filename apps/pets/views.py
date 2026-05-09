@@ -171,6 +171,39 @@ class ActivateMountView(APIView):
         return Response(UserMountSerializer(mount).data)
 
 
+class CompanionGrowthRecentView(APIView):
+    """GET /api/pets/companion-growth/recent/ — unseen passive growth events.
+
+    Returns the queue stashed on ``CharacterProfile.pending_companion_growth``
+    by ``PetService.auto_grow_companions``. The frontend toast hook polls
+    this and POSTs to ``/seen/`` once it's rendered the events. Self-scoped
+    to ``request.user`` — never reveals another household's growth feed.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from apps.rpg.models import CharacterProfile
+        profile = CharacterProfile.objects.filter(user=request.user).first()
+        events = list(profile.pending_companion_growth or []) if profile else []
+        return Response({"events": events})
+
+
+class CompanionGrowthSeenView(APIView):
+    """POST /api/pets/companion-growth/seen/ — clear the pending queue.
+
+    Idempotent: an empty queue stays empty, calling twice is harmless.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from apps.rpg.models import CharacterProfile
+        profile, _ = CharacterProfile.objects.get_or_create(user=request.user)
+        if profile.pending_companion_growth:
+            profile.pending_companion_growth = []
+            profile.save(update_fields=["pending_companion_growth", "updated_at"])
+        return Response({"cleared": True})
+
+
 class BreedMountsView(APIView):
     """POST /api/mounts/breed/ — combine two mounts to yield egg + potion.
 
