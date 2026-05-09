@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getSkillTree } from '../../api';
+import CatalogSearch from '../../components/CatalogSearch';
 import EmptyState from '../../components/EmptyState';
 import Loader from '../../components/Loader';
 import FolioSpread from './FolioSpread';
@@ -17,6 +18,7 @@ export default function SkillTreeView({ categories }) {
   const [tree, setTree] = useState(null);
   const [treeLoading, setTreeLoading] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState(null);
+  const [filter, setFilter] = useState('');
 
   const loadTree = async (catId) => {
     if (selectedCategory === catId) {
@@ -34,6 +36,20 @@ export default function SkillTreeView({ categories }) {
     }
     setTreeLoading(false);
   };
+
+  const q = filter.trim().toLowerCase();
+  const filteredTree = useMemo(() => {
+    if (!tree || !q) return tree;
+    const subjects = (tree.subjects || []).map((subject) => ({
+      ...subject,
+      skills: (subject.skills || []).filter((s) =>
+        (s.name || '').toLowerCase().includes(q)
+        || (s.description || '').toLowerCase().includes(q),
+      ),
+    })).filter((subject) => subject.skills.length > 0);
+    return { ...tree, subjects };
+  }, [tree, q]);
+  const noMatches = tree && q && filteredTree.subjects.length === 0;
 
   if (!categories?.length) {
     return (
@@ -56,6 +72,15 @@ export default function SkillTreeView({ categories }) {
         onSelect={loadTree}
       />
 
+      {tree && (
+        <CatalogSearch
+          value={filter}
+          onChange={setFilter}
+          placeholder="Search skills in this tome…"
+          ariaLabel="Filter skills"
+        />
+      )}
+
       {treeLoading && <Loader />}
 
       {!tree && !treeLoading && (
@@ -69,8 +94,19 @@ export default function SkillTreeView({ categories }) {
         </EmptyState>
       )}
 
+      {noMatches && (
+        <EmptyState>
+          <div className="text-body font-medium text-ink-primary mb-1">
+            No skills match your search
+          </div>
+          <div className="text-caption">
+            Try another word, or clear the filter to see the whole chapter.
+          </div>
+        </EmptyState>
+      )}
+
       <AnimatePresence mode="wait">
-        {tree && !treeLoading && (
+        {tree && !treeLoading && !noMatches && (
           <motion.div
             key={tree.category?.id}
             initial={{ opacity: 0, y: 6 }}
@@ -78,7 +114,7 @@ export default function SkillTreeView({ categories }) {
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
           >
-            <FolioSpread tree={tree} onSelectSkill={setSelectedSkill} />
+            <FolioSpread tree={filteredTree} onSelectSkill={setSelectedSkill} />
           </motion.div>
         )}
       </AnimatePresence>

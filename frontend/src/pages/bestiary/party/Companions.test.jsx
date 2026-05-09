@@ -92,6 +92,25 @@ describe('Companions tab', () => {
     expect(screen.getByRole('tab', { name: /Ready to evolve \(1\)/ })).toBeInTheDocument();
   });
 
+  it('shows a soft whisper line under bored/stale pets and dims their sprite', async () => {
+    renderPage([
+      http.get('*/api/pets/stable/', () =>
+        HttpResponse.json({ pets: PETS, mounts: [], total_possible: 48 }),
+      ),
+      http.get('*/api/inventory/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() => expect(screen.getByText(/Fox/)).toBeInTheDocument());
+    expect(screen.getByText(/a little bored/i)).toBeInTheDocument();
+    expect(screen.getByText(/getting hungry/i)).toBeInTheDocument();
+    // The bored Fox sprite is dimmed; the happy Drake is not. The sprite
+    // catalog is empty in tests so RpgSprite emits an emoji fallback span;
+    // the data-dim attribute is the same regardless of which branch wins.
+    const fox = screen.getByLabelText(/Earth Fox/);
+    expect(fox).toHaveAttribute('data-dim', 'bored');
+    const drake = screen.getByLabelText(/Fire Drake/);
+    expect(drake).not.toHaveAttribute('data-dim');
+  });
+
   it('Hungry filter shows only bored/stale/away pets', async () => {
     const user = userEvent.setup();
     renderPage([

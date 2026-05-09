@@ -79,4 +79,18 @@ describe('useParentDashboard', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.pending).toEqual([]);
   });
+
+  it('surfaces a label for each failed source so the dashboard can warn the parent', async () => {
+    server.use(
+      http.get('*/api/chore-completions/', () => HttpResponse.json({ error: 'nope' }, { status: 500 })),
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({ pending_submissions: [] })),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/dashboard/', () => HttpResponse.json({})),
+    );
+
+    const { result } = renderHook(() => useParentDashboard());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // The chore endpoint 500s — the label for that source should appear.
+    expect(result.current.failedSources).toContain('chore approvals');
+  });
 });

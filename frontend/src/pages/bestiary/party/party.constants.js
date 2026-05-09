@@ -38,6 +38,17 @@ export function compareByRarityThenName(a, b) {
 const HUNGRY_LEVELS = new Set(['bored', 'stale', 'away']);
 const READY_TO_EVOLVE_THRESHOLD = 90;
 
+// Soft, non-alarming copy under a companion's name when its happiness has
+// drifted. Mirrors the buckets in ``apps/pets/services.py::happiness_for_pet``.
+// ``happy`` and ``away`` are intentionally omitted: ``happy`` is the default
+// (no whisper) and ``away`` (14+ days unfed) is conveyed visually by the
+// strongest grayscale ramp on the sprite — adding text here would feel like
+// a guilt-trip rather than a gentle nudge.
+export const HAPPINESS_WHISPER = {
+  bored: 'a little bored — feed me?',
+  stale: 'getting hungry — needs a snack',
+};
+
 export const COMPANION_FILTERS = [
   { key: 'all',    label: 'All',             match: () => true },
   { key: 'active', label: 'Active',          match: (p) => !!p.is_active },

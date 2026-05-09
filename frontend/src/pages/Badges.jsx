@@ -4,6 +4,7 @@ import { getAchievementsSummary, getBadges } from '../api';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
+import CatalogSearch from '../components/CatalogSearch';
 import { useApi } from '../hooks/useApi';
 import { normalizeList } from '../utils/api';
 import SigilCodex from './achievements/SigilCodex';
@@ -19,6 +20,7 @@ export default function Badges() {
   const { data: summary, loading, error, reload } = useApi(getAchievementsSummary);
   const { data: allBadgesData, loading: badgesLoading } = useApi(getBadges);
   const [selectedEntry, setSelectedEntry] = useState(null);
+  const [filter, setFilter] = useState('');
 
   const allBadges = useMemo(() => normalizeList(allBadgesData), [allBadgesData]);
   const earnedBadges = useMemo(() => summary?.badges_earned || [], [summary]);
@@ -26,6 +28,20 @@ export default function Badges() {
     () => new Set(earnedBadges.map((ub) => ub?.badge?.id).filter((x) => x != null)),
     [earnedBadges],
   );
+
+  const q = filter.trim().toLowerCase();
+  const filteredBadges = useMemo(() => {
+    if (!q) return allBadges;
+    return allBadges.filter((b) =>
+      (b.name || '').toLowerCase().includes(q)
+      || (b.description || '').toLowerCase().includes(q),
+    );
+  }, [allBadges, q]);
+  const filteredEarned = useMemo(() => {
+    if (!q) return earnedBadges;
+    const filteredIds = new Set(filteredBadges.map((b) => b.id));
+    return earnedBadges.filter((ub) => filteredIds.has(ub?.badge?.id));
+  }, [earnedBadges, filteredBadges, q]);
 
   if (loading || badgesLoading) return <Loader />;
   if (error || !summary) {
@@ -41,9 +57,18 @@ export default function Badges() {
 
   return (
     <div className="space-y-4">
+      {allBadges.length > 0 && (
+        <CatalogSearch
+          value={filter}
+          onChange={setFilter}
+          placeholder="Search the reliquary…"
+          ariaLabel="Filter badges"
+        />
+      )}
+
       <SigilCodex
-        allBadges={allBadges}
-        earnedBadges={earnedBadges}
+        allBadges={filteredBadges}
+        earnedBadges={filteredEarned}
         onSelect={setSelectedEntry}
       />
 

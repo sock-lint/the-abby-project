@@ -8,6 +8,7 @@ import WeekGlanceBlock from '../components/dashboard/WeekGlanceBlock';
 import QuickAdjustRow from '../components/dashboard/QuickAdjustRow';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import Button from '../components/Button';
+import ErrorAlert from '../components/ErrorAlert';
 import useParentDashboard from '../hooks/useParentDashboard';
 import { inkBleed } from '../motion/variants';
 import { formatWeekdayDate } from './_dashboardShared';
@@ -37,8 +38,11 @@ function NoChildrenWelcome() {
 }
 
 export default function ParentDashboard() {
-  const { pending, weekByKid, dashboard, reload } = useParentDashboard();
+  const { pending, weekByKid, dashboard, reload, failedSources = [] } = useParentDashboard();
   const { weekday, dateStr } = formatWeekdayDate();
+  const failureMessage = failedSources.length > 0
+    ? `Couldn't load ${failedSources.join(', ')} — pending items from those queues may be missing.`
+    : null;
 
   // children_count is exposed by the parent dashboard payload. While the
   // dashboard request is in flight, treat it as "we don't know yet" and
@@ -69,6 +73,15 @@ export default function ParentDashboard() {
               pendingCount: pending.length,
             }}
           />
+
+          {failureMessage && (
+            <div className="flex items-start gap-3">
+              <ErrorAlert message={failureMessage} className="flex-1" />
+              <Button variant="secondary" size="sm" onClick={reload}>
+                Retry
+              </Button>
+            </div>
+          )}
 
           <ApprovalQueueList items={pending} onDone={reload} />
 

@@ -108,10 +108,25 @@ function byRecent(a, b) {
   return tb - ta;
 }
 
+// Each fetch in load() is paired with a label here; failures get reported
+// up to the dashboard so a 500 doesn't silently disappear from the queue.
+const SOURCES = [
+  { key: 'chores',         label: 'chore approvals',      fn: () => getChoreCompletions('pending'),  fallback: [] },
+  { key: 'homework',       label: 'homework approvals',   fn: () => getHomeworkDashboard(),          fallback: { pending_submissions: [] } },
+  { key: 'redemptions',    label: 'reward redemptions',   fn: () => getRedemptions(),                fallback: [] },
+  { key: 'dashboard',      label: 'week summary',         fn: () => getDashboard(),                  fallback: null },
+  { key: 'creations',      label: 'creation bonuses',     fn: () => listPendingCreations(),          fallback: [] },
+  { key: 'choreProposals', label: 'chore proposals',      fn: () => listPendingChoreProposals(),     fallback: [] },
+  { key: 'habitProposals', label: 'habit proposals',      fn: () => listPendingHabitProposals(),     fallback: [] },
+  { key: 'exchanges',      label: 'coin exchanges',       fn: () => getExchangeRequests(),           fallback: [] },
+];
+
 /**
  * useParentDashboard — aggregates pending approvals across chores, homework,
  * and redemptions plus per-kid week stats. Returns a unified `pending` array
- * sorted newest-first.
+ * sorted newest-first, plus `failedSources` (string labels) for any fetch
+ * that errored so the caller can surface the failure instead of silently
+ * dropping rows from the queue.
  */
 export default function useParentDashboard() {
   const [data, setData] = useState({
@@ -120,24 +135,29 @@ export default function useParentDashboard() {
     dashboard: null,
     loading: true,
     error: null,
+    failedSources: [],
   });
 
   const load = useCallback(async () => {
     setData((d) => ({ ...d, loading: true, error: null }));
     try {
-      const [
-        chores, hw, reds, dashboardRes, creations,
-        choreProposals, habitProposals, exchanges,
-      ] = await Promise.all([
-        getChoreCompletions('pending').catch(() => []),
-        getHomeworkDashboard().catch(() => ({ pending_submissions: [] })),
-        getRedemptions().catch(() => []),
-        getDashboard().catch(() => null),
-        listPendingCreations().catch(() => []),
-        listPendingChoreProposals().catch(() => []),
-        listPendingHabitProposals().catch(() => []),
-        getExchangeRequests().catch(() => []),
-      ]);
+      const settled = await Promise.allSettled(SOURCES.map((s) => s.fn()));
+      const failedSources = [];
+      const values = {};
+      settled.forEach((res, i) => {
+        const source = SOURCES[i];
+        if (res.status === 'fulfilled') {
+          values[source.key] = res.value;
+        } else {
+          values[source.key] = source.fallback;
+          failedSources.push(source.label);
+        }
+      });
+
+      const {
+        chores, homework: hw, redemptions: reds, dashboard: dashboardRes,
+        creations, choreProposals, habitProposals, exchanges,
+      } = values;
 
       const unified = [
         ...normalizeList(chores).map(unifyChore),
@@ -159,6 +179,7 @@ export default function useParentDashboard() {
         dashboard: dashboardRes,
         loading: false,
         error: null,
+        failedSources,
       });
     } catch (err) {
       setData((d) => ({ ...d, loading: false, error: err?.message || 'Could not load.' }));

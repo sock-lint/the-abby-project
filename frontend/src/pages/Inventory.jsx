@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -17,6 +17,7 @@ import RuneBadge from '../components/journal/RuneBadge';
 import { EggIcon } from '../components/icons/JournalIcons';
 import RpgSprite from '../components/rpg/RpgSprite';
 import BoostStrip from '../components/rpg/BoostStrip';
+import CatalogSearch from '../components/CatalogSearch';
 import { normalizeList } from '../utils/api';
 import { RARITY_PILL_COLORS, RARITY_RING_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem } from '../motion/variants';
@@ -49,9 +50,20 @@ export default function Inventory() {
   const items = normalizeList(data);
   const [busyId, setBusyId] = useState(null);
   const [flash, setFlash] = useState(null);
+  const [filter, setFilter] = useState('');
   // Per-entry pending "use N" amount, keyed by inventory row id.
   // Defaults to 1; only matters for stack-safe consumables with qty > 1.
   const [bulkAmounts, setBulkAmounts] = useState({});
+
+  const filteredItems = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((entry) => {
+      const name = (entry.item?.name || '').toLowerCase();
+      const desc = (entry.item?.description || '').toLowerCase();
+      return name.includes(q) || desc.includes(q);
+    });
+  }, [items, filter]);
 
   const setBulk = (entryId, value) =>
     setBulkAmounts((prev) => ({ ...prev, [entryId]: value }));
@@ -102,13 +114,14 @@ export default function Inventory() {
   if (loading) return <Loader />;
 
   const grouped = {};
-  for (const entry of items) {
+  for (const entry of filteredItems) {
     const type = entry.item.item_type;
     if (!grouped[type]) grouped[type] = [];
     grouped[type].push(entry);
   }
 
   const populatedCompartments = TYPE_COMPARTMENTS.filter((c) => grouped[c.id]?.length);
+  const filterActive = filter.trim().length > 0;
 
   return (
     <div className="space-y-6">
@@ -144,13 +157,28 @@ export default function Inventory() {
         </div>
       )}
 
+      {items.length > 0 && (
+        <CatalogSearch
+          value={filter}
+          onChange={setFilter}
+          placeholder="Search the satchel…"
+          ariaLabel="Filter inventory items"
+        />
+      )}
+
       {populatedCompartments.length === 0 ? (
-        <EmptyState icon={<EggIcon size={36} />}>
-          <div>No items yet. Complete quests, chores, and homework to earn drops.</div>
-          <div className="font-script text-sm text-ink-whisper mt-2 not-italic">
-            eggs hatch pets, potions tint them, food feeds them, cosmetics dress your sigil, consumables fire one effect
-          </div>
-        </EmptyState>
+        filterActive ? (
+          <EmptyState icon={<EggIcon size={36} />}>
+            No items match your search.
+          </EmptyState>
+        ) : (
+          <EmptyState icon={<EggIcon size={36} />}>
+            <div>No items yet. Complete quests, chores, and homework to earn drops.</div>
+            <div className="font-script text-sm text-ink-whisper mt-2 not-italic">
+              eggs hatch pets, potions tint them, food feeds them, cosmetics dress your sigil, consumables fire one effect
+            </div>
+          </EmptyState>
+        )
       ) : (
         populatedCompartments.map((compartment, idx) => (
           <section key={compartment.id}>

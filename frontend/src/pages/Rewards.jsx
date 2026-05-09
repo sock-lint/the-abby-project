@@ -6,6 +6,7 @@ import {
   getRedemptions, getRewards, redeemReward,
   addRewardToWishlist, removeRewardFromWishlist,
 } from '../api';
+import CatalogSearch from '../components/CatalogSearch';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
@@ -38,6 +39,7 @@ export default function Rewards() {
   const [showCoinAdjust, setShowCoinAdjust] = useState(false);
   const [showExchange, setShowExchange] = useState(false);
   const [outOfStock, setOutOfStock] = useState(null);
+  const [shopFilter, setShopFilter] = useState('');
   const { confirmState, askConfirm, closeConfirm } = useConfirmState();
 
   const refresh = () => {
@@ -117,6 +119,13 @@ export default function Rewards() {
   const pending = redemptions.filter((r) => r.status === 'pending');
   const pendingExchanges = exchanges.filter((e) => e.status === 'pending');
   const exchangeRate = rateData?.coins_per_dollar;
+  const shopQ = shopFilter.trim().toLowerCase();
+  const filteredRewards = shopQ
+    ? rewards.filter((r) =>
+        (r.name || '').toLowerCase().includes(shopQ)
+        || (r.description || '').toLowerCase().includes(shopQ),
+      )
+    : rewards;
 
   return (
     <div className="space-y-6">
@@ -176,8 +185,17 @@ export default function Rewards() {
         />
       )}
 
+      {rewards.length > 0 && (
+        <CatalogSearch
+          value={shopFilter}
+          onChange={setShopFilter}
+          placeholder="Search the bazaar…"
+          ariaLabel="Filter rewards"
+        />
+      )}
+
       <RewardShop
-        rewards={rewards}
+        rewards={filteredRewards}
         isParent={isParent}
         coinBalance={coinBalance}
         onRedeem={handleRedeem}

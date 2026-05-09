@@ -724,7 +724,7 @@ class DailyChallengeService:
         AwardService.grant(
             user,
             coins=coins,
-            coin_reason="adjustment",
+            coin_reason="daily_challenge",
             xp=xp,
             xp_source_label="Daily Challenge",
         )

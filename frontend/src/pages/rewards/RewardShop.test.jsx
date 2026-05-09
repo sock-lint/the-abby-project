@@ -52,6 +52,34 @@ describe('RewardShop', () => {
     expect(screen.getByRole('button', { name: /out of stock/i })).toBeDisabled();
   });
 
+  it('renders an empty state when no rewards exist (child copy)', () => {
+    render(
+      <RewardShop
+        rewards={[]}
+        isParent={false}
+        coinBalance={0}
+        onRedeem={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/ask a parent to add some/i)).toBeInTheDocument();
+  });
+
+  it('renders an empty state with a parent CTA when no rewards exist', () => {
+    render(
+      <RewardShop
+        rewards={[]}
+        isParent={true}
+        coinBalance={0}
+        onRedeem={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/head to manage to add some/i)).toBeInTheDocument();
+  });
+
   it('parent can edit/delete', async () => {
     const onEdit = vi.fn();
     const onDelete = vi.fn();

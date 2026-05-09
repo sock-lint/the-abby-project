@@ -149,6 +149,7 @@ _BOOSTABLE_COIN_REASONS = frozenset({
     "milestone_bonus",
     "badge_bonus",
     "chore_reward",
+    "daily_challenge",
 })
 
 

@@ -43,6 +43,26 @@ describe('Inventory', () => {
     expect(screen.getByText('Ember Egg')).toBeInTheDocument();
   });
 
+  it('filters items by name when the user types in the search', async () => {
+    server.use(
+      http.get('*/api/inventory/', () =>
+        HttpResponse.json([
+          { id: 1, quantity: 2, item: { id: 1, name: 'Ember Egg', item_type: 'egg', rarity: 'common', sprite_key: 'big-egg', icon: '🥚' } },
+          { id: 2, quantity: 1, item: { id: 2, name: 'Fire Potion', item_type: 'potion', rarity: 'rare', sprite_key: 'potion-normal-red', icon: '🧪' } },
+        ]),
+      ),
+    );
+    const user = userEvent.setup();
+    renderInventory();
+    await waitFor(() => expect(screen.getByText('Ember Egg')).toBeInTheDocument());
+
+    const search = screen.getByRole('searchbox', { name: /filter inventory/i });
+    await user.type(search, 'potion');
+
+    expect(screen.queryByText('Ember Egg')).not.toBeInTheDocument();
+    expect(screen.getByText('Fire Potion')).toBeInTheDocument();
+  });
+
   it('shows a Use button on consumables and fires the right endpoint', async () => {
     const freeze = {
       id: 42,
