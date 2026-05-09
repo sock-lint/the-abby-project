@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useAuth } from './hooks/useApi';
 import { applyTheme } from './themes';
-import { getPendingCelebration } from './api';
+import { getPendingCelebration, getPendingCelebrationNotification } from './api';
 import BirthdayCelebrationModal from './components/BirthdayCelebrationModal';
+import CelebrationModal from './components/CelebrationModal';
 import { SpriteCatalogProvider } from './providers/SpriteCatalogProvider';
 import JournalShell from './components/layout/JournalShell';
 import { PwaStatusProvider } from './pwa/PwaStatusProvider';
@@ -59,6 +60,7 @@ function LegacyRedirect({ to }) {
 export default function App() {
   const { user, loading, login, signup } = useAuth();
   const [celebration, setCelebration] = useState(null);
+  const [celebrationNotice, setCelebrationNotice] = useState(null);
 
   useEffect(() => {
     if (user?.theme) applyTheme(user.theme);
@@ -82,6 +84,27 @@ export default function App() {
       cancelled = true;
     };
   }, [user?.id]);
+
+  // Streak / Perfect Day reveal — shown only after any pending birthday
+  // is dismissed so the two never compete for attention on the same load.
+  useEffect(() => {
+    if (!user) return;
+    if (celebration) return;
+    let cancelled = false;
+    getPendingCelebrationNotification()
+      .then((res) => {
+        if (cancelled) return;
+        if (res && typeof res === 'object' && res.id) {
+          setCelebrationNotice(res);
+        }
+      })
+      .catch(() => {
+        // 204 / network — nothing pending.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, celebration]);
 
   // Dev-only design showcase route bypasses auth so primitives can be QA'd
   // without a running backend. Matches the path before any other routing.
@@ -123,6 +146,12 @@ export default function App() {
           <BirthdayCelebrationModal
             entry={celebration}
             onDismiss={() => setCelebration(null)}
+          />
+        )}
+        {!celebration && celebrationNotice && (
+          <CelebrationModal
+            notification={celebrationNotice}
+            onDismiss={() => setCelebrationNotice(null)}
           />
         )}
         <SpriteCatalogProvider>

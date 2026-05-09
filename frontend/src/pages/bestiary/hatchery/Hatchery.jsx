@@ -12,6 +12,7 @@ import { normalizeList } from '../../../utils/api';
 import Button from '../../../components/Button';
 import { SelectField } from '../../../components/form';
 import { BREEDING_COOLDOWN_DAYS, daysUntilReady } from '../party/party.constants';
+import PetCeremonyModal from '../PetCeremonyModal';
 
 const CHROMATIC_UPGRADE_RATE = '1 in 50';
 
@@ -30,6 +31,7 @@ export default function Hatchery() {
   const [hatchEgg, setHatchEgg] = useState('');
   const [hatchPotion, setHatchPotion] = useState('');
   const [hatchSuccess, setHatchSuccess] = useState(null);
+  const [hatchCeremony, setHatchCeremony] = useState(null);
   const [breedA, setBreedA] = useState('');
   const [breedB, setBreedB] = useState('');
   const [breedResult, setBreedResult] = useState(null);
@@ -59,6 +61,7 @@ export default function Hatchery() {
         speciesName: pet?.species?.name,
         potionName: pet?.potion?.name,
       });
+      setHatchCeremony(pet);
       setHatchEgg('');
       setHatchPotion('');
       refresh();
@@ -84,6 +87,13 @@ export default function Hatchery() {
 
   return (
     <div className="space-y-6">
+      {hatchCeremony && (
+        <PetCeremonyModal
+          mode="hatch"
+          pet={hatchCeremony}
+          onDismiss={() => setHatchCeremony(null)}
+        />
+      )}
       <header>
         <div className="font-script text-sheikah-teal-deep text-base">
           the hatchery · ritual casting & stable husbandry

@@ -90,7 +90,11 @@ describe('DropToastStack', () => {
     await waitFor(() => expect(screen.queryByText(/bone/i)).toBeNull());
   });
 
-  it('auto-dismisses after 6 seconds', async () => {
+  it('auto-dismisses common toasts after 6 seconds', async () => {
+    // Auto-dismiss only applies to the slide-in toast strip
+    // (common/uncommon). Rare+ drops escalate to the RareDropReveal
+    // modal which the user dismisses manually — see the burst test
+    // below for the split.
     vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<DropToastStack />);
     await act(async () => { await vi.advanceTimersByTimeAsync(10); });
@@ -99,7 +103,7 @@ describe('DropToastStack', () => {
       item_name: 'RuneDrop',
       item_icon: 'R',
       item_sprite_key: 'rune',
-      item_rarity: 'rare',
+      item_rarity: 'common',
       was_salvaged: false,
     }];
     await act(async () => { await vi.advanceTimersByTimeAsync(25000); });
@@ -110,9 +114,10 @@ describe('DropToastStack', () => {
 
   // 2026-04-23 review (R3): single quest completions like Master's Path can
   // fire a badge + an item drop + a frame + a title in the same poll window.
-  // Confirm the stack queues every distinct drop instead of dropping frames
-  // when many arrive together — the seenIds dedupe lives in useDropToasts.
-  it('queues every drop when a burst arrives in one poll', async () => {
+  // 2026-05 review: rare/epic/legendary drops now route to RareDropReveal
+  // (one-at-a-time queue) while common/uncommon stay in the toast strip.
+  // Verify both streams populate without dropping frames.
+  it('routes rare drops to the reveal queue and queues commons in the strip', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<DropToastStack />);
     await act(async () => { await vi.advanceTimersByTimeAsync(10); });
@@ -122,12 +127,18 @@ describe('DropToastStack', () => {
       { id: 11, item_name: 'Master Crafter Title', item_icon: '⚒️', item_sprite_key: '', item_rarity: 'legendary', was_salvaged: false },
       { id: 12, item_name: 'Quest Scroll', item_icon: '📜', item_sprite_key: 'scroll', item_rarity: 'rare', was_salvaged: false },
       { id: 13, item_name: 'Coin Pouch', item_icon: '👛', item_sprite_key: 'pouch', item_rarity: 'common', was_salvaged: false },
+      { id: 14, item_name: 'Bone Shard', item_icon: '🦴', item_sprite_key: 'bone', item_rarity: 'uncommon', was_salvaged: false },
     ];
     await act(async () => { await vi.advanceTimersByTimeAsync(25000); });
 
-    await waitFor(() => expect(screen.getByText(/capstone frame/i)).toBeInTheDocument());
-    expect(screen.getByText(/master crafter title/i)).toBeInTheDocument();
-    expect(screen.getByText(/quest scroll/i)).toBeInTheDocument();
+    // The reveal queue surfaces only the topmost rare item at a time —
+    // the 4-item burst means 3 rare items wait off-screen, but the
+    // first one MUST render and have role="alertdialog".
+    await waitFor(() =>
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument(),
+    );
+    // Common + uncommon land in the strip together.
     expect(screen.getByText(/coin pouch/i)).toBeInTheDocument();
+    expect(screen.getByText(/bone shard/i)).toBeInTheDocument();
   });
 });

@@ -254,9 +254,10 @@ export default function ChildDashboard({ data, reload }) {
                 type="button"
                 whileHover={{ y: -2 }}
                 onClick={() => navigate('/treasury?tab=satchel')}
+                aria-label={`${d.item_name}${d.was_salvaged ? ' (salvaged)' : ''} — open satchel`}
                 className={`shrink-0 w-24 p-3 rounded-xl bg-ink-page-aged border border-ink-page-shadow text-center ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[d.rarity] || 'ring-transparent'}`}
               >
-                <div className="text-3xl mb-1">{d.item_icon || '📦'}</div>
+                <div className="text-3xl mb-1" aria-hidden="true">{d.item_icon || '📦'}</div>
                 <div className="font-body text-xs font-medium truncate">{d.item_name}</div>
                 {d.was_salvaged && (
                   <div className="font-script text-micro text-gold-leaf mt-0.5">salvaged</div>
@@ -277,6 +278,7 @@ export default function ChildDashboard({ data, reload }) {
             variants={staggerItem}
             type="button"
             onClick={() => navigate('/treasury?tab=coffers')}
+            aria-label={`Balance ${formatCurrency(current_balance)} — open coffers`}
             className="text-left rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 hover:bg-ink-page-rune-glow transition-colors"
           >
             <div className="font-script text-xs uppercase tracking-wider text-moss">Balance</div>
@@ -286,10 +288,11 @@ export default function ChildDashboard({ data, reload }) {
             variants={staggerItem}
             type="button"
             onClick={() => navigate('/treasury?tab=bazaar')}
+            aria-label={`${coin_balance ?? 0} coins — open the bazaar`}
             className="text-left rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 hover:bg-ink-page-rune-glow transition-colors"
           >
             <div className="flex items-center gap-1 font-script text-xs uppercase tracking-wider text-gold-leaf">
-              <CoinIcon size={14} /> Coins
+              <CoinIcon size={14} aria-hidden="true" /> Coins
             </div>
             <div className="font-display text-xl font-semibold text-ink-primary">{coin_balance ?? 0}</div>
           </motion.button>
@@ -297,6 +300,7 @@ export default function ChildDashboard({ data, reload }) {
             variants={staggerItem}
             type="button"
             onClick={() => navigate('/treasury?tab=wages')}
+            aria-label={`${this_week?.hours_worked ?? 0} hours clocked this week — open wages`}
             className="text-left rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 hover:bg-ink-page-rune-glow transition-colors"
           >
             <div className="font-script text-xs uppercase tracking-wider text-sheikah-teal-deep">Hours this week</div>

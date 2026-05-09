@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Hourglass } from 'lucide-react';
 import { claimDailyChallenge, getDailyChallenge } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import { useRole } from '../../hooks/useRole';
@@ -8,6 +9,19 @@ import Button from '../Button';
 import ParchmentCard from '../journal/ParchmentCard';
 import QuillProgress from '../QuillProgress';
 import RuneBadge from '../journal/RuneBadge';
+import DailyChallengeClaimModal from './DailyChallengeClaimModal';
+
+function timeUntilMidnight(now = new Date()) {
+  const next = new Date(now);
+  next.setHours(24, 0, 0, 0);
+  const ms = next.getTime() - now.getTime();
+  if (ms <= 0) return 'soon';
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h <= 0) return `${m}m`;
+  return `${h}h ${m}m`;
+}
 
 /**
  * DailyChallengeCard — "Today's Rite" card for the child dashboard.
@@ -34,6 +48,16 @@ export default function DailyChallengeCard() {
   const [pending, setPending] = useState(false);
   const [claimed, setClaimed] = useState(null);
   const [claimError, setClaimError] = useState('');
+  const [showClaimModal, setShowClaimModal] = useState(null);
+  const [resetIn, setResetIn] = useState(() => timeUntilMidnight());
+
+  // Recompute the midnight countdown every minute so the chip stays
+  // honest without a per-render Date.now() in render. Cheap because the
+  // card mounts on Today only.
+  useEffect(() => {
+    const id = setInterval(() => setResetIn(timeUntilMidnight()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   if (!isChild || !data?.id) return null;
 
@@ -58,6 +82,12 @@ export default function DailyChallengeCard() {
     try {
       const res = await claimDailyChallenge();
       setClaimed(res);
+      // Trigger the reveal modal only when the server actually awarded
+      // something this session — replays-after-midnight come back with
+      // already_claimed=true and no celebration is owed.
+      if (res && !res.already_claimed) {
+        setShowClaimModal(res);
+      }
       reload();
     } catch (err) {
       setClaimError(err?.message || 'Could not claim reward.');
@@ -68,9 +98,32 @@ export default function DailyChallengeCard() {
 
   return (
     <motion.div variants={inkBleed} initial="initial" animate="animate">
-      <ParchmentCard tone="bright" flourish>
-        <div className="font-script text-sheikah-teal-deep text-xs uppercase tracking-wider">
-          a small deed before the day turns
+      {showClaimModal && (
+        <DailyChallengeClaimModal
+          claim={showClaimModal}
+          challengeLabel={challenge_type_display}
+          onDismiss={() => setShowClaimModal(null)}
+        />
+      )}
+      <ParchmentCard
+        tone="bright"
+        flourish
+        className={
+          readyToClaim
+            ? 'ring-2 ring-gold-leaf/70 ring-offset-2 ring-offset-ink-page'
+            : ''
+        }
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="font-script text-sheikah-teal-deep text-xs uppercase tracking-wider">
+            a small deed before the day turns
+          </div>
+          <RuneBadge tone="ink" size="sm">
+            <span className="inline-flex items-center gap-1">
+              <Hourglass size={10} aria-hidden="true" />
+              <span>resets in {resetIn}</span>
+            </span>
+          </RuneBadge>
         </div>
         <h2 className="font-display italic text-2xl text-ink-primary leading-tight mt-0.5">
           Today&apos;s Rite

@@ -143,12 +143,14 @@ export default function Projects() {
           className="grid md:grid-cols-2 lg:grid-cols-3 gap-4"
         >
           {projects.map((p) => (
-            <motion.div
+            <motion.button
               key={p.id}
+              type="button"
               variants={staggerItem}
               whileHover={{ y: -3 }}
-              className="cursor-pointer"
+              className="text-left cursor-pointer"
               onClick={() => navigate(`/quests/ventures/${p.id}`)}
+              aria-label={`Open ${p.title}`}
             >
               <ParchmentCard className="h-full">
                 {p.cover_photo && (
@@ -200,7 +202,7 @@ export default function Projects() {
                   <div className="font-script text-xs text-royal">open bounty</div>
                 )}
               </ParchmentCard>
-            </motion.div>
+            </motion.button>
           ))}
         </motion.div>
       )}

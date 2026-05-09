@@ -162,16 +162,41 @@ export default function Habits() {
     isParent ? listPendingHabitProposals : listMyHabitProposals,
     [isParent],
   );
-  const { data: rawChildren } = useApi(isParent ? getChildren : null);
-  const { data: rawSkills } = useApi(isParent ? getSkills : null);
+  // Match the fallback pattern used in Chores.jsx — passing `null` to
+  // useApi would crash when it tries to call apiFn(signal); a promise
+  // that resolves to `[]` short-circuits cleanly for non-parents.
+  const { data: rawChildren } = useApi(
+    isParent ? getChildren : () => Promise.resolve([]),
+    [isParent],
+  );
+  const { data: rawSkills } = useApi(
+    isParent ? getSkills : () => Promise.resolve([]),
+    [isParent],
+  );
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
   const [formMode, setFormMode] = useState('create');
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [tapping, setTapping] = useState(null);
+  // Optimistic deltas keyed by habit id — `{ [id]: {strength, taps_today} }`.
+  // Applied during render so the strength medallion bumps the moment a
+  // tap fires instead of waiting on the server roundtrip + refetch.
+  // Cleared on reload so server values are authoritative once the
+  // refetch lands; on error we also clear so we don't ghost a phantom.
+  const [tapDeltas, setTapDeltas] = useState({});
 
-  const habits = normalizeList(rawHabits);
+  const habitsRaw = normalizeList(rawHabits);
+  const habits = habitsRaw.map((h) => {
+    const d = tapDeltas[h.id];
+    if (!d) return h;
+    return {
+      ...h,
+      strength: (h.strength ?? 0) + (d.strength || 0),
+      taps_today: (h.taps_today ?? 0) + (d.taps_today || 0),
+    };
+  });
+
   const proposals = normalizeList(rawProposals);
   const children = normalizeList(rawChildren);
   const skills = normalizeList(rawSkills);
@@ -200,10 +225,34 @@ export default function Habits() {
   const handleTap = async (habit, direction) => {
     setTapping(`${habit.id}-${direction}`);
     setError('');
+    // Optimistic bump — strength shifts by direction, positive taps also
+    // count against today's cap. The medallion + "X/Y today" line both
+    // update before the server roundtrip lands so a tap reads as instant.
+    setTapDeltas((prev) => {
+      const cur = prev[habit.id] || { strength: 0, taps_today: 0 };
+      return {
+        ...prev,
+        [habit.id]: {
+          strength: cur.strength + direction,
+          taps_today: cur.taps_today + (direction === 1 ? 1 : 0),
+        },
+      };
+    });
     try {
       await logHabitTap(habit.id, direction);
+      // Reconcile with the server — clear our optimistic delta for this
+      // habit and refetch the canonical row.
+      setTapDeltas((prev) => {
+        const { [habit.id]: _drop, ...rest } = prev;
+        return rest;
+      });
       reload();
     } catch (err) {
+      // Roll back on failure so the medallion doesn't ghost a phantom value.
+      setTapDeltas((prev) => {
+        const { [habit.id]: _drop, ...rest } = prev;
+        return rest;
+      });
       setError(err.message);
     } finally {
       setTapping(null);
@@ -282,9 +331,9 @@ export default function Habits() {
                         type="button"
                         onClick={() => setConfirmDelete(p)}
                         aria-label="Decline proposal"
-                        className="p-1.5 bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
+                        className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={16} />
                       </button>
                     </>
                   ) : (
@@ -371,17 +420,17 @@ export default function Habits() {
                           type="button"
                           onClick={() => openEdit(habit)}
                           aria-label="Edit ritual"
-                          className="p-1.5 text-ink-secondary hover:text-ink-primary transition-colors"
+                          className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] text-ink-secondary hover:text-ink-primary transition-colors"
                         >
-                          <Pencil size={14} />
+                          <Pencil size={16} />
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmDelete(habit)}
                           aria-label="Delete ritual"
-                          className="p-1.5 text-ink-secondary hover:text-ember-deep transition-colors"
+                          className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] text-ink-secondary hover:text-ember-deep transition-colors"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     )}

@@ -24,6 +24,12 @@ export const STORAGE_KEYS = {
   // re-evaluates. JSON-serialized array.
   SEEN_SAVINGS_COMPLETIONS: 'seenSavingsCompletions',
 
+  // Set of notification IDs whose approval toast (chore/homework/
+  // creation/exchange approved or rejected) has already fired for the
+  // child. Independent of the unread-bell flag so the bell still
+  // reflects the parent's notification list. JSON-serialized array.
+  SEEN_APPROVAL_TOASTS: 'seenApprovalToasts',
+
   // Sprite catalog JSON + the ETag we last saw — paired keys.
   // SpriteCatalogProvider revalidates on mount via If-None-Match.
   SPRITE_CATALOG: 'spriteCatalog',
