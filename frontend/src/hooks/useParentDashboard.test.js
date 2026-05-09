@@ -93,4 +93,14 @@ describe('useParentDashboard', () => {
     // The chore endpoint 500s — the label for that source should appear.
     expect(result.current.failedSources).toContain('chore approvals');
   });
+
+  it('reports an empty failedSources list when every fetch succeeds', async () => {
+    // Default permissive handlers return success for every source — assert
+    // the clean-path contract so future callers can branch on
+    // ``failedSources.length`` without worrying about a misleading non-empty
+    // sentinel slipping through.
+    const { result } = renderHook(() => useParentDashboard());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.failedSources).toEqual([]);
+  });
 });

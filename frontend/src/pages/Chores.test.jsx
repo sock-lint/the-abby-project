@@ -300,4 +300,36 @@ describe('Chores', () => {
     await waitFor(() => expect(reject.calls).toHaveLength(1));
     expect(reject.calls[0].url).toMatch(/\/chore-completions\/22\/reject\/$/);
   });
+
+  it('child clicking ↩ withdraw on a pending duty posts to /chore-completions/{id}/withdraw/', async () => {
+    const user = userEvent.setup();
+    const withdraw = spyHandler(
+      'post',
+      /\/api\/chore-completions\/\d+\/withdraw\/$/,
+      { ok: true },
+    );
+    renderPage(buildUser(), [
+      http.get('*/api/chores/', () =>
+        HttpResponse.json([
+          buildChore({
+            id: 5,
+            title: 'Dishes',
+            today_status: 'pending',
+            today_completion_id: 71,
+            is_available: true,
+          }),
+        ]),
+      ),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      withdraw.handler,
+    ]);
+
+    const button = await screen.findByRole(
+      'button', { name: /withdraw this duty submission/i },
+    );
+    await user.click(button);
+
+    await waitFor(() => expect(withdraw.calls).toHaveLength(1));
+    expect(withdraw.calls[0].url).toMatch(/\/chore-completions\/71\/withdraw\/$/);
+  });
 });

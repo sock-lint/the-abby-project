@@ -51,6 +51,27 @@ describe('NotificationBell (real timers)', () => {
     await waitFor(() => expect(screen.queryByText('go')).toBeNull());
   });
 
+  it('renders the type-specific lucide icon for a known notification type', async () => {
+    server.use(
+      http.get('*/api/notifications/unread_count/', () => HttpResponse.json({ count: 1 })),
+      http.get('*/api/notifications/', () =>
+        HttpResponse.json([{
+          id: 11, title: 'Sealed!', is_read: true,
+          notification_type: 'badge_earned', link: '', created_at: 'x',
+        }]),
+      ),
+    );
+    const user = userEvent.setup();
+    const { container } = renderBell();
+    await user.click(screen.getAllByRole('button')[0]);
+    await screen.findByText('Sealed!');
+    // ``badge_earned`` maps to lucide's Award icon, which carries
+    // ``.lucide-award`` on its rendered SVG. The Bell icon stays in the
+    // header trigger; the row icon is the one we want.
+    const rowIcon = container.querySelector('.lucide-award');
+    expect(rowIcon).not.toBeNull();
+  });
+
   it('falls back to the type-default route when link is empty', async () => {
     server.use(
       http.get('*/api/notifications/unread_count/', () => HttpResponse.json({ count: 1 })),

@@ -343,3 +343,75 @@ class CreationListTests(_Fixture):
         rows = _unwrap(resp.data)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["user"], self.child.id)
+
+
+class CreationTodayStatusTests(_Fixture):
+    """``GET /api/creations/today_status/`` powers ``CreationLogModal``'s
+    pre-submit warning ("1 left will earn XP today" vs. "no XP for further
+    logs today"). The counter row survives hard delete by design — we
+    assert the count keeps climbing past the XP cap rather than capping at
+    the XP-eligible window."""
+
+    def _logged_in(self, user):
+        self.client.force_authenticate(user)
+        return self.client.get("/api/creations/today_status/")
+
+    @patch("apps.rpg.services.GameLoopService.on_task_completed")
+    def test_zero_creations_today(self, _gl):
+        resp = self._logged_in(self.child)
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["count"], 0)
+        self.assertEqual(body["limit"], 2)
+        self.assertEqual(body["remaining_with_xp"], 2)
+
+    @patch("apps.rpg.services.GameLoopService.on_task_completed")
+    def test_one_creation_today_leaves_one_xp_eligible(self, _gl):
+        from apps.creations.services import CreationService
+        CreationService.log_creation(
+            self.child, image=_fake_image(),
+            primary_skill_id=self.draw.id,
+        )
+        body = self._logged_in(self.child).json()
+        self.assertEqual(body["count"], 1)
+        self.assertEqual(body["remaining_with_xp"], 1)
+
+    @patch("apps.rpg.services.GameLoopService.on_task_completed")
+    def test_two_creations_today_caps_xp_window(self, _gl):
+        from apps.creations.services import CreationService
+        for _ in range(2):
+            CreationService.log_creation(
+                self.child, image=_fake_image(),
+                primary_skill_id=self.draw.id,
+            )
+        body = self._logged_in(self.child).json()
+        self.assertEqual(body["count"], 2)
+        self.assertEqual(body["remaining_with_xp"], 0)
+
+    @patch("apps.rpg.services.GameLoopService.on_task_completed")
+    def test_third_creation_still_increments_counter_but_no_xp(self, _gl):
+        """The 3rd log lands silently in the Sketchbook but the counter
+        keeps climbing — anti-farm: even after delete-and-relog, the count
+        in today_status stays past the cap."""
+        from apps.creations.services import CreationService
+        for _ in range(3):
+            CreationService.log_creation(
+                self.child, image=_fake_image(),
+                primary_skill_id=self.draw.id,
+            )
+        body = self._logged_in(self.child).json()
+        self.assertEqual(body["count"], 3)
+        self.assertEqual(body["remaining_with_xp"], 0)
+
+    @patch("apps.rpg.services.GameLoopService.on_task_completed")
+    def test_endpoint_is_self_scoped(self, _gl):
+        """Counter is keyed on (user, occurred_on) — child A's logs never
+        bleed into child B's status."""
+        from apps.creations.services import CreationService
+        CreationService.log_creation(
+            self.child, image=_fake_image(),
+            primary_skill_id=self.draw.id,
+        )
+        body = self._logged_in(self.other_child).json()
+        self.assertEqual(body["count"], 0)
+        self.assertEqual(body["remaining_with_xp"], 2)

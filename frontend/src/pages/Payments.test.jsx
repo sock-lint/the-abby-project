@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -137,5 +137,53 @@ describe('Payments', () => {
     await user.click(screen.getByRole('button', { name: /adjust balance/i }));
     await user.click(screen.getByRole('button', { name: /cancel/i }));
     await waitFor(() => expect(screen.queryByRole('spinbutton')).toBeNull());
+  });
+
+  it('child does not see Export CSV (parent-only affordance)', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/balance/', () =>
+        HttpResponse.json({ balance: 0, breakdown: {}, recent_transactions: [] }),
+      ),
+    ]);
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /coffers/i })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('button', { name: /export csv/i })).toBeNull();
+  });
+
+  it('parent clicking Export CSV calls /payments/export/ and triggers a CSV download', async () => {
+    const user = userEvent.setup();
+    const exportCalls = [];
+    renderPage(buildParent(), [
+      http.get('*/api/balance/', () =>
+        HttpResponse.json({ balance: 0, breakdown: {}, recent_transactions: [] }),
+      ),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/payments/export/', ({ request }) => {
+        exportCalls.push(request.url);
+        return new HttpResponse('id,amount\n', {
+          status: 200,
+          headers: { 'Content-Type': 'text/csv' },
+        });
+      }),
+    ]);
+
+    // Stub the URL/blob plumbing so the test doesn't need a real iframe.
+    const createSpy = vi.fn(() => 'blob:fake-csv');
+    const revokeSpy = vi.fn();
+    window.URL.createObjectURL = createSpy;
+    window.URL.revokeObjectURL = revokeSpy;
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /export csv/i })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('button', { name: /export csv/i }));
+
+    await waitFor(() => expect(exportCalls).toHaveLength(1));
+    expect(exportCalls[0]).toMatch(/\/api\/payments\/export\//);
+    // The Blob object URL was created and the temporary anchor was clicked,
+    // so revokeObjectURL fires after the synchronous download is dispatched.
+    expect(createSpy).toHaveBeenCalled();
+    expect(revokeSpy).toHaveBeenCalled();
   });
 });

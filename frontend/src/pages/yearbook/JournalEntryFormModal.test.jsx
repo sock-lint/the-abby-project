@@ -93,6 +93,63 @@ describe('JournalEntryFormModal', () => {
     expect(within(dialog).getByText(/private to you/i)).toBeInTheDocument();
   });
 
+  it('locks a prior-day entry into read-only mode (no Save button, only Close)', async () => {
+    // Compute a local-date string for yesterday — matches the modal's
+    // ``new Date().toLocaleDateString('en-CA')`` lock check.
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+      .toLocaleDateString('en-CA');
+    renderWithProviders(
+      <JournalEntryFormModal
+        mode="edit"
+        entry={{
+          id: 17,
+          title: 'Yesterday',
+          summary: "yesterday's thoughts",
+          kind: 'journal',
+          occurred_on: yesterday,
+        }}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+    const dialog = screen.getByRole('dialog', { name: /journal entry — locked/i });
+    // No Save / Update button — locked entries can't be edited.
+    expect(within(dialog).queryByRole('button', { name: /update entry/i })).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: /save entry/i })).toBeNull();
+    // Close (the only ghost form button) is present — BottomSheet has a
+    // duplicate Close icon-button on its header, so just assert ≥1 match.
+    expect(within(dialog).getAllByRole('button', { name: /^close$/i }).length)
+      .toBeGreaterThanOrEqual(1);
+    // Body and title are disabled.
+    expect(within(dialog).getByLabelText(/title/i)).toBeDisabled();
+    expect(within(dialog).getByLabelText(/mind/i)).toBeDisabled();
+    // The lock chip ("part of your chronicle now") is rendered.
+    expect(
+      within(dialog).getByText(/part of your chronicle now/i),
+    ).toBeInTheDocument();
+  });
+
+  it("today's entry stays editable (Save/Update + textarea enabled)", async () => {
+    const today = new Date().toLocaleDateString('en-CA');
+    renderWithProviders(
+      <JournalEntryFormModal
+        mode="edit"
+        entry={{
+          id: 17,
+          title: 'Today',
+          summary: "today's thoughts",
+          kind: 'journal',
+          occurred_on: today,
+        }}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+    const dialog = screen.getByRole('dialog', { name: /edit your journal entry/i });
+    expect(within(dialog).getByLabelText(/mind/i)).not.toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: /update entry/i })).toBeInTheDocument();
+  });
+
   it('flips to edit mode when POST returns 409 with the existing entry', async () => {
     // 409 path: the child is in create mode and submits, but the backend
     // (via the unique-per-day constraint) reports that today's entry

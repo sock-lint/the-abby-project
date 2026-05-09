@@ -94,3 +94,93 @@ class MarkReadTests(_Fixture):
         self.client.force_authenticate(self.child)
         resp = self.client.post(f"/api/notifications/{n.pk}/mark_read/")
         self.assertEqual(resp.status_code, 404)
+
+
+class PendingCelebrationTests(_Fixture):
+    """``GET /api/notifications/pending-celebration/`` — sister to
+    ``/api/chronicle/pending-celebration/``. Powers ``CelebrationModal``
+    which fires a one-shot full-screen reveal on next app open for streak
+    milestones (3/7/14/30/60/100) and Perfect Day awards."""
+
+    def test_returns_204_when_nothing_pending(self):
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/notifications/pending-celebration/")
+        self.assertEqual(resp.status_code, 204)
+
+    def test_returns_streak_milestone(self):
+        Notification.objects.create(
+            user=self.child,
+            title="🔥 7-day streak!",
+            notification_type=NotificationType.STREAK_MILESTONE,
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/notifications/pending-celebration/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.json()["notification_type"],
+            NotificationType.STREAK_MILESTONE,
+        )
+
+    def test_returns_perfect_day(self):
+        Notification.objects.create(
+            user=self.child,
+            title="Perfect day!",
+            notification_type=NotificationType.PERFECT_DAY,
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/notifications/pending-celebration/")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_excludes_read_notifications(self):
+        Notification.objects.create(
+            user=self.child,
+            title="🔥 7-day streak!",
+            notification_type=NotificationType.STREAK_MILESTONE,
+            is_read=True,
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/notifications/pending-celebration/")
+        self.assertEqual(resp.status_code, 204)
+
+    def test_excludes_non_celebration_types(self):
+        # A drop notification is unread but not eligible for the modal —
+        # only streak/perfect-day are in CELEBRATION_TYPES.
+        Notification.objects.create(
+            user=self.child,
+            title="A drop landed",
+            notification_type=NotificationType.DROP_RECEIVED,
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/notifications/pending-celebration/")
+        self.assertEqual(resp.status_code, 204)
+
+    def test_returns_most_recent_when_multiple(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        old = Notification.objects.create(
+            user=self.child,
+            title="🔥 3-day streak!",
+            notification_type=NotificationType.STREAK_MILESTONE,
+        )
+        Notification.objects.filter(pk=old.pk).update(
+            created_at=timezone.now() - timedelta(days=1),
+        )
+        recent = Notification.objects.create(
+            user=self.child,
+            title="🔥 7-day streak!",
+            notification_type=NotificationType.STREAK_MILESTONE,
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/notifications/pending-celebration/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["id"], recent.pk)
+
+    def test_self_scoped_does_not_leak_other_users(self):
+        Notification.objects.create(
+            user=self.child2,
+            title="🔥 100-day streak!",
+            notification_type=NotificationType.STREAK_MILESTONE,
+        )
+        self.client.force_authenticate(self.child)
+        resp = self.client.get("/api/notifications/pending-celebration/")
+        self.assertEqual(resp.status_code, 204)

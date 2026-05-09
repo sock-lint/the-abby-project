@@ -92,6 +92,66 @@ describe('AssignmentCard', () => {
     expect(screen.getByRole('button', { name: /planning/i })).toBeDisabled();
   });
 
+  it('shows ↩ Withdraw on a pending submission and fires onWithdraw with the submission id', async () => {
+    const onWithdraw = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <AssignmentCard
+        assignment={buildAssignment({
+          submission_status: { id: 88, status: 'pending' },
+        })}
+        onSubmit={vi.fn()}
+        onPlan={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onWithdraw={onWithdraw}
+        planning={false}
+        canPlan={false}
+        canManage={false}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /withdraw/i }));
+    expect(onWithdraw).toHaveBeenCalledTimes(1);
+    expect(onWithdraw).toHaveBeenCalledWith(88);
+  });
+
+  it('does not show Withdraw on an already-approved submission (audit-trail invariant)', () => {
+    render(
+      <AssignmentCard
+        assignment={buildAssignment({
+          submission_status: { id: 88, status: 'approved' },
+        })}
+        onSubmit={vi.fn()}
+        onPlan={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onWithdraw={vi.fn()}
+        planning={false}
+        canPlan={false}
+        canManage={false}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /withdraw/i })).toBeNull();
+  });
+
+  it('hides Withdraw when no onWithdraw callback is wired (parent view)', () => {
+    render(
+      <AssignmentCard
+        assignment={buildAssignment({
+          submission_status: { id: 88, status: 'pending' },
+        })}
+        onSubmit={vi.fn()}
+        onPlan={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        planning={false}
+        canPlan={false}
+        canManage={false}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /withdraw/i })).toBeNull();
+  });
+
   it('gates edit/delete buttons behind canManage and wires both callbacks', async () => {
     const onEdit = vi.fn();
     const onDelete = vi.fn();

@@ -59,6 +59,28 @@ describe('Rewards', () => {
     );
   });
 
+  it('filters the bazaar by name when the child types in the search', async () => {
+    const user = userEvent.setup();
+    renderPage(buildUser(), [
+      http.get('*/api/rewards/', () =>
+        HttpResponse.json([
+          { id: 1, name: 'Ice Cream', cost_coins: 50, rarity: 'common', is_active: true },
+          { id: 2, name: 'Movie Night', cost_coins: 80, rarity: 'rare', is_active: true },
+        ]),
+      ),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/coins/', () => HttpResponse.json({ balance: 120, recent: [] })),
+      http.get('*/api/coins/exchange/list/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() => expect(screen.getByText('Ice Cream')).toBeInTheDocument());
+
+    const search = screen.getByRole('searchbox', { name: /filter rewards/i });
+    await user.type(search, 'movie');
+
+    expect(screen.queryByText('Ice Cream')).not.toBeInTheDocument();
+    expect(screen.getByText('Movie Night')).toBeInTheDocument();
+  });
+
   it('child clicking Barter posts to /rewards/{id}/redeem/', async () => {
     const user = userEvent.setup();
     const redeem = spyHandler('post', /\/api\/rewards\/\d+\/redeem\/$/, { ok: true });
@@ -101,6 +123,37 @@ describe('Rewards', () => {
     await waitFor(() => expect(approve.calls).toHaveLength(1));
     expect(approve.calls[0].url).toMatch(/\/redemptions\/22\/approve\/$/);
     expect(approve.calls[0].body).toEqual({ notes: '' });
+  });
+
+  it('insufficient-coins disables Barter and labels the button "Not enough coin"', async () => {
+    // First-line signal: when balance < cost the button is disabled outright.
+    // The "need N more" toast in Rewards.jsx is defense-in-depth for stale
+    // balances, but the standard render path leans on the disabled button so
+    // a kid never wastes a tap on a cost they can't pay.
+    const redeem = spyHandler('post', /\/api\/rewards\/\d+\/redeem\/$/, { ok: true });
+    renderPage(buildUser(), [
+      http.get('*/api/rewards/', () =>
+        HttpResponse.json([{
+          id: 13,
+          name: 'Ice Cream',
+          cost: 50,
+          cost_coins: 50,
+          stock: 5,
+          rarity: 'common',
+          is_active: true,
+        }]),
+      ),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/coins/', () => HttpResponse.json({ balance: 38, recent: [] })),
+      http.get('*/api/coins/exchange/list/', () => HttpResponse.json([])),
+      http.get('*/api/coins/exchange/rate/', () => HttpResponse.json({ coins_per_dollar: 10 })),
+      redeem.handler,
+    ]);
+
+    const button = await screen.findByRole('button', { name: /not enough coin/i });
+    expect(button).toBeDisabled();
+    // No /redeem/ call ever fires — the button's disabled, the click is a no-op.
+    expect(redeem.calls).toHaveLength(0);
   });
 
   it('parent approving an exchange posts to /coins/exchange/{id}/approve/', async () => {

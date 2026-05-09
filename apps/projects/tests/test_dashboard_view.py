@@ -180,3 +180,56 @@ class DashboardParentPendingFamilyScopingTests(TestCase):
         self.client.force_authenticate(self.parent_a)
         data = self.client.get("/api/dashboard/").json()
         self.assertEqual(data["pending_timecards"], 1)
+
+
+class DashboardChildrenCountTests(TestCase):
+    """``_parent_extras['children_count']`` powers the parent
+    ``NoChildrenWelcome`` empty state — when 0, the dashboard shows a
+    "Create your first child profile" CTA instead of the queue list.
+    """
+    def test_zero_children_returns_zero(self):
+        fam = make_family(
+            "OnlyParent",
+            parents=[{"username": "lonely_parent"}],
+            children=[],
+        )
+        client = APIClient()
+        client.force_authenticate(fam.parents[0])
+        data = client.get("/api/dashboard/").json()
+        self.assertEqual(data["children_count"], 0)
+
+    def test_count_matches_family_children(self):
+        fam = make_family(
+            "Households",
+            parents=[{"username": "p"}],
+            children=[
+                {"username": "kid1"},
+                {"username": "kid2"},
+                {"username": "kid3"},
+            ],
+        )
+        client = APIClient()
+        client.force_authenticate(fam.parents[0])
+        data = client.get("/api/dashboard/").json()
+        self.assertEqual(data["children_count"], 3)
+
+    def test_count_is_family_scoped_not_global(self):
+        """A parent in family A must not see family B's children in the count.
+        Otherwise a fresh signup would show ``children_count > 0`` because some
+        OTHER family already has kids — and the empty-state CTA would never appear.
+        """
+        fam_a = make_family(
+            "Alpha",
+            parents=[{"username": "a_parent"}],
+            children=[],
+        )
+        # Different family with kids — must not bleed into A's count.
+        make_family(
+            "Bravo",
+            parents=[{"username": "b_parent"}],
+            children=[{"username": "b_kid_1"}, {"username": "b_kid_2"}],
+        )
+        client = APIClient()
+        client.force_authenticate(fam_a.parents[0])
+        data = client.get("/api/dashboard/").json()
+        self.assertEqual(data["children_count"], 0)
