@@ -92,6 +92,34 @@ describe('Companions tab', () => {
     expect(screen.getByRole('tab', { name: /Ready to evolve \(1\)/ })).toBeInTheDocument();
   });
 
+  it('does not dim a pet that has evolved to a mount, even if happiness slipped', async () => {
+    // Defensive: an evolved pet's `happiness_level` is always `happy` per
+    // ``happiness_for_pet`` in apps/pets/services.py, but if a stale
+    // payload ever leaked through, the frontend should still suppress dim
+    // for evolved rows so the parent doesn't see a sad mount on the
+    // stable wall.
+    const stalePet = {
+      id: 99,
+      species: { name: 'Drake', sprite_key: 'drake', icon: '🐉', slug: 'drake' },
+      potion: { name: 'Fire', slug: 'fire', rarity: 'rare' },
+      growth_points: 100,
+      is_active: false,
+      evolved_to_mount: true,
+      happiness_level: 'stale', // intentionally inconsistent for this regression test
+    };
+    renderPage([
+      http.get('*/api/pets/stable/', () =>
+        HttpResponse.json({ pets: [stalePet], mounts: [], total_possible: 48 }),
+      ),
+      http.get('*/api/inventory/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() => expect(screen.getByText(/Drake/)).toBeInTheDocument());
+    const drake = screen.getByLabelText(/Fire Drake/);
+    expect(drake).not.toHaveAttribute('data-dim');
+    // The whisper copy is also suppressed for evolved pets.
+    expect(screen.queryByText(/getting hungry/i)).toBeNull();
+  });
+
   it('shows a soft whisper line under bored/stale pets and dims their sprite', async () => {
     renderPage([
       http.get('*/api/pets/stable/', () =>
