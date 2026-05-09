@@ -178,42 +178,87 @@ class PetService:
         when the growth threshold is reached; identical to a food-fed
         evolution (creates a UserMount row).
 
-        Returns a dict summarizing the action. Never raises — missing
-        species, no pets, etc. all return cleanly so the streak flow
-        stays robust.
+        Returns a dict summarizing the action plus an ``events`` list that
+        feeds the companion-growth toast surface on the frontend. Each
+        event also appends to ``CharacterProfile.pending_companion_growth``
+        so a returning user catches up on every tick they missed without
+        polling the daily check-in itself.
+
+        Never raises — missing species, no pets, etc. all return cleanly
+        so the streak flow stays robust.
         """
         from apps.pets.models import UserPet, UserMount, PetSpecies
+        from apps.rpg.models import CharacterProfile
 
         try:
             species = PetSpecies.objects.get(slug=COMPANION_SPECIES_SLUG)
         except PetSpecies.DoesNotExist:
-            return {"pets_grown": 0, "evolved": 0, "reason": "no_companion_species"}
+            return {
+                "pets_grown": 0,
+                "evolved": 0,
+                "events": [],
+                "reason": "no_companion_species",
+            }
 
         pets = list(
             UserPet.objects.select_for_update().filter(
                 user=user, species=species, evolved_to_mount=False,
             )
         )
+        events = []
         evolved = 0
         for pet in pets:
-            pet.growth_points = min(
+            new_growth = min(
                 pet.growth_points + COMPANION_DAILY_GROWTH, EVOLUTION_THRESHOLD,
             )
+            growth_added = new_growth - pet.growth_points
+            pet.growth_points = new_growth
+            event = {
+                "pet_id": pet.pk,
+                "species_slug": pet.species.slug,
+                "species_name": pet.species.name,
+                "species_sprite_key": pet.species.sprite_key,
+                "species_icon": pet.species.icon,
+                "potion_slug": pet.potion.slug,
+                "potion_name": pet.potion.name,
+                "growth_added": growth_added,
+                "new_growth": new_growth,
+                "evolved": False,
+                "mount_id": None,
+            }
             if pet.growth_points >= EVOLUTION_THRESHOLD:
                 pet.evolved_to_mount = True
                 pet.save(update_fields=[
                     "growth_points", "evolved_to_mount", "updated_at",
                 ])
-                UserMount.objects.get_or_create(
+                mount, _ = UserMount.objects.get_or_create(
                     user=user, species=pet.species, potion=pet.potion,
                 )
                 evolved += 1
+                event["evolved"] = True
+                event["mount_id"] = mount.pk
             else:
                 pet.save(update_fields=["growth_points", "updated_at"])
+            events.append(event)
+
+        if events:
+            # Append to the per-user pending queue so the frontend can
+            # surface a toast on next page load. Use update_fields to avoid
+            # racing with other CharacterProfile writers in the same flow.
+            try:
+                profile, _ = CharacterProfile.objects.select_for_update().get_or_create(user=user)
+                pending = list(profile.pending_companion_growth or [])
+                pending.extend(events)
+                profile.pending_companion_growth = pending
+                profile.save(update_fields=["pending_companion_growth", "updated_at"])
+            except Exception:
+                logger.exception("Failed to persist companion-growth pending queue")
+
         return {
             "pets_grown": len(pets),
             "evolved": evolved,
             "growth_per_pet": COMPANION_DAILY_GROWTH,
+            "events": events,
         }
 
     @staticmethod
@@ -465,10 +510,16 @@ class PetService:
         return {
             "egg_item_id": egg_item.pk,
             "egg_item_name": egg_item.name,
+            "egg_item_icon": egg_item.icon,
+            "egg_item_sprite_key": egg_item.sprite_key,
             "potion_item_id": potion_item.pk,
             "potion_item_name": potion_item.name,
+            "potion_item_icon": potion_item.icon,
+            "potion_item_sprite_key": potion_item.sprite_key,
             "picked_species": picked_species.name,
+            "picked_species_slug": picked_species.slug,
             "picked_potion": picked_potion.name,
+            "picked_potion_slug": picked_potion.slug,
             "chromatic": chromatic,
             "cooldown_days": MOUNT_BREEDING_COOLDOWN_DAYS,
         }

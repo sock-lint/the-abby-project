@@ -6,6 +6,16 @@ urlpatterns = [
     path("pets/codex/", views.PetCodexView.as_view(), name="pet-codex"),
     path("pets/species/catalog/", views.PetSpeciesCatalogView.as_view(), name="pet-species-catalog"),
     path("pets/hatch/", views.HatchPetView.as_view(), name="pet-hatch"),
+    path(
+        "pets/companion-growth/recent/",
+        views.CompanionGrowthRecentView.as_view(),
+        name="pet-companion-growth-recent",
+    ),
+    path(
+        "pets/companion-growth/seen/",
+        views.CompanionGrowthSeenView.as_view(),
+        name="pet-companion-growth-seen",
+    ),
     path("pets/<int:pk>/feed/", views.FeedPetView.as_view(), name="pet-feed"),
     path("pets/<int:pk>/activate/", views.ActivatePetView.as_view(), name="pet-activate"),
     path("mounts/", views.MountsView.as_view(), name="mounts"),
