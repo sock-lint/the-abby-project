@@ -529,3 +529,21 @@ export const fetchActivityUrl = (url) => {
   const path = url.replace(/^https?:\/\/[^/]+/, '').replace(/^\/api/, '');
   return api.get(path);
 };
+
+// Dev tools — parent + DEBUG/DEV_TOOLS_ENABLED only. Drives the
+// /manage → Test tab. ping returns 403 in production so the tab
+// hides itself; the per-endpoint permission catches the rest.
+export const devToolsPing = () => api.get('/dev/ping/');
+export const devToolsChildren = () => api.get('/dev/children/');
+export const devToolsRewards = () => api.get('/dev/rewards/');
+export const devToolsItems = (rarity) =>
+  api.get(`/dev/items/${rarity ? `?rarity=${encodeURIComponent(rarity)}` : ''}`);
+export const devToolsChecklist = () => api.get('/dev/checklist/');
+export const devForceDrop = (body) => api.post('/dev/force-drop/', body);
+export const devForceCelebration = (body) => api.post('/dev/force-celebration/', body);
+export const devSetStreak = (body) => api.post('/dev/set-streak/', body);
+export const devSetRewardStock = (body) => api.post('/dev/set-reward-stock/', body);
+export const devExpireJournal = (body) => api.post('/dev/expire-journal/', body);
+export const devTickPerfectDay = () => api.post('/dev/tick-perfect-day/', {});
+export const devSetPetHappiness = (body) => api.post('/dev/set-pet-happiness/', body);
+export const devResetDayCounters = (body) => api.post('/dev/reset-day-counters/', body);

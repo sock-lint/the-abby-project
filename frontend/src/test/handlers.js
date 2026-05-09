@@ -258,6 +258,14 @@ export const handlers = [
   http.get('*/api/activity/', () =>
     HttpResponse.json({ results: [], next: null, previous: null })),
 
+  // Dev tools — default to disabled so the Test tab stays hidden in
+  // tests that don't explicitly opt in.
+  http.get('*/api/dev/ping/', () => new HttpResponse(null, { status: 403 })),
+  http.get('*/api/dev/children/', empty),
+  http.get('*/api/dev/rewards/', empty),
+  http.get('*/api/dev/items/', empty),
+  http.get('*/api/dev/checklist/', () => HttpResponse.json({ markdown: '' })),
+
   // Sprites
   http.get('*/api/sprites/catalog/', () =>
     HttpResponse.json({ sprites: {}, etag: 'test-default-empty' }),

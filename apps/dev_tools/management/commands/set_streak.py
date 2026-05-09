@@ -14,10 +14,10 @@ Examples::
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand
-from django.utils import timezone
 
 from apps.dev_tools._helpers import add_user_arg, resolve_user
 from apps.dev_tools.gate import assert_enabled
+from apps.dev_tools.operations import set_streak
 
 
 class Command(BaseCommand):
@@ -25,36 +25,18 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         add_user_arg(parser)
+        parser.add_argument("--days", type=int, required=True)
         parser.add_argument(
-            "--days", type=int, required=True,
-            help="Target login_streak value (1 day from a milestone is the most useful test state).",
-        )
-        parser.add_argument(
-            "--perfect-days", type=int, default=None,
+            "--perfect-days", type=int, default=None, dest="perfect_days",
             help="Optional: also set perfect_days_count.",
         )
 
     def handle(self, *args, **opts):
         assert_enabled()
-
-        from apps.rpg.models import CharacterProfile
-
         user = resolve_user(opts["user"])
-        profile, _created = CharacterProfile.objects.get_or_create(user=user)
+        result = set_streak(user, days=opts["days"], perfect_days=opts["perfect_days"])
 
-        days = opts["days"]
-        profile.login_streak = days
-        profile.longest_login_streak = max(profile.longest_login_streak, days)
-        profile.last_active_date = timezone.localdate()
-
-        update_fields = ["login_streak", "longest_login_streak", "last_active_date"]
+        msg = f"login_streak={result['login_streak']}"
         if opts["perfect_days"] is not None:
-            profile.perfect_days_count = opts["perfect_days"]
-            update_fields.append("perfect_days_count")
-
-        profile.save(update_fields=update_fields)
-
-        msg = f"login_streak={days}"
-        if opts["perfect_days"] is not None:
-            msg += f", perfect_days_count={opts['perfect_days']}"
+            msg += f", perfect_days_count={result['perfect_days_count']}"
         self.stdout.write(self.style.SUCCESS(f"{msg} → {user.username}"))

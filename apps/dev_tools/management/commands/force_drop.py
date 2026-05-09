@@ -14,13 +14,11 @@ Examples::
 """
 from __future__ import annotations
 
-import random
-
 from django.core.management.base import BaseCommand, CommandError
-from django.db.models import F
 
 from apps.dev_tools._helpers import add_user_arg, resolve_user
 from apps.dev_tools.gate import assert_enabled
+from apps.dev_tools.operations import OperationError, force_drop
 
 
 class Command(BaseCommand):
@@ -53,54 +51,22 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opts):
         assert_enabled()
-
-        if not opts["rarity"] and not opts["slug"]:
-            raise CommandError("Must pass --rarity or --slug.")
-
-        from apps.rpg.models import DropLog, ItemDefinition, UserInventory
-
         user = resolve_user(opts["user"])
 
-        if opts["slug"]:
-            try:
-                item = ItemDefinition.objects.get(slug=opts["slug"])
-            except ItemDefinition.DoesNotExist as e:
-                raise CommandError(f"No ItemDefinition with slug={opts['slug']!r}") from e
-        else:
-            pool = list(ItemDefinition.objects.filter(rarity=opts["rarity"]))
-            if not pool:
-                raise CommandError(
-                    f"No ItemDefinition rows at rarity={opts['rarity']!r}. "
-                    "Run `loadrpgcontent` first."
-                )
-            item = random.choice(pool)
-
-        salvaged = bool(opts["salvage"])
-
-        for _ in range(opts["count"]):
-            if not salvaged:
-                inv, created = UserInventory.objects.get_or_create(
-                    user=user, item=item, defaults={"quantity": 1},
-                )
-                if not created:
-                    UserInventory.objects.filter(pk=inv.pk).update(
-                        quantity=F("quantity") + 1,
-                    )
-            elif item.coin_value > 0:
-                from apps.rewards.models import CoinLedger
-                from apps.rewards.services import CoinService
-
-                CoinService.award_coins(
-                    user, item.coin_value, CoinLedger.Reason.ADJUSTMENT,
-                    description=f"[dev_tools] Salvaged duplicate: {item.name}",
-                )
-
-            DropLog.objects.create(
-                user=user, item=item, trigger_type=opts["trigger"],
-                quantity=1, was_salvaged=salvaged,
+        try:
+            result = force_drop(
+                user,
+                rarity=opts["rarity"],
+                slug=opts["slug"],
+                count=opts["count"],
+                salvage=bool(opts["salvage"]),
+                trigger=opts["trigger"],
             )
+        except OperationError as e:
+            raise CommandError(str(e)) from e
 
-        verb = "Salvaged" if salvaged else "Dropped"
+        verb = "Salvaged" if result["salvaged"] else "Dropped"
         self.stdout.write(self.style.SUCCESS(
-            f"{verb} {opts['count']}× {item.name} ({item.rarity}) → {user.username}"
+            f"{verb} {result['count']}× {result['item']['name']} "
+            f"({result['item']['rarity']}) → {user.username}"
         ))
