@@ -1,9 +1,16 @@
 """DRF permission for the parent-only ``/api/dev/*`` endpoints.
 
-Same gate as the management commands: parent role + (DEBUG=True OR
-DEV_TOOLS_ENABLED=True). The frontend reads the gate by hitting
-``GET /api/dev/ping/`` — a 200 means the Test tab can render, anything
-else means hide it.
+Gate: ``parent role + is_staff=True + (DEBUG=True OR DEV_TOOLS_ENABLED=True)``.
+
+The ``is_staff`` requirement is what makes "production access for the
+deployment owner only" possible without unlocking the panel for every
+parent in a multi-family deployment. ``createsuperuser`` sets
+``is_staff=True`` automatically; signup-created parents do NOT, so a
+parent who registered through ``/api/auth/signup/`` stays locked out
+even if ``DEV_TOOLS_ENABLED=True`` ships in the env.
+
+The frontend reads the gate by hitting ``GET /api/dev/ping/`` — a 200
+means the Test tab can render, anything else means hide it.
 """
 from __future__ import annotations
 
@@ -13,7 +20,10 @@ from apps.dev_tools.gate import is_enabled
 
 
 class IsDevToolsEnabled(permissions.BasePermission):
-    message = "Dev tools are disabled in this environment."
+    message = (
+        "Dev tools require an authenticated staff parent and "
+        "DEBUG=True or DEV_TOOLS_ENABLED=True."
+    )
 
     def has_permission(self, request, view):
         if not is_enabled():
@@ -22,4 +32,5 @@ class IsDevToolsEnabled(permissions.BasePermission):
         return (
             user.is_authenticated
             and getattr(user, "role", None) == "parent"
+            and user.is_staff
         )

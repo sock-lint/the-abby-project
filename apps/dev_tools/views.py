@@ -1,14 +1,19 @@
-"""Parent-only ``/api/dev/*`` REST surface.
+"""Staff-parent ``/api/dev/*`` REST surface.
 
 Each POST endpoint wraps one function in ``apps.dev_tools.operations``;
 the operation is the single source of truth shared with the management
 commands. Children targeted by ``user_id`` are always resolved through
-``get_child_or_404(child_id, requesting_user=request.user)`` so a parent
-in family A can't fire a drop into family B's child.
+``get_child_or_404(child_id, requesting_user=request.user)`` so a staff
+parent in family A can't fire a drop into family B's child.
 
-The whole surface is gated by ``IsDevToolsEnabled`` (parent + DEBUG /
-DEV_TOOLS_ENABLED). The frontend ``/manage → Test`` tab probes
-``GET /api/dev/ping/`` to decide whether to render itself.
+The whole surface is gated by ``IsDevToolsEnabled`` (parent +
+``is_staff=True`` + DEBUG / DEV_TOOLS_ENABLED). ``createsuperuser`` sets
+``is_staff=True`` automatically; signup-created parents do NOT, so a
+production deploy can flip ``DEV_TOOLS_ENABLED=true`` for the founding
+superuser without unlocking the panel for every family that signed up.
+
+The frontend ``/manage → Test`` tab probes ``GET /api/dev/ping/`` to
+decide whether to render itself.
 """
 from __future__ import annotations
 

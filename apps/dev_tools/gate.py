@@ -1,12 +1,15 @@
-"""Gate helpers for dev-tools commands and (eventual) HTTP endpoints.
+"""Gate helpers for dev-tools commands + ``/api/dev/*`` HTTP endpoints.
 
 The gate model mirrors ``apps/mcp_server/management/commands/runmcp.py`` —
 ``settings.DEBUG=True`` is the implicit dev-machine signal; an explicit
-``DEV_TOOLS_ENABLED=True`` env override exists so a staging deploy can opt
-in without flipping the broader DEBUG flag.
+``DEV_TOOLS_ENABLED=True`` env override exists so a staging or production
+deploy can opt in without flipping the broader DEBUG flag.
 
-Importable as a module so future view code (``apps/dev_tools/views.py``) and
-the management commands share one source of truth.
+This file ONLY governs the env-level toggle. The HTTP endpoints layer on
+``parent role + is_staff=True`` via ``apps/dev_tools/permissions.py`` so a
+production deploy that opts in via ``DEV_TOOLS_ENABLED=True`` still keeps
+the panel limited to the founding superuser. ``createsuperuser`` sets
+``is_staff=True`` automatically; signup-created parents do not.
 """
 from __future__ import annotations
 
