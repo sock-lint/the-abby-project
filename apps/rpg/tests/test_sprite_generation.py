@@ -103,6 +103,33 @@ class StaticSpriteGenerationTests(TestCase):
         self.assertEqual(asset.motion, "idle")
         self.assertEqual(asset.tile_size, 64)
         self.assertEqual(asset.reference_image_url, "")
+        # Default when caller doesn't pass one — empty string, not NULL.
+        self.assertEqual(asset.original_intent, "")
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_original_intent_persists_for_reroll(self, mock_frame):
+        """When the caller passes original_intent, the generation
+        service writes it onto SpriteAsset alongside the refined prompt
+        so a future reroll can re-refine from the same starting point."""
+        mock_frame.return_value = _png_bytes(size=(256, 256))
+
+        generate_sprite_sheet(
+            slug="intent-roundtrip",
+            prompt="pixel-art red fox sleeping curled in a comma shape",
+            frame_count=1,
+            tile_size=64,
+            fps=0,
+            original_intent="a sleeping fox curled up like a comma",
+            actor=self.parent,
+        )
+
+        asset = SpriteAsset.objects.get(slug="intent-roundtrip")
+        self.assertEqual(asset.original_intent, "a sleeping fox curled up like a comma")
+        # Refined prompt is independent of the intent — both persist.
+        self.assertEqual(
+            asset.prompt,
+            "pixel-art red fox sleeping curled in a comma shape",
+        )
 
 
 @override_settings(GEMINI_API_KEY="test-key")

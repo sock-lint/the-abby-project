@@ -35,6 +35,7 @@ class SpriteAdminSerializer(serializers.ModelSerializer):
             "frame_height_px",
             "frame_layout",
             "prompt",
+            "original_intent",
             "motion",
             "style_hint",
             "tile_size",
@@ -124,6 +125,7 @@ class SpriteRerollView(APIView):
                 style_hint=asset.style_hint,
                 motion=motion,
                 reference_image_url=asset.reference_image_url or None,
+                original_intent=asset.original_intent,
                 return_debug_raw=return_debug_raw,
                 overwrite=True,
                 actor=request.user,
@@ -196,6 +198,7 @@ def _extract_generate_kwargs(data) -> dict:
         "style_hint": (data.get("style_hint") or "").strip(),
         "motion": (data.get("motion") or "idle").strip() or "idle",
         "reference_image_url": (data.get("reference_image_url") or "").strip() or None,
+        "original_intent": (data.get("original_intent") or "").strip(),
         "return_debug_raw": bool(data.get("return_debug_raw")),
         "overwrite": bool(data.get("overwrite")),
     }

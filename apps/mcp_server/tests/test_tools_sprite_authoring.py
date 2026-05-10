@@ -10,7 +10,7 @@ from apps.accounts.models import User
 from apps.rpg.models import SpriteAsset
 
 from apps.mcp_server.context import set_current_user, reset_current_user
-from apps.mcp_server.errors import MCPPermissionDenied, MCPValidationError
+from apps.mcp_server.errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError
 from apps.mcp_server.schemas import (
     RegisterSpriteIn,
     RegisterSpriteBatchIn,
@@ -18,6 +18,7 @@ from apps.mcp_server.schemas import (
     DeleteSpriteIn,
     AnimatedSpriteTileDecl,
     GenerateSpriteSheetIn,
+    GetSpriteIn,
     UpdateSpriteMetadataIn,
 )
 from apps.mcp_server.tools.sprite_authoring import (
@@ -26,6 +27,7 @@ from apps.mcp_server.tools.sprite_authoring import (
     list_sprites as tool_list_sprites,
     delete_sprite as tool_delete_sprite,
     generate_sprite_sheet as tool_generate_sprite_sheet,
+    get_sprite as tool_get_sprite,
     update_sprite_metadata as tool_update_sprite_metadata,
 )
 
@@ -129,6 +131,99 @@ class SpriteAuthoringToolTests(TestCase):
         self.assertIn("delete_sprite", tool_names)
         self.assertIn("generate_sprite_sheet", tool_names)
         self.assertIn("update_sprite_metadata", tool_names)
+        self.assertIn("get_sprite", tool_names)
+        self.assertIn("get_sprite_prompting_playbook", tool_names)
+
+
+class GetSpriteToolTests(TestCase):
+    """Read-shape parity for the new chat-side critique loop. ``list_sprites``
+    stays lean; ``get_sprite`` returns the full authoring shape so a chat
+    agent can read what was sent to Gemini and compare against the rendered
+    image at ``url``.
+    """
+
+    def setUp(self):
+        self.parent = User.objects.create_user(
+            username="get_parent", password="pw", role="parent", is_staff=True,
+        )
+        self.regular_parent = User.objects.create_user(
+            username="get_regular_parent", password="pw", role="parent",
+        )
+        self.child = User.objects.create_user(username="get_kid", password="pw", role="child")
+
+    def _as(self, user):
+        return set_current_user(user)
+
+    def test_returns_full_authoring_shape(self):
+        tok = self._as(self.parent)
+        try:
+            tool_register_sprite(RegisterSpriteIn(slug="full-shape", image_b64=_png_b64()))
+            # register_sprite doesn't write authoring inputs (those come from
+            # generate_sprite_sheet) — manually stamp them so we can verify
+            # the tool surfaces them.
+            SpriteAsset.objects.filter(slug="full-shape").update(
+                prompt="refined prompt",
+                original_intent="a thing the parent wanted",
+                motion="idle",
+                style_hint="moss tint",
+                tile_size=64,
+                reference_image_url="https://example.com/ref.png",
+            )
+            result = tool_get_sprite(GetSpriteIn(slug="full-shape"))
+        finally:
+            reset_current_user(tok)
+
+        self.assertEqual(result["slug"], "full-shape")
+        self.assertEqual(result["prompt"], "refined prompt")
+        self.assertEqual(result["original_intent"], "a thing the parent wanted")
+        self.assertEqual(result["motion"], "idle")
+        self.assertEqual(result["style_hint"], "moss tint")
+        self.assertEqual(result["tile_size"], 64)
+        self.assertEqual(result["reference_image_url"], "https://example.com/ref.png")
+        # Plus the read-shape that ``list_sprites`` already returns.
+        self.assertIn("url", result)
+        self.assertIn("frame_count", result)
+        self.assertIn("frame_width_px", result)
+        self.assertIn("frame_height_px", result)
+
+    def test_unknown_slug_raises_not_found(self):
+        tok = self._as(self.parent)
+        try:
+            with self.assertRaises(MCPNotFoundError):
+                tool_get_sprite(GetSpriteIn(slug="never-registered"))
+        finally:
+            reset_current_user(tok)
+
+    def test_requires_parent(self):
+        """Read-only — gated on require_parent (any parent in any family).
+        Children must be denied."""
+        tok = self._as(self.parent)
+        try:
+            tool_register_sprite(RegisterSpriteIn(slug="parent-only", image_b64=_png_b64()))
+        finally:
+            reset_current_user(tok)
+        tok = self._as(self.child)
+        try:
+            with self.assertRaises(MCPPermissionDenied):
+                tool_get_sprite(GetSpriteIn(slug="parent-only"))
+        finally:
+            reset_current_user(tok)
+
+    def test_regular_parent_can_read(self):
+        """Read access is wider than write — a non-staff parent can call
+        ``get_sprite`` even though they can't ``generate_sprite_sheet``.
+        Sprites are global-content; reading them is safe."""
+        tok = self._as(self.parent)
+        try:
+            tool_register_sprite(RegisterSpriteIn(slug="readable", image_b64=_png_b64()))
+        finally:
+            reset_current_user(tok)
+        tok = self._as(self.regular_parent)
+        try:
+            result = tool_get_sprite(GetSpriteIn(slug="readable"))
+            self.assertEqual(result["slug"], "readable")
+        finally:
+            reset_current_user(tok)
 
 
 class UpdateSpriteMetadataToolTests(TestCase):
