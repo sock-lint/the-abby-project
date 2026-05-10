@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import {
-  Users, UserPlus, BookTemplate, BookOpen, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink,
+  Users, UserPlus, UsersRound, BookTemplate, BookOpen, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink, KeyRound, UserX, UserCheck, Shield,
   TestTubeDiagonal,
 } from 'lucide-react';
 import {
-  getChildren, createChild, updateChild,
+  getChildren, createChild, updateChild, deleteChild, resetChildPassword,
+  deactivateChild, reactivateChild,
+  getParents, createParent, updateParent, deleteParent, resetParentPassword,
+  deactivateParent, reactivateParent,
+  adminPing, adminCreateFamily,
   getTemplates, updateTemplate, deleteTemplate, createProjectFromTemplate,
   getCategories, getGoogleAuthUrl, unlinkGoogleAccount,
   devToolsPing,
@@ -14,7 +18,8 @@ import {
 import CodexSection from './manage/CodexSection';
 import GuideSection from './manage/GuideSection';
 import TestSection from './manage/TestSection';
-import { useApi } from '../hooks/useApi';
+import ResetPasswordModal from './manage/ResetPasswordModal';
+import { useApi, useAuth } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
@@ -28,33 +33,44 @@ import IconButton from '../components/IconButton';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 import { normalizeList } from '../utils/api';
 
-const BASE_TABS = ['Children', 'Templates', 'Codex', 'Guide'];
+const BASE_TABS = ['Children', 'Family', 'Templates', 'Codex', 'Guide'];
 
 const TAB_ICONS = {
   Children: Users,
+  Family: UsersRound,
   Templates: BookTemplate,
   Codex: BookOpen,
   Guide: ScrollText,
+  Admin: Shield,
   Test: TestTubeDiagonal,
 };
 
 export default function Manage() {
   const [activeTab, setActiveTab] = useState('Children');
-  // The Test tab is staff-parent + DEBUG/DEV_TOOLS_ENABLED only. The
-  // backend gate is the source of truth — we ping it once on mount;
-  // 200 → tab visible, anything else → tab hidden. Anonymous + child +
-  // signup-created parents (is_staff=False) all hit 401/403 here and
-  // the tab never appears, even on a deployment that ships with
-  // DEV_TOOLS_ENABLED=true.
+  // Two staff-only tabs gated on backend probes — server is the source of
+  // truth, the ping just hides them from non-staff so they don't see
+  // affordances they can't use. Anonymous + child + signup-created parents
+  // hit 401/403 on either ping and the tabs never render.
+  //   - ``devToolsPing`` gates the Test tab (DEV_TOOLS_ENABLED + staff).
+  //   - ``adminPing`` gates the Admin tab (staff parent — same is_staff
+  //     bit ``IsStaffParent`` checks server-side).
   const [devToolsEnabled, setDevToolsEnabled] = useState(false);
+  const [adminEnabled, setAdminEnabled] = useState(false);
   useEffect(() => {
     let alive = true;
     devToolsPing()
       .then(() => { if (alive) setDevToolsEnabled(true); })
       .catch(() => { if (alive) setDevToolsEnabled(false); });
+    adminPing()
+      .then(() => { if (alive) setAdminEnabled(true); })
+      .catch(() => { if (alive) setAdminEnabled(false); });
     return () => { alive = false; };
   }, []);
-  const tabs = devToolsEnabled ? [...BASE_TABS, 'Test'] : BASE_TABS;
+  const tabs = [
+    ...BASE_TABS,
+    ...(adminEnabled ? ['Admin'] : []),
+    ...(devToolsEnabled ? ['Test'] : []),
+  ];
 
   return (
     <div className="space-y-6">
@@ -89,9 +105,11 @@ export default function Manage() {
       </div>
 
       {activeTab === 'Children' && <ChildrenSection />}
+      {activeTab === 'Family' && <FamilySection />}
       {activeTab === 'Templates' && <TemplatesSection />}
       {activeTab === 'Codex' && <CodexSection />}
       {activeTab === 'Guide' && <GuideSection />}
+      {activeTab === 'Admin' && adminEnabled && <AdminSection />}
       {activeTab === 'Test' && devToolsEnabled && <TestSection />}
     </div>
   );
@@ -103,13 +121,25 @@ function ChildrenSection() {
   const { data, loading, reload } = useApi(getChildren);
   const [editChild, setEditChild] = useState(null);
   const [creating, setCreating] = useState(false);
-  const children = normalizeList(data);
+  const [showInactive, setShowInactive] = useState(false);
+  const allChildren = normalizeList(data);
+  const children = showInactive ? allChildren : allChildren.filter((c) => c.is_active !== false);
+  const inactiveCount = allChildren.filter((c) => c.is_active === false).length;
 
   if (loading) return <Loader />;
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-between items-center gap-2">
+        {inactiveCount > 0 ? (
+          <button
+            type="button"
+            onClick={() => setShowInactive((v) => !v)}
+            className="text-xs text-ink-whisper hover:text-ink-primary underline-offset-2 hover:underline"
+          >
+            {showInactive ? 'Hide inactive' : `Show inactive (${inactiveCount})`}
+          </button>
+        ) : <span />}
         <Button onClick={() => setCreating(true)} className="flex items-center gap-1">
           <UserPlus size={14} /> New child
         </Button>
@@ -117,35 +147,46 @@ function ChildrenSection() {
       {children.length === 0 && (
         <EmptyState>No children yet — tap <span className="font-semibold">New child</span> to add one.</EmptyState>
       )}
-      {children.map((child) => (
-        <ParchmentCard key={child.id} className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-sheikah-teal/20 flex items-center justify-center text-sheikah-teal-deep text-lg font-bold shrink-0">
-            {(child.display_name || child.username || '?')[0].toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold text-ink-primary truncate">
-              {child.display_name || child.username}
-            </div>
-            <div className="text-xs text-ink-whisper">@{child.username}</div>
-            <div className="text-sm text-ink-whisper flex items-center gap-1 mt-0.5">
-              <DollarSign size={12} />{child.hourly_rate}/hr
-              {child.google_linked && (
-                <span className="ml-2 text-xs text-moss flex items-center gap-0.5">
-                  <Link2 size={10} /> Google
-                </span>
-              )}
-            </div>
-          </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setEditChild(child)}
-            className="flex items-center gap-1"
+      {children.map((child) => {
+        const inactive = child.is_active === false;
+        return (
+          <ParchmentCard
+            key={child.id}
+            className={`flex items-center gap-4 ${inactive ? 'opacity-60' : ''}`}
           >
-            <Pencil size={14} /> Edit
-          </Button>
-        </ParchmentCard>
-      ))}
+            <div className="w-12 h-12 rounded-full bg-sheikah-teal/20 flex items-center justify-center text-sheikah-teal-deep text-lg font-bold shrink-0">
+              {(child.display_name || child.username || '?')[0].toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-ink-primary truncate flex items-center gap-2">
+                {child.display_name || child.username}
+                {inactive && (
+                  <span className="text-tiny px-1.5 py-0.5 rounded bg-ink-page-shadow/60 text-ink-whisper font-normal">
+                    Inactive
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-ink-whisper">@{child.username}</div>
+              <div className="text-sm text-ink-whisper flex items-center gap-1 mt-0.5">
+                <DollarSign size={12} />{child.hourly_rate}/hr
+                {child.google_linked && (
+                  <span className="ml-2 text-xs text-moss flex items-center gap-0.5">
+                    <Link2 size={10} /> Google
+                  </span>
+                )}
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setEditChild(child)}
+              className="flex items-center gap-1"
+            >
+              <Pencil size={14} /> Edit
+            </Button>
+          </ParchmentCard>
+        );
+      })}
 
       <AnimatePresence>
         {editChild && (
@@ -153,6 +194,7 @@ function ChildrenSection() {
             child={editChild}
             onClose={() => setEditChild(null)}
             onSaved={() => { setEditChild(null); reload(); }}
+            onRemoved={() => { setEditChild(null); reload(); }}
           />
         )}
         {creating && (
@@ -242,7 +284,7 @@ function CreateChildModal({ onClose, onCreated }) {
   );
 }
 
-function EditChildModal({ child, onClose, onSaved }) {
+function EditChildModal({ child, onClose, onSaved, onRemoved }) {
   const { form, set, saving, setSaving, error, setError } = useFormState({
     display_name: child.display_name || '',
     hourly_rate: child.hourly_rate || '',
@@ -350,6 +392,188 @@ function EditChildModal({ child, onClose, onSaved }) {
           </Button>
         </div>
       </form>
+      <UserManagementActions
+        user={child}
+        kind="child"
+        api={{
+          resetPassword: resetChildPassword,
+          deactivate: deactivateChild,
+          reactivate: reactivateChild,
+          remove: deleteChild,
+        }}
+        canDelete
+        onChanged={onSaved}
+        onRemoved={onRemoved}
+      />
+    </BottomSheet>
+  );
+}
+
+/* ── Shared user-management actions (reset / deactivate / delete) ── */
+
+/**
+ * Renders the per-user action trio inside an Edit modal: reset password,
+ * deactivate/reactivate, hard-delete (with type-to-confirm). Reused by
+ * EditChildModal and EditParentModal so the two paths stay in lockstep.
+ */
+function UserManagementActions({
+  user, kind, api, canDelete, canReset = true, canDeactivate = true,
+  onChanged, onRemoved,
+}) {
+  const [resetting, setResetting] = useState(false);
+  const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [actionError, setActionError] = useState(null);
+
+  const inactive = user.is_active === false;
+  const label = user.display_name || user.username;
+
+  const handleDeactivateConfirmed = async () => {
+    setConfirmingDeactivate(false);
+    setActionError(null);
+    try {
+      if (inactive) {
+        await api.reactivate(user.id);
+      } else {
+        await api.deactivate(user.id);
+      }
+      onChanged();
+    } catch (err) {
+      setActionError(err.message);
+    }
+  };
+
+  const handleDeleteConfirmed = async () => {
+    setConfirmingDelete(false);
+    setActionError(null);
+    try {
+      await api.remove(user.id);
+      onRemoved();
+    } catch (err) {
+      setActionError(err.message);
+    }
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-ink-page-shadow space-y-2">
+      <div className="text-xs uppercase tracking-wide text-ink-whisper font-display">
+        Account actions
+      </div>
+      <ErrorAlert message={actionError} />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {canReset && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setResetting(true)}
+            className="flex items-center justify-center gap-1.5"
+          >
+            <KeyRound size={14} /> Reset password
+          </Button>
+        )}
+        {canDeactivate && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setConfirmingDeactivate(true)}
+            className="flex items-center justify-center gap-1.5"
+          >
+            {inactive ? <UserCheck size={14} /> : <UserX size={14} />}
+            {inactive ? 'Reactivate' : 'Deactivate'}
+          </Button>
+        )}
+        {canDelete && (
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            onClick={() => setConfirmingDelete(true)}
+            className="flex items-center justify-center gap-1.5"
+          >
+            <Trash2 size={14} /> Delete account
+          </Button>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {resetting && (
+          <ResetPasswordModal
+            user={user}
+            onSubmit={(password) => api.resetPassword(user.id, password)}
+            onClose={() => setResetting(false)}
+            onDone={() => { setResetting(false); onChanged(); }}
+          />
+        )}
+      </AnimatePresence>
+
+      {confirmingDeactivate && (
+        <ConfirmDialog
+          title={inactive ? `Reactivate ${label}?` : `Deactivate ${label}?`}
+          message={
+            inactive
+              ? `${label} will be able to sign in again with their existing password.`
+              : `${label} won't be able to sign in. Their history is preserved and you can reactivate later.`
+          }
+          confirmLabel={inactive ? 'Reactivate' : 'Deactivate'}
+          onConfirm={handleDeactivateConfirmed}
+          onCancel={() => setConfirmingDeactivate(false)}
+        />
+      )}
+      {confirmingDelete && (
+        <DeleteAccountConfirm
+          user={user}
+          kind={kind}
+          onConfirm={handleDeleteConfirmed}
+          onCancel={() => setConfirmingDelete(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Type-to-confirm dialog for hard-delete. Built on BottomSheet rather
+ * than ConfirmDialog because we need a text input that gates the
+ * destructive button — a single confirm-label dialog can't carry that.
+ */
+function DeleteAccountConfirm({ user, kind, onConfirm, onCancel }) {
+  const phrase = `delete ${user.username}`;
+  const [typed, setTyped] = useState('');
+  const matches = typed.trim() === phrase;
+  const label = user.display_name || user.username;
+
+  return (
+    <BottomSheet title={`Delete ${label}'s account?`} onClose={onCancel}>
+      <div className="space-y-3">
+        <p className="text-sm text-ink-secondary">
+          This permanently removes <span className="font-semibold">{label}</span>{' '}
+          and all their {kind === 'parent' ? 'family-admin records' : 'history (projects, badges, photos, ledger entries)'}. This cannot be undone.
+        </p>
+        <p className="text-sm text-ink-whisper">
+          To confirm, type <code className="px-1 bg-ink-page-shadow/60 rounded">{phrase}</code> below.
+        </p>
+        <TextField
+          label="Type to confirm"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          autoComplete="off"
+        />
+        <div className="flex gap-2 justify-end pt-2">
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            disabled={!matches}
+            onClick={onConfirm}
+          >
+            Delete account
+          </Button>
+        </div>
+      </div>
     </BottomSheet>
   );
 }
@@ -581,5 +805,332 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
         </div>
       </form>
     </BottomSheet>
+  );
+}
+
+/* ── Family (co-parents) Section ────────────────────────────────── */
+
+function FamilySection() {
+  const { user } = useAuth();
+  const { data, loading, reload } = useApi(getParents);
+  const [editParent, setEditParent] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const allParents = normalizeList(data);
+  // Render the requesting parent last so the list reads "co-parents · you".
+  const sorted = [...allParents].sort((a, b) => {
+    if (user && a.id === user.id) return 1;
+    if (user && b.id === user.id) return -1;
+    return (a.display_name || a.username).localeCompare(b.display_name || b.username);
+  });
+
+  if (loading) return <Loader />;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button onClick={() => setCreating(true)} className="flex items-center gap-1">
+          <UserPlus size={14} /> Add co-parent
+        </Button>
+      </div>
+      {sorted.length === 0 && (
+        <EmptyState>No parents found.</EmptyState>
+      )}
+      {sorted.map((parent) => {
+        const inactive = parent.is_active === false;
+        const isSelf = user && parent.id === user.id;
+        return (
+          <ParchmentCard
+            key={parent.id}
+            className={`flex items-center gap-4 ${inactive ? 'opacity-60' : ''}`}
+          >
+            <div className="w-12 h-12 rounded-full bg-sheikah-teal/20 flex items-center justify-center text-sheikah-teal-deep text-lg font-bold shrink-0">
+              {(parent.display_name || parent.username || '?')[0].toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-ink-primary truncate flex items-center gap-2 flex-wrap">
+                {parent.display_name || parent.username}
+                {isSelf && (
+                  <span className="text-tiny text-ink-whisper font-normal">(you)</span>
+                )}
+                {parent.is_primary && (
+                  <span className="text-tiny px-1.5 py-0.5 rounded bg-sheikah-teal/20 text-sheikah-teal-deep font-normal">
+                    Founder
+                  </span>
+                )}
+                {inactive && (
+                  <span className="text-tiny px-1.5 py-0.5 rounded bg-ink-page-shadow/60 text-ink-whisper font-normal">
+                    Inactive
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-ink-whisper">@{parent.username}</div>
+            </div>
+            {isSelf ? (
+              <span className="text-xs text-ink-whisper italic">
+                Edit your profile in Settings
+              </span>
+            ) : (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setEditParent(parent)}
+                className="flex items-center gap-1"
+              >
+                <Pencil size={14} /> Edit
+              </Button>
+            )}
+          </ParchmentCard>
+        );
+      })}
+
+      <AnimatePresence>
+        {creating && (
+          <CreateParentModal
+            onClose={() => setCreating(false)}
+            onCreated={() => { setCreating(false); reload(); }}
+          />
+        )}
+        {editParent && (
+          <EditParentModal
+            parent={editParent}
+            onClose={() => setEditParent(null)}
+            onSaved={() => { setEditParent(null); reload(); }}
+            onRemoved={() => { setEditParent(null); reload(); }}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function CreateParentModal({ onClose, onCreated }) {
+  const { form, onField, saving, setSaving, error, setError } = useFormState({
+    username: '',
+    password: '',
+    display_name: '',
+  });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await createParent({
+        username: form.username.trim(),
+        password: form.password,
+        display_name: form.display_name.trim(),
+      });
+      onCreated();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <BottomSheet title="Add co-parent" onClose={onClose} disabled={saving}>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <ErrorAlert message={error} />
+        <p className="text-sm text-ink-whisper">
+          The new parent will be in this same family with full access to children,
+          projects, and approvals.
+        </p>
+        <TextField
+          label="Sign-in name"
+          value={form.username}
+          onChange={onField('username')}
+          required
+          autoComplete="off"
+        />
+        <TextField
+          label="Display name"
+          value={form.display_name}
+          onChange={onField('display_name')}
+          placeholder={form.username}
+        />
+        <TextField
+          label="Password"
+          type="password"
+          value={form.password}
+          onChange={onField('password')}
+          required
+          autoComplete="new-password"
+        />
+        <div className="flex gap-2 justify-end pt-2">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? 'Creating…' : 'Add co-parent'}
+          </Button>
+        </div>
+      </form>
+    </BottomSheet>
+  );
+}
+
+function EditParentModal({ parent, onClose, onSaved, onRemoved }) {
+  const { form, onField, saving, setSaving, error, setError } = useFormState({
+    display_name: parent.display_name || '',
+  });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await updateParent(parent.id, {
+        display_name: form.display_name,
+      });
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <BottomSheet title={`Edit ${parent.display_name || parent.username}`} onClose={onClose} disabled={saving}>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <ErrorAlert message={error} />
+        <TextField
+          label="Display name"
+          value={form.display_name}
+          onChange={onField('display_name')}
+          placeholder={parent.username}
+        />
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving} className="flex-1">
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </div>
+      </form>
+      <UserManagementActions
+        user={parent}
+        kind="parent"
+        api={{
+          resetPassword: resetParentPassword,
+          deactivate: deactivateParent,
+          reactivate: reactivateParent,
+          remove: deleteParent,
+        }}
+        canDelete
+        onChanged={onSaved}
+        onRemoved={onRemoved}
+      />
+    </BottomSheet>
+  );
+}
+
+/* ── Admin Section (staff only) ─────────────────────────────────── */
+
+function AdminSection() {
+  const [created, setCreated] = useState(null);
+  const [resetKey, setResetKey] = useState(0);
+
+  return (
+    <div className="space-y-4">
+      <ParchmentCard>
+        <div className="font-display font-semibold text-ink-primary mb-1">
+          Create a new family
+        </div>
+        <p className="text-sm text-ink-whisper mb-3">
+          Mints a new household with its founding parent. The new parent
+          becomes the family's <span className="font-semibold">primary parent</span>{' '}
+          and can sign in immediately with the password you set here.
+        </p>
+        {created && (
+          <div className="mb-3 p-3 rounded border border-moss/40 bg-moss/10 text-sm">
+            <div className="font-semibold text-ink-primary">
+              Created “{created.family.name}”
+            </div>
+            <div className="text-ink-secondary">
+              Founding parent <code>@{created.user.username}</code> can now sign in.
+            </div>
+          </div>
+        )}
+        <CreateFamilyForm
+          key={resetKey}
+          onCreated={(payload) => {
+            setCreated(payload);
+            setResetKey((k) => k + 1);
+          }}
+        />
+      </ParchmentCard>
+    </div>
+  );
+}
+
+function CreateFamilyForm({ onCreated }) {
+  const { form, onField, saving, setSaving, error, setError } = useFormState({
+    family_name: '',
+    username: '',
+    display_name: '',
+    password: '',
+  });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      const payload = await adminCreateFamily({
+        family_name: form.family_name.trim(),
+        username: form.username.trim(),
+        display_name: form.display_name.trim(),
+        password: form.password,
+      });
+      onCreated(payload);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <ErrorAlert message={error} />
+      <TextField
+        label="Family name"
+        value={form.family_name}
+        onChange={onField('family_name')}
+        required
+        autoComplete="off"
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <TextField
+          label="Founding parent — sign-in name"
+          value={form.username}
+          onChange={onField('username')}
+          required
+          autoComplete="off"
+        />
+        <TextField
+          label="Display name"
+          value={form.display_name}
+          onChange={onField('display_name')}
+          placeholder={form.username}
+        />
+      </div>
+      <TextField
+        label="Password"
+        type="password"
+        value={form.password}
+        onChange={onField('password')}
+        required
+        autoComplete="new-password"
+      />
+      <div className="flex justify-end pt-2">
+        <Button type="submit" disabled={saving}>
+          {saving ? 'Creating…' : 'Create family'}
+        </Button>
+      </div>
+    </form>
   );
 }

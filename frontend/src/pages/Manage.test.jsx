@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Manage from './Manage.jsx';
@@ -253,5 +253,248 @@ describe('Manage — child DOB + grade_entry_year', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /^Test$/ })).toBeInTheDocument();
     });
+  });
+});
+
+
+/* ── Family tab — co-parent management ─────────────────────────── */
+
+describe('Manage — Family tab', () => {
+  it('lists co-parents and renders the requesting parent last with a (you) tag', async () => {
+    const me = buildParent({ id: 1, username: 'me', display_name: 'Me' });
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(me)),
+      http.get('*/api/parents/', () =>
+        HttpResponse.json([
+          { id: 1, username: 'me', display_name: 'Me', role: 'parent', is_active: true, is_primary: true },
+          { id: 2, username: 'co', display_name: 'Coparent', role: 'parent', is_active: true, is_primary: false },
+        ]),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /^Family$/ }));
+    expect(await screen.findByText('Coparent')).toBeInTheDocument();
+    expect(screen.getByText(/\(you\)/)).toBeInTheDocument();
+    expect(screen.getByText(/founder/i)).toBeInTheDocument();
+  });
+
+  it('Add co-parent posts to /api/parents/ with the typed values', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent({ id: 1 }))),
+    );
+    const list = spyHandler('get', /\/api\/parents\/?$/, []);
+    server.use(list.handler);
+    const create = spyHandler('post', /\/api\/parents\/?$/, {
+      id: 2, username: 'newp', role: 'parent',
+    });
+    server.use(create.handler);
+
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /^Family$/ }));
+    await user.click(await screen.findByRole('button', { name: /add co-parent/i }));
+
+    const sheet = await screen.findByRole('dialog', { name: /add co-parent/i });
+    await user.type(within(sheet).getByLabelText(/sign-in name/i), 'newp');
+    await user.type(within(sheet).getByLabelText(/display name/i), 'New Parent');
+    await user.type(within(sheet).getByLabelText(/^password$/i), 'ApbBy1!Strong');
+    await user.click(within(sheet).getByRole('button', { name: /add co-parent/i }));
+
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].body).toMatchObject({
+      username: 'newp',
+      display_name: 'New Parent',
+      password: 'ApbBy1!Strong',
+    });
+    await waitFor(() => expect(list.calls.length).toBeGreaterThanOrEqual(2));
+  });
+
+  it('reset password for a co-parent posts to /api/parents/<id>/reset-password/', async () => {
+    const me = buildParent({ id: 1, username: 'me' });
+    const co = { id: 2, username: 'co', display_name: 'Co', role: 'parent', is_active: true };
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(me)),
+      http.get('*/api/parents/', () => HttpResponse.json([me, co])),
+    );
+    const reset = spyHandler('post', /\/api\/parents\/2\/reset-password\/?$/, null, 204);
+    server.use(reset.handler);
+
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /^Family$/ }));
+    await user.click(await screen.findByRole('button', { name: /^edit$/i }));
+    const editSheet = await screen.findByRole('dialog', { name: /edit co/i });
+    await user.click(within(editSheet).getByRole('button', { name: /reset password/i }));
+    const resetSheet = await screen.findByRole('dialog', { name: /reset password for/i });
+    await user.type(within(resetSheet).getByLabelText(/^new password$/i), 'ApbBy1!Strong');
+    await user.type(within(resetSheet).getByLabelText(/^confirm new password$/i), 'ApbBy1!Strong');
+    await user.click(within(resetSheet).getByRole('button', { name: /reset password/i }));
+
+    await waitFor(() => expect(reset.calls).toHaveLength(1));
+    expect(reset.calls[0].body).toMatchObject({ password: 'ApbBy1!Strong' });
+    expect(reset.calls[0].url).toMatch(/\/api\/parents\/2\/reset-password\/?$/);
+  });
+
+  it('hard-delete requires the type-to-confirm phrase before firing', async () => {
+    const me = buildParent({ id: 1, username: 'me' });
+    const co = { id: 2, username: 'co', display_name: 'Co', role: 'parent', is_active: true };
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(me)),
+      http.get('*/api/parents/', () => HttpResponse.json([me, co])),
+    );
+    const del = spyHandler('delete', /\/api\/parents\/2\/?$/, null, 204);
+    server.use(del.handler);
+
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /^Family$/ }));
+    await user.click(await screen.findByRole('button', { name: /^edit$/i }));
+    await user.click(await screen.findByRole('button', { name: /delete account/i }));
+
+    // The dialog button is disabled until "delete co" is typed.
+    const sheet = await screen.findByRole('dialog', { name: /delete co's account/i });
+    const confirmBtn = await screen.findAllByRole('button', { name: /delete account/i });
+    // The sheet's "Delete account" button is disabled.
+    const sheetConfirm = confirmBtn.find((b) => sheet.contains(b));
+    expect(sheetConfirm).toBeDisabled();
+
+    // Type wrong phrase — still disabled.
+    const input = screen.getByLabelText(/type to confirm/i);
+    await user.type(input, 'wrong');
+    expect(sheetConfirm).toBeDisabled();
+    expect(del.calls).toHaveLength(0);
+
+    // Clear and type the right phrase.
+    await user.clear(input);
+    await user.type(input, 'delete co');
+    expect(sheetConfirm).not.toBeDisabled();
+    await user.click(sheetConfirm);
+    await waitFor(() => expect(del.calls).toHaveLength(1));
+    expect(del.calls[0].url).toMatch(/\/api\/parents\/2\/?$/);
+  });
+
+  it('deactivate goes through ConfirmDialog before firing', async () => {
+    const me = buildParent({ id: 1, username: 'me' });
+    const co = { id: 2, username: 'co', display_name: 'Co', role: 'parent', is_active: true };
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(me)),
+      http.get('*/api/parents/', () => HttpResponse.json([me, co])),
+    );
+    const deactivate = spyHandler('post', /\/api\/parents\/2\/deactivate\/?$/, {});
+    server.use(deactivate.handler);
+
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /^Family$/ }));
+    await user.click(await screen.findByRole('button', { name: /^edit$/i }));
+
+    expect(deactivate.calls).toHaveLength(0);
+    // The Edit modal shows a Deactivate trigger; clicking it opens ConfirmDialog.
+    const sheet = await screen.findByRole('dialog', { name: /edit co/i });
+    const trigger = within(sheet).getByRole('button', { name: /^deactivate$/i });
+    await user.click(trigger);
+    expect(deactivate.calls).toHaveLength(0);
+    // The alertdialog confirm button fires the request.
+    const dialog = await screen.findByRole('alertdialog', { name: /deactivate co/i });
+    await user.click(within(dialog).getByRole('button', { name: /^deactivate$/i }));
+    await waitFor(() => expect(deactivate.calls).toHaveLength(1));
+  });
+});
+
+/* ── Children tab — extended action trio ───────────────────────── */
+
+describe('Manage — Children action trio', () => {
+  it('shows an Inactive chip on inactive children when "Show inactive" is toggled', async () => {
+    const parent = buildParent();
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(parent)),
+      http.get('*/api/children/', () =>
+        HttpResponse.json([
+          { id: 7, username: 'old', display_name: 'Old Kid', role: 'child', is_active: false, hourly_rate: '8.00' },
+        ]),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    // Inactive child is hidden by default.
+    await screen.findByText(/no children yet/i);
+    expect(screen.queryByText('Old Kid')).toBeNull();
+    // Toggle to show inactive.
+    await user.click(screen.getByRole('button', { name: /show inactive/i }));
+    expect(screen.getByText('Old Kid')).toBeInTheDocument();
+    expect(screen.getByText(/^inactive$/i)).toBeInTheDocument();
+  });
+
+  it('reset password for a child posts to /api/children/<id>/reset-password/', async () => {
+    const parent = buildParent();
+    const child = buildUser({ id: 7, role: 'child', display_name: 'Abby' });
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(parent)),
+      http.get('*/api/children/', () => HttpResponse.json([child])),
+    );
+    const reset = spyHandler('post', /\/api\/children\/7\/reset-password\/?$/, null, 204);
+    server.use(reset.handler);
+
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /^edit$/i }));
+    const editSheet = await screen.findByRole('dialog', { name: /edit abby/i });
+    await user.click(within(editSheet).getByRole('button', { name: /reset password/i }));
+    const resetSheet = await screen.findByRole('dialog', { name: /reset password for/i });
+    await user.type(within(resetSheet).getByLabelText(/^new password$/i), 'ApbBy1!Strong');
+    await user.type(within(resetSheet).getByLabelText(/^confirm new password$/i), 'ApbBy1!Strong');
+    await user.click(within(resetSheet).getByRole('button', { name: /reset password/i }));
+    await waitFor(() => expect(reset.calls).toHaveLength(1));
+    expect(reset.calls[0].body).toMatchObject({ password: 'ApbBy1!Strong' });
+  });
+});
+
+/* ── Admin tab — staff only ────────────────────────────────────── */
+
+describe('Manage — Admin tab', () => {
+  it('hides the Admin tab when /api/admin/families/ returns 403', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/admin/families/', () => new HttpResponse(null, { status: 403 })),
+    );
+    renderPage();
+    await screen.findByText(/children/i);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByRole('button', { name: /^Admin$/ })).toBeNull();
+  });
+
+  it('shows the Admin tab when /api/admin/families/ returns 200 and posts a new family', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/admin/families/', () => HttpResponse.json({ ok: true })),
+    );
+    const create = spyHandler('post', /\/api\/admin\/families\/?$/, {
+      token: 't',
+      user: { username: 'founder' },
+      family: { name: 'New House' },
+    }, 201);
+    server.use(create.handler);
+
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^Admin$/ })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('button', { name: /^Admin$/ }));
+    await user.type(await screen.findByLabelText(/family name/i), 'New House');
+    await user.type(screen.getByLabelText(/sign-in name/i), 'founder');
+    await user.type(screen.getByLabelText(/^password$/i), 'ApbBy1!Strong');
+    await user.click(screen.getByRole('button', { name: /create family/i }));
+
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].body).toMatchObject({
+      family_name: 'New House',
+      username: 'founder',
+      password: 'ApbBy1!Strong',
+    });
+    expect(await screen.findByText(/Created.*New House/i)).toBeInTheDocument();
   });
 });

@@ -184,6 +184,27 @@ export const handlers = [
     HttpResponse.json({ id: 99, username: 'newkid', role: 'child' }, { status: 201 }),
   ),
   http.patch(/\/api\/children\/\d+\/$/, ok),
+  http.delete(/\/api\/children\/\d+\/$/, nullBody),
+  http.post(/\/api\/children\/\d+\/reset-password\/$/, nullBody),
+  http.post(/\/api\/children\/\d+\/deactivate\/$/, ok),
+  http.post(/\/api\/children\/\d+\/reactivate\/$/, ok),
+
+  // Parents (co-parent management)
+  http.get('*/api/parents/', empty),
+  http.post('*/api/parents/', () =>
+    HttpResponse.json({ id: 99, username: 'newparent', role: 'parent' }, { status: 201 }),
+  ),
+  http.patch(/\/api\/parents\/\d+\/$/, ok),
+  http.delete(/\/api\/parents\/\d+\/$/, nullBody),
+  http.post(/\/api\/parents\/\d+\/reset-password\/$/, nullBody),
+  http.post(/\/api\/parents\/\d+\/deactivate\/$/, ok),
+  http.post(/\/api\/parents\/\d+\/reactivate\/$/, ok),
+
+  // Admin (staff-only)
+  http.get('*/api/admin/families/', () => new HttpResponse(null, { status: 403 })),
+  http.post('*/api/admin/families/', () =>
+    HttpResponse.json({}, { status: 403 }),
+  ),
 
   // Chores
   http.get('*/api/chores/', empty),

@@ -7,6 +7,7 @@ router = DefaultRouter()
 router.register(r"projects", views.ProjectViewSet, basename="project")
 router.register(r"templates", views.ProjectTemplateViewSet, basename="template")
 router.register(r"children", views.ChildViewSet, basename="child")
+router.register(r"parents", views.ParentViewSet, basename="parent")
 router.register(r"savings-goals", views.SavingsGoalViewSet, basename="savings-goal")
 
 urlpatterns = [

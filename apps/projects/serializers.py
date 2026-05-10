@@ -72,7 +72,7 @@ class ChildSerializer(serializers.ModelSerializer):
         fields = [
             "id", "username", "password", "display_name", "role", "hourly_rate",
             "avatar", "theme",
-            "google_linked",
+            "google_linked", "is_active",
             "date_of_birth", "grade_entry_year",
             "age_years", "current_grade", "school_year_label",
         ]
@@ -95,6 +95,53 @@ class ChildSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         # ``role`` and ``family`` are stamped in by ``ChildViewSet.perform_create``.
+        password = validated_data.pop("password", None)
+        if not password:
+            raise serializers.ValidationError({"password": "Password is required."})
+        return User.objects.create_user(password=password, **validated_data)
+
+
+class ParentSerializer(serializers.ModelSerializer):
+    """Read/write shape for parents within a family.
+
+    Mirrors ChildSerializer but drops earnings-side fields (``hourly_rate``,
+    ``date_of_birth``, ``grade_entry_year``) since parents don't earn or
+    have a school chapter, and exposes ``is_active`` so the existing PATCH
+    surface can flip it (the ``deactivate`` / ``reactivate`` actions are the
+    canonical write path though).
+    """
+
+    google_linked = serializers.SerializerMethodField()
+    password = serializers.CharField(write_only=True, required=False, allow_blank=False)
+    is_primary = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "id", "username", "password", "display_name", "role",
+            "avatar", "theme", "is_active",
+            "google_linked", "is_primary",
+        ]
+        read_only_fields = ["id", "role", "is_primary"]
+
+    def get_google_linked(self, obj):
+        try:
+            return obj.google_account is not None
+        except Exception:
+            logger.debug("google_linked check failed for user %s", obj.pk, exc_info=True)
+            return False
+
+    def get_is_primary(self, obj):
+        family = getattr(obj, "family", None)
+        return bool(family and family.primary_parent_id == obj.pk)
+
+    def validate_username(self, value):
+        if self.instance is None and User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username is already taken.")
+        return value
+
+    def create(self, validated_data):
+        # ``role`` and ``family`` are stamped by ``ParentViewSet.perform_create``.
         password = validated_data.pop("password", None)
         if not password:
             raise serializers.ValidationError({"password": "Password is required."})
