@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Check, ChevronDown, DollarSign, Plus, Trash2 } from 'lucide-react';
 import EmptyState from '../../components/EmptyState';
 import ParchmentCard from '../../components/journal/ParchmentCard';
+import { chapterMark } from '../../components/atlas/mastery.constants';
 import { ResourcePill, StepCard } from './ProjectPlanItems';
 
 const LOOSE_KEY = '__loose__';
@@ -68,12 +69,13 @@ export default function PlanTab({
       )}
 
       {/* Milestones with their nested steps. */}
-      {milestones.map((ms) => {
+      {milestones.map((ms, idx) => {
         const childSteps = stepsByMilestone.get(ms.id) || [];
         const done = childSteps.filter((s) => s.is_completed).length;
         const total = childSteps.length;
         const collapsed = collapsedMilestones.has(ms.id);
         const allDone = total > 0 && done === total;
+        const numeral = chapterMark(idx);
         return (
           <motion.div key={ms.id} layout>
             <ParchmentCard className={ms.is_completed ? 'opacity-60' : ''}>
@@ -97,6 +99,12 @@ export default function PlanTab({
                   className="flex-1 min-w-0 text-left"
                 >
                   <div className="flex items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="font-display italic text-ember-deep text-sm leading-none select-none shrink-0"
+                    >
+                      {numeral}
+                    </span>
                     <div
                       className={`font-display text-base text-ink-primary ${
                         ms.is_completed ? 'line-through' : ''
