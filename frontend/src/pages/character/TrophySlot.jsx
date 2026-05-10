@@ -1,5 +1,5 @@
 import { RARITY_PILL_COLORS } from '../../constants/colors';
-import { RARITY_HALO } from '../achievements/mastery.constants';
+import { RARITY_HALO } from '../../components/atlas/mastery.constants';
 
 /**
  * TrophySlot — the hero seal on the Frontispiece. A big wax-seal button:

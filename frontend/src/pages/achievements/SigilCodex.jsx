@@ -1,6 +1,6 @@
 import EmptyState from '../../components/EmptyState';
 import CollectionFolio from './CollectionFolio';
-import IncipitBand from './IncipitBand';
+import IncipitBand from '../../components/atlas/IncipitBand';
 import { groupBadgesByCollection, rarityCounts } from './collections.constants';
 
 /**

@@ -2,8 +2,8 @@ import { Crown } from 'lucide-react';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import RuneBadge from '../../components/journal/RuneBadge';
 import BoostStrip from '../../components/rpg/BoostStrip';
-import IlluminatedVersal from '../achievements/IlluminatedVersal';
-import { tierForProgress } from '../achievements/mastery.constants';
+import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
+import { tierForProgress } from '../../components/atlas/mastery.constants';
 import StreakGlyph from './StreakGlyph';
 import TrophySlot from './TrophySlot';
 

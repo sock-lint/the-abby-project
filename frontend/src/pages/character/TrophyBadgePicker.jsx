@@ -1,6 +1,6 @@
 import BottomSheet from '../../components/BottomSheet';
 import EmptyState from '../../components/EmptyState';
-import BadgeSigil from '../achievements/BadgeSigil';
+import BadgeSigil from '../../components/atlas/BadgeSigil';
 import { groupBadgesByCollection } from '../achievements/collections.constants';
 
 /**

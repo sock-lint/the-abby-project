@@ -1,8 +1,8 @@
 import BottomSheet from '../../components/BottomSheet';
 import QuillProgress from '../../components/QuillProgress';
-import IlluminatedVersal from './IlluminatedVersal';
+import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
 import PrereqChain from './PrereqChain';
-import { tierForProgress } from './mastery.constants';
+import { tierForProgress } from '../../components/atlas/mastery.constants';
 import { XP_THRESHOLDS } from './skillTree.constants';
 
 /**

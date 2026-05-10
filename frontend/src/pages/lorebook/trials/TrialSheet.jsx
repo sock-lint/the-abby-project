@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { updateMe } from '../../../api';
 import BottomSheet from '../../../components/BottomSheet';
 import Button from '../../../components/Button';
-import IlluminatedVersal from '../../achievements/IlluminatedVersal';
+import IlluminatedVersal from '../../../components/atlas/IlluminatedVersal';
 import { useAuth } from '../../../hooks/useApi';
 import TapAndRewardTrial from './TapAndRewardTrial';
 import ScribeTrial from './ScribeTrial';

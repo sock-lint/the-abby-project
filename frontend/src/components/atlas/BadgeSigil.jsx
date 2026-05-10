@@ -1,21 +1,24 @@
 import { RARITY_TEXT_COLORS } from '../../constants/colors';
-import { unlockHint } from './collections.constants';
 import { RARITY_HALO, isRecentlyEarned } from './mastery.constants';
 
 /**
  * BadgeSigil — a wax-seal badge tile. Earned sigils carry a rarity halo, a
  * foil sheen (for recently-earned), and a thin gilt ledge showing the XP
  * bonus. Unearned sigils render as debossed silhouettes — a pressed
- * intaglio impression with a script unlock hint underneath, so the codex
- * reads as a goal map rather than a grid of empty squares.
+ * intaglio impression with an optional script `hint` underneath, so the
+ * codex reads as a goal map rather than a grid of empty squares.
+ *
+ * `hint` is caller-supplied so the primitive stays domain-agnostic — the
+ * Reliquary Codex passes `unlockHint(badge)` from collections.constants;
+ * other surfaces can pass a different string or omit it entirely.
  *
  * Recently-earned badges (≤ RECENT_EARNED_DAYS) play a one-shot gilded
  * glint that fades after ~1.4s and respects prefers-reduced-motion.
  */
-export default function BadgeSigil({ badge, earned, earnedAt, onSelect }) {
+export default function BadgeSigil({ badge, earned, earnedAt, hint = '', onSelect }) {
   const rarity = badge.rarity || 'common';
   const recent = earned && isRecentlyEarned(earnedAt);
-  const hint = earned ? '' : unlockHint(badge);
+  const visibleHint = earned ? '' : hint;
   const xp = Number(badge.xp_bonus) || 0;
 
   const earnedShell = `${RARITY_HALO[rarity] || RARITY_HALO.common} bg-ink-page-rune-glow/95 border border-ink-page-shadow`;
@@ -81,12 +84,12 @@ export default function BadgeSigil({ badge, earned, earnedAt, onSelect }) {
           {rarity}
         </div>
 
-        {!earned && hint && (
+        {!earned && visibleHint && (
           <div
             data-sigil-hint="true"
             className="mt-0.5 text-micro italic font-script text-center leading-snug text-ink-whisper/80 line-clamp-2 px-1"
           >
-            {hint}
+            {visibleHint}
           </div>
         )}
 

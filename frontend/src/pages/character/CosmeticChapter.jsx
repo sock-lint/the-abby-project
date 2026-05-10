@@ -1,9 +1,9 @@
 import { useId, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import ParchmentCard from '../../components/journal/ParchmentCard';
-import IlluminatedVersal from '../achievements/IlluminatedVersal';
-import RarityStrand from '../achievements/RarityStrand';
-import { tierForProgress } from '../achievements/mastery.constants';
+import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
+import RarityStrand from '../../components/atlas/RarityStrand';
+import { tierForProgress } from '../../components/atlas/mastery.constants';
 import CosmeticSigil from './CosmeticSigil';
 import { mergeSlotCosmetics, slotRarityCounts } from './character.constants';
 

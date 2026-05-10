@@ -1,4 +1,4 @@
-import { RARITY_KEYS } from './collections.constants';
+import { RARITY_KEYS } from './mastery.constants';
 
 // Rarity → fill bg + muted trough bg. Same token vocabulary the sigils and
 // IlluminatedVersals already use, so covers (hyrule / vigil / sunlit / …) stay
