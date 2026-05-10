@@ -86,6 +86,7 @@ export default function ParentDashboard() {
           <ApprovalQueueList items={pending} onDone={reload} />
 
           <AccordionSection
+            index={0}
             title="Week at a glance"
             kicker="per-kid hours and earnings"
             peek={weekByKid.length > 0 ? `${weekByKid.length} kid${weekByKid.length !== 1 ? 's' : ''} active` : 'no week data yet'}
@@ -94,6 +95,7 @@ export default function ParentDashboard() {
           </AccordionSection>
 
           <AccordionSection
+            index={1}
             title="Quick adjusts"
             kicker="manual ledger corrections"
             peek="Adjust coins · Adjust payment"

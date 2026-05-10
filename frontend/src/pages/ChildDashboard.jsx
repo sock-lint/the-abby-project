@@ -269,6 +269,7 @@ export default function ChildDashboard({ data, reload }) {
       )}
 
       <AccordionSection
+        index={0}
         title="Treasury"
         kicker="this week at a glance"
         peek={`${formatCurrency(current_balance)} · ${coin_balance ?? 0} coins · ${this_week?.hours_worked ?? 0}h`}
@@ -321,6 +322,7 @@ export default function ChildDashboard({ data, reload }) {
 
       {active_projects?.length > 0 && (
         <AccordionSection
+          index={1}
           title="Next Up"
           kicker="ventures under way"
           count={active_projects.length}
@@ -368,6 +370,7 @@ export default function ChildDashboard({ data, reload }) {
 
       {savings_goals?.length > 0 && (
         <AccordionSection
+          index={2}
           title="Hoard"
           kicker="treasure chests in progress"
           count={savings_goals.length}
@@ -415,6 +418,7 @@ export default function ChildDashboard({ data, reload }) {
 
       {recent_badges?.length > 0 && (
         <AccordionSection
+          index={3}
           title="Recent Accolades"
           kicker="badges earned"
           count={recent_badges.length}

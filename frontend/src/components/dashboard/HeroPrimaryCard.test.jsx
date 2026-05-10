@@ -99,6 +99,26 @@ describe('HeroPrimaryCard — next-action variant', () => {
     expect(screen.getByText(/pick something/i)).toBeInTheDocument();
   });
 
+  it('renders an IlluminatedVersal of the next-action title first letter', () => {
+    const { container } = renderWithProviders(
+      <HeroPrimaryCard
+        role="child"
+        ctx={{
+          weekday: 'Thursday', dateStr: 'April 16',
+          nextAction: {
+            kind: 'homework', id: 42, title: 'Math workbook',
+            subtitle: 'Math · due tomorrow', score: 60,
+            icon: 'BookOpen', tone: 'royal', action_url: '/homework',
+            due_at: '2026-04-17', reward: null,
+          },
+        }}
+      />,
+    );
+    const versal = container.querySelector('[data-versal="true"]');
+    expect(versal).not.toBeNull();
+    expect(versal.textContent).toContain('M');
+  });
+
   it('clocked variant still wins over nextAction', () => {
     renderWithProviders(
       <HeroPrimaryCard

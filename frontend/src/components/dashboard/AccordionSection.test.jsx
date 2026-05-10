@@ -32,6 +32,24 @@ describe('AccordionSection', () => {
     expect(screen.getByText(/body text/i)).toBeInTheDocument();
   });
 
+  it('renders an atlas chapter numeral when index is supplied', () => {
+    render(
+      <AccordionSection index={2} title="Hoard" peek="one goal">
+        <div>body text</div>
+      </AccordionSection>,
+    );
+    expect(screen.getByText('§III')).toBeInTheDocument();
+  });
+
+  it('omits the chapter numeral when no index is supplied', () => {
+    render(
+      <AccordionSection title="Hoard" peek="one goal">
+        <div>body text</div>
+      </AccordionSection>,
+    );
+    expect(screen.queryByText(/^§/)).toBeNull();
+  });
+
   it('persists open state per-title via localStorage', async () => {
     const user = userEvent.setup();
     const { unmount } = render(
