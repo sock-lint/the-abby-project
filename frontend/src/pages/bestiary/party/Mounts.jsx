@@ -14,6 +14,7 @@ import DeckleDivider from '../../../components/journal/DeckleDivider';
 import { DragonIcon } from '../../../components/icons/JournalIcons';
 import RpgSprite from '../../../components/rpg/RpgSprite';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
+import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 import ExpeditionLaunchSheet from './ExpeditionLaunchSheet';
 import {
@@ -155,16 +156,22 @@ export default function Mounts() {
                       : ''
                   } ${isOut && !isReady ? 'opacity-80' : ''}`}
                 >
-                  <div className="flex items-center justify-center h-16 mb-1">
-                    <RpgSprite
-                      spriteKey={`${mount.species.sprite_key}-mount`}
-                      fallbackSpriteKey={mount.species.sprite_key}
-                      icon={mount.species.icon}
-                      size={64}
-                      alt={`${mount.potion.name} ${mount.species.name}`}
-                      potionSlug={mount.potion.slug}
-                      dim={isOut && !isReady ? 'stale' : null}
-                    />
+                  <div className="flex items-center justify-center h-20 mb-1">
+                    <div
+                      className={`relative inline-flex items-center justify-center rounded-full p-1.5 bg-ink-page-aged/40 ${
+                        RARITY_HALO[mount.potion.rarity] || RARITY_HALO.common
+                      }`}
+                    >
+                      <RpgSprite
+                        spriteKey={`${mount.species.sprite_key}-mount`}
+                        fallbackSpriteKey={mount.species.sprite_key}
+                        icon={mount.species.icon}
+                        size={64}
+                        alt={`${mount.potion.name} ${mount.species.name}`}
+                        potionSlug={mount.potion.slug}
+                        dim={isOut && !isReady ? 'stale' : null}
+                      />
+                    </div>
                   </div>
                   <div className="font-body text-sm font-medium leading-tight">
                     {mount.potion.name} {mount.species.name}

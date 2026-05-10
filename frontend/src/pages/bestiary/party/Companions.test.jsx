@@ -92,6 +92,20 @@ describe('Companions tab', () => {
     expect(screen.getByRole('tab', { name: /Ready to evolve \(1\)/ })).toBeInTheDocument();
   });
 
+  it('wraps each pet sprite with a rarity-keyed atlas halo', async () => {
+    const { container } = renderPage([
+      http.get('*/api/pets/stable/', () =>
+        HttpResponse.json({ pets: PETS, mounts: [], total_possible: 48 }),
+      ),
+      http.get('*/api/inventory/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() => expect(screen.getByText(/Drake/)).toBeInTheDocument());
+    // Drake (rare) → ring-royal, Fox (common) → ring-moss, Wolf (uncommon) → ring-sheikah-teal
+    const haloes = container.querySelectorAll('[class*="ring-royal"], [class*="ring-moss"], [class*="ring-sheikah-teal"]');
+    // At minimum the three pets above and the active-pet card outer ring → 3+ matches
+    expect(haloes.length).toBeGreaterThanOrEqual(3);
+  });
+
   it('does not dim a pet that has evolved to a mount, even if happiness slipped', async () => {
     // Defensive: an evolved pet's `happiness_level` is always `happy` per
     // ``happiness_for_pet`` in apps/pets/services.py, but if a stale

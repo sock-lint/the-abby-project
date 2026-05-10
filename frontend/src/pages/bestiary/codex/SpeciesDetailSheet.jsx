@@ -4,6 +4,7 @@ import ParchmentCard from '../../../components/journal/ParchmentCard';
 import RuneBadge from '../../../components/journal/RuneBadge';
 import RpgSprite from '../../../components/rpg/RpgSprite';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
+import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
 import { mountLabel, mountSpriteKey } from './bestiary.constants';
 
 /**
@@ -74,7 +75,9 @@ export default function SpeciesDetailSheet({ species, onClose }) {
                     key={potion.id}
                     className={`text-center rounded-xl p-2 border transition-all ${
                       owned
-                        ? 'bg-ink-page-aged border-gold-leaf/60 ring-1 ring-gold-leaf/40'
+                        ? `bg-ink-page-aged border-ink-page-shadow ${
+                            RARITY_HALO[potion.rarity] || RARITY_HALO.common
+                          }`
                         : 'bg-ink-page-shadow/30 border-ink-page-shadow opacity-70'
                     }`}
                     role="img"
