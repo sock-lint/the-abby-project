@@ -278,6 +278,7 @@ class SpriteAsset(TimestampedModel):
         related_name="sprites_authored",
     )
     prompt = models.TextField(blank=True, default="")
+    original_intent = models.TextField(blank=True, default="")
     motion = models.CharField(max_length=16, blank=True, default="")
     style_hint = models.CharField(max_length=200, blank=True, default="")
     tile_size = models.PositiveSmallIntegerField(null=True, blank=True)

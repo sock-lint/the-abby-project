@@ -124,4 +124,31 @@ describe('Projects', () => {
     await waitFor(() => expect(screen.getByText(/try this/i)).toBeInTheDocument());
     expect(screen.getByText(/because/i)).toBeInTheDocument();
   });
+
+  it('filters ventures by title via the search input', async () => {
+    const user = userEvent.setup();
+    renderPage(buildUser(), [
+      http.get('*/api/projects/', () =>
+        HttpResponse.json([
+          buildProject({ id: 1, title: 'Birdhouse', description: 'wooden box for finches' }),
+          buildProject({ id: 2, title: 'Volcano', description: 'baking-soda eruption' }),
+        ]),
+      ),
+    ]);
+    await waitFor(() => expect(screen.getByText('Birdhouse')).toBeInTheDocument());
+
+    const search = screen.getByRole('searchbox', { name: /filter ventures/i });
+    await user.type(search, 'volcano');
+
+    expect(screen.queryByText('Birdhouse')).not.toBeInTheDocument();
+    expect(screen.getByText('Volcano')).toBeInTheDocument();
+  });
+
+  it('hides the search input when there are no ventures', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/projects/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() => expect(screen.getByText(/no ventures yet/i)).toBeInTheDocument());
+    expect(screen.queryByRole('searchbox', { name: /filter ventures/i })).toBeNull();
+  });
 });

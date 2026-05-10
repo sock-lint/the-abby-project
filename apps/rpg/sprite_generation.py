@@ -861,6 +861,7 @@ def generate_sprite_sheet(
     style_hint: str = "",
     motion: str = DEFAULT_MOTION,
     reference_image_url: Optional[str] = None,
+    original_intent: str = "",
     return_debug_raw: bool = False,
     overwrite: bool = False,
     actor: Optional[User] = None,
@@ -982,6 +983,7 @@ def generate_sprite_sheet(
     # Persist authoring inputs so a future reroll can replay them verbatim.
     SpriteAsset.objects.filter(slug=slug).update(
         prompt=prompt,
+        original_intent=original_intent or "",
         motion=motion,
         style_hint=style_hint or "",
         tile_size=tile_size,

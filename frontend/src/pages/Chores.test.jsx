@@ -332,4 +332,32 @@ describe('Chores', () => {
     await waitFor(() => expect(withdraw.calls).toHaveLength(1));
     expect(withdraw.calls[0].url).toMatch(/\/chore-completions\/71\/withdraw\/$/);
   });
+
+  it('filters duties via the search input and shows a no-match empty state', async () => {
+    const user = userEvent.setup();
+    renderPage(buildUser(), [
+      http.get('*/api/chores/', ({ request }) => {
+        const pending = new URL(request.url).searchParams.get('pending') === 'true';
+        return HttpResponse.json(pending
+          ? []
+          : [
+            buildChore({ id: 1, title: 'Wash dishes', description: 'after dinner' }),
+            buildChore({ id: 2, title: 'Feed cat', description: 'morning kibble' }),
+          ],
+        );
+      }),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() => expect(screen.getByText('Wash dishes')).toBeInTheDocument());
+
+    const search = screen.getByRole('searchbox', { name: /filter duties/i });
+    await user.type(search, 'cat');
+
+    expect(screen.queryByText('Wash dishes')).not.toBeInTheDocument();
+    expect(screen.getByText('Feed cat')).toBeInTheDocument();
+
+    await user.clear(search);
+    await user.type(search, 'zzzz');
+    expect(screen.getByText(/no duties match/i)).toBeInTheDocument();
+  });
 });

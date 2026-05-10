@@ -24,6 +24,7 @@ from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
     DeleteSpriteIn,
     GenerateSpriteSheetIn,
+    GetSpriteIn,
     ListSpritesIn,
     RegisterSpriteBatchIn,
     RegisterSpriteIn,
@@ -120,6 +121,41 @@ def list_sprites(params: ListSpritesIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+def get_sprite(params: GetSpriteIn) -> dict[str, Any]:
+    """Fetch the full authoring shape for one sprite.
+
+    Parent-only, read-only. Returns everything ``list_sprites`` returns
+    plus the authoring inputs that were sent to Gemini: ``prompt``,
+    ``original_intent``, ``motion``, ``style_hint``, ``tile_size``,
+    ``reference_image_url``. Pair with ``get_sprite_prompting_playbook``
+    when critiquing or rerolling — the playbook gives the prompt-
+    engineering rules; this tool gives the row's actual inputs.
+    """
+    require_parent()
+    try:
+        a = SpriteAsset.objects.get(slug=params.slug)
+    except SpriteAsset.DoesNotExist:
+        raise MCPNotFoundError(f"Sprite {params.slug!r} not found.")
+    return {
+        "slug": a.slug,
+        "url": a.image.url if a.image else "",
+        "pack": a.pack,
+        "frame_count": a.frame_count,
+        "fps": a.fps,
+        "frame_width_px": a.frame_width_px,
+        "frame_height_px": a.frame_height_px,
+        "frame_layout": a.frame_layout,
+        "prompt": a.prompt,
+        "original_intent": a.original_intent,
+        "motion": a.motion,
+        "style_hint": a.style_hint,
+        "tile_size": a.tile_size,
+        "reference_image_url": a.reference_image_url,
+    }
+
+
+@tool()
+@safe_tool
 def generate_sprite_sheet(params: GenerateSpriteSheetIn) -> dict[str, Any]:
     """Generate a sprite (static or animated strip) from a text prompt.
 
@@ -149,6 +185,7 @@ def generate_sprite_sheet(params: GenerateSpriteSheetIn) -> dict[str, Any]:
         style_hint=params.style_hint,
         motion=params.motion,
         reference_image_url=params.reference_image_url,
+        original_intent=params.original_intent,
         return_debug_raw=params.return_debug_raw,
         overwrite=params.overwrite,
         actor=get_current_user(),
@@ -229,6 +266,7 @@ def reroll_sprite(params: RerollSpriteIn) -> dict[str, Any]:
         style_hint=asset.style_hint,
         motion=motion,
         reference_image_url=asset.reference_image_url or None,
+        original_intent=asset.original_intent,
         return_debug_raw=params.return_debug_raw,
         overwrite=True,
         actor=get_current_user(),

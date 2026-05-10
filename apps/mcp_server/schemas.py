@@ -1379,6 +1379,20 @@ class ListSpritesIn(_Base):
     limit: int = Field(default=200, ge=1, le=500)
 
 
+class GetSpriteIn(_Base):
+    """Fetch the full authoring shape for one sprite (parent-only).
+
+    ``list_sprites`` deliberately stays lean (slug + url + structural
+    metadata only). This tool returns the additional authoring inputs
+    (``prompt``, ``original_intent``, ``motion``, ``style_hint``,
+    ``tile_size``, ``reference_image_url``) so a chat-side meta-prompt
+    loop can read what was sent to Gemini and critique it against the
+    rendered image at ``url``.
+    """
+
+    slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
+
+
 class DeleteSpriteIn(_Base):
     slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
 
@@ -1441,6 +1455,14 @@ class GenerateSpriteSheetIn(_Base):
     # self-anchored bulk-animation workflow (animate an existing
     # static sprite by passing its own URL here).
     reference_image_url: Optional[str] = Field(default=None, max_length=500)
+    # Optional plain-English description of what the parent originally
+    # asked for. Persisted on ``SpriteAsset.original_intent`` alongside
+    # the refined ``prompt`` so a future reroll can re-refine from the
+    # same starting intent (different Claude output each time) instead
+    # of just replaying the stored prompt verbatim. Empty string by
+    # default — refined prompts authored directly via this tool don't
+    # need to fill it in.
+    original_intent: str = Field(default="", max_length=1000)
     # Debug-only: when True, also save the raw Gemini output and the
     # post-chroma-key output to the sprites bucket under a debug/
     # prefix, and include their URLs in the response. Useful for
@@ -1476,6 +1498,11 @@ class RerollSpriteIn(_Base):
 
     slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
     return_debug_raw: bool = False
+
+
+class GetSpritePromptingPlaybookIn(_Base):
+    """No payload — the playbook is a single static document. Empty schema
+    keeps the MCP tool callable without requiring any parameters."""
 
 
 # ---------------------------------------------------------------------------

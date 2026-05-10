@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus, Sparkles } from 'lucide-react';
@@ -6,6 +6,7 @@ import { getProjects, getProjectSuggestions, getChildren } from '../api';
 import { useApi } from '../hooks/useApi';
 import StarRating from '../components/StarRating';
 import EmptyState from '../components/EmptyState';
+import CatalogSearch from '../components/CatalogSearch';
 import Loader from '../components/Loader';
 import StatusBadge from '../components/StatusBadge';
 import ParchmentCard from '../components/journal/ParchmentCard';
@@ -45,20 +46,30 @@ export default function Projects() {
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [childFilter, setChildFilter] = useState('');
+  const [search, setSearch] = useState('');
 
-  if (loading) return <Loader />;
   const allProjects = normalizeList(data);
   const children = normalizeList(childrenData);
 
-  const projects = allProjects.filter((p) => {
-    if (statusFilter && p.status !== statusFilter) return false;
-    if (typeFilter && p.payment_kind !== typeFilter) return false;
-    if (childFilter) {
-      if (childFilter === 'unassigned') return !p.assigned_to;
-      if (p.assigned_to?.id !== parseInt(childFilter)) return false;
-    }
-    return true;
-  });
+  const projects = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return allProjects.filter((p) => {
+      if (statusFilter && p.status !== statusFilter) return false;
+      if (typeFilter && p.payment_kind !== typeFilter) return false;
+      if (childFilter) {
+        if (childFilter === 'unassigned' && p.assigned_to) return false;
+        if (childFilter !== 'unassigned' && p.assigned_to?.id !== parseInt(childFilter)) return false;
+      }
+      if (q) {
+        const title = (p.title || '').toLowerCase();
+        const desc = (p.description || '').toLowerCase();
+        if (!title.includes(q) && !desc.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [allProjects, statusFilter, typeFilter, childFilter, search]);
+
+  if (loading) return <Loader />;
 
   return (
     <div className="space-y-6">
@@ -86,6 +97,14 @@ export default function Projects() {
       </header>
 
       {/* Filters */}
+      {allProjects.length > 0 && (
+        <CatalogSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Search ventures…"
+          ariaLabel="Filter ventures"
+        />
+      )}
       <div className="flex flex-wrap gap-2 items-center">
         <select
           value={statusFilter}
@@ -118,10 +137,15 @@ export default function Projects() {
             ))}
           </select>
         )}
-        {(statusFilter || typeFilter || childFilter) && (
+        {(statusFilter || typeFilter || childFilter || search) && (
           <button
             type="button"
-            onClick={() => { setStatusFilter(''); setTypeFilter(''); setChildFilter(''); }}
+            onClick={() => {
+              setStatusFilter('');
+              setTypeFilter('');
+              setChildFilter('');
+              setSearch('');
+            }}
             className="font-script text-xs text-ink-whisper hover:text-ink-primary px-2 py-1.5 transition-colors"
           >
             clear filters
