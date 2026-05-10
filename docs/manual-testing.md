@@ -326,6 +326,36 @@ Backend rejections that surface as specific user-visible UI.
 | Stack-unsafe consumable N>1 | `POST /api/inventory/{id}/use/ {quantity: 2}` | 400 "can only be used one at a time" | Quantity stepper should clamp at 1 for these. |
 | Mount breed cooldown | `POST /api/mounts/breed/` | 400 + days remaining | Hatchery shows per-mount countdown chip. |
 | Trophy badge not earned | `POST /api/character/trophy/ {badge_id}` | 400 (server enforces UserBadge ownership) | Picker only shows earned. |
+| Self-deactivate | `POST /api/parents/<self.id>/deactivate/` | 400 "You cannot deactivate your own account." | Family tab hides the Edit button on the requester's own row, but if a client somehow bypassed it the backend stops the request. |
+| Self-delete | `DELETE /api/parents/<self.id>/` | 400 "You cannot delete your own account." | Same — defense in depth on top of the UI no-Edit-on-self rule. |
+| Last-active-parent removal | `POST /api/parents/<id>/deactivate/` (or DELETE) when only one active parent remains | 400 "At least one active parent must remain in the family — this parent cannot be deactivated/removed." | Surfaces as the inline action error chip in EditParentModal. Reachable via direct unit-test on `assert_safe_to_remove`; the live request path is naturally guarded by the self-rule. |
+| Weak password on reset | `POST /api/{children\|parents}/<id>/reset-password/ {password: "abc"}` | 400 "; "-joined `validate_password` messages | ResetPasswordModal shows the message in `<ErrorAlert>`; the modal stays open so the user can retry. |
+| Empty password on reset | Same endpoint with empty body | 400 "Password is required." | Same UI shape as above. |
+| Admin tab probe | `GET /api/admin/families/` for non-staff parent | 403 | Admin tab silently absent (the ping rejects → tab hidden). |
+| Admin family creation duplicate username | `POST /api/admin/families/ {username: existing}` | 400 "Username is already taken." | Inline `<ErrorAlert>` on the AdminSection form; success card does NOT render. |
+
+---
+
+## O. User management surfaces (Family + Admin tabs)
+
+The `/manage` page houses the parent's user-management surface across three
+tabs: **Children** (extended), **Family** (new), **Admin** (new, staff-only).
+Backend gate: `IsParent` for per-family operations; `IsStaffParent` for
+`POST /api/admin/families/`.
+
+| Surface | Precondition | How to trigger | Verify |
+|---|---|---|---|
+| Children: `Show inactive (N)` toggle | At least one child has `is_active=false` | (manual: deactivate a child) | Toggle pill above the list shows live `(N)`. Inactive rows render at 60% opacity with an `Inactive` chip. Default state is hidden. |
+| Children: Reset password | EditChildModal open | Click `Reset password` → fill `New password` + `Confirm new password` | ResetPasswordModal opens. Mismatched passwords block submit with "Passwords do not match." (client-side). Backend `validate_password` errors render in `<ErrorAlert>`. Success closes the modal and refetches the list. |
+| Children: Hard-delete | EditChildModal open | Click `Delete account` → type `delete <username>` | Type-to-confirm sheet. Delete button stays disabled until the typed phrase matches exactly (case-sensitive). After delete, the child + all CASCADE'd rows (CharacterProfile, UserInventory, ledgers, projects) are gone. |
+| Family: Self-row | Authenticated as a parent | Switch to Family tab | Requesting parent appears LAST in the list with a `(you)` chip and a "Edit your profile in Settings" link instead of an Edit button. |
+| Family: Founder chip | A parent's `id == family.primary_parent_id` | Switch to Family tab | `Founder` chip in `sheikah-teal` next to the display name. Inactive co-parents add a separate `Inactive` chip. |
+| Family: Add co-parent | Any parent in the family | Click `Add co-parent` → fill form | New parent row appears immediately after success. Username uniqueness is global — collisions return 400 inline. |
+| Family: Reset / Deactivate / Delete | Edit a non-self co-parent | Open EditParentModal → Account actions row | Same trio as Children. Token rotation is the side effect to verify on Reset (try the target's old token via curl — should 401). |
+| Family: Primary auto-rotation | Delete or deactivate the family's `primary_parent` while another active parent exists | Open EditParentModal on the founder → Delete OR Deactivate | After success, the next-oldest active parent has the `Founder` chip. |
+| Admin tab visibility | `/api/admin/families/` GET | (manual: log in as `createsuperuser` parent vs. signup-created parent) | Tab visible for staff (200), absent for non-staff (403). The page does not render an empty-tab placeholder for non-staff — the tab simply isn't there. |
+| Admin: Create new family | Admin tab | Fill family_name + founding parent fields → Create family | Success card with "Created '<family>'". Form resets via `key={resetKey}` increment so the next call starts clean. The newly-minted parent can log in immediately at `/login` with the password set in the form. |
+| Admin: Bypass `ALLOW_PARENT_SIGNUP` | Deploy with `ALLOW_PARENT_SIGNUP=False` | Public signup → 403; Admin tab create family → 201 | Pinned by `test_staff_creation_bypasses_allow_parent_signup_toggle` in [`apps/families/tests/test_admin_create_family.py`](../apps/families/tests/test_admin_create_family.py). |
 
 ---
 

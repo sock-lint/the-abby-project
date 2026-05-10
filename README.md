@@ -430,8 +430,17 @@ header sent) are exempt — they surface the 401 as a normal error.
 ### Children / Manage
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/children/` | List child users (parent only) |
-| GET/PATCH | `/api/children/{id}/` | Child detail — edit hourly rate |
+| GET/POST | `/api/children/` | List / create children (parent only). POST stamps `role="child"` + family. |
+| GET/PATCH/DELETE | `/api/children/{id}/` | Child detail — edit (hourly rate, DOB, grade entry year, `is_active`) or hard-delete. |
+| POST | `/api/children/{id}/reset-password/` | Set a new password (parent only). Validates with Django's `validate_password` and rotates the target's auth tokens. |
+| POST | `/api/children/{id}/deactivate/` | Soft-disable: `is_active=False` + drop tokens. Reversible. |
+| POST | `/api/children/{id}/reactivate/` | Flip `is_active=True`. |
+| GET/POST | `/api/parents/` | Co-parent management — list / add another parent in the same family (parent only). |
+| GET/PATCH/DELETE | `/api/parents/{id}/` | Parent detail. Family-integrity guards apply on DELETE: refuses self-delete and refuses to remove the last active parent; auto-rotates `Family.primary_parent` when the founder departs. |
+| POST | `/api/parents/{id}/reset-password/` | Same shape as the child variant. Self-target leaves the requester's own token intact. |
+| POST | `/api/parents/{id}/deactivate/` | Same self-protection guards as DELETE. |
+| POST | `/api/parents/{id}/reactivate/` | Flip `is_active=True`. |
+| GET/POST | `/api/admin/families/` | **Staff parents only.** GET 200 doubles as the "is this user staff?" probe used to gate the `/manage → Admin` tab. POST creates a new `Family` + founding parent + token (mirrors the public `/auth/signup/` body shape). Bypasses `ALLOW_PARENT_SIGNUP` and the signup throttle. |
 | GET/POST | `/api/categories/` | List / create skill categories |
 | GET/PATCH/DELETE | `/api/categories/{id}/` | Category detail |
 | GET/POST | `/api/subjects/` | List / create subjects |

@@ -279,6 +279,27 @@ describe('Manage — Family tab', () => {
     expect(screen.getByText(/founder/i)).toBeInTheDocument();
   });
 
+  it("self-row hides the Edit button so own-profile flows route through /settings", async () => {
+    const me = buildParent({ id: 1, username: 'me', display_name: 'Me' });
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(me)),
+      http.get('*/api/parents/', () =>
+        HttpResponse.json([
+          { id: 1, username: 'me', display_name: 'Me', role: 'parent', is_active: true },
+          { id: 2, username: 'co', display_name: 'Coparent', role: 'parent', is_active: true },
+        ]),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /^Family$/ }));
+    await screen.findByText('Coparent');
+    // Exactly one Edit button (for the co-parent), not two.
+    const editButtons = screen.getAllByRole('button', { name: /^edit$/i });
+    expect(editButtons).toHaveLength(1);
+    expect(screen.getByText(/edit your profile in settings/i)).toBeInTheDocument();
+  });
+
   it('Add co-parent posts to /api/parents/ with the typed values', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent({ id: 1 }))),
@@ -426,6 +447,32 @@ describe('Manage — Children action trio', () => {
     expect(screen.getByText(/^inactive$/i)).toBeInTheDocument();
   });
 
+  it('hard-delete a child requires the type-to-confirm phrase', async () => {
+    const parent = buildParent();
+    const child = buildUser({ id: 7, role: 'child', display_name: 'Abby', username: 'abby' });
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(parent)),
+      http.get('*/api/children/', () => HttpResponse.json([child])),
+    );
+    const del = spyHandler('delete', /\/api\/children\/7\/?$/, null);
+    server.use(del.handler);
+
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /^edit$/i }));
+    const editSheet = await screen.findByRole('dialog', { name: /edit abby/i });
+    await user.click(within(editSheet).getByRole('button', { name: /delete account/i }));
+
+    const confirmSheet = await screen.findByRole('dialog', { name: /delete abby's account/i });
+    const confirmBtn = within(confirmSheet).getByRole('button', { name: /delete account/i });
+    expect(confirmBtn).toBeDisabled();
+
+    await user.type(within(confirmSheet).getByLabelText(/type to confirm/i), 'delete abby');
+    expect(confirmBtn).not.toBeDisabled();
+    await user.click(confirmBtn);
+    await waitFor(() => expect(del.calls).toHaveLength(1));
+  });
+
   it('reset password for a child posts to /api/children/<id>/reset-password/', async () => {
     const parent = buildParent();
     const child = buildUser({ id: 7, role: 'child', display_name: 'Abby' });
@@ -447,6 +494,36 @@ describe('Manage — Children action trio', () => {
     await user.click(within(resetSheet).getByRole('button', { name: /reset password/i }));
     await waitFor(() => expect(reset.calls).toHaveLength(1));
     expect(reset.calls[0].body).toMatchObject({ password: 'ApbBy1!Strong' });
+  });
+});
+
+/* ── ResetPasswordModal — client-side mismatch guard ──────────── */
+
+describe('ResetPasswordModal', () => {
+  it('blocks submit and surfaces an error when the two passwords differ', async () => {
+    const parent = buildParent();
+    const child = buildUser({ id: 7, role: 'child', display_name: 'Abby' });
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(parent)),
+      http.get('*/api/children/', () => HttpResponse.json([child])),
+    );
+    const reset = spyHandler('post', /\/api\/children\/7\/reset-password\/?$/, null);
+    server.use(reset.handler);
+
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /^edit$/i }));
+    const editSheet = await screen.findByRole('dialog', { name: /edit abby/i });
+    await user.click(within(editSheet).getByRole('button', { name: /reset password/i }));
+
+    const sheet = await screen.findByRole('dialog', { name: /reset password for/i });
+    await user.type(within(sheet).getByLabelText(/^new password$/i), 'AaaaA1!Strong');
+    await user.type(within(sheet).getByLabelText(/^confirm new password$/i), 'BbbbB2!Different');
+    await user.click(within(sheet).getByRole('button', { name: /reset password/i }));
+
+    expect(within(sheet).getByText(/passwords do not match/i)).toBeInTheDocument();
+    // No backend round-trip on the mismatch path.
+    expect(reset.calls).toHaveLength(0);
   });
 });
 

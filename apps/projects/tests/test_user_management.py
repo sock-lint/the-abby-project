@@ -78,6 +78,31 @@ class ParentViewSetFamilyScopingTests(APITestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_serializer_exposes_is_primary(self):
+        # Pinned because the Family-tab UI hangs the "Founder" chip on
+        # this field — silently dropping it would regress the chip
+        # without breaking layout.
+        self.a.family.primary_parent = self.a.parents[0]
+        self.a.family.save(update_fields=["primary_parent"])
+        response = self.client.get(f"/api/parents/{self.a.parents[0].id}/")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertIn("is_primary", body)
+        self.assertTrue(body["is_primary"])
+
+        response = self.client.get(f"/api/parents/{self.a.parents[1].id}/")
+        self.assertFalse(response.json()["is_primary"])
+
+    def test_create_rejects_missing_password(self):
+        # Client-side already enforces, but the serializer is the
+        # authoritative gate.
+        response = self.client.post(
+            "/api/parents/",
+            {"username": "ap_new"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
 
 class ResetPasswordTests(APITestCase):
     def setUp(self):
@@ -203,6 +228,18 @@ class DeactivateReactivateTests(APITestCase):
             f"/api/parents/{self.fam.parents[1].id}/deactivate/"
         )
         self.assertEqual(response.status_code, 200)
+        self.fam.family.refresh_from_db()
+        self.assertEqual(self.fam.family.primary_parent_id, self.fam.parents[0].id)
+
+    def test_deleting_primary_parent_rotates(self):
+        # Same as deactivate — but via DELETE so we cover both branches of
+        # promote_next_primary_parent.
+        self.fam.family.primary_parent = self.fam.parents[1]
+        self.fam.family.save(update_fields=["primary_parent"])
+        response = self.client.delete(
+            f"/api/parents/{self.fam.parents[1].id}/"
+        )
+        self.assertEqual(response.status_code, 204)
         self.fam.family.refresh_from_db()
         self.assertEqual(self.fam.family.primary_parent_id, self.fam.parents[0].id)
 
