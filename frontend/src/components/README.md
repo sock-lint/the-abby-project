@@ -92,7 +92,7 @@ The four `.modal-*` classes in `index.css` (`modal-ink-wash`, `modal-vignette`, 
 
 The Illuminated Atlas vocabulary lives at `components/atlas/`. It's the visual language the Skills page introduced — drop-cap **versals** with gilt fill tied to progress, rarity-haloed **sigils**, **rubric** numerals (§I/§II) for chapter markers, slim **rarity strands** for distribution at a glance, and **incipit bands** for chapter openers. Because every primitive resolves through the cover tokens in `themes.js`, an atlas tile painted on Hyrule and on Vigil reads with the same hierarchy on both — no per-cover branches in component code.
 
-Use these primitives whenever a surface is meant to feel like an authored chapter rather than a form: the Skills tome shelf, the Reliquary Codex, the Sigil Frontispiece, the Lorebook folio, and (after Phase B–E of the consolidation) Bestiary, Project detail, Yearbook chapters, and the dashboard hero.
+Use these primitives whenever a surface is meant to feel like an authored chapter rather than a form. Current consumers: the Skills tome shelf, the Reliquary Codex, the Sigil Frontispiece, the Lorebook folio, Bestiary (pet/mount/Codex rarity halos + Hatchery section rubrics), Project detail (status-driven versal + milestone numerals), Yearbook chapter cards (current-year IncipitBand, past-year small versal), and the dashboard hero (versal on clocked / next-action / quest-progress variants + AccordionSection chapter numerals).
 
 | File | Export | Use |
 |---|---|---|

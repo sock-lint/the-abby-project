@@ -35,4 +35,28 @@ describe('ChapterCard', () => {
     }} />)
     expect(screen.getByText('Age 18 · 2029-30')).toBeInTheDocument()
   })
+
+  it('current chapter renders an IncipitBand with the kicker + atlas versal', () => {
+    const { container } = render(<ChapterCard chapter={{
+      chapter_year: 2025, label: 'Junior · 2025-26', grade: 11,
+      is_current: true, is_post_hs: false,
+      stats: {},
+      entries: [],
+    }} />)
+    expect(screen.getByText(/current chapter/i)).toBeInTheDocument()
+    const versal = container.querySelector('[data-versal="true"]')
+    expect(versal).not.toBeNull()
+  })
+
+  it('past chapter renders a small atlas versal at gilded tier', () => {
+    const { container } = render(<ChapterCard chapter={{
+      chapter_year: 2024, label: 'Sophomore · 2024-25', grade: 10,
+      is_current: false, is_post_hs: false,
+      stats: {},
+      entries: [],
+    }} />)
+    const versal = container.querySelector('[data-versal="true"]')
+    expect(versal).not.toBeNull()
+    expect(versal.getAttribute('data-tier')).toBe('gilded')
+  })
 })
