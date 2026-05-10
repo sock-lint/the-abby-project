@@ -27,7 +27,7 @@ from .models import (
     TemplateStep, User,
 )
 from .serializers import (
-    ChildSerializer, MaterialItemSerializer,
+    ChildSerializer, MaterialItemSerializer, ParentSerializer,
     ProjectCollaboratorSerializer, ProjectDetailSerializer,
     ProjectListSerializer,
     ProjectMilestoneSerializer, ProjectResourceSerializer, ProjectStepSerializer,
@@ -119,10 +119,96 @@ class MeView(APIView):
         return Response(UserSerializer(user).data)
 
 
-class ChildViewSet(viewsets.ModelViewSet):
+class _UserManagementActionsMixin:
+    """Shared ``reset_password`` / ``deactivate`` / ``reactivate`` actions.
+
+    Mounted on both ``ChildViewSet`` and ``ParentViewSet`` so the same set
+    of self-administration moves works on every account in the family.
+    Family-integrity guards (``assert_safe_to_remove``) live in
+    ``apps.families.services`` and are called from this mixin and from
+    ``perform_destroy`` so DELETE shares the same checks.
+    """
+
+    @action(detail=True, methods=["post"], url_path="reset-password")
+    def reset_password(self, request, pk=None):
+        from django.contrib.auth.password_validation import (
+            ValidationError as PasswordValidationError,
+            validate_password,
+        )
+        target = self.get_object()
+        password = request.data.get("password", "")
+        if not password:
+            return Response(
+                {"error": "Password is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            validate_password(password, user=target)
+        except PasswordValidationError as exc:
+            return Response(
+                {"error": "; ".join(exc.messages)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        target.set_password(password)
+        target.save(update_fields=["password"])
+        # Match the H2 invariant — rotate the target's auth tokens so any
+        # leaked / forgotten session is invalidated. Don't punch out the
+        # requester themselves if they happen to be resetting their own
+        # password through this endpoint.
+        if target.pk != request.user.pk:
+            Token.objects.filter(user=target).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"])
+    def deactivate(self, request, pk=None):
+        from apps.families.services import (
+            MemberRemovalError, assert_safe_to_remove,
+            promote_next_primary_parent,
+        )
+        target = self.get_object()
+        try:
+            assert_safe_to_remove(target, request.user, mode="deactivate")
+        except MemberRemovalError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            target.is_active = False
+            target.save(update_fields=["is_active"])
+            Token.objects.filter(user=target).delete()
+            if target.role == "parent":
+                promote_next_primary_parent(target.family, target)
+        serializer = self.get_serializer(target)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def reactivate(self, request, pk=None):
+        target = self.get_object()
+        if not target.is_active:
+            target.is_active = True
+            target.save(update_fields=["is_active"])
+        serializer = self.get_serializer(target)
+        return Response(serializer.data)
+
+    def perform_destroy(self, instance):
+        from apps.families.services import (
+            MemberRemovalError, assert_safe_to_remove,
+            promote_next_primary_parent,
+        )
+        try:
+            assert_safe_to_remove(instance, self.request.user, mode="delete")
+        except MemberRemovalError as exc:
+            # Re-raise as DRF ValidationError so the framework returns 400
+            # with the message — same shape as our serializer-validation 400s.
+            from rest_framework import serializers as drf_serializers
+            raise drf_serializers.ValidationError({"error": str(exc)})
+        if instance.role == "parent":
+            promote_next_primary_parent(instance.family, instance)
+        instance.delete()
+
+
+class ChildViewSet(_UserManagementActionsMixin, viewsets.ModelViewSet):
     serializer_class = ChildSerializer
     permission_classes = [IsParent]
-    http_method_names = ["get", "post", "patch", "head", "options"]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
         family = getattr(self.request.user, "family", None)
@@ -135,6 +221,32 @@ class ChildViewSet(viewsets.ModelViewSet):
         # pops it and uses ``User.objects.create_user`` to hash it.
         serializer.save(
             role="child",
+            family=self.request.user.family,
+        )
+
+
+class ParentViewSet(_UserManagementActionsMixin, viewsets.ModelViewSet):
+    """Co-parent management for any parent in the family.
+
+    Mirrors ChildViewSet's family-scoping. Adds DELETE and the shared
+    reset-password / deactivate / reactivate actions via the mixin. The
+    family-integrity guards prevent the requester from locking themselves
+    out (self-delete, deactivating the last active parent, etc.).
+    """
+
+    serializer_class = ParentSerializer
+    permission_classes = [IsParent]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        family = getattr(self.request.user, "family", None)
+        if family is None:
+            return User.objects.none()
+        return User.objects.filter(role="parent", family=family)
+
+    def perform_create(self, serializer):
+        serializer.save(
+            role="parent",
             family=self.request.user.family,
         )
 

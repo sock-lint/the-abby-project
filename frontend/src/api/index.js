@@ -289,6 +289,25 @@ export const addCollaborator = (projectId, user_id, pay_split_percent) =>
 export const getChildren = () => api.get('/children/');
 export const createChild = (data) => api.post('/children/', data);
 export const updateChild = (id, data) => api.patch(`/children/${id}/`, data);
+export const deleteChild = (id) => api.delete(`/children/${id}/`);
+export const resetChildPassword = (id, password) =>
+  api.post(`/children/${id}/reset-password/`, { password });
+export const deactivateChild = (id) => api.post(`/children/${id}/deactivate/`);
+export const reactivateChild = (id) => api.post(`/children/${id}/reactivate/`);
+
+// Parents / co-parents (parent-only — same family)
+export const getParents = () => api.get('/parents/');
+export const createParent = (data) => api.post('/parents/', data);
+export const updateParent = (id, data) => api.patch(`/parents/${id}/`, data);
+export const deleteParent = (id) => api.delete(`/parents/${id}/`);
+export const resetParentPassword = (id, password) =>
+  api.post(`/parents/${id}/reset-password/`, { password });
+export const deactivateParent = (id) => api.post(`/parents/${id}/deactivate/`);
+export const reactivateParent = (id) => api.post(`/parents/${id}/reactivate/`);
+
+// Admin — staff-only (gates the Admin tab visibility on /manage)
+export const adminPing = () => api.get('/admin/families/');
+export const adminCreateFamily = (data) => api.post('/admin/families/', data);
 
 // Chores
 export const getChores = () => api.get('/chores/');

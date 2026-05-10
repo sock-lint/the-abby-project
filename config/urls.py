@@ -48,6 +48,7 @@ urlpatterns = [
     # Accounts urls (signup) MUST come before projects/ so /api/auth/signup/
     # is matched as a literal path, not consumed by the AuthView's URL.
     path("api/", include("apps.accounts.urls")),
+    path("api/", include("apps.families.urls")),
     path("api/", include("apps.ingestion.urls")),
     path("api/", include("apps.projects.urls")),
     path("api/", include("apps.notifications.urls")),
