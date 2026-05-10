@@ -4,42 +4,65 @@ import RarityStrand from './RarityStrand';
 import { tierForProgress } from './mastery.constants';
 
 /**
- * IncipitBand — hero strip above the collection folios. A single-row
- * incipit: illuminated drop-cap "S" whose gilt fill reflects overall
- * sealed %, display-serif title, script kicker, a "sealed" count chip,
- * and a full-width rarity strand beneath.
+ * IncipitBand — hero strip for any folio-style chapter opener. Single-row
+ * incipit: illuminated drop-cap (letter prop) whose gilt fill reflects
+ * `progressPct`, display-serif title, optional script kicker, optional
+ * meta line, and an optional rarity strand beneath.
+ *
+ * Domain-agnostic: the Reliquary Codex passes "Sigil Case" / "sealed of
+ * total" copy, the Yearbook can pass a chapter year + a year-progress
+ * percent, etc. Pass `rarityCounts` only when a rarity-tier breakdown
+ * applies — omit to suppress the strand.
  */
-export default function IncipitBand({ earned, total, rarityCounts }) {
-  const progressPct = total ? (earned / total) * 100 : 0;
-  const tier = tierForProgress({ unlocked: total > 0, progressPct, level: 0 });
+export default function IncipitBand({
+  letter,
+  title,
+  kicker,
+  meta,
+  progressPct = 0,
+  rarityCounts,
+  versalSize = 'xl',
+  className = '',
+}) {
+  const safePct = Math.max(0, Math.min(100, progressPct));
+  const tier = tierForProgress({ unlocked: safePct > 0, progressPct: safePct, level: 0 });
 
   return (
-    <ParchmentCard variant="sealed" tone="bright" flourish seal="top-right" className="overflow-hidden">
+    <ParchmentCard
+      variant="sealed"
+      tone="bright"
+      flourish
+      seal="top-right"
+      className={`overflow-hidden ${className}`}
+    >
       <div className="flex items-center gap-5 pr-12">
         <IlluminatedVersal
-          letter="S"
-          size="xl"
+          letter={letter}
+          size={versalSize}
           tier={tier}
-          progressPct={progressPct}
+          progressPct={safePct}
         />
         <div className="flex-1 min-w-0">
-          <div className="font-script text-sheikah-teal-deep text-base leading-snug">
-            · the reliquary of seals ·
-          </div>
+          {kicker && (
+            <div className="font-script text-sheikah-teal-deep text-base leading-snug">
+              {kicker}
+            </div>
+          )}
           <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-            Sigil Case
+            {title}
           </h1>
-          <div className="mt-1 inline-flex items-center gap-2 text-caption font-script text-ink-whisper">
-            <span className="tabular-nums">
-              {earned} of {total}
-            </span>
-            <span>sealed</span>
-          </div>
+          {meta && (
+            <div className="mt-1 inline-flex items-center gap-2 text-caption font-script text-ink-whisper">
+              {meta}
+            </div>
+          )}
         </div>
       </div>
-      <div className="mt-4">
-        <RarityStrand counts={rarityCounts} />
-      </div>
+      {rarityCounts && (
+        <div className="mt-4">
+          <RarityStrand counts={rarityCounts} />
+        </div>
+      )}
     </ParchmentCard>
   );
 }

@@ -19,9 +19,24 @@ export default function SigilCodex({ allBadges = [], earnedBadges = [], onSelect
   const totalRarity = rarityCounts(allBadges, earnedIdSet);
   const totalEarned = earnedIdSet.size;
 
+  const total = allBadges.length;
+  const progressPct = total ? (totalEarned / total) * 100 : 0;
+
   return (
     <div className="space-y-5">
-      <IncipitBand earned={totalEarned} total={allBadges.length} rarityCounts={totalRarity} />
+      <IncipitBand
+        letter="S"
+        title="Sigil Case"
+        kicker="· the reliquary of seals ·"
+        meta={
+          <>
+            <span className="tabular-nums">{totalEarned} of {total}</span>
+            <span>sealed</span>
+          </>
+        }
+        progressPct={progressPct}
+        rarityCounts={totalRarity}
+      />
 
       <div className="space-y-4">
         {grouped.map((chapter) => (
