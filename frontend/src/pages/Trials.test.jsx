@@ -156,4 +156,27 @@ describe('Trials', () => {
     // on_time_only flowed into trigger_filter.on_time.
     expect(body.trigger_filter).toEqual({ on_time: true });
   });
+
+  it('filters available trials by name via the search input', async () => {
+    const user = userEvent.setup();
+    renderPage(buildUser(), [
+      http.get('*/api/quests/active/', () => HttpResponse.json(null)),
+      http.get('*/api/quests/available/', () =>
+        HttpResponse.json([
+          { id: 1, name: 'Dragon Slayer', description: 'fell the wyrm', quest_type_display: 'Boss', target_value: 100, duration_days: 7 },
+          { id: 2, name: 'Berry Hunt', description: 'collect 12 berries', quest_type_display: 'Collection', target_value: 12, duration_days: 3 },
+        ]),
+      ),
+      http.get('*/api/quests/history/', () => HttpResponse.json([])),
+    ]);
+    const availableTab = await screen.findByRole('button', { name: /available/i });
+    await user.click(availableTab);
+    await waitFor(() => expect(screen.getByText(/dragon slayer/i)).toBeInTheDocument());
+
+    const search = screen.getByRole('searchbox', { name: /filter available trials/i });
+    await user.type(search, 'berry');
+
+    expect(screen.queryByText(/dragon slayer/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/berry hunt/i)).toBeInTheDocument();
+  });
 });

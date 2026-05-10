@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, ThumbsUp, ThumbsDown, Pencil, Trash2 } from 'lucide-react';
 import {
@@ -12,6 +12,7 @@ import { useRole } from '../hooks/useRole';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import EmptyState from '../components/EmptyState';
+import CatalogSearch from '../components/CatalogSearch';
 import ConfirmDialog from '../components/ConfirmDialog';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
@@ -179,6 +180,7 @@ export default function Habits() {
   const [formMode, setFormMode] = useState('create');
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [tapping, setTapping] = useState(null);
+  const [search, setSearch] = useState('');
   // Optimistic deltas keyed by habit id — `{ [id]: {strength, taps_today} }`.
   // Applied during render so the strength medallion bumps the moment a
   // tap fires instead of waiting on the server roundtrip + refetch.
@@ -196,6 +198,12 @@ export default function Habits() {
       taps_today: (h.taps_today ?? 0) + (d.taps_today || 0),
     };
   });
+
+  const filteredHabits = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return habits;
+    return habits.filter((h) => (h.name || '').toLowerCase().includes(q));
+  }, [habits, search]);
 
   const proposals = normalizeList(rawProposals);
   const children = normalizeList(rawChildren);
@@ -346,14 +354,27 @@ export default function Habits() {
         </section>
       )}
 
+      {habits.length > 0 && (
+        <CatalogSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Search rituals…"
+          ariaLabel="Filter rituals"
+        />
+      )}
+
       {habits.length === 0 ? (
         <EmptyState icon={<ScrollIcon size={32} />}>
           No rituals recorded yet. Inscribe a virtue to begin practicing.
         </EmptyState>
+      ) : filteredHabits.length === 0 ? (
+        <EmptyState icon={<ScrollIcon size={32} />}>
+          No rituals match &ldquo;{search.trim()}&rdquo;.
+        </EmptyState>
       ) : (
         <motion.div layout className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
           <AnimatePresence>
-            {habits.map((habit) => (
+            {filteredHabits.map((habit) => (
               <motion.div
                 key={habit.id}
                 layout

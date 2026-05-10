@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Check, Plus, Pencil, Trash2,
@@ -19,6 +19,7 @@ import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
+import CatalogSearch from '../components/CatalogSearch';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
@@ -215,8 +216,20 @@ export default function Chores() {
   const [editingChore, setEditingChore] = useState(null);
   const [formMode, setFormMode] = useState('create');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [search, setSearch] = useState('');
 
   const loading = loadingChores || loadingCompletions;
+
+  const choresList = useMemo(() => normalizeList(choresData), [choresData]);
+  const filteredChores = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return choresList;
+    return choresList.filter((c) => {
+      const title = (c.title || '').toLowerCase();
+      const desc = (c.description || '').toLowerCase();
+      return title.includes(q) || desc.includes(q);
+    });
+  }, [choresList, search]);
 
   const refresh = () => {
     reloadChores();
@@ -258,7 +271,7 @@ export default function Chores() {
 
   if (loading) return <Loader />;
 
-  const chores = normalizeList(choresData);
+  const chores = choresList;
   const completions = normalizeList(completionsData);
   const proposals = normalizeList(proposalsData);
   const children = normalizeList(childrenData);
@@ -411,15 +424,29 @@ export default function Chores() {
             {isParent ? 'All duties' : "Today's duties"}
           </h2>
         </div>
+        {chores.length > 0 && (
+          <div className="mb-3">
+            <CatalogSearch
+              value={search}
+              onChange={setSearch}
+              placeholder="Search duties…"
+              ariaLabel="Filter duties"
+            />
+          </div>
+        )}
         {chores.length === 0 ? (
           <EmptyState icon={<ScrollIcon size={32} />}>
             {isParent
               ? 'No duties inscribed yet. Add one to begin the keep.'
               : 'No duties available today.'}
           </EmptyState>
+        ) : filteredChores.length === 0 ? (
+          <EmptyState icon={<ScrollIcon size={32} />}>
+            No duties match &ldquo;{search.trim()}&rdquo;.
+          </EmptyState>
         ) : (
           <div className="space-y-2">
-            {chores.map((chore) => {
+            {filteredChores.map((chore) => {
               const isDone = !isParent && (chore.today_status === 'approved' || chore.today_status === 'pending');
               const isAvailable = !isParent && chore.is_available;
               const isRejected = !isParent && chore.today_status === 'rejected';
