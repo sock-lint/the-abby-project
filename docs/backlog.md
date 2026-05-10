@@ -64,3 +64,58 @@ A specific moment with a clear trigger and dismissal path that **can't be expres
 - Read [`docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`](superpowers/specs/2026-04-13-rpg-gamification-layer-design.md) — this entry sits *below* that spec in scope (one moment, not a layer).
 - Existing line in the sand for "what CSS can do": [`frontend/src/components/rpg/RpgSprite.jsx`](../frontend/src/components/rpg/RpgSprite.jsx). If a moment needs more than `steps()` over a sheet plus `<motion.div>` composition, that's the threshold for reaching for Pixi.
 - Respect the design system's z-stack and modal overlay tokens — see [`frontend/src/components/README.md`](../frontend/src/components/README.md). A canvas moment is still a modal-class affordance.
+
+---
+
+## Functionality review — leftover suggestions
+
+**Date raised:** 2026-05-10
+
+These came out of a focused user-facing-functionality review. Search-on-list-pages shipped with the same review (see [`Projects.jsx`](../frontend/src/pages/Projects.jsx), [`Chores.jsx`](../frontend/src/pages/Chores.jsx), [`Habits.jsx`](../frontend/src/pages/Habits.jsx), [`Trials.jsx`](../frontend/src/pages/Trials.jsx)) — the rest sit here, ranked by leverage. Effort tags: **S** (≤ a day), **M** (a few days), **L** (a week+).
+
+### 1. Re-engagement & reminders
+
+- **Web Push notifications** **[M]** — the PWA stack is otherwise complete ([`frontend/src/pwa/`](../frontend/src/pwa/)) but there's no `pushManager` / VAPID setup. The backend `notify()` call sites in [`apps/notifications/services.py`](../apps/notifications/services.py) already classify by `NotificationType` — wiring push delivery would let every existing notification reach a phone home screen. High-value first targets: `STREAK_MILESTONE`, `CHORE_REJECTED`, `HOMEWORK_REJECTED`, `LOW_REWARD_STOCK`, `REWARD_RESTOCKED`, parent-side `*_SUBMITTED` queue. Pair with a per-type opt-in card on `SettingsPage`.
+- **Streak-protect *preventative* warning** **[S]** — today the streak-flame milestones celebrate after the fact. There's no nudge before a streak breaks. [`apps/projects/priority.py`](../apps/projects/priority.py) already has `habit_streak_protection` scoring — extend this into a Celery task at ~19:00 local that emits a `STREAK_AT_RISK` notification (and eventually a push) for any kid with a current streak ≥ 3 who hasn't logged any tracked activity today. Pair with a soft banner on `ChildDashboard` when `now - last_activity > 16h` and streak ≥ 3.
+- **"What's new since you last visited" inbox** **[S]** — `ChildDashboard` already loads recent badges + drops, but doesn't *frame* them as "since last visit." Stamp `User.last_seen_at` on dashboard fetch, then on next mount surface a single dismissible scroll: "Since you were here last: 3 badges earned, 1 approval, +12 coins." Cheapest engagement win available — the data is all there.
+- **Calendar view** **[M]** — [`frontend/src/api/index.js`](../frontend/src/api/index.js) already exposes `getCalendarSettings` / `updateCalendarSettings` / `triggerCalendarSync`, but there's no UI consumer. A simple month grid on a new `/calendar` route (or a tab inside `/quests`) would surface homework due dates, alternating-week chore schedules, and chronicle birthdays in one place. The backend wiring already exists.
+
+### 2. Insight & analytics (large surface, zero today)
+
+The app currently shows *only* current totals + recent rows. There's no charting library in `package.json` and zero hand-rolled sparklines. Adding even a tiny SVG sparkline primitive would unlock several of these.
+
+- **Coin/earnings sparkline** **[S]** — 30-day sparkline on `ChildDashboard`'s vital pip strip and on [`Payments.jsx`](../frontend/src/pages/Payments.jsx). Backend just needs a `summary_by_day` action on `PaymentLedgerViewSet` and `CoinBalanceView`.
+- **Habit strength history** **[S]** — `HabitLog` already records every tap with `streak_at_time`. [`Habits.jsx`](../frontend/src/pages/Habits.jsx) shows only the *current* strength pill — a 14-day mini-bar per habit row would make the decay/regrowth visible.
+- **Parent "How is my kid doing" view** **[M]** — [`useParentDashboard.js`](../frontend/src/hooks/useParentDashboard.js) already requests `this_week_by_kid`, but [`apps/projects/dashboard.py`](../apps/projects/dashboard.py) `_parent_extras` doesn't actually return it — that's a latent expectation in the frontend. Land the missing payload (per-child: hours, coins earned, streak, badges this week, pending count) and render a `<KidPulseRow>` card on `ParentDashboard`. Pure-additive backend fix — the UI already has the slot.
+- **Skill progression curve** **[S]** — `SkillTreeView`'s backend `get_category_summary()` is computed but never consumed on the frontend. Wire it into the FolioSpread incipit — even just "L2 → L4 in Coding this month" beats the static level chip.
+- **Monthly/yearly recap modal** **[M]** — extend `ChronicleService.freeze_recap` into a lightweight monthly recap (auto-generated 1st of month) surfacing top 3 badges, longest streak, coins earned, hours clocked. Render as a one-time `CelebrationModal` variant.
+
+### 3. Onboarding & discovery
+
+- **RPG mechanics tutorial** **[S]** — a new kid lands on `ChildDashboard` and sees coins, levels, vital pips, and drops with no explanation. Add a one-time `WelcomeRPGSheet` (`BottomSheet`) that fires once when `CharacterProfile.created_at` is < 24h: 4 short panels — "Earn coins" → "Level up skills" → "Hatch pets" → "Earn badges." Track dismissal via `CharacterProfile.unlocks` JSONField (already designed for this purpose per CLAUDE.md).
+- **Co-parent invite via shareable link** **[M]** — today the founder has to manually type a username + password for the co-parent ([`Manage.jsx`](../frontend/src/pages/Manage.jsx) `FamilySection`). That's friction for the most realistic onboarding path. Add a one-shot `FamilyInvite` token model (24-hour TTL, single-use) + a `/join/<token>` page where the invitee picks their own credentials. Throttled like signup.
+- **Empty-state cosmetic upgrade** **[S]** — [`Payments.jsx`](../frontend/src/pages/Payments.jsx) and [`ClockPage.jsx`](../frontend/src/pages/ClockPage.jsx) handle the empty path with a small `RuneBadge` chip. Upgrade to the richer `<EmptyState>` primitive used elsewhere for visual parity. Lorebook is YAML-seeded global content and is always populated, so it doesn't need this.
+
+### 4. Mobile interactions
+
+- **Swipe-to-action on lists** **[M]** — the app is mobile-first but has zero swipe gestures (`onTouchStart` / framer-drag). Highest-leverage targets:
+  - Chore rows on `/chores` → swipe-right "complete," swipe-left "skip today"
+  - Homework rows on `/quests?tab=study` → swipe-right "submit," swipe-left "needs help"
+  - Approval queue rows on `ParentDashboard` → swipe-right approve, swipe-left reject (paired with the existing reject-note `BottomSheet`)
+- **Native share for moments** **[S]** — `navigator.share` is unused. Natural emit points: badge earn (`BadgeDetailSheet`), creation approval (`Sketchbook` lightbox), pet evolve (`PetCeremonyModal`). One small `<ShareButton>` primitive in `frontend/src/components/`.
+- **Offline read-only caching** **[M]** — [`vite.config.js`](../frontend/vite.config.js) `runtimeCaching: []`. Add a `NetworkFirst` Workbox handler for `/api/dashboard/`, `/api/chores/`, `/api/homework/`, `/api/inventory/` so the app at least *renders* offline (writes still fail loudly, which is correct). Mostly a config change + a small "offline" banner.
+
+### 5. Quality-of-life polish
+
+- **Bulk approve already shipped** for parent dashboard (`Approve all (N)`) — extend the same pattern to the **Manage → Templates** page so a parent can bulk-assign a template to multiple kids in one action. **[S]**
+- **Wishlist email** when a wishlisted reward restocks already fan-outs the in-app notification; layer in the existing email backend (`DEFAULT_FROM_EMAIL`) for the same event. **[S]**
+- **Inventory "Use × N" stepper** is great — extend it to **Equip multiple cosmetics in one batch** on [`Character.jsx`](../frontend/src/pages/Character.jsx) so kids changing outfits don't round-trip 4 times. **[S]**
+- **Quest authoring UX in parent UI** **[M]** — the Trials parent challenge form exists but is sparse compared to the YAML schema. Surface the trigger filter (skill_category, project_id, on_time) as proper pickers rather than the current Advanced JSON-ish panel.
+- **Homework "submit due" contextual nudge** **[S]** — make it a contextual nudge on `ChildDashboard` ("📝 Math is due tomorrow, submit it now?") rather than only a quick-actions row.
+
+### Pointers for whoever picks this up
+
+- Pick up the highest-ROI first: **1c (What's new since you last visited)** is the smallest effort with the biggest perceived impact — all the data is already on the dashboard payload, just needs framing + a `User.last_seen_at` stamp.
+- Each item is independent — none of them block the others.
+- Per CLAUDE.md's "Interaction tests REQUIRED" rule, every clickable element that fires a POST/PATCH/DELETE needs a colocated `*.test.{js,jsx}` interaction test using `spyHandler` from [`frontend/src/test/spy.js`](../frontend/src/test/spy.js).
+- The full review document that produced this list is at [`/root/.claude/plans/can-you-review-my-proud-mango.md`](../../.claude/plans/can-you-review-my-proud-mango.md) (outside the repo, on the reviewer's machine).

@@ -274,4 +274,27 @@ describe('Habits', () => {
     expect(body.max_taps_per_day).toBe(2);
     expect(body.name).toBe('Brush teeth');
   });
+
+  it('filters rituals by name via the search input', async () => {
+    const user = userEvent.setup();
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', ({ request }) => {
+        const pending = new URL(request.url).searchParams.get('pending') === 'true';
+        return HttpResponse.json(pending
+          ? { results: [] }
+          : { results: [
+            { id: 1, name: 'Read 20 min', icon: '📖', habit_type: 'positive', strength: 3, color: 'green' },
+            { id: 2, name: 'No screens after 8', icon: '📵', habit_type: 'negative', strength: -2, color: 'red-light' },
+          ] },
+        );
+      }),
+    ]);
+    await waitFor(() => expect(screen.getByText(/read 20 min/i)).toBeInTheDocument());
+
+    const search = screen.getByRole('searchbox', { name: /filter rituals/i });
+    await user.type(search, 'read');
+
+    expect(screen.getByText(/read 20 min/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no screens/i)).not.toBeInTheDocument();
+  });
 });

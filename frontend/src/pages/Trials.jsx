@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { Play, Shield, Sword, X } from 'lucide-react';
@@ -11,6 +11,7 @@ import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
 import Loader from '../components/Loader';
 import EmptyState from '../components/EmptyState';
+import CatalogSearch from '../components/CatalogSearch';
 import ErrorAlert from '../components/ErrorAlert';
 import TabButton from '../components/TabButton';
 import ParchmentCard from '../components/journal/ParchmentCard';
@@ -90,7 +91,19 @@ export default function Trials() {
   const [showChallenge, setShowChallenge] = useState(false);
   const [challenge, setChallenge] = useState(DEFAULT_CHALLENGE);
   const [issuing, setIssuing] = useState(false);
+  const [availableSearch, setAvailableSearch] = useState('');
   const children = normalizeList(childrenData);
+
+  const availableList = useMemo(() => normalizeList(availableData), [availableData]);
+  const filteredAvailable = useMemo(() => {
+    const q = availableSearch.trim().toLowerCase();
+    if (!q) return availableList;
+    return availableList.filter((qd) => {
+      const name = (qd.name || '').toLowerCase();
+      const desc = (qd.description || '').toLowerCase();
+      return name.includes(q) || desc.includes(q);
+    });
+  }, [availableList, availableSearch]);
 
   const loading = loadingActive || loadingAvailable || loadingHistory || loadingFamily;
   if (loading) return <Loader />;
@@ -155,7 +168,7 @@ export default function Trials() {
     });
   };
 
-  const available = normalizeList(availableData);
+  const available = availableList;
   const history = normalizeList(historyData);
   const familyRows = (familyData?.results || []).filter((row) => row.quest);
 
@@ -592,7 +605,17 @@ export default function Trials() {
           </EmptyState>
         ) : (
           <div className="space-y-3">
-            {available.map((qd) => (
+            <CatalogSearch
+              value={availableSearch}
+              onChange={setAvailableSearch}
+              placeholder="Search available trials…"
+              ariaLabel="Filter available trials"
+            />
+            {filteredAvailable.length === 0 ? (
+              <EmptyState icon={<DragonIcon size={32} />}>
+                No trials match &ldquo;{availableSearch.trim()}&rdquo;.
+              </EmptyState>
+            ) : filteredAvailable.map((qd) => (
               <ParchmentCard key={qd.id} className="flex items-center gap-4">
                 <div className="shrink-0">
                   <RpgSprite
