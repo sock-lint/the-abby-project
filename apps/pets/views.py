@@ -5,8 +5,10 @@ from rest_framework.views import APIView
 
 from config.permissions import IsParent
 
+from .expeditions import ExpeditionError, ExpeditionNotFound, ExpeditionService
 from .models import PetSpecies, PotionType, UserPet, UserMount
 from .serializers import (
+    MountExpeditionSerializer,
     PetCodexEntrySerializer,
     PetSpeciesCatalogSerializer,
     PotionTypeSerializer,
@@ -85,9 +87,26 @@ class MountsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        mounts = UserMount.objects.filter(
-            user=request.user,
-        ).select_related("species", "potion")
+        from django.db.models import Prefetch
+        from .models import MountExpedition
+
+        # Prefetch active expeditions onto each mount so
+        # ``UserMountSerializer.get_active_expedition`` doesn't N+1 the
+        # mount list — at one mount + one query each pre-prefetch, a kid
+        # with 20+ mounts saw a 40+ query response. With the prefetch
+        # the cost collapses to two queries total.
+        mounts = (
+            UserMount.objects
+            .filter(user=request.user)
+            .select_related("species", "potion")
+            .prefetch_related(Prefetch(
+                "expeditions",
+                queryset=MountExpedition.objects.filter(
+                    status=MountExpedition.Status.ACTIVE,
+                ).order_by("-started_at"),
+                to_attr="prefetched_active_expeditions",
+            ))
+        )
         return Response(UserMountSerializer(mounts, many=True).data)
 
 
@@ -234,3 +253,70 @@ class BreedMountsView(APIView):
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(result, status=status.HTTP_201_CREATED)
+
+
+class StartExpeditionView(APIView):
+    """POST /api/mounts/<id>/expedition/ — send the mount on an offline run.
+
+    Body: ``{"tier": "short" | "standard" | "long"}``. Returns the new
+    expedition row, including the locked loot preview the frontend uses
+    to render the in-flight card.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        tier = request.data.get("tier")
+        if tier not in ("short", "standard", "long"):
+            return Response(
+                {"error": "tier must be one of 'short', 'standard', 'long'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            expedition = ExpeditionService.start(request.user, pk, tier)
+        except ExpeditionNotFound as exc:
+            # Cross-user / unknown mount → 404 to avoid leaking whether a
+            # mount with that pk exists in another household. Branch on the
+            # exception class, not the message text.
+            return Response({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        except ExpeditionError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            MountExpeditionSerializer(expedition).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ListExpeditionsView(APIView):
+    """GET /api/expeditions/[?ready=true] — every expedition for the user.
+
+    The optional ``ready=true`` filter is what the toast-stack hook uses to
+    poll for unclaimed loot — it returns only active expeditions whose
+    ``returns_at`` has passed.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        ready_only = str(request.query_params.get("ready", "")).lower() in {"1", "true", "yes"}
+        expeditions = ExpeditionService.list_for_user(request.user, ready_only=ready_only)
+        return Response({
+            "expeditions": MountExpeditionSerializer(expeditions, many=True).data,
+        })
+
+
+class ClaimExpeditionView(APIView):
+    """POST /api/expeditions/<id>/claim/ — materialize loot into ledger + inventory.
+
+    Idempotent: a second claim returns the first claim's serialized result
+    with ``coins_awarded=0`` and ``freshly_claimed=False``. Cross-user
+    expedition pks return 404 (existence-leak prevention).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            result = ExpeditionService.claim(request.user, pk)
+        except ExpeditionNotFound as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        except ExpeditionError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result)

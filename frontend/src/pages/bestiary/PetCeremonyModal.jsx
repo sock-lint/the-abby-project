@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
-import { Crown, Sparkles, Egg } from 'lucide-react';
+import { Crown, Sparkles, Egg, Coins, Map as MapIcon } from 'lucide-react';
 
 import Button from '../../components/Button';
 import RpgSprite from '../../components/rpg/RpgSprite';
@@ -31,6 +31,7 @@ function usePrefersReducedMotion() {
 const HATCH_PHASES = [800, 400, 1200];   // wobble → flash → reveal
 const EVOLVE_PHASES = [400, 800, 300];   // hold → charge → flash (then settle)
 const BREED_PHASES = [800, 400, 1200];   // converge → flash → reveal
+const EXPEDITION_PHASES = [600, 400, 1200]; // approach → flash → reveal loot
 
 /**
  * PetCeremonyModal — one-shot reveal for hatch, evolve, and breed moments.
@@ -55,18 +56,25 @@ const BREED_PHASES = [800, 400, 1200];   // converge → flash → reveal
  * The component is presentational — no API calls. Callers handle
  * success bookkeeping (refetch, refresh, etc.) before mounting it.
  */
-export default function PetCeremonyModal({ mode, pet, species, potion, parents, result, onDismiss }) {
+export default function PetCeremonyModal({ mode, pet, species, potion, parents, result, expedition, onDismiss }) {
   const titleId = useId();
   const reduced = usePrefersReducedMotion();
 
   const isHatch = mode === 'hatch';
   const isEvolve = mode === 'evolve';
   const isBreed = mode === 'breed';
+  const isExpedition = mode === 'expedition_return';
   // Hooks must run unconditionally — phases falls back to HATCH for unknown
   // modes; the unknown branch returns null below after the hook calls.
-  const phases = isEvolve ? EVOLVE_PHASES : isBreed ? BREED_PHASES : HATCH_PHASES;
+  const phases = isEvolve
+    ? EVOLVE_PHASES
+    : isBreed
+      ? BREED_PHASES
+      : isExpedition
+        ? EXPEDITION_PHASES
+        : HATCH_PHASES;
   const phase = usePhasedSequence(phases, { reduced });
-  if (!isHatch && !isEvolve && !isBreed) return null;
+  if (!isHatch && !isEvolve && !isBreed && !isExpedition) return null;
 
   const content = (
     <div
@@ -108,6 +116,15 @@ export default function PetCeremonyModal({ mode, pet, species, potion, parents, 
           <BreedSequence
             parents={parents}
             result={result}
+            phase={phase}
+            reduced={reduced}
+            titleId={titleId}
+            onDismiss={onDismiss}
+          />
+        )}
+        {isExpedition && (
+          <ExpeditionReturnSequence
+            expedition={expedition}
             phase={phase}
             reduced={reduced}
             titleId={titleId}
@@ -427,6 +444,127 @@ function BreedSequence({ parents, result, phase, reduced, titleId, onDismiss }) 
       <div className="mt-6">
         <Button variant="primary" onClick={onDismiss}>
           Continue →
+        </Button>
+      </div>
+    </>
+  );
+}
+
+// ─── Expedition return ───────────────────────────────────────────────────
+
+/**
+ * The mount returns from its offline run. Phase semantics:
+ *   0 = approach (sprite slides in from edge)
+ *   1 = flash (loot drops at the mount's feet)
+ *   2 = reveal (coin chip + item icons appear)
+ *   3 = settled
+ *
+ * `expedition` shape (from ExpeditionService.claim or the toast claim flow):
+ *   { coins_awarded, items: [{name, icon, sprite_key, rarity, quantity, salvaged_to_coins?}],
+ *     mount: { species_name, species_sprite_key, species_icon, potion_name, potion_slug }, tier }
+ */
+function ExpeditionReturnSequence({ expedition, phase, reduced, titleId, onDismiss }) {
+  const mount = expedition?.mount || {};
+  const speciesName = mount.species_name;
+  const speciesSpriteKey = mount.species_sprite_key;
+  const speciesIcon = mount.species_icon;
+  const potionSlug = mount.potion_slug;
+  const items = expedition?.items || [];
+  const coins = expedition?.coins_awarded ?? 0;
+  const tier = expedition?.tier;
+
+  const showApproach = phase < 2 && !reduced;
+  const showFlash = phase === 1 && !reduced;
+  const showLoot = reduced || phase >= 2;
+
+  return (
+    <>
+      <div className="flex items-center justify-center gap-2 text-sheikah-teal-deep">
+        <MapIcon size={18} aria-hidden="true" />
+        <div className="font-script text-base">your mount has returned</div>
+      </div>
+      <div className="relative mt-4 flex items-center justify-center" style={{ minHeight: 140 }}>
+        {showFlash && (
+          <div
+            className="animate-cosmic-burst absolute inset-0 m-auto pointer-events-none"
+            style={{
+              width: 180, height: 180,
+              borderRadius: '50%',
+              background:
+                'radial-gradient(circle, rgba(255,250,225,0.85) 0%, rgba(255,220,160,0.4) 40%, transparent 75%)',
+            }}
+            aria-hidden="true"
+          />
+        )}
+        {showApproach && (
+          <motion.div
+            initial={reduced ? {} : { x: -110, opacity: 0 }}
+            animate={{ x: phase === 0 ? -10 : 0, opacity: 1 }}
+            transition={reduced ? { duration: 0 } : { duration: 0.7, ease: 'easeOut' }}
+            className="absolute"
+          >
+            <RpgSprite
+              spriteKey={speciesSpriteKey ? `${speciesSpriteKey}-mount` : null}
+              fallbackSpriteKey={speciesSpriteKey}
+              icon={speciesIcon}
+              size={96}
+              alt={speciesName || 'mount'}
+              potionSlug={potionSlug}
+            />
+          </motion.div>
+        )}
+        {showLoot && (
+          <>
+            {!reduced && <PotionAura potionSlug={potionSlug} size={170} intensity={0.7} />}
+            <motion.div
+              initial={reduced ? {} : { scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={reduced ? { duration: 0 } : { duration: 0.55, type: 'spring', bounce: 0.4 }}
+              className="relative flex items-center justify-center gap-3 flex-wrap"
+            >
+              <RpgSprite
+                spriteKey={speciesSpriteKey ? `${speciesSpriteKey}-mount` : null}
+                fallbackSpriteKey={speciesSpriteKey}
+                icon={speciesIcon}
+                size={72}
+                alt={speciesName || 'mount'}
+                potionSlug={potionSlug}
+              />
+              <div className="flex flex-col items-start gap-1">
+                {coins > 0 && (
+                  <span className="inline-flex items-center gap-1 font-script text-base text-gold-leaf">
+                    <Coins size={14} aria-hidden="true" /> +{coins}
+                  </span>
+                )}
+                {items.slice(0, 4).map((item, idx) => (
+                  <span key={`${item.name}-${idx}`} className="inline-flex items-center gap-1 font-body text-tiny text-ink-secondary">
+                    <span aria-hidden="true">{item.icon || '🎁'}</span>
+                    <span>{item.name}</span>
+                    {item.salvaged_to_coins ? (
+                      <span className="text-gold-leaf">· salvaged +{item.salvaged_to_coins}c</span>
+                    ) : item.quantity > 1 ? (
+                      <span className="text-ink-whisper">×{item.quantity}</span>
+                    ) : null}
+                  </span>
+                ))}
+              </div>
+            </motion.div>
+            {!reduced && <SparkleBurst count={8} radius={100} duration={1.2} />}
+          </>
+        )}
+      </div>
+      <h2
+        id={titleId}
+        className="mt-3 font-display italic text-2xl text-ink-primary leading-tight"
+      >
+        {speciesName ? `${speciesName} is back` : 'Your mount returned'}
+      </h2>
+      <p className="mt-1 font-script text-sm text-ink-whisper">
+        {tier ? `from a ${tier} expedition` : 'with stories and a satchel of finds'}
+      </p>
+      <div className="mt-6">
+        <Button variant="primary" onClick={onDismiss}>
+          Take the loot →
         </Button>
       </div>
     </>

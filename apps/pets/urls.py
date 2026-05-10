@@ -21,4 +21,15 @@ urlpatterns = [
     path("mounts/", views.MountsView.as_view(), name="mounts"),
     path("mounts/<int:pk>/activate/", views.ActivateMountView.as_view(), name="mount-activate"),
     path("mounts/breed/", views.BreedMountsView.as_view(), name="mount-breed"),
+    path(
+        "mounts/<int:pk>/expedition/",
+        views.StartExpeditionView.as_view(),
+        name="mount-expedition-start",
+    ),
+    path("expeditions/", views.ListExpeditionsView.as_view(), name="expeditions-list"),
+    path(
+        "expeditions/<int:pk>/claim/",
+        views.ClaimExpeditionView.as_view(),
+        name="expedition-claim",
+    ),
 ]

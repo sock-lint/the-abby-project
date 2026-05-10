@@ -527,10 +527,26 @@ class PetService:
     @staticmethod
     def get_stable(user):
         """Return all pets and mounts for a user, plus collection stats."""
-        from apps.pets.models import PetSpecies, PotionType, UserPet, UserMount
+        from django.db.models import Prefetch
+        from apps.pets.models import (
+            MountExpedition, PetSpecies, PotionType, UserMount, UserPet,
+        )
 
         pets = list(UserPet.objects.filter(user=user).select_related("species", "potion"))
-        mounts = list(UserMount.objects.filter(user=user).select_related("species", "potion"))
+        # Same prefetch as MountsView — keep ``UserMountSerializer``'s
+        # active-expedition lookup at O(2 queries) regardless of mount count.
+        mounts = list(
+            UserMount.objects
+            .filter(user=user)
+            .select_related("species", "potion")
+            .prefetch_related(Prefetch(
+                "expeditions",
+                queryset=MountExpedition.objects.filter(
+                    status=MountExpedition.Status.ACTIVE,
+                ).order_by("-started_at"),
+                to_attr="prefetched_active_expeditions",
+            ))
+        )
         total_species = PetSpecies.objects.count()
         total_potions = PotionType.objects.count()
         total_possible = total_species * total_potions

@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Crown } from 'lucide-react';
-import { getStable, activateMount } from '../../../api';
+import { Crown, Map as MapIcon, Hourglass } from 'lucide-react';
+import {
+  getStable, activateMount, claimExpedition,
+} from '../../../api';
 import { useApi } from '../../../hooks/useApi';
 import Loader from '../../../components/Loader';
 import EmptyState from '../../../components/EmptyState';
@@ -12,10 +14,13 @@ import DeckleDivider from '../../../components/journal/DeckleDivider';
 import { DragonIcon } from '../../../components/icons/JournalIcons';
 import RpgSprite from '../../../components/rpg/RpgSprite';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
+import PetCeremonyModal from '../PetCeremonyModal';
+import ExpeditionLaunchSheet from './ExpeditionLaunchSheet';
 import {
   MOUNT_FILTERS,
   compareByRarityThenName,
   daysUntilReady,
+  formatExpeditionRemaining,
 } from './party.constants';
 
 /**
@@ -29,6 +34,8 @@ export default function Mounts() {
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
+  const [launchMount, setLaunchMount] = useState(null);
+  const [claimedExpedition, setClaimedExpedition] = useState(null);
 
   const mounts = useMemo(() => stableData?.mounts || [], [stableData]);
   const totalPossible = stableData?.total_possible || 0;
@@ -54,6 +61,20 @@ export default function Mounts() {
     try { await activateMount(mountId); reload(); }
     catch (e) { setError(e.message); }
     finally { setWorking(false); }
+  };
+
+  const handleClaim = async (expeditionId) => {
+    setWorking(true);
+    setError('');
+    try {
+      const result = await claimExpedition(expeditionId);
+      setClaimedExpedition(result);
+      reload();
+    } catch (e) {
+      setError(e.message || 'Could not claim expedition.');
+    } finally {
+      setWorking(false);
+    }
   };
 
   return (
@@ -119,6 +140,12 @@ export default function Mounts() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {visibleMounts.map((mount) => {
             const cooldownDaysLeft = daysUntilReady(mount.last_bred_at);
+            const expedition = mount.active_expedition;
+            const isOut = !!expedition && expedition.status === 'active';
+            const isReady = isOut && expedition.is_ready;
+            const remainingLabel = isOut
+              ? formatExpeditionRemaining(expedition.seconds_remaining)
+              : null;
             return (
               <motion.div key={mount.id} whileHover={{ y: -2 }}>
                 <ParchmentCard
@@ -126,7 +153,7 @@ export default function Mounts() {
                     mount.is_active
                       ? 'ring-2 ring-offset-2 ring-offset-ink-page ring-gold-leaf'
                       : ''
-                  }`}
+                  } ${isOut && !isReady ? 'opacity-80' : ''}`}
                 >
                   <div className="flex items-center justify-center h-16 mb-1">
                     <RpgSprite
@@ -136,6 +163,7 @@ export default function Mounts() {
                       size={64}
                       alt={`${mount.potion.name} ${mount.species.name}`}
                       potionSlug={mount.potion.slug}
+                      dim={isOut && !isReady ? 'stale' : null}
                     />
                   </div>
                   <div className="font-body text-sm font-medium leading-tight">
@@ -149,11 +177,17 @@ export default function Mounts() {
                     {mount.potion.rarity}
                   </div>
                   <div className="font-script text-tiny text-gold-leaf mt-1">mount</div>
-                  {cooldownDaysLeft !== null ? (
+                  {isOut && !isReady && (
+                    <div className="mt-1 font-script text-tiny text-sheikah-teal-deep flex items-center justify-center gap-1">
+                      <Hourglass size={10} aria-hidden="true" /> exploring · {remainingLabel}
+                    </div>
+                  )}
+                  {!isOut && cooldownDaysLeft !== null && (
                     <div className="mt-1 font-script text-tiny text-ink-whisper">
                       resting · {cooldownDaysLeft}d
                     </div>
-                  ) : (
+                  )}
+                  {!isOut && cooldownDaysLeft === null && (
                     <div className="mt-1 font-script text-tiny text-moss">
                       ready to breed
                     </div>
@@ -166,17 +200,53 @@ export default function Mounts() {
                     <button
                       type="button"
                       onClick={() => handleActivateMount(mount.id)}
-                      disabled={working}
+                      disabled={working || isOut}
                       className="mt-2 w-full font-body text-xs py-1.5 rounded-lg bg-gold-leaf/20 text-ember-deep border border-gold-leaf/60 hover:bg-gold-leaf/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {working ? 'Saddling…' : 'Saddle up'}
                     </button>
                   )}
+                  {isReady ? (
+                    <button
+                      type="button"
+                      onClick={() => handleClaim(expedition.id)}
+                      disabled={working}
+                      className="mt-1 w-full font-body text-xs py-1.5 rounded-lg bg-gold-leaf/30 text-ember-deep border border-gold-leaf/80 hover:bg-gold-leaf/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed animate-gilded-glint"
+                      aria-label={`Claim expedition loot for ${mount.species.name}`}
+                    >
+                      {working ? 'Claiming…' : 'Claim loot →'}
+                    </button>
+                  ) : !isOut ? (
+                    <button
+                      type="button"
+                      onClick={() => setLaunchMount(mount)}
+                      disabled={working}
+                      className="mt-1 w-full font-body text-xs py-1.5 rounded-lg bg-sheikah-teal-deep/15 text-sheikah-teal-deep border border-sheikah-teal-deep/50 hover:bg-sheikah-teal-deep/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
+                      aria-label={`Send ${mount.species.name} on an expedition`}
+                    >
+                      <MapIcon size={11} aria-hidden="true" /> Expedition
+                    </button>
+                  ) : null}
                 </ParchmentCard>
               </motion.div>
             );
           })}
         </div>
+      )}
+
+      {launchMount && (
+        <ExpeditionLaunchSheet
+          mount={launchMount}
+          onDismiss={() => setLaunchMount(null)}
+          onLaunched={() => reload()}
+        />
+      )}
+      {claimedExpedition && (
+        <PetCeremonyModal
+          mode="expedition_return"
+          expedition={claimedExpedition}
+          onDismiss={() => setClaimedExpedition(null)}
+        />
       )}
     </div>
   );

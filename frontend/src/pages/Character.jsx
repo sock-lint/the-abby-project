@@ -19,6 +19,7 @@ import SigilFrontispiece from './character/SigilFrontispiece';
 import CosmeticChapter from './character/CosmeticChapter';
 import TrophyBadgePicker from './character/TrophyBadgePicker';
 import AdventuresEntry from './character/AdventuresEntry';
+import WellbeingCard from './character/WellbeingCard';
 import { COSMETIC_CHAPTERS } from './character/character.constants';
 
 /**
@@ -137,6 +138,8 @@ export default function Character() {
         profile={profile}
         onOpenTrophyPicker={() => setPickerOpen(true)}
       />
+
+      {user?.role === 'child' && <WellbeingCard />}
 
       <AdventuresEntry />
 

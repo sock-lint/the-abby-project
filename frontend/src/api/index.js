@@ -456,6 +456,21 @@ export const breedMounts = (mountAId, mountBId) =>
 export const getRecentCompanionGrowth = () => api.get('/pets/companion-growth/recent/');
 export const markCompanionGrowthSeen = () => api.post('/pets/companion-growth/seen/');
 
+// Mount expeditions — Finch-inspired offline play loop. Tier is one of
+// 'short' | 'standard' | 'long'. The list endpoint accepts ?ready=true
+// to return only active expeditions whose returns_at has passed.
+export const startExpedition = (mountId, tier) =>
+  api.post(`/mounts/${mountId}/expedition/`, { tier });
+export const listExpeditions = (readyOnly = false) =>
+  api.get(`/expeditions/${readyOnly ? '?ready=true' : ''}`);
+export const claimExpedition = (expeditionId) =>
+  api.post(`/expeditions/${expeditionId}/claim/`);
+
+// Wellbeing — daily affirmation + gratitude card on the Sigil Frontispiece
+export const getWellbeingToday = () => api.get('/wellbeing/today/');
+export const submitGratitude = (lines) =>
+  api.post('/wellbeing/today/gratitude/', { lines });
+
 // Trophy shelf
 export const setTrophyBadge = (badgeId) =>
   api.post('/character/trophy/', { badge_id: badgeId });

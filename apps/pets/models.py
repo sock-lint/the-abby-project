@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 from config.base_models import TimestampedModel
 
@@ -182,3 +183,68 @@ class UserMount(TimestampedModel):
 
     def __str__(self):
         return f"{self.species.icon} {self.potion.name} {self.species.name} (Mount)"
+
+
+class MountExpedition(TimestampedModel):
+    """A timed offline run a mount goes on, returning with loot.
+
+    Expeditions are Abby's Finch-inspired "send your bird out while you live
+    your life" loop. The user picks a tier (short / standard / long), the
+    service rolls the loot at start (locks the dice so a delayed claim
+    doesn't reroll), and the result is materialized into the user's
+    inventory + coin ledger when ``claim`` is called any time after
+    ``returns_at``. See apps/pets/expeditions.py for the orchestration.
+    """
+
+    class Tier(models.TextChoices):
+        SHORT = "short", "Short (2h)"
+        STANDARD = "standard", "Standard (4h)"
+        LONG = "long", "Long (8h)"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        CLAIMED = "claimed", "Claimed"
+        EXPIRED = "expired", "Expired"
+
+    mount = models.ForeignKey(
+        UserMount,
+        on_delete=models.CASCADE,
+        related_name="expeditions",
+    )
+    tier = models.CharField(max_length=10, choices=Tier.choices)
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.ACTIVE,
+    )
+    started_at = models.DateTimeField(default=timezone.now)
+    returns_at = models.DateTimeField()
+    claimed_at = models.DateTimeField(null=True, blank=True)
+    # Pre-rolled loot, materialized by claim(). Shape:
+    # {"coins": int, "items": [{"item_id": int, "quantity": int}]}.
+    # Locked at start so the player gets the same payout no matter when
+    # they claim — preserves trust and makes the daily-cap math simpler.
+    loot = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+        constraints = [
+            # A mount can have at most one active expedition at a time.
+            # Partial unique index — claimed/expired rows don't block.
+            models.UniqueConstraint(
+                fields=["mount"],
+                condition=models.Q(status="active"),
+                name="unique_active_expedition_per_mount",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.mount} → {self.tier} ({self.status})"
+
+    @property
+    def is_ready(self):
+        """True when the expedition has run its full duration."""
+        return timezone.now() >= self.returns_at
+
+    @property
+    def seconds_remaining(self):
+        """Negative once the expedition is ready to claim."""
+        return int((self.returns_at - timezone.now()).total_seconds())

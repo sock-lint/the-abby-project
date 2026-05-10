@@ -67,6 +67,54 @@ A specific moment with a clear trigger and dismissal path that **can't be expres
 
 ---
 
+## Finch features we surveyed but didn't pull (yet)
+
+**Date raised:** 2026-05-10
+
+### Context
+
+We pulled two Finch-inspired features in the 2026-05-10 round — **mount expeditions** (offline play, lives in `apps/pets/expeditions.py` + `MountExpedition` model + `ExpeditionToastStack`) and the **daily wellbeing card** (affirmation + gratitude on the Sigil Frontispiece, lives in `apps/wellbeing/`). The user's choice was to keep RPG framing on the inputs/outputs.
+
+The survey turned up **four more Finch-shaped gaps** we explicitly deferred, ranked here by fit. Each could land standalone — none depends on another. If any of these moves up the priority list, the planning conversation in PR #104 has the full mapping; this section is the short version.
+
+### 1. Mood check-ins (HIGH fit)
+
+**Why it might be worth doing.** Multiple lightweight emotion-logs per day, distinct from the once-a-day journal. Closes a real gap — Abby has zero emotion tracking today. The journal is locked after midnight by design (see "Journal entries" gotcha in [`CLAUDE.md`](../CLAUDE.md)) which makes it the wrong vehicle for "I felt grumpy at recess" three hours into the school day.
+
+**Concrete shape.** New model `apps/<wellbeing|chronicle>/MoodCheckIn(user, occurred_at, mood, optional note)`. Mood is a small enum (e.g. great / good / okay / off / hard) — emoji-friendly, no free text required. No streak credit, no quest progress, no badges — same gentle-input doctrine as the wellbeing card. Render on the Sigil Frontispiece next to or under `WellbeingCard`, OR as a Quick Action drawer entry. Insights view (mood trend over time) belongs in the Yearbook, not on the dashboard.
+
+**Why we deferred.** Two surfaces in one round was already a lot, and the trend/insights view is a separate piece of work that wants its own design pass. Wellbeing card came first because it was the lower-effort soft-tone seed.
+
+### 2. Breathing / calming mini-game (MEDIUM fit, SHORTEST path)
+
+**Why it might be worth doing.** Self-contained frontend primitive — guided box-breathing or 4-7-8 with an animated SVG circle that expands/contracts with breath cues. Tiny backend (just a counter on `CharacterProfile` if we want to surface usage). Roughly a one-day ship.
+
+**Concrete shape.** New `<BreathingMoment>` component, mounted as a Quick Action and optionally as a Sigil Frontispiece entry. Three preset patterns (4-7-8, box, square). Reduced-motion path collapses to a static "take three slow breaths" card — no animation, same affordance. No drops, no XP, no streak credit.
+
+**Why we deferred.** No trigger to prove out — Finch lives in your pocket so a kid taps a button when they're anxious. Abby is mostly used at desk/laptop and the path-of-least-friction question (is the kid going to remember to open this when they need it?) is unanswered. Worth shipping when we have a clear placement on a route the kid is already on.
+
+### 3. Sleep / bedtime ritual (MEDIUM fit)
+
+**Why it might be worth doing.** Pairs naturally with the existing Phoenix-local 23:55 perfect-day Celery tick (`evaluate_perfect_day_task` in [`apps/rpg/tasks.py`](../apps/rpg/tasks.py)). A bedtime check-in could close the day visually — "lay your bird to rest" — and feed a sleep streak.
+
+**Concrete shape.** `BedtimeCheckIn(user, date, set_bedtime_at)` row. Quick Action on the dashboard to "wind down for the night" — could pair with breathing (#2). The model has the bones for "did the kid hit bedtime within window of their target" without us needing actual sleep tracking.
+
+**Why we deferred.** Bedtime tracking has a real risk of feeling surveillance-y rather than caring, and getting the tone right is a design question, not an engineering one. Lower priority than mood check-ins (which serve all-day) or breathing (which is a tool, not a tracker).
+
+### 4. Soundscapes / ambient audio (WEAK fit)
+
+**Why it might be worth doing.** Finch's nature-sound library is a calming surface tied to focus/sleep. Could pair with a Pomodoro-style focus mode for homework.
+
+**Why we'd skip it.** Content cost (royalty-free or licensed audio is not free) plus mobile-browser audio playback restrictions plus the file-size hit on the bundle. Creations already have audio attachment + playback (see "Sketchbook page" gotcha in [`CLAUDE.md`](../CLAUDE.md)) so the audio infrastructure exists, but a curated library wants its own product decision before engineering. Park here unless homework-focus mode becomes a priority.
+
+### Pointers for whoever picks any of these up
+
+- The wellbeing card is the precedent for "soft surface" pulls — see [`apps/wellbeing/`](../apps/wellbeing/) and [`frontend/src/pages/character/WellbeingCard.jsx`](../frontend/src/pages/character/WellbeingCard.jsx). Same shape will likely fit mood check-ins (one-row-per-day pattern) and bedtime (one-row-per-day pattern with a target time field).
+- The expedition is the precedent for "RPG-framed Finch-inspired loop" — see the "Mount expeditions" gotcha in [`CLAUDE.md`](../CLAUDE.md) and the `_BOOSTABLE_COIN_REASONS` whitelist gotcha to avoid the bug shape that bit Daily Challenge.
+- All four deferred features should either skip notifications entirely (mood, bedtime) OR fan out only on opt-in milestones (long sleep streaks). No fan-outs by default — gentle-nudge doctrine holds.
+
+---
+
 ## Functionality review — leftover suggestions
 
 **Date raised:** 2026-05-10

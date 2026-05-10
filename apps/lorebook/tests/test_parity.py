@@ -48,6 +48,7 @@ LOREBOOK_TRIGGER_COVERAGE: dict[str, str] = {
     TriggerType.SAVINGS_GOAL_COMPLETE: "money",
     TriggerType.JOURNAL_ENTRY: "journal",
     TriggerType.CREATION_LOGGED: "creations",
+    TriggerType.EXPEDITION_RETURNED: "mounts",
 }
 LOREBOOK_TRIGGER_EXEMPT: set[str] = {
     # MOVEMENT_SESSION feeds the Movement subsystem; there is no Lorebook
@@ -80,6 +81,8 @@ LOREBOOK_COIN_REASON_COVERAGE: dict[str, str] = {
     CoinLedger.Reason.ADJUSTMENT: "coins",
     CoinLedger.Reason.CHORE_REWARD: "duties",
     CoinLedger.Reason.EXCHANGE: "coins",
+    CoinLedger.Reason.DAILY_CHALLENGE: "quests",
+    CoinLedger.Reason.EXPEDITION: "mounts",
 }
 LOREBOOK_COIN_REASON_EXEMPT: set[str] = set()
 
