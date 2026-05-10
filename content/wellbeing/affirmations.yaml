@@ -1,0 +1,94 @@
+# Daily affirmation pool for the Wellbeing card on the Sigil Frontispiece.
+#
+# The active affirmation per (user, local-day) is chosen deterministically
+# from this list — see WellbeingService._roll_affirmation_slug. Adding a
+# new entry shifts the deterministic mapping for future days only; it does
+# NOT retroactively change historical entries (those snapshot the slug).
+#
+# Tone tags are advisory — the frontend may use them later to vary the
+# card decoration. Keep the text gentle, present-tense, and second-person.
+# Avoid "should", "must", "have to" — these are kind reminders, not orders.
+#
+# Length budget: ≤ 90 chars per text, single line, no markdown. The card
+# renders these in a font-script quote; long lines wrap awkwardly.
+
+affirmations:
+  - slug: "small-step-counts"
+    text: "Even a small step today is still a step forward."
+    tone: "gentle"
+
+  - slug: "you-belong-here"
+    text: "You belong here. The world is better with you in it."
+    tone: "warm"
+
+  - slug: "rest-is-progress"
+    text: "Rest is part of the work, not a break from it."
+    tone: "calm"
+
+  - slug: "kind-to-yourself"
+    text: "Be as kind to yourself as you are to your best friend."
+    tone: "warm"
+
+  - slug: "tried-is-enough"
+    text: "Trying counts. Even if it didn't go the way you hoped."
+    tone: "gentle"
+
+  - slug: "feelings-pass"
+    text: "Hard feelings are real, and they also pass."
+    tone: "calm"
+
+  - slug: "your-pace"
+    text: "Your pace is the right pace. There's no race."
+    tone: "calm"
+
+  - slug: "show-up-counts"
+    text: "Showing up — even tired, even unsure — is a kind of brave."
+    tone: "encouraging"
+
+  - slug: "ask-for-help"
+    text: "Asking for help is a strength, not a flaw."
+    tone: "warm"
+
+  - slug: "good-at-something"
+    text: "There is something only you can do today. The world needs it."
+    tone: "encouraging"
+
+  - slug: "growth-is-quiet"
+    text: "Most growing happens quietly, in ways you can't measure yet."
+    tone: "calm"
+
+  - slug: "enough-as-you-are"
+    text: "You are enough today, exactly as you are."
+    tone: "warm"
+
+  - slug: "bad-day-not-life"
+    text: "A bad day is a moment in your story, not the whole book."
+    tone: "gentle"
+
+  - slug: "curiosity-counts"
+    text: "Wondering about something is the start of learning it."
+    tone: "encouraging"
+
+  - slug: "soft-and-strong"
+    text: "Being soft and being strong are the same thing here."
+    tone: "warm"
+
+  - slug: "today-is-new"
+    text: "Today doesn't have to look like yesterday."
+    tone: "gentle"
+
+  - slug: "your-corner"
+    text: "Someone is in your corner today. Probably more than one."
+    tone: "warm"
+
+  - slug: "imperfect-okay"
+    text: "Done imperfectly is better than perfect-and-never."
+    tone: "encouraging"
+
+  - slug: "noticing-is-skill"
+    text: "Noticing how you feel is its own kind of skill."
+    tone: "calm"
+
+  - slug: "tomorrow-fresh"
+    text: "Tomorrow's page is still blank. You get to write it."
+    tone: "gentle"

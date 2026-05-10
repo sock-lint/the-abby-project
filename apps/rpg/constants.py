@@ -27,3 +27,4 @@ class TriggerType(models.TextChoices):
     JOURNAL_ENTRY = "journal_entry", "Journal Entry"
     CREATION_LOGGED = "creation_logged", "Creation Logged"
     MOVEMENT_SESSION = "movement_session", "Movement Session"
+    EXPEDITION_RETURNED = "expedition_returned", "Expedition Returned"

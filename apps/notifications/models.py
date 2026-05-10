@@ -58,6 +58,7 @@ class NotificationType(models.TextChoices):
     MOUNT_BRED              = "mount_bred",              "Mount Bred"
     LOW_REWARD_STOCK        = "low_reward_stock",        "Reward Stock Low"
     REWARD_RESTOCKED        = "reward_restocked",        "Reward Back In Stock"
+    EXPEDITION_RETURNED     = "expedition_returned",     "Expedition Returned"
 
 
 class Notification(CreatedAtModel):

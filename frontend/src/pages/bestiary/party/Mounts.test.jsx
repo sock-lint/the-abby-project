@@ -114,4 +114,90 @@ describe('Mounts tab', () => {
     await waitFor(() => expect(activate.calls).toHaveLength(1));
     expect(activate.calls[0].url).toMatch(/\/mounts\/10\/activate\/$/);
   });
+
+  it('Expedition button opens the launch sheet and POSTs the tier', async () => {
+    const user = userEvent.setup();
+    const start = spyHandler(
+      'post',
+      /\/api\/mounts\/\d+\/expedition\/$/,
+      { id: 99, status: 'active', tier: 'short' },
+    );
+    renderPage([
+      http.get('*/api/pets/stable/', () =>
+        HttpResponse.json({ pets: [], mounts: [MOUNTS[1]], total_possible: 48 }),
+      ),
+      start.handler,
+    ]);
+    await waitFor(() => expect(screen.getByText(/Wolf/)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /Send Wolf on an expedition/i }));
+    // Sheet appears and offers three tier choices.
+    const shortTierBtn = await screen.findByRole('button', { name: /short stroll/i });
+    await user.click(shortTierBtn);
+    await waitFor(() => expect(start.calls).toHaveLength(1));
+    expect(start.calls[0].url).toMatch(/\/mounts\/10\/expedition\/$/);
+    expect(start.calls[0].body).toEqual({ tier: 'short' });
+  });
+
+  it('shows the out-on-expedition state for a mount that is still exploring', async () => {
+    const futureReturn = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const mountOut = {
+      ...MOUNTS[0],
+      active_expedition: {
+        id: 21,
+        status: 'active',
+        tier: 'short',
+        is_ready: false,
+        seconds_remaining: 1800,
+        returns_at: futureReturn,
+      },
+    };
+    renderPage([
+      http.get('*/api/pets/stable/', () =>
+        HttpResponse.json({ pets: [], mounts: [mountOut], total_possible: 48 }),
+      ),
+    ]);
+    // Wait for the "exploring · 30m" countdown chip on the mount card.
+    await waitFor(() =>
+      expect(screen.getByText(/exploring · 30m/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('button', { name: /Send Griffon on an expedition/i })).toBeNull();
+    expect(screen.getByRole('tab', { name: /Out exploring \(1\)/ })).toBeInTheDocument();
+  });
+
+  it('Claim loot button POSTs to the claim endpoint when the expedition is ready', async () => {
+    const user = userEvent.setup();
+    const mountReady = {
+      ...MOUNTS[0],
+      active_expedition: {
+        id: 33,
+        status: 'active',
+        tier: 'standard',
+        is_ready: true,
+        seconds_remaining: 0,
+        returns_at: new Date(Date.now() - 1000).toISOString(),
+      },
+    };
+    const claim = spyHandler(
+      'post',
+      /\/api\/expeditions\/\d+\/claim\/$/,
+      {
+        expedition_id: 33,
+        tier: 'standard',
+        coins_awarded: 30,
+        items: [],
+        freshly_claimed: true,
+        mount: { id: mountReady.id, species_name: 'Griffon', species_sprite_key: 'griffon', species_icon: '🦅', potion_name: 'Sky', potion_slug: 'sky' },
+      },
+    );
+    renderPage([
+      http.get('*/api/pets/stable/', () =>
+        HttpResponse.json({ pets: [], mounts: [mountReady], total_possible: 48 }),
+      ),
+      claim.handler,
+    ]);
+    await waitFor(() => expect(screen.getByText(/Griffon/)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /claim expedition loot/i }));
+    await waitFor(() => expect(claim.calls).toHaveLength(1));
+    expect(claim.calls[0].url).toMatch(/\/expeditions\/33\/claim\/$/);
+  });
 });

@@ -276,6 +276,31 @@ export const handlers = [
   ),
   http.get('*/api/pets/companion-growth/recent/', () => HttpResponse.json({ events: [] })),
   http.post('*/api/pets/companion-growth/seen/', ok),
+  http.get('*/api/expeditions/', () => HttpResponse.json({ expeditions: [] })),
+  http.post(/\/api\/mounts\/\d+\/expedition\/$/, () =>
+    HttpResponse.json({ id: 1, status: 'active', tier: 'short' }, { status: 201 })),
+  http.post(/\/api\/expeditions\/\d+\/claim\/$/, () =>
+    HttpResponse.json({
+      expedition_id: 1, tier: 'short', coins_awarded: 0, items: [], freshly_claimed: false,
+      mount: { id: 1, species_name: '', species_sprite_key: '', species_icon: '', potion_name: '', potion_slug: '' },
+    })),
+
+  // Wellbeing — Finch-inspired daily affirmation + gratitude card
+  http.get('*/api/wellbeing/today/', () =>
+    HttpResponse.json({
+      id: 1, date: new Date().toISOString().slice(0, 10), is_today: true,
+      affirmation: { slug: 'small-step-counts', text: 'Even a small step today is still a step forward.', tone: 'gentle' },
+      gratitude_lines: [], gratitude_paid: false,
+      max_lines: 3, max_line_chars: 200, coin_reward: 2,
+    })),
+  http.post('*/api/wellbeing/today/gratitude/', () =>
+    HttpResponse.json({
+      id: 1, date: new Date().toISOString().slice(0, 10), is_today: true,
+      affirmation: { slug: 'small-step-counts', text: 'Even a small step today is still a step forward.', tone: 'gentle' },
+      gratitude_lines: ['ok'], gratitude_paid: true,
+      max_lines: 3, max_line_chars: 200, coin_reward: 2,
+      coin_awarded: 2, freshly_paid: true,
+    })),
 
   // Quests
   http.get('*/api/quests/active/', () => HttpResponse.json(null)),

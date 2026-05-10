@@ -437,6 +437,7 @@ entries:
       - "Breeding combines two owned mounts to create a hybrid egg + potion pair, then stamps cooldowns on both parents."
       - "A tiny chromatic upgrade chance can turn a breeding potion Cosmic."
       - "Mount sprites follow the species sprite key plus '-mount', with a base-species fallback."
+      - "A mount can be sent on an Expedition (2h, 4h, or 8h) once per local day. Loot is rolled when the mount leaves and stored on the row, so the payout is the same whenever you claim. Returning mounts pay coins (with Lucky Coin doubling) and a small handful of items, and route streak / quest credit through the same game-loop trigger as everything else."
     parent_knobs:
       settings: []
       powers_badges:
@@ -445,11 +446,11 @@ entries:
         - "Mount behavior is service-driven; mount art is runtime-authored in the sprite catalog."
     economy:
       money: false
-      coins: false
+      coins: true
       xp: false
-      drops: false
-      quest_progress: false
-      streak_credit: false
+      drops: true
+      quest_progress: true
+      streak_credit: true
     trial_template: observe
     trial:
       prompt: "Watch a fully-grown pet rise into its mount form."

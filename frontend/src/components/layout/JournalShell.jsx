@@ -9,6 +9,7 @@ import SavingsToastStack from '../SavingsToastStack';
 import ApprovalToastStack from '../ApprovalToastStack';
 import QuestProgressToastStack from '../QuestProgressToastStack';
 import CompanionGrowthToastStack from '../CompanionGrowthToastStack';
+import ExpeditionToastStack from '../ExpeditionToastStack';
 import PageTurnTransition from '../journal/PageTurnTransition';
 import HeaderStatusPips from './HeaderStatusPips';
 import HeaderProgressBand from './HeaderProgressBand';
@@ -35,6 +36,7 @@ export default function JournalShell() {
       <ApprovalToastStack />
       <QuestProgressToastStack />
       <CompanionGrowthToastStack />
+      <ExpeditionToastStack />
       <FirstEncounterSheet />
       <ChapterSidebar user={user} onLogout={logout} />
 

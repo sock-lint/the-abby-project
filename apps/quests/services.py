@@ -36,6 +36,11 @@ TRIGGER_DAMAGE = {
     # rather than rewarding marathon entries that already win at the XP
     # layer. The service caps the reward path at 3 sessions per local day.
     TriggerType.MOVEMENT_SESSION: 8,
+    # Expedition returns deal modest damage — same scale as habit_log.
+    # Sending a mount out is a low-effort daily action; we want it to
+    # contribute toward boss quests so the loops feel connected, but
+    # not so much that mount-spamming becomes the dominant strategy.
+    TriggerType.EXPEDITION_RETURNED: 5,
 }
 
 # Rage shield balance (boss quests only). Idle days climb the shield;

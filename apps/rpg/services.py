@@ -85,6 +85,12 @@ BASE_DROP_RATES = {
     # the reward path at the first 3 sessions per local day; session 4+
     # logs silently and skips the drop roll entirely.
     TriggerType.MOVEMENT_SESSION: 0.20,
+    # Expedition returns already pay loot at start (rolled when the
+    # mount is sent out). The claim path passes drops_allowed=False so
+    # this base rate effectively never fires on its own; kept here at 0.0
+    # so the trigger-parity test passes and any future direct-fire path
+    # has a sensible default. See ExpeditionService.claim.
+    TriggerType.EXPEDITION_RETURNED: 0.0,
 }
 
 STREAK_DROP_BONUS_PER_DAY = 0.05
@@ -150,6 +156,7 @@ _BOOSTABLE_COIN_REASONS = frozenset({
     "badge_bonus",
     "chore_reward",
     "daily_challenge",
+    "expedition",
 })
 
 

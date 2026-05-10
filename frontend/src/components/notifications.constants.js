@@ -2,6 +2,7 @@ import {
   Award, Star, ListChecks, BookOpen, Sparkles, Hammer, Coins, Gift,
   Cake, Flame, ScrollText, Palette, Footprints, Backpack, PawPrint,
   AlertTriangle, PackageCheck, BellRing, Hourglass, Trophy, Crown,
+  Map as MapIcon,
 } from 'lucide-react';
 
 // Sensible default routes per notification type. Used as a fallback when
@@ -65,6 +66,7 @@ export const NOTIFICATION_TYPE_META = {
   quest_completed:         { icon: Trophy,        accent: 'gold',   route: '/trials' },
   pet_evolved:             { icon: PawPrint,      accent: 'gold',   route: '/bestiary?tab=companions' },
   mount_bred:              { icon: Crown,         accent: 'gold',   route: '/bestiary?tab=hatchery' },
+  expedition_returned:     { icon: MapIcon,       accent: 'gold',   route: '/bestiary?tab=mounts' },
 
   // Milestones / goals / chronicle / creations
   savings_goal_completed:  { icon: Coins,         accent: 'gold',   route: '/quests?tab=ventures' },

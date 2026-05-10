@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     "apps.activity",
     "apps.creations",
     "apps.movement",
+    "apps.wellbeing",
     "apps.dev_tools",
 ]
 

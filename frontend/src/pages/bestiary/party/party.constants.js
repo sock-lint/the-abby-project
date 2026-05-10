@@ -59,6 +59,19 @@ export const COMPANION_FILTERS = [
 export const MOUNT_FILTERS = [
   { key: 'all',      label: 'All',             match: () => true },
   { key: 'active',   label: 'Active',          match: (m) => !!m.is_active },
+  { key: 'on_expedition', label: 'Out exploring', match: (m) => !!m.active_expedition && m.active_expedition.status === 'active' },
   { key: 'ready',    label: 'Ready to breed',  match: (m) => daysUntilReady(m.last_bred_at) === null },
   { key: 'cooldown', label: 'On cooldown',     match: (m) => daysUntilReady(m.last_bred_at) !== null },
 ];
+
+// Format remaining time for an out-on-expedition mount card. Returns
+// "12m" / "1h 24m" / "ready" depending on seconds_remaining.
+export function formatExpeditionRemaining(secondsRemaining) {
+  if (secondsRemaining == null) return '';
+  if (secondsRemaining <= 0) return 'ready';
+  const totalMinutes = Math.ceil(secondsRemaining / 60);
+  if (totalMinutes < 60) return `${totalMinutes}m`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+}

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import PetSpecies, PotionType, UserPet, UserMount
+from .models import MountExpedition, PetSpecies, PotionType, UserPet, UserMount
 
 
 class PetSpeciesSerializer(serializers.ModelSerializer):
@@ -84,12 +84,54 @@ class UserPetSerializer(serializers.ModelSerializer):
 class UserMountSerializer(serializers.ModelSerializer):
     species = PetSpeciesSerializer(read_only=True)
     potion = PotionTypeSerializer(read_only=True)
+    active_expedition = serializers.SerializerMethodField()
 
     class Meta:
         model = UserMount
         fields = [
             "id", "species", "potion", "is_active",
-            "last_bred_at",
+            "last_bred_at", "active_expedition",
             "created_at", "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_active_expedition(self, obj):
+        """Compact summary of this mount's currently-running expedition.
+
+        Returns None when the mount has no active row; the frontend uses
+        this to flip the mount card into out-on-expedition state without
+        a second API call.
+        """
+        active = (
+            MountExpedition.objects
+            .filter(mount=obj, status=MountExpedition.Status.ACTIVE)
+            .order_by("-started_at")
+            .first()
+        )
+        if active is None:
+            return None
+        return MountExpeditionSerializer(active).data
+
+
+class MountExpeditionSerializer(serializers.ModelSerializer):
+    is_ready = serializers.BooleanField(read_only=True)
+    seconds_remaining = serializers.IntegerField(read_only=True)
+    mount_id = serializers.IntegerField(source="mount.pk", read_only=True)
+    species_name = serializers.CharField(source="mount.species.name", read_only=True)
+    species_slug = serializers.CharField(source="mount.species.slug", read_only=True)
+    species_sprite_key = serializers.CharField(source="mount.species.sprite_key", read_only=True)
+    species_icon = serializers.CharField(source="mount.species.icon", read_only=True)
+    potion_name = serializers.CharField(source="mount.potion.name", read_only=True)
+    potion_slug = serializers.CharField(source="mount.potion.slug", read_only=True)
+
+    class Meta:
+        model = MountExpedition
+        fields = [
+            "id", "mount_id", "tier", "status",
+            "started_at", "returns_at", "claimed_at",
+            "is_ready", "seconds_remaining",
+            "species_name", "species_slug", "species_sprite_key",
+            "species_icon", "potion_name", "potion_slug",
+            "loot",
         ]
         read_only_fields = fields

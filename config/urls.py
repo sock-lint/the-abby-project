@@ -69,6 +69,7 @@ urlpatterns = [
     path("api/", include("apps.creations.urls")),
     path("api/", include("apps.lorebook.urls")),
     path("api/", include("apps.movement.urls")),
+    path("api/", include("apps.wellbeing.urls")),
     # Dev-tools REST surface. URLs always mount — the gate runs at the
     # view permission layer (``IsDevToolsEnabled``) so it's re-checked
     # per request and survives runtime ``DEV_TOOLS_ENABLED`` toggles.
