@@ -85,6 +85,30 @@ describe('PetCeremonyModal', () => {
     expect(screen.getByText(/the stars favored this pairing/i)).toBeInTheDocument();
   });
 
+  it('renders the expedition_return shell with mount headline + dismiss CTA', () => {
+    const expedition = {
+      coins_awarded: 42,
+      tier: 'standard',
+      items: [],
+      mount: {
+        id: 5,
+        species_name: 'Griffon',
+        species_sprite_key: 'griffon',
+        species_icon: '🦅',
+        potion_name: 'Sky',
+        potion_slug: 'sky',
+      },
+    };
+    renderWithProviders(
+      <PetCeremonyModal mode="expedition_return" expedition={expedition} onDismiss={() => {}} />,
+    );
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(screen.getByText(/your mount has returned/i)).toBeInTheDocument();
+    expect(screen.getByText(/Griffon is back/i)).toBeInTheDocument();
+    expect(screen.getByText(/from a standard expedition/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /take the loot/i })).toBeInTheDocument();
+  });
+
   it('calls onDismiss when Continue is clicked', async () => {
     const onDismiss = vi.fn();
     const user = userEvent.setup();
@@ -148,5 +172,34 @@ describe('PetCeremonyModal — phased sequence', () => {
     // ``-mount`` slug; it falls back to the base species sprite which
     // still uses the species name as its alt text).
     expect(screen.getAllByLabelText('Phoenix').length).toBeGreaterThan(0);
+  });
+
+  it('expedition_return reveals the loot summary at terminal phase', async () => {
+    const expedition = {
+      coins_awarded: 42,
+      tier: 'short',
+      items: [
+        { name: 'Training Snack', icon: '🍪', sprite_key: '', rarity: 'common', quantity: 1 },
+        { name: 'Frame of the Wanderer', icon: '🖼️', sprite_key: '', rarity: 'rare', quantity: 1, salvaged_to_coins: 25 },
+      ],
+      mount: {
+        id: 5,
+        species_name: 'Griffon',
+        species_sprite_key: 'griffon',
+        species_icon: '🦅',
+        potion_name: 'Sky',
+        potion_slug: 'sky',
+      },
+    };
+    renderWithProviders(
+      <PetCeremonyModal mode="expedition_return" expedition={expedition} onDismiss={() => {}} />,
+    );
+    // Phases for expedition_return: [600, 400, 1200] = 2200ms then settled.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2400);
+    });
+    expect(screen.getByText(/\+42/)).toBeInTheDocument();
+    expect(screen.getByText('Training Snack')).toBeInTheDocument();
+    expect(screen.getByText(/salvaged \+25c/i)).toBeInTheDocument();
   });
 });
