@@ -13,8 +13,8 @@ import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import { InkwellIcon } from '../components/icons/JournalIcons';
 import { useRole } from '../hooks/useRole';
-import { inputClass } from '../constants/styles';
 import Button from '../components/Button';
+import { SelectField } from '../components/form';
 import { normalizeList } from '../utils/api';
 import { staggerChildren, staggerItem } from '../motion/variants';
 
@@ -31,10 +31,6 @@ const TYPE_OPTIONS = [
   { value: 'required', label: 'Required' },
   { value: 'bounty', label: 'Bounty' },
 ];
-
-// intentional: compact filter selects need py-1.5 / text-sm / w-auto sizing that
-// SelectField doesn't expose. Keep using raw inputClass + dimensional overrides.
-const filterSelect = `${inputClass} py-1.5 text-sm w-auto min-w-[9rem]`;
 
 export default function Projects() {
   const { isParent } = useRole();
@@ -106,36 +102,39 @@ export default function Projects() {
         />
       )}
       <div className="flex flex-wrap gap-2 items-center">
-        <select
+        <SelectField
+          variant="filter"
+          aria-label="Filter by status"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className={filterSelect}
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
-        </select>
-        <select
+        </SelectField>
+        <SelectField
+          variant="filter"
+          aria-label="Filter by type"
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className={filterSelect}
         >
           {TYPE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
-        </select>
+        </SelectField>
         {isParent && children.length > 0 && (
-          <select
+          <SelectField
+            variant="filter"
+            aria-label="Filter by child"
             value={childFilter}
             onChange={(e) => setChildFilter(e.target.value)}
-            className={filterSelect}
           >
             <option value="">All children</option>
             <option value="unassigned">Unassigned</option>
             {children.map((c) => (
               <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
             ))}
-          </select>
+          </SelectField>
         )}
         {(statusFilter || typeFilter || childFilter || search) && (
           <button

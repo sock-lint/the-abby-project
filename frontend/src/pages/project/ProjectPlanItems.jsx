@@ -3,6 +3,7 @@ import {
   Check, Trash2, Video, FileText, Image as ImageIcon, Link as LinkIcon,
 } from 'lucide-react';
 import ParchmentCard from '../../components/journal/ParchmentCard';
+import { SelectField } from '../../components/form';
 
 const RESOURCE_ICONS = {
   video: Video,
@@ -66,10 +67,11 @@ export function StepCard({
                 <span className="font-script text-tiny text-ink-whisper uppercase tracking-wider">
                   move to
                 </span>
-                <select
+                <SelectField
+                  variant="filter"
+                  aria-label="Move step to milestone"
                   value={step.milestone ?? ''}
                   onChange={(e) => onMove(step, e.target.value)}
-                  className="text-xs bg-ink-page border border-ink-page-shadow rounded px-1.5 py-0.5 text-ink-primary font-body focus:outline-none focus:border-sheikah-teal"
                 >
                   <option value="">(no milestone)</option>
                   {milestones.map((m, idx) => (
@@ -77,7 +79,7 @@ export function StepCard({
                       {idx + 1}. {(m.title || `Milestone ${idx + 1}`).slice(0, 30)}
                     </option>
                   ))}
-                </select>
+                </SelectField>
               </div>
             )}
           </div>
