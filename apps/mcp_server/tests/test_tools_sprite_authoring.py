@@ -9,6 +9,8 @@ from pydantic import ValidationError
 from apps.accounts.models import User
 from apps.rpg.models import SpriteAsset
 
+from config.tests.factories import make_family
+
 from apps.mcp_server.context import set_current_user, reset_current_user
 from apps.mcp_server.errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError
 from apps.mcp_server.schemas import (
@@ -143,13 +145,23 @@ class GetSpriteToolTests(TestCase):
     """
 
     def setUp(self):
-        self.parent = User.objects.create_user(
-            username="get_parent", password="pw", role="parent", is_staff=True,
+        # Two distinct families so test_regular_parent_can_read genuinely
+        # exercises the cross-family read path. Without explicit families,
+        # User.save()'s defense-in-depth lands every user in the same
+        # auto-attached default-family and the test would pass even if
+        # get_sprite were accidentally family-scoped.
+        fam_a = make_family(
+            "get-sprite-family-a",
+            parents=[{"username": "get_parent", "is_staff": True}],
+            children=[{"username": "get_kid"}],
         )
-        self.regular_parent = User.objects.create_user(
-            username="get_regular_parent", password="pw", role="parent",
+        fam_b = make_family(
+            "get-sprite-family-b",
+            parents=[{"username": "get_regular_parent"}],
         )
-        self.child = User.objects.create_user(username="get_kid", password="pw", role="child")
+        self.parent = fam_a.parents[0]
+        self.child = fam_a.children[0]
+        self.regular_parent = fam_b.parents[0]
 
     def _as(self, user):
         return set_current_user(user)
@@ -210,9 +222,10 @@ class GetSpriteToolTests(TestCase):
             reset_current_user(tok)
 
     def test_regular_parent_can_read(self):
-        """Read access is wider than write — a non-staff parent can call
-        ``get_sprite`` even though they can't ``generate_sprite_sheet``.
-        Sprites are global-content; reading them is safe."""
+        """Read access is wider than write AND wider than family — a
+        non-staff parent in a different family can call ``get_sprite``
+        even though they can't ``generate_sprite_sheet``. Sprites are
+        global content; every parent in every family can read them."""
         tok = self._as(self.parent)
         try:
             tool_register_sprite(RegisterSpriteIn(slug="readable", image_b64=_png_b64()))
