@@ -145,6 +145,7 @@ def _load_tool_modules() -> None:
         savings,
         sprite_assets,
         sprite_authoring,
+        sprite_prompting_playbook,
         templates,
         timecards,
         users,
