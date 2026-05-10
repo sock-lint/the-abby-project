@@ -113,9 +113,20 @@ def _serialize_entry(entry, *, today_marker=None) -> dict[str, Any]:
     """Shape the wellbeing-today response for the frontend card."""
     affirmation = _resolve_affirmation(entry.affirmation_slug)
     if affirmation is None:
-        # Authored slug went missing between writes (YAML edit). Fall back
-        # to a re-roll for display purposes — the row stays put for audit.
-        affirmation = {"slug": entry.affirmation_slug, "text": "", "tone": ""}
+        # Authored slug went missing between writes (YAML edit). The row
+        # stays put for audit, but a blank card would degrade UX, so we
+        # re-roll a fresh affirmation against the current pool keyed on
+        # the same (user, day) the row was stamped for. The slug field
+        # in the response reflects what the *user sees*, not the snapshot.
+        try:
+            fresh_slug = _roll_affirmation_slug(entry.user_id, entry.date)
+            fresh = _resolve_affirmation(fresh_slug)
+        except WellbeingContentError:
+            fresh = None
+        if fresh is not None:
+            affirmation = fresh
+        else:
+            affirmation = {"slug": entry.affirmation_slug, "text": "", "tone": ""}
 
     return {
         "id": entry.pk,
@@ -193,18 +204,32 @@ class WellbeingService:
         if not already_paid:
             from apps.rewards.models import CoinLedger
             from apps.rewards.services import CoinService
+            # Wrap the coin award in its own atomic block so a half-write
+            # (ledger row committed, ``coin_paid_at`` save failed) can't
+            # leave the entry eligible for a second payout next save.
+            # On any failure the inner block rolls back; the outer
+            # gratitude write still commits and the field stays None,
+            # which is correct — the next save sees ``already_paid=False``
+            # and gets one fair retry.
             try:
-                ledger = CoinService.award_coins(
-                    user, GRATITUDE_FIRST_OF_DAY_COINS,
-                    CoinLedger.Reason.ADJUSTMENT,
-                    description="Gratitude — first of day",
-                )
-                if ledger is not None:
-                    coin_awarded = int(ledger.amount)
-                    entry.coin_paid_at = timezone.now()
-                    update_fields.append("coin_paid_at")
+                with transaction.atomic():
+                    ledger = CoinService.award_coins(
+                        user, GRATITUDE_FIRST_OF_DAY_COINS,
+                        CoinLedger.Reason.ADJUSTMENT,
+                        description="Gratitude — first of day",
+                    )
+                    if ledger is not None:
+                        coin_awarded = int(ledger.amount)
+                        entry.coin_paid_at = timezone.now()
+                        update_fields.append("coin_paid_at")
             except Exception:
                 # Coin award failure must never lose the gratitude write.
+                # Reset locals so the outer commit doesn't claim a payout
+                # the inner rollback erased.
+                coin_awarded = 0
+                if "coin_paid_at" in update_fields:
+                    update_fields.remove("coin_paid_at")
+                entry.coin_paid_at = None
                 logger.exception("Gratitude coin payout failed")
 
         entry.save(update_fields=update_fields)

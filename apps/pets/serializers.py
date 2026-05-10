@@ -101,13 +101,23 @@ class UserMountSerializer(serializers.ModelSerializer):
         Returns None when the mount has no active row; the frontend uses
         this to flip the mount card into out-on-expedition state without
         a second API call.
+
+        Optimization: when the view prefetches active expeditions onto
+        ``obj.prefetched_active_expeditions`` (see ``MountsView`` /
+        ``StableView``), we read the list directly and avoid a per-mount
+        DB hit. Falls back to a query when the attribute is absent so the
+        serializer keeps working in admin / tests / one-off callers.
         """
-        active = (
-            MountExpedition.objects
-            .filter(mount=obj, status=MountExpedition.Status.ACTIVE)
-            .order_by("-started_at")
-            .first()
-        )
+        prefetched = getattr(obj, "prefetched_active_expeditions", None)
+        if prefetched is not None:
+            active = prefetched[0] if prefetched else None
+        else:
+            active = (
+                MountExpedition.objects
+                .filter(mount=obj, status=MountExpedition.Status.ACTIVE)
+                .order_by("-started_at")
+                .first()
+            )
         if active is None:
             return None
         return MountExpeditionSerializer(active).data

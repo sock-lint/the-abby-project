@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from config.permissions import IsParent
 
-from .expeditions import ExpeditionError, ExpeditionService
+from .expeditions import ExpeditionError, ExpeditionNotFound, ExpeditionService
 from .models import PetSpecies, PotionType, UserPet, UserMount
 from .serializers import (
     MountExpeditionSerializer,
@@ -87,9 +87,26 @@ class MountsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        mounts = UserMount.objects.filter(
-            user=request.user,
-        ).select_related("species", "potion")
+        from django.db.models import Prefetch
+        from .models import MountExpedition
+
+        # Prefetch active expeditions onto each mount so
+        # ``UserMountSerializer.get_active_expedition`` doesn't N+1 the
+        # mount list — at one mount + one query each pre-prefetch, a kid
+        # with 20+ mounts saw a 40+ query response. With the prefetch
+        # the cost collapses to two queries total.
+        mounts = (
+            UserMount.objects
+            .filter(user=request.user)
+            .select_related("species", "potion")
+            .prefetch_related(Prefetch(
+                "expeditions",
+                queryset=MountExpedition.objects.filter(
+                    status=MountExpedition.Status.ACTIVE,
+                ).order_by("-started_at"),
+                to_attr="prefetched_active_expeditions",
+            ))
+        )
         return Response(UserMountSerializer(mounts, many=True).data)
 
 
@@ -256,13 +273,13 @@ class StartExpeditionView(APIView):
             )
         try:
             expedition = ExpeditionService.start(request.user, pk, tier)
+        except ExpeditionNotFound as exc:
+            # Cross-user / unknown mount → 404 to avoid leaking whether a
+            # mount with that pk exists in another household. Branch on the
+            # exception class, not the message text.
+            return Response({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except ExpeditionError as exc:
-            # Mount-not-found errors come back as 404 to avoid leaking
-            # whether a mount with that pk exists in another household.
-            msg = str(exc)
-            if msg.lower().startswith("mount not found"):
-                return Response({"error": msg}, status=status.HTTP_404_NOT_FOUND)
-            return Response({"error": msg}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(
             MountExpeditionSerializer(expedition).data,
             status=status.HTTP_201_CREATED,
@@ -298,9 +315,8 @@ class ClaimExpeditionView(APIView):
     def post(self, request, pk):
         try:
             result = ExpeditionService.claim(request.user, pk)
+        except ExpeditionNotFound as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except ExpeditionError as exc:
-            msg = str(exc)
-            if msg.lower().startswith("expedition not found"):
-                return Response({"error": msg}, status=status.HTTP_404_NOT_FOUND)
-            return Response({"error": msg}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(result)

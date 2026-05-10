@@ -23,13 +23,16 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.pets.expeditions import ExpeditionError, ExpeditionService, TIER_CONFIG
+from apps.pets.expeditions import (
+    ExpeditionError, ExpeditionNotFound, ExpeditionService, TIER_CONFIG,
+)
 from apps.pets.models import MountExpedition, PetSpecies, PotionType, UserMount
 from apps.projects.models import User
 from apps.rewards.models import CoinLedger
 from apps.rpg.models import (
     CharacterProfile, DropTable, ItemDefinition, UserInventory,
 )
+from config.tests.factories import make_family
 
 
 CACHE_OVERRIDE = {
@@ -90,11 +93,17 @@ class ExpeditionStartTests(TestCase):
             ExpeditionService.start(self.user, self.mount.pk, "marathon")
 
     def test_cross_user_mount_lookup_raises_not_found(self):
-        other = User.objects.create_user(
-            username="rival", password="pw", role="child",
+        # Put the rival in a DIFFERENT family — the default-family fallback
+        # would hide cross-family scoping bugs because every user would
+        # otherwise wind up in the same auto-created household. Use
+        # make_family so the families are explicit.
+        rival_family = make_family(
+            name="Rival Family", children=[{"username": "rival"}],
         )
-        # Same-shape error string the view layer turns into 404.
-        with self.assertRaises(ExpeditionError) as ctx:
+        other = rival_family.children[0]
+        self.assertNotEqual(other.family_id, self.user.family_id)
+        # Typed exception — view layer turns ExpeditionNotFound into 404.
+        with self.assertRaises(ExpeditionNotFound) as ctx:
             ExpeditionService.start(other, self.mount.pk, "short")
         self.assertIn("not found", str(ctx.exception).lower())
 
@@ -192,11 +201,17 @@ class ExpeditionClaimTests(TestCase):
 
     def test_claim_calls_game_loop_with_drops_disabled(self):
         expedition = self._start_and_fast_forward("short")
+        # ``ExpeditionService.claim`` schedules the game-loop call via
+        # ``transaction.on_commit`` so a rollback can never strand a
+        # "claimed" response. ``captureOnCommitCallbacks(execute=True)``
+        # flushes the callback synchronously inside the test transaction
+        # so we can assert it ran.
         with patch(
             "apps.rpg.services.GameLoopService.on_task_completed",
             return_value={"trigger_type": "expedition_returned", "drops": [], "streak": {}, "quest": None, "notifications": []},
         ) as game_loop:
-            ExpeditionService.claim(self.user, expedition.pk)
+            with self.captureOnCommitCallbacks(execute=True):
+                ExpeditionService.claim(self.user, expedition.pk)
 
         self.assertEqual(game_loop.call_count, 1)
         _user, trigger, ctx = game_loop.call_args[0]

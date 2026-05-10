@@ -17,7 +17,7 @@ import logging
 import random
 from datetime import timedelta
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,15 @@ class ExpeditionError(ValueError):
     """Surface-level expedition errors — start/claim/cooldown failures."""
 
 
+class ExpeditionNotFound(ExpeditionError):
+    """Raised when a mount or expedition lookup fails (cross-user or stale id).
+
+    Carved off ``ExpeditionError`` so views can branch on exception class
+    instead of fragile message-prefix matching — a typo in the human-readable
+    message used to silently downgrade 404 to 400 and leak existence.
+    """
+
+
 class ExpeditionService:
     """Lifecycle manager for ``MountExpedition`` rows."""
 
@@ -78,9 +87,9 @@ class ExpeditionService:
                 pk=mount_id, user=user,
             )
         except UserMount.DoesNotExist:
-            # 404-not-found semantics from the view layer — never leak
+            # Typed exception — view turns this into a 404 without leaking
             # whether a mount with that pk exists in another household.
-            raise ExpeditionError("Mount not found")
+            raise ExpeditionNotFound("Mount not found")
 
         # One active expedition per mount (DB constraint also enforces this,
         # but we surface a friendly error before the IntegrityError).
@@ -109,14 +118,24 @@ class ExpeditionService:
         returns_at = now + timedelta(minutes=config["duration_minutes"])
         loot = ExpeditionService._roll_loot(user, tier)
 
-        expedition = MountExpedition.objects.create(
-            mount=mount,
-            tier=tier,
-            status=MountExpedition.Status.ACTIVE,
-            started_at=now,
-            returns_at=returns_at,
-            loot=loot,
-        )
+        # Wrap the create in IntegrityError → ExpeditionError. Two concurrent
+        # start calls that both pass the pre-checks collide on the partial
+        # unique index; without this guard the loser raises IntegrityError
+        # and surfaces as a 500. The pre-check catches the common case;
+        # this catches the race.
+        try:
+            expedition = MountExpedition.objects.create(
+                mount=mount,
+                tier=tier,
+                status=MountExpedition.Status.ACTIVE,
+                started_at=now,
+                returns_at=returns_at,
+                loot=loot,
+            )
+        except IntegrityError as exc:
+            raise ExpeditionError(
+                f"{mount.species.name} is already on an expedition"
+            ) from exc
         logger.info(
             "User %s sent %s on a %s expedition — returns at %s",
             user.username, mount, tier, returns_at,
@@ -153,7 +172,10 @@ class ExpeditionService:
                 .get(pk=expedition_id, mount__user=user)
             )
         except MountExpedition.DoesNotExist:
-            raise ExpeditionError("Expedition not found")
+            # Typed exception — the view maps this to 404. Cross-user pks
+            # must NEVER leak existence (the same shape we use for the
+            # mount lookup above).
+            raise ExpeditionNotFound("Expedition not found")
 
         # Already claimed: return the recorded result, no rewards.
         if expedition.status == MountExpedition.Status.CLAIMED:
@@ -170,52 +192,65 @@ class ExpeditionService:
                 f"{max(0, expedition.seconds_remaining)} seconds to go"
             )
 
-        # Materialize loot.
-        coins_awarded = ExpeditionService._materialize_loot(user, expedition)
+        # Materialize loot. ``_materialize_loot`` may annotate the loot
+        # JSON in-memory (e.g. ``salvaged_to_coins``); we persist those
+        # writes alongside the status transition so a re-fetch shows the
+        # same shape the claim modal rendered.
+        coins_awarded, loot_changed = ExpeditionService._materialize_loot(user, expedition)
 
         expedition.status = MountExpedition.Status.CLAIMED
         expedition.claimed_at = timezone.now()
-        expedition.save(update_fields=["status", "claimed_at", "updated_at"])
+        update_fields = ["status", "claimed_at", "updated_at"]
+        if loot_changed:
+            update_fields.append("loot")
+        expedition.save(update_fields=update_fields)
 
-        # Fire the unified game loop with drops_allowed=False — loot was
-        # already rolled at start, we don't want to double-dip the drop
-        # roll on top of the materialized loot.
-        try:
-            from apps.rpg.services import GameLoopService
-            from apps.rpg.constants import TriggerType
-            GameLoopService.on_task_completed(
-                user,
-                TriggerType.EXPEDITION_RETURNED,
-                {"drops_allowed": False, "expedition_id": expedition.pk, "tier": expedition.tier},
-            )
-        except Exception:
-            logger.exception("Game-loop hook failed in expedition claim")
+        # Post-claim fanout runs AFTER the DB commit via ``on_commit`` so
+        # a downstream rollback can never produce a "claimed" response
+        # whose ledger row got reverted. Both helpers are explicitly
+        # best-effort — failures log via Sentry but don't surface to
+        # the caller.
+        mount = expedition.mount
+        expedition_pk = expedition.pk
+        tier = expedition.tier
+        item_count = len(expedition.loot.get("items") or [])
+        display_name = user.display_name or user.username
 
-        # Notify the kid (and parents — same shape as pet_evolved /
-        # mount_bred). Wrapped so a notification failure doesn't unwind
-        # the materialized loot.
-        try:
-            from apps.notifications.services import notify, notify_parents
-            mount = expedition.mount
-            title = f"{mount.species.name} is back from an expedition!"
-            msg = (
-                f"{coins_awarded} coins and {len(expedition.loot.get('items') or [])} item(s) "
-                "landed in your stash."
-            )
-            notify(
-                user, title=title, message=msg,
-                notification_type="expedition_returned",
-                link="/bestiary?tab=mounts",
-            )
-            notify_parents(
-                title=f"{user.display_name or user.username}'s mount returned",
-                message=msg,
-                notification_type="expedition_returned",
-                about_user=user,
-                link="/bestiary?tab=mounts",
-            )
-        except Exception:
-            logger.exception("Notification hook failed in expedition claim")
+        def _post_claim_hooks():
+            try:
+                from apps.rpg.services import GameLoopService
+                from apps.rpg.constants import TriggerType
+                GameLoopService.on_task_completed(
+                    user,
+                    TriggerType.EXPEDITION_RETURNED,
+                    {"drops_allowed": False, "expedition_id": expedition_pk, "tier": tier},
+                )
+            except Exception:
+                logger.exception("Game-loop hook failed in expedition claim")
+
+            try:
+                from apps.notifications.services import notify, notify_parents
+                title = f"{mount.species.name} is back from an expedition!"
+                msg = (
+                    f"{coins_awarded} coins and {item_count} item(s) "
+                    "landed in your stash."
+                )
+                notify(
+                    user, title=title, message=msg,
+                    notification_type="expedition_returned",
+                    link="/bestiary?tab=mounts",
+                )
+                notify_parents(
+                    title=f"{display_name}'s mount returned",
+                    message=msg,
+                    notification_type="expedition_returned",
+                    about_user=user,
+                    link="/bestiary?tab=mounts",
+                )
+            except Exception:
+                logger.exception("Notification hook failed in expedition claim")
+
+        transaction.on_commit(_post_claim_hooks)
 
         return ExpeditionService._serialize_claim_result(
             expedition, coins_awarded=coins_awarded, freshly_claimed=True,
@@ -323,8 +358,11 @@ class ExpeditionService:
     def _materialize_loot(user, expedition):
         """Convert the locked ``loot`` JSON into real ledger + inventory rows.
 
-        Returns the actual coin amount awarded (post-Lucky-Coin-boost via
-        ``CoinService.award_coins``).
+        Returns ``(coins_awarded, loot_changed)`` — ``coins_awarded`` is
+        the actual coin amount after the Lucky Coin boost; ``loot_changed``
+        is True when the cosmetic-dupe salvage path annotated the loot JSON
+        in-memory and the caller needs to include ``loot`` in
+        ``save(update_fields=...)`` so the annotation survives a refresh.
         """
         from apps.rewards.models import CoinLedger
         from apps.rewards.services import CoinService
@@ -351,6 +389,7 @@ class ExpeditionService:
             ItemDefinition.ItemType.COSMETIC_THEME,
             ItemDefinition.ItemType.COSMETIC_PET_ACCESSORY,
         }
+        loot_changed = False
         for slot in expedition.loot.get("items") or []:
             item_id = slot.get("item_id")
             qty = int(slot.get("quantity") or 1)
@@ -376,6 +415,7 @@ class ExpeditionService:
                     description=f"Salvaged duplicate from expedition: {item.name}",
                 )
                 slot["salvaged_to_coins"] = item.coin_value
+                loot_changed = True
                 continue
 
             # Otherwise: stack into inventory. Use the same get-or-create
@@ -387,7 +427,7 @@ class ExpeditionService:
                 inv.quantity += qty
                 inv.save(update_fields=["quantity", "updated_at"])
 
-        return coins_awarded
+        return coins_awarded, loot_changed
 
     @staticmethod
     def _serialize_claim_result(expedition, *, coins_awarded, freshly_claimed):

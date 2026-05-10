@@ -26,7 +26,10 @@ class Command(BaseCommand):
         try:
             entries = _load_affirmations()
         except WellbeingContentError as exc:
-            raise CommandError(str(exc))
+            # Chain the original exception so the underlying YAML/parse
+            # error is visible in the traceback during debugging instead
+            # of being swallowed by ``CommandError``.
+            raise CommandError(str(exc)) from exc
 
         self.stdout.write(self.style.SUCCESS(
             f"Loaded {len(entries)} affirmation(s) from {AFFIRMATIONS_PATH}"

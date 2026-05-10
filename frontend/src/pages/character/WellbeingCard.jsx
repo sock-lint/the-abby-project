@@ -67,7 +67,7 @@ export default function WellbeingCard() {
   if (loading) {
     return (
       <ParchmentCard tone="default" className="p-4">
-        <div className="font-script text-sm text-ink-whisper">loading today's note…</div>
+        <div className="font-script text-caption text-ink-whisper">loading today's note…</div>
       </ParchmentCard>
     );
   }
@@ -183,7 +183,7 @@ export default function WellbeingCard() {
       {coinFlash > 0 && (
         <div
           role="status"
-          className="absolute top-3 right-3 inline-flex items-center gap-1 font-script text-sm text-gold-leaf bg-ink-page-aged/90 rounded-full px-2.5 py-1 shadow-sm border border-gold-leaf/40"
+          className="absolute top-3 right-3 inline-flex items-center gap-1 font-script text-caption text-gold-leaf bg-ink-page-aged/90 rounded-full px-2.5 py-1 shadow-sm border border-gold-leaf/40"
         >
           <Sparkles size={11} aria-hidden="true" />
           +{coinFlash} <Coins size={11} aria-hidden="true" />

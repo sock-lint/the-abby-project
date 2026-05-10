@@ -89,7 +89,11 @@ class GratitudeSubmitTests(TestCase):
         self.assertEqual(result["coin_awarded"], GRATITUDE_FIRST_OF_DAY_COINS)
         ledger = CoinLedger.objects.filter(user=self.user)
         self.assertEqual(ledger.count(), 1)
-        self.assertEqual(int(ledger.first().amount), GRATITUDE_FIRST_OF_DAY_COINS)
+        entry = ledger.first()
+        self.assertEqual(int(entry.amount), GRATITUDE_FIRST_OF_DAY_COINS)
+        # ADJUSTMENT — deliberately NOT on the Lucky Coin boost whitelist
+        # so the soft-coin trickle stays a flat 2c regardless of consumables.
+        self.assertEqual(entry.reason, CoinLedger.Reason.ADJUSTMENT)
 
     def test_second_submit_same_day_does_not_repay(self):
         WellbeingService.submit_gratitude(self.user, ["one"])

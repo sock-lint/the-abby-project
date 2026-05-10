@@ -139,7 +139,7 @@ export default function Character() {
         onOpenTrophyPicker={() => setPickerOpen(true)}
       />
 
-      {user?.role !== 'parent' && <WellbeingCard />}
+      {user?.role === 'child' && <WellbeingCard />}
 
       <AdventuresEntry />
 

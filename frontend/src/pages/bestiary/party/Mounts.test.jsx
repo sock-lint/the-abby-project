@@ -199,5 +199,8 @@ describe('Mounts tab', () => {
     await user.click(screen.getByRole('button', { name: /claim expedition loot/i }));
     await waitFor(() => expect(claim.calls).toHaveLength(1));
     expect(claim.calls[0].url).toMatch(/\/expeditions\/33\/claim\/$/);
+    // Lock the request body contract — claim takes no body today,
+    // so any future drift surfaces here instead of silently shipping.
+    expect(claim.calls[0].body).toBeNull();
   });
 });
