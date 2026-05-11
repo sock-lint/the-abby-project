@@ -372,11 +372,11 @@ export default function Payments() {
               aria-label="Filter to date"
               className="px-2 py-1 text-tiny font-script rounded border border-ink-page-shadow/30 bg-ink-page-aged"
             />
-            <select
+            <SelectField
+              variant="filter"
+              aria-label="Filter by kid"
               value={filters.user_id}
               onChange={(e) => setFilters((p) => ({ ...p, user_id: e.target.value }))}
-              aria-label="Filter by kid"
-              className="px-2 py-1 text-tiny font-script rounded border border-ink-page-shadow/30 bg-ink-page-aged"
             >
               <option value="">All kids</option>
               {children.map((c) => (
@@ -384,7 +384,7 @@ export default function Payments() {
                   {c.display_name || c.username}
                 </option>
               ))}
-            </select>
+            </SelectField>
           </div>
         )}
       </section>

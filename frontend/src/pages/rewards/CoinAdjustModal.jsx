@@ -1,14 +1,18 @@
-import { adjustCoins } from '../../api';
+import { adjustCoins, getChildren } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
+import { useApi } from '../../hooks/useApi';
 import { useFormState } from '../../hooks/useFormState';
+import { normalizeList } from '../../utils/api';
 import Button from '../../components/Button';
-import { TextField } from '../../components/form';
+import { TextField, SelectField } from '../../components/form';
 
 export default function CoinAdjustModal({ onClose, onSaved }) {
   const { form, set, saving, setSaving, error, setError } = useFormState({
     user_id: '', amount: '', description: '',
   });
+  const { data: childrenRes, loading: loadingChildren } = useApi(getChildren);
+  const children = normalizeList(childrenRes);
 
   const onField = (k) => (e) => set({ [k]: e.target.value });
 
@@ -30,14 +34,21 @@ export default function CoinAdjustModal({ onClose, onSaved }) {
     <BottomSheet title="Adjust Coins" onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
-        <TextField
-          label="Child User ID"
-          type="number"
+        <SelectField
+          label="Kid"
           value={form.user_id}
           onChange={onField('user_id')}
           required
-          placeholder="Enter child user ID"
-        />
+          disabled={loadingChildren}
+          helpText={loadingChildren ? 'Loading kids…' : (children.length === 0 ? 'No children in this family yet.' : null)}
+        >
+          <option value="" disabled>Pick a kid</option>
+          {children.map((child) => (
+            <option key={child.id} value={child.id}>
+              {child.display_name || child.username}
+            </option>
+          ))}
+        </SelectField>
         <TextField
           label="Amount (positive to add, negative to deduct)"
           type="number"

@@ -6,6 +6,7 @@ import Loader from '../../components/Loader';
 import EmptyState from '../../components/EmptyState';
 import ErrorAlert from '../../components/ErrorAlert';
 import Button from '../../components/Button';
+import { SelectField } from '../../components/form';
 import { normalizeList } from '../../utils/api';
 import EventRow from './EventRow';
 import {
@@ -112,11 +113,11 @@ export default function ActivityPage() {
           >
             Child
           </label>
-          <select
+          <SelectField
             id="activity-subject"
+            variant="filter"
             value={subject}
             onChange={(e) => changeSubject(e.target.value)}
-            className="rounded-md border border-ink-page-shadow bg-ink-page-aged px-2 py-1 text-body text-ink-primary"
           >
             <option value="">All children</option>
             {children.map((c) => (
@@ -124,7 +125,7 @@ export default function ActivityPage() {
                 {c.display_name || c.username}
               </option>
             ))}
-          </select>
+          </SelectField>
         </div>
 
         <div

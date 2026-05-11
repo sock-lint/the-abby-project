@@ -3,7 +3,7 @@ import { Music, Image as ImageIcon } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import Button from './Button';
 import ErrorAlert from './ErrorAlert';
-import { TextAreaField } from './form';
+import { TextAreaField, SelectField } from './form';
 import { formLabelClass } from '../constants/styles';
 import { useApi } from '../hooks/useApi';
 import { normalizeList } from '../utils/api';
@@ -153,48 +153,43 @@ export default function CreationLogModal({ onClose, onSaved }) {
           rows={2}
         />
 
-        <label className={formLabelClass}>
-          Primary skill (required)
-          <select
-            value={primary}
-            onChange={(e) => {
-              setPrimary(e.target.value);
-              if (e.target.value === secondary) setSecondary('');
-            }}
-            className="mt-1 block w-full rounded-lg border border-ink-page-shadow bg-ink-page px-3 py-2 text-sm"
-            disabled={skillsLoading}
-          >
-            <option value="">Choose one…</option>
-            {skillsByCategory.map(([catName, catSkills]) => (
-              <optgroup key={catName} label={catName}>
-                {catSkills.map((s) => (
+        <SelectField
+          label="Primary skill (required)"
+          value={primary}
+          onChange={(e) => {
+            setPrimary(e.target.value);
+            if (e.target.value === secondary) setSecondary('');
+          }}
+          disabled={skillsLoading}
+          required
+        >
+          <option value="">Choose one…</option>
+          {skillsByCategory.map(([catName, catSkills]) => (
+            <optgroup key={catName} label={catName}>
+              {catSkills.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </optgroup>
+          ))}
+        </SelectField>
+
+        <SelectField
+          label="Secondary skill (optional)"
+          value={secondary}
+          onChange={(e) => setSecondary(e.target.value)}
+          disabled={skillsLoading || !primary}
+        >
+          <option value="">None</option>
+          {skillsByCategory.map(([catName, catSkills]) => (
+            <optgroup key={catName} label={catName}>
+              {catSkills
+                .filter((s) => String(s.id) !== primary)
+                .map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
-              </optgroup>
-            ))}
-          </select>
-        </label>
-
-        <label className={formLabelClass}>
-          Secondary skill (optional)
-          <select
-            value={secondary}
-            onChange={(e) => setSecondary(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-ink-page-shadow bg-ink-page px-3 py-2 text-sm"
-            disabled={skillsLoading || !primary}
-          >
-            <option value="">None</option>
-            {skillsByCategory.map(([catName, catSkills]) => (
-              <optgroup key={catName} label={catName}>
-                {catSkills
-                  .filter((s) => String(s.id) !== primary)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-              </optgroup>
-            ))}
-          </select>
-        </label>
+            </optgroup>
+          ))}
+        </SelectField>
 
         {error && <ErrorAlert message={error} />}
 
