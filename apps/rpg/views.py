@@ -126,6 +126,13 @@ class CosmeticCatalogView(APIView):
 
         grouped = {slot: [] for slot in slot_map.values()}
         for item in cosmetics:
+            # Filter out malformed cosmetic_theme items (legacy theme-*
+            # rows lacking metadata.theme). cleanup_rpg_catalog removes
+            # them from the DB on next deploy; this filter is the
+            # immediate UI fix so the Frontispiece never advertises a
+            # cover the equip would refuse.
+            if not CosmeticService.is_valid_cosmetic(item):
+                continue
             slot = slot_map[item.item_type]
             grouped[slot].append(item)
 

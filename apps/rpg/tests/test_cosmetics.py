@@ -29,11 +29,13 @@ class CosmeticServiceTests(TestCase):
             metadata={"text": "Apprentice"},
         )
         self.theme = ItemDefinition.objects.create(
-            name="Ocean Theme",
-            icon="🌊",
+            slug="cover-sunlit",
+            name="Sunlit Field",
+            icon="☀️",
             item_type=ItemDefinition.ItemType.COSMETIC_THEME,
             rarity=ItemDefinition.Rarity.UNCOMMON,
             coin_value=20,
+            metadata={"theme": "sunlit"},
         )
         self.egg = ItemDefinition.objects.create(
             name="Dragon Egg",
@@ -342,6 +344,69 @@ class StarterCoverGrantTests(TestCase):
         self.assertTrue(
             UserInventory.objects.filter(user=self.user, item=hyrule).exists()
         )
+
+
+class CosmeticListingFiltersMalformedCoversTests(TestCase):
+    """Pin: ``list_owned_cosmetics`` + the catalog endpoint must drop any
+    cosmetic_theme item whose ``metadata.theme`` doesn't resolve to a real
+    palette in themes.js.
+
+    The 13 retired ``theme-*`` items had this exact shape; cleanup_rpg_catalog
+    removes them from the DB on next deploy, but until then the filter
+    ensures the UI never advertises a cover the equip path would refuse.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="filterkid", password="testpass", role="child",
+        )
+        self.valid_cover = ItemDefinition.objects.create(
+            slug="cover-vigil",
+            name="Night Vigil",
+            icon="🕯️",
+            item_type=ItemDefinition.ItemType.COSMETIC_THEME,
+            rarity=ItemDefinition.Rarity.RARE,
+            metadata={"theme": "vigil"},
+        )
+        self.legacy_cover = ItemDefinition.objects.create(
+            slug="theme-ocean",
+            name="Ocean Theme",
+            icon="🌊",
+            item_type=ItemDefinition.ItemType.COSMETIC_THEME,
+            rarity=ItemDefinition.Rarity.UNCOMMON,
+            metadata={"accent": "#0077BE"},  # no theme key
+        )
+        self.frame = ItemDefinition.objects.create(
+            slug="frame-test",
+            name="Test Frame",
+            icon="🟫",
+            item_type=ItemDefinition.ItemType.COSMETIC_FRAME,
+            rarity=ItemDefinition.Rarity.COMMON,
+        )
+
+    def test_is_valid_cosmetic_accepts_valid_cover(self):
+        self.assertTrue(CosmeticService.is_valid_cosmetic(self.valid_cover))
+
+    def test_is_valid_cosmetic_rejects_malformed_cover(self):
+        self.assertFalse(CosmeticService.is_valid_cosmetic(self.legacy_cover))
+
+    def test_is_valid_cosmetic_passes_other_cosmetic_types(self):
+        """Only cosmetic_theme has a structural integrity check.
+
+        Frames / titles / pet accessories don't carry metadata.theme;
+        the filter must not accidentally drop them.
+        """
+        self.assertTrue(CosmeticService.is_valid_cosmetic(self.frame))
+
+    def test_list_owned_cosmetics_excludes_malformed_covers(self):
+        UserInventory.objects.create(user=self.user, item=self.valid_cover, quantity=1)
+        UserInventory.objects.create(user=self.user, item=self.legacy_cover, quantity=1)
+
+        owned = CosmeticService.list_owned_cosmetics(self.user)
+
+        # Only the valid cover appears in the active_theme list.
+        self.assertEqual(len(owned["active_theme"]), 1)
+        self.assertEqual(owned["active_theme"][0].slug, "cover-vigil")
 
 
 class SignupGrantsCoverTests(TestCase):

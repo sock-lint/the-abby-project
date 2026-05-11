@@ -125,11 +125,14 @@ _REFERENCE_RULES = """
 _TILE_AND_FRAME_RULES = """
 ## Tile size and frame count
 
-- **64×64**: the default. Good for creatures, items, characters at
-  the on-grid scale used by the bestiary and inventory.
-- **32×32**: tiny pickups, tiles, single-pixel-feel items.
-- **128×128**: hero portraits, mounts at full presentation scale,
-  detailed bosses.
+- **128×128**: the default. Hero portraits, mounts, detailed creatures,
+  items at full presentation scale. The frontend renders most sprites
+  at 32-48px, so the 4× downsample preserves detail without sharpness
+  loss. Use this as your starting point.
+- **64×64**: when the subject is genuinely simple (single-pixel-feel
+  pickups, tiny utility tiles) and 128 feels overkill.
+- **32×32**: rare — only for genuinely tiny pickups or single-pixel
+  items.
 - **frame_count=1**: static. ``fps=0``. The model invariant
   enforces this.
 - **frame_count=4**: standard animated cycle. ``fps=8`` is the
@@ -140,6 +143,48 @@ _TILE_AND_FRAME_RULES = """
 - **Each animated frame is one Gemini call** (~$0.04 at current AI
   Studio pricing). Choose deliberately — an 8-frame strip costs ~8×
   more than a static.
+""".strip()
+
+
+_SIZE_DIAGNOSIS = """
+## Diagnosing "subject too small"
+
+The most common reroll trigger. Check in this order:
+
+1. **Check ``pipeline_warnings`` first.** The generation service
+   measures the largest output frame's bbox vs ``tile_size`` and
+   attaches a warning when occupancy is below 70%. If the response
+   carries ``pipeline_warnings``, the pipeline itself flagged the
+   issue — proceed to the reroll-with-refinement steps below.
+
+2. **Inspect the raw Gemini output** by re-running with
+   ``return_debug_raw=True``. The response includes ``debug.raw_gemini_url``
+   and ``debug.post_chroma_key_url`` Ceph URLs. If the raw output
+   already shows a small subject in a vast magenta sea, the prompt
+   isn't pushing Gemini hard enough on occupancy. If the raw is fine
+   but the post-chroma is small, suspect orphan-blob bbox inflation
+   (the static path was reordered to prune-before-autocenter, but a
+   stubborn case can still appear when Gemini draws several
+   significant scene fragments).
+
+3. **Refine via the chat critique loop.** Call
+   ``propose_sprite_reroll(slug, critique="too small")`` to get a
+   refined prompt with the stronger OCCUPANCY clause attached, then
+   pass the proposed inputs to ``reroll_sprite``. Generation
+   persists the refined prompt onto the row, so subsequent rerolls
+   start from the better baseline.
+
+4. **Consider a bigger tile.** If detail is the problem (not just
+   apparent size), bump ``tile_size`` from 64 → 128 — Gemini gets
+   4× more pixels to work with and the frontend will downsample to
+   its rendering size anyway.
+
+5. **Last resort: drop the reference.** When the sprite is being
+   self-anchored on its own prior output, even the reroll path's
+   ``tighten_reference=True`` autocrop can't fully escape Gemini's
+   tendency to copy the prior framing. Replace via
+   ``generate_sprite_sheet`` with ``reference_image_url=None`` to
+   start fresh from text only.
 """.strip()
 
 
@@ -173,6 +218,7 @@ def _compose_playbook() -> str:
         _SUBJECT_RULES,
         _REFERENCE_RULES,
         _TILE_AND_FRAME_RULES,
+        _SIZE_DIAGNOSIS,
     ])
 
 

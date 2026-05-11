@@ -1189,6 +1189,27 @@ class CosmeticService:
     }
 
     @staticmethod
+    def is_valid_cosmetic(item) -> bool:
+        """Return True if a cosmetic ItemDefinition is well-formed for its slot.
+
+        Currently the only slot with a structural integrity requirement
+        is ``cosmetic_theme`` — its ``metadata.theme`` must map to a real
+        palette in [frontend/src/themes.js](frontend/src/themes.js).
+        Other cosmetic types pass through.
+
+        Mirrors the equip-side guard so list endpoints can't advertise a
+        cosmetic the equip would refuse. Used by ``CosmeticCatalogView``
+        and ``list_owned_cosmetics`` to filter out the 13 legacy
+        ``theme-*`` items between code deploy and cleanup_rpg_catalog
+        running (and as defense in depth against any future cosmetic
+        author who forgets to wire ``metadata.theme``).
+        """
+        if item.item_type == "cosmetic_theme":
+            slug = (item.metadata or {}).get("theme")
+            return slug in CosmeticService.VALID_THEME_SLUGS
+        return True
+
+    @staticmethod
     @transaction.atomic
     def equip(user, item_id):
         """Equip a cosmetic item to the appropriate slot.
@@ -1310,7 +1331,14 @@ class CosmeticService:
 
     @staticmethod
     def list_owned_cosmetics(user):
-        """Return cosmetic items the user owns, grouped by slot."""
+        """Return cosmetic items the user owns, grouped by slot.
+
+        Filters out malformed cosmetic_theme items (legacy ``theme-*`` rows
+        with no ``metadata.theme``) so the Frontispiece + Settings don't
+        list covers that would refuse to equip. After ``cleanup_rpg_catalog``
+        runs the rows are gone entirely; this filter is the immediate
+        UI fix between code deploy and cleanup execution.
+        """
         from apps.rpg.models import ItemDefinition, UserInventory
 
         cosmetic_types = list(CosmeticService.COSMETIC_SLOT_MAP.keys())
@@ -1320,6 +1348,8 @@ class CosmeticService:
 
         result = {slot: [] for slot in CosmeticService.COSMETIC_SLOT_MAP.values()}
         for entry in entries:
+            if not CosmeticService.is_valid_cosmetic(entry.item):
+                continue
             slot = CosmeticService.COSMETIC_SLOT_MAP[entry.item.item_type]
             result[slot].append(entry.item)
         return result

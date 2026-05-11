@@ -94,7 +94,16 @@ class SpriteGenerateView(APIView):
 
 
 class SpriteRerollView(APIView):
-    """POST /api/sprites/admin/<slug>/reroll/ — replay stored inputs."""
+    """POST /api/sprites/admin/<slug>/reroll/ — replay stored inputs.
+
+    Accepts optional override fields in the POST body (``prompt``,
+    ``motion``, ``style_hint``, ``tile_size``) so the chat-side
+    critique loop can refine the generation without first PATCHing
+    the row. Any override that's supplied is also persisted back to
+    the SpriteAsset row by ``generate_sprite_sheet`` (its
+    end-of-pipeline ``update(...)`` writes whatever inputs it ran
+    with), so the NEXT reroll resumes from the refined inputs.
+    """
 
     permission_classes = [permissions.IsAuthenticated, IsStaffParent]
 
@@ -110,24 +119,35 @@ class SpriteRerollView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        tile_size = asset.tile_size or asset.frame_width_px or 64
-        motion = asset.motion or "idle"
-        return_debug_raw = bool(request.data.get("return_debug_raw"))
+        # Layer caller-supplied overrides on top of the stored row.
+        data = request.data
+        prompt = (data.get("prompt") or asset.prompt).strip() or asset.prompt
+        motion = (data.get("motion") or asset.motion or "idle").strip() or "idle"
+        style_hint = (data.get("style_hint") if data.get("style_hint") is not None else asset.style_hint) or ""
+        tile_size_raw = data.get("tile_size")
+        try:
+            tile_size = int(tile_size_raw) if tile_size_raw not in (None, "") else (
+                asset.tile_size or asset.frame_width_px or 128
+            )
+        except (TypeError, ValueError):
+            return Response({"detail": "tile_size must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+        return_debug_raw = bool(data.get("return_debug_raw"))
 
         try:
             result = generate_sprite_sheet(
                 slug=asset.slug,
-                prompt=asset.prompt,
+                prompt=prompt,
                 frame_count=asset.frame_count,
                 tile_size=tile_size,
                 fps=asset.fps,
                 pack=asset.pack,
-                style_hint=asset.style_hint,
+                style_hint=style_hint,
                 motion=motion,
                 reference_image_url=asset.reference_image_url or None,
                 original_intent=asset.original_intent,
                 return_debug_raw=return_debug_raw,
                 overwrite=True,
+                tighten_reference=True,
                 actor=request.user,
             )
         except (SpriteGenerationError, SpriteAuthoringError) as exc:
@@ -192,7 +212,7 @@ def _extract_generate_kwargs(data) -> dict:
         "slug": slug,
         "prompt": prompt,
         "frame_count": _as_int("frame_count", 1),
-        "tile_size": _as_int("tile_size", 64),
+        "tile_size": _as_int("tile_size", 128),
         "fps": _as_int("fps", 0),
         "pack": (data.get("pack") or "ai-generated").strip() or "ai-generated",
         "style_hint": (data.get("style_hint") or "").strip(),

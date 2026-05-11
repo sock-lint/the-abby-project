@@ -37,6 +37,7 @@ from ..schemas import (
     GenerateSpriteSheetIn,
     GetSpriteIn,
     ListSpritesIn,
+    ProposeSpriteRerollIn,
     RegisterSpriteBatchIn,
     RegisterSpriteIn,
     RerollSpriteIn,
@@ -289,6 +290,19 @@ def reroll_sprite(params: RerollSpriteIn) -> dict[str, Any]:
     / frame_count / fps / pack`` with ``overwrite=True``. Returns 400 if
     the sprite has no stored prompt (legacy upload — use
     ``generate_sprite_sheet`` directly).
+
+    Optional overrides (``prompt``, ``motion``, ``style_hint``,
+    ``tile_size``) layer on top of the stored row, enabling the chat-side
+    critique loop: call ``propose_sprite_reroll`` to get a refined prompt,
+    then pass the result back here. The generation service persists the
+    inputs it ran with at the end of the pipeline, so the NEXT reroll
+    resumes from the refined state automatically.
+
+    The reroll path also passes ``tighten_reference=True`` to the
+    generation service so the existing sprite's PNG (when used as the
+    reference image for self-anchored animation or style preservation)
+    gets autocropped before Gemini sees it — preventing the
+    rerolls-keep-shrinking compounding bug.
     """
     require_staff_parent()
     try:
@@ -299,21 +313,245 @@ def reroll_sprite(params: RerollSpriteIn) -> dict[str, Any]:
         raise MCPValidationError(
             "no stored prompt — use generate_sprite_sheet to author from scratch.",
         )
-    tile_size = asset.tile_size or asset.frame_width_px or 64
-    motion = asset.motion or "idle"
+    final_prompt = params.prompt if params.prompt is not None else asset.prompt
+    final_motion = params.motion if params.motion is not None else (asset.motion or "idle")
+    final_style_hint = params.style_hint if params.style_hint is not None else (asset.style_hint or "")
+    final_tile_size = params.tile_size if params.tile_size is not None else (
+        asset.tile_size or asset.frame_width_px or 128
+    )
     return _wrap_svc_call(
         gen_svc.generate_sprite_sheet,
         slug=asset.slug,
-        prompt=asset.prompt,
+        prompt=final_prompt,
         frame_count=asset.frame_count,
-        tile_size=tile_size,
+        tile_size=final_tile_size,
         fps=asset.fps,
         pack=asset.pack,
-        style_hint=asset.style_hint,
-        motion=motion,
+        style_hint=final_style_hint,
+        motion=final_motion,
         reference_image_url=asset.reference_image_url or None,
         original_intent=asset.original_intent,
         return_debug_raw=params.return_debug_raw,
         overwrite=True,
+        tighten_reference=True,
         actor=get_current_user(),
     )
+
+
+# ---------------------------------------------------------------------------
+# Chat-side critique loop
+# ---------------------------------------------------------------------------
+
+
+# Rule-based refinement levers. Each entry maps to a (a) human-readable
+# rationale shown in the proposal response and (b) a prompt-fragment
+# transform applied to the stored prompt. The chat agent can either
+# pass ``target_changes`` explicitly or let keyword detection in the
+# critique infer the right levers.
+_KEYWORD_TO_LEVERS: dict[str, list[str]] = {
+    # Size symptoms
+    "too small": ["larger_subject"],
+    "tiny": ["larger_subject"],
+    "small subject": ["larger_subject"],
+    "lots of empty": ["larger_subject"],
+    "too much empty": ["larger_subject"],
+    "wide margin": ["larger_subject"],
+    "too much margin": ["larger_subject"],
+    # Pose symptoms
+    "wrong pose": ["switch_motion"],
+    "static": ["switch_motion"],
+    "stiff": ["switch_motion"],
+    "no motion": ["switch_motion"],
+    "doesn't animate": ["switch_motion"],
+    # Style symptoms
+    "wrong color": ["strengthen_style"],
+    "wrong palette": ["strengthen_style"],
+    "off-style": ["strengthen_style"],
+    "doesn't match": ["strengthen_style"],
+    "style drift": ["strengthen_style"],
+    # Reference symptoms
+    "looks like the reference": ["drop_reference"],
+    "copied the reference": ["drop_reference"],
+    "wrong creature": ["drop_reference"],
+    # Tile size
+    "low detail": ["bigger_tile"],
+    "blurry": ["bigger_tile"],
+    "pixelated": ["bigger_tile"],
+}
+
+_LEVER_RATIONALES: dict[str, str] = {
+    "larger_subject": (
+        "Subject reads as too small in the tile. Strengthens the OCCUPANCY "
+        "clause: explicit '≥90% of canvas, edge-to-edge' wording on top of "
+        "the prompt's existing size instructions."
+    ),
+    "switch_motion": (
+        "Motion template likely doesn't match the subject. Suggests "
+        "switching to 'idle' (most forgiving) or a domain-matched motion."
+    ),
+    "strengthen_style": (
+        "Style drift detected. Appends a stronger style hint emphasizing "
+        "the pack's existing palette."
+    ),
+    "drop_reference": (
+        "Reference image is causing creature-class over-copy. Suggests "
+        "rerolling WITHOUT the reference — but ``reroll_sprite`` reads "
+        "the stored reference_image_url. To actually drop it, the caller "
+        "must PATCH the asset row first or use ``generate_sprite_sheet`` "
+        "directly with ``reference_image_url=None``."
+    ),
+    "bigger_tile": (
+        "Tile too small for the level of detail Gemini is drawing. "
+        "Suggests bumping tile_size from 32 → 64 or 64 → 128."
+    ),
+}
+
+
+def _detect_levers(critique: str) -> list[str]:
+    """Return the deduped, ordered list of refinement levers implied by
+    free-form keyword detection. Order matches first-occurrence in the
+    critique so the highest-priority symptom comes first.
+    """
+    lowered = critique.lower()
+    seen: list[str] = []
+    for keyword, levers in _KEYWORD_TO_LEVERS.items():
+        if keyword in lowered:
+            for lever in levers:
+                if lever not in seen:
+                    seen.append(lever)
+    return seen
+
+
+# Reusable occupancy clause appended to the prompt when ``larger_subject``
+# fires. Stronger than the suffix's default wording — kid-friendly
+# "BIGGER" emphasis that Gemini's instruction-following respects.
+_OCCUPANCY_BOOST_CLAUSE = (
+    " IMPORTANT — SIZE: the subject MUST be drawn AT LEAST 90% of the "
+    "canvas size in its longest dimension. The character should fill "
+    "the frame nearly edge-to-edge with only a hairline magenta margin. "
+    "Do NOT draw a small subject in the middle of a large empty canvas. "
+    "Bigger is better — when in doubt, draw it LARGER."
+)
+
+
+def _refine_prompt(base_prompt: str, levers: list[str]) -> str:
+    """Return ``base_prompt`` augmented with the prompt-side adjustments
+    implied by each lever in ``levers``. Levers that aren't prompt-side
+    (e.g. ``bigger_tile``, ``switch_motion``) leave the prompt alone."""
+    refined = base_prompt
+    if "larger_subject" in levers and _OCCUPANCY_BOOST_CLAUSE not in refined:
+        refined = refined.rstrip() + _OCCUPANCY_BOOST_CLAUSE
+    return refined
+
+
+def _propose_tile_size(current: int, levers: list[str]) -> int:
+    """Apply ``bigger_tile`` lever to the current tile_size when relevant."""
+    if "bigger_tile" not in levers:
+        return current
+    if current == 32:
+        return 64
+    if current == 64:
+        return 128
+    return current  # already at 128 — can't go bigger
+
+
+def _propose_motion(current: str, levers: list[str]) -> str:
+    """Apply ``switch_motion`` lever — defaults to 'idle' (safest) when
+    the chat hasn't picked a specific replacement.
+    """
+    if "switch_motion" not in levers:
+        return current
+    if current == "idle":
+        # Already at the safest motion; the issue probably isn't motion.
+        return current
+    return "idle"
+
+
+def _propose_style_hint(current: str, levers: list[str]) -> str:
+    """Apply ``strengthen_style`` lever — appends a one-liner the chat
+    can edit further. Keeps the existing hint when present."""
+    if "strengthen_style" not in levers:
+        return current
+    addendum = " match the pack's existing palette closely"
+    if current and addendum.strip() not in current:
+        return (current + ";" + addendum).strip()
+    if not current:
+        return "match the pack's existing palette closely"
+    return current
+
+
+_VALID_LEVERS = set(_LEVER_RATIONALES.keys())
+
+
+@tool()
+@safe_tool
+def propose_sprite_reroll(params: ProposeSpriteRerollIn) -> dict[str, Any]:
+    """Construct a refined reroll plan for an existing sprite.
+
+    Parent-only, **does NOT call Gemini** — purely a prompt-construction
+    helper. Pair with ``get_sprite(include_image=True)`` (so the chat
+    agent can see the rendered sprite for vision critique) and
+    ``get_sprite_prompting_playbook`` (which describes the failure
+    modes this tool's rules cover). The chat agent then passes the
+    proposed inputs to ``reroll_sprite`` to actually regenerate.
+
+    Returns the current authoring inputs, the proposed inputs, the
+    refinement levers selected, and a per-lever rationale so the chat
+    agent can show its work to the user before triggering the reroll.
+
+    Levers can be supplied explicitly via ``target_changes`` (overrides
+    keyword detection) or inferred from the critique text — see the
+    ``_KEYWORD_TO_LEVERS`` map for the recognized phrasings. Unknown
+    explicit levers raise ``MCPValidationError``.
+    """
+    require_parent()
+    try:
+        asset = SpriteAsset.objects.get(slug=params.slug)
+    except SpriteAsset.DoesNotExist:
+        raise MCPNotFoundError(f"Sprite {params.slug!r} not found.")
+    if not asset.prompt:
+        raise MCPValidationError(
+            "no stored prompt — propose_sprite_reroll needs a baseline to "
+            "refine. Use generate_sprite_sheet directly for legacy uploads.",
+        )
+
+    if params.target_changes:
+        unknown = [t for t in params.target_changes if t not in _VALID_LEVERS]
+        if unknown:
+            raise MCPValidationError(
+                f"unknown target_changes: {unknown}. Valid levers: "
+                f"{sorted(_VALID_LEVERS)}",
+            )
+        levers = list(dict.fromkeys(params.target_changes))  # dedupe, preserve order
+    else:
+        levers = _detect_levers(params.critique)
+
+    current_tile_size = asset.tile_size or asset.frame_width_px or 128
+    current_motion = asset.motion or "idle"
+    current_style_hint = asset.style_hint or ""
+
+    proposed_prompt = _refine_prompt(asset.prompt, levers)
+    proposed_tile_size = _propose_tile_size(current_tile_size, levers)
+    proposed_motion = _propose_motion(current_motion, levers)
+    proposed_style_hint = _propose_style_hint(current_style_hint, levers)
+
+    rationale = [
+        {"lever": lever, "explanation": _LEVER_RATIONALES[lever]}
+        for lever in levers
+    ]
+
+    return {
+        "slug": asset.slug,
+        "current_prompt": asset.prompt,
+        "original_intent": asset.original_intent,
+        "current_motion": current_motion,
+        "current_style_hint": current_style_hint,
+        "current_tile_size": current_tile_size,
+        "proposed_prompt": proposed_prompt,
+        "proposed_motion": proposed_motion,
+        "proposed_style_hint": proposed_style_hint,
+        "proposed_tile_size": proposed_tile_size,
+        "levers": levers,
+        "rationale": rationale,
+        "critique": params.critique,
+    }

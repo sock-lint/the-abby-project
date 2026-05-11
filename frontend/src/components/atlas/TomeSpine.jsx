@@ -7,25 +7,81 @@ import { PROGRESS_TIER } from './mastery.constants';
  * Two variants today, same outer dimensions so any mix can sit on the same
  * TomeShelf without breaking the snap-rail layout:
  *
- *   - `codex` (default) — vertical-text book spine. Best for narrative or
- *     chapter content: skills, badges, cosmetics, yearbook years, journal.
- *     Reads as "a book of pages."
+ *   - `codex` (default) — a hand-bound library tome. Tooled-leather panel
+ *     tinted by progress tier, three raised binding bands, brass medallion
+ *     head cap, woven headband, foil-stamp vertical title, gilt page-edge.
+ *     Reads as "a book pulled from a library shelf." This is THE book
+ *     vocabulary in the app — fans out to Skills, Badges, Yearbook,
+ *     cosmetic chapters, and JournalReader.
  *   - `vessel` — horizontal label, icon-forward, count-chip prominent.
  *     Best for "collections of things": inventory compartments (eggs,
  *     potions, …), sketchbook filter pills (projects, homework, …).
  *     Reads as "a labeled drawer / apothecary jar."
  *
  * Domain-agnostic: pass flat props for whatever the consumer wants to show.
- * The active spine lifts, tilts, and unfurls a bookmark ribbon regardless
- * of variant. Lives inside a role="tablist" parent (TomeShelf) — same
- * keyboard contract (ArrowRight/Left) and same aria-selected semantics
- * as any tab.
+ * The active spine lifts, tilts (rotateY revealing a page-block sliver),
+ * and unfurls a bookmark ribbon regardless of variant. Lives inside a
+ * role="tablist" parent (TomeShelf) — same keyboard contract
+ * (ArrowRight/Left) and same aria-selected semantics as any tab.
  *
  * When `progressPct == null` the foot band becomes a thin static hairline
  * (used by surfaces like Inventory or Yearbook where "progress" isn't a
  * meaningful concept — a satchel drawer or a calendar year aren't
  * collections to fill).
  */
+
+// Tier → binding palette. Locked tomes look pristine and cool (untouched on
+// the shelf); gilded tomes look warm and burnished. All five tones reuse
+// the leather/headband tokens declared in index.css so journal-cover swaps
+// (hyrule / vigil / sunlit / …) drive the look from one place.
+const TIER_LEATHER = {
+  locked: {
+    spineTint: 'var(--color-leather-locked)',
+    headband: 'var(--color-headband-locked)',
+    foilTop: 'var(--color-ink-whisper)',
+    foilBottom: 'var(--color-ink-page-shadow)',
+    edgeOpacity: 0.35,
+    discBg: 'var(--color-ink-page-shadow)',
+    discDim: true,
+  },
+  nascent: {
+    spineTint: 'var(--color-leather-nascent)',
+    headband: 'var(--color-headband-nascent)',
+    foilTop: 'var(--color-gold-leaf)',
+    foilBottom: 'var(--color-ember-deep)',
+    edgeOpacity: 0.62,
+    discBg: 'var(--color-gold-leaf)',
+    discDim: false,
+  },
+  rising: {
+    spineTint: 'var(--color-leather-rising)',
+    headband: 'var(--color-headband-rising)',
+    foilTop: 'var(--color-gold-leaf)',
+    foilBottom: 'var(--color-ember-deep)',
+    edgeOpacity: 0.75,
+    discBg: 'var(--color-gold-leaf)',
+    discDim: false,
+  },
+  cresting: {
+    spineTint: 'var(--color-leather-cresting)',
+    headband: 'var(--color-headband-cresting)',
+    foilTop: 'var(--color-gold-leaf)',
+    foilBottom: 'var(--color-ember-deep)',
+    edgeOpacity: 0.88,
+    discBg: 'var(--color-gold-leaf)',
+    discDim: false,
+  },
+  gilded: {
+    spineTint: 'var(--color-leather-gilded)',
+    headband: 'var(--color-headband-gilded)',
+    foilTop: 'var(--color-gold-leaf)',
+    foilBottom: 'var(--color-gold-leaf)',
+    edgeOpacity: 1,
+    discBg: 'var(--color-gold-leaf)',
+    discDim: false,
+  },
+};
+
 const TomeSpine = forwardRef(function TomeSpine(
   {
     id,
@@ -42,11 +98,29 @@ const TomeSpine = forwardRef(function TomeSpine(
   },
   ref,
 ) {
-  const activeCls = active
-    ? 'bg-ink-page-rune-glow border-gold-leaf shadow-[0_6px_18px_-6px_rgba(45,31,21,0.45)] -translate-y-1 -rotate-1'
-    : 'bg-ink-page-aged border-ink-page-shadow hover:border-sheikah-teal/60 hover:bg-ink-page-rune-glow';
+  const tierKey =
+    Object.keys(PROGRESS_TIER).find((k) => PROGRESS_TIER[k] === tier) || 'locked';
+  const isCodex = variant === 'codex';
+  const leather = TIER_LEATHER[tierKey] || TIER_LEATHER.locked;
 
-  const tierKey = Object.keys(PROGRESS_TIER).find((k) => PROGRESS_TIER[k] === tier) || 'locked';
+  // Active vs idle button shell. Codex variants get the pull-from-shelf
+  // hover + open-binding tilt; vessels keep their flat drawer behavior.
+  let buttonCls;
+  if (isCodex) {
+    buttonCls = active
+      ? 'border-gold-leaf shadow-[0_12px_26px_-8px_rgba(45,31,21,0.55)] [transform:translateY(-6px)_rotate(-1.2deg)_rotateY(-7deg)]'
+      : 'border-ink-page-shadow hover:border-sheikah-teal/60 hover:[transform:translateY(-4px)_scale(1.03)] hover:shadow-[0_14px_24px_-6px_rgba(45,31,21,0.45)]';
+  } else {
+    buttonCls = active
+      ? 'bg-ink-page-rune-glow border-gold-leaf shadow-[0_6px_18px_-6px_rgba(45,31,21,0.45)] -translate-y-1 -rotate-1'
+      : 'bg-ink-page-aged border-ink-page-shadow hover:border-sheikah-teal/60 hover:bg-ink-page-rune-glow';
+  }
+
+  const surfaceCls = isCodex ? 'spine-leather' : '';
+
+  // CSS custom property feeds .spine-leather's background-color. Only set
+  // on codex spines — vessels keep their bg-ink-page-* utility classes.
+  const style = isCodex ? { '--spine-tint': leather.spineTint } : undefined;
 
   return (
     <button
@@ -61,12 +135,17 @@ const TomeSpine = forwardRef(function TomeSpine(
       data-spine-id={id}
       data-spine-variant={variant}
       data-active={active ? 'true' : 'false'}
-      className={`snap-start shrink-0 relative rounded-md border-2 transition-all duration-200 flex flex-col items-center w-[68px] h-[180px] md:w-[76px] md:h-[200px] py-3 px-1 overflow-hidden ${activeCls}`}
+      data-binding={isCodex ? 'leather' : 'drawer'}
+      data-tier={tierKey}
+      style={style}
+      className={`snap-start shrink-0 relative rounded-md border-2 transition-all duration-200 flex flex-col items-center w-[68px] h-[180px] md:w-[76px] md:h-[200px] py-3 px-1 overflow-hidden will-change-transform ${surfaceCls} ${buttonCls}`}
     >
+      {isCodex && <SpineDressings tierKey={tierKey} leather={leather} active={active} />}
+
       {variant === 'vessel' ? (
         <VesselBody name={name} icon={icon} active={active} />
       ) : (
-        <CodexBody name={name} icon={icon} active={active} />
+        <CodexBody name={name} icon={icon} active={active} leather={leather} />
       )}
 
       {/* Bottom group — chip above the foot band. Living inside the flex
@@ -74,13 +153,13 @@ const TomeSpine = forwardRef(function TomeSpine(
           collide with the chip no matter how long the title or how big
           the vessel icon. The flex-1 body shrinks the available middle
           space; this group sits naturally below it. */}
-      <span className="flex flex-col items-center gap-1.5 w-full shrink-0 mt-1.5">
+      <span className="relative z-10 flex flex-col items-center gap-1.5 w-full shrink-0 mt-1.5">
         {chip != null && chip !== '' && (
           <span
             className={`font-rune uppercase tracking-wider px-1.5 py-0.5 rounded tabular-nums ${
               variant === 'vessel' ? 'text-tiny font-bold' : 'text-micro'
             } ${
-              active ? 'bg-gold-leaf/20 text-ember-deep' : 'bg-ink-page-shadow/40 text-ink-whisper'
+              active ? 'bg-gold-leaf/30 text-ember-deep' : 'bg-ink-page-shadow/40 text-ink-whisper'
             }`}
           >
             {chip}
@@ -113,14 +192,15 @@ const TomeSpine = forwardRef(function TomeSpine(
 
       {/* Bookmark ribbon — draped from the head cap only on the active spine.
           Shared across variants so the active-state vocabulary stays
-          consistent across the shelf. Animates scale-y 0 → 1 via Tailwind's
-          transition-transform because the parent already re-renders on
-          activeId change. */}
+          consistent across the shelf. Codex variants get an extra settle
+          curl (animate-ribbon-settle) so the ribbon reads as fabric falling
+          into place; vessels keep the original scale-y tween. The
+          scale-y-0/100 classes are preserved (tests pin against them). */}
       <span
         aria-hidden="true"
         data-tome-ribbon="true"
-        className={`absolute top-0 right-3 w-2 bg-sheikah-teal-deep origin-top transition-transform duration-300 ease-out ${
-          active ? 'scale-y-100' : 'scale-y-0'
+        className={`absolute top-0 right-3 w-2 bg-sheikah-teal-deep origin-top transition-transform duration-300 ease-out z-20 ${
+          active ? `scale-y-100 ${isCodex ? 'animate-ribbon-settle' : ''}` : 'scale-y-0'
         }`}
         style={{
           height: '38px',
@@ -132,39 +212,144 @@ const TomeSpine = forwardRef(function TomeSpine(
 });
 
 /**
- * Codex body — small icon at the head cap, vertical display-serif title
- * filling the middle. The original "book spine" layout.
+ * SpineDressings — absolute-positioned decorative layers on a codex spine:
+ * cloth headband across the top, three raised binding bands, gilt
+ * page-edge down the right, and a cream page-block sliver visible only
+ * when active (revealed by the rotateY tilt). All aria-hidden; none of
+ * these are queried by tests except via `data-*` selectors.
  */
-function CodexBody({ name, icon, active }) {
+function SpineDressings({ tierKey, leather, active }) {
+  const bindingBandShadow =
+    'inset 0 -1px 0 rgba(45, 31, 21, 0.42), 0 1px 0 rgba(255, 248, 224, 0.30)';
+
   return (
     <>
-      {/* Head cap — icon medallion. */}
+      {/* Cloth headband — the woven cap at the top of a real hardback.
+          Tier-tinted so a row of tomes flashes its progress vocabulary
+          across the shelf even when the leather itself is muted. */}
       <span
         aria-hidden="true"
-        className={`text-2xl md:text-3xl leading-none drop-shadow-[0_1px_0_var(--color-ink-page-rune-glow)] ${
-          active ? '' : 'opacity-85'
+        data-spine-headband="true"
+        data-tier={tierKey}
+        className="absolute top-0 left-0 right-0 h-1.5 pointer-events-none"
+        style={{
+          backgroundColor: leather.headband,
+          opacity: leather.edgeOpacity,
+          boxShadow:
+            'inset 0 -1px 0 rgba(45, 31, 21, 0.35), inset 0 1px 0 rgba(255, 248, 224, 0.25)',
+        }}
+      />
+
+      {/* Three raised binding bands — short horizontal ridges across the
+          spine that bookbinders sew over the cord. Largest "real book"
+          tell after the leather grain. */}
+      <span
+        aria-hidden="true"
+        data-spine-band="head"
+        className="absolute left-0 right-0 h-[2px] pointer-events-none"
+        style={{ top: '22%', boxShadow: bindingBandShadow }}
+      />
+      <span
+        aria-hidden="true"
+        data-spine-band="middle"
+        className="absolute left-0 right-0 h-[2px] pointer-events-none"
+        style={{ top: '52%', boxShadow: bindingBandShadow }}
+      />
+      <span
+        aria-hidden="true"
+        data-spine-band="foot"
+        className="absolute left-0 right-0 h-[2px] pointer-events-none"
+        style={{ top: '82%', boxShadow: bindingBandShadow }}
+      />
+
+      {/* Gilt page-edge — the page block's gilded edge peeks down the
+          right side of the spine. Brighter at higher progress tiers via
+          edgeOpacity. */}
+      <span
+        aria-hidden="true"
+        data-spine-edge="true"
+        className="absolute top-0 bottom-0 right-0 w-[2px] pointer-events-none"
+        style={{
+          backgroundImage:
+            'linear-gradient(180deg, var(--color-gold-leaf) 0%, var(--color-ember-deep) 50%, var(--color-gold-leaf) 100%)',
+          opacity: leather.edgeOpacity,
+        }}
+      />
+
+      {/* Active page-block sliver — the cream-striated cut of pages
+          revealed by the rotateY tilt when this spine is selected. */}
+      {active && (
+        <span
+          aria-hidden="true"
+          data-spine-pageblock="true"
+          className="page-block absolute top-2 bottom-2 right-[3px] w-1.5 pointer-events-none rounded-[1px]"
+          style={{
+            boxShadow:
+              'inset 1px 0 0 rgba(45, 31, 21, 0.35), inset -1px 0 0 rgba(45, 31, 21, 0.20)',
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * Codex body — brass medallion at the head cap, vertical foil-stamped
+ * display-serif title filling the middle. The original "book spine"
+ * layout, now dressed.
+ */
+function CodexBody({ name, icon, active, leather }) {
+  return (
+    <>
+      {/* Brass medallion — bevelled disc holding the icon. Disc dims for
+          locked tomes so a fresh shelf reads as "not yet pulled down."
+          Three-layer box-shadow simulates the inner highlight + ring
+          shadow + outer drop you'd see on a real brass cabochon. */}
+      <span
+        aria-hidden="true"
+        data-spine-medallion="true"
+        className={`relative z-10 inline-flex items-center justify-center w-7 h-7 md:w-8 md:h-8 rounded-full mt-1 ${
+          active ? '' : 'opacity-95'
         }`}
+        style={{
+          backgroundColor: leather.discBg,
+          boxShadow:
+            'inset 0 1px 0 rgba(255, 248, 224, 0.65), inset 0 -1px 0 rgba(45, 31, 21, 0.45), 0 0 0 1px rgba(143, 62, 29, 0.45), 0 2px 4px rgba(45, 31, 21, 0.40)',
+        }}
       >
-        {icon || '✦'}
+        <span
+          className={`text-base md:text-lg leading-none ${
+            leather.discDim ? 'opacity-70' : ''
+          }`}
+          style={{
+            filter: leather.discDim ? 'grayscale(40%)' : 'none',
+            textShadow: '0 1px 0 rgba(255, 248, 224, 0.55)',
+          }}
+        >
+          {icon || '✦'}
+        </span>
       </span>
 
-      {/* Vertical spine title. writing-mode CSS + text-orientation keep the
-          letters upright reading bottom-to-top, mimicking a printed spine. */}
+      {/* Vertical spine title — foil-stamped via .spine-foil (background-clip
+          gradient) with the .spine-foil-glint sheen sweep on hover/active.
+          writing-mode + text-orientation + rotate(180deg) keep the letters
+          upright reading bottom-to-top, mimicking a printed spine. */}
       <span
         aria-hidden="true"
-        className={`font-display italic font-semibold leading-tight text-center px-0.5 flex items-center justify-center flex-1 min-h-0 ${
-          active ? 'text-ink-primary' : 'text-ink-secondary'
-        }`}
+        data-spine-title="true"
+        className="spine-foil spine-foil-glint font-display italic font-bold leading-tight text-center px-0.5 flex items-center justify-center flex-1 min-h-0 relative z-10"
         style={{
           writingMode: 'vertical-rl',
           textOrientation: 'mixed',
           transform: 'rotate(180deg)',
           fontSize: '14px',
-          letterSpacing: '0.02em',
+          letterSpacing: '0.05em',
           lineHeight: 1,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
+          '--foil-tone-top': leather.foilTop,
+          '--foil-tone-bottom': leather.foilBottom,
         }}
       >
         {name}

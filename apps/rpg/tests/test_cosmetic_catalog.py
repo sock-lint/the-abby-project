@@ -27,12 +27,16 @@ class CosmeticCatalogViewTests(TestCase):
             rarity=ItemDefinition.Rarity.COMMON,
             coin_value=5,
         )
+        # Use a properly-wired cover-* item so the catalog endpoint's
+        # is_valid_cosmetic filter accepts it.
         self.theme = ItemDefinition.objects.create(
-            name="Ocean Theme",
-            icon="\U0001f30a",
+            slug="cover-sunlit",
+            name="Sunlit Field",
+            icon="☀️",
             item_type=ItemDefinition.ItemType.COSMETIC_THEME,
             rarity=ItemDefinition.Rarity.UNCOMMON,
             coin_value=20,
+            metadata={"theme": "sunlit"},
         )
         self.accessory = ItemDefinition.objects.create(
             name="Saddle",
@@ -84,3 +88,24 @@ class CosmeticCatalogViewTests(TestCase):
         self.client.force_authenticate(self.parent)
         resp = self.client.get(reverse("cosmetics-catalog"))
         self.assertEqual(resp.status_code, 200)
+
+    def test_malformed_cosmetic_themes_are_excluded(self):
+        """Pin: legacy theme-* cosmetics (no metadata.theme) don't appear
+        in the catalog response — defense in depth between code deploy
+        and cleanup_rpg_catalog physically removing the rows.
+        """
+        legacy = ItemDefinition.objects.create(
+            slug="theme-ocean",
+            name="Ocean Theme",
+            icon="🌊",
+            item_type=ItemDefinition.ItemType.COSMETIC_THEME,
+            rarity=ItemDefinition.Rarity.UNCOMMON,
+            metadata={"accent": "#0077BE"},  # no theme key
+        )
+
+        self.client.force_authenticate(self.child)
+        resp = self.client.get(reverse("cosmetics-catalog"))
+
+        theme_ids = [x["id"] for x in resp.json()["active_theme"]]
+        self.assertNotIn(legacy.id, theme_ids)
+        self.assertIn(self.theme.id, theme_ids)  # the valid one still appears

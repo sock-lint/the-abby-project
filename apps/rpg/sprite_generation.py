@@ -37,8 +37,21 @@ DEFAULT_MAX_FRAMES = 8
 ALLOWED_TILE_SIZES = (32, 64, 128)
 
 # Fraction of the tile left as transparent border on each side after
-# autocenter. 0.10 means the subject occupies the middle 80% of the tile.
-AUTOCENTER_PADDING_FRAC = 0.10
+# autocenter. 0.05 means the subject occupies the middle 90% of the tile.
+# Tightened from 0.10 → 0.05 in the "subjects too small" review — combined
+# with the orphan-prune reorder in the static pipeline (see comment in
+# the static-frame branch of ``generate_sprite_sheet``) and the explicit
+# OCCUPANCY clause in the Gemini prompts, this raises the subject-size
+# ceiling from 80% to 90% of the tile.
+AUTOCENTER_PADDING_FRAC = 0.05
+
+# Below this fraction of tile occupancy after the full pipeline runs, we
+# emit a ``pipeline_warnings`` entry telling the caller the sprite is
+# probably too small to look right next to other tiles. No auto-retry —
+# every retry burns ~$0.04 × frame_count and we don't want silent extra
+# spend. The admin UI surfaces the warning as a chip so the parent can
+# decide whether to reroll.
+OCCUPANCY_WARNING_FLOOR = 0.70
 
 # Chroma-key color that we ask Gemini to fill "transparent background"
 # areas with. Pure bright magenta is the classic game-dev chroma-key
@@ -233,7 +246,14 @@ PROMPT_SUFFIX = (
     "The subject itself MUST NOT contain magenta anywhere — use completely "
     "different colors for the character. "
     "The subject MUST occupy the center of the frame with equal space on "
-    "all sides; do not place the subject in any corner."
+    "all sides; do not place the subject in any corner. "
+    "OCCUPANCY: the subject MUST fill at LEAST 85% of the canvas in its "
+    "longest dimension. Draw it LARGE, edge-to-edge, with only a thin "
+    "magenta margin around the silhouette. Do NOT leave wide empty "
+    "borders — small subjects floating in a sea of magenta are wrong. "
+    "If the subject is taller than wide, its height should nearly span "
+    "the canvas; if wider than tall, its width should nearly span the "
+    "canvas."
 )
 
 
@@ -354,6 +374,55 @@ def _preprocess_reference_image(png_bytes: bytes) -> bytes:
     composite = Image.alpha_composite(magenta_canvas, img)
     out = io.BytesIO()
     composite.save(out, format="PNG")
+    return out.getvalue()
+
+
+def _tighten_reference_to_subject(png_bytes: bytes) -> bytes:
+    """Reframe a reference image so the subject fills ~94% of the canvas.
+
+    Used on the reroll path only — the previous pipeline run's output is
+    being passed back as the reference, and it already carries the
+    pipeline's design padding (90% subject by construction). Without this
+    step, Gemini learns the padded framing from the reference and the
+    post-pipeline scales another ~90% of THAT on top, which is how rerolls
+    were perceptibly shrinking the subject across iterations.
+
+    Steps:
+      1. Chroma-key any near-magenta pixels to transparent (defensive —
+         the reference may already have alpha=0 in the margins, but our
+         own outputs include a transparent border, not magenta).
+      2. Crop to the subject's alpha bounding box.
+      3. Paste onto a fresh magenta canvas with a thin (3%) margin.
+
+    Returns PNG bytes suitable for ``_preprocess_reference_image`` to
+    consume next (which composites onto magenta — a no-op here, but the
+    chain stays explicit so a future change to that stage doesn't
+    silently break this one).
+    """
+    keyed = _chroma_key_to_transparent(png_bytes)
+    try:
+        img = Image.open(io.BytesIO(keyed)).convert("RGBA")
+    except (UnidentifiedImageError, OSError) as exc:
+        raise SpriteGenerationError(f"reference image invalid: {exc}")
+
+    bbox = img.getbbox()
+    if bbox is None:
+        # Fully transparent reference — nothing to tighten. Return the
+        # chroma-keyed input unchanged so the caller still gets a
+        # magenta-friendly version.
+        return keyed
+
+    cropped = img.crop(bbox)
+    cw, ch = cropped.size
+    margin_frac = 0.03
+    side = max(cw, ch)
+    canvas_side = max(1, int(round(side / (1.0 - 2 * margin_frac))))
+    canvas = Image.new("RGBA", (canvas_side, canvas_side), (*CHROMA_KEY_COLOR, 255))
+    x = (canvas_side - cw) // 2
+    y = (canvas_side - ch) // 2
+    canvas.paste(cropped, (x, y), cropped)
+    out = io.BytesIO()
+    canvas.save(out, format="PNG")
     return out.getvalue()
 
 
@@ -783,6 +852,14 @@ def _build_pose_sheet_prompt(
         f"at any angle different from the other frames.\n"
         f"- All {frame_count} frames MUST be at the exact same scale "
         f"and vertically aligned on a shared baseline.\n"
+        f"- OCCUPANCY: in EVERY frame, the character MUST fill at LEAST "
+        f"85% of that frame's vertical extent (top to bottom) AND at "
+        f"least 70% of its horizontal extent. Draw the character LARGE "
+        f"in each cell — edge-to-edge in its dominant dimension — with "
+        f"only a thin magenta margin around its silhouette. Small "
+        f"characters floating in oversized magenta cells are WRONG. "
+        f"The reader should see the character clearly at a glance, not "
+        f"a tiny figure lost in empty space.\n"
         f"- BACKGROUND: fill the entire sheet with SOLID BRIGHT MAGENTA "
         f"(RGB 255, 0, 255 / hex #ff00ff) as a flat solid color. DO NOT "
         f"draw a checkerboard transparency pattern. DO NOT use any "
@@ -806,6 +883,27 @@ def _build_pose_sheet_prompt(
         f"continuous magenta strip.\n"
         f"- No text, no UI, no watermark, no caption, no logos."
     )
+
+
+def _frame_occupancy(frame_bytes: bytes, tile_size: int) -> float:
+    """Return the largest dimension of the subject bbox as a fraction of
+    ``tile_size``. 0.0 when the frame is fully transparent.
+
+    Used by the post-pipeline occupancy check — if every frame's
+    occupancy is below ``OCCUPANCY_WARNING_FLOOR``, the pipeline emits a
+    warning so the admin UI can surface it. Cheap enough (PIL bbox =
+    single scan) to run unconditionally.
+    """
+    try:
+        img = Image.open(io.BytesIO(frame_bytes)).convert("RGBA")
+    except (UnidentifiedImageError, OSError):
+        return 0.0
+    bbox = img.getbbox()
+    if bbox is None:
+        return 0.0
+    w = bbox[2] - bbox[0]
+    h = bbox[3] - bbox[1]
+    return max(w, h) / max(1, tile_size)
 
 
 def _stitch_strip(frames: list[bytes], tile_size: int) -> bytes:
@@ -855,7 +953,7 @@ def generate_sprite_sheet(
     slug: str,
     prompt: str,
     frame_count: int = 1,
-    tile_size: int = 64,
+    tile_size: int = 128,
     fps: int = 0,
     pack: str = "ai-generated",
     style_hint: str = "",
@@ -864,6 +962,7 @@ def generate_sprite_sheet(
     original_intent: str = "",
     return_debug_raw: bool = False,
     overwrite: bool = False,
+    tighten_reference: bool = False,
     actor: Optional[User] = None,
 ) -> dict[str, Any]:
     """Generate a sprite (static or animated) from a text prompt.
@@ -925,15 +1024,30 @@ def generate_sprite_sheet(
     # transparent pixels to magenta BEFORE handing to Gemini. Without
     # this, Gemini uses the reference's implied (white) background as
     # a style cue and outputs on white, defeating the chroma-key step.
+    #
+    # When ``tighten_reference`` is set (the reroll path passes True),
+    # we ALSO autocrop the reference to its subject's bbox + repaste
+    # onto a near-flush magenta canvas first, so Gemini doesn't learn
+    # the existing 90% padding from a previous pipeline run and stack
+    # another scale-down on top.
     ref_bytes: Optional[bytes] = None
     if reference_image_url:
         raw_ref = _fetch_reference_image(reference_image_url)
+        if tighten_reference:
+            raw_ref = _tighten_reference_to_subject(raw_ref)
         ref_bytes = _preprocess_reference_image(raw_ref)
 
     debug_urls: dict[str, str] = {}
     frames: list[bytes] = []
     if frame_count == 1:
-        # Static path: single call, chroma-key, autocenter, prune orphans.
+        # Static path: prune orphans BEFORE autocenter so scene-decoration
+        # specks (anti-alias fringes, stray sparks, the corner of a
+        # "borderline" prop that survived the suffix ban) don't inflate
+        # the alpha bbox and force the actual subject to scale down to a
+        # fraction of the tile. Pre-fix the order was chroma-key →
+        # autocenter → keep-largest, which prunes the orphans but only
+        # AFTER the scale-down has already happened — leaving the subject
+        # at ~50% of the tile despite the 90%-of-tile design ceiling.
         full_prompt = _build_prompt(
             subject=prompt,
             style_hint=style_hint,
@@ -945,8 +1059,9 @@ def generate_sprite_sheet(
         keyed = _chroma_key_to_transparent(raw)
         if return_debug_raw:
             debug_urls["post_chroma_key_url"] = _save_debug_artifact(slug, "post-chroma", keyed)
-        centered = _autocenter_frame(keyed, tile_size)
-        frames.append(_keep_largest_component(centered))
+        pruned = _keep_largest_component(keyed)
+        centered = _autocenter_frame(pruned, tile_size)
+        frames.append(centered)
     else:
         # Animated path: one-shot pose sheet + chroma-key + slice +
         # shared-scale center. A single Gemini call produces all N
@@ -1005,6 +1120,22 @@ def generate_sprite_sheet(
         tile_size=tile_size,
         reference_image_url=reference_image_url or "",
     )
+
+    # Measure subject occupancy on every emitted frame. If the largest
+    # frame's longest-dim/tile ratio is below the floor, attach a
+    # warning to the result so the admin UI can flag the sprite for
+    # reroll. No auto-retry — every retry burns ~$0.04 × frame_count
+    # and a silently doubled bill is the wrong default.
+    warnings: list[str] = []
+    occupancies = [_frame_occupancy(f, tile_size) for f in frames]
+    peak = max(occupancies) if occupancies else 0.0
+    if peak < OCCUPANCY_WARNING_FLOOR:
+        warnings.append(
+            f"subject occupancy {peak:.0%} below {OCCUPANCY_WARNING_FLOOR:.0%} "
+            f"floor — consider reroll with a stronger occupancy clause"
+        )
+    if warnings:
+        result["pipeline_warnings"] = warnings
 
     if debug_urls:
         result["debug"] = debug_urls

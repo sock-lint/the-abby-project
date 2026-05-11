@@ -550,12 +550,13 @@ class ChromaKeyIntegrationTests(TestCase):
             f"found {len(magenta_pixels)} magenta pixels — chroma-key didn't run",
         )
 
-        # And the subject bbox should fit the inner ~80% window.
+        # And the subject bbox should fit the inner ~90% window
+        # (AUTOCENTER_PADDING_FRAC=0.05 → inner = tile_size × 0.9 = 57.6).
         bbox = tile.getbbox()
         self.assertIsNotNone(bbox)
         max_dim = max(bbox[2] - bbox[0], bbox[3] - bbox[1])
-        self.assertGreaterEqual(max_dim, 48)
-        self.assertLessEqual(max_dim, 56)
+        self.assertGreaterEqual(max_dim, 50)
+        self.assertLessEqual(max_dim, 60)
 
 
 class ExtractPngBytesTests(TestCase):
@@ -613,9 +614,10 @@ class AutocenterFrameTests(TestCase):
         # same for top/bottom. That's the definition of centered.
         self.assertLessEqual(abs(left - (64 - right)), 1)
         self.assertLessEqual(abs(top - (64 - bottom)), 1)
-        # Subject should occupy ~80% of tile (padding fraction = 0.10).
-        self.assertGreaterEqual(max(subject_w, subject_h), 48)
-        self.assertLessEqual(max(subject_w, subject_h), 58)
+        # Subject should occupy ~90% of tile (padding fraction = 0.05 →
+        # inner = tile_size × 0.9 = 57.6 for tile_size=64).
+        self.assertGreaterEqual(max(subject_w, subject_h), 50)
+        self.assertLessEqual(max(subject_w, subject_h), 60)
 
     def test_preserves_aspect_ratio_for_tall_subject(self):
         # 32 wide × 128 tall subject → should stay tall after scaling.
@@ -644,6 +646,226 @@ class AutocenterFrameTests(TestCase):
     def test_invalid_image_raises(self):
         with self.assertRaises(SpriteGenerationError):
             _autocenter_frame(b"not a png", tile_size=64)
+
+
+class PipelineConstantTests(TestCase):
+    """Pin the ``AUTOCENTER_PADDING_FRAC`` constant + default tile_size.
+
+    These are the two values the "subjects too small" review tuned. A
+    future "just bump it a little for breathing room" PR shouldn't be
+    able to silently undo the move from 80% → 90% without tripping a
+    test.
+    """
+
+    def test_autocenter_padding_frac_is_5_percent(self):
+        from apps.rpg.sprite_generation import AUTOCENTER_PADDING_FRAC
+        self.assertAlmostEqual(AUTOCENTER_PADDING_FRAC, 0.05)
+
+    def test_default_tile_size_is_128(self):
+        import inspect
+        from apps.rpg.sprite_generation import generate_sprite_sheet
+        sig = inspect.signature(generate_sprite_sheet)
+        self.assertEqual(sig.parameters["tile_size"].default, 128)
+
+    def test_occupancy_warning_floor_is_70_percent(self):
+        from apps.rpg.sprite_generation import OCCUPANCY_WARNING_FLOOR
+        self.assertAlmostEqual(OCCUPANCY_WARNING_FLOOR, 0.70)
+
+
+@override_settings(GEMINI_API_KEY="test-key")
+class StaticPipelinePruneOrderTests(TestCase):
+    """The static-path order is now ``chroma-key → prune → autocenter``.
+
+    Before the reorder, ``_keep_largest_component`` ran AFTER
+    ``_autocenter_frame``, which meant stray scene-decoration specks
+    (anti-alias halos, sparks Gemini drew despite the suffix bans)
+    inflated the bbox at the autocenter step. The actual subject then
+    scaled down to fit that inflated bbox into the 90% inner window —
+    leaving the rendered subject at ~50% of the tile while the orphan
+    pruning that ran AFTER could only remove the orphans, not recover
+    the lost size.
+
+    The fix runs the pruning FIRST, so the bbox passed to autocenter
+    represents only the subject.
+    """
+
+    def setUp(self):
+        self.parent = User.objects.create_user(
+            username="prune-order", password="pw", role="parent",
+        )
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_static_path_prunes_orphans_before_autocenter(self, mock_frame):
+        # Gemini-style output: a large red subject + one small orphan
+        # speck in a corner, painted on a 512×512 magenta canvas. After
+        # chroma-key, both blobs survive as opaque. Pre-fix the bbox
+        # would span (subject-left, 0) to (511, subject-bottom), and
+        # autocenter would scale the WHOLE thing down — the actual
+        # subject would end up at ~40% of the tile. Post-fix the orphan
+        # is pruned BEFORE autocenter, so the subject's bbox is what
+        # gets scaled into the 90% inner window.
+        def _gemini_output_with_orphan():
+            sheet = Image.new("RGBA", (512, 512), (255, 0, 255, 255))  # magenta bg
+            subject = Image.new("RGBA", (300, 300), (200, 50, 50, 255))
+            sheet.paste(subject, (106, 106))  # roughly centered
+            # Orphan speck in the top-left corner (gap from subject).
+            spark = Image.new("RGBA", (8, 8), (240, 220, 60, 255))
+            sheet.paste(spark, (4, 4))
+            buf = io.BytesIO()
+            sheet.save(buf, format="PNG")
+            return buf.getvalue()
+
+        mock_frame.return_value = _gemini_output_with_orphan()
+
+        result = generate_sprite_sheet(
+            slug="prune-first",
+            prompt="pixel-art red blob",
+            frame_count=1,
+            tile_size=64,
+            fps=0,
+            actor=self.parent,
+        )
+
+        row = SpriteAsset.objects.get(slug="prune-first")
+        with row.image.open("rb") as fh:
+            img = Image.open(fh)
+            img.load()
+        bbox = img.getbbox()
+        self.assertIsNotNone(bbox)
+        max_dim = max(bbox[2] - bbox[0], bbox[3] - bbox[1])
+        # Without the reorder, max_dim would land near ~36 (the subject
+        # scaled to fit a corner-orphan-inflated bbox). With the reorder,
+        # the subject alone fills the inner 90% → ≥ 50px.
+        self.assertGreaterEqual(
+            max_dim, 50,
+            f"subject occupied {max_dim}/64 of the tile — orphan-prune order "
+            f"did not run before autocenter",
+        )
+        # And the size warning is NOT emitted at this occupancy.
+        self.assertNotIn("pipeline_warnings", result)
+
+
+@override_settings(GEMINI_API_KEY="test-key")
+class PipelineOccupancyWarningTests(TestCase):
+    """Post-pipeline ``_frame_occupancy`` measurement emits a warning
+    when the largest emitted frame's longest dimension is below
+    ``OCCUPANCY_WARNING_FLOOR`` (70%) of the tile. No auto-retry —
+    visibility only — so the admin UI can chip the sprite for reroll
+    without secretly doubling the bill.
+    """
+
+    def setUp(self):
+        self.parent = User.objects.create_user(
+            username="occu", password="pw", role="parent",
+        )
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_warning_fires_when_subject_below_floor(self, mock_frame):
+        # Tiny subject (20×20) inside a 512×512 magenta canvas. After
+        # autocenter the subject still scales to the inner window
+        # (90%), so to trigger the warning we have to fool the
+        # pipeline. Patch ``_autocenter_frame`` to bypass the scale —
+        # the output frame will have a small subject for the
+        # occupancy check to detect.
+        sheet = Image.new("RGBA", (256, 256), (255, 0, 255, 255))
+        subject = Image.new("RGBA", (20, 20), (200, 50, 50, 255))
+        sheet.paste(subject, (118, 118))
+        buf = io.BytesIO()
+        sheet.save(buf, format="PNG")
+        mock_frame.return_value = buf.getvalue()
+
+        # Build the "small subject in a 64-tile" canvas that _frame_occupancy
+        # would see post-pipeline.
+        def _fake_autocenter(png_bytes, tile_size):
+            canvas = Image.new("RGBA", (tile_size, tile_size), (0, 0, 0, 0))
+            small = Image.new("RGBA", (15, 15), (200, 50, 50, 255))
+            canvas.paste(small, ((tile_size - 15) // 2, (tile_size - 15) // 2))
+            out = io.BytesIO()
+            canvas.save(out, format="PNG")
+            return out.getvalue()
+
+        with patch(
+            "apps.rpg.sprite_generation._autocenter_frame",
+            side_effect=_fake_autocenter,
+        ):
+            result = generate_sprite_sheet(
+                slug="undersized",
+                prompt="a small dot",
+                frame_count=1,
+                tile_size=64,
+                fps=0,
+                actor=self.parent,
+            )
+
+        self.assertIn("pipeline_warnings", result)
+        warning_text = " ".join(result["pipeline_warnings"])
+        self.assertIn("occupancy", warning_text)
+        self.assertIn("reroll", warning_text)
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_no_warning_when_subject_fills_tile(self, mock_frame):
+        # Healthy 200×200 subject in a 512×512 magenta canvas — autocenter
+        # scales to the 90% inner window, occupancy lands well above the
+        # 70% floor.
+        sheet = Image.new("RGBA", (512, 512), (255, 0, 255, 255))
+        subject = Image.new("RGBA", (200, 200), (200, 50, 50, 255))
+        sheet.paste(subject, (156, 156))
+        buf = io.BytesIO()
+        sheet.save(buf, format="PNG")
+        mock_frame.return_value = buf.getvalue()
+
+        result = generate_sprite_sheet(
+            slug="healthy",
+            prompt="a fat red blob",
+            frame_count=1,
+            tile_size=64,
+            fps=0,
+            actor=self.parent,
+        )
+        self.assertNotIn("pipeline_warnings", result)
+
+
+@override_settings(GEMINI_API_KEY="test-key")
+class TightenReferenceTests(TestCase):
+    """Reroll path passes ``tighten_reference=True`` so an existing
+    sprite's PNG (which carries 90%-of-tile design padding) is
+    autocropped to its subject bbox before Gemini sees it. Without this,
+    Gemini learns the prior framing from the reference and the
+    pipeline pads ~90% of THAT on top — compounding the shrinkage
+    across rerolls.
+    """
+
+    def setUp(self):
+        self.parent = User.objects.create_user(
+            username="tight", password="pw", role="parent",
+        )
+
+    def test_tighten_reference_to_subject_crops_padding(self):
+        from apps.rpg.sprite_generation import _tighten_reference_to_subject
+
+        # Source: a 64×64 canvas with a 20×20 subject in the center
+        # (a healthy "post-pipeline" sprite). After tightening, the
+        # output canvas should be just barely bigger than the subject
+        # — ~21-23 pixels per side (subject + 3% margin).
+        src = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        subject = Image.new("RGBA", (20, 20), (200, 50, 50, 255))
+        src.paste(subject, (22, 22))
+        buf = io.BytesIO()
+        src.save(buf, format="PNG")
+
+        tightened_bytes = _tighten_reference_to_subject(buf.getvalue())
+        out = Image.open(io.BytesIO(tightened_bytes))
+        self.assertLess(out.width, 24, f"tightened canvas {out.size} too wide")
+        self.assertLess(out.height, 24, f"tightened canvas {out.size} too tall")
+        # And the subject still occupies ~90%+ of the tightened canvas.
+        bbox = out.getbbox()
+        self.assertIsNotNone(bbox)
+        sw = bbox[2] - bbox[0]
+        sh = bbox[3] - bbox[1]
+        # The original 20×20 subject is preserved (no scaling here — we
+        # only repaste onto a tighter canvas).
+        self.assertEqual(sw, 20)
+        self.assertEqual(sh, 20)
 
 
 @override_settings(GEMINI_API_KEY="test-key")
@@ -1572,16 +1794,17 @@ class OneShotPoseSheetTests(TestCase):
         bbox2 = tiles[1].getbbox()
         self.assertIsNotNone(bbox2)
         max2 = max(bbox2[2] - bbox2[0], bbox2[3] - bbox2[1])
-        # Slice 2 was the reference. It should fit the inner 80% window,
-        # which for tile_size=64 is 52px — give a couple of px for rounding.
-        self.assertGreaterEqual(max2, 48)
-        self.assertLessEqual(max2, 56)
+        # Slice 2 was the reference. It should fit the inner 90% window
+        # (AUTOCENTER_PADDING_FRAC=0.05 → inner = tile_size × 0.9 = 57.6
+        # for tile_size=64). Allow a couple of px for rounding.
+        self.assertGreaterEqual(max2, 50)
+        self.assertLessEqual(max2, 60)
 
         # Slice 1 was 20×20 (one-sixth the size of slice 2's 120). Its
         # tile output should also be about one-sixth the size — NOT scaled
-        # up to fill the same 80% (which was v1.1's bug).
+        # up to fill the same 90% (which was v1.1's bug).
         bbox1 = tiles[0].getbbox()
         self.assertIsNotNone(bbox1)
         max1 = max(bbox1[2] - bbox1[0], bbox1[3] - bbox1[1])
-        # Expected ~ 52 * (20 / 120) ≈ 9. Give a wide tolerance.
+        # Expected ~ 57.6 * (20 / 120) ≈ 9.6. Give a wide tolerance.
         self.assertLessEqual(max1, 14)

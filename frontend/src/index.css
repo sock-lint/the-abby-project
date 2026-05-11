@@ -84,6 +84,30 @@
   --color-amber-primary: #157064;
   --color-amber-highlight: #1d8a80;
   --color-amber-glow: #fff8e0;
+
+  /* Library of Mastery — codex spine vocabulary.
+     The TomeSpine codex variant renders a hand-bound library tome.
+     `leather-*` tones are the spine cover (locked → burnished gilded).
+     `leather-grain` is the warm-dark hairline that draws the tooled
+     leather striations. `page-block` is the cream-striated edge that
+     peeks from the right side of the spine; `headband-*` is the woven
+     cloth cap at the top of the binding. All five headband tints are
+     pulled from the existing PROGRESS_TIER bar colors so the closed
+     spine and the open folio share one progress vocabulary. */
+  --color-leather-locked: #c4b594;
+  --color-leather-nascent: #b8a888;
+  --color-leather-rising: #ac9c7c;
+  --color-leather-cresting: #a39071;
+  --color-leather-gilded: #b89e62;
+  --color-leather-grain: rgba(45, 31, 21, 0.18);
+  --color-leather-grain-strong: rgba(45, 31, 21, 0.28);
+  --color-page-block: #f8efd2;
+  --color-page-block-line: rgba(133, 100, 24, 0.22);
+  --color-headband-locked: #6b5639;
+  --color-headband-nascent: #456a3a;
+  --color-headband-rising: #157064;
+  --color-headband-cresting: #a04a28;
+  --color-headband-gilded: #856418;
 }
 
 body {
@@ -252,6 +276,115 @@ h1, h2, h3, h4 {
   .versal-gilt { transition: none; }
 }
 
+/* Foil-stamp title for the TomeSpine codex. Mirror of `.versal-gilt`: clips
+   a metallic gradient to text via background-clip. Three tones via
+   `--foil-tone` (default brass, gold-leaf for gilded tomes, dim for locked).
+   The `::after` overlay sweeps a brighter sheen left → right on hover via
+   the `foil-glint` keyframe — same animation discipline as `.gilded-glint`.
+   Vertical writing-mode is set inline on the consuming <span> so this
+   class stays writing-mode-agnostic. */
+.spine-foil {
+  position: relative;
+  background-image: linear-gradient(
+    180deg,
+    var(--foil-tone-top, var(--color-gold-leaf)) 0%,
+    var(--foil-tone-bottom, var(--color-ember-deep)) 50%,
+    var(--foil-tone-top, var(--color-gold-leaf)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Foil-glint — the sheen sweep that runs across the foil title on
+   hover/active. Same vocabulary as gilded-glint but tuned for the
+   narrower vertical band of a spine title. */
+@keyframes foil-glint {
+  0%   { background-position: -120% 0; opacity: 0; }
+  20%  { opacity: 0.9; }
+  100% { background-position: 220% 0; opacity: 0; }
+}
+
+/* Ribbon settle — the active-spine bookmark unfurls with a 1-frame cloth
+   curl rather than a flat scale, reading as fabric falling into place. */
+@keyframes ribbon-settle {
+  0%   { transform: scaleY(0) translateY(0); }
+  60%  { transform: scaleY(1.05) translateY(-1px); }
+  100% { transform: scaleY(1) translateY(0); }
+}
+
+/* Spine-grain texture utility — the tooled-leather panel. A faint
+   repeating-linear-gradient draws two interlocked hairlines + a soft
+   radial bloom for organic warmth. Color comes from the tier-tinted
+   leather token on the host element. */
+.spine-leather {
+  background-image:
+    radial-gradient(
+      ellipse at 50% 35%,
+      rgba(255, 248, 224, 0.10) 0%,
+      transparent 65%
+    ),
+    repeating-linear-gradient(
+      168deg,
+      transparent 0,
+      transparent 3px,
+      var(--color-leather-grain) 3px,
+      var(--color-leather-grain) 4px
+    ),
+    repeating-linear-gradient(
+      12deg,
+      transparent 0,
+      transparent 6px,
+      var(--color-leather-grain-strong) 6px,
+      var(--color-leather-grain-strong) 6.5px
+    );
+  background-color: var(--spine-tint, var(--color-leather-rising));
+}
+
+/* Wooden shelf board — the plank the codex tomes sit on. Sepia gradient
+   + repeating hairlines build a wood-grain feel; one horizontal knot
+   stripe adds character without an asset. */
+.shelf-board {
+  background-image:
+    linear-gradient(
+      to bottom,
+      rgba(45, 31, 21, 0.16) 0%,
+      transparent 18%,
+      transparent 72%,
+      rgba(45, 31, 21, 0.22) 100%
+    ),
+    repeating-linear-gradient(
+      89deg,
+      rgba(133, 100, 24, 0.05) 0,
+      rgba(133, 100, 24, 0.05) 2px,
+      transparent 2px,
+      transparent 5px
+    ),
+    linear-gradient(
+      to bottom,
+      var(--color-ember-deep) 0%,
+      var(--color-gold-leaf) 45%,
+      var(--color-ember-deep) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 224, 0.18),
+    inset 0 -1px 0 rgba(45, 31, 21, 0.30),
+    0 2px 4px rgba(45, 31, 21, 0.18);
+}
+
+/* Page-block sliver — the cream-striated edge that peeks from the right
+   of an active spine, mimicking the cut block of pages bound inside. */
+.page-block {
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      var(--color-page-block) 0,
+      var(--color-page-block) 1.5px,
+      var(--color-page-block-line) 1.5px,
+      var(--color-page-block-line) 2px
+    );
+}
+
 .animate-flame-flicker { animation: flame-flicker 2.4s ease-in-out infinite; transform-origin: 50% 85%; }
 .animate-rune-pulse    { animation: rune-pulse 2.6s ease-in-out infinite; }
 .animate-rune-band     { animation: rune-band-shimmer 3.2s linear infinite; }
@@ -279,6 +412,35 @@ h1, h2, h3, h4 {
 .animate-quill-stroke-in { animation: quill-stroke-in 0.7s ease-out both; transform-origin: left center; }
 .animate-wobble-pulse    { animation: wobble-pulse 0.8s ease-in-out both; transform-origin: 50% 90%; }
 .animate-cosmic-burst    { animation: cosmic-burst 0.55s ease-out both; transform-origin: center; }
+.animate-ribbon-settle   { animation: ribbon-settle 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both; transform-origin: top center; }
+
+/* Foil-glint utility — hover/active sheen sweep on the foil-stamp title.
+   Pseudo-element overlay so the underlying clipped gradient stays readable
+   when the glint isn't playing. */
+.spine-foil-glint {
+  position: relative;
+  overflow: visible;
+}
+.spine-foil-glint::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 35%,
+    rgba(255, 248, 224, 0.65) 50%,
+    transparent 65%
+  );
+  background-size: 100% 220%;
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 100%);
+          mask-image: linear-gradient(to bottom, black 0%, black 100%);
+  opacity: 0;
+}
+[data-spine-id]:hover .spine-foil-glint::after,
+[data-active="true"] .spine-foil-glint::after {
+  animation: foil-glint 1.2s ease-out both;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .animate-flame-flicker,
@@ -289,8 +451,11 @@ h1, h2, h3, h4 {
   .animate-halo-rise,
   .animate-quill-stroke-in,
   .animate-wobble-pulse,
-  .animate-cosmic-burst { animation: none !important; }
+  .animate-cosmic-burst,
+  .animate-ribbon-settle { animation: none !important; }
   .animate-gilded-glint::after { animation: none !important; opacity: 0; }
+  [data-spine-id]:hover .spine-foil-glint::after,
+  [data-active="true"] .spine-foil-glint::after { animation: none !important; opacity: 0; }
   html { scroll-behavior: auto; }
 }
 

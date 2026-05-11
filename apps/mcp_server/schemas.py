@@ -1455,7 +1455,7 @@ class GenerateSpriteSheetIn(_Base):
     slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
     prompt: str = Field(min_length=3, max_length=500)
     frame_count: int = Field(default=1, ge=1, le=8)
-    tile_size: int = Field(default=64)
+    tile_size: int = Field(default=128)
     fps: int = Field(default=0, ge=0, le=30)
     pack: str = Field(default="ai-generated", max_length=40)
     style_hint: str = Field(default="", max_length=200)
@@ -1503,6 +1503,14 @@ class RerollSpriteIn(_Base):
     """Re-run ``generate_sprite_sheet`` with the inputs stored on the existing
     ``SpriteAsset`` row. Mirrors ``POST /api/sprites/admin/<slug>/reroll/``.
 
+    Optional override fields layer on top of the stored row, supporting the
+    chat-side critique loop: Claude critiques a rendered sprite, calls
+    ``propose_sprite_reroll`` to get a refined prompt, then calls THIS tool
+    with the refined inputs. The generation service writes whatever inputs
+    it ran with back onto the SpriteAsset row at the end of the pipeline,
+    so a subsequent reroll resumes from the refined state without any
+    additional plumbing.
+
     Fails when the sprite's stored ``prompt`` is empty (e.g. legacy
     ``register_sprite`` uploads). The caller should re-author with
     ``generate_sprite_sheet`` directly in that case.
@@ -1510,6 +1518,61 @@ class RerollSpriteIn(_Base):
 
     slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
     return_debug_raw: bool = False
+    prompt: Optional[str] = Field(
+        default=None,
+        min_length=3,
+        max_length=500,
+        description="Override the stored prompt for this reroll.",
+    )
+    motion: Optional[SpriteMotion] = Field(
+        default=None,
+        description="Override the stored motion for this reroll.",
+    )
+    style_hint: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        description="Override the stored style hint for this reroll.",
+    )
+    tile_size: Optional[int] = Field(
+        default=None,
+        description="Override the stored tile_size for this reroll.",
+    )
+
+    @field_validator("tile_size")
+    @classmethod
+    def _tile_size_in_scale_optional(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v not in SPRITE_TILE_SIZES:
+            raise ValueError(f"tile_size must be one of {SPRITE_TILE_SIZES}")
+        return v
+
+
+class ProposeSpriteRerollIn(_Base):
+    """Inputs to the ``propose_sprite_reroll`` MCP tool.
+
+    Pure prompt construction — does NOT call Gemini. The chat agent feeds
+    its vision-based critique of an existing sprite (free-form English),
+    and the tool returns a refined ``generate_sprite_sheet`` prompt plus
+    proposed overrides for ``motion`` / ``style_hint`` / ``tile_size``.
+    The chat then passes those into ``reroll_sprite``.
+    """
+
+    slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
+    critique: str = Field(
+        min_length=3,
+        max_length=2000,
+        description="Free-form description of what's wrong with the current "
+                    "sprite. Keywords like 'too small', 'wrong pose', 'wrong "
+                    "colors', 'edges cut off', 'too much empty space' map to "
+                    "specific refinement rules.",
+    )
+    target_changes: list[str] = Field(
+        default_factory=list,
+        max_length=10,
+        description="Optional explicit refinement levers — overrides keyword "
+                    "detection. Accepted values: 'larger_subject', "
+                    "'switch_motion', 'strengthen_style', 'drop_reference', "
+                    "'bigger_tile'.",
+    )
 
 
 class GetSpritePromptingPlaybookIn(_Base):
