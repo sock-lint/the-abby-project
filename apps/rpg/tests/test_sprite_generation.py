@@ -254,6 +254,87 @@ class MissingApiKeyTests(TestCase):
         self.assertIn("GEMINI_API_KEY", str(ctx.exception))
 
 
+@override_settings(GEMINI_API_KEY="test-key")
+class StoragePreflightTests(TestCase):
+    """The pre-flight ``probe_storage`` call short-circuits the pipeline
+    BEFORE any Gemini API call when the sprite bucket is unreachable.
+    This is the guardrail we added after a Cloudflare-edge 521 burned
+    a $0.16 generation on what turned into a discarded upload — see
+    the storage gotcha in CLAUDE.md.
+    """
+
+    def setUp(self):
+        self.parent = User.objects.create_user(
+            username="preflight", password="pw", role="parent",
+        )
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    @patch("apps.rpg.storage.probe_storage")
+    def test_unreachable_storage_short_circuits_before_gemini(self, probe, mock_frame):
+        probe.return_value = (False, "EndpointConnectionError: Could not connect to s3.neato.digital")
+        with self.assertRaises(SpriteGenerationError) as ctx:
+            generate_sprite_sheet(
+                slug="never-fires",
+                prompt="a tomato",
+                frame_count=4,
+                tile_size=64,
+                fps=8,
+                actor=self.parent,
+            )
+        # The expensive seam never gets called — that's the whole point.
+        mock_frame.assert_not_called()
+        self.assertIn("storage unreachable", str(ctx.exception))
+        self.assertIn("Gemini", str(ctx.exception))
+        # And the probe error bubbles up so the operator knows what to check.
+        self.assertIn("EndpointConnectionError", str(ctx.exception))
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    @patch("apps.rpg.storage.probe_storage")
+    def test_reachable_storage_proceeds_to_generation(self, probe, mock_frame):
+        probe.return_value = (True, "ok")
+        mock_frame.return_value = _png_bytes(size=(256, 256))
+        result = generate_sprite_sheet(
+            slug="proceeds",
+            prompt="a moth",
+            frame_count=1,
+            tile_size=64,
+            fps=0,
+            actor=self.parent,
+        )
+        self.assertEqual(result["slug"], "proceeds")
+        mock_frame.assert_called_once()
+
+
+class ProbeStorageTests(TestCase):
+    """Unit coverage for ``probe_storage`` — the reachability helper that
+    the sprite-generation pre-flight and the deep-mode /health endpoint
+    both depend on."""
+
+    def test_filesystem_storage_returns_ok(self):
+        """FileSystemStorage (the test/dev default for the sprite bucket)
+        is always reachable — ``.exists()`` is just a stat() call."""
+        from apps.rpg.storage import probe_storage
+        ok, message = probe_storage()
+        self.assertTrue(ok)
+        self.assertEqual(message, "ok")
+
+    def test_raises_translates_to_failure_tuple(self):
+        """Any exception raised by the storage backend becomes a ``(False, msg)``
+        tuple — that's how the pre-flight surfaces Cloudflare 521s, DNS
+        timeouts, S3 auth errors, etc. without the caller having to
+        know which exception class to catch."""
+        from unittest.mock import MagicMock
+        from apps.rpg import storage as storage_mod
+
+        broken = MagicMock()
+        broken.exists.side_effect = ConnectionError("521 Web Server Is Down")
+        with patch.object(storage_mod, "sprite_storage", return_value=broken):
+            ok, message = storage_mod.probe_storage()
+        self.assertFalse(ok)
+        self.assertIn("ConnectionError", message)
+        self.assertIn("521", message)
+
+
 class KeepLargestComponentTests(TestCase):
     """Chroma-key leaves small near-magenta pixels opaque at anti-alias
     edges; equal-width slicing can also drag cross-cell fragments into

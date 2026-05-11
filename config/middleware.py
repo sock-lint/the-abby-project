@@ -22,7 +22,23 @@ class HealthCheckMiddleware:
                     {"status": "degraded", "db": "down"},
                     status=503,
                 )
-            return JsonResponse({"status": "ok", "db": "up"})
+            body = {"status": "ok", "db": "up"}
+            # Deep-mode probe — opt-in via ``?deep=true`` because the
+            # Coolify health poll runs every 10s and we don't want to
+            # spam the sprite bucket with HEADs. Manual operator probe
+            # (``curl https://abby.bos.lol/health?deep=true``) surfaces
+            # Ceph / Cloudflare-edge outages that the cheap default path
+            # would otherwise miss — the bug shape that burned Gemini
+            # budget before we added a pre-flight to sprite generation.
+            if request.GET.get("deep", "").lower() in ("1", "true", "yes"):
+                from apps.rpg.storage import probe_storage
+                ok, msg = probe_storage()
+                body["storage"] = "up" if ok else "down"
+                if not ok:
+                    body["storage_error"] = msg
+                    body["status"] = "degraded"
+                    return JsonResponse(body, status=503)
+            return JsonResponse(body)
         return self.get_response(request)
 
 

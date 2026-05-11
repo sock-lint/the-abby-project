@@ -1,4 +1,7 @@
-"""Tests for config.middleware.NoCacheAPIMiddleware."""
+"""Tests for config.middleware (NoCacheAPIMiddleware + HealthCheckMiddleware)."""
+import json
+from unittest.mock import patch
+
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -49,3 +52,52 @@ class NoCacheAPIMiddlewareTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("public", resp["Cache-Control"])
         self.assertNotEqual(resp["Cache-Control"], "no-store")
+
+
+class HealthCheckDeepModeTests(TestCase):
+    """The ``?deep=true`` opt-in probes the sprite storage backend on top
+    of the default DB-only liveness check. Useful for surfacing
+    Cloudflare / Ceph-edge 521s that would otherwise only show up when
+    someone tries to write a sprite — the bug shape that wasted a Gemini
+    sheet's worth of API budget before the pre-flight in sprite_generation
+    landed.
+    """
+
+    def test_default_health_does_not_probe_storage(self):
+        """The cheap default path stays cheap — Coolify polls every 10s."""
+        with patch("apps.rpg.storage.probe_storage") as probe:
+            probe.return_value = (True, "ok")
+            resp = self.client.get("/health")
+            self.assertEqual(resp.status_code, 200)
+            probe.assert_not_called()
+        body = json.loads(resp.content)
+        self.assertNotIn("storage", body)
+
+    def test_deep_mode_reports_storage_up(self):
+        with patch("apps.rpg.storage.probe_storage", return_value=(True, "ok")) as probe:
+            resp = self.client.get("/health?deep=true")
+            self.assertEqual(resp.status_code, 200)
+            probe.assert_called_once()
+        body = json.loads(resp.content)
+        self.assertEqual(body["storage"], "up")
+        self.assertEqual(body["status"], "ok")
+
+    def test_deep_mode_reports_storage_down_with_503(self):
+        with patch(
+            "apps.rpg.storage.probe_storage",
+            return_value=(False, "ClientError: 521 Web Server Is Down"),
+        ):
+            resp = self.client.get("/health?deep=true")
+        self.assertEqual(resp.status_code, 503)
+        body = json.loads(resp.content)
+        self.assertEqual(body["storage"], "down")
+        self.assertEqual(body["status"], "degraded")
+        self.assertIn("521", body["storage_error"])
+
+    def test_deep_mode_accepts_alternate_truthy_values(self):
+        """Operators have muscle memory for ``?deep=1`` from other tools."""
+        with patch("apps.rpg.storage.probe_storage", return_value=(True, "ok")) as probe:
+            self.client.get("/health?deep=1")
+            self.client.get("/health?deep=yes")
+            self.client.get("/health?deep=TRUE")
+            self.assertEqual(probe.call_count, 3)

@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Crown, Package, PawPrint, Sparkles, Swords } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import {
   getItemCatalog, getPetSpeciesCatalog, getQuestCatalog,
   fetchSpriteAdminList,
@@ -13,6 +12,8 @@ import EmptyState from '../../components/EmptyState';
 import ErrorAlert from '../../components/ErrorAlert';
 import Loader from '../../components/Loader';
 import RpgSprite from '../../components/rpg/RpgSprite';
+import TomeShelf from '../../components/atlas/TomeShelf';
+import { PROGRESS_TIER } from '../../components/atlas/mastery.constants';
 import {
   RARITY_TEXT_COLORS, RARITY_PILL_COLORS,
 } from '../../constants/colors';
@@ -22,6 +23,16 @@ import MountsBlock from './MountsBlock';
 import SpritesBlock from './SpritesBlock';
 import SpriteGenerateModal from './SpriteGenerateModal';
 import SpriteDetailSheet from './SpriteDetailSheet';
+
+const SECTIONS = [
+  { id: 'items',      label: 'Items',      kicker: 'pet eggs, potions, cosmetics, scrolls', icon: '📦' },
+  { id: 'creatures',  label: 'Creatures',  kicker: 'pet species & their hatching potions',  icon: '🐾' },
+  { id: 'mounts',     label: 'Mounts',     kicker: 'evolved forms of every species',        icon: '👑' },
+  { id: 'adventures', label: 'Adventures', kicker: 'authored quest catalog',                icon: '⚔️' },
+  { id: 'sprites',    label: 'Sprites',    kicker: 'every Ceph-hosted sprite asset',        icon: '✨' },
+];
+const SECTION_IDS = new Set(SECTIONS.map((s) => s.id));
+const ACTIVE_SECTION_KEY = 'manage:codex:active-section';
 
 const RARITY_ORDER = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
 
@@ -63,16 +74,6 @@ function CatalogGrid({ children }) {
   return (
     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
       {children}
-    </div>
-  );
-}
-
-function SectionHeader({ icon, title, count }) {
-  return (
-    <div className="flex items-center gap-2 mb-3">
-      {icon}
-      <h3 className="font-display text-lg font-bold text-ink-primary">{title}</h3>
-      <span className="text-xs text-ink-whisper">({count})</span>
     </div>
   );
 }
@@ -373,6 +374,16 @@ export default function CodexSection() {
   // Mount regeneration piggybacks on the same modal with a pre-filled slug.
   const [regeneratingMount, setRegeneratingMount] = useState(null);
 
+  const [activeSectionId, setActiveSectionId] = useState(() => {
+    if (typeof window === 'undefined') return 'items';
+    const stored = window.localStorage.getItem(ACTIVE_SECTION_KEY);
+    return stored && SECTION_IDS.has(stored) ? stored : 'items';
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(ACTIVE_SECTION_KEY, activeSectionId);
+  }, [activeSectionId]);
+
   const loading = itemsLoading || speciesLoading || questsLoading;
   const error = itemsError || speciesError || questsError;
 
@@ -380,6 +391,25 @@ export default function CodexSection() {
     await reloadSprites();
     await refetchCatalog({ bypassEtag: true });
   };
+
+  const counts = {
+    items: items.length,
+    creatures: species.length,
+    mounts: species.length,
+    adventures: quests.length,
+    sprites: sprites.length,
+  };
+  const shelfItems = SECTIONS.map((s) => ({
+    id: s.id,
+    name: s.label,
+    icon: s.icon,
+    chip: `×${counts[s.id]}`,
+    progressPct: null,
+    tier: PROGRESS_TIER.nascent,
+    variant: 'codex',
+    ariaLabel: `${s.label}, ${counts[s.id]} entries`,
+  }));
+  const activeSection = SECTIONS.find((s) => s.id === activeSectionId) ?? SECTIONS[0];
 
   return (
     <div className="space-y-6">
@@ -396,57 +426,53 @@ export default function CodexSection() {
 
       {!loading && !error && (
         <>
-          <ParchmentCard>
-            <SectionHeader
-              icon={<Package size={18} className="text-sheikah-teal-deep" />}
-              title="Items"
-              count={items.length}
-            />
-            <ItemsBlock items={items} onSelect={setSelectedItem} />
-          </ParchmentCard>
+          <TomeShelf
+            items={shelfItems}
+            activeId={activeSection.id}
+            onSelect={setActiveSectionId}
+            ariaLabel="Codex sections"
+          />
 
           <ParchmentCard>
-            <SectionHeader
-              icon={<PawPrint size={18} className="text-sheikah-teal-deep" />}
-              title="Creatures"
-              count={species.length}
-            />
-            <CreaturesBlock species={species} onSelect={setSelectedSpecies} />
-          </ParchmentCard>
+            <div className="flex items-baseline gap-3 mb-4">
+              <div>
+                <div className="font-script text-sheikah-teal-deep text-sm">
+                  {activeSection.kicker}
+                </div>
+                <h2 className="font-display italic text-xl md:text-2xl text-ink-primary leading-tight">
+                  {activeSection.label}
+                </h2>
+              </div>
+              <span className="font-rune uppercase tracking-wider px-1.5 py-0.5 rounded text-micro bg-ink-page-shadow/40 text-ink-whisper tabular-nums">
+                ×{counts[activeSection.id]}
+              </span>
+            </div>
 
-          <ParchmentCard>
-            <SectionHeader
-              icon={<Crown size={18} className="text-sheikah-teal-deep" />}
-              title="Mounts"
-              count={species.length}
-            />
-            <MountsBlock species={species} onSelect={setSelectedMount} />
-          </ParchmentCard>
-
-          <ParchmentCard>
-            <SectionHeader
-              icon={<Swords size={18} className="text-sheikah-teal-deep" />}
-              title="Adventures"
-              count={quests.length}
-            />
-            <AdventuresBlock quests={quests} onSelect={setSelectedQuest} />
-          </ParchmentCard>
-
-          <ParchmentCard>
-            <SectionHeader
-              icon={<Sparkles size={18} className="text-sheikah-teal-deep" />}
-              title="Sprites"
-              count={sprites.length}
-            />
-            {spritesError && <ErrorAlert error={spritesError} />}
-            {spritesLoading ? (
-              <Loader />
-            ) : (
-              <SpritesBlock
-                sprites={sprites}
-                onSelect={setSelectedSprite}
-                onCreate={() => setCreatingSprite(true)}
-              />
+            {activeSection.id === 'items' && (
+              <ItemsBlock items={items} onSelect={setSelectedItem} />
+            )}
+            {activeSection.id === 'creatures' && (
+              <CreaturesBlock species={species} onSelect={setSelectedSpecies} />
+            )}
+            {activeSection.id === 'mounts' && (
+              <MountsBlock species={species} onSelect={setSelectedMount} />
+            )}
+            {activeSection.id === 'adventures' && (
+              <AdventuresBlock quests={quests} onSelect={setSelectedQuest} />
+            )}
+            {activeSection.id === 'sprites' && (
+              <>
+                {spritesError && <ErrorAlert error={spritesError} />}
+                {spritesLoading ? (
+                  <Loader />
+                ) : (
+                  <SpritesBlock
+                    sprites={sprites}
+                    onSelect={setSelectedSprite}
+                    onCreate={() => setCreatingSprite(true)}
+                  />
+                )}
+              </>
             )}
           </ParchmentCard>
         </>

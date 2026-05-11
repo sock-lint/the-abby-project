@@ -391,6 +391,18 @@ if USE_S3_STORAGE:
     AWS_S3_FILE_OVERWRITE = False
     # MinIO doesn't honor canned ACLs the same way AWS does; leave unset.
     AWS_DEFAULT_ACL = None
+    # Optional: split the boto3 endpoint (used for write/delete/copy API
+    # calls) from the URL hostname (used for emitted media URLs). Needed
+    # when the Django container and Ceph live on the same network behind
+    # the same Cloudflare zone — the container can't reach the public
+    # hostname (Cloudflare hairpin returns 521) but CAN reach an internal
+    # service hostname. Set AWS_S3_ENDPOINT_URL to the internal endpoint
+    # (e.g. ``http://ceph-internal:7480``) and AWS_S3_CUSTOM_DOMAIN to the
+    # public hostname (``s3.neato.digital``) so the URLs the API emits to
+    # the browser still hit Cloudflare. Empty (default) keeps the existing
+    # single-endpoint behaviour — django-storages derives URLs from the
+    # endpoint_url verbatim.
+    AWS_S3_CUSTOM_DOMAIN = os.environ.get("AWS_S3_CUSTOM_DOMAIN", "") or None
 
     STORAGES["default"] = {"BACKEND": "storages.backends.s3.S3Storage"}
 

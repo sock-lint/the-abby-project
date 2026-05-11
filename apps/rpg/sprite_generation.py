@@ -905,6 +905,22 @@ def generate_sprite_sheet(
             f"motion must be one of {sorted(MOTION_TEMPLATES)}; got {motion!r}.",
         )
 
+    # Fail-fast pre-flight: confirm the sprite bucket is reachable BEFORE
+    # spending Gemini API budget. We discovered this footgun the hard way
+    # — a Ceph/Cloudflare 521 at the final ``register_sprite`` step burns
+    # the entire $0.04 × frame_count cost and produces no row. The probe
+    # is a single HEAD-equivalent call (~50-200ms); cheap vs a 5-30s
+    # Gemini cycle. Race-safe? No — storage can go down between probe
+    # and write, but that's a tiny window. The probe catches the
+    # already-down case which is the only one we've actually hit.
+    from apps.rpg.storage import probe_storage
+    ok, probe_msg = probe_storage()
+    if not ok:
+        raise SpriteGenerationError(
+            f"sprite storage unreachable — skipping Gemini call to avoid sunk cost. "
+            f"Probe error: {probe_msg}",
+        )
+
     # When a reference image is provided, download it and flatten its
     # transparent pixels to magenta BEFORE handing to Gemini. Without
     # this, Gemini uses the reference's implied (white) background as
