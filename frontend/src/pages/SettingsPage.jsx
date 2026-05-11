@@ -1,9 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
-import { LogOut, Link2, Unlink, Calendar, RefreshCw, Flame, Check, Camera, Trash2 } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  LogOut, Link2, Unlink, Calendar, RefreshCw, Flame, Check, Camera, Trash2,
+  Lock,
+} from 'lucide-react';
 import {
   getGoogleAuthUrl, getGoogleAccount, unlinkGoogleAccount,
-  updateCalendarSettings, triggerCalendarSync, updateMe,
+  updateCalendarSettings, triggerCalendarSync,
   uploadAvatar, removeAvatar,
+  getCosmetics, equipCosmetic,
 } from '../api';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
@@ -12,6 +17,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import { CoinIcon } from '../components/icons/JournalIcons';
 import { useAuth } from '../hooks/useApi';
 import { themes, applyTheme, LEGACY_THEME_ALIASES } from '../themes';
+import { cosmeticLockHint } from './character/character.constants';
 import { downscaleImage } from '../utils/image';
 import Button from '../components/Button';
 import InstallCard from '../pwa/InstallCard';
@@ -20,6 +26,16 @@ export default function SettingsPage() {
   const { user, logout: onLogout, setUser } = useAuth();
   const initialTheme = LEGACY_THEME_ALIASES[user?.theme] || user?.theme || 'hyrule';
   const [currentTheme, setCurrentTheme] = useState(initialTheme);
+
+  // Owned journal covers, keyed by theme slug (e.g. ``hyrule``). The map
+  // is built from the user's ``/api/cosmetics/`` active_theme slot —
+  // legacy ``theme-*`` cosmetics without a ``metadata.theme`` linking to
+  // a palette in themes.js are intentionally filtered out so the picker
+  // only surfaces journal covers that actually swap the visible binding.
+  const [ownedByTheme, setOwnedByTheme] = useState({});
+  const [coversLoading, setCoversLoading] = useState(true);
+  const [coverEquipping, setCoverEquipping] = useState(null); // theme slug
+  const [coverError, setCoverError] = useState('');
 
   const [googleAccount, setGoogleAccount] = useState(null);
   const [googleLoading, setGoogleLoading] = useState(true);
@@ -67,6 +83,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadGoogleAccount();
+    loadCovers();
     const params = new URLSearchParams(window.location.search);
     const googleStatus = params.get('google');
     if (googleStatus === 'linked') {
@@ -78,6 +95,39 @@ export default function SettingsPage() {
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
+
+  // Keep the picker's active swatch in lockstep with the auth user.
+  // After equipping from the Frontispiece, the user's ``theme`` updates
+  // via ``setUser`` — without this effect, navigating to Settings would
+  // still show the previous cover as "reading".
+  useEffect(() => {
+    const resolved = LEGACY_THEME_ALIASES[user?.theme] || user?.theme;
+    if (resolved && themes[resolved]) {
+      setCurrentTheme(resolved);
+    }
+  }, [user?.theme]);
+
+  const loadCovers = async () => {
+    setCoversLoading(true);
+    try {
+      const data = await getCosmetics();
+      const themeItems = Array.isArray(data?.active_theme) ? data.active_theme : [];
+      const map = {};
+      for (const item of themeItems) {
+        const slug = item?.metadata?.theme;
+        if (slug && themes[slug]) {
+          map[slug] = item;
+        }
+      }
+      setOwnedByTheme(map);
+    } catch {
+      // Best-effort — if cosmetics fail to load, picker degrades to
+      // "everything locked" rather than rendering a half-broken UI.
+      setOwnedByTheme({});
+    } finally {
+      setCoversLoading(false);
+    }
+  };
 
   const loadGoogleAccount = async () => {
     setGoogleLoading(true);
@@ -93,10 +143,33 @@ export default function SettingsPage() {
   };
 
   const handleThemeChange = async (themeName) => {
+    const owned = ownedByTheme[themeName];
+    if (!owned) return; // locked covers are non-interactive
+    setCoverError('');
+    setCoverEquipping(themeName);
+    // Optimistic local swap so the swatch + page paint feel instant; we
+    // roll back on equip failure.
+    const prevTheme = currentTheme;
     setCurrentTheme(themeName);
     applyTheme(themeName);
-    try { await updateMe({ theme: themeName }); }
-    catch { /* best-effort */ }
+    try {
+      await equipCosmetic(owned.id);
+      if (user) {
+        setUser({
+          ...user,
+          theme: themeName,
+          character_profile: user.character_profile
+            ? { ...user.character_profile, active_theme_id: owned.id }
+            : user.character_profile,
+        });
+      }
+    } catch (err) {
+      setCurrentTheme(prevTheme);
+      applyTheme(prevTheme);
+      setCoverError(err?.message || 'Failed to switch cover');
+    } finally {
+      setCoverEquipping(null);
+    }
   };
 
   const handleLinkGoogle = async () => {
@@ -142,6 +215,11 @@ export default function SettingsPage() {
       setSyncing(false);
     }
   };
+
+  const ownedCount = useMemo(
+    () => Object.keys(themes).filter((key) => ownedByTheme[key]).length,
+    [ownedByTheme],
+  );
 
   const fieldLabel = 'font-script text-sm text-ink-whisper';
   const fieldValue = 'font-body text-ink-primary';
@@ -334,18 +412,57 @@ export default function SettingsPage() {
           </div>
           <h2 className="font-display text-xl text-ink-primary leading-tight">Journal cover</h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+        {coverError && <ErrorAlert message={coverError} className="mt-2" />}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3" data-testid="cover-picker">
           {Object.entries(themes).map(([key, theme]) => {
-            const active = currentTheme === key;
+            const owned = ownedByTheme[key];
+            const active = owned && currentTheme === key;
+            const equipping = coverEquipping === key;
             const t = theme.tones || {};
+
+            if (!owned) {
+              // Locked intaglio — mirrors the Frontispiece cosmetic
+              // chapter so the "earning" ceremony reads consistently
+              // across surfaces. Non-interactive, ``role="img"``.
+              return (
+                <div
+                  key={key}
+                  role="img"
+                  aria-label={`${theme.name} cover · not yet earned`}
+                  data-testid={`cover-locked-${key}`}
+                  className="relative p-3 rounded-xl border-2 border-dashed border-ink-page-shadow text-left bg-ink-page-aged/60"
+                  style={{ filter: 'grayscale(0.85)' }}
+                >
+                  <span
+                    aria-hidden
+                    className="absolute top-2 right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-micro font-rune uppercase tracking-wider border border-ink-page-shadow bg-ink-page-aged text-ink-whisper"
+                  >
+                    <Lock size={10} strokeWidth={2.5} />
+                    locked
+                  </span>
+                  <div className="flex items-baseline gap-2 opacity-70">
+                    <div className="text-2xl leading-none" aria-hidden>{theme.icon}</div>
+                    <div className="font-display text-base font-semibold leading-tight text-ink-whisper">
+                      {theme.name}
+                    </div>
+                  </div>
+                  <div className="font-script text-xs mt-2 italic leading-snug text-ink-whisper/80 line-clamp-2">
+                    {cosmeticLockHint({ description: '', rarity: 'uncommon' })}
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <button
                 key={key}
                 type="button"
                 onClick={() => handleThemeChange(key)}
+                disabled={coversLoading || equipping}
                 aria-pressed={active}
                 aria-label={`Pick ${theme.name} cover`}
-                className={`relative p-3 rounded-xl border-2 text-left transition-all ${
+                data-testid={`cover-owned-${key}`}
+                className={`relative p-3 rounded-xl border-2 text-left transition-all disabled:opacity-70 ${
                   active
                     ? 'border-sheikah-teal-deep ring-2 ring-offset-2 ring-offset-ink-page ring-sheikah-teal-glow'
                     : 'border-ink-page-shadow hover:border-sheikah-teal/50'
@@ -423,6 +540,12 @@ export default function SettingsPage() {
               </button>
             );
           })}
+        </div>
+        <div className="mt-3 font-script text-xs text-ink-whisper">
+          {ownedCount} of {Object.keys(themes).length} covers bound —{' '}
+          <Link to="/sigil" className="underline decoration-dotted hover:text-sheikah-teal-deep">
+            find more on your Frontispiece →
+          </Link>
         </div>
       </ParchmentCard>
 

@@ -620,9 +620,14 @@ entries:
     kid_voice: |
       Cosmetics change how your field notes look: a title, a frame, a journal
       cover, a companion flourish, or the badge you choose as your hero seal.
+      Journal covers are unified — every cover lives in the cosmetic catalog
+      and the Settings picker only shows the ones you've earned. Hyrule comes
+      with the journal at signup; the other five drop from the same loot pool
+      as frames and titles.
     mechanics:
       - "Cosmetics are owned in inventory and equipped without being consumed."
       - "Only one item per cosmetic slot can be active at a time."
+      - "Equipping a journal cover from Settings OR the Frontispiece routes through the same equip endpoint — both surfaces stay in lockstep."
       - "The trophy badge slot only accepts badges the user has earned."
       - "Duplicate cosmetic drops salvage to Coins."
       - "Locked cosmetics can still appear in the catalog as goals, but they are not clickable until owned."

@@ -948,7 +948,7 @@ def _cosmetic_set_owned(user, c):
 
     ``criteria_value`` shape::
 
-        {"slugs": ["frame-scholar", "title-scholar", "theme-library"]}
+        {"slugs": ["frame-scholar", "title-scholar", "cover-snowquill"]}
 
     The user must have a ``UserInventory`` row with ``quantity >= 1`` for
     every listed slug. Returns False if the list is empty or missing.

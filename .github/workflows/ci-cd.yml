@@ -168,6 +168,16 @@ jobs:
             exit 1
           }
 
+          echo "=== Cleaning up retired catalog rows ==="
+          # Idempotent — retires DB rows whose YAML entries have been
+          # deleted (the loader is upsert-only and can't remove them).
+          # Each cleanup step filters by name/slug allowlists in the
+          # command source; subsequent deploys delete 0 rows.
+          ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} docker compose run --rm django python manage.py cleanup_rpg_catalog" || {
+            echo "::error::Catalog cleanup failed — aborting"
+            exit 1
+          }
+
           echo "=== Setting Sentry release ==="
           ${SSH} ${TARGET} "cd ${DIR} && grep -q '^SENTRY_RELEASE=' .env 2>/dev/null && sed -i 's/^SENTRY_RELEASE=.*/SENTRY_RELEASE=${TAG}/' .env || echo 'SENTRY_RELEASE=${TAG}' >> .env" || true
 

@@ -232,20 +232,20 @@ class CosmeticSetOwnedCriterionTests(TestCase):
 
         frame = self._make_cosmetic("frame-scholar", ItemDefinition.ItemType.COSMETIC_FRAME)
         title = self._make_cosmetic("title-scholar", ItemDefinition.ItemType.COSMETIC_TITLE)
-        theme = self._make_cosmetic("theme-library", ItemDefinition.ItemType.COSMETIC_THEME)
+        cover = self._make_cosmetic("cover-snowquill", ItemDefinition.ItemType.COSMETIC_THEME)
 
         UserInventory.objects.create(user=self.user, item=frame, quantity=1)
         UserInventory.objects.create(user=self.user, item=title, quantity=1)
-        # Missing theme — must not satisfy.
+        # Missing cover — must not satisfy.
         self.assertFalse(_cosmetic_set_owned(
             self.user,
-            {"slugs": ["frame-scholar", "title-scholar", "theme-library"]},
+            {"slugs": ["frame-scholar", "title-scholar", "cover-snowquill"]},
         ))
 
-        UserInventory.objects.create(user=self.user, item=theme, quantity=1)
+        UserInventory.objects.create(user=self.user, item=cover, quantity=1)
         self.assertTrue(_cosmetic_set_owned(
             self.user,
-            {"slugs": ["frame-scholar", "title-scholar", "theme-library"]},
+            {"slugs": ["frame-scholar", "title-scholar", "cover-snowquill"]},
         ))
 
     def test_cosmetic_set_owned_false_on_empty_slugs(self):

@@ -130,4 +130,12 @@ class FamilyService:
         family.primary_parent = parent
         family.save(update_fields=["primary_parent"])
         token, _ = Token.objects.get_or_create(user=parent)
+
+        # Hyrule cover is the always-free baseline binding — granted at
+        # signup so the kid never lands on Settings to find every cover
+        # locked. See the "Unify journal covers" gotcha for the full
+        # rationale on why covers are now cosmetics.
+        from apps.rpg.services import CosmeticService
+        CosmeticService.grant_starter_cover(parent)
+
         return parent, family, token

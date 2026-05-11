@@ -495,57 +495,66 @@ items:
     coin_value: 100
     metadata: {text: Legendary Forgemaster}
 
-  # ── Dashboard Themes (originals + Shikashi tunics/cloak) ──────────────
-  - slug: theme-ocean
-    name: Ocean Theme
-    icon: "🌊"
+  # ── Journal Covers (base) ─────────────────────────────────────────────
+  # The six base journal covers. metadata.theme MUST equal the slug used
+  # in frontend/src/themes.js — CosmeticService.equip reads this field to
+  # resolve which palette to apply when the cosmetic is equipped from
+  # either Settings or the Frontispiece. Hyrule is signup-granted; the
+  # others drop from the standard cosmetic pool (milestone/project/badge/
+  # perfect-day/quest-complete) weighted by rarity.
+  - slug: cover-hyrule
+    name: Hyrule Day
+    icon: "📖"
+    item_type: cosmetic_theme
+    rarity: common
+    coin_value: 5
+    metadata: {theme: hyrule, accent: "#157064"}
+    description: "The default binding — sunlit parchment with gilt accents."
+
+  - slug: cover-sunlit
+    name: Sunlit Field
+    icon: "☀️"
     item_type: cosmetic_theme
     rarity: uncommon
     coin_value: 20
-    metadata: {accent: "#0077BE"}
+    metadata: {theme: sunlit, accent: "#8a420f"}
+    description: "Warm cream parchment kissed by afternoon sun."
 
-  - slug: theme-forest
-    name: Forest Theme
-    icon: "🌲"
+  - slug: cover-verdant
+    name: Verdant Pages
+    icon: "🌿"
     item_type: cosmetic_theme
     rarity: uncommon
     coin_value: 20
-    metadata: {accent: "#228B22"}
+    metadata: {theme: verdant, accent: "#3d6126"}
+    description: "Mossy spring linen — growing, persisting."
 
-  - slug: theme-sunset
-    name: Sunset Theme
-    icon: "🌅"
+  - slug: cover-harvest
+    name: Harvest Folio
+    icon: "🍂"
+    item_type: cosmetic_theme
+    rarity: uncommon
+    coin_value: 20
+    metadata: {theme: harvest, accent: "#823618"}
+    description: "Late-autumn copper — reaping what you sow."
+
+  - slug: cover-snowquill
+    name: Snowquill Tome
+    icon: "❄️"
     item_type: cosmetic_theme
     rarity: rare
     coin_value: 40
-    metadata: {accent: "#FF6B35"}
+    metadata: {theme: snowquill, accent: "#284c82"}
+    description: "Frosted blue parchment — icy clarity for the chronicler."
 
-  - slug: theme-azure-tunic
-    name: Azure Tunic Theme
-    icon: "🟦"
-    sprite_key: blue-tunic
-    item_type: cosmetic_theme
-    rarity: uncommon
-    coin_value: 25
-    metadata: {accent: "#3a6db5"}
-
-  - slug: theme-emerald-tunic
-    name: Emerald Tunic Theme
-    icon: "🟩"
-    sprite_key: green-tunic
-    item_type: cosmetic_theme
-    rarity: uncommon
-    coin_value: 25
-    metadata: {accent: "#2e7a3a"}
-
-  - slug: theme-wanderer-cloak
-    name: Wanderer's Cloak Theme
-    icon: "🧥"
-    sprite_key: cloak
+  - slug: cover-vigil
+    name: Night Vigil
+    icon: "🕯️"
     item_type: cosmetic_theme
     rarity: rare
-    coin_value: 45
-    metadata: {accent: "#5a3a8b"}
+    coin_value: 40
+    metadata: {theme: vigil, accent: "#7fe3f0"}
+    description: "Dark binding lit by sheikah-teal — late-night discipline."
 
   # ── Pet Accessories (originals + Shikashi jewelry) ────────────────────
   - slug: accessory-party-hat
@@ -853,14 +862,6 @@ items:
     coin_value: 35
     metadata: {border_color: "#8B5A2B"}
 
-  - slug: theme-library
-    name: Library Theme
-    icon: "📚"
-    item_type: cosmetic_theme
-    rarity: epic
-    coin_value: 60
-    metadata: {accent: "#6B3410"}
-
   # ── Life-RPG cosmetics (2026-04-21 review) ─────────────────────────────
   # Frames
   - slug: frame-laurel
@@ -894,39 +895,6 @@ items:
     rarity: uncommon
     coin_value: 20
     metadata: {border_color: "#4CAF50"}
-
-  # Themes
-  - slug: theme-autumn-leaves
-    name: Autumn Leaves Theme
-    icon: "🍁"
-    item_type: cosmetic_theme
-    rarity: rare
-    coin_value: 40
-    metadata: {accent: "#B8552C"}
-
-  - slug: theme-aurora
-    name: Aurora Theme
-    icon: "🌌"
-    item_type: cosmetic_theme
-    rarity: epic
-    coin_value: 80
-    metadata: {accent: "#7FFFD4"}
-
-  - slug: theme-steampunk
-    name: Steampunk Workshop Theme
-    icon: "🔩"
-    item_type: cosmetic_theme
-    rarity: epic
-    coin_value: 70
-    metadata: {accent: "#8B6F3A"}
-
-  - slug: theme-underwater-ruin
-    name: Underwater Ruin Theme
-    icon: "🌊"
-    item_type: cosmetic_theme
-    rarity: rare
-    coin_value: 45
-    metadata: {accent: "#1F6F8B"}
 
   # Titles (short, recognition-flavored)
   - slug: title-hoarder
@@ -1042,22 +1010,6 @@ items:
     item_type: cosmetic_pet_accessory
     rarity: legendary
     coin_value: 150
-
-  - slug: theme-parchment
-    name: Parchment Theme
-    icon: "📜"
-    item_type: cosmetic_theme
-    rarity: common
-    coin_value: 8
-    metadata: {accent: "#C9A87C"}
-
-  - slug: theme-celestial-realm
-    name: Celestial Realm Theme
-    icon: "🌌"
-    item_type: cosmetic_theme
-    rarity: legendary
-    coin_value: 150
-    metadata: {accent: "#9B59B6"}
 
   # ── Coin pouch — bigger tier for the many-year horizon ────────────────
   - slug: pouch-mega

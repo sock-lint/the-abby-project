@@ -1180,12 +1180,23 @@ class CosmeticService:
         "cosmetic_pet_accessory": "active_pet_accessory",
     }
 
+    # Journal cover palettes defined in frontend/src/themes.js. The equip
+    # path uses this set to validate that a cosmetic_theme item's
+    # metadata.theme resolves to a real palette — otherwise applyTheme
+    # would silently fall back to Hyrule and the kid would equip nothing.
+    VALID_THEME_SLUGS = {
+        "hyrule", "vigil", "sunlit", "snowquill", "verdant", "harvest",
+    }
+
     @staticmethod
     @transaction.atomic
     def equip(user, item_id):
         """Equip a cosmetic item to the appropriate slot.
 
-        Returns dict with slot and equipped item, or raises ValueError.
+        For ``cosmetic_theme`` items, this also writes ``User.theme`` from
+        ``item.metadata.theme`` so the visible journal cover swaps —
+        Settings picker and Frontispiece both route through this single
+        path. Returns dict with slot and equipped item, or raises ValueError.
         """
         from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
 
@@ -1202,9 +1213,27 @@ class CosmeticService:
         if not UserInventory.objects.filter(user=user, item=item, quantity__gte=1).exists():
             raise ValueError("You don't own that item")
 
+        # For theme cosmetics, resolve metadata.theme to a real palette
+        # BEFORE writing anything — refuse to equip a theme cosmetic whose
+        # metadata doesn't link to themes.js. The legacy ``theme-*``
+        # cosmetics in items.yaml lack this field; equipping them was a
+        # silent no-op pre-unification and is now explicitly rejected.
+        theme_slug = None
+        if slot == "active_theme":
+            theme_slug = (item.metadata or {}).get("theme")
+            if theme_slug not in CosmeticService.VALID_THEME_SLUGS:
+                raise ValueError(
+                    "That cover isn't a valid journal binding — "
+                    "its metadata.theme is missing or unknown."
+                )
+
         profile, _ = CharacterProfile.objects.get_or_create(user=user)
         setattr(profile, slot, item)
         profile.save(update_fields=[slot, "updated_at"])
+
+        if theme_slug is not None:
+            user.theme = theme_slug
+            user.save(update_fields=["theme"])
 
         # Trigger badge eval so Dressed-for-the-Quest (cosmetic_full_set) and
         # any future cosmetic-state badges can fire the moment the final slot
@@ -1218,6 +1247,51 @@ class CosmeticService:
             logger.exception("Badge evaluation after cosmetic equip failed")
 
         return {"slot": slot, "item_id": item.pk, "item_name": item.name}
+
+    @staticmethod
+    @transaction.atomic
+    def grant_starter_cover(user, *, slug="cover-hyrule"):
+        """Grant the default journal cover at signup or child-create.
+
+        Idempotent — running twice for the same user is a no-op. Defensive
+        against ``ItemDefinition.DoesNotExist`` (test fixtures that skip
+        ``loadrpgcontent`` don't have the cover items yet) — logs and
+        returns ``None`` rather than 500'ing the signup flow.
+
+        Sets ``CharacterProfile.active_theme`` to the granted cover AND
+        writes ``User.theme`` to the corresponding palette slug so the
+        visible cover matches from first paint. Returns the granted
+        ``UserInventory`` row or ``None`` if the cover item isn't seeded.
+        """
+        from apps.rpg.models import (
+            CharacterProfile, ItemDefinition, UserInventory,
+        )
+
+        try:
+            cover = ItemDefinition.objects.get(slug=slug)
+        except ItemDefinition.DoesNotExist:
+            logger.warning(
+                "grant_starter_cover: ItemDefinition %r not found — "
+                "did loadrpgcontent run? Signup proceeding without "
+                "starter cover.", slug,
+            )
+            return None
+
+        inventory, _ = UserInventory.objects.get_or_create(
+            user=user, item=cover,
+            defaults={"quantity": 1},
+        )
+        profile, _ = CharacterProfile.objects.get_or_create(user=user)
+        if profile.active_theme_id is None:
+            profile.active_theme = cover
+            profile.save(update_fields=["active_theme", "updated_at"])
+
+        theme_slug = (cover.metadata or {}).get("theme")
+        if theme_slug in CosmeticService.VALID_THEME_SLUGS and user.theme != theme_slug:
+            user.theme = theme_slug
+            user.save(update_fields=["theme"])
+
+        return inventory
 
     @staticmethod
     @transaction.atomic

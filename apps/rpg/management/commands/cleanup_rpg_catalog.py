@@ -56,11 +56,37 @@ RETIRED_QUESTS = [
     "Spring Bloom Collector",  # Spring Planting has a real trigger_filter — cleaner replacement
 ]
 
+# Retired cosmetic_theme items — removed from YAML in the 2026-05 cover
+# unification because their metadata never linked to a CSS palette in
+# frontend/src/themes.js. Pre-unification, equipping one was a silent no-op
+# (applyTheme fell back to Hyrule); post-unification, equip raises a clear
+# "metadata.theme is missing" error. Retiring the rows removes the dead
+# items from inventory, the drop pool, and the Frontispiece catalog.
+#
+# Deletion cascades:
+# - UserInventory rows → CASCADE (kids lose dead items they couldn't use)
+# - CharacterProfile.active_theme FKs → SET_NULL (anyone equipped to one
+#   ends up with no theme equipped; the next visit to /settings or /sigil
+#   will let them pick a real cover)
+# - DropLog historical rows → CASCADE (loses provenance, acceptable)
+#
+# ``loadrpgcontent`` runs an idempotent post-load grant that ensures every
+# active user owns at least cover-hyrule + their pre-unification cover, so
+# nobody ends up with zero usable covers when this cleanup runs.
+RETIRED_COSMETIC_SLUGS = [
+    "theme-ocean", "theme-forest", "theme-sunset",
+    "theme-azure-tunic", "theme-emerald-tunic", "theme-wanderer-cloak",
+    "theme-library", "theme-autumn-leaves", "theme-aurora",
+    "theme-steampunk", "theme-underwater-ruin",
+    "theme-parchment", "theme-celestial-realm",
+]
+
 
 def cleanup(*, dry_run: bool = False) -> dict[str, int]:
     """Delete orphan rows. Returns a count dict."""
     from apps.achievements.models import Badge, SkillCategory
     from apps.quests.models import QuestDefinition
+    from apps.rpg.models import ItemDefinition
 
     counts = {
         "skill_categories": 0,
@@ -68,6 +94,7 @@ def cleanup(*, dry_run: bool = False) -> dict[str, int]:
         "badges": 0,
         "quests": 0,
         "retired_quests": 0,
+        "retired_cosmetics": 0,
     }
 
     with transaction.atomic():
@@ -102,6 +129,16 @@ def cleanup(*, dry_run: bool = False) -> dict[str, int]:
             counts["retired_quests"] = retired_qs.count()
             retired_qs.delete()
 
+            # 5. Retired cosmetic_theme items — the 13 legacy theme-* rows
+            # that never had a matching palette in themes.js. Migration
+            # 0023_grant_journal_covers granted every user cover-hyrule
+            # before this cleanup so nobody loses access to the journal.
+            cosmetic_qs = ItemDefinition.objects.filter(
+                slug__in=RETIRED_COSMETIC_SLUGS,
+            )
+            counts["retired_cosmetics"] = cosmetic_qs.count()
+            cosmetic_qs.delete()
+
             if dry_run:
                 transaction.savepoint_rollback(sid)
             else:
@@ -132,5 +169,6 @@ class Command(BaseCommand):
             f"(+{counts['skills_cascaded']} skills cascaded), "
             f"{counts['badges']} badges, "
             f"{counts['quests']} smoke-test quests, "
-            f"{counts['retired_quests']} retired quests"
+            f"{counts['retired_quests']} retired quests, "
+            f"{counts['retired_cosmetics']} retired cosmetics"
         )

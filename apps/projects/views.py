@@ -219,10 +219,15 @@ class ChildViewSet(_UserManagementActionsMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # ``password`` flows through validated_data; ChildSerializer.create
         # pops it and uses ``User.objects.create_user`` to hash it.
-        serializer.save(
+        child = serializer.save(
             role="child",
             family=self.request.user.family,
         )
+        # Grant the Hyrule journal cover — same rationale as signup. See
+        # ``CosmeticService.grant_starter_cover`` for the defense-in-depth
+        # against missing seed content.
+        from apps.rpg.services import CosmeticService
+        CosmeticService.grant_starter_cover(child)
 
 
 class ParentViewSet(_UserManagementActionsMixin, viewsets.ModelViewSet):
@@ -245,10 +250,13 @@ class ParentViewSet(_UserManagementActionsMixin, viewsets.ModelViewSet):
         return User.objects.filter(role="parent", family=family)
 
     def perform_create(self, serializer):
-        serializer.save(
+        parent = serializer.save(
             role="parent",
             family=self.request.user.family,
         )
+        # Co-parents get the same starter cover as everyone else.
+        from apps.rpg.services import CosmeticService
+        CosmeticService.grant_starter_cover(parent)
 
 
 class DashboardView(APIView):

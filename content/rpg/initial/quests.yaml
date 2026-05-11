@@ -357,7 +357,7 @@ quests:
     xp_reward: 100
     is_system: true
     reward_items:
-      - slug: theme-sunset
+      - slug: cover-sunlit
         quantity: 1
     skill_tags:
       - {skill: "Outdoors::Gardening", weight: 2}
@@ -377,7 +377,7 @@ quests:
     xp_reward: 150
     is_system: true
     reward_items:
-      - slug: theme-forest
+      - slug: cover-harvest
         quantity: 1
     skill_tags:
       - {skill: "Cooking::Meal Planning", weight: 2}
@@ -417,7 +417,7 @@ quests:
     xp_reward: 100
     is_system: true
     reward_items:
-      - slug: theme-wanderer-cloak
+      - slug: cover-vigil
         quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 2}
@@ -569,7 +569,7 @@ quests:
     xp_reward: 100
     is_system: true
     reward_items:
-      - slug: theme-forest
+      - slug: cover-verdant
         quantity: 1
     skill_tags:
       - {skill: "Outdoors::Gardening", weight: 2}
@@ -589,7 +589,7 @@ quests:
     xp_reward: 120
     is_system: true
     reward_items:
-      - slug: theme-autumn-leaves
+      - slug: cover-harvest
         quantity: 1
     skill_tags:
       - {skill: "Outdoors::Nature ID", weight: 2}
@@ -612,7 +612,7 @@ quests:
     xp_reward: 120
     is_system: true
     reward_items:
-      - slug: theme-aurora
+      - slug: cover-snowquill
         quantity: 1
     skill_tags:
       - {skill: "Outdoors::Weather & Stargazing", weight: 2}
@@ -835,7 +835,7 @@ quests:
     xp_reward: 140
     is_system: true
     reward_items:
-      - slug: theme-aurora
+      - slug: cover-sunlit
         quantity: 1
     skill_tags:
       - {skill: "Art & Crafts::Drawing", weight: 2}

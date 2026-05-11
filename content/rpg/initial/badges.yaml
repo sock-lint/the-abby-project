@@ -1092,11 +1092,11 @@ badges:
   # Cosmetic set completionism — rewards owning every piece of a themed set.
   # Scholar Set ships first; future sets add themselves by name here.
   - name: Scholar's Wardrobe
-    description: Own the full Scholar cosmetic set (frame, title, theme)
+    description: Own the full Scholar cosmetic set (frame, title, cover)
     icon: "📚"
     criteria_type: cosmetic_set_owned
     criteria_value:
-      slugs: [frame-scholar, title-scholar, theme-library]
+      slugs: [frame-scholar, title-scholar, cover-snowquill]
     rarity: rare
     xp_bonus: 75
   - name: Forgemaster's Regalia
@@ -1108,11 +1108,11 @@ badges:
     rarity: epic
     xp_bonus: 150
   - name: Ranger's Kit
-    description: Own the full Ranger cosmetic set (ranger's cap, trailblazer, forest theme)
+    description: Own the full Ranger cosmetic set (ranger's cap, trailblazer, verdant cover)
     icon: "🏹"
     criteria_type: cosmetic_set_owned
     criteria_value:
-      slugs: [frame-robin-hood, title-trailblazer, theme-forest]
+      slugs: [frame-robin-hood, title-trailblazer, cover-verdant]
     rarity: rare
     xp_bonus: 75
 
