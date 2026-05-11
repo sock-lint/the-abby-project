@@ -14,8 +14,8 @@ import Button from '../components/Button';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 import TomeShelf from './achievements/TomeShelf';
 import FolioSpread from './achievements/FolioSpread';
-import IlluminatedVersal from './achievements/IlluminatedVersal';
-import { PROGRESS_TIER } from './achievements/mastery.constants';
+import IlluminatedVersal from '../components/atlas/IlluminatedVersal';
+import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
 import { useState } from 'react';
 
 export default function DesignShowcase() {

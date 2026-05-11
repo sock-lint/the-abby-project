@@ -1,6 +1,6 @@
 import { Star, Award } from 'lucide-react';
 import StreakFlame from '../../components/journal/StreakFlame';
-import { PROGRESS_TIER } from '../achievements/mastery.constants';
+import { PROGRESS_TIER } from '../../components/atlas/mastery.constants';
 import { streakTier } from './character.constants';
 
 const TIER_CHIP = {

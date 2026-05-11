@@ -7,6 +7,31 @@ import StatusBadge from '../../components/StatusBadge';
 import RuneBadge from '../../components/journal/RuneBadge';
 import Button from '../../components/Button';
 import ErrorAlert from '../../components/ErrorAlert';
+import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
+import { tierForProgress } from '../../components/atlas/mastery.constants';
+
+// Status → workflow-progress percent. Drives the gilt fill on the project's
+// drop-cap so a draft glimmers faintly, in_review reads three-quarters
+// inked, and completed projects sit fully gilded with a halo. Archived
+// projects keep the gilt because the work was done — they're past tense,
+// not unfinished.
+const STATUS_PROGRESS = {
+  draft: 5,
+  active: 25,
+  in_progress: 55,
+  in_review: 80,
+  completed: 100,
+  archived: 100,
+};
+
+function projectVersalProps(project) {
+  const progressPct = STATUS_PROGRESS[project.status] ?? 25;
+  const unlocked = project.status !== 'draft';
+  return {
+    progressPct,
+    tier: tierForProgress({ unlocked, progressPct, level: 0, maxLevel: 6 }),
+  };
+}
 
 /**
  * Top section of ProjectDetail — back link, title/status row, and action
@@ -48,24 +73,31 @@ export default function ProjectHeader({
       </button>
 
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-        <div>
-          <div className="font-script text-sheikah-teal-deep text-sm">
-            venture
-          </div>
-          <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-            {project.title}
-          </h1>
-          <div className="flex items-center gap-2 mt-2 text-sm flex-wrap">
-            <StatusBadge status={project.status} />
-            {project.payment_kind === 'bounty' && (
-              <RuneBadge tone="royal" size="sm">bounty</RuneBadge>
-            )}
-            {project.category && (
-              <span className="font-script text-ink-whisper">
-                {project.category.icon} {project.category.name}
-              </span>
-            )}
-            <StarRating value={project.difficulty} />
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+          <IlluminatedVersal
+            letter={project.title?.charAt(0) || '✦'}
+            size="lg"
+            {...projectVersalProps(project)}
+          />
+          <div className="min-w-0 flex-1">
+            <div className="font-script text-sheikah-teal-deep text-sm">
+              venture
+            </div>
+            <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+              {project.title}
+            </h1>
+            <div className="flex items-center gap-2 mt-2 text-sm flex-wrap">
+              <StatusBadge status={project.status} />
+              {project.payment_kind === 'bounty' && (
+                <RuneBadge tone="royal" size="sm">bounty</RuneBadge>
+              )}
+              {project.category && (
+                <span className="font-script text-ink-whisper">
+                  {project.category.icon} {project.category.name}
+                </span>
+              )}
+              <StarRating value={project.difficulty} />
+            </div>
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">

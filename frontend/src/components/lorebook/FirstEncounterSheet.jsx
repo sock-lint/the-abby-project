@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFirstEncounter } from '../../hooks/useFirstEncounter';
 import BottomSheet from '../BottomSheet';
 import Button from '../Button';
-import IlluminatedVersal from '../../pages/achievements/IlluminatedVersal';
+import IlluminatedVersal from '../atlas/IlluminatedVersal';
 
 export default function FirstEncounterSheet({ pollIntervalMs }) {
   const { activeEntry: entry, dismiss } = useFirstEncounter(pollIntervalMs);

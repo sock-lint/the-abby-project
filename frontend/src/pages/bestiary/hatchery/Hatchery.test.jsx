@@ -34,6 +34,19 @@ describe('Hatchery', () => {
     );
   });
 
+  it('renders the Hatch + Breed sections under atlas chapter numerals (§I / §II)', async () => {
+    server.use(
+      http.get('*/api/pets/stable/', () =>
+        HttpResponse.json({ pets: [], mounts: [], total_possible: 48 }),
+      ),
+      http.get('*/api/inventory/', () => HttpResponse.json([])),
+    );
+    renderHatchery();
+    await waitFor(() => expect(screen.getByText('Hatch a New Pet')).toBeInTheDocument());
+    expect(screen.getByText('§I')).toBeInTheDocument();
+    expect(screen.getByText('§II')).toBeInTheDocument();
+  });
+
   it('hatches a pet using the egg + potion picked from the satchel', async () => {
     server.use(
       http.get('*/api/pets/stable/', () =>

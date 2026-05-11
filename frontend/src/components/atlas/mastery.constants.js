@@ -68,6 +68,14 @@ export function countIlluminated(subjects) {
   return { illuminated, total };
 }
 
+// Canonical rarity vocabulary. RARITY_KEYS is the ordered list RarityStrand
+// paints one segment per (in this order); RARITY_ORDER is the numeric index
+// callers use to sort tiles within a chapter. Page-level constants files
+// (collections / character / party / codex) keep their own internal copies —
+// adding consumers to this module is opt-in, not enforced.
+export const RARITY_KEYS = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+export const RARITY_ORDER = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
+
 export const RECENT_EARNED_DAYS = 7;
 
 export function isRecentlyEarned(earnedAt) {

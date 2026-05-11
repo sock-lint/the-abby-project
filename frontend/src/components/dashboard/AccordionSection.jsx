@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import RuneBadge from '../journal/RuneBadge';
+import { chapterMark } from '../atlas/mastery.constants';
 import { STORAGE_KEYS } from '../../constants/storage';
 
 function slugify(s) {
@@ -28,6 +29,8 @@ function readStored(title, fallback) {
  *
  * Props:
  *   title      : display title (required)
+ *   index      : optional 0-based section index — renders an atlas chapter
+ *                numeral (§I, §II, …) inline with the title
  *   kicker     : caveat-script line above title
  *   count      : optional numeric badge beside title
  *   peek       : ReactNode shown when closed (single-line summary)
@@ -35,7 +38,7 @@ function readStored(title, fallback) {
  *   defaultOpen: fallback when no persisted state exists
  */
 export default function AccordionSection({
-  title, kicker, count, peek, children, defaultOpen = false,
+  title, index, kicker, count, peek, children, defaultOpen = false,
 }) {
   const [open, setOpen] = useState(() => readStored(title, defaultOpen));
 
@@ -61,6 +64,14 @@ export default function AccordionSection({
             <div className="font-script text-sheikah-teal-deep text-xs">{kicker}</div>
           )}
           <div className="flex items-baseline gap-2">
+            {index != null && (
+              <span
+                aria-hidden="true"
+                className="font-display italic text-ember-deep text-base md:text-lg leading-none select-none shrink-0"
+              >
+                {chapterMark(index)}
+              </span>
+            )}
             <h2 className="font-display text-lg md:text-xl text-ink-primary leading-tight truncate">
               {title}
             </h2>

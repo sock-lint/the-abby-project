@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Play, Square, Flame, Sparkles, ClipboardCheck, BookOpen } from 'lucide-react';
 import ParchmentCard from '../journal/ParchmentCard';
 import RuneBadge from '../journal/RuneBadge';
+import IlluminatedVersal from '../atlas/IlluminatedVersal';
+import { tierForProgress } from '../atlas/mastery.constants';
 import { formatDuration } from '../../utils/format';
 import { inkBleed } from '../../motion/variants';
 import Button from '../Button';
@@ -14,6 +16,26 @@ const TONE_TO_ACCENT_CLASS = {
   moss: 'text-moss',
   ember: 'text-ember-deep',
 };
+
+// Drop-cap fill % for the hero's IlluminatedVersal. Different variants encode
+// different progress signals — clocked uses elapsed minutes mod a one-hour
+// ramp so the gilt slowly fills as the kid stays on task; quest-progress uses
+// the quest's own % directly; next-action sits at a steady "just started"
+// fill so the action reads as fresh.
+function elapsedHourPct(minutes) {
+  if (!minutes || minutes <= 0) return 5;
+  return Math.min(100, (minutes % 60) * (100 / 60) + Math.min(60, minutes) * (40 / 60));
+}
+
+function versalProps({ letter, progressPct }) {
+  const safe = Math.max(0, Math.min(100, progressPct));
+  return {
+    letter,
+    progressPct: safe,
+    tier: tierForProgress({ unlocked: safe > 0, progressPct: safe, level: 0 }),
+    size: 'lg',
+  };
+}
 
 /**
  * HeroPrimaryCard — the single-fold primary card on the Today page.
@@ -100,24 +122,32 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
         </div>
 
         {variant === 'clocked' && (
-          <>
-            <div className="font-script text-xs text-ink-whisper uppercase tracking-wider">
-              Still inking
+          <div className="flex items-start gap-3">
+            <IlluminatedVersal
+              {...versalProps({
+                letter: activeTimer.project_title?.charAt(0) || '✦',
+                progressPct: elapsedHourPct(activeTimer.elapsed_minutes),
+              })}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="font-script text-xs text-ink-whisper uppercase tracking-wider">
+                Still inking
+              </div>
+              <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 truncate">
+                {activeTimer.project_title}
+              </h1>
+              <div className="font-rune text-3xl md:text-4xl font-bold text-ember-deep tabular-nums mt-2">
+                {formatDuration(activeTimer.elapsed_minutes)}
+              </div>
+              <Button
+                size="sm"
+                onClick={() => navigate('/clock')}
+                className="mt-3 inline-flex items-center gap-2"
+              >
+                <Square size={16} /> Stop and log
+              </Button>
             </div>
-            <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 truncate">
-              {activeTimer.project_title}
-            </h1>
-            <div className="font-rune text-3xl md:text-4xl font-bold text-ember-deep tabular-nums mt-2">
-              {formatDuration(activeTimer.elapsed_minutes)}
-            </div>
-            <Button
-              size="sm"
-              onClick={() => navigate('/clock')}
-              className="mt-3 inline-flex items-center gap-2"
-            >
-              <Square size={16} /> Stop and log
-            </Button>
-          </>
+          </div>
         )}
 
         {variant === 'next-action' && (
@@ -131,30 +161,38 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
         )}
 
         {variant === 'quest-progress' && (
-          <>
-            <div className="font-script text-xs text-royal uppercase tracking-wider">
-              Active trial
+          <div className="flex items-start gap-3">
+            <IlluminatedVersal
+              {...versalProps({
+                letter: quest.definition?.name?.charAt(0) || '✦',
+                progressPct: quest.progress_percent || 0,
+              })}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="font-script text-xs text-royal uppercase tracking-wider">
+                Active trial
+              </div>
+              <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 truncate">
+                {quest.definition?.name}
+              </h1>
+              <div className="font-body text-sm text-ink-secondary mt-1">
+                {quest.current_progress}/{quest.effective_target} · {quest.progress_percent}%
+              </div>
+              <div className="h-2 mt-2 rounded-full bg-ink-page-shadow/60 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal"
+                  style={{ width: `${Math.min(100, quest.progress_percent)}%` }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/trials')}
+                className="mt-3 font-script text-sm text-sheikah-teal-deep hover:underline"
+              >
+                View quest →
+              </button>
             </div>
-            <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 truncate">
-              {quest.definition?.name}
-            </h1>
-            <div className="font-body text-sm text-ink-secondary mt-1">
-              {quest.current_progress}/{quest.effective_target} · {quest.progress_percent}%
-            </div>
-            <div className="h-2 mt-2 rounded-full bg-ink-page-shadow/60 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal"
-                style={{ width: `${Math.min(100, quest.progress_percent)}%` }}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => navigate('/trials')}
-              className="mt-3 font-script text-sm text-sheikah-teal-deep hover:underline"
-            >
-              View quest →
-            </button>
-          </>
+          </div>
         )}
 
         {variant === 'idle' && (
@@ -193,24 +231,32 @@ function NextActionBody({ action, onOpenHomework, onCompleteChore, onTapHabit, o
   };
 
   return (
-    <>
-      <div className={`flex items-center gap-1.5 font-script text-xs ${accentClass} uppercase tracking-wider`}>
-        <Icon size={14} /> Next up
+    <div className="flex items-start gap-3">
+      <IlluminatedVersal
+        {...versalProps({
+          letter: action.title?.charAt(0) || '✦',
+          progressPct: 20,
+        })}
+      />
+      <div className="min-w-0 flex-1">
+        <div className={`flex items-center gap-1.5 font-script text-xs ${accentClass} uppercase tracking-wider`}>
+          <Icon size={14} /> Next up
+        </div>
+        <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 truncate">
+          {action.title}
+        </h1>
+        <div className="font-body text-sm text-ink-secondary mt-1">
+          {action.subtitle}
+        </div>
+        <Button
+          size="sm"
+          aria-label={`${buttonLabel} ${action.title}`}
+          onClick={handleClick}
+          className="mt-3 inline-flex items-center gap-2"
+        >
+          <Play size={16} /> {buttonLabel}
+        </Button>
       </div>
-      <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 truncate">
-        {action.title}
-      </h1>
-      <div className="font-body text-sm text-ink-secondary mt-1">
-        {action.subtitle}
-      </div>
-      <Button
-        size="sm"
-        aria-label={`${buttonLabel} ${action.title}`}
-        onClick={handleClick}
-        className="mt-3 inline-flex items-center gap-2"
-      >
-        <Play size={16} /> {buttonLabel}
-      </Button>
-    </>
+    </div>
   );
 }

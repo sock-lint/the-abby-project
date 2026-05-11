@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import RpgSprite from '../../components/rpg/RpgSprite';
 import { RARITY_TEXT_COLORS } from '../../constants/colors';
-import { RARITY_HALO } from '../achievements/mastery.constants';
+import { RARITY_HALO } from '../../components/atlas/mastery.constants';
 import { applyTheme } from '../../themes';
 import { cosmeticLockHint } from './character.constants';
 

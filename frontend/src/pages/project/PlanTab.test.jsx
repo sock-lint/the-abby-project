@@ -45,4 +45,18 @@ describe('PlanTab', () => {
     expect(screen.getByText('Sketch')).toBeInTheDocument();
     expect(screen.getByText('Loose step')).toBeInTheDocument();
   });
+
+  it('prefixes each milestone title with an atlas chapter numeral (§I, §II, …)', () => {
+    renderPlan(buildProject({
+      milestones: [
+        { id: 1, title: 'Foundations', is_completed: false },
+        { id: 2, title: 'Walls', is_completed: false },
+        { id: 3, title: 'Roof', is_completed: false },
+      ],
+      steps: [],
+    }));
+    expect(screen.getByText('§I')).toBeInTheDocument();
+    expect(screen.getByText('§II')).toBeInTheDocument();
+    expect(screen.getByText('§III')).toBeInTheDocument();
+  });
 });

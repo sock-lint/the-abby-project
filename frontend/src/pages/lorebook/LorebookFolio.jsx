@@ -1,8 +1,8 @@
 import { useId } from 'react';
 import { motion } from 'framer-motion';
 import ParchmentCard from '../../components/journal/ParchmentCard';
-import IlluminatedVersal from '../achievements/IlluminatedVersal';
-import { tierForProgress } from '../achievements/mastery.constants';
+import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
+import { tierForProgress } from '../../components/atlas/mastery.constants';
 import LorebookTile from './LorebookTile';
 
 export default function LorebookFolio({

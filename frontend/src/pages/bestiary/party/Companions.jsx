@@ -12,6 +12,7 @@ import { EggIcon } from '../../../components/icons/JournalIcons';
 import RpgSprite from '../../../components/rpg/RpgSprite';
 import { normalizeList } from '../../../utils/api';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
+import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
 import { COMPANION_FILTERS, HAPPINESS_WHISPER, compareByRarityThenName } from './party.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 
@@ -150,21 +151,27 @@ export default function Companions() {
                 onClick={() => setSelectedPet(selectedPet?.id === pet.id ? null : pet)}
               >
                 <div className="text-center">
-                  <div className="flex items-center justify-center h-14 mb-1">
-                    <RpgSprite
-                      spriteKey={pet.species.sprite_key}
-                      icon={pet.species.icon}
-                      size={56}
-                      alt={`${pet.potion.name} ${pet.species.name}`}
-                      potionSlug={pet.potion.slug}
-                      dim={
-                        pet.evolved_to_mount
-                          ? null
-                          : pet.happiness_level && pet.happiness_level !== 'happy'
-                            ? pet.happiness_level
-                            : null
-                      }
-                    />
+                  <div className="flex items-center justify-center h-16 mb-1">
+                    <div
+                      className={`relative inline-flex items-center justify-center rounded-full p-1 bg-ink-page-aged/40 ${
+                        RARITY_HALO[pet.potion.rarity] || RARITY_HALO.common
+                      }`}
+                    >
+                      <RpgSprite
+                        spriteKey={pet.species.sprite_key}
+                        icon={pet.species.icon}
+                        size={56}
+                        alt={`${pet.potion.name} ${pet.species.name}`}
+                        potionSlug={pet.potion.slug}
+                        dim={
+                          pet.evolved_to_mount
+                            ? null
+                            : pet.happiness_level && pet.happiness_level !== 'happy'
+                              ? pet.happiness_level
+                              : null
+                        }
+                      />
+                    </div>
                   </div>
                   <div className="font-body text-sm font-medium leading-tight">
                     {pet.potion.name} {pet.species.name}

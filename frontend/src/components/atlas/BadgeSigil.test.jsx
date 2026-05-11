@@ -38,24 +38,38 @@ describe('BadgeSigil', () => {
   });
 
   it('renders the unlock hint for unearned badges', () => {
-    const badge = buildBadge({
-      name: 'Centennial',
-      rarity: 'legendary',
-      criterion_type: 'projects_completed',
-      criterion_value: 10,
-    });
+    const badge = buildBadge({ name: 'Centennial', rarity: 'legendary' });
     const { container } = renderWithProviders(
-      <BadgeSigil badge={badge} earned={false} onSelect={() => {}} />,
+      <BadgeSigil
+        badge={badge}
+        earned={false}
+        hint="Complete 10 projects"
+        onSelect={() => {}}
+      />,
     );
     const hint = container.querySelector('[data-sigil-hint="true"]');
     expect(hint).not.toBeNull();
     expect(hint.textContent).toMatch(/Complete 10 projects/);
   });
 
-  it('does not render an unlock hint on earned sigils', () => {
-    const badge = buildBadge({ criterion_type: 'projects_completed', criterion_value: 10 });
+  it('does not render an unlock hint on earned sigils even when one is supplied', () => {
+    const badge = buildBadge();
     const { container } = renderWithProviders(
-      <BadgeSigil badge={badge} earned earnedAt="2026-04-10" onSelect={() => {}} />,
+      <BadgeSigil
+        badge={badge}
+        earned
+        earnedAt="2026-04-10"
+        hint="this should not show"
+        onSelect={() => {}}
+      />,
+    );
+    expect(container.querySelector('[data-sigil-hint="true"]')).toBeNull();
+  });
+
+  it('omits the hint slot when no hint is supplied', () => {
+    const badge = buildBadge();
+    const { container } = renderWithProviders(
+      <BadgeSigil badge={badge} earned={false} onSelect={() => {}} />,
     );
     expect(container.querySelector('[data-sigil-hint="true"]')).toBeNull();
   });

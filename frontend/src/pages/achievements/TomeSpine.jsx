@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { PROGRESS_TIER, tierForProgress } from './mastery.constants';
+import { PROGRESS_TIER, tierForProgress } from '../../components/atlas/mastery.constants';
 import { XP_THRESHOLDS } from './skillTree.constants';
 
 /**

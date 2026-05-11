@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Sparkles, Crown } from 'lucide-react';
 import { breedMounts, getInventory, getStable, hatchPet } from '../../../api';
 import { useApi } from '../../../hooks/useApi';
 import Loader from '../../../components/Loader';
@@ -11,6 +10,7 @@ import { EggIcon, DragonIcon } from '../../../components/icons/JournalIcons';
 import { normalizeList } from '../../../utils/api';
 import Button from '../../../components/Button';
 import { SelectField } from '../../../components/form';
+import ChapterRubric from '../../../components/atlas/ChapterRubric';
 import { BREEDING_COOLDOWN_DAYS, daysUntilReady } from '../party/party.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 
@@ -124,10 +124,7 @@ export default function Hatchery() {
       <ErrorAlert message={error} />
 
       <ParchmentCard flourish>
-        <div className="flex items-center gap-2 mb-1">
-          <Sparkles size={16} className="text-sheikah-teal-deep" />
-          <h2 className="font-display text-xl text-ink-primary">Hatch a New Pet</h2>
-        </div>
+        <ChapterRubric index={0} name="Hatch a New Pet" icon="✨" />
         <p className="font-script text-sm text-ink-whisper mb-3">
           pair an egg with a potion to summon a new companion · the potion tints its colour
         </p>
@@ -188,10 +185,7 @@ export default function Hatchery() {
       </ParchmentCard>
 
       <ParchmentCard flourish>
-        <div className="flex items-center gap-2 mb-1">
-          <Crown size={16} className="text-gold-leaf" />
-          <h2 className="font-display text-xl text-ink-primary">Breed Two Mounts</h2>
-        </div>
+        <ChapterRubric index={1} name="Breed Two Mounts" icon="👑" />
         <p className="font-script text-sm text-ink-whisper">
           yields a hybrid egg + potion pair · each mount rests {BREEDING_COOLDOWN_DAYS} days between pairings
         </p>

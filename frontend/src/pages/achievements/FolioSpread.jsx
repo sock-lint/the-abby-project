@@ -1,8 +1,8 @@
 import ParchmentCard from '../../components/journal/ParchmentCard';
-import ChapterRubric from './ChapterRubric';
-import IlluminatedVersal from './IlluminatedVersal';
+import ChapterRubric from '../../components/atlas/ChapterRubric';
+import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
 import SkillVerse from './SkillVerse';
-import { countIlluminated, tierForProgress } from './mastery.constants';
+import { countIlluminated, tierForProgress } from '../../components/atlas/mastery.constants';
 import { XP_THRESHOLDS } from './skillTree.constants';
 
 /**

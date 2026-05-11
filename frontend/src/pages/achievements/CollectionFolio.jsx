@@ -1,10 +1,11 @@
 import { useId } from 'react';
 import { motion } from 'framer-motion';
 import ParchmentCard from '../../components/journal/ParchmentCard';
-import BadgeSigil from './BadgeSigil';
-import IlluminatedVersal from './IlluminatedVersal';
-import RarityStrand from './RarityStrand';
-import { tierForProgress } from './mastery.constants';
+import BadgeSigil from '../../components/atlas/BadgeSigil';
+import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
+import RarityStrand from '../../components/atlas/RarityStrand';
+import { tierForProgress } from '../../components/atlas/mastery.constants';
+import { unlockHint } from './collections.constants';
 
 /**
  * CollectionFolio — one chapter in the reliquary codex. Rubric numeral +
@@ -88,6 +89,7 @@ export default function CollectionFolio({
                 badge={item.badge}
                 earned={item.earned}
                 earnedAt={item.earnedAt}
+                hint={item.earned ? '' : unlockHint(item.badge)}
                 onSelect={onSelect}
               />
             </motion.li>

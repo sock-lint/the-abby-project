@@ -1,8 +1,8 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { Lock } from 'lucide-react';
-import IlluminatedVersal from './IlluminatedVersal';
+import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
 import PrereqChain from './PrereqChain';
-import { tierForProgress } from './mastery.constants';
+import { tierForProgress } from '../../components/atlas/mastery.constants';
 import { XP_THRESHOLDS } from './skillTree.constants';
 
 /**

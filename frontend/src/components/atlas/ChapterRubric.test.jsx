@@ -30,4 +30,19 @@ describe('ChapterRubric', () => {
     expect(root.className).not.toContain('sticky');
     expect(root.className).not.toContain('top-0');
   });
+
+  it('accepts direct name/icon props for non-skill surfaces', () => {
+    renderWithProviders(<ChapterRubric index={1} name="Hatch a New Pet" icon="🥚" />);
+    expect(screen.getByText('§II')).toBeInTheDocument();
+    expect(screen.getByText('Hatch a New Pet')).toBeInTheDocument();
+    expect(screen.getByText('🥚')).toBeInTheDocument();
+  });
+
+  it('lets direct props override the legacy subject object', () => {
+    renderWithProviders(
+      <ChapterRubric index={0} subject={subject} name="Override Title" />,
+    );
+    expect(screen.getByText('Override Title')).toBeInTheDocument();
+    expect(screen.queryByText('Measuring & Layout')).toBeNull();
+  });
 });

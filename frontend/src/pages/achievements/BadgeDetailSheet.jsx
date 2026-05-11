@@ -5,7 +5,7 @@ import {
   ladderSiblings,
   unlockHint,
 } from './collections.constants';
-import { RARITY_HALO } from './mastery.constants';
+import { RARITY_HALO } from '../../components/atlas/mastery.constants';
 
 const TIER_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 

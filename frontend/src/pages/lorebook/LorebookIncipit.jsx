@@ -1,6 +1,6 @@
 import ParchmentCard from '../../components/journal/ParchmentCard';
-import IlluminatedVersal from '../achievements/IlluminatedVersal';
-import { tierForProgress } from '../achievements/mastery.constants';
+import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
+import { tierForProgress } from '../../components/atlas/mastery.constants';
 
 export default function LorebookIncipit({ unlocked, trained = 0, total, mode = 'kid' }) {
   // Progression bar tracks inked-page progress (the new training goal). The
