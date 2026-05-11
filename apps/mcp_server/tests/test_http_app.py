@@ -18,11 +18,11 @@ from __future__ import annotations
 from typing import Any
 
 from django.test import TestCase, TransactionTestCase, override_settings
-from rest_framework.authtoken.models import Token
 from starlette.testclient import TestClient
 
 from apps.mcp_server.server import build_http_app, mcp
 from apps.accounts.models import User
+from config.tests.factories import make_oauth_token
 
 
 def _reset_mcp_session_manager() -> None:
@@ -121,7 +121,7 @@ class MCPInitializeHandshakeTests(TransactionTestCase):
         user = User.objects.create_user(
             username="mcp-client", password="pw", role="parent",
         )
-        token = Token.objects.create(user=user)
+        _, auth_header = make_oauth_token(user, resource="")  # no resource binding to skip
 
         app = build_http_app()
         with TestClient(app) as client:
@@ -138,7 +138,7 @@ class MCPInitializeHandshakeTests(TransactionTestCase):
                     },
                 },
                 headers={
-                    "Authorization": f"Token {token.key}",
+                    "Authorization": auth_header,
                     "Accept": "application/json, text/event-stream",
                     "Content-Type": "application/json",
                 },
@@ -192,9 +192,9 @@ class DnsRebindingProtectionRequestTests(TransactionTestCase):
     """End-to-end checks that ``TransportSecurityMiddleware`` actually runs
     with the settings we plumbed through ``_build_transport_security()``.
 
-    Uses a real DRF token so auth middleware passes and the request can
-    reach FastMCP's middleware stack (where the host check lives).
-    ``TransactionTestCase`` so the async token lookup in
+    Uses a real OAuth Bearer token so auth middleware passes and the
+    request can reach FastMCP's middleware stack (where the host check
+    lives). ``TransactionTestCase`` so the async AccessToken lookup in
     ``TokenAuthMiddleware`` sees committed rows.
     """
 
@@ -203,7 +203,7 @@ class DnsRebindingProtectionRequestTests(TransactionTestCase):
         self.user = User.objects.create_user(
             username="mcp-host-test", password="pw", role="parent",
         )
-        self.token = Token.objects.create(user=self.user)
+        _, self.auth_header = make_oauth_token(self.user, resource="")
 
     def _post(self, client: TestClient) -> Any:
         return client.post(
@@ -219,7 +219,7 @@ class DnsRebindingProtectionRequestTests(TransactionTestCase):
                 },
             },
             headers={
-                "Authorization": f"Token {self.token.key}",
+                "Authorization": self.auth_header,
                 "Accept": "application/json, text/event-stream",
                 "Content-Type": "application/json",
             },

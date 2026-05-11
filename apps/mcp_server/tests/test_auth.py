@@ -1,41 +1,60 @@
-"""Tests for the DRF-token-to-MCP-context auth middleware."""
+"""Tests for the OAuth 2.1 Bearer-token MCP auth middleware.
+
+The internal API exposed for unit-testing:
+* ``_parse_bearer_header(value)`` → ``(scheme, key)`` tuple, ``(None, None)`` on garbage.
+* ``_resolve_user(token_key)`` → ``User`` for a live ``AccessToken``, else ``None``.
+
+End-to-end Starlette dispatch is exercised in ``config/tests/test_oauth.py::MCPBearerAuthTests``.
+"""
 from __future__ import annotations
 
-from django.test import TestCase
-from rest_framework.authtoken.models import Token
+from datetime import timedelta
 
-from apps.mcp_server.auth import _parse_token_header, _resolve_user
+from django.test import TestCase, override_settings
+from django.utils import timezone
+
+from apps.mcp_server.auth import _parse_bearer_header, _resolve_user
 from apps.mcp_server.context import get_current_user, override_user
 from apps.mcp_server.errors import MCPPermissionDenied
 from apps.accounts.models import User
+from config.tests.factories import make_oauth_token
 
 
-class ParseTokenHeaderTests(TestCase):
-    def test_strips_token_prefix(self) -> None:
-        self.assertEqual(_parse_token_header("Token abc123"), "abc123")
+class ParseBearerHeaderTests(TestCase):
+    def test_splits_bearer_scheme(self) -> None:
+        scheme, key = _parse_bearer_header("Bearer abc123")
+        self.assertEqual(scheme, "bearer")
+        self.assertEqual(key, "abc123")
 
     def test_case_insensitive_scheme(self) -> None:
-        self.assertEqual(_parse_token_header("token abc123"), "abc123")
-        self.assertEqual(_parse_token_header("TOKEN abc123"), "abc123")
+        self.assertEqual(_parse_bearer_header("bearer abc123")[0], "bearer")
+        self.assertEqual(_parse_bearer_header("BEARER abc123")[0], "bearer")
 
-    def test_rejects_bearer_scheme(self) -> None:
-        self.assertIsNone(_parse_token_header("Bearer abc123"))
+    def test_surfaces_legacy_token_scheme(self) -> None:
+        """The middleware needs to see ``token`` separately so it can render a
+        migration hint instead of a generic 'malformed header'."""
+        scheme, key = _parse_bearer_header("Token abc123")
+        self.assertEqual(scheme, "token")
+        self.assertEqual(key, "abc123")
 
     def test_rejects_missing_key(self) -> None:
-        self.assertIsNone(_parse_token_header("Token"))
-        self.assertIsNone(_parse_token_header(""))
-        self.assertIsNone(_parse_token_header(None))
+        self.assertEqual(_parse_bearer_header("Bearer"), (None, None))
+        self.assertEqual(_parse_bearer_header(""), (None, None))
+        self.assertEqual(_parse_bearer_header(None), (None, None))
 
 
+@override_settings(MCP_RESOURCE_URL="https://example.test/mcp")
 class ResolveUserTests(TestCase):
     def setUp(self) -> None:
         self.user = User.objects.create_user(
-            username="abby", password="pw", role="child",
+            username="abby", password="pw", role="parent", is_staff=True,
         )
-        self.token = Token.objects.create(user=self.user)
+        self.access, header = make_oauth_token(self.user)
+        # Strip the "Bearer " prefix to get the raw token value.
+        self.token_value = header.removeprefix("Bearer ")
 
     def test_resolves_valid_token(self) -> None:
-        self.assertEqual(_resolve_user(self.token.key), self.user)
+        self.assertEqual(_resolve_user(self.token_value), self.user)
 
     def test_returns_none_for_unknown_token(self) -> None:
         self.assertIsNone(_resolve_user("not-a-real-token"))
@@ -43,7 +62,22 @@ class ResolveUserTests(TestCase):
     def test_rejects_inactive_user(self) -> None:
         self.user.is_active = False
         self.user.save()
-        self.assertIsNone(_resolve_user(self.token.key))
+        self.assertIsNone(_resolve_user(self.token_value))
+
+    def test_rejects_expired_token(self) -> None:
+        self.access.expires = timezone.now() - timedelta(seconds=60)
+        self.access.save(update_fields=["expires"])
+        self.assertIsNone(_resolve_user(self.token_value))
+
+    def test_rejects_wrong_resource_claim(self) -> None:
+        from apps.mcp_server.models import MCPTokenResource
+        MCPTokenResource.objects.update_or_create(
+            access_token=self.access,
+            defaults={"resource": "https://attacker.example/mcp"},
+        )
+        # Drop the cached reverse-1-1 so the next lookup re-reads.
+        self.access.refresh_from_db()
+        self.assertIsNone(_resolve_user(self.token_value))
 
 
 class ContextTests(TestCase):

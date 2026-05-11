@@ -309,6 +309,14 @@ export const reactivateParent = (id) => api.post(`/parents/${id}/reactivate/`);
 export const adminPing = () => api.get('/admin/families/');
 export const adminCreateFamily = (data) => api.post('/admin/families/', data);
 
+// Admin → OAuth Clients (staff-parent-only)
+export const listOAuthApplications = () => api.get('/admin/oauth/applications/');
+export const revokeOAuthApplication = (clientId) =>
+  api.delete(`/admin/oauth/applications/${clientId}/tokens/`);
+export const listOAuthTokens = () => api.get('/admin/oauth/tokens/');
+export const revokeOAuthToken = (tokenId) =>
+  api.delete(`/admin/oauth/tokens/${tokenId}/`);
+
 // Chores
 export const getChores = () => api.get('/chores/');
 export const getChore = (id) => api.get(`/chores/${id}/`);

@@ -17,11 +17,11 @@ from __future__ import annotations
 import asyncio
 
 from django.test import TransactionTestCase, override_settings
-from rest_framework.authtoken.models import Token
 from starlette.testclient import TestClient
 
 from apps.mcp_server.server import build_mounted_mcp_app, mcp
 from apps.accounts.models import User
+from config.tests.factories import make_oauth_token
 
 
 def _reset_mcp_session_manager() -> None:
@@ -262,9 +262,9 @@ class ConfigAsgiDispatchTests(TransactionTestCase):
     MCP_ALLOWED_ORIGINS=_TEST_ALLOWED_ORIGINS,
 )
 class MountedMcpAuthenticatedHandshakeTests(TransactionTestCase):
-    """With a valid DRF token, an authenticated MCP initialize must not 500
-    — i.e. the mounted variant's lifespan successfully starts the FastMCP
-    session manager's task group.
+    """With a valid OAuth Bearer token, an authenticated MCP initialize must
+    not 500 — i.e. the mounted variant's lifespan successfully starts the
+    FastMCP session manager's task group.
     """
 
     def setUp(self) -> None:
@@ -272,7 +272,7 @@ class MountedMcpAuthenticatedHandshakeTests(TransactionTestCase):
         self.user = User.objects.create_user(
             username="mounted-mcp-client", password="pw", role="parent",
         )
-        self.token = Token.objects.create(user=self.user)
+        _, self.auth_header = make_oauth_token(self.user, resource="")
 
     def test_authenticated_initialize_does_not_500(self) -> None:
         app = build_mounted_mcp_app()
@@ -290,7 +290,7 @@ class MountedMcpAuthenticatedHandshakeTests(TransactionTestCase):
                     },
                 },
                 headers={
-                    "Authorization": f"Token {self.token.key}",
+                    "Authorization": self.auth_header,
                     "Accept": "application/json, text/event-stream",
                     "Content-Type": "application/json",
                 },

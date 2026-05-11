@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "django_celery_beat",
+    "oauth2_provider",
     # Local apps — accounts first (owns AUTH_USER_MODEL)
     "apps.accounts",
     "apps.families",
@@ -92,6 +93,23 @@ MCP_SERVER_NAME = "abby"
 MCP_PUBLIC_BASE_URL = os.environ.get("MCP_PUBLIC_BASE_URL", "")
 # Allow --as-user pinning only outside production.
 MCP_DEV_ALLOW_USER_PIN = DEBUG
+
+# --- OAuth 2.1 (MCP-spec auth for /mcp/*) ---------------------------------
+# Public-facing site URL — drives the issuer + endpoint URLs in the
+# RFC 9728 / RFC 8414 discovery JSON. In dev defaults to the runserver URL;
+# in production MUST be set to the public origin (e.g. https://igapp.bos.lol).
+SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000").rstrip("/")
+
+# RFC 8707 Resource Indicator. Tokens issued via the auth-code flow are
+# bound to this resource; the MCP auth middleware refuses tokens whose
+# ``resource`` claim doesn't match. Defaults to ``{SITE_URL}/mcp``.
+MCP_RESOURCE_URL = os.environ.get("MCP_RESOURCE_URL", f"{SITE_URL}/mcp")
+
+# Login redirect for OAuth consent flow — the AbbyAuthorizationView uses
+# Django session auth for the consent screen, so unauthenticated users get
+# bounced to ``/oauth/login/`` (a tiny username/password view that loops
+# back to /oauth/authorize/ on success).
+LOGIN_URL = "/oauth/login/"
 
 # DNS rebinding protection for the MCP Streamable HTTP transport.
 #
@@ -249,7 +267,9 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        # Project-level templates dir is searched BEFORE app-shipped templates,
+        # so files under templates/oauth2_provider/ override DOT defaults.
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -425,7 +445,46 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "signup": "5/hour",
         "login": "10/min",
+        # Dynamic Client Registration (RFC 7591) — public, no auth required,
+        # so a bare per-IP cap is the guardrail against drive-by spam.
+        "oauth_register": "10/hour",
     },
+}
+
+# Swappable model defaults (DOT expects these to be set at the Django
+# settings level so foreign keys to its tables resolve at migration time).
+# We don't swap any of them — the defaults are what we want — but Django's
+# autodetector raises AttributeError if they're absent before app.ready().
+OAUTH2_PROVIDER_APPLICATION_MODEL = "oauth2_provider.Application"
+OAUTH2_PROVIDER_ACCESS_TOKEN_MODEL = "oauth2_provider.AccessToken"
+OAUTH2_PROVIDER_ID_TOKEN_MODEL = "oauth2_provider.IDToken"
+OAUTH2_PROVIDER_GRANT_MODEL = "oauth2_provider.Grant"
+OAUTH2_PROVIDER_REFRESH_TOKEN_MODEL = "oauth2_provider.RefreshToken"
+
+# django-oauth-toolkit (DOT) — MCP-spec OAuth 2.1 provider.
+#
+# Public-clients-only + PKCE-required is enforced by ``AbbyOAuth2Validator``
+# on top of these settings (DOT itself accepts secret-bearing clients when
+# PKCE_REQUIRED is True, so the validator override is what actually blocks
+# the confidential-client paths).
+#
+# RFC 8707 ``resource`` parameter binding lives on the validator's
+# ``save_authorization_code`` / ``save_bearer_token`` hooks.
+OAUTH2_PROVIDER = {
+    "OAUTH2_VALIDATOR_CLASS": "config.oauth_validator.AbbyOAuth2Validator",
+    "PKCE_REQUIRED": True,
+    "ACCESS_TOKEN_EXPIRE_SECONDS": 3600,                  # 1 hour
+    "REFRESH_TOKEN_EXPIRE_SECONDS": 60 * 60 * 24 * 30,    # 30 days
+    "ROTATE_REFRESH_TOKEN": True,
+    "SCOPES": {
+        "mcp": "Access the Abby MCP server on your behalf",
+    },
+    "DEFAULT_SCOPES": ["mcp"],
+    "REQUEST_APPROVAL_PROMPT": "auto",   # skip consent screen on re-auth
+    "ALLOWED_REDIRECT_URI_SCHEMES": ["https", "http"],  # http for localhost only
+    "OIDC_ENABLED": False,
+    # Allow the wildcard ``*`` access scope claim from RFC 9728 metadata to
+    # round-trip; we only define ``mcp`` for now but DOT requires the dict.
 }
 
 # Parent self-signup creates a new Family + founding parent. Set to "false"

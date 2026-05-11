@@ -11,6 +11,8 @@ import {
   getParents, createParent, updateParent, deleteParent, resetParentPassword,
   deactivateParent, reactivateParent,
   adminPing, adminCreateFamily,
+  listOAuthApplications, revokeOAuthApplication,
+  listOAuthTokens, revokeOAuthToken,
   getTemplates, updateTemplate, deleteTemplate, createProjectFromTemplate,
   getCategories, getGoogleAuthUrl, unlinkGoogleAccount,
   devToolsPing,
@@ -1062,7 +1064,146 @@ function AdminSection() {
           }}
         />
       </ParchmentCard>
+      <OAuthClientsCard />
     </div>
+  );
+}
+
+function OAuthClientsCard() {
+  const [apps, setApps] = useState([]);
+  const [tokens, setTokens] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [confirm, setConfirm] = useState(null);
+
+  const refresh = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [appsRes, tokensRes] = await Promise.all([
+        listOAuthApplications(),
+        listOAuthTokens(),
+      ]);
+      setApps(appsRes.applications || []);
+      setTokens(tokensRes.tokens || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { refresh(); }, []);
+
+  const handleRevokeApp = async (clientId) => {
+    try {
+      await revokeOAuthApplication(clientId);
+      await refresh();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  const handleRevokeToken = async (tokenId) => {
+    try {
+      await revokeOAuthToken(tokenId);
+      await refresh();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <ParchmentCard>
+      <div className="font-display font-semibold text-ink-primary mb-1">
+        OAuth clients
+      </div>
+      <p className="text-sm text-ink-whisper mb-3">
+        Apps connected to the Abby MCP server via OAuth 2.1. Revoke an app
+        to invalidate every token it has issued; revoke a single token to
+        disconnect just that session. Connect a new client by pointing it
+        at <code>{window.location.origin}/.well-known/oauth-protected-resource</code>.
+      </p>
+      <ErrorAlert message={error} />
+      {loading ? (
+        <Loader />
+      ) : (
+        <div className="space-y-4">
+          <div>
+            <div className="font-display text-sm text-ink-primary mb-1">
+              Registered applications ({apps.length})
+            </div>
+            {apps.length === 0 ? (
+              <EmptyState message="No OAuth clients have registered yet." />
+            ) : (
+              <ul className="space-y-2">
+                {apps.map((app) => (
+                  <li key={app.client_id} className="flex items-center justify-between p-2 rounded border border-ink-page-shadow bg-ink-page">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-ink-primary truncate">{app.name}</div>
+                      <div className="text-tiny text-ink-whisper font-mono truncate">{app.client_id}</div>
+                    </div>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setConfirm({ kind: 'app', clientId: app.client_id, name: app.name })}
+                    >
+                      Revoke all tokens
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div>
+            <div className="font-display text-sm text-ink-primary mb-1">
+              Your active tokens ({tokens.length})
+            </div>
+            {tokens.length === 0 ? (
+              <EmptyState message="You don't have any active OAuth tokens." />
+            ) : (
+              <ul className="space-y-2">
+                {tokens.map((t) => (
+                  <li key={t.id} className="flex items-center justify-between p-2 rounded border border-ink-page-shadow bg-ink-page">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-ink-primary truncate">{t.application_name || '(unknown)'}</div>
+                      <div className="text-tiny text-ink-whisper">
+                        scope: <code>{t.scope || 'mcp'}</code>
+                        {t.expires_at && <> · expires {new Date(t.expires_at).toLocaleString()}</>}
+                      </div>
+                    </div>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setConfirm({ kind: 'token', tokenId: t.id, name: t.application_name || '(unknown)' })}
+                    >
+                      Revoke
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+      {confirm && (
+        <ConfirmDialog
+          title={confirm.kind === 'app' ? `Revoke all tokens for "${confirm.name}"?` : `Revoke this token?`}
+          message={
+            confirm.kind === 'app'
+              ? 'Every active session for this client will immediately stop working.'
+              : 'This will immediately disconnect the client using this token.'
+          }
+          confirmLabel="Revoke"
+          onConfirm={async () => {
+            const c = confirm;
+            setConfirm(null);
+            if (c.kind === 'app') await handleRevokeApp(c.clientId);
+            else if (c.kind === 'token') await handleRevokeToken(c.tokenId);
+          }}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
+    </ParchmentCard>
   );
 }
 

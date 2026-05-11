@@ -20,6 +20,7 @@ anthropic>=0.39,<1.0
 google-genai>=0.8,<2.0
 mcp>=1.2,<2.0
 uvicorn[standard]>=0.30,<1.0
+django-oauth-toolkit>=3.0,<4.0
 google-auth>=2.29,<3.0
 google-auth-oauthlib>=1.2,<2.0
 google-api-python-client>=2.125,<3.0

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in — Abby</title>
+<style>
+  :root { --ink:#2d1f15; --whisper:#8a7560; --page:#f3e7cd; --aged:#e9d9b6; --gilt:#b58b2b; --moss:#5b6a3e; --ember:#a23a1a; }
+  body { margin:0; font-family:Georgia, "Times New Roman", serif; background:var(--page); color:var(--ink); min-height:100vh; display:grid; place-items:center; padding:24px; }
+  .card { background:var(--aged); border:1px solid #c8a763; border-radius:6px; padding:32px; max-width:380px; width:100%; box-shadow:0 8px 24px rgba(45,31,21,.15); }
+  h1 { margin:0 0 8px; font-size:22px; }
+  p.kicker { margin:0 0 24px; color:var(--whisper); font-style:italic; font-size:14px; }
+  label { display:block; margin:12px 0 4px; font-size:13px; }
+  input[type=text], input[type=password] { width:100%; padding:8px 10px; border:1px solid #c8a763; border-radius:3px; background:#fff; font-family:inherit; font-size:15px; box-sizing:border-box; }
+  .errors { color:var(--ember); margin:12px 0; font-size:14px; }
+  button { font-family:inherit; font-size:14px; padding:10px 20px; border-radius:4px; border:1px solid var(--moss); background:var(--moss); color:#fff; cursor:pointer; font-weight:bold; margin-top:20px; width:100%; }
+  button:hover { filter:brightness(1.1); }
+  .meta { font-size:12px; color:var(--whisper); margin-top:16px; }
+</style>
+</head>
+<body>
+<form method="post" action="">
+  <div class="card">
+    {% csrf_token %}
+    <h1>Sign in to Abby</h1>
+    <p class="kicker">An MCP client is asking permission to act on your behalf. Sign in as a staff parent to continue.</p>
+
+    {% if error %}<div class="errors">{{ error }}</div>{% endif %}
+
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" required autofocus autocomplete="username">
+
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" required autocomplete="current-password">
+
+    <input type="hidden" name="next" value="{{ next }}">
+
+    <button type="submit">Sign in &amp; continue</button>
+    <p class="meta">After you authorize, you'll return to your MCP client. You can revoke access at any time from <code>/manage → Admin → OAuth Clients</code>.</p>
+  </div>
+</form>
+</body>
+</html>

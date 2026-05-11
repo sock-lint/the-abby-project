@@ -7,6 +7,18 @@ from django.http import HttpResponse
 from django.urls import include, path, re_path
 from django.views.static import serve as static_serve
 
+from config.oauth_views import (
+    AbbyAuthorizationView,
+    AdminApplicationListView,
+    AdminApplicationRevokeTokensView,
+    AdminTokenListView,
+    AdminTokenRevokeView,
+    DynamicClientRegistrationView,
+    OAuthLoginView,
+    WellKnownAuthorizationServerView,
+    WellKnownProtectedResourceView,
+)
+
 # Load the built SPA entry point once at import time. In production the
 # Docker build copies frontend/dist into BASE_DIR/frontend_dist. In local
 # dev (python manage.py runserver) the file won't exist — React is served
@@ -75,6 +87,42 @@ urlpatterns = [
     # per request and survives runtime ``DEV_TOOLS_ENABLED`` toggles.
     # See ``apps/dev_tools/gate.py`` + ``apps/dev_tools/permissions.py``.
     path("api/dev/", include("apps.dev_tools.urls")),
+    # OAuth 2.1 — admin REST surface for /manage → Admin → OAuth Clients.
+    # Staff-parent-gated. The frontend gates the Admin tab on the existing
+    # ``adminPing()`` → ``/admin/families/`` probe, so we don't need a
+    # second ping endpoint here.
+    path("api/admin/oauth/applications/", AdminApplicationListView.as_view()),
+    path(
+        "api/admin/oauth/applications/<str:client_id>/tokens/",
+        AdminApplicationRevokeTokensView.as_view(),
+    ),
+    path("api/admin/oauth/tokens/", AdminTokenListView.as_view()),
+    path("api/admin/oauth/tokens/<int:token_id>/", AdminTokenRevokeView.as_view()),
+
+    # ───────── OAuth 2.1 / MCP-spec discovery + endpoints ─────────
+    # RFC 9728 protected-resource metadata + RFC 8414 auth-server metadata.
+    # Mount paths sit OUTSIDE /api/ because the well-known prefix is reserved
+    # at the origin root by IETF convention. Cacheable for an hour.
+    path(
+        ".well-known/oauth-protected-resource",
+        WellKnownProtectedResourceView.as_view(),
+        name="oauth-protected-resource",
+    ),
+    path(
+        ".well-known/oauth-authorization-server",
+        WellKnownAuthorizationServerView.as_view(),
+        name="oauth-authorization-server",
+    ),
+    # Authorize view — DOT's, with a staff-parent gate. MUST come before the
+    # ``oauth2_provider`` include so this URL wins resolution.
+    path("oauth/authorize/", AbbyAuthorizationView.as_view(), name="oauth-authorize"),
+    # Tiny login-during-consent view (LOGIN_URL points here). Authenticates
+    # session-style + redirects back to /oauth/authorize/ via ?next=.
+    path("oauth/login/", OAuthLoginView.as_view(), name="oauth-login"),
+    # RFC 7591 dynamic client registration. Public, throttled.
+    path("oauth/register/", DynamicClientRegistrationView.as_view(), name="oauth-register"),
+    # Token endpoint, revocation, introspection — DOT defaults.
+    path("oauth/", include("oauth2_provider.urls", namespace="oauth2_provider")),
 ]
 
 # Serve /media/ through Django when uploads live on local disk. With
@@ -134,12 +182,11 @@ urlpatterns += [
 #   - static/ so missing assets get a proper 404 instead of index.html
 #     served as text/html (WhiteNoise handles real static files at the
 #     middleware layer before the URL resolver runs).
-#   - .well-known/ so OAuth / MCP discovery probes (e.g. mcp-remote hitting
-#     /.well-known/oauth-protected-resource on connect) get a proper 404
-#     rather than index.html. HTML-when-JSON-expected crashes those clients
-#     before they ever send the Authorization header. We don't implement
-#     OAuth 2.1 PRD — a clean 404 is the right "not an OAuth server, use
-#     your configured bearer token" signal.
+#   - .well-known/ + oauth/ so MCP-spec OAuth 2.1 discovery + endpoint
+#     probes (mcp-remote, Cowork, Claude Desktop) reach the real OAuth
+#     views above. The .well-known prefix is reserved by IETF convention
+#     and the SPA must never claim either prefix — otherwise HTML-when-
+#     JSON-expected crashes the client before it sends the auth header.
 urlpatterns += [
-    re_path(r"^(?!static/|\.well-known/).*$", spa_view, name="spa"),
+    re_path(r"^(?!static/|\.well-known/|oauth/).*$", spa_view, name="spa"),
 ]
