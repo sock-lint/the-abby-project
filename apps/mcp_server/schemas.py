@@ -1391,6 +1391,18 @@ class GetSpriteIn(_Base):
     """
 
     slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
+    include_image: bool = Field(
+        default=False,
+        description=(
+            "Also return the rendered sprite as an inline MCP ``ImageContent`` "
+            "block (base64 PNG) so it lands in the chat agent's context "
+            "window directly — no separate HTTP fetch against the public "
+            "Ceph URL required. Capped at ~200 KB raw "
+            "(frame_count × frame_width_px × frame_height_px × 4); sprites "
+            "above the cap raise ``MCPValidationError`` and the caller falls "
+            "back to ``url`` for an HTTP fetch."
+        ),
+    )
 
 
 class DeleteSpriteIn(_Base):

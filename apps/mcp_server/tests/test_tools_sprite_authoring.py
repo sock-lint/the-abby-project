@@ -238,6 +238,61 @@ class GetSpriteToolTests(TestCase):
         finally:
             reset_current_user(tok)
 
+    def test_include_image_default_false_returns_dict(self):
+        """Lean default: no image bytes, just the authoring dict. Existing
+        callers (catalog dumps, prompt-rewriting loops) pay nothing for
+        the new behavior."""
+        tok = self._as(self.parent)
+        try:
+            tool_register_sprite(RegisterSpriteIn(slug="lean", image_b64=_png_b64()))
+            result = tool_get_sprite(GetSpriteIn(slug="lean"))
+            self.assertIsInstance(result, dict)
+            self.assertEqual(result["slug"], "lean")
+        finally:
+            reset_current_user(tok)
+
+    def test_include_image_true_returns_dict_plus_imagecontent(self):
+        """include_image=True returns ``[dict, ImageContent]``. FastMCP
+        serializes the dict as a text JSON content block and passes the
+        ImageContent through, so the chat agent sees both metadata and
+        rendered pixels without going through the public Ceph URL.
+        """
+        from mcp.types import ImageContent
+        tok = self._as(self.parent)
+        try:
+            tool_register_sprite(RegisterSpriteIn(slug="inline", image_b64=_png_b64()))
+            result = tool_get_sprite(GetSpriteIn(slug="inline", include_image=True))
+        finally:
+            reset_current_user(tok)
+
+        self.assertIsInstance(result, list)
+        self.assertEqual(len(result), 2)
+        payload, image_block = result
+        self.assertIsInstance(payload, dict)
+        self.assertEqual(payload["slug"], "inline")
+        self.assertIsInstance(image_block, ImageContent)
+        self.assertEqual(image_block.type, "image")
+        self.assertEqual(image_block.mimeType, "image/png")
+        # data is base64-encoded PNG bytes — decode and verify the magic.
+        decoded = base64.b64decode(image_block.data)
+        self.assertEqual(decoded[:8], b"\x89PNG\r\n\x1a\n")
+
+    def test_include_image_oversize_raises_validation_error(self):
+        """The raw-decoded-size cap refuses sprites whose pixel budget
+        would dominate the LLM context window. A 400×400 single frame
+        (640 KB raw) is well over the 200 KB cap."""
+        tok = self._as(self.parent)
+        try:
+            tool_register_sprite(RegisterSpriteIn(slug="too-big", image_b64=_png_b64((400, 400))))
+            with self.assertRaises(MCPValidationError):
+                tool_get_sprite(GetSpriteIn(slug="too-big", include_image=True))
+            # Without the flag the dict path still works — only the inline
+            # path is gated, callers can still read metadata + url.
+            result = tool_get_sprite(GetSpriteIn(slug="too-big"))
+            self.assertEqual(result["slug"], "too-big")
+        finally:
+            reset_current_user(tok)
+
 
 class UpdateSpriteMetadataToolTests(TestCase):
     """v1.2.8: metadata-only edits on an existing sprite without

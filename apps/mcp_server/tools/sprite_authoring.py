@@ -11,6 +11,8 @@ PR removes it.
 """
 from __future__ import annotations
 
+import base64
+import mimetypes
 from typing import Any
 
 from apps.rpg import sprite_authoring as svc
@@ -18,6 +20,15 @@ from apps.rpg import sprite_generation as gen_svc
 from apps.rpg.models import SpriteAsset
 from apps.rpg.sprite_authoring import SpriteAuthoringError
 from apps.rpg.sprite_generation import SpriteGenerationError
+
+# Cap on the inline-image payload returned by ``get_sprite(include_image=True)``.
+# Measured against the worst-case raw decoded size
+# (frame_count × width × height × 4 RGBA bytes), not the PNG file size on disk
+# — that way the LLM context-window estimate is an upper bound rather than a
+# guess. Pixel-art sprites in this codebase top out around 24KB raw for a
+# 4-frame 64×64 strip, so the cap leaves plenty of room while refusing to
+# return e.g. a 1024×1024 16-frame sheet (~64 MB raw) inline.
+_SPRITE_INLINE_MAX_BYTES = 200_000
 
 from ..context import require_parent, require_staff_parent, get_current_user
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
@@ -121,7 +132,7 @@ def list_sprites(params: ListSpritesIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
-def get_sprite(params: GetSpriteIn) -> dict[str, Any]:
+def get_sprite(params: GetSpriteIn) -> Any:
     """Fetch the full authoring shape for one sprite.
 
     Parent-only, read-only. Returns everything ``list_sprites`` returns
@@ -130,13 +141,23 @@ def get_sprite(params: GetSpriteIn) -> dict[str, Any]:
     ``reference_image_url``. Pair with ``get_sprite_prompting_playbook``
     when critiquing or rerolling — the playbook gives the prompt-
     engineering rules; this tool gives the row's actual inputs.
+
+    With ``include_image=True`` the response is a 2-element list:
+    ``[<authoring shape>, <ImageContent block>]``. FastMCP serializes
+    the dict as a text JSON content block and passes the
+    ``ImageContent`` through as-is, so the chat agent sees both the
+    metadata and the rendered sprite in its context window without
+    fetching the public Ceph URL. Refuses sprites whose raw decoded
+    size (``frame_count × frame_width_px × frame_height_px × 4``)
+    exceeds ``_SPRITE_INLINE_MAX_BYTES`` — caller should fall back
+    to ``url`` for an out-of-band HTTP fetch on those.
     """
     require_parent()
     try:
         a = SpriteAsset.objects.get(slug=params.slug)
     except SpriteAsset.DoesNotExist:
         raise MCPNotFoundError(f"Sprite {params.slug!r} not found.")
-    return {
+    payload: dict[str, Any] = {
         "slug": a.slug,
         "url": a.image.url if a.image else "",
         "pack": a.pack,
@@ -152,6 +173,31 @@ def get_sprite(params: GetSpriteIn) -> dict[str, Any]:
         "tile_size": a.tile_size,
         "reference_image_url": a.reference_image_url,
     }
+    if not params.include_image:
+        return payload
+
+    if not a.image:
+        raise MCPValidationError(
+            f"sprite {a.slug!r} has no image bytes to return.",
+        )
+    raw_estimate = (a.frame_count or 1) * (a.frame_width_px or 0) * (a.frame_height_px or 0) * 4
+    if raw_estimate > _SPRITE_INLINE_MAX_BYTES:
+        raise MCPValidationError(
+            f"sprite {a.slug!r} too large to inline "
+            f"({raw_estimate} bytes raw > {_SPRITE_INLINE_MAX_BYTES} cap) — "
+            f"fetch via the ``url`` field instead.",
+        )
+    # Import lazily so the module stays importable without the MCP SDK.
+    from mcp.types import ImageContent
+    with a.image.open("rb") as fh:
+        data = fh.read()
+    mime, _ = mimetypes.guess_type(a.image.name or "sprite.png")
+    image_block = ImageContent(
+        type="image",
+        data=base64.b64encode(data).decode("ascii"),
+        mimeType=mime or "image/png",
+    )
+    return [payload, image_block]
 
 
 @tool()
