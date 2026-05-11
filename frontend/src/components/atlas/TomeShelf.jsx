@@ -39,18 +39,28 @@ export default function TomeShelf({ items, activeId, onSelect, ariaLabel }) {
   if (!items.length) return null;
 
   return (
-    <div className="relative">
-      {/* Shelf ledge — a thin sepia gradient under the tomes reads as a
-          wooden shelf lip without needing a raster asset. */}
+    <div className="relative pt-3 pb-2">
+      {/* Wooden shelf board — a sepia plank under the tomes with a
+          repeating-linear-gradient grain pattern. The plank takes ~14 px
+          of the bottom edge and the spines sit on top of it (z-0 board,
+          spines render above via stacking). A soft outer shadow lets the
+          plank cast under the row. */}
       <div
         aria-hidden="true"
-        className="absolute inset-x-0 bottom-0 h-2 bg-gradient-to-b from-ember-deep/10 via-ink-page-shadow/40 to-ink-page-shadow/70 rounded"
+        data-shelf-board="true"
+        className="shelf-board absolute inset-x-0 bottom-0 h-3 rounded-sm"
+      />
+      {/* Plank front-lip shadow — a slightly darker sliver right under the
+          board, gives the shelf its sense of "in front of the wall." */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 -bottom-1 h-1 bg-gradient-to-b from-[rgba(45,31,21,0.30)] to-transparent rounded-b-sm pointer-events-none"
       />
       <div
         role="tablist"
         aria-orientation="horizontal"
         aria-label={ariaLabel}
-        className="relative flex gap-2 md:gap-3 overflow-x-auto pt-2 pb-3 px-1 snap-x snap-mandatory"
+        className="relative flex gap-2 md:gap-3 overflow-x-auto pt-4 pb-4 px-1 snap-x snap-mandatory"
         style={{ scrollbarWidth: 'thin' }}
       >
         {items.map((item) => (

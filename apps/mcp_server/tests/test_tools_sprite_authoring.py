@@ -542,7 +542,9 @@ class GenerateSpriteSheetSchemaTests(TestCase):
         m = GenerateSpriteSheetIn(slug="ok", prompt="pixel-art fox")
         self.assertEqual(m.frame_count, 1)
         self.assertEqual(m.fps, 0)
-        self.assertEqual(m.tile_size, 64)
+        # Default tile_size bumped 64 → 128 in the "subjects too small"
+        # review — gives Gemini 4× more pixels to work with for detail.
+        self.assertEqual(m.tile_size, 128)
         self.assertEqual(m.pack, "ai-generated")
 
     def test_valid_animated_accepted(self):
@@ -595,3 +597,389 @@ class GenerateSpriteSheetSchemaTests(TestCase):
             slug="ok", prompt="pixel-art fox", return_debug_raw=True,
         )
         self.assertTrue(m.return_debug_raw)
+
+
+def _png_bytes_raw(size=(512, 512), color=(180, 50, 50, 255)):
+    img = Image.new("RGBA", size, color)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+@override_settings(GEMINI_API_KEY="test-key")
+class RerollSpriteToolTests(TestCase):
+    """The MCP reroll tool replays stored inputs by default, but optional
+    overrides layer on top so the chat-side critique loop can refine
+    the generation without first PATCH-ing the row.
+    """
+
+    def setUp(self):
+        self.parent = User.objects.create_user(
+            username="reroll", password="pw", role="parent", is_staff=True,
+        )
+
+    def _as_parent(self):
+        return set_current_user(self.parent)
+
+    def _seed_with_prompt(self, slug, **kwargs):
+        """Register a sprite, then directly set authoring fields on the
+        row (register_sprite doesn't accept them — the generation
+        service is normally the one that writes them at end of pipeline).
+        """
+        tok = self._as_parent()
+        try:
+            tool_register_sprite(RegisterSpriteIn(slug=slug, image_b64=_png_b64()))
+        finally:
+            reset_current_user(tok)
+        SpriteAsset.objects.filter(slug=slug).update(
+            prompt=kwargs.pop("prompt", "a noble fox"),
+            motion=kwargs.pop("motion", "idle"),
+            style_hint=kwargs.pop("style_hint", "moss palette"),
+            tile_size=kwargs.pop("tile_size", 64),
+            **kwargs,
+        )
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_reroll_replays_stored_inputs_without_overrides(self, mock_frame):
+        from apps.mcp_server.schemas import RerollSpriteIn
+        from apps.mcp_server.tools.sprite_authoring import reroll_sprite as tool_reroll
+
+        mock_frame.return_value = _png_bytes_raw()
+        self._seed_with_prompt("baseline", prompt="ancestral oak tree")
+
+        tok = self._as_parent()
+        try:
+            result = tool_reroll(RerollSpriteIn(slug="baseline"))
+        finally:
+            reset_current_user(tok)
+
+        self.assertEqual(result["slug"], "baseline")
+        prompt_arg = mock_frame.call_args.kwargs["prompt"]
+        self.assertIn("ancestral oak tree", prompt_arg)
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_reroll_prompt_override_replaces_stored_prompt(self, mock_frame):
+        from apps.mcp_server.schemas import RerollSpriteIn
+        from apps.mcp_server.tools.sprite_authoring import reroll_sprite as tool_reroll
+
+        mock_frame.return_value = _png_bytes_raw()
+        self._seed_with_prompt("override-prompt", prompt="boring stored prompt")
+
+        tok = self._as_parent()
+        try:
+            tool_reroll(RerollSpriteIn(
+                slug="override-prompt",
+                prompt="REFINED prompt with bigger subject occupancy",
+            ))
+        finally:
+            reset_current_user(tok)
+
+        prompt_arg = mock_frame.call_args.kwargs["prompt"]
+        self.assertIn("REFINED prompt", prompt_arg)
+        self.assertNotIn("boring stored prompt", prompt_arg)
+
+    @patch("apps.rpg.sprite_generation._generate_frame")
+    def test_reroll_override_persists_back_to_row(self, mock_frame):
+        """The end-of-pipeline ``update(...)`` writes whatever inputs the
+        generation service ran with — so overrides naturally persist for
+        the NEXT reroll without any explicit persist step in the tool."""
+        from apps.mcp_server.schemas import RerollSpriteIn
+        from apps.mcp_server.tools.sprite_authoring import reroll_sprite as tool_reroll
+
+        mock_frame.return_value = _png_bytes_raw()
+        self._seed_with_prompt("persisting", prompt="first prompt", motion="idle")
+
+        tok = self._as_parent()
+        try:
+            tool_reroll(RerollSpriteIn(
+                slug="persisting",
+                prompt="second prompt",
+                motion="bounce",
+                style_hint="iron palette",
+            ))
+        finally:
+            reset_current_user(tok)
+
+        asset = SpriteAsset.objects.get(slug="persisting")
+        self.assertEqual(asset.prompt, "second prompt")
+        self.assertEqual(asset.motion, "bounce")
+        self.assertEqual(asset.style_hint, "iron palette")
+
+    def test_reroll_passes_tighten_reference_true(self):
+        """Reroll path must hand ``tighten_reference=True`` to the service
+        so a self-anchored reroll doesn't compound the prior framing."""
+        from apps.mcp_server.schemas import RerollSpriteIn
+        from apps.mcp_server.tools.sprite_authoring import reroll_sprite as tool_reroll
+
+        self._seed_with_prompt("self-anchored")
+
+        # Stub the service entry point to record kwargs without doing any
+        # generation work. Patch the symbol on the module that the MCP
+        # tool imports (``gen_svc.generate_sprite_sheet``) — module-attr
+        # lookup happens at call time so this intercepts.
+        captured: dict = {}
+
+        def _fake(**kwargs):
+            captured.update(kwargs)
+            return {"slug": kwargs["slug"], "url": "fake"}
+
+        with patch(
+            "apps.rpg.sprite_generation.generate_sprite_sheet",
+            new=_fake,
+        ):
+            tok = self._as_parent()
+            try:
+                tool_reroll(RerollSpriteIn(slug="self-anchored"))
+            finally:
+                reset_current_user(tok)
+        self.assertTrue(captured.get("tighten_reference"))
+
+    def test_reroll_404_for_missing_slug(self):
+        from apps.mcp_server.schemas import RerollSpriteIn
+        from apps.mcp_server.tools.sprite_authoring import reroll_sprite as tool_reroll
+
+        tok = self._as_parent()
+        try:
+            with self.assertRaises(MCPNotFoundError):
+                tool_reroll(RerollSpriteIn(slug="never-existed"))
+        finally:
+            reset_current_user(tok)
+
+    def test_reroll_400_when_no_stored_prompt(self):
+        from apps.mcp_server.schemas import RerollSpriteIn
+        from apps.mcp_server.tools.sprite_authoring import reroll_sprite as tool_reroll
+
+        tok = self._as_parent()
+        try:
+            tool_register_sprite(RegisterSpriteIn(slug="legacy", image_b64=_png_b64()))
+        finally:
+            reset_current_user(tok)
+        # No prompt set on the row.
+
+        tok = self._as_parent()
+        try:
+            with self.assertRaises(MCPValidationError) as ctx:
+                tool_reroll(RerollSpriteIn(slug="legacy"))
+        finally:
+            reset_current_user(tok)
+        self.assertIn("no stored prompt", str(ctx.exception))
+
+    def test_reroll_tile_size_override_validated_by_schema(self):
+        from apps.mcp_server.schemas import RerollSpriteIn
+
+        # Valid override.
+        m = RerollSpriteIn(slug="s", tile_size=128)
+        self.assertEqual(m.tile_size, 128)
+
+        # None means "use stored value" — explicitly allowed.
+        m = RerollSpriteIn(slug="s")
+        self.assertIsNone(m.tile_size)
+
+        # Invalid → ValidationError.
+        with self.assertRaises(ValidationError):
+            RerollSpriteIn(slug="s", tile_size=200)
+
+
+class ProposeSpriteRerollToolTests(TestCase):
+    """The propose tool is pure prompt construction — never calls Gemini.
+
+    Maps free-form critique keywords to a deduped list of refinement
+    levers, returns the proposed inputs the chat agent should pass to
+    ``reroll_sprite``, plus per-lever rationale so the chat can show
+    its work to the user.
+    """
+
+    def setUp(self):
+        self.parent = User.objects.create_user(
+            username="propose", password="pw", role="parent",
+        )
+        self.staff_parent = User.objects.create_user(
+            username="propose-staff", password="pw", role="parent", is_staff=True,
+        )
+        self.child = User.objects.create_user(
+            username="propose-kid", password="pw", role="child",
+        )
+
+    def _as(self, user):
+        return set_current_user(user)
+
+    def _seed(self, slug, **kwargs):
+        tok = self._as(self.staff_parent)
+        try:
+            tool_register_sprite(RegisterSpriteIn(slug=slug, image_b64=_png_b64()))
+        finally:
+            reset_current_user(tok)
+        SpriteAsset.objects.filter(slug=slug).update(
+            prompt=kwargs.pop("prompt", "an apple"),
+            motion=kwargs.pop("motion", "idle"),
+            style_hint=kwargs.pop("style_hint", ""),
+            tile_size=kwargs.pop("tile_size", 64),
+            **kwargs,
+        )
+
+    def test_too_small_critique_adds_occupancy_clause_to_prompt(self):
+        from apps.mcp_server.schemas import ProposeSpriteRerollIn
+        from apps.mcp_server.tools.sprite_authoring import (
+            propose_sprite_reroll as tool_propose,
+        )
+
+        self._seed("undersized", prompt="a tiny apple")
+
+        tok = self._as(self.parent)
+        try:
+            result = tool_propose(ProposeSpriteRerollIn(
+                slug="undersized",
+                critique="the apple is way too small in the tile, lots of empty space",
+            ))
+        finally:
+            reset_current_user(tok)
+
+        self.assertIn("larger_subject", result["levers"])
+        self.assertIn("a tiny apple", result["proposed_prompt"])
+        # The size-boost clause is appended.
+        self.assertIn("90%", result["proposed_prompt"])
+        # Rationale enumerated.
+        levers_in_rationale = {r["lever"] for r in result["rationale"]}
+        self.assertIn("larger_subject", levers_in_rationale)
+
+    def test_no_keywords_means_no_levers(self):
+        from apps.mcp_server.schemas import ProposeSpriteRerollIn
+        from apps.mcp_server.tools.sprite_authoring import (
+            propose_sprite_reroll as tool_propose,
+        )
+
+        self._seed("fine", prompt="a healthy apple")
+
+        tok = self._as(self.parent)
+        try:
+            result = tool_propose(ProposeSpriteRerollIn(
+                slug="fine",
+                critique="looks great actually",
+            ))
+        finally:
+            reset_current_user(tok)
+
+        self.assertEqual(result["levers"], [])
+        # Proposed prompt is unchanged from current.
+        self.assertEqual(result["proposed_prompt"], result["current_prompt"])
+
+    def test_explicit_target_changes_override_keyword_detection(self):
+        from apps.mcp_server.schemas import ProposeSpriteRerollIn
+        from apps.mcp_server.tools.sprite_authoring import (
+            propose_sprite_reroll as tool_propose,
+        )
+
+        self._seed("explicit", prompt="a peach")
+
+        tok = self._as(self.parent)
+        try:
+            result = tool_propose(ProposeSpriteRerollIn(
+                slug="explicit",
+                critique="no specific complaint",
+                target_changes=["larger_subject", "bigger_tile"],
+            ))
+        finally:
+            reset_current_user(tok)
+
+        self.assertEqual(set(result["levers"]), {"larger_subject", "bigger_tile"})
+        # tile_size proposal bumped 64 → 128 by bigger_tile.
+        self.assertEqual(result["proposed_tile_size"], 128)
+        self.assertIn("90%", result["proposed_prompt"])
+
+    def test_unknown_target_change_raises_validation_error(self):
+        from apps.mcp_server.schemas import ProposeSpriteRerollIn
+        from apps.mcp_server.tools.sprite_authoring import (
+            propose_sprite_reroll as tool_propose,
+        )
+
+        self._seed("bad-lever", prompt="a pear")
+
+        tok = self._as(self.parent)
+        try:
+            with self.assertRaises(MCPValidationError) as ctx:
+                tool_propose(ProposeSpriteRerollIn(
+                    slug="bad-lever",
+                    critique="ignored",
+                    target_changes=["make_it_pretty"],
+                ))
+        finally:
+            reset_current_user(tok)
+        self.assertIn("make_it_pretty", str(ctx.exception))
+
+    def test_switch_motion_lever_proposes_idle(self):
+        from apps.mcp_server.schemas import ProposeSpriteRerollIn
+        from apps.mcp_server.tools.sprite_authoring import (
+            propose_sprite_reroll as tool_propose,
+        )
+
+        self._seed("switch", prompt="a coin", motion="bounce")
+
+        tok = self._as(self.parent)
+        try:
+            result = tool_propose(ProposeSpriteRerollIn(
+                slug="switch",
+                critique="the pose is wrong, it looks stiff",
+            ))
+        finally:
+            reset_current_user(tok)
+
+        self.assertIn("switch_motion", result["levers"])
+        self.assertEqual(result["proposed_motion"], "idle")
+
+    def test_requires_parent(self):
+        from apps.mcp_server.schemas import ProposeSpriteRerollIn
+        from apps.mcp_server.tools.sprite_authoring import (
+            propose_sprite_reroll as tool_propose,
+        )
+
+        self._seed("childcheck", prompt="a token")
+
+        tok = self._as(self.child)
+        try:
+            with self.assertRaises(MCPPermissionDenied):
+                tool_propose(ProposeSpriteRerollIn(
+                    slug="childcheck",
+                    critique="ignored",
+                ))
+        finally:
+            reset_current_user(tok)
+
+    def test_404_for_unknown_slug(self):
+        from apps.mcp_server.schemas import ProposeSpriteRerollIn
+        from apps.mcp_server.tools.sprite_authoring import (
+            propose_sprite_reroll as tool_propose,
+        )
+
+        tok = self._as(self.parent)
+        try:
+            with self.assertRaises(MCPNotFoundError):
+                tool_propose(ProposeSpriteRerollIn(
+                    slug="ghost",
+                    critique="too small",
+                ))
+        finally:
+            reset_current_user(tok)
+
+    def test_400_when_no_stored_prompt(self):
+        from apps.mcp_server.schemas import ProposeSpriteRerollIn
+        from apps.mcp_server.tools.sprite_authoring import (
+            propose_sprite_reroll as tool_propose,
+        )
+
+        tok = self._as(self.staff_parent)
+        try:
+            tool_register_sprite(RegisterSpriteIn(slug="legacy-prop", image_b64=_png_b64()))
+        finally:
+            reset_current_user(tok)
+        # No prompt set on the row — legacy upload.
+
+        tok = self._as(self.parent)
+        try:
+            with self.assertRaises(MCPValidationError) as ctx:
+                tool_propose(ProposeSpriteRerollIn(
+                    slug="legacy-prop",
+                    critique="too small",
+                ))
+        finally:
+            reset_current_user(tok)
+        self.assertIn("no stored prompt", str(ctx.exception))

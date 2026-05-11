@@ -146,6 +146,143 @@ describe('TomeSpine', () => {
     expect(container.querySelector('[data-vessel-pull="true"]')).not.toBeNull();
   });
 
+  it('declares itself a leather-bound tome with a tier data-attribute on codex variants', () => {
+    // Library of Mastery — pattern-matchable selectors so any future
+    // restyling without these decorations fails loud.
+    const { container } = renderWithProviders(
+      <TomeSpine
+        id="electronics"
+        name="Electronics"
+        icon="⚡"
+        active={false}
+        progressPct={42}
+        tier={PROGRESS_TIER.rising}
+        onClick={() => {}}
+      />,
+    );
+    const root = container.querySelector('[data-spine-id="electronics"]');
+    expect(root).not.toBeNull();
+    expect(root.getAttribute('data-binding')).toBe('leather');
+    expect(root.getAttribute('data-tier')).toBe('rising');
+    expect(root.className).toMatch(/spine-leather/);
+  });
+
+  it('renders the full codex dressing (headband, three binding bands, gilt edge, brass medallion, foil title)', () => {
+    const { container } = renderWithProviders(
+      <TomeSpine
+        id="electronics"
+        name="Electronics"
+        icon="⚡"
+        active={false}
+        tier={PROGRESS_TIER.rising}
+        onClick={() => {}}
+      />,
+    );
+    expect(container.querySelector('[data-spine-headband="true"]')).not.toBeNull();
+    expect(container.querySelector('[data-spine-band="head"]')).not.toBeNull();
+    expect(container.querySelector('[data-spine-band="middle"]')).not.toBeNull();
+    expect(container.querySelector('[data-spine-band="foot"]')).not.toBeNull();
+    expect(container.querySelector('[data-spine-edge="true"]')).not.toBeNull();
+    expect(container.querySelector('[data-spine-medallion="true"]')).not.toBeNull();
+    const title = container.querySelector('[data-spine-title="true"]');
+    expect(title).not.toBeNull();
+    expect(title.className).toMatch(/spine-foil/);
+    expect(title.className).toMatch(/spine-foil-glint/);
+  });
+
+  it('reveals the page-block sliver only when active (the rotateY tilt would expose nothing otherwise)', () => {
+    const { container, rerender } = renderWithProviders(
+      <TomeSpine
+        id="electronics"
+        name="Electronics"
+        icon="⚡"
+        active={false}
+        tier={PROGRESS_TIER.rising}
+        onClick={() => {}}
+      />,
+    );
+    expect(container.querySelector('[data-spine-pageblock="true"]')).toBeNull();
+    rerender(
+      <TomeSpine
+        id="electronics"
+        name="Electronics"
+        icon="⚡"
+        active
+        tier={PROGRESS_TIER.rising}
+        onClick={() => {}}
+      />,
+    );
+    expect(container.querySelector('[data-spine-pageblock="true"]')).not.toBeNull();
+  });
+
+  it('codex headband tier-colors map to the PROGRESS_TIER vocabulary', () => {
+    // Five tiers, five headband tints — pinned via data-tier on the band so
+    // a future palette swap stays loud if it forgets one tier.
+    const tiers = [
+      ['locked', PROGRESS_TIER.locked],
+      ['nascent', PROGRESS_TIER.nascent],
+      ['rising', PROGRESS_TIER.rising],
+      ['cresting', PROGRESS_TIER.cresting],
+      ['gilded', PROGRESS_TIER.gilded],
+    ];
+    for (const [key, tier] of tiers) {
+      const { container, unmount } = renderWithProviders(
+        <TomeSpine
+          id={`x-${key}`}
+          name="Whatever"
+          icon="✦"
+          active={false}
+          tier={tier}
+          onClick={() => {}}
+        />,
+      );
+      const band = container.querySelector('[data-spine-headband="true"]');
+      expect(band, `tier ${key} should render a headband`).not.toBeNull();
+      expect(band.getAttribute('data-tier')).toBe(key);
+      unmount();
+    }
+  });
+
+  it('vessel variants stay drawer-shaped and skip every codex dressing', () => {
+    const { container } = renderWithProviders(
+      <TomeSpine
+        id="potions"
+        name="Potions"
+        icon="🧪"
+        variant="vessel"
+        active
+        onClick={() => {}}
+      />,
+    );
+    const root = container.querySelector('[data-spine-id="potions"]');
+    expect(root.getAttribute('data-binding')).toBe('drawer');
+    expect(root.className).not.toMatch(/spine-leather/);
+    expect(container.querySelector('[data-spine-headband="true"]')).toBeNull();
+    expect(container.querySelector('[data-spine-band="middle"]')).toBeNull();
+    expect(container.querySelector('[data-spine-edge="true"]')).toBeNull();
+    expect(container.querySelector('[data-spine-medallion="true"]')).toBeNull();
+    expect(container.querySelector('[data-spine-title="true"]')).toBeNull();
+    // Vessel ribbon does NOT carry the cloth-curl settle animation — that
+    // beat belongs to the bound codex, not the drawer pull.
+    const ribbon = container.querySelector('[data-tome-ribbon="true"]');
+    expect(ribbon.className).not.toMatch(/animate-ribbon-settle/);
+  });
+
+  it('active codex ribbon gets the cloth-settle keyframe so it reads as fabric falling into place', () => {
+    const { container } = renderWithProviders(
+      <TomeSpine
+        id="electronics"
+        name="Electronics"
+        icon="⚡"
+        active
+        tier={PROGRESS_TIER.rising}
+        onClick={() => {}}
+      />,
+    );
+    const ribbon = container.querySelector('[data-tome-ribbon="true"]');
+    expect(ribbon.className).toMatch(/animate-ribbon-settle/);
+  });
+
   it('keeps the chip grouped with the foot band inside the flex tree so a long title can never overlap it', () => {
     // Collision-proof layout pin: the chip + band share a parent `<span>`
     // that sits AFTER the vertical title in DOM order. If a future refactor

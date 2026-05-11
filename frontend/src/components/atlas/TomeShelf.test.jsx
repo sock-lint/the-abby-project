@@ -78,6 +78,16 @@ describe('TomeShelf', () => {
     expect(spy).toHaveBeenCalledWith(3);
   });
 
+  it('renders a wooden shelf board under the row of tomes', () => {
+    // Library of Mastery — the spines need somewhere to sit. Queryable
+    // via data-shelf-board so any future shelf-redesign that drops the
+    // plank fails loud rather than silently flattening the metaphor.
+    const { container } = renderWithProviders(
+      <TomeShelf items={items} activeId={1} onSelect={() => {}} ariaLabel="Shelves" />,
+    );
+    expect(container.querySelector('[data-shelf-board="true"]')).not.toBeNull();
+  });
+
   it('renders nothing when there are no items', () => {
     const { container } = renderWithProviders(
       <TomeShelf items={[]} activeId={null} onSelect={() => {}} ariaLabel="Shelves" />,

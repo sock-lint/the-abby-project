@@ -857,15 +857,22 @@ class TightenReferenceTests(TestCase):
         out = Image.open(io.BytesIO(tightened_bytes))
         self.assertLess(out.width, 24, f"tightened canvas {out.size} too wide")
         self.assertLess(out.height, 24, f"tightened canvas {out.size} too tall")
-        # And the subject still occupies ~90%+ of the tightened canvas.
-        bbox = out.getbbox()
-        self.assertIsNotNone(bbox)
-        sw = bbox[2] - bbox[0]
-        sh = bbox[3] - bbox[1]
-        # The original 20×20 subject is preserved (no scaling here — we
-        # only repaste onto a tighter canvas).
-        self.assertEqual(sw, 20)
-        self.assertEqual(sh, 20)
+        # Subject occupies the lion's share of the tightened canvas —
+        # the 20×20 subject inside a ~21×21 magenta-filled canvas means
+        # the subject's red bbox dominates the frame. We can't use
+        # ``getbbox`` here because the magenta margin is opaque (we
+        # paint magenta intentionally so Gemini reads it as the
+        # background), so instead count subject-color pixels directly.
+        rgba = out.convert("RGBA").load()
+        red_pixels = sum(
+            1
+            for x in range(out.width)
+            for y in range(out.height)
+            if rgba[x, y][0] > 150 and rgba[x, y][1] < 100 and rgba[x, y][2] < 100
+        )
+        total = out.width * out.height
+        # 20×20 = 400 red pixels in a ~21×21 = 441 canvas → 90%+ red.
+        self.assertGreater(red_pixels / total, 0.85)
 
 
 @override_settings(GEMINI_API_KEY="test-key")
