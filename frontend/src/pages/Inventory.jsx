@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -12,28 +12,31 @@ import Button from '../components/Button';
 import Loader from '../components/Loader';
 import EmptyState from '../components/EmptyState';
 import ParchmentCard from '../components/journal/ParchmentCard';
-import DeckleDivider from '../components/journal/DeckleDivider';
 import RuneBadge from '../components/journal/RuneBadge';
 import { EggIcon } from '../components/icons/JournalIcons';
 import RpgSprite from '../components/rpg/RpgSprite';
 import BoostStrip from '../components/rpg/BoostStrip';
 import CatalogSearch from '../components/CatalogSearch';
+import TomeShelf from '../components/atlas/TomeShelf';
+import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
 import { normalizeList } from '../utils/api';
 import { RARITY_PILL_COLORS, RARITY_RING_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem } from '../motion/variants';
 
 const TYPE_COMPARTMENTS = [
-  { id: 'egg', label: 'Eggs', kicker: 'dormant companions', glyph: 'dragon-crest' },
-  { id: 'potion', label: 'Potions', kicker: 'elemental vials', glyph: 'rune-orb' },
-  { id: 'food', label: 'Provisions', kicker: 'pet food & snacks', glyph: 'flourish-corner' },
-  { id: 'cosmetic_frame', label: 'Avatar Frames', kicker: 'sigil borders', glyph: 'compass-rose' },
-  { id: 'cosmetic_title', label: 'Titles', kicker: 'hard-won honorifics', glyph: 'sheikah-eye' },
-  { id: 'cosmetic_theme', label: 'Journal Covers', kicker: 'aesthetic runes', glyph: 'flourish-corner' },
-  { id: 'cosmetic_pet_accessory', label: 'Pet Accessories', kicker: 'saddles & adornments', glyph: 'dragon-crest' },
-  { id: 'quest_scroll', label: 'Quest Scrolls', kicker: 'future adventures', glyph: 'sheikah-eye' },
-  { id: 'coin_pouch', label: 'Coin Pouches', kicker: 'fortune tucked away', glyph: 'wax-seal' },
-  { id: 'consumable', label: 'Consumables', kicker: 'one-use charms', glyph: 'wax-seal' },
+  { id: 'egg', label: 'Eggs', kicker: 'dormant companions', glyph: 'dragon-crest', icon: '🥚' },
+  { id: 'potion', label: 'Potions', kicker: 'elemental vials', glyph: 'rune-orb', icon: '🧪' },
+  { id: 'food', label: 'Provisions', kicker: 'pet food & snacks', glyph: 'flourish-corner', icon: '🍎' },
+  { id: 'cosmetic_frame', label: 'Avatar Frames', kicker: 'sigil borders', glyph: 'compass-rose', icon: '🖼' },
+  { id: 'cosmetic_title', label: 'Titles', kicker: 'hard-won honorifics', glyph: 'sheikah-eye', icon: '✒' },
+  { id: 'cosmetic_theme', label: 'Journal Covers', kicker: 'aesthetic runes', glyph: 'flourish-corner', icon: '📔' },
+  { id: 'cosmetic_pet_accessory', label: 'Pet Accessories', kicker: 'saddles & adornments', glyph: 'dragon-crest', icon: '🎀' },
+  { id: 'quest_scroll', label: 'Quest Scrolls', kicker: 'future adventures', glyph: 'sheikah-eye', icon: '📜' },
+  { id: 'coin_pouch', label: 'Coin Pouches', kicker: 'fortune tucked away', glyph: 'wax-seal', icon: '💰' },
+  { id: 'consumable', label: 'Consumables', kicker: 'one-use charms', glyph: 'wax-seal', icon: '✨' },
 ];
+
+const ACTIVE_COMPARTMENT_KEY = 'atlas:satchel:active-compartment';
 
 // Effects whose timer / single-target nature means using N at once is
 // useless — the backend rejects ``quantity > 1`` for these. Mirror the
@@ -111,17 +114,66 @@ export default function Inventory() {
     }
   };
 
+  const grouped = useMemo(() => {
+    const out = {};
+    for (const entry of filteredItems) {
+      const type = entry.item.item_type;
+      if (!out[type]) out[type] = [];
+      out[type].push(entry);
+    }
+    return out;
+  }, [filteredItems]);
+
+  const populatedCompartments = useMemo(
+    () => TYPE_COMPARTMENTS.filter((c) => grouped[c.id]?.length),
+    [grouped],
+  );
+
+  // Active spine — persisted across reloads, gracefully degrades when the
+  // remembered compartment becomes empty (e.g. the kid uses the last potion
+  // or narrows their search past it).
+  const [activeCompartmentId, setActiveCompartmentId] = useState(() => {
+    try {
+      return window.localStorage?.getItem(ACTIVE_COMPARTMENT_KEY) ?? null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (!populatedCompartments.length) return;
+    if (!populatedCompartments.some((c) => c.id === activeCompartmentId)) {
+      setActiveCompartmentId(populatedCompartments[0].id);
+    }
+  }, [populatedCompartments, activeCompartmentId]);
+
+  useEffect(() => {
+    if (!activeCompartmentId) return;
+    try {
+      window.localStorage?.setItem(ACTIVE_COMPARTMENT_KEY, activeCompartmentId);
+    } catch {
+      // ignore quota / disabled storage
+    }
+  }, [activeCompartmentId]);
+
   if (loading) return <Loader />;
 
-  const grouped = {};
-  for (const entry of filteredItems) {
-    const type = entry.item.item_type;
-    if (!grouped[type]) grouped[type] = [];
-    grouped[type].push(entry);
-  }
-
-  const populatedCompartments = TYPE_COMPARTMENTS.filter((c) => grouped[c.id]?.length);
   const filterActive = filter.trim().length > 0;
+  const activeCompartment =
+    populatedCompartments.find((c) => c.id === activeCompartmentId) || populatedCompartments[0];
+
+  const shelfItems = populatedCompartments.map((compartment) => ({
+    id: compartment.id,
+    name: compartment.label,
+    icon: compartment.icon,
+    chip: `×${grouped[compartment.id].length}`,
+    // Inventory is "how full is this drawer", not "how complete is the
+    // collection" — there's no upper bound per compartment, so we hand the
+    // spine a null progressPct. TomeSpine renders a thin hairline instead.
+    progressPct: null,
+    tier: PROGRESS_TIER.nascent,
+    ariaLabel: `${compartment.label}, ${grouped[compartment.id].length} item${grouped[compartment.id].length === 1 ? '' : 's'}`,
+  }));
 
   return (
     <div className="space-y-6">
@@ -180,29 +232,35 @@ export default function Inventory() {
           </EmptyState>
         )
       ) : (
-        populatedCompartments.map((compartment, idx) => (
-          <section key={compartment.id}>
-            {idx > 0 && <DeckleDivider glyph={compartment.glyph} />}
-            <div className="flex items-baseline gap-3 mb-3">
-              <div>
-                <div className="font-script text-sheikah-teal-deep text-sm">
-                  {compartment.kicker}
+        <>
+          <TomeShelf
+            items={shelfItems}
+            activeId={activeCompartment?.id}
+            onSelect={setActiveCompartmentId}
+            ariaLabel="Satchel compartments"
+          />
+          {activeCompartment && (
+            <section>
+              <div className="flex items-baseline gap-3 mb-3">
+                <div>
+                  <div className="font-script text-sheikah-teal-deep text-sm">
+                    {activeCompartment.kicker}
+                  </div>
+                  <h2 className="font-display text-xl md:text-2xl text-ink-primary leading-tight">
+                    {activeCompartment.label}
+                  </h2>
                 </div>
-                <h2 className="font-display text-xl md:text-2xl text-ink-primary leading-tight">
-                  {compartment.label}
-                </h2>
+                <RuneBadge tone="ink" size="sm">
+                  {grouped[activeCompartment.id].length}
+                </RuneBadge>
               </div>
-              <RuneBadge tone="ink" size="sm">
-                {grouped[compartment.id].length}
-              </RuneBadge>
-            </div>
-            <motion.div
-              variants={staggerChildren}
-              initial="initial"
-              animate="animate"
-              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"
-            >
-              {grouped[compartment.id].map((entry) => (
+              <motion.div
+                variants={staggerChildren}
+                initial="initial"
+                animate="animate"
+                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"
+              >
+                {grouped[activeCompartment.id].map((entry) => (
                 <motion.div key={entry.id} variants={staggerItem}>
                   <ParchmentCard
                     className={`text-center p-3 relative ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[entry.item.rarity] || 'ring-transparent'}`}
@@ -272,9 +330,10 @@ export default function Inventory() {
                   </ParchmentCard>
                 </motion.div>
               ))}
-            </motion.div>
-          </section>
-        ))
+              </motion.div>
+            </section>
+          )}
+        </>
       )}
     </div>
   );

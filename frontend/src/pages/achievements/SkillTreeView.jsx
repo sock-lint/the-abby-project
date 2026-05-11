@@ -4,21 +4,59 @@ import { getSkillTree } from '../../api';
 import CatalogSearch from '../../components/CatalogSearch';
 import EmptyState from '../../components/EmptyState';
 import Loader from '../../components/Loader';
+import TomeShelf from '../../components/atlas/TomeShelf';
+import { tierForProgress } from '../../components/atlas/mastery.constants';
 import FolioSpread from './FolioSpread';
 import SkillDetailSheet from './SkillDetailSheet';
-import TomeShelf from './TomeShelf';
+import { XP_THRESHOLDS } from './skillTree.constants';
+
+// Convert a SkillCategory + its summary into the flat spine-descriptor
+// shape the lifted TomeShelf expects. The XP math used to live inside
+// TomeSpine itself; pulling it up here keeps the spine domain-agnostic so
+// Badges / Inventory / Character / Yearbook can each compute their own
+// progress signal without dragging the skill-tree XP table along.
+function categoryToSpine(category, summary) {
+  const level = summary?.level ?? 0;
+  const totalXp = summary?.total_xp ?? 0;
+  const next = XP_THRESHOLDS[level + 1] ?? XP_THRESHOLDS[6];
+  const current = XP_THRESHOLDS[level] ?? 0;
+  const span = Math.max(1, next - current);
+  const inLevel = Math.max(0, totalXp - current);
+  const progressPct = Math.min(100, (inLevel / span) * 100);
+  // Cumulative progress across all 6 levels for the foot-band fill — gives
+  // a smoother progression across the shelf than per-level XP which resets.
+  const shelfPct = Math.min(100, (totalXp / XP_THRESHOLDS[6]) * 100);
+  const tier = tierForProgress({ unlocked: true, progressPct, level });
+  const ariaLabel = summary
+    ? `${category.name}, level ${level}, ${totalXp.toLocaleString()} XP`
+    : category.name;
+  return {
+    id: category.id,
+    name: category.name,
+    icon: category.icon,
+    chip: summary && typeof summary.level === 'number' ? `L${level}` : null,
+    progressPct: shelfPct,
+    tier,
+    ariaLabel,
+  };
+}
 
 /**
  * SkillTreeView — the Skills tab body. A thin orchestrator: the TomeShelf
  * picks a category, the FolioSpread renders that category's folio, and
  * SkillDetailSheet opens on verse selection.
  */
-export default function SkillTreeView({ categories }) {
+export default function SkillTreeView({ categories, summaryByCategory }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [tree, setTree] = useState(null);
   const [treeLoading, setTreeLoading] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState(null);
   const [filter, setFilter] = useState('');
+
+  const shelfItems = useMemo(
+    () => (categories || []).map((cat) => categoryToSpine(cat, summaryByCategory?.[cat.id])),
+    [categories, summaryByCategory],
+  );
 
   const loadTree = async (catId) => {
     if (selectedCategory === catId) {
@@ -67,9 +105,10 @@ export default function SkillTreeView({ categories }) {
   return (
     <div className="space-y-4">
       <TomeShelf
-        categories={categories}
+        items={shelfItems}
         activeId={selectedCategory}
         onSelect={loadTree}
+        ariaLabel="Skill categories"
       />
 
       {tree && (

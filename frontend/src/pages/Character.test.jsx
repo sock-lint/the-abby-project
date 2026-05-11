@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -10,6 +10,13 @@ import { buildUser } from '../test/factories.js';
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
   return { ...a, AnimatePresence: ({ children }) => children };
+});
+
+beforeEach(() => {
+  // jsdom doesn't implement scrollIntoView — TomeShelf calls it whenever
+  // activeId changes.
+  Element.prototype.scrollIntoView = vi.fn();
+  try { window.localStorage.clear(); } catch { /* ignore */ }
 });
 
 function stubRoutes({
@@ -57,7 +64,8 @@ describe('Character (/sigil)', () => {
     expect(screen.getByRole('button', { name: /no hero seal/i })).toBeInTheDocument();
   });
 
-  it('renders all four cosmetic chapters', async () => {
+  it('renders a TomeShelf with four cosmetic chapter spines and opens only the active one', async () => {
+    const user = userEvent.setup();
     stubRoutes({
       profile: {
         display_name: 'Abby', username: 'abby', level: 1,
@@ -73,11 +81,18 @@ describe('Character (/sigil)', () => {
     });
     renderPage();
     await waitFor(() =>
-      expect(screen.getByRole('region', { name: 'Frames' })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /cosmetic chapters/i })).toBeInTheDocument(),
     );
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
+
+    // Frames is the first chapter, so its folio opens by default.
+    expect(screen.getByRole('region', { name: 'Frames' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Titles' })).toBeNull();
+
+    // Switching spines swaps the rendered chapter.
+    await user.click(screen.getByRole('tab', { name: /Titles/i }));
     expect(screen.getByRole('region', { name: 'Titles' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Journal Covers' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Pet Regalia' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Frames' })).toBeNull();
   });
 
   it('equips an owned cosmetic', async () => {
@@ -130,6 +145,12 @@ describe('Character (/sigil)', () => {
       ),
     );
     renderPage();
+    // Default chapter is Frames; switch to Titles so the Adept cosmetic
+    // becomes visible (and equip-clickable).
+    await waitFor(() =>
+      expect(screen.getByRole('tablist', { name: /cosmetic chapters/i })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('tab', { name: /Titles/i }));
     await waitFor(() => expect(screen.getByText('Adept')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /Adept.*click to equip/i }));
     await waitFor(() => expect(screen.getByText(/not owned/i)).toBeInTheDocument());

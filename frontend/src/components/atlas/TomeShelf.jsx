@@ -6,24 +6,25 @@ import TomeSpine from './TomeSpine';
  *
  * Contract: role="tablist", role="tab" per child, arrow-key nav with
  * wrap-around, scrollIntoView fires when activeId changes so the chosen
- * spine is centered even in a long catalog (the 14-category skill tree
- * needs horizontal paging, not wrap). The shelf itself is styled with a
- * warm underglow + top hairline suggesting a wooden display shelf.
+ * spine is centered even in a long catalog. The shelf itself is styled
+ * with a warm underglow + bottom hairline suggesting a wooden display
+ * shelf. Domain-agnostic — each `item` is a flat spine descriptor:
+ * `{ id, name, icon, chip?, progressPct?, tier?, ariaLabel? }`.
  */
-export default function TomeShelf({ categories, activeId, onSelect, summaryByCategory }) {
+export default function TomeShelf({ items, activeId, onSelect, ariaLabel }) {
   const refs = useRef(new Map());
 
   const handleKey = useCallback(
     (event) => {
       if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
-      if (!categories.length) return;
+      if (!items.length) return;
       event.preventDefault();
-      const idx = categories.findIndex((c) => c.id === activeId);
+      const idx = items.findIndex((c) => c.id === activeId);
       const step = event.key === 'ArrowRight' ? 1 : -1;
-      const nextIdx = ((idx === -1 ? 0 : idx) + step + categories.length) % categories.length;
-      onSelect(categories[nextIdx].id);
+      const nextIdx = ((idx === -1 ? 0 : idx) + step + items.length) % items.length;
+      onSelect(items[nextIdx].id);
     },
-    [activeId, categories, onSelect],
+    [activeId, items, onSelect],
   );
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export default function TomeShelf({ categories, activeId, onSelect, summaryByCat
     }
   }, [activeId]);
 
-  if (!categories.length) return null;
+  if (!items.length) return null;
 
   return (
     <div className="relative">
@@ -48,21 +49,26 @@ export default function TomeShelf({ categories, activeId, onSelect, summaryByCat
       <div
         role="tablist"
         aria-orientation="horizontal"
-        aria-label="Skill categories"
+        aria-label={ariaLabel}
         className="relative flex gap-2 md:gap-3 overflow-x-auto pt-2 pb-3 px-1 snap-x snap-mandatory"
         style={{ scrollbarWidth: 'thin' }}
       >
-        {categories.map((cat) => (
+        {items.map((item) => (
           <TomeSpine
-            key={cat.id}
+            key={item.id}
             ref={(node) => {
-              if (node) refs.current.set(cat.id, node);
-              else refs.current.delete(cat.id);
+              if (node) refs.current.set(item.id, node);
+              else refs.current.delete(item.id);
             }}
-            category={cat}
-            active={activeId === cat.id}
-            summary={summaryByCategory?.[cat.id]}
-            onClick={() => onSelect(cat.id)}
+            id={item.id}
+            name={item.name}
+            icon={item.icon}
+            chip={item.chip}
+            progressPct={item.progressPct}
+            tier={item.tier}
+            active={activeId === item.id}
+            ariaLabel={item.ariaLabel}
+            onClick={() => onSelect(item.id)}
             onKeyDown={handleKey}
           />
         ))}

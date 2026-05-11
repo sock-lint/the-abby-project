@@ -15,12 +15,19 @@ import { normalizeList } from '../utils/api';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import EmptyState from '../components/EmptyState';
+import TomeShelf from '../components/atlas/TomeShelf';
+import { tierForProgress } from '../components/atlas/mastery.constants';
 import SigilFrontispiece from './character/SigilFrontispiece';
 import CosmeticChapter from './character/CosmeticChapter';
 import TrophyBadgePicker from './character/TrophyBadgePicker';
 import AdventuresEntry from './character/AdventuresEntry';
 import WellbeingCard from './character/WellbeingCard';
-import { COSMETIC_CHAPTERS } from './character/character.constants';
+import {
+  COSMETIC_CHAPTERS,
+  mergeSlotCosmetics,
+} from './character/character.constants';
+
+const ACTIVE_CHAPTER_KEY = 'atlas:sigil-frontispiece:active-chapter';
 
 /**
  * Character (`/sigil`) — the Frontispiece. Thin orchestrator that merges
@@ -43,6 +50,22 @@ export default function Character() {
   // Equip toast — `{ msg, key }`. The key bumps on each equip so the
   // toast re-animates even when the same slot is changed twice.
   const [equipToast, setEquipToast] = useState(null);
+  const [activeChapterSlot, setActiveChapterSlot] = useState(() => {
+    try {
+      return window.localStorage?.getItem(ACTIVE_CHAPTER_KEY) || COSMETIC_CHAPTERS[0].slot;
+    } catch {
+      return COSMETIC_CHAPTERS[0].slot;
+    }
+  });
+
+  useEffect(() => {
+    if (!activeChapterSlot) return;
+    try {
+      window.localStorage?.setItem(ACTIVE_CHAPTER_KEY, activeChapterSlot);
+    } catch {
+      // ignore quota / disabled storage
+    }
+  }, [activeChapterSlot]);
 
   // Auto-dismiss the equip toast after 3.2s.
   useEffect(() => {
@@ -62,6 +85,23 @@ export default function Character() {
 
   const allBadges = useMemo(() => normalizeList(allBadgesData), [allBadgesData]);
   const earnedBadges = useMemo(() => summary?.badges_earned || [], [summary]);
+
+  // Hoist mergeSlotCosmetics: compute owned/total per chapter once so the
+  // shelf spines and the active folio share counts without re-walking the
+  // catalog four times. Memoized BEFORE the early-return guards so the hook
+  // order stays stable across loading / loaded renders.
+  const chapterEntriesBySlot = useMemo(() => {
+    const out = {};
+    for (const chapter of COSMETIC_CHAPTERS) {
+      out[chapter.slot] = mergeSlotCosmetics(
+        chapter.slot,
+        cosmetics?.[chapter.slot] || [],
+        catalog?.[chapter.slot] || [],
+        profile?.[chapter.slot]?.id || null,
+      );
+    }
+    return out;
+  }, [cosmetics, catalog, profile]);
 
   const anyLoading =
     loadingProfile || loadingCosmetics || loadingCatalog || loadingBadges || loadingSummary;
@@ -113,6 +153,25 @@ export default function Character() {
 
   const currentThemeName = user?.theme || 'hyrule';
 
+  const shelfItems = COSMETIC_CHAPTERS.map((chapter) => {
+    const entries = chapterEntriesBySlot[chapter.slot] || [];
+    const owned = entries.filter((e) => e.owned).length;
+    const total = entries.length;
+    const pct = total ? (owned / total) * 100 : 0;
+    return {
+      id: chapter.slot,
+      name: chapter.name,
+      icon: chapter.letter,
+      chip: `${owned}/${total}`,
+      progressPct: pct,
+      tier: tierForProgress({ unlocked: true, progressPct: pct, level: 0 }),
+      ariaLabel: `${chapter.name}, ${owned} of ${total} owned`,
+    };
+  });
+
+  const activeChapter =
+    COSMETIC_CHAPTERS.find((c) => c.slot === activeChapterSlot) || COSMETIC_CHAPTERS[0];
+
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
       <ErrorAlert message={error} />
@@ -147,21 +206,24 @@ export default function Character() {
         your inside-cover plate · choose a trophy seal you've earned, equip cosmetics from the four chapters below
       </p>
 
-      <div className="space-y-4">
-        {COSMETIC_CHAPTERS.map((chapter) => (
-          <CosmeticChapter
-            key={chapter.slot}
-            chapter={chapter}
-            owned={cosmetics?.[chapter.slot] || []}
-            catalog={catalog?.[chapter.slot] || []}
-            activeId={profile[chapter.slot]?.id || null}
-            currentThemeName={currentThemeName}
-            busy={working}
-            onEquip={(itemId) => handleEquip(itemId, chapter.slot)}
-            onUnequip={handleUnequip}
-          />
-        ))}
-      </div>
+      <TomeShelf
+        items={shelfItems}
+        activeId={activeChapter.slot}
+        onSelect={setActiveChapterSlot}
+        ariaLabel="Cosmetic chapters"
+      />
+
+      <CosmeticChapter
+        key={activeChapter.slot}
+        chapter={activeChapter}
+        owned={cosmetics?.[activeChapter.slot] || []}
+        catalog={catalog?.[activeChapter.slot] || []}
+        activeId={profile[activeChapter.slot]?.id || null}
+        currentThemeName={currentThemeName}
+        busy={working}
+        onEquip={(itemId) => handleEquip(itemId, activeChapter.slot)}
+        onUnequip={handleUnequip}
+      />
 
       <AnimatePresence>
         {pickerOpen && (

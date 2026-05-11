@@ -1,39 +1,41 @@
 import { forwardRef } from 'react';
-import { PROGRESS_TIER, tierForProgress } from '../../components/atlas/mastery.constants';
-import { XP_THRESHOLDS } from './skillTree.constants';
+import { PROGRESS_TIER } from './mastery.constants';
 
 /**
- * TomeSpine — a bound codex on a shelf. One per SkillCategory.
+ * TomeSpine — a bound codex on a shelf. One per item.
  *
+ * Domain-agnostic: pass flat props for whatever the consumer wants to show.
  * Vertical display-serif name runs up the spine, an icon medallion sits
- * at the head cap, a gilt band at the foot fills to category progress.
+ * at the head cap, an optional gilt foot band fills to `progressPct`.
  * The active tome lifts, tilts, and unfurls a bookmark ribbon. Lives
- * inside a role="tablist" parent — same keyboard contract (ArrowRight/
- * Left) and same aria-selected semantics as any tab.
+ * inside a role="tablist" parent (TomeShelf) — same keyboard contract
+ * (ArrowRight/Left) and same aria-selected semantics as any tab.
+ *
+ * When `progressPct == null` the foot band becomes a thin static hairline
+ * (used by surfaces like Inventory or Yearbook where "progress" isn't a
+ * meaningful concept — a satchel drawer or a calendar year aren't
+ * collections to fill).
  */
 const TomeSpine = forwardRef(function TomeSpine(
-  { category, active, summary, onClick, onKeyDown },
+  {
+    id,
+    name,
+    icon,
+    chip = null,
+    progressPct = null,
+    tier = PROGRESS_TIER.locked,
+    active = false,
+    ariaLabel,
+    onClick,
+    onKeyDown,
+  },
   ref,
 ) {
-  const level = summary?.level ?? 0;
-  const totalXp = summary?.total_xp ?? 0;
-  const next = XP_THRESHOLDS[level + 1] ?? XP_THRESHOLDS[6];
-  const current = XP_THRESHOLDS[level] ?? 0;
-  const span = Math.max(1, next - current);
-  const inLevel = Math.max(0, totalXp - current);
-  const progressPct = Math.min(100, (inLevel / span) * 100);
-  const tier = tierForProgress({ unlocked: true, progressPct, level });
-  // Cumulative progress across all 6 levels for the foot-band fill — gives
-  // a smoother progression across the shelf than per-level XP which resets.
-  const shelfPct = Math.min(100, (totalXp / XP_THRESHOLDS[6]) * 100);
-
   const activeCls = active
     ? 'bg-ink-page-rune-glow border-gold-leaf shadow-[0_6px_18px_-6px_rgba(45,31,21,0.45)] -translate-y-1 -rotate-1'
     : 'bg-ink-page-aged border-ink-page-shadow hover:border-sheikah-teal/60 hover:bg-ink-page-rune-glow';
 
-  const label = summary
-    ? `${category.name}, level ${level}, ${totalXp.toLocaleString()} XP`
-    : category.name;
+  const tierKey = Object.keys(PROGRESS_TIER).find((k) => PROGRESS_TIER[k] === tier) || 'locked';
 
   return (
     <button
@@ -41,11 +43,11 @@ const TomeSpine = forwardRef(function TomeSpine(
       type="button"
       role="tab"
       aria-selected={active ? 'true' : 'false'}
-      aria-label={label}
+      aria-label={ariaLabel || name}
       tabIndex={active ? 0 : -1}
       onClick={onClick}
       onKeyDown={onKeyDown}
-      data-category-id={category.id}
+      data-spine-id={id}
       data-active={active ? 'true' : 'false'}
       className={`snap-start shrink-0 relative rounded-md border-2 transition-all duration-200 flex flex-col items-center w-[68px] h-[180px] md:w-[76px] md:h-[200px] py-3 px-1 overflow-hidden ${activeCls}`}
     >
@@ -56,7 +58,7 @@ const TomeSpine = forwardRef(function TomeSpine(
           active ? '' : 'opacity-85'
         }`}
       >
-        {category.icon || '✦'}
+        {icon || '✦'}
       </span>
 
       {/* Vertical spine title. writing-mode CSS + text-orientation keep the
@@ -80,35 +82,47 @@ const TomeSpine = forwardRef(function TomeSpine(
           whiteSpace: 'nowrap',
         }}
       >
-        {category.name}
+        {name}
       </span>
 
       {/* Bottom group — chip above the foot band. Living inside the flex
           tree (not absolute-positioned) means the title above can never
-          collide with the chip no matter how long the category name. The
+          collide with the chip no matter how long the title. The
           flex-1 title shrinks the available middle space; this group sits
           naturally below it with a fixed gap to the band. */}
       <span className="flex flex-col items-center gap-1.5 w-full shrink-0 mt-1.5">
-        {summary && typeof summary.level === 'number' && (
+        {chip != null && chip !== '' && (
           <span
-            className={`text-micro font-rune uppercase tracking-wider px-1.5 py-0.5 rounded ${
+            className={`text-micro font-rune uppercase tracking-wider px-1.5 py-0.5 rounded tabular-nums ${
               active ? 'bg-gold-leaf/20 text-ember-deep' : 'bg-ink-page-shadow/40 text-ink-whisper'
             }`}
           >
-            L{level}
+            {chip}
           </span>
         )}
-        <span
-          aria-hidden="true"
-          data-tome-band="true"
-          data-tier={Object.keys(PROGRESS_TIER).find((k) => PROGRESS_TIER[k] === tier) || 'locked'}
-          className={`relative h-1.5 w-[calc(100%-8px)] rounded-full overflow-hidden bg-ink-page-shadow/55 border border-ink-page-shadow/40`}
-        >
+        {progressPct != null ? (
           <span
-            className={`absolute inset-y-0 left-0 rounded-full ${tier.bar}`}
-            style={{ width: `${shelfPct}%`, transition: 'width 600ms cubic-bezier(0.4, 0, 0.2, 1)' }}
+            aria-hidden="true"
+            data-tome-band="true"
+            data-tier={tierKey}
+            className="relative h-1.5 w-[calc(100%-8px)] rounded-full overflow-hidden bg-ink-page-shadow/55 border border-ink-page-shadow/40"
+          >
+            <span
+              className={`absolute inset-y-0 left-0 rounded-full ${tier.bar}`}
+              style={{
+                width: `${Math.max(0, Math.min(100, progressPct))}%`,
+                transition: 'width 600ms cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            />
+          </span>
+        ) : (
+          <span
+            aria-hidden="true"
+            data-tome-band="true"
+            data-tier={tierKey}
+            className="h-px w-[calc(100%-8px)] bg-ink-page-shadow/40 rounded-full"
           />
-        </span>
+        )}
       </span>
 
       {/* Bookmark ribbon — draped from the head cap only on the active tome.

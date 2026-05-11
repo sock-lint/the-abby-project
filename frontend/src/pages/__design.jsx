@@ -12,10 +12,11 @@ import {
 import { headingDisplay, headingScript } from '../constants/styles';
 import Button from '../components/Button';
 import { TextField, SelectField, TextAreaField } from '../components/form';
-import TomeShelf from './achievements/TomeShelf';
+import TomeShelf from '../components/atlas/TomeShelf';
 import FolioSpread from './achievements/FolioSpread';
 import IlluminatedVersal from '../components/atlas/IlluminatedVersal';
-import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
+import { PROGRESS_TIER, tierForProgress } from '../components/atlas/mastery.constants';
+import { XP_THRESHOLDS } from './achievements/skillTree.constants';
 import { useState } from 'react';
 
 export default function DesignShowcase() {
@@ -435,10 +436,22 @@ function SkillsShowcase() {
       </div>
 
       <TomeShelf
-        categories={SHOWCASE_CATEGORIES}
+        items={SHOWCASE_CATEGORIES.map((cat) => {
+          const summary = SHOWCASE_SUMMARIES[cat.id];
+          const totalXp = summary?.total_xp ?? 0;
+          const shelfPct = Math.min(100, (totalXp / XP_THRESHOLDS[6]) * 100);
+          return {
+            id: cat.id,
+            name: cat.name,
+            icon: cat.icon,
+            chip: `L${summary?.level ?? 0}`,
+            progressPct: shelfPct,
+            tier: tierForProgress({ unlocked: true, progressPct: shelfPct, level: summary?.level ?? 0 }),
+          };
+        })}
         activeId={active}
         onSelect={setActive}
-        summaryByCategory={SHOWCASE_SUMMARIES}
+        ariaLabel="Skill categories"
       />
 
       <FolioSpread tree={buildShowcaseTree(active)} onSelectSkill={() => {}} />

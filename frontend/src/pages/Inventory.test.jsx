@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -6,6 +6,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import Inventory from './Inventory.jsx';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
+
+beforeEach(() => {
+  // jsdom doesn't implement scrollIntoView — TomeShelf calls it whenever
+  // activeId changes (on mount and after every spine click).
+  Element.prototype.scrollIntoView = vi.fn();
+  try { window.localStorage.clear(); } catch { /* ignore */ }
+});
 
 function renderInventory() {
   return render(
@@ -38,8 +45,12 @@ describe('Inventory', () => {
       ),
     );
     renderInventory();
-    await waitFor(() => expect(screen.getByText(/eggs/i)).toBeInTheDocument());
-    expect(screen.getByText(/potions/i)).toBeInTheDocument();
+    // Eggs H2 = active compartment header; Potions spine = on the shelf.
+    // Use heading + tab role queries to disambiguate from spine titles.
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Eggs' })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('tab', { name: /Potions/i })).toBeInTheDocument();
     expect(screen.getByText('Ember Egg')).toBeInTheDocument();
   });
 
@@ -133,6 +144,51 @@ describe('Inventory', () => {
 
     await waitFor(() => expect(open.calls).toHaveLength(1));
     expect(open.calls[0].method).toBe('POST');
+  });
+
+  it('renders a TomeShelf with one spine per populated compartment and only the active one\'s grid', async () => {
+    server.use(
+      http.get('*/api/inventory/', () =>
+        HttpResponse.json([
+          { id: 1, quantity: 2, item: { id: 1, name: 'Ember Egg', item_type: 'egg', rarity: 'common', sprite_key: 'big-egg', icon: '🥚' } },
+          { id: 2, quantity: 1, item: { id: 2, name: 'Fire Potion', item_type: 'potion', rarity: 'rare', sprite_key: 'potion-normal-red', icon: '🧪' } },
+        ]),
+      ),
+    );
+    const user = userEvent.setup();
+    renderInventory();
+
+    await waitFor(() =>
+      expect(screen.getByRole('tablist', { name: /satchel compartments/i })).toBeInTheDocument(),
+    );
+
+    // Two spines (Eggs + Potions), Eggs active by default (first in TYPE_COMPARTMENTS).
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.getByText('Ember Egg')).toBeInTheDocument();
+    expect(screen.queryByText('Fire Potion')).toBeNull();
+
+    // Switching the spine swaps which compartment's grid is rendered.
+    await user.click(screen.getByRole('tab', { name: /Potions/i }));
+    expect(screen.getByText('Fire Potion')).toBeInTheDocument();
+    expect(screen.queryByText('Ember Egg')).toBeNull();
+  });
+
+  it('persists the active compartment to localStorage', async () => {
+    server.use(
+      http.get('*/api/inventory/', () =>
+        HttpResponse.json([
+          { id: 1, quantity: 2, item: { id: 1, name: 'Ember Egg', item_type: 'egg', rarity: 'common', sprite_key: 'big-egg', icon: '🥚' } },
+          { id: 2, quantity: 1, item: { id: 2, name: 'Fire Potion', item_type: 'potion', rarity: 'rare', sprite_key: 'potion-normal-red', icon: '🧪' } },
+        ]),
+      ),
+    );
+    const user = userEvent.setup();
+    renderInventory();
+    await waitFor(() =>
+      expect(screen.getByRole('tablist', { name: /satchel compartments/i })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('tab', { name: /Potions/i }));
+    expect(window.localStorage.getItem('atlas:satchel:active-compartment')).toBe('potion');
   });
 
   it('routes contextual actions to their owning pages', async () => {

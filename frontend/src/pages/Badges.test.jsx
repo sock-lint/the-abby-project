@@ -148,6 +148,10 @@ describe('Badges page', () => {
 
   it('filters badges by name when the user types in the search', async () => {
     const user = userEvent.setup();
+    // jsdom doesn't implement scrollIntoView — the TomeShelf effect runs
+    // whenever the active chapter changes.
+    Element.prototype.scrollIntoView = vi.fn();
+    try { window.localStorage.clear(); } catch { /* ignore */ }
     renderPage({
       handlers: [
         http.get('*/api/achievements/summary/', () => HttpResponse.json({ badges_earned: [] })),
@@ -162,6 +166,13 @@ describe('Badges page', () => {
         ),
       ],
     });
+    // Both badges live in §II Ventures (first_project + milestones_completed).
+    // No earned sigils, so the codex defaults to Chronos — switch to
+    // Ventures first to make the badges queryable.
+    await waitFor(() =>
+      expect(screen.getByRole('tablist', { name: /sigil reliquary chapters/i })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('tab', { name: /Ventures/i }));
     await waitFor(() => expect(screen.getByText('First Stitch')).toBeInTheDocument());
 
     const search = screen.getByRole('searchbox', { name: /filter badges/i });

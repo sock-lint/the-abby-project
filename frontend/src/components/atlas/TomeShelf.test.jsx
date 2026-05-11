@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen, userEvent } from '../../test/render';
 import TomeShelf from './TomeShelf';
 
-const categories = [
+const items = [
   { id: 1, name: 'Woodworking', icon: '🪵' },
   { id: 2, name: 'Pottery', icon: '🏺' },
   { id: 3, name: 'Sewing', icon: '🧵' },
@@ -13,17 +13,22 @@ describe('TomeShelf', () => {
     Element.prototype.scrollIntoView = vi.fn();
   });
 
-  it('exposes a horizontal tablist', () => {
+  it('exposes a horizontal tablist with the supplied ariaLabel', () => {
     renderWithProviders(
-      <TomeShelf categories={categories} activeId={1} onSelect={() => {}} />,
+      <TomeShelf
+        items={items}
+        activeId={1}
+        onSelect={() => {}}
+        ariaLabel="Skill categories"
+      />,
     );
-    const list = screen.getByRole('tablist');
+    const list = screen.getByRole('tablist', { name: /skill categories/i });
     expect(list).toHaveAttribute('aria-orientation', 'horizontal');
   });
 
-  it('renders one tab per category with the active one marked', () => {
+  it('renders one tab per item with the active one marked', () => {
     renderWithProviders(
-      <TomeShelf categories={categories} activeId={2} onSelect={() => {}} />,
+      <TomeShelf items={items} activeId={2} onSelect={() => {}} ariaLabel="Shelves" />,
     );
     expect(screen.getAllByRole('tab')).toHaveLength(3);
     expect(screen.getByRole('tab', { name: /Pottery/ })).toHaveAttribute(
@@ -38,20 +43,22 @@ describe('TomeShelf', () => {
 
   it('scrolls the active tome into view when activeId changes', () => {
     const { rerender } = renderWithProviders(
-      <TomeShelf categories={categories} activeId={1} onSelect={() => {}} />,
+      <TomeShelf items={items} activeId={1} onSelect={() => {}} ariaLabel="Shelves" />,
     );
     const spy = vi.fn();
     Element.prototype.scrollIntoView = spy;
-    rerender(<TomeShelf categories={categories} activeId={3} onSelect={() => {}} />);
+    rerender(
+      <TomeShelf items={items} activeId={3} onSelect={() => {}} ariaLabel="Shelves" />,
+    );
     expect(spy).toHaveBeenCalled();
     expect(spy.mock.calls[0][0]).toMatchObject({ inline: 'center', block: 'nearest' });
   });
 
-  it('calls onSelect with the category id when a tome is clicked', async () => {
+  it('calls onSelect with the item id when a tome is clicked', async () => {
     const user = userEvent.setup();
     const spy = vi.fn();
     renderWithProviders(
-      <TomeShelf categories={categories} activeId={1} onSelect={spy} />,
+      <TomeShelf items={items} activeId={1} onSelect={spy} ariaLabel="Shelves" />,
     );
     await user.click(screen.getByRole('tab', { name: /Pottery/ }));
     expect(spy).toHaveBeenCalledWith(2);
@@ -61,7 +68,7 @@ describe('TomeShelf', () => {
     const user = userEvent.setup();
     const spy = vi.fn();
     renderWithProviders(
-      <TomeShelf categories={categories} activeId={1} onSelect={spy} />,
+      <TomeShelf items={items} activeId={1} onSelect={spy} ariaLabel="Shelves" />,
     );
     screen.getByRole('tab', { name: /Woodworking/ }).focus();
     await user.keyboard('{ArrowRight}');
@@ -71,9 +78,9 @@ describe('TomeShelf', () => {
     expect(spy).toHaveBeenCalledWith(3);
   });
 
-  it('renders nothing when there are no categories', () => {
+  it('renders nothing when there are no items', () => {
     const { container } = renderWithProviders(
-      <TomeShelf categories={[]} activeId={null} onSelect={() => {}} />,
+      <TomeShelf items={[]} activeId={null} onSelect={() => {}} ariaLabel="Shelves" />,
     );
     expect(container.querySelector('[role="tablist"]')).toBeNull();
   });

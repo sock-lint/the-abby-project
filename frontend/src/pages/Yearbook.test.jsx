@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import userEvent from '@testing-library/user-event'
@@ -8,6 +8,13 @@ import { server } from '../test/server'
 import { buildUser, buildParent } from '../test/factories'
 import { spyHandler } from '../test/spy'
 import Yearbook from './Yearbook'
+
+beforeEach(() => {
+  // jsdom doesn't implement scrollIntoView — TomeShelf calls it whenever
+  // activeId changes.
+  Element.prototype.scrollIntoView = vi.fn()
+  try { window.localStorage.clear() } catch { /* ignore */ }
+})
 
 describe('Yearbook page', () => {
   it('shows empty-state when DOB missing', async () => {
@@ -22,7 +29,7 @@ describe('Yearbook page', () => {
     expect(await screen.findByText(/set your date of birth/i)).toBeInTheDocument()
   })
 
-  it('renders chapter cards from summary payload', async () => {
+  it('renders a TomeShelf of chapter spines and opens the current chapter by default', async () => {
     const child = buildUser({ role: 'child', date_of_birth: '2011-09-22' })
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(child)),
@@ -37,8 +44,40 @@ describe('Yearbook page', () => {
       ),
     )
     renderWithProviders(<Yearbook />)
-    expect(await screen.findByText('Freshman Year')).toBeInTheDocument()
-    expect(await screen.findByText('Grade 8')).toBeInTheDocument()
+    // Shelf has one tab per chapter
+    await waitFor(() =>
+      expect(screen.getByRole('tablist', { name: /yearbook chapters/i })).toBeInTheDocument(),
+    )
+    expect(screen.getAllByRole('tab')).toHaveLength(2)
+    // The current chapter opens by default — region role disambiguates from
+    // the spine title (the spine carries Freshman Year as aria-hidden text).
+    expect(screen.getByRole('region', { name: 'Freshman Year' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Grade 8' })).toBeNull()
+  })
+
+  it('switches the rendered chapter when a different spine is selected', async () => {
+    const child = buildUser({ role: 'child', date_of_birth: '2011-09-22' })
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(child)),
+      http.get('*/api/chronicle/summary/', () =>
+        HttpResponse.json({
+          chapters: [
+            { chapter_year: 2025, grade: 9, label: 'Freshman Year', is_current: true, is_post_hs: false, stats: {}, entries: [] },
+            { chapter_year: 2024, grade: 8, label: 'Grade 8', is_current: false, is_post_hs: false, stats: { projects_completed: 5 }, entries: [] },
+          ],
+          current_chapter_year: 2025,
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<Yearbook />)
+    await waitFor(() =>
+      expect(screen.getByRole('tablist', { name: /yearbook chapters/i })).toBeInTheDocument(),
+    )
+    await user.click(screen.getByRole('tab', { name: /Grade 8/ }))
+    expect(screen.getByRole('region', { name: 'Grade 8' })).toBeInTheDocument()
+    // Freshman Year's region disappears; the spine text stays.
+    expect(screen.queryByRole('region', { name: 'Freshman Year' })).toBeNull()
   })
 })
 
