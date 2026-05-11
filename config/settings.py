@@ -95,15 +95,29 @@ MCP_PUBLIC_BASE_URL = os.environ.get("MCP_PUBLIC_BASE_URL", "")
 MCP_DEV_ALLOW_USER_PIN = DEBUG
 
 # --- OAuth 2.1 (MCP-spec auth for /mcp/*) ---------------------------------
-# Public-facing site URL — drives the issuer + endpoint URLs in the
-# RFC 9728 / RFC 8414 discovery JSON. In dev defaults to the runserver URL;
-# in production MUST be set to the public origin (e.g. https://igapp.bos.lol).
-SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000").rstrip("/")
-
-# RFC 8707 Resource Indicator. Tokens issued via the auth-code flow are
-# bound to this resource; the MCP auth middleware refuses tokens whose
-# ``resource`` claim doesn't match. Defaults to ``{SITE_URL}/mcp``.
-MCP_RESOURCE_URL = os.environ.get("MCP_RESOURCE_URL", f"{SITE_URL}/mcp")
+# Both the OAuth issuer/endpoint URLs and the RFC 8707 resource indicator
+# derive from ``MCP_PUBLIC_BASE_URL`` (the existing env var that points
+# at the public MCP endpoint, e.g. ``https://abby.bos.lol/mcp``).
+#
+#   * ``SITE_URL`` — origin stripped from MCP_PUBLIC_BASE_URL; used as the
+#     ``issuer`` and base for ``authorization_endpoint`` / ``token_endpoint`` /
+#     ``registration_endpoint`` in the RFC 8414 metadata.
+#   * ``MCP_RESOURCE_URL`` — the resource identifier itself; tokens issued via
+#     the auth-code flow are bound to this exact string. The MCP auth
+#     middleware refuses tokens whose ``resource`` claim doesn't match.
+#
+# When ``MCP_PUBLIC_BASE_URL`` isn't set (local dev), fall back to the
+# runserver origin. Production MUST set it explicitly so the discovery
+# JSON points MCP clients (Cowork, mcp-remote) at the public hostname.
+if MCP_PUBLIC_BASE_URL:
+    from urllib.parse import urlparse as _urlparse
+    _mcp_resource = MCP_PUBLIC_BASE_URL.rstrip("/")
+    _parsed_mcp = _urlparse(_mcp_resource)
+    SITE_URL = f"{_parsed_mcp.scheme}://{_parsed_mcp.netloc}"
+    MCP_RESOURCE_URL = _mcp_resource
+else:
+    SITE_URL = "http://localhost:8000"
+    MCP_RESOURCE_URL = f"{SITE_URL}/mcp"
 
 # Login redirect for OAuth consent flow — the AbbyAuthorizationView uses
 # Django session auth for the consent screen, so unauthenticated users get
