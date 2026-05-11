@@ -408,6 +408,7 @@ function buildShowcaseTree(id) {
 
 function SkillsShowcase() {
   const [active, setActive] = useState(1);
+  const [vesselActive, setVesselActive] = useState('potion');
   return (
     <section className="space-y-4">
       <div>
@@ -435,29 +436,52 @@ function SkillsShowcase() {
         </Labeled>
       </div>
 
-      <TomeShelf
-        items={SHOWCASE_CATEGORIES.map((cat) => {
-          const summary = SHOWCASE_SUMMARIES[cat.id];
-          const totalXp = summary?.total_xp ?? 0;
-          const shelfPct = Math.min(100, (totalXp / XP_THRESHOLDS[6]) * 100);
-          return {
-            id: cat.id,
-            name: cat.name,
-            icon: cat.icon,
-            chip: `L${summary?.level ?? 0}`,
-            progressPct: shelfPct,
-            tier: tierForProgress({ unlocked: true, progressPct: shelfPct, level: summary?.level ?? 0 }),
-          };
-        })}
-        activeId={active}
-        onSelect={setActive}
-        ariaLabel="Skill categories"
-      />
+      <div>
+        <div className="font-script text-ink-whisper text-caption mb-1">codex variant · book spines</div>
+        <TomeShelf
+          items={SHOWCASE_CATEGORIES.map((cat) => {
+            const summary = SHOWCASE_SUMMARIES[cat.id];
+            const totalXp = summary?.total_xp ?? 0;
+            const shelfPct = Math.min(100, (totalXp / XP_THRESHOLDS[6]) * 100);
+            return {
+              id: cat.id,
+              name: cat.name,
+              icon: cat.icon,
+              chip: `L${summary?.level ?? 0}`,
+              progressPct: shelfPct,
+              tier: tierForProgress({ unlocked: true, progressPct: shelfPct, level: summary?.level ?? 0 }),
+            };
+          })}
+          activeId={active}
+          onSelect={setActive}
+          ariaLabel="Skill categories"
+        />
+      </div>
+
+      <div>
+        <div className="font-script text-ink-whisper text-caption mb-1">vessel variant · labeled drawers</div>
+        <TomeShelf
+          items={SHOWCASE_VESSELS}
+          activeId={vesselActive}
+          onSelect={setVesselActive}
+          ariaLabel="Satchel compartments"
+        />
+      </div>
 
       <FolioSpread tree={buildShowcaseTree(active)} onSelectSkill={() => {}} />
     </section>
   );
 }
+
+const SHOWCASE_VESSELS = [
+  { id: 'egg',       name: 'Eggs',           icon: '🥚', chip: '×4',  variant: 'vessel', progressPct: null, tier: PROGRESS_TIER.nascent },
+  { id: 'potion',    name: 'Potions',        icon: '🧪', chip: '×42', variant: 'vessel', progressPct: null, tier: PROGRESS_TIER.nascent },
+  { id: 'food',      name: 'Provisions',     icon: '🍎', chip: '×12', variant: 'vessel', progressPct: null, tier: PROGRESS_TIER.nascent },
+  { id: 'frame',     name: 'Avatar Frames',  icon: '🖼', chip: '×3',  variant: 'vessel', progressPct: null, tier: PROGRESS_TIER.nascent },
+  { id: 'title',     name: 'Titles',         icon: '✒', chip: '×7',  variant: 'vessel', progressPct: null, tier: PROGRESS_TIER.nascent },
+  { id: 'scroll',    name: 'Quest Scrolls',  icon: '📜', chip: '×2',  variant: 'vessel', progressPct: null, tier: PROGRESS_TIER.nascent },
+  { id: 'pouch',     name: 'Coin Pouches',   icon: '💰', chip: '×5',  variant: 'vessel', progressPct: null, tier: PROGRESS_TIER.nascent },
+];
 
 function Labeled({ label, children }) {
   return (

@@ -348,3 +348,388 @@ def reset_day_counters(user, *, kind: str = "all") -> dict[str, Any]:
         deleted[k] = count
 
     return {"user": user.username, "deleted": deleted}
+
+
+# --------------------------------------------------------------------------
+# E. Toast & ceremony coverage (added 2026-05-11)
+#
+# Each op below drives one of the surfaces enumerated under the "Toast &
+# ceremony reveals" section of docs/manual-testing.md. They share a few
+# constraints:
+#   * Notifications go through ``apps.notifications.services.notify`` so
+#     the row shape matches production fan-outs.
+#   * Pet/mount lookups always verify ``user`` ownership before touching
+#     state — the kid-targeting flows already protect cross-family
+#     access via ``get_child_or_404`` at the view layer, but the op stays
+#     defensive in case a future caller skips the view.
+#   * The pre-positioning ops (set_pet_growth, grant_hatch_ingredients,
+#     clear_mount_breed_cooldowns) intentionally do NOT trigger the
+#     resulting ceremony themselves — the modal is launched from the
+#     child's UI tap. The op seeds state; the tester verifies.
+# --------------------------------------------------------------------------
+
+# 12 notification types the child-side ``useApprovalToasts`` hook watches.
+# Mirrors ``APPROVAL_TYPES`` in frontend/src/hooks/useApprovalToasts.js.
+# Exchange uses ``denied`` instead of ``rejected`` to match the model enum.
+APPROVAL_NOTIFICATION_TYPES = {
+    ("chore", "approved"): "chore_approved",
+    ("chore", "rejected"): "chore_rejected",
+    ("homework", "approved"): "homework_approved",
+    ("homework", "rejected"): "homework_rejected",
+    ("creation", "approved"): "creation_approved",
+    ("creation", "rejected"): "creation_rejected",
+    ("exchange", "approved"): "exchange_approved",
+    ("exchange", "rejected"): "exchange_denied",
+    ("chore_proposal", "approved"): "chore_proposal_approved",
+    ("chore_proposal", "rejected"): "chore_proposal_rejected",
+    ("habit_proposal", "approved"): "habit_proposal_approved",
+    ("habit_proposal", "rejected"): "habit_proposal_rejected",
+}
+
+APPROVAL_TITLES = {
+    "chore": ("Chore approved", "Chore returned"),
+    "homework": ("Homework approved", "Homework returned"),
+    "creation": ("Creation approved", "Creation returned"),
+    "exchange": ("Exchange approved", "Exchange denied"),
+    "chore_proposal": ("Duty proposal approved", "Duty proposal returned"),
+    "habit_proposal": ("Ritual proposal approved", "Ritual proposal returned"),
+}
+
+
+def force_approval_notification(
+    user, *, flow: str, outcome: str, note: str = "",
+) -> dict[str, Any]:
+    """Insert one approval-style ``Notification`` row for ``ApprovalToastStack``."""
+    from apps.notifications.services import notify
+
+    key = (flow, outcome)
+    if key not in APPROVAL_NOTIFICATION_TYPES:
+        raise OperationError(
+            f"Unknown approval flow={flow!r} or outcome={outcome!r}. "
+            f"Use flow in {sorted({k[0] for k in APPROVAL_NOTIFICATION_TYPES})} "
+            f"and outcome in {{'approved', 'rejected'}}."
+        )
+
+    notif_type = APPROVAL_NOTIFICATION_TYPES[key]
+    title_pair = APPROVAL_TITLES[flow]
+    title = title_pair[0] if outcome == "approved" else title_pair[1]
+
+    if outcome == "approved":
+        body = "[dev_tools] simulated approval — toast surface check"
+    else:
+        body = "[dev_tools] simulated rejection"
+        if note:
+            body = f"{body} — {note}"
+
+    n = notify(
+        user, title=title, message=body,
+        notification_type=notif_type,
+    )
+    return {
+        "notification_id": n.pk,
+        "notification_type": notif_type,
+        "title": title,
+        "message": body,
+    }
+
+
+def force_quest_progress(user, *, delta: int = 10) -> dict[str, Any]:
+    """Ensure an active quest, bump ``current_progress`` by ``delta``, return shape.
+
+    Drives ``QuestProgressToastStack``: the hook polls ``getActiveQuest()``
+    and emits a toast on any ``current_progress`` delta.
+    """
+    from apps.quests.models import Quest, QuestDefinition
+    from apps.quests.services import QuestService
+
+    if delta <= 0:
+        raise OperationError("delta must be positive.")
+
+    quest = (
+        Quest.objects
+        .filter(participants__user=user, status=Quest.Status.ACTIVE)
+        .select_related("definition")
+        .first()
+    )
+
+    if quest is None:
+        # Pick the first eligible system definition: no required badge,
+        # no pre-existing active quest of this user (already true since
+        # the user has no active quest), prefer system-curated.
+        definition = (
+            QuestDefinition.objects
+            .filter(required_badge__isnull=True)
+            .order_by("-is_system", "name")
+            .first()
+        )
+        if definition is None:
+            raise OperationError(
+                "No eligible QuestDefinition (one with no required badge) — "
+                "seed quests with `loadrpgcontent` first."
+            )
+        try:
+            quest = QuestService.start_quest(user, definition.pk)
+        except ValueError as e:
+            raise OperationError(str(e)) from e
+
+    target = quest.definition.target_value
+    new_progress = min(target, quest.current_progress + delta)
+    quest.current_progress = new_progress
+    quest.save(update_fields=["current_progress", "updated_at"])
+
+    percent = round((new_progress / target) * 100, 1) if target else 0.0
+    return {
+        "quest_id": quest.pk,
+        "definition_name": quest.definition.name,
+        "current_progress": new_progress,
+        "target_value": target,
+        "progress_percent": percent,
+        "delta": delta,
+    }
+
+
+def mark_daily_challenge_ready(user) -> dict[str, Any]:
+    """Force today's ``DailyChallenge`` into the ready-to-claim state."""
+    from apps.quests.services import DailyChallengeService
+
+    challenge = DailyChallengeService.get_or_create_today(user)
+    challenge.current_progress = challenge.target_value
+    if challenge.completed_at is None:
+        challenge.completed_at = timezone.now()
+    challenge.save(update_fields=[
+        "current_progress", "completed_at", "updated_at",
+    ])
+    return {
+        "challenge_id": challenge.pk,
+        "kind": challenge.challenge_type,
+        "current_progress": challenge.current_progress,
+        "target_value": challenge.target_value,
+        "coin_reward": challenge.coin_reward,
+        "xp_reward": challenge.xp_reward,
+        "ready": True,
+    }
+
+
+def set_pet_growth(user, *, pet_id: int, growth: int = 99) -> dict[str, Any]:
+    """Direct-assign ``UserPet.growth_points`` (bypasses the consumable cap)."""
+    from apps.pets.models import UserPet
+
+    if not 0 <= growth <= 99:
+        raise OperationError(
+            "growth must be between 0 and 99 (use 99 for near-evolution). "
+            "Trip 100 by feeding to fire the evolve ceremony."
+        )
+
+    try:
+        pet = UserPet.objects.get(pk=pet_id, user=user)
+    except UserPet.DoesNotExist as e:
+        raise OperationError("Pet not found in this user's stable.") from e
+    if pet.evolved_to_mount:
+        raise OperationError(
+            "Pet has already evolved; pick an unevolved one."
+        )
+
+    pet.growth_points = growth
+    pet.save(update_fields=["growth_points", "updated_at"])
+    return {
+        "pet_id": pet.pk,
+        "species_name": pet.species.name,
+        "growth_points": growth,
+    }
+
+
+def grant_hatch_ingredients(
+    user, *, species_slug: str, potion_slug: str,
+) -> dict[str, Any]:
+    """Drop one matching egg + one matching potion into ``UserInventory``."""
+    from apps.pets.models import PetSpecies, PotionType
+    from apps.rpg.models import ItemDefinition, UserInventory
+
+    try:
+        species = PetSpecies.objects.get(slug=species_slug)
+    except PetSpecies.DoesNotExist as e:
+        raise OperationError(
+            f"No PetSpecies with slug={species_slug!r}."
+        ) from e
+    try:
+        potion = PotionType.objects.get(slug=potion_slug)
+    except PotionType.DoesNotExist as e:
+        raise OperationError(
+            f"No PotionType with slug={potion_slug!r}."
+        ) from e
+
+    # Verify combo if species has narrowed its potions; an empty
+    # available_potions relation = all potions OK.
+    available = list(species.available_potions.values_list("pk", flat=True))
+    if available and potion.pk not in available:
+        raise OperationError(
+            f"{species.name} cannot hatch from {potion.name} — "
+            "species restricts available potions."
+        )
+
+    egg = ItemDefinition.objects.filter(
+        item_type=ItemDefinition.ItemType.EGG, pet_species=species,
+    ).first()
+    if egg is None:
+        raise OperationError(
+            f"No EGG ItemDefinition wired to species={species_slug!r}. "
+            "Run `loadrpgcontent` to author it."
+        )
+    potion_item = ItemDefinition.objects.filter(
+        item_type=ItemDefinition.ItemType.POTION, potion_type=potion,
+    ).first()
+    if potion_item is None:
+        raise OperationError(
+            f"No POTION ItemDefinition wired to potion={potion_slug!r}. "
+            "Run `loadrpgcontent` to author it."
+        )
+
+    for item in (egg, potion_item):
+        inv, created = UserInventory.objects.get_or_create(
+            user=user, item=item, defaults={"quantity": 1},
+        )
+        if not created:
+            UserInventory.objects.filter(pk=inv.pk).update(
+                quantity=F("quantity") + 1,
+            )
+
+    return {
+        "egg": {"id": egg.pk, "slug": egg.slug, "name": egg.name},
+        "potion": {"id": potion_item.pk, "slug": potion_item.slug, "name": potion_item.name},
+    }
+
+
+def clear_mount_breed_cooldowns(
+    user, *, mount_id: int | None = None,
+) -> dict[str, Any]:
+    """Set ``last_bred_at = None`` on one mount or all of the user's mounts."""
+    from apps.pets.models import UserMount
+
+    qs = UserMount.objects.filter(user=user)
+    if mount_id is not None:
+        qs = qs.filter(pk=mount_id)
+        if not qs.exists():
+            raise OperationError("Mount not found in this user's stable.")
+
+    count = qs.update(last_bred_at=None)
+    return {"user": user.username, "mounts_reset": count}
+
+
+def seed_companion_growth(
+    user, *, ticks: int = 3, force_evolve: bool = False,
+) -> dict[str, Any]:
+    """Append ``ticks`` synthesized growth events to ``pending_companion_growth``."""
+    from apps.pets.models import PetSpecies, UserPet
+    from apps.rpg.models import CharacterProfile
+
+    if not 1 <= ticks <= 10:
+        raise OperationError("ticks must be between 1 and 10.")
+
+    profile, _ = CharacterProfile.objects.get_or_create(user=user)
+
+    # Prefer a real companion pet the user already has; fall back to
+    # constructing a plausible entry from the seeded companion species.
+    pet = (
+        UserPet.objects
+        .filter(user=user, species__slug="companion", evolved_to_mount=False)
+        .select_related("species", "potion")
+        .first()
+    )
+    species = pet.species if pet else (
+        PetSpecies.objects.filter(slug="companion").first()
+    )
+    if species is None:
+        raise OperationError(
+            "No companion-species seed found — run `loadrpgcontent` first."
+        )
+
+    queue = list(profile.pending_companion_growth or [])
+    has_evolve_event = False
+    for idx in range(ticks):
+        new_growth = (
+            min(100, (pet.growth_points if pet else 0) + 5 * (idx + 1))
+        )
+        is_last = idx == ticks - 1
+        evolved = bool(force_evolve and is_last)
+        if evolved:
+            new_growth = 100
+            has_evolve_event = True
+        entry = {
+            "pet_id": pet.pk if pet else None,
+            "growth_added": 5,
+            "new_growth": new_growth,
+            "evolved": evolved,
+            "mount_id": None,
+            "species_name": species.name,
+            "species_slug": species.slug,
+            "sprite_key": species.sprite_key,
+            "potion_slug": (pet.potion.slug if pet else None),
+            "source": "dev_tools",
+        }
+        queue.append(entry)
+
+    profile.pending_companion_growth = queue
+    profile.save(update_fields=["pending_companion_growth"])
+
+    return {
+        "user": user.username,
+        "events_seeded": ticks,
+        "has_evolve_event": has_evolve_event,
+        "queue_length": len(queue),
+    }
+
+
+def mark_expedition_ready(
+    user, *, mount_id: int | None = None, tier: str = "standard",
+) -> dict[str, Any]:
+    """Start an expedition for the user's mount and backdate so it reads ready."""
+    from datetime import timedelta as _td
+
+    from apps.pets.expeditions import (
+        TIER_CONFIG, ExpeditionError, ExpeditionService,
+    )
+    from apps.pets.models import MountExpedition, UserMount
+
+    if tier not in TIER_CONFIG:
+        raise OperationError(
+            f"Unknown tier={tier!r}. Use one of {sorted(TIER_CONFIG)}."
+        )
+
+    if mount_id is None:
+        mount = (
+            UserMount.objects
+            .filter(user=user)
+            .exclude(
+                expeditions__status=MountExpedition.Status.ACTIVE,
+            )
+            .order_by("-is_active", "pk")
+            .first()
+        )
+        if mount is None:
+            raise OperationError(
+                "User has no free mount available — evolve a pet first "
+                "or pass an explicit mount_id."
+            )
+        mount_id = mount.pk
+
+    try:
+        expedition = ExpeditionService.start(user, mount_id, tier)
+    except ExpeditionError as e:
+        raise OperationError(str(e)) from e
+
+    config = TIER_CONFIG[tier]
+    backdate = timezone.now() - _td(minutes=config["duration_minutes"]) - _td(seconds=1)
+    expedition.started_at = backdate
+    expedition.returns_at = backdate + _td(minutes=config["duration_minutes"])
+    expedition.save(update_fields=["started_at", "returns_at", "updated_at"])
+
+    loot = expedition.loot or {}
+    return {
+        "expedition_id": expedition.pk,
+        "mount_id": expedition.mount_id,
+        "species_name": expedition.mount.species.name,
+        "tier": tier,
+        "ready_at": expedition.returns_at.isoformat(),
+        "coins": loot.get("coins"),
+        "item_count": len(loot.get("items") or []),
+    }

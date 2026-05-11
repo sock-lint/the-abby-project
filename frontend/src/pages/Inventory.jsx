@@ -172,6 +172,11 @@ export default function Inventory() {
     // spine a null progressPct. TomeSpine renders a thin hairline instead.
     progressPct: null,
     tier: PROGRESS_TIER.nascent,
+    // Vessel variant — labeled apothecary drawer with horizontal text and
+    // a count-forward chip. Reads as "items in a jar" instead of the
+    // codex variant's "book of pages," which the Skills / Badges shelves
+    // use.
+    variant: 'vessel',
     ariaLabel: `${compartment.label}, ${grouped[compartment.id].length} item${grouped[compartment.id].length === 1 ? '' : 's'}`,
   }));
 

@@ -321,6 +321,8 @@ export const handlers = [
   http.get('*/api/dev/children/', empty),
   http.get('*/api/dev/rewards/', empty),
   http.get('*/api/dev/items/', empty),
+  http.get('*/api/dev/pet-species/', empty),
+  http.get('*/api/dev/potion-types/', empty),
   http.get('*/api/dev/checklist/', () => HttpResponse.json({ markdown: '' })),
 
   // Sprites

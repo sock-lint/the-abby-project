@@ -264,3 +264,162 @@ class HappyPathTests(APITestCase):
         self.assertEqual(r.status_code, 200)
         slugs = {row["slug"] for row in r.data}
         self.assertIn("happy-item", slugs)
+
+
+@override_settings(DEV_TOOLS_ENABLED=True, DEBUG=False)
+class ToastCeremonyEndpointTests(APITestCase):
+    """HTTP wiring for the 8 toast & ceremony ops + the 2 new selectors.
+
+    Operation behavior is covered in ``test_operations.py``; these pin the
+    URL → view → serializer round trip and the new ``ChildSelectView``
+    nested-data shape.
+    """
+
+    def setUp(self):
+        fam = make_family(
+            parents=[{"username": "p", "is_staff": True}],
+            children=[{"username": "abby"}],
+        )
+        self.parent = fam.parents[0]
+        self.child = fam.children[0]
+        _login(self.client, self.parent)
+
+    def test_children_response_carries_pets_and_mounts(self):
+        from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
+
+        species = PetSpecies.objects.create(slug="fox", name="Fox", icon="🦊")
+        potion_a = PotionType.objects.create(slug="ember", name="Ember")
+        potion_b = PotionType.objects.create(slug="frost", name="Frost")
+        UserPet.objects.create(
+            user=self.child, species=species, potion=potion_a,
+            growth_points=42,
+        )
+        UserMount.objects.create(
+            user=self.child, species=species, potion=potion_b,
+        )
+
+        r = self.client.get("/api/dev/children/")
+        self.assertEqual(r.status_code, 200)
+        kid = next(c for c in r.data if c["username"] == "abby")
+        self.assertEqual(len(kid["pets"]), 1)
+        self.assertEqual(kid["pets"][0]["growth_points"], 42)
+        self.assertEqual(len(kid["mounts"]), 1)
+        self.assertFalse(kid["mounts"][0]["has_active_expedition"])
+
+    def test_pet_species_selector_returns_seeded_rows(self):
+        from apps.pets.models import PetSpecies
+
+        PetSpecies.objects.create(slug="fox", name="Fox", icon="🦊")
+        r = self.client.get("/api/dev/pet-species/")
+        self.assertEqual(r.status_code, 200)
+        slugs = {row["slug"] for row in r.data}
+        self.assertIn("fox", slugs)
+
+    def test_potion_types_selector_returns_seeded_rows(self):
+        from apps.pets.models import PotionType
+
+        PotionType.objects.create(slug="ember", name="Ember")
+        r = self.client.get("/api/dev/potion-types/")
+        self.assertEqual(r.status_code, 200)
+        slugs = {row["slug"] for row in r.data}
+        self.assertIn("ember", slugs)
+
+    def test_force_approval_notification_returns_type(self):
+        r = self.client.post("/api/dev/force-approval-notification/", {
+            "user_id": self.child.id,
+            "flow": "chore",
+            "outcome": "approved",
+        }, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(r.data["notification_type"], "chore_approved")
+
+    def test_force_quest_progress_400s_when_no_definition(self):
+        r = self.client.post("/api/dev/force-quest-progress/", {
+            "user_id": self.child.id, "delta": 10,
+        }, format="json")
+        self.assertEqual(r.status_code, 400)
+
+    def test_force_quest_progress_happy_path(self):
+        from apps.quests.models import QuestDefinition
+
+        QuestDefinition.objects.create(
+            name="Test", description="t", icon="⚔️",
+            quest_type=QuestDefinition.QuestType.BOSS,
+            target_value=100, duration_days=7,
+            is_system=True,
+        )
+        r = self.client.post("/api/dev/force-quest-progress/", {
+            "user_id": self.child.id, "delta": 15,
+        }, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(r.data["current_progress"], 15)
+
+    def test_mark_daily_challenge_ready(self):
+        r = self.client.post("/api/dev/mark-daily-challenge-ready/", {
+            "user_id": self.child.id,
+        }, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertTrue(r.data["ready"])
+        self.assertEqual(r.data["current_progress"], r.data["target_value"])
+
+    def test_set_pet_growth_happy_path(self):
+        from apps.pets.models import PetSpecies, PotionType, UserPet
+
+        species = PetSpecies.objects.create(slug="fox", name="Fox", icon="🦊")
+        potion = PotionType.objects.create(slug="ember", name="Ember")
+        pet = UserPet.objects.create(
+            user=self.child, species=species, potion=potion,
+        )
+        r = self.client.post("/api/dev/set-pet-growth/", {
+            "user_id": self.child.id, "pet_id": pet.pk, "growth": 99,
+        }, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(r.data["growth_points"], 99)
+
+    def test_grant_hatch_ingredients_400s_on_missing_slug(self):
+        r = self.client.post("/api/dev/grant-hatch-ingredients/", {
+            "user_id": self.child.id,
+            "species_slug": "nope",
+            "potion_slug": "nope",
+        }, format="json")
+        self.assertEqual(r.status_code, 400)
+
+    def test_clear_breed_cooldowns_returns_count(self):
+        from apps.pets.models import PetSpecies, PotionType, UserMount
+
+        species = PetSpecies.objects.create(slug="fox", name="Fox", icon="🦊")
+        potion = PotionType.objects.create(slug="ember", name="Ember")
+        UserMount.objects.create(
+            user=self.child, species=species, potion=potion,
+        )
+        r = self.client.post("/api/dev/clear-breed-cooldowns/", {
+            "user_id": self.child.id,
+        }, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(r.data["mounts_reset"], 1)
+
+    def test_seed_companion_growth_requires_species_seed(self):
+        # No PetSpecies(slug=companion) → 400
+        r = self.client.post("/api/dev/seed-companion-growth/", {
+            "user_id": self.child.id, "ticks": 2,
+        }, format="json")
+        self.assertEqual(r.status_code, 400)
+
+    def test_mark_expedition_ready_no_mount_400s(self):
+        r = self.client.post("/api/dev/mark-expedition-ready/", {
+            "user_id": self.child.id, "tier": "standard",
+        }, format="json")
+        self.assertEqual(r.status_code, 400)
+
+    def test_cross_family_force_approval_404s(self):
+        other = make_family(
+            name="other",
+            parents=[{"username": "po", "is_staff": True}],
+            children=[{"username": "otherkid"}],
+        )
+        r = self.client.post("/api/dev/force-approval-notification/", {
+            "user_id": other.children[0].id,
+            "flow": "chore",
+            "outcome": "approved",
+        }, format="json")
+        self.assertEqual(r.status_code, 404)

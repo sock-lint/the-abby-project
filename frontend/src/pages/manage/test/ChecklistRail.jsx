@@ -1,12 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ScrollText, Eraser } from 'lucide-react';
 import ParchmentCard from '../../../components/journal/ParchmentCard';
 import Button from '../../../components/Button';
 import Loader from '../../../components/Loader';
 import { devToolsChecklist } from '../../../api';
 import { useApi } from '../../../hooks/useApi';
-
-const STORAGE_KEY = 'manage:test:checklist:v1';
+import { useChecklist } from './useChecklist';
 
 /**
  * Parses docs/manual-testing.md into row entries we can check off.
@@ -15,7 +14,16 @@ const STORAGE_KEY = 'manage:test:checklist:v1';
  * table body becomes a checklist item. The first cell is the surface
  * label; we keep the rest as supporting text in the title attribute so
  * a hover reveals the precondition + how-to-trigger + verify columns.
+ *
+ * When a row's first cell carries an HTML id annotation
+ * (``<!-- id:slug -->``), we use that slug as the row id. This is what
+ * lets each ``DevToolCard`` in TestSection auto-check its linked row
+ * via ``checklistId``. Rows without an annotation fall back to a
+ * computed id (section + label) so the file can be annotated
+ * incrementally without breaking existing rows.
  */
+const ID_ANNOTATION_RE = /<!--\s*id:([a-z0-9-]+)\s*-->/i;
+
 function parseChecklist(markdown) {
   if (!markdown) return [];
   const lines = markdown.split(/\r?\n/);
@@ -55,37 +63,27 @@ function parseChecklist(markdown) {
       .split('|')
       .map((c) => c.trim());
     if (cells.length === 0 || !cells[0]) continue;
-    const id = `${currentSection}::${cells[0]}::${cells.length}`.slice(0, 200);
+
+    const firstCell = cells[0];
+    const idMatch = ID_ANNOTATION_RE.exec(firstCell);
+    const stableId = idMatch ? idMatch[1] : null;
+    const label = firstCell.replace(ID_ANNOTATION_RE, '').trim();
+    if (!label) continue;
+    const id = stableId
+      || `${currentSection}::${label}::${cells.length}`.slice(0, 200);
     out.push({
       id,
       section: currentSection,
-      label: cells[0],
+      label,
       meta: cells.slice(1).filter(Boolean).join(' · '),
     });
   }
   return out;
 }
 
-function loadChecks() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function saveChecks(set) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
-  } catch {
-    /* quota exceeded — silent */
-  }
-}
-
 export default function ChecklistRail() {
   const { data, loading } = useApi(devToolsChecklist);
-  const [checked, setChecked] = useState(() => loadChecks());
+  const { checked, toggle, clear } = useChecklist();
 
   const markdown = data?.markdown || '';
   const items = useMemo(() => parseChecklist(markdown), [markdown]);
@@ -97,18 +95,6 @@ export default function ChecklistRail() {
     }
     return [...map.entries()];
   }, [items]);
-
-  const toggle = (id) => {
-    const next = new Set(checked);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    setChecked(next);
-    saveChecks(next);
-  };
-
-  const clearAll = () => {
-    setChecked(new Set());
-    saveChecks(new Set());
-  };
 
   const total = items.length;
   const done = items.filter((i) => checked.has(i.id)).length;
@@ -145,6 +131,7 @@ export default function ChecklistRail() {
                       checked={checked.has(row.id)}
                       onChange={() => toggle(row.id)}
                       aria-label={`${row.section} — ${row.label}`}
+                      data-row-id={row.id}
                       className="mt-0.5 cursor-pointer accent-sheikah-teal-deep"
                     />
                     <span
@@ -170,7 +157,7 @@ export default function ChecklistRail() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={clearAll}
+            onClick={clear}
             className="flex items-center gap-1"
           >
             <Eraser size={12} /> Clear

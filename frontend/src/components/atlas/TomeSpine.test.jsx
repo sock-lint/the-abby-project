@@ -118,6 +118,34 @@ describe('TomeSpine', () => {
     expect(screen.getByText('L4')).toBeInTheDocument();
   });
 
+  it('defaults to the codex variant', () => {
+    const { container } = renderWithProviders(
+      <TomeSpine id={7} name="Woodworking" icon="🪵" active={false} onClick={() => {}} />,
+    );
+    expect(container.querySelector('[data-spine-variant="codex"]')).not.toBeNull();
+    // Codex bodies have NO drawer-pull element.
+    expect(container.querySelector('[data-vessel-pull="true"]')).toBeNull();
+  });
+
+  it('renders a vessel-variant body when variant="vessel"', () => {
+    const { container } = renderWithProviders(
+      <TomeSpine
+        id="potion"
+        name="Potions"
+        icon="🧪"
+        variant="vessel"
+        chip="×42"
+        active
+        onClick={() => {}}
+      />,
+    );
+    expect(container.querySelector('[data-spine-variant="vessel"]')).not.toBeNull();
+    // Vessel bodies expose the drawer-pull at the head.
+    expect(container.querySelector('[data-vessel-pull="true"]')).not.toBeNull();
+    // The vessel chip ('×42') is the count badge.
+    expect(container.querySelector('[data-vessel-pull="true"]')).not.toBeNull();
+  });
+
   it('keeps the chip grouped with the foot band inside the flex tree so a long title can never overlap it', () => {
     // Collision-proof layout pin: the chip + band share a parent `<span>`
     // that sits AFTER the vertical title in DOM order. If a future refactor

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import Portfolio from './Portfolio.jsx';
 import { server } from '../test/server.js';
@@ -10,6 +10,12 @@ import { setToken } from '../api/client.js';
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
   return { ...a, AnimatePresence: ({ children }) => children };
+});
+
+beforeEach(() => {
+  // jsdom doesn't implement scrollIntoView — the Sketchbook filter shelf
+  // calls it whenever the active filter changes.
+  Element.prototype.scrollIntoView = vi.fn();
 });
 
 function mockAuth(user) {

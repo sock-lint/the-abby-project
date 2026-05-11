@@ -6,10 +6,14 @@ import ErrorAlert from '../../components/ErrorAlert';
 import Loader from '../../components/Loader';
 import RuneBadge from '../../components/journal/RuneBadge';
 import { SelectField } from '../../components/form';
+import TomeShelf from '../../components/atlas/TomeShelf';
+import { chapterMark, PROGRESS_TIER } from '../../components/atlas/mastery.constants';
 import { useRole } from '../../hooks/useRole';
 import { getChildren, getChronicleSummary, getTodayJournal } from '../../api';
 import { normalizeList } from '../../utils/api';
 import JournalEntryFormModal from '../yearbook/JournalEntryFormModal';
+
+const ACTIVE_CHAPTER_KEY_PREFIX = 'atlas:journal:active-chapter:';
 
 /**
  * JournalReader — Chronicle's middle tab. A continuous-reading view of the
@@ -45,6 +49,10 @@ export default function JournalReader() {
   const [chapters, setChapters] = useState(null);
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  // Per-(target child) override for the active chapter-year tome. Effective
+  // active id is derived during render so the shelf self-heals when the
+  // chapter list shifts beneath us.
+  const [activeChapterOverride, setActiveChapterOverride] = useState({});
 
   // Parent path: load child list, default-select the first.
   useEffect(() => {
@@ -103,13 +111,82 @@ export default function JournalReader() {
     };
   }, [targetUserId, isParent, reloadKey]);
 
-  const entries = useMemo(() => {
+  // Group journal entries by chapter year — preserves the year for the
+  // shelf-of-tomes UX so kids can flip between Sophomore Year / Freshman
+  // Year / Grade 8, mirroring how the Yearbook tab shows the same chapters.
+  // Sorted chronologically (oldest → newest) so §I → §N reads left-to-right.
+  const journalChapters = useMemo(() => {
     if (!chapters) return null;
-    return chapters
-      .flatMap((c) => c.entries ?? [])
-      .filter((e) => e.kind === 'journal')
-      .sort((a, b) => (b.occurred_on || '').localeCompare(a.occurred_on || ''));
+    const buckets = chapters
+      .map((c) => ({
+        chapter_year: c.chapter_year,
+        label: c.label || `Chapter ${c.chapter_year}`,
+        is_current: !!c.is_current,
+        entries: (c.entries ?? [])
+          .filter((e) => e.kind === 'journal')
+          .sort((a, b) => (b.occurred_on || '').localeCompare(a.occurred_on || '')),
+      }))
+      .filter((c) => c.entries.length > 0)
+      .sort((a, b) => a.chapter_year - b.chapter_year);
+    return buckets;
   }, [chapters]);
+
+  const activeChapterId = useMemo(() => {
+    if (!journalChapters || !journalChapters.length || !targetUserId) return null;
+    const override = activeChapterOverride[targetUserId];
+    if (override && journalChapters.some((c) => String(c.chapter_year) === override)) {
+      return override;
+    }
+    let stored = null;
+    try {
+      stored = window.localStorage?.getItem(
+        `${ACTIVE_CHAPTER_KEY_PREFIX}${targetUserId}`,
+      );
+    } catch {
+      stored = null;
+    }
+    if (stored && journalChapters.some((c) => String(c.chapter_year) === stored)) {
+      return stored;
+    }
+    const current = journalChapters.find((c) => c.is_current);
+    return current
+      ? String(current.chapter_year)
+      : String(journalChapters[journalChapters.length - 1].chapter_year);
+  }, [journalChapters, targetUserId, activeChapterOverride]);
+
+  const setActiveChapterId = (id) => {
+    if (!targetUserId) return;
+    setActiveChapterOverride((prev) => ({ ...prev, [targetUserId]: id }));
+    try {
+      window.localStorage?.setItem(`${ACTIVE_CHAPTER_KEY_PREFIX}${targetUserId}`, id);
+    } catch {
+      // ignore quota / disabled storage
+    }
+  };
+
+  const activeChapter = useMemo(() => {
+    if (!journalChapters) return null;
+    return (
+      journalChapters.find((c) => String(c.chapter_year) === activeChapterId)
+      || journalChapters[journalChapters.length - 1]
+      || null
+    );
+  }, [journalChapters, activeChapterId]);
+
+  const shelfItems = useMemo(() => {
+    if (!journalChapters) return [];
+    return journalChapters.map((chapter, idx) => ({
+      id: String(chapter.chapter_year),
+      name: chapter.label,
+      icon: chapterMark(idx),
+      chip: `×${chapter.entries.length}`,
+      // A chapter year isn't a "completion" concept, so the foot band stays
+      // a thin hairline. Tier just colors the band (rising for current).
+      progressPct: null,
+      tier: chapter.is_current ? PROGRESS_TIER.rising : PROGRESS_TIER.nascent,
+      ariaLabel: `${chapter.label}, ${chapter.entries.length} journal entr${chapter.entries.length === 1 ? 'y' : 'ies'}`,
+    }));
+  }, [journalChapters]);
 
   const openWriteModal = () => {
     if (todayJournal && todayJournal.id) {
@@ -171,7 +248,11 @@ export default function JournalReader() {
 
       <JournalBody
         error={error}
-        entries={entries}
+        chapters={journalChapters}
+        activeChapter={activeChapter}
+        shelfItems={shelfItems}
+        activeChapterId={activeChapterId}
+        onSelectChapter={setActiveChapterId}
         isParent={isParent}
         kids={children}
         targetUserId={targetUserId}
@@ -189,7 +270,10 @@ export default function JournalReader() {
   );
 }
 
-function JournalBody({ error, entries, isParent, kids, targetUserId }) {
+function JournalBody({
+  error, chapters, activeChapter, shelfItems, activeChapterId, onSelectChapter,
+  isParent, kids, targetUserId,
+}) {
   if (error) {
     return <ErrorAlert message={error?.message || 'Could not load journal entries.'} />;
   }
@@ -207,8 +291,8 @@ function JournalBody({ error, entries, isParent, kids, targetUserId }) {
   // While the parent has selected nothing yet (children loading or auto-
   // selecting), show the loader rather than the empty-entries state.
   if (isParent && !targetUserId) return <Loader />;
-  if (entries === null) return <Loader />;
-  if (entries.length === 0) {
+  if (chapters === null) return <Loader />;
+  if (chapters.length === 0) {
     return (
       <EmptyState>
         <p className="font-semibold mb-1">No entries yet</p>
@@ -219,11 +303,25 @@ function JournalBody({ error, entries, isParent, kids, targetUserId }) {
     );
   }
   return (
-    <ul className="space-y-4">
-      {entries.map((entry) => (
-        <JournalEntryCard key={entry.id} entry={entry} isParent={isParent} />
-      ))}
-    </ul>
+    <div className="space-y-4">
+      {shelfItems.length > 1 && (
+        <TomeShelf
+          items={shelfItems}
+          activeId={activeChapterId}
+          onSelect={onSelectChapter}
+          ariaLabel="Journal chapters"
+        />
+      )}
+      {activeChapter && (
+        <section aria-label={activeChapter.label}>
+          <ul className="space-y-4">
+            {activeChapter.entries.map((entry) => (
+              <JournalEntryCard key={entry.id} entry={entry} isParent={isParent} />
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
   );
 }
 

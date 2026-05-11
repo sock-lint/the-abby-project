@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Play } from 'lucide-react';
+import { Play, CheckCircle2 } from 'lucide-react';
 import ParchmentCard from '../../../components/journal/ParchmentCard';
 import Button from '../../../components/Button';
 import ErrorAlert from '../../../components/ErrorAlert';
+import { useChecklist } from './useChecklist';
 
 /**
  * DevToolCard — uniform card wrapper for every Test-tab tool.
@@ -15,6 +16,12 @@ import ErrorAlert from '../../../components/ErrorAlert';
  * Children should hand back a function via ``buildAction`` that the card
  * calls when the user clicks "Fire". This keeps each card tiny — just
  * its inputs + a closure that maps them onto the api function.
+ *
+ * Pass ``checklistId`` to enable the "Mark verified" flow — after a
+ * successful fire, a small ghost button appears next to the result
+ * that ticks the linked row in ``ChecklistRail``. The id matches the
+ * stable ``<!-- id:slug -->`` annotation on the row in
+ * ``docs/manual-testing.md``.
  */
 export default function DevToolCard({
   title,
@@ -22,11 +29,14 @@ export default function DevToolCard({
   buildAction,
   buttonLabel = 'Fire',
   formatResult = defaultFormat,
+  checklistId,
   children,
 }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const { mark, isChecked } = useChecklist();
+  const alreadyVerified = checklistId ? isChecked(checklistId) : false;
 
   const handleRun = async () => {
     setBusy(true);
@@ -40,6 +50,10 @@ export default function DevToolCard({
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleMarkVerified = () => {
+    if (checklistId) mark(checklistId);
   };
 
   return (
@@ -65,6 +79,22 @@ export default function DevToolCard({
           <span className="text-caption text-moss font-script">
             {formatResult(result)}
           </span>
+        ) : null}
+        {result && checklistId ? (
+          alreadyVerified ? (
+            <span className="text-caption text-ink-secondary font-script italic">
+              marked verified
+            </span>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleMarkVerified}
+              className="flex items-center gap-1"
+            >
+              <CheckCircle2 size={12} /> Mark verified
+            </Button>
+          )
         ) : null}
       </div>
 

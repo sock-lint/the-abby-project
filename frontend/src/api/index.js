@@ -574,6 +574,8 @@ export const devToolsChildren = () => api.get('/dev/children/');
 export const devToolsRewards = () => api.get('/dev/rewards/');
 export const devToolsItems = (rarity) =>
   api.get(`/dev/items/${rarity ? `?rarity=${encodeURIComponent(rarity)}` : ''}`);
+export const devToolsPetSpecies = () => api.get('/dev/pet-species/');
+export const devToolsPotionTypes = () => api.get('/dev/potion-types/');
 export const devToolsChecklist = () => api.get('/dev/checklist/');
 export const devForceDrop = (body) => api.post('/dev/force-drop/', body);
 export const devForceCelebration = (body) => api.post('/dev/force-celebration/', body);
@@ -583,3 +585,19 @@ export const devExpireJournal = (body) => api.post('/dev/expire-journal/', body)
 export const devTickPerfectDay = () => api.post('/dev/tick-perfect-day/', {});
 export const devSetPetHappiness = (body) => api.post('/dev/set-pet-happiness/', body);
 export const devResetDayCounters = (body) => api.post('/dev/reset-day-counters/', body);
+// Toast & ceremony coverage (2026-05-11)
+export const devForceApprovalNotification = (body) =>
+  api.post('/dev/force-approval-notification/', body);
+export const devForceQuestProgress = (body) =>
+  api.post('/dev/force-quest-progress/', body);
+export const devMarkDailyChallengeReady = (body) =>
+  api.post('/dev/mark-daily-challenge-ready/', body);
+export const devSetPetGrowth = (body) => api.post('/dev/set-pet-growth/', body);
+export const devGrantHatchIngredients = (body) =>
+  api.post('/dev/grant-hatch-ingredients/', body);
+export const devClearBreedCooldowns = (body) =>
+  api.post('/dev/clear-breed-cooldowns/', body);
+export const devSeedCompanionGrowth = (body) =>
+  api.post('/dev/seed-companion-growth/', body);
+export const devMarkExpeditionReady = (body) =>
+  api.post('/dev/mark-expedition-ready/', body);

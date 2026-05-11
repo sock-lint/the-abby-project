@@ -21,16 +21,18 @@ import Button from '../components/Button';
 import IconButton from '../components/IconButton';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { TextField, SelectField } from '../components/form';
+import TomeShelf from '../components/atlas/TomeShelf';
+import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
 import { downscaleImage } from '../utils/image';
 import { formatMonth } from '../utils/format';
 import { normalizeList } from '../utils/api';
 
 const FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'projects', label: 'Projects' },
-  { key: 'homework', label: 'Homework' },
-  { key: 'creations', label: 'Creations' },
-  { key: 'timelapses', label: 'Timelapses' },
+  { key: 'all',        label: 'All',        icon: '📚' },
+  { key: 'projects',   label: 'Projects',   icon: '🛠' },
+  { key: 'homework',   label: 'Homework',   icon: '✏️' },
+  { key: 'creations',  label: 'Creations',  icon: '🎨' },
+  { key: 'timelapses', label: 'Timelapses', icon: '🎬' },
 ];
 
 export default function Portfolio() {
@@ -250,30 +252,26 @@ export default function Portfolio() {
 
       {hasContent && (
         <div className="space-y-2">
-          <div
-            role="tablist"
-            aria-label="Filter Sketchbook"
-            className="flex flex-wrap gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow"
-          >
-            {FILTERS.map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                aria-selected={filter === key}
-                onClick={() => setFilter(key)}
-                disabled={counts[key] === 0}
-                className={`flex-1 min-w-[5rem] px-3 py-1.5 rounded-md font-display text-sm transition-colors disabled:opacity-40 ${
-                  filter === key
-                    ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
-                    : 'text-ink-secondary hover:text-ink-primary'
-                }`}
-              >
-                {label}{' '}
-                <span className="opacity-70">({counts[key]})</span>
-              </button>
-            ))}
-          </div>
+          <TomeShelf
+            ariaLabel="Filter Sketchbook"
+            activeId={filter}
+            onSelect={setFilter}
+            items={FILTERS
+              // Drop empty drawers except "All" (which always shows when
+              // there is any content at all). Matches Inventory's pattern of
+              // hiding empty compartments — keeps the shelf scannable.
+              .filter(({ key }) => key === 'all' || counts[key] > 0)
+              .map(({ key, label, icon }) => ({
+                id: key,
+                name: label,
+                icon,
+                chip: `×${counts[key]}`,
+                progressPct: null,
+                tier: PROGRESS_TIER.nascent,
+                variant: 'vessel',
+                ariaLabel: `${label}, ${counts[key]} item${counts[key] === 1 ? '' : 's'}`,
+              }))}
+          />
           <div
             className="flex gap-2 text-xs font-script text-ink-whisper items-center justify-end"
             role="group"

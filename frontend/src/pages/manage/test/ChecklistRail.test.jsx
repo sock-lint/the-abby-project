@@ -3,7 +3,19 @@ import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ChecklistRail from './ChecklistRail.jsx';
+import { ChecklistProvider } from './ChecklistContext.jsx';
 import { server } from '../../../test/server.js';
+
+// ChecklistRail consumes the provider context for check-state. Each
+// test mounts it inside one so click + persistence behave the way they
+// do inside TestSection.
+function renderRail() {
+  return render(
+    <ChecklistProvider>
+      <ChecklistRail />
+    </ChecklistProvider>,
+  );
+}
 
 const FIXTURE_MD = `# Manual Testing — Random & Conditional UI Checklist
 
@@ -32,7 +44,7 @@ describe('ChecklistRail', () => {
     server.use(
       http.get('*/api/dev/checklist/', () => HttpResponse.json({ markdown: FIXTURE_MD })),
     );
-    render(<ChecklistRail />);
+    renderRail();
 
     expect(await screen.findByText('A. Celebration overlays / modals')).toBeInTheDocument();
     expect(screen.getByText('B. Toast stacks')).toBeInTheDocument();
@@ -49,7 +61,11 @@ describe('ChecklistRail', () => {
       http.get('*/api/dev/checklist/', () => HttpResponse.json({ markdown: FIXTURE_MD })),
     );
     const user = userEvent.setup();
-    const { unmount } = render(<ChecklistRail />);
+    const { unmount } = render(
+      <ChecklistProvider>
+        <ChecklistRail />
+      </ChecklistProvider>,
+    );
 
     await screen.findByText(/CelebrationModal \(streak milestone\)/);
     const firstCheckbox = screen.getAllByRole('checkbox')[0];
@@ -61,7 +77,7 @@ describe('ChecklistRail', () => {
 
     unmount();
 
-    render(<ChecklistRail />);
+    renderRail();
     await waitFor(() => {
       expect(screen.getByText(/1 \/ 3/)).toBeInTheDocument();
     });
@@ -74,7 +90,7 @@ describe('ChecklistRail', () => {
       http.get('*/api/dev/checklist/', () => HttpResponse.json({ markdown: FIXTURE_MD })),
     );
     const user = userEvent.setup();
-    render(<ChecklistRail />);
+    renderRail();
 
     await screen.findByText(/CelebrationModal \(streak milestone\)/);
     const checkboxes = screen.getAllByRole('checkbox');
@@ -95,7 +111,7 @@ describe('ChecklistRail', () => {
     server.use(
       http.get('*/api/dev/checklist/', () => HttpResponse.json({ markdown: '' })),
     );
-    render(<ChecklistRail />);
+    renderRail();
     await waitFor(() => {
       expect(screen.getByText(/empty or not bundled/i)).toBeInTheDocument();
     });

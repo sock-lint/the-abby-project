@@ -17,6 +17,7 @@ decide whether to render itself.
 """
 from __future__ import annotations
 
+from django.db import models
 from rest_framework import permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -52,20 +53,114 @@ class PingView(APIView):
 
 
 class ChildSelectView(APIView):
-    """``GET /api/dev/children/`` — children in caller's family (id + label)."""
+    """``GET /api/dev/children/`` — children in caller's family with nested pets + mounts."""
 
     permission_classes = [permissions.IsAuthenticated, IsDevToolsEnabled]
 
     def get(self, request):
         from apps.families.queries import children_in
+        from apps.pets.models import MountExpedition, UserMount, UserPet
 
-        items = [
-            {
+        children = list(
+            children_in(request.user.family)
+            .prefetch_related(
+                # Both prefetches scoped to non-evolved pets and to mounts;
+                # one extra query per side covers every kid in the family.
+                models.Prefetch(
+                    "pets",
+                    queryset=UserPet.objects.select_related("species", "potion")
+                    .filter(evolved_to_mount=False),
+                    to_attr="_dev_pets",
+                ),
+                models.Prefetch(
+                    "mounts",
+                    queryset=UserMount.objects.select_related("species", "potion"),
+                    to_attr="_dev_mounts",
+                ),
+            )
+        )
+
+        # Active expeditions, batched per mount so we don't N+1 across kids.
+        mount_ids = [m.pk for c in children for m in getattr(c, "_dev_mounts", [])]
+        active_mounts = set(
+            MountExpedition.objects
+            .filter(mount_id__in=mount_ids, status=MountExpedition.Status.ACTIVE)
+            .values_list("mount_id", flat=True)
+        )
+
+        items = []
+        for c in children:
+            pets = [
+                {
+                    "id": p.pk,
+                    "name": p.name or f"{p.species.name}",
+                    "species_name": p.species.name,
+                    "species_slug": p.species.slug,
+                    "potion_name": p.potion.name,
+                    "growth_points": p.growth_points,
+                    "evolved": p.evolved_to_mount,
+                }
+                for p in getattr(c, "_dev_pets", [])
+            ]
+            mounts = [
+                {
+                    "id": m.pk,
+                    "species_name": m.species.name,
+                    "species_slug": m.species.slug,
+                    "potion_name": m.potion.name,
+                    "last_bred_at": (
+                        m.last_bred_at.isoformat() if m.last_bred_at else None
+                    ),
+                    "has_active_expedition": m.pk in active_mounts,
+                }
+                for m in getattr(c, "_dev_mounts", [])
+            ]
+            items.append({
                 "id": c.id,
                 "username": c.username,
                 "display_label": getattr(c, "display_label", c.username),
+                "pets": pets,
+                "mounts": mounts,
+            })
+        return Response(items)
+
+
+class PetSpeciesSelectView(APIView):
+    """``GET /api/dev/pet-species/`` — global PetSpecies catalog."""
+
+    permission_classes = [permissions.IsAuthenticated, IsDevToolsEnabled]
+
+    def get(self, request):
+        from apps.pets.models import PetSpecies
+
+        items = [
+            {
+                "slug": s.slug,
+                "name": s.name,
+                "icon": s.icon,
+                "sprite_key": s.sprite_key,
             }
-            for c in children_in(request.user.family)
+            for s in PetSpecies.objects.order_by("name") if s.slug
+        ]
+        return Response(items)
+
+
+class PotionTypeSelectView(APIView):
+    """``GET /api/dev/potion-types/`` — global PotionType catalog."""
+
+    permission_classes = [permissions.IsAuthenticated, IsDevToolsEnabled]
+
+    def get(self, request):
+        from apps.pets.models import PotionType
+
+        items = [
+            {
+                "slug": p.slug,
+                "name": p.name,
+                "rarity": p.rarity,
+                "color_hex": p.color_hex,
+            }
+            for p in PotionType.objects.order_by("name") if p.slug
         ]
         return Response(items)
 
@@ -291,6 +386,199 @@ class ResetDayCountersView(_Base):
             return err
         try:
             result = ops.reset_day_counters(target, kind=s.validated_data["kind"])
+        except ops.OperationError as e:
+            return _operation_error(str(e))
+        return Response(result)
+
+
+# --------------------------------------------------------------------------
+# E. Toast & ceremony coverage (added 2026-05-11)
+# --------------------------------------------------------------------------
+
+class _ForceApprovalNotificationSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    flow = serializers.ChoiceField(
+        choices=[
+            "chore", "homework", "creation", "exchange",
+            "chore_proposal", "habit_proposal",
+        ],
+    )
+    outcome = serializers.ChoiceField(choices=["approved", "rejected"])
+    note = serializers.CharField(required=False, allow_blank=True, max_length=400)
+
+
+class ForceApprovalNotificationView(_Base):
+    def post(self, request):
+        s = _ForceApprovalNotificationSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        target, err = _resolve_target(request, s.validated_data["user_id"])
+        if err:
+            return err
+        try:
+            result = ops.force_approval_notification(
+                target,
+                flow=s.validated_data["flow"],
+                outcome=s.validated_data["outcome"],
+                note=s.validated_data.get("note", ""),
+            )
+        except ops.OperationError as e:
+            return _operation_error(str(e))
+        return Response(result)
+
+
+class _ForceQuestProgressSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    delta = serializers.IntegerField(default=10, min_value=1, max_value=1000)
+
+
+class ForceQuestProgressView(_Base):
+    def post(self, request):
+        s = _ForceQuestProgressSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        target, err = _resolve_target(request, s.validated_data["user_id"])
+        if err:
+            return err
+        try:
+            result = ops.force_quest_progress(
+                target, delta=s.validated_data["delta"],
+            )
+        except ops.OperationError as e:
+            return _operation_error(str(e))
+        return Response(result)
+
+
+class _MarkDailyChallengeReadySerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+
+
+class MarkDailyChallengeReadyView(_Base):
+    def post(self, request):
+        s = _MarkDailyChallengeReadySerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        target, err = _resolve_target(request, s.validated_data["user_id"])
+        if err:
+            return err
+        try:
+            result = ops.mark_daily_challenge_ready(target)
+        except ops.OperationError as e:
+            return _operation_error(str(e))
+        return Response(result)
+
+
+class _SetPetGrowthSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    pet_id = serializers.IntegerField()
+    growth = serializers.IntegerField(default=99, min_value=0, max_value=99)
+
+
+class SetPetGrowthView(_Base):
+    def post(self, request):
+        s = _SetPetGrowthSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        target, err = _resolve_target(request, s.validated_data["user_id"])
+        if err:
+            return err
+        try:
+            result = ops.set_pet_growth(
+                target,
+                pet_id=s.validated_data["pet_id"],
+                growth=s.validated_data["growth"],
+            )
+        except ops.OperationError as e:
+            return _operation_error(str(e))
+        return Response(result)
+
+
+class _GrantHatchIngredientsSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    species_slug = serializers.CharField(max_length=60)
+    potion_slug = serializers.CharField(max_length=60)
+
+
+class GrantHatchIngredientsView(_Base):
+    def post(self, request):
+        s = _GrantHatchIngredientsSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        target, err = _resolve_target(request, s.validated_data["user_id"])
+        if err:
+            return err
+        try:
+            result = ops.grant_hatch_ingredients(
+                target,
+                species_slug=s.validated_data["species_slug"],
+                potion_slug=s.validated_data["potion_slug"],
+            )
+        except ops.OperationError as e:
+            return _operation_error(str(e))
+        return Response(result)
+
+
+class _ClearBreedCooldownsSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    mount_id = serializers.IntegerField(required=False, allow_null=True)
+
+
+class ClearBreedCooldownsView(_Base):
+    def post(self, request):
+        s = _ClearBreedCooldownsSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        target, err = _resolve_target(request, s.validated_data["user_id"])
+        if err:
+            return err
+        try:
+            result = ops.clear_mount_breed_cooldowns(
+                target, mount_id=s.validated_data.get("mount_id"),
+            )
+        except ops.OperationError as e:
+            return _operation_error(str(e))
+        return Response(result)
+
+
+class _SeedCompanionGrowthSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    ticks = serializers.IntegerField(default=3, min_value=1, max_value=10)
+    force_evolve = serializers.BooleanField(default=False)
+
+
+class SeedCompanionGrowthView(_Base):
+    def post(self, request):
+        s = _SeedCompanionGrowthSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        target, err = _resolve_target(request, s.validated_data["user_id"])
+        if err:
+            return err
+        try:
+            result = ops.seed_companion_growth(
+                target,
+                ticks=s.validated_data["ticks"],
+                force_evolve=s.validated_data["force_evolve"],
+            )
+        except ops.OperationError as e:
+            return _operation_error(str(e))
+        return Response(result)
+
+
+class _MarkExpeditionReadySerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    mount_id = serializers.IntegerField(required=False, allow_null=True)
+    tier = serializers.ChoiceField(
+        choices=["short", "standard", "long"], default="standard",
+    )
+
+
+class MarkExpeditionReadyView(_Base):
+    def post(self, request):
+        s = _MarkExpeditionReadySerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        target, err = _resolve_target(request, s.validated_data["user_id"])
+        if err:
+            return err
+        try:
+            result = ops.mark_expedition_ready(
+                target,
+                mount_id=s.validated_data.get("mount_id"),
+                tier=s.validated_data["tier"],
+            )
         except ops.OperationError as e:
             return _operation_error(str(e))
         return Response(result)

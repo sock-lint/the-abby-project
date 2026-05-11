@@ -66,6 +66,7 @@ export default function TomeShelf({ items, activeId, onSelect, ariaLabel }) {
             chip={item.chip}
             progressPct={item.progressPct}
             tier={item.tier}
+            variant={item.variant}
             active={activeId === item.id}
             ariaLabel={item.ariaLabel}
             onClick={() => onSelect(item.id)}

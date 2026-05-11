@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -12,6 +12,13 @@ import { buildUser, buildParent } from '../../test/factories.js';
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
   return { ...a, AnimatePresence: ({ children }) => children };
+});
+
+beforeEach(() => {
+  // jsdom doesn't implement scrollIntoView — the chapter-year shelf calls
+  // it whenever activeId changes.
+  Element.prototype.scrollIntoView = vi.fn();
+  try { window.localStorage.clear(); } catch { /* ignore */ }
 });
 
 function summaryPayload(entries) {
@@ -71,6 +78,53 @@ describe('JournalReader — child view', () => {
 
     await waitFor(() => expect(screen.getByText('Mine')).toBeInTheDocument());
     expect(screen.queryByText(/private/i)).toBeNull();
+  });
+
+  it('renders a chapter-year shelf when entries span multiple chapters', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/chronicle/summary/', () =>
+        HttpResponse.json({
+          chapters: [
+            {
+              chapter_year: 2024,
+              label: 'Grade 8',
+              is_current: false,
+              stats: {},
+              entries: [
+                { id: 1, kind: 'journal', occurred_on: '2024-09-10', title: 'Year-before', summary: 'last-year body', is_private: true },
+              ],
+            },
+            {
+              chapter_year: 2025,
+              label: 'Freshman Year',
+              is_current: true,
+              stats: {},
+              entries: [
+                { id: 2, kind: 'journal', occurred_on: '2026-04-10', title: 'This-year', summary: 'current body', is_private: true },
+              ],
+            },
+          ],
+          current_chapter_year: 2025,
+        }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderReader();
+
+    // The shelf renders with one tab per chapter, default-active = current.
+    await waitFor(() =>
+      expect(screen.getByRole('tablist', { name: /journal chapters/i })).toBeInTheDocument(),
+    );
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.getByText('This-year')).toBeInTheDocument();
+    expect(screen.queryByText('Year-before')).toBeNull();
+
+    // Switching the spine swaps which chapter's entries are rendered.
+    await user.click(screen.getByRole('tab', { name: /Grade 8/i }));
+    expect(screen.getByText('Year-before')).toBeInTheDocument();
+    expect(screen.queryByText('This-year')).toBeNull();
   });
 
   it('renders empty-state when child has no entries yet', async () => {

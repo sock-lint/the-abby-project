@@ -29,10 +29,10 @@ ways that "looks fine on the dashboard" doesn't catch.
 
 | Surface | Precondition | How to trigger | Verify |
 |---|---|---|---|
-| `CelebrationModal` (streak milestone) | Unread `STREAK_MILESTONE` notification at one of {3, 7, 14, 30, 60, 100} days | `force_celebration --user X --type streak_milestone --days 30` | Full-screen at App boot. Flame icon. "30 day streak!" Reload-once dismiss. Auto-marks notification read on close. |
+| `CelebrationModal` (streak milestone) <!-- id:force-celebration --> | Unread `STREAK_MILESTONE` notification at one of {3, 7, 14, 30, 60, 100} days | `force_celebration --user X --type streak_milestone --days 30` | Full-screen at App boot. Flame icon. "30 day streak!" Reload-once dismiss. Auto-marks notification read on close. |
 | `CelebrationModal` (perfect day) | Unread `PERFECT_DAY` notification | `force_celebration --user X --type perfect_day` | Full-screen. Sun icon. "Perfect day" copy. Same dismiss flow. |
 | `BirthdayCelebrationModal` | Unread `BIRTHDAY` chronicle entry with `metadata.gift_coins > 0` | `force_celebration --user X --type birthday` (or `tick_chronicle_birthday --user X --as-of <DOB>`) | Animated age numeral burst (unless reduced-motion). Gift-coins line. Confetti. `mark-viewed` on dismiss. |
-| `RareDropReveal` (rare) | Drop with `item_rarity=rare` enters the queue | `force_drop --user X --rarity rare` | Center card. **Blue** border + 60px glow. "RARE DROP" label. 96px sprite. Continue → button. |
+| `RareDropReveal` (rare) <!-- id:force-drop --> | Drop with `item_rarity=rare` enters the queue | `force_drop --user X --rarity rare` | Center card. **Blue** border + 60px glow. "RARE DROP" label. 96px sprite. Continue → button. |
 | `RareDropReveal` (epic) | `item_rarity=epic` | `force_drop --user X --rarity epic` | **Purple** border + 70px glow. |
 | `RareDropReveal` (legendary) | `item_rarity=legendary` | `force_drop --user X --rarity legendary` | **Amber** border + 70px glow. |
 | `RareDropReveal` (queue) | 2+ rare-tier drops back-to-back | `force_drop … --count 3 --rarity epic` | Each shows in sequence — second can't preempt the first. |
@@ -73,7 +73,7 @@ Persistent UI that appears only in narrow states.
 | `UpdateBanner` (PWA) | Service worker has a `waiting` state | (manual: deploy a new build, refresh) | Sticky top, sheikah-teal, "New version available." + Reload link. Reload survives the iOS Safari `controllerchange` quirk via the 1.5s setTimeout fallback. |
 | `ErrorAlert` + Retry (parent dashboard) | At least one of 5 approval-queue fetches errored | `inject_failure --queue chore --status 500` | Banner above ApprovalQueueList. Lists the failed source label ("chore approvals"). Retry button re-fans. Auto-clears within `--ttl` seconds. |
 | Low-stock chip (`stock=1`) | Reward stock crosses to 1 | `set_reward_stock --reward Y --stock 1` | "last one" copy in ember tone on RewardCard. |
-| Sold-out chip (`stock=0`) | Reward stock = 0 | `set_reward_stock --reward Y --stock 0` | "sold out" copy in ember tone, button disabled. |
+| Sold-out chip (`stock=0`) <!-- id:set-reward-stock --> | Reward stock = 0 | `set_reward_stock --reward Y --stock 0` | "sold out" copy in ember tone, button disabled. |
 | Insufficient-coins pre-flight | `reward.cost > balance` AND user clicks redeem | (manual: redeem a too-expensive reward) | Inline chip "Not enough coins yet — need 12 more (cost: 50, you have 38)." NO backend round-trip. |
 | Boost timer chips | At least one of `xp_boost_expires_at` / `coin_boost_expires_at` / `drop_boost_expires_at` / `pet_growth_boost_remaining` is active | `gift_inventory --user X --slug lucky-coin && consume it` | `BoostStrip` row on Inventory + Sigil Frontispiece. Live countdown updates every 1s. Renders null when no boosts. |
 | Header progress band | User has an active quest | (manual: start any quest) | Thin sheikah-teal gradient band under header, scaled to `progress_percent`. Inert when no active quest. |
@@ -106,7 +106,7 @@ UI that exists but disables all editing.
 
 | Surface | Precondition | How to trigger | Verify |
 |---|---|---|---|
-| Journal entry locked (read-only modal) | Try to open a journal entry where `entry.occurred_on !== today` | `expire_journal --user X` then open via `/yearbook` | Title flips to "Journal entry — locked". Lock-icon chip. Title + body fields disabled. Only Close button (no Update). |
+| Journal entry locked (read-only modal) <!-- id:expire-journal --> | Try to open a journal entry where `entry.occurred_on !== today` | `expire_journal --user X` then open via `/yearbook` | Title flips to "Journal entry — locked". Lock-icon chip. Title + body fields disabled. Only Close button (no Update). |
 | Journal entry locked (403 fallback) | Day rolls over while modal is open + click Save | (manual: open modal at 11:59pm, wait 2min, click save) | Toast: "that entry is locked now — part of your chronicle." 403 caught from `PATCH /api/chronicle/{id}/journal/`. |
 | QuestLogEntry locked | Status === `locked` | (manual: in-quest precondition) | Inset dimmed row. Check button disabled with `cursor-not-allowed`. |
 | Cosmetic intaglio (locked) | Cosmetic in catalog NOT in user's inventory | (manual: any new user — un-owned cosmetics auto-show locked) | Debossed ring + dashed border + grayscale sprite. Unlock hint underneath ("Earn the Polymath badge", etc.). NOT clickable; no equip on focus/click. `aria-label` ends "· not yet earned". |
@@ -137,11 +137,11 @@ changes.
 | Badge gilded glint | Earned within last 7d | `force_badge --user X --slug Y` | `animate-gilded-glint` foil sheen. Disappears at day 8. |
 | Badge halo | Earned, gilded tier | (same as above + check `RARITY_HALO[badge.rarity]`) | Per-rarity colored shadow ring. |
 | Pet happiness `bored` | `last_fed_at` 4–7 days ago | `set_pet_happiness --user X --level bored` | grayscale(0.25) + opacity(0.85) on sprite. Whisper line: "a little bored — feed me?" |
-| Pet happiness `stale` | 8–14 days | `set_pet_happiness --user X --level stale` | grayscale(0.5) + opacity(0.7). Whisper: "getting hungry — needs a snack". |
+| Pet happiness `stale` <!-- id:set-pet-happiness --> | 8–14 days | `set_pet_happiness --user X --level stale` | grayscale(0.5) + opacity(0.7). Whisper: "getting hungry — needs a snack". |
 | Pet happiness `away` | > 14 days | `set_pet_happiness --user X --level away` | grayscale(0.75) + opacity(0.55). NO whisper line (intentional — sprite already carries the signal). |
 | Pet happiness `happy` (evolved) | Pet `evolved_to_mount=True` | (manual: any mount) | NO dim + NO whisper, regardless of `last_fed_at`. |
 | Boost timer countdown | Active boost | `gift_inventory --user X --slug xp-boost && consume` | `BoostStrip` chips tick every 1s. Live count visible. |
-| Streak flame size tier | `login_streak` ∈ {1, 7, 30, 100} | `set_streak --user X --days 30` | Flame size visibly larger on `/sigil` per `streakTier()` ladder. |
+| Streak flame size tier <!-- id:set-streak --> | `login_streak` ∈ {1, 7, 30, 100} | `set_streak --user X --days 30` | Flame size visibly larger on `/sigil` per `streakTier()` ladder. |
 | Theme cover hover preview | Hover swatch in Settings (not reduced-motion) | (manual: hover swatches) | `applyTheme()` flashes whole-page skin. `mouseleave/blur` restores. Reduced-motion users never see the flash. |
 | Cosmetic equipped halo | Cosmetic in `active_<slot>` FK | (manual: equip a cosmetic) | `RARITY_HALO` glow + "equipped" gilt ribbon. |
 | Cosmetic owned (un-equipped) | Cosmetic in inventory, not in active slot | (manual) | Clean rarity ring, no halo. |
@@ -231,7 +231,7 @@ commands run them synchronously with `--as-of` for date simulation.
 |---|---|---|---|
 | `auto_clock_out_task` | Every 30 min | Auto-completes long-running TimeEntry | (manual) |
 | `generate_weekly_timecards_task` | Sun 23:55 | One Timecard per child for prior week | (manual) |
-| `evaluate_perfect_day_task` | Daily 23:55 | `PERFECT_DAY` notification + 15 coins if all daily chores done AND has ≥1 daily chore scheduled | `tick_perfect_day --user X` |
+| `evaluate_perfect_day_task` <!-- id:tick-perfect-day --> | Daily 23:55 | `PERFECT_DAY` notification + 15 coins if all daily chores done AND has ≥1 daily chore scheduled | `tick_perfect_day --user X` |
 | `decay_habit_strength_task` | Daily 00:05 | Habit `strength` decays toward 0 by step | `tick_habit_decay` |
 | `expire_quests_task` | Daily 00:10 | Past-due active quests → status=expired | `tick_quest_expire` |
 | `apply_boss_rage_task` | Daily 00:15 | Idle-day climb +15, active-day decay −25 (cap 100) | `tick_boss_rage` |
@@ -271,6 +271,26 @@ share an endpoint with the regular drop/quest reward path.
 |---|---|---|---|
 | Egg salvage (quest reward) | Quest reward includes an egg whose `pet_species` already exists in `UserMount` | `gift_egg_dupe --user X --species Y` then complete a quest with that egg as reward | `rewards["items"]` entry has `salvaged_to_coins`. Coin payout = `coin_value × qty`. |
 | Cosmetic dupe salvage (drop) | Drop rolls a cosmetic the user already owns | `gift_cosmetic_dupe --user X --slug Y` then `force_drop --user X --slug Y` | `was_salvaged=True` on the toast. Coin value awarded. NO inventory dupe. |
+
+---
+
+## Toast & ceremony reveals
+
+Surfaces covered by the `/manage → Test` rig's "toast & ceremony"
+cards. Each row links 1:1 to a card via the `<!-- id:slug -->` stable id
+so firing the card and clicking "Mark verified" auto-checks the row.
+
+| Surface | Precondition | How to trigger | Verify |
+|---|---|---|---|
+| `ApprovalToastStack` (chore/homework/creation/exchange + proposal flows) <!-- id:force-approval-notification --> | One of the 12 approval-style `NotificationType` rows lands on the kid | Test rig → Force approval notification (pick flow + outcome, optional reject note) | Top-36 slide-in within 30s. CheckCircle2 (green) for approved, XCircle (rose) for rejected. Reject note text shows in the body. |
+| `QuestProgressToastStack` (+N toward Foe XX%) <!-- id:force-quest-progress --> | Active quest's `current_progress` increments | Test rig → Force quest progress (delta N) — starts a quest first if needed | Top-52 floater. Sword icon. "+{delta} toward {Quest} {percent}%". Auto-dismiss 4s. |
+| `DailyChallengeClaimModal` <!-- id:mark-daily-challenge-ready --> | Today's `DailyChallenge` is `current == target` AND unclaimed | Test rig → Mark daily challenge ready | Gold-leaf ring on `DailyChallengeCard`. Tap → claim modal opens. "+coins · +xp" reveal. |
+| `PetCeremonyModal` (hatch) <!-- id:grant-hatch-ingredients --> | Egg + matching potion in inventory; kid taps hatch | Test rig → Grant hatch ingredients (species + potion) | Sparkle reveal. Species sprite. "has joined your party". Tap-anywhere dismiss. |
+| `PetCeremonyModal` (evolve) <!-- id:set-pet-growth --> | Pet's `growth_points` crosses 100 on the next feed | Test rig → Set pet growth (growth=99); kid feeds once | Crown halo. Mount sprite swap mid-flash. `animate-gilded-glint` sweep. |
+| `PetCeremonyModal` (breed) <!-- id:clear-breed-cooldowns --> | Two of the kid's mounts with `last_bred_at=None` | Test rig → Clear breed cooldowns; kid taps Breed in Hatchery | Two parent mounts slide in → cosmic-burst → egg + potion result. Chromatic upgrade carries cosmic ring + "the stars favored this pairing". |
+| `CompanionGrowthToastStack` <!-- id:seed-companion-growth --> | Non-empty `CharacterProfile.pending_companion_growth` | Test rig → Seed companion growth (ticks N, optional force_evolve) | Moss-tinted slide-ins on kid's session. If `force_evolve` checked, the last event escalates to `PetCeremonyModal mode="evolve"`. |
+| `ExpeditionToastStack` + `PetCeremonyModal` (expedition_return) <!-- id:mark-expedition-ready --> | Mount with `status="active"` AND `returns_at <= now` | Test rig → Mark expedition ready (tier short/standard/long) | Gold-bordered slide-in "{Mount} is back · tap to claim · {tier}". Tap → Mounts page → Claim → expedition_return ceremony with coin + item reveal. |
+| Anti-farm gate reset <!-- id:reset-day-counters --> | Kid has already hit a first-of-day cap on homework / creation / movement | Test rig → Reset day counters (kind=all or single) | Kid's next homework_create / creation log / movement entry re-fires the gated reward path (XP fan-out + drop roll + game-loop trigger). |
 
 ---
 
