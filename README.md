@@ -139,7 +139,8 @@ the-abby-project/
 │   ├── movement/            # Step counts / wearable integration scaffolding
 │   ├── lorebook/            # Static mechanics explainer API backed by
 │   │                        #   content/lorebook/entries.yaml
-│   └── mcp_server/          # FastMCP server with 14+ tool modules
+│   └── mcp_server/          # FastMCP server with 27 tool modules / ~207 tools
+│                            #   (full inventory in docs/mcp-tools.md)
 ├── content/
 │   ├── lorebook/            # Dual-audience mechanics explainer entries
 │   └── rpg/                 # YAML-authored RPG catalog and content packs
@@ -657,10 +658,17 @@ Four-stage Scrapy-style pipeline for importing projects from external sources:
 Async job tracked in `ProjectIngestionJob` (UUID pk). Frontend preview page lets parents edit milestones and steps before committing. Instructables scrapes cached in Redis 24h.
 
 ### MCP Server
-FastMCP server mounted inside Django ASGI at `/mcp` with 14 tool modules:
-achievements, chores, dashboard, homework, ingestion, notifications, payments, portfolio, projects, rewards, savings, timecards, users, plus transport configuration.
+FastMCP server mounted inside Django ASGI at `/mcp`. **27 tool modules / ~207 tools** total. Authoritative per-tool inventory lives at [`docs/mcp-tools.md`](docs/mcp-tools.md); this section is the high-level map.
 
-Uses DRF TokenAuthentication, DNS rebinding protection, stateless HTTP transport for horizontal scaling, and `sync_to_async` for Django ORM access.
+Grouped by domain:
+
+- **Productivity surface** — `projects` (28), `homework` (17), `chores` (9), `habits` (7), `creations` (8), `chronicle` (10), `templates` (7), `ingestion` (4), `movement` (6), `dashboard` (1)
+- **Economy + recognition** — `payments` (4), `rewards` (9), `exchange` (5), `savings` (4), `achievements` (19), `portfolio` (6), `notifications` (4)
+- **RPG layer** — `inventory` (6), `pets` (8), `quests` (9), `daily_challenges` (2)
+- **Authoring + content** — `content_packs` (11), `sprite_authoring` (9), `sprite_assets` (1), `sprite_prompting_playbook` (1)
+- **Family ops** — `users` (3), `timecards` (9)
+
+Uses OAuth 2.1 Bearer tokens (PKCE, RFC 8707 resource binding) for `/mcp/*`, DNS rebinding protection, stateless HTTP transport for horizontal scaling, and `sync_to_async` for Django ORM access. See the **MCP OAuth 2.1** gotcha in [`CLAUDE.md`](CLAUDE.md) for the auth surface.
 
 ### Google Calendar Integration
 OAuth2 flow for linking Google accounts. Syncs app events (project due dates, chores, time entries) to Google Calendar. `CalendarEventMapping` tracks synced events. Encrypted credential storage via Fernet. Parent-initiated linking for child accounts.

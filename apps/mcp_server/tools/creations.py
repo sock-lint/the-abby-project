@@ -86,10 +86,21 @@ def get_creation(params: GetCreationIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def log_creation(params: LogCreationIn) -> dict[str, Any]:
-    """Log a child-authored Creation row.
+    """Log a child-authored Creation ("I made a thing") with an image.
+
+    Use when the child wants to share a photo of something they created
+    — drawing, build, baked good, performance. ``image_b64`` is required;
+    ``audio_b64`` is optional. Picks 1-2 creative skills for XP fan-out.
+
+    Distinct from neighbors:
+      - ``write_journal`` — text-only diary entry for today.
+      - ``create_manual_entry`` — parent backfilling a memory (no image,
+        no rewards, no anti-farm gate).
 
     The first 2 per local day award XP + drop + game loop; subsequent
-    logs write silently. Always emits a Chronicle CREATION entry.
+    logs write silently to Sketchbook/Yearbook (anti-farm gate, counter
+    survives delete). Always emits a Chronicle CREATION row so the
+    entry shows up on the timeline alongside journal entries.
     Children log for themselves; parents may pass ``user_id`` to log
     on behalf.
     """

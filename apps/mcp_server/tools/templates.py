@@ -68,6 +68,10 @@ def list_templates(params: ListTemplatesIn) -> dict[str, Any]:
     public templates. Use ``is_public_only=True`` to filter parents down
     to public.
 
+    Empty result on a fresh family is expected — there is no seed pack
+    today. The onramp is ``save_project_as_template`` from a completed
+    project; ``create_template`` also accepts a from-scratch payload.
+
     Audit C8: ``ProjectTemplate`` is per-family content. Without scoping,
     parents saw every household's private templates and children could see
     public templates authored in other families. Both paths now scope by
