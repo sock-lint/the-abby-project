@@ -12,6 +12,7 @@ import {
 } from '../api';
 import { useApi, useAuth } from '../hooks/useApi';
 import { normalizeList } from '../utils/api';
+import Button from '../components/Button';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import EmptyState from '../components/EmptyState';
@@ -38,11 +39,16 @@ const ACTIVE_CHAPTER_KEY = 'atlas:sigil-frontispiece:active-chapter';
  */
 export default function Character() {
   const { user } = useAuth();
-  const { data: profile, loading: loadingProfile, reload: reloadProfile } = useApi(getCharacterProfile);
-  const { data: cosmetics, loading: loadingCosmetics, reload: reloadCosmetics } = useApi(getCosmetics);
-  const { data: catalog, loading: loadingCatalog } = useApi(getCosmeticCatalog);
-  const { data: allBadgesData, loading: loadingBadges } = useApi(getBadges);
-  const { data: summary, loading: loadingSummary } = useApi(getAchievementsSummary);
+  const {
+    data: profile, loading: loadingProfile, error: profileError,
+    reload: reloadProfile, setData: setProfileData,
+  } = useApi(getCharacterProfile);
+  const {
+    data: cosmetics, loading: loadingCosmetics, error: cosmeticsError, reload: reloadCosmetics,
+  } = useApi(getCosmetics);
+  const { data: catalog, loading: loadingCatalog, error: catalogError, reload: reloadCatalog } = useApi(getCosmeticCatalog);
+  const { data: allBadgesData, loading: loadingBadges, error: badgesError, reload: reloadBadges } = useApi(getBadges);
+  const { data: summary, loading: loadingSummary, error: summaryError, reload: reloadSummary } = useApi(getAchievementsSummary);
 
   const [error, setError] = useState('');
   const [working, setWorking] = useState(null);
@@ -105,8 +111,30 @@ export default function Character() {
 
   const anyLoading =
     loadingProfile || loadingCosmetics || loadingCatalog || loadingBadges || loadingSummary;
+  const loadError =
+    profileError || cosmeticsError || catalogError || badgesError || summaryError;
 
   if (anyLoading) return <Loader />;
+  if (loadError) {
+    return (
+      <div className="space-y-3 max-w-xl mx-auto">
+        <ErrorAlert message={loadError || 'Could not load your sigil.'} />
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            reloadProfile();
+            reloadCosmetics();
+            reloadCatalog();
+            reloadBadges();
+            reloadSummary();
+          }}
+        >
+          Try again
+        </Button>
+      </div>
+    );
+  }
   if (!profile) return <EmptyState>Unable to load sigil.</EmptyState>;
 
   const refresh = () => {
@@ -114,30 +142,53 @@ export default function Character() {
     reloadCosmetics();
   };
 
+  // Resolve the cosmetic record we're about to equip from owned or catalog,
+  // so the optimistic profile-state update has a real {id, name, ...} object
+  // to slot in rather than a bare id.
+  const findCosmetic = (slot, itemId) => {
+    const owned = cosmetics?.[slot] || [];
+    const fromOwned = owned.find((c) => c.id === itemId);
+    if (fromOwned) return fromOwned;
+    const fromCatalog = (catalog?.[slot] || []).find((c) => c.id === itemId);
+    return fromCatalog || { id: itemId };
+  };
+
   const handleEquip = async (itemId, slot) => {
     setWorking(itemId);
     setError('');
+    const previous = profile[slot] || null;
+    const next = findCosmetic(slot, itemId);
+    // Optimistic: reflect the new equip immediately so the tile flips
+    // states without waiting for the round-trip + refetch.
+    setProfileData({ ...profile, [slot]: next });
     try {
       await equipCosmetic(itemId);
-      const name = cosmeticName(slot, itemId);
+      const name = next?.name || cosmeticName(slot, itemId);
       setEquipToast({
         msg: name ? `Now wearing ${name}` : 'Cosmetic equipped',
         key: Date.now(),
       });
       refresh();
-    } catch (e) { setError(e.message); }
-    finally { setWorking(null); }
+    } catch (e) {
+      // Rollback to whatever was equipped (or null) before the click.
+      setProfileData({ ...profile, [slot]: previous });
+      setError(e.message);
+    } finally { setWorking(null); }
   };
 
   const handleUnequip = async (slot) => {
     setWorking(slot);
     setError('');
+    const previous = profile[slot] || null;
+    setProfileData({ ...profile, [slot]: null });
     try {
       await unequipCosmetic(slot);
       setEquipToast({ msg: 'Cosmetic unequipped', key: Date.now() });
       refresh();
-    } catch (e) { setError(e.message); }
-    finally { setWorking(null); }
+    } catch (e) {
+      setProfileData({ ...profile, [slot]: previous });
+      setError(e.message);
+    } finally { setWorking(null); }
   };
 
   const handleSelectTrophy = async (badgeId) => {

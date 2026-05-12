@@ -8,6 +8,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 import { normalizeList } from '../utils/api';
+import { toISODate } from '../utils/dates';
 
 export default function ProjectNew() {
   const navigate = useNavigate();
@@ -25,6 +26,8 @@ export default function ProjectNew() {
   const [error, setError] = useState('');
   const [preview, setPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const today = toISODate(new Date());
 
   const fetchPreview = async (url) => {
     if (!url || !url.includes('instructables.com')) { setPreview(null); return; }
@@ -42,6 +45,7 @@ export default function ProjectNew() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSaving(true);
     try {
       const data = {
         ...form,
@@ -56,6 +60,7 @@ export default function ProjectNew() {
       navigate(`/projects/${project.id}`);
     } catch (err) {
       setError(err.message);
+      setSaving(false);
     }
   };
 
@@ -162,7 +167,7 @@ export default function ProjectNew() {
               inputMode="decimal"
             />
             <TextField label="Materials Budget ($)" value={form.materials_budget} onChange={set('materials_budget')} type="number" step="0.01" min="0" inputMode="decimal" />
-            <TextField label="Due Date" value={form.due_date} onChange={set('due_date')} type="date" />
+            <TextField label="Due Date" value={form.due_date} onChange={set('due_date')} type="date" min={today} />
           </div>
 
           {/* Parent Notes */}
@@ -174,8 +179,8 @@ export default function ProjectNew() {
             placeholder="Private notes (only visible to parents)"
           />
 
-          <Button type="submit" className="w-full">
-            Create Project
+          <Button type="submit" className="w-full" disabled={saving}>
+            {saving ? 'Creating…' : 'Create Project'}
           </Button>
         </ParchmentCard>
       </form>

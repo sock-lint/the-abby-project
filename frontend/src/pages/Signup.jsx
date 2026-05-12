@@ -25,6 +25,21 @@ export default function Signup({ onSignup }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    // Pre-submit validation — surface the empty-field cases before
+    // the round-trip so users see the problem at the form rather than
+    // as a generic 400 in the alert.
+    if (!familyName.trim()) {
+      setError('Please name your family before founding it.');
+      return;
+    }
+    if (!username.trim()) {
+      setError('Choose a sign-in name to continue.');
+      return;
+    }
+    if (!password) {
+      setError('Choose a secret word to continue.');
+      return;
+    }
     setLoading(true);
     try {
       await onSignup({

@@ -1,9 +1,24 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import IconButton from './IconButton';
 
 export default function ProofGallery({ proofs = [] }) {
   const [viewerIndex, setViewerIndex] = useState(null);
+
+  useEffect(() => {
+    if (viewerIndex === null) return undefined;
+    const handler = (e) => {
+      if (e.key === 'Escape') {
+        setViewerIndex(null);
+      } else if (e.key === 'ArrowLeft' && viewerIndex > 0) {
+        setViewerIndex(viewerIndex - 1);
+      } else if (e.key === 'ArrowRight' && viewerIndex < proofs.length - 1) {
+        setViewerIndex(viewerIndex + 1);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [viewerIndex, proofs.length]);
 
   if (!proofs.length) return null;
 

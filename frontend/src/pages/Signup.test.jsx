@@ -55,6 +55,23 @@ describe('Signup', () => {
     expect(screen.getByRole('link', { name: /back to sign in/i })).toBeInTheDocument();
   });
 
+  it('refuses to submit when the family name is blank (pre-submit guard)', async () => {
+    const onSignup = vi.fn().mockResolvedValue({});
+    const { user } = renderWithProviders(<Signup onSignup={onSignup} />);
+    // Skip the family-name input; the field is required-attribute'd, but
+    // we also pre-validate before posting so the error renders at the form
+    // instead of bouncing a generic 400 back from the server.
+    await user.type(screen.getByLabelText(/sign-in name/i), 'mike');
+    await user.type(screen.getByLabelText(/secret word/i), 'pw');
+    // Submit the form directly so the HTML required-attribute doesn't
+    // block the button-click before our guard runs.
+    const submit = screen.getByRole('button', { name: /found a family/i });
+    submit.closest('form').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+
+    expect(await screen.findByText(/name your family/i)).toBeInTheDocument();
+    expect(onSignup).not.toHaveBeenCalled();
+  });
+
   it('renders a link back to /login', () => {
     renderWithProviders(<Signup onSignup={vi.fn()} />);
     const link = screen.getByRole('link', { name: /have an account\? sign in/i });

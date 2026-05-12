@@ -54,6 +54,7 @@ export default function ConfirmDialog({
               </button>
               <button
                 type="button"
+                autoFocus
                 onClick={onConfirm}
                 className="relative px-5 py-2 text-sm font-semibold text-ink-page-rune-glow rounded-full transition-transform duration-150 hover:scale-[1.03] active:scale-95"
                 style={{

@@ -199,7 +199,10 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
 export default function Chores() {
   const { isParent } = useRole();
 
-  const { data: choresData, loading: loadingChores, reload: reloadChores } = useApi(getChores);
+  const {
+    data: choresData, loading: loadingChores, reload: reloadChores,
+    setData: setChoresData,
+  } = useApi(getChores);
   const { data: completionsData, loading: loadingCompletions, reload: reloadCompletions } = useApi(
     isParent ? () => getChoreCompletions('pending') : () => getChoreCompletions(),
     [isParent],
@@ -257,8 +260,40 @@ export default function Chores() {
 
   const handleWithdraw = async (completionId) => {
     if (!completionId) return;
-    try { await withdrawChoreCompletion(completionId); refresh(); }
-    catch (e) { setError(e.message); }
+    setError('');
+    // Optimistic: flip the chore card back to actionable immediately so
+    // the kid doesn't sit on a "pending" row waiting for the refetch.
+    let snapshot = null;
+    const patchChores = (prev, patch) => {
+      if (!prev) return prev;
+      const list = Array.isArray(prev) ? prev : prev.results || [];
+      const idx = list.findIndex(
+        (c) => c.today_completion_id === completionId
+          || (snapshot && c.id === snapshot.id),
+      );
+      if (idx < 0) return prev;
+      if (!snapshot) snapshot = list[idx];
+      const updated = [...list];
+      updated[idx] = patch(list[idx]);
+      return Array.isArray(prev) ? updated : { ...prev, results: updated };
+    };
+    setChoresData((prev) =>
+      patchChores(prev, (chore) => ({
+        ...chore,
+        today_status: null,
+        today_completion_id: null,
+      })),
+    );
+    try {
+      await withdrawChoreCompletion(completionId);
+      refresh();
+    } catch (e) {
+      // Rollback to whatever the card looked like before the click.
+      if (snapshot) {
+        setChoresData((prev) => patchChores(prev, () => snapshot));
+      }
+      setError(e.message);
+    }
   };
 
   const handleDelete = async (id) => {

@@ -66,6 +66,16 @@ describe('ConfirmDialog', () => {
     expect(descEl).toHaveTextContent('This cannot be undone.');
   });
 
+  it('autofocuses the confirm button so Enter triggers onConfirm', async () => {
+    const onConfirm = vi.fn();
+    const user = userEvent.setup();
+    render(<ConfirmDialog title="x" message="y" onConfirm={onConfirm} onCancel={() => {}} />);
+    const confirmBtn = screen.getByRole('button', { name: 'Delete' });
+    expect(document.activeElement).toBe(confirmBtn);
+    await user.keyboard('{Enter}');
+    expect(onConfirm).toHaveBeenCalled();
+  });
+
   it('generates unique IDs for multiple stacked dialogs', () => {
     render(
       <>
