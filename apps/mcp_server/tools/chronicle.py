@@ -51,7 +51,21 @@ def _chapter_year_for(d: date) -> int:
 @tool()
 @safe_tool
 def list_chronicle_entries(params: ListChronicleEntriesIn) -> dict[str, Any]:
-    """List chronicle entries. Children see their own; parents see any child."""
+    """Read-only timeline of all chronicle entries for a user.
+
+    Returns every kind (journal, creation, manual, birthday, milestone,
+    first_ever, recap, chapter boundaries) interleaved by ``occurred_on``.
+    Children see their own; parents see any child in their family.
+
+    To CREATE entries use a kind-specific tool:
+      - child journal entry → ``write_journal``
+      - child "I made a thing" → ``log_creation`` (also emits a chronicle row)
+      - parent-authored memory → ``create_manual_entry``
+
+    Other kinds (birthday / milestone / first_ever / recap) are emitted
+    automatically by services and Celery tasks — there is no MCP write
+    surface for them.
+    """
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
     qs = ChronicleEntry.objects.filter(user=target)
@@ -173,6 +187,12 @@ def get_today_journal(params: GetTodayJournalIn) -> dict[str, Any]:
 def write_journal(params: WriteJournalIn) -> dict[str, Any]:
     """Write today's journal entry (caller is always the author).
 
+    Use when the child wants to write a short reflection / diary entry
+    about TODAY. Distinct from neighbors:
+      - ``log_creation`` — for "I made a thing" (image + caption).
+      - ``create_manual_entry`` — parent backfilling a memory on the
+        child's timeline (any past date, no rewards).
+
     One entry per local day — a second call raises ``MCPValidationError``
     with ``existing_entry_id`` in the message so callers can switch to
     ``update_journal``. Awards 15 XP across Creative Writing + Vocabulary
@@ -197,6 +217,11 @@ def write_journal(params: WriteJournalIn) -> dict[str, Any]:
 def update_journal(params: UpdateJournalIn) -> dict[str, Any]:
     """Edit today's journal entry. Locked to owner; 403 after midnight.
 
+    Pair with ``write_journal``: after a second-of-day write returns
+    ``existing_entry_id``, call this with that id. Once the local day
+    rolls over the entry becomes immutable (preserves the chronicle as
+    a historical record) — callers get ``MCPPermissionDenied``.
+
     Audit C8: scope to caller's own entries up front. The service-layer
     owner check would still block the actual write, but a probe could
     distinguish "exists in another family" from "doesn't exist" via the
@@ -219,7 +244,21 @@ def update_journal(params: UpdateJournalIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def create_manual_entry(params: CreateManualEntryIn) -> dict[str, Any]:
-    """Create a parent-authored manual chronicle entry on a child's timeline."""
+    """Create a parent-authored manual chronicle entry on a child's timeline.
+
+    Use for backfilling a memory ABOUT the child on any date —
+    ``occurred_on`` can be in the past (e.g. "First time riding a bike,
+    2024-07-15"). Parent-only. No XP, no coins, no drops, no game loop —
+    this is pure timeline curation.
+
+    Distinct from neighbors:
+      - ``write_journal`` is child-self-authored, today-only, auto-awarding.
+      - ``log_creation`` is child-self-authored, requires an image, and
+        emits its own chronicle row automatically.
+
+    Editable later via ``update_manual_entry`` / ``delete_chronicle_entry``
+    (MANUAL-kind only — birthdays / firsts / recaps stay immutable).
+    """
     parent = require_parent()
 
     target = resolve_target_user(parent, params.user_id)
