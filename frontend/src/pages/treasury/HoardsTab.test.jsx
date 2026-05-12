@@ -22,20 +22,38 @@ function makeGoal(over = {}) {
 }
 
 describe('HoardsTab', () => {
-  it('renders active goals with progress and empty state otherwise', async () => {
+  it('renders the incipit hero with aggregate progress and stanza cards', async () => {
     server.use(
       http.get('*/api/savings-goals/', () =>
         HttpResponse.json([makeGoal()]),
       ),
     );
-    renderWithProviders(<HoardsTab />);
+    const { container } = renderWithProviders(<HoardsTab />);
     await waitFor(() => expect(screen.getByText('Lego Set')).toBeInTheDocument());
+
+    // Hero IncipitBand renders the "Hoards" title and a meta line summarising
+    // active vs completed.
+    expect(screen.getByRole('heading', { name: 'Hoards' })).toBeInTheDocument();
+    expect(screen.getByText(/1 active · 40% across the lot/)).toBeInTheDocument();
+
+    // Active stanza details — current/target amounts + coin bonus copy.
     expect(screen.getByText('$20.00')).toBeInTheDocument();
-    expect(screen.getByText('$50.00')).toBeInTheDocument();
+    expect(screen.getByText(/\$50\.00/)).toBeInTheDocument();
     expect(screen.getByText(/\+100 coins/)).toBeInTheDocument(); // 50 * 2
+
+    // Two Atlas drop-caps: one in the IncipitBand hero, one in the stanza.
+    const versals = container.querySelectorAll('[data-versal="true"]');
+    expect(versals.length).toBe(2);
+    // The stanza's versal carries the rising/cresting tier for 40% progress.
+    const stanzaVersal = versals[1];
+    expect(stanzaVersal.getAttribute('data-tier')).toBe('rising');
+    expect(stanzaVersal.getAttribute('data-progress')).toBe('40');
+
+    // §I rubric for the active section.
+    expect(screen.getByRole('heading', { name: 'Active pursuits' })).toBeInTheDocument();
   });
 
-  it('shows completed history in a collapsible section', async () => {
+  it('renders completed hoards as legendary wax seals under the Filled coffers rubric', async () => {
     server.use(
       http.get('*/api/savings-goals/', () =>
         HttpResponse.json([
@@ -48,11 +66,33 @@ describe('HoardsTab', () => {
         ]),
       ),
     );
-    renderWithProviders(<HoardsTab />);
+    const { container } = renderWithProviders(<HoardsTab />);
     await waitFor(() =>
-      expect(screen.getByText('Completed hoards')).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: 'Filled coffers' })).toBeInTheDocument(),
     );
     expect(screen.getByText('Headphones')).toBeInTheDocument();
+
+    // Exactly one completed seal renders (no §I rubric since there are no
+    // active goals).
+    const seals = container.querySelectorAll('[data-hoard-seal="true"]');
+    expect(seals.length).toBe(1);
+    expect(screen.queryByRole('heading', { name: 'Active pursuits' })).not.toBeInTheDocument();
+
+    // Meta line flips to the "all filled" phrasing.
+    expect(screen.getByText(/all hoards filled · 1 sealed/)).toBeInTheDocument();
+  });
+
+  it('shows the script empty state when there are no hoards at all', async () => {
+    server.use(
+      http.get('*/api/savings-goals/', () => HttpResponse.json([])),
+    );
+    renderWithProviders(<HoardsTab />);
+    await waitFor(() =>
+      expect(screen.getByText(/no hoards yet/i)).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText(/set a goal and begin to fill it/i),
+    ).toBeInTheDocument();
   });
 
   it('creates a new goal and re-fetches on submit', async () => {
@@ -65,7 +105,7 @@ describe('HoardsTab', () => {
     const { user } = renderWithProviders(<HoardsTab />);
 
     await waitFor(() =>
-      expect(screen.getByText(/No active hoards/)).toBeInTheDocument(),
+      expect(screen.getByText(/no hoards yet/i)).toBeInTheDocument(),
     );
 
     await user.click(
