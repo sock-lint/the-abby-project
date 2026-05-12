@@ -313,7 +313,14 @@ if not DEBUG and not _db_url:
 DATABASES = {
     "default": dj_database_url.parse(
         _db_url or "sqlite:///db.sqlite3",
-        conn_max_age=600,
+        # Recycle persistent connections every 60s (down from 600s) so stale
+        # slots free up faster — load-bearing for surviving Coolify deploy
+        # overlap and brief Postgres blips without exhausting max_connections.
+        conn_max_age=60,
+        # Run a cheap SELECT 1 before reusing a persistent connection so dead
+        # connections (after a DB restart / network blip) get replaced
+        # cleanly instead of failing inside a real query.
+        conn_health_checks=True,
     )
 }
 

@@ -44,6 +44,11 @@ services:
   # Infrastructure — long-lived
   db:
     image: postgres:16-alpine
+    # max_connections bumped from default 100 → 200 to give 2x headroom for
+    # transient deploy overlap (old container holds connections during
+    # graceful shutdown while new container starts opening its own).
+    # shared_buffers scaled in lock-step per Postgres tuning guidance.
+    command: postgres -c max_connections=200 -c shared_buffers=256MB
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
