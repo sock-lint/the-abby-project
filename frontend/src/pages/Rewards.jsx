@@ -27,7 +27,10 @@ import RewardShop from './rewards/RewardShop';
 
 export default function Rewards() {
   const { isParent } = useRole();
-  const { data: rewardsData, loading: loadingRewards, reload: reloadRewards } = useApi(getRewards);
+  const {
+    data: rewardsData, loading: loadingRewards, reload: reloadRewards,
+    setData: setRewardsData,
+  } = useApi(getRewards);
   const { data: redemptionsData, loading: loadingRedemptions, reload: reloadRedemptions } = useApi(getRedemptions);
   const { data: balanceData, loading: loadingBalance, reload: reloadBalance } = useApi(getCoinBalance);
   const { data: exchangeData, loading: loadingExchanges, reload: reloadExchanges } = useApi(getExchangeRequests);
@@ -76,14 +79,31 @@ export default function Rewards() {
   };
 
   const handleToggleWishlist = async (reward) => {
+    setError('');
+    const newState = !reward.on_my_wishlist;
+    // Optimistic flip — keeps the bookmark snappy on slow networks.
+    // Backend reconciliation happens on the next page-level refresh
+    // (redeem, etc.). Wishlist state is cheap to recover on error.
+    const patchList = (prev, value) => {
+      if (!prev) return prev;
+      const list = Array.isArray(prev) ? prev : prev.results || [];
+      const updated = list.map((r) =>
+        r.id === reward.id ? { ...r, on_my_wishlist: value } : r,
+      );
+      return Array.isArray(prev) ? updated : { ...prev, results: updated };
+    };
+    setRewardsData((prev) => patchList(prev, newState));
     try {
-      if (reward.on_my_wishlist) {
-        await removeRewardFromWishlist(reward.id);
-      } else {
+      if (newState) {
         await addRewardToWishlist(reward.id);
+      } else {
+        await removeRewardFromWishlist(reward.id);
       }
-      reloadRewards();
-    } catch (e) { setError(e.message); }
+    } catch (e) {
+      // Rollback to the prior state.
+      setRewardsData((prev) => patchList(prev, !newState));
+      setError(e.message);
+    }
   };
 
   const handleApprove = async (id) => { await approveRedemption(id); refresh(); };

@@ -156,6 +156,71 @@ describe('Rewards', () => {
     expect(redeem.calls).toHaveLength(0);
   });
 
+  it('wishlist toggle optimistically flips before the server responds', async () => {
+    // The POST resolves after a delay so the test can assert that the
+    // bookmark icon has ALREADY flipped to the "remove" aria-label state
+    // while the network call is still in flight.
+    const user = userEvent.setup();
+    let resolveAdd;
+    const addPromise = new Promise((r) => { resolveAdd = r; });
+    server.use(
+      http.get('*/api/rewards/', () =>
+        HttpResponse.json([{
+          id: 13, name: 'Ice Cream', cost_coins: 50, cost: 50, stock: 5,
+          rarity: 'common', is_active: true, on_my_wishlist: false,
+        }]),
+      ),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/coins/', () => HttpResponse.json({ balance: 120, recent: [] })),
+      http.get('*/api/coins/exchange/list/', () => HttpResponse.json([])),
+      http.get('*/api/coins/exchange/rate/', () => HttpResponse.json({ coins_per_dollar: 10 })),
+      http.post(/\/api\/rewards\/13\/wishlist\/$/, async () => {
+        await addPromise;
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+    renderPage(buildUser(), []);
+
+    const addBtn = await screen.findByRole('button', { name: /add ice cream to wishlist/i });
+    await user.click(addBtn);
+
+    // Optimistic: aria-label flips immediately while the POST is still
+    // pending (resolveAdd hasn't been called).
+    expect(await screen.findByRole('button', { name: /remove ice cream from wishlist/i }))
+      .toBeInTheDocument();
+
+    resolveAdd();
+  });
+
+  it('wishlist toggle rolls back when the server rejects', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('*/api/rewards/', () =>
+        HttpResponse.json([{
+          id: 13, name: 'Ice Cream', cost_coins: 50, cost: 50, stock: 5,
+          rarity: 'common', is_active: true, on_my_wishlist: false,
+        }]),
+      ),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/coins/', () => HttpResponse.json({ balance: 120, recent: [] })),
+      http.get('*/api/coins/exchange/list/', () => HttpResponse.json([])),
+      http.get('*/api/coins/exchange/rate/', () => HttpResponse.json({ coins_per_dollar: 10 })),
+      http.post(/\/api\/rewards\/13\/wishlist\/$/, () =>
+        HttpResponse.json({ detail: 'nope' }, { status: 500 }),
+      ),
+    );
+    renderPage(buildUser(), []);
+
+    const addBtn = await screen.findByRole('button', { name: /add ice cream to wishlist/i });
+    await user.click(addBtn);
+
+    // Optimistic flip happened, then the failure rolled it back to "add".
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /add ice cream to wishlist/i }))
+        .toBeInTheDocument(),
+    );
+  });
+
   it('parent approving an exchange posts to /coins/exchange/{id}/approve/', async () => {
     const user = userEvent.setup();
     const approve = spyHandler('post', /\/api\/coins\/exchange\/\d+\/approve\/$/, { ok: true });

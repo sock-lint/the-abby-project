@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell } from 'lucide-react';
+import { Bell, BellRing } from 'lucide-react';
 import { getNotifications, getUnreadCount, markAllRead as markAllReadApi, markNotificationRead } from '../api';
 import { formatDate } from '../utils/format';
 import IconButton from './IconButton';
@@ -113,8 +113,13 @@ export default function NotificationBell() {
             </div>
             <div className="overflow-y-auto max-h-72">
               {notifications.length === 0 ? (
-                <div className="p-4 text-center text-sm text-ink-whisper">
-                  No notifications
+                <div
+                  role="status"
+                  className="p-5 text-center text-sm text-ink-whisper flex flex-col items-center gap-1"
+                >
+                  <BellRing size={20} aria-hidden="true" className="text-ink-whisper/70" />
+                  <span className="font-display italic text-ink-secondary">All caught up</span>
+                  <span className="font-script text-tiny">no new notifications</span>
                 </div>
               ) : (
                 notifications.slice(0, 20).map((n) => {

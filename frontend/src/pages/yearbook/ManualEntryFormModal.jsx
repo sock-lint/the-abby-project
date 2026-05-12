@@ -3,10 +3,12 @@ import BottomSheet from '../../components/BottomSheet'
 import Button from '../../components/Button'
 import { TextField, TextAreaField } from '../../components/form'
 import { createManualChronicleEntry } from '../../api'
+import { toISODate } from '../../utils/dates'
 
 export default function ManualEntryFormModal({ userId, onClose, onCreated }) {
   const [form, setForm] = useState({ title: '', summary: '', occurred_on: '' })
   const [saving, setSaving] = useState(false)
+  const today = toISODate(new Date())
 
   const submit = async (e) => {
     e.preventDefault()
@@ -38,6 +40,8 @@ export default function ManualEntryFormModal({ userId, onClose, onCreated }) {
           type="date"
           label="When"
           required
+          max={today}
+          helpText="Memories live in the past — pick today or earlier."
           value={form.occurred_on}
           onChange={(e) => setForm((f) => ({ ...f, occurred_on: e.target.value }))}
         />

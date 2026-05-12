@@ -5,7 +5,7 @@ import BottomSheet from '../../components/BottomSheet';
 import ErrorAlert from '../../components/ErrorAlert';
 import Button from '../../components/Button';
 import { TextField, SelectField, TextAreaField } from '../../components/form';
-import { quickDueDates } from '../../utils/dates';
+import { quickDueDates, toISODate } from '../../utils/dates';
 
 const SUBJECTS = [
   { value: 'math', label: 'Math' },
@@ -32,6 +32,7 @@ export default function HomeworkFormModal({
   });
 
   const presets = quickDueDates();
+  const today = toISODate(new Date());
   const rawChips = [
     { label: 'Tomorrow', value: presets.tomorrow, relative: true },
     { label: 'Friday', value: presets.friday, relative: false },
@@ -47,6 +48,13 @@ export default function HomeworkFormModal({
     if (isParent && !form.assigned_to) {
       setError('Please select a child to assign this to.');
       return;
+    }
+    if (isParent) {
+      const effort = parseInt(form.effort_level);
+      if (Number.isNaN(effort) || effort < 1 || effort > 5) {
+        setError('Effort must be a number from 1 to 5.');
+        return;
+      }
     }
     const payload = {
       title: form.title,
@@ -130,6 +138,7 @@ export default function HomeworkFormModal({
             </SelectField>
             <TextField
               type="date" required value={form.due_date}
+              min={isEdit ? undefined : today}
               onChange={(e) => set({ due_date: e.target.value })}
             />
           </div>

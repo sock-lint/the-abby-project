@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
+import ErrorAlert from '../components/ErrorAlert'
 import Loader from '../components/Loader'
 import { SelectField } from '../components/form'
 import TomeShelf from '../components/atlas/TomeShelf'
@@ -159,6 +160,17 @@ export default function Yearbook() {
 
   if (state.loading) return <Loader />
 
+  if (state.error) {
+    return (
+      <div className="space-y-3 max-w-xl mx-auto">
+        <ErrorAlert message={state.error?.message || 'Could not load the yearbook.'} />
+        <Button variant="secondary" size="sm" onClick={fetchSummary}>
+          Try again
+        </Button>
+      </div>
+    )
+  }
+
   if (!isParent && !user?.date_of_birth) {
     return (
       <EmptyState>
@@ -179,9 +191,14 @@ export default function Yearbook() {
 
   return (
     <div className="space-y-4">
-      <p className="font-script text-sm text-ink-whisper text-center max-w-xl mx-auto">
-        a lifelong journal of chapters, milestones, and daily entries · birthdays and graduations land here too
-      </p>
+      <header className="text-center max-w-xl mx-auto">
+        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+          The Yearbook
+        </h1>
+        <p className="font-script text-sm text-ink-whisper mt-1">
+          a lifelong journal of chapters, milestones, and daily entries · birthdays and graduations land here too
+        </p>
+      </header>
       {isParent && (
         <div className="flex items-end justify-between gap-3">
           <SelectField

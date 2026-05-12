@@ -25,7 +25,7 @@ export default function SealCloseButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className="relative min-h-10 min-w-10 h-10 w-10 flex items-center justify-center rounded-full transition-transform duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none"
+      className="relative min-h-11 min-w-11 h-11 w-11 flex items-center justify-center rounded-full transition-transform duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none"
       style={{
         background: gradient,
         // ink-tone shadow stops use --color-modal-* so per-cover overrides flow through;

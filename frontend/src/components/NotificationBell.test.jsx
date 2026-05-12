@@ -27,13 +27,13 @@ describe('NotificationBell (real timers)', () => {
     const user = userEvent.setup();
     const { container } = renderBell();
     await user.click(container.querySelector('button'));
-    await waitFor(() => expect(screen.getByText(/no notifications/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/all caught up/i)).toBeInTheDocument());
     const outside = document.createElement('div');
     document.body.appendChild(outside);
     act(() => {
       outside.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     });
-    await waitFor(() => expect(screen.queryByText(/no notifications/i)).toBeNull());
+    await waitFor(() => expect(screen.queryByText(/all caught up/i)).toBeNull());
   });
 
   it('navigates when a notification has a link and closes dropdown', async () => {
@@ -115,7 +115,8 @@ describe('NotificationBell (real timers)', () => {
     const user = userEvent.setup();
     renderBell();
     await user.click(screen.getAllByRole('button')[0]);
-    await waitFor(() => expect(screen.getByText(/no notifications/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/all caught up/i)).toBeInTheDocument());
+    expect(screen.getByText(/no new notifications/i)).toBeInTheDocument();
   });
 
   it('marks-all-read calls the API and clears the count', async () => {

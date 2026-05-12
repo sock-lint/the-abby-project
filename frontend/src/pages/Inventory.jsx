@@ -11,6 +11,7 @@ import { useApi } from '../hooks/useApi';
 import Button from '../components/Button';
 import Loader from '../components/Loader';
 import EmptyState from '../components/EmptyState';
+import ErrorAlert from '../components/ErrorAlert';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import { EggIcon } from '../components/icons/JournalIcons';
@@ -48,7 +49,7 @@ const STACK_UNSAFE_EFFECTS = new Set([
 
 export default function Inventory() {
   const navigate = useNavigate();
-  const { data, loading, reload } = useApi(getInventory);
+  const { data, loading, error, reload } = useApi(getInventory);
   const { data: profile, reload: reloadProfile } = useApi(getCharacterProfile);
   const items = normalizeList(data);
   const [busyId, setBusyId] = useState(null);
@@ -157,6 +158,16 @@ export default function Inventory() {
   }, [activeCompartmentId]);
 
   if (loading) return <Loader />;
+  if (error) {
+    return (
+      <div className="space-y-3">
+        <ErrorAlert message={error || 'Could not load the satchel.'} />
+        <Button variant="secondary" size="sm" onClick={reload}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
 
   const filterActive = filter.trim().length > 0;
   const activeCompartment =
@@ -181,7 +192,7 @@ export default function Inventory() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-32 md:pb-8">
       <header>
         <div className="font-script text-sheikah-teal-deep text-base">
           the satchel · all that's been gathered
@@ -355,7 +366,7 @@ function BulkStepper({ value, max, onChange, disabled }) {
         onClick={dec}
         disabled={disabled || value <= 1}
         aria-label="Use one fewer"
-        className="w-6 h-6 rounded-full bg-ink-page-shadow/40 hover:bg-ink-page-shadow/70 text-ink-primary text-sm leading-none disabled:opacity-40 disabled:cursor-not-allowed"
+        className="min-w-11 min-h-11 w-11 h-11 rounded-full bg-ink-page-shadow/40 hover:bg-ink-page-shadow/70 text-ink-primary text-base leading-none disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
       >
         −
       </button>
@@ -367,7 +378,7 @@ function BulkStepper({ value, max, onChange, disabled }) {
         onClick={inc}
         disabled={disabled || value >= max}
         aria-label="Use one more"
-        className="w-6 h-6 rounded-full bg-ink-page-shadow/40 hover:bg-ink-page-shadow/70 text-ink-primary text-sm leading-none disabled:opacity-40 disabled:cursor-not-allowed"
+        className="min-w-11 min-h-11 w-11 h-11 rounded-full bg-ink-page-shadow/40 hover:bg-ink-page-shadow/70 text-ink-primary text-base leading-none disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
       >
         +
       </button>
@@ -375,7 +386,7 @@ function BulkStepper({ value, max, onChange, disabled }) {
         type="button"
         onClick={useAll}
         disabled={disabled || value >= max}
-        className="font-script text-tiny text-sheikah-teal-deep hover:text-sheikah-teal underline-offset-2 hover:underline disabled:opacity-40 disabled:cursor-not-allowed"
+        className="min-h-11 px-2 inline-flex items-center font-script text-tiny text-sheikah-teal-deep hover:text-sheikah-teal underline-offset-2 hover:underline disabled:opacity-40 disabled:cursor-not-allowed"
       >
         all
       </button>
