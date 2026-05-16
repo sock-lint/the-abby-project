@@ -151,4 +151,43 @@ describe('Projects', () => {
     await waitFor(() => expect(screen.getByText(/no ventures yet/i)).toBeInTheDocument());
     expect(screen.queryByRole('searchbox', { name: /filter ventures/i })).toBeNull();
   });
+
+  it('renders the QuestFolio verso with title + tier + progress', async () => {
+    const { container } = renderPage(buildUser(), [
+      http.get('*/api/projects/', () =>
+        HttpResponse.json([
+          buildProject({ id: 1, title: 'Alpha', status: 'completed' }),
+          buildProject({ id: 2, title: 'Beta',  status: 'in_progress' }),
+        ]),
+      ),
+    ]);
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+    const verso = container.querySelector('[data-folio-verso="true"]');
+    expect(verso).not.toBeNull();
+    // 1 of 2 completed → 50% progress → rising tier (≥ 25, < 60).
+    expect(verso).toHaveAttribute('data-tier', 'rising');
+    expect(verso).toHaveAttribute('data-progress', '50');
+    // The verso renders the chapter title "Ventures".
+    expect(verso.textContent).toMatch(/Ventures/);
+    // RarityStrand paints per-rarity segments based on difficulty distribution.
+    expect(container.querySelector('[data-rarity]')).not.toBeNull();
+  });
+
+  it('groups ventures by status into ChapterRubric sections', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/projects/', () =>
+        HttpResponse.json([
+          buildProject({ id: 1, title: 'ActiveA', status: 'in_progress' }),
+          buildProject({ id: 2, title: 'DoneA',   status: 'completed' }),
+        ]),
+      ),
+    ]);
+    await waitFor(() => expect(screen.getByText('ActiveA')).toBeInTheDocument());
+    // Each rubric renders an h3 with the section name — the badges + filter
+    // options reuse "In Progress" / "Completed" text elsewhere so role-scoped
+    // queries pin the rubric specifically.
+    expect(screen.getByRole('heading', { level: 3, name: /^In Progress$/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: /^Completed$/ })).toBeInTheDocument();
+    expect(screen.getByText('DoneA')).toBeInTheDocument();
+  });
 });

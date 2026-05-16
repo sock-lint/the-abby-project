@@ -24,12 +24,14 @@ import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import SkillTagEditor from '../components/SkillTagEditor';
+import ChapterRubric from '../components/atlas/ChapterRubric';
 import { CoinIcon, ScrollIcon } from '../components/icons/JournalIcons';
 import { formatDate } from '../utils/format';
 import { normalizeList } from '../utils/api';
 import Button from '../components/Button';
 import ModalActions from '../components/ModalActions';
 import { TextField, SelectField, TextAreaField } from '../components/form';
+import QuestFolio from './quests/QuestFolio';
 
 const RECURRENCE_LABELS = { daily: 'Daily', weekly: 'Weekly', one_time: 'One-time' };
 const WEEK_SCHEDULE_LABELS = { every_week: 'Every week', alternating: 'Alternating weeks' };
@@ -332,156 +334,160 @@ export default function Chores() {
   const doneCount = chores.filter(
     (c) => c.is_done || c.today_status === 'approved' || c.today_status === 'pending',
   ).length;
+  const progressPct = chores.length > 0 ? Math.round((doneCount / chores.length) * 100) : 0;
+  const versoStats = isParent
+    ? [
+      { value: pendingCompletions.length, label: 'awaiting seal' },
+      { value: chores.length, label: 'in keep' },
+    ]
+    : [
+      { value: doneCount, label: 'done today' },
+      { value: chores.length, label: 'in keep' },
+    ];
+  const versoProgressLabel = isParent
+    ? `${chores.length} duties inscribed`
+    : (chores.length > 0
+      ? `${doneCount} of ${chores.length} done today`
+      : 'the keep is quiet');
+
+  // Track which rubric numeral comes next so empty sections don't burn
+  // a §I that would otherwise look like a missing chapter.
+  let rubricIndex = 0;
+  const nextRubric = () => rubricIndex++;
 
   return (
     <div className="space-y-6">
-      <header className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <div className="font-script text-sheikah-teal-deep text-base">
-            duties · the daily keep
-          </div>
-          <h2 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight">
-            Daily duties
-          </h2>
+      <QuestFolio
+        letter="D"
+        title="Duties"
+        kicker="the daily keep"
+        stats={versoStats}
+        progressPct={progressPct}
+        progressLabel={versoProgressLabel}
+      >
+        <ErrorAlert message={error} />
+
+        {/* New / Propose action lives at the top of the recto so it stays
+            reachable when the folio body is empty. */}
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            onClick={openCreate}
+            className="flex items-center gap-1"
+          >
+            <Plus size={14} /> {isParent ? 'New duty' : 'Propose a duty'}
+          </Button>
         </div>
-        <Button
-          size="sm"
-          onClick={openCreate}
-          className="flex items-center gap-1"
-        >
-          <Plus size={14} /> {isParent ? 'New duty' : 'Propose a duty'}
-        </Button>
-      </header>
 
-      <ErrorAlert message={error} />
-
-      {/* Child summary card */}
-      {!isParent && chores.length > 0 && (
-        <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-          <ParchmentCard flourish tone="bright" className="text-center py-6">
-            <div className="font-script text-ink-whisper text-xs uppercase tracking-widest">
-              today's progress
-            </div>
-            <div className="font-display font-semibold text-5xl tabular-nums text-sheikah-teal-deep mt-1">
-              {doneCount}
-              <span className="font-script text-2xl text-ink-whisper"> / {chores.length}</span>
-            </div>
-          </ParchmentCard>
-        </motion.div>
-      )}
-
-      {/* Parent: pending approvals */}
-      {isParent && (
-        <ApprovalQueue
-          items={pendingCompletions}
-          title="Awaiting your seal"
-          onApprove={handleApprove}
-          onReject={handleReject}
-        >
-          {({ item: c, actions }) => (
-            <ParchmentCard key={c.id} className="flex items-center justify-between">
-              <div className="min-w-0">
-                <div className="font-body text-sm font-medium text-ink-primary">
-                  {c.user_name} — {c.chore_icon} {c.chore_title}
-                </div>
-                <div className="font-script text-xs text-ink-whisper">
-                  {formatDate(c.completed_date)} · ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
-                </div>
-                {c.notes && (
-                  <div className="font-script text-xs text-ink-secondary italic mt-0.5">
-                    &ldquo;{c.notes}&rdquo;
-                  </div>
-                )}
-              </div>
-              <div className="shrink-0">{actions}</div>
-            </ParchmentCard>
-          )}
-        </ApprovalQueue>
-      )}
-
-      {/* Pending proposals — parent reviews, child sees their own queue. */}
-      {proposals.length > 0 && (
-        <section aria-labelledby="pending-proposals-heading">
-          <div className="flex items-center gap-2 mb-3">
-            <ScrollIcon size={18} className="text-gold-leaf" />
-            <h2
-              id="pending-proposals-heading"
-              className="font-display text-xl text-ink-primary leading-tight"
+        {/* Parent: pending approvals */}
+        {isParent && pendingCompletions.length > 0 && (
+          <section>
+            <ChapterRubric index={nextRubric()} name="Awaiting your seal" />
+            <ApprovalQueue
+              items={pendingCompletions}
+              onApprove={handleApprove}
+              onReject={handleReject}
             >
-              {isParent ? 'Duty proposals awaiting review' : 'Your proposals'}
-            </h2>
-          </div>
-          <div className="space-y-2">
-            {proposals.map((p) => (
-              <ParchmentCard key={p.id} className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-body text-sm font-medium text-ink-primary flex items-center gap-2">
-                    <span className="text-lg">{p.icon || '📋'}</span>
-                    {p.title}
-                    <RuneBadge tone="ember" size="sm">pending</RuneBadge>
+              {({ item: c, actions }) => (
+                <ParchmentCard key={c.id} className="flex items-center justify-between">
+                  <div className="min-w-0">
+                    <div className="font-body text-sm font-medium text-ink-primary">
+                      {c.user_name} — {c.chore_icon} {c.chore_title}
+                    </div>
+                    <div className="font-script text-xs text-ink-whisper">
+                      {formatDate(c.completed_date)} · ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
+                    </div>
+                    {c.notes && (
+                      <div className="font-script text-xs text-ink-secondary italic mt-0.5">
+                        &ldquo;{c.notes}&rdquo;
+                      </div>
+                    )}
                   </div>
-                  <div className="font-script text-xs text-ink-whisper">
-                    {isParent
-                      ? `proposed by ${p.created_by_name || 'child'}`
-                      : 'waiting for parent to set rewards'}
-                  </div>
-                </div>
-                <div className="shrink-0 flex gap-1">
-                  {isParent ? (
-                    <>
-                      <Button size="sm" onClick={() => openApprove(p)}>
-                        Review &amp; publish
-                      </Button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteConfirm(p.id)}
-                        aria-label="Decline proposal"
-                        className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </>
-                  ) : (
-                    <RuneBadge tone="ink" size="sm">pending</RuneBadge>
-                  )}
-                </div>
-              </ParchmentCard>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Chore list */}
-      <section>
-        <div className="flex items-center gap-2 mb-3">
-          <ScrollIcon size={18} className="text-sheikah-teal-deep" />
-          <h2 className="font-display text-xl text-ink-primary leading-tight">
-            {isParent ? 'All duties' : "Today's duties"}
-          </h2>
-        </div>
-        {chores.length > 0 && (
-          <div className="mb-3">
-            <CatalogSearch
-              value={search}
-              onChange={setSearch}
-              placeholder="Search duties…"
-              ariaLabel="Filter duties"
-            />
-          </div>
+                  <div className="shrink-0">{actions}</div>
+                </ParchmentCard>
+              )}
+            </ApprovalQueue>
+          </section>
         )}
-        {chores.length === 0 ? (
-          <EmptyState icon={<ScrollIcon size={32} />}>
-            {isParent
-              ? 'No duties inscribed yet. Add one to begin the keep.'
-              : 'No duties available today.'}
-          </EmptyState>
-        ) : filteredChores.length === 0 ? (
-          <EmptyState icon={<ScrollIcon size={32} />}>
-            No duties match &ldquo;{search.trim()}&rdquo;.
-          </EmptyState>
-        ) : (
-          <div className="space-y-2">
-            {filteredChores.map((chore) => {
+
+        {/* Pending proposals — parent reviews, child sees their own queue. */}
+        {proposals.length > 0 && (
+          <section>
+            <ChapterRubric
+              index={nextRubric()}
+              name={isParent ? 'Duty proposals awaiting review' : 'Your proposals'}
+              icon={<ScrollIcon size={18} className="text-gold-leaf" />}
+            />
+            <div className="space-y-2">
+              {proposals.map((p) => (
+                <ParchmentCard key={p.id} className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-body text-sm font-medium text-ink-primary flex items-center gap-2">
+                      <span className="text-lg">{p.icon || '📋'}</span>
+                      {p.title}
+                      <RuneBadge tone="ember" size="sm">pending</RuneBadge>
+                    </div>
+                    <div className="font-script text-xs text-ink-whisper">
+                      {isParent
+                        ? `proposed by ${p.created_by_name || 'child'}`
+                        : 'waiting for parent to set rewards'}
+                    </div>
+                  </div>
+                  <div className="shrink-0 flex gap-1">
+                    {isParent ? (
+                      <>
+                        <Button size="sm" onClick={() => openApprove(p)}>
+                          Review &amp; publish
+                        </Button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirm(p.id)}
+                          aria-label="Decline proposal"
+                          className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    ) : (
+                      <RuneBadge tone="ink" size="sm">pending</RuneBadge>
+                    )}
+                  </div>
+                </ParchmentCard>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Chore list */}
+        <section>
+          <ChapterRubric
+            index={nextRubric()}
+            name={isParent ? 'All duties' : "Today's duties"}
+            icon={<ScrollIcon size={18} className="text-sheikah-teal-deep" />}
+          />
+          {chores.length > 0 && (
+            <div className="mb-3">
+              <CatalogSearch
+                value={search}
+                onChange={setSearch}
+                placeholder="Search duties…"
+                ariaLabel="Filter duties"
+              />
+            </div>
+          )}
+          {chores.length === 0 ? (
+            <EmptyState icon={<ScrollIcon size={32} />}>
+              {isParent
+                ? 'No duties inscribed yet. Add one to begin the keep.'
+                : 'No duties available today.'}
+            </EmptyState>
+          ) : filteredChores.length === 0 ? (
+            <EmptyState icon={<ScrollIcon size={32} />}>
+              No duties match &ldquo;{search.trim()}&rdquo;.
+            </EmptyState>
+          ) : (
+            <div className="space-y-2">
+              {filteredChores.map((chore) => {
               const isDone = !isParent && (chore.today_status === 'approved' || chore.today_status === 'pending');
               const isAvailable = !isParent && chore.is_available;
               const isRejected = !isParent && chore.today_status === 'rejected';
@@ -585,34 +591,33 @@ export default function Chores() {
         )}
       </section>
 
-      {/* Child: recent history */}
-      {!isParent && completions.length > 0 && (
-        <section>
-          <h2 className="font-display text-xl text-ink-primary leading-tight mb-3">
-            Recent history
-          </h2>
-          <div className="space-y-2">
-            {completions.slice(0, 10).map((c) => (
-              <ParchmentCard key={c.id} className="flex items-center justify-between">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-lg">{c.chore_icon || '📋'}</span>
-                  <div className="min-w-0">
-                    <div className="font-body text-sm font-medium text-ink-primary truncate">
-                      {c.chore_title}
-                    </div>
-                    <div className="font-script text-xs text-ink-whisper">
-                      {formatDate(c.completed_date)} · ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
+        {/* Child: recent history */}
+        {!isParent && completions.length > 0 && (
+          <section>
+            <ChapterRubric index={nextRubric()} name="Recent history" />
+            <div className="space-y-2">
+              {completions.slice(0, 10).map((c) => (
+                <ParchmentCard key={c.id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-lg">{c.chore_icon || '📋'}</span>
+                    <div className="min-w-0">
+                      <div className="font-body text-sm font-medium text-ink-primary truncate">
+                        {c.chore_title}
+                      </div>
+                      <div className="font-script text-xs text-ink-whisper">
+                        {formatDate(c.completed_date)} · ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
+                      </div>
                     </div>
                   </div>
-                </div>
-                <RuneBadge tone={STATUS_TONE[c.status] || 'ember'} size="sm">
-                  {c.status}
-                </RuneBadge>
-              </ParchmentCard>
-            ))}
-          </div>
-        </section>
-      )}
+                  <RuneBadge tone={STATUS_TONE[c.status] || 'ember'} size="sm">
+                    {c.status}
+                  </RuneBadge>
+                </ParchmentCard>
+              ))}
+            </div>
+          </section>
+        )}
+      </QuestFolio>
 
       {showForm && (
         <ChoreFormModal

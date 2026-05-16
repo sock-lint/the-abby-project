@@ -275,6 +275,25 @@ describe('Habits', () => {
     expect(body.name).toBe('Brush teeth');
   });
 
+  it('renders the QuestFolio verso but no RarityStrand (strength is its own tier system)', async () => {
+    const { container } = renderPage(buildUser(), [
+      http.get('*/api/habits/', ({ request }) => {
+        const pending = new URL(request.url).searchParams.get('pending') === 'true';
+        return HttpResponse.json(pending
+          ? { results: [] }
+          : { results: [
+            { id: 1, name: 'Read 20 min', icon: '📖', habit_type: 'positive', strength: 3, color: 'green' },
+          ] },
+        );
+      }),
+    ]);
+    await waitFor(() => expect(screen.getByText(/read 20 min/i)).toBeInTheDocument());
+    expect(container.querySelector('[data-folio-verso="true"]')).not.toBeNull();
+    // RarityStrand emits per-rarity segments — the strand is intentionally
+    // omitted from Rituals since habit strength is its own tier vocabulary.
+    expect(container.querySelector('[data-rarity]')).toBeNull();
+  });
+
   it('filters rituals by name via the search input', async () => {
     const user = userEvent.setup();
     renderPage(buildUser(), [
