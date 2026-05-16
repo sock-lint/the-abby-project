@@ -18,10 +18,12 @@ import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import SkillTagEditor from '../components/SkillTagEditor';
+import ChapterRubric from '../components/atlas/ChapterRubric';
 import { ScrollIcon } from '../components/icons/JournalIcons';
 import Button from '../components/Button';
 import { TextField, SelectField } from '../components/form';
 import { normalizeList } from '../utils/api';
+import QuestFolio from './quests/QuestFolio';
 
 // Strength color — journal-safe sepia gradient from ember (low) through
 // moss (positive) to royal (mastered).
@@ -281,98 +283,124 @@ export default function Habits() {
 
   if (loading) return <Loader />;
 
+  // Verso math — average strength tells the chapter-level story; the
+  // medallions on each ritual row carry the per-habit detail. Render the
+  // average as a one-decimal float so it never collides with the raw
+  // integer strength values shown on the medallions (which tests assert
+  // on via getByText('3')).
+  const avgStrength = habits.length > 0
+    ? habits.reduce((sum, h) => sum + (h.strength ?? 0), 0) / habits.length
+    : 0;
+  // Map strength → 0-100%: 0 strength → 0%, +10 → 100%. Negative averages
+  // pin to 0% (the gentle-nudge doctrine — drifting back is visible but
+  // never punished).
+  const versoProgressPct = Math.max(0, Math.min(100, Math.round(avgStrength * 10)));
+  const versoStats = [
+    { value: habits.length, label: 'rituals' },
+    { value: avgStrength.toFixed(1), label: 'avg strength' },
+  ];
+  const versoProgressLabel = habits.length > 0
+    ? `${habits.length} ritual${habits.length === 1 ? '' : 's'} in practice`
+    : 'an empty page · ready to be inked';
+
+  let rubricIndex = 0;
+  const nextRubric = () => rubricIndex++;
+
   return (
     <div className="space-y-6">
-      <header className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <div className="font-script text-sheikah-teal-deep text-base">
-            rituals · virtues & vices
-          </div>
-          <h2 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight">
-            Rituals
-          </h2>
-          <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
-            tap a virtue to strengthen it; missed days drift it back · colour shows the current pull
-          </div>
-        </div>
-        <Button
-          size="sm"
-          onClick={openCreate}
-          className="flex items-center gap-1.5"
-        >
-          <Plus size={16} /> {isParent ? 'New ritual' : 'Propose a ritual'}
-        </Button>
-      </header>
+      <QuestFolio
+        letter="R"
+        title="Rituals"
+        kicker="virtues & vices"
+        meta="tap a virtue to strengthen it · missed days drift it back"
+        stats={versoStats}
+        progressPct={versoProgressPct}
+        progressLabel={versoProgressLabel}
+      >
+        <ErrorAlert message={error} />
 
-      <ErrorAlert message={error} />
-
-      {proposals.length > 0 && (
-        <section aria-labelledby="habit-proposals-heading">
-          <h3
-            id="habit-proposals-heading"
-            className="font-display text-lg text-ink-primary mb-3"
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            onClick={openCreate}
+            className="flex items-center gap-1.5"
           >
-            {isParent ? 'Ritual proposals awaiting review' : 'Your proposals'}
-          </h3>
-          <div className="space-y-2">
-            {proposals.map((p) => (
-              <ParchmentCard key={p.id} className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-body text-sm font-medium text-ink-primary flex items-center gap-2">
-                    <span className="text-lg">{p.icon || '⚡'}</span>
-                    {p.name}
-                    <RuneBadge tone="ember" size="sm">pending</RuneBadge>
-                  </div>
-                  <div className="font-script text-xs text-ink-whisper">
-                    {isParent
-                      ? `proposed by ${p.created_by_name || 'child'}`
-                      : 'waiting for parent to set XP'}
-                  </div>
-                </div>
-                <div className="shrink-0 flex gap-1">
-                  {isParent ? (
-                    <>
-                      <Button size="sm" onClick={() => openApprove(p)}>
-                        Review &amp; publish
-                      </Button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmDelete(p)}
-                        aria-label="Decline proposal"
-                        className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </>
-                  ) : (
-                    <RuneBadge tone="ink" size="sm">pending</RuneBadge>
-                  )}
-                </div>
-              </ParchmentCard>
-            ))}
-          </div>
-        </section>
-      )}
+            <Plus size={16} /> {isParent ? 'New ritual' : 'Propose a ritual'}
+          </Button>
+        </div>
 
-      {habits.length > 0 && (
-        <CatalogSearch
-          value={search}
-          onChange={setSearch}
-          placeholder="Search rituals…"
-          ariaLabel="Filter rituals"
-        />
-      )}
+        {proposals.length > 0 && (
+          <section>
+            <ChapterRubric
+              index={nextRubric()}
+              name={isParent ? 'Ritual proposals awaiting review' : 'Your proposals'}
+            />
+            <div className="space-y-2">
+              {proposals.map((p) => (
+                <ParchmentCard key={p.id} className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-body text-sm font-medium text-ink-primary flex items-center gap-2">
+                      <span className="text-lg">{p.icon || '⚡'}</span>
+                      {p.name}
+                      <RuneBadge tone="ember" size="sm">pending</RuneBadge>
+                    </div>
+                    <div className="font-script text-xs text-ink-whisper">
+                      {isParent
+                        ? `proposed by ${p.created_by_name || 'child'}`
+                        : 'waiting for parent to set XP'}
+                    </div>
+                  </div>
+                  <div className="shrink-0 flex gap-1">
+                    {isParent ? (
+                      <>
+                        <Button size="sm" onClick={() => openApprove(p)}>
+                          Review &amp; publish
+                        </Button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDelete(p)}
+                          aria-label="Decline proposal"
+                          className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    ) : (
+                      <RuneBadge tone="ink" size="sm">pending</RuneBadge>
+                    )}
+                  </div>
+                </ParchmentCard>
+              ))}
+            </div>
+          </section>
+        )}
 
-      {habits.length === 0 ? (
-        <EmptyState icon={<ScrollIcon size={32} />}>
-          No rituals recorded yet. Inscribe a virtue to begin practicing.
-        </EmptyState>
-      ) : filteredHabits.length === 0 ? (
-        <EmptyState icon={<ScrollIcon size={32} />}>
-          No rituals match &ldquo;{search.trim()}&rdquo;.
-        </EmptyState>
-      ) : (
-        <motion.div layout className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <section>
+          <ChapterRubric
+            index={nextRubric()}
+            name="Active rituals"
+            icon={<ScrollIcon size={18} className="text-sheikah-teal-deep" />}
+          />
+          {habits.length > 0 && (
+            <div className="mb-3">
+              <CatalogSearch
+                value={search}
+                onChange={setSearch}
+                placeholder="Search rituals…"
+                ariaLabel="Filter rituals"
+              />
+            </div>
+          )}
+          {habits.length === 0 ? (
+            <EmptyState icon={<ScrollIcon size={32} />}>
+              No rituals recorded yet. Inscribe a virtue to begin practicing.
+            </EmptyState>
+          ) : filteredHabits.length === 0 ? (
+            <EmptyState icon={<ScrollIcon size={32} />}>
+              No rituals match &ldquo;{search.trim()}&rdquo;.
+            </EmptyState>
+          ) : (
+            <motion.div layout className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
           <AnimatePresence>
             {filteredHabits.map((habit) => (
               <motion.div
@@ -457,11 +485,13 @@ export default function Habits() {
                     )}
                   </div>
                 </ParchmentCard>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
-      )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        )}
+        </section>
+      </QuestFolio>
 
       {showForm && (
         <HabitFormModal

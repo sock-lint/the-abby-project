@@ -16,7 +16,9 @@ import IconButton from '../components/IconButton';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
+import ChapterRubric from '../components/atlas/ChapterRubric';
 import MovementSessionLogModal from '../components/MovementSessionLogModal';
+import QuestFolio from './quests/QuestFolio';
 
 const INTENSITY_TONE = { low: 'moss', medium: 'teal', high: 'ember' };
 
@@ -98,72 +100,80 @@ export default function Movement() {
 
   if (loading) return <Loader />;
 
+  // Verso math — "first 3 a day fire bonus XP" is the natural progression
+  // target. Cap progressPct at 100% once the daily bonus slots are used.
+  const dailyTarget = 3;
+  const versoProgressPct = Math.min(100, (todays.length / dailyTarget) * 100);
+  const versoProgressLabel = todays.length === 0
+    ? 'first 3 each day fire bonus XP'
+    : `${Math.min(todays.length, dailyTarget)} of ${dailyTarget} bonus slots used`;
+
+  let rubricIndex = 0;
+  const nextRubric = () => rubricIndex++;
+
   return (
     <div className="space-y-6">
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <div className="font-script text-sheikah-teal-deep text-base">
-            movement · sessions, practices, runs
-          </div>
-          <h2 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight">
-            Movement
-          </h2>
-          <div className="font-script text-xs text-ink-whisper mt-1">
-            Log what you did. Duration × intensity feeds your Physical skills;
-            the first 3 each day fire bonus XP and drops.
-          </div>
-        </div>
+      <QuestFolio
+        letter="M"
+        title="Movement"
+        kicker="sessions, practices, runs"
+        meta="duration × intensity feeds your Physical skills"
+        stats={[
+          { value: todays.length, label: 'today' },
+          { value: sessions.length, label: 'all-time' },
+        ]}
+        progressPct={versoProgressPct}
+        progressLabel={versoProgressLabel}
+      >
+        <ErrorAlert message={error?.message || actionError} />
+
         {!isParent && (
-          <Button
-            onClick={() => setLogOpen(true)}
-            className="flex items-center gap-1 shrink-0"
-          >
-            <Plus size={16} /> Log
-          </Button>
-        )}
-      </header>
-
-      <ErrorAlert message={error?.message || actionError} />
-
-      <section aria-labelledby="movement-today">
-        <h3 id="movement-today" className="font-display text-lg text-ink-primary mb-2">
-          Today
-        </h3>
-        {todays.length === 0 ? (
-          <EmptyState icon={<Activity size={28} />}>
-            Nothing logged yet today. Tap “Log” after a workout, practice, or run.
-          </EmptyState>
-        ) : (
-          <div className="space-y-2">
-            {todays.map((s) => (
-              <SessionRow
-                key={s.id}
-                session={s}
-                canDelete={canDelete(s)}
-                onDelete={setPendingDelete}
-              />
-            ))}
+          <div className="flex justify-end">
+            <Button
+              onClick={() => setLogOpen(true)}
+              className="flex items-center gap-1 shrink-0"
+            >
+              <Plus size={16} /> Log
+            </Button>
           </div>
         )}
-      </section>
 
-      {earlier.length > 0 && (
-        <section aria-labelledby="movement-earlier">
-          <h3 id="movement-earlier" className="font-display text-lg text-ink-primary mb-2">
-            Earlier
-          </h3>
-          <div className="space-y-2">
-            {earlier.map((s) => (
-              <SessionRow
-                key={s.id}
-                session={s}
-                canDelete={canDelete(s)}
-                onDelete={setPendingDelete}
-              />
-            ))}
-          </div>
+        <section>
+          <ChapterRubric index={nextRubric()} name="Today" />
+          {todays.length === 0 ? (
+            <EmptyState icon={<Activity size={28} />}>
+              Nothing logged yet today. Tap “Log” after a workout, practice, or run.
+            </EmptyState>
+          ) : (
+            <div className="space-y-2">
+              {todays.map((s) => (
+                <SessionRow
+                  key={s.id}
+                  session={s}
+                  canDelete={canDelete(s)}
+                  onDelete={setPendingDelete}
+                />
+              ))}
+            </div>
+          )}
         </section>
-      )}
+
+        {earlier.length > 0 && (
+          <section>
+            <ChapterRubric index={nextRubric()} name="Earlier" />
+            <div className="space-y-2">
+              {earlier.map((s) => (
+                <SessionRow
+                  key={s.id}
+                  session={s}
+                  canDelete={canDelete(s)}
+                  onDelete={setPendingDelete}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+      </QuestFolio>
 
       {logOpen && (
         <MovementSessionLogModal

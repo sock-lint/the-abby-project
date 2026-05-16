@@ -66,6 +66,31 @@ describe('Homework', () => {
     );
   });
 
+  it('renders the QuestFolio verso with a RarityStrand when assignments span effort levels', async () => {
+    const { container } = renderPage(buildUser(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({
+          today: [
+            buildAssignment({ id: 1, title: 'Lab',  effort_level: 1 }),
+            buildAssignment({ id: 2, title: 'Read', effort_level: 3 }),
+          ],
+          upcoming: [],
+          overdue: [],
+          stats: { completion_rate: 40, on_time_rate: 80, total_approved: 4 },
+        }),
+      ),
+    ]);
+    await waitFor(() => expect(screen.getByText('Lab')).toBeInTheDocument());
+    const verso = container.querySelector('[data-folio-verso="true"]');
+    expect(verso).not.toBeNull();
+    // 40% completion → rising tier (>= 25, < 60).
+    expect(verso).toHaveAttribute('data-tier', 'rising');
+    expect(verso).toHaveAttribute('data-progress', '40');
+    // Effort 1 → common, effort 3 → rare. Both segments paint.
+    expect(container.querySelector('[data-rarity="common"]')).not.toBeNull();
+    expect(container.querySelector('[data-rarity="rare"]')).not.toBeNull();
+  });
+
   it('renders for a parent with pending submissions', async () => {
     renderPage(buildParent(), [
       http.get('*/api/homework/dashboard/', () =>

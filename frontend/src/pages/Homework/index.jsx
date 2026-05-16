@@ -22,9 +22,12 @@ import TimelinessBadge from '../../components/TimelinessBadge';
 import ProofGallery from '../../components/ProofGallery';
 import StatusBadge from '../../components/StatusBadge';
 import ParchmentCard from '../../components/journal/ParchmentCard';
+import ChapterRubric from '../../components/atlas/ChapterRubric';
 import Button from '../../components/Button';
 import AssignmentCard from './AssignmentCard';
 import HomeworkFormModal from './HomeworkFormModal';
+import QuestFolio from '../quests/QuestFolio';
+import { buildRarityCounts, effortToRarity } from '../quests/quests.constants';
 
 export default function Homework() {
   const { isParent } = useRole();
@@ -136,119 +139,166 @@ export default function Homework() {
     />
   );
 
+  // Verso math — child: completion / on-time rates (from dashboard.stats);
+  // parent: assignment + pending counts. Rarity strand reads effort_level
+  // across whatever's visible on the recto (today/overdue/upcoming for
+  // child, assignments for parent).
+  const stats = dashboard?.stats ?? {};
+  const allAssignments = isParent
+    ? (dashboard?.assignments ?? [])
+    : [
+      ...(dashboard?.today ?? []),
+      ...(dashboard?.overdue ?? []),
+      ...(dashboard?.upcoming ?? []),
+    ];
+  const pendingSubs = dashboard?.pending_submissions ?? [];
+  const versoStats = isParent
+    ? [
+      { value: pendingSubs.length, label: 'awaiting seal' },
+      { value: allAssignments.length, label: 'active' },
+    ]
+    : [
+      { value: `${stats.completion_rate ?? 0}%`, label: 'completion' },
+      { value: `${stats.on_time_rate ?? 0}%`, label: 'on time' },
+    ];
+  const versoProgressPct = isParent
+    ? (allAssignments.length === 0 ? 0
+      : Math.round(100 * (1 - pendingSubs.length / Math.max(1, allAssignments.length + pendingSubs.length))))
+    : Number(stats.completion_rate || 0);
+  const versoProgressLabel = isParent
+    ? (pendingSubs.length === 0
+      ? 'queue is clear'
+      : `${pendingSubs.length} submission${pendingSubs.length === 1 ? '' : 's'} pending`)
+    : `${stats.total_approved ?? 0} approved this year`;
+  const versoRarityCounts = allAssignments.length > 0
+    ? buildRarityCounts(
+      allAssignments,
+      (a) => effortToRarity(a.effort_level),
+      (a) => a.submission_status === 'approved',
+    )
+    : undefined;
+
+  let rubricIndex = 0;
+  const nextRubric = () => rubricIndex++;
+
   return (
     <div className="space-y-6">
-      <header className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <div className="font-script text-sheikah-teal-deep text-base">
-            study · scholar's corner
-          </div>
-          <h2 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight">
-            Study
-          </h2>
-          <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
-            submit each assignment with a proof photo · approval awards XP through the skill tags
-          </div>
+      <QuestFolio
+        letter="S"
+        title="Study"
+        kicker="the scholar's corner"
+        meta="submit each assignment with a proof photo"
+        stats={versoStats}
+        progressPct={versoProgressPct}
+        progressLabel={versoProgressLabel}
+        rarityCounts={versoRarityCounts}
+      >
+        {actionError && <ErrorAlert message={actionError} />}
+        {planError && <ErrorAlert message={planError} />}
+
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            onClick={openCreate}
+            className="flex items-center gap-1"
+          >
+            <Plus size={14} /> New assignment
+          </Button>
         </div>
-        <Button
-          size="sm"
-          onClick={openCreate}
-          className="flex items-center gap-1"
-        >
-          <Plus size={14} /> New assignment
-        </Button>
-      </header>
 
-      {actionError && <ErrorAlert message={actionError} />}
-      {planError && <ErrorAlert message={planError} />}
+        {/* Child dashboard view */}
+        {!isParent && (
+          <>
+            {dashboard?.overdue?.length > 0 && (
+              <div className="bg-ember/15 border border-ember/50 rounded-lg p-3 font-body text-ember-deep text-sm">
+                {dashboard.overdue.length} overdue assignment{dashboard.overdue.length > 1 ? 's' : ''}
+              </div>
+            )}
 
-      {/* Child dashboard view */}
-      {!isParent && (
-        <>
-          {dashboard?.overdue?.length > 0 && (
-            <div className="bg-ember/15 border border-ember/50 rounded-lg p-3 font-body text-ember-deep text-sm">
-              {dashboard.overdue.length} overdue assignment{dashboard.overdue.length > 1 ? 's' : ''}
-            </div>
-          )}
-
-          {dashboard?.stats && (
-            <div className="grid grid-cols-3 gap-3">
-              <StatTile label="Completion" value={`${dashboard.stats.completion_rate}%`} />
-              <StatTile label="On time" value={`${dashboard.stats.on_time_rate}%`} />
-              <StatTile label="Approved" value={dashboard.stats.total_approved} />
-            </div>
-          )}
-
-          <Section title="Due today" items={dashboard?.today} emptyText="Nothing due today.">
-            {renderCard}
-          </Section>
-
-          {dashboard?.overdue?.length > 0 && (
-            <Section title="Overdue" items={dashboard.overdue}>
+            <Section
+              index={nextRubric()}
+              title="Due today"
+              items={dashboard?.today}
+              emptyText="Nothing due today."
+            >
               {renderCard}
             </Section>
-          )}
 
-          <Section title="Coming up" items={dashboard?.upcoming} emptyText="No upcoming assignments.">
-            {renderCard}
-          </Section>
-        </>
-      )}
+            {dashboard?.overdue?.length > 0 && (
+              <Section index={nextRubric()} title="Overdue" items={dashboard.overdue}>
+                {renderCard}
+              </Section>
+            )}
 
-      {/* Parent view */}
-      {isParent && (
-        <>
-        <Section
-          title="Active assignments"
-          items={dashboard?.assignments}
-          emptyText="No active assignments. Tap “New homework” to add one."
-        >
-          {(a) => (
-            <AssignmentCard
-              key={a.id} assignment={a}
-              onPlan={() => handlePlan(a)}
-              planning={planning === a.id}
-              canPlan={a.can_plan}
-              canManage
-              onEdit={() => openEdit(a)}
-              onDelete={() => setDeleteConfirm(a.id)}
-            />
-          )}
-        </Section>
-        <ApprovalQueue
-          items={dashboard?.pending_submissions}
-          title="Awaiting your seal"
-          emptyText="No pending submissions."
-          onApprove={handleApprove}
-          onReject={handleReject}
-        >
-          {({ item: sub, actions }) => (
-            <ParchmentCard key={sub.id} className="space-y-3">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="font-body">
-                  <span className="font-medium text-ink-primary">{sub.user_name}</span>
-                  <span className="text-ink-whisper mx-2">&mdash;</span>
-                  <span className="text-ink-primary">{sub.assignment_title}</span>
-                </div>
-                <div className="flex gap-1.5 flex-wrap">
-                  <TimelinessBadge timeliness={sub.timeliness} />
-                  <StatusBadge status={sub.status} />
-                </div>
-              </div>
-              {sub.notes && (
-                <p className="font-script text-sm text-ink-secondary italic">
-                  &ldquo;{sub.notes}&rdquo;
-                </p>
+            <Section
+              index={nextRubric()}
+              title="Coming up"
+              items={dashboard?.upcoming}
+              emptyText="No upcoming assignments."
+            >
+              {renderCard}
+            </Section>
+          </>
+        )}
+
+        {/* Parent view */}
+        {isParent && (
+          <>
+            <Section
+              index={nextRubric()}
+              title="Active assignments"
+              items={dashboard?.assignments}
+              emptyText="No active assignments. Tap “New homework” to add one."
+            >
+              {(a) => (
+                <AssignmentCard
+                  key={a.id} assignment={a}
+                  onPlan={() => handlePlan(a)}
+                  planning={planning === a.id}
+                  canPlan={a.can_plan}
+                  canManage
+                  onEdit={() => openEdit(a)}
+                  onDelete={() => setDeleteConfirm(a.id)}
+                />
               )}
-              <ProofGallery proofs={sub.proofs} />
-              <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                {actions}
-              </div>
-            </ParchmentCard>
-          )}
-        </ApprovalQueue>
-        </>
-      )}
+            </Section>
+            <section>
+              <ChapterRubric index={nextRubric()} name="Awaiting your seal" />
+              <ApprovalQueue
+                items={dashboard?.pending_submissions}
+                emptyText="No pending submissions."
+                onApprove={handleApprove}
+                onReject={handleReject}
+              >
+                {({ item: sub, actions }) => (
+                  <ParchmentCard key={sub.id} className="space-y-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="font-body">
+                        <span className="font-medium text-ink-primary">{sub.user_name}</span>
+                        <span className="text-ink-whisper mx-2">&mdash;</span>
+                        <span className="text-ink-primary">{sub.assignment_title}</span>
+                      </div>
+                      <div className="flex gap-1.5 flex-wrap">
+                        <TimelinessBadge timeliness={sub.timeliness} />
+                        <StatusBadge status={sub.status} />
+                      </div>
+                    </div>
+                    {sub.notes && (
+                      <p className="font-script text-sm text-ink-secondary italic">
+                        &ldquo;{sub.notes}&rdquo;
+                      </p>
+                    )}
+                    <ProofGallery proofs={sub.proofs} />
+                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                      {actions}
+                    </div>
+                  </ParchmentCard>
+                )}
+              </ApprovalQueue>
+            </section>
+          </>
+        )}
+      </QuestFolio>
 
       {showForm && (
         <HomeworkFormModal
@@ -278,19 +328,10 @@ export default function Homework() {
   );
 }
 
-function StatTile({ label, value }) {
-  return (
-    <ParchmentCard className="text-center py-3">
-      <div className="font-display font-semibold text-2xl text-ink-primary tabular-nums">{value}</div>
-      <div className="font-script text-xs text-ink-whisper uppercase tracking-wider">{label}</div>
-    </ParchmentCard>
-  );
-}
-
-function Section({ title, items, emptyText, children }) {
+function Section({ index = 0, title, items, emptyText, children }) {
   return (
     <section>
-      <h2 className="font-display text-xl text-ink-primary leading-tight mb-3">{title}</h2>
+      <ChapterRubric index={index} name={title} />
       {!items?.length ? (
         emptyText && <p className="font-script text-sm text-ink-whisper italic">{emptyText}</p>
       ) : (
