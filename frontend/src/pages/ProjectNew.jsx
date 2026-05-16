@@ -66,23 +66,28 @@ export default function ProjectNew() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <button onClick={() => navigate('/projects')} className="flex items-center gap-1 text-sm text-ink-whisper hover:text-ink-primary">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate('/projects')}
+        className="flex items-center gap-1 text-body text-ink-whisper hover:text-ink-primary"
+      >
         <ArrowLeft size={16} /> Back
-      </button>
+      </Button>
       <h1 className="font-display text-2xl font-bold">New Project</h1>
 
-      <button
-        type="button"
+      <Button
+        variant="secondary"
         onClick={() => navigate('/projects/ingest')}
-        className="w-full flex items-center gap-3 bg-sheikah-teal/10 hover:bg-sheikah-teal/20 border border-sheikah-teal-deep/40 rounded-lg px-4 py-3 text-left transition-colors"
+        className="w-full flex items-center gap-3 bg-sheikah-teal/10 hover:bg-sheikah-teal/20 border-sheikah-teal-deep/40 px-4 py-3 text-left"
       >
         <Sparkles size={20} className="text-sheikah-teal-deep shrink-0" />
         <div className="flex-1">
-          <div className="text-sm font-semibold text-ink-primary">Have a link or PDF?</div>
-          <div className="text-xs text-ink-whisper">Auto-fill milestones, materials, and category from the source.</div>
+          <div className="text-body font-semibold text-ink-primary">Have a link or PDF?</div>
+          <div className="text-caption text-ink-whisper">Auto-fill milestones, materials, and category from the source.</div>
         </div>
         <ExternalLink size={16} className="text-ink-whisper" />
-      </button>
+      </Button>
 
       <form onSubmit={handleSubmit}>
         <ParchmentCard className="space-y-4">

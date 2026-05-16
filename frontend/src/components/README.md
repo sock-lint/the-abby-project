@@ -84,6 +84,25 @@ When a `ProgressBar` or `QuillProgress` accepts an `aria-label`, prefer a contex
 
 `QuillProgress` is a variant of `ProgressBar` with a hand-drawn quill-stroke SVG overlay — use it for mastery/progression contexts (skill XP, category chapters), keep `ProgressBar` for neutral progress (savings goals, assignments complete). Both share the same ARIA contract and `color` prop so they're substitutable when the aesthetic needs to change.
 
+### Page shell + section header
+
+Two primitives keep page-level vocabulary consistent across the journal:
+
+- **`<PageShell width="wide|narrow" rhythm="loose|default|tight" animate variants>`** ([`./layout/PageShell.jsx`](./layout/PageShell.jsx)) — root wrapper for page bodies. Replaces the copy-pasted `<motion.div className="max-w-6xl mx-auto space-y-5">` pattern. Owns the spine width (`max-w-6xl` / `max-w-3xl`), vertical rhythm (`space-y-6` / `space-y-5` / `space-y-3`), and the fade-in animation. Outer horizontal padding stays with `JournalShell` — `PageShell` does NOT add px, so it can't double-pad. Callers that supply `variants` (e.g. the dashboards using `inkBleed`) take over the motion config; otherwise the default `opacity/y` fade applies. Set `animate={false}` for error fallback returns or pages that animate their own body.
+- **`<SectionHeader title index kicker count actions as="h2">`** ([`./SectionHeader.jsx`](./SectionHeader.jsx)) — non-collapsible sibling of `<AccordionSection>` for sections that should always be open. Mirrors `AccordionSection`'s vocabulary (script kicker, atlas chapter numeral via `index`, `RuneBadge` count, supporting body line) so the two read as a family. Use the `actions` slot for right-aligned buttons or filter controls.
+
+#### Spacing rhythm — 3 tiers
+
+The audit found `space-y-3` (default), `space-y-6` (loose), and `space-y-2` (tight) dominate. Document the convention; don't introduce new ad-hoc spacings.
+
+| Tier | Vertical | Grid/flex gap | Use for |
+|---|---|---|---|
+| Loose | `space-y-6` | `gap-4` | Chapter breaks, major page sections |
+| Default | `space-y-5` → `space-y-3` | `gap-3` | Cards, list items, rows |
+| Tight | `space-y-2` | `gap-2` | Form fields, stacked metadata |
+
+`PageShell rhythm="..."` is the only consumer of this scale; inside pages, just pick from these utilities directly.
+
 ### Modal overlay tokens
 
 The four `.modal-*` classes in `index.css` (`modal-ink-wash`, `modal-vignette`, `modal-seal-ring`, `modal-seal-ring-strong`) reference per-cover-overridable `--color-modal-*` tokens. `themes.js` may diverge these per cover — e.g. Vigil's dark surface needs a lighter wash. Three Hyrule defaults (`--color-modal-wash`, `--color-modal-vignette-edge`, `--color-modal-shadow`) happen to share `rgba(45,31,21,0.45)` but represent three distinct semantic roles; do not dedupe.

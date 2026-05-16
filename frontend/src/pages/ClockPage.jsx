@@ -9,6 +9,7 @@ import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
+import IconButton from '../components/IconButton';
 import { ClockFabIcon, InkwellIcon } from '../components/icons/JournalIcons';
 import { SelectField, TextAreaField } from '../components/form';
 import { formatDate, formatDuration } from '../utils/format';
@@ -90,7 +91,7 @@ export default function ClockPage() {
         <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
           Clock
         </h1>
-        <div className="font-script text-sm text-ink-whisper mt-1">
+        <div className="font-script text-body text-ink-whisper mt-1">
           each hour at a venture inks coins, XP, and weekly wages
         </div>
       </header>
@@ -105,7 +106,7 @@ export default function ClockPage() {
           <AnimatePresence mode="wait">
             {isClocked ? (
               <motion.div key="active" initial={{ scale: 0.85 }} animate={{ scale: 1 }}>
-                <div className="font-script text-sheikah-teal-deep text-sm uppercase tracking-widest mb-1">
+                <div className="font-script text-sheikah-teal-deep text-body uppercase tracking-widest mb-1">
                   now inking
                 </div>
                 <div className="font-display text-lg text-ink-primary mb-3">
@@ -131,7 +132,7 @@ export default function ClockPage() {
                 >
                   <Square size={36} />
                 </motion.button>
-                <div className="font-script text-sm text-ink-whisper mt-3">
+                <div className="font-script text-body text-ink-whisper mt-3">
                   tap to close the entry · the hour rolls into your weekly wages
                 </div>
               </motion.div>
@@ -160,7 +161,7 @@ export default function ClockPage() {
                 >
                   <Play size={36} className="ml-1" />
                 </motion.button>
-                <div className="font-script text-sm text-ink-whisper mt-3">
+                <div className="font-script text-body text-ink-whisper mt-3">
                   tap to begin inking · earns coins and XP per hour
                 </div>
               </motion.div>
@@ -187,11 +188,11 @@ export default function ClockPage() {
                   <InkwellIcon size={16} className="text-ink-secondary shrink-0" />
                   <div className="min-w-0">
                     <div
-                      className={`font-body text-sm font-medium text-ink-primary truncate ${e.status === 'voided' ? 'line-through' : ''}`}
+                      className={`font-body text-body font-medium text-ink-primary truncate ${e.status === 'voided' ? 'line-through' : ''}`}
                     >
                       {e.project_title}
                     </div>
-                    <div className="font-script text-xs text-ink-whisper truncate">
+                    <div className="font-script text-caption text-ink-whisper truncate">
                       {formatDate(e.clock_in)} {e.notes && `· ${e.notes}`}
                       {e.status === 'voided' && (
                         <span className="text-ember-deep ml-1">(voided)</span>
@@ -200,19 +201,19 @@ export default function ClockPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="font-rune font-bold text-sm text-ink-primary tabular-nums">
+                  <span className="font-rune font-bold text-body text-ink-primary tabular-nums">
                     {e.duration_minutes ? formatDuration(e.duration_minutes) : '…'}
                   </span>
                   {isParent && e.status !== 'voided' && e.status !== 'active' && (
-                    <button
-                      type="button"
+                    <IconButton
+                      size="sm"
                       onClick={() => setVoidEntryId(e.id)}
                       title="Void entry"
                       aria-label="Void entry"
-                      className="text-ink-secondary hover:text-ember-deep p-1 transition-colors"
+                      className="hover:text-ember-deep"
                     >
                       <Ban size={14} />
-                    </button>
+                    </IconButton>
                   )}
                 </div>
               </ParchmentCard>

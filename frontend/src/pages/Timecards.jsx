@@ -64,7 +64,7 @@ export default function Timecards() {
         </div>
         <a
           href="/api/export/timecards/"
-          className="flex items-center gap-1.5 font-script text-sm text-sheikah-teal-deep hover:text-sheikah-teal transition-colors"
+          className="flex items-center gap-1.5 font-script text-body text-sheikah-teal-deep hover:text-sheikah-teal transition-colors"
         >
           <Download size={14} /> scribe a copy (CSV)
         </a>
@@ -84,27 +84,27 @@ export default function Timecards() {
                 <button
                   type="button"
                   onClick={() => toggleExpand(tc.id)}
-                  className="w-full flex items-center justify-between text-left"
+                  className="w-full flex items-center justify-between text-left gap-3 flex-wrap"
                 >
-                  <div>
-                    <div className="font-script text-xs text-ink-whisper uppercase tracking-wider">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-script text-caption text-ink-whisper uppercase tracking-wider">
                       week of
                     </div>
-                    <div className="font-display text-lg text-ink-primary leading-tight">
+                    <div className="font-display text-lede text-ink-primary leading-tight truncate">
                       {formatDate(tc.week_start)}
                     </div>
                     {isParent && tc.username && (
-                      <div className="font-body text-xs text-ink-secondary mt-0.5">
+                      <div className="font-body text-caption text-ink-secondary mt-0.5 truncate">
                         {tc.username}
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 shrink-0">
                     <div className="text-right">
-                      <div className="font-rune font-bold text-sm text-ink-primary tabular-nums">
+                      <div className="font-rune font-bold text-body text-ink-primary tabular-nums">
                         {tc.total_hours}h
                       </div>
-                      <div className="font-rune font-bold text-sm text-moss tabular-nums">
+                      <div className="font-rune font-bold text-body text-moss tabular-nums">
                         {formatCurrency(tc.total_earnings)}
                       </div>
                     </div>
@@ -126,7 +126,7 @@ export default function Timecards() {
                       className="overflow-hidden"
                     >
                       <div className="mt-4 pt-4 border-t border-ink-page-shadow space-y-2">
-                        <div className="grid grid-cols-3 gap-2 text-center text-xs mb-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center text-caption mb-3">
                           <div className="rounded-lg bg-ink-page/60 py-2 border border-ink-page-shadow/60">
                             <div className="font-script text-ink-whisper">Hourly</div>
                             <div className="font-rune font-bold text-ink-primary tabular-nums">
@@ -152,7 +152,7 @@ export default function Timecards() {
                         {detail.entries?.map((e) => (
                           <div
                             key={e.id}
-                            className="flex justify-between text-xs py-1.5 border-b border-ink-page-shadow/40 last:border-0"
+                            className="flex justify-between text-caption py-1.5 border-b border-ink-page-shadow/40 last:border-0"
                           >
                             <div>
                               <span className="font-body font-medium text-ink-primary">

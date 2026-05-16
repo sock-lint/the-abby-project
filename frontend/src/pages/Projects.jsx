@@ -255,18 +255,19 @@ export default function Projects() {
             </SelectField>
           )}
           {hasFilters && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setStatusFilter('');
                 setTypeFilter('');
                 setChildFilter('');
                 setSearch('');
               }}
-              className="font-script text-xs text-ink-whisper hover:text-ink-primary px-2 py-1.5 transition-colors"
+              className="font-script text-caption text-ink-whisper hover:text-ink-primary"
             >
               clear filters
-            </button>
+            </Button>
           )}
         </div>
 

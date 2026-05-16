@@ -14,6 +14,8 @@ import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ErrorAlert from '../components/ErrorAlert';
+import SectionHeader from '../components/SectionHeader';
+import PageShell from '../components/layout/PageShell';
 import { CoinIcon } from '../components/icons/JournalIcons';
 import { useAuth } from '../hooks/useApi';
 import { themes, applyTheme, LEGACY_THEME_ALIASES } from '../themes';
@@ -221,11 +223,11 @@ export default function SettingsPage() {
     [ownedByTheme],
   );
 
-  const fieldLabel = 'font-script text-sm text-ink-whisper';
+  const fieldLabel = 'font-script text-body text-ink-whisper';
   const fieldValue = 'font-body text-ink-primary';
 
   return (
-    <div className="max-w-lg mx-auto space-y-6">
+    <PageShell width="narrow" rhythm="loose">
       <header>
         <div className="font-script text-sheikah-teal-deep text-base">
           preferences · tune the journal
@@ -237,7 +239,7 @@ export default function SettingsPage() {
 
       {/* Profile */}
       <ParchmentCard>
-        <h2 className="font-display text-xl text-ink-primary mb-4">Profile</h2>
+        <SectionHeader index={0} title="Profile" kicker="who's keeping this journal" className="mb-4" />
         <div className="space-y-3">
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 rounded-full bg-sheikah-teal/20 border border-sheikah-teal/40 flex items-center justify-center text-sheikah-teal-deep font-rune text-2xl overflow-hidden shrink-0">
@@ -280,19 +282,19 @@ export default function SettingsPage() {
             </div>
           </div>
           {avatarError && <ErrorAlert message={avatarError} />}
-          <div className="flex justify-between items-baseline text-sm">
+          <div className="flex justify-between items-baseline text-body">
             <span className={fieldLabel}>Username</span>
             <span className={fieldValue}>{user?.username}</span>
           </div>
-          <div className="flex justify-between items-baseline text-sm">
+          <div className="flex justify-between items-baseline text-body">
             <span className={fieldLabel}>Display name</span>
             <span className={fieldValue}>{user?.display_name || '—'}</span>
           </div>
-          <div className="flex justify-between items-baseline text-sm">
+          <div className="flex justify-between items-baseline text-body">
             <span className={fieldLabel}>Role</span>
             <RuneBadge tone="teal" size="sm">{user?.role}</RuneBadge>
           </div>
-          <div className="flex justify-between items-baseline text-sm">
+          <div className="flex justify-between items-baseline text-body">
             <span className={fieldLabel}>Hourly rate</span>
             <span className="font-rune font-bold text-ink-primary tabular-nums">
               ${user?.hourly_rate}/hr
@@ -306,11 +308,11 @@ export default function SettingsPage() {
           ``logout``. ``useRole`` is preferred when those aren't needed. */}
       {user?.role === 'parent' && user?.family && (
         <ParchmentCard>
-          <h2 className="font-display text-xl text-ink-primary mb-2">Family</h2>
+          <SectionHeader index={1} title="Family" kicker="your household" className="mb-2" />
           <div className="font-display text-base text-ink-primary">
             {user.family.name}
           </div>
-          <div className="font-script text-ink-whisper text-xs mt-1">
+          <div className="font-script text-ink-whisper text-caption mt-1">
             chapter scoped to this household
           </div>
         </ParchmentCard>
@@ -330,46 +332,47 @@ export default function SettingsPage() {
 
       {/* Google */}
       <ParchmentCard>
-        <h2 className="font-display text-xl text-ink-primary mb-4">Google account</h2>
+        <SectionHeader index={2} title="Google account" kicker="connect a calendar" className="mb-4" />
         {googleMessage && (
-          <div className="font-script text-sm text-sheikah-teal-deep mb-3">{googleMessage}</div>
+          <div className="font-script text-body text-sheikah-teal-deep mb-3">{googleMessage}</div>
         )}
         {googleLoading ? (
-          <div className="font-script text-sm text-ink-whisper">Loading…</div>
+          <div className="font-script text-body text-ink-whisper">Loading…</div>
         ) : googleAccount?.linked ? (
           <div className="space-y-3">
-            <div className="flex justify-between items-center text-sm">
+            <div className="flex justify-between items-center text-body">
               <span className={fieldLabel}>Linked to</span>
               <span className={fieldValue}>{googleAccount.google_email}</span>
             </div>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleUnlinkGoogle}
-              className="flex items-center gap-2 font-script text-sm text-ember-deep hover:text-ember transition-colors"
+              className="flex items-center gap-2 font-script text-body text-ember-deep hover:text-ember"
             >
               <Unlink size={14} /> unlink Google account
-            </button>
+            </Button>
           </div>
         ) : (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={handleLinkGoogle}
-            className="flex items-center gap-2 w-full px-4 py-2.5 rounded-lg border border-ink-page-shadow text-ink-primary hover:border-sheikah-teal/60 hover:bg-ink-page-rune-glow transition-colors text-sm font-body"
+            className="flex items-center gap-2 w-full"
           >
             <Link2 size={16} /> Connect Google account
-          </button>
+          </Button>
         )}
       </ParchmentCard>
 
       {/* Calendar Sync */}
       {googleAccount?.linked && (
         <ParchmentCard>
-          <h2 className="font-display text-xl text-ink-primary mb-2">Calendar sync</h2>
-          <p className="font-body text-sm text-ink-secondary mb-4">
+          <SectionHeader index={3} title="Calendar sync" kicker="weave the dates in" className="mb-2" />
+          <p className="font-body text-body text-ink-secondary mb-4">
             Sync project deadlines, chore schedules, and work sessions to your Google Calendar.
           </p>
           <div className="space-y-3">
-            <label className="flex items-center justify-between cursor-pointer font-body text-sm text-ink-primary">
+            <label className="flex items-center justify-between cursor-pointer font-body text-body text-ink-primary">
               <span className="flex items-center gap-2">
                 <Calendar size={16} className="text-sheikah-teal-deep" />
                 Enable calendar sync
@@ -390,15 +393,16 @@ export default function SettingsPage() {
               </button>
             </label>
             {calendarEnabled && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleSync}
                 disabled={syncing}
-                className="flex items-center gap-2 font-script text-sm text-sheikah-teal-deep hover:text-sheikah-teal disabled:opacity-50 transition-colors"
+                className="flex items-center gap-2 font-script text-body text-sheikah-teal-deep hover:text-sheikah-teal"
               >
                 <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
                 {syncing ? 'syncing…' : 'sync now'}
-              </button>
+              </Button>
             )}
           </div>
         </ParchmentCard>
@@ -406,12 +410,7 @@ export default function SettingsPage() {
 
       {/* Journal covers (themes) */}
       <ParchmentCard>
-        <div className="mb-2">
-          <div className="font-script text-sm text-ink-whisper uppercase tracking-wider">
-            pick a cover
-          </div>
-          <h2 className="font-display text-xl text-ink-primary leading-tight">Journal cover</h2>
-        </div>
+        <SectionHeader index={4} title="Journal cover" kicker="pick a cover" className="mb-2" />
         {coverError && <ErrorAlert message={coverError} className="mt-2" />}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3" data-testid="cover-picker">
           {Object.entries(themes).map(([key, theme]) => {
@@ -446,7 +445,7 @@ export default function SettingsPage() {
                       {theme.name}
                     </div>
                   </div>
-                  <div className="font-script text-xs mt-2 italic leading-snug text-ink-whisper/80 line-clamp-2">
+                  <div className="font-script text-caption mt-2 italic leading-snug text-ink-whisper/80 line-clamp-2">
                     {cosmeticLockHint({ description: '', rarity: 'uncommon' })}
                   </div>
                 </div>
@@ -492,13 +491,13 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div
-                  className="font-body text-xs mt-1.5 leading-snug"
+                  className="font-body text-caption mt-1.5 leading-snug"
                   style={{ color: theme.inkSecondary }}
                 >
                   Ink the day&apos;s deeds here.
                 </div>
                 <div
-                  className="font-script text-xs mt-0.5"
+                  className="font-script text-caption mt-0.5"
                   style={{ color: theme.inkWhisper }}
                 >
                   — 6 chapters opened
@@ -541,7 +540,7 @@ export default function SettingsPage() {
             );
           })}
         </div>
-        <div className="mt-3 font-script text-xs text-ink-whisper">
+        <div className="mt-3 font-script text-caption text-ink-whisper">
           {ownedCount} of {Object.keys(themes).length} covers bound —{' '}
           <Link to="/sigil" className="underline decoration-dotted hover:text-sheikah-teal-deep">
             find more on your Frontispiece →
@@ -551,8 +550,8 @@ export default function SettingsPage() {
 
       {/* About */}
       <ParchmentCard>
-        <h2 className="font-display text-xl text-ink-primary mb-2">About Hyrule Field Notes</h2>
-        <p className="font-body text-sm text-ink-secondary">
+        <SectionHeader index={5} title="About Hyrule Field Notes" className="mb-2" />
+        <p className="font-body text-body text-ink-secondary">
           Chronicle ventures, duties, rituals, and study. Ink hours, earn XP, unlock
           skills, collect coins, and grow the party.
         </p>
@@ -560,7 +559,7 @@ export default function SettingsPage() {
 
       {/* Sign off */}
       <ParchmentCard>
-        <h2 className="font-display text-xl text-ink-primary mb-4">Account</h2>
+        <SectionHeader index={6} title="Account" className="mb-4" />
         <Button
           size="sm"
           onClick={onLogout}
@@ -569,6 +568,6 @@ export default function SettingsPage() {
           <LogOut size={16} /> Sign off
         </Button>
       </ParchmentCard>
-    </div>
+    </PageShell>
   );
 }

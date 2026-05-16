@@ -28,7 +28,7 @@ function Pip({ icon, label, tone = 'ink', active = false, onClick, ariaLabel }) 
       type="button"
       onClick={onClick}
       aria-label={ariaLabel || label}
-      className={`inline-flex items-center gap-1.5 h-8 px-2 rounded-full border text-xs font-rune tabular-nums transition-colors ${toneClasses} ${active ? 'animate-rune-pulse' : ''}`}
+      className={`inline-flex items-center gap-1.5 h-11 px-3 rounded-full border text-caption font-rune tabular-nums transition-colors ${toneClasses} ${active ? 'animate-rune-pulse' : ''}`}
     >
       <span className="shrink-0 flex items-center">{icon}</span>
       <span className="leading-none">{label}</span>
@@ -81,7 +81,7 @@ export default function HeaderStatusPips({ user }) {
       out.push({
         key: 'approvals',
         // retained: pixel-perfect seal glyph
-        icon: <span aria-hidden="true" className="font-display text-caption leading-none">seal</span>,
+        icon: <span aria-hidden="true" className="font-display text-tiny leading-none">seal</span>,
         label: String(pending),
         tone: pending > 0 ? 'ember' : 'ink',
         ariaLabel: `${pending} pending approvals`,

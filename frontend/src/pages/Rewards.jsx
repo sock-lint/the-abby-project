@@ -157,19 +157,20 @@ export default function Rewards() {
           <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
             Bazaar
           </h1>
-          <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+          <div className="font-script text-body text-ink-whisper mt-1 max-w-xl">
             barter coins earned from work, duties, rituals, and badges · some treasures need a parent's nod first
           </div>
         </div>
         {isParent && (
           <div className="flex gap-2">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => setShowCoinAdjust(true)}
-              className="flex items-center gap-1 bg-ink-page-aged hover:bg-ink-page-shadow/70 text-ink-primary text-sm px-3 py-2 rounded-lg border border-ink-page-shadow transition-colors"
+              className="flex items-center gap-1"
             >
               <Coins size={14} /> Adjust Coins
-            </button>
+            </Button>
             <Button
               size="sm"
               onClick={() => { setEditingReward(null); setShowRewardForm(true); }}
@@ -301,7 +302,7 @@ function OutOfStockSheet({ state, onClose, onWishlist, onPickSimilar }) {
         <h2 id="oos-title" className="font-display text-xl text-ink-primary">
           {reward.icon} {reward.name} — sold out
         </h2>
-        <p className="font-body text-sm text-ink-secondary">
+        <p className="font-body text-body text-ink-secondary">
           This one's been claimed for now. Want a heads-up when it's back?
         </p>
         <Button onClick={onWishlist} variant="primary" size="sm" className="w-full">
@@ -309,24 +310,25 @@ function OutOfStockSheet({ state, onClose, onWishlist, onPickSimilar }) {
         </Button>
         {similar.length > 0 && (
           <div>
-            <div className="font-script text-sm text-sheikah-teal-deep mt-2 mb-1.5">
+            <div className="font-script text-body text-sheikah-teal-deep mt-2 mb-1.5">
               you might also like
             </div>
             <div className="space-y-1.5">
               {similar.map((s) => (
-                <button
+                <Button
                   key={s.id}
-                  type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => onPickSimilar(s)}
-                  className="w-full text-left flex items-center justify-between gap-2 p-2 bg-ink-page-aged hover:bg-ink-page-shadow/50 rounded transition-colors"
+                  className="w-full text-left flex items-center justify-between gap-2"
                 >
-                  <span className="font-body text-sm text-ink-primary truncate">
+                  <span className="font-body text-body text-ink-primary truncate">
                     {s.icon} {s.name}
                   </span>
                   <span className="font-script text-tiny text-gold-leaf shrink-0">
                     {s.cost_coins}c
                   </span>
-                </button>
+                </Button>
               ))}
             </div>
           </div>

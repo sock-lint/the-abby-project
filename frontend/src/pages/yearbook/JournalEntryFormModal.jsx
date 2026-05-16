@@ -144,6 +144,9 @@ export default function JournalEntryFormModal({
 
         <div>
           <div className="flex items-end justify-between gap-2 mb-1">
+            {/* intentional: hand-rolled label paired with TextAreaField id="journal-body"
+                so the inline mic IconButton can sit on the label row. TextAreaField
+                renders no label when prop is omitted; htmlFor/id keep a11y wiring intact. */}
             <label htmlFor="journal-body" className={`${formLabelClass} mb-0`}>
               What's on your mind?
             </label>

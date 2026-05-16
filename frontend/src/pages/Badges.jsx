@@ -4,6 +4,7 @@ import { getAchievementsSummary, getBadges } from '../api';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
+import PageShell from '../components/layout/PageShell';
 import CatalogSearch from '../components/CatalogSearch';
 import { useApi } from '../hooks/useApi';
 import { normalizeList } from '../utils/api';
@@ -46,12 +47,12 @@ export default function Badges() {
   if (loading || badgesLoading) return <Loader />;
   if (error || !summary) {
     return (
-      <div className="max-w-6xl mx-auto space-y-3">
+      <PageShell rhythm="tight" animate={false}>
         <ErrorAlert message={error || 'Could not load the sigil case.'} />
         <Button variant="primary" onClick={reload}>
           Try again
         </Button>
-      </div>
+      </PageShell>
     );
   }
 

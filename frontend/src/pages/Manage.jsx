@@ -31,6 +31,7 @@ import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
 import Button from '../components/Button';
+import PageShell from '../components/layout/PageShell';
 import IconButton from '../components/IconButton';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 import { normalizeList } from '../utils/api';
@@ -75,7 +76,7 @@ export default function Manage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <PageShell rhythm="loose">
       <header>
         <div className="font-script text-sheikah-teal-deep text-base">
           stewardship · the keeper's ledger
@@ -93,7 +94,7 @@ export default function Manage() {
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 rounded-md font-display text-sm transition-colors flex items-center justify-center gap-2 ${
+              className={`flex-1 py-2 rounded-md font-display text-body transition-colors flex items-center justify-center gap-2 ${
                 activeTab === tab
                   ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
                   : 'text-ink-secondary hover:text-ink-primary'
@@ -113,7 +114,7 @@ export default function Manage() {
       {activeTab === 'Guide' && <GuideSection />}
       {activeTab === 'Admin' && adminEnabled && <AdminSection />}
       {activeTab === 'Test' && devToolsEnabled && <TestSection />}
-    </div>
+    </PageShell>
   );
 }
 
@@ -134,13 +135,14 @@ function ChildrenSection() {
     <div className="space-y-3">
       <div className="flex justify-between items-center gap-2">
         {inactiveCount > 0 ? (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setShowInactive((v) => !v)}
-            className="text-xs text-ink-whisper hover:text-ink-primary underline-offset-2 hover:underline"
+            className="text-caption text-ink-whisper hover:text-ink-primary underline-offset-2 hover:underline"
           >
             {showInactive ? 'Hide inactive' : `Show inactive (${inactiveCount})`}
-          </button>
+          </Button>
         ) : <span />}
         <Button onClick={() => setCreating(true)} className="flex items-center gap-1">
           <UserPlus size={14} /> New child
@@ -168,11 +170,11 @@ function ChildrenSection() {
                   </span>
                 )}
               </div>
-              <div className="text-xs text-ink-whisper">@{child.username}</div>
-              <div className="text-sm text-ink-whisper flex items-center gap-1 mt-0.5">
+              <div className="text-caption text-ink-whisper">@{child.username}</div>
+              <div className="text-body text-ink-whisper flex items-center gap-1 mt-0.5">
                 <DollarSign size={12} />{child.hourly_rate}/hr
                 {child.google_linked && (
-                  <span className="ml-2 text-xs text-moss flex items-center gap-0.5">
+                  <span className="ml-2 text-caption text-moss flex items-center gap-0.5">
                     <Link2 size={10} /> Google
                   </span>
                 )}
@@ -362,7 +364,7 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
           ))}
         </SelectField>
         <div>
-          <label className="block text-xs text-ink-whisper mb-1">Google Account</label>
+          <label className="block text-caption text-ink-whisper mb-1">Google Account</label>
           {child.google_linked ? (
             <Button
               type="button"
@@ -458,7 +460,7 @@ function UserManagementActions({
 
   return (
     <div className="mt-4 pt-4 border-t border-ink-page-shadow space-y-2">
-      <div className="text-xs uppercase tracking-wide text-ink-whisper font-display">
+      <div className="text-caption uppercase tracking-wide text-ink-whisper font-display">
         Account actions
       </div>
       <ErrorAlert message={actionError} />
@@ -549,11 +551,11 @@ function DeleteAccountConfirm({ user, kind, onConfirm, onCancel }) {
   return (
     <BottomSheet title={`Delete ${label}'s account?`} onClose={onCancel}>
       <div className="space-y-3">
-        <p className="text-sm text-ink-secondary">
+        <p className="text-body text-ink-secondary">
           This permanently removes <span className="font-semibold">{label}</span>{' '}
           and all their {kind === 'parent' ? 'family-admin records' : 'history (projects, badges, photos, ledger entries)'}. This cannot be undone.
         </p>
-        <p className="text-sm text-ink-whisper">
+        <p className="text-body text-ink-whisper">
           To confirm, type <code className="px-1 bg-ink-page-shadow/60 rounded">{phrase}</code> below.
         </p>
         <TextField
@@ -615,7 +617,7 @@ function TemplatesSection() {
           <div className="flex items-start justify-between">
             <div>
               <div className="font-semibold text-ink-primary">{t.title}</div>
-              <div className="flex items-center gap-3 text-xs text-ink-whisper mt-1">
+              <div className="flex items-center gap-3 text-caption text-ink-whisper mt-1">
                 {t.category && <span>{t.category.icon} {t.category.name}</span>}
                 <StarRating value={t.difficulty} />
                 {t.milestones?.length > 0 && <span>{t.milestones.length} milestones</span>}
@@ -632,7 +634,7 @@ function TemplatesSection() {
               <Button
                 size="sm"
                 onClick={() => setUseModal(t)}
-                className="flex items-center gap-1 text-xs"
+                className="flex items-center gap-1 text-caption"
               >
                 <Play size={12} /> Use
               </Button>
@@ -649,14 +651,14 @@ function TemplatesSection() {
                 variant="ghost"
                 size="sm"
                 aria-label="Delete template"
-                className="bg-ink-page-shadow/60 hover:bg-ember/20 text-ink-whisper hover:text-ember-deep text-xs"
+                className="bg-ink-page-shadow/60 hover:bg-ember/20 text-ink-whisper hover:text-ember-deep text-caption"
               >
                 <Trash2 size={12} />
               </IconButton>
             </div>
           </div>
           {t.description && (
-            <p className="text-xs text-ink-whisper line-clamp-2">{t.description}</p>
+            <p className="text-caption text-ink-whisper line-clamp-2">{t.description}</p>
           )}
         </ParchmentCard>
       ))}
@@ -716,7 +718,7 @@ function UseTemplateModal({ template, children, onClose, onCreated }) {
   return (
     <BottomSheet title={`Create from "${template.title}"`} onClose={onClose} disabled={creating}>
       <ErrorAlert message={error} />
-      <p className="text-sm text-ink-whisper">
+      <p className="text-body text-ink-whisper">
         This will create a new project with {template.milestones?.length || 0} milestones
         and {template.materials?.length || 0} materials from this template.
       </p>
@@ -775,7 +777,7 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
         <ErrorAlert message={error} />
         <TextField label="Title" value={form.title} onChange={onField('title')} required />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={3} />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Category" value={form.category_id} onChange={onField('category_id')}>
             <option value="">None</option>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
@@ -784,11 +786,11 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
             {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
           </SelectField>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <TextField label="Bonus ($)" value={form.bonus_amount} onChange={onField('bonus_amount')} type="number" step="0.01" min="0" />
           <TextField label="Budget ($)" value={form.materials_budget} onChange={onField('materials_budget')} type="number" step="0.01" min="0" />
         </div>
-        <label className="flex items-center gap-2 text-sm text-ink-primary cursor-pointer">
+        <label className="flex items-center gap-2 text-body text-ink-primary cursor-pointer">
           <input
             type="checkbox"
             checked={form.is_public}
@@ -865,10 +867,10 @@ function FamilySection() {
                   </span>
                 )}
               </div>
-              <div className="text-xs text-ink-whisper">@{parent.username}</div>
+              <div className="text-caption text-ink-whisper">@{parent.username}</div>
             </div>
             {isSelf ? (
-              <span className="text-xs text-ink-whisper italic">
+              <span className="text-caption text-ink-whisper italic">
                 Edit your profile in Settings
               </span>
             ) : (
@@ -934,7 +936,7 @@ function CreateParentModal({ onClose, onCreated }) {
     <BottomSheet title="Add co-parent" onClose={onClose} disabled={saving}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
-        <p className="text-sm text-ink-whisper">
+        <p className="text-body text-ink-whisper">
           The new parent will be in this same family with full access to children,
           projects, and approvals.
         </p>
@@ -1041,13 +1043,13 @@ function AdminSection() {
         <div className="font-display font-semibold text-ink-primary mb-1">
           Create a new family
         </div>
-        <p className="text-sm text-ink-whisper mb-3">
+        <p className="text-body text-ink-whisper mb-3">
           Mints a new household with its founding parent. The new parent
           becomes the family's <span className="font-semibold">primary parent</span>{' '}
           and can sign in immediately with the password you set here.
         </p>
         {created && (
-          <div className="mb-3 p-3 rounded border border-moss/40 bg-moss/10 text-sm">
+          <div className="mb-3 p-3 rounded border border-moss/40 bg-moss/10 text-body">
             <div className="font-semibold text-ink-primary">
               Created “{created.family.name}”
             </div>
@@ -1117,7 +1119,7 @@ function OAuthClientsCard() {
       <div className="font-display font-semibold text-ink-primary mb-1">
         OAuth clients
       </div>
-      <p className="text-sm text-ink-whisper mb-3">
+      <p className="text-body text-ink-whisper mb-3">
         Apps connected to the Abby MCP server via OAuth 2.1. Revoke an app
         to invalidate every token it has issued; revoke a single token to
         disconnect just that session. Connect a new client by pointing it
@@ -1129,7 +1131,7 @@ function OAuthClientsCard() {
       ) : (
         <div className="space-y-4">
           <div>
-            <div className="font-display text-sm text-ink-primary mb-1">
+            <div className="font-display text-body text-ink-primary mb-1">
               Registered applications ({apps.length})
             </div>
             {apps.length === 0 ? (
@@ -1155,7 +1157,7 @@ function OAuthClientsCard() {
             )}
           </div>
           <div>
-            <div className="font-display text-sm text-ink-primary mb-1">
+            <div className="font-display text-body text-ink-primary mb-1">
               Your active tokens ({tokens.length})
             </div>
             {tokens.length === 0 ? (
