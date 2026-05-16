@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -12,6 +12,11 @@ import { buildUser } from '../../../test/factories.js';
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
   return { ...a, AnimatePresence: ({ children }) => children };
+});
+
+beforeEach(() => {
+  // TomeShelf's activeId effect calls scrollIntoView; stub for jsdom.
+  Element.prototype.scrollIntoView = vi.fn();
 });
 
 const RECENT_BRED = new Date(Date.now() - 1000).toISOString();

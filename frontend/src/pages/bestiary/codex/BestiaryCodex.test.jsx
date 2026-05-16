@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -24,6 +24,13 @@ const samplePotions = [
   { id: 2, slug: 'fire', name: 'Fire', color_hex: '#f00', rarity: 'uncommon' },
 ];
 
+beforeEach(() => {
+  // jsdom doesn't implement scrollIntoView; stub so TomeShelf's effect
+  // doesn't throw when activeId changes.
+  Element.prototype.scrollIntoView = vi.fn();
+  try { window.localStorage.clear(); } catch { /* ignore */ }
+});
+
 describe('BestiaryCodex', () => {
   it('renders silhouette tiles for un-discovered species', async () => {
     server.use(
@@ -46,7 +53,9 @@ describe('BestiaryCodex', () => {
     await waitFor(() =>
       expect(screen.getByLabelText(/unknown species/i)).toBeInTheDocument(),
     );
-    expect(screen.getByText(/0\/1/)).toBeInTheDocument();
+    // IncipitBand meta now carries the discovered/total summary in a folio-
+    // friendly shape — was a bespoke RuneBadge before the Atlas alignment.
+    expect(screen.getByText(/0 of 1/)).toBeInTheDocument();
   });
 
   it('opens the detail sheet with the evolution row when a discovered tile is tapped', async () => {
@@ -68,7 +77,7 @@ describe('BestiaryCodex', () => {
       ),
     );
     renderCodex();
-    const tile = await screen.findByRole('button', { name: /dragon/i });
+    const tile = await screen.findByRole('button', { name: /^Dragon/i });
     const user = userEvent.setup();
     await user.click(tile);
     await waitFor(() =>
@@ -76,5 +85,58 @@ describe('BestiaryCodex', () => {
     );
     expect(screen.getByLabelText(/fire dragon — owned/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/base dragon — not yet evolved/i)).toBeInTheDocument();
+  });
+
+  it('renders a chapter shelf and switches the active folio on click', async () => {
+    server.use(
+      http.get('*/api/pets/codex/', () =>
+        HttpResponse.json({
+          species: [
+            // One bonded species (mount owned, not all variants).
+            {
+              id: 1, slug: 'dragon', name: 'Dragon', icon: '🐉', sprite_key: 'dragon',
+              description: 'Bonded one.', available_potions: samplePotions,
+              discovered: true, owned_pet_ids: [12], owned_mount_potion_ids: [1],
+            },
+            // One hatched species (pet only).
+            {
+              id: 2, slug: 'fox', name: 'Fox', icon: '🦊', sprite_key: 'fox',
+              description: 'Hatched but not evolved.', available_potions: samplePotions,
+              discovered: true, owned_pet_ids: [22], owned_mount_potion_ids: [],
+            },
+            // One silhouette.
+            {
+              id: 3, slug: 'wolf', name: 'Wolf', icon: '🐺', sprite_key: 'wolf',
+              description: 'Unseen.', available_potions: samplePotions,
+              discovered: false, owned_pet_ids: [], owned_mount_potion_ids: [],
+            },
+          ],
+          potions: samplePotions,
+          totals: { species: 3, discovered_species: 2, mounts_possible: 6, mounts_owned: 1 },
+        }),
+      ),
+    );
+    renderCodex();
+
+    // Bonded chapter is active by default — Dragon visible, Fox/Wolf hidden.
+    const dragonTile = await screen.findByRole('button', { name: /^Dragon/i });
+    expect(dragonTile).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Fox/i })).toBeNull();
+
+    // Switch to the Hatched chapter — Fox visible, Dragon hidden.
+    const user = userEvent.setup();
+    const hatchedSpine = screen.getByRole('tab', { name: /Hatched/ });
+    await user.click(hatchedSpine);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Fox/i })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /^Dragon/i })).toBeNull();
+
+    // Switch to Silhouettes — Wolf renders as the unknown silhouette button.
+    const silhouettesSpine = screen.getByRole('tab', { name: /Silhouettes/ });
+    await user.click(silhouettesSpine);
+    await waitFor(() => {
+      expect(screen.getByLabelText(/unknown species/i)).toBeInTheDocument();
+    });
   });
 });

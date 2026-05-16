@@ -7,12 +7,13 @@ import Loader from '../../../components/Loader';
 import EmptyState from '../../../components/EmptyState';
 import ErrorAlert from '../../../components/ErrorAlert';
 import ParchmentCard from '../../../components/journal/ParchmentCard';
-import RuneBadge from '../../../components/journal/RuneBadge';
+import IncipitBand from '../../../components/atlas/IncipitBand';
+import TomeShelf from '../../../components/atlas/TomeShelf';
 import { EggIcon } from '../../../components/icons/JournalIcons';
 import RpgSprite from '../../../components/rpg/RpgSprite';
 import { normalizeList } from '../../../utils/api';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
-import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
+import { RARITY_HALO, PROGRESS_TIER } from '../../../components/atlas/mastery.constants';
 import { COMPANION_FILTERS, HAPPINESS_WHISPER, compareByRarityThenName } from './party.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 
@@ -84,50 +85,44 @@ export default function Companions() {
           onDismiss={() => setEvolveCeremony(null)}
         />
       )}
-      <header>
-        <div className="font-script text-sheikah-teal-deep text-base">
-          your party · companions you've raised
-        </div>
-        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          Companions
-        </h1>
-        <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
-          feed companions to grow them — at full bloom they evolve into mounts you can ride
-        </div>
-      </header>
+      <IncipitBand
+        letter="C"
+        title="Companions"
+        kicker="· your party · companions you've raised ·"
+        meta={
+          <>
+            <span className="tabular-nums">{pets.length} of {totalPossible}</span>
+            <span>hatched</span>
+          </>
+        }
+        progressPct={totalPossible ? (pets.length / totalPossible) * 100 : 0}
+      />
+
+      <p className="font-script text-sm text-ink-whisper -mt-2 max-w-xl">
+        feed companions to grow them — at full bloom they evolve into mounts you can ride
+      </p>
 
       <ErrorAlert message={error} />
 
-      <div className="flex gap-2 flex-wrap">
-        <RuneBadge tone="teal" size="md">
-          pets {pets.length}/{totalPossible}
-        </RuneBadge>
-      </div>
-
       {pets.length > 0 && (
-        <div
-          role="tablist"
-          aria-label="Filter companions"
-          className="flex flex-wrap gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow"
-        >
-          {COMPANION_FILTERS.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={filter === key}
-              onClick={() => setFilter(key)}
-              disabled={counts[key] === 0 && key !== 'all'}
-              className={`flex-1 min-w-[5rem] px-3 py-1.5 rounded-md font-display text-sm transition-colors disabled:opacity-40 ${
-                filter === key
-                  ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
-                  : 'text-ink-secondary hover:text-ink-primary'
-              }`}
-            >
-              {label} <span className="opacity-70">({counts[key]})</span>
-            </button>
-          ))}
-        </div>
+        <TomeShelf
+          ariaLabel="Filter companions"
+          activeId={filter}
+          onSelect={setFilter}
+          items={COMPANION_FILTERS
+            // Drop empty buckets except "all" (matches Sketchbook).
+            .filter(({ key }) => key === 'all' || counts[key] > 0)
+            .map(({ key, label, icon }) => ({
+              id: key,
+              name: label,
+              icon,
+              chip: `×${counts[key]}`,
+              progressPct: null,
+              tier: PROGRESS_TIER.nascent,
+              variant: 'vessel',
+              ariaLabel: `${label} (${counts[key]})`,
+            }))}
+        />
       )}
 
       {pets.length === 0 ? (
