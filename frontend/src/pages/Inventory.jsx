@@ -9,6 +9,7 @@ import {
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import Button from '../components/Button';
+import IconButton from '../components/IconButton';
 import Loader from '../components/Loader';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
@@ -200,7 +201,7 @@ export default function Inventory() {
         <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
           The Satchel
         </h1>
-        <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+        <div className="font-script text-body text-ink-whisper mt-1 max-w-xl">
           drops fall from clocked work, duties, study, and quests · the ringed colour is rarity, common to legendary
         </div>
         <BoostStrip profile={profile} className="mt-3" />
@@ -209,7 +210,7 @@ export default function Inventory() {
       {flash && (
         <div
           role="status"
-          className={`text-sm px-3 py-2 rounded ${
+          className={`text-body px-3 py-2 rounded ${
             flash.error
               ? 'bg-ember-deep/10 text-ember-deep'
               : 'bg-sheikah-teal-deep/10 text-sheikah-teal-deep'
@@ -242,7 +243,7 @@ export default function Inventory() {
         ) : (
           <EmptyState icon={<EggIcon size={36} />}>
             <div>No items yet. Complete quests, chores, and homework to earn drops.</div>
-            <div className="font-script text-sm text-ink-whisper mt-2 not-italic">
+            <div className="font-script text-body text-ink-whisper mt-2 not-italic">
               eggs hatch pets, potions tint them, food feeds them, cosmetics dress your sigil, consumables fire one effect
             </div>
           </EmptyState>
@@ -259,7 +260,7 @@ export default function Inventory() {
             <section>
               <div className="flex items-baseline gap-3 mb-3">
                 <div>
-                  <div className="font-script text-sheikah-teal-deep text-sm">
+                  <div className="font-script text-sheikah-teal-deep text-body">
                     {activeCompartment.kicker}
                   </div>
                   <h2 className="font-display text-xl md:text-2xl text-ink-primary leading-tight">
@@ -289,7 +290,7 @@ export default function Inventory() {
                         alt={entry.item.name}
                       />
                     </div>
-                    <div className="font-body text-xs font-medium truncate">
+                    <div className="font-body text-caption font-medium truncate">
                       {entry.item.name}
                     </div>
                     <div className="flex items-center justify-center mt-1.5">
@@ -361,35 +362,36 @@ function BulkStepper({ value, max, onChange, disabled }) {
   const useAll = () => onChange(max);
   return (
     <div className="flex items-center justify-center gap-1.5 mb-1.5">
-      <button
-        type="button"
+      <IconButton
+        variant="secondary"
         onClick={dec}
         disabled={disabled || value <= 1}
         aria-label="Use one fewer"
-        className="min-w-11 min-h-11 w-11 h-11 rounded-full bg-ink-page-shadow/40 hover:bg-ink-page-shadow/70 text-ink-primary text-base leading-none disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+        className="min-w-11 min-h-11 w-11 h-11 rounded-full text-body leading-none"
       >
         −
-      </button>
+      </IconButton>
       <span className="font-script text-tiny text-ink-secondary tabular-nums min-w-[2.5rem] text-center">
         {value} / {max}
       </span>
-      <button
-        type="button"
+      <IconButton
+        variant="secondary"
         onClick={inc}
         disabled={disabled || value >= max}
         aria-label="Use one more"
-        className="min-w-11 min-h-11 w-11 h-11 rounded-full bg-ink-page-shadow/40 hover:bg-ink-page-shadow/70 text-ink-primary text-base leading-none disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+        className="min-w-11 min-h-11 w-11 h-11 rounded-full text-body leading-none"
       >
         +
-      </button>
-      <button
-        type="button"
+      </IconButton>
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={useAll}
         disabled={disabled || value >= max}
-        className="min-h-11 px-2 inline-flex items-center font-script text-tiny text-sheikah-teal-deep hover:text-sheikah-teal underline-offset-2 hover:underline disabled:opacity-40 disabled:cursor-not-allowed"
+        className="min-h-11 font-script text-tiny text-sheikah-teal-deep hover:text-sheikah-teal underline-offset-2 hover:underline"
       >
         all
-      </button>
+      </Button>
     </div>
   );
 }

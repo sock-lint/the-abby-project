@@ -17,6 +17,7 @@ import RuneBadge from '../components/journal/RuneBadge';
 import { formatCurrency } from '../utils/format';
 import { normalizeList } from '../utils/api';
 import Button from '../components/Button';
+import PageShell from '../components/layout/PageShell';
 import { TextField, SelectField } from '../components/form';
 
 // Each ledger category maps to a journal-compatible tone rather than a
@@ -96,9 +97,9 @@ function PaymentAdjustModal({ onClose, onSaved }) {
         />
         <TextField label="Description" value={form.description} onChange={onField('description')} placeholder="Reason for adjustment" />
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-secondary hover:text-ink-primary">
+          <Button variant="ghost" size="sm" onClick={onClose}>
             Cancel
-          </button>
+          </Button>
           <Button type="submit" size="sm" disabled={saving || !form.user_id}>
             {saving ? 'Adjusting…' : 'Adjust'}
           </Button>
@@ -224,12 +225,12 @@ export default function Payments() {
   if (loading) return <Loader />;
   if (error || !data) {
     return (
-      <div className="max-w-6xl mx-auto space-y-3">
+      <PageShell rhythm="tight" animate={false}>
         <ErrorAlert message={error || 'Could not load the coffers.'} />
         <Button variant="secondary" size="sm" onClick={reload}>
           Try again
         </Button>
-      </div>
+      </PageShell>
     );
   }
 
@@ -280,7 +281,7 @@ export default function Payments() {
       {/* Balance hero — rendered as a wax-sealed ledger entry */}
       <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
         <ParchmentCard flourish tone="bright" className="text-center py-8">
-          <div className="font-script text-ink-whisper text-sm uppercase tracking-widest">
+          <div className="font-script text-ink-whisper text-body uppercase tracking-widest">
             current balance
           </div>
           <div
@@ -304,7 +305,7 @@ export default function Payments() {
                 <ParchmentCard key={type} tone="bright">
                   <div className="flex items-center gap-2 mb-1">
                     <Icon size={14} className={tone} />
-                    <span className="font-script text-xs text-ink-whisper uppercase tracking-wider">
+                    <span className="font-script text-caption text-ink-whisper uppercase tracking-wider">
                       {typeLabels[type] || type}
                     </span>
                   </div>
@@ -357,7 +358,7 @@ export default function Payments() {
           )}
         </div>
         {isParent && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mb-2">
             <input
               type="date"
               value={filters.start_date}
@@ -411,16 +412,16 @@ export default function Payments() {
                       <Icon size={16} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="font-body text-sm font-medium text-ink-primary">
+                      <div className="font-body text-body font-medium text-ink-primary">
                         {typeLabels[tx.entry_type] || tx.entry_type}
                       </div>
-                      <div className="font-script text-xs text-ink-whisper truncate">
+                      <div className="font-script text-caption text-ink-whisper truncate">
                         {tx.description}
                       </div>
                     </div>
                   </div>
                   <div
-                    className={`font-rune font-bold text-sm tabular-nums shrink-0 ${
+                    className={`font-rune font-bold text-body tabular-nums shrink-0 ${
                       isPositive ? 'text-moss' : 'text-ember-deep'
                     }`}
                   >

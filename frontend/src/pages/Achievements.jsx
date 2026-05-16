@@ -3,6 +3,7 @@ import { getAchievementsSummary, getCategories } from '../api';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
+import PageShell from '../components/layout/PageShell';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
 import { normalizeList } from '../utils/api';
@@ -26,12 +27,12 @@ export default function Achievements() {
   if (loading) return <Loader />;
   if (error || !summary) {
     return (
-      <div className="max-w-6xl mx-auto space-y-3">
+      <PageShell rhythm="tight" animate={false}>
         <ErrorAlert message={error || 'Could not load the atlas.'} />
         <Button variant="primary" onClick={reload}>
           Try again
         </Button>
-      </div>
+      </PageShell>
     );
   }
 

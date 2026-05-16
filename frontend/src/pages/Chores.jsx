@@ -29,6 +29,7 @@ import { CoinIcon, ScrollIcon } from '../components/icons/JournalIcons';
 import { formatDate } from '../utils/format';
 import { normalizeList } from '../utils/api';
 import Button from '../components/Button';
+import IconButton from '../components/IconButton';
 import ModalActions from '../components/ModalActions';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 import QuestFolio from './quests/QuestFolio';
@@ -129,19 +130,19 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         {isApprove && chore?.created_by_name && (
-          <div className="rounded-md border border-gold-leaf/40 bg-gold-leaf/10 px-3 py-2 font-script text-sm text-ink-primary">
+          <div className="rounded-md border border-gold-leaf/40 bg-gold-leaf/10 px-3 py-2 font-script text-body text-ink-primary">
             Proposed by <span className="font-body font-medium">{chore.created_by_name}</span>
             {' — set rewards below and publish to your duty list.'}
           </div>
         )}
         {!canSetRewards && !isApprove && (
-          <div className="rounded-md border border-gold-leaf/40 bg-gold-leaf/10 px-3 py-2 font-script text-sm text-ink-primary">
+          <div className="rounded-md border border-gold-leaf/40 bg-gold-leaf/10 px-3 py-2 font-script text-body text-ink-primary">
             Your parent will set the rewards when they approve this.
           </div>
         )}
         <TextField label="Title" value={form.title} onChange={onField('title')} required />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <TextField label="Icon" value={form.icon} onChange={onField('icon')} placeholder="🧹" />
           <SelectField label="Recurrence" value={form.recurrence} onChange={onField('recurrence')}>
             {Object.entries(RECURRENCE_LABELS).map(([v, l]) => (
@@ -151,12 +152,12 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
         </div>
         {canSetRewards && (
           <>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <TextField label="Reward ($)" type="number" min="0" step="0.25" value={form.reward_amount} onChange={onField('reward_amount')} />
               <TextField label="Coins" type="number" min="0" value={form.coin_reward} onChange={onField('coin_reward')} />
               <TextField label="XP pool" type="number" min="0" value={form.xp_reward} onChange={onField('xp_reward')} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <SelectField label="Assign to" value={form.assigned_to} onChange={onField('assigned_to')}>
                 <option value="">All children</option>
                 {children.map((c) => (
@@ -166,7 +167,7 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
               <TextField label="Order" type="number" value={form.order} onChange={onField('order')} />
             </div>
             {showSchedule && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <SelectField label="Custody schedule" value={form.week_schedule} onChange={onField('week_schedule')}>
                   {Object.entries(WEEK_SCHEDULE_LABELS).map(([v, l]) => (
                     <option key={v} value={v}>{l}</option>
@@ -177,7 +178,7 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
                 )}
               </div>
             )}
-            <label className="flex items-center gap-2 font-body text-sm text-ink-primary">
+            <label className="flex items-center gap-2 font-body text-body text-ink-primary">
               <input type="checkbox" checked={form.is_active} onChange={onField('is_active')} className="accent-sheikah-teal-deep" />
               Active
             </label>
@@ -391,14 +392,14 @@ export default function Chores() {
               {({ item: c, actions }) => (
                 <ParchmentCard key={c.id} className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <div className="font-body text-sm font-medium text-ink-primary">
+                    <div className="font-body text-body font-medium text-ink-primary">
                       {c.user_name} — {c.chore_icon} {c.chore_title}
                     </div>
-                    <div className="font-script text-xs text-ink-whisper">
+                    <div className="font-script text-caption text-ink-whisper">
                       {formatDate(c.completed_date)} · ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
                     </div>
                     {c.notes && (
-                      <div className="font-script text-xs text-ink-secondary italic mt-0.5">
+                      <div className="font-script text-caption text-ink-secondary italic mt-0.5">
                         &ldquo;{c.notes}&rdquo;
                       </div>
                     )}
@@ -422,12 +423,12 @@ export default function Chores() {
               {proposals.map((p) => (
                 <ParchmentCard key={p.id} className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="font-body text-sm font-medium text-ink-primary flex items-center gap-2">
+                    <div className="font-body text-body font-medium text-ink-primary flex items-center gap-2">
                       <span className="text-lg">{p.icon || '📋'}</span>
                       {p.title}
                       <RuneBadge tone="ember" size="sm">pending</RuneBadge>
                     </div>
-                    <div className="font-script text-xs text-ink-whisper">
+                    <div className="font-script text-caption text-ink-whisper">
                       {isParent
                         ? `proposed by ${p.created_by_name || 'child'}`
                         : 'waiting for parent to set rewards'}
@@ -439,14 +440,14 @@ export default function Chores() {
                         <Button size="sm" onClick={() => openApprove(p)}>
                           Review &amp; publish
                         </Button>
-                        <button
-                          type="button"
+                        <IconButton
+                          variant="danger"
                           onClick={() => setDeleteConfirm(p.id)}
                           aria-label="Decline proposal"
-                          className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
+                          className="min-w-[44px] min-h-[44px]"
                         >
                           <Trash2 size={16} />
-                        </button>
+                        </IconButton>
                       </>
                     ) : (
                       <RuneBadge tone="ink" size="sm">pending</RuneBadge>
@@ -498,18 +499,18 @@ export default function Chores() {
                 >
                   <div className="text-2xl shrink-0 w-10 text-center">{chore.icon || '📋'}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-body text-sm font-medium text-ink-primary flex items-center gap-2">
+                    <div className="font-body text-body font-medium text-ink-primary flex items-center gap-2">
                       {chore.title}
                       {isParent && !chore.is_active && (
                         <RuneBadge tone="ink" size="sm">inactive</RuneBadge>
                       )}
                     </div>
                     {chore.description && (
-                      <div className="font-body text-xs text-ink-secondary line-clamp-1">
+                      <div className="font-body text-caption text-ink-secondary line-clamp-1">
                         {chore.description}
                       </div>
                     )}
-                    <div className="flex items-center gap-3 mt-1 font-script text-xs text-ink-whisper">
+                    <div className="flex items-center gap-3 mt-1 font-script text-caption text-ink-whisper">
                       <span className="flex items-center gap-0.5">
                         <DollarSign size={10} />{chore.reward_amount}
                       </span>
@@ -532,22 +533,22 @@ export default function Chores() {
                   <div className="shrink-0">
                     {isParent ? (
                       <div className="flex gap-1">
-                        <button
-                          type="button"
+                        <IconButton
+                          variant="secondary"
                           onClick={() => openEdit(chore)}
                           aria-label="Edit duty"
-                          className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] bg-ink-page hover:bg-ink-page-shadow/70 rounded text-ink-secondary hover:text-ink-primary transition-colors"
+                          className="min-w-[44px] min-h-[44px]"
                         >
                           <Pencil size={16} />
-                        </button>
-                        <button
-                          type="button"
+                        </IconButton>
+                        <IconButton
+                          variant="danger"
                           onClick={() => setDeleteConfirm(chore.id)}
                           aria-label="Delete duty"
-                          className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
+                          className="min-w-[44px] min-h-[44px]"
                         >
                           <Trash2 size={16} />
-                        </button>
+                        </IconButton>
                       </div>
                     ) : isDone ? (
                       <div className="flex items-center gap-2">
@@ -555,22 +556,23 @@ export default function Chores() {
                           {chore.today_status}
                         </RuneBadge>
                         {chore.today_status === 'pending' && chore.today_completion_id && (
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleWithdraw(chore.today_completion_id)}
                             aria-label="Withdraw this duty submission"
                             title="Withdraw — pulls it out of the queue so you can re-do it"
-                            className="font-script text-tiny text-ink-whisper hover:text-ember-deep underline-offset-2 hover:underline transition-colors"
+                            className="font-script text-tiny hover:text-ember-deep underline-offset-2 hover:underline"
                           >
                             ↩ withdraw
-                          </button>
+                          </Button>
                         )}
                       </div>
                     ) : isRejected ? (
                       <Button
                         size="sm"
                         onClick={() => handleComplete(chore.id)}
-                        className="flex items-center gap-1 text-xs"
+                        className="flex items-center gap-1 text-caption"
                       >
                         <RefreshCw size={12} /> Retry
                       </Button>
@@ -578,7 +580,7 @@ export default function Chores() {
                       <Button
                         size="sm"
                         onClick={() => handleComplete(chore.id)}
-                        className="flex items-center gap-1 text-xs"
+                        className="flex items-center gap-1 text-caption"
                       >
                         <Check size={14} /> Done
                       </Button>
@@ -601,10 +603,10 @@ export default function Chores() {
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-lg">{c.chore_icon || '📋'}</span>
                     <div className="min-w-0">
-                      <div className="font-body text-sm font-medium text-ink-primary truncate">
+                      <div className="font-body text-body font-medium text-ink-primary truncate">
                         {c.chore_title}
                       </div>
-                      <div className="font-script text-xs text-ink-whisper">
+                      <div className="font-script text-caption text-ink-whisper">
                         {formatDate(c.completed_date)} · ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
                       </div>
                     </div>

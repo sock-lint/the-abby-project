@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { UserPlus } from 'lucide-react';
 import HeroPrimaryCard from '../components/dashboard/HeroPrimaryCard';
 import ApprovalQueueList from '../components/dashboard/ApprovalQueueList';
@@ -11,6 +10,7 @@ import Button from '../components/Button';
 import ErrorAlert from '../components/ErrorAlert';
 import useParentDashboard from '../hooks/useParentDashboard';
 import { inkBleed } from '../motion/variants';
+import PageShell from '../components/layout/PageShell';
 import { formatWeekdayDate } from './_dashboardShared';
 
 function NoChildrenWelcome() {
@@ -23,7 +23,7 @@ function NoChildrenWelcome() {
         <h2 className="font-display italic text-2xl text-ink-primary">
           Welcome — let&apos;s add your first kid.
         </h2>
-        <p className="font-script text-ink-secondary max-w-md mx-auto text-sm">
+        <p className="font-script text-ink-secondary max-w-md mx-auto text-body">
           Once a child is on the journal, you&apos;ll see their pending duties,
           studies, and rewards land here for one-tap approval.
         </p>
@@ -52,7 +52,7 @@ export default function ParentDashboard() {
   const showWelcome = childrenCount === 0 && pending.length === 0;
 
   return (
-    <motion.div variants={inkBleed} initial="initial" animate="animate" className="max-w-6xl mx-auto space-y-5">
+    <PageShell variants={inkBleed}>
       <header>
         <div className="font-script text-sheikah-teal-deep text-base md:text-lg">
           {weekday} · {dateStr}
@@ -104,6 +104,6 @@ export default function ParentDashboard() {
           </AccordionSection>
         </>
       )}
-    </motion.div>
+    </PageShell>
   );
 }

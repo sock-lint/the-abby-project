@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import PageShell from '../components/layout/PageShell';
 import * as Sentry from '@sentry/react';
 import {
   completeChore, getActiveQuest, getRecentDrops, getStable, logHabitTap,
@@ -133,7 +134,7 @@ export default function ChildDashboard({ data, reload }) {
   const { weekday, dateStr } = formatWeekdayDate();
 
   return (
-    <motion.div variants={inkBleed} initial="initial" animate="animate" className="max-w-6xl mx-auto space-y-5">
+    <PageShell variants={inkBleed}>
       <header>
         <div className="font-script text-sheikah-teal-deep text-base md:text-lg">
           {weekday} · {dateStr} · to be inked before nightfall
@@ -148,7 +149,7 @@ export default function ChildDashboard({ data, reload }) {
         // stale message doesn't hang around when the next action succeeds.
         <div
           role="alert"
-          className="rounded-lg border border-rose/40 bg-rose/10 px-4 py-2 text-sm text-rose flex items-start gap-3"
+          className="rounded-lg border border-rose/40 bg-rose/10 px-4 py-2 text-body text-rose flex items-start gap-3"
         >
           <span className="flex-1">{actionError}</span>
           <button
@@ -194,7 +195,7 @@ export default function ChildDashboard({ data, reload }) {
             <div className="space-y-3">
               {visibleSections.map((section) => (
                 <div key={section.key}>
-                  <div className="font-script text-xs text-ink-whisper uppercase tracking-wider mb-1">
+                  <div className="font-script text-caption text-ink-whisper uppercase tracking-wider mb-1">
                     {section.label}
                   </div>
                   <ul className="space-y-2">
@@ -230,7 +231,7 @@ export default function ChildDashboard({ data, reload }) {
               <button
                 type="button"
                 onClick={() => setLogExpanded(true)}
-                className="mt-3 font-script text-sm text-sheikah-teal-deep hover:underline"
+                className="mt-3 font-script text-body text-sheikah-teal-deep hover:underline"
               >
                 Show {hiddenQuestCount} more →
               </button>
@@ -244,7 +245,7 @@ export default function ChildDashboard({ data, reload }) {
       {recentDrops?.length > 0 && (
         <section>
           <div className="mb-2">
-            <div className="font-script text-sheikah-teal-deep text-sm">drops from the last two days</div>
+            <div className="font-script text-sheikah-teal-deep text-body">drops from the last two days</div>
             <h2 className="font-display text-xl md:text-2xl text-ink-primary leading-tight">Recent Loot</h2>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
@@ -258,7 +259,7 @@ export default function ChildDashboard({ data, reload }) {
                 className={`shrink-0 w-24 p-3 rounded-xl bg-ink-page-aged border border-ink-page-shadow text-center ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[d.rarity] || 'ring-transparent'}`}
               >
                 <div className="text-3xl mb-1" aria-hidden="true">{d.item_icon || '📦'}</div>
-                <div className="font-body text-xs font-medium truncate">{d.item_name}</div>
+                <div className="font-body text-caption font-medium truncate">{d.item_name}</div>
                 {d.was_salvaged && (
                   <div className="font-script text-micro text-gold-leaf mt-0.5">salvaged</div>
                 )}
@@ -282,7 +283,7 @@ export default function ChildDashboard({ data, reload }) {
             aria-label={`Balance ${formatCurrency(current_balance)} — open coffers`}
             className="text-left rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 hover:bg-ink-page-rune-glow transition-colors"
           >
-            <div className="font-script text-xs uppercase tracking-wider text-moss">Balance</div>
+            <div className="font-script text-caption uppercase tracking-wider text-moss">Balance</div>
             <div className="font-display text-xl font-semibold text-ink-primary">{formatCurrency(current_balance)}</div>
           </motion.button>
           <motion.button
@@ -292,7 +293,7 @@ export default function ChildDashboard({ data, reload }) {
             aria-label={`${coin_balance ?? 0} coins — open the bazaar`}
             className="text-left rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 hover:bg-ink-page-rune-glow transition-colors"
           >
-            <div className="flex items-center gap-1 font-script text-xs uppercase tracking-wider text-gold-leaf">
+            <div className="flex items-center gap-1 font-script text-caption uppercase tracking-wider text-gold-leaf">
               <CoinIcon size={14} aria-hidden="true" /> Coins
             </div>
             <div className="font-display text-xl font-semibold text-ink-primary">{coin_balance ?? 0}</div>
@@ -304,18 +305,18 @@ export default function ChildDashboard({ data, reload }) {
             aria-label={`${this_week?.hours_worked ?? 0} hours clocked this week — open wages`}
             className="text-left rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 hover:bg-ink-page-rune-glow transition-colors"
           >
-            <div className="font-script text-xs uppercase tracking-wider text-sheikah-teal-deep">Hours this week</div>
+            <div className="font-script text-caption uppercase tracking-wider text-sheikah-teal-deep">Hours this week</div>
             <div className="font-display text-xl font-semibold text-ink-primary">{this_week?.hours_worked ?? 0}h</div>
           </motion.button>
           <motion.div
             variants={staggerItem}
             className="text-left rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3"
           >
-            <div className="font-script text-xs uppercase tracking-wider text-ember-deep">Earned this week</div>
+            <div className="font-script text-caption uppercase tracking-wider text-ember-deep">Earned this week</div>
             <div className="font-display text-xl font-semibold text-ink-primary">{formatCurrency(this_week?.earnings)}</div>
           </motion.div>
         </motion.div>
-        <div className="font-script text-xs text-ink-whisper mt-3 leading-relaxed">
+        <div className="font-script text-caption text-ink-whisper mt-3 leading-relaxed">
           balance: pay from clocked ventures · coins: earned across all your work, spent in the bazaar · hours and earnings: this week's clocked time
         </div>
       </AccordionSection>
@@ -344,7 +345,7 @@ export default function ChildDashboard({ data, reload }) {
                       {p.status.replace('_', ' ')}
                     </RuneBadge>
                   </div>
-                  <div className="font-script text-xs text-ink-whisper mb-3">
+                  <div className="font-script text-caption text-ink-whisper mb-3">
                     difficulty: {'★'.repeat(p.difficulty || 1)}
                   </div>
                   {p.milestones_total > 0 && (
@@ -436,7 +437,7 @@ export default function ChildDashboard({ data, reload }) {
                 className="shrink-0 w-28 text-center p-3 rounded-xl bg-ink-page-aged border border-ink-page-shadow hover:border-gold-leaf/60 transition-colors"
               >
                 <div className="text-4xl mb-1">{b.badge__icon || '🏅'}</div>
-                <div className="font-body text-xs font-medium truncate">{b.badge__name}</div>
+                <div className="font-body text-caption font-medium truncate">{b.badge__name}</div>
               </motion.button>
             ))}
           </div>
@@ -452,6 +453,6 @@ export default function ChildDashboard({ data, reload }) {
         }}
       />
 
-    </motion.div>
+    </PageShell>
   );
 }

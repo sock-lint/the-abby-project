@@ -21,6 +21,7 @@ import RpgSprite from '../components/rpg/RpgSprite';
 import { normalizeList } from '../utils/api';
 import { formatDate } from '../utils/format';
 import Button from '../components/Button';
+import IconButton from '../components/IconButton';
 import { TextField, TextAreaField, SelectField } from '../components/form';
 
 const STATUS_TONE = {
@@ -191,7 +192,7 @@ export default function Trials() {
         <h2 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight">
           Trials
         </h2>
-        <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+        <div className="font-script text-body text-ink-whisper mt-1 max-w-xl">
           boss trials take damage from your work and study · collection trials count items earned · only one active at a time
         </div>
       </header>
@@ -217,7 +218,7 @@ export default function Trials() {
         <ParchmentCard flourish seal>
           <div className="flex items-start justify-between mb-3">
             <div>
-              <div className="font-script text-xs text-ink-whisper uppercase tracking-widest">
+              <div className="font-script text-caption text-ink-whisper uppercase tracking-widest">
                 custom campaign
               </div>
               <h3 className="font-display text-lg text-ink-primary">Issue a Challenge</h3>
@@ -225,19 +226,18 @@ export default function Trials() {
                 Authors a one-off quest and auto-assigns it to the chosen child.
               </div>
             </div>
-            <button
-              type="button"
+            <IconButton
               onClick={() => setShowChallenge(false)}
               aria-label="Close"
-              className="p-1 rounded-full hover:bg-ink-page-shadow/50 transition-colors"
+              size="sm"
             >
               <X size={16} className="text-ink-secondary" />
-            </button>
+            </IconButton>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {challenge.is_coop ? (
               <div className="md:col-span-1">
-                <div className="font-script text-xs text-ink-whisper uppercase tracking-wider mb-1">
+                <div className="font-script text-caption text-ink-whisper uppercase tracking-wider mb-1">
                   Co-op participants
                 </div>
                 <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto rounded-lg border border-ink-page-shadow bg-ink-page p-2">
@@ -246,7 +246,7 @@ export default function Trials() {
                     return (
                       <label
                         key={c.id}
-                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs font-body cursor-pointer ${checked ? 'border-sheikah-teal bg-sheikah-teal/15 text-sheikah-teal-deep' : 'border-ink-page-shadow text-ink-secondary'}`}
+                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-caption font-body cursor-pointer ${checked ? 'border-sheikah-teal bg-sheikah-teal/15 text-sheikah-teal-deep' : 'border-ink-page-shadow text-ink-secondary'}`}
                       >
                         <input
                           type="checkbox"
@@ -310,7 +310,7 @@ export default function Trials() {
               value={challenge.duration_days}
               onChange={(e) => setChallenge({ ...challenge, duration_days: e.target.value })}
             />
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <TextField
                 id="challenge-coins"
                 label="Coin reward"
@@ -351,15 +351,15 @@ export default function Trials() {
                 })
               }
             />
-            <span className="font-body text-sm text-ink-primary">Co-op campaign (multiple kids on one shared quest)</span>
+            <span className="font-body text-body text-ink-primary">Co-op campaign (multiple kids on one shared quest)</span>
           </label>
 
           <details className="mt-3">
-            <summary className="cursor-pointer font-display italic text-sm text-ink-secondary">
+            <summary className="cursor-pointer font-display italic text-body text-ink-secondary">
               Advanced — narrow which actions count
             </summary>
             <div className="mt-2 space-y-2">
-              <div className="font-script text-xs text-ink-whisper">
+              <div className="font-script text-caption text-ink-whisper">
                 Leave all unchecked to count every action. Checking some
                 limits damage / collection to those triggers.
               </div>
@@ -369,7 +369,7 @@ export default function Trials() {
                   return (
                     <label
                       key={slug}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs font-body cursor-pointer ${checked ? 'border-sheikah-teal bg-sheikah-teal/15 text-sheikah-teal-deep' : 'border-ink-page-shadow text-ink-secondary'}`}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-caption font-body cursor-pointer ${checked ? 'border-sheikah-teal bg-sheikah-teal/15 text-sheikah-teal-deep' : 'border-ink-page-shadow text-ink-secondary'}`}
                     >
                       <input
                         type="checkbox"
@@ -390,7 +390,7 @@ export default function Trials() {
                     setChallenge({ ...challenge, on_time_only: e.target.checked })
                   }
                 />
-                <span className="font-body text-sm text-ink-secondary">
+                <span className="font-body text-body text-ink-secondary">
                   Only count homework submitted on time / early
                 </span>
               </label>
@@ -398,11 +398,11 @@ export default function Trials() {
           </details>
 
           <details className="mt-3">
-            <summary className="cursor-pointer font-display italic text-sm text-ink-secondary">
+            <summary className="cursor-pointer font-display italic text-body text-ink-secondary">
               Skill XP fanout (optional)
             </summary>
             <div className="mt-2 space-y-2">
-              <div className="font-script text-xs text-ink-whisper">
+              <div className="font-script text-caption text-ink-whisper">
                 Without tags the XP reward goes to no skill in particular.
                 Tag 1-3 skills so kids see XP land where they earned it.
               </div>
@@ -435,15 +435,15 @@ export default function Trials() {
           <div className="space-y-2">
             {familyRows.map((row) => (
               <div key={row.child_id} className="flex items-center gap-3">
-                <div className="font-script text-sm text-ink-primary w-28 shrink-0 truncate">
+                <div className="font-script text-body text-ink-primary w-28 shrink-0 truncate">
                   {row.child_name}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-baseline gap-2">
-                    <span className="font-body text-sm text-ink-secondary truncate">
+                    <span className="font-body text-body text-ink-secondary truncate">
                       {row.quest.definition.name}
                     </span>
-                    <span className="font-rune text-xs text-ink-whisper tabular-nums shrink-0">
+                    <span className="font-rune text-caption text-ink-whisper tabular-nums shrink-0">
                       {row.quest.current_progress}/{row.quest.effective_target}
                     </span>
                   </div>
@@ -454,7 +454,7 @@ export default function Trials() {
                     />
                   </div>
                 </div>
-                <div className="font-rune text-xs text-ink-whisper tabular-nums shrink-0 w-20 text-right">
+                <div className="font-rune text-caption text-ink-whisper tabular-nums shrink-0 w-20 text-right">
                   ends {formatDate(row.quest.end_date)}
                 </div>
               </div>
@@ -487,7 +487,7 @@ export default function Trials() {
                   <div className="font-display text-2xl text-ink-primary leading-tight">
                     {activeQuest.definition.name}
                   </div>
-                  <div className="font-body text-sm text-ink-secondary">
+                  <div className="font-body text-body text-ink-secondary">
                     {activeQuest.definition.description}
                   </div>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -503,7 +503,7 @@ export default function Trials() {
 
               {/* Progress */}
               <div>
-                <div className="flex justify-between font-script text-sm mb-1">
+                <div className="flex justify-between font-script text-body mb-1">
                   <span className="text-ink-primary">
                     {activeQuest.definition.quest_type === 'boss' ? 'Damage dealt' : 'Collected'}
                   </span>
@@ -521,7 +521,7 @@ export default function Trials() {
                     style={{ width: `${activeQuest.progress_percent}%` }}
                   />
                 </div>
-                <div className="font-rune text-xs text-ink-whisper mt-1">
+                <div className="font-rune text-caption text-ink-whisper mt-1">
                   {activeQuest.progress_percent}% complete
                 </div>
               </div>
@@ -529,7 +529,7 @@ export default function Trials() {
               {/* Party contributions — only render when it adds signal */}
               {activeQuest.participants?.length > 1 && (
                 <div>
-                  <div className="font-script text-sm text-ink-primary mb-1">Party</div>
+                  <div className="font-script text-body text-ink-primary mb-1">Party</div>
                   <div className="space-y-1">
                     {activeQuest.participants.map((p) => {
                       const pct = activeQuest.current_progress > 0
@@ -537,7 +537,7 @@ export default function Trials() {
                         : 0;
                       return (
                         <div key={p.id} className="flex items-center gap-2">
-                          <span className="font-script text-xs text-ink-secondary w-20 shrink-0 truncate">
+                          <span className="font-script text-caption text-ink-secondary w-20 shrink-0 truncate">
                             {p.user_name}
                           </span>
                           <div className="flex-1 h-2 rounded-full bg-ink-page-shadow/60 overflow-hidden">
@@ -546,7 +546,7 @@ export default function Trials() {
                               style={{ width: `${pct}%` }}
                             />
                           </div>
-                          <span className="font-rune text-xs text-ink-whisper tabular-nums w-16 text-right shrink-0">
+                          <span className="font-rune text-caption text-ink-whisper tabular-nums w-16 text-right shrink-0">
                             {p.contribution} ({pct}%)
                           </span>
                         </div>
@@ -558,14 +558,14 @@ export default function Trials() {
 
               {/* Rage shield */}
               {activeQuest.rage_shield > 0 && (
-                <div className="flex items-center gap-2 font-script text-sm text-ember-deep bg-ember/10 rounded-lg p-2 border border-ember/40">
+                <div className="flex items-center gap-2 font-script text-body text-ember-deep bg-ember/10 rounded-lg p-2 border border-ember/40">
                   <Shield size={14} /> Boss raged! +{activeQuest.rage_shield} shield
                 </div>
               )}
 
               {/* Rewards preview */}
-              <div className="font-script text-sm text-ink-secondary">
-                <span className="text-ink-whisper uppercase tracking-wider text-xs">rewards · </span>
+              <div className="font-script text-body text-ink-secondary">
+                <span className="text-ink-whisper uppercase tracking-wider text-caption">rewards · </span>
                 {activeQuest.definition.coin_reward > 0 && (
                   <span className="mr-2">{activeQuest.definition.coin_reward} coins</span>
                 )}
@@ -585,7 +585,7 @@ export default function Trials() {
                 ))}
               </div>
 
-              <div className="font-script text-xs text-ink-whisper italic">
+              <div className="font-script text-caption text-ink-whisper italic">
                 Ends: {formatDate(activeQuest.end_date)}
               </div>
             </ParchmentCard>
@@ -629,10 +629,10 @@ export default function Trials() {
                   <div className="font-display text-base text-ink-primary leading-tight">
                     {qd.name}
                   </div>
-                  <div className="font-body text-xs text-ink-secondary truncate">
+                  <div className="font-body text-caption text-ink-secondary truncate">
                     {qd.description}
                   </div>
-                  <div className="flex gap-2 mt-1 font-script text-xs text-ink-whisper flex-wrap">
+                  <div className="flex gap-2 mt-1 font-script text-caption text-ink-whisper flex-wrap">
                     <span>{qd.quest_type_display}</span>
                     <span>target: {qd.target_value}</span>
                     <span>{qd.duration_days}d</span>
@@ -644,7 +644,7 @@ export default function Trials() {
                     size="sm"
                     onClick={() => handleStart(qd.id)}
                     disabled={starting === qd.id}
-                    className="flex items-center gap-1 text-xs shrink-0"
+                    className="flex items-center gap-1 text-caption shrink-0"
                   >
                     <Play size={12} /> {starting === qd.id ? 'Starting…' : scrollItemId ? 'Begin with scroll' : 'Begin'}
                   </Button>
@@ -672,10 +672,10 @@ export default function Trials() {
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-body text-sm font-medium text-ink-primary">
+                  <div className="font-body text-body font-medium text-ink-primary">
                     {q.definition.name}
                   </div>
-                  <div className="font-rune text-xs text-ink-whisper tabular-nums">
+                  <div className="font-rune text-caption text-ink-whisper tabular-nums">
                     {q.current_progress}/{q.definition.target_value}
                   </div>
                 </div>

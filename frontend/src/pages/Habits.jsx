@@ -21,6 +21,7 @@ import SkillTagEditor from '../components/SkillTagEditor';
 import ChapterRubric from '../components/atlas/ChapterRubric';
 import { ScrollIcon } from '../components/icons/JournalIcons';
 import Button from '../components/Button';
+import IconButton from '../components/IconButton';
 import { TextField, SelectField } from '../components/form';
 import { normalizeList } from '../utils/api';
 import QuestFolio from './quests/QuestFolio';
@@ -105,18 +106,18 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         {isApprove && habit?.created_by_name && (
-          <div className="rounded-md border border-gold-leaf/40 bg-gold-leaf/10 px-3 py-2 font-script text-sm text-ink-primary">
+          <div className="rounded-md border border-gold-leaf/40 bg-gold-leaf/10 px-3 py-2 font-script text-body text-ink-primary">
             Proposed by <span className="font-body font-medium">{habit.created_by_name}</span>
             {' — set XP + skill tags below and publish to their ritual list.'}
           </div>
         )}
         {!canSetRewards && !isApprove && (
-          <div className="rounded-md border border-gold-leaf/40 bg-gold-leaf/10 px-3 py-2 font-script text-sm text-ink-primary">
+          <div className="rounded-md border border-gold-leaf/40 bg-gold-leaf/10 px-3 py-2 font-script text-body text-ink-primary">
             Your parent will set the rewards when they approve this.
           </div>
         )}
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <TextField label="Icon" value={form.icon} onChange={onField('icon')} placeholder="⚡" />
           <SelectField label="Type" value={form.habit_type} onChange={onField('habit_type')}>
             <option value="positive">Virtue (+)</option>
@@ -339,12 +340,12 @@ export default function Habits() {
               {proposals.map((p) => (
                 <ParchmentCard key={p.id} className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="font-body text-sm font-medium text-ink-primary flex items-center gap-2">
+                    <div className="font-body text-body font-medium text-ink-primary flex items-center gap-2">
                       <span className="text-lg">{p.icon || '⚡'}</span>
                       {p.name}
                       <RuneBadge tone="ember" size="sm">pending</RuneBadge>
                     </div>
-                    <div className="font-script text-xs text-ink-whisper">
+                    <div className="font-script text-caption text-ink-whisper">
                       {isParent
                         ? `proposed by ${p.created_by_name || 'child'}`
                         : 'waiting for parent to set XP'}
@@ -356,14 +357,14 @@ export default function Habits() {
                         <Button size="sm" onClick={() => openApprove(p)}>
                           Review &amp; publish
                         </Button>
-                        <button
-                          type="button"
+                        <IconButton
+                          variant="danger"
                           onClick={() => setConfirmDelete(p)}
                           aria-label="Decline proposal"
-                          className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
+                          className="min-w-[44px] min-h-[44px]"
                         >
                           <Trash2 size={16} />
-                        </button>
+                        </IconButton>
                       </>
                     ) : (
                       <RuneBadge tone="ink" size="sm">pending</RuneBadge>
@@ -413,7 +414,7 @@ export default function Habits() {
                 <ParchmentCard>
                   <div className="flex items-start gap-3">
                     <div
-                      className={`w-11 h-11 rounded-full flex items-center justify-center font-rune text-sm font-bold shrink-0 shadow-sm ${getStrengthColor(habit.strength ?? 0)}`}
+                      className={`w-11 h-11 rounded-full flex items-center justify-center font-rune text-body font-bold shrink-0 shadow-sm ${getStrengthColor(habit.strength ?? 0)}`}
                     >
                       {habit.strength ?? 0}
                     </div>
@@ -424,7 +425,7 @@ export default function Habits() {
                           {habit.name}
                         </span>
                       </div>
-                      <div className="font-script text-xs text-ink-whisper mt-0.5">
+                      <div className="font-script text-caption text-ink-whisper mt-0.5">
                         {habit.xp_reward > 0 && <span>{habit.xp_reward} XP</span>}
                         {habit.xp_reward > 0 && habit.max_taps_per_day > 0 && <span> · </span>}
                         {habit.max_taps_per_day > 0 && (
@@ -441,46 +442,46 @@ export default function Habits() {
                       {(habit.habit_type === 'positive' || habit.habit_type === 'both') && (() => {
                         const atCap = (habit.taps_today ?? 0) >= (habit.max_taps_per_day ?? 1);
                         return (
-                          <button
-                            type="button"
+                          <Button
+                            variant="success"
+                            size="sm"
                             onClick={() => handleTap(habit, 1)}
                             disabled={tapping === `${habit.id}-1` || atCap}
                             title={atCap ? `Daily limit reached (${habit.max_taps_per_day}/day)` : undefined}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-moss/20 hover:bg-moss/30 text-moss text-sm font-body font-medium rounded-lg border border-moss/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="flex items-center gap-1 min-h-[44px]"
                           >
                             <ThumbsUp size={14} /> {atCap ? 'done' : 'virtue'}
-                          </button>
+                          </Button>
                         );
                       })()}
                       {(habit.habit_type === 'negative' || habit.habit_type === 'both') && (
-                        <button
-                          type="button"
+                        <Button
+                          variant="danger"
+                          size="sm"
                           onClick={() => handleTap(habit, -1)}
                           disabled={tapping === `${habit.id}--1`}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-ember/20 hover:bg-ember/30 text-ember-deep text-sm font-body font-medium rounded-lg border border-ember/40 disabled:opacity-50 transition-colors"
+                          className="flex items-center gap-1 min-h-[44px]"
                         >
                           <ThumbsDown size={14} /> vice
-                        </button>
+                        </Button>
                       )}
                     </div>
                     {isParent && (
                       <div className="flex gap-1">
-                        <button
-                          type="button"
+                        <IconButton
                           onClick={() => openEdit(habit)}
                           aria-label="Edit ritual"
-                          className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] text-ink-secondary hover:text-ink-primary transition-colors"
+                          className="min-w-[44px] min-h-[44px]"
                         >
                           <Pencil size={16} />
-                        </button>
-                        <button
-                          type="button"
+                        </IconButton>
+                        <IconButton
                           onClick={() => setConfirmDelete(habit)}
                           aria-label="Delete ritual"
-                          className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] text-ink-secondary hover:text-ember-deep transition-colors"
+                          className="min-w-[44px] min-h-[44px] hover:text-ember-deep"
                         >
                           <Trash2 size={16} />
-                        </button>
+                        </IconButton>
                       </div>
                     )}
                   </div>
