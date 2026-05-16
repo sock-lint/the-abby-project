@@ -50,18 +50,18 @@ export const HAPPINESS_WHISPER = {
 };
 
 export const COMPANION_FILTERS = [
-  { key: 'all',    label: 'All',             match: () => true },
-  { key: 'active', label: 'Active',          match: (p) => !!p.is_active },
-  { key: 'hungry', label: 'Hungry',          match: (p) => !p.evolved_to_mount && HUNGRY_LEVELS.has(p.happiness_level) },
-  { key: 'ready',  label: 'Ready to evolve', match: (p) => !p.evolved_to_mount && (p.growth_points ?? 0) >= READY_TO_EVOLVE_THRESHOLD },
+  { key: 'all',    label: 'All',             icon: '🎒', match: () => true },
+  { key: 'active', label: 'Active',          icon: '⭐', match: (p) => !!p.is_active },
+  { key: 'hungry', label: 'Hungry',          icon: '🍖', match: (p) => !p.evolved_to_mount && HUNGRY_LEVELS.has(p.happiness_level) },
+  { key: 'ready',  label: 'Ready to evolve', icon: '✨', match: (p) => !p.evolved_to_mount && (p.growth_points ?? 0) >= READY_TO_EVOLVE_THRESHOLD },
 ];
 
 export const MOUNT_FILTERS = [
-  { key: 'all',      label: 'All',             match: () => true },
-  { key: 'active',   label: 'Active',          match: (m) => !!m.is_active },
-  { key: 'on_expedition', label: 'Out exploring', match: (m) => !!m.active_expedition && m.active_expedition.status === 'active' },
-  { key: 'ready',    label: 'Ready to breed',  match: (m) => daysUntilReady(m.last_bred_at) === null },
-  { key: 'cooldown', label: 'On cooldown',     match: (m) => daysUntilReady(m.last_bred_at) !== null },
+  { key: 'all',      label: 'All',             icon: '🐎', match: () => true },
+  { key: 'active',   label: 'Active',          icon: '⭐', match: (m) => !!m.is_active },
+  { key: 'on_expedition', label: 'Out exploring', icon: '🗺', match: (m) => !!m.active_expedition && m.active_expedition.status === 'active' },
+  { key: 'ready',    label: 'Ready to breed',  icon: '💞', match: (m) => daysUntilReady(m.last_bred_at) === null },
+  { key: 'cooldown', label: 'On cooldown',     icon: '⏳', match: (m) => daysUntilReady(m.last_bred_at) !== null },
 ];
 
 // Format remaining time for an out-on-expedition mount card. Returns

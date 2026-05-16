@@ -11,6 +11,7 @@ import { normalizeList } from '../../../utils/api';
 import Button from '../../../components/Button';
 import { SelectField } from '../../../components/form';
 import ChapterRubric from '../../../components/atlas/ChapterRubric';
+import IncipitBand from '../../../components/atlas/IncipitBand';
 import { BREEDING_COOLDOWN_DAYS, daysUntilReady } from '../party/party.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 
@@ -109,17 +110,24 @@ export default function Hatchery() {
           onDismiss={() => setBreedCeremony(null)}
         />
       )}
-      <header>
-        <div className="font-script text-sheikah-teal-deep text-base">
-          the hatchery · ritual casting & stable husbandry
-        </div>
-        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          Hatchery
-        </h1>
-        <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
-          pair an egg + potion to summon a companion · pair two mounts to inherit a hybrid egg & potion
-        </div>
-      </header>
+      <IncipitBand
+        letter="H"
+        title="Hatchery"
+        kicker="· the hatchery · ritual casting & stable husbandry ·"
+        meta={
+          mounts.length >= 2 ? (
+            <>
+              <span className="tabular-nums">{readyMounts.length}</span>
+              <span>mounts ready to breed</span>
+            </>
+          ) : null
+        }
+        progressPct={mounts.length >= 2 ? (readyMounts.length / mounts.length) * 100 : 0}
+      />
+
+      <p className="font-script text-sm text-ink-whisper -mt-2 max-w-xl">
+        pair an egg + potion to summon a companion · pair two mounts to inherit a hybrid egg & potion
+      </p>
 
       <ErrorAlert message={error} />
 

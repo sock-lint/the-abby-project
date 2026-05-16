@@ -9,12 +9,13 @@ import Loader from '../../../components/Loader';
 import EmptyState from '../../../components/EmptyState';
 import ErrorAlert from '../../../components/ErrorAlert';
 import ParchmentCard from '../../../components/journal/ParchmentCard';
-import RuneBadge from '../../../components/journal/RuneBadge';
+import IncipitBand from '../../../components/atlas/IncipitBand';
+import TomeShelf from '../../../components/atlas/TomeShelf';
 import DeckleDivider from '../../../components/journal/DeckleDivider';
 import { DragonIcon } from '../../../components/icons/JournalIcons';
 import RpgSprite from '../../../components/rpg/RpgSprite';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
-import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
+import { RARITY_HALO, PROGRESS_TIER } from '../../../components/atlas/mastery.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 import ExpeditionLaunchSheet from './ExpeditionLaunchSheet';
 import {
@@ -80,50 +81,43 @@ export default function Mounts() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <div className="font-script text-sheikah-teal-deep text-base">
-          your party · mounts you can ride
-        </div>
-        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          Mounts
-        </h1>
-        <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
-          companions that bloomed past growth 100 evolve into mounts · pair two on the Hatchery tab to breed a hybrid egg
-        </div>
-      </header>
+      <IncipitBand
+        letter="M"
+        title="Mounts"
+        kicker="· your party · mounts you can ride ·"
+        meta={
+          <>
+            <span className="tabular-nums">{mounts.length} of {totalPossible}</span>
+            <span>evolved</span>
+          </>
+        }
+        progressPct={totalPossible ? (mounts.length / totalPossible) * 100 : 0}
+      />
+
+      <p className="font-script text-sm text-ink-whisper -mt-2 max-w-xl">
+        companions that bloomed past growth 100 evolve into mounts · pair two on the Hatchery tab to breed a hybrid egg
+      </p>
 
       <ErrorAlert message={error} />
 
-      <div className="flex gap-2 flex-wrap">
-        <RuneBadge tone="gold" size="md">
-          mounts {mounts.length}/{totalPossible}
-        </RuneBadge>
-      </div>
-
       {mounts.length > 0 && (
-        <div
-          role="tablist"
-          aria-label="Filter mounts"
-          className="flex flex-wrap gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow"
-        >
-          {MOUNT_FILTERS.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={filter === key}
-              onClick={() => setFilter(key)}
-              disabled={counts[key] === 0 && key !== 'all'}
-              className={`flex-1 min-w-[5rem] px-3 py-1.5 rounded-md font-display text-sm transition-colors disabled:opacity-40 ${
-                filter === key
-                  ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
-                  : 'text-ink-secondary hover:text-ink-primary'
-              }`}
-            >
-              {label} <span className="opacity-70">({counts[key]})</span>
-            </button>
-          ))}
-        </div>
+        <TomeShelf
+          ariaLabel="Filter mounts"
+          activeId={filter}
+          onSelect={setFilter}
+          items={MOUNT_FILTERS
+            .filter(({ key }) => key === 'all' || counts[key] > 0)
+            .map(({ key, label, icon }) => ({
+              id: key,
+              name: label,
+              icon,
+              chip: `×${counts[key]}`,
+              progressPct: null,
+              tier: PROGRESS_TIER.nascent,
+              variant: 'vessel',
+              ariaLabel: `${label} (${counts[key]})`,
+            }))}
+        />
       )}
 
       {mounts.length === 0 ? (
