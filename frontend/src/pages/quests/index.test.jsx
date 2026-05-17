@@ -29,7 +29,7 @@ describe('QuestsHub', () => {
     expect(screen.getAllByText(/ventures/i).length).toBeGreaterThan(0);
   });
 
-  it('exposes five tabs (Ventures · Duties · Study · Rituals · Movement) — no Trials tab', async () => {
+  it('exposes six tabs (Ventures · Duties · Study · Rituals · Movement · Trials)', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/projects/', () => HttpResponse.json([])),
@@ -46,7 +46,7 @@ describe('QuestsHub', () => {
     expect(screen.getByRole('tab', { name: /study/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /rituals/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /movement/i })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: /trials/i })).toBeNull();
-    expect(screen.getAllByRole('tab')).toHaveLength(5);
+    expect(screen.getByRole('tab', { name: /trials/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab')).toHaveLength(6);
   });
 });

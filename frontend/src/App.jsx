@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react';
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from './hooks/useApi';
 import { applyTheme } from './themes';
 import { getPendingCelebration, getPendingCelebrationNotification } from './api';
@@ -23,7 +23,6 @@ import Manage from './pages/Manage';
 import ActivityPage from './pages/activity/ActivityPage';
 import SettingsPage from './pages/SettingsPage';
 import QuestsHub from './pages/quests';
-import Trials from './pages/Trials';
 import BestiaryHub from './pages/bestiary';
 import Character from './pages/Character';
 import TreasuryHub from './pages/treasury';
@@ -55,6 +54,20 @@ function ErrorFallback({ error, resetError }) {
  */
 function LegacyRedirect({ to }) {
   return <Navigate to={to} replace />;
+}
+
+/**
+ * Like LegacyRedirect but carries the current location's search string
+ * through to the destination — needed for /trials?scroll=<itemId>, where
+ * QuickActions' "Start a quest with a scroll" deep-link relies on the
+ * scroll param surviving the redirect to /quests?tab=trials.
+ */
+function TrialsLegacyRedirect() {
+  const { search } = useLocation();
+  // Merge ?scroll=… onto the destination's existing ?tab=trials.
+  const params = new URLSearchParams(search);
+  params.set('tab', 'trials');
+  return <Navigate to={`/quests?${params.toString()}`} replace />;
 }
 
 export default function App() {
@@ -167,9 +180,13 @@ export default function App() {
               <Route path="/quests/ventures/ingest" element={<ProjectIngest />} />
               <Route path="/quests/ventures/:id" element={<ProjectDetail />} />
 
-              {/* Trials — the adventure overlay (time-boxed boss/collection quests),
-                  separated from the regular-cadence hub tabs. */}
-              <Route path="/trials" element={<Trials />} />
+              {/* Trials lives inside the Quests hub now (6th tab). Keep
+                  /trials as a redirect so external links, the
+                  HeaderProgressBand, QuickActions, the HeroPrimaryCard,
+                  notification routes, and the Sigil Adventures card all
+                  keep working — TrialsLegacyRedirect preserves the
+                  ?scroll=<itemId> deep-link param. */}
+              <Route path="/trials" element={<TrialsLegacyRedirect />} />
 
               {/* Chapter III — Bestiary */}
               <Route path="/bestiary" element={<BestiaryHub />} />
@@ -204,7 +221,7 @@ export default function App() {
               <Route path="/chores" element={<LegacyRedirect to="/quests?tab=duties" />} />
               <Route path="/homework" element={<LegacyRedirect to="/quests?tab=study" />} />
               <Route path="/habits" element={<LegacyRedirect to="/quests?tab=rituals" />} />
-              <Route path="/quests/trials" element={<LegacyRedirect to="/trials" />} />
+              <Route path="/quests/trials" element={<LegacyRedirect to="/quests?tab=trials" />} />
               <Route path="/inventory" element={<LegacyRedirect to="/treasury?tab=satchel" />} />
               <Route path="/stable" element={<LegacyRedirect to="/bestiary?tab=companions" />} />
               <Route path="/character" element={<LegacyRedirect to="/sigil" />} />
