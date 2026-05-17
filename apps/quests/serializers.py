@@ -55,6 +55,12 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
     reward_items = QuestRewardItemSerializer(many=True, read_only=True)
     skill_tags = QuestSkillTagSerializer(many=True, read_only=True)
     quest_type_display = serializers.CharField(source="get_quest_type_display", read_only=True)
+    # Frontend uses this to classify gated quests into the "Locked" codex
+    # chapter — compared against the user's earned badge ids client-side.
+    required_badge = serializers.PrimaryKeyRelatedField(read_only=True)
+    required_badge_name = serializers.CharField(
+        source="required_badge.name", read_only=True, default=None,
+    )
 
     class Meta:
         model = QuestDefinition
@@ -62,6 +68,7 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
             "id", "name", "description", "icon", "sprite_key", "quest_type", "quest_type_display",
             "target_value", "duration_days", "trigger_filter",
             "coin_reward", "xp_reward", "reward_items", "skill_tags",
+            "required_badge", "required_badge_name",
             "is_repeatable", "is_system", "created_at",
         ]
         read_only_fields = fields
