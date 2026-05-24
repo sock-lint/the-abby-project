@@ -7,10 +7,14 @@ import {
   addRewardToWishlist, removeRewardFromWishlist,
 } from '../api';
 import { hapticSuccess } from '../utils/haptics';
+import AccordionSection from '../components/dashboard/AccordionSection';
+import BottomSheet from '../components/BottomSheet';
 import CatalogSearch from '../components/CatalogSearch';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
+import PageShell from '../components/layout/PageShell';
+import SectionHeader from '../components/SectionHeader';
 import { useApi } from '../hooks/useApi';
 import { useConfirmState } from '../hooks/useConfirmState';
 import { useRole } from '../hooks/useRole';
@@ -38,6 +42,7 @@ export default function Rewards() {
   const { data: rateData } = useApi(getExchangeRate);
 
   const [error, setError] = useState('');
+  const [pendingId, setPendingId] = useState(null);
   const [showRewardForm, setShowRewardForm] = useState(false);
   const [editingReward, setEditingReward] = useState(null);
   const [showCoinAdjust, setShowCoinAdjust] = useState(false);
@@ -52,10 +57,6 @@ export default function Rewards() {
 
   const handleRedeem = async (reward) => {
     setError('');
-    // Pre-flight check: if the cached balance is short, render a
-    // concrete delta ("you need 12 more coins") rather than waiting on
-    // a generic 4xx string. Backend re-validates on submit so this is
-    // safe even if the cached balance is stale.
     const balance = balanceData?.balance ?? 0;
     if (reward.cost > balance) {
       const short = reward.cost - balance;
@@ -64,28 +65,25 @@ export default function Rewards() {
       );
       return;
     }
+    setPendingId(reward.id);
     try {
       await redeemReward(reward.id);
       hapticSuccess();
       refresh();
     } catch (e) {
-      // 409 with code:"out_of_stock" → degrade to a friendly modal that
-      // offers similar rewards + a "notify me" toggle, instead of just
-      // bouncing an error toast that leaves the kid stranded.
       if (e?.status === 409 && e.response?.code === 'out_of_stock') {
         setOutOfStock({ reward, similar: e.response.similar || [] });
         return;
       }
       setError(e.message);
+    } finally {
+      setPendingId(null);
     }
   };
 
   const handleToggleWishlist = async (reward) => {
     setError('');
     const newState = !reward.on_my_wishlist;
-    // Optimistic flip — keeps the bookmark snappy on slow networks.
-    // Backend reconciliation happens on the next page-level refresh
-    // (redeem, etc.). Wishlist state is cheap to recover on error.
     const patchList = (prev, value) => {
       if (!prev) return prev;
       const list = Array.isArray(prev) ? prev : prev.results || [];
@@ -102,16 +100,35 @@ export default function Rewards() {
         await removeRewardFromWishlist(reward.id);
       }
     } catch (e) {
-      // Rollback to the prior state.
       setRewardsData((prev) => patchList(prev, !newState));
       setError(e.message);
     }
   };
 
-  const handleApprove = async (id) => { await approveRedemption(id); refresh(); };
-  const handleReject = async (id) => { await rejectRedemption(id); refresh(); };
-  const handleExchangeApprove = async (id) => { await approveExchange(id); refresh(); };
-  const handleExchangeReject = async (id) => { await rejectExchange(id); refresh(); };
+  const handleApprove = async (id) => {
+    setPendingId(id);
+    try { await approveRedemption(id); refresh(); }
+    catch (e) { setError(e.message); }
+    finally { setPendingId(null); }
+  };
+  const handleReject = async (id) => {
+    setPendingId(id);
+    try { await rejectRedemption(id); refresh(); }
+    catch (e) { setError(e.message); }
+    finally { setPendingId(null); }
+  };
+  const handleExchangeApprove = async (id) => {
+    setPendingId(id);
+    try { await approveExchange(id); refresh(); }
+    catch (e) { setError(e.message); }
+    finally { setPendingId(null); }
+  };
+  const handleExchangeReject = async (id) => {
+    setPendingId(id);
+    try { await rejectExchange(id); refresh(); }
+    catch (e) { setError(e.message); }
+    finally { setPendingId(null); }
+  };
 
   const handleEditReward = (reward) => {
     setEditingReward(reward);
@@ -130,10 +147,6 @@ export default function Rewards() {
       },
     });
 
-  if (loadingRewards || loadingRedemptions || loadingBalance || loadingExchanges) {
-    return <Loader />;
-  }
-
   const rewards = normalizeList(rewardsData);
   const redemptions = normalizeList(redemptionsData);
   const exchanges = normalizeList(exchangeData);
@@ -150,7 +163,7 @@ export default function Rewards() {
     : rewards;
 
   return (
-    <div className="space-y-6">
+    <PageShell>
       <header className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
@@ -186,49 +199,89 @@ export default function Rewards() {
 
       <ErrorAlert message={error} />
 
-      <CoinBalanceCard
-        coinBalance={coinBalance}
-        isParent={isParent}
-        onOpenExchange={() => setShowExchange(true)}
-      />
-
-      {isParent && (
-        <RedemptionApprovalQueue
-          pending={pending}
-          onApprove={handleApprove}
-          onReject={handleReject}
+      {loadingBalance ? <Loader /> : (
+        <CoinBalanceCard
+          coinBalance={coinBalance}
+          isParent={isParent}
+          onOpenExchange={() => setShowExchange(true)}
         />
       )}
 
       {isParent && (
-        <ExchangeApprovalQueue
-          pending={pendingExchanges}
-          onApprove={handleExchangeApprove}
-          onReject={handleExchangeReject}
-        />
+        loadingRedemptions ? <Loader /> : pending.length > 0 && (
+          <section>
+            <SectionHeader index={0} title="Pending Redemptions" count={pending.length} />
+            <div className="mt-3">
+              <RedemptionApprovalQueue
+                pending={pending}
+                pendingId={pendingId}
+                onApprove={handleApprove}
+                onReject={handleReject}
+              />
+            </div>
+          </section>
+        )
       )}
 
-      {rewards.length > 0 && (
-        <CatalogSearch
-          value={shopFilter}
-          onChange={setShopFilter}
-          placeholder="Search the bazaar…"
-          ariaLabel="Filter rewards"
-        />
+      {isParent && (
+        loadingExchanges ? <Loader /> : pendingExchanges.length > 0 && (
+          <section>
+            <SectionHeader index={1} title="Pending Exchanges" count={pendingExchanges.length} />
+            <div className="mt-3">
+              <ExchangeApprovalQueue
+                pending={pendingExchanges}
+                pendingId={pendingId}
+                onApprove={handleExchangeApprove}
+                onReject={handleExchangeReject}
+              />
+            </div>
+          </section>
+        )
       )}
 
-      <RewardShop
-        rewards={filteredRewards}
-        isParent={isParent}
-        coinBalance={coinBalance}
-        onRedeem={handleRedeem}
-        onEdit={handleEditReward}
-        onDelete={handleDeleteReward}
-        onToggleWishlist={isParent ? undefined : handleToggleWishlist}
-      />
+      <section>
+        <SectionHeader
+          index={isParent ? 2 : 0}
+          title="Shop"
+          kicker="browse the bazaar"
+        />
+        <div className="mt-3 space-y-4">
+          {loadingRewards ? <Loader /> : (
+            <>
+              {rewards.length > 0 && (
+                <CatalogSearch
+                  value={shopFilter}
+                  onChange={setShopFilter}
+                  placeholder="Search the bazaar…"
+                  ariaLabel="Filter rewards"
+                />
+              )}
+              <RewardShop
+                rewards={filteredRewards}
+                isParent={isParent}
+                coinBalance={coinBalance}
+                pendingId={pendingId}
+                onRedeem={handleRedeem}
+                onEdit={handleEditReward}
+                onDelete={handleDeleteReward}
+                onToggleWishlist={isParent ? undefined : handleToggleWishlist}
+              />
+            </>
+          )}
+        </div>
+      </section>
 
-      <RedemptionHistory redemptions={redemptions} isParent={isParent} />
-      <ExchangeHistory exchanges={exchanges} isParent={isParent} />
+      {!loadingRedemptions && redemptions.length > 0 && (
+        <AccordionSection index={isParent ? 3 : 1} title="Redemption History" count={redemptions.length}>
+          <RedemptionHistory redemptions={redemptions} isParent={isParent} />
+        </AccordionSection>
+      )}
+
+      {!loadingExchanges && exchanges.length > 0 && (
+        <AccordionSection index={isParent ? 4 : 2} title="Exchange History" count={exchanges.length}>
+          <ExchangeHistory exchanges={exchanges} isParent={isParent} />
+        </AccordionSection>
+      )}
 
       {showRewardForm && (
         <RewardFormModal
@@ -284,26 +337,18 @@ export default function Rewards() {
           }}
         />
       )}
-    </div>
+    </PageShell>
   );
 }
 
 function OutOfStockSheet({ state, onClose, onWishlist, onPickSimilar }) {
   const { reward, similar } = state;
   return (
-    <div
-      role="dialog"
-      aria-labelledby="oos-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-primary/60 p-4"
-      onClick={onClose}
+    <BottomSheet
+      title={`${reward.icon} ${reward.name} — sold out`}
+      onClose={onClose}
     >
-      <div
-        className="bg-ink-page rounded-lg shadow-xl max-w-md w-full p-5 space-y-3"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 id="oos-title" className="font-display text-xl text-ink-primary">
-          {reward.icon} {reward.name} — sold out
-        </h2>
+      <div className="space-y-3">
         <p className="font-body text-body text-ink-secondary">
           This one's been claimed for now. Want a heads-up when it's back?
         </p>
@@ -335,10 +380,7 @@ function OutOfStockSheet({ state, onClose, onWishlist, onPickSimilar }) {
             </div>
           </div>
         )}
-        <Button onClick={onClose} variant="ghost" size="sm" className="w-full">
-          Close
-        </Button>
       </div>
-    </div>
+    </BottomSheet>
   );
 }

@@ -29,7 +29,7 @@ export function ChapterSidebar({ user, onLogout }) {
   const isParent = user?.role === 'parent';
   return (
     <aside
-      className="w-60 shrink-0 fixed h-full z-30 max-md:hidden flex flex-col
+      className="w-60 shrink-0 fixed h-full z-30 max-lg:hidden flex flex-col
                  bg-ink-page-aged/90 border-r border-ink-page-shadow
                  shadow-[2px_0_0_var(--color-ink-page-rune-glow)_inset]"
     >
@@ -143,7 +143,7 @@ export function ChapterSidebar({ user, onLogout }) {
 export function ChapterBottomBar() {
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-30 flex justify-around
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex justify-around
                  bg-ink-page-aged/95 backdrop-blur-sm border-t border-ink-page-shadow
                  pb-[env(safe-area-inset-bottom)]
                  shadow-[0_-2px_0_var(--color-ink-page-rune-glow)_inset]"
@@ -162,7 +162,13 @@ export function ChapterBottomBar() {
           {({ isActive }) => (
             <>
               <Icon size={22} className={isActive ? 'animate-rune-pulse' : ''} />
-              <span className="font-script text-tiny leading-none">{shortLabel}</span>
+              <span
+                className={`font-script text-tiny leading-none transition-opacity ${
+                  isActive ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'
+                }`}
+              >
+                {shortLabel}
+              </span>
               {isActive && (
                 <span
                   className="absolute top-0.5 h-0.5 w-10 rounded-full bg-sheikah-teal-deep"

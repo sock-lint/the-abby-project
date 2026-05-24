@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, UsersRound, BookTemplate, BookOpen, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink, KeyRound, UserX, UserCheck, Shield,
@@ -49,7 +49,7 @@ const TAB_ICONS = {
 };
 
 export default function Manage() {
-  const [activeTab, setActiveTab] = useState('Children');
+  const [searchParams, setSearchParams] = useSearchParams();
   // Two staff-only tabs gated on backend probes — server is the source of
   // truth, the ping just hides them from non-staff so they don't see
   // affordances they can't use. Anonymous + child + signup-created parents
@@ -74,6 +74,13 @@ export default function Manage() {
     ...(adminEnabled ? ['Admin'] : []),
     ...(devToolsEnabled ? ['Test'] : []),
   ];
+  const requestedTab = searchParams.get('tab');
+  const activeTab = tabs.find((t) => t === requestedTab) || tabs[0];
+  const setActiveTab = (tab) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', tab);
+    setSearchParams(next, { replace: true });
+  };
 
   return (
     <PageShell rhythm="loose">
@@ -86,16 +93,23 @@ export default function Manage() {
         </h1>
       </header>
 
-      <div className="flex gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow">
+      <nav
+        role="tablist"
+        aria-label="Manage sections"
+        className="flex flex-nowrap gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow overflow-x-auto scrollbar-hide"
+      >
         {tabs.map((tab) => {
           const Icon = TAB_ICONS[tab];
+          const active = activeTab === tab;
           return (
             <button
               key={tab}
+              role="tab"
               type="button"
+              aria-selected={active}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 rounded-md font-display text-body transition-colors flex items-center justify-center gap-2 ${
-                activeTab === tab
+              className={`shrink-0 py-2 px-3 rounded-md font-display text-body transition-colors flex items-center justify-center gap-2 ${
+                active
                   ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
                   : 'text-ink-secondary hover:text-ink-primary'
               }`}
@@ -105,7 +119,7 @@ export default function Manage() {
             </button>
           );
         })}
-      </div>
+      </nav>
 
       {activeTab === 'Children' && <ChildrenSection />}
       {activeTab === 'Family' && <FamilySection />}

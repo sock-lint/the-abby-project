@@ -46,13 +46,13 @@ export default function JournalShell() {
       <FirstEncounterSheet />
       <ChapterSidebar user={user} onLogout={logout} />
 
-      <main id="main-content" className="flex-1 ml-0 md:ml-60 pb-28 md:pb-8 min-w-0">
+      <main id="main-content" className="flex-1 ml-0 lg:ml-60 pb-28 lg:pb-8 min-w-0">
         <div className="sticky top-0 z-30 bg-ink-page backdrop-blur-[2px]">
-          <header className="flex items-center px-4 md:px-6 pt-3 md:pt-4 pb-3 md:pb-4 gap-3">
-            <div className="md:hidden min-w-0 shrink-0">
+          <header className="flex items-center px-4 lg:px-6 pt-3 lg:pt-4 pb-3 lg:pb-4 gap-3">
+            <div className="lg:hidden min-w-0 shrink-0">
               <AvatarMenu user={user} compact />
             </div>
-            <div className="flex-1 min-w-0 flex justify-end md:justify-center">
+            <div className="flex-1 min-w-0 flex justify-end lg:justify-center">
               <HeaderStatusPips user={user} />
             </div>
             <div className="shrink-0">
@@ -63,7 +63,7 @@ export default function JournalShell() {
           <HeaderProgressBand />
         </div>
 
-        <div className="px-4 md:px-6 pt-3 md:pt-6">
+        <div className="px-4 lg:px-6 pt-3 lg:pt-6">
           <PageTurnTransition>
             <Outlet />
           </PageTurnTransition>

@@ -1,8 +1,31 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import DeckleDivider from '../journal/DeckleDivider';
 import { inkBleed } from '../../motion/variants';
+
+function useScrollFades(ref) {
+  const [showLeft, setShowLeft] = useState(false);
+  const [showRight, setShowRight] = useState(false);
+
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setShowLeft(el.scrollLeft > 4);
+    setShowRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  }, [ref]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref, update]);
+
+  return { showLeft, showRight, onScroll: update };
+}
 
 /**
  * ChapterHub — shared wrapper for the four hub pages (Quests, Bestiary,
@@ -21,6 +44,9 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
   const activeTab = tabs.find((t) => t.id === requestedTab) || tabs.find((t) => t.id === defaultTabId) || tabs[0];
+
+  const tabStripRef = useRef(null);
+  const { showLeft, showRight, onScroll: onTabScroll } = useScrollFades(tabStripRef);
 
   const setTab = (id) => {
     const next = new URLSearchParams(searchParams);
@@ -52,37 +78,55 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
       </header>
 
       {/* Tab strip — bookmark-ribbon style */}
-      <nav
-        role="tablist"
-        aria-label={`${title} sections`}
-        className="mt-3 flex flex-nowrap gap-1.5 border-b border-ink-page-shadow pb-0 overflow-x-auto scrollbar-hide"
-      >
-        {tabs.map((tab) => {
-          const active = tab.id === activeTab.id;
-          return (
-            <button
-              key={tab.id}
-              role="tab"
-              type="button"
-              aria-selected={active}
-              onClick={() => setTab(tab.id)}
-              className={`relative shrink-0 whitespace-nowrap px-4 py-2 font-display text-sm md:text-base tracking-wide transition-colors rounded-t-lg border border-transparent -mb-px
-                ${active
-                  ? 'bg-ink-page-aged text-ink-primary border-ink-page-shadow border-b-ink-page-aged'
-                  : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/40'
-                }`}
-            >
-              {active && (
-                <span
-                  className="absolute -top-1 left-1/2 -translate-x-1/2 w-6 h-1 rounded-b bg-sheikah-teal-deep"
-                  aria-hidden="true"
-                />
-              )}
-              {tab.label}
-            </button>
-          );
-        })}
-      </nav>
+      <div className="relative mt-3">
+        {showLeft && (
+          <div
+            className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10
+                       bg-gradient-to-r from-ink-page to-transparent"
+            aria-hidden="true"
+          />
+        )}
+        {showRight && (
+          <div
+            className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 z-10
+                       bg-gradient-to-l from-ink-page to-transparent"
+            aria-hidden="true"
+          />
+        )}
+        <nav
+          ref={tabStripRef}
+          role="tablist"
+          aria-label={`${title} sections`}
+          onScroll={onTabScroll}
+          className="flex flex-nowrap gap-1.5 border-b border-ink-page-shadow pb-0 overflow-x-auto scrollbar-hide"
+        >
+          {tabs.map((tab) => {
+            const active = tab.id === activeTab.id;
+            return (
+              <button
+                key={tab.id}
+                role="tab"
+                type="button"
+                aria-selected={active}
+                onClick={() => setTab(tab.id)}
+                className={`relative shrink-0 whitespace-nowrap px-4 py-2 font-display text-sm md:text-base tracking-wide transition-colors rounded-t-lg border border-transparent -mb-px
+                  ${active
+                    ? 'bg-ink-page-aged text-ink-primary border-ink-page-shadow border-b-ink-page-aged'
+                    : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/40'
+                  }`}
+              >
+                {active && (
+                  <span
+                    className="absolute -top-1 left-1/2 -translate-x-1/2 w-6 h-1 rounded-b bg-sheikah-teal-deep"
+                    aria-hidden="true"
+                  />
+                )}
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
 
       <DeckleDivider glyph={glyph} className="mt-0 mb-6" />
 
