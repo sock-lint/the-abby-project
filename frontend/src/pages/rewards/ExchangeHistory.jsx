@@ -6,12 +6,8 @@ import { formatCurrency, formatDate } from '../../utils/format';
 export default function ExchangeHistory({ exchanges, isParent }) {
   if (!exchanges.length) return null;
   return (
-    <div>
-      <h2 className="font-display text-lg font-bold mb-3 flex items-center gap-2">
-        <ArrowRightLeft size={18} /> {isParent ? 'All Exchanges' : 'My Exchanges'}
-      </h2>
-      <div className="space-y-2">
-        {exchanges.map((ex) => (
+    <div className="space-y-2">
+      {exchanges.map((ex) => (
           <ParchmentCard key={ex.id} className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-sheikah-teal/20 flex items-center justify-center">
@@ -32,7 +28,6 @@ export default function ExchangeHistory({ exchanges, isParent }) {
             </span>
           </ParchmentCard>
         ))}
-      </div>
     </div>
   );
 }
