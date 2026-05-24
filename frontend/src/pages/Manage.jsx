@@ -314,8 +314,8 @@ function CreateChildModal({ onClose, onCreated }) {
           <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Creating…' : 'Create child'}
+          <Button type="submit" loading={saving}>
+            Create child
           </Button>
         </div>
       </form>
@@ -406,7 +406,7 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
               variant="ghost"
               size="sm"
               onClick={handleUnlinkGoogle}
-              className="!text-ember-deep hover:!text-red-300 inline-flex items-center gap-2"
+              className="!text-ember-deep hover:!text-ember-deep inline-flex items-center gap-2"
             >
               <Unlink size={14} /> Unlink Google Account
             </Button>
@@ -426,8 +426,8 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving} className="flex-1">
-            {saving ? 'Saving...' : 'Save'}
+          <Button type="submit" loading={saving} className="flex-1">
+            Save
           </Button>
         </div>
       </form>
@@ -838,8 +838,8 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving} className="flex-1">
-            {saving ? 'Saving...' : 'Save'}
+          <Button type="submit" loading={saving} className="flex-1">
+            Save
           </Button>
         </div>
       </form>
@@ -1000,8 +1000,8 @@ function CreateParentModal({ onClose, onCreated }) {
           <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Creating…' : 'Add co-parent'}
+          <Button type="submit" loading={saving}>
+            Add co-parent
           </Button>
         </div>
       </form>
@@ -1044,8 +1044,8 @@ function EditParentModal({ parent, onClose, onSaved, onRemoved }) {
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving} className="flex-1">
-            {saving ? 'Saving...' : 'Save'}
+          <Button type="submit" loading={saving} className="flex-1">
+            Save
           </Button>
         </div>
       </form>
@@ -1305,8 +1305,8 @@ function CreateFamilyForm({ onCreated }) {
         autoComplete="new-password"
       />
       <div className="flex justify-end pt-2">
-        <Button type="submit" disabled={saving}>
-          {saving ? 'Creating…' : 'Create family'}
+        <Button type="submit" loading={saving}>
+          Create family
         </Button>
       </div>
     </form>

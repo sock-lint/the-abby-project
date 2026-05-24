@@ -151,8 +151,8 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
             />
           </>
         )}
-        <Button type="submit" disabled={saving} className="w-full">
-          {saving ? 'Saving…' : submitLabel}
+        <Button type="submit" loading={saving} className="w-full">
+          {submitLabel}
         </Button>
       </form>
     </BottomSheet>

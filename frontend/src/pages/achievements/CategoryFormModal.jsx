@@ -53,8 +53,8 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-          <Button type="submit" size="sm" disabled={saving}>
-            {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
+          <Button type="submit" size="sm" loading={saving}>
+            {isEdit ? 'Update' : 'Create'}
           </Button>
         </div>
       </form>

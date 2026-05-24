@@ -55,8 +55,8 @@ export default function SubjectFormModal({ item, categories, onClose, onSaved })
         <TextField className="w-1/2" label="Order" type="number" value={form.order} onChange={onField('order')} />
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-          <Button type="submit" size="sm" disabled={saving}>
-            {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
+          <Button type="submit" size="sm" loading={saving}>
+            {isEdit ? 'Update' : 'Create'}
           </Button>
         </div>
       </form>

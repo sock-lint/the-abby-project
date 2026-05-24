@@ -48,7 +48,7 @@ export default function JournalShell() {
       <FirstEncounterSheet />
       <ChapterSidebar user={user} onLogout={logout} />
 
-      <main id="main-content" className="flex-1 ml-0 lg:ml-60 pb-28 lg:pb-8 min-w-0">
+      <main id="main-content" className="flex-1 ml-0 lg:ml-60 pb-20 lg:pb-8 min-w-0">
         <div className="sticky top-0 z-30 bg-ink-page backdrop-blur-[2px]">
           <header className="flex items-center px-4 lg:px-6 pt-3 lg:pt-4 pb-3 lg:pb-4 gap-3">
             <div className="lg:hidden min-w-0 shrink-0">

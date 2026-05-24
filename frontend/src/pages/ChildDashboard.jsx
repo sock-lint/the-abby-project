@@ -346,7 +346,7 @@ export default function ChildDashboard({ data, reload }) {
           title="Next Up"
           kicker="ventures under way"
           count={active_projects.length}
-          peek={active_projects[0]?.title}
+          peek={`${active_projects[0]?.title} · ${active_projects[0]?.milestones_completed ?? 0}/${active_projects[0]?.milestones_total ?? 0} milestones`}
         >
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
             {active_projects.map((p) => (
@@ -442,7 +442,7 @@ export default function ChildDashboard({ data, reload }) {
           title="Recent Accolades"
           kicker="badges earned"
           count={recent_badges.length}
-          peek={recent_badges[0]?.badge__name}
+          peek={`${recent_badges.length} badge${recent_badges.length !== 1 ? 's' : ''} · latest: ${recent_badges[0]?.badge__name}`}
         >
           <ScrollRail>
             {recent_badges.map((b, i) => (

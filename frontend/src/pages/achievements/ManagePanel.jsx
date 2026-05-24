@@ -85,7 +85,7 @@ export default function ManagePanel({ categories, reloadCategories }) {
           variant="ghost"
           size="sm"
           aria-label={`Delete ${type} ${item.name}`}
-          className="hover:bg-ember/20 text-ink-whisper hover:text-red-300"
+          className="hover:bg-ember/20 text-ink-whisper hover:text-ember-deep"
         >
           <Trash2 size={14} />
         </IconButton>

@@ -159,8 +159,8 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper hover:text-ink-primary">
             Cancel
           </button>
-          <Button type="submit" size="sm" disabled={saving}>
-            {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
+          <Button type="submit" size="sm" loading={saving}>
+            {isEdit ? 'Update' : 'Create'}
           </Button>
         </div>
       </form>

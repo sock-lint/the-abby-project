@@ -200,8 +200,8 @@ export default function JournalEntryFormModal({
             {isLocked ? 'Close' : 'Cancel'}
           </Button>
           {!isLocked && (
-            <Button variant="primary" type="submit" disabled={saving}>
-              {saving ? 'Saving…' : primaryLabel}
+            <Button variant="primary" type="submit" loading={saving}>
+              {primaryLabel}
             </Button>
           )}
         </div>

@@ -28,8 +28,8 @@ export default function ModalActions({
       >
         {cancelLabel}
       </Button>
-      <Button type="submit" size={size} disabled={saving}>
-        {saving ? savingLabel : submitLabel}
+      <Button type="submit" size={size} loading={saving}>
+        {submitLabel}
       </Button>
     </div>
   );

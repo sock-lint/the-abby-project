@@ -69,8 +69,8 @@ export default function AddResourceModal({ projectId, steps, onClose, onSaved })
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving || !form.url.trim()} className="flex-1">
-            {saving ? 'Adding...' : 'Add Resource'}
+          <Button type="submit" loading={saving} disabled={!form.url.trim()} className="flex-1">
+            Add Resource
           </Button>
         </div>
       </form>

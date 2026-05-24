@@ -182,8 +182,8 @@ export default function HomeworkFormModal({
           >
             Cancel
           </button>
-          <Button type="submit" size="sm" disabled={saving}>
-            {saving ? 'Saving…' : isEdit ? 'Update assignment' : 'Create assignment'}
+          <Button type="submit" size="sm" loading={saving}>
+            {isEdit ? 'Update assignment' : 'Create assignment'}
           </Button>
         </div>
       </form>

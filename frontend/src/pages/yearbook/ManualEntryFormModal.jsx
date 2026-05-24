@@ -52,8 +52,8 @@ export default function ManualEntryFormModal({ userId, onClose, onCreated }) {
         />
         <div className="flex justify-end gap-2">
           <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" disabled={saving}>
-            {saving ? 'Saving…' : 'Save'}
+          <Button variant="primary" type="submit" loading={saving}>
+            Save
           </Button>
         </div>
       </form>

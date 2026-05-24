@@ -66,8 +66,8 @@ export default function CoinAdjustModal({ onClose, onSaved }) {
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper hover:text-ink-primary">
             Cancel
           </button>
-          <Button type="submit" size="sm" disabled={saving}>
-            {saving ? 'Adjusting...' : 'Adjust'}
+          <Button type="submit" size="sm" loading={saving}>
+            Adjust
           </Button>
         </div>
       </form>
