@@ -7,10 +7,12 @@ import {
   addRewardToWishlist, removeRewardFromWishlist,
 } from '../api';
 import { hapticSuccess } from '../utils/haptics';
+import BottomSheet from '../components/BottomSheet';
 import CatalogSearch from '../components/CatalogSearch';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
+import PageShell from '../components/layout/PageShell';
 import { useApi } from '../hooks/useApi';
 import { useConfirmState } from '../hooks/useConfirmState';
 import { useRole } from '../hooks/useRole';
@@ -150,7 +152,7 @@ export default function Rewards() {
     : rewards;
 
   return (
-    <div className="space-y-6">
+    <PageShell>
       <header className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
@@ -284,26 +286,18 @@ export default function Rewards() {
           }}
         />
       )}
-    </div>
+    </PageShell>
   );
 }
 
 function OutOfStockSheet({ state, onClose, onWishlist, onPickSimilar }) {
   const { reward, similar } = state;
   return (
-    <div
-      role="dialog"
-      aria-labelledby="oos-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-primary/60 p-4"
-      onClick={onClose}
+    <BottomSheet
+      title={`${reward.icon} ${reward.name} — sold out`}
+      onClose={onClose}
     >
-      <div
-        className="bg-ink-page rounded-lg shadow-xl max-w-md w-full p-5 space-y-3"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 id="oos-title" className="font-display text-xl text-ink-primary">
-          {reward.icon} {reward.name} — sold out
-        </h2>
+      <div className="space-y-3">
         <p className="font-body text-body text-ink-secondary">
           This one's been claimed for now. Want a heads-up when it's back?
         </p>
@@ -335,10 +329,7 @@ function OutOfStockSheet({ state, onClose, onWishlist, onPickSimilar }) {
             </div>
           </div>
         )}
-        <Button onClick={onClose} variant="ghost" size="sm" className="w-full">
-          Close
-        </Button>
       </div>
-    </div>
+    </BottomSheet>
   );
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings } from 'lucide-react';
+import { History, Settings, SlidersHorizontal } from 'lucide-react';
 import { DragonIcon } from './icons/JournalIcons';
 
 /**
@@ -11,9 +11,10 @@ import { DragonIcon } from './icons/JournalIcons';
  *   - JournalShell mobile header     → <AvatarMenu user={user} compact />
  *   - ChapterNav desktop sidebar     → <AvatarMenu user={user} align="top" />
  *
- * Menu items: Sigil (profile) + Settings (theme / account / sign-off).
- * Settings lives here because the mobile bottom tab bar only holds the five
- * chapters, so the avatar dropdown is the sole mobile entry point to /settings.
+ * Menu items: Sigil (profile) + Manage (parent-only) + Activity (parent-only)
+ * + Settings. On mobile the bottom tab bar holds only the six chapters, so the
+ * avatar dropdown is the sole mobile entry point to /settings and the parent
+ * utility pages.
  */
 export default function AvatarMenu({ user, compact = false, align = 'bottom' }) {
   const [open, setOpen] = useState(false);
@@ -143,6 +144,54 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                   </span>
                 </span>
               </NavLink>
+              {user?.role === 'parent' && (
+                <>
+                  <NavLink
+                    to="/manage"
+                    role="menuitem"
+                    onClick={() => setOpen(false)}
+                    className={({ isActive }) =>
+                      `group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all
+                       ${isActive
+                          ? 'bg-sheikah-teal/15 text-ink-primary'
+                          : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
+                       }`
+                    }
+                  >
+                    <SlidersHorizontal size={20} className="text-sheikah-teal-deep shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block font-display text-base tracking-wide leading-tight">
+                        Manage
+                      </span>
+                      <span className="block font-script text-ink-whisper text-xs leading-tight">
+                        children, templates, codex
+                      </span>
+                    </span>
+                  </NavLink>
+                  <NavLink
+                    to="/activity"
+                    role="menuitem"
+                    onClick={() => setOpen(false)}
+                    className={({ isActive }) =>
+                      `group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all
+                       ${isActive
+                          ? 'bg-sheikah-teal/15 text-ink-primary'
+                          : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
+                       }`
+                    }
+                  >
+                    <History size={20} className="text-sheikah-teal-deep shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block font-display text-base tracking-wide leading-tight">
+                        Activity
+                      </span>
+                      <span className="block font-script text-ink-whisper text-xs leading-tight">
+                        recent family log
+                      </span>
+                    </span>
+                  </NavLink>
+                </>
+              )}
               <NavLink
                 to="/settings"
                 role="menuitem"
