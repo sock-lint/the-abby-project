@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import BottomSheet from '../../components/BottomSheet'
 import Button from '../../components/Button'
 import { TextField, TextAreaField } from '../../components/form'
@@ -8,6 +8,10 @@ import { toISODate } from '../../utils/dates'
 export default function ManualEntryFormModal({ userId, onClose, onCreated }) {
   const [form, setForm] = useState({ title: '', summary: '', occurred_on: '' })
   const [saving, setSaving] = useState(false)
+  const dirty = useMemo(
+    () => form.title !== '' || form.summary !== '' || form.occurred_on !== '',
+    [form],
+  )
   const today = toISODate(new Date())
 
   const submit = async (e) => {
@@ -28,7 +32,7 @@ export default function ManualEntryFormModal({ userId, onClose, onCreated }) {
   }
 
   return (
-    <BottomSheet title="Add memory" onClose={onClose}>
+    <BottomSheet title="Add memory" onClose={onClose} dirty={dirty}>
       <form onSubmit={submit} className="space-y-3 p-4">
         <TextField
           label="Title"

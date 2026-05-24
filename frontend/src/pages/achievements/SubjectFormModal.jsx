@@ -7,7 +7,7 @@ import { TextField, SelectField, TextAreaField } from '../../components/form';
 
 export default function SubjectFormModal({ item, categories, onClose, onSaved }) {
   const isEdit = !!item;
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     name: item?.name || '',
     category: item?.category || '',
     icon: item?.icon || '',
@@ -38,7 +38,7 @@ export default function SubjectFormModal({ item, categories, onClose, onSaved })
   };
 
   return (
-    <BottomSheet title={isEdit ? 'Edit Subject' : 'New Subject'} onClose={onClose}>
+    <BottomSheet title={isEdit ? 'Edit Subject' : 'New Subject'} onClose={onClose} dirty={dirty}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />

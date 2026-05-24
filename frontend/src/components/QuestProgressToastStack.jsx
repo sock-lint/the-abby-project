@@ -4,12 +4,11 @@ import { Sword, X } from 'lucide-react';
 
 import { useQuestProgressToasts } from '../hooks/useQuestProgressToasts';
 import IconButton from './IconButton';
-
-const AUTO_DISMISS_MS = 4000;
+import { TOAST_DURATION_STANDARD } from '../constants/timing';
 
 function Toast({ toast, onDismiss }) {
   useEffect(() => {
-    const timer = setTimeout(() => onDismiss(toast.id), AUTO_DISMISS_MS);
+    const timer = setTimeout(() => onDismiss(toast.id), TOAST_DURATION_STANDARD);
     return () => clearTimeout(timer);
   }, [toast.id, onDismiss]);
 

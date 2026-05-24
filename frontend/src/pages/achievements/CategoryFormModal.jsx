@@ -8,7 +8,7 @@ import { TextField, TextAreaField } from '../../components/form';
 
 export default function CategoryFormModal({ item, onClose, onSaved }) {
   const isEdit = !!item;
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     name: item?.name || '',
     icon: item?.icon || '',
     color: item?.color || '#D97706', // intentional: default value seeding the <input type="color"> picker — user-pickable color literal stored as data, not a surface token
@@ -33,7 +33,7 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
   };
 
   return (
-    <BottomSheet title={isEdit ? 'Edit Category' : 'New Category'} onClose={onClose}>
+    <BottomSheet title={isEdit ? 'Edit Category' : 'New Category'} onClose={onClose} dirty={dirty}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />

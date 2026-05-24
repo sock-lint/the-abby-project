@@ -8,7 +8,7 @@ import Button from '../../components/Button';
 import { TextField, SelectField } from '../../components/form';
 
 export default function CoinAdjustModal({ onClose, onSaved }) {
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     user_id: '', amount: '', description: '',
   });
   const { data: childrenRes, loading: loadingChildren } = useApi(getChildren);
@@ -31,7 +31,7 @@ export default function CoinAdjustModal({ onClose, onSaved }) {
   };
 
   return (
-    <BottomSheet title="Adjust Coins" onClose={onClose}>
+    <BottomSheet title="Adjust Coins" onClose={onClose} dirty={dirty}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <SelectField

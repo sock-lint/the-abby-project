@@ -1,3 +1,4 @@
+import { TOAST_DURATION_LONG } from '../constants/timing';
 import { useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Package, X } from 'lucide-react';
@@ -17,7 +18,7 @@ const RARITY_BG = {
 
 function ToastItem({ toast, onDismiss }) {
   useEffect(() => {
-    const timer = setTimeout(() => onDismiss(toast.id), 6000);
+    const timer = setTimeout(() => onDismiss(toast.id), TOAST_DURATION_LONG);
     return () => clearTimeout(timer);
   }, [toast.id, onDismiss]);
 

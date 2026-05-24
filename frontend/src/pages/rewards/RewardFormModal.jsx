@@ -21,7 +21,7 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
   const isEdit = !!reward;
   const { data: itemCatalogData } = useApi(getItemCatalog);
   const itemCatalog = normalizeList(itemCatalogData);
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     name: reward?.name || '',
     description: reward?.description || '',
     icon: reward?.icon || '',
@@ -74,7 +74,7 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
   };
 
   return (
-    <BottomSheet title={isEdit ? 'Edit Reward' : 'New Reward'} onClose={onClose}>
+    <BottomSheet title={isEdit ? 'Edit Reward' : 'New Reward'} onClose={onClose} dirty={dirty}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />

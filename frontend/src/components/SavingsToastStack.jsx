@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trophy } from 'lucide-react';
 import { useSavingsCompletionToasts } from '../hooks/useSavingsCompletionToasts';
 import IconButton from './IconButton';
+import { TOAST_DURATION_LONG } from '../constants/timing';
 
 function Toast({ toast, onDismiss }) {
   useEffect(() => {
-    const timer = setTimeout(() => onDismiss(toast.id), 6000);
+    const timer = setTimeout(() => onDismiss(toast.id), TOAST_DURATION_LONG);
     return () => clearTimeout(timer);
   }, [toast.id, onDismiss]);
 

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
 /**
  * Bundles the form + saving + error state every CRUD modal needs.
@@ -25,6 +25,47 @@ export function useFormState(initial) {
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+
+  const dirty = useMemo(
+    () => JSON.stringify(form) !== JSON.stringify(initial),
+    [form, initial],
+  );
+
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const validateField = useCallback((key, value, rules) => {
+    if (!rules) return;
+    let err = null;
+    if (rules.required && (!value || (typeof value === 'string' && !value.trim()))) {
+      err = `${rules.label || key} is required`;
+    } else if (rules.min !== undefined && Number(value) < rules.min) {
+      err = `${rules.label || key} must be at least ${rules.min}`;
+    } else if (rules.max !== undefined && Number(value) > rules.max) {
+      err = `${rules.label || key} must be at most ${rules.max}`;
+    }
+    setFieldErrors((prev) => {
+      if (err === prev[key]) return prev;
+      const next = { ...prev };
+      if (err) next[key] = err;
+      else delete next[key];
+      return next;
+    });
+    return err;
+  }, []);
+
+  const onBlur = useCallback(
+    (key, rules) => () => validateField(key, form[key], rules),
+    [form, validateField],
+  );
+
+  const clearFieldError = useCallback((key) => {
+    setFieldErrors((prev) => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
 
   const set = useCallback((patch) => {
     setForm((f) => ({
@@ -64,5 +105,7 @@ export function useFormState(initial) {
     saving, setSaving,
     error, setError,
     reset, submit,
+    dirty,
+    fieldErrors, onBlur, clearFieldError, validateField,
   };
 }
