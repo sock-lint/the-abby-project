@@ -52,17 +52,23 @@ function Toast({ toast, onDismiss }) {
  * stacked beneath them so the more emotional events (drops, approvals)
  * don't get hidden under a quest-progress floater.
  */
-export default function QuestProgressToastStack() {
+export default function QuestProgressToastStack({ inline = false }) {
   const { toasts, dismiss } = useQuestProgressToasts();
+
+  const items = (
+    <AnimatePresence>
+      {toasts.map((t) => (
+        <div key={t.id} className="pointer-events-auto">
+          <Toast toast={t} onDismiss={dismiss} />
+        </div>
+      ))}
+    </AnimatePresence>
+  );
+
+  if (inline) return items;
   return (
     <div className="fixed top-52 right-4 z-50 space-y-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none" aria-live="polite" aria-atomic="false">
-      <AnimatePresence>
-        {toasts.map((t) => (
-          <div key={t.id} className="pointer-events-auto">
-            <Toast toast={t} onDismiss={dismiss} />
-          </div>
-        ))}
-      </AnimatePresence>
+      {items}
     </div>
   );
 }

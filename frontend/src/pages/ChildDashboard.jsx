@@ -18,6 +18,11 @@ import VitalPipStrip from '../components/dashboard/VitalPipStrip';
 import AccordionSection from '../components/dashboard/AccordionSection';
 import DailyChallengeCard from '../components/dashboard/DailyChallengeCard';
 import HomeworkSubmitSheet from '../components/HomeworkSubmitSheet';
+import PageHeader from '../components/layout/PageHeader';
+import ProgressBar from '../components/ProgressBar';
+import Button from '../components/Button';
+import ErrorAlert from '../components/ErrorAlert';
+import ScrollRail from '../components/ScrollRail';
 import { CoinIcon } from '../components/icons/JournalIcons';
 import { BookOpen, Sparkles, Flame, Target } from 'lucide-react';
 import { RARITY_RING_COLORS } from '../constants/colors';
@@ -51,7 +56,7 @@ function buildQuestLogFromActions(next_actions = []) {
 }
 
 export default function ChildDashboard({ data, reload }) {
-  const { data: recentDrops } = useApi(getRecentDrops);
+  const { data: recentDrops, error: dropsError, reload: reloadDrops } = useApi(getRecentDrops);
   const { data: stableData } = useApi(getStable);
   const { data: activeQuest } = useApi(getActiveQuest);
   const navigate = useNavigate();
@@ -142,14 +147,10 @@ export default function ChildDashboard({ data, reload }) {
 
   return (
     <PageShell variants={inkBleed}>
-      <header>
-        <div className="font-script text-sheikah-teal-deep text-base md:text-lg">
-          {weekday} · {dateStr} · to be inked before nightfall
-        </div>
-        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          Today&apos;s Entry
-        </h1>
-      </header>
+      <PageHeader
+        title="Today's Entry"
+        kicker={`${weekday} · ${dateStr} · to be inked before nightfall`}
+      />
 
       {actionError && (
         // Audit M8: surface fast-action errors. Auto-dismissable so a
@@ -244,13 +245,11 @@ export default function ChildDashboard({ data, reload }) {
               ))}
             </div>
             {hiddenQuestCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setLogExpanded(true)}
-                className="mt-3 font-script text-body text-sheikah-teal-deep hover:underline"
-              >
-                Show {hiddenQuestCount} more →
-              </button>
+              <div className="mt-3">
+                <Button variant="ghost" size="sm" onClick={() => setLogExpanded(true)}>
+                  Show {hiddenQuestCount} more →
+                </Button>
+              </div>
             )}
           </ParchmentCard>
         </section>
@@ -258,13 +257,20 @@ export default function ChildDashboard({ data, reload }) {
 
       <DeckleDivider glyph="flourish-corner" />
 
+      {dropsError && !recentDrops && (
+        <div className="flex items-center gap-2">
+          <ErrorAlert message="Couldn't load recent drops." className="flex-1" />
+          <Button variant="secondary" size="sm" onClick={reloadDrops}>Retry</Button>
+        </div>
+      )}
+
       {recentDrops?.length > 0 && (
         <section>
           <div className="mb-2">
             <div className="font-script text-sheikah-teal-deep text-body">drops from the last two days</div>
             <h2 className="font-display text-xl md:text-2xl text-ink-primary leading-tight">Recent Loot</h2>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          <ScrollRail>
             {recentDrops.map((d) => (
               <motion.button
                 key={d.id}
@@ -281,7 +287,7 @@ export default function ChildDashboard({ data, reload }) {
                 )}
               </motion.button>
             ))}
-          </div>
+          </ScrollRail>
         </section>
       )}
 
@@ -289,6 +295,7 @@ export default function ChildDashboard({ data, reload }) {
         index={0}
         title="Treasury"
         kicker="this week at a glance"
+        defaultOpen
         peek={`${formatCurrency(current_balance)} · ${coin_balance ?? 0} coins · ${this_week?.hours_worked ?? 0}h`}
       >
         <motion.div variants={staggerChildren} initial="initial" animate="animate" className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -370,12 +377,12 @@ export default function ChildDashboard({ data, reload }) {
                         <span>MILESTONES</span>
                         <span>{p.milestones_completed}/{p.milestones_total}</span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-ink-page-shadow/60 overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal"
-                          style={{ width: `${(p.milestones_completed / p.milestones_total) * 100}%` }}
-                        />
-                      </div>
+                      <ProgressBar
+                        value={p.milestones_completed}
+                        max={p.milestones_total}
+                        aria-label={`${p.title} milestones`}
+                        className="h-1.5"
+                      />
                     </>
                   )}
                 </ParchmentCard>
@@ -413,12 +420,12 @@ export default function ChildDashboard({ data, reload }) {
                     <span>{formatCurrency(goal.current_amount)}</span>
                     <span>{formatCurrency(goal.target_amount)}</span>
                   </div>
-                  <div className="h-2 rounded-full bg-ink-page-shadow/60 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-moss to-gold-leaf"
-                      style={{ width: `${goal.percent_complete}%` }}
-                    />
-                  </div>
+                  <ProgressBar
+                    value={goal.percent_complete}
+                    max={100}
+                    color="bg-moss"
+                    aria-label={`${goal.title} savings progress`}
+                  />
                 </ParchmentCard>
               </button>
             ))}
@@ -441,7 +448,7 @@ export default function ChildDashboard({ data, reload }) {
           count={recent_badges.length}
           peek={recent_badges[0]?.badge__name}
         >
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          <ScrollRail>
             {recent_badges.map((b, i) => (
               <motion.button
                 key={b.badge__id}
@@ -456,7 +463,7 @@ export default function ChildDashboard({ data, reload }) {
                 <div className="font-body text-caption font-medium truncate">{b.badge__name}</div>
               </motion.button>
             ))}
-          </div>
+          </ScrollRail>
         </AccordionSection>
       )}
 

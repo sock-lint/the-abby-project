@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import BackLink from '../components/BackLink';
 import {
   commitIngestJob,
   discardIngestJob,
@@ -225,12 +225,7 @@ export default function ProjectIngest() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <button
-        onClick={() => navigate('/projects')}
-        className="flex items-center gap-1 text-sm text-ink-whisper hover:text-ink-primary"
-      >
-        <ArrowLeft size={16} /> Back
-      </button>
+      <BackLink to="/quests?tab=ventures">Back to Ventures</BackLink>
       <div>
         <h1 className="font-display text-2xl font-bold">Auto-fill from Source</h1>
         <p className="text-sm text-ink-whisper mt-1">
