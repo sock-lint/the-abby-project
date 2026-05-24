@@ -75,6 +75,8 @@ export default function ParentDashboard() {
             }}
           />
 
+          <OnboardingChecklist data={dashboard} />
+
           {failureMessage && (
             <div className="flex items-start gap-3">
               <ErrorAlert message={failureMessage} className="flex-1" />
@@ -83,8 +85,6 @@ export default function ParentDashboard() {
               </Button>
             </div>
           )}
-
-          <OnboardingChecklist data={dashboard} />
 
           <ApprovalQueueList items={pending} onDone={reload} />
 

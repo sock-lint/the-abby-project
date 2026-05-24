@@ -163,9 +163,7 @@ export function ChapterBottomBar() {
             <>
               <Icon size={22} className={isActive ? 'animate-rune-pulse' : ''} />
               <span
-                className={`font-script text-tiny leading-none transition-opacity ${
-                  isActive ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'
-                }`}
+                className="font-script text-micro leading-none"
               >
                 {shortLabel}
               </span>

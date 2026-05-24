@@ -200,9 +200,18 @@ export default function ChildDashboard({ data, reload }) {
           </div>
           <ParchmentCard flourish>
             <div className="space-y-3">
-              {visibleSections.map((section) => (
+              {visibleSections.map((section, idx) => (
                 <div key={section.key}>
-                  <div className="font-script text-caption text-ink-whisper uppercase tracking-wider mb-1">
+                  {idx > 0 && (
+                    <div className="border-t border-ink-page-shadow/40 pt-3 mt-1" aria-hidden="true" />
+                  )}
+                  <div className="flex items-center gap-2 font-script text-caption text-ink-whisper uppercase tracking-wider mb-1">
+                    <span
+                      className={`inline-block w-1.5 h-1.5 rounded-full ${
+                        { royal: 'bg-royal', moss: 'bg-moss', gold: 'bg-gold-leaf' }[section.tone] || 'bg-ink-whisper'
+                      }`}
+                      aria-hidden="true"
+                    />
                     {section.label}
                   </div>
                   <ul className="space-y-2">
