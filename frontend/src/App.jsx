@@ -12,6 +12,7 @@ import { PwaStatusProvider } from './pwa/PwaStatusProvider';
 import { InstallPromptProvider } from './pwa/useInstallPrompt';
 import UpdateBanner from './pwa/UpdateBanner';
 import OfflineReadyToast from './pwa/OfflineReadyToast';
+import RouteAnnouncer from './components/RouteAnnouncer';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
@@ -169,6 +170,7 @@ export default function App() {
         )}
         <SpriteCatalogProvider>
           <BrowserRouter>
+            <RouteAnnouncer />
             <Routes>
             <Route element={<JournalShell />}>
               {/* Chapter I — Today */}

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ModalBackdrop from './modal/ModalBackdrop';
@@ -26,9 +26,55 @@ function useIsDesktop() {
 //   Mobile          — bottom-sheet slide (thumb-reach), sheikah-glyph drag
 //                     handle, one-shot teal halo across the top edge,
 //                     parchment texture carried through.
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
+
 export default function BottomSheet({ title, onClose, disabled, children }) {
   const isDesktop = useIsDesktop();
   const titleId = useId();
+  const dialogRef = useRef(null);
+
+  const dialogCallbackRef = useCallback((node) => {
+    dialogRef.current = node;
+    if (node) {
+      const first = node.querySelector(FOCUSABLE_SELECTOR);
+      if (first) first.focus();
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !disabled) onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, disabled]);
+
+  useEffect(() => {
+    const node = dialogRef.current;
+    if (!node) return;
+
+    const handleTab = (e) => {
+      if (e.key !== 'Tab') return;
+
+      const focusable = Array.from(node.querySelectorAll(FOCUSABLE_SELECTOR));
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    node.addEventListener('keydown', handleTab);
+    return () => node.removeEventListener('keydown', handleTab);
+  });
 
   return createPortal(
     <AnimatePresence>
@@ -37,6 +83,7 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
           <motion.div
             key="sheet-desktop"
+            ref={dialogCallbackRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
@@ -59,6 +106,7 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
       ) : (
         <motion.div
           key="sheet-mobile"
+          ref={dialogCallbackRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}

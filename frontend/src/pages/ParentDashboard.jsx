@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { UserPlus } from 'lucide-react';
 import HeroPrimaryCard from '../components/dashboard/HeroPrimaryCard';
+import OnboardingChecklist from '../components/dashboard/OnboardingChecklist';
 import ApprovalQueueList from '../components/dashboard/ApprovalQueueList';
 import AccordionSection from '../components/dashboard/AccordionSection';
 import WeekGlanceBlock from '../components/dashboard/WeekGlanceBlock';
@@ -82,6 +83,8 @@ export default function ParentDashboard() {
               </Button>
             </div>
           )}
+
+          <OnboardingChecklist data={dashboard} />
 
           <ApprovalQueueList items={pending} onDone={reload} />
 

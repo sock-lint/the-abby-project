@@ -4,7 +4,7 @@ import ParchmentCard from './journal/ParchmentCard';
  * EmptyState — a blank journal page with an ink flourish. Used whenever a
  * list or collection has no items yet.
  */
-export default function EmptyState({ children, icon, className = '' }) {
+export default function EmptyState({ children, icon, action, className = '' }) {
   return (
     <ParchmentCard
       flourish
@@ -13,6 +13,7 @@ export default function EmptyState({ children, icon, className = '' }) {
     >
       {icon && <div className="flex justify-center mb-2 text-ink-whisper">{icon}</div>}
       {children}
+      {action && <div className="mt-4 not-italic">{action}</div>}
     </ParchmentCard>
   );
 }

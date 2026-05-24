@@ -31,6 +31,12 @@ export default function JournalShell() {
 
   return (
     <div className="flex min-h-screen relative">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-sheikah-teal-deep focus:text-ink-page focus:rounded-lg focus:font-display focus:text-sm"
+      >
+        Skip to content
+      </a>
       <DropToastStack />
       <SavingsToastStack />
       <ApprovalToastStack />
@@ -40,7 +46,7 @@ export default function JournalShell() {
       <FirstEncounterSheet />
       <ChapterSidebar user={user} onLogout={logout} />
 
-      <main className="flex-1 ml-0 md:ml-60 pb-28 md:pb-8 min-w-0">
+      <main id="main-content" className="flex-1 ml-0 md:ml-60 pb-28 md:pb-8 min-w-0">
         <div className="sticky top-0 z-30 bg-ink-page backdrop-blur-[2px]">
           <header className="flex items-center px-4 md:px-6 pt-3 md:pt-4 pb-3 md:pb-4 gap-3">
             <div className="md:hidden min-w-0 shrink-0">

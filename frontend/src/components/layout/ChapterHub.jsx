@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import DeckleDivider from '../journal/DeckleDivider';
@@ -26,6 +27,10 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
     next.set('tab', id);
     setSearchParams(next, { replace: true });
   };
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab.id]);
 
   return (
     <motion.div

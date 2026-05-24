@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { inputClass } from '../constants/styles';
 
@@ -7,15 +7,44 @@ import { inputClass } from '../constants/styles';
  * catalog lists (Inventory, Badges, Skills, Rewards). The component is
  * controlled — pages own the value + filtered list memo. A clear button
  * appears once there is any value.
+ *
+ * When `debounceMs` is provided, the input updates instantly for visual
+ * feedback but the `onChange` callback is debounced by that many ms.
  */
 export default function CatalogSearch({
   value,
   onChange,
   placeholder = 'Search…',
   ariaLabel = 'Filter catalog',
+  debounceMs = 0,
   className = '',
 }) {
   const id = useId();
+  const [localValue, setLocalValue] = useState(value);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  const handleChange = (next) => {
+    setLocalValue(next);
+    if (debounceMs > 0) {
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => onChange(next), debounceMs);
+    } else {
+      onChange(next);
+    }
+  };
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  const handleClear = () => {
+    clearTimeout(timerRef.current);
+    setLocalValue('');
+    onChange('');
+  };
+
   return (
     <div className={`relative ${className}`}>
       <Search
@@ -26,16 +55,16 @@ export default function CatalogSearch({
       <input
         id={id}
         type="search"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={localValue}
+        onChange={(e) => handleChange(e.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel}
         className={`${inputClass} pl-9 pr-9`}
       />
-      {value && (
+      {localValue && (
         <button
           type="button"
-          onClick={() => onChange('')}
+          onClick={handleClear}
           aria-label="Clear filter"
           className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-whisper hover:text-ink-primary p-1 rounded"
         >
