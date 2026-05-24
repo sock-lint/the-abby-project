@@ -146,8 +146,8 @@ function NewTypeSubForm({ skills, skillsLoading, onCancel, onCreated }) {
         <Button variant="secondary" type="button" onClick={onCancel} className="flex-1">
           Back
         </Button>
-        <Button type="submit" onClick={submit} disabled={!canSubmit} className="flex-1">
-          {saving ? 'Saving…' : 'Add activity'}
+        <Button type="submit" onClick={submit} disabled={!canSubmit} loading={saving} className="flex-1">
+          Add activity
         </Button>
       </div>
     </form>
@@ -293,8 +293,8 @@ export default function MovementSessionLogModal({ onClose, onSaved }) {
             <Button variant="secondary" type="button" onClick={onClose} className="flex-1">
               Cancel
             </Button>
-            <Button type="submit" onClick={submit} disabled={!canSubmit} className="flex-1">
-              {saving ? 'Saving…' : 'Log session'}
+            <Button type="submit" onClick={submit} disabled={!canSubmit} loading={saving} className="flex-1">
+              Log session
             </Button>
           </div>
         </form>

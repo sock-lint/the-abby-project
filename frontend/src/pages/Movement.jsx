@@ -32,14 +32,14 @@ function SessionRow({ session, canDelete, onDelete }) {
         <div className="font-display text-base text-ink-primary leading-tight">
           {session.movement_type_name}
         </div>
-        <div className="font-script text-xs text-ink-whisper">
+        <div className="font-script text-caption text-ink-whisper">
           {formatDateTime(session.created_at)} · {session.duration_minutes} min
           {session.xp_awarded > 0 && (
             <span className="text-moss-deep"> · +{session.xp_awarded} XP</span>
           )}
         </div>
         {session.notes && (
-          <div className="font-body text-xs text-ink-secondary italic truncate mt-0.5">
+          <div className="font-body text-caption text-ink-secondary italic truncate mt-0.5">
             {session.notes}
           </div>
         )}

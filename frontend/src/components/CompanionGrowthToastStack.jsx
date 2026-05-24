@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sprout, X } from 'lucide-react';
 import { useCompanionGrowthToasts } from '../hooks/useCompanionGrowthToasts';
 import IconButton from './IconButton';
+import { TOAST_DURATION_STANDARD } from '../constants/timing';
 import RpgSprite from './rpg/RpgSprite';
 import PetCeremonyModal from '../pages/bestiary/PetCeremonyModal';
 
@@ -19,7 +20,7 @@ import PetCeremonyModal from '../pages/bestiary/PetCeremonyModal';
  */
 function GrowthToast({ event, onDismiss }) {
   useEffect(() => {
-    const timer = setTimeout(() => onDismiss(event._toastId), 5000);
+    const timer = setTimeout(() => onDismiss(event._toastId), TOAST_DURATION_STANDARD);
     return () => clearTimeout(timer);
   }, [event._toastId, onDismiss]);
 

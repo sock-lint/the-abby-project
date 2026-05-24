@@ -70,8 +70,8 @@ export default function ResetPasswordModal({ user, onSubmit, onClose, onDone }) 
           <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Saving…' : 'Reset password'}
+          <Button type="submit" loading={saving}>
+            Reset password
           </Button>
         </div>
       </form>

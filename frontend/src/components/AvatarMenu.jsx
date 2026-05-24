@@ -18,6 +18,12 @@ import { DragonIcon } from './icons/JournalIcons';
  */
 export default function AvatarMenu({ user, compact = false, align = 'bottom' }) {
   const [open, setOpen] = useState(false);
+  const [showRing] = useState(() => {
+    const count = Number(localStorage.getItem('avatar_hint_count') || '0');
+    if (count >= 3) return false;
+    localStorage.setItem('avatar_hint_count', String(count + 1));
+    return true;
+  });
   const ref = useRef(null);
 
   useEffect(() => {
@@ -64,7 +70,8 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
           className={`${circleSize} rounded-full bg-sheikah-teal/20 border
                       border-sheikah-teal/40 flex items-center justify-center
                       text-sheikah-teal-deep font-rune shrink-0 overflow-hidden transition-colors
-                      ${open ? 'bg-sheikah-teal/35 border-sheikah-teal-deep' : ''}`}
+                      ${open ? 'bg-sheikah-teal/35 border-sheikah-teal-deep' : ''}
+                      ${showRing && compact ? 'ring-2 ring-gold-leaf/60 ring-offset-1 ring-offset-ink-page' : ''}`}
         >
           {user?.avatar ? (
             <img

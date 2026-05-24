@@ -26,9 +26,19 @@ export default function QuickActionsFab() {
   const { data: status, reload: reloadStatus } = useApi(getClockStatus);
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const [showHint, setShowHint] = useState(
-    () => !localStorage.getItem(STORAGE_KEYS.FAB_ONBOARDED),
-  );
+  const [bouncing, setBouncing] = useState(false);
+
+  const storedVal = localStorage.getItem(STORAGE_KEYS.FAB_ONBOARDED);
+  const visitCount = storedVal === 'done' ? Infinity : Number(storedVal || '0');
+  const [showHint, setShowHint] = useState(() => visitCount < 3);
+
+  useEffect(() => {
+    if (visitCount < 2) {
+      setBouncing(true);
+      const timer = setTimeout(() => setBouncing(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isClocked = status && status.status === 'active';
   const clockInAt = isClocked ? status?.clock_in : null;
@@ -49,7 +59,7 @@ export default function QuickActionsFab() {
     setOpen(true);
     if (showHint) {
       setShowHint(false);
-      localStorage.setItem(STORAGE_KEYS.FAB_ONBOARDED, '1');
+      localStorage.setItem(STORAGE_KEYS.FAB_ONBOARDED, 'done');
     }
   };
 
@@ -57,7 +67,10 @@ export default function QuickActionsFab() {
     if (!showHint) return undefined;
     const timer = setTimeout(() => {
       setShowHint(false);
-      localStorage.setItem(STORAGE_KEYS.FAB_ONBOARDED, '1');
+      const cur = localStorage.getItem(STORAGE_KEYS.FAB_ONBOARDED);
+      if (cur !== 'done') {
+        localStorage.setItem(STORAGE_KEYS.FAB_ONBOARDED, String(Number(cur || '0') + 1));
+      }
     }, 8000);
     return () => clearTimeout(timer);
   }, [showHint]);
@@ -91,6 +104,7 @@ export default function QuickActionsFab() {
         className={`fixed z-30 rounded-full shadow-xl transition-all
                     bottom-24 right-4 lg:bottom-6 lg:right-6
                     flex items-center gap-2 ${isClocked ? 'pl-3 pr-4' : 'p-3.5'} py-3
+                    ${bouncing ? 'animate-bounce' : ''}
                     ${isClocked
                       ? 'bg-ember text-ink-page-rune-glow border border-ember-deep animate-rune-pulse'
                       : 'bg-sheikah-teal-deep text-ink-page-rune-glow border border-sheikah-teal-deep/60 hover:bg-sheikah-teal'

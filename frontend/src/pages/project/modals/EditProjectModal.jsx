@@ -95,8 +95,8 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving} className="flex-1">
-            {saving ? 'Saving...' : 'Save Changes'}
+          <Button type="submit" loading={saving} className="flex-1">
+            Save Changes
           </Button>
         </div>
       </form>

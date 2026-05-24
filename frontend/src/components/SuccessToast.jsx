@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
 import { SuccessToastContext } from '../contexts/SuccessToastContext';
+import { TOAST_DURATION_SHORT } from '../constants/timing';
 
 let nextId = 0;
 
@@ -15,7 +16,7 @@ function SuccessToastItem({ toast, onDismiss }) {
       transition={{ type: 'spring', damping: 22, stiffness: 260 }}
       onAnimationComplete={(def) => {
         if (def === 'animate') {
-          setTimeout(() => onDismiss(toast.id), 3000);
+          setTimeout(() => onDismiss(toast.id), TOAST_DURATION_SHORT);
         }
       }}
       className="flex items-center gap-2 rounded-lg border border-moss bg-gradient-to-r from-moss/90 to-moss/80 px-3 py-2 shadow-lg pointer-events-auto"

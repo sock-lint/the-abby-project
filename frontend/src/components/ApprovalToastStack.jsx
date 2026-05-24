@@ -4,10 +4,11 @@ import { CheckCircle2, X, XCircle } from 'lucide-react';
 
 import { useApprovalToasts } from '../hooks/useApprovalToasts';
 import IconButton from './IconButton';
+import { TOAST_DURATION_LONG } from '../constants/timing';
 
 function Toast({ toast, onDismiss }) {
   useEffect(() => {
-    const timer = setTimeout(() => onDismiss(toast.id), 6000);
+    const timer = setTimeout(() => onDismiss(toast.id), TOAST_DURATION_LONG);
     return () => clearTimeout(timer);
   }, [toast.id, onDismiss]);
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import {
-  Users, UserPlus, UsersRound, BookTemplate, BookOpen, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink, KeyRound, UserX, UserCheck, Shield,
+  Users, UserPlus, UsersRound, BookTemplate, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink, KeyRound, UserX, UserCheck, Shield,
   TestTubeDiagonal,
 } from 'lucide-react';
 import {
@@ -17,7 +17,6 @@ import {
   getCategories, getGoogleAuthUrl, unlinkGoogleAccount,
   devToolsPing,
 } from '../api';
-import CodexSection from './manage/CodexSection';
 import GuideSection from './manage/GuideSection';
 import TestSection from './manage/TestSection';
 import ResetPasswordModal from './manage/ResetPasswordModal';
@@ -37,13 +36,12 @@ import { TextField, SelectField, TextAreaField } from '../components/form';
 import { normalizeList } from '../utils/api';
 import useScrollFades from '../hooks/useScrollFades';
 
-const BASE_TABS = ['Children', 'Family', 'Templates', 'Codex', 'Guide'];
+const BASE_TABS = ['Children', 'Family', 'Templates', 'Guide'];
 
 const TAB_ICONS = {
   Children: Users,
   Family: UsersRound,
   Templates: BookTemplate,
-  Codex: BookOpen,
   Guide: ScrollText,
   Admin: Shield,
   Test: TestTubeDiagonal,
@@ -145,7 +143,6 @@ export default function Manage() {
       {activeTab === 'Children' && <ChildrenSection />}
       {activeTab === 'Family' && <FamilySection />}
       {activeTab === 'Templates' && <TemplatesSection />}
-      {activeTab === 'Codex' && <CodexSection />}
       {activeTab === 'Guide' && <GuideSection />}
       {activeTab === 'Admin' && adminEnabled && <AdminSection />}
       {activeTab === 'Test' && devToolsEnabled && <TestSection />}
@@ -314,8 +311,8 @@ function CreateChildModal({ onClose, onCreated }) {
           <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Creating…' : 'Create child'}
+          <Button type="submit" loading={saving}>
+            Create child
           </Button>
         </div>
       </form>
@@ -406,7 +403,7 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
               variant="ghost"
               size="sm"
               onClick={handleUnlinkGoogle}
-              className="!text-ember-deep hover:!text-red-300 inline-flex items-center gap-2"
+              className="!text-ember-deep hover:!text-ember-deep inline-flex items-center gap-2"
             >
               <Unlink size={14} /> Unlink Google Account
             </Button>
@@ -426,8 +423,8 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving} className="flex-1">
-            {saving ? 'Saving...' : 'Save'}
+          <Button type="submit" loading={saving} className="flex-1">
+            Save
           </Button>
         </div>
       </form>
@@ -838,8 +835,8 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving} className="flex-1">
-            {saving ? 'Saving...' : 'Save'}
+          <Button type="submit" loading={saving} className="flex-1">
+            Save
           </Button>
         </div>
       </form>
@@ -1000,8 +997,8 @@ function CreateParentModal({ onClose, onCreated }) {
           <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Creating…' : 'Add co-parent'}
+          <Button type="submit" loading={saving}>
+            Add co-parent
           </Button>
         </div>
       </form>
@@ -1044,8 +1041,8 @@ function EditParentModal({ parent, onClose, onSaved, onRemoved }) {
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving} className="flex-1">
-            {saving ? 'Saving...' : 'Save'}
+          <Button type="submit" loading={saving} className="flex-1">
+            Save
           </Button>
         </div>
       </form>
@@ -1305,8 +1302,8 @@ function CreateFamilyForm({ onCreated }) {
         autoComplete="new-password"
       />
       <div className="flex justify-end pt-2">
-        <Button type="submit" disabled={saving}>
-          {saving ? 'Creating…' : 'Create family'}
+        <Button type="submit" loading={saving}>
+          Create family
         </Button>
       </div>
     </form>

@@ -44,8 +44,8 @@ export default function AddMaterialModal({ projectId, onClose, onSaved }) {
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving || !form.name.trim()} className="flex-1">
-            {saving ? 'Adding...' : 'Add Material'}
+          <Button type="submit" loading={saving} disabled={!form.name.trim()} className="flex-1">
+            Add Material
           </Button>
         </div>
       </form>

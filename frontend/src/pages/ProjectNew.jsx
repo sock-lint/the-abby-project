@@ -178,8 +178,8 @@ export default function ProjectNew() {
             placeholder="Private notes (only visible to parents)"
           />
 
-          <Button type="submit" className="w-full" disabled={saving}>
-            {saving ? 'Creating…' : 'Create Project'}
+          <Button type="submit" className="w-full" loading={saving}>
+            Create Project
           </Button>
         </ParchmentCard>
       </form>
