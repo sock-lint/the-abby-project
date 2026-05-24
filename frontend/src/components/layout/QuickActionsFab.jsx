@@ -48,7 +48,7 @@ export default function QuickActionsFab() {
         onClick={() => setOpen(true)}
         aria-label={isClocked ? 'Quick actions (clocked in)' : 'Quick actions'}
         className={`fixed z-30 rounded-full shadow-xl transition-all
-                    bottom-24 right-4 md:bottom-6 md:right-6
+                    bottom-24 right-4 lg:bottom-6 lg:right-6
                     flex items-center gap-2 pl-3 pr-4 py-3
                     ${isClocked
                       ? 'bg-ember text-ink-page-rune-glow border border-ember-deep animate-rune-pulse'
