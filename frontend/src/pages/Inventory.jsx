@@ -12,6 +12,7 @@ import Button from '../components/Button';
 import IconButton from '../components/IconButton';
 import Loader from '../components/Loader';
 import EmptyState from '../components/EmptyState';
+import FilteredEmptyState from '../components/FilteredEmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
@@ -237,9 +238,11 @@ export default function Inventory() {
 
       {populatedCompartments.length === 0 ? (
         filterActive ? (
-          <EmptyState icon={<EggIcon size={36} />}>
-            No items match your search.
-          </EmptyState>
+          <FilteredEmptyState
+            query={filter.trim()}
+            onClear={() => setFilter('')}
+            icon={<EggIcon size={36} />}
+          />
         ) : (
           <EmptyState icon={<EggIcon size={36} />}>
             <div>No items yet. Complete quests, chores, and homework to earn drops.</div>

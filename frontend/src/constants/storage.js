@@ -40,4 +40,11 @@ export const STORAGE_KEYS = {
   // for 60s after a reload, swallowing rolling-deploy SW drift across
   // replicas. See the PWA gotcha in CLAUDE.md.
   PWA_LAST_RELOAD: 'pwa:last-reload-attempt',
+
+  // Per-hub last-used tab ID. Key is ``CHAPTER_TAB_PREFIX + hubPath``.
+  // ChapterHub reads on mount when no ?tab= is in the URL.
+  CHAPTER_TAB_PREFIX: 'chapter-tab-',
+
+  // FAB onboarding tooltip dismissed. Stored as "1" after first open.
+  FAB_ONBOARDED: 'fab-onboarded',
 };

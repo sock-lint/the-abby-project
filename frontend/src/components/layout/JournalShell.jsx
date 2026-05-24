@@ -72,7 +72,7 @@ export default function JournalShell() {
         </div>
       </main>
 
-      <ChapterBottomBar />
+      <ChapterBottomBar user={user} />
       <QuickActionsFab />
     </div>
   );

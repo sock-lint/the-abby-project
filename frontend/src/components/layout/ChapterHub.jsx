@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import DeckleDivider from '../journal/DeckleDivider';
 import useScrollFades from '../../hooks/useScrollFades';
 import { inkBleed } from '../../motion/variants';
+import { STORAGE_KEYS } from '../../constants/storage';
 
 /**
  * ChapterHub — shared wrapper for the four hub pages (Quests, Bestiary,
@@ -20,8 +21,18 @@ import { inkBleed } from '../../motion/variants';
  */
 export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs, defaultTabId }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { pathname } = useLocation();
   const requestedTab = searchParams.get('tab');
-  const activeTab = tabs.find((t) => t.id === requestedTab) || tabs.find((t) => t.id === defaultTabId) || tabs[0];
+
+  const storageKey = STORAGE_KEYS.CHAPTER_TAB_PREFIX + pathname;
+  const rememberedTab = !requestedTab
+    ? tabs.find((t) => t.id === localStorage.getItem(storageKey))
+    : null;
+
+  const activeTab = tabs.find((t) => t.id === requestedTab)
+    || rememberedTab
+    || tabs.find((t) => t.id === defaultTabId)
+    || tabs[0];
 
   const tabStripRef = useRef(null);
   const { showLeft, showRight, onScroll: onTabScroll } = useScrollFades(tabStripRef);
@@ -30,6 +41,7 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
     const next = new URLSearchParams(searchParams);
     next.set('tab', id);
     setSearchParams(next, { replace: true });
+    localStorage.setItem(storageKey, id);
   };
 
   useEffect(() => {
@@ -104,6 +116,20 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
             );
           })}
         </nav>
+        {(showLeft || showRight) && tabs.length > 4 && (
+          <div className="flex justify-center mt-1.5 md:hidden" aria-hidden="true">
+            <div className="flex gap-1">
+              {tabs.map((tab) => (
+                <span
+                  key={tab.id}
+                  className={`block w-1.5 h-1.5 rounded-full transition-colors ${
+                    tab.id === activeTab.id ? 'bg-sheikah-teal-deep' : 'bg-ink-page-shadow'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <DeckleDivider glyph={glyph} className="mt-0 mb-6" />

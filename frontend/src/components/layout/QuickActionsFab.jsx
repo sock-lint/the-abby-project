@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Plus } from 'lucide-react';
 import { getClockStatus } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import { ClockFabIcon } from '../icons/JournalIcons';
 import QuickActionsSheet from './QuickActionsSheet';
+import { STORAGE_KEYS } from '../../constants/storage';
 
 function formatElapsed(secs) {
   const h = Math.floor(secs / 3600);
@@ -25,6 +26,9 @@ export default function QuickActionsFab() {
   const { data: status, reload: reloadStatus } = useApi(getClockStatus);
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [showHint, setShowHint] = useState(
+    () => !localStorage.getItem(STORAGE_KEYS.FAB_ONBOARDED),
+  );
 
   const isClocked = status && status.status === 'active';
   const clockInAt = isClocked ? status?.clock_in : null;
@@ -41,11 +45,48 @@ export default function QuickActionsFab() {
 
   const label = isClocked ? formatElapsed(elapsedSecs) : null;
 
+  const handleOpen = () => {
+    setOpen(true);
+    if (showHint) {
+      setShowHint(false);
+      localStorage.setItem(STORAGE_KEYS.FAB_ONBOARDED, '1');
+    }
+  };
+
+  useEffect(() => {
+    if (!showHint) return undefined;
+    const timer = setTimeout(() => {
+      setShowHint(false);
+      localStorage.setItem(STORAGE_KEYS.FAB_ONBOARDED, '1');
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [showHint]);
+
   return (
     <>
+      {showHint && !isClocked && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 8 }}
+          className="fixed z-30 bottom-40 right-4 lg:bottom-20 lg:right-6
+                     bg-ink-page-aged border border-sheikah-teal/40 rounded-lg
+                     px-3 py-2 shadow-lg max-w-[160px]"
+        >
+          <p className="font-script text-caption text-sheikah-teal-deep text-center">
+            Tap for quick actions
+          </p>
+          <div
+            className="absolute -bottom-1.5 right-6 w-3 h-3 bg-ink-page-aged
+                       border-b border-r border-sheikah-teal/40 rotate-45"
+            aria-hidden="true"
+          />
+        </motion.div>
+      )}
+
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={handleOpen}
         aria-label={isClocked ? 'Quick actions (clocked in)' : 'Quick actions'}
         className={`fixed z-30 rounded-full shadow-xl transition-all
                     bottom-24 right-4 lg:bottom-6 lg:right-6

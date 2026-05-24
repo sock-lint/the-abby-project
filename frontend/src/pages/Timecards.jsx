@@ -5,7 +5,7 @@ import { getTimecards, getTimecard, approveTimecard, disputeTimecard, markTimeca
 import { useApi } from '../hooks/useApi';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
-import Loader from '../components/Loader';
+import ParchmentSkeleton from '../components/ParchmentSkeleton';
 import StatusBadge from '../components/StatusBadge';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import { ScrollIcon } from '../components/icons/JournalIcons';
@@ -49,7 +49,12 @@ export default function Timecards() {
     }
   };
 
-  if (loading) return <Loader />;
+  if (loading) return (
+    <div className="space-y-6">
+      <ParchmentSkeleton variant="card" />
+      <ParchmentSkeleton variant="list" count={5} />
+    </div>
+  );
 
   return (
     <div className="space-y-6">

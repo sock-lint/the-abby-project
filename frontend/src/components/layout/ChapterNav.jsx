@@ -4,6 +4,7 @@ import {
   TodayIcon, QuestsIcon, BestiaryIcon, TreasuryIcon, AtlasIcon, ChronicleIcon,
 } from '../icons/JournalIcons';
 import AvatarMenu from '../AvatarMenu';
+import useParentPendingCounts from '../../hooks/useParentPendingCounts';
 
 /**
  * ChapterNav — renders the six-chapter nav in two flavors:
@@ -27,6 +28,7 @@ const CHAPTERS = [
 
 export function ChapterSidebar({ user, onLogout }) {
   const isParent = user?.role === 'parent';
+  const { total: pendingCount } = useParentPendingCounts({ enabled: isParent });
   return (
     <aside
       className="w-60 shrink-0 fixed h-full z-30 max-lg:hidden flex flex-col
@@ -69,10 +71,20 @@ export function ChapterSidebar({ user, onLogout }) {
                     aria-hidden="true"
                   />
                 )}
-                <Icon
-                  size={22}
-                  className={isActive ? 'text-sheikah-teal-deep animate-rune-pulse' : ''}
-                />
+                <span className="relative shrink-0">
+                  <Icon
+                    size={22}
+                    className={isActive ? 'text-sheikah-teal-deep animate-rune-pulse' : ''}
+                  />
+                  {to === '/' && pendingCount > 0 && (
+                    <span
+                      className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-[10px] font-rune font-bold leading-none px-1"
+                      aria-label={`${pendingCount} pending`}
+                    >
+                      {pendingCount > 9 ? '9+' : pendingCount}
+                    </span>
+                  )}
+                </span>
                 <span className="font-display text-base tracking-wide">{label}</span>
               </>
             )}
@@ -140,7 +152,10 @@ export function ChapterSidebar({ user, onLogout }) {
   );
 }
 
-export function ChapterBottomBar() {
+export function ChapterBottomBar({ user }) {
+  const isParent = user?.role === 'parent';
+  const { total: pendingCount } = useParentPendingCounts({ enabled: isParent });
+
   return (
     <nav
       className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex justify-around
@@ -162,7 +177,17 @@ export function ChapterBottomBar() {
         >
           {({ isActive }) => (
             <>
-              <Icon size={22} className={isActive ? 'animate-rune-pulse' : ''} />
+              <span className="relative">
+                <Icon size={22} className={isActive ? 'animate-rune-pulse' : ''} />
+                {to === '/' && pendingCount > 0 && (
+                  <span
+                    className="absolute -top-1 -right-2 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-[9px] font-rune font-bold leading-none px-0.5"
+                    aria-label={`${pendingCount} pending`}
+                  >
+                    {pendingCount > 9 ? '9+' : pendingCount}
+                  </span>
+                )}
+              </span>
               <span className="font-script text-micro leading-none hidden min-[400px]:inline">
                 {shortLabel}
               </span>

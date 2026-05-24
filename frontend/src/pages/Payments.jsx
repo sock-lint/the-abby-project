@@ -9,7 +9,7 @@ import {
 import { useApi } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
 import { useRole } from '../hooks/useRole';
-import Loader from '../components/Loader';
+import ParchmentSkeleton from '../components/ParchmentSkeleton';
 import ErrorAlert from '../components/ErrorAlert';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
@@ -257,7 +257,12 @@ export default function Payments() {
     }
   };
 
-  if (loading) return <Loader />;
+  if (loading) return (
+    <div className="space-y-6">
+      <ParchmentSkeleton variant="hero" />
+      <ParchmentSkeleton variant="list" count={4} />
+    </div>
+  );
   if (error || !data) {
     return (
       <PageShell rhythm="tight" animate={false}>
