@@ -32,8 +32,8 @@ Deep subsystem details live next to the code they describe, in subtree CLAUDE.md
 ## Stack
 - **Backend:** Django 5.1, DRF 3.15, PostgreSQL 16, Redis 7, Celery 5.4 + Beat, Gunicorn, Python 3.12
 - **Frontend:** React 19, Vite 8, Tailwind 4, Framer Motion, React Router 7, lucide-react
-- **Deploy:** Single multi-stage Docker image — Node builds the React bundle, Django serves it + the API via WhiteNoise from one origin. Compose services: `db`, `redis`, `django`, `celery_worker`, `celery_beat`. Coolify via `.deploy.yml`; CI/CD via `.github/workflows/ci-cd.yml`.
-- **Observability:** Self-hosted Sentry at `logs.neato.digital` — error tracking, performance tracing, and release automation with source map upload via `@sentry/vite-plugin`.
+- **Deploy:** Single multi-stage Docker image — Node builds the React bundle, Django serves it + the API via WhiteNoise from one origin. Compose services: `db`, `redis`, `django`, `celery_worker`, `celery_beat`. Self-hosted runner; CI/CD via `.github/workflows/ci-cd.yml`.
+- **Observability:** Self-hosted Sentry at `logs.neato.digital` — error tracking, performance tracing, and release automation with source map upload via `@sentry/vite-plugin`. JSON-structured logging (opt-in via `LOG_JSON=1`).
 
 ## Commands
 ```bash
@@ -66,6 +66,24 @@ DATABASE_URL="sqlite:///tmp_test.db" SECRET_KEY="x" \
 # apps/rpg/management/commands/cleanup_rpg_catalog.py.
 docker compose exec django python manage.py cleanup_rpg_catalog --dry-run
 docker compose exec django python manage.py cleanup_rpg_catalog
+
+# Content loading
+docker compose exec django python manage.py loadrpgcontent          # RPG YAML → DB
+docker compose exec django python manage.py loadwellbeingcontent    # Wellbeing affirmations YAML
+docker compose exec django python manage.py prune_pack_content      # Remove orphaned pack entries
+
+# MCP server (stdio mode for local development/testing)
+docker compose exec django python manage.py runmcp
+
+# Dev helpers (not for production)
+docker compose exec django python manage.py force_drop <username>
+docker compose exec django python manage.py force_celebration <username>
+docker compose exec django python manage.py set_streak <username> <count>
+docker compose exec django python manage.py set_pet_happiness <username> <value>
+docker compose exec django python manage.py set_reward_stock <reward_id> <count>
+docker compose exec django python manage.py reset_day_counters
+docker compose exec django python manage.py tick_perfect_day
+docker compose exec django python manage.py expire_journal
 ```
 
 ## Architecture
@@ -75,15 +93,22 @@ config/              Django project
   settings_test.py   LocMem cache + eager Celery for Docker-less local runs
   urls.py            API includes + SPA catch-all (spa_view)
   celery.py          Celery app factory
-  health.py          /health endpoint
+  health.py          /health endpoint (legacy — now handled by middleware)
   base_models.py     Abstract CreatedAtModel, TimestampedModel,
                      ApprovalWorkflowModel, DailyCounterModel
   permissions.py     IsParent, IsStaffParent DRF permission classes
   services.py        BaseLedgerService, finalize_decision,
                      bump_daily_counter
   viewsets.py        RoleFilteredQuerySetMixin, NestedProjectResourceMixin,
-                     get_child_or_404, child_not_found_response
+                     ParentWritePermissionMixin, StaffParentWritePermissionMixin,
+                     WriteReadSerializerMixin, ApprovalActionMixin,
+                     resolve_target_user, get_child_or_404, child_not_found_response
   llm.py             complete_json — shared text-LLM seam
+  logging.py         JsonFormatter (LOG_JSON=1) + register_celery_failure_handler
+  middleware.py      HealthCheckMiddleware (/health bypass ALLOWED_HOSTS,
+                     ?deep=true Ceph probe), NoCacheAPIMiddleware (no-store
+                     on /api/*), SentryUserMiddleware (user context for errors)
+  url_safety.py      UnsafeURLError + validate_url + safe_get (SSRF guard)
   oauth_views.py     AbbyAuthorizationView, well-known discovery views
   oauth_validator.py AbbyOAuth2Validator (RFC 8707 resource binding)
   tests/factories.py make_family, make_oauth_token
@@ -136,10 +161,24 @@ apps/
   quests/            → apps/quests/CLAUDE.md
   mcp_server/        → apps/mcp_server/CLAUDE.md
   movement/          → apps/movement/CLAUDE.md
-  activity/          Activity aggregation.
-  lorebook/          Lorebook content + parity gate.
-  dev_tools/         Dev-only endpoints (toast / ceremony ops).
-  google_integration/Optional calendar integration.
+  activity/          ActivityEvent — append-only audit log of discrete
+                     events (clock-in, approvals, XP awards, drops, streaks).
+                     Category choices: approval|award|ledger|rpg|quest|habit|
+                     timecard|system. JSONField context carries breakdown math.
+                     Parent-only ReadOnlyModelViewSet with cursor pagination.
+  lorebook/          Lorebook content + parity gate. Kid- and parent-facing
+                     explainers authored in content/lorebook/entries.yaml.
+                     Parity test in test_parity.py enforces that every trigger
+                     type, badge criterion, entry type, and coin reason is
+                     covered.
+  dev_tools/         Dev-only management commands: force_celebration,
+                     force_drop, set_streak, set_pet_happiness,
+                     set_reward_stock, reset_day_counters, tick_perfect_day,
+                     expire_journal.
+  google_integration/GoogleAccount (OneToOne User, Fernet-encrypted OAuth2
+                     creds, calendar sync toggle), CalendarEventMapping
+                     (maps app objects → Google Calendar events). Daily
+                     reminders task at 07:00 via Celery Beat.
 
 frontend/            → frontend/CLAUDE.md (design system / testing / PWA)
   src/pages/         → frontend/src/pages/CLAUDE.md (page architecture)
@@ -160,8 +199,11 @@ frontend/            → frontend/CLAUDE.md (design system / testing / PWA)
 - **`config/base_models.py`** — `CreatedAtModel` (auto `created_at`), `TimestampedModel` (adds auto `updated_at`), `ApprovalWorkflowModel` (adds `decided_at` + `decided_by` FK for submit-then-approve flows; subclasses define their own `status` field/choices), and `DailyCounterModel` (per-user per-day anti-farm counter — `(user, occurred_on, count)` row that survives parent-row deletes; concrete subclasses are `CreationDailyCounter`, `MovementDailyCounter`, `HomeworkDailyCounter`). Concrete models across apps inherit from these; abstract bases live in `config/` rather than any single app.
 - **`config/services.py`** — `BaseLedgerService` with `ledger_model`, `category_field`, `default_value` class attrs. `PaymentService` and `CoinService` subclass it for `get_balance`/`get_breakdown`; subclasses add their own award/spend helpers. Also exports `finalize_decision(instance, new_status, parent, notes="")` — used by every approval service to stamp `status`/`decided_at`/`decided_by` on pending-decision models — and `bump_daily_counter(counter_model, user, day)` — locked read-modify-write helper for any `DailyCounterModel` subclass; returns the pre-increment count so callers can gate on `prior == 0` for first-of-day.
 - **`config/permissions.py`** — `IsParent` (auth + role) and `IsStaffParent` (auth + role + `is_staff`) DRF permission classes. `IsParent.has_object_permission` resolves the object's family via `obj.family_id` / `obj.user.family_id` / `obj.assigned_to.family_id` / `obj.created_by.family_id` and rejects cross-family — defense in depth on top of queryset-level family scoping. `IsStaffParent` gates global content authoring (skills, badges, lorebook) so a regular parent can't pollute shared content. Founding superusers (`createsuperuser`) get `is_staff=True` automatically; signup-created parents do NOT.
-- **`config/viewsets.py`** — `RoleFilteredQuerySetMixin` (parents see only their family's rows via `qs.filter(<field>__family=user.family)`; children see their own), `NestedProjectResourceMixin` (for URLs like `projects/<project_pk>/milestones/`), plus `get_child_or_404(child_id, requesting_user=None)` + `child_not_found_response` helpers for parent-targeting-child actions. `get_child_or_404` accepts a `requesting_user` and scopes the lookup to that user's family — call sites must pass `requesting_user=request.user` so a parent can't 200 on another family's child by id.
+- **`config/viewsets.py`** — `RoleFilteredQuerySetMixin` (parents see only their family's rows via `qs.filter(<field>__family=user.family)`; children see their own), `NestedProjectResourceMixin` (for URLs like `projects/<project_pk>/milestones/`), `ParentWritePermissionMixin` (IsParent for CRUD writes, IsAuthenticated for reads — used by 7+ viewsets), `StaffParentWritePermissionMixin` (same shape with IsStaffParent — gates global-content authoring viewsets like Skills, Badges, Sprites, Lorebook), `WriteReadSerializerMixin` (switches `serializer_class` vs. `write_serializer_class` per action), `ApprovalActionMixin` (adds parent-gated `approve`/`reject` detail actions, delegates to a pluggable `approval_service`), `resolve_target_user(request, source)` (resolves `user_id` from query_params or data, family-scoped), plus `get_child_or_404(child_id, requesting_user=None)` + `child_not_found_response` helpers for parent-targeting-child actions. `get_child_or_404` accepts a `requesting_user` and scopes the lookup to that user's family — call sites must pass `requesting_user=request.user` so a parent can't 200 on another family's child by id.
 - **`config/tests/factories.py`** — `make_family(name, parents=[...], children=[...])` test helper. Each entry is a dict with at least `username`; other keys flow through to `User.objects.create_user`. Returns a `SimpleNamespace(family, parents=[User], children=[User])`. **Use this in every test setUp** that needs more than one user — it stamps everyone into a single family and the first parent becomes `primary_parent`. Without it, the `User.save()` defense-in-depth lands every user in the same auto-created `default-family`, which masks cross-family scoping bugs. Also exports `make_oauth_token(user, *, application=None, resource=None, scope='mcp', expires_in_seconds=3600)` — mints an `AccessToken` row directly so MCP tests don't have to do the PKCE round-trip.
+- **`config/middleware.py`** — `HealthCheckMiddleware` (first in MIDDLEWARE — intercepts `/health` before Django's host validation so Docker/Coolify probes succeed when `ALLOWED_HOSTS` doesn't include `localhost`; `?deep=true` adds a Ceph S3 `HeadBucket` check), `NoCacheAPIMiddleware` (stamps `Cache-Control: no-store` on `/api/*` responses unless the view set its own header), `SentryUserMiddleware` (sets Sentry user context for session-auth'd requests like admin).
+- **`config/logging.py`** — `JsonFormatter` (enable with `LOG_JSON=1` — no extra packages) and `register_celery_failure_handler()` for structured Celery task failure logging into the same JSON pipeline.
+- **`config/url_safety.py`** — SSRF defense for outbound HTTP from the ingestion pipeline. `validate_url(url)` raises `UnsafeURLError` on private-IP, loopback, or link-local targets. `safe_get(url, **kwargs)` is a drop-in for `requests.get()` with the guard applied.
 - **`apps/mcp_server/context.py`** — `get_current_user`, `require_parent`, `require_staff_parent`, `resolve_target_user(user, requested_id)` (child→self + same-family scoping for MCP tools), `get_in_family(model, pk, family)`. Cross-family requests raise `MCPNotFoundError` (NOT permission-denied — never leak existence of a sibling family's user).
 - **`apps/families/`** — `Family` model + `FamilyService.create_family_with_parent` for parent self-signup. `Family.parents` / `Family.children` are role-discriminated reverse relations on the `User.family` FK. `apps/families/queries.py::parents_in(family)` + `children_in(family)` are shared helpers used by Celery tasks that need to iterate per-family.
 
@@ -201,14 +243,14 @@ frontend/            → frontend/CLAUDE.md (design system / testing / PWA)
 
 - **Habits** (`apps/habits/` + `apps/rpg/`): micro-behaviors distinct from chores — no parent approval, no dollar rewards, **no coin rewards**. User-facing label is "Rituals"; frontend page `/habits` redirects to `/quests?tab=rituals`. `Habit.habit_type` is `positive`/`negative`/`both`. `Habit.max_taps_per_day` (default `1`) caps positive taps per `America/Phoenix` day. Negative taps stay uncapped. The `decay_habit_strength_task` (Celery, 00:05 local) decays untapped habits toward 0 by `max(1, max_taps_per_day // 2)`. Positive taps trigger `GameLoopService.on_task_completed(user, "habit_log", ...)`. **Optimistic taps** (2026-05): the frontend mutates `strength` + `taps_today` immediately on click and rolls back if `logHabitTap` rejects.
 
-- **Notifications:** `apps.notifications.Notification` (table preserved as `projects_notification` for back-compat) with `NotificationType` choices including `redemption_requested`, `chore_submitted`, `chore_approved`, `chore_rejected`, `exchange_requested`, `exchange_approved`, `exchange_denied`, `homework_submitted`, `homework_approved`, `streak_milestone`, `perfect_day`, `daily_check_in`, `quest_completed`, `drop_received`, `pet_evolved`, `mount_bred`, `low_reward_stock`, `reward_restocked`, `expedition_returned`. Routes under `/api/notifications/` with `unread_count`, `mark_all_read`, per-item `mark_read`, and `pending-celebration` (returns the most recent unread `STREAK_MILESTONE` or `PERFECT_DAY` row). See [`frontend/src/pages/CLAUDE.md`](frontend/src/pages/CLAUDE.md) for the parity gate that fails CI when a new backend `NotificationType` lands without a corresponding entry in `notifications.constants.js`.
+- **Notifications:** `apps.notifications.Notification` (table preserved as `projects_notification` for back-compat) with `NotificationType` choices including `redemption_requested`, `chore_submitted`, `chore_approved`, `chore_rejected`, `exchange_requested`, `exchange_approved`, `exchange_denied`, `homework_submitted`, `homework_approved`, `homework_rejected`, `streak_milestone`, `perfect_day`, `daily_check_in`, `savings_goal_completed`, `birthday`, `chronicle_first_ever`, `comeback_suggested`, `creation_submitted`, `creation_approved`, `creation_rejected`, `chore_proposed`, `habit_proposed`, `chore_proposal_approved`, `habit_proposal_approved`, `chore_proposal_rejected`, `habit_proposal_rejected`, `quest_completed`, `drop_received`, `pet_evolved`, `mount_bred`, `low_reward_stock`, `reward_restocked`, `expedition_returned`. Routes under `/api/notifications/` with `unread_count`, `mark_all_read`, per-item `mark_read`, and `pending-celebration` (returns the most recent unread `STREAK_MILESTONE` or `PERFECT_DAY` row). See [`frontend/src/pages/CLAUDE.md`](frontend/src/pages/CLAUDE.md) for the parity gate that fails CI when a new backend `NotificationType` lands without a corresponding entry in `notifications.constants.js`.
 
 - **Email:** console backend in dev; `DEFAULT_FROM_EMAIL=noreply@summerforge.local`.
 
 - **Timezone:** `America/Phoenix`.
 
 ## Env vars (see `.env.example`)
-`SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `DATABASE_URL`, `REDIS_URL`, `CELERY_BROKER_URL`, `CORS_ALLOWED_ORIGINS` (dev-server only), `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `PARENT_PASSWORD`, `CHILD_PASSWORD` (seed), `ALLOW_PARENT_SIGNUP` (default `True` — set to `False` to disable parent self-signup at deploy time; the `POST /api/auth/signup/` endpoint returns 403 and the frontend "Create a family" link is hidden when `VITE_ALLOW_SIGNUP=false`), `DEFAULT_FAMILY_NAME` (optional, default `"Default Family"`), `LLM_BACKEND` (optional, default `auto`), `ANTHROPIC_API_KEY` (optional — enables hosted Claude for ingestion enrichment + project suggestions + homework AI planning), `CLAUDE_MODEL` (optional, default `claude-haiku-4-5-20251001`), `OLLAMA_BASE_URL` (optional — enables a local Ollama server as the LLM backend), `OLLAMA_MODEL` (optional, default `gemma4:latest`), `OLLAMA_TIMEOUT` (optional, default `120` seconds), `GEMINI_API_KEY` (optional — enables the `generate_sprite_sheet` MCP tool), `GEMINI_IMAGE_MODEL` (optional, default `gemini-3-pro-image-preview`). `VITE_SENTRY_RELEASE` (auto-set by CI to 8-char git SHA). CI-only secrets (GitHub repo settings, not `.env`): `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`. `SPRITE_S3_BUCKET` (default `abby-sprites`), `SPRITE_S3_ENDPOINT`, `SPRITE_S3_CUSTOM_DOMAIN` — only read when `USE_S3_STORAGE=true`; locally sprites serve from `MEDIA_ROOT/rpg-sprites/`. `MCP_PUBLIC_BASE_URL` (e.g. `https://abby.bos.lol/mcp` — production MUST set this; drives both the OAuth issuer/endpoint URLs in the RFC 9728 / RFC 8414 discovery JSON AND the RFC 8707 resource indicator that tokens are bound to. Without it the discovery JSON advertises `http://localhost:8000` endpoints that MCP clients can't reach).
+`SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `DATABASE_URL`, `REDIS_URL`, `CELERY_BROKER_URL`, `CORS_ALLOWED_ORIGINS` (dev-server only), `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `PARENT_PASSWORD`, `CHILD_PASSWORD` (seed), `ALLOW_PARENT_SIGNUP` (default `True` — set to `False` to disable parent self-signup at deploy time; the `POST /api/auth/signup/` endpoint returns 403 and the frontend "Create a family" link is hidden when `VITE_ALLOW_SIGNUP=false`), `DEFAULT_FAMILY_NAME` (optional, default `"Default Family"`), `LLM_BACKEND` (optional, default `auto`), `ANTHROPIC_API_KEY` (optional — enables hosted Claude for ingestion enrichment + project suggestions + homework AI planning), `CLAUDE_MODEL` (optional, default `claude-haiku-4-5-20251001`), `OLLAMA_BASE_URL` (optional — enables a local Ollama server as the LLM backend), `OLLAMA_MODEL` (optional, default `gemma4:latest`), `OLLAMA_TIMEOUT` (optional, default `120` seconds), `GEMINI_API_KEY` (optional — enables the `generate_sprite_sheet` MCP tool), `GEMINI_IMAGE_MODEL` (optional, default `gemini-3-pro-image-preview`). `LOG_JSON` (optional, `1` to enable structured JSON log output). `VITE_SENTRY_RELEASE` (auto-set by CI to 8-char git SHA). CI-only secrets (GitHub repo settings, not `.env`): `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `DISCORD_WEBHOOK_URL` (deploy notifications). `SPRITE_S3_BUCKET` (default `abby-sprites`), `SPRITE_S3_ENDPOINT`, `SPRITE_S3_CUSTOM_DOMAIN` — only read when `USE_S3_STORAGE=true`; locally sprites serve from `MEDIA_ROOT/rpg-sprites/`. `MCP_PUBLIC_BASE_URL` (e.g. `https://abby.bos.lol/mcp` — production MUST set this; drives both the OAuth issuer/endpoint URLs in the RFC 9728 / RFC 8414 discovery JSON AND the RFC 8707 resource indicator that tokens are bound to. Without it the discovery JSON advertises `http://localhost:8000` endpoints that MCP clients can't reach).
 
 ### Tunable settings (`config/settings.py`)
 - `COINS_PER_HOUR` (default `5`) — coins awarded per clock-out hour.
@@ -228,6 +270,7 @@ Per-subsystem game-design constants (drop rates, growth caps, rage shield steps)
 - Inherit concrete models from `config.base_models.{CreatedAtModel,TimestampedModel}` instead of hand-rolling `created_at`/`updated_at`. Submit-then-approve models (ChoreCompletion, HomeworkSubmission, RewardRedemption, ExchangeRequest) inherit from `ApprovalWorkflowModel` for `decided_at`/`decided_by`.
 - Subclass `config.services.BaseLedgerService` for any new append-only ledger. Use `config.services.finalize_decision` for approve/reject state transitions rather than hand-stamping `status`/`decided_at`/`decided_by`.
 - For new parent-only endpoints: use `IsParent` from `config.permissions`. For global-content-authoring endpoints (skills, badges, lorebook, RPG catalog), use `IsStaffParent`. For parent-targets-child actions, accept `user_id` in the body and use `get_child_or_404(user_id, requesting_user=request.user)` + `child_not_found_response` — passing `requesting_user` is **load-bearing** for cross-family safety.
+- For viewsets where parents can CRUD but children can only read: use `ParentWritePermissionMixin` (or `StaffParentWritePermissionMixin` for global-content). For viewsets with separate write/read serializers: use `WriteReadSerializerMixin` (set `write_serializer_class`). For submit-then-approve viewsets: use `ApprovalActionMixin` (set `approval_service`).
 - For querysets that should be self-scoped for children but full for the caller's family: use `RoleFilteredQuerySetMixin` and override `get_queryset` to call `get_role_filtered_queryset(super().get_queryset())`. Never write `User.objects.filter(role="parent"|"child")` without a family filter.
 - For new per-family content models (rare; current set is `Reward`, `ProjectTemplate`, `Chore`): add `family = ForeignKey("families.Family", on_delete=CASCADE)` and override `get_queryset` + `perform_create` to scope and stamp from `request.user.family`. Mirror the 3-step migration pattern (nullable add → backfill into "default-family" → tighten to non-null) and add a `Model.save()` defense-in-depth auto-attach. Skip global content (skills/badges/lorebook/RPG catalog) — those stay family-agnostic by design.
 - When fanning out a notification to parents: import `notify_parents` from `apps.notifications.services` and pass `about_user=<the child the event happened to>` (preferred) or `family=<Family>` — calling without one raises `ValueError`. Never iterate `User.objects.filter(role="parent")` yourself.
@@ -236,12 +279,21 @@ Per-subsystem game-design constants (drop rates, growth caps, rage shield steps)
 - **Lorebook lock-step**: when adding a new `TriggerType` (`apps/rpg/constants.py`), `Badge.CriteriaType` (`apps/achievements/models.py`), `PaymentLedger.EntryType` (`apps/payments/models.py`), `CoinLedger.Reason` (`apps/rewards/models.py`), or a new tunable Django setting referenced by an explainer, update [`content/lorebook/entries.yaml`](content/lorebook/entries.yaml) so the kid- and parent-facing Lorebook still describes how the system works. The parity test in [`apps/lorebook/tests/test_parity.py`](apps/lorebook/tests/test_parity.py) fails CI otherwise — its error message tells you which `LOREBOOK_*_COVERAGE` map to extend.
 - Frontend conventions live in [`frontend/CLAUDE.md`](frontend/CLAUDE.md) (form/button/card/type scale + interaction-test rule).
 
+## CI/CD pipeline (`.github/workflows/ci-cd.yml`)
+Pipeline runs on `push` to `main` (self-hosted runner):
+1. **`frontend-test`** — `npm ci` → `npm run lint` → `npm run test:coverage`
+2. **`backend-test`** — Postgres 16 + Redis 7 services, `pip install -r requirements.txt`, `migrate`, `python manage.py test`
+3. **`build`** (needs 1+2) — multi-stage Docker build → GHCR push (tag = 8-char SHA). Injects Sentry DSN/token/org/project as build args for source-map upload during Node stage.
+4. **`scan`** (needs 3) — Trivy image scan (CRITICAL + HIGH severity, `--exit-code 1`).
+5. **`deploy`** (needs 3+4) — SSH to target host, pull image, run migrations + `loadrpgcontent` + `cleanup_rpg_catalog`, rolling-restart `django` → `celery_worker` → `celery_beat`, health-check loop (30 attempts × 5s). On failure: tails logs, rolls back to previous image, posts to Discord. On success: prunes old images, creates Sentry release + deploy record, posts success to Discord.
+
 ## Key entry points
 - `manage.py`, `config/wsgi.py`, `config/urls.py`, `config/celery.py`, `config/settings.py`, `config/settings_test.py`.
 - `frontend/src/main.jsx`, `frontend/src/App.jsx`, `frontend/vite.config.js`, `frontend/vitest.config.js`, `frontend/src/test/{setup,server,handlers,render,factories}` (test scaffolding).
-- Seed: `apps/projects/management/commands/seed_data.py`; RPG catalog comes from `content/rpg/initial/*.yaml` via `apps/rpg/management/commands/loadrpgcontent.py` + `apps/rpg/content/loader.py`; catalog cleanup via `apps/rpg/management/commands/cleanup_rpg_catalog.py`. **Run cleanup after every YAML retirement** because the upsert loader cannot delete.
+- Seed: `apps/projects/management/commands/seed_data.py`; RPG catalog comes from `content/rpg/initial/*.yaml` via `apps/rpg/management/commands/loadrpgcontent.py` + `apps/rpg/content/loader.py`; wellbeing content from `content/wellbeing/affirmations.yaml` via `apps/wellbeing/management/commands/loadwellbeingcontent.py`; catalog cleanup via `apps/rpg/management/commands/cleanup_rpg_catalog.py`. **Run cleanup after every YAML retirement** because the upsert loader cannot delete.
 - Ingestion: `apps/ingestion/pipeline/pipeline.py`, `runner.py`, `apps/ingestion/tasks.py` → see [`apps/ingestion/CLAUDE.md`](apps/ingestion/CLAUDE.md).
 - Signals: `apps/projects/signals.py` (project completion → ledger + coin hooks + RPG game loop).
 - RPG orchestrator: `apps/rpg/services.py` — `GameLoopService.on_task_completed` is the single entry point. Extend by adding a new step to this method. See [`apps/rpg/CLAUDE.md`](apps/rpg/CLAUDE.md).
 - RPG character auto-creation: `apps/rpg/signals.py` — `post_save` on `accounts.User` creates `CharacterProfile`.
+- MCP server: `apps/mcp_server/` — 207 tools across 27 modules; entry via `runmcp` management command or OAuth-secured HTTP at `/mcp/*`. See [`apps/mcp_server/CLAUDE.md`](apps/mcp_server/CLAUDE.md).
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`; phase plans under `docs/superpowers/plans/`.
