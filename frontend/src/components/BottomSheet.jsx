@@ -30,7 +30,7 @@ function useIsDesktop() {
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
 
-export default function BottomSheet({ title, onClose, disabled, dirty, children }) {
+export default function BottomSheet({ title, onClose, disabled, dirty, footer, children }) {
   const isDesktop = useIsDesktop();
   const titleId = useId();
   const dialogRef = useRef(null);
@@ -112,6 +112,11 @@ export default function BottomSheet({ title, onClose, disabled, dirty, children 
             <div className="relative px-5 pb-5 space-y-3">
               {children}
             </div>
+            {footer && (
+              <div className="sticky bottom-0 px-5 pb-5 pt-3 bg-ink-page-aged/95 border-t border-ink-page-shadow/40">
+                {footer}
+              </div>
+            )}
           </motion.div>
         </div>
       ) : (
@@ -159,9 +164,14 @@ export default function BottomSheet({ title, onClose, disabled, dirty, children 
             <h2 id={titleId} className="font-display text-lg font-bold text-ink-primary">{title}</h2>
             <SealCloseButton onClick={safeClose} disabled={disabled} />
           </div>
-          <div className="px-4 pb-4 space-y-3">
+          <div className="px-4 pb-4 space-y-3" style={{ paddingBottom: footer ? '4.5rem' : undefined }}>
             {children}
           </div>
+          {footer && (
+            <div className="sticky bottom-0 px-4 pb-4 pt-3 bg-ink-page-aged/95 border-t border-ink-page-shadow/40 backdrop-blur-sm">
+              {footer}
+            </div>
+          )}
         </motion.div>
       )}
       {confirmingClose && (
