@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import ConfirmDialog from './ConfirmDialog';
 import ModalBackdrop from './modal/ModalBackdrop';
 import SealCloseButton from './modal/SealCloseButton';
 import SealPulseRing from './modal/SealPulseRing';
@@ -29,10 +30,20 @@ function useIsDesktop() {
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
 
-export default function BottomSheet({ title, onClose, disabled, children }) {
+export default function BottomSheet({ title, onClose, disabled, dirty, children }) {
   const isDesktop = useIsDesktop();
   const titleId = useId();
   const dialogRef = useRef(null);
+  const [confirmingClose, setConfirmingClose] = useState(false);
+
+  const safeClose = useCallback(() => {
+    if (dirty && !confirmingClose) {
+      setConfirmingClose(true);
+      return;
+    }
+    setConfirmingClose(false);
+    onClose();
+  }, [dirty, confirmingClose, onClose]);
 
   const dialogCallbackRef = useCallback((node) => {
     dialogRef.current = node;
@@ -44,11 +55,11 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && !disabled) onClose();
+      if (e.key === 'Escape' && !disabled) safeClose();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, disabled]);
+  }, [safeClose, disabled]);
 
   useEffect(() => {
     const node = dialogRef.current;
@@ -78,7 +89,7 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
 
   return createPortal(
     <AnimatePresence>
-      <ModalBackdrop onClick={onClose} disabled={disabled} zIndex="z-40" />
+      <ModalBackdrop onClick={safeClose} disabled={disabled} zIndex="z-40" />
       {isDesktop ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
           <motion.div
@@ -96,7 +107,7 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
             <SealPulseRing rounded="rounded-2xl" />
             <div className="relative flex items-center justify-between px-5 pt-4 pb-2">
               <h2 id={titleId} className="font-display text-lg font-bold text-ink-primary">{title}</h2>
-              <SealCloseButton onClick={onClose} disabled={disabled} />
+              <SealCloseButton onClick={safeClose} disabled={disabled} />
             </div>
             <div className="relative px-5 pb-5 space-y-3">
               {children}
@@ -118,7 +129,7 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
           dragConstraints={{ top: 0 }}
           dragElastic={0.1}
           onDragEnd={(_e, info) => {
-            if (info.offset.y > 100 && !disabled) onClose();
+            if (info.offset.y > 100 && !disabled) safeClose();
           }}
           className="fixed bottom-0 left-0 right-0 parchment-bg-aged border-t border-ink-page-shadow rounded-t-2xl z-50 pb-[env(safe-area-inset-bottom)] max-h-[90vh] overflow-y-auto overflow-x-hidden scrollbar-hide modal-seal-ring"
         >
@@ -146,12 +157,21 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
           </div>
           <div className="flex items-center justify-between px-4 pt-3 pb-2">
             <h2 id={titleId} className="font-display text-lg font-bold text-ink-primary">{title}</h2>
-            <SealCloseButton onClick={onClose} disabled={disabled} />
+            <SealCloseButton onClick={safeClose} disabled={disabled} />
           </div>
           <div className="px-4 pb-4 space-y-3">
             {children}
           </div>
         </motion.div>
+      )}
+      {confirmingClose && (
+        <ConfirmDialog
+          title="Discard changes?"
+          message="You have unsaved changes that will be lost."
+          confirmLabel="Discard"
+          onConfirm={() => { setConfirmingClose(false); onClose(); }}
+          onCancel={() => setConfirmingClose(false)}
+        />
       )}
     </AnimatePresence>,
     document.body,

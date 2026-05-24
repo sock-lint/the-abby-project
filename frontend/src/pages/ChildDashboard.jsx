@@ -135,7 +135,6 @@ export default function ChildDashboard({ data, reload }) {
     return out;
   })();
   const visibleCount = visibleSections.reduce((n, s) => n + s.actions.length, 0);
-  const hiddenQuestCount = totalLogCount - visibleCount;
 
   const onActionClick = (a) => {
     if (a.kind === 'homework') return handleOpenHomework(a);
@@ -244,10 +243,10 @@ export default function ChildDashboard({ data, reload }) {
                 </div>
               ))}
             </div>
-            {hiddenQuestCount > 0 && (
+            {totalLogCount > VISIBLE_LOG_CAP && (
               <div className="mt-3">
-                <Button variant="ghost" size="sm" onClick={() => setLogExpanded(true)}>
-                  Show {hiddenQuestCount} more →
+                <Button variant="ghost" size="sm" onClick={() => setLogExpanded((v) => !v)}>
+                  {logExpanded ? 'Show fewer' : `Show all ${totalLogCount} tasks →`}
                 </Button>
               </div>
             )}
@@ -258,10 +257,7 @@ export default function ChildDashboard({ data, reload }) {
       <DeckleDivider glyph="flourish-corner" />
 
       {dropsError && !recentDrops && (
-        <div className="flex items-center gap-2">
-          <ErrorAlert message="Couldn't load recent drops." className="flex-1" />
-          <Button variant="secondary" size="sm" onClick={reloadDrops}>Retry</Button>
-        </div>
+        <ErrorAlert message="Couldn't load recent drops." onRetry={reloadDrops} />
       )}
 
       {recentDrops?.length > 0 && (
