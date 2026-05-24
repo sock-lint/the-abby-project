@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 
 import Button from './Button'
 import { markChronicleViewed } from '../api'
+import { hapticSuccess } from '../utils/haptics'
 import candlePng from '../assets/birthday-candle-placeholder.png'
 
 function usePrefersReducedMotion() {
@@ -25,6 +26,8 @@ export default function BirthdayCelebrationModal({ entry, onDismiss }) {
   const titleId = useId()
   const reduced = usePrefersReducedMotion()
   const [leaving, setLeaving] = useState(false)
+
+  useEffect(() => { hapticSuccess() }, [])
 
   // Extract age from the title (e.g. "Turned 15"); fallback empty string.
   const ageMatch = /\d+/.exec(entry.title || '')

@@ -7,6 +7,7 @@ import { getPendingCelebration, getPendingCelebrationNotification } from './api'
 import BirthdayCelebrationModal from './components/BirthdayCelebrationModal';
 import CelebrationModal from './components/CelebrationModal';
 import { SpriteCatalogProvider } from './providers/SpriteCatalogProvider';
+import SuccessToastProvider from './components/SuccessToast';
 import JournalShell from './components/layout/JournalShell';
 import { PwaStatusProvider } from './pwa/PwaStatusProvider';
 import { InstallPromptProvider } from './pwa/useInstallPrompt';
@@ -168,6 +169,7 @@ export default function App() {
             onDismiss={() => setCelebrationNotice(null)}
           />
         )}
+        <SuccessToastProvider>
         <SpriteCatalogProvider>
           <BrowserRouter>
             <RouteAnnouncer />
@@ -239,6 +241,7 @@ export default function App() {
           </BrowserRouter>
           <OfflineReadyToast />
         </SpriteCatalogProvider>
+        </SuccessToastProvider>
         </PwaStatusProvider>
       </InstallPromptProvider>
     </Sentry.ErrorBoundary>

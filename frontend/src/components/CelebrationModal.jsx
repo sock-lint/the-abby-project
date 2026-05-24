@@ -5,6 +5,7 @@ import { Flame, Sun } from 'lucide-react'
 
 import Button from './Button'
 import { markNotificationRead } from '../api'
+import { hapticSuccess } from '../utils/haptics'
 
 function usePrefersReducedMotion() {
   const [pref, setPref] = useState(() =>
@@ -69,6 +70,8 @@ export default function CelebrationModal({ notification, onDismiss }) {
   const titleId = useId()
   const reduced = usePrefersReducedMotion()
   const [leaving, setLeaving] = useState(false)
+
+  useEffect(() => { hapticSuccess() }, [])
 
   const isStreak = notification.notification_type === 'streak_milestone'
   const isPerfectDay = notification.notification_type === 'perfect_day'
