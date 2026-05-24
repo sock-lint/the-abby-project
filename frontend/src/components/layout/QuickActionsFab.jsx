@@ -39,7 +39,7 @@ export default function QuickActionsFab() {
     ? Math.max(0, Math.floor((now - new Date(clockInAt).getTime()) / 1000))
     : 0;
 
-  const label = isClocked ? formatElapsed(elapsedSecs) : 'Quick';
+  const label = isClocked ? formatElapsed(elapsedSecs) : null;
 
   return (
     <>
@@ -49,14 +49,14 @@ export default function QuickActionsFab() {
         aria-label={isClocked ? 'Quick actions (clocked in)' : 'Quick actions'}
         className={`fixed z-30 rounded-full shadow-xl transition-all
                     bottom-24 right-4 lg:bottom-6 lg:right-6
-                    flex items-center gap-2 pl-3 pr-4 py-3
+                    flex items-center gap-2 ${isClocked ? 'pl-3 pr-4' : 'p-3.5'} py-3
                     ${isClocked
                       ? 'bg-ember text-ink-page-rune-glow border border-ember-deep animate-rune-pulse'
                       : 'bg-sheikah-teal-deep text-ink-page-rune-glow border border-sheikah-teal-deep/60 hover:bg-sheikah-teal'
                     }`}
       >
         {isClocked ? <ClockFabIcon size={22} /> : <Plus size={22} />}
-        <span className="font-rune text-sm font-bold tabular-nums">{label}</span>
+        {label && <span className="font-rune text-sm font-bold tabular-nums">{label}</span>}
       </button>
 
       <AnimatePresence>
