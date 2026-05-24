@@ -153,6 +153,7 @@ export function ChapterBottomBar() {
           key={to}
           to={to}
           end={to === '/'}
+          aria-label={shortLabel}
           className={({ isActive }) =>
             `flex flex-col items-center justify-center gap-0.5 min-h-16 flex-1 transition-colors relative ${
               isActive ? 'text-sheikah-teal-deep' : 'text-ink-secondary'
@@ -162,9 +163,7 @@ export function ChapterBottomBar() {
           {({ isActive }) => (
             <>
               <Icon size={22} className={isActive ? 'animate-rune-pulse' : ''} />
-              <span
-                className="font-script text-micro leading-none"
-              >
+              <span className="font-script text-micro leading-none hidden min-[400px]:inline">
                 {shortLabel}
               </span>
               {isActive && (

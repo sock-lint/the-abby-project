@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Copy, Pencil, QrCode } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Copy, Pencil, QrCode } from 'lucide-react';
 import { saveProjectAsTemplate } from '../../api';
 import StarRating from '../../components/StarRating';
 import StatusBadge from '../../components/StatusBadge';
@@ -42,7 +41,6 @@ export default function ProjectHeader({
   project, isParent, isAssigned,
   onAction, onEdit, onOpenQR,
 }) {
-  const navigate = useNavigate();
   const [flash, setFlash] = useState('');
   const [error, setError] = useState('');
 
@@ -64,14 +62,6 @@ export default function ProjectHeader({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => navigate('/quests?tab=ventures')}
-        className="flex items-center gap-1 font-script text-sm text-ink-whisper hover:text-ink-primary transition-colors"
-      >
-        <ArrowLeft size={16} /> back to ventures
-      </button>
-
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div className="flex items-start gap-3 min-w-0 flex-1">
           <IlluminatedVersal

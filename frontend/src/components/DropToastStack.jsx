@@ -55,12 +55,9 @@ function ToastItem({ toast, onDismiss }) {
   );
 }
 
-export default function DropToastStack() {
+export default function DropToastStack({ inline = false }) {
   const { toasts, dismiss } = useDropToasts();
 
-  // Split rare+ drops into the full-screen reveal queue; common/uncommon
-  // continue to use the slide-in toast strip. Tier-1 finding from the
-  // 2026 review: silent toasts under-celebrate the rarest drops.
   const { commonToasts, rareQueue } = useMemo(() => {
     const c = [];
     const r = [];
@@ -71,21 +68,25 @@ export default function DropToastStack() {
     return { commonToasts: c, rareQueue: r };
   }, [toasts]);
 
-  // Show only the topmost rare reveal at a time so a multi-drop event
-  // queues into a sequence instead of overlapping.
   const activeReveal = rareQueue[0] || null;
+
+  const items = (
+    <AnimatePresence>
+      {commonToasts.map(t => (
+        <div key={t.id} className="pointer-events-auto">
+          <ToastItem toast={t} onDismiss={dismiss} />
+        </div>
+      ))}
+    </AnimatePresence>
+  );
 
   return (
     <>
-      <div className="fixed top-4 right-4 z-50 space-y-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none" aria-live="polite" aria-atomic="false">
-        <AnimatePresence>
-          {commonToasts.map(t => (
-            <div key={t.id} className="pointer-events-auto">
-              <ToastItem toast={t} onDismiss={dismiss} />
-            </div>
-          ))}
-        </AnimatePresence>
-      </div>
+      {inline ? items : (
+        <div className="fixed top-4 right-4 z-50 space-y-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none" aria-live="polite" aria-atomic="false">
+          {items}
+        </div>
+      )}
       {activeReveal && (
         <RareDropReveal drop={activeReveal} onDismiss={dismiss} />
       )}

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { UserPlus } from 'lucide-react';
 import HeroPrimaryCard from '../components/dashboard/HeroPrimaryCard';
 import OnboardingChecklist from '../components/dashboard/OnboardingChecklist';
@@ -9,9 +9,12 @@ import QuickAdjustRow from '../components/dashboard/QuickAdjustRow';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import Button from '../components/Button';
 import ErrorAlert from '../components/ErrorAlert';
+import { getChildren } from '../api';
+import { useApi } from '../hooks/useApi';
 import useParentDashboard from '../hooks/useParentDashboard';
 import { inkBleed } from '../motion/variants';
 import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import { formatWeekdayDate } from './_dashboardShared';
 
 function NoChildrenWelcome() {
@@ -40,6 +43,8 @@ function NoChildrenWelcome() {
 
 export default function ParentDashboard() {
   const { pending, weekByKid, dashboard, reload, failedSources = [] } = useParentDashboard();
+  const { data: children, loading: childrenLoading } = useApi(getChildren);
+  const navigate = useNavigate();
   const { weekday, dateStr } = formatWeekdayDate();
   const failureMessage = failedSources.length > 0
     ? `Couldn't load ${failedSources.join(', ')} — pending items from those queues may be missing.`
@@ -54,14 +59,10 @@ export default function ParentDashboard() {
 
   return (
     <PageShell variants={inkBleed}>
-      <header>
-        <div className="font-script text-sheikah-teal-deep text-base md:text-lg">
-          {weekday} · {dateStr}
-        </div>
-        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          Today&apos;s Entry
-        </h1>
-      </header>
+      <PageHeader
+        title="Today's Entry"
+        kicker={`${weekday} · ${dateStr}`}
+      />
 
       {showWelcome ? (
         <NoChildrenWelcome />
@@ -90,6 +91,47 @@ export default function ParentDashboard() {
 
           <AccordionSection
             index={0}
+            title="Family Snapshot"
+            kicker="your adventurers at a glance"
+            defaultOpen
+          >
+            {childrenLoading ? (
+              <p className="font-body text-caption text-ink-secondary">Loading...</p>
+            ) : children && children.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {children.map((child) => (
+                  <ParchmentCard key={child.id}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/manage`)}
+                      className="w-full text-left px-3 py-3"
+                    >
+                      <span className="font-display text-body text-ink-primary">
+                        {child.display_name || child.username}
+                      </span>
+                    </button>
+                  </ParchmentCard>
+                ))}
+              </div>
+            ) : (
+              <p className="font-body text-caption text-ink-secondary">No children added yet.</p>
+            )}
+
+            <div className="flex flex-wrap gap-2 mt-4">
+              <Button variant="secondary" size="sm" onClick={() => navigate('/quests?tab=study')}>
+                Assign homework
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => navigate('/quests?tab=duties')}>
+                Create chore
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => navigate('/manage')}>
+                Manage family
+              </Button>
+            </div>
+          </AccordionSection>
+
+          <AccordionSection
+            index={1}
             title="Week at a glance"
             kicker="per-kid hours and earnings"
             peek={weekByKid.length > 0 ? `${weekByKid.length} kid${weekByKid.length !== 1 ? 's' : ''} active` : 'no week data yet'}
@@ -98,7 +140,7 @@ export default function ParentDashboard() {
           </AccordionSection>
 
           <AccordionSection
-            index={1}
+            index={2}
             title="Quick adjusts"
             kicker="manual ledger corrections"
             peek="Adjust coins · Adjust payment"

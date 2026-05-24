@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Sparkles } from 'lucide-react';
+import { ExternalLink, Sparkles } from 'lucide-react';
 import { createProject, getCategories, getChildren, getInstructablesPreview } from '../api';
 import { useApi } from '../hooks/useApi';
+import BackLink from '../components/BackLink';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
@@ -66,14 +67,7 @@ export default function ProjectNew() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => navigate('/projects')}
-        className="flex items-center gap-1 text-body text-ink-whisper hover:text-ink-primary"
-      >
-        <ArrowLeft size={16} /> Back
-      </Button>
+      <BackLink to="/quests?tab=ventures">Back to Ventures</BackLink>
       <h1 className="font-display text-2xl font-bold">New Project</h1>
 
       <Button

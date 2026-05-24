@@ -114,6 +114,12 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+          drag="y"
+          dragConstraints={{ top: 0 }}
+          dragElastic={0.1}
+          onDragEnd={(_e, info) => {
+            if (info.offset.y > 100 && !disabled) onClose();
+          }}
           className="fixed bottom-0 left-0 right-0 parchment-bg-aged border-t border-ink-page-shadow rounded-t-2xl z-50 pb-[env(safe-area-inset-bottom)] max-h-[90vh] overflow-y-auto overflow-x-hidden scrollbar-hide modal-seal-ring"
         >
           {/* Top-edge teal halo — one-shot animation that radiates as the
@@ -128,8 +134,8 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
               filter: 'blur(3px)',
             }}
           />
-          {/* Sheikah-glyph drag handle — replaces the anonymous grey pill. */}
-          <div className="flex justify-center pt-2" aria-hidden="true">
+          {/* Sheikah-glyph drag handle — now swipe-interactive. */}
+          <div className="flex justify-center pt-2 cursor-grab active:cursor-grabbing touch-none" aria-hidden="true">
             <div
               className="w-12 h-1.5 rounded-full animate-rune-pulse"
               style={{

@@ -21,9 +21,9 @@ function renderHeader(props = {}) {
 }
 
 describe('ProjectHeader', () => {
-  it('renders project title and back link', () => {
-    renderHeader();
-    expect(screen.getByText(/back to ventures/i)).toBeInTheDocument();
+  it('renders project title', () => {
+    renderHeader({ project: { title: 'Test Venture' } });
+    expect(screen.getByText('Test Venture')).toBeInTheDocument();
   });
 
   it('parent sees edit button', async () => {

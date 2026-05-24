@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import useSearchParamState from '../hooks/useSearchParamState';
 import { Coins, Plus } from 'lucide-react';
 import {
   approveExchange, approveRedemption, rejectExchange, rejectRedemption,
@@ -48,7 +49,7 @@ export default function Rewards() {
   const [showCoinAdjust, setShowCoinAdjust] = useState(false);
   const [showExchange, setShowExchange] = useState(false);
   const [outOfStock, setOutOfStock] = useState(null);
-  const [shopFilter, setShopFilter] = useState('');
+  const [shopFilter, setShopFilter] = useSearchParamState('q', '');
   const { confirmState, askConfirm, closeConfirm } = useConfirmState();
 
   const refresh = () => {
@@ -249,12 +250,19 @@ export default function Rewards() {
           {loadingRewards ? <Loader /> : (
             <>
               {rewards.length > 0 && (
-                <CatalogSearch
-                  value={shopFilter}
-                  onChange={setShopFilter}
-                  placeholder="Search the bazaar…"
-                  ariaLabel="Filter rewards"
-                />
+                <div className="space-y-1">
+                  <CatalogSearch
+                    value={shopFilter}
+                    onChange={setShopFilter}
+                    placeholder="Search the bazaar…"
+                    ariaLabel="Filter rewards"
+                  />
+                  {shopFilter && (
+                    <div className="font-script text-caption text-sheikah-teal-deep tabular-nums">
+                      {filteredRewards.length} {filteredRewards.length === 1 ? 'match' : 'matches'}
+                    </div>
+                  )}
+                </div>
               )}
               <RewardShop
                 rewards={filteredRewards}

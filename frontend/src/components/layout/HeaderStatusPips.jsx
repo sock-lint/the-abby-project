@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Flame } from 'lucide-react';
+import { Clock, Flame, Stamp } from 'lucide-react';
 import { getDashboard } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import useParentPendingCounts from '../../hooks/useParentPendingCounts';
@@ -80,8 +80,7 @@ export default function HeaderStatusPips({ user }) {
     if (isParent) {
       out.push({
         key: 'approvals',
-        // retained: pixel-perfect seal glyph
-        icon: <span aria-hidden="true" className="font-display text-tiny leading-none">seal</span>,
+        icon: <Stamp size={14} />,
         label: String(pending),
         tone: pending > 0 ? 'ember' : 'ink',
         ariaLabel: `${pending} pending approvals`,
