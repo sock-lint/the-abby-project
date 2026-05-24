@@ -6,6 +6,7 @@ import {
   getRedemptions, getRewards, redeemReward,
   addRewardToWishlist, removeRewardFromWishlist,
 } from '../api';
+import { hapticSuccess } from '../utils/haptics';
 import CatalogSearch from '../components/CatalogSearch';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ErrorAlert from '../components/ErrorAlert';
@@ -65,6 +66,7 @@ export default function Rewards() {
     }
     try {
       await redeemReward(reward.id);
+      hapticSuccess();
       refresh();
     } catch (e) {
       // 409 with code:"out_of_stock" → degrade to a friendly modal that

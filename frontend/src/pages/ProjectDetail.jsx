@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft } from 'lucide-react';
 import {
   getProject, submitProject, approveProject, requestChanges,
   completeMilestone, deleteMilestone,
@@ -31,6 +32,7 @@ const tabs = ['Overview', 'Plan', 'Materials'];
 
 export default function ProjectDetail() {
   const { user, isParent } = useRole();
+  const navigate = useNavigate();
   const { id } = useParams();
   const { data: project, loading, reload } = useApi(() => getProject(id), [id]);
   const [activeTab, setActiveTab] = useState('Overview');
@@ -139,6 +141,15 @@ export default function ProjectDetail() {
 
   return (
     <div className="space-y-6">
+      <button
+        type="button"
+        onClick={() => navigate('/quests?tab=ventures')}
+        className="inline-flex items-center gap-1.5 text-caption text-ink-secondary hover:text-ink-primary font-script transition-colors mb-3"
+      >
+        <ArrowLeft size={14} />
+        Back to Ventures
+      </button>
+
       <ProjectHeader
         project={project}
         isParent={isParent}

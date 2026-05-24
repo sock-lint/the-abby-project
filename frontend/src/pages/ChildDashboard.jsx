@@ -6,6 +6,7 @@ import * as Sentry from '@sentry/react';
 import {
   completeChore, getActiveQuest, getRecentDrops, getStable, logHabitTap,
 } from '../api';
+import { hapticTap } from '../utils/haptics';
 import { useApi } from '../hooks/useApi';
 import { formatCurrency } from '../utils/format';
 import ParchmentCard from '../components/journal/ParchmentCard';
@@ -77,15 +78,21 @@ export default function ChildDashboard({ data, reload }) {
   }, []);
 
   const handleCompleteChore = useCallback(
-    (id) => completeChore(id)
-      .then(reload)
-      .catch((err) => handleActionError(err, 'Mark duty done')),
+    (id) => {
+      hapticTap();
+      return completeChore(id)
+        .then(reload)
+        .catch((err) => handleActionError(err, 'Mark duty done'));
+    },
     [reload, handleActionError],
   );
   const handleTapHabit = useCallback(
-    (id) => logHabitTap(id, 1)
-      .then(reload)
-      .catch((err) => handleActionError(err, 'Tap ritual')),
+    (id) => {
+      hapticTap();
+      return logHabitTap(id, 1)
+        .then(reload)
+        .catch((err) => handleActionError(err, 'Tap ritual'));
+    },
     [reload, handleActionError],
   );
   // Open the homework submit sheet inline. We accept either a plain id

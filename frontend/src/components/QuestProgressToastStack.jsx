@@ -55,7 +55,7 @@ function Toast({ toast, onDismiss }) {
 export default function QuestProgressToastStack() {
   const { toasts, dismiss } = useQuestProgressToasts();
   return (
-    <div className="fixed top-52 right-4 z-50 space-y-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none">
+    <div className="fixed top-52 right-4 z-50 space-y-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none" aria-live="polite" aria-atomic="false">
       <AnimatePresence>
         {toasts.map((t) => (
           <div key={t.id} className="pointer-events-auto">

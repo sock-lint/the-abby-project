@@ -72,7 +72,7 @@ export default function CompanionGrowthToastStack() {
 
   return (
     <>
-      <div className="fixed top-20 right-4 z-50 space-y-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none">
+      <div className="fixed top-20 right-4 z-50 space-y-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none" aria-live="polite" aria-atomic="false">
         <AnimatePresence>
           {tickToasts.map((event) => (
             <div key={event._toastId} className="pointer-events-auto">

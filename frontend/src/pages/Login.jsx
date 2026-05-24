@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import ErrorAlert from '../components/ErrorAlert';
 import { getGoogleLoginUrl } from '../api';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import Button from '../components/Button';
+import IconButton from '../components/IconButton';
 import { TextField } from '../components/form';
 
 /**
@@ -13,6 +15,7 @@ import { TextField } from '../components/form';
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleAvailable, setGoogleAvailable] = useState(false);
@@ -86,14 +89,26 @@ export default function Login({ onLogin }) {
               autoFocus
               autoComplete="username"
             />
-            <TextField
-              id="login-password"
-              label="Secret word"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
+            <div className="relative">
+              <TextField
+                id="login-password"
+                label="Secret word"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+              <IconButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute right-2 top-8"
+                onClick={() => setShowPassword((v) => !v)}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </IconButton>
+            </div>
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? 'Unsealing…' : 'Enter'}
             </Button>
