@@ -11,8 +11,8 @@ export default function RedemptionHistory({ redemptions, isParent }) {
             <div className="flex items-center gap-3">
               <div className="text-xl">{r.reward.icon || '🎁'}</div>
               <div>
-                <div className="text-sm font-medium">{r.reward.name}</div>
-                <div className="text-xs text-ink-whisper">
+                <div className="font-body text-body font-medium">{r.reward.name}</div>
+                <div className="font-script text-caption text-ink-whisper">
                   {isParent && `${r.user_name} • `}
                   {formatDate(r.requested_at)} • {r.coin_cost_snapshot} coins
                 </div>

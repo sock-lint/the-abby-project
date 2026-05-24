@@ -40,11 +40,11 @@ export default function RewardCard({
         </div>
       )}
       <div className="text-4xl mb-1 text-center">{reward.icon || '🎁'}</div>
-      <div className="font-body text-sm font-semibold text-center text-ink-primary">
+      <div className="font-body text-body font-semibold text-center text-ink-primary">
         {reward.name}
       </div>
       {reward.description && (
-        <div className="font-body text-xs text-ink-secondary text-center mt-1 line-clamp-2">
+        <div className="font-body text-caption text-ink-secondary text-center mt-1 line-clamp-2">
           {reward.description}
         </div>
       )}
@@ -60,7 +60,7 @@ export default function RewardCard({
       </div>
       {reward.stock != null && (
         <div
-          className={`font-script text-xs text-center ${reward.stock <= 1 ? 'text-ember-deep font-semibold' : 'text-ink-whisper'}`}
+          className={`font-script text-caption text-center ${reward.stock <= 1 ? 'text-ember-deep font-semibold' : 'text-ink-whisper'}`}
         >
           {reward.stock === 0
             ? 'sold out'

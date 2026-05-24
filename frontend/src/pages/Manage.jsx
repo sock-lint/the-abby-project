@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import {
-  Users, UserPlus, UsersRound, BookTemplate, BookOpen, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink, KeyRound, UserX, UserCheck, Shield,
+  Users, UserPlus, UsersRound, BookTemplate, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink, KeyRound, UserX, UserCheck, Shield,
   TestTubeDiagonal,
 } from 'lucide-react';
 import {
@@ -17,7 +17,6 @@ import {
   getCategories, getGoogleAuthUrl, unlinkGoogleAccount,
   devToolsPing,
 } from '../api';
-import CodexSection from './manage/CodexSection';
 import GuideSection from './manage/GuideSection';
 import TestSection from './manage/TestSection';
 import ResetPasswordModal from './manage/ResetPasswordModal';
@@ -37,13 +36,12 @@ import { TextField, SelectField, TextAreaField } from '../components/form';
 import { normalizeList } from '../utils/api';
 import useScrollFades from '../hooks/useScrollFades';
 
-const BASE_TABS = ['Children', 'Family', 'Templates', 'Codex', 'Guide'];
+const BASE_TABS = ['Children', 'Family', 'Templates', 'Guide'];
 
 const TAB_ICONS = {
   Children: Users,
   Family: UsersRound,
   Templates: BookTemplate,
-  Codex: BookOpen,
   Guide: ScrollText,
   Admin: Shield,
   Test: TestTubeDiagonal,
@@ -145,7 +143,6 @@ export default function Manage() {
       {activeTab === 'Children' && <ChildrenSection />}
       {activeTab === 'Family' && <FamilySection />}
       {activeTab === 'Templates' && <TemplatesSection />}
-      {activeTab === 'Codex' && <CodexSection />}
       {activeTab === 'Guide' && <GuideSection />}
       {activeTab === 'Admin' && adminEnabled && <AdminSection />}
       {activeTab === 'Test' && devToolsEnabled && <TestSection />}

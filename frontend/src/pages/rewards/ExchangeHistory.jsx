@@ -14,10 +14,10 @@ export default function ExchangeHistory({ exchanges, isParent }) {
                 <ArrowRightLeft size={14} className="text-sheikah-teal-deep" />
               </div>
               <div>
-                <div className="text-sm font-medium">
+                <div className="font-body text-body font-medium">
                   {formatCurrency(ex.dollar_amount)} → {ex.coin_amount} coins
                 </div>
-                <div className="text-xs text-ink-whisper">
+                <div className="font-script text-caption text-ink-whisper">
                   {isParent && `${ex.user_name} • `}
                   {formatDate(ex.created_at)} • {ex.exchange_rate} coins/$1
                 </div>

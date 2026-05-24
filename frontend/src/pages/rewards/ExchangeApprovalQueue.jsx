@@ -15,10 +15,10 @@ export default function ExchangeApprovalQueue({ pending, onApprove, onReject }) 
       {({ item: ex, actions }) => (
         <ParchmentCard key={ex.id} className="flex items-center justify-between">
           <div>
-            <div className="text-sm font-medium">
+            <div className="font-body text-body font-medium">
               {ex.user_name} — {formatCurrency(ex.dollar_amount)} → {ex.coin_amount} coins
             </div>
-            <div className="text-xs text-ink-whisper">
+            <div className="font-script text-caption text-ink-whisper">
               Rate: {ex.exchange_rate} coins/$1 • {formatDateTime(ex.created_at)}
             </div>
           </div>

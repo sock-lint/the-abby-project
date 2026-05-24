@@ -22,6 +22,7 @@ import ProjectNew from './pages/ProjectNew';
 import ProjectIngest from './pages/ProjectIngest';
 import ClockPage from './pages/ClockPage';
 import Manage from './pages/Manage';
+import CodexPage from './pages/CodexPage';
 import ActivityPage from './pages/activity/ActivityPage';
 import SettingsPage from './pages/SettingsPage';
 import QuestsHub from './pages/quests';
@@ -210,6 +211,7 @@ export default function App() {
               {/* Utility */}
               <Route path="/clock" element={<ClockPage />} />
               <Route path="/manage" element={<Manage />} />
+              <Route path="/codex" element={<CodexPage />} />
               <Route path="/activity" element={<ActivityPage />} />
               <Route path="/settings" element={<SettingsPage />} />
 
