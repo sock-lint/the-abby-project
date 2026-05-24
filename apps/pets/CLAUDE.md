@@ -8,8 +8,8 @@ Collectible pets + mount evolution + breeding + offline expeditions. Lifecycle: 
 - `MountExpedition` (offline adventure rows; `status`, `tier`, `started_at`, `ready_at`, `loot` JSON).
 
 ## Services
-- `PetService` — `hatch_pet`, `feed_pet`, `evolve`, `activate`, `breed_mounts`, `auto_grow_companions`, `happiness_for_pet`.
-- `ExpeditionService` (`apps/pets/expeditions.py`) — `start`, `claim`, `list_for_user`. `TIER_CONFIG` (short/standard/long).
+- `PetService` — `hatch_pet`, `feed_pet`, `evolve`, `set_active_pet`, `set_active_mount`, `breed_mounts`, `auto_grow_companions`, `happiness_for_pet`, `get_stable(user)` (returns dict with pets, mounts, totals for StableView).
+- `ExpeditionService` (`apps/pets/expeditions.py`) — `start`, `claim`, `list_for_user`. `TIER_CONFIG` (short/standard/long). Exceptions: `ExpeditionError`, `ExpeditionNotFound`.
 
 ## Endpoints
 - `POST /api/mounts/breed/ {mount_a_id, mount_b_id}` — breed two mounts.
@@ -64,7 +64,8 @@ Collectible pets + mount evolution + breeding + offline expeditions. Lifecycle: 
   Endpoints: `POST /api/mounts/<id>/expedition/ {tier}`, `GET /api/expeditions/[?ready=true]`, `POST /api/expeditions/<id>/claim/`. New `NotificationType.EXPEDITION_RETURNED` fans the return event to the kid + parents (frontend parity in `notifications.constants.js`). New `TriggerType.EXPEDITION_RETURNED` (drop rate 0.0 since loot is pre-rolled, damage 5 — same as `habit_log`). Lorebook coverage maps for the new trigger and coin reason both alias to the `mounts` slug (rewritten to describe expeditions). Tests in [`tests/test_expeditions.py`](tests/test_expeditions.py) (15 cases) cover start/claim/cooldown/cross-user/Lucky-Coin/salvage/drops_allowed=False; frontend interaction tests in [`Mounts.test.jsx`](/frontend/src/pages/bestiary/party/Mounts.test.jsx) and [`ExpeditionToastStack.test.jsx`](/frontend/src/components/ExpeditionToastStack.test.jsx).
 
 ## Tunables (constants in `apps/pets/services.py`)
-- `GROWTH_PREFERRED_FOOD = 15`, `GROWTH_NEUTRAL_FOOD = 5`, `EVOLUTION_THRESHOLD = 100` — pet growth mechanics.
+- `GROWTH_PREFERRED_FOOD = 15`, `GROWTH_NEUTRAL_FOOD = 5`, `EVOLUTION_THRESHOLD = 100` — pet growth mechanics. Food preference is FK-driven: `ItemDefinition.food_species` FK points to `PetSpecies`; `feed_pet` compares `food.food_species == pet.species` for the preferred bonus.
+- `HAPPINESS_THRESHOLDS` — `happy` (≤3 days since fed), `bored` (≤7), `stale` (≤14), `away` (>14). Evolved pets always `happy`.
 - `CONSUMABLE_GROWTH_DAILY_CAP = 50` — per-pet per-local-day cap on direct-grant growth from `growth_surge` and `feast_platter`. State lives on `UserPet.consumable_growth_today` + `consumable_growth_date`; the `apply_consumable_growth(amount)` model method auto-resets the counter on a new day. Tonic-doubled feeds bypass this cap because food items are themselves the limiter.
 - `MOUNT_BREEDING_COOLDOWN_DAYS = 7`, `CHROMATIC_UPGRADE_CHANCE = 0.02`.
 

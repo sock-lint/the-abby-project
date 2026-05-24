@@ -18,6 +18,11 @@ Deep subsystem details live next to the code they describe, in subtree CLAUDE.md
 | [`apps/homework/CLAUDE.md`](apps/homework/CLAUDE.md) | Homework lifecycle · effort scaling · AI planning · anti-farm gate |
 | [`apps/creations/CLAUDE.md`](apps/creations/CLAUDE.md) | Creation log · daily cap · bonus track |
 | [`apps/wellbeing/CLAUDE.md`](apps/wellbeing/CLAUDE.md) | Daily affirmation + gratitude · soft surface |
+| [`apps/rewards/CLAUDE.md`](apps/rewards/CLAUDE.md) | Coins economy · reward shop · wishlist · money→coins exchange |
+| [`apps/chores/CLAUDE.md`](apps/chores/CLAUDE.md) | Duties · alternating-week schedules · submit-then-approve workflow |
+| [`apps/timecards/CLAUDE.md`](apps/timecards/CLAUDE.md) | Clock-in/out · weekly timecards · auto clock-out · CSV export |
+| [`apps/habits/CLAUDE.md`](apps/habits/CLAUDE.md) | Rituals · positive/negative taps · strength decay |
+| [`apps/movement/CLAUDE.md`](apps/movement/CLAUDE.md) | Physical activity sessions · intensity scaling · daily reward cap |
 | [`apps/mcp_server/CLAUDE.md`](apps/mcp_server/CLAUDE.md) | MCP OAuth 2.1 surface ladder · context helpers |
 | [`apps/ingestion/CLAUDE.md`](apps/ingestion/CLAUDE.md) | Scrapy-style ingestion pipeline · AI enrichment |
 | [`apps/achievements/CLAUDE.md`](apps/achievements/CLAUDE.md) | Skill tree · 48 badge criterion types · XP entry-point table |
@@ -113,32 +118,24 @@ apps/
                      Table preserved as projects_notification.
   ingestion/         ProjectIngestionJob + Scrapy-style pipeline package.
                      → apps/ingestion/CLAUDE.md
-  timecards/         TimeEntry, Timecard, ClockService, TimeEntryService,
-                     TimecardService, Celery tasks, CSV export.
+  timecards/         → apps/timecards/CLAUDE.md
   payments/          PaymentLedger (10 entry types), PaymentService (extends
                      BaseLedgerService), Greenlight CSV import,
                      PaymentAdjustmentView.
-  achievements/      Skill tree + 48 criterion types + AwardService.grant.
-                     → apps/achievements/CLAUDE.md
-  rewards/           CoinLedger, Reward, RewardRedemption, ExchangeRequest,
-                     RewardWishlist, CoinService (extends BaseLedgerService),
-                     RewardService, ExchangeService (money→coins),
-                     CoinAdjustmentView.
-  chores/            Chore (recurring task definitions, family-scoped),
-                     ChoreCompletion (submit→approve workflow), ChoreService.
-                     Supports alternating-week schedules (shared custody).
+  achievements/      → apps/achievements/CLAUDE.md
+  rewards/           → apps/rewards/CLAUDE.md
+  chores/            → apps/chores/CLAUDE.md
   chronicle/         → apps/chronicle/CLAUDE.md
   homework/          → apps/homework/CLAUDE.md
   creations/         → apps/creations/CLAUDE.md
   wellbeing/         → apps/wellbeing/CLAUDE.md
   portfolio/         ProjectPhoto, ZIP export.
-  habits/            Habit, HabitLog, HabitService, HabitViewSet,
-                     decay_habit_strength_task (Celery).
+  habits/            → apps/habits/CLAUDE.md
   rpg/               → apps/rpg/CLAUDE.md
   pets/              → apps/pets/CLAUDE.md
   quests/            → apps/quests/CLAUDE.md
   mcp_server/        → apps/mcp_server/CLAUDE.md
-  movement/          Movement session logging.
+  movement/          → apps/movement/CLAUDE.md
   activity/          Activity aggregation.
   lorebook/          Lorebook content + parity gate.
   dev_tools/         Dev-only endpoints (toast / ceremony ops).

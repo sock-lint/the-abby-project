@@ -10,11 +10,12 @@ Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14
 
 ## Services (`apps/rpg/services.py`)
 - `StreakService`, `DropService`, `CosmeticService`, `ConsumableService`, `GameLoopService` (central orchestrator).
+- `InventoryItemService` — `open_coin_pouch(user, item)` converts a `coin_pouch` item to coins via `CoinService.award_coins`. Endpoint: `POST /api/inventory/<item_id>/open/`.
 - `sprite_authoring.py`: `register_sprite`, `register_sprite_batch`, `delete_sprite`, `get_catalog` — write to the abby-sprites Ceph bucket.
 - `storage.py::sprite_storage()` — lazy-helper for the dedicated sprites STORAGES key.
 - `constants.py`: shared `TriggerType` TextChoices.
 
-Celery task: `evaluate_perfect_day_task`.
+Celery task: `evaluate_perfect_day_task` — runs at 23:55 local, awards `perfect_days_count += 1` and 15 bonus coins to children who were active today and completed every scheduled daily chore. The "at least one scheduled" guard prevents zero-chore days from auto-qualifying.
 
 ## Endpoints
 - `/api/sprites/catalog/` (`SpriteCatalogView`, public, ETag-cached) — read API.
