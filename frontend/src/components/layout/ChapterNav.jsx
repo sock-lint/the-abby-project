@@ -156,6 +156,10 @@ export function ChapterBottomBar({ user }) {
   const isParent = user?.role === 'parent';
   const { total: pendingCount } = useParentPendingCounts({ enabled: isParent });
 
+  const chapters = isParent
+    ? [...CHAPTERS.slice(0, 5), { to: '/manage', icon: SlidersHorizontal, label: 'Manage', shortLabel: 'Manage' }]
+    : CHAPTERS;
+
   return (
     <nav
       className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex justify-around
@@ -163,7 +167,7 @@ export function ChapterBottomBar({ user }) {
                  pb-[env(safe-area-inset-bottom)]
                  shadow-[0_-2px_0_var(--color-ink-page-rune-glow)_inset]"
     >
-      {CHAPTERS.map(({ to, icon: Icon, shortLabel }) => (
+      {chapters.map(({ to, icon: Icon, shortLabel }) => (
         <NavLink
           key={to}
           to={to}
@@ -178,7 +182,7 @@ export function ChapterBottomBar({ user }) {
           {({ isActive }) => (
             <>
               <span className="relative">
-                <Icon size={22} className={isActive ? 'animate-rune-pulse' : ''} />
+                <Icon size={20} className={isActive ? 'animate-rune-pulse' : ''} />
                 {to === '/' && pendingCount > 0 && (
                   <span
                     className="absolute -top-1 -right-2 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-[9px] font-rune font-bold leading-none px-0.5"
@@ -188,7 +192,7 @@ export function ChapterBottomBar({ user }) {
                   </span>
                 )}
               </span>
-              <span className="font-script text-micro leading-none hidden min-[400px]:inline">
+              <span className={`font-script text-micro leading-none ${isActive ? 'inline' : 'hidden min-[400px]:inline'}`}>
                 {shortLabel}
               </span>
               {isActive && (

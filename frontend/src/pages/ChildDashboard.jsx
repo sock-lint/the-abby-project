@@ -77,6 +77,7 @@ export default function ChildDashboard({ data, reload }) {
   // ``actionError`` flips into a soft inline banner; everything also
   // hits Sentry so prod regressions are visible.
   const [actionError, setActionError] = useState('');
+  const [completedIds, setCompletedIds] = useState(new Set());
   const handleActionError = useCallback((err, label) => {
     Sentry.captureException(err, { extra: { handler: label } });
     setActionError(err?.response?.error || err?.message || `${label} failed.`);
@@ -85,18 +86,34 @@ export default function ChildDashboard({ data, reload }) {
   const handleCompleteChore = useCallback(
     (id) => {
       hapticTap();
+      setCompletedIds((prev) => new Set(prev).add(`chore-${id}`));
       return completeChore(id)
         .then(reload)
-        .catch((err) => handleActionError(err, 'Mark duty done'));
+        .catch((err) => {
+          setCompletedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(`chore-${id}`);
+            return next;
+          });
+          handleActionError(err, 'Mark duty done');
+        });
     },
     [reload, handleActionError],
   );
   const handleTapHabit = useCallback(
     (id) => {
       hapticTap();
+      setCompletedIds((prev) => new Set(prev).add(`habit-${id}`));
       return logHabitTap(id, 1)
         .then(reload)
-        .catch((err) => handleActionError(err, 'Tap ritual'));
+        .catch((err) => {
+          setCompletedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(`habit-${id}`);
+            return next;
+          });
+          handleActionError(err, 'Tap ritual');
+        });
     },
     [reload, handleActionError],
   );
@@ -193,6 +210,32 @@ export default function ChildDashboard({ data, reload }) {
         activePet={activePet}
       />
 
+      {totalLogCount === 0 && !active_projects?.length && !savings_goals?.length && !recent_badges?.length && (
+        <ParchmentCard tone="bright">
+          <div className="text-center py-6 px-4 space-y-4">
+            <div className="text-4xl">🗺️</div>
+            <h2 className="font-display italic text-2xl text-ink-primary">
+              Your adventure begins here
+            </h2>
+            <p className="font-script text-ink-secondary text-body max-w-md mx-auto">
+              Once your parent sets up duties, homework, or ventures, they'll
+              appear right here for you to tackle.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3 pt-2">
+              <Button variant="secondary" size="sm" onClick={() => navigate('/quests')}>
+                Explore quests
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => navigate('/bestiary')}>
+                Visit bestiary
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => navigate('/treasury?tab=bazaar')}>
+                Browse the bazaar
+              </Button>
+            </div>
+          </div>
+        </ParchmentCard>
+      )}
+
       {totalLogCount > 0 && (
         <section>
           <div className="mb-2 flex justify-end">
@@ -231,7 +274,7 @@ export default function ChildDashboard({ data, reload }) {
                           title={a.title}
                           meta={meta}
                           reward={reward}
-                          status="pending"
+                          status={completedIds.has(`${a.kind}-${a.id}`) ? 'done' : 'pending'}
                           kind={KIND_LABEL[a.kind] || section.label}
                           tone={a.tone || section.tone}
                           icon={<Icon size={16} />}

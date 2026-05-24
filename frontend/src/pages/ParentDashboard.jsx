@@ -15,6 +15,7 @@ import useParentDashboard from '../hooks/useParentDashboard';
 import { inkBleed } from '../motion/variants';
 import PageShell from '../components/layout/PageShell';
 import PageHeader from '../components/layout/PageHeader';
+import { formatCurrency } from '../utils/format';
 import { formatWeekdayDate } from './_dashboardShared';
 
 function NoChildrenWelcome() {
@@ -93,25 +94,32 @@ export default function ParentDashboard() {
             index={0}
             title="Family Snapshot"
             kicker="your adventurers at a glance"
-            defaultOpen
           >
             {childrenLoading ? (
               <p className="font-body text-caption text-ink-secondary">Loading...</p>
             ) : children && children.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {children.map((child) => (
-                  <ParchmentCard key={child.id}>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/manage`)}
-                      className="w-full text-left px-3 py-3"
-                    >
-                      <span className="font-display text-body text-ink-primary">
-                        {child.display_name || child.username}
-                      </span>
-                    </button>
-                  </ParchmentCard>
-                ))}
+                {children.map((child) => {
+                  const kidWeek = weekByKid.find((w) => w.kid_id === child.id);
+                  return (
+                    <ParchmentCard key={child.id}>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/manage')}
+                        className="w-full text-left px-3 py-3 space-y-1"
+                      >
+                        <span className="font-display text-body text-ink-primary block">
+                          {child.display_name || child.username}
+                        </span>
+                        {kidWeek && (
+                          <span className="font-script text-caption text-ink-whisper block">
+                            {kidWeek.hours ?? 0}h · {formatCurrency(kidWeek.earnings)} this week
+                          </span>
+                        )}
+                      </button>
+                    </ParchmentCard>
+                  );
+                })}
               </div>
             ) : (
               <p className="font-body text-caption text-ink-secondary">No children added yet.</p>
