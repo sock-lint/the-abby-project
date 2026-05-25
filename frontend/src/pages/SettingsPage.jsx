@@ -23,7 +23,14 @@ import { themes, applyTheme, LEGACY_THEME_ALIASES } from '../themes';
 import { cosmeticLockHint } from './character/character.constants';
 import { downscaleImage } from '../utils/image';
 import Button from '../components/Button';
+import { ToggleField } from '../components/form';
 import InstallCard from '../pwa/InstallCard';
+
+// Auto-dismiss window for transient Google-account status banners. Long
+// enough to read but short enough that the user doesn't come back to
+// the page hours later wondering why "Calendar sync started." is still
+// shouting at them.
+const GOOGLE_MESSAGE_DISMISS_MS = 5000;
 
 export default function SettingsPage() {
   const { user, logout: onLogout, setUser } = useAuth();
@@ -109,6 +116,16 @@ export default function SettingsPage() {
       setCurrentTheme(resolved);
     }
   }, [user?.theme]);
+
+  // Auto-dismiss transient Google status banners. We only auto-clear
+  // success messages — error messages stay until the user navigates or
+  // a new event lands, since users need time to read what went wrong.
+  useEffect(() => {
+    if (!googleMessage) return undefined;
+    if (/fail|error/i.test(googleMessage)) return undefined;
+    const timer = setTimeout(() => setGoogleMessage(''), GOOGLE_MESSAGE_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [googleMessage]);
 
   const loadCovers = async () => {
     setCoversLoading(true);
@@ -512,26 +529,17 @@ export default function SettingsPage() {
             Sync project deadlines, chore schedules, and work sessions to your Google Calendar.
           </p>
           <div className="space-y-3">
-            <label className="flex items-center justify-between cursor-pointer font-body text-body text-ink-primary">
-              <span className="flex items-center gap-2">
-                <Calendar size={16} className="text-sheikah-teal-deep" />
-                Enable calendar sync
-              </span>
-              <button
-                type="button"
-                onClick={handleToggleCalendar}
-                className={`relative w-10 h-5 rounded-full transition-colors ${
-                  calendarEnabled ? 'bg-sheikah-teal-deep' : 'bg-ink-page-shadow'
-                }`}
-                aria-pressed={calendarEnabled}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-ink-page-rune-glow transition-transform ${
-                    calendarEnabled ? 'translate-x-5' : ''
-                  }`}
-                />
-              </button>
-            </label>
+            <ToggleField
+              checked={calendarEnabled}
+              onChange={handleToggleCalendar}
+              labelNode={
+                <span className="flex items-center gap-2">
+                  <Calendar size={16} className="text-sheikah-teal-deep" />
+                  Enable calendar sync
+                </span>
+              }
+              className="flex items-center justify-between [&>div]:w-full [&>div]:justify-between"
+            />
             {calendarEnabled && (
               <Button
                 variant="ghost"

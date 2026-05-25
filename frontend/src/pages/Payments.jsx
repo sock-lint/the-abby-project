@@ -19,7 +19,7 @@ import { formatCurrency } from '../utils/format';
 import { normalizeList } from '../utils/api';
 import Button from '../components/Button';
 import PageShell from '../components/layout/PageShell';
-import { TextField, SelectField } from '../components/form';
+import { TextField, SelectField, DateField } from '../components/form';
 
 // Each ledger category maps to a journal-compatible tone rather than a
 // neon accent. Icons remain lucide-react glyphs, colored via tone class.
@@ -404,19 +404,17 @@ export default function Payments() {
         </div>
         {isParent && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mb-2">
-            <input
-              type="date"
+            <DateField
+              variant="filter"
+              aria-label="Filter from date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              aria-label="Filter from date"
-              className="px-2 py-1 text-tiny font-script rounded border border-ink-page-shadow/30 bg-ink-page-aged"
             />
-            <input
-              type="date"
+            <DateField
+              variant="filter"
+              aria-label="Filter to date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              aria-label="Filter to date"
-              className="px-2 py-1 text-tiny font-script rounded border border-ink-page-shadow/30 bg-ink-page-aged"
             />
             <SelectField
               variant="filter"

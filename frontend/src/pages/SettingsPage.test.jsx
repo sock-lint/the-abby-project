@@ -60,8 +60,11 @@ describe('SettingsPage', () => {
       http.patch('*/api/auth/google/calendar/', () => HttpResponse.json({})),
     ]);
     await waitFor(() => expect(screen.getAllByText(/calendar sync/i).length).toBeGreaterThan(0));
-    const toggle = screen.getAllByRole('button').find((b) => b.getAttribute('aria-pressed') !== null);
-    if (toggle) await user.click(toggle);
+    // ToggleField renders role="switch". Click it and assert aria-checked flipped.
+    const toggle = screen.getByRole('switch');
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await user.click(toggle);
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'true'));
   });
 
   // Cover unification (2026-05): the picker now routes through

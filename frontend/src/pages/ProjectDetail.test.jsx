@@ -62,9 +62,9 @@ describe('ProjectDetail', () => {
     const user = userEvent.setup();
     renderPage(buildUser());
     await waitFor(() => expect(screen.getByText('TestPrj')).toBeInTheDocument());
-    const planTab = screen.getByRole('button', { name: /^plan$/i });
+    const planTab = screen.getByRole('tab', { name: /^plan$/i });
     await user.click(planTab);
-    const materialsTab = screen.getByRole('button', { name: /^materials$/i });
+    const materialsTab = screen.getByRole('tab', { name: /^materials$/i });
     await user.click(materialsTab);
   });
 
@@ -92,7 +92,7 @@ describe('ProjectDetail', () => {
     );
 
     await waitFor(() => expect(screen.getByText('TestPrj')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /^plan$/i }));
+    await user.click(screen.getByRole('tab', { name: /^plan$/i }));
     const stepBtn = await screen.findByRole('button', { name: /mark step complete/i });
     await user.click(stepBtn);
 
@@ -125,7 +125,7 @@ describe('ProjectDetail', () => {
     );
 
     await waitFor(() => expect(screen.getByText('TestPrj')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /^plan$/i }));
+    await user.click(screen.getByRole('tab', { name: /^plan$/i }));
     const msBtn = await screen.findByRole('button', { name: /mark milestone complete/i });
     await user.click(msBtn);
 
@@ -157,7 +157,7 @@ describe('ProjectDetail', () => {
     );
 
     await waitFor(() => expect(screen.getByText('TestPrj')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /^materials$/i }));
+    await user.click(screen.getByRole('tab', { name: /^materials$/i }));
     const purchasedBtn = await screen.findByRole('button', { name: /mark purchased/i });
     await user.click(purchasedBtn);
 

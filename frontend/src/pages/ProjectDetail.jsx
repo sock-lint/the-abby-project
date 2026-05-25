@@ -14,8 +14,9 @@ import { useConfirmState } from '../hooks/useConfirmState';
 import { useRole } from '../hooks/useRole';
 import ConfirmDialog from '../components/ConfirmDialog';
 import BackLink from '../components/BackLink';
+import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
-import Loader from '../components/Loader';
+import ParchmentSkeleton from '../components/ParchmentSkeleton';
 import ProjectHeader from './project/ProjectHeader';
 import OverviewTab from './project/OverviewTab';
 import PlanTab from './project/PlanTab';
@@ -46,10 +47,18 @@ export default function ProjectDetail() {
   const [error, setError] = useState('');
   const { confirmState, askConfirm, closeConfirm } = useConfirmState();
 
-  if (loading) return <Loader />;
+  if (loading) return (
+    <div className="space-y-6">
+      <ParchmentSkeleton variant="hero" />
+      <ParchmentSkeleton variant="list" count={3} />
+    </div>
+  );
   if (!project) return (
-    <div className="text-center py-12 font-script text-ink-whisper italic">
-      This venture is not inscribed in the journal.
+    <div className="space-y-4">
+      <BackLink to="/quests?tab=ventures">Back to Ventures</BackLink>
+      <EmptyState>
+        This venture is not inscribed in the journal — it may have been deleted, or the link points to a different family&apos;s page.
+      </EmptyState>
     </div>
   );
 
@@ -153,26 +162,31 @@ export default function ProjectDetail() {
 
       <ErrorAlert message={error} />
 
-      <p className="font-script text-sm text-ink-whisper text-center">
-        plan the chapters, gather the materials, then clock hours from the timer
-      </p>
-
-      <div className="flex gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow">
-        {tabs.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 rounded-md font-display text-sm transition-colors ${
-              activeTab === tab
-                ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
-                : 'text-ink-secondary hover:text-ink-primary'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+      <nav
+        role="tablist"
+        aria-label="Project sections"
+        className="flex gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow"
+      >
+        {tabs.map((tab) => {
+          const active = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              role="tab"
+              type="button"
+              aria-selected={active}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-2 rounded-md font-display text-body transition-colors ${
+                active
+                  ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
+                  : 'text-ink-secondary hover:text-ink-primary'
+              }`}
+            >
+              {tab}
+            </button>
+          );
+        })}
+      </nav>
 
       <AnimatePresence mode="wait">
         <motion.div

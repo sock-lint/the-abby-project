@@ -49,7 +49,7 @@ describe('Timecards', () => {
       ),
     ]);
     await waitFor(() => expect(screen.getByText('5h')).toBeInTheDocument());
-    await user.click(screen.getByRole('button'));
+    await user.click(screen.getByRole('button', { name: /week of/i }));
     await waitFor(() => expect(screen.getByText('P1')).toBeInTheDocument());
   });
 
@@ -66,7 +66,7 @@ describe('Timecards', () => {
       http.post('*/api/timecards/1/approve/', () => { approved(); return HttpResponse.json({}); }),
     ]);
     await waitFor(() => expect(screen.getByText('5h')).toBeInTheDocument());
-    await user.click(screen.getByRole('button'));
+    await user.click(screen.getByRole('button', { name: /week of/i }));
     await user.click(await screen.findByRole('button', { name: /approve/i }));
     await waitFor(() => expect(approved).toHaveBeenCalled());
   });
@@ -84,7 +84,7 @@ describe('Timecards', () => {
       http.post('*/api/timecards/2/mark-paid/', () => { paid(); return HttpResponse.json({}); }),
     ]);
     await waitFor(() => expect(screen.getByText('2h')).toBeInTheDocument());
-    await user.click(screen.getByRole('button'));
+    await user.click(screen.getByRole('button', { name: /week of/i }));
     await user.click(await screen.findByRole('button', { name: /mark as paid/i }));
     await waitFor(() => expect(paid).toHaveBeenCalled());
   });
@@ -102,7 +102,7 @@ describe('Timecards', () => {
       http.post('*/api/timecards/3/dispute/', () => { disputed(); return HttpResponse.json({}); }),
     ]);
     await waitFor(() => expect(screen.getByText('1h')).toBeInTheDocument());
-    await user.click(screen.getByRole('button'));
+    await user.click(screen.getByRole('button', { name: /week of/i }));
     await user.click(await screen.findByRole('button', { name: /dispute/i }));
     await waitFor(() => expect(disputed).toHaveBeenCalled());
   });
@@ -121,7 +121,7 @@ describe('Timecards', () => {
       ),
     ]);
     await waitFor(() => expect(screen.getByText('1h')).toBeInTheDocument());
-    await user.click(screen.getByRole('button'));
+    await user.click(screen.getByRole('button', { name: /week of/i }));
     await user.click(await screen.findByRole('button', { name: /approve/i }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
   });
@@ -137,7 +137,7 @@ describe('Timecards', () => {
       ),
     ]);
     await waitFor(() => expect(screen.getByText('5h')).toBeInTheDocument());
-    const trigger = screen.getByRole('button');
+    const trigger = screen.getByRole('button', { name: /week of/i });
     await user.click(trigger);
     await waitFor(() => expect(screen.getByText('Hourly')).toBeInTheDocument());
     await user.click(trigger);
