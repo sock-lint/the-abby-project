@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, Download } from 'lucide-react';
-import { getTimecards, getTimecard, approveTimecard, disputeTimecard, markTimecardPaid } from '../api';
+import {
+  getTimecards, getTimecard, approveTimecard, disputeTimecard, markTimecardPaid,
+  downloadTimecardsCsv,
+} from '../api';
 import { useApi } from '../hooks/useApi';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
@@ -20,6 +23,11 @@ export default function Timecards() {
   const [expandedId, setExpandedId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState('');
+  const [exportError, setExportError] = useState('');
+  // Per-row refs keyed by timecard id so we can scroll the expanded card
+  // back into view on mobile — without this, expanding a mid-list card
+  // pushes its detail below the fold and the user has to scroll manually.
+  const rowRefs = useRef({});
 
   const timecards = normalizeList(data);
 
@@ -32,6 +40,35 @@ export default function Timecards() {
     setExpandedId(id);
     const d = await getTimecard(id);
     setDetail(d);
+    // After the detail mounts, nudge the now-tall card into view. Wrapped
+    // in requestAnimationFrame so the height transition has started and
+    // ``scrollIntoView`` lands on the post-expansion geometry rather than
+    // the pre-expansion one. jsdom doesn't implement scrollIntoView, so
+    // the typeof check keeps tests quiet without skipping behavior in the
+    // real browser.
+    requestAnimationFrame(() => {
+      const el = rowRefs.current[id];
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
+  };
+
+  const handleExport = async () => {
+    setExportError('');
+    try {
+      const blob = await downloadTimecardsCsv();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'timecards.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError(err?.message || 'Could not export timecards.');
+    }
   };
 
   const handleAction = async (id, action) => {
@@ -67,14 +104,18 @@ export default function Timecards() {
             Wages
           </h1>
         </div>
-        <a
-          href="/api/export/timecards/"
-          className="flex items-center gap-1.5 font-script text-body text-sheikah-teal-deep hover:text-sheikah-teal transition-colors"
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleExport}
+          className="flex items-center gap-1"
+          title="Export timecards to CSV"
         >
-          <Download size={14} /> scribe a copy (CSV)
-        </a>
+          <Download size={14} /> Export CSV
+        </Button>
       </header>
 
+      {exportError && <ErrorAlert message={exportError} />}
       <ErrorAlert message={error} />
 
       {timecards.length === 0 ? (
@@ -84,7 +125,14 @@ export default function Timecards() {
       ) : (
         <div className="space-y-3">
           {timecards.map((tc) => (
-            <motion.div key={tc.id} layout>
+            <motion.div
+              key={tc.id}
+              layout
+              ref={(el) => {
+                if (el) rowRefs.current[tc.id] = el;
+                else delete rowRefs.current[tc.id];
+              }}
+            >
               <ParchmentCard className="overflow-hidden" seal={tc.status === 'paid'}>
                 <button
                   type="button"

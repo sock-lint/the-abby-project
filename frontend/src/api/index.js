@@ -128,6 +128,7 @@ export const approveTimecard = (id, notes) =>
 export const disputeTimecard = (id) => api.post(`/timecards/${id}/dispute/`);
 export const markTimecardPaid = (id, amount) =>
   api.post(`/timecards/${id}/mark-paid/`, { amount });
+export const downloadTimecardsCsv = () => getBlob('/export/timecards/');
 
 // Payments
 export const getBalance = () => api.get('/balance/');

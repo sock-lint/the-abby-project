@@ -1,4 +1,6 @@
 import { Check, Plus, Trash2 } from 'lucide-react';
+import Button from '../../components/Button';
+import IconButton from '../../components/IconButton';
 import EmptyState from '../../components/EmptyState';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 
@@ -18,18 +20,19 @@ export default function MaterialsTab({
   return (
     <div className="space-y-2">
       {isParent && (
-        <button
+        <Button
           type="button"
+          variant="secondary"
           onClick={onOpenAddMaterial}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-dashed border-ink-page-shadow font-script text-sm text-ink-secondary hover:text-ink-primary hover:border-sheikah-teal/60 transition-colors"
+          className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed !bg-transparent hover:!bg-ink-page-aged/40 border-ink-page-shadow hover:border-sheikah-teal/60 font-script text-body text-ink-secondary hover:text-ink-primary"
         >
           <Plus size={16} /> add material
-        </button>
+        </Button>
       )}
 
       {materials.length > 0 && (
         <ParchmentCard className="mb-3">
-          <div className="flex justify-between font-body text-sm">
+          <div className="flex justify-between font-body text-body">
             <span className="font-script text-ink-whisper uppercase tracking-wider">
               materials budget
             </span>
@@ -45,7 +48,7 @@ export default function MaterialsTab({
               style={{ width: `${percent}%` }}
             />
           </div>
-          <div className="font-script text-xs text-ink-whisper mt-1 text-right">
+          <div className="font-script text-tiny text-ink-whisper mt-1 text-right">
             spent ${spent.toFixed(2)}
           </div>
         </ParchmentCard>
@@ -58,35 +61,38 @@ export default function MaterialsTab({
       {materials.map((mat) => (
         <ParchmentCard key={mat.id} className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="font-body font-medium text-sm text-ink-primary">{mat.name}</div>
-            <div className="font-script text-xs text-ink-whisper">
+            <div className="font-body font-medium text-body text-ink-primary">{mat.name}</div>
+            <div className="font-script text-tiny text-ink-whisper">
               est: ${mat.estimated_cost}
               {mat.actual_cost && <> · actual: ${mat.actual_cost}</>}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {mat.is_purchased ? (
-              <span className="font-script text-xs text-moss flex items-center gap-1">
+              <span className="font-script text-tiny text-moss flex items-center gap-1">
                 <Check size={14} /> purchased
               </span>
             ) : (
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => onMarkPurchased(mat.id, mat.estimated_cost)}
-                className="font-body text-xs bg-ink-page border border-ink-page-shadow hover:border-sheikah-teal/60 px-3 py-1 rounded-lg text-ink-primary transition-colors"
               >
                 Mark purchased
-              </button>
+              </Button>
             )}
             {isParent && (
-              <button
+              <IconButton
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => onDeleteMaterial(mat.id)}
                 aria-label="Delete material"
-                className="text-ink-secondary hover:text-ember-deep p-1 transition-colors"
+                className="text-ink-secondary hover:text-ember-deep"
               >
                 <Trash2 size={14} />
-              </button>
+              </IconButton>
             )}
           </div>
         </ParchmentCard>

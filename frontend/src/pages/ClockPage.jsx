@@ -5,15 +5,22 @@ import { getClockStatus, clockIn, clockOut, getProjects, getTimeEntries, voidTim
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
 import ConfirmDialog from '../components/ConfirmDialog';
-import Loader from '../components/Loader';
+import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import ParchmentCard from '../components/journal/ParchmentCard';
-import RuneBadge from '../components/journal/RuneBadge';
 import IconButton from '../components/IconButton';
 import { ClockFabIcon, InkwellIcon } from '../components/icons/JournalIcons';
 import { SelectField, TextAreaField } from '../components/form';
 import { formatDate, formatDuration } from '../utils/format';
 import { normalizeList } from '../utils/api';
+
+// Below this elapsed-seconds threshold a clock-out is almost certainly an
+// "oh wait I just started" misclick recovery — letting the confirm fire
+// would be more annoying than the rare benefit of catching it. Above the
+// threshold, the user has real wages on the line and the confirm dialog
+// is the asymmetric-safety net (compare to "void entry" which gates
+// behind ConfirmDialog despite being reversible).
+const CLOCK_OUT_CONFIRM_THRESHOLD_SECONDS = 60;
 
 export default function ClockPage() {
   const { isParent } = useRole();
@@ -25,6 +32,7 @@ export default function ClockPage() {
   const [error, setError] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const [voidEntryId, setVoidEntryId] = useState(null);
+  const [confirmingClockOut, setConfirmingClockOut] = useState(false);
 
   const projects = normalizeList(projectsData);
   const entries = normalizeList(entriesData);
@@ -59,7 +67,7 @@ export default function ClockPage() {
     }
   };
 
-  const handleClockOut = async () => {
+  const performClockOut = async () => {
     setError('');
     try {
       await clockOut(notes);
@@ -69,6 +77,19 @@ export default function ClockPage() {
     } catch (err) {
       setError(err.message);
     }
+  };
+
+  const handleClockOut = () => {
+    if (elapsed >= CLOCK_OUT_CONFIRM_THRESHOLD_SECONDS) {
+      setConfirmingClockOut(true);
+      return;
+    }
+    performClockOut();
+  };
+
+  const confirmClockOut = () => {
+    setConfirmingClockOut(false);
+    performClockOut();
   };
 
   const confirmVoid = async () => {
@@ -223,9 +244,9 @@ export default function ClockPage() {
       )}
 
       {entries.length === 0 && (
-        <RuneBadge tone="ink" size="md" className="mx-auto">
-          no entries yet — clock in to begin the log · each hour earns coin, XP, and a weekly wage
-        </RuneBadge>
+        <EmptyState icon={<ClockFabIcon size={36} />}>
+          No entries yet — clock in to begin the log. Each hour earns coin, XP, and a weekly wage.
+        </EmptyState>
       )}
 
       {voidEntryId && (
@@ -235,6 +256,16 @@ export default function ClockPage() {
           confirmLabel="Void"
           onConfirm={confirmVoid}
           onCancel={() => setVoidEntryId(null)}
+        />
+      )}
+
+      {confirmingClockOut && (
+        <ConfirmDialog
+          title={`Close this entry at ${formatTime(elapsed)}?`}
+          message="The hour rolls into your weekly wages. You can't undo a clock-out — only a parent can void the entry afterward."
+          confirmLabel="Close entry"
+          onConfirm={confirmClockOut}
+          onCancel={() => setConfirmingClockOut(false)}
         />
       )}
     </div>

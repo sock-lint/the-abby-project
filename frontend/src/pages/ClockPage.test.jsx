@@ -159,6 +159,56 @@ describe('ClockPage', () => {
     expect(clock.calls[0].body).toEqual({ action: 'out', notes: 'Great stuff' });
   });
 
+  it('shows a confirm dialog before clocking out of a long session (>60s)', async () => {
+    const user = userEvent.setup();
+    const clock = spyHandler('post', '*/api/clock/', { ok: true });
+    renderPage(buildUser(), [
+      http.get('*/api/clock/', () =>
+        HttpResponse.json({
+          status: 'active',
+          project_title: 'Long Session',
+          // 30 minutes ago — well past the misclick-recovery threshold.
+          clock_in: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+        }),
+      ),
+      http.get('*/api/projects/', () => HttpResponse.json([])),
+      http.get('*/api/time-entries/', () => HttpResponse.json([])),
+      clock.handler,
+    ]);
+    await waitFor(() => expect(screen.getByText(/now inking/i)).toBeInTheDocument());
+    const stop = screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-square'));
+    await user.click(stop);
+    // The clock-out should NOT have fired yet — the confirm dialog gates it.
+    expect(clock.calls).toHaveLength(0);
+    // Confirming closes the entry.
+    await user.click(await screen.findByRole('button', { name: /close entry/i }));
+    await waitFor(() => expect(clock.calls).toHaveLength(1));
+    expect(clock.calls[0].body).toEqual({ action: 'out', notes: '' });
+  });
+
+  it('cancels the clock-out confirm without firing the request', async () => {
+    const user = userEvent.setup();
+    const clock = spyHandler('post', '*/api/clock/', { ok: true });
+    renderPage(buildUser(), [
+      http.get('*/api/clock/', () =>
+        HttpResponse.json({
+          status: 'active',
+          project_title: 'Long Session',
+          clock_in: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+        }),
+      ),
+      http.get('*/api/projects/', () => HttpResponse.json([])),
+      http.get('*/api/time-entries/', () => HttpResponse.json([])),
+      clock.handler,
+    ]);
+    await waitFor(() => expect(screen.getByText(/now inking/i)).toBeInTheDocument());
+    const stop = screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-square'));
+    await user.click(stop);
+    await user.click(await screen.findByRole('button', { name: /cancel/i }));
+    expect(clock.calls).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: /close entry/i })).toBeNull();
+  });
+
   it('surfaces clock-in server error', async () => {
     const user = userEvent.setup();
     renderPage(buildUser(), [
