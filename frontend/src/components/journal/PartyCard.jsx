@@ -25,8 +25,8 @@ export default function PartyCard({
         className={`rounded-xl border border-dashed border-ink-page-shadow bg-ink-page/60 p-4 text-center ${className}`}
       >
         <div className="text-3xl mb-1">🥚</div>
-        <div className="font-script text-ink-secondary text-sm">No party member yet</div>
-        <div className="font-body text-xs text-ink-whisper mt-0.5">
+        <div className="font-script text-ink-secondary text-body">No party member yet</div>
+        <div className="font-body text-caption text-ink-whisper mt-0.5">
           Find an egg + potion to hatch
         </div>
       </div>
@@ -68,7 +68,7 @@ export default function PartyCard({
             ) : null}
           </div>
           {mount && !compact ? (
-            <div className="font-script text-xs text-ink-whisper mt-0.5">
+            <div className="font-script text-caption text-ink-whisper mt-0.5">
               riding: {mount.species_name}
             </div>
           ) : null}
@@ -92,7 +92,7 @@ export default function PartyCard({
           <button
             type="button"
             onClick={onFeed}
-            className="flex-shrink-0 px-3 py-2 rounded-lg bg-moss text-ink-page-rune-glow text-sm font-medium hover:bg-moss/90 transition-colors"
+            className="flex-shrink-0 px-3 py-2 rounded-lg bg-moss text-ink-page-rune-glow text-body font-medium hover:bg-moss/90 transition-colors"
           >
             Feed
           </button>

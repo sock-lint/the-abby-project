@@ -47,7 +47,7 @@ export default function FirstEncounterSheet({ pollIntervalMs }) {
             {entry.title}
           </h2>
         </div>
-        <p className="text-sm leading-relaxed text-ink-secondary">
+        <p className="text-body leading-relaxed text-ink-secondary">
           A new training awaits you in your Lorebook.
         </p>
         <div className="flex flex-col gap-2 pt-1">

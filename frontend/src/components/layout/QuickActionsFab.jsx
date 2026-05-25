@@ -111,7 +111,7 @@ export default function QuickActionsFab() {
                     }`}
       >
         {isClocked ? <ClockFabIcon size={22} /> : <Plus size={22} />}
-        {label && <span className="font-rune text-sm font-bold tabular-nums">{label}</span>}
+        {label && <span className="font-rune text-body font-bold tabular-nums">{label}</span>}
       </button>
 
       <AnimatePresence>

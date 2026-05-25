@@ -22,7 +22,7 @@ function Toast({ toast, onDismiss }) {
     >
       <Sword size={18} className="text-white shrink-0" aria-hidden="true" />
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-semibold text-white">
+        <div className="text-caption font-semibold text-white">
           +{toast.delta} toward {toast.name}
         </div>
         <div className="text-micro text-white/85">

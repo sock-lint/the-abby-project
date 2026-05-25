@@ -57,7 +57,7 @@ export default function SkillTagEditor({ skills = [], value = [], onChange }) {
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between">
-        <label className="font-body text-sm text-ink-primary">
+        <label className="font-body text-body text-ink-primary">
           Skills this rewards
         </label>
         {tags.length > 1 && (

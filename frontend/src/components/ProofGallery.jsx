@@ -79,7 +79,7 @@ export default function ProofGallery({ proofs = [] }) {
             onClick={(e) => e.stopPropagation()}
           />
           {proofs[viewerIndex].caption && (
-            <p className="absolute bottom-6 text-white/80 text-sm">{proofs[viewerIndex].caption}</p>
+            <p className="absolute bottom-6 text-white/80 text-body">{proofs[viewerIndex].caption}</p>
           )}
         </div>
       )}

@@ -3,7 +3,7 @@
 // a Sheikah-teal accent ribbon when active.
 export default function TabButton({ active, onClick, children, className = '' }) {
   const base =
-    'px-3 py-2 min-h-[44px] flex items-center rounded-lg font-display text-sm border transition-colors';
+    'px-3 py-2 min-h-[44px] flex items-center rounded-lg font-display text-body border transition-colors';
   const activeCls =
     'border-sheikah-teal-deep bg-sheikah-teal/15 text-ink-primary';
   const idleCls =

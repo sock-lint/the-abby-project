@@ -34,7 +34,7 @@ export default function AtlasHub() {
     <>
       <ChapterHub
         title="Atlas"
-        kicker="Chapter V · The Cartography of Mastery"
+        kicker="Chapter V · The Cartographer's Folio"
         glyph="compass-rose"
         defaultTabId="skills"
         tabs={[

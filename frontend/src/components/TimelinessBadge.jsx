@@ -16,7 +16,7 @@ export default function TimelinessBadge({ timeliness }) {
   const color = TIMELINESS_STYLES[timeliness] || TIMELINESS_STYLES.on_time;
   const label = TIMELINESS_LABELS[timeliness] || timeliness;
   return (
-    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>
+    <span className={`inline-flex px-2 py-0.5 rounded-full text-caption font-medium ${color}`}>
       {label}
     </span>
   );

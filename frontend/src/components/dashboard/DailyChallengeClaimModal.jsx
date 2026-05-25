@@ -65,14 +65,14 @@ export default function DailyChallengeClaimModal({ claim, challengeLabel, onDism
           Rite complete
         </h2>
         {challengeLabel && (
-          <p className="mt-1 font-script text-sm text-ink-whisper">
+          <p className="mt-1 font-script text-body text-ink-whisper">
             {challengeLabel}
           </p>
         )}
         <p className="mt-4 font-display italic text-2xl text-gold-leaf">
           +{coins} coins · +{xp} XP
         </p>
-        <p className="mt-2 font-script text-xs text-ink-whisper">
+        <p className="mt-2 font-script text-caption text-ink-whisper">
           a fresh rite opens at the next dawn.
         </p>
         <div className="mt-6">

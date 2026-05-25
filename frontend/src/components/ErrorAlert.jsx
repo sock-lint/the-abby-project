@@ -8,7 +8,7 @@ export default function ErrorAlert({ message, onRetry, className = '' }) {
   return (
     <div
       role="alert"
-      className={`text-ember-deep text-sm bg-ember/10 px-3 py-2 rounded-lg border border-ember/40 font-body ${onRetry ? 'flex items-center gap-3' : ''} ${className}`}
+      className={`text-ember-deep text-body bg-ember/10 px-3 py-2 rounded-lg border border-ember/40 font-body ${onRetry ? 'flex items-center gap-3' : ''} ${className}`}
     >
       <span className={onRetry ? 'flex-1' : ''}>{message}</span>
       {onRetry && (

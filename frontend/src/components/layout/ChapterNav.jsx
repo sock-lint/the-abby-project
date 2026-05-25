@@ -37,13 +37,13 @@ export function ChapterSidebar({ user, onLogout }) {
     >
       {/* Book spine header */}
       <div className="p-5 border-b border-ink-page-shadow relative">
-        <div className="font-script text-ink-whisper text-xs uppercase tracking-[0.2em]">
+        <div className="font-script text-ink-whisper text-caption uppercase tracking-[0.2em]">
           a codex of
         </div>
         <h1 className="font-display italic text-2xl leading-tight text-ink-primary">
           Hyrule Field Notes
         </h1>
-        <div className="font-script text-sheikah-teal-deep text-sm mt-1">
+        <div className="font-script text-sheikah-teal-deep text-body mt-1">
           vol. I — {user?.display_name || user?.username || 'adventurer'}
         </div>
       </div>
@@ -98,7 +98,7 @@ export function ChapterSidebar({ user, onLogout }) {
           <NavLink
             to="/activity"
             className={({ isActive }) =>
-              `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-body transition-colors ${
+              `flex items-center gap-2 px-3 py-2 rounded-lg text-body font-body transition-colors ${
                 isActive
                   ? 'bg-sheikah-teal/10 text-ink-primary'
                   : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
@@ -113,7 +113,7 @@ export function ChapterSidebar({ user, onLogout }) {
           <NavLink
             to="/manage"
             className={({ isActive }) =>
-              `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-body transition-colors ${
+              `flex items-center gap-2 px-3 py-2 rounded-lg text-body font-body transition-colors ${
                 isActive
                   ? 'bg-sheikah-teal/10 text-ink-primary'
                   : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
@@ -142,7 +142,7 @@ export function ChapterSidebar({ user, onLogout }) {
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-body transition-colors ${
+            `flex items-center gap-2 px-3 py-2 rounded-lg text-body font-body transition-colors ${
               isActive
                 ? 'bg-sheikah-teal/10 text-ink-primary'
                 : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
@@ -155,7 +155,7 @@ export function ChapterSidebar({ user, onLogout }) {
         <button
           onClick={onLogout}
           type="button"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm w-full text-ink-whisper hover:text-ember-deep transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-body w-full text-ink-whisper hover:text-ember-deep transition-colors"
         >
           <LogOut size={16} /> Sign off
         </button>

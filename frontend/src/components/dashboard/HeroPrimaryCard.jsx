@@ -64,7 +64,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
     return (
       <motion.div variants={inkBleed} initial="initial" animate="animate">
         <ParchmentCard tone="bright" flourish className="relative overflow-hidden">
-          <div className="font-script text-sheikah-teal-deep text-sm mb-0.5">
+          <div className="font-script text-sheikah-teal-deep text-body mb-0.5">
             {weekday ? `${weekday} · ${dateStr}` : 'Today'}
           </div>
           {count > 0 ? (
@@ -72,7 +72,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
               <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
                 {count} {count === 1 ? 'thing needs' : 'things need'} your seal today
               </h1>
-              <div className="font-body text-sm text-ink-secondary mt-1">
+              <div className="font-body text-body text-ink-secondary mt-1">
                 Review duties, homework, and redemptions below.
               </div>
               <div className="mt-3 flex items-center gap-2">
@@ -94,7 +94,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
               <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
                 Nothing needs your seal.
               </h1>
-              <div className="font-body text-sm text-ink-secondary mt-1">
+              <div className="font-body text-body text-ink-secondary mt-1">
                 A quiet page. The kids are on their own today.
               </div>
             </>
@@ -117,7 +117,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
   return (
     <motion.div variants={inkBleed} initial="initial" animate="animate">
       <ParchmentCard tone="bright" flourish className="relative overflow-hidden">
-        <div className="font-script text-sheikah-teal-deep text-sm mb-0.5">
+        <div className="font-script text-sheikah-teal-deep text-body mb-0.5">
           {weekday ? `${weekday} · ${dateStr}` : 'Today'}
         </div>
 
@@ -130,7 +130,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
               })}
             />
             <div className="min-w-0 flex-1">
-              <div className="font-script text-xs text-ink-whisper uppercase tracking-wider">
+              <div className="font-script text-caption text-ink-whisper uppercase tracking-wider">
                 Still inking
               </div>
               <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 truncate">
@@ -169,13 +169,13 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
               })}
             />
             <div className="min-w-0 flex-1">
-              <div className="font-script text-xs text-royal uppercase tracking-wider">
+              <div className="font-script text-caption text-royal uppercase tracking-wider">
                 Active trial
               </div>
               <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 truncate">
                 {quest.definition?.name}
               </h1>
-              <div className="font-body text-sm text-ink-secondary mt-1">
+              <div className="font-body text-body text-ink-secondary mt-1">
                 {quest.current_progress}/{quest.effective_target} · {quest.progress_percent}%
               </div>
               <div className="h-2 mt-2 rounded-full bg-ink-page-shadow/60 overflow-hidden">
@@ -187,7 +187,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
               <button
                 type="button"
                 onClick={() => navigate('/trials')}
-                className="mt-3 font-script text-sm text-sheikah-teal-deep hover:underline"
+                className="mt-3 font-script text-body text-sheikah-teal-deep hover:underline"
               >
                 View quest →
               </button>
@@ -197,7 +197,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
 
         {variant === 'idle' && (
           <>
-            <div className="flex items-center gap-1.5 font-script text-xs text-ink-whisper uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 font-script text-caption text-ink-whisper uppercase tracking-wider">
               <Sparkles size={14} /> A quiet page
             </div>
             <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5">
@@ -206,7 +206,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
             <button
               type="button"
               onClick={() => navigate('/quests')}
-              className="mt-3 font-script text-sm text-sheikah-teal-deep hover:underline"
+              className="mt-3 font-script text-body text-sheikah-teal-deep hover:underline"
             >
               Open the quests hub →
             </button>
@@ -239,13 +239,13 @@ function NextActionBody({ action, onOpenHomework, onCompleteChore, onTapHabit, o
         })}
       />
       <div className="min-w-0 flex-1">
-        <div className={`flex items-center gap-1.5 font-script text-xs ${accentClass} uppercase tracking-wider`}>
+        <div className={`flex items-center gap-1.5 font-script text-caption ${accentClass} uppercase tracking-wider`}>
           <Icon size={14} /> Next up
         </div>
         <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 truncate">
           {action.title}
         </h1>
-        <div className="font-body text-sm text-ink-secondary mt-1">
+        <div className="font-body text-body text-ink-secondary mt-1">
           {action.subtitle}
         </div>
         <Button

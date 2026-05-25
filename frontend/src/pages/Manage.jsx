@@ -400,10 +400,10 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
           {child.google_linked ? (
             <Button
               type="button"
-              variant="ghost"
+              variant="danger"
               size="sm"
               onClick={handleUnlinkGoogle}
-              className="!text-ember-deep hover:!text-ember-deep inline-flex items-center gap-2"
+              className="inline-flex items-center gap-2"
             >
               <Unlink size={14} /> Unlink Google Account
             </Button>

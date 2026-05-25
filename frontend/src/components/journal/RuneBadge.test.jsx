@@ -33,7 +33,7 @@ describe('RuneBadge', () => {
 
   it('applies md size class', () => {
     const { container } = render(<RuneBadge size="md">t</RuneBadge>);
-    expect(container.firstChild.className).toContain('text-xs');
+    expect(container.firstChild.className).toContain('text-caption');
   });
 
   it('falls back to sm size for unknown size', () => {

@@ -54,7 +54,7 @@ export default function StreakFlame({
         </svg>
         {/* Streak number overlay */}
         <span
-          className={`absolute inset-0 flex items-center justify-center font-rune font-bold text-sm
+          className={`absolute inset-0 flex items-center justify-center font-rune font-bold text-body
             ${alive ? 'text-ink-page-rune-glow' : 'text-ink-whisper'}`}
           style={{
             textShadow: alive
@@ -70,7 +70,7 @@ export default function StreakFlame({
         <div className="font-display text-lg leading-tight text-ink-primary">
           {alive ? (streak === 1 ? '1 day' : `${streak} days`) : 'Streak asleep'}
         </div>
-        <div className="font-script text-xs text-ink-whisper leading-tight mt-0.5">
+        <div className="font-script text-caption text-ink-whisper leading-tight mt-0.5">
           {longest > 0 ? `longest: ${longest}` : 'no streak yet'}
           {multiplier && alive ? ` · ${multiplier}× coins` : ''}
         </div>

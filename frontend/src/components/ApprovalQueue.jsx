@@ -28,7 +28,7 @@ export default function ApprovalQueue({
     return (
       <div>
         {header}
-        <p className="text-sm text-ink-whisper">{emptyText}</p>
+        <p className="text-body text-ink-whisper">{emptyText}</p>
       </div>
     );
   }

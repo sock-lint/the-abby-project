@@ -41,14 +41,14 @@ export default function ConfirmDialog({
             <h3 id={titleId} className="font-display font-bold text-lg text-ink-primary mb-2">
               {title}
             </h3>
-            <p id={messageId} className="text-sm text-ink-secondary mb-5 leading-relaxed">
+            <p id={messageId} className="text-body text-ink-secondary mb-5 leading-relaxed">
               {message}
             </p>
             <div className="flex justify-end gap-2 items-center">
               <button
                 type="button"
                 onClick={onCancel}
-                className="px-4 py-2 text-sm text-ink-whisper hover:text-ink-primary transition-colors"
+                className="px-4 py-2 text-body text-ink-whisper hover:text-ink-primary transition-colors"
               >
                 Cancel
               </button>
@@ -56,7 +56,7 @@ export default function ConfirmDialog({
                 type="button"
                 autoFocus
                 onClick={onConfirm}
-                className="relative px-5 py-2 text-sm font-semibold text-ink-page-rune-glow rounded-full transition-transform duration-150 hover:scale-[1.03] active:scale-95"
+                className="relative px-5 py-2 text-body font-semibold text-ink-page-rune-glow rounded-full transition-transform duration-150 hover:scale-[1.03] active:scale-95"
                 style={{
                   background:
                     'radial-gradient(circle at 30% 30%, #e88a5e 0%, #d97548 55%, #a04a28 100%)', // intentional: theme-invariant ember seal palette — must NOT bind to --color-ember (varies per cover)

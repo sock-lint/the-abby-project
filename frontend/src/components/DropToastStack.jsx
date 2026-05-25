@@ -38,7 +38,7 @@ function ToastItem({ toast, onDismiss }) {
         alt={toast.item_name}
       />
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium text-white">
+        <div className="text-caption font-medium text-white">
           {toast.was_salvaged ? 'Salvaged' : 'You got'}: {toast.item_name}
         </div>
         <div className="text-micro text-white/70 capitalize">{toast.item_rarity}</div>
