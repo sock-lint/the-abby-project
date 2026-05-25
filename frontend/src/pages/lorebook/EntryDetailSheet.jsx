@@ -8,7 +8,7 @@ function Paragraphs({ text }) {
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
     .map((paragraph) => (
-      <p key={paragraph.slice(0, 40)} className="text-sm leading-relaxed text-ink-secondary">
+      <p key={paragraph.slice(0, 40)} className="text-body leading-relaxed text-ink-secondary">
         {paragraph}
       </p>
     ));
@@ -47,7 +47,7 @@ function ParentKnobs({ entry }) {
 
   if (!settings.length && !badges.length && !sources.length) {
     return (
-      <p className="text-sm text-ink-whisper italic">
+      <p className="text-body text-ink-whisper italic">
         No special parent knobs for this page yet.
       </p>
     );
@@ -57,7 +57,7 @@ function ParentKnobs({ entry }) {
     <div className="space-y-4">
       {settings.length > 0 && (
         <div>
-          <h4 className="font-display text-sm font-semibold text-ink-primary mb-2">
+          <h4 className="font-display text-body font-semibold text-ink-primary mb-2">
             Tunable settings
           </h4>
           <ul className="space-y-2">
@@ -83,7 +83,7 @@ function ParentKnobs({ entry }) {
 
       {badges.length > 0 && (
         <div>
-          <h4 className="font-display text-sm font-semibold text-ink-primary mb-2">
+          <h4 className="font-display text-body font-semibold text-ink-primary mb-2">
             Badge criteria this powers
           </h4>
           <div className="flex flex-wrap gap-1.5">
@@ -101,10 +101,10 @@ function ParentKnobs({ entry }) {
 
       {sources.length > 0 && (
         <div>
-          <h4 className="font-display text-sm font-semibold text-ink-primary mb-2">
+          <h4 className="font-display text-body font-semibold text-ink-primary mb-2">
             Authoring notes
           </h4>
-          <ul className="list-disc pl-5 space-y-1 text-sm text-ink-secondary">
+          <ul className="list-disc pl-5 space-y-1 text-body text-ink-secondary">
             {sources.map((source) => (
               <li key={source}>{source}</li>
             ))}
@@ -132,7 +132,7 @@ export default function EntryDetailSheet({
           <div className="font-script text-sheikah-teal-deep text-base">
             {entry.audience_title || 'a field note'}
           </div>
-          <p className="mt-1 text-sm text-ink-whisper">{entry.summary}</p>
+          <p className="mt-1 text-body text-ink-whisper">{entry.summary}</p>
         </header>
 
         <section className="space-y-3">
@@ -150,7 +150,7 @@ export default function EntryDetailSheet({
           </h3>
           <ul className="space-y-2">
             {(entry.mechanics || []).map((item) => (
-              <li key={item} className="flex gap-2 text-sm text-ink-secondary leading-relaxed">
+              <li key={item} className="flex gap-2 text-body text-ink-secondary leading-relaxed">
                 <span className="mt-1 h-1.5 w-1.5 rounded-full bg-sheikah-teal-deep shrink-0" />
                 <span>{item}</span>
               </li>

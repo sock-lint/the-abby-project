@@ -14,6 +14,7 @@ import ParchmentCard from '../components/journal/ParchmentCard';
 import { ScrollIcon } from '../components/icons/JournalIcons';
 import { useRole } from '../hooks/useRole';
 import Button from '../components/Button';
+import PageShell from '../components/layout/PageShell';
 import { formatCurrency, formatDate, formatDuration } from '../utils/format';
 import { normalizeList } from '../utils/api';
 
@@ -87,14 +88,14 @@ export default function Timecards() {
   };
 
   if (loading) return (
-    <div className="space-y-6">
+    <PageShell rhythm="loose" animate={false}>
       <ParchmentSkeleton variant="card" />
       <ParchmentSkeleton variant="list" count={5} />
-    </div>
+    </PageShell>
   );
 
   return (
-    <div className="space-y-6">
+    <PageShell rhythm="loose">
       <header className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
@@ -258,6 +259,6 @@ export default function Timecards() {
           ))}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

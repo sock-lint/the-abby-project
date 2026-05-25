@@ -13,6 +13,7 @@ import { useApi } from '../hooks/useApi';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
+import Button from '../components/Button';
 import { normalizeList } from '../utils/api';
 import SourceStep from './ingest/SourceStep';
 import ReviewStep from './ingest/ReviewStep';
@@ -228,7 +229,7 @@ export default function ProjectIngest() {
       <BackLink to="/quests?tab=ventures">Back to Ventures</BackLink>
       <div>
         <h1 className="font-display text-2xl font-bold">Auto-fill from Source</h1>
-        <p className="text-sm text-ink-whisper mt-1">
+        <p className="text-body text-ink-whisper mt-1">
           Paste a tutorial link or drop in a PDF. We'll pull the steps, supplies, and category so you can review and confirm.
         </p>
       </div>
@@ -247,26 +248,20 @@ export default function ProjectIngest() {
       {phase === 'polling' && (
         <ParchmentCard className="flex flex-col items-center py-10 gap-4">
           <Loader />
-          <div className="text-sm text-ink-whisper">Reading the steps…</div>
+          <div className="text-body text-ink-whisper">Reading the steps…</div>
         </ParchmentCard>
       )}
 
       {phase === 'error' && (
         <ParchmentCard className="space-y-3">
-          <p className="text-sm text-ink-whisper">We couldn't parse that source.</p>
+          <p className="text-body text-ink-whisper">We couldn't parse that source.</p>
           <div className="flex gap-2">
-            <button
-              onClick={() => { setPhase('source'); setError(''); }}
-              className="px-3 py-2 rounded-lg bg-amber-primary text-black text-sm font-semibold"
-            >
+            <Button size="sm" onClick={() => { setPhase('source'); setError(''); }}>
               Try Again
-            </button>
-            <button
-              onClick={() => navigate('/projects/new')}
-              className="px-3 py-2 rounded-lg border border-ink-page-shadow text-sm"
-            >
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => navigate('/projects/new')}>
               Manual form
-            </button>
+            </Button>
           </div>
         </ParchmentCard>
       )}

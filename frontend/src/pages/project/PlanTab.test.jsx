@@ -8,7 +8,7 @@ vi.mock('framer-motion', async () => {
   return { ...a, AnimatePresence: ({ children }) => children };
 });
 
-function renderPlan(project, isParent = false) {
+function renderPlan(project, isParent = false, extraProps = {}) {
   return render(
     <PlanTab
       project={project}
@@ -19,6 +19,7 @@ function renderPlan(project, isParent = false) {
       onOpenAddMilestone={vi.fn()}
       onOpenAddStep={vi.fn()}
       onOpenAddResource={vi.fn()}
+      {...extraProps}
     />,
   );
 }
@@ -44,6 +45,20 @@ describe('PlanTab', () => {
     expect(screen.getByText('Design')).toBeInTheDocument();
     expect(screen.getByText('Sketch')).toBeInTheDocument();
     expect(screen.getByText('Loose step')).toBeInTheDocument();
+  });
+
+  it('disables and aria-busies the milestone-complete circle while the request is pending', () => {
+    renderPlan(
+      buildProject({
+        milestones: [{ id: 7, title: 'Phase', is_completed: false }],
+        steps: [],
+      }),
+      true,
+      { pendingMilestoneId: 7 },
+    );
+    const circle = screen.getByRole('button', { name: /marking milestone complete/i });
+    expect(circle).toBeDisabled();
+    expect(circle).toHaveAttribute('aria-busy', 'true');
   });
 
   it('prefixes each milestone title with an atlas chapter numeral (§I, §II, …)', () => {

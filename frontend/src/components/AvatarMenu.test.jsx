@@ -109,6 +109,24 @@ describe('AvatarMenu', () => {
     expect(screen.getByText('traveler')).toBeInTheDocument();
   });
 
+  it('renders Manage / Activity / Codex menu items for parents', async () => {
+    const user = userEvent.setup();
+    renderMenu({ user: { username: 'dad', display_name: 'Dad', role: 'parent' } });
+    await user.click(screen.getByRole('button', { name: /profile menu/i }));
+    expect(screen.getByRole('menuitem', { name: /manage/i }).getAttribute('href')).toBe('/manage');
+    expect(screen.getByRole('menuitem', { name: /activity/i }).getAttribute('href')).toBe('/activity');
+    expect(screen.getByRole('menuitem', { name: /codex/i }).getAttribute('href')).toBe('/codex');
+  });
+
+  it('hides the parent-only menu items for child users', async () => {
+    const user = userEvent.setup();
+    renderMenu();
+    await user.click(screen.getByRole('button', { name: /profile menu/i }));
+    expect(screen.queryByRole('menuitem', { name: /manage/i })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /activity/i })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /codex/i })).toBeNull();
+  });
+
   it('renders an <img> when user.avatar is set', () => {
     const { container } = renderMenu({
       user: {

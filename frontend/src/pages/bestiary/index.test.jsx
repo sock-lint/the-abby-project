@@ -33,7 +33,10 @@ describe('BestiaryHub', () => {
         </AuthProvider>
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByText('Bestiary')).toBeInTheDocument());
+    // Hub no longer renders an h1; check the tablist aria-label instead.
+    await waitFor(() =>
+      expect(screen.getByRole('tablist', { name: /bestiary sections/i })).toBeInTheDocument(),
+    );
   });
 
   it('exposes Companions, Mounts, Codex, and Hatchery tabs', async () => {

@@ -61,6 +61,18 @@ describe('ChapterBottomBar', () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
+
+  it('keeps Chronicle in the bottom bar for parents (no Manage swap)', () => {
+    render(
+      <MemoryRouter>
+        <ChapterBottomBar user={buildParent({ display_name: 'Dad' })} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Chronicle')).toBeInTheDocument();
+    // Manage is now reached via the AvatarMenu in the mobile header, not the
+    // bottom bar — the old swap dropped Chronicle, which was wrong.
+    expect(screen.queryByText('Manage')).toBeNull();
+  });
 });
 
 describe('default export', () => {

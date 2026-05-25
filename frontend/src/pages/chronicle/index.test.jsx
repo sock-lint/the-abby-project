@@ -29,8 +29,8 @@ describe('ChronicleHub', () => {
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
     );
     renderHub();
-    await waitFor(() => expect(screen.getByText('Chronicle')).toBeInTheDocument());
-    const tablist = await screen.findByRole('tablist');
+    // Hub no longer renders an h1; check the tablist aria-label instead.
+    const tablist = await screen.findByRole('tablist', { name: /chronicle sections/i });
     expect(tablist).toHaveTextContent(/sketchbook/i);
     expect(tablist).toHaveTextContent(/journal/i);
     expect(tablist).toHaveTextContent(/yearbook/i);

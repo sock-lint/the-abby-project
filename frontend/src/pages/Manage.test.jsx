@@ -53,20 +53,11 @@ describe('Manage', () => {
     );
   });
 
-  it('switches to the codex tab', async () => {
-    server.use(
-      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
-      http.get('*/api/items/catalog/', () => HttpResponse.json([])),
-      http.get('*/api/pets/species/catalog/', () => HttpResponse.json([])),
-      http.get('*/api/quests/catalog/', () => HttpResponse.json([])),
-    );
-    const user = userEvent.setup();
-    renderPage();
-    await user.click(await screen.findByRole('tab', { name: /codex/i }));
-    await waitFor(() =>
-      expect(screen.getAllByText((t) => /codex/i.test(t)).length).toBeGreaterThan(0),
-    );
-  });
+  // The Codex was lifted out of Manage into its own /codex route in commit
+  // 6378ba8 ("UI/UX batches 5-6 — design system, Codex route, cross-nav
+  // links"). The CodexPage now has its own coverage under
+  // pages/CodexPage; the Manage hub no longer renders a Codex tab, so the
+  // tab-switch test that lived here was stale.
 
   it('switches to the guide tab', async () => {
     server.use(

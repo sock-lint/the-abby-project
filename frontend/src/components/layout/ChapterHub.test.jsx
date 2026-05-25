@@ -23,11 +23,20 @@ function renderHub({ route = '/', defaultTabId } = {}) {
 }
 
 describe('ChapterHub', () => {
-  it('renders title, kicker, and first tab by default', () => {
+  it('renders the breadcrumb kicker and first tab by default', () => {
     renderHub();
-    expect(screen.getByRole('heading', { name: 'Test Hub' })).toBeInTheDocument();
+    // Hub no longer renders its own h1 — the active tab page owns the page
+    // heading. Only the kicker breadcrumb stays as chapter context.
+    expect(screen.queryByRole('heading', { name: 'Test Hub' })).toBeNull();
     expect(screen.getByText('kicker')).toBeInTheDocument();
     expect(screen.getByText('content-a')).toBeInTheDocument();
+  });
+
+  it('still labels the tab strip with the hub title for screen readers', () => {
+    renderHub();
+    // `title` is no longer rendered as visible text but still feeds the
+    // tablist aria-label so screen-reader users can identify the strip.
+    expect(screen.getByRole('tablist', { name: /Test Hub sections/i })).toBeInTheDocument();
   });
 
   it('switches to ?tab= matched tab', () => {

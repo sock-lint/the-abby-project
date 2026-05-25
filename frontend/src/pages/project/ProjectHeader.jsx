@@ -70,13 +70,13 @@ export default function ProjectHeader({
             {...projectVersalProps(project)}
           />
           <div className="min-w-0 flex-1">
-            <div className="font-script text-sheikah-teal-deep text-sm">
+            <div className="font-script text-sheikah-teal-deep text-body">
               venture
             </div>
             <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
               {project.title}
             </h1>
-            <div className="flex items-center gap-2 mt-2 text-sm flex-wrap">
+            <div className="flex items-center gap-2 mt-2 text-body flex-wrap">
               <StatusBadge status={project.status} />
               {project.payment_kind === 'bounty' && (
                 <RuneBadge tone="royal" size="sm">bounty</RuneBadge>
@@ -100,7 +100,7 @@ export default function ProjectHeader({
             <button
               type="button"
               onClick={() => onAction('submit')}
-              className="bg-royal hover:bg-royal/85 text-ink-page-rune-glow px-4 py-2 rounded-lg text-sm font-body font-medium transition-colors border border-royal/70"
+              className="bg-royal hover:bg-royal/85 text-ink-page-rune-glow px-4 py-2 rounded-lg text-body font-body font-medium transition-colors border border-royal/70"
             >
               Submit for review
             </button>
@@ -149,7 +149,7 @@ export default function ProjectHeader({
       {flash && (
         <div
           role="status"
-          className="text-sm px-3 py-2 rounded-lg bg-sheikah-teal-deep/10 text-sheikah-teal-deep border border-sheikah-teal-deep/30 font-body"
+          className="text-body px-3 py-2 rounded-lg bg-sheikah-teal-deep/10 text-sheikah-teal-deep border border-sheikah-teal-deep/30 font-body"
         >
           {flash}
         </div>

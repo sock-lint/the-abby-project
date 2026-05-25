@@ -27,6 +27,11 @@ describe('TreasuryHub', () => {
         </AuthProvider>
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByText('Treasury')).toBeInTheDocument());
+    // Hub no longer renders an h1 — the active tab page (Coffers/Payments)
+    // owns the page heading. The hub's identity is carried by its tablist
+    // aria-label.
+    await waitFor(() =>
+      expect(screen.getByRole('tablist', { name: /treasury sections/i })).toBeInTheDocument(),
+    );
   });
 });

@@ -106,7 +106,7 @@ export default function HomeworkFormModal({
           rows={2}
         />
         <div>
-          <span className="font-script text-sm text-ink-secondary mb-1 block">Due</span>
+          <span className="font-script text-body text-ink-secondary mb-1 block">Due</span>
           {!isEdit && (
             <div className="flex flex-wrap gap-2 mb-2">
               {presetChips.map((chip) => {
@@ -118,7 +118,7 @@ export default function HomeworkFormModal({
                     aria-pressed={active}
                     onClick={() => set({ due_date: chip.value })}
                     className={
-                      'px-3 py-1 text-xs font-medium rounded-full border transition-colors ' +
+                      'px-3 py-1 text-caption font-medium rounded-full border transition-colors ' +
                       (active
                         ? 'bg-sheikah-teal-deep text-ink-page-rune-glow border-sheikah-teal-deep'
                         : 'bg-ink-page-aged text-ink-secondary border-ink-page-shadow hover:text-ink-primary')
@@ -153,7 +153,7 @@ export default function HomeworkFormModal({
           />
         )}
         {!isParent && !isEdit && (
-          <p className="font-script text-xs text-ink-whisper italic">
+          <p className="font-script text-caption text-ink-whisper italic">
             Log it here so your grown-ups can see — you'll earn XP, streaks,
             and a chance at loot for every assignment you share.
           </p>
@@ -171,18 +171,15 @@ export default function HomeworkFormModal({
           </SelectField>
         )}
         {isParent && childrenList.length === 0 && (
-          <p className="font-script text-sm text-ember-deep italic">
+          <p className="font-script text-body text-ember-deep italic">
             No children registered yet — add one in <a href="/manage" className="underline">Manage</a> before creating homework.
           </p>
         )}
         {error && <ErrorAlert message={error} />}
         <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button" onClick={onClose}
-            className="px-4 py-2 text-sm text-ink-secondary hover:text-ink-primary transition-colors"
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
             Cancel
-          </button>
+          </Button>
           <Button type="submit" size="sm" loading={saving}>
             {isEdit ? 'Update assignment' : 'Create assignment'}
           </Button>

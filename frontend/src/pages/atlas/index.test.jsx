@@ -37,7 +37,11 @@ describe('AtlasHub', () => {
       http.get('*/api/achievements/summary/', () => HttpResponse.json({ badges_earned: [] })),
     );
     renderAt('/atlas');
-    await waitFor(() => expect(screen.getByText('Atlas')).toBeInTheDocument());
+    // Hub no longer renders an h1 — the active tab page (Skills) owns the
+    // page heading. The hub's identity is carried by its tablist aria-label.
+    await waitFor(() =>
+      expect(screen.getByRole('tablist', { name: /atlas sections/i })).toBeInTheDocument(),
+    );
     expect(screen.getAllByText(/skills/i).length).toBeGreaterThan(0);
   });
 
@@ -47,7 +51,11 @@ describe('AtlasHub', () => {
       http.get('*/api/achievements/summary/', () => HttpResponse.json({ badges_earned: [] })),
     );
     renderAt('/atlas');
-    await waitFor(() => expect(screen.getByText('Atlas')).toBeInTheDocument());
+    // Hub no longer renders an h1 — the active tab page (Skills) owns the
+    // page heading. The hub's identity is carried by its tablist aria-label.
+    await waitFor(() =>
+      expect(screen.getByRole('tablist', { name: /atlas sections/i })).toBeInTheDocument(),
+    );
     const tablist = screen.getByRole('tablist');
     expect(tablist).not.toHaveTextContent(/sketchbook/i);
     expect(tablist).not.toHaveTextContent(/yearbook/i);

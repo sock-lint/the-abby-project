@@ -17,6 +17,7 @@ import BackLink from '../components/BackLink';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import ParchmentSkeleton from '../components/ParchmentSkeleton';
+import TabList from '../components/layout/TabList';
 import ProjectHeader from './project/ProjectHeader';
 import OverviewTab from './project/OverviewTab';
 import PlanTab from './project/PlanTab';
@@ -45,6 +46,10 @@ export default function ProjectDetail() {
   const [addResourceOpen, setAddResourceOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [error, setError] = useState('');
+  // Pending milestone-completion id — surfaces an in-flight visual on the
+  // milestone-complete circle in PlanTab so a slow network doesn't read as
+  // a dead tap.
+  const [pendingMilestoneId, setPendingMilestoneId] = useState(null);
   const { confirmState, askConfirm, closeConfirm } = useConfirmState();
 
   if (loading) return (
@@ -104,8 +109,14 @@ export default function ProjectDetail() {
   };
 
   const handleCompleteMilestone = async (msId) => {
-    await completeMilestone(id, msId);
-    reload();
+    if (pendingMilestoneId) return;
+    setPendingMilestoneId(msId);
+    try {
+      await completeMilestone(id, msId);
+      reload();
+    } finally {
+      setPendingMilestoneId(null);
+    }
   };
 
   const handleMarkPurchased = async (matId, cost) => {
@@ -162,31 +173,15 @@ export default function ProjectDetail() {
 
       <ErrorAlert message={error} />
 
-      <nav
-        role="tablist"
-        aria-label="Project sections"
-        className="flex gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow"
-      >
-        {tabs.map((tab) => {
-          const active = activeTab === tab;
-          return (
-            <button
-              key={tab}
-              role="tab"
-              type="button"
-              aria-selected={active}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 rounded-md font-display text-body transition-colors ${
-                active
-                  ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
-                  : 'text-ink-secondary hover:text-ink-primary'
-              }`}
-            >
-              {tab}
-            </button>
-          );
-        })}
-      </nav>
+      <TabList
+        tabs={tabs.map((id) => ({ id, label: id }))}
+        activeId={activeTab}
+        onSelect={setActiveTab}
+        variant="pill"
+        ariaLabel="Project sections"
+        stretch
+        scrollFades={false}
+      />
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -202,6 +197,7 @@ export default function ProjectDetail() {
             <PlanTab
               project={project}
               isParent={isParent}
+              pendingMilestoneId={pendingMilestoneId}
               onCompleteMilestone={handleCompleteMilestone}
               onDeleteMilestone={handleDeleteMilestone}
               onToggleStep={handleToggleStep}

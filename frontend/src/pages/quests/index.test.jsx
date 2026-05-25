@@ -25,7 +25,10 @@ describe('QuestsHub', () => {
         </AuthProvider>
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByText('Quests')).toBeInTheDocument());
+    // Hub no longer renders an h1; check the tablist aria-label instead.
+    await waitFor(() =>
+      expect(screen.getByRole('tablist', { name: /quests sections/i })).toBeInTheDocument(),
+    );
     expect(screen.getAllByText(/ventures/i).length).toBeGreaterThan(0);
   });
 

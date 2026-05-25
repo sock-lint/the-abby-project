@@ -1,20 +1,17 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, ChevronDown, DollarSign, Plus, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, DollarSign, Trash2 } from 'lucide-react';
 import EmptyState from '../../components/EmptyState';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import { chapterMark } from '../../components/atlas/mastery.constants';
+import DashedAddButton from './DashedAddButton';
 import { ResourcePill, StepCard } from './ProjectPlanItems';
 
 const LOOSE_KEY = '__loose__';
 
-const addButtonClass =
-  'flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 rounded-lg ' +
-  'border-2 border-dashed border-ink-page-shadow text-sm font-script ' +
-  'text-ink-secondary hover:text-ink-primary hover:border-sheikah-teal/60 transition-colors';
-
 export default function PlanTab({
   project, isParent,
+  pendingMilestoneId,
   onCompleteMilestone, onDeleteMilestone,
   onToggleStep, onDeleteStep, onMoveStep,
   onDeleteResource,
@@ -50,15 +47,9 @@ export default function PlanTab({
     <div className="space-y-3">
       {isParent && (
         <div className="flex gap-2 flex-wrap">
-          <button type="button" onClick={onOpenAddMilestone} className={addButtonClass}>
-            <Plus size={16} /> add milestone
-          </button>
-          <button type="button" onClick={() => onOpenAddStep(null)} className={addButtonClass}>
-            <Plus size={16} /> add step
-          </button>
-          <button type="button" onClick={onOpenAddResource} className={addButtonClass}>
-            <Plus size={16} /> add resource
-          </button>
+          <DashedAddButton onClick={onOpenAddMilestone}>add milestone</DashedAddButton>
+          <DashedAddButton onClick={() => onOpenAddStep(null)}>add step</DashedAddButton>
+          <DashedAddButton onClick={onOpenAddResource}>add resource</DashedAddButton>
         </div>
       )}
 
@@ -76,19 +67,23 @@ export default function PlanTab({
         const collapsed = collapsedMilestones.has(ms.id);
         const allDone = total > 0 && done === total;
         const numeral = chapterMark(idx);
+        const isCompleting = pendingMilestoneId === ms.id;
         return (
           <motion.div key={ms.id} layout>
             <ParchmentCard className={ms.is_completed ? 'opacity-60' : ''}>
               <div className="flex items-start gap-3">
                 <button
                   type="button"
-                  onClick={() => !ms.is_completed && onCompleteMilestone(ms.id)}
-                  disabled={ms.is_completed}
-                  aria-label={ms.is_completed ? 'Milestone completed' : 'Mark milestone complete'}
+                  onClick={() => !ms.is_completed && !isCompleting && onCompleteMilestone(ms.id)}
+                  disabled={ms.is_completed || isCompleting}
+                  aria-busy={isCompleting || undefined}
+                  aria-label={ms.is_completed ? 'Milestone completed' : (isCompleting ? 'Marking milestone complete…' : 'Mark milestone complete')}
                   className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${
                     ms.is_completed
                       ? 'bg-moss border-moss'
-                      : 'border-ink-page-shadow hover:border-sheikah-teal-deep hover:bg-sheikah-teal/15'
+                      : isCompleting
+                        ? 'border-sheikah-teal-deep bg-sheikah-teal/25 animate-pulse cursor-progress'
+                        : 'border-ink-page-shadow hover:border-sheikah-teal-deep hover:bg-sheikah-teal/15'
                   }`}
                 >
                   {ms.is_completed && <Check size={14} className="text-ink-page-rune-glow" strokeWidth={3} />}
@@ -101,7 +96,7 @@ export default function PlanTab({
                   <div className="flex items-center gap-2">
                     <span
                       aria-hidden="true"
-                      className="font-display italic text-ember-deep text-sm leading-none select-none shrink-0"
+                      className="font-display italic text-ember-deep text-body leading-none select-none shrink-0"
                     >
                       {numeral}
                     </span>
@@ -113,7 +108,7 @@ export default function PlanTab({
                       {ms.title}
                     </div>
                     {ms.bonus_amount && (
-                      <span className="font-rune text-xs text-moss flex items-center gap-0.5">
+                      <span className="font-rune text-caption text-moss flex items-center gap-0.5">
                         <DollarSign size={12} />{ms.bonus_amount}
                       </span>
                     )}
@@ -125,7 +120,7 @@ export default function PlanTab({
                     />
                   </div>
                   {ms.description && (
-                    <div className="font-body text-xs text-ink-secondary mt-0.5">
+                    <div className="font-body text-caption text-ink-secondary mt-0.5">
                       {ms.description}
                     </div>
                   )}
@@ -160,10 +155,14 @@ export default function PlanTab({
                   {allDone && !ms.is_completed && (
                     <button
                       type="button"
-                      onClick={() => onCompleteMilestone(ms.id)}
-                      className="w-full font-body text-xs bg-sheikah-teal/15 hover:bg-sheikah-teal/25 text-sheikah-teal-deep border border-sheikah-teal/40 rounded-lg py-2 transition-colors"
+                      onClick={() => !isCompleting && onCompleteMilestone(ms.id)}
+                      disabled={isCompleting}
+                      aria-busy={isCompleting || undefined}
+                      className={`w-full font-body text-caption bg-sheikah-teal/15 hover:bg-sheikah-teal/25 text-sheikah-teal-deep border border-sheikah-teal/40 rounded-lg py-2 transition-colors ${
+                        isCompleting ? 'cursor-progress opacity-70' : ''
+                      }`}
                     >
-                      All steps done — mark milestone complete?
+                      {isCompleting ? 'Marking complete…' : 'All steps done — mark milestone complete?'}
                     </button>
                   )}
                   {childSteps.map((step) => (
@@ -178,18 +177,14 @@ export default function PlanTab({
                     />
                   ))}
                   {childSteps.length === 0 && (
-                    <div className="font-script text-xs text-ink-whisper italic">
+                    <div className="font-script text-caption text-ink-whisper italic">
                       No steps in this milestone yet.
                     </div>
                   )}
                   {isParent && (
-                    <button
-                      type="button"
-                      onClick={() => onOpenAddStep(ms.id)}
-                      className={`${addButtonClass} min-w-0 text-xs py-1.5`}
-                    >
-                      <Plus size={12} /> add step here
-                    </button>
+                    <DashedAddButton size="sm" onClick={() => onOpenAddStep(ms.id)}>
+                      add step here
+                    </DashedAddButton>
                   )}
                 </div>
               )}
@@ -201,7 +196,7 @@ export default function PlanTab({
       {looseSteps.length > 0 && (
         <div className="space-y-2">
           {milestones.length > 0 && (
-            <div className="font-script text-xs text-ink-whisper uppercase tracking-wider pt-2">
+            <div className="font-script text-caption text-ink-whisper uppercase tracking-wider pt-2">
               other steps
             </div>
           )}
@@ -221,7 +216,7 @@ export default function PlanTab({
 
       {isParent && project.resources?.length > 0 && (
         <div className="pt-4">
-          <div className="font-script text-xs text-ink-whisper mb-2 uppercase tracking-wider">
+          <div className="font-script text-caption text-ink-whisper mb-2 uppercase tracking-wider">
             project-level resources
           </div>
           <div className="space-y-1.5">

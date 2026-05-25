@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import TomeSpine from './TomeSpine';
+import useScrollFades from '../../hooks/useScrollFades';
 
 /**
  * TomeShelf — horizontal snap-scroll rail of TomeSpine tabs.
@@ -13,6 +14,8 @@ import TomeSpine from './TomeSpine';
  */
 export default function TomeShelf({ items, activeId, onSelect, ariaLabel }) {
   const refs = useRef(new Map());
+  const shelfRef = useRef(null);
+  const { showLeft, showRight, onScroll: onShelfScroll } = useScrollFades(shelfRef);
 
   const handleKey = useCallback(
     (event) => {
@@ -56,10 +59,30 @@ export default function TomeShelf({ items, activeId, onSelect, ariaLabel }) {
         aria-hidden="true"
         className="absolute inset-x-0 -bottom-1 h-1 bg-gradient-to-b from-[rgba(45,31,21,0.30)] to-transparent rounded-b-sm pointer-events-none"
       />
+      {/* Scroll-fade gradients — signal "more spines off-screen" without
+          adding a scrollbar that fights the shelf-board aesthetic. Mirror
+          ChapterHub's pattern so the cue reads identically across hubs and
+          the Atlas shelf. */}
+      {showLeft && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10
+                     bg-gradient-to-r from-ink-page to-transparent"
+        />
+      )}
+      {showRight && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 z-10
+                     bg-gradient-to-l from-ink-page to-transparent"
+        />
+      )}
       <div
+        ref={shelfRef}
         role="tablist"
         aria-orientation="horizontal"
         aria-label={ariaLabel}
+        onScroll={onShelfScroll}
         className="relative flex gap-2 md:gap-3 overflow-x-auto pt-4 pb-4 px-1 snap-x snap-mandatory"
         style={{ scrollbarWidth: 'thin' }}
       >

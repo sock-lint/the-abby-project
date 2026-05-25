@@ -9,12 +9,13 @@ import useParentPendingCounts from '../../hooks/useParentPendingCounts';
 /**
  * ChapterNav — renders the six-chapter nav in two flavors:
  *   - desktop : left-side parchment rail with chapter icons + labels
- *   - mobile  : bottom tab bar, six equal columns
+ *   - mobile  : bottom tab bar, six equal columns (same for both roles)
  *
  * The Clock is NOT a chapter — it lives in ClockFab (floating action).
- * Manage (parent-only) and Settings sit in the desktop sidebar footer.
- * Mobile has no footer — Settings is reached via the header AvatarMenu; Manage
- * is desktop-only since parents rarely manage on mobile.
+ * Manage / Activity / Codex (parent-only) sit in the desktop sidebar footer.
+ * Mobile has no footer — Settings, Manage, Activity, and Codex are all reached
+ * via the header AvatarMenu so the bottom bar keeps showing all six chapters
+ * (Chronicle included) for parents the same as it does for children.
  */
 
 const CHAPTERS = [
@@ -171,9 +172,10 @@ export function ChapterBottomBar({ user }) {
   const isParent = user?.role === 'parent';
   const { total: pendingCount } = useParentPendingCounts({ enabled: isParent });
 
-  const chapters = isParent
-    ? [...CHAPTERS.slice(0, 5), { to: '/manage', icon: SlidersHorizontal, label: 'Manage', shortLabel: 'Manage' }]
-    : CHAPTERS;
+  // Both roles get the same six chapters — Manage / Activity / Codex for
+  // parents reach via AvatarMenu in the mobile header so Chronicle isn't
+  // displaced out of the bottom bar.
+  const chapters = CHAPTERS;
 
   return (
     <nav

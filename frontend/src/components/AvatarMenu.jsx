@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { History, Settings, SlidersHorizontal } from 'lucide-react';
+import { BookOpen, History, Settings, SlidersHorizontal } from 'lucide-react';
 import { DragonIcon } from './icons/JournalIcons';
 
 /**
@@ -11,8 +11,8 @@ import { DragonIcon } from './icons/JournalIcons';
  *   - JournalShell mobile header     → <AvatarMenu user={user} compact />
  *   - ChapterNav desktop sidebar     → <AvatarMenu user={user} align="top" />
  *
- * Menu items: Sigil (profile) + Manage (parent-only) + Activity (parent-only)
- * + Settings. On mobile the bottom tab bar holds only the six chapters, so the
+ * Menu items: Sigil (profile) + Manage / Activity / Codex (parent-only) +
+ * Settings. On mobile the bottom tab bar holds only the six chapters, so the
  * avatar dropdown is the sole mobile entry point to /settings and the parent
  * utility pages.
  */
@@ -170,8 +170,8 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                       <span className="block font-display text-base tracking-wide leading-tight">
                         Manage
                       </span>
-                      <span className="block font-script text-ink-whisper text-xs leading-tight">
-                        children, templates, codex
+                      <span className="block font-script text-ink-whisper text-caption leading-tight">
+                        children, templates, family
                       </span>
                     </span>
                   </NavLink>
@@ -192,8 +192,30 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                       <span className="block font-display text-base tracking-wide leading-tight">
                         Activity
                       </span>
-                      <span className="block font-script text-ink-whisper text-xs leading-tight">
+                      <span className="block font-script text-ink-whisper text-caption leading-tight">
                         recent family log
+                      </span>
+                    </span>
+                  </NavLink>
+                  <NavLink
+                    to="/codex"
+                    role="menuitem"
+                    onClick={() => setOpen(false)}
+                    className={({ isActive }) =>
+                      `group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all
+                       ${isActive
+                          ? 'bg-sheikah-teal/15 text-ink-primary'
+                          : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
+                       }`
+                    }
+                  >
+                    <BookOpen size={20} className="text-sheikah-teal-deep shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block font-display text-base tracking-wide leading-tight">
+                        Codex
+                      </span>
+                      <span className="block font-script text-ink-whisper text-caption leading-tight">
+                        lorebook authoring
                       </span>
                     </span>
                   </NavLink>
