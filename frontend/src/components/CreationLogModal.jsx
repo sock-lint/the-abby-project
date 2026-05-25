@@ -108,7 +108,7 @@ export default function CreationLogModal({ onClose, onSaved }) {
         {capHint && (
           <p
             role="status"
-            className={`font-script text-xs px-3 py-2 rounded-lg border ${remainingWithXp > 0 ? 'border-moss/40 bg-moss/5 text-moss-deep' : 'border-ember/40 bg-ember/5 text-ember-deep'}`}
+            className={`font-script text-caption px-3 py-2 rounded-lg border ${remainingWithXp > 0 ? 'border-moss/40 bg-moss/5 text-moss-deep' : 'border-ember/40 bg-ember/5 text-ember-deep'}`}
           >
             {capHint}
           </p>
@@ -119,27 +119,27 @@ export default function CreationLogModal({ onClose, onSaved }) {
             type="file"
             accept="image/*"
             onChange={handleImage}
-            className="mt-1 block w-full text-sm"
+            className="mt-1 block w-full text-body"
           />
         </label>
         {image && (
-          <div className="flex items-center gap-2 text-xs text-ink-whisper font-script">
+          <div className="flex items-center gap-2 text-caption text-ink-whisper font-script">
             <ImageIcon size={14} /> {image.name}
           </div>
         )}
 
         <label className={formLabelClass}>
           Audio (optional)
-          <span className="ml-1 text-xs text-ink-whisper font-script">— up to 10 MB</span>
+          <span className="ml-1 text-caption text-ink-whisper font-script">— up to 10 MB</span>
           <input
             type="file"
             accept="audio/*"
             onChange={handleAudio}
-            className="mt-1 block w-full text-sm"
+            className="mt-1 block w-full text-body"
           />
         </label>
         {audio && (
-          <div className="flex items-center gap-2 text-xs text-ink-whisper font-script">
+          <div className="flex items-center gap-2 text-caption text-ink-whisper font-script">
             <Music size={14} /> {audio.name}
           </div>
         )}

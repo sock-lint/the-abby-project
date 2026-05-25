@@ -36,7 +36,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
   }, [open]);
 
   const initial = (user?.display_name || user?.username || '?')[0].toUpperCase();
-  const circleSize = compact ? 'w-9 h-9 text-sm' : 'w-8 h-8 text-sm';
+  const circleSize = compact ? 'w-9 h-9 text-body' : 'w-8 h-8 text-body';
   // Anchor: desktop sidebar footer (full-width trigger) → right-align so the
   // menu hugs the rail. Mobile header (trigger pinned top-left) → left-align
   // so the menu doesn't run off-screen.
@@ -75,11 +75,11 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
             initial
           )}
         </span>
-        <span className="text-sm font-body min-w-0 text-left">
+        <span className="text-body font-body min-w-0 text-left">
           <span className="block text-ink-primary truncate leading-tight">
             {user?.display_name || user?.username}
           </span>
-          <span className="block font-script text-ink-whisper text-xs capitalize leading-tight">
+          <span className="block font-script text-ink-whisper text-caption capitalize leading-tight">
             {user?.role}
           </span>
           {user?.family?.name && (
@@ -110,7 +110,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
               <div className="font-display italic text-base text-ink-primary leading-tight truncate">
                 {user?.display_name || user?.username || 'adventurer'}
               </div>
-              <div className="font-script text-sheikah-teal-deep text-xs capitalize leading-tight mt-0.5">
+              <div className="font-script text-sheikah-teal-deep text-caption capitalize leading-tight mt-0.5">
                 {user?.role || 'traveler'}
               </div>
               {user?.family?.name && (
@@ -138,7 +138,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                   <span className="block font-display text-base tracking-wide leading-tight">
                     Sigil
                   </span>
-                  <span className="block font-script text-ink-whisper text-xs leading-tight">
+                  <span className="block font-script text-ink-whisper text-caption leading-tight">
                     who you are
                   </span>
                 </span>
@@ -160,7 +160,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                   <span className="block font-display text-base tracking-wide leading-tight">
                     Settings
                   </span>
-                  <span className="block font-script text-ink-whisper text-xs leading-tight">
+                  <span className="block font-script text-ink-whisper text-caption leading-tight">
                     theme, account, sign-off
                   </span>
                 </span>

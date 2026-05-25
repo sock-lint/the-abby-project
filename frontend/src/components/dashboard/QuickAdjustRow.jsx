@@ -6,7 +6,7 @@ function AdjustButton({ icon, label, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-ink-page border border-ink-page-shadow hover:bg-ink-page-rune-glow transition-colors font-body text-sm text-ink-primary"
+      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-ink-page border border-ink-page-shadow hover:bg-ink-page-rune-glow transition-colors font-body text-body text-ink-primary"
     >
       <span className="text-sheikah-teal-deep">{icon}</span>
       {label}

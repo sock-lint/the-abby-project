@@ -9,14 +9,14 @@ export default function ApprovalButtons({ onApprove, onReject, approveLabel = 'A
       <button
         type="button"
         onClick={onApprove}
-        className="flex items-center justify-center gap-1.5 min-h-[44px] bg-moss/20 hover:bg-moss/30 text-moss-deep text-sm font-medium px-4 py-2 rounded-lg border border-moss/40 transition-colors"
+        className="flex items-center justify-center gap-1.5 min-h-[44px] bg-moss/20 hover:bg-moss/30 text-moss-deep text-body font-medium px-4 py-2 rounded-lg border border-moss/40 transition-colors"
       >
         <Check size={16} /> {approveLabel}
       </button>
       <button
         type="button"
         onClick={onReject}
-        className="flex items-center justify-center gap-1.5 min-h-[44px] bg-ember/20 hover:bg-ember/30 text-ember-deep text-sm font-medium px-4 py-2 rounded-lg border border-ember/40 transition-colors"
+        className="flex items-center justify-center gap-1.5 min-h-[44px] bg-ember/20 hover:bg-ember/30 text-ember-deep text-body font-medium px-4 py-2 rounded-lg border border-ember/40 transition-colors"
       >
         <X size={16} /> {rejectLabel}
       </button>

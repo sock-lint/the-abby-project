@@ -21,7 +21,7 @@ function Toast({ toast, onDismiss }) {
       <Trophy size={18} className="text-white shrink-0" />
       <span className="text-xl shrink-0" aria-hidden="true">{toast.icon}</span>
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-semibold text-white">
+        <div className="text-caption font-semibold text-white">
           Hoard complete!
         </div>
         <div className="text-micro text-white/90 truncate">

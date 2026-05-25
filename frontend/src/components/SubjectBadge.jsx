@@ -24,7 +24,7 @@ export default function SubjectBadge({ subject }) {
   const color = SUBJECT_COLORS[subject] || SUBJECT_COLORS.other;
   const label = SUBJECT_LABELS[subject] || subject;
   return (
-    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>
+    <span className={`inline-flex px-2 py-0.5 rounded-full text-caption font-medium ${color}`}>
       {label}
     </span>
   );

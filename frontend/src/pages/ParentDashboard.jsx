@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, CalendarDays, Settings2 } from 'lucide-react';
 import HeroPrimaryCard from '../components/dashboard/HeroPrimaryCard';
 import ApprovalQueueList from '../components/dashboard/ApprovalQueueList';
 import AccordionSection from '../components/dashboard/AccordionSection';
@@ -75,9 +75,9 @@ export default function ParentDashboard() {
           />
 
           {failureMessage && (
-            <div className="flex items-start gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-3">
               <ErrorAlert message={failureMessage} className="flex-1" />
-              <Button variant="secondary" size="sm" onClick={reload}>
+              <Button variant="secondary" size="sm" onClick={reload} className="self-end sm:self-auto">
                 Retry
               </Button>
             </div>
@@ -89,6 +89,8 @@ export default function ParentDashboard() {
             index={0}
             title="Week at a glance"
             kicker="per-kid hours and earnings"
+            icon={<CalendarDays size={18} />}
+            tone="teal"
             peek={weekByKid.length > 0 ? `${weekByKid.length} kid${weekByKid.length !== 1 ? 's' : ''} active` : 'no week data yet'}
           >
             <WeekGlanceBlock weekByKid={weekByKid} />
@@ -98,6 +100,8 @@ export default function ParentDashboard() {
             index={1}
             title="Quick adjusts"
             kicker="manual ledger corrections"
+            icon={<Settings2 size={18} />}
+            tone="ink"
             peek="Adjust coins · Adjust payment"
           >
             <QuickAdjustRow />

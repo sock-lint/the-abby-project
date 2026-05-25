@@ -44,11 +44,11 @@ function ActionRow({ icon, label, hint, onClick, tone = 'ink', disabled = false 
     >
       <span className={`${toneText} shrink-0`}>{icon}</span>
       <span className="flex-1 min-w-0">
-        <span className="block font-body text-sm font-semibold text-ink-primary">
+        <span className="block font-body text-body font-semibold text-ink-primary">
           {label}
         </span>
         {hint && (
-          <span className="block font-script text-xs text-ink-whisper truncate">{hint}</span>
+          <span className="block font-script text-caption text-ink-whisper truncate">{hint}</span>
         )}
       </span>
     </button>
@@ -86,12 +86,12 @@ function ClockPane({ status, isClocked, elapsedSecs, onBack, onClockReload }) {
 
   return (
     <div className="space-y-3">
-      <button type="button" onClick={onBack} className="font-script text-sm text-sheikah-teal-deep hover:underline">
+      <button type="button" onClick={onBack} className="font-script text-body text-sheikah-teal-deep hover:underline">
         ← Back
       </button>
       {isClocked ? (
         <>
-          <div className="font-script text-ink-whisper text-xs uppercase tracking-wider">Time still inking</div>
+          <div className="font-script text-ink-whisper text-caption uppercase tracking-wider">Time still inking</div>
           <div className="font-display text-lg truncate">{status?.project_title}</div>
           <div className="font-rune text-3xl font-bold text-ember-deep tabular-nums text-center">
             {formatClock(elapsedSecs)}
@@ -102,7 +102,7 @@ function ClockPane({ status, isClocked, elapsedSecs, onBack, onClockReload }) {
             placeholder="Scribble what you did…"
             rows={3}
           />
-          {error && <div className="text-ember-deep text-sm font-script">{error}</div>}
+          {error && <div className="text-ember-deep text-body font-script">{error}</div>}
           <Button
             variant="danger"
             onClick={handleOut}
@@ -125,7 +125,7 @@ function ClockPane({ status, isClocked, elapsedSecs, onBack, onClockReload }) {
               <option key={p.id} value={p.id}>{p.title}</option>
             ))}
           </SelectField>
-          {error && <div className="text-ember-deep text-sm font-script">{error}</div>}
+          {error && <div className="text-ember-deep text-body font-script">{error}</div>}
           <Button
             onClick={handleIn}
             disabled={busy}

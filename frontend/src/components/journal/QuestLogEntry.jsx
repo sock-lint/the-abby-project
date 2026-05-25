@@ -69,7 +69,7 @@ export default function QuestLogEntry({
         <div className="flex items-center gap-2 flex-wrap">
           {icon ? <span className="flex-shrink-0 text-ink-secondary">{icon}</span> : null}
           <span
-            className={`font-body font-semibold text-sm truncate ${done ? 'line-through opacity-70' : ''}`}
+            className={`font-body font-semibold text-body truncate ${done ? 'line-through opacity-70' : ''}`}
           >
             {title}
           </span>
@@ -80,7 +80,7 @@ export default function QuestLogEntry({
           ) : null}
         </div>
         {meta ? (
-          <div className="text-xs font-script text-ink-whisper mt-0.5 truncate">
+          <div className="text-caption font-script text-ink-whisper mt-0.5 truncate">
             {meta}
           </div>
         ) : null}
@@ -88,7 +88,7 @@ export default function QuestLogEntry({
 
       {/* Reward tag */}
       {reward ? (
-        <div className="flex-shrink-0 font-rune text-xs text-ember-deep pl-2">
+        <div className="flex-shrink-0 font-rune text-caption text-ember-deep pl-2">
           {reward}
         </div>
       ) : null}

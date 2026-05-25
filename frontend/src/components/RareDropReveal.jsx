@@ -122,11 +122,11 @@ export default function RareDropReveal({ drop, onDismiss }) {
             {drop.item_name}
           </h2>
           {drop.was_salvaged ? (
-            <p className="mt-1 font-script text-sm text-ink-whisper">
+            <p className="mt-1 font-script text-body text-ink-whisper">
               already in your collection — salvaged for coins.
             </p>
           ) : (
-            <p className="mt-1 font-script text-sm text-ink-whisper">
+            <p className="mt-1 font-script text-body text-ink-whisper">
               added to your satchel.
             </p>
           )}

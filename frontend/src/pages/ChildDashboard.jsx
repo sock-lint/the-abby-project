@@ -17,8 +17,9 @@ import VitalPipStrip from '../components/dashboard/VitalPipStrip';
 import AccordionSection from '../components/dashboard/AccordionSection';
 import DailyChallengeCard from '../components/dashboard/DailyChallengeCard';
 import HomeworkSubmitSheet from '../components/HomeworkSubmitSheet';
+import IconButton from '../components/IconButton';
 import { CoinIcon } from '../components/icons/JournalIcons';
-import { BookOpen, Sparkles, Flame, Target } from 'lucide-react';
+import { BookOpen, Sparkles, Flame, Target, X, Compass, Award } from 'lucide-react';
 import { RARITY_RING_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem, inkBleed } from '../motion/variants';
 import { formatWeekdayDate, mapProjectTone } from './_dashboardShared';
@@ -152,16 +153,23 @@ export default function ChildDashboard({ data, reload }) {
           className="rounded-lg border border-rose/40 bg-rose/10 px-4 py-2 text-body text-rose flex items-start gap-3"
         >
           <span className="flex-1">{actionError}</span>
-          <button
-            type="button"
+          <IconButton
+            size="sm"
             onClick={() => setActionError('')}
-            className="text-rose/70 hover:text-rose"
             aria-label="Dismiss error"
+            className="!text-rose/70 hover:!text-rose"
           >
-            ×
-          </button>
+            <X size={16} />
+          </IconButton>
         </div>
       )}
+
+      <VitalPipStrip
+        coinBalance={coin_balance}
+        loginStreak={rpg?.login_streak}
+        level={rpg?.level}
+        activePet={activePet}
+      />
 
       <HeroPrimaryCard
         role="child"
@@ -178,13 +186,6 @@ export default function ChildDashboard({ data, reload }) {
       />
 
       <DailyChallengeCard />
-
-      <VitalPipStrip
-        coinBalance={coin_balance}
-        loginStreak={rpg?.login_streak}
-        level={rpg?.level}
-        activePet={activePet}
-      />
 
       {totalLogCount > 0 && (
         <section>
@@ -248,7 +249,7 @@ export default function ChildDashboard({ data, reload }) {
             <div className="font-script text-sheikah-teal-deep text-body">drops from the last two days</div>
             <h2 className="font-display text-xl md:text-2xl text-ink-primary leading-tight">Recent Loot</h2>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
             {recentDrops.map((d) => (
               <motion.button
                 key={d.id}
@@ -256,7 +257,7 @@ export default function ChildDashboard({ data, reload }) {
                 whileHover={{ y: -2 }}
                 onClick={() => navigate('/treasury?tab=satchel')}
                 aria-label={`${d.item_name}${d.was_salvaged ? ' (salvaged)' : ''} — open satchel`}
-                className={`shrink-0 w-24 p-3 rounded-xl bg-ink-page-aged border border-ink-page-shadow text-center ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[d.rarity] || 'ring-transparent'}`}
+                className={`shrink-0 w-28 p-3 rounded-xl bg-ink-page-aged border border-ink-page-shadow text-center ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[d.rarity] || 'ring-transparent'}`}
               >
                 <div className="text-3xl mb-1" aria-hidden="true">{d.item_icon || '📦'}</div>
                 <div className="font-body text-caption font-medium truncate">{d.item_name}</div>
@@ -273,9 +274,11 @@ export default function ChildDashboard({ data, reload }) {
         index={0}
         title="Treasury"
         kicker="this week at a glance"
+        icon={<CoinIcon size={18} />}
+        tone="gold"
         peek={`${formatCurrency(current_balance)} · ${coin_balance ?? 0} coins · ${this_week?.hours_worked ?? 0}h`}
       >
-        <motion.div variants={staggerChildren} initial="initial" animate="animate" className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <motion.div variants={staggerChildren} initial="initial" animate="animate" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           <motion.button
             variants={staggerItem}
             type="button"
@@ -308,13 +311,16 @@ export default function ChildDashboard({ data, reload }) {
             <div className="font-script text-caption uppercase tracking-wider text-sheikah-teal-deep">Hours this week</div>
             <div className="font-display text-xl font-semibold text-ink-primary">{this_week?.hours_worked ?? 0}h</div>
           </motion.button>
-          <motion.div
+          <motion.button
             variants={staggerItem}
-            className="text-left rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3"
+            type="button"
+            onClick={() => navigate('/payments')}
+            aria-label={`Earned this week ${formatCurrency(this_week?.earnings)} — open payments ledger`}
+            className="text-left rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 hover:bg-ink-page-rune-glow transition-colors"
           >
             <div className="font-script text-caption uppercase tracking-wider text-ember-deep">Earned this week</div>
             <div className="font-display text-xl font-semibold text-ink-primary">{formatCurrency(this_week?.earnings)}</div>
-          </motion.div>
+          </motion.button>
         </motion.div>
         <div className="font-script text-caption text-ink-whisper mt-3 leading-relaxed">
           balance: pay from clocked ventures · coins: earned across all your work, spent in the bazaar · hours and earnings: this week's clocked time
@@ -326,6 +332,8 @@ export default function ChildDashboard({ data, reload }) {
           index={1}
           title="Next Up"
           kicker="ventures under way"
+          icon={<Compass size={18} />}
+          tone="teal"
           count={active_projects.length}
           peek={active_projects[0]?.title}
         >
@@ -374,6 +382,8 @@ export default function ChildDashboard({ data, reload }) {
           index={2}
           title="Hoard"
           kicker="treasure chests in progress"
+          icon={<Target size={18} />}
+          tone="moss"
           count={savings_goals.length}
           peek={`${savings_goals[0]?.title} · ${savings_goals[0]?.percent_complete ?? 0}%`}
         >
@@ -422,10 +432,12 @@ export default function ChildDashboard({ data, reload }) {
           index={3}
           title="Recent Accolades"
           kicker="badges earned"
+          icon={<Award size={18} />}
+          tone="ember"
           count={recent_badges.length}
           peek={recent_badges[0]?.badge__name}
         >
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
             {recent_badges.map((b, i) => (
               <motion.button
                 key={b.badge__id}

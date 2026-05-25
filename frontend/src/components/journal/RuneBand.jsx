@@ -46,7 +46,7 @@ export default function RuneBand({ projectTitle, elapsedLabel, onClick }) {
           <div className="font-script text-tiny uppercase tracking-widest text-sheikah-teal-deep">
             Now inking
           </div>
-          <div className="font-display text-sm truncate text-ink-primary">
+          <div className="font-display text-body truncate text-ink-primary">
             {projectTitle || 'Unclaimed venture'}
           </div>
         </div>

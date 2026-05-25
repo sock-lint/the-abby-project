@@ -9,11 +9,14 @@ import Trials from '../trials';
 /**
  * Quests — hub page consolidating all "things to do."
  *
- * Ventures (Projects) · Duties (Chores) · Study (Homework)
- * Rituals (Habits) · Movement (sessions) · Trials (boss/collection quests)
+ * Tab order runs daily-cadence first → multi-day → aspirational:
+ *   Study (Homework) · Duties (Chores) · Rituals (Habits) · Movement
+ *   · Ventures (Projects) · Trials (boss/collection quests)
  *
- * Trials lives inside the hub now and speaks the same codex/folio/vessels
- * vocabulary as the Bestiary. The legacy /trials route redirects here.
+ * Slugs are stable — only the visual ordering and default landing tab
+ * changed, so deep links like /quests?tab=ventures still work. Trials
+ * lives inside the hub and speaks the same codex/folio/vessels vocabulary
+ * as the Bestiary; the legacy /trials route redirects here.
  */
 export default function QuestsHub() {
   return (
@@ -21,13 +24,13 @@ export default function QuestsHub() {
       title="Quests"
       kicker="Chapter II · The Call to Adventure"
       glyph="sheikah-eye"
-      defaultTabId="ventures"
+      defaultTabId="study"
       tabs={[
-        { id: 'ventures', label: 'Ventures', render: () => <Projects /> },
-        { id: 'duties',   label: 'Duties',   render: () => <Chores /> },
         { id: 'study',    label: 'Study',    render: () => <Homework /> },
+        { id: 'duties',   label: 'Duties',   render: () => <Chores /> },
         { id: 'rituals',  label: 'Rituals',  render: () => <Habits /> },
         { id: 'movement', label: 'Movement', render: () => <Movement /> },
+        { id: 'ventures', label: 'Ventures', render: () => <Projects /> },
         { id: 'trials',   label: 'Trials',   render: () => <Trials /> },
       ]}
     />

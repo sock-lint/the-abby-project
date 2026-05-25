@@ -115,7 +115,7 @@ export default function DailyChallengeCard() {
         }
       >
         <div className="flex items-start justify-between gap-2">
-          <div className="font-script text-sheikah-teal-deep text-xs uppercase tracking-wider">
+          <div className="font-script text-sheikah-teal-deep text-caption uppercase tracking-wider">
             a small deed before the day turns
           </div>
           <RuneBadge tone="ink" size="sm">
@@ -130,7 +130,7 @@ export default function DailyChallengeCard() {
         </h2>
 
         {challenge_type_display && (
-          <div className="font-body text-sm text-ink-secondary mt-1">
+          <div className="font-body text-body text-ink-secondary mt-1">
             {challenge_type_display}
           </div>
         )}
@@ -144,7 +144,7 @@ export default function DailyChallengeCard() {
             max={target_value}
             aria-label={`${challenge_type_display || 'Daily rite'} progress`}
           />
-          <div className="mt-1 font-script text-xs text-ink-whisper tabular-nums">
+          <div className="mt-1 font-script text-caption text-ink-whisper tabular-nums">
             {current_progress} / {target_value}
           </div>
         </div>
@@ -162,7 +162,7 @@ export default function DailyChallengeCard() {
         )}
 
         {!sessionClaimed && priorClaim && (
-          <div className="mt-3 font-script text-sm text-ink-whisper">
+          <div className="mt-3 font-script text-body text-ink-whisper">
             Already claimed — a new rite opens at midnight.
           </div>
         )}
@@ -180,7 +180,7 @@ export default function DailyChallengeCard() {
               {pending ? 'Claiming…' : `Claim reward · +${coin_reward} coins · +${xp_reward} XP`}
             </Button>
             {claimError && (
-              <p role="alert" className="font-script text-sm text-rose-700">
+              <p role="alert" className="font-script text-body text-rose-700">
                 {claimError}
               </p>
             )}
@@ -188,7 +188,7 @@ export default function DailyChallengeCard() {
         )}
 
         {!sessionClaimed && !priorClaim && !readyToClaim && (
-          <div className="mt-3 font-script text-xs text-ink-whisper">
+          <div className="mt-3 font-script text-caption text-ink-whisper">
             Reward waiting: {coin_reward} coins · {xp_reward} XP
           </div>
         )}

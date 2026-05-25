@@ -27,7 +27,7 @@ function Toast({ toast, onDismiss }) {
     >
       <Icon size={20} className="text-white shrink-0 mt-0.5" aria-hidden="true" />
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-semibold text-white truncate">
+        <div className="text-caption font-semibold text-white truncate">
           {toast.title}
         </div>
         {toast.message && (

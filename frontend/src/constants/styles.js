@@ -50,6 +50,6 @@ export const headingScript = 'font-script text-ink-secondary';
 
 // Form-field text styling — consumed by TextField / SelectField / TextAreaField.
 // Kept here so all three primitives stay in lockstep when the journal vocabulary evolves.
-export const formLabelClass = 'font-script text-sm text-ink-secondary mb-1 block';
-export const formHelpClass = 'text-xs text-ink-whisper mt-1';
-export const formErrorClass = 'text-xs text-ember-deep mt-1';
+export const formLabelClass = 'font-script text-body text-ink-secondary mb-1 block';
+export const formHelpClass = 'text-caption text-ink-whisper mt-1';
+export const formErrorClass = 'text-caption text-ember-deep mt-1';

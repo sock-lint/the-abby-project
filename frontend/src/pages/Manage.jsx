@@ -33,6 +33,7 @@ import Loader from '../components/Loader';
 import Button from '../components/Button';
 import PageShell from '../components/layout/PageShell';
 import IconButton from '../components/IconButton';
+import TabButton from '../components/TabButton';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 import { normalizeList } from '../utils/api';
 
@@ -86,23 +87,19 @@ export default function Manage() {
         </h1>
       </header>
 
-      <div className="flex gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {tabs.map((tab) => {
           const Icon = TAB_ICONS[tab];
           return (
-            <button
+            <TabButton
               key={tab}
-              type="button"
+              active={activeTab === tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 rounded-md font-display text-body transition-colors flex items-center justify-center gap-2 ${
-                activeTab === tab
-                  ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
-                  : 'text-ink-secondary hover:text-ink-primary'
-              }`}
+              className="gap-2 shrink-0"
             >
               {Icon && <Icon size={16} />}
               {tab}
-            </button>
+            </TabButton>
           );
         })}
       </div>
@@ -368,10 +365,10 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
           {child.google_linked ? (
             <Button
               type="button"
-              variant="ghost"
+              variant="danger"
               size="sm"
               onClick={handleUnlinkGoogle}
-              className="!text-ember-deep hover:!text-red-300 inline-flex items-center gap-2"
+              className="inline-flex items-center gap-2"
             >
               <Unlink size={14} /> Unlink Google Account
             </Button>

@@ -35,7 +35,7 @@ export default function DeckleDivider({ glyph = 'compass-rose', label, className
           style={{ filter: 'sepia(1) saturate(0.6) brightness(0.5)' }}
         />
         {label ? (
-          <span className="font-script text-sm text-ink-whisper uppercase tracking-wider">
+          <span className="font-script text-body text-ink-whisper uppercase tracking-wider">
             {label}
           </span>
         ) : null}

@@ -103,18 +103,18 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview }) {
       <Icon size={18} className="text-ink-secondary shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-body font-semibold text-sm truncate">{item.title}</span>
+          <span className="font-body font-semibold text-body truncate">{item.title}</span>
           <RuneBadge tone={meta.tone} size="sm">{meta.label}</RuneBadge>
         </div>
         {item.subtitle && (
-          <div className="font-script text-xs text-ink-whisper truncate">{item.subtitle}</div>
+          <div className="font-script text-caption text-ink-whisper truncate">{item.subtitle}</div>
         )}
         {error && (
-          <div className="font-script text-xs text-ember-deep mt-1">{error}</div>
+          <div className="font-script text-caption text-ember-deep mt-1">{error}</div>
         )}
       </div>
       {item.reward != null && item.reward !== '' && (
-        <div className="font-rune text-xs text-ember-deep pl-2 shrink-0">
+        <div className="font-rune text-caption text-ember-deep pl-2 shrink-0">
           {typeof item.reward === 'number'
             ? formatCurrency(item.reward)
             : item.reward}
@@ -127,7 +127,7 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview }) {
             aria-label={`Review ${item.title}`}
             disabled={!!busy}
             onClick={handleApprove}
-            className="px-3 h-8 rounded-full border border-gold-leaf/70 text-gold-leaf hover:bg-gold-leaf/10 disabled:opacity-50 flex items-center justify-center font-body text-xs"
+            className="px-3 h-8 rounded-full border border-gold-leaf/70 text-gold-leaf hover:bg-gold-leaf/10 disabled:opacity-50 flex items-center justify-center font-body text-caption"
           >
             Review
           </button>
@@ -192,17 +192,17 @@ function RejectSheet({ item, onCancel, onConfirm }) {
             helpText="Shows up in their notification feed."
           />
         ) : (
-          <p className="text-sm text-ink-secondary">
+          <p className="text-body text-ink-secondary">
             This proposal will be deleted. The kid can submit a new one.
           </p>
         )}
-        {error && <p className="text-sm text-ember-deep">{error}</p>}
+        {error && <p className="text-body text-ember-deep">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <button
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="px-4 py-2 text-sm text-ink-secondary hover:text-ink-primary disabled:opacity-50"
+            className="px-4 py-2 text-body text-ink-secondary hover:text-ink-primary disabled:opacity-50"
           >
             Cancel
           </button>
@@ -354,7 +354,7 @@ export default function ApprovalQueueList({ items = [], onDone }) {
         return (
           <ParchmentCard key={kidId}>
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-sheikah-teal/15 border border-sheikah-teal/40 flex items-center justify-center font-display text-sheikah-teal-deep text-sm">
+              <div className="w-8 h-8 rounded-full bg-sheikah-teal/15 border border-sheikah-teal/40 flex items-center justify-center font-display text-sheikah-teal-deep text-body">
                 {group.kidName?.[0]?.toUpperCase() || '?'}
               </div>
               <div className="font-display text-base text-ink-primary truncate">
@@ -368,7 +368,7 @@ export default function ApprovalQueueList({ items = [], onDone }) {
                     onClick={() => handleBulkClick(kidId, group)}
                     disabled={inFlight}
                     aria-label={`Approve all ${visibleApprovable.length} from ${group.kidName}`}
-                    className="inline-flex items-center gap-1 px-3 h-8 rounded-full border border-moss/60 text-moss hover:bg-moss/10 disabled:opacity-50 font-body text-xs"
+                    className="inline-flex items-center gap-1 px-3 h-8 rounded-full border border-moss/60 text-moss hover:bg-moss/10 disabled:opacity-50 font-body text-caption"
                   >
                     <CheckCheck size={14} />
                     {inFlight ? 'Approving…' : `Approve all (${visibleApprovable.length})`}
@@ -377,7 +377,7 @@ export default function ApprovalQueueList({ items = [], onDone }) {
               )}
             </div>
             {error && (
-              <div role="alert" className="font-script text-xs text-ember-deep mb-2">
+              <div role="alert" className="font-script text-caption text-ember-deep mb-2">
                 {error}
               </div>
             )}

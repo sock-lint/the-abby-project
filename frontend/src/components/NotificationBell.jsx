@@ -101,11 +101,11 @@ export default function NotificationBell() {
             className="absolute right-0 top-full mt-2 w-80 max-h-96 bg-ink-page-aged border border-ink-page-shadow rounded-xl shadow-xl overflow-hidden z-50"
           >
             <div className="flex items-center justify-between p-3 border-b border-ink-page-shadow">
-              <span className="font-display font-bold text-sm">Notifications</span>
+              <span className="font-display font-bold text-body">Notifications</span>
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}
-                  className="text-xs text-sheikah-teal-deep hover:underline"
+                  className="text-caption text-sheikah-teal-deep hover:underline"
                 >
                   Mark all read
                 </button>
@@ -115,7 +115,7 @@ export default function NotificationBell() {
               {notifications.length === 0 ? (
                 <div
                   role="status"
-                  className="p-5 text-center text-sm text-ink-whisper flex flex-col items-center gap-1"
+                  className="p-5 text-center text-body text-ink-whisper flex flex-col items-center gap-1"
                 >
                   <BellRing size={20} aria-hidden="true" className="text-ink-whisper/70" />
                   <span className="font-display italic text-ink-secondary">All caught up</span>
@@ -143,9 +143,9 @@ export default function NotificationBell() {
                           className={`mt-0.5 shrink-0 ${accentClass}`}
                         />
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium">{n.title}</div>
+                          <div className="text-body font-medium">{n.title}</div>
                           {n.message && (
-                            <div className="text-xs text-ink-whisper mt-0.5">{n.message}</div>
+                            <div className="text-caption text-ink-whisper mt-0.5">{n.message}</div>
                           )}
                           <div className="text-micro text-ink-whisper mt-1">
                             {formatDate(n.created_at)}

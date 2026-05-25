@@ -49,7 +49,7 @@ export default function ExpeditionToastStack() {
               potionSlug={expedition.potion_slug}
             />
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium text-ink-primary">
+              <div className="text-caption font-medium text-ink-primary">
                 {expedition.species_name} is back
               </div>
               <div className="text-micro text-ink-whisper">

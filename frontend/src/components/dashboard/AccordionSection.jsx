@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import RuneBadge from '../journal/RuneBadge';
 import { chapterMark } from '../atlas/mastery.constants';
@@ -23,6 +23,28 @@ function readStored(title, fallback) {
   return fallback;
 }
 
+// Tone palette mirrors RuneBadge — kicker text + icon chip pick up the tone.
+// Numeral keeps the gilt ember-deep accent for Atlas-vocabulary consistency.
+const TONE_KICKER = {
+  teal: 'text-sheikah-teal-deep',
+  moss: 'text-moss',
+  ember: 'text-ember-deep',
+  royal: 'text-royal',
+  gold: 'text-ember-deep',
+  ink: 'text-ink-secondary',
+  rose: 'text-ember-deep',
+};
+
+const TONE_ICON_CHIP = {
+  teal: 'bg-sheikah-teal/15 text-sheikah-teal-deep',
+  moss: 'bg-moss/15 text-moss',
+  ember: 'bg-ember/15 text-ember-deep',
+  royal: 'bg-royal/15 text-royal',
+  gold: 'bg-gold-leaf/20 text-ember-deep',
+  ink: 'bg-ink-page-shadow/40 text-ink-secondary',
+  rose: 'bg-rose/15 text-ember-deep',
+};
+
 /**
  * AccordionSection — default-collapsed disclosure with a 1-line peek.
  * Persists open state per-title in localStorage so expanded preferences survive.
@@ -31,6 +53,10 @@ function readStored(title, fallback) {
  *   title      : display title (required)
  *   index      : optional 0-based section index — renders an atlas chapter
  *                numeral (§I, §II, …) inline with the title
+ *   icon       : optional ReactNode (lucide icon at size ~16) rendered in a
+ *                tone-tinted chip left of the title
+ *   tone       : "teal" | "moss" | "ember" | "royal" | "gold" | "ink" | "rose"
+ *                (default "teal") — colors the kicker text and the icon chip
  *   kicker     : caveat-script line above title
  *   count      : optional numeric badge beside title
  *   peek       : ReactNode shown when closed (single-line summary)
@@ -38,8 +64,11 @@ function readStored(title, fallback) {
  *   defaultOpen: fallback when no persisted state exists
  */
 export default function AccordionSection({
-  title, index, kicker, count, peek, children, defaultOpen = false,
+  title, index, icon, tone = 'teal', kicker, count, peek, children, defaultOpen = false,
 }) {
+  const kickerClass = TONE_KICKER[tone] || TONE_KICKER.teal;
+  const iconChipClass = TONE_ICON_CHIP[tone] || TONE_ICON_CHIP.teal;
+  const reducedMotion = useReducedMotion();
   const [open, setOpen] = useState(() => readStored(title, defaultOpen));
 
   useEffect(() => {
@@ -59,9 +88,17 @@ export default function AccordionSection({
         aria-expanded={open}
         className="w-full flex items-center gap-3 text-left px-4 py-3"
       >
+        {icon && (
+          <span
+            aria-hidden="true"
+            className={`shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg ${iconChipClass}`}
+          >
+            {icon}
+          </span>
+        )}
         <div className="flex-1 min-w-0">
           {kicker && (
-            <div className="font-script text-sheikah-teal-deep text-xs">{kicker}</div>
+            <div className={`font-script text-caption ${kickerClass}`}>{kicker}</div>
           )}
           <div className="flex items-baseline gap-2">
             {index != null && (
@@ -76,18 +113,18 @@ export default function AccordionSection({
               {title}
             </h2>
             {count != null && (
-              <RuneBadge tone="teal" size="sm">{count}</RuneBadge>
+              <RuneBadge tone={tone} size="sm">{count}</RuneBadge>
             )}
           </div>
           {!open && peek && (
-            <div className="mt-1 font-body text-xs text-ink-secondary truncate">
+            <div className="mt-1 font-body text-caption text-ink-secondary truncate">
               {peek}
             </div>
           )}
         </div>
         <motion.span
           animate={{ rotate: open ? 180 : 0 }}
-          transition={{ type: 'spring', damping: 22, stiffness: 280 }}
+          transition={reducedMotion ? { duration: 0 } : { type: 'spring', damping: 22, stiffness: 280 }}
           className="text-ink-whisper shrink-0"
         >
           <ChevronDown size={18} />

@@ -48,7 +48,7 @@ export default function RuneBadge({
 
   const sizes = {
     sm: 'text-tiny px-2 py-0.5 gap-1',
-    md: 'text-xs px-2.5 py-1 gap-1.5',
+    md: 'text-caption px-2.5 py-1 gap-1.5',
   };
 
   const toneClass = (tones[tone] || tones.teal)[variant] || tones.teal.filled;
