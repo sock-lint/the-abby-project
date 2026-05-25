@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Flame } from 'lucide-react';
+import { Clock, Flame, Stamp } from 'lucide-react';
 import { getDashboard } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import useParentPendingCounts from '../../hooks/useParentPendingCounts';
@@ -23,12 +23,25 @@ function Pip({ icon, label, tone = 'ink', active = false, onClick, ariaLabel }) 
     moss: 'text-moss bg-moss/10 border-moss/40 hover:bg-moss/20',
   }[tone] || 'text-ink-secondary bg-ink-page-aged border-ink-page-shadow';
 
+  const prevLabel = useRef(label);
+  const [bumped, setBumped] = useState(false);
+
+  useEffect(() => {
+    if (prevLabel.current !== label && prevLabel.current !== undefined) {
+      setBumped(true);
+      const timer = setTimeout(() => setBumped(false), 600);
+      prevLabel.current = label;
+      return () => clearTimeout(timer);
+    }
+    prevLabel.current = label;
+  }, [label]);
+
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={ariaLabel || label}
-      className={`inline-flex items-center gap-1.5 h-11 px-3 rounded-full border text-caption font-rune tabular-nums transition-colors ${toneClasses} ${active ? 'animate-rune-pulse' : ''}`}
+      className={`inline-flex items-center gap-1.5 h-11 px-3 rounded-full border text-caption font-rune tabular-nums transition-all ${toneClasses} ${active ? 'animate-rune-pulse' : ''} ${bumped ? 'scale-110 ring-2 ring-sheikah-teal/40' : ''}`}
     >
       <span className="shrink-0 flex items-center">{icon}</span>
       <span className="leading-none">{label}</span>
@@ -80,8 +93,7 @@ export default function HeaderStatusPips({ user }) {
     if (isParent) {
       out.push({
         key: 'approvals',
-        // retained: pixel-perfect seal glyph
-        icon: <span aria-hidden="true" className="font-display text-tiny leading-none">seal</span>,
+        icon: <Stamp size={14} />,
         label: String(pending),
         tone: pending > 0 ? 'ember' : 'ink',
         ariaLabel: `${pending} pending approvals`,

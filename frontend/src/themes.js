@@ -220,6 +220,9 @@ export function applyTheme(themeName) {
   root.style.setProperty('--color-amber-highlight', theme.accentBright);
   root.style.setProperty('--color-amber-glow', theme.accentGlow);
 
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', theme.page);
+
   // Audit L4: deliberately NOT setting ``document.body.style.background``.
   // ``index.css`` already has ``body { background-color: var(--color-ink-page) }``
   // and we update ``--color-ink-page`` above — so the body picks up the

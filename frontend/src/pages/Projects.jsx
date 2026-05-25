@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import useSearchParamState from '../hooks/useSearchParamState';
 import { motion } from 'framer-motion';
 import { Plus, Sparkles } from 'lucide-react';
 import { getProjects, getProjectSuggestions, getChildren } from '../api';
@@ -51,10 +52,22 @@ export default function Projects() {
   const { data: childrenData } = useApi(getChildren);
   const navigate = useNavigate();
 
-  const [statusFilter, setStatusFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [childFilter, setChildFilter] = useState('');
+  const [, setSearchParams] = useSearchParams();
+  const [statusFilter, setStatusFilter] = useSearchParamState('status', '');
+  const [typeFilter, setTypeFilter] = useSearchParamState('type', '');
+  const [childFilter, setChildFilter] = useSearchParamState('child', '');
   const [search, setSearch] = useState('');
+
+  const clearAllFilters = () => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('status');
+      next.delete('type');
+      next.delete('child');
+      return next;
+    }, { replace: true });
+    setSearch('');
+  };
 
   const allProjects = normalizeList(data);
   const children = normalizeList(childrenData);
@@ -255,19 +268,19 @@ export default function Projects() {
             </SelectField>
           )}
           {hasFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setStatusFilter('');
-                setTypeFilter('');
-                setChildFilter('');
-                setSearch('');
-              }}
-              className="font-script text-caption text-ink-whisper hover:text-ink-primary"
-            >
-              clear filters
-            </Button>
+            <>
+              <span className="font-script text-caption text-sheikah-teal-deep tabular-nums">
+                {projects.length} {projects.length === 1 ? 'match' : 'matches'}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllFilters}
+                className="font-script text-caption text-ink-whisper hover:text-ink-primary"
+              >
+                clear filters
+              </Button>
+            </>
           )}
         </div>
 

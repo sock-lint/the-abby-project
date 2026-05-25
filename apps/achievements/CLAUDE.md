@@ -12,7 +12,7 @@ Skill tree (Category → Subject → Skill → Badge), the unified `AwardService
 ## Services
 - `SkillService` — `distribute_tagged_xp(user, tags, pool)` — splits by `xp_weight`.
 - `BadgeService` — badge evaluation across all criterion types.
-- `AwardService.grant(user, *, xp, coins, coin_reason, money, money_entry_type, xp_tags, xp_source_label, …)` — **unified distribution helper**. Paired XP + coin + optional money ledger entry. Single entry point for all award flows.
+- `AwardService.grant(user, *, xp, coins, coin_reason, money, money_entry_type, xp_tags, xp_source_label, badge_scopes, …)` — **unified distribution helper**. Paired XP + coin + optional money ledger entry. Single entry point for all award flows. Applies `xp_boost_multiplier(user)` from `apps/rpg/services` before distributing XP (boosted total flows through tag-weighted splits; original base preserved in activity extras). Inner `CoinService`/`PaymentService` calls are wrapped in `activity_scope(suppress_inner_ledger=True)` to avoid double-logging. `badge_scopes` limits badge evaluation to the relevant criterion families for performance (see Badge Scopes below).
 
 ## Gotchas
 
@@ -54,6 +54,8 @@ Skill tree (Category → Subject → Skill → Badge), the unified `AwardService
   - **completionism + meta:** `badges_earned_count` (universal Collector ladder), `cosmetic_set_owned` (own every slug in a named set — e.g. Scholar's Wardrobe), `cosmetic_full_set` (all 4 slots equipped), `full_potion_shelf`, `consumable_variety`, `chronicle_milestones_logged` (Chronicle MILESTONE-kind entries — long-horizon recognition), `grade_reached`, `birthdays_logged`
 
   Each criterion has a matching `@criterion`-decorated checker in [`criteria.py`](criteria.py). `streak_freeze_used` + `perfect_days_count` read via `CharacterProfile.objects.filter(user=user).values(...).first()` rather than `user.character_profile.<field>` — the reverse-OneToOne cache goes stale after direct `profile.save()` calls and tripped earlier test setups. Badges also award rarity-scaled Coins. **`AwardService.grant(user, *, xp, coins, coin_reason, money, money_entry_type, …)`** is the unified distribution helper — chore approval and project completion route both ledgers through it in one call so paired awards are atomic, badge evaluation runs once, and new triggers extend in one place.
+
+- **Badge scopes** (`_CRITERIA_SCOPES` in `criteria.py`): performance optimization that limits badge evaluation to relevant criterion families. Each call site passes `badge_scopes={...}` to `AwardService.grant` or `BadgeService.evaluate_badges`. Scope vocabulary: `time`, `project`, `skill_xp`, `chore`, `homework_create`, `homework_complete`, `habit`, `quest`, `pet`, `rpg_inventory`, `coin`, `money`, `savings`, `rewards`, `chronicle`, `creation`, `movement`, `badges` (meta — BADGES_EARNED ladder). Only criteria whose scope set intersects the caller's scopes are evaluated. The `badges` meta-scope is included in most calls because earning any badge can trigger the universal Collector ladder.
 
 ## Key entry points
 - `services.py` — `SkillService`, `BadgeService`, `AwardService.grant`.

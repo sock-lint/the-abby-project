@@ -197,8 +197,8 @@ export default function CreationLogModal({ onClose, onSaved }) {
           <Button variant="secondary" type="button" onClick={onClose} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={!canSubmit} className="flex-1">
-            {saving ? 'Saving…' : 'Log creation'}
+          <Button type="submit" disabled={!canSubmit} loading={saving} className="flex-1">
+            Log creation
           </Button>
         </div>
       </form>

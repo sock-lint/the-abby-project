@@ -8,7 +8,7 @@ import { TextField, TextAreaField } from '../../components/form';
 
 export default function CategoryFormModal({ item, onClose, onSaved }) {
   const isEdit = !!item;
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     name: item?.name || '',
     icon: item?.icon || '',
     color: item?.color || '#D97706', // intentional: default value seeding the <input type="color"> picker — user-pickable color literal stored as data, not a surface token
@@ -33,7 +33,7 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
   };
 
   return (
-    <BottomSheet title={isEdit ? 'Edit Category' : 'New Category'} onClose={onClose}>
+    <BottomSheet title={isEdit ? 'Edit Category' : 'New Category'} onClose={onClose} dirty={dirty}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
@@ -53,8 +53,8 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-          <Button type="submit" size="sm" disabled={saving}>
-            {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
+          <Button type="submit" size="sm" loading={saving}>
+            {isEdit ? 'Update' : 'Create'}
           </Button>
         </div>
       </form>

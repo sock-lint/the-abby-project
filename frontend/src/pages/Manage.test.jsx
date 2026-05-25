@@ -45,9 +45,9 @@ describe('Manage', () => {
     const user = userEvent.setup();
     renderPage();
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /templates/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tab', { name: /templates/i })).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole('button', { name: /templates/i }));
+    await user.click(screen.getByRole('tab', { name: /templates/i }));
     await waitFor(() =>
       expect(screen.getAllByText((t) => /template/i.test(t)).length).toBeGreaterThan(0),
     );
@@ -62,7 +62,7 @@ describe('Manage', () => {
     );
     const user = userEvent.setup();
     renderPage();
-    await user.click(await screen.findByRole('button', { name: /codex/i }));
+    await user.click(await screen.findByRole('tab', { name: /codex/i }));
     await waitFor(() =>
       expect(screen.getAllByText((t) => /codex/i.test(t)).length).toBeGreaterThan(0),
     );
@@ -100,7 +100,7 @@ describe('Manage', () => {
     );
     const user = userEvent.setup();
     renderPage();
-    await user.click(await screen.findByRole('button', { name: /guide/i }));
+    await user.click(await screen.findByRole('tab', { name: /guide/i }));
     expect(await screen.findByRole('heading', { name: /economy diagram/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /study/i })).toBeInTheDocument();
   });
@@ -251,7 +251,7 @@ describe('Manage — child DOB + grade_entry_year', () => {
     );
     renderPage();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^Test$/ })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /^Test$/ })).toBeInTheDocument();
     });
   });
 });
@@ -273,7 +273,7 @@ describe('Manage — Family tab', () => {
     );
     const user = userEvent.setup();
     renderPage();
-    await user.click(await screen.findByRole('button', { name: /^Family$/ }));
+    await user.click(await screen.findByRole('tab', { name: /^Family$/ }));
     expect(await screen.findByText('Coparent')).toBeInTheDocument();
     expect(screen.getByText(/\(you\)/)).toBeInTheDocument();
     expect(screen.getByText(/founder/i)).toBeInTheDocument();
@@ -292,7 +292,7 @@ describe('Manage — Family tab', () => {
     );
     const user = userEvent.setup();
     renderPage();
-    await user.click(await screen.findByRole('button', { name: /^Family$/ }));
+    await user.click(await screen.findByRole('tab', { name: /^Family$/ }));
     await screen.findByText('Coparent');
     // Exactly one Edit button (for the co-parent), not two.
     const editButtons = screen.getAllByRole('button', { name: /^edit$/i });
@@ -313,7 +313,7 @@ describe('Manage — Family tab', () => {
 
     const user = userEvent.setup();
     renderPage();
-    await user.click(await screen.findByRole('button', { name: /^Family$/ }));
+    await user.click(await screen.findByRole('tab', { name: /^Family$/ }));
     await user.click(await screen.findByRole('button', { name: /add co-parent/i }));
 
     const sheet = await screen.findByRole('dialog', { name: /add co-parent/i });
@@ -343,7 +343,7 @@ describe('Manage — Family tab', () => {
 
     const user = userEvent.setup();
     renderPage();
-    await user.click(await screen.findByRole('button', { name: /^Family$/ }));
+    await user.click(await screen.findByRole('tab', { name: /^Family$/ }));
     await user.click(await screen.findByRole('button', { name: /^edit$/i }));
     const editSheet = await screen.findByRole('dialog', { name: /edit co/i });
     await user.click(within(editSheet).getByRole('button', { name: /reset password/i }));
@@ -369,7 +369,7 @@ describe('Manage — Family tab', () => {
 
     const user = userEvent.setup();
     renderPage();
-    await user.click(await screen.findByRole('button', { name: /^Family$/ }));
+    await user.click(await screen.findByRole('tab', { name: /^Family$/ }));
     await user.click(await screen.findByRole('button', { name: /^edit$/i }));
     await user.click(await screen.findByRole('button', { name: /delete account/i }));
 
@@ -407,7 +407,7 @@ describe('Manage — Family tab', () => {
 
     const user = userEvent.setup();
     renderPage();
-    await user.click(await screen.findByRole('button', { name: /^Family$/ }));
+    await user.click(await screen.findByRole('tab', { name: /^Family$/ }));
     await user.click(await screen.findByRole('button', { name: /^edit$/i }));
 
     expect(deactivate.calls).toHaveLength(0);
@@ -558,9 +558,9 @@ describe('Manage — Admin tab', () => {
     const user = userEvent.setup();
     renderPage();
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /^Admin$/ })).toBeInTheDocument(),
+      expect(screen.getByRole('tab', { name: /^Admin$/ })).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole('button', { name: /^Admin$/ }));
+    await user.click(screen.getByRole('tab', { name: /^Admin$/ }));
     await user.type(await screen.findByLabelText(/family name/i), 'New House');
     await user.type(screen.getByLabelText(/sign-in name/i), 'founder');
     await user.type(screen.getByLabelText(/^password$/i), 'ApbBy1!Strong');

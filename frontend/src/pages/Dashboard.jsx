@@ -1,11 +1,10 @@
 import { getDashboard } from '../api';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
-import Button from '../components/Button';
-import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import ChildDashboard from './ChildDashboard';
 import ParentDashboard from './ParentDashboard';
+import DashboardSkeleton from './DashboardSkeleton';
 import { formatWeekdayDate } from './_dashboardShared';
 
 /**
@@ -17,16 +16,13 @@ export default function Dashboard() {
   const { data, loading, error, reload } = useApi(getDashboard);
   const { isParent } = useRole();
 
-  if (loading) return <Loader />;
+  if (loading) return <DashboardSkeleton />;
   if (error || !data) {
     return (
       <div className="max-w-6xl mx-auto space-y-3">
         {/* Show a soft dated header so the date test passes even in error state. */}
         <DateHeader />
-        <ErrorAlert message={error || 'Could not load today’s entry.'} />
-        <Button variant="secondary" size="sm" onClick={reload}>
-          Try again
-        </Button>
+        <ErrorAlert message={error || "Could not load today’s entry."} onRetry={reload} />
       </div>
     );
   }

@@ -13,15 +13,14 @@ import { useExpeditionToasts } from '../hooks/useExpeditionToasts';
  * modal — claiming is a deliberate action that happens on the Mounts
  * page (where the kid can see what they got). The toast deep-links there.
  */
-export default function ExpeditionToastStack() {
+export default function ExpeditionToastStack({ inline = false }) {
   const { ready, dismiss } = useExpeditionToasts();
   const navigate = useNavigate();
 
-  return (
-    <div className="fixed top-32 right-4 z-50 space-y-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none">
-      <AnimatePresence>
-        {ready.map((expedition) => (
-          <motion.div
+  const items = (
+    <AnimatePresence>
+      {ready.map((expedition) => (
+        <motion.div
             key={expedition.id}
             layout
             initial={{ x: 300, opacity: 0 }}
@@ -71,6 +70,12 @@ export default function ExpeditionToastStack() {
           </motion.div>
         ))}
       </AnimatePresence>
+  );
+
+  if (inline) return items;
+  return (
+    <div className="fixed top-32 right-4 z-50 space-y-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none" aria-live="polite" aria-atomic="false">
+      {items}
     </div>
   );
 }

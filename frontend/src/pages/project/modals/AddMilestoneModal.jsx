@@ -44,8 +44,8 @@ export default function AddMilestoneModal({ projectId, onClose, onSaved }) {
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving || !form.title.trim()} className="flex-1">
-            {saving ? 'Adding...' : 'Add Milestone'}
+          <Button type="submit" loading={saving} disabled={!form.title.trim()} className="flex-1">
+            Add Milestone
           </Button>
         </div>
       </form>

@@ -44,7 +44,7 @@ export default function ProjectQRSheet({ projectId, projectTitle, onClose }) {
             <a
               href={qrUrl}
               download={`project-${projectId}-qr.png`}
-              className="flex items-center gap-1.5 text-sm text-amber-500 hover:underline"
+              className="flex items-center gap-1.5 text-sm text-gold-leaf hover:underline"
             >
               <Download size={16} /> Save Image
             </a>

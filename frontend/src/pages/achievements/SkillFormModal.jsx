@@ -7,7 +7,7 @@ import { TextField, SelectField, TextAreaField } from '../../components/form';
 
 export default function SkillFormModal({ item, categories, subjects, onClose, onSaved }) {
   const isEdit = !!item;
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     name: item?.name || '',
     category: item?.category || '',
     subject: item?.subject || '',
@@ -55,7 +55,7 @@ export default function SkillFormModal({ item, categories, subjects, onClose, on
   };
 
   return (
-    <BottomSheet title={isEdit ? 'Edit Skill' : 'New Skill'} onClose={onClose}>
+    <BottomSheet title={isEdit ? 'Edit Skill' : 'New Skill'} onClose={onClose} dirty={dirty}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
@@ -95,8 +95,8 @@ export default function SkillFormModal({ item, categories, subjects, onClose, on
         </label>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-          <Button type="submit" size="sm" disabled={saving}>
-            {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
+          <Button type="submit" size="sm" loading={saving}>
+            {isEdit ? 'Update' : 'Create'}
           </Button>
         </div>
       </form>

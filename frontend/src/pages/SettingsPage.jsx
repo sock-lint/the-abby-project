@@ -10,6 +10,7 @@ import {
   uploadAvatar, removeAvatar,
   getCosmetics, equipCosmetic,
 } from '../api';
+import DeckleDivider from '../components/journal/DeckleDivider';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -318,99 +319,9 @@ export default function SettingsPage() {
         </ParchmentCard>
       )}
 
-      <InstallCard />
-
-      {confirmRemoveAvatar && (
-        <ConfirmDialog
-          title="Remove your avatar?"
-          message="Your circle will go back to your initial until you upload another."
-          confirmLabel="Remove"
-          onConfirm={handleAvatarRemove}
-          onCancel={() => setConfirmRemoveAvatar(false)}
-        />
-      )}
-
-      {/* Google */}
+      {/* Journal covers (themes) — grouped with Profile as "Your Journal" */}
       <ParchmentCard>
-        <SectionHeader index={2} title="Google account" kicker="connect a calendar" className="mb-4" />
-        {googleMessage && (
-          <div className="font-script text-body text-sheikah-teal-deep mb-3">{googleMessage}</div>
-        )}
-        {googleLoading ? (
-          <div className="font-script text-body text-ink-whisper">Loading…</div>
-        ) : googleAccount?.linked ? (
-          <div className="space-y-3">
-            <div className="flex justify-between items-center text-body">
-              <span className={fieldLabel}>Linked to</span>
-              <span className={fieldValue}>{googleAccount.google_email}</span>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleUnlinkGoogle}
-              className="flex items-center gap-2 font-script text-body text-ember-deep hover:text-ember"
-            >
-              <Unlink size={14} /> unlink Google account
-            </Button>
-          </div>
-        ) : (
-          <Button
-            variant="secondary"
-            onClick={handleLinkGoogle}
-            className="flex items-center gap-2 w-full"
-          >
-            <Link2 size={16} /> Connect Google account
-          </Button>
-        )}
-      </ParchmentCard>
-
-      {/* Calendar Sync */}
-      {googleAccount?.linked && (
-        <ParchmentCard>
-          <SectionHeader index={3} title="Calendar sync" kicker="weave the dates in" className="mb-2" />
-          <p className="font-body text-body text-ink-secondary mb-4">
-            Sync project deadlines, chore schedules, and work sessions to your Google Calendar.
-          </p>
-          <div className="space-y-3">
-            <label className="flex items-center justify-between cursor-pointer font-body text-body text-ink-primary">
-              <span className="flex items-center gap-2">
-                <Calendar size={16} className="text-sheikah-teal-deep" />
-                Enable calendar sync
-              </span>
-              <button
-                type="button"
-                onClick={handleToggleCalendar}
-                className={`relative w-10 h-5 rounded-full transition-colors ${
-                  calendarEnabled ? 'bg-sheikah-teal-deep' : 'bg-ink-page-shadow'
-                }`}
-                aria-pressed={calendarEnabled}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-ink-page-rune-glow transition-transform ${
-                    calendarEnabled ? 'translate-x-5' : ''
-                  }`}
-                />
-              </button>
-            </label>
-            {calendarEnabled && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSync}
-                disabled={syncing}
-                className="flex items-center gap-2 font-script text-body text-sheikah-teal-deep hover:text-sheikah-teal"
-              >
-                <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-                {syncing ? 'syncing…' : 'sync now'}
-              </Button>
-            )}
-          </div>
-        </ParchmentCard>
-      )}
-
-      {/* Journal covers (themes) */}
-      <ParchmentCard>
-        <SectionHeader index={4} title="Journal cover" kicker="pick a cover" className="mb-2" />
+        <SectionHeader index={2} title="Journal cover" kicker="pick a cover" className="mb-2" />
         {coverError && <ErrorAlert message={coverError} className="mt-2" />}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3" data-testid="cover-picker">
           {Object.entries(themes).map(([key, theme]) => {
@@ -420,9 +331,6 @@ export default function SettingsPage() {
             const t = theme.tones || {};
 
             if (!owned) {
-              // Locked intaglio — mirrors the Frontispiece cosmetic
-              // chapter so the "earning" ceremony reads consistently
-              // across surfaces. Non-interactive, ``role="img"``.
               return (
                 <div
                   key={key}
@@ -547,6 +455,98 @@ export default function SettingsPage() {
           </Link>
         </div>
       </ParchmentCard>
+
+      <DeckleDivider glyph="flourish-corner" className="my-2" />
+
+      <InstallCard />
+
+      {confirmRemoveAvatar && (
+        <ConfirmDialog
+          title="Remove your avatar?"
+          message="Your circle will go back to your initial until you upload another."
+          confirmLabel="Remove"
+          onConfirm={handleAvatarRemove}
+          onCancel={() => setConfirmRemoveAvatar(false)}
+        />
+      )}
+
+      {/* Google */}
+      <ParchmentCard>
+        <SectionHeader index={3} title="Google account" kicker="connect a calendar" className="mb-4" />
+        {googleMessage && (
+          <div className="font-script text-body text-sheikah-teal-deep mb-3">{googleMessage}</div>
+        )}
+        {googleLoading ? (
+          <div className="font-script text-body text-ink-whisper">Loading…</div>
+        ) : googleAccount?.linked ? (
+          <div className="space-y-3">
+            <div className="flex justify-between items-center text-body">
+              <span className={fieldLabel}>Linked to</span>
+              <span className={fieldValue}>{googleAccount.google_email}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleUnlinkGoogle}
+              className="flex items-center gap-2 font-script text-body text-ember-deep hover:text-ember"
+            >
+              <Unlink size={14} /> unlink Google account
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="secondary"
+            onClick={handleLinkGoogle}
+            className="flex items-center gap-2 w-full"
+          >
+            <Link2 size={16} /> Connect Google account
+          </Button>
+        )}
+      </ParchmentCard>
+
+      {/* Calendar Sync */}
+      {googleAccount?.linked && (
+        <ParchmentCard>
+          <SectionHeader index={4} title="Calendar sync" kicker="weave the dates in" className="mb-2" />
+          <p className="font-body text-body text-ink-secondary mb-4">
+            Sync project deadlines, chore schedules, and work sessions to your Google Calendar.
+          </p>
+          <div className="space-y-3">
+            <label className="flex items-center justify-between cursor-pointer font-body text-body text-ink-primary">
+              <span className="flex items-center gap-2">
+                <Calendar size={16} className="text-sheikah-teal-deep" />
+                Enable calendar sync
+              </span>
+              <button
+                type="button"
+                onClick={handleToggleCalendar}
+                className={`relative w-10 h-5 rounded-full transition-colors ${
+                  calendarEnabled ? 'bg-sheikah-teal-deep' : 'bg-ink-page-shadow'
+                }`}
+                aria-pressed={calendarEnabled}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-ink-page-rune-glow transition-transform ${
+                    calendarEnabled ? 'translate-x-5' : ''
+                  }`}
+                />
+              </button>
+            </label>
+            {calendarEnabled && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSync}
+                disabled={syncing}
+                className="flex items-center gap-2 font-script text-body text-sheikah-teal-deep hover:text-sheikah-teal"
+              >
+                <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+                {syncing ? 'syncing…' : 'sync now'}
+              </Button>
+            )}
+          </div>
+        </ParchmentCard>
+      )}
 
       {/* About */}
       <ParchmentCard>

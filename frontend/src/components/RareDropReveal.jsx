@@ -5,6 +5,7 @@ import { Sparkles } from 'lucide-react';
 
 import Button from './Button';
 import RpgSprite from './rpg/RpgSprite';
+import { hapticSuccess } from '../utils/haptics';
 
 const RARITY_GLOW = {
   rare: {
@@ -57,6 +58,8 @@ function usePrefersReducedMotion() {
 export default function RareDropReveal({ drop, onDismiss }) {
   const titleId = useId();
   const reduced = usePrefersReducedMotion();
+
+  useEffect(() => { hapticSuccess() }, []);
 
   const tier = RARITY_GLOW[drop?.item_rarity];
   if (!tier) return null;

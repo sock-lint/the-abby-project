@@ -6,6 +6,7 @@ import * as Sentry from '@sentry/react';
 import {
   completeChore, getActiveQuest, getRecentDrops, getStable, logHabitTap,
 } from '../api';
+import { hapticTap } from '../utils/haptics';
 import { useApi } from '../hooks/useApi';
 import { formatCurrency } from '../utils/format';
 import ParchmentCard from '../components/journal/ParchmentCard';
@@ -18,6 +19,11 @@ import AccordionSection from '../components/dashboard/AccordionSection';
 import DailyChallengeCard from '../components/dashboard/DailyChallengeCard';
 import HomeworkSubmitSheet from '../components/HomeworkSubmitSheet';
 import IconButton from '../components/IconButton';
+import PageHeader from '../components/layout/PageHeader';
+import ProgressBar from '../components/ProgressBar';
+import Button from '../components/Button';
+import ErrorAlert from '../components/ErrorAlert';
+import ScrollRail from '../components/ScrollRail';
 import { CoinIcon } from '../components/icons/JournalIcons';
 import { BookOpen, Sparkles, Flame, Target, X, Compass, Award } from 'lucide-react';
 import { RARITY_RING_COLORS } from '../constants/colors';
@@ -51,7 +57,7 @@ function buildQuestLogFromActions(next_actions = []) {
 }
 
 export default function ChildDashboard({ data, reload }) {
-  const { data: recentDrops } = useApi(getRecentDrops);
+  const { data: recentDrops, error: dropsError, reload: reloadDrops } = useApi(getRecentDrops);
   const { data: stableData } = useApi(getStable);
   const { data: activeQuest } = useApi(getActiveQuest);
   const navigate = useNavigate();
@@ -72,21 +78,44 @@ export default function ChildDashboard({ data, reload }) {
   // ``actionError`` flips into a soft inline banner; everything also
   // hits Sentry so prod regressions are visible.
   const [actionError, setActionError] = useState('');
+  const [completedIds, setCompletedIds] = useState(new Set());
   const handleActionError = useCallback((err, label) => {
     Sentry.captureException(err, { extra: { handler: label } });
     setActionError(err?.response?.error || err?.message || `${label} failed.`);
   }, []);
 
   const handleCompleteChore = useCallback(
-    (id) => completeChore(id)
-      .then(reload)
-      .catch((err) => handleActionError(err, 'Mark duty done')),
+    (id) => {
+      hapticTap();
+      setCompletedIds((prev) => new Set(prev).add(`chore-${id}`));
+      return completeChore(id)
+        .then(reload)
+        .catch((err) => {
+          setCompletedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(`chore-${id}`);
+            return next;
+          });
+          handleActionError(err, 'Mark duty done');
+        });
+    },
     [reload, handleActionError],
   );
   const handleTapHabit = useCallback(
-    (id) => logHabitTap(id, 1)
-      .then(reload)
-      .catch((err) => handleActionError(err, 'Tap ritual')),
+    (id) => {
+      hapticTap();
+      setCompletedIds((prev) => new Set(prev).add(`habit-${id}`));
+      return logHabitTap(id, 1)
+        .then(reload)
+        .catch((err) => {
+          setCompletedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(`habit-${id}`);
+            return next;
+          });
+          handleActionError(err, 'Tap ritual');
+        });
+    },
     [reload, handleActionError],
   );
   // Open the homework submit sheet inline. We accept either a plain id
@@ -123,8 +152,6 @@ export default function ChildDashboard({ data, reload }) {
     }
     return out;
   })();
-  const visibleCount = visibleSections.reduce((n, s) => n + s.actions.length, 0);
-  const hiddenQuestCount = totalLogCount - visibleCount;
 
   const onActionClick = (a) => {
     if (a.kind === 'homework') return handleOpenHomework(a);
@@ -136,14 +163,10 @@ export default function ChildDashboard({ data, reload }) {
 
   return (
     <PageShell variants={inkBleed}>
-      <header>
-        <div className="font-script text-sheikah-teal-deep text-base md:text-lg">
-          {weekday} · {dateStr} · to be inked before nightfall
-        </div>
-        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          Today&apos;s Entry
-        </h1>
-      </header>
+      <PageHeader
+        title="Today's Entry"
+        kicker={`${weekday} · ${dateStr} · to be inked before nightfall`}
+      />
 
       {actionError && (
         // Audit M8: surface fast-action errors. Auto-dismissable so a
@@ -157,7 +180,7 @@ export default function ChildDashboard({ data, reload }) {
             size="sm"
             onClick={() => setActionError('')}
             aria-label="Dismiss error"
-            className="!text-rose/70 hover:!text-rose"
+            className="text-rose/70! hover:text-rose!"
           >
             <X size={16} />
           </IconButton>
@@ -187,6 +210,32 @@ export default function ChildDashboard({ data, reload }) {
 
       <DailyChallengeCard />
 
+      {totalLogCount === 0 && !active_projects?.length && !savings_goals?.length && !recent_badges?.length && (
+        <ParchmentCard tone="bright">
+          <div className="text-center py-6 px-4 space-y-4">
+            <div className="text-4xl">🗺️</div>
+            <h2 className="font-display italic text-2xl text-ink-primary">
+              Your adventure begins here
+            </h2>
+            <p className="font-script text-ink-secondary text-body max-w-md mx-auto">
+              Once your parent sets up duties, homework, or ventures, they'll
+              appear right here for you to tackle.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3 pt-2">
+              <Button variant="secondary" size="sm" onClick={() => navigate('/quests')}>
+                Explore quests
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => navigate('/bestiary')}>
+                Visit bestiary
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => navigate('/treasury?tab=bazaar')}>
+                Browse the bazaar
+              </Button>
+            </div>
+          </div>
+        </ParchmentCard>
+      )}
+
       {totalLogCount > 0 && (
         <section>
           <div className="mb-2 flex justify-end">
@@ -194,9 +243,18 @@ export default function ChildDashboard({ data, reload }) {
           </div>
           <ParchmentCard flourish>
             <div className="space-y-3">
-              {visibleSections.map((section) => (
+              {visibleSections.map((section, idx) => (
                 <div key={section.key}>
-                  <div className="font-script text-caption text-ink-whisper uppercase tracking-wider mb-1">
+                  {idx > 0 && (
+                    <div className="border-t border-ink-page-shadow/40 pt-3 mt-1" aria-hidden="true" />
+                  )}
+                  <div className="flex items-center gap-2 font-script text-caption text-ink-whisper uppercase tracking-wider mb-1">
+                    <span
+                      className={`inline-block w-1.5 h-1.5 rounded-full ${
+                        { royal: 'bg-royal', moss: 'bg-moss', gold: 'bg-gold-leaf' }[section.tone] || 'bg-ink-whisper'
+                      }`}
+                      aria-hidden="true"
+                    />
                     {section.label}
                   </div>
                   <ul className="space-y-2">
@@ -216,7 +274,7 @@ export default function ChildDashboard({ data, reload }) {
                           title={a.title}
                           meta={meta}
                           reward={reward}
-                          status="pending"
+                          status={completedIds.has(`${a.kind}-${a.id}`) ? 'done' : 'pending'}
                           kind={KIND_LABEL[a.kind] || section.label}
                           tone={a.tone || section.tone}
                           icon={<Icon size={16} />}
@@ -228,14 +286,12 @@ export default function ChildDashboard({ data, reload }) {
                 </div>
               ))}
             </div>
-            {hiddenQuestCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setLogExpanded(true)}
-                className="mt-3 font-script text-body text-sheikah-teal-deep hover:underline"
-              >
-                Show {hiddenQuestCount} more →
-              </button>
+            {totalLogCount > VISIBLE_LOG_CAP && (
+              <div className="mt-3">
+                <Button variant="ghost" size="sm" onClick={() => setLogExpanded((v) => !v)}>
+                  {logExpanded ? 'Show fewer' : `Show all ${totalLogCount} tasks →`}
+                </Button>
+              </div>
             )}
           </ParchmentCard>
         </section>
@@ -243,13 +299,17 @@ export default function ChildDashboard({ data, reload }) {
 
       <DeckleDivider glyph="flourish-corner" />
 
+      {dropsError && !recentDrops && (
+        <ErrorAlert message="Couldn't load recent drops." onRetry={reloadDrops} />
+      )}
+
       {recentDrops?.length > 0 && (
         <section>
           <div className="mb-2">
             <div className="font-script text-sheikah-teal-deep text-body">drops from the last two days</div>
             <h2 className="font-display text-xl md:text-2xl text-ink-primary leading-tight">Recent Loot</h2>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
+          <ScrollRail>
             {recentDrops.map((d) => (
               <motion.button
                 key={d.id}
@@ -266,7 +326,7 @@ export default function ChildDashboard({ data, reload }) {
                 )}
               </motion.button>
             ))}
-          </div>
+          </ScrollRail>
         </section>
       )}
 
@@ -276,6 +336,7 @@ export default function ChildDashboard({ data, reload }) {
         kicker="this week at a glance"
         icon={<CoinIcon size={18} />}
         tone="gold"
+        defaultOpen
         peek={`${formatCurrency(current_balance)} · ${coin_balance ?? 0} coins · ${this_week?.hours_worked ?? 0}h`}
       >
         <motion.div variants={staggerChildren} initial="initial" animate="animate" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
@@ -335,7 +396,7 @@ export default function ChildDashboard({ data, reload }) {
           icon={<Compass size={18} />}
           tone="teal"
           count={active_projects.length}
-          peek={active_projects[0]?.title}
+          peek={`${active_projects[0]?.title} · ${active_projects[0]?.milestones_completed ?? 0}/${active_projects[0]?.milestones_total ?? 0} milestones`}
         >
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
             {active_projects.map((p) => (
@@ -362,12 +423,12 @@ export default function ChildDashboard({ data, reload }) {
                         <span>MILESTONES</span>
                         <span>{p.milestones_completed}/{p.milestones_total}</span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-ink-page-shadow/60 overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal"
-                          style={{ width: `${(p.milestones_completed / p.milestones_total) * 100}%` }}
-                        />
-                      </div>
+                      <ProgressBar
+                        value={p.milestones_completed}
+                        max={p.milestones_total}
+                        aria-label={`${p.title} milestones`}
+                        className="h-1.5"
+                      />
                     </>
                   )}
                 </ParchmentCard>
@@ -407,12 +468,12 @@ export default function ChildDashboard({ data, reload }) {
                     <span>{formatCurrency(goal.current_amount)}</span>
                     <span>{formatCurrency(goal.target_amount)}</span>
                   </div>
-                  <div className="h-2 rounded-full bg-ink-page-shadow/60 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-moss to-gold-leaf"
-                      style={{ width: `${goal.percent_complete}%` }}
-                    />
-                  </div>
+                  <ProgressBar
+                    value={goal.percent_complete}
+                    max={100}
+                    color="bg-moss"
+                    aria-label={`${goal.title} savings progress`}
+                  />
                 </ParchmentCard>
               </button>
             ))}
@@ -435,9 +496,9 @@ export default function ChildDashboard({ data, reload }) {
           icon={<Award size={18} />}
           tone="ember"
           count={recent_badges.length}
-          peek={recent_badges[0]?.badge__name}
+          peek={`${recent_badges.length} badge${recent_badges.length !== 1 ? 's' : ''} · latest: ${recent_badges[0]?.badge__name}`}
         >
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
+          <ScrollRail>
             {recent_badges.map((b, i) => (
               <motion.button
                 key={b.badge__id}
@@ -452,7 +513,7 @@ export default function ChildDashboard({ data, reload }) {
                 <div className="font-body text-caption font-medium truncate">{b.badge__name}</div>
               </motion.button>
             ))}
-          </div>
+          </ScrollRail>
         </AccordionSection>
       )}
 

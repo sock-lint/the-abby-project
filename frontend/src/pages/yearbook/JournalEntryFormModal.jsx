@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Lock, Mic, MicOff } from 'lucide-react';
 import BottomSheet from '../../components/BottomSheet';
 import Button from '../../components/Button';
@@ -43,6 +43,12 @@ export default function JournalEntryFormModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const dirty = useMemo(() => {
+    const initTitle = initialMode === 'edit' && initialEntry ? initialEntry.title || '' : '';
+    const initSummary = initialMode === 'edit' && initialEntry ? initialEntry.summary || '' : '';
+    return title !== initTitle || summary !== initSummary;
+  }, [title, summary, initialMode, initialEntry]);
 
   // Dictated chunks append to summary with a trailing space (the hook
   // normalizes that) so the text reads naturally as it grows.
@@ -124,7 +130,7 @@ export default function JournalEntryFormModal({
       : 'Dictate';
 
   return (
-    <BottomSheet title={modalTitle} onClose={onClose} disabled={saving}>
+    <BottomSheet title={modalTitle} onClose={onClose} disabled={saving} dirty={dirty}>
       <form onSubmit={submit} className="space-y-4">
         {isLocked && (
           <p className="font-script text-xs px-3 py-2 rounded-lg border border-gold-leaf/40 bg-gold-leaf/10 text-ink-secondary flex items-start gap-2">
@@ -200,8 +206,8 @@ export default function JournalEntryFormModal({
             {isLocked ? 'Close' : 'Cancel'}
           </Button>
           {!isLocked && (
-            <Button variant="primary" type="submit" disabled={saving}>
-              {saving ? 'Saving…' : primaryLabel}
+            <Button variant="primary" type="submit" loading={saving}>
+              {primaryLabel}
             </Button>
           )}
         </div>

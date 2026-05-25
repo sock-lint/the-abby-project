@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import RuneBadge from '../journal/RuneBadge';
@@ -70,6 +70,7 @@ export default function AccordionSection({
   const iconChipClass = TONE_ICON_CHIP[tone] || TONE_ICON_CHIP.teal;
   const reducedMotion = useReducedMotion();
   const [open, setOpen] = useState(() => readStored(title, defaultOpen));
+  const sectionRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -81,7 +82,7 @@ export default function AccordionSection({
   const toggle = useCallback(() => setOpen((o) => !o), []);
 
   return (
-    <section className="rounded-xl border border-ink-page-shadow bg-ink-page-aged/80">
+    <section ref={sectionRef} className="rounded-xl border border-ink-page-shadow bg-ink-page-aged/80">
       <button
         type="button"
         onClick={toggle}
@@ -139,6 +140,9 @@ export default function AccordionSection({
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.22, ease: 'easeOut' }}
+            onAnimationComplete={() => {
+              if (open) sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }}
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 pt-1">

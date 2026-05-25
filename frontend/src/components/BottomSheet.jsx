@@ -1,6 +1,7 @@
-import { useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import ConfirmDialog from './ConfirmDialog';
 import ModalBackdrop from './modal/ModalBackdrop';
 import SealCloseButton from './modal/SealCloseButton';
 import SealPulseRing from './modal/SealPulseRing';
@@ -26,17 +27,74 @@ function useIsDesktop() {
 //   Mobile          — bottom-sheet slide (thumb-reach), sheikah-glyph drag
 //                     handle, one-shot teal halo across the top edge,
 //                     parchment texture carried through.
-export default function BottomSheet({ title, onClose, disabled, children }) {
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
+
+export default function BottomSheet({ title, onClose, disabled, dirty, footer, children }) {
   const isDesktop = useIsDesktop();
   const titleId = useId();
+  const dialogRef = useRef(null);
+  const [confirmingClose, setConfirmingClose] = useState(false);
+
+  const safeClose = useCallback(() => {
+    if (dirty && !confirmingClose) {
+      setConfirmingClose(true);
+      return;
+    }
+    setConfirmingClose(false);
+    onClose();
+  }, [dirty, confirmingClose, onClose]);
+
+  const dialogCallbackRef = useCallback((node) => {
+    dialogRef.current = node;
+    if (node) {
+      const first = node.querySelector(FOCUSABLE_SELECTOR);
+      if (first) first.focus();
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !disabled) safeClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [safeClose, disabled]);
+
+  useEffect(() => {
+    const node = dialogRef.current;
+    if (!node) return;
+
+    const handleTab = (e) => {
+      if (e.key !== 'Tab') return;
+
+      const focusable = Array.from(node.querySelectorAll(FOCUSABLE_SELECTOR));
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    node.addEventListener('keydown', handleTab);
+    return () => node.removeEventListener('keydown', handleTab);
+  });
 
   return createPortal(
     <AnimatePresence>
-      <ModalBackdrop onClick={onClose} disabled={disabled} zIndex="z-40" />
+      <ModalBackdrop onClick={safeClose} disabled={disabled} zIndex="z-40" />
       {isDesktop ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
           <motion.div
             key="sheet-desktop"
+            ref={dialogCallbackRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
@@ -49,16 +107,22 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
             <SealPulseRing rounded="rounded-2xl" />
             <div className="relative flex items-center justify-between px-5 pt-4 pb-2">
               <h2 id={titleId} className="font-display text-lg font-bold text-ink-primary">{title}</h2>
-              <SealCloseButton onClick={onClose} disabled={disabled} />
+              <SealCloseButton onClick={safeClose} disabled={disabled} />
             </div>
             <div className="relative px-5 pb-5 space-y-3">
               {children}
             </div>
+            {footer && (
+              <div className="sticky bottom-0 px-5 pb-5 pt-3 bg-ink-page-aged/95 border-t border-ink-page-shadow/40">
+                {footer}
+              </div>
+            )}
           </motion.div>
         </div>
       ) : (
         <motion.div
           key="sheet-mobile"
+          ref={dialogCallbackRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
@@ -66,6 +130,12 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+          drag="y"
+          dragConstraints={{ top: 0 }}
+          dragElastic={0.1}
+          onDragEnd={(_e, info) => {
+            if (info.offset.y > 100 && !disabled) safeClose();
+          }}
           className="fixed bottom-0 left-0 right-0 parchment-bg-aged border-t border-ink-page-shadow rounded-t-2xl z-50 pb-[env(safe-area-inset-bottom)] max-h-[90vh] overflow-y-auto overflow-x-hidden scrollbar-hide modal-seal-ring"
         >
           {/* Top-edge teal halo — one-shot animation that radiates as the
@@ -80,8 +150,8 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
               filter: 'blur(3px)',
             }}
           />
-          {/* Sheikah-glyph drag handle — replaces the anonymous grey pill. */}
-          <div className="flex justify-center pt-2" aria-hidden="true">
+          {/* Sheikah-glyph drag handle — now swipe-interactive. */}
+          <div className="flex justify-center pt-2 cursor-grab active:cursor-grabbing touch-none" aria-hidden="true">
             <div
               className="w-12 h-1.5 rounded-full animate-rune-pulse"
               style={{
@@ -92,12 +162,26 @@ export default function BottomSheet({ title, onClose, disabled, children }) {
           </div>
           <div className="flex items-center justify-between px-4 pt-3 pb-2">
             <h2 id={titleId} className="font-display text-lg font-bold text-ink-primary">{title}</h2>
-            <SealCloseButton onClick={onClose} disabled={disabled} />
+            <SealCloseButton onClick={safeClose} disabled={disabled} />
           </div>
-          <div className="px-4 pb-4 space-y-3">
+          <div className="px-4 pb-4 space-y-3" style={{ paddingBottom: footer ? '4.5rem' : undefined }}>
             {children}
           </div>
+          {footer && (
+            <div className="sticky bottom-0 px-4 pb-4 pt-3 bg-ink-page-aged/95 border-t border-ink-page-shadow/40 backdrop-blur-sm">
+              {footer}
+            </div>
+          )}
         </motion.div>
+      )}
+      {confirmingClose && (
+        <ConfirmDialog
+          title="Discard changes?"
+          message="You have unsaved changes that will be lost."
+          confirmLabel="Discard"
+          onConfirm={() => { setConfirmingClose(false); onClose(); }}
+          onCancel={() => setConfirmingClose(false)}
+        />
       )}
     </AnimatePresence>,
     document.body,

@@ -4,10 +4,11 @@ import { CheckCircle2, X, XCircle } from 'lucide-react';
 
 import { useApprovalToasts } from '../hooks/useApprovalToasts';
 import IconButton from './IconButton';
+import { TOAST_DURATION_LONG } from '../constants/timing';
 
 function Toast({ toast, onDismiss }) {
   useEffect(() => {
-    const timer = setTimeout(() => onDismiss(toast.id), 6000);
+    const timer = setTimeout(() => onDismiss(toast.id), TOAST_DURATION_LONG);
     return () => clearTimeout(timer);
   }, [toast.id, onDismiss]);
 
@@ -62,17 +63,23 @@ function Toast({ toast, onDismiss }) {
  * Stacked under the SavingsToastStack so a burst of approvals doesn't
  * overlap a savings-goal celebration.
  */
-export default function ApprovalToastStack() {
+export default function ApprovalToastStack({ inline = false }) {
   const { toasts, dismiss } = useApprovalToasts();
+
+  const items = (
+    <AnimatePresence>
+      {toasts.map((t) => (
+        <div key={t.id} className="pointer-events-auto">
+          <Toast toast={t} onDismiss={dismiss} />
+        </div>
+      ))}
+    </AnimatePresence>
+  );
+
+  if (inline) return items;
   return (
-    <div className="fixed top-36 right-4 z-50 space-y-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none">
-      <AnimatePresence>
-        {toasts.map((t) => (
-          <div key={t.id} className="pointer-events-auto">
-            <Toast toast={t} onDismiss={dismiss} />
-          </div>
-        ))}
-      </AnimatePresence>
+    <div className="fixed top-36 right-4 z-50 space-y-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none" aria-live="polite" aria-atomic="false">
+      {items}
     </div>
   );
 }

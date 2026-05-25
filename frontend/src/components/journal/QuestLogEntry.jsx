@@ -1,4 +1,5 @@
-import { Check } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Check, Loader2 } from 'lucide-react';
 import RuneBadge from './RuneBadge';
 
 /**
@@ -11,7 +12,8 @@ import RuneBadge from './RuneBadge';
  *   meta      : string | node — small secondary line (date, project, type)
  *   reward    : string | node — e.g. "$1.50 • 5🪙" or "+25 XP"
  *   status    : "pending" | "done" | "locked" | "overdue"
- *   onAction  : () => void — primary click handler (check-off or open)
+ *   onAction  : () => void — primary click handler (check-off or open).
+ *               If it returns a Promise, the row shows a processing state.
  *   actionLabel : string — optional label for the primary action button
  *   icon      : node — optional leading icon/glyph
  *   tone      : RuneBadge tone for the kind-tag
@@ -29,6 +31,16 @@ export default function QuestLogEntry({
   tone = 'teal',
   className = '',
 }) {
+  const [processing, setProcessing] = useState(false);
+  const handleAction = useCallback(() => {
+    if (!onAction || processing) return;
+    const result = onAction();
+    if (result && typeof result.then === 'function') {
+      setProcessing(true);
+      result.finally(() => setProcessing(false));
+    }
+  }, [onAction, processing]);
+
   const done = status === 'done';
   const locked = status === 'locked';
   const overdue = status === 'overdue';
@@ -36,7 +48,9 @@ export default function QuestLogEntry({
   return (
     <li
       className={`group relative flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors
-        ${done
+        ${processing
+          ? 'bg-sheikah-teal/5 border-sheikah-teal/40 opacity-75'
+          : done
           ? 'bg-moss/10 border-moss/30 text-ink-secondary'
           : overdue
           ? 'bg-ember/10 border-ember/40'
@@ -48,12 +62,14 @@ export default function QuestLogEntry({
       {/* Leading check-glyph */}
       <button
         type="button"
-        onClick={!locked ? onAction : undefined}
-        disabled={locked}
-        aria-label={done ? 'Completed' : actionLabel || `Complete ${title}`}
+        onClick={!locked && !processing ? handleAction : undefined}
+        disabled={locked || processing}
+        aria-label={done ? 'Completed' : processing ? `Processing ${title}` : actionLabel || `Complete ${title}`}
         className={`flex-shrink-0 w-7 h-7 rounded-full border flex items-center justify-center transition-all
           ${done
             ? 'bg-moss border-moss text-ink-page-rune-glow'
+            : processing
+            ? 'border-sheikah-teal animate-pulse'
             : overdue
             ? 'border-ember/70 hover:bg-ember/20'
             : locked
@@ -61,7 +77,7 @@ export default function QuestLogEntry({
             : 'border-sheikah-teal/60 hover:bg-sheikah-teal/15 hover:border-sheikah-teal'
           }`}
       >
-        {done ? <Check size={14} strokeWidth={3} /> : null}
+        {done ? <Check size={14} strokeWidth={3} /> : processing ? <Loader2 size={14} className="animate-spin text-sheikah-teal-deep" /> : null}
       </button>
 
       {/* Body */}

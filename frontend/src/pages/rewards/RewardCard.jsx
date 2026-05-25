@@ -4,7 +4,7 @@ import { CoinIcon } from '../../components/icons/JournalIcons';
 import { RARITY_COLORS } from '../../constants/colors';
 
 export default function RewardCard({
-  reward, isParent, coinBalance, onRedeem, onEdit, onDelete, onToggleWishlist,
+  reward, isParent, coinBalance, pending, onRedeem, onEdit, onDelete, onToggleWishlist,
 }) {
   const affordable = coinBalance >= reward.cost_coins;
   const outOfStock = reward.stock != null && reward.stock <= 0;
@@ -40,11 +40,11 @@ export default function RewardCard({
         </div>
       )}
       <div className="text-4xl mb-1 text-center">{reward.icon || '🎁'}</div>
-      <div className="font-body text-sm font-semibold text-center text-ink-primary">
+      <div className="font-body text-body font-semibold text-center text-ink-primary">
         {reward.name}
       </div>
       {reward.description && (
-        <div className="font-body text-xs text-ink-secondary text-center mt-1 line-clamp-2">
+        <div className="font-body text-caption text-ink-secondary text-center mt-1 line-clamp-2">
           {reward.description}
         </div>
       )}
@@ -60,7 +60,7 @@ export default function RewardCard({
       </div>
       {reward.stock != null && (
         <div
-          className={`font-script text-xs text-center ${reward.stock <= 1 ? 'text-ember-deep font-semibold' : 'text-ink-whisper'}`}
+          className={`font-script text-caption text-center ${reward.stock <= 1 ? 'text-ember-deep font-semibold' : 'text-ink-whisper'}`}
         >
           {reward.stock === 0
             ? 'sold out'
@@ -73,11 +73,11 @@ export default function RewardCard({
         <div className="mt-2 flex items-stretch gap-1.5">
           <button
             type="button"
-            disabled={!affordable || outOfStock}
+            disabled={!affordable || outOfStock || pending}
             onClick={() => onRedeem(reward)}
             className="flex-1 bg-sheikah-teal-deep hover:bg-sheikah-teal disabled:opacity-40 disabled:cursor-not-allowed text-ink-page-rune-glow text-xs font-body font-semibold py-1.5 rounded-lg border border-sheikah-teal-deep/60 transition-colors"
           >
-            {outOfStock ? 'Out of stock' : affordable ? 'Barter' : 'Not enough coin'}
+            {pending ? 'Bartering…' : outOfStock ? 'Out of stock' : affordable ? 'Barter' : 'Not enough coin'}
           </button>
           {onToggleWishlist && (
             <button

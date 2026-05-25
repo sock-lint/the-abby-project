@@ -64,8 +64,8 @@ export default function AddStepModal({
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving || !form.title.trim()} className="flex-1">
-            {saving ? 'Adding...' : 'Add Step'}
+          <Button type="submit" loading={saving} disabled={!form.title.trim()} className="flex-1">
+            Add Step
           </Button>
         </div>
       </form>

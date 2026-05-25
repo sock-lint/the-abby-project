@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { SlidersHorizontal, Settings, LogOut, History } from 'lucide-react';
+import { SlidersHorizontal, Settings, LogOut, History, BookOpen } from 'lucide-react';
 import {
   TodayIcon, QuestsIcon, BestiaryIcon, TreasuryIcon, AtlasIcon, ChronicleIcon,
 } from '../icons/JournalIcons';
 import AvatarMenu from '../AvatarMenu';
+import useParentPendingCounts from '../../hooks/useParentPendingCounts';
 
 /**
  * ChapterNav — renders the six-chapter nav in two flavors:
@@ -27,9 +28,10 @@ const CHAPTERS = [
 
 export function ChapterSidebar({ user, onLogout }) {
   const isParent = user?.role === 'parent';
+  const { total: pendingCount } = useParentPendingCounts({ enabled: isParent });
   return (
     <aside
-      className="w-60 shrink-0 fixed h-full z-30 max-md:hidden flex flex-col
+      className="w-60 shrink-0 fixed h-full z-30 max-lg:hidden flex flex-col
                  bg-ink-page-aged/90 border-r border-ink-page-shadow
                  shadow-[2px_0_0_var(--color-ink-page-rune-glow)_inset]"
     >
@@ -69,10 +71,20 @@ export function ChapterSidebar({ user, onLogout }) {
                     aria-hidden="true"
                   />
                 )}
-                <Icon
-                  size={22}
-                  className={isActive ? 'text-sheikah-teal-deep animate-rune-pulse' : ''}
-                />
+                <span className="relative shrink-0">
+                  <Icon
+                    size={22}
+                    className={isActive ? 'text-sheikah-teal-deep animate-rune-pulse' : ''}
+                  />
+                  {to === '/' && pendingCount > 0 && (
+                    <span
+                      className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-[10px] font-rune font-bold leading-none px-1"
+                      aria-label={`${pendingCount} pending`}
+                    >
+                      {pendingCount > 9 ? '9+' : pendingCount}
+                    </span>
+                  )}
+                </span>
                 <span className="font-display text-base tracking-wide">{label}</span>
               </>
             )}
@@ -112,6 +124,21 @@ export function ChapterSidebar({ user, onLogout }) {
             Manage
           </NavLink>
         )}
+        {isParent && (
+          <NavLink
+            to="/codex"
+            className={({ isActive }) =>
+              `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-body transition-colors ${
+                isActive
+                  ? 'bg-sheikah-teal/10 text-ink-primary'
+                  : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
+              }`
+            }
+          >
+            <BookOpen size={16} />
+            Codex
+          </NavLink>
+        )}
         <NavLink
           to="/settings"
           className={({ isActive }) =>
@@ -140,19 +167,27 @@ export function ChapterSidebar({ user, onLogout }) {
   );
 }
 
-export function ChapterBottomBar() {
+export function ChapterBottomBar({ user }) {
+  const isParent = user?.role === 'parent';
+  const { total: pendingCount } = useParentPendingCounts({ enabled: isParent });
+
+  const chapters = isParent
+    ? [...CHAPTERS.slice(0, 5), { to: '/manage', icon: SlidersHorizontal, label: 'Manage', shortLabel: 'Manage' }]
+    : CHAPTERS;
+
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-30 flex justify-around
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex justify-around
                  bg-ink-page-aged/95 backdrop-blur-sm border-t border-ink-page-shadow
                  pb-[env(safe-area-inset-bottom)]
                  shadow-[0_-2px_0_var(--color-ink-page-rune-glow)_inset]"
     >
-      {CHAPTERS.map(({ to, icon: Icon, shortLabel }) => (
+      {chapters.map(({ to, icon: Icon, shortLabel }) => (
         <NavLink
           key={to}
           to={to}
           end={to === '/'}
+          aria-label={shortLabel}
           className={({ isActive }) =>
             `flex flex-col items-center justify-center gap-0.5 min-h-16 flex-1 transition-colors relative ${
               isActive ? 'text-sheikah-teal-deep' : 'text-ink-secondary'
@@ -161,8 +196,20 @@ export function ChapterBottomBar() {
         >
           {({ isActive }) => (
             <>
-              <Icon size={22} className={isActive ? 'animate-rune-pulse' : ''} />
-              <span className="font-script text-tiny leading-none">{shortLabel}</span>
+              <span className="relative">
+                <Icon size={20} className={isActive ? 'animate-rune-pulse' : ''} />
+                {to === '/' && pendingCount > 0 && (
+                  <span
+                    className="absolute -top-1 -right-2 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-[9px] font-rune font-bold leading-none px-0.5"
+                    aria-label={`${pendingCount} pending`}
+                  >
+                    {pendingCount > 9 ? '9+' : pendingCount}
+                  </span>
+                )}
+              </span>
+              <span className={`font-script text-micro leading-none ${isActive ? 'inline' : 'hidden min-[400px]:inline'}`}>
+                {shortLabel}
+              </span>
               {isActive && (
                 <span
                   className="absolute top-0.5 h-0.5 w-10 rounded-full bg-sheikah-teal-deep"

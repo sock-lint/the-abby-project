@@ -97,7 +97,8 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview }) {
     <motion.li
       layout
       initial={{ opacity: 1, height: 'auto' }}
-      exit={{ opacity: 0, height: 0 }}
+      exit={{ opacity: 0, x: 60, scale: 0.95 }}
+      transition={{ duration: 0.2 }}
       className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${error ? 'border-ember/60 bg-ember/5' : 'border-ink-page-shadow bg-ink-page'}`}
     >
       <Icon size={18} className="text-ink-secondary shrink-0" />

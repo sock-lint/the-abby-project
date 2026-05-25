@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { DollarSign, TrendingUp, ArrowDownRight, ArrowUpRight, ArrowRightLeft, Target, Plus, Download, Filter, X } from 'lucide-react';
 import {
@@ -8,7 +9,7 @@ import {
 import { useApi } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
 import { useRole } from '../hooks/useRole';
-import Loader from '../components/Loader';
+import ParchmentSkeleton from '../components/ParchmentSkeleton';
 import ErrorAlert from '../components/ErrorAlert';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
@@ -113,12 +114,46 @@ export default function Payments() {
   const { isParent } = useRole();
   const { data, loading, error, reload } = useApi(getBalance);
   const [showAdjust, setShowAdjust] = useState(false);
-  const [filters, setFilters] = useState({
-    entry_types: [],   // multi-select array
-    start_date: '',
-    end_date: '',
-    user_id: '',
-  });
+  // entry_types and user_id sync to URL search params for bookmarkable views.
+  // Date ranges stay in local state since they're less commonly bookmarked.
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const entryTypesParam = searchParams.get('types') ?? '';
+  const entryTypes = useMemo(
+    () => (entryTypesParam ? entryTypesParam.split(',').filter(Boolean) : []),
+    [entryTypesParam],
+  );
+  const userIdParam = searchParams.get('kid') ?? '';
+
+  const setEntryTypesParam = useCallback((types) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (types.length === 0) next.delete('types');
+      else next.set('types', types.join(','));
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const setUserIdParam = useCallback((uid) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (!uid) next.delete('kid');
+      else next.set('kid', uid);
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Compose the filters object from URL params + local date state for
+  // downstream consumers (effect, export, hasFilter).
+  const filters = useMemo(() => ({
+    entry_types: entryTypes,
+    start_date: startDate,
+    end_date: endDate,
+    user_id: userIdParam,
+  }), [entryTypes, startDate, endDate, userIdParam]);
   const [filteredLedger, setFilteredLedger] = useState(null);
   const [filterLoading, setFilterLoading] = useState(false);
   const [exportError, setExportError] = useState('');
@@ -181,19 +216,19 @@ export default function Payments() {
   }, [filters, hasFilter]);
 
   const toggleEntryType = (type) => {
-    setFilters((prev) => {
-      const has = prev.entry_types.includes(type);
-      return {
-        ...prev,
-        entry_types: has
-          ? prev.entry_types.filter((t) => t !== type)
-          : [...prev.entry_types, type],
-      };
-    });
+    const has = entryTypes.includes(type);
+    const next = has
+      ? entryTypes.filter((t) => t !== type)
+      : [...entryTypes, type];
+    setEntryTypesParam(next);
   };
 
-  const clearFilters = () =>
-    setFilters({ entry_types: [], start_date: '', end_date: '', user_id: '' });
+  const clearFilters = () => {
+    setEntryTypesParam([]);
+    setUserIdParam('');
+    setStartDate('');
+    setEndDate('');
+  };
 
   const handleExport = async () => {
     setExportError('');
@@ -222,7 +257,12 @@ export default function Payments() {
     }
   };
 
-  if (loading) return <Loader />;
+  if (loading) return (
+    <div className="space-y-6">
+      <ParchmentSkeleton variant="hero" />
+      <ParchmentSkeleton variant="list" count={4} />
+    </div>
+  );
   if (error || !data) {
     return (
       <PageShell rhythm="tight" animate={false}>
@@ -347,37 +387,42 @@ export default function Payments() {
             );
           })}
           {hasFilter && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="px-2 py-0.5 text-tiny font-script rounded-full bg-ember-deep/10 text-ember-deep border border-ember-deep/30 hover:bg-ember-deep/20 flex items-center gap-1"
-              aria-label="Clear all filters"
-            >
-              <X size={10} aria-hidden="true" /> clear
-            </button>
+            <>
+              <span className="font-script text-tiny text-sheikah-teal-deep tabular-nums">
+                ({entriesToRender.length})
+              </span>
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="px-2 py-0.5 text-tiny font-script rounded-full bg-ember-deep/10 text-ember-deep border border-ember-deep/30 hover:bg-ember-deep/20 flex items-center gap-1"
+                aria-label="Clear all filters"
+              >
+                <X size={10} aria-hidden="true" /> clear
+              </button>
+            </>
           )}
         </div>
         {isParent && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mb-2">
             <input
               type="date"
-              value={filters.start_date}
-              onChange={(e) => setFilters((p) => ({ ...p, start_date: e.target.value }))}
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
               aria-label="Filter from date"
               className="px-2 py-1 text-tiny font-script rounded border border-ink-page-shadow/30 bg-ink-page-aged"
             />
             <input
               type="date"
-              value={filters.end_date}
-              onChange={(e) => setFilters((p) => ({ ...p, end_date: e.target.value }))}
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
               aria-label="Filter to date"
               className="px-2 py-1 text-tiny font-script rounded border border-ink-page-shadow/30 bg-ink-page-aged"
             />
             <SelectField
               variant="filter"
               aria-label="Filter by kid"
-              value={filters.user_id}
-              onChange={(e) => setFilters((p) => ({ ...p, user_id: e.target.value }))}
+              value={userIdParam}
+              onChange={(e) => setUserIdParam(e.target.value)}
             >
               <option value="">All kids</option>
               {children.map((c) => (

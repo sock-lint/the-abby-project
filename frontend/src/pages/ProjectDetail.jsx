@@ -13,6 +13,7 @@ import { useApi } from '../hooks/useApi';
 import { useConfirmState } from '../hooks/useConfirmState';
 import { useRole } from '../hooks/useRole';
 import ConfirmDialog from '../components/ConfirmDialog';
+import BackLink from '../components/BackLink';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
 import ProjectHeader from './project/ProjectHeader';
@@ -139,6 +140,8 @@ export default function ProjectDetail() {
 
   return (
     <div className="space-y-6">
+      <BackLink to="/quests?tab=ventures">Back to Ventures</BackLink>
+
       <ProjectHeader
         project={project}
         isParent={isParent}

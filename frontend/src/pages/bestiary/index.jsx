@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import ChapterHub from '../../components/layout/ChapterHub';
 import Companions from './party/Companions';
 import Mounts from './party/Mounts';
@@ -20,17 +22,27 @@ import Hatchery from './hatchery/Hatchery';
  */
 export default function BestiaryHub() {
   return (
-    <ChapterHub
-      title="Bestiary"
-      kicker="Chapter III · Creatures, Codex & Hatchery"
-      glyph="dragon-crest"
-      defaultTabId="companions"
-      tabs={[
-        { id: 'companions', label: 'Companions', render: () => <Companions /> },
-        { id: 'mounts',     label: 'Mounts',     render: () => <Mounts /> },
-        { id: 'codex',      label: 'Codex',      render: () => <BestiaryCodex /> },
-        { id: 'hatchery',   label: 'Hatchery',   render: () => <Hatchery /> },
-      ]}
-    />
+    <>
+      <ChapterHub
+        title="Bestiary"
+        kicker="Chapter III · Creatures, Codex & Hatchery"
+        glyph="dragon-crest"
+        defaultTabId="companions"
+        tabs={[
+          { id: 'companions', label: 'Companions', render: () => <Companions /> },
+          { id: 'mounts',     label: 'Mounts',     render: () => <Mounts /> },
+          { id: 'codex',      label: 'Codex',      render: () => <BestiaryCodex /> },
+          { id: 'hatchery',   label: 'Hatchery',   render: () => <Hatchery /> },
+        ]}
+      />
+      <div className="max-w-6xl mx-auto mt-4 text-right">
+        <Link
+          to="/atlas"
+          className="inline-flex items-center gap-1.5 font-script text-caption text-ink-whisper hover:text-sheikah-teal-deep transition-colors"
+        >
+          Skills, Badges & Lorebook <ArrowRight size={14} />
+        </Link>
+      </div>
+    </>
   );
 }

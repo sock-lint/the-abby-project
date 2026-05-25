@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import {
-  Users, UserPlus, UsersRound, BookTemplate, BookOpen, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink, KeyRound, UserX, UserCheck, Shield,
+  Users, UserPlus, UsersRound, BookTemplate, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink, KeyRound, UserX, UserCheck, Shield,
   TestTubeDiagonal,
 } from 'lucide-react';
 import {
@@ -17,7 +17,6 @@ import {
   getCategories, getGoogleAuthUrl, unlinkGoogleAccount,
   devToolsPing,
 } from '../api';
-import CodexSection from './manage/CodexSection';
 import GuideSection from './manage/GuideSection';
 import TestSection from './manage/TestSection';
 import ResetPasswordModal from './manage/ResetPasswordModal';
@@ -33,24 +32,23 @@ import Loader from '../components/Loader';
 import Button from '../components/Button';
 import PageShell from '../components/layout/PageShell';
 import IconButton from '../components/IconButton';
-import TabButton from '../components/TabButton';
 import { TextField, SelectField, TextAreaField } from '../components/form';
 import { normalizeList } from '../utils/api';
+import useScrollFades from '../hooks/useScrollFades';
 
-const BASE_TABS = ['Children', 'Family', 'Templates', 'Codex', 'Guide'];
+const BASE_TABS = ['Children', 'Family', 'Templates', 'Guide'];
 
 const TAB_ICONS = {
   Children: Users,
   Family: UsersRound,
   Templates: BookTemplate,
-  Codex: BookOpen,
   Guide: ScrollText,
   Admin: Shield,
   Test: TestTubeDiagonal,
 };
 
 export default function Manage() {
-  const [activeTab, setActiveTab] = useState('Children');
+  const [searchParams, setSearchParams] = useSearchParams();
   // Two staff-only tabs gated on backend probes — server is the source of
   // truth, the ping just hides them from non-staff so they don't see
   // affordances they can't use. Anonymous + child + signup-created parents
@@ -75,6 +73,15 @@ export default function Manage() {
     ...(adminEnabled ? ['Admin'] : []),
     ...(devToolsEnabled ? ['Test'] : []),
   ];
+  const tabStripRef = useRef(null);
+  const { showLeft, showRight, onScroll: onTabScroll } = useScrollFades(tabStripRef);
+  const requestedTab = searchParams.get('tab');
+  const activeTab = tabs.find((t) => t === requestedTab) || tabs[0];
+  const setActiveTab = (tab) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', tab);
+    setSearchParams(next, { replace: true });
+  };
 
   return (
     <PageShell rhythm="loose">
@@ -87,27 +94,55 @@ export default function Manage() {
         </h1>
       </header>
 
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {tabs.map((tab) => {
-          const Icon = TAB_ICONS[tab];
-          return (
-            <TabButton
-              key={tab}
-              active={activeTab === tab}
-              onClick={() => setActiveTab(tab)}
-              className="gap-2 shrink-0"
-            >
-              {Icon && <Icon size={16} />}
-              {tab}
-            </TabButton>
-          );
-        })}
+      <div className="relative">
+        {showLeft && (
+          <div
+            className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 z-10 rounded-l-lg
+                       bg-gradient-to-r from-ink-page-aged to-transparent"
+            aria-hidden="true"
+          />
+        )}
+        {showRight && (
+          <div
+            className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 z-10 rounded-r-lg
+                       bg-gradient-to-l from-ink-page-aged to-transparent"
+            aria-hidden="true"
+          />
+        )}
+        <nav
+          ref={tabStripRef}
+          role="tablist"
+          aria-label="Manage sections"
+          onScroll={onTabScroll}
+          className="flex flex-nowrap gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow overflow-x-auto scrollbar-hide"
+        >
+          {tabs.map((tab) => {
+            const Icon = TAB_ICONS[tab];
+            const active = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                role="tab"
+                type="button"
+                aria-selected={active}
+                onClick={() => setActiveTab(tab)}
+                className={`shrink-0 py-2 px-3 rounded-md font-display text-body transition-colors flex items-center justify-center gap-2 ${
+                  active
+                    ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
+                    : 'text-ink-secondary hover:text-ink-primary'
+                }`}
+              >
+                {Icon && <Icon size={16} />}
+                {tab}
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
       {activeTab === 'Children' && <ChildrenSection />}
       {activeTab === 'Family' && <FamilySection />}
       {activeTab === 'Templates' && <TemplatesSection />}
-      {activeTab === 'Codex' && <CodexSection />}
       {activeTab === 'Guide' && <GuideSection />}
       {activeTab === 'Admin' && adminEnabled && <AdminSection />}
       {activeTab === 'Test' && devToolsEnabled && <TestSection />}
@@ -276,8 +311,8 @@ function CreateChildModal({ onClose, onCreated }) {
           <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Creating…' : 'Create child'}
+          <Button type="submit" loading={saving}>
+            Create child
           </Button>
         </div>
       </form>
@@ -388,8 +423,8 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving} className="flex-1">
-            {saving ? 'Saving...' : 'Save'}
+          <Button type="submit" loading={saving} className="flex-1">
+            Save
           </Button>
         </div>
       </form>
@@ -800,8 +835,8 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving} className="flex-1">
-            {saving ? 'Saving...' : 'Save'}
+          <Button type="submit" loading={saving} className="flex-1">
+            Save
           </Button>
         </div>
       </form>
@@ -962,8 +997,8 @@ function CreateParentModal({ onClose, onCreated }) {
           <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Creating…' : 'Add co-parent'}
+          <Button type="submit" loading={saving}>
+            Add co-parent
           </Button>
         </div>
       </form>
@@ -1006,8 +1041,8 @@ function EditParentModal({ parent, onClose, onSaved, onRemoved }) {
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving} className="flex-1">
-            {saving ? 'Saving...' : 'Save'}
+          <Button type="submit" loading={saving} className="flex-1">
+            Save
           </Button>
         </div>
       </form>
@@ -1132,7 +1167,7 @@ function OAuthClientsCard() {
               Registered applications ({apps.length})
             </div>
             {apps.length === 0 ? (
-              <EmptyState message="No OAuth clients have registered yet." />
+              <EmptyState>No OAuth clients have registered yet.</EmptyState>
             ) : (
               <ul className="space-y-2">
                 {apps.map((app) => (
@@ -1158,7 +1193,7 @@ function OAuthClientsCard() {
               Your active tokens ({tokens.length})
             </div>
             {tokens.length === 0 ? (
-              <EmptyState message="You don't have any active OAuth tokens." />
+              <EmptyState>You don&apos;t have any active OAuth tokens.</EmptyState>
             ) : (
               <ul className="space-y-2">
                 {tokens.map((t) => (
@@ -1267,8 +1302,8 @@ function CreateFamilyForm({ onCreated }) {
         autoComplete="new-password"
       />
       <div className="flex justify-end pt-2">
-        <Button type="submit" disabled={saving}>
-          {saving ? 'Creating…' : 'Create family'}
+        <Button type="submit" loading={saving}>
+          Create family
         </Button>
       </div>
     </form>

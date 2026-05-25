@@ -7,11 +7,13 @@ import { getPendingCelebration, getPendingCelebrationNotification } from './api'
 import BirthdayCelebrationModal from './components/BirthdayCelebrationModal';
 import CelebrationModal from './components/CelebrationModal';
 import { SpriteCatalogProvider } from './providers/SpriteCatalogProvider';
+import SuccessToastProvider from './components/SuccessToast';
 import JournalShell from './components/layout/JournalShell';
 import { PwaStatusProvider } from './pwa/PwaStatusProvider';
 import { InstallPromptProvider } from './pwa/useInstallPrompt';
 import UpdateBanner from './pwa/UpdateBanner';
 import OfflineReadyToast from './pwa/OfflineReadyToast';
+import RouteAnnouncer from './components/RouteAnnouncer';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
@@ -20,6 +22,7 @@ import ProjectNew from './pages/ProjectNew';
 import ProjectIngest from './pages/ProjectIngest';
 import ClockPage from './pages/ClockPage';
 import Manage from './pages/Manage';
+import CodexPage from './pages/CodexPage';
 import ActivityPage from './pages/activity/ActivityPage';
 import SettingsPage from './pages/SettingsPage';
 import QuestsHub from './pages/quests';
@@ -167,8 +170,10 @@ export default function App() {
             onDismiss={() => setCelebrationNotice(null)}
           />
         )}
+        <SuccessToastProvider>
         <SpriteCatalogProvider>
           <BrowserRouter>
+            <RouteAnnouncer />
             <Routes>
             <Route element={<JournalShell />}>
               {/* Chapter I — Today */}
@@ -206,6 +211,7 @@ export default function App() {
               {/* Utility */}
               <Route path="/clock" element={<ClockPage />} />
               <Route path="/manage" element={<Manage />} />
+              <Route path="/codex" element={<CodexPage />} />
               <Route path="/activity" element={<ActivityPage />} />
               <Route path="/settings" element={<SettingsPage />} />
 
@@ -237,6 +243,7 @@ export default function App() {
           </BrowserRouter>
           <OfflineReadyToast />
         </SpriteCatalogProvider>
+        </SuccessToastProvider>
         </PwaStatusProvider>
       </InstallPromptProvider>
     </Sentry.ErrorBoundary>

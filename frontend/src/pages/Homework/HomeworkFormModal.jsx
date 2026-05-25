@@ -22,7 +22,7 @@ export default function HomeworkFormModal({
   assignment, isParent, children: childrenList = [], onClose, onSaved,
 }) {
   const isEdit = !!assignment;
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     title: assignment?.title || '',
     description: assignment?.description || '',
     subject: assignment?.subject || 'math',
@@ -93,6 +93,7 @@ export default function HomeworkFormModal({
     <BottomSheet
       title={isEdit ? 'Edit assignment' : 'New assignment'}
       onClose={onClose}
+      dirty={dirty}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <TextField
@@ -182,8 +183,8 @@ export default function HomeworkFormModal({
           >
             Cancel
           </button>
-          <Button type="submit" size="sm" disabled={saving}>
-            {saving ? 'Saving…' : isEdit ? 'Update assignment' : 'Create assignment'}
+          <Button type="submit" size="sm" loading={saving}>
+            {isEdit ? 'Update assignment' : 'Create assignment'}
           </Button>
         </div>
       </form>

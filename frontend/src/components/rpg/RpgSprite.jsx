@@ -71,6 +71,7 @@ export default function RpgSprite({
         alt={alt || spriteKey || 'sprite'}
         width={size}
         height={size}
+        loading="lazy"
         data-dim={dim || undefined}
         style={{
           imageRendering: 'pixelated',
