@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 import PageShell from '../components/layout/PageShell';
 import * as Sentry from '@sentry/react';
 import {
-  completeChore, getActiveQuest, getRecentDrops, getStable, logHabitTap,
+  completeChore, getActiveQuest, getCoinSummaryByDay, getRecentDrops,
+  getStable, logHabitTap,
 } from '../api';
 import { hapticTap } from '../utils/haptics';
 import { useApi } from '../hooks/useApi';
@@ -18,6 +19,7 @@ import VitalPipStrip from '../components/dashboard/VitalPipStrip';
 import AccordionSection from '../components/dashboard/AccordionSection';
 import DailyChallengeCard from '../components/dashboard/DailyChallengeCard';
 import SinceLastVisitCard from '../components/dashboard/SinceLastVisitCard';
+import StreakAtRiskBanner from '../components/dashboard/StreakAtRiskBanner';
 import HomeworkSubmitSheet from '../components/HomeworkSubmitSheet';
 import IconButton from '../components/IconButton';
 import PageHeader from '../components/layout/PageHeader';
@@ -25,6 +27,7 @@ import ProgressBar from '../components/ProgressBar';
 import Button from '../components/Button';
 import ErrorAlert from '../components/ErrorAlert';
 import ScrollRail from '../components/ScrollRail';
+import Sparkline from '../components/Sparkline';
 import { CoinIcon } from '../components/icons/JournalIcons';
 import { BookOpen, Sparkles, Flame, Target, X, Compass, Award } from 'lucide-react';
 import { RARITY_RING_COLORS } from '../constants/colors';
@@ -61,6 +64,7 @@ export default function ChildDashboard({ data, reload }) {
   const { data: recentDrops, error: dropsError, reload: reloadDrops } = useApi(getRecentDrops);
   const { data: stableData } = useApi(getStable);
   const { data: activeQuest } = useApi(getActiveQuest);
+  const { data: coinSummary } = useApi(getCoinSummaryByDay);
   const navigate = useNavigate();
   const [logExpanded, setLogExpanded] = useState(false);
   const [activeHomework, setActiveHomework] = useState(null);
@@ -189,6 +193,8 @@ export default function ChildDashboard({ data, reload }) {
       )}
 
       <SinceLastVisitCard summary={since_last_visit} />
+
+      <StreakAtRiskBanner rpg={rpg} />
 
       <VitalPipStrip
         coinBalance={coin_balance}
@@ -386,6 +392,18 @@ export default function ChildDashboard({ data, reload }) {
             <div className="font-display text-xl font-semibold text-ink-primary">{formatCurrency(this_week?.earnings)}</div>
           </motion.button>
         </motion.div>
+        {coinSummary?.series?.some((p) => p.earned > 0) && (
+          <div className="mt-3">
+            <div className="font-script text-caption uppercase tracking-wider text-gold-leaf mb-1">
+              Coins earned · last 30 days
+            </div>
+            <Sparkline
+              data={coinSummary.series.map((p) => p.earned)}
+              label="Coins earned per day over the last 30 days"
+              strokeClass="stroke-gold-leaf"
+            />
+          </div>
+        )}
         <div className="font-script text-caption text-ink-whisper mt-3 leading-relaxed">
           balance: pay from clocked ventures · coins: earned across all your work, spent in the bazaar · hours and earnings: this week's clocked time
         </div>

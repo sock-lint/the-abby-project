@@ -2,7 +2,8 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
-    CoinAdjustmentView, CoinBalanceView, ExchangeRateView, ExchangeRequestView,
+    CoinAdjustmentView, CoinBalanceView, CoinSummaryByDayView, ExchangeRateView,
+    ExchangeRequestView,
     ExchangeRequestViewSet, RewardRedemptionViewSet, RewardViewSet,
 )
 
@@ -22,6 +23,7 @@ urlpatterns = [
     path("", include(router.urls)),
     path("coins/", CoinBalanceView.as_view(), name="coin-balance"),
     path("coins/adjust/", CoinAdjustmentView.as_view(), name="coin-adjust"),
+    path("coins/summary-by-day/", CoinSummaryByDayView.as_view(), name="coin-summary-by-day"),
     path("coins/exchange/", ExchangeRequestView.as_view(), name="coin-exchange"),
     path("coins/exchange/rate/", ExchangeRateView.as_view(), name="exchange-rate"),
     path("coins/exchange/list/", exchange_list, name="exchange-list"),

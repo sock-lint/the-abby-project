@@ -60,6 +60,7 @@ export const NOTIFICATION_TYPE_META = {
 
   // RPG progression
   streak_milestone:        { icon: Flame,         accent: 'ember',  route: '/sigil' },
+  streak_at_risk:          { icon: Flame,         accent: 'ember',  route: '/quests' },
   perfect_day:             { icon: Sparkles,      accent: 'gold',   route: '/sigil' },
   daily_check_in:          { icon: Sparkles,      accent: 'teal',   route: '/sigil' },
   drop_received:           { icon: Backpack,      accent: 'gold',   route: '/treasury?tab=satchel' },

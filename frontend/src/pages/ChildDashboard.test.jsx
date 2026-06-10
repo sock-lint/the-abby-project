@@ -64,6 +64,36 @@ describe('ChildDashboard', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders the coin sparkline in the Treasury section when coins were earned', async () => {
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({
+          active_timer: null, current_balance: 0, coin_balance: 12,
+          this_week: { hours_worked: 0, earnings: 0 },
+          active_projects: [], recent_badges: [], savings_goals: [], chores_today: [],
+          pending_chore_approvals: 0,
+          rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
+          next_actions: [],
+        }),
+      ),
+      http.get('*/api/coins/summary-by-day/', () =>
+        HttpResponse.json({
+          days: 30,
+          series: [
+            { date: '2026-06-09', earned: 0 },
+            { date: '2026-06-10', earned: 12 },
+          ],
+        }),
+      ),
+    ]);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('img', { name: /coins earned per day over the last 30 days/i }),
+      ).toBeInTheDocument(),
+    );
+  });
+
   it('renders pet growth pip and savings goal peek', async () => {
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),

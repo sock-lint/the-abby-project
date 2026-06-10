@@ -76,3 +76,66 @@ def evaluate_perfect_day_task():
         awarded += 1
 
     return f"Perfect day evaluated: {awarded}/{seen} children awarded."
+
+
+# Streaks of at least this length get the evening at-risk warning —
+# below it there isn't enough invested to be worth a nudge.
+STREAK_AT_RISK_MIN = 3
+
+
+@shared_task
+def streak_at_risk_warning_task():
+    """Warn children whose streak will break tonight if they stay idle.
+
+    Runs at 19:00 local (before the 23:55 perfect-day tick) so there's
+    still real evening left to act on it. Gentle-nudge doctrine: child
+    only — no parent fan-out — and at most one warning per local day.
+    Kids holding an armed streak freeze that covers today are skipped;
+    the freeze means tonight's miss won't break anything.
+    """
+    from apps.families.queries import children_across_families
+    from apps.notifications.models import Notification, NotificationType
+    from apps.notifications.services import notify
+    from apps.rpg.models import CharacterProfile
+
+    today = timezone.localdate()
+    warned = 0
+    seen = 0
+
+    for _family, child in children_across_families():
+        seen += 1
+        profile = CharacterProfile.objects.filter(user=child).first()
+        if not profile or profile.login_streak < STREAK_AT_RISK_MIN:
+            continue
+        # Already active today — nothing at risk.
+        if profile.last_active_date is None or profile.last_active_date >= today:
+            continue
+        # An armed freeze covering today absorbs the miss.
+        if (
+            profile.streak_freeze_expires_at
+            and profile.streak_freeze_expires_at >= today
+        ):
+            continue
+        # One warning per local day, even if the task re-runs.
+        already_warned = Notification.objects.filter(
+            user=child,
+            notification_type=NotificationType.STREAK_AT_RISK,
+            created_at__date=today,
+        ).exists()
+        if already_warned:
+            continue
+
+        notify(
+            child,
+            title="Your streak is at risk!",
+            message=(
+                f"Your {profile.login_streak}-day streak ends tonight unless "
+                "you log something — a duty, a ritual tap, or a quick study "
+                "counts."
+            ),
+            notification_type=NotificationType.STREAK_AT_RISK,
+            link="/quests",
+        )
+        warned += 1
+
+    return f"Streak at-risk evaluated: {warned}/{seen} children warned."
