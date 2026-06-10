@@ -35,6 +35,10 @@ class User(AbstractUser):
         ],
     )
     date_of_birth = models.DateField(null=True, blank=True)
+    last_seen_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Stamped on each dashboard fetch — drives the since-last-visit summary.",
+    )
     grade_entry_year = models.PositiveIntegerField(
         null=True, blank=True,
         help_text="Calendar year of August they entered 9th grade (e.g. 2025).",

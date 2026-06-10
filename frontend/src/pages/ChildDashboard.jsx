@@ -17,6 +17,7 @@ import HeroPrimaryCard from '../components/dashboard/HeroPrimaryCard';
 import VitalPipStrip from '../components/dashboard/VitalPipStrip';
 import AccordionSection from '../components/dashboard/AccordionSection';
 import DailyChallengeCard from '../components/dashboard/DailyChallengeCard';
+import SinceLastVisitCard from '../components/dashboard/SinceLastVisitCard';
 import HomeworkSubmitSheet from '../components/HomeworkSubmitSheet';
 import IconButton from '../components/IconButton';
 import PageHeader from '../components/layout/PageHeader';
@@ -66,7 +67,7 @@ export default function ChildDashboard({ data, reload }) {
 
   const {
     active_timer, current_balance, coin_balance, this_week, active_projects,
-    recent_badges, savings_goals, rpg, next_actions = [],
+    recent_badges, savings_goals, rpg, next_actions = [], since_last_visit,
   } = data || {};
 
   const activePet = stableData?.pets?.find((p) => p.is_active) || null;
@@ -186,6 +187,8 @@ export default function ChildDashboard({ data, reload }) {
           </IconButton>
         </div>
       )}
+
+      <SinceLastVisitCard summary={since_last_visit} />
 
       <VitalPipStrip
         coinBalance={coin_balance}

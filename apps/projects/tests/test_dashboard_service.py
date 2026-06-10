@@ -12,6 +12,7 @@ The split itself doesn't change the API contract (existing
 from __future__ import annotations
 
 from datetime import timedelta
+from decimal import Decimal
 
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
@@ -21,6 +22,7 @@ from django.utils import timezone
 from apps.habits.models import Habit, HabitLog
 from apps.projects.dashboard import build_dashboard
 from apps.projects.models import User
+from config.tests.factories import make_family
 
 
 class DashboardHabitTapsAggregationTests(TestCase):
@@ -161,3 +163,187 @@ class BuildDashboardShapeTests(TestCase):
         # Parent's chores_today is always empty (the field is for the
         # child's "what's available now" summary, not for parents).
         self.assertEqual(payload["chores_today"], [])
+        # Per-kid week stats land for parents (empty list when no child
+        # has clocked completed time this week).
+        self.assertEqual(payload["this_week_by_kid"], [])
+
+    def test_role_exclusive_keys(self):
+        # since_last_visit is child-only; this_week_by_kid is parent-only.
+        child_payload = build_dashboard(self.child)
+        parent_payload = build_dashboard(self.parent)
+        self.assertIn("since_last_visit", child_payload)
+        self.assertNotIn("since_last_visit", parent_payload)
+        self.assertIn("this_week_by_kid", parent_payload)
+        self.assertNotIn("this_week_by_kid", child_payload)
+
+
+class ParentWeekByKidTests(TestCase):
+    """``this_week_by_kid`` — per-child completed hours + earnings for the
+    current week. The frontend's "Week at a glance" block consumed this key
+    from day one; the backend half is the 2026-06 fix."""
+
+    def setUp(self):
+        fam = make_family(
+            "Glance",
+            parents=[{"username": "p1"}],
+            children=[
+                {"username": "kid1", "hourly_rate": Decimal("10.00"),
+                 "display_name": "Abby"},
+                {"username": "kid2", "hourly_rate": Decimal("8.00")},
+            ],
+        )
+        self.parent = fam.parents[0]
+        self.kid1, self.kid2 = fam.children
+
+    def _entry(self, user, minutes, *, status="completed", days_ago=0):
+        from apps.projects.models import Project
+        from apps.timecards.models import TimeEntry
+
+        project, _ = Project.objects.get_or_create(
+            title="Birdhouse", assigned_to=user,
+            defaults={"created_by": self.parent},
+        )
+        clock_in = timezone.now() - timedelta(days=days_ago)
+        entry = TimeEntry.objects.create(
+            user=user, project=project, clock_in=clock_in, status=status,
+        )
+        # Bypass save()'s clock_out-driven duration recompute so tests can
+        # pin exact minutes without minting clock_out timestamps.
+        TimeEntry.objects.filter(pk=entry.pk).update(duration_minutes=minutes)
+        return entry
+
+    def test_week_rows_have_hours_and_earnings(self):
+        self._entry(self.kid1, 90)
+        payload = build_dashboard(self.parent)
+
+        rows = payload["this_week_by_kid"]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["kid_id"], self.kid1.pk)
+        self.assertEqual(rows[0]["name"], "Abby")
+        self.assertEqual(rows[0]["hours"], 1.5)
+        self.assertEqual(rows[0]["earnings"], 15.0)
+
+    def test_kid_without_entries_is_excluded(self):
+        self._entry(self.kid1, 60)
+        payload = build_dashboard(self.parent)
+
+        kid_ids = [r["kid_id"] for r in payload["this_week_by_kid"]]
+        self.assertNotIn(self.kid2.pk, kid_ids)
+
+    def test_active_entries_dont_count(self):
+        self._entry(self.kid1, 60, status="active")
+        payload = build_dashboard(self.parent)
+        self.assertEqual(payload["this_week_by_kid"], [])
+
+    def test_other_familys_children_are_excluded(self):
+        other = make_family(
+            "Elsewhere",
+            parents=[{"username": "op"}],
+            children=[{"username": "okid"}],
+        )
+        self._entry(other.children[0], 120)
+        payload = build_dashboard(self.parent)
+        self.assertEqual(payload["this_week_by_kid"], [])
+
+    def test_minutes_aggregate_across_entries(self):
+        self._entry(self.kid2, 30)
+        self._entry(self.kid2, 30)
+        payload = build_dashboard(self.parent)
+
+        rows = payload["this_week_by_kid"]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["hours"], 1.0)
+        self.assertEqual(rows[0]["earnings"], 8.0)
+
+
+class SinceLastVisitTests(TestCase):
+    """``since_last_visit`` — badges / coins / approvals earned in the gap
+    between two dashboard fetches, plus the ``last_seen_at`` stamp."""
+
+    def setUp(self):
+        fam = make_family(
+            "Visits",
+            parents=[{"username": "p1"}],
+            children=[{"username": "kid"}],
+        )
+        self.parent = fam.parents[0]
+        self.child = fam.children[0]
+
+    def test_first_visit_returns_none_and_stamps(self):
+        self.assertIsNone(self.child.last_seen_at)
+        payload = build_dashboard(self.child)
+
+        self.assertIsNone(payload["since_last_visit"])
+        self.child.refresh_from_db()
+        self.assertIsNotNone(self.child.last_seen_at)
+
+    def test_gap_activity_is_counted(self):
+        from apps.achievements.models import Badge, UserBadge
+        from apps.notifications.models import Notification, NotificationType
+        from apps.rewards.models import CoinLedger
+
+        last_seen = timezone.now() - timedelta(days=2)
+        User.objects.filter(pk=self.child.pk).update(last_seen_at=last_seen)
+        self.child.refresh_from_db()
+
+        badge = Badge.objects.create(
+            name="First Steps", description="d",
+            criteria_type=Badge.CriteriaType.FIRST_PROJECT,
+        )
+        UserBadge.objects.create(user=self.child, badge=badge)
+        CoinLedger.objects.create(
+            user=self.child, amount=12, reason=CoinLedger.Reason.HOURLY,
+        )
+        # Spends must not subtract from the "earned while away" number.
+        CoinLedger.objects.create(
+            user=self.child, amount=-50, reason=CoinLedger.Reason.REDEMPTION,
+        )
+        Notification.objects.create(
+            user=self.child, title="Chore approved",
+            notification_type=NotificationType.CHORE_APPROVED,
+        )
+        # Non-approval notifications don't count as approvals.
+        Notification.objects.create(
+            user=self.child, title="Drop",
+            notification_type=NotificationType.DROP_RECEIVED,
+        )
+
+        payload = build_dashboard(self.child)
+        summary = payload["since_last_visit"]
+
+        self.assertEqual(summary["badges_earned"], 1)
+        self.assertEqual(summary["coins_earned"], 12)
+        self.assertEqual(summary["approvals"], 1)
+        self.assertEqual(summary["last_seen_at"], last_seen.isoformat())
+
+    def test_activity_before_last_seen_is_excluded(self):
+        from apps.notifications.models import Notification, NotificationType
+
+        note = Notification.objects.create(
+            user=self.child, title="Old approval",
+            notification_type=NotificationType.HOMEWORK_APPROVED,
+        )
+        Notification.objects.filter(pk=note.pk).update(
+            created_at=timezone.now() - timedelta(days=5),
+        )
+        User.objects.filter(pk=self.child.pk).update(
+            last_seen_at=timezone.now() - timedelta(days=1),
+        )
+        self.child.refresh_from_db()
+
+        payload = build_dashboard(self.child)
+        self.assertEqual(payload["since_last_visit"]["approvals"], 0)
+
+    def test_each_fetch_advances_the_stamp(self):
+        build_dashboard(self.child)
+        self.child.refresh_from_db()
+        first = self.child.last_seen_at
+
+        build_dashboard(self.child)
+        self.child.refresh_from_db()
+        self.assertGreater(self.child.last_seen_at, first)
+
+    def test_parent_fetch_also_stamps(self):
+        build_dashboard(self.parent)
+        self.parent.refresh_from_db()
+        self.assertIsNotNone(self.parent.last_seen_at)
