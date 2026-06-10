@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
+from config.services import zero_filled_daily_earned
 from config.viewsets import (
     RoleFilteredQuerySetMixin, resolve_target_user,
 )
@@ -16,6 +17,15 @@ from config.viewsets import (
 from .models import PaymentLedger
 from .serializers import PaymentLedgerSerializer
 from .services import PaymentService
+
+
+def _clamp_days(raw, *, default=30, lo=1, hi=90):
+    """Parse a ``days`` query param defensively — sparkline windows only."""
+    try:
+        days = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return max(lo, min(days, hi))
 
 
 class PaymentLedgerViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet):
@@ -64,6 +74,19 @@ class PaymentLedgerViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelView
                 qs = qs.filter(user_id=user_id)
 
         return qs
+
+    @action(detail=False, methods=["get"], url_path="summary-by-day")
+    def summary_by_day(self, request):
+        """Zero-filled per-day earned totals for the sparkline.
+
+        Honors the same role scoping + ``user_id`` narrowing as the list
+        endpoint: children get their own series, parents get the family's
+        children combined (or one child via ``user_id``). ``days`` query
+        param defaults to 30, clamped to 1..90.
+        """
+        days = _clamp_days(request.query_params.get("days"))
+        series = zero_filled_daily_earned(self.get_queryset(), days=days)
+        return Response({"days": days, "series": series})
 
     @action(detail=False, methods=["get"], permission_classes=[IsParent])
     def export(self, request):

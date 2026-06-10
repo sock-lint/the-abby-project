@@ -145,6 +145,11 @@ export const getPaymentLedger = (filters = {}) => {
   const query = qs.toString();
   return api.get(`/payments/${query ? `?${query}` : ''}`);
 };
+export const getPaymentSummaryByDay = ({ days = 30, user_id } = {}) => {
+  const qs = new URLSearchParams({ days });
+  if (user_id) qs.set('user_id', user_id);
+  return api.get(`/payments/summary-by-day/?${qs}`);
+};
 // Parent-only CSV export URL — opened directly via <a href> rather than fetch'd
 // because the browser handles the download dialog for free that way. Includes
 // the bearer token via querystring? — no, the export endpoint sits on the
@@ -203,6 +208,8 @@ export const approveRedemption = (id, notes = '') =>
 export const rejectRedemption = (id, notes = '') =>
   api.post(`/redemptions/${id}/reject/`, { notes });
 export const getCoinBalance = () => api.get('/coins/');
+export const getCoinSummaryByDay = (days = 30) =>
+  api.get(`/coins/summary-by-day/?days=${days}`);
 export const adjustCoins = (user_id, amount, description = '') =>
   api.post('/coins/adjust/', { user_id, amount, description });
 

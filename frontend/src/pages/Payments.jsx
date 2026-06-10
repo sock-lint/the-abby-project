@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { DollarSign, TrendingUp, ArrowDownRight, ArrowUpRight, ArrowRightLeft, Target, Plus, Download, Filter, X } from 'lucide-react';
 import {
-  getBalance, adjustPayment, getChildren,
+  getBalance, adjustPayment, getChildren, getPaymentSummaryByDay,
   getPaymentLedger, downloadPaymentLedgerCsv,
 } from '../api';
 import { useApi } from '../hooks/useApi';
@@ -18,6 +18,7 @@ import RuneBadge from '../components/journal/RuneBadge';
 import { formatCurrency } from '../utils/format';
 import { normalizeList } from '../utils/api';
 import Button from '../components/Button';
+import Sparkline from '../components/Sparkline';
 import PageShell from '../components/layout/PageShell';
 import { TextField, SelectField, DateField } from '../components/form';
 
@@ -124,6 +125,17 @@ export default function Payments() {
     [entryTypesParam],
   );
   const userIdParam = searchParams.get('kid') ?? '';
+
+  // 30-day earnings trend for the balance hero; follows the kid filter so
+  // a parent narrowing the ledger sees that child's curve.
+  const { data: earningsSummary } = useApi(
+    () => getPaymentSummaryByDay({ user_id: userIdParam || undefined }),
+    [userIdParam],
+  );
+  const earnedSeries = useMemo(
+    () => (earningsSummary?.series || []).map((p) => p.earned),
+    [earningsSummary],
+  );
 
   const setEntryTypesParam = useCallback((types) => {
     setSearchParams((prev) => {
@@ -331,6 +343,18 @@ export default function Payments() {
           >
             {formatCurrency(balance)}
           </div>
+          {earnedSeries.some((v) => v > 0) && (
+            <div className="max-w-xs mx-auto mt-4">
+              <Sparkline
+                data={earnedSeries}
+                label="Earnings per day over the last 30 days"
+                strokeClass="stroke-moss"
+              />
+              <div className="font-script text-caption text-ink-whisper mt-1">
+                earnings · last 30 days
+              </div>
+            </div>
+          )}
         </ParchmentCard>
       </motion.div>
 

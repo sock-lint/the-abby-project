@@ -205,6 +205,28 @@ class CoinBalanceView(APIView):
         })
 
 
+class CoinSummaryByDayView(APIView):
+    """Zero-filled per-day earned coin totals for the sparkline.
+
+    Same targeting rules as ``CoinBalanceView``: children get their own
+    series; parents may pass ``user_id`` for a child in their family.
+    """
+
+    def get(self, request):
+        from apps.payments.views import _clamp_days
+        from config.services import zero_filled_daily_earned
+
+        target_user, err = resolve_target_user(request)
+        if err:
+            return err
+
+        days = _clamp_days(request.query_params.get("days"))
+        series = zero_filled_daily_earned(
+            CoinLedger.objects.filter(user=target_user), days=days,
+        )
+        return Response({"days": days, "series": series})
+
+
 class CoinAdjustmentView(APIView):
     permission_classes = [IsParent]
 

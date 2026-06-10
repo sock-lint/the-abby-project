@@ -30,6 +30,45 @@ describe('Payments', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument());
   });
 
+  it('renders the 30-day earnings sparkline when there are earnings', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/balance/', () =>
+        HttpResponse.json({ balance: 10, breakdown: {}, recent_transactions: [] }),
+      ),
+      http.get('*/api/payments/summary-by-day/', () =>
+        HttpResponse.json({
+          days: 30,
+          series: [
+            { date: '2026-06-08', earned: 0 },
+            { date: '2026-06-09', earned: 5 },
+            { date: '2026-06-10', earned: 3 },
+          ],
+        }),
+      ),
+    ]);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('img', { name: /earnings per day over the last 30 days/i }),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it('hides the sparkline when the window has no earnings', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/balance/', () =>
+        HttpResponse.json({ balance: 0, breakdown: {}, recent_transactions: [] }),
+      ),
+      http.get('*/api/payments/summary-by-day/', () =>
+        HttpResponse.json({
+          days: 30,
+          series: [{ date: '2026-06-10', earned: 0 }],
+        }),
+      ),
+    ]);
+    await waitFor(() => expect(screen.getByText(/current balance/i)).toBeInTheDocument());
+    expect(screen.queryByRole('img', { name: /earnings per day/i })).toBeNull();
+  });
+
   it('renders balance and breakdown tiles', async () => {
     renderPage(buildUser(), [
       http.get('*/api/balance/', () =>

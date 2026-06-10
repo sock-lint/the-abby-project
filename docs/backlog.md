@@ -128,9 +128,8 @@ These came out of a focused user-facing-functionality review. Search-on-list-pag
 
 ### 2. Insight & analytics (large surface, zero today)
 
-The app currently shows *only* current totals + recent rows. There's no charting library in `package.json` and zero hand-rolled sparklines. Adding even a tiny SVG sparkline primitive would unlock several of these.
+The app currently shows *only* current totals + recent rows. There's no charting library in `package.json` — by design. The tiny SVG [`Sparkline`](../frontend/src/components/Sparkline.jsx) primitive (shipped 2026-06-10 with item 1) is the building block for the rest of these.
 
-- **Coin/earnings sparkline** **[S]** — 30-day sparkline on `ChildDashboard`'s vital pip strip and on [`Payments.jsx`](../frontend/src/pages/Payments.jsx). Backend just needs a `summary_by_day` action on `PaymentLedgerViewSet` and `CoinBalanceView`.
 - **Habit strength history** **[S]** — `HabitLog` already records every tap with `streak_at_time`. [`Habits.jsx`](../frontend/src/pages/Habits.jsx) shows only the *current* strength pill — a 14-day mini-bar per habit row would make the decay/regrowth visible.
 - **Parent "How is my kid doing" view** **[M]** — [`useParentDashboard.js`](../frontend/src/hooks/useParentDashboard.js) already requests `this_week_by_kid` — *the latent-expectation half shipped 2026-06-10*: `_parent_extras` in [`apps/projects/dashboard.py`](../apps/projects/dashboard.py) now returns per-child hours + earnings, so the existing "Week at a glance" block and Family Snapshot per-kid lines on `ParentDashboard` light up. Remaining: widen the payload with streak, badges-this-week, and pending count per child, and design the richer `<KidPulseRow>` card.
 - **Skill progression curve** **[S]** — `SkillTreeView`'s backend `get_category_summary()` is computed but never consumed on the frontend. Wire it into the FolioSpread incipit — even just "L2 → L4 in Coding this month" beats the static level chip.
@@ -161,7 +160,7 @@ The app currently shows *only* current totals + recent rows. There's no charting
 
 ### Pointers for whoever picks this up
 
-- ~~Pick up the highest-ROI first: **1c (What's new since you last visited)**~~ — shipped 2026-06-10: `User.last_seen_at` is stamped on every dashboard fetch and the child payload carries a `since_last_visit` block (`badges_earned` / `coins_earned` / `approvals`), rendered as a dismissible [`SinceLastVisitCard`](../frontend/src/components/dashboard/SinceLastVisitCard.jsx) on `ChildDashboard`. The streak-protect warning (1b) shipped 2026-06-10 as `streak_at_risk_warning_task` + `StreakAtRiskBanner`. Next-smallest win: the coin sparkline (2a).
+- ~~Pick up the highest-ROI first: **1c (What's new since you last visited)**~~ — shipped 2026-06-10: `User.last_seen_at` is stamped on every dashboard fetch and the child payload carries a `since_last_visit` block (`badges_earned` / `coins_earned` / `approvals`), rendered as a dismissible [`SinceLastVisitCard`](../frontend/src/components/dashboard/SinceLastVisitCard.jsx) on `ChildDashboard`. The streak-protect warning (1b) shipped 2026-06-10 as `streak_at_risk_warning_task` + `StreakAtRiskBanner`. The coin/earnings sparkline (2a) also shipped 2026-06-10 — `summary-by-day` endpoints on payments + coins, `Sparkline` primitive, wired into the Payments hero and the dashboard Treasury section.
 - Each item is independent — none of them block the others.
 - Per CLAUDE.md's "Interaction tests REQUIRED" rule, every clickable element that fires a POST/PATCH/DELETE needs a colocated `*.test.{js,jsx}` interaction test using `spyHandler` from [`frontend/src/test/spy.js`](../frontend/src/test/spy.js).
 - The full review document that produced this list is at [`/root/.claude/plans/can-you-review-my-proud-mango.md`](../../.claude/plans/can-you-review-my-proud-mango.md) (outside the repo, on the reviewer's machine).

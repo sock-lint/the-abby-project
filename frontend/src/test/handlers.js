@@ -82,6 +82,7 @@ export const handlers = [
   http.post(/\/api\/timecards\/\d+\/(approve|dispute|mark-paid)\/$/, ok),
 
   // Payments
+  http.get('*/api/payments/summary-by-day/', () => HttpResponse.json({ days: 30, series: [] })),
   http.get('*/api/payments/', empty),
   http.post('*/api/payments/payout/', ok),
   http.post('*/api/payments/adjust/', ok),
@@ -133,6 +134,7 @@ export const handlers = [
   http.post(/\/api\/redemptions\/\d+\/(approve|reject)\/$/, ok),
   http.get('*/api/coins/', () => HttpResponse.json({ balance: 0, recent: [] })),
   http.post('*/api/coins/adjust/', ok),
+  http.get('*/api/coins/summary-by-day/', () => HttpResponse.json({ days: 30, series: [] })),
   http.get('*/api/coins/exchange/rate/', () =>
     HttpResponse.json({ coins_per_dollar: 10 }),
   ),

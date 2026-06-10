@@ -375,3 +375,48 @@ class ExchangeRateViewTests(_Fixture):
         resp = self.client.get("/api/coins/exchange/rate/")
         self.assertEqual(resp.status_code, 200)
         self.assertIn("coins_per_dollar", resp.json())
+
+
+class CoinSummaryByDayViewTests(TestCase):
+    URL = "/api/coins/summary-by-day/"
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        self.parent = User.objects.create_user(
+            username="csp", password="pw", role="parent",
+        )
+        self.child = User.objects.create_user(
+            username="csc", password="pw", role="child",
+        )
+        self.client = APIClient()
+
+    def test_child_gets_own_zero_filled_series(self):
+        from django.utils import timezone
+
+        CoinLedger.objects.create(
+            user=self.child, amount=12, reason=CoinLedger.Reason.HOURLY,
+        )
+        CoinLedger.objects.create(
+            user=self.child, amount=-5, reason=CoinLedger.Reason.REDEMPTION,
+        )
+        self.client.force_authenticate(self.child)
+
+        data = self.client.get(self.URL).json()
+
+        self.assertEqual(data["days"], 30)
+        self.assertEqual(len(data["series"]), 30)
+        # Spend excluded; only the earn lands in today's bucket.
+        self.assertEqual(
+            data["series"][-1],
+            {"date": timezone.localdate().isoformat(), "earned": 12.0},
+        )
+
+    def test_parent_targets_child_via_user_id(self):
+        CoinLedger.objects.create(
+            user=self.child, amount=7, reason=CoinLedger.Reason.CHORE_REWARD,
+        )
+        self.client.force_authenticate(self.parent)
+
+        data = self.client.get(f"{self.URL}?user_id={self.child.pk}").json()
+        self.assertEqual(data["series"][-1]["earned"], 7.0)

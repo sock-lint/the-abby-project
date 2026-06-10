@@ -203,3 +203,69 @@ class PaymentAdjustmentViewTests(_Fixture):
             "user_id": self.child.id, "amount": "5",
         }, format="json")
         self.assertEqual(resp.status_code, 403)
+
+
+class PaymentSummaryByDayTests(_Fixture):
+    URL = "/api/payments/summary-by-day/"
+
+    def _entry(self, user, amount, days_ago=0):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        row = PaymentService.record_entry(
+            user, Decimal(amount), PaymentLedger.EntryType.HOURLY,
+        )
+        if days_ago:
+            PaymentLedger.objects.filter(pk=row.pk).update(
+                created_at=timezone.now() - timedelta(days=days_ago),
+            )
+        return row
+
+    def test_series_is_zero_filled_and_ends_today(self):
+        from django.utils import timezone
+
+        self._entry(self.child, "5")
+        self._entry(self.child, "3", days_ago=2)
+        self.client.force_authenticate(self.child)
+
+        data = self.client.get(self.URL).json()
+
+        self.assertEqual(data["days"], 30)
+        self.assertEqual(len(data["series"]), 30)
+        self.assertEqual(
+            data["series"][-1],
+            {"date": timezone.localdate().isoformat(), "earned": 5.0},
+        )
+        self.assertEqual(data["series"][-3]["earned"], 3.0)
+        # Every other day present at zero.
+        zeros = [p for p in data["series"] if p["earned"] == 0.0]
+        self.assertEqual(len(zeros), 28)
+
+    def test_spends_are_excluded(self):
+        self._entry(self.child, "10")
+        self._entry(self.child, "-4")
+        self.client.force_authenticate(self.child)
+
+        data = self.client.get(self.URL).json()
+        self.assertEqual(data["series"][-1]["earned"], 10.0)
+
+    def test_days_param_clamped(self):
+        self.client.force_authenticate(self.child)
+        self.assertEqual(len(self.client.get(self.URL + "?days=7").json()["series"]), 7)
+        self.assertEqual(self.client.get(self.URL + "?days=500").json()["days"], 90)
+        self.assertEqual(self.client.get(self.URL + "?days=abc").json()["days"], 30)
+
+    def test_child_series_excludes_siblings(self):
+        self._entry(self.other_child, "9")
+        self.client.force_authenticate(self.child)
+
+        data = self.client.get(self.URL).json()
+        self.assertEqual(data["series"][-1]["earned"], 0.0)
+
+    def test_parent_user_id_narrows(self):
+        self._entry(self.child, "5")
+        self._entry(self.other_child, "9")
+        self.client.force_authenticate(self.parent)
+
+        data = self.client.get(f"{self.URL}?user_id={self.child.pk}").json()
+        self.assertEqual(data["series"][-1]["earned"], 5.0)

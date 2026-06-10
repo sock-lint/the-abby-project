@@ -132,3 +132,36 @@ class BaseLedgerService:
             e[cls.category_field]: type(default)(e["total"] or default)
             for e in entries
         }
+
+
+def zero_filled_daily_earned(qs, *, days=30):
+    """Per-day positive-amount totals over the last ``days`` local days.
+
+    Takes an already-scoped ledger queryset (PaymentLedger or CoinLedger —
+    anything with ``amount`` + ``created_at``), keeps only earn-side rows
+    (``amount > 0``, matching ``BaseLedgerService.get_positive_total``'s
+    definition of "earned"), and returns a list of ``{date, earned}``
+    dicts with every day present — zero-filled — oldest first, ending on
+    today. Built for sparklines, where gaps must render as flat zero
+    rather than disappearing.
+    """
+    from datetime import timedelta
+
+    from django.db.models.functions import TruncDate
+
+    today = timezone.localdate()
+    start = today - timedelta(days=days - 1)
+    rows = (
+        qs.filter(created_at__date__gte=start, amount__gt=0)
+        .annotate(day=TruncDate("created_at"))
+        .values("day")
+        .annotate(total=Sum("amount"))
+    )
+    by_day = {r["day"]: r["total"] for r in rows}
+    return [
+        {
+            "date": (start + timedelta(days=i)).isoformat(),
+            "earned": float(by_day.get(start + timedelta(days=i), 0)),
+        }
+        for i in range(days)
+    ]

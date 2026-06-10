@@ -35,7 +35,10 @@ frontend/src/
                      StatusBadge, TabButton, BottomSheet, ConfirmDialog,
                      NotificationBell, ProgressBar, QuillProgress,
                      PageShell (re-export from layout/),
-                     SectionHeader, CatalogSearch, SkillTagEditor.
+                     SectionHeader, CatalogSearch, SkillTagEditor,
+                     Sparkline (dependency-free SVG trend line — consumes
+                     the `summary-by-day` endpoints on /api/payments/ and
+                     /api/coins/).
     form/            TextField, SelectField, TextAreaField (labeled form
                      primitives with useId-driven htmlFor + aria-invalid /
                      aria-describedby wiring), useFieldIds (shared hook),
