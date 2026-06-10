@@ -131,7 +131,7 @@ These came out of a focused user-facing-functionality review. Search-on-list-pag
 The app currently shows *only* current totals + recent rows. There's no charting library in `package.json` — by design. The tiny SVG [`Sparkline`](../frontend/src/components/Sparkline.jsx) primitive (shipped 2026-06-10 with item 1) is the building block for the rest of these.
 
 - **Parent "How is my kid doing" view** **[M]** — [`useParentDashboard.js`](../frontend/src/hooks/useParentDashboard.js) already requests `this_week_by_kid` — *the latent-expectation half shipped 2026-06-10*: `_parent_extras` in [`apps/projects/dashboard.py`](../apps/projects/dashboard.py) now returns per-child hours + earnings, so the existing "Week at a glance" block and Family Snapshot per-kid lines on `ParentDashboard` light up. Remaining: widen the payload with streak, badges-this-week, and pending count per child, and design the richer `<KidPulseRow>` card.
-- **Skill progression curve** **[S]** — `SkillTreeView`'s backend `get_category_summary()` is computed but never consumed on the frontend. Wire it into the FolioSpread incipit — even just "L2 → L4 in Coding this month" beats the static level chip.
+- **Skill progression curve over time** **[S→M]** — *the original bullet was stale*: `get_category_summary()` IS consumed now — `FolioSpread`'s verso renders `summary.level` / `summary.total_xp` with a level strap + progress bar, and the tome spines use it via `summaryByCategory` (verified 2026-06-10). What remains is the "L2 → L4 this month" framing, which needs level *history* that isn't recorded today — a `SkillProgress` level-transition log or a monthly snapshot. That's a small model + design question, not a wiring gap.
 - **Monthly/yearly recap modal** **[M]** — extend `ChronicleService.freeze_recap` into a lightweight monthly recap (auto-generated 1st of month) surfacing top 3 badges, longest streak, coins earned, hours clocked. Render as a one-time `CelebrationModal` variant.
 
 ### 3. Onboarding & discovery
@@ -145,13 +145,12 @@ The app currently shows *only* current totals + recent rows. There's no charting
   - Chore rows on `/chores` → swipe-right "complete," swipe-left "skip today"
   - Homework rows on `/quests?tab=study` → swipe-right "submit," swipe-left "needs help"
   - Approval queue rows on `ParentDashboard` → swipe-right approve, swipe-left reject (paired with the existing reject-note `BottomSheet`)
-- **Native share for moments** **[S]** — `navigator.share` is unused. Natural emit points: badge earn (`BadgeDetailSheet`), creation approval (`Sketchbook` lightbox), pet evolve (`PetCeremonyModal`). One small `<ShareButton>` primitive in `frontend/src/components/`.
+- **Native share for moments** **[S]** — *mostly shipped 2026-06-10*: [`ShareButton`](../frontend/src/components/ShareButton.jsx) (Web Share API wrapper, renders nothing where unsupported, text-only payloads since media URLs are presigned + expiring) is live on `BadgeDetailSheet` (earned seals) and the Sketchbook lightbox. Remaining emit point: `PetCeremonyModal` — its tap-anywhere-dismiss interaction needs a deliberate design pass so a share affordance doesn't fight the dismissal gesture.
 - **Offline read-only caching** **[M]** — [`vite.config.js`](../frontend/vite.config.js) `runtimeCaching: []`. Add a `NetworkFirst` Workbox handler for `/api/dashboard/`, `/api/chores/`, `/api/homework/`, `/api/inventory/` so the app at least *renders* offline (writes still fail loudly, which is correct). Mostly a config change + a small "offline" banner.
 
 ### 5. Quality-of-life polish
 
 - **Bulk approve already shipped** for parent dashboard (`Approve all (N)`) — extend the same pattern to the **Manage → Templates** page so a parent can bulk-assign a template to multiple kids in one action. **[S]**
-- **Wishlist email** when a wishlisted reward restocks already fan-outs the in-app notification; layer in the existing email backend (`DEFAULT_FROM_EMAIL`) for the same event. **[S]**
 - **Inventory "Use × N" stepper** is great — extend it to **Equip multiple cosmetics in one batch** on [`Character.jsx`](../frontend/src/pages/Character.jsx) so kids changing outfits don't round-trip 4 times. **[S]**
 - **Quest authoring UX in parent UI** **[M]** — the Trials parent challenge form exists but is sparse compared to the YAML schema. Surface the trigger filter (skill_category, project_id, on_time) as proper pickers rather than the current Advanced JSON-ish panel.
 - **Homework "submit due" contextual nudge** **[S]** — make it a contextual nudge on `ChildDashboard` ("📝 Math is due tomorrow, submit it now?") rather than only a quick-actions row.

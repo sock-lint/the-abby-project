@@ -1,4 +1,5 @@
 import BottomSheet from '../../components/BottomSheet';
+import ShareButton from '../../components/ShareButton';
 import { RARITY_PILL_COLORS, RARITY_TEXT_COLORS } from '../../constants/colors';
 import {
   collectionForBadge,
@@ -97,9 +98,17 @@ export default function BadgeDetailSheet({ entry, onClose, allBadges = [], earne
 
         <div className="text-center">
           {earned ? (
-            <div className={`font-script text-lede ${RARITY_TEXT_COLORS[rarity] || 'text-ink-primary'}`}>
-              {`sealed ${formatSealDate(earnedAt)}`}
-            </div>
+            <>
+              <div className={`font-script text-lede ${RARITY_TEXT_COLORS[rarity] || 'text-ink-primary'}`}>
+                {`sealed ${formatSealDate(earnedAt)}`}
+              </div>
+              <div className="flex justify-center mt-2">
+                <ShareButton
+                  title="Badge earned!"
+                  text={`I earned the "${badge.name}" badge${badge.icon ? ` ${badge.icon}` : ''} in The Abby Project!`}
+                />
+              </div>
+            </>
           ) : (
             <div className="font-script italic text-ink-whisper">
               not yet earned
