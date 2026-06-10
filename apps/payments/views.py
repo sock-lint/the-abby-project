@@ -11,21 +11,12 @@ from rest_framework.views import APIView
 from config.permissions import IsParent
 from config.services import zero_filled_daily_earned
 from config.viewsets import (
-    RoleFilteredQuerySetMixin, resolve_target_user,
+    RoleFilteredQuerySetMixin, clamp_int_param, resolve_target_user,
 )
 
 from .models import PaymentLedger
 from .serializers import PaymentLedgerSerializer
 from .services import PaymentService
-
-
-def _clamp_days(raw, *, default=30, lo=1, hi=90):
-    """Parse a ``days`` query param defensively — sparkline windows only."""
-    try:
-        days = int(raw)
-    except (TypeError, ValueError):
-        return default
-    return max(lo, min(days, hi))
 
 
 class PaymentLedgerViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet):
@@ -84,7 +75,7 @@ class PaymentLedgerViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelView
         children combined (or one child via ``user_id``). ``days`` query
         param defaults to 30, clamped to 1..90.
         """
-        days = _clamp_days(request.query_params.get("days"))
+        days = clamp_int_param(request.query_params.get("days"), default=30, lo=1, hi=90)
         series = zero_filled_daily_earned(self.get_queryset(), days=days)
         return Response({"days": days, "series": series})
 

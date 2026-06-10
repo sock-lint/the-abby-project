@@ -376,3 +376,92 @@ class HabitLogTests(_Fixture):
         }, format="json")
         self.assertEqual(over.status_code, 400)
         self.assertIn("Daily limit reached", over.json().get("error", ""))
+
+
+class HabitHistoryTests(_Fixture):
+    URL = "/api/habits/history/"
+
+    def _habit(self, user=None, name="Hydrate", **kw):
+        from apps.habits.models import Habit
+
+        return Habit.objects.create(
+            user=user or self.child,
+            created_by=self.parent,
+            name=name,
+            habit_type="both",
+            **kw,
+        )
+
+    def _log(self, habit, direction, days_ago=0):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from apps.habits.models import HabitLog
+
+        log = HabitLog.objects.create(
+            habit=habit, user=habit.user, direction=direction, streak_at_time=0,
+        )
+        if days_ago:
+            HabitLog.objects.filter(pk=log.pk).update(
+                created_at=timezone.now() - timedelta(days=days_ago),
+            )
+        return log
+
+    def test_series_is_zero_filled_with_daily_nets(self):
+        from django.utils import timezone
+
+        habit = self._habit()
+        self._log(habit, 1)
+        self._log(habit, 1)
+        self._log(habit, -1, days_ago=2)
+        self.client.force_authenticate(self.child)
+
+        data = self.client.get(self.URL).json()
+
+        self.assertEqual(data["days"], 14)
+        series = data["histories"][str(habit.pk)]
+        self.assertEqual(len(series), 14)
+        self.assertEqual(
+            series[-1],
+            {"date": timezone.localdate().isoformat(), "net": 2},
+        )
+        self.assertEqual(series[-3]["net"], -1)
+        self.assertEqual(sum(1 for p in series if p["net"] == 0), 12)
+
+    def test_logs_outside_window_are_excluded(self):
+        habit = self._habit()
+        self._log(habit, 1, days_ago=20)
+        self.client.force_authenticate(self.child)
+
+        data = self.client.get(self.URL).json()
+        self.assertTrue(all(p["net"] == 0 for p in data["histories"][str(habit.pk)]))
+
+    def test_days_param_clamped(self):
+        self._habit()
+        self.client.force_authenticate(self.child)
+
+        self.assertEqual(self.client.get(self.URL + "?days=7").json()["days"], 7)
+        self.assertEqual(self.client.get(self.URL + "?days=400").json()["days"], 30)
+        self.assertEqual(self.client.get(self.URL + "?days=x").json()["days"], 14)
+
+    def test_child_only_sees_own_habits(self):
+        sibling = User.objects.create_user(
+            username="c2", password="pw", role="child",
+        )
+        own = self._habit()
+        other = self._habit(user=sibling, name="Stretch")
+        self._log(other, 1)
+        self.client.force_authenticate(self.child)
+
+        histories = self.client.get(self.URL).json()["histories"]
+        self.assertIn(str(own.pk), histories)
+        self.assertNotIn(str(other.pk), histories)
+
+    def test_parent_sees_familys_habits(self):
+        habit = self._habit()
+        self._log(habit, 1)
+        self.client.force_authenticate(self.parent)
+
+        histories = self.client.get(self.URL).json()["histories"]
+        self.assertEqual(histories[str(habit.pk)][-1]["net"], 1)

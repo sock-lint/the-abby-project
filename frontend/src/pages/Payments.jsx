@@ -11,10 +11,10 @@ import { useFormState } from '../hooks/useFormState';
 import { useRole } from '../hooks/useRole';
 import ParchmentSkeleton from '../components/ParchmentSkeleton';
 import ErrorAlert from '../components/ErrorAlert';
+import EmptyState from '../components/EmptyState';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import DeckleDivider from '../components/journal/DeckleDivider';
-import RuneBadge from '../components/journal/RuneBadge';
 import { formatCurrency } from '../utils/format';
 import { normalizeList } from '../utils/api';
 import Button from '../components/Button';
@@ -503,10 +503,14 @@ export default function Payments() {
       )}
 
       {!breakdown && !entriesToRender.length && (
-        <RuneBadge tone="ink">nothing inked yet — complete some quests to see entries here</RuneBadge>
+        <EmptyState icon={<DollarSign size={32} />}>
+          Nothing inked yet — complete some quests to see entries here.
+        </EmptyState>
       )}
       {hasFilter && entriesToRender.length === 0 && !filterLoading && (
-        <RuneBadge tone="ink">no entries match those filters</RuneBadge>
+        <EmptyState icon={<Filter size={32} />}>
+          No entries match those filters — clear them to see the full ledger.
+        </EmptyState>
       )}
 
       {showAdjust && (

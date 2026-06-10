@@ -244,6 +244,7 @@ export const handlers = [
   http.post('*/api/character/equip/', ok),
   http.post('*/api/character/unequip/', ok),
   http.get('*/api/streaks/', () => HttpResponse.json({ streak: 0 })),
+  http.get('*/api/habits/history/', () => HttpResponse.json({ days: 14, start: '', histories: {} })),
   http.get('*/api/habits/', empty),
   http.post('*/api/habits/', ok),
   http.patch(/\/api\/habits\/\d+\/$/, ok),
