@@ -38,6 +38,32 @@ describe('ChildDashboard', () => {
     await waitFor(() => expect(screen.getAllByText(/bird feeder/i).length).toBeGreaterThan(0));
   });
 
+  it('renders the since-last-visit summary card from the dashboard payload', async () => {
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({
+          active_timer: null, current_balance: 0, coin_balance: 0,
+          this_week: { hours_worked: 0, earnings: 0 },
+          active_projects: [], recent_badges: [], savings_goals: [], chores_today: [],
+          pending_chore_approvals: 0,
+          rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
+          next_actions: [],
+          since_last_visit: {
+            last_seen_at: '2026-06-08T12:00:00Z',
+            badges_earned: 3, approvals: 1, coins_earned: 12,
+          },
+        }),
+      ),
+    ]);
+    await waitFor(() =>
+      expect(screen.getByText(/since you were here last/i)).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText(/3 badges earned · 1 approval · \+12 coins/i),
+    ).toBeInTheDocument();
+  });
+
   it('renders pet growth pip and savings goal peek', async () => {
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),

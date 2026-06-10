@@ -178,6 +178,31 @@ describe('ParentDashboard', () => {
     expect(screen.queryByText(/welcome — let's add your first kid/i)).toBeNull();
   });
 
+  it('renders per-kid hours and earnings from this_week_by_kid in Week at a glance', async () => {
+    const user = userEvent.setup();
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({
+          ...emptyDashboard,
+          children_count: 1,
+          this_week_by_kid: [{ kid_id: 2, name: 'Abby', hours: 1.5, earnings: 15 }],
+        }),
+      ),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({ pending_submissions: [] })),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+    ]);
+    // Collapsed peek reflects the active-kid count…
+    await waitFor(() => expect(screen.getByText(/1 kid active/i)).toBeInTheDocument());
+    // …and expanding reveals the per-kid hours + earnings rows.
+    await user.click(screen.getByRole('button', { name: /week at a glance/i }));
+    expect(await screen.findByText('Abby')).toBeInTheDocument();
+    expect(screen.getByText('1.5h')).toBeInTheDocument();
+    expect(screen.getByText('$15.00')).toBeInTheDocument();
+  });
+
   it('approving a redemption fires /redemptions/{id}/approve/ with notes body', async () => {
     const user = userEvent.setup();
     const approve = spyHandler('post', /\/api\/redemptions\/\d+\/approve\/$/, { ok: true });

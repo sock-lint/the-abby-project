@@ -24,13 +24,18 @@ def build_dashboard(user) -> dict[str, Any]:
     arbitrary; the frontend reads by key.
     """
     today = timezone.localdate()
+    # Read the previous visit stamp BEFORE refreshing it — the
+    # since-last-visit block summarizes what happened in the gap.
+    last_seen = user.last_seen_at
     payload = _common_dashboard(user, today)
     if user.role == "child":
         payload.update(_child_extras(user, today))
+        payload["since_last_visit"] = _since_last_visit(user, last_seen)
     elif user.role == "parent":
-        payload.update(_parent_extras(user))
+        payload.update(_parent_extras(user, today))
     payload["rpg"] = _rpg_block(user, today)
     payload["next_actions"] = _next_actions(user)
+    _stamp_last_seen(user)
     return payload
 
 
@@ -143,7 +148,7 @@ def _child_extras(user, today) -> dict[str, Any]:
 # Parent-only fields
 # ---------------------------------------------------------------------------
 
-def _parent_extras(user) -> dict[str, Any]:
+def _parent_extras(user, today) -> dict[str, Any]:
     from apps.chores.models import ChoreCompletion
     from apps.families.queries import children_in
     from apps.timecards.models import Timecard
@@ -164,7 +169,103 @@ def _parent_extras(user) -> dict[str, Any]:
         "pending_chore_approvals": pending_chore_approvals,
         "pending_timecards": pending_timecards,
         "children_count": children_count,
+        "this_week_by_kid": _this_week_by_kid(user, today),
     }
+
+
+def _this_week_by_kid(user, today) -> list[dict[str, Any]]:
+    """Per-child hours + earnings for the current week.
+
+    Feeds the parent dashboard's "Week at a glance" block, which the
+    frontend has rendered (empty) since it shipped — the payload key was
+    the missing half. Earnings mirror ``_common_dashboard``'s headline
+    math: completed hours × the child's ``hourly_rate``. Only children
+    with completed entries this week appear; the frontend treats the
+    empty list as "no week data yet".
+    """
+    from apps.families.queries import children_in
+    from apps.timecards.models import TimeEntry
+
+    if not user.family_id:
+        return []
+
+    week_start = today - timedelta(days=today.weekday())
+    rows = (
+        TimeEntry.objects.filter(
+            user__in=children_in(user.family),
+            status="completed",
+            clock_in__date__gte=week_start,
+        )
+        .values("user_id", "user__display_name", "user__username", "user__hourly_rate")
+        .annotate(minutes=Sum("duration_minutes"))
+        .order_by("user__username")
+    )
+
+    week_by_kid = []
+    for row in rows:
+        hours = round((row["minutes"] or 0) / 60, 1)
+        if hours <= 0:
+            continue
+        week_by_kid.append({
+            "kid_id": row["user_id"],
+            "name": row["user__display_name"] or row["user__username"],
+            "hours": hours,
+            "earnings": round(hours * float(row["user__hourly_rate"]), 2),
+        })
+    return week_by_kid
+
+
+# ---------------------------------------------------------------------------
+# Since-last-visit summary (child only) + visit stamp
+# ---------------------------------------------------------------------------
+
+def _since_last_visit(user, last_seen) -> dict[str, Any] | None:
+    """What happened while the child was away — badges, coins, approvals.
+
+    ``None`` on the first-ever visit (no stamp to diff against); the
+    frontend also hides the card when every count is zero, so rapid
+    refreshes naturally show nothing.
+    """
+    if last_seen is None:
+        return None
+
+    from apps.achievements.models import UserBadge
+    from apps.notifications.models import Notification, NotificationType
+    from apps.rewards.models import CoinLedger
+
+    approval_types = [
+        NotificationType.CHORE_APPROVED,
+        NotificationType.HOMEWORK_APPROVED,
+        NotificationType.CREATION_APPROVED,
+        NotificationType.EXCHANGE_APPROVED,
+        NotificationType.TIMECARD_APPROVED,
+        NotificationType.PROJECT_APPROVED,
+    ]
+    coins_earned = (
+        CoinLedger.objects.filter(
+            user=user, created_at__gt=last_seen, amount__gt=0,
+        ).aggregate(total=Sum("amount"))["total"]
+        or 0
+    )
+    return {
+        "last_seen_at": last_seen.isoformat(),
+        "badges_earned": UserBadge.objects.filter(
+            user=user, earned_at__gt=last_seen,
+        ).count(),
+        "coins_earned": coins_earned,
+        "approvals": Notification.objects.filter(
+            user=user,
+            created_at__gt=last_seen,
+            notification_type__in=approval_types,
+        ).count(),
+    }
+
+
+def _stamp_last_seen(user) -> None:
+    # Queryset update so the stamp never trips ``User.save()`` side effects
+    # (default-family auto-attach) or bumps any auto_now fields.
+    from apps.accounts.models import User
+    User.objects.filter(pk=user.pk).update(last_seen_at=timezone.now())
 
 
 # ---------------------------------------------------------------------------
