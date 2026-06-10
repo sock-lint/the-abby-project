@@ -3,7 +3,8 @@ import {
   createContext, createElement, useCallback, useContext, useEffect, useRef, useState,
 } from 'react';
 import {
-  getMe, login as apiLogin, logout as apiLogout, signup as apiSignup,
+  getMe, joinFamily as apiJoinFamily, login as apiLogin,
+  logout as apiLogout, signup as apiSignup,
 } from '../api';
 import { setToken } from '../api/client';
 
@@ -110,13 +111,23 @@ export function AuthProvider({ children }) {
     return u;
   }, []);
 
+  const join = useCallback(async (inviteToken, payload) => {
+    // Same shape as signup — { token, user, family } with the auth token
+    // already stashed by the api layer; hydrate user state and go.
+    const data = await apiJoinFamily(inviteToken, payload);
+    const u = data?.user || null;
+    setUser(u);
+    Sentry.setUser(u ? { id: u.id, username: u.username, role: u.role } : null);
+    return u;
+  }, []);
+
   const logout = useCallback(async () => {
     await apiLogout();
     setUser(null);
     Sentry.setUser(null);
   }, []);
 
-  const value = { user, loading, login, signup, logout, setUser };
+  const value = { user, loading, login, signup, join, logout, setUser };
   return createElement(AuthContext.Provider, { value }, children);
 }
 

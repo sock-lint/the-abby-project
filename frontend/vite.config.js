@@ -53,7 +53,26 @@ export default defineConfig(({ command }) => {
           /^\/media\//,
           /^\/\.well-known\//,
         ],
-        runtimeCaching: [],
+        runtimeCaching: [
+          {
+            // Read-only API payloads the app needs to RENDER offline —
+            // dashboard, duties, study, satchel. NetworkFirst: fresh data
+            // always wins online; the cache serves only when the network
+            // fails (with a short timeout so flaky connections degrade
+            // fast). GET-only — writes are never cached and fail loudly
+            // offline, which is correct. See <OfflineBanner> for the
+            // user-facing signal.
+            urlPattern: /\/api\/(dashboard|chores|homework|inventory)\//,
+            handler: 'NetworkFirst',
+            method: 'GET',
+            options: {
+              cacheName: 'api-read-cache',
+              networkTimeoutSeconds: 4,
+              expiration: { maxEntries: 64, maxAgeSeconds: 24 * 60 * 60 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+        ],
         cleanupOutdatedCaches: true,
       },
     }),
