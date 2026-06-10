@@ -12,6 +12,9 @@ Micro-behaviors distinct from chores — no parent approval, no dollar rewards, 
   - `log_tap(user, habit, direction)` — validates type compatibility, enforces daily positive-tap cap, updates `strength`, distributes skill XP via `AwardService.grant` (positive taps only), fires RPG game loop. Returns `{direction, xp_reward, new_strength}`.
   - `decay_all_habits(user, target_date)` — decays untapped habits toward 0 by `max(1, max_taps_per_day // 2)`. Called by Celery task.
 
+## Endpoints
+- `GET /api/habits/history/?days=14` — per-habit daily net taps (sum of `HabitLog.direction` per local day), zero-filled, keyed by habit id (string keys — JSON). Role-scoped through `HabitViewSet.get_queryset` (children get only their own habits' series). `days` clamped 1..30 via `config.viewsets.clamp_int_param`. Feeds the 14-day `HabitHistoryBars` mini-bars on each ritual card in `Habits.jsx`, which refetch on every confirmed tap so today's bar moves immediately.
+
 ## Celery task
 - `decay_habit_strength_task` — runs daily at 00:05 local. Decays untapped habits for all active children.
 

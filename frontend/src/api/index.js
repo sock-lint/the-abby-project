@@ -430,6 +430,8 @@ export const listPendingCreations = () => api.get('/creations/pending/');
 export const getCharacterProfile = () => api.get('/character/');
 export const getStreaks = () => api.get('/streaks/');
 export const getHabits = () => api.get('/habits/');
+export const getHabitHistory = (days = 14) =>
+  api.get(`/habits/history/?days=${days}`);
 export const createHabit = (data) => api.post('/habits/', data);
 export const updateHabit = (id, data) => api.patch(`/habits/${id}/`, data);
 export const deleteHabit = (id) => api.delete(`/habits/${id}/`);

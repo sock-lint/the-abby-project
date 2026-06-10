@@ -82,6 +82,59 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             return [IsParent()]
         return [permissions.IsAuthenticated()]
 
+    @action(detail=False, methods=["get"], url_path="history")
+    def history(self, request):
+        """Per-habit daily net taps over the last N local days.
+
+        One aggregated HabitLog query across the role-scoped habit set —
+        feeds the mini-bars on the Rituals page so strength decay and
+        regrowth are visible, not just the current medallion value.
+        ``days`` defaults to 14, clamped 1..30. Series are zero-filled
+        (every day present, oldest first, ending today) and keyed by
+        habit id as strings, since JSON object keys always are.
+        """
+        from datetime import timedelta
+
+        from django.db.models import Sum
+        from django.db.models.functions import TruncDate
+        from django.utils import timezone
+
+        from config.viewsets import clamp_int_param
+
+        from .models import HabitLog
+
+        days = clamp_int_param(
+            request.query_params.get("days"), default=14, lo=1, hi=30,
+        )
+        today = timezone.localdate()
+        start = today - timedelta(days=days - 1)
+        habit_ids = list(self.get_queryset().values_list("id", flat=True))
+
+        rows = (
+            HabitLog.objects.filter(
+                habit_id__in=habit_ids,
+                created_at__date__gte=start,
+            )
+            .annotate(day=TruncDate("created_at"))
+            .values("habit_id", "day")
+            .annotate(net=Sum("direction"))
+        )
+        nets = {(r["habit_id"], r["day"]): r["net"] for r in rows}
+
+        date_range = [start + timedelta(days=i) for i in range(days)]
+        histories = {
+            str(habit_id): [
+                {"date": d.isoformat(), "net": nets.get((habit_id, d), 0)}
+                for d in date_range
+            ]
+            for habit_id in habit_ids
+        }
+        return Response({
+            "days": days,
+            "start": start.isoformat(),
+            "histories": histories,
+        })
+
     @transaction.atomic
     def perform_create(self, serializer):
         # @transaction.atomic so a ValidationError from _apply_skill_tags

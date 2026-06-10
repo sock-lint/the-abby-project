@@ -213,14 +213,14 @@ class CoinSummaryByDayView(APIView):
     """
 
     def get(self, request):
-        from apps.payments.views import _clamp_days
         from config.services import zero_filled_daily_earned
+        from config.viewsets import clamp_int_param
 
         target_user, err = resolve_target_user(request)
         if err:
             return err
 
-        days = _clamp_days(request.query_params.get("days"))
+        days = clamp_int_param(request.query_params.get("days"), default=30, lo=1, hi=90)
         series = zero_filled_daily_earned(
             CoinLedger.objects.filter(user=target_user), days=days,
         )

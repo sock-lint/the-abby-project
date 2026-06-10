@@ -232,3 +232,17 @@ def resolve_target_user(request, source="query_params"):
             if target_user is None:
                 return None, child_not_found_response()
     return target_user, None
+
+
+def clamp_int_param(raw, *, default, lo, hi):
+    """Parse an integer query param defensively, clamping to [lo, hi].
+
+    Shared by the sparkline/history endpoints (``days`` windows) — any
+    unparseable value falls back to ``default`` rather than 400ing, since
+    these params only ever tune a read-side window.
+    """
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return max(lo, min(value, hi))

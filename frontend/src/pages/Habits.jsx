@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, ThumbsUp, ThumbsDown, Pencil, Trash2 } from 'lucide-react';
 import {
-  getHabits, createHabit, updateHabit, deleteHabit, logHabitTap,
+  getHabitHistory, getHabits, createHabit, updateHabit, deleteHabit, logHabitTap,
   listMyHabitProposals, listPendingHabitProposals, approveHabitProposal,
   getChildren, getSkills,
 } from '../api';
@@ -35,6 +35,35 @@ function getStrengthColor(strength) {
   if (strength <= 5) return 'bg-moss/80 text-ink-page-rune-glow';
   if (strength <= 10) return 'bg-moss text-ink-page-rune-glow';
   return 'bg-royal text-ink-page-rune-glow';
+}
+
+// 14-day tap history mini-bars. Moss bars are net-positive days, ember
+// bars net-negative; quiet days render a faint 2px stub so the timeline
+// keeps its rhythm. Hidden entirely until the habit has at least one tap
+// in the window — a fresh ritual shouldn't open with an empty ruler.
+function HabitHistoryBars({ series }) {
+  if (!series || !series.some((p) => p.net !== 0)) return null;
+  const max = Math.max(...series.map((p) => Math.abs(p.net)), 1);
+  return (
+    <div
+      role="img"
+      aria-label={`Tap history, last ${series.length} days`}
+      className="flex items-end gap-[3px] h-6 mt-3"
+    >
+      {series.map((p) => {
+        const heightPx = p.net === 0 ? 2 : Math.max(4, Math.round((Math.abs(p.net) / max) * 24));
+        const tone = p.net > 0 ? 'bg-moss' : p.net < 0 ? 'bg-ember' : 'bg-ink-page-shadow';
+        return (
+          <span
+            key={p.date}
+            title={`${p.date}: ${p.net > 0 ? '+' : ''}${p.net}`}
+            style={{ height: `${heightPx}px` }}
+            className={`flex-1 rounded-sm ${tone}`}
+          />
+        );
+      })}
+    </div>
+  );
 }
 
 function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSaved }) {
@@ -162,6 +191,7 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
 export default function Habits() {
   const { isParent } = useRole();
   const { data: rawHabits, loading, reload } = useApi(getHabits);
+  const { data: tapHistory, reload: reloadHistory } = useApi(getHabitHistory);
   const { data: rawProposals, reload: reloadProposals } = useApi(
     isParent ? listPendingHabitProposals : listMyHabitProposals,
     [isParent],
@@ -258,6 +288,7 @@ export default function Habits() {
         return rest;
       });
       reload();
+      reloadHistory();
     } catch (err) {
       // Roll back on failure so the medallion doesn't ghost a phantom value.
       setTapDeltas((prev) => {
@@ -436,6 +467,8 @@ export default function Habits() {
                       </div>
                     </div>
                   </div>
+
+                  <HabitHistoryBars series={tapHistory?.histories?.[String(habit.id)]} />
 
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-ink-page-shadow/70">
                     <div className="flex gap-2">

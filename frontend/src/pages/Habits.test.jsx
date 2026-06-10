@@ -38,6 +38,53 @@ describe('Habits', () => {
     );
   });
 
+  it('renders 14-day tap-history bars when the habit has taps in the window', async () => {
+    const series = Array.from({ length: 14 }, (_, i) => ({
+      date: `2026-05-${String(27 + i).padStart(2, '0')}`,
+      net: 0,
+    }));
+    series[12].net = 2;
+    series[13].net = -1;
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', ({ request }) => {
+        const pending = new URL(request.url).searchParams.get('pending') === 'true';
+        return HttpResponse.json(pending
+          ? { results: [] }
+          : { results: [
+            { id: 7, name: 'Hydrate', icon: '💧', habit_type: 'both', strength: 1 },
+          ] },
+        );
+      }),
+      http.get('*/api/habits/history/', () =>
+        HttpResponse.json({ days: 14, start: '2026-05-27', histories: { 7: series } }),
+      ),
+    ]);
+    const bars = await screen.findByRole('img', { name: /tap history, last 14 days/i });
+    expect(bars.children).toHaveLength(14);
+  });
+
+  it('hides the tap-history bars when the window has no taps', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', ({ request }) => {
+        const pending = new URL(request.url).searchParams.get('pending') === 'true';
+        return HttpResponse.json(pending
+          ? { results: [] }
+          : { results: [
+            { id: 7, name: 'Hydrate', icon: '💧', habit_type: 'both', strength: 0 },
+          ] },
+        );
+      }),
+      http.get('*/api/habits/history/', () =>
+        HttpResponse.json({
+          days: 14, start: '2026-05-27',
+          histories: { 7: Array.from({ length: 14 }, (_, i) => ({ date: `d${i}`, net: 0 })) },
+        }),
+      ),
+    ]);
+    await waitFor(() => expect(screen.getByText(/hydrate/i)).toBeInTheDocument());
+    expect(screen.queryByRole('img', { name: /tap history/i })).toBeNull();
+  });
+
   it('renders a habit row', async () => {
     renderPage(buildUser(), [
       http.get('*/api/habits/', ({ request }) => {
