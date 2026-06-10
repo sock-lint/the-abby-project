@@ -18,7 +18,7 @@ Non-monetary Coins economy + parent-approved reward shop + money→coins exchang
 - `InsufficientCoinsError`, `InsufficientFundsError`, `RewardUnavailableError`.
 
 ## Gotchas
-- **Wishlist restock fan-out**: when a parent edits a reward and stock crosses `0 → ≥1`, `RewardService` fans out `REWARD_RESTOCKED` notifications to every wishlist user and clears their wishlist rows in the same transaction.
+- **Wishlist restock fan-out**: when a parent edits a reward and stock crosses `0 → ≥1`, `RewardService` fans out `REWARD_RESTOCKED` notifications to every wishlist user and clears their wishlist rows in the same transaction. Each notification also sends an email (2026-06) when the user has an address — restocks are time-sensitive and the cleared wishlist row means there's no second chance to reach an out-of-app kid. Email failures log via `logger.exception` without breaking the in-app fanout (same posture as the weekly-summary emails in `apps/timecards/tasks.py`); pinned by `RestockEmailTests` in [`tests/test_views.py`](tests/test_views.py).
 - **Low-stock signal**: `request_redemption` fires `LOW_REWARD_STOCK` notification to parents the first time stock enters 0 or 1.
 - **Coin boost whitelist**: when adding a new earn-kind `CoinLedger.Reason`, decide whether it belongs in `_BOOSTABLE_COIN_REASONS` (`apps/rpg/services.py`) and add a regression test in `apps/rpg/tests/test_boost_multipliers.py`.
 - **`Reward.save()` defense-in-depth**: auto-attaches to default family when `family_id` is None (same pattern as `User`, `ProjectTemplate`, `Chore`).

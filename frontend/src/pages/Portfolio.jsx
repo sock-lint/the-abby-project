@@ -19,6 +19,7 @@ import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
 import IconButton from '../components/IconButton';
+import ShareButton from '../components/ShareButton';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { TextField, SelectField } from '../components/form';
 import TomeShelf from '../components/atlas/TomeShelf';
@@ -171,7 +172,8 @@ export default function Portfolio() {
   const canDelete = (item) => isParent || item.ownerId === user?.id;
 
   const confirmDelete = async () => {
-    if (!pendingDelete) return;
+    // `deleting` guards a double-confirm while the round-trip is in flight.
+    if (!pendingDelete || deleting) return;
     const target = pendingDelete;
     const fn =
       target.kind === 'creation' ? deleteCreation
@@ -587,6 +589,13 @@ function Lightbox({ viewer, onClose, onPrev, onNext }) {
         )}
         <div className="font-script text-white/90 text-sm">
           {current.caption || current.groupLabel}
+        </div>
+        <div className="flex justify-center">
+          <ShareButton
+            title="From my sketchbook"
+            text={`"${current.caption || current.groupLabel}" — made in The Abby Project!`}
+            className="!text-white/80 hover:!text-white"
+          />
         </div>
       </div>
     </div>

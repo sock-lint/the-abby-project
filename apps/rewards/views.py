@@ -56,8 +56,15 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
 
     @staticmethod
     def _notify_wishlist_on_restock(reward):
+        import logging
+
+        from django.conf import settings as django_settings
+        from django.core.mail import send_mail
+
         from apps.notifications.models import NotificationType
         from apps.notifications.services import notify
+
+        logger = logging.getLogger(__name__)
 
         wishlist_users = list(
             User.objects.filter(reward_wishlist_entries__reward=reward).distinct()
@@ -73,6 +80,30 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
                 notification_type=NotificationType.REWARD_RESTOCKED,
                 link="/rewards",
             )
+            # Restocks are time-sensitive (stock can sell out again) and the
+            # wishlist row is cleared below, so this is the one shot at
+            # reaching a kid who isn't in-app. Email rides along when an
+            # address exists; failures log without breaking the in-app
+            # fanout (same posture as the weekly-summary emails).
+            if not user.email:
+                continue
+            try:
+                send_mail(
+                    subject=f"Back in stock: {reward.name}",
+                    message=(
+                        f"Hi {user.display_label}!\n\n"
+                        f'"{reward.name}" from your wishlist is available '
+                        f"again ({reward.cost_coins} coins). Head to the "
+                        f"rewards shelf to redeem it before it sells out.\n"
+                    ),
+                    from_email=django_settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to send restock email to user %s for reward %s",
+                    user.pk, reward.pk,
+                )
         # Clear the wishlist rows so a future stock-out → restock cycle
         # doesn't re-fire the same notification on the same wishlist
         # entries — the kid had their chance to redeem; if they still

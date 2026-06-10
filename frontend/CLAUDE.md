@@ -38,7 +38,10 @@ frontend/src/
                      SectionHeader, CatalogSearch, SkillTagEditor,
                      Sparkline (dependency-free SVG trend line — consumes
                      the `summary-by-day` endpoints on /api/payments/ and
-                     /api/coins/).
+                     /api/coins/), ShareButton (Web Share API wrapper —
+                     renders nothing where navigator.share is missing;
+                     text-only payloads because media URLs are presigned
+                     and expire).
     form/            TextField, SelectField, TextAreaField (labeled form
                      primitives with useId-driven htmlFor + aria-invalid /
                      aria-describedby wiring), useFieldIds (shared hook),

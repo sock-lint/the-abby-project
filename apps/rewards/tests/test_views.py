@@ -420,3 +420,77 @@ class CoinSummaryByDayViewTests(TestCase):
 
         data = self.client.get(f"{self.URL}?user_id={self.child.pk}").json()
         self.assertEqual(data["series"][-1]["earned"], 7.0)
+
+
+class RestockEmailTests(_Fixture):
+    """The restock fanout also emails wishlist users who have an address —
+    the wishlist row is cleared on restock, so this is the one shot at
+    reaching a kid who isn't in-app."""
+
+    def setUp(self):
+        super().setUp()
+        self.oos = Reward.objects.create(
+            name="Sold-Out Sticker", cost_coins=20, stock=0, is_active=True,
+        )
+        RewardWishlist.objects.create(user=self.child, reward=self.oos)
+
+    def _restock(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.patch(
+            f"/api/rewards/{self.oos.pk}/", {"stock": 5}, format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+
+    def test_restock_emails_wishlist_user_with_address(self):
+        from django.core import mail
+
+        self.child.email = "kid@example.com"
+        self.child.save(update_fields=["email"])
+
+        self._restock()
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["kid@example.com"])
+        self.assertIn("Sold-Out Sticker", mail.outbox[0].subject)
+        self.assertIn("20 coins", mail.outbox[0].body)
+
+    def test_restock_skips_email_without_address(self):
+        from django.core import mail
+
+        self.child.email = ""
+        self.child.save(update_fields=["email"])
+
+        self._restock()
+
+        self.assertEqual(len(mail.outbox), 0)
+        # In-app notification still fires.
+        self.assertEqual(
+            Notification.objects.filter(
+                user=self.child,
+                notification_type=NotificationType.REWARD_RESTOCKED,
+            ).count(),
+            1,
+        )
+
+    def test_email_failure_does_not_break_fanout(self):
+        from unittest.mock import patch
+
+        self.child.email = "kid@example.com"
+        self.child.save(update_fields=["email"])
+
+        with patch(
+            "django.core.mail.send_mail", side_effect=Exception("smtp down"),
+        ):
+            self._restock()
+
+        # Notification fired and wishlist cleared despite the email failure.
+        self.assertEqual(
+            Notification.objects.filter(
+                user=self.child,
+                notification_type=NotificationType.REWARD_RESTOCKED,
+            ).count(),
+            1,
+        )
+        self.assertFalse(
+            RewardWishlist.objects.filter(user=self.child, reward=self.oos).exists()
+        )
