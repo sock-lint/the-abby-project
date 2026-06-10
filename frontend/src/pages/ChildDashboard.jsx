@@ -18,6 +18,7 @@ import VitalPipStrip from '../components/dashboard/VitalPipStrip';
 import AccordionSection from '../components/dashboard/AccordionSection';
 import DailyChallengeCard from '../components/dashboard/DailyChallengeCard';
 import SinceLastVisitCard from '../components/dashboard/SinceLastVisitCard';
+import StreakAtRiskBanner from '../components/dashboard/StreakAtRiskBanner';
 import HomeworkSubmitSheet from '../components/HomeworkSubmitSheet';
 import IconButton from '../components/IconButton';
 import PageHeader from '../components/layout/PageHeader';
@@ -189,6 +190,8 @@ export default function ChildDashboard({ data, reload }) {
       )}
 
       <SinceLastVisitCard summary={since_last_visit} />
+
+      <StreakAtRiskBanner rpg={rpg} />
 
       <VitalPipStrip
         coinBalance={coin_balance}

@@ -37,6 +37,7 @@ class NotificationType(models.TextChoices):
     HOMEWORK_REJECTED = "homework_rejected", "Homework Rejected"
     HOMEWORK_DUE_SOON = "homework_due_soon", "Homework Due Soon"
     STREAK_MILESTONE = "streak_milestone", "Streak Milestone"
+    STREAK_AT_RISK = "streak_at_risk", "Streak At Risk"
     PERFECT_DAY = "perfect_day", "Perfect Day"
     DAILY_CHECK_IN = "daily_check_in", "Daily Check-In"
     SAVINGS_GOAL_COMPLETED = "savings_goal_completed", "Savings Goal Completed"

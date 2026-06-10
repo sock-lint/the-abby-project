@@ -15,7 +15,7 @@ Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14
 - `storage.py::sprite_storage()` — lazy-helper for the dedicated sprites STORAGES key.
 - `constants.py`: shared `TriggerType` TextChoices.
 
-Celery task: `evaluate_perfect_day_task` — runs at 23:55 local, awards `perfect_days_count += 1` and 15 bonus coins to children who were active today and completed every scheduled daily chore. The "at least one scheduled" guard prevents zero-chore days from auto-qualifying.
+Celery tasks: `evaluate_perfect_day_task` — runs at 23:55 local, awards `perfect_days_count += 1` and 15 bonus coins to children who were active today and completed every scheduled daily chore. The "at least one scheduled" guard prevents zero-chore days from auto-qualifying. `streak_at_risk_warning_task` — runs at 19:00 local, sends a `streak_at_risk` notification (child only, no parent fan-out, max one per local day) to any kid with `login_streak >= 3` (`STREAK_AT_RISK_MIN`) whose `last_active_date` is before today; kids with an armed `streak_freeze_expires_at` covering today are skipped. Companion in-page signal: `StreakAtRiskBanner` on `ChildDashboard` renders the same condition from the dashboard payload's `rpg` block and self-clears once any activity advances `last_active_date`.
 
 ## Endpoints
 - `/api/sprites/catalog/` (`SpriteCatalogView`, public, ETag-cached) — read API.

@@ -586,6 +586,12 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.rpg.tasks.evaluate_perfect_day_task",
         "schedule": crontab(hour=23, minute=55),
     },
+    "rpg-streak-at-risk": {
+        "task": "apps.rpg.tasks.streak_at_risk_warning_task",
+        # 19:00 local — early enough that the kid still has an evening
+        # to save the streak before the 23:55 perfect-day tick.
+        "schedule": crontab(hour=19, minute=0),
+    },
     "habit-decay": {
         "task": "apps.habits.tasks.decay_habit_strength_task",
         "schedule": crontab(hour=0, minute=5),

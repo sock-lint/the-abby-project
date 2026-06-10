@@ -199,7 +199,7 @@ class LorebookViewTests(APITestCase):
             description="Test",
             quest_type=QuestDefinition.QuestType.BOSS,
             target_value=10,
-            end_date=timezone.now() + timedelta(days=7),
+            duration_days=7,
         )
         quest = Quest.objects.create(
             definition=definition,

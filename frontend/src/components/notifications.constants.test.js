@@ -12,7 +12,7 @@ const BACKEND_NOTIFICATION_TYPES = [
   'exchange_requested', 'exchange_approved', 'exchange_denied',
   'project_due_soon', 'chore_reminder', 'approval_reminder',
   'homework_created', 'homework_submitted', 'homework_approved',
-  'homework_rejected', 'homework_due_soon', 'streak_milestone',
+  'homework_rejected', 'homework_due_soon', 'streak_milestone', 'streak_at_risk',
   'perfect_day', 'daily_check_in', 'savings_goal_completed', 'birthday',
   'chronicle_first_ever', 'comeback_suggested', 'creation_submitted',
   'creation_approved', 'creation_rejected', 'chore_proposed',
