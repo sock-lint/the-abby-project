@@ -251,6 +251,30 @@ describe('Manage — child DOB + grade_entry_year', () => {
 /* ── Family tab — co-parent management ─────────────────────────── */
 
 describe('Manage — Family tab', () => {
+  it('minting an invite posts to /api/family/invites/ and shows the link', async () => {
+    const me = buildParent({ id: 1, username: 'me', display_name: 'Me' });
+    const mint = spyHandler('post', /\/api\/family\/invites\/$/, {
+      token: 'abc123', join_path: '/join/abc123', expires_at: '2026-06-11T00:00:00Z',
+    });
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(me)),
+      http.get('*/api/parents/', () =>
+        HttpResponse.json([
+          { id: 1, username: 'me', display_name: 'Me', role: 'parent', is_active: true },
+        ]),
+      ),
+      mint.handler,
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('tab', { name: /^Family$/ }));
+    await user.click(await screen.findByRole('button', { name: /invite by link/i }));
+
+    await waitFor(() => expect(mint.calls).toHaveLength(1));
+    expect(await screen.findByText(/\/join\/abc123/)).toBeInTheDocument();
+    expect(screen.getByText(/single use · expires in 24 hours/i)).toBeInTheDocument();
+  });
+
   it('lists co-parents and renders the requesting parent last with a (you) tag', async () => {
     const me = buildParent({ id: 1, username: 'me', display_name: 'Me' });
     server.use(

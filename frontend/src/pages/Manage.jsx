@@ -3,12 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, UsersRound, BookTemplate, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink, KeyRound, UserX, UserCheck, Shield,
-  TestTubeDiagonal,
+  TestTubeDiagonal, Copy, Check,
 } from 'lucide-react';
 import {
   getChildren, createChild, updateChild, deleteChild, resetChildPassword,
   deactivateChild, reactivateChild,
-  getParents, createParent, updateParent, deleteParent, resetParentPassword,
+  getParents, createParent, createFamilyInvite, updateParent, deleteParent,
+  resetParentPassword,
   deactivateParent, reactivateParent,
   adminPing, adminCreateFamily,
   listOAuthApplications, revokeOAuthApplication,
@@ -812,6 +813,37 @@ function FamilySection() {
   const { data, loading, reload } = useApi(getParents);
   const [editParent, setEditParent] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [invite, setInvite] = useState(null);
+  const [inviteError, setInviteError] = useState('');
+  const [minting, setMinting] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const inviteUrl = invite
+    ? `${window.location.origin}${invite.join_path}`
+    : '';
+
+  const handleMintInvite = async () => {
+    setMinting(true);
+    setInviteError('');
+    setCopied(false);
+    try {
+      setInvite(await createFamilyInvite());
+    } catch (err) {
+      setInviteError(err?.message || 'Could not create an invite link.');
+    } finally {
+      setMinting(false);
+    }
+  };
+
+  const handleCopyInvite = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);
+    } catch {
+      // Clipboard unavailable (http origin / permissions) — the link is
+      // selectable text, so manual copy still works.
+    }
+  };
   const allParents = normalizeList(data);
   // Render the requesting parent last so the list reads "co-parents · you".
   const sorted = [...allParents].sort((a, b) => {
@@ -824,11 +856,47 @@ function FamilySection() {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="secondary"
+          onClick={handleMintInvite}
+          disabled={minting}
+          className="flex items-center gap-1"
+        >
+          <Link2 size={14} /> {minting ? 'Creating…' : 'Invite by link'}
+        </Button>
         <Button onClick={() => setCreating(true)} className="flex items-center gap-1">
           <UserPlus size={14} /> Add co-parent
         </Button>
       </div>
+      {inviteError && <ErrorAlert message={inviteError} />}
+      {invite && (
+        <ParchmentCard tone="bright">
+          <div className="space-y-2">
+            <div className="font-script text-caption uppercase tracking-wider text-sheikah-teal-deep">
+              Co-parent invite link
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 min-w-0 truncate font-body text-caption text-ink-primary bg-ink-page-aged border border-ink-page-shadow rounded px-2 py-1.5 select-all">
+                {inviteUrl}
+              </code>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleCopyInvite}
+                className="flex items-center gap-1 shrink-0"
+              >
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+                {copied ? 'Copied' : 'Copy'}
+              </Button>
+            </div>
+            <p className="font-script text-caption text-ink-whisper">
+              single use · expires in 24 hours · whoever opens it picks their
+              own sign-in name and secret word
+            </p>
+          </div>
+        </ParchmentCard>
+      )}
       {sorted.length === 0 && (
         <EmptyState>No parents found.</EmptyState>
       )}

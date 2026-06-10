@@ -137,7 +137,6 @@ The app currently shows *only* current totals + recent rows. There's no charting
 ### 3. Onboarding & discovery
 
 - **RPG mechanics tutorial** **[S]** — a new kid lands on `ChildDashboard` and sees coins, levels, vital pips, and drops with no explanation. Add a one-time `WelcomeRPGSheet` (`BottomSheet`) that fires once when `CharacterProfile.created_at` is < 24h: 4 short panels — "Earn coins" → "Level up skills" → "Hatch pets" → "Earn badges." Track dismissal via `CharacterProfile.unlocks` JSONField (already designed for this purpose per CLAUDE.md).
-- **Co-parent invite via shareable link** **[M]** — today the founder has to manually type a username + password for the co-parent ([`Manage.jsx`](../frontend/src/pages/Manage.jsx) `FamilySection`). That's friction for the most realistic onboarding path. Add a one-shot `FamilyInvite` token model (24-hour TTL, single-use) + a `/join/<token>` page where the invitee picks their own credentials. Throttled like signup.
 
 ### 4. Mobile interactions
 
@@ -146,7 +145,6 @@ The app currently shows *only* current totals + recent rows. There's no charting
   - Homework rows on `/quests?tab=study` → swipe-right "submit," swipe-left "needs help"
   - Approval queue rows on `ParentDashboard` → swipe-right approve, swipe-left reject (paired with the existing reject-note `BottomSheet`)
 - **Native share for moments** **[S]** — *mostly shipped 2026-06-10*: [`ShareButton`](../frontend/src/components/ShareButton.jsx) (Web Share API wrapper, renders nothing where unsupported, text-only payloads since media URLs are presigned + expiring) is live on `BadgeDetailSheet` (earned seals) and the Sketchbook lightbox. Remaining emit point: `PetCeremonyModal` — its tap-anywhere-dismiss interaction needs a deliberate design pass so a share affordance doesn't fight the dismissal gesture.
-- **Offline read-only caching** **[M]** — [`vite.config.js`](../frontend/vite.config.js) `runtimeCaching: []`. Add a `NetworkFirst` Workbox handler for `/api/dashboard/`, `/api/chores/`, `/api/homework/`, `/api/inventory/` so the app at least *renders* offline (writes still fail loudly, which is correct). Mostly a config change + a small "offline" banner.
 
 ### 5. Quality-of-life polish
 

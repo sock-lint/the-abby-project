@@ -13,6 +13,15 @@ export const signup = async ({ username, password, display_name, family_name }) 
   if (data && data.token) setToken(data.token);
   return data;
 };
+export const getJoinInvite = (token) => api.get(`/auth/join/${token}/`);
+export const joinFamily = async (token, { username, password, display_name }) => {
+  const data = await api.post(`/auth/join/${token}/`, {
+    username, password, display_name,
+  });
+  if (data && data.token) setToken(data.token);
+  return data;
+};
+export const createFamilyInvite = () => api.post('/family/invites/');
 export const logout = async () => {
   try {
     await api.post('/auth/', { action: 'logout' });

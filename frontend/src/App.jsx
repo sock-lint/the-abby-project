@@ -12,10 +12,12 @@ import JournalShell from './components/layout/JournalShell';
 import { PwaStatusProvider } from './pwa/PwaStatusProvider';
 import { InstallPromptProvider } from './pwa/useInstallPrompt';
 import UpdateBanner from './pwa/UpdateBanner';
+import OfflineBanner from './pwa/OfflineBanner';
 import OfflineReadyToast from './pwa/OfflineReadyToast';
 import RouteAnnouncer from './components/RouteAnnouncer';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import Join from './pages/Join';
 import Dashboard from './pages/Dashboard';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectNew from './pages/ProjectNew';
@@ -74,7 +76,7 @@ function TrialsLegacyRedirect() {
 }
 
 export default function App() {
-  const { user, loading, login, signup } = useAuth();
+  const { user, loading, login, signup, join } = useAuth();
   const [celebration, setCelebration] = useState(null);
   const [celebrationNotice, setCelebrationNotice] = useState(null);
 
@@ -147,6 +149,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/signup" element={<Signup onSignup={signup} />} />
+          <Route path="/join/:token" element={<Join onJoin={join} />} />
           <Route path="*" element={<Login onLogin={login} />} />
         </Routes>
       </BrowserRouter>
@@ -158,6 +161,7 @@ export default function App() {
       <InstallPromptProvider>
         <PwaStatusProvider>
           <UpdateBanner />
+          <OfflineBanner />
         {celebration && (
           <BirthdayCelebrationModal
             entry={celebration}
@@ -217,6 +221,7 @@ export default function App() {
 
               {/* Authed users hitting public auth routes bounce home. */}
               <Route path="/signup" element={<LegacyRedirect to="/" />} />
+              <Route path="/join/:token" element={<LegacyRedirect to="/" />} />
               <Route path="/login" element={<LegacyRedirect to="/" />} />
 
               {/* Legacy route redirects — keep old bookmarks working */}
