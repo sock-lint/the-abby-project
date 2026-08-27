@@ -14,6 +14,7 @@ from config.permissions import IsParent
 from config.viewsets import (
     NestedProjectResourceMixin, ParentWritePermissionMixin,
     RoleFilteredQuerySetMixin,
+    action_declares_permissions,
     filter_projects_accessible_to,
     get_child_or_404, child_not_found_response,
 )
@@ -313,6 +314,12 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         serializer.save(created_by=self.request.user)
 
     def get_permissions(self):
+        # activate / approve / request_changes declare permission_classes=
+        # [IsParent] on their @action decorators; without this line those
+        # would be discarded and a child could approve her own project,
+        # which fires the project_bonus write in signals.py.
+        if action_declares_permissions(self):
+            return super().get_permissions()
         if self.action in ("create", "destroy"):
             return [IsParent()]
         return [permissions.IsAuthenticated()]

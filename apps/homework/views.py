@@ -9,6 +9,7 @@ from config.viewsets import (
     ApprovalActionMixin,
     RoleFilteredQuerySetMixin,
     WriteReadSerializerMixin,
+    action_declares_permissions,
     get_child_or_404,
     child_not_found_response,
 )
@@ -33,6 +34,10 @@ class HomeworkAssignmentViewSet(
     def get_permissions(self):
         # Children can create assignments (auto-assigned to self in
         # perform_create); only parents can edit or delete.
+        # save_template declares permission_classes=[IsParent] on its @action;
+        # without this line that would be discarded.
+        if action_declares_permissions(self):
+            return super().get_permissions()
         if self.action in ("update", "partial_update", "destroy"):
             return [IsParent()]
         return [permissions.IsAuthenticated()]
