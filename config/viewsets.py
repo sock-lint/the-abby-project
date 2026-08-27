@@ -128,6 +128,29 @@ def child_not_found_response():
     )
 
 
+def action_declares_permissions(view) -> bool:
+    """True when the current ``@action`` set its own ``permission_classes``.
+
+    DRF applies an ``@action(permission_classes=[...])`` to the view instance
+    through ``initkwargs``, and the default ``get_permissions()`` reads it back
+    off ``self.permission_classes``. A ``get_permissions()`` override that
+    returns a list unconditionally therefore **silently discards** the action's
+    own gate: the decorator reads as protection while doing nothing at all.
+
+    Every ``get_permissions()`` override in this codebase must consult this
+    first and defer to ``super().get_permissions()`` when it is True.
+    Enumerating parent-only action names in each override fixes one instance
+    and re-breaks the moment somebody adds an ``@action`` without updating the
+    tuple; this fixes the shape. ``config/tests/test_action_permissions.py``
+    is the gate that keeps it fixed.
+    """
+    action = getattr(view, "action", None)
+    if not action:
+        return False
+    handler = getattr(view, action, None)
+    return bool(getattr(handler, "kwargs", {}).get("permission_classes"))
+
+
 class ParentWritePermissionMixin:
     """Return IsParent for CRUD writes, IsAuthenticated for read + custom actions.
 
@@ -142,6 +165,11 @@ class ParentWritePermissionMixin:
     _PARENT_ONLY_ACTIONS = ("create", "update", "partial_update", "destroy")
 
     def get_permissions(self):
+        # An @action that declares its own permission_classes wins. Without
+        # this the decorator would be silently discarded — which is exactly
+        # what the docstring above used to promise was handled.
+        if action_declares_permissions(self):
+            return super().get_permissions()
         if self.action in self._PARENT_ONLY_ACTIONS:
             return [IsParent()]
         return [permissions.IsAuthenticated()]
@@ -162,6 +190,8 @@ class StaffParentWritePermissionMixin:
     _STAFF_PARENT_ONLY_ACTIONS = ("create", "update", "partial_update", "destroy")
 
     def get_permissions(self):
+        if action_declares_permissions(self):
+            return super().get_permissions()
         if self.action in self._STAFF_PARENT_ONLY_ACTIONS:
             return [IsStaffParent()]
         return [permissions.IsAuthenticated()]
