@@ -209,9 +209,12 @@ services by hand (`.deploy.yml` → `app_services`, and the `for svc in …` loo
   stamps the file once per pass (including while waiting out a migration, which
   is a live state), and the healthcheck asserts its mtime is under 120s. It is
   the better probe regardless: a wedged loop stops stamping, where the process
-  still exists. **Note `celery_beat` has the same `pgrep` healthcheck and is
-  therefore very likely permanently unhealthy in production** — unnoticed
-  because nothing gates on it. Not fixed here; out of this subsystem's scope.
+  still exists. `celery_beat` carried the same `pgrep` defect and was very
+  likely permanently unhealthy in production; it is now fixed separately, by
+  reading `/proc/1/cmdline` rather than by a heartbeat, because beat has no
+  tick to stamp without app code. Do not translate that one into a scan over
+  all of `/proc`: the healthcheck's own argv contains the string it greps for,
+  so a scan matches itself and fails open.
 * `deploy.replicas: 1` in compose is declarative — plain `docker compose up`
   ignores it outside Swarm. `PrinterLock` is what actually holds the line.
 * The container reaches the printer over the host's LAN through ordinary

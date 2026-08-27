@@ -220,8 +220,25 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # `pgrep` does not exist in this image. The runtime stage is
+    # python:3.12-slim, which omits `procps`, and nothing in the Dockerfile's
+    # apt line pulls it back in — so `pgrep -f 'celery.*beat'` exited 127 and
+    # this container reported unhealthy for its entire life.
+    #
+    # Read PID 1 directly instead. There is no ENTRYPOINT in the Dockerfile,
+    # so compose's `command` is exec'd as PID 1 — beat itself.
+    #
+    # Do NOT "improve" this into a scan over all of /proc. The healthcheck's
+    # own argv, and its `sh -c` wrapper's, both contain the literal string
+    # "beat", so a scan matches itself and reports healthy with no beat
+    # running at all — failing open, which is worse than the bug it replaces.
+    #
+    # Scope: a liveness floor, not a tick check. It catches a PID 1 that is
+    # not beat; it cannot see a scheduler whose loop has wedged. A real tick
+    # heartbeat needs app code — stamp a file from a beat signal, the way
+    # printer_listener does — which is out of scope for a compose-only fix.
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'celery.*beat' || exit 1"]
+      test: ["CMD-SHELL", "python -c 'import sys; c=open(\"/proc/1/cmdline\",\"rb\").read(); sys.exit(0 if b\"celery\" in c and b\"beat\" in c else 1)'"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -276,11 +293,12 @@ services:
         condition: service_healthy
     # Heartbeat, not pgrep. The runtime image is python:3.12-slim, which has
     # no `procps` — `pgrep` exits 127 there and the container would be
-    # unhealthy forever. (celery_beat's healthcheck has the same problem; it
-    # goes unnoticed because nothing gates on its health.) A heartbeat is the
-    # better probe anyway: it catches a supervisor whose loop has wedged,
-    # which process-existence cannot. The supervisor stamps the file once per
-    # pass, including while it is waiting out a migration — waiting is alive.
+    # unhealthy forever. (celery_beat had the same defect; it is fixed above,
+    # with a PID 1 read rather than a heartbeat, because beat has no tick to
+    # stamp without app code.) A heartbeat is the better probe regardless: it
+    # catches a supervisor whose loop has wedged, which process-existence
+    # cannot. The supervisor stamps the file once per pass, including while
+    # it is waiting out a migration — waiting is alive.
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import os,sys,time; p='/tmp/printer-listener.heartbeat'; sys.exit(0 if os.path.exists(p) and time.time()-os.path.getmtime(p) < 120 else 1)\""]
       interval: 30s
@@ -288,8 +306,20 @@ services:
       retries: 3
       start_period: 30s
     restart: unless-stopped
-    # A supervisor thread plus one paho network thread per printer, holding
-    # Django and a small in-memory state dict each. 256M is generous.
+    # Measured: 96 MB RSS idle with zero printers. Django, DRF and the app
+    # registry dominate that; the supervisor itself is nearly free. Each
+    # printer then adds one paho network thread, a bounded queue and a small
+    # state dict.
+    #
+    # The previous 256M/96M put the reservation exactly ON measured idle with
+    # ~2.6x headroom to the limit — too tight once Sentry, psycopg pools and
+    # a few printers are in. Note compose DOES enforce
+    # `deploy.resources.limits.memory` outside Swarm, unlike `replicas`
+    # below, which it ignores. An OOM kill here is not a free restart: it
+    # drops the MQTT connection, and if that lands mid-print the FINISH
+    # transition is missed and the job only closes hours later via
+    # reconcile_stale_jobs, as `unknown`, with the budget debited as a
+    # partial failure. 4x measured idle is cheap insurance against that.
     #
     # NOTE: `replicas` is declarative here — plain `docker compose up` ignores
     # it outside Swarm, so it records intent rather than enforcing it, and
@@ -301,9 +331,9 @@ services:
       replicas: 1
       resources:
         limits:
-          memory: 256M
+          memory: 384M
         reservations:
-          memory: 96M
+          memory: 128M
     logging:
       driver: json-file
       options:
