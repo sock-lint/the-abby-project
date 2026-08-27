@@ -400,13 +400,13 @@ class LinkJobTests(_Fixture):
 
     def test_link_job_refuses_a_rejected_request(self):
         rejected = self.submit(title="No thanks")
-        PrintRequestService.reject(rejected, self.parent)
+        rejected = PrintRequestService.reject(rejected, self.parent)
         with self.assertRaises(PrintRequestError):
             PrintRequestService.link_job(self.job, rejected, self.parent)
 
     def test_link_job_refuses_a_cancelled_request(self):
         cancelled = self.submit(title="Changed my mind")
-        PrintRequestService.cancel(cancelled, self.child)
+        cancelled = PrintRequestService.cancel(cancelled, self.child)
         with self.assertRaises(PrintRequestError):
             PrintRequestService.link_job(self.job, cancelled, self.parent)
 

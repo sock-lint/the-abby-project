@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Square, BookOpen, Target, CircleDollarSign, UserCog, PenTool, Palette, Sparkles, Feather, Activity } from 'lucide-react';
+import { Play, Square, BookOpen, Box, Target, CircleDollarSign, UserCog, PenTool, Palette, Sparkles, Feather, Activity } from 'lucide-react';
 import BottomSheet from '../BottomSheet';
 import { DragonIcon } from '../icons/JournalIcons';
 import {
@@ -143,7 +143,7 @@ function ClockPane({ status, isClocked, elapsedSecs, onBack, onClockReload }) {
  * QuickActionsSheet — contextual action launcher shown by QuickActionsFab.
  * Role-aware and hide rules:
  *   - Child: Clock, Add homework, Submit homework (only if due),
- *            Start quest (only if scroll in inventory),
+ *            Ask for a print, Start quest (only if scroll in inventory),
  *            Request reward, Contribute to savings goal (only if goals exist).
  *   - Parent: Clock (rare), Create chore, Create homework, Adjust coins,
  *            Adjust payment.
@@ -301,6 +301,13 @@ export default function QuickActionsSheet({
                   onClick={() => { onClose(); navigate('/trials'); }}
                 />
               )}
+              <ActionRow
+                icon={<Box size={18} />}
+                label="Ask for a print"
+                hint="3D print request — parent approves it"
+                tone="teal"
+                onClick={() => { onClose(); navigate('/quests?tab=forge&new=1'); }}
+              />
               <ActionRow
                 icon={<Sparkles size={18} />}
                 label="Propose a duty"

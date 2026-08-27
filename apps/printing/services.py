@@ -106,6 +106,12 @@ class PrintRequestService:
         slug (re-approved after a failure) keeps it: re-minting would orphan
         a plate the parent has already sliced and saved.
         """
+        # Re-fetch under a row lock before deciding. Two parents tapping
+        # Approve at the same moment would otherwise both pass the status
+        # check, both run the budget check against the same pre-debit
+        # remaining, and both notify the child. Same guard shape as
+        # ChoreService.approve_completion.
+        request = PrintRequest.objects.select_for_update().get(pk=request.pk)
         if request.status != PrintRequest.Status.PENDING:
             raise PrintRequestError(
                 f"Only pending requests can be approved (this one is "
@@ -162,6 +168,7 @@ class PrintRequestService:
     @staticmethod
     @transaction.atomic
     def reject(request, parent, notes=""):
+        request = PrintRequest.objects.select_for_update().get(pk=request.pk)
         if request.status != PrintRequest.Status.PENDING:
             raise PrintRequestError(
                 f"Only pending requests can be rejected (this one is "

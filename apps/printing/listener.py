@@ -102,6 +102,9 @@ class PrinterListener:
         self._stop = threading.Event()
         self._consumer: threading.Thread | None = None
         self._needs_reseed = False
+        #: (state, detail) set by the network thread, persisted by the
+        #: supervisor tick so no DB call runs on paho's network thread.
+        self._pending_status: tuple[str, str] | None = None
         self.last_message_at = 0.0
         self.last_nudge_at = 0.0
         # Injected in tests (InMemoryTransport); built from the profile in prod.
@@ -168,13 +171,29 @@ class PrinterListener:
             )
 
     def _on_status(self, state: str, detail: str) -> None:
+        """Connection lifecycle callback — runs on paho's network thread.
+
+        Deliberately does NO database I/O. paho runs its callbacks on a single
+        network thread and the broker drops a client that misses a PINGREQ for
+        1.5x keepalive, so a slow database here would cost us the connection.
+        The pending status is stashed and the supervisor's tick persists it.
+        """
         logger.info("printing[%s]: %s %s", self.printer.serial, state, detail)
-        fields = {"last_error": detail[:300] if state == "error" else ""}
         if state == "connected":
             # A fresh connection means our merged state is stale; pushall on
             # connect re-seeds it, but until that lands we must not trust it.
             self.state.seeded = False
-        PrinterProfile.objects.filter(pk=self.printer.pk).update(**fields)
+        self._pending_status = (state, detail[:300])
+
+    def flush_status(self) -> None:
+        """Persist the last connection status. Called off the network thread."""
+        pending, self._pending_status = self._pending_status, None
+        if pending is None:
+            return
+        state, detail = pending
+        PrinterProfile.objects.filter(pk=self.printer.pk).update(
+            last_error=detail if state == "error" else "",
+        )
 
     # -- consumer thread: merge + persist ----------------------------------
     def _consume_forever(self) -> None:
@@ -235,6 +254,7 @@ class PrinterListener:
     # -- watchdog ----------------------------------------------------------
     def tick(self) -> None:
         """Called by the supervisor once per loop. Handles stale streams."""
+        self.flush_status()
         if self._transport is None:
             return
         if self._needs_reseed:

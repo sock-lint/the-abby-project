@@ -12,7 +12,10 @@ const STATUS_ICONS = {
   denied: X,
   voided: X,
   failed: X,
+  rejected: X,
   canceled: X,
+  cancelled: X,
+  printing: Clock,
   expired: Archive,
   disputed: AlertTriangle,
 };

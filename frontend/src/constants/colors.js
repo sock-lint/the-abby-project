@@ -24,8 +24,19 @@ export const STATUS_COLORS = {
   // Quest statuses
   failed: 'bg-ember-deep/15 text-ember-deep border border-ember-deep/40',
   expired: 'bg-ink-whisper/15 text-ink-secondary border border-ink-whisper/30',
+  // Forge (3D print request) statuses. `pending` / `approved` / `completed` /
+  // `failed` above already cover four of the seven; these are the three the
+  // print lifecycle adds. Note `cancelled` (two Ls) is the Django spelling on
+  // PrintRequest.Status — distinct from the older `canceled` redemption row.
+  rejected: 'bg-ember-deep/15 text-ember-deep border border-ember-deep/40',
+  printing: 'bg-sheikah-teal/20 text-sheikah-teal-deep border border-sheikah-teal/50',
+  cancelled: 'bg-ink-whisper/15 text-ink-secondary border border-ink-whisper/30',
 };
 
+// Only statuses whose display label isn't just the capitalized key belong
+// here — StatusBadge falls back to capitalizing the status itself, which is
+// already right for the Forge lifecycle (Pending / Approved / Printing /
+// Completed / Failed / Rejected / Cancelled).
 export const STATUS_LABELS = {
   in_progress: 'In Progress',
   in_review: 'In Review',

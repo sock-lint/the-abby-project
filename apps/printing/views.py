@@ -25,6 +25,7 @@ from config.permissions import IsParent
 from config.viewsets import (
     ParentWritePermissionMixin,
     RoleFilteredQuerySetMixin,
+    action_declares_permissions,
     child_not_found_response,
     get_child_or_404,
 )
@@ -74,6 +75,8 @@ class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
     )
 
     def get_permissions(self):
+        if action_declares_permissions(self):
+            return super().get_permissions()
         if self.action in ("destroy",):
             return [IsParent()]
         return [permissions.IsAuthenticated()]
@@ -328,7 +331,9 @@ class PrintBudgetViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
     queryset = PrintBudget.objects.select_related("user")
 
     def get_permissions(self):
-        if self.action in ("partial_update", "adjust"):
+        if action_declares_permissions(self):
+            return super().get_permissions()
+        if self.action == "partial_update":
             return [IsParent()]
         return [permissions.IsAuthenticated()]
 
