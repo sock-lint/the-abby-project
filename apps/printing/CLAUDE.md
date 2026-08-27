@@ -186,6 +186,35 @@ estimates, so they would add a dependency without adding truth.
   pipeline with no network, which is how you debug "why didn't this link".
 - `apps/printing/tests/test_ingest.py` — end-to-end ingest with no broker.
 
+## Deploying it
+
+Production is deployed by **Coolify** (see the README's "Deployment (Coolify)"
+section), not by the GitHub Actions pipeline — that one SSHes to a different
+host and its runner has been offline for months. Coolify's configuration lives
+in Coolify's own database, **not in this repo**, so adding a service here is
+only half the job:
+
+* Coolify runs `docker-compose.yml` as a Compose resource, so a new service in
+  that file is picked up on the next deploy — but confirm the resource type is
+  Compose rather than a single-Dockerfile application, or `printer_listener`
+  will simply never exist.
+* It needs **no domain**. Like `celery_worker` and `celery_beat` it has no
+  `ports`/`expose`, so Coolify won't generate a public router for it.
+* The four `PRINT_*` env vars are optional and defaulted; nothing has to be set
+  for a LAN printer beyond the per-printer access code, which is entered in the
+  app and stored encrypted, not as an env var.
+* `deploy.replicas: 1` in compose is declarative — plain `docker compose up`
+  ignores it outside Swarm. `PrinterLock` is what actually holds the line.
+
+The listener is written to survive a deploy: `ListenerSupervisor.run_forever`
+treats an unmigrated database (this container can start before `django` has
+run migrations) and a dropped connection (Postgres restarting under a rolling
+deploy) as waits rather than crashes, and calls `close_old_connections()` each
+pass. Letting either kill the process would drop the MQTT connection, and if
+that happened mid-print it would miss the FINISH transition — the job would
+close hours later via `reconcile_stale_jobs` as `unknown`, with the budget
+debited as a partial failure.
+
 ## Known gaps
 - Per-AMS-slot filament attribution is impossible after the fact: `ams_mapping`
   arrives once at print start and is absent from the snapshot, so a listener that

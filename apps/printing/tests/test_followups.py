@@ -15,6 +15,8 @@
 """
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from rest_framework.test import APITestCase
@@ -136,6 +138,69 @@ class LiveStatusPrivacyTests(_Fixture, APITestCase):
         self.client.force_authenticate(self.sibling)
         live = self.client.get(self.url).json()["live"]
         self.assertEqual(live["subtask_name"], "req-0001-secret-birthday-gift")
+
+
+@override_settings(CACHES=LOCMEM)
+class SupervisorSurvivesDatabaseTroubleTests(_Fixture, TestCase):
+    """The listener outlives deploys, so a bad pass must not end the process.
+
+    Two real cases: this container can start before the ``django`` service
+    has migrated (the printing tables genuinely do not exist yet), and
+    Postgres restarts under a rolling deploy. Either killing the process
+    means dropping the MQTT connection — and if that lands mid-print the
+    FINISH transition is missed entirely.
+    """
+
+    def setUp(self):
+        self.build_family()
+        cache.clear()
+
+    def _run_one_pass(self, supervisor):
+        """Drive exactly one loop iteration, then stop."""
+        original = supervisor.sync
+
+        def once(*args, **kwargs):
+            try:
+                return original(*args, **kwargs)
+            finally:
+                supervisor.stop()
+
+        supervisor.sync = once
+        supervisor.poll_interval = 0
+        supervisor.run_forever()
+
+    def test_unmigrated_tables_are_waited_out_not_fatal(self):
+        from django.db import ProgrammingError
+
+        supervisor = ListenerSupervisor(owner="test", poll_interval=0)
+        with patch.object(
+            ListenerSupervisor, "sync",
+            side_effect=ProgrammingError('relation "printing_printrequest" does not exist'),
+        ):
+            self._run_one_pass(supervisor)  # must return, not raise
+
+    def test_a_dead_connection_is_waited_out_not_fatal(self):
+        from django.db import OperationalError
+
+        supervisor = ListenerSupervisor(owner="test", poll_interval=0)
+        with patch.object(
+            ListenerSupervisor, "sync",
+            side_effect=OperationalError("server closed the connection unexpectedly"),
+        ):
+            self._run_one_pass(supervisor)
+
+    def test_an_unexpected_error_is_logged_and_the_loop_continues(self):
+        supervisor = ListenerSupervisor(owner="test", poll_interval=0)
+        with patch.object(ListenerSupervisor, "sync", side_effect=RuntimeError("boom")):
+            self._run_one_pass(supervisor)
+
+    def test_a_healthy_pass_still_runs_normally(self):
+        supervisor = ListenerSupervisor(owner="test", poll_interval=0)
+        self._run_one_pass(supervisor)
+        # No credentials on the fixture printer, so it is skipped with a reason
+        # rather than dialled — the pass completed either way.
+        self.printer.refresh_from_db()
+        self.assertIn("access code", self.printer.last_error)
 
 
 class SslContextTests(TestCase):

@@ -283,6 +283,13 @@ services:
     restart: unless-stopped
     # A supervisor thread plus one paho network thread per printer, holding
     # Django and a small in-memory state dict each. 256M is generous.
+    #
+    # NOTE: `replicas` is declarative here — plain `docker compose up` ignores
+    # it outside Swarm, so it records intent rather than enforcing it, and
+    # `--scale printer_listener=2` would cheerfully start a second one. The
+    # thing that actually keeps the connection count at one is the Redis
+    # advisory lock in apps/printing/listener.py::PrinterLock, which makes the
+    # loser skip each printer instead of fighting for it.
     deploy:
       replicas: 1
       resources:

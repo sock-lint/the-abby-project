@@ -28,6 +28,7 @@ import threading
 import time
 
 from django.core.cache import cache
+from django.db import OperationalError, ProgrammingError
 from django.utils import timezone
 
 from . import fanout, report
@@ -301,10 +302,45 @@ class ListenerSupervisor:
         self._stop.set()
 
     def run_forever(self) -> None:
+        """Supervise until stopped. Survives a database that isn't there yet.
+
+        This process outlives deploys, so the loop body must not be fatal:
+
+        * On a deploy that adds the printing tables, this container can start
+          before the ``django`` service has finished migrating — the query in
+          ``sync()`` then raises ``ProgrammingError`` for a table that is
+          about to exist. That is a wait, not a crash.
+        * Postgres restarting under a rolling deploy leaves this long-lived
+          process holding a dead connection. ``close_old_connections()`` at
+          the top of each pass discards it, the same way the Celery
+          pre/post-run hooks do for workers.
+
+        Letting either kill the process would be quietly expensive: the
+        container would restart, drop its MQTT connection, and if that
+        happened mid-print it would miss the FINISH transition entirely —
+        the job would only close hours later via ``reconcile_stale_jobs``,
+        as ``unknown``, with the budget debited as a partial failure.
+        """
+        from django.db import close_old_connections
+
         try:
             while not self._stop.is_set():
-                self.sync()
-                self.tick()
+                try:
+                    close_old_connections()
+                    self.sync()
+                    self.tick()
+                except OperationalError as exc:
+                    logger.warning(
+                        "printing: database unavailable, retrying in %ss: %s",
+                        self.poll_interval, exc,
+                    )
+                except ProgrammingError as exc:
+                    logger.warning(
+                        "printing: printing tables not migrated yet, waiting: %s",
+                        exc,
+                    )
+                except Exception:  # noqa: BLE001 - a bad pass must not end the process
+                    logger.exception("printing: supervisor pass failed, continuing")
                 self._stop.wait(self.poll_interval)
         finally:
             self.shutdown()
