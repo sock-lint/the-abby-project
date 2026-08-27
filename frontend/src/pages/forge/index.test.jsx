@@ -142,6 +142,22 @@ describe('Forge', () => {
     expect(spy.calls[0].url).toMatch(/\/api\/print-requests\/5\/cancel\/$/);
   });
 
+  it('asks only for unlinked jobs — without the filter a parent sees every print', async () => {
+    const urls = [];
+    server.use(
+      http.get('*/api/print-jobs/', ({ request }) => {
+        urls.push(request.url);
+        return HttpResponse.json({ count: 0, next: null, previous: null, results: [] });
+      }),
+    );
+    stubMe(buildParent());
+    stubRequests([]);
+    renderWithProviders(<Forge />);
+
+    await waitFor(() => expect(urls.length).toBeGreaterThan(0));
+    expect(urls[0]).toMatch(/\/api\/print-jobs\/\?unlinked=true$/);
+  });
+
   it('shows the live printer view to a child only while her own print is running', async () => {
     server.use(
       http.get('*/api/printers/', () =>
