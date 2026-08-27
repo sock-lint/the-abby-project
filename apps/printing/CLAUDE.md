@@ -188,16 +188,16 @@ estimates, so they would add a dependency without adding truth.
 
 ## Deploying it
 
-Production is deployed by **Coolify** (see the README's "Deployment (Coolify)"
-section), not by the GitHub Actions pipeline — that one SSHes to a different
-host and its runner has been offline for months. Coolify's configuration lives
-in Coolify's own database, **not in this repo**, so adding a service here is
-only half the job:
+Production is deployed by **Coolify as a Compose resource** (confirmed with the
+operator; see the README's "Deployment (Coolify)" section) — *not* by the
+GitHub Actions pipeline, which SSHes to a different host and whose runner has
+been offline for months. Because it is a Compose resource, Coolify brings up
+every service in `docker-compose.yml`, so `printer_listener` needs no extra
+registration to start. Two things still do not live in this repo: Coolify's
+configuration is in Coolify's own database, and the Actions pipeline enumerates
+services by hand (`.deploy.yml` → `app_services`, and the `for svc in …` loops)
+— that list must be kept in step even though it is currently dormant.
 
-* Coolify runs `docker-compose.yml` as a Compose resource, so a new service in
-  that file is picked up on the next deploy — but confirm the resource type is
-  Compose rather than a single-Dockerfile application, or `printer_listener`
-  will simply never exist.
 * It needs **no domain**. Like `celery_worker` and `celery_beat` it has no
   `ports`/`expose`, so Coolify won't generate a public router for it.
 * The four `PRINT_*` env vars are optional and defaulted; nothing has to be set
@@ -205,15 +205,20 @@ only half the job:
   app and stored encrypted, not as an env var.
 * `deploy.replicas: 1` in compose is declarative — plain `docker compose up`
   ignores it outside Swarm. `PrinterLock` is what actually holds the line.
+* The container reaches the printer over the host's LAN through ordinary
+  bridge-network NAT. Nothing here relies on mDNS or broadcast, which is why
+  `PrinterProfile.host` is an IP rather than a hostname.
 
-The listener is written to survive a deploy: `ListenerSupervisor.run_forever`
-treats an unmigrated database (this container can start before `django` has
-run migrations) and a dropped connection (Postgres restarting under a rolling
-deploy) as waits rather than crashes, and calls `close_old_connections()` each
-pass. Letting either kill the process would drop the MQTT connection, and if
-that happened mid-print it would miss the FINISH transition — the job would
-close hours later via `reconcile_stale_jobs` as `unknown`, with the budget
-debited as a partial failure.
+**The listener races migrations on every deploy, by design of the deploy.** A
+Compose resource starts all services together, and `django` runs `migrate` as
+part of its own command — so `printer_listener` will regularly come up against
+a database that is mid-migration, or briefly gone while Postgres restarts.
+`ListenerSupervisor.run_forever` therefore treats both as waits rather than
+crashes and calls `close_old_connections()` each pass. Letting either kill the
+process would drop the MQTT connection, and if that happened mid-print it would
+miss the FINISH transition — the job would close hours later via
+`reconcile_stale_jobs` as `unknown`, with the budget debited as a partial
+failure rather than a completed print.
 
 ## Known gaps
 - Per-AMS-slot filament attribution is impossible after the fact: `ams_mapping`
