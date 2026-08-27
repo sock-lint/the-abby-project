@@ -60,6 +60,13 @@ class NotificationType(models.TextChoices):
     LOW_REWARD_STOCK        = "low_reward_stock",        "Reward Stock Low"
     REWARD_RESTOCKED        = "reward_restocked",        "Reward Back In Stock"
     EXPEDITION_RETURNED     = "expedition_returned",     "Expedition Returned"
+    PRINT_REQUEST_SUBMITTED = "print_request_submitted", "Print Request Submitted"
+    PRINT_REQUEST_APPROVED  = "print_request_approved",  "Print Request Approved"
+    PRINT_REQUEST_REJECTED  = "print_request_rejected",  "Print Request Rejected"
+    PRINT_STARTED           = "print_started",           "Print Started"
+    PRINT_FINISHED          = "print_finished",          "Print Finished"
+    PRINT_FAILED            = "print_failed",            "Print Failed"
+    PRINT_BUDGET_LOW        = "print_budget_low",        "Print Budget Low"
 
 
 class Notification(CreatedAtModel):
