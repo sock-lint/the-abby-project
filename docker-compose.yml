@@ -242,6 +242,74 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  # The ONE process allowed to open an MQTT connection to a printer.
+  #
+  # The X1's embedded broker accepts roughly four simultaneous clients, and
+  # Bambu Studio, Handy and Home Assistant each hold one. If django or
+  # celery_worker connected per-worker we would blow the ceiling and the
+  # broker would start silently dropping clients — us and Home Assistant
+  # kicking each other off in a loop. So the connection lives here and
+  # nowhere else; everything else reads printer state through the fan-out in
+  # apps/printing/fanout.py.
+  #
+  # DO NOT scale this service past 1 replica. A Redis advisory lock makes a
+  # second replica skip each printer rather than fight for it, but the whole
+  # point is that there is one.
+  printer_listener:
+    image: ${IMAGE_TAG:-the-abby-project}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python manage.py run_printer_listener
+    env_file:
+      - .env
+    environment:
+      <<: *app-env
+      PRINT_BAMBU_CA_CERT: ${PRINT_BAMBU_CA_CERT:-}
+      PRINT_BAMBU_CLOUD_HOST: ${PRINT_BAMBU_CLOUD_HOST:-us.mqtt.bambulab.com}
+      PRINT_BAMBU_CLOUD_PORT: ${PRINT_BAMBU_CLOUD_PORT:-8883}
+      PRINT_FANOUT_MQTT_URL: ${PRINT_FANOUT_MQTT_URL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Heartbeat, not pgrep. The runtime image is python:3.12-slim, which has
+    # no `procps` — `pgrep` exits 127 there and the container would be
+    # unhealthy forever. (celery_beat's healthcheck has the same problem; it
+    # goes unnoticed because nothing gates on its health.) A heartbeat is the
+    # better probe anyway: it catches a supervisor whose loop has wedged,
+    # which process-existence cannot. The supervisor stamps the file once per
+    # pass, including while it is waiting out a migration — waiting is alive.
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os,sys,time; p='/tmp/printer-listener.heartbeat'; sys.exit(0 if os.path.exists(p) and time.time()-os.path.getmtime(p) < 120 else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    # A supervisor thread plus one paho network thread per printer, holding
+    # Django and a small in-memory state dict each. 256M is generous.
+    #
+    # NOTE: `replicas` is declarative here — plain `docker compose up` ignores
+    # it outside Swarm, so it records intent rather than enforcing it, and
+    # `--scale printer_listener=2` would cheerfully start a second one. The
+    # thing that actually keeps the connection count at one is the Redis
+    # advisory lock in apps/printing/listener.py::PrinterLock, which makes the
+    # loser skip each printer instead of fighting for it.
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 96M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
 volumes:
   postgres_data:
   redis_data:

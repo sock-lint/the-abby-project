@@ -74,8 +74,37 @@ INSTALLED_APPS = [
     "apps.creations",
     "apps.movement",
     "apps.wellbeing",
+    "apps.printing",
     "apps.dev_tools",
 ]
+
+# --- 3D printing (the Forge) ---------------------------------------------
+# The listener process (``manage.py run_printer_listener``) holds EXACTLY ONE
+# MQTT connection per printer. The X1's embedded broker accepts only about
+# four clients total — Bambu Studio, Handy and Home Assistant each hold one —
+# so nothing else in this codebase may connect. Everything else reads printer
+# state through the fan-out in ``apps/printing/fanout.py``.
+
+# Path to Bambu Lab's CA certificate (PEM). When set, the LAN transport
+# verifies the printer's certificate chain against it. Hostname verification
+# stays off regardless: the printer's cert CN is its SERIAL, not the IP we
+# dial, so a hostname check can never pass. Leave unset to fall back to an
+# unverified TLS session on the local network.
+PRINT_BAMBU_CA_CERT = os.environ.get("PRINT_BAMBU_CA_CERT", "")
+
+# Bambu Cloud broker, used when a PrinterProfile is set to the ``cloud``
+# transport. Region is a property of the Bambu ACCOUNT, not the printer — a
+# China-region account must point at cn.mqtt.bambulab.com.
+PRINT_BAMBU_CLOUD_HOST = os.environ.get(
+    "PRINT_BAMBU_CLOUD_HOST", "us.mqtt.bambulab.com",
+)
+PRINT_BAMBU_CLOUD_PORT = int(os.environ.get("PRINT_BAMBU_CLOUD_PORT", "8883"))
+
+# Optional relay broker for fan-out. Point Home Assistant at THIS instead of
+# at the printer and the connection-limit flapping stops. Snapshots are
+# republished (retained) to ``abby/printers/<serial>/state``.
+# Example: mqtt://homeassistant:secret@mosquitto:1883
+PRINT_FANOUT_MQTT_URL = os.environ.get("PRINT_FANOUT_MQTT_URL", "")
 
 # --- Dev tools ------------------------------------------------------------
 # Manual-testing helpers (``python manage.py force_drop`` etc.) are gated
@@ -615,6 +644,13 @@ CELERY_BEAT_SCHEDULE = {
     "daily-challenge-rotation": {
         "task": "apps.quests.tasks.rotate_daily_challenges_task",
         "schedule": crontab(hour=0, minute=30),
+    },
+    "print-reconcile-stale-jobs": {
+        "task": "apps.printing.tasks.reconcile_stale_jobs",
+        # 00:35 — next free slot in the staggered daily-housekeeping run.
+        # Backstop for a printer that vanished mid-print (power cut), which
+        # never sends the gcode_state transition the listener closes jobs on.
+        "schedule": crontab(hour=0, minute=35),
     },
 }
 

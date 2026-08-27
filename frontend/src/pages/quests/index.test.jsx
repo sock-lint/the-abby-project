@@ -32,7 +32,7 @@ describe('QuestsHub', () => {
     expect(screen.getAllByText(/ventures/i).length).toBeGreaterThan(0);
   });
 
-  it('exposes six tabs (Ventures · Duties · Study · Rituals · Movement · Trials)', async () => {
+  it('exposes seven tabs (Study · Duties · Rituals · Movement · Ventures · Forge · Trials)', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/projects/', () => HttpResponse.json([])),
@@ -50,6 +50,9 @@ describe('QuestsHub', () => {
     expect(screen.getByRole('tab', { name: /rituals/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /movement/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /trials/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('tab')).toHaveLength(6);
+    // The Forge slug is the binding contract for the seven print_* notification
+    // types, which all deep-link to /quests?tab=forge.
+    expect(screen.getByRole('tab', { name: /forge/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab')).toHaveLength(7);
   });
 });

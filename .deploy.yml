@@ -20,6 +20,10 @@ deploy:
     - django
     - celery_worker
     - celery_beat
+    # The MQTT listener. Single-replica by design — the X1's broker accepts
+    # only about four clients and Bambu Studio, Handy and Home Assistant each
+    # hold one. See apps/printing/CLAUDE.md.
+    - printer_listener
 
   migrate:
     enabled: true

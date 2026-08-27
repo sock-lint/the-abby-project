@@ -18,7 +18,7 @@ The 2026-05 audit lifted two layout primitives out of the per-page copy-paste pa
 
 ## Quests hub (commits `3e8c18c`, `69d7b48`)
 
-The Quests page consolidates all "things to do" under one tab hub. Six top-level `ChapterHub` tabs:
+The Quests page consolidates all "things to do" under one tab hub. Seven top-level `ChapterHub` tabs:
 
 | Tab | Slug | Backing page |
 |---|---|---|
@@ -27,6 +27,7 @@ The Quests page consolidates all "things to do" under one tab hub. Six top-level
 | Study | `study` | `pages/Homework/index.jsx` |
 | Rituals | `rituals` | `pages/Habits.jsx` |
 | Movement | `movement` | `pages/Movement.jsx` |
+| Forge | `forge` | `pages/forge/index.jsx` |
 | Trials | `trials` | `pages/trials/index.jsx` |
 
 The hub itself lives at [`pages/quests/index.jsx`](/frontend/src/pages/quests/index.jsx). Legacy routes redirect:
@@ -50,11 +51,11 @@ No new tier ladders, halo colors, or keyframes — composition against the exist
 - `effortToRarity` — Homework effort_level uses the same 1-5 ladder; aliased to `difficultyToRarity`.
 - `buildRarityCounts(items, mapper, isEarned)` — produces the `{common: {earned, total}, …, legendary: {…}}` shape `RarityStrand` consumes. Empty buckets stay at 0 so the trough still paints.
 
-Ventures + Study render a `RarityStrand` on the verso. Duties, Rituals, Movement, Trials skip it (their progression isn't difficulty-ranked).
+Ventures + Study render a `RarityStrand` on the verso. Duties, Rituals, Movement, Forge, Trials skip it (their progression isn't difficulty-ranked).
 
 ### Trials sub-architecture
 
-The standalone `/trials` page was folded into the Quests hub as tab #6 and rewritten to speak the codex/folio/vessels vocabulary. Files under [`pages/trials/`](/frontend/src/pages/trials/):
+The standalone `/trials` page was folded into the Quests hub (now the last tab) and rewritten to speak the codex/folio/vessels vocabulary. Files under [`pages/trials/`](/frontend/src/pages/trials/):
 - `index.jsx` — orchestrator: `IncipitBand` hero → `IssueChallengeForm` (parent-only) → `ActiveQuestFolio` → `FamilyTrialsFolio` → `QuestCodex`.
 - `ActiveQuestFolio.jsx` — wraps the in-progress quest in the shared `QuestFolio` verso/recto shell (letter initial, quest name, progress, stats, party/rewards on the recto).
 - `QuestCodex.jsx` — vessel kind shelf (All/Boss/Collection/Co-op) + codex shelf (four status chapters: **Available** §I / **Underway** §II / **Closed** §III / **Locked** §IV) + `TrialsFolio` body. The Locked chapter is new — quests gated by `required_badge` render there with an unlock hint.
@@ -65,6 +66,54 @@ The standalone `/trials` page was folded into the Quests hub as tab #6 and rewri
 - `trials.constants.js` — `CHAPTERS`, `KIND_FILTERS`, `groupQuestsByChapter`, `overallProgress`, status & kind vocabulary.
 
 Backend `QuestDefinitionSerializer` widened by two fields — `required_badge_id` + `required_badge_name` — so the Locked chapter can render unlock hints without a second fetch.
+
+### Forge sub-architecture
+
+Sits between Ventures and Trials — 3D print requests. Backend contract lives in [`apps/printing/CLAUDE.md`](/apps/printing/CLAUDE.md);
+the frontend half is under [`pages/forge/`](/frontend/src/pages/forge/):
+
+- `index.jsx` — orchestrator. A hub tab, so it wears `QuestFolio` and **not**
+  `PageShell`. Verso stats are pending / printing / grams-this-month; verso
+  progress is the household's filament cap consumption. Sections are numbered
+  `ChapterRubric`s: Awaiting your decision (parent) → In the queue → On the bed →
+  Monthly budgets (parent) → Prints without a request (parent) → Printers
+  (parent) → Finished & closed.
+- `PrintRequestCard.jsx` — thumbnail (placeholder when null), colour chip,
+  needed-by, `StatusBadge`, the reason, live `ProgressBar` while a job runs, and
+  the **decoded** `latest_job.failure_reason` on failure — never an HMS code.
+- `PlateFilenameChip.jsx` — the minted `plate_filename` with a copy button.
+  Shared by the card and the approval sheet because that string *is* the flow:
+  matching is `normalize_subtask_name(reported) == request.slug`, so a plate
+  saved under the wrong name lands as an unlinked job someone has to hand-link.
+- `PrintRequestModal.jsx` — the child's submit form. Link **or** upload; links
+  POST JSON, an upload switches to multipart (which is why `createPrintRequest`
+  accepts either an object or a `FormData`). The `/print-requests/preview/`
+  scrape on blur/paste is soft — a preview `error` renders as a hint, never a
+  blocker, because `enrich_request_metadata` gets another shot after submit.
+- `ApprovalSheet.jsx` — grams + minutes from the slicer, notes, Approve/Reject.
+  A **409** carries `problems[]` and the budget summary; the sheet renders them
+  and offers an explicit "Approve anyway" that re-POSTs with `force: true`.
+  Branching is on `err.status`, never on the message string.
+- `BudgetPanel.jsx` — parent-only. Two independently-capped dimensions; a null
+  cap renders "No cap" (zero is a real cap meaning "nothing this month") and a
+  negative remaining renders as an ember overage rather than being clamped.
+  Inline cap editor, append-only adjustment form, recent ledger.
+- `PrinterStatus.jsx` — polls `GET /api/printers/<id>/status/` on the
+  `ProjectIngest` pattern (setTimeout recursion, ref cleared on unmount,
+  `document.hidden` skip), 10s while a job is open and 45s idle. It reads our
+  fan-out snapshot rather than opening MQTT: the X1's broker tolerates ~four
+  clients total, shared with Studio / Handy / Home Assistant.
+- `UnlinkedJobsPanel.jsx` — parent-only Handy escape hatch. Picker is filtered to
+  `LINKABLE_REQUEST_STATUSES` so a rejected or cancelled request can never
+  absorb a print.
+- `PrinterConfigPanel.jsx` — parent-only printer registry. Credentials are
+  write-only; blank fields on an edit mean "keep what is stored".
+- `forge.constants.js` — tone maps, `formatGrams` / `formatMinutes` /
+  `formatCap`, `usagePercent`, `budgetProgress`, `jobProgressLabel`, `isJobOpen`.
+
+Child sees their own requests, a submit button, and the live view only while one
+of *their* prints is running. Parents additionally get the approval queue, the
+budget panel, the unlinked-jobs panel and printer config.
 
 ## Atlas hub ([`pages/atlas/index.jsx`](/frontend/src/pages/atlas/index.jsx))
 
@@ -132,7 +181,7 @@ The inside-cover plate of the journal — personal author-portrait rather than a
 
 **Quest log on the child dashboard** is now driven entirely by `next_actions` from the dashboard payload — `buildQuestLogFromActions()` in [`ChildDashboard.jsx`](/frontend/src/pages/ChildDashboard.jsx) buckets the scored, sorted feed into Study (homework) / Duty (chore) / Ritual (habit) sections. Backend ordering (overdue → due-today → due-tomorrow → daily chore → due-this-week → weekly chore — see scoring formula in [`apps/projects/priority.py`](/apps/projects/priority.py)) is preserved within each section. Submitted-pending homework is excluded server-side ("nothing left to *do*"); rejected submissions remain eligible. Clicking an open homework row opens [`HomeworkSubmitSheet`](/frontend/src/components/HomeworkSubmitSheet.jsx) inline (photo upload + notes + `submitHomework`) so the child can file proof without leaving the dashboard — the same component is reused on [`pages/Homework/index.jsx`](/frontend/src/pages/Homework/index.jsx).
 
-`QuickActionsFab` replaces the old `ClockFab` — single bottom-right button that opens `QuickActionsSheet` with role-aware contextual actions: child sees Clock in · Add homework · Submit due (only when a due assignment exists) · Start a quest (only when a quest scroll is in inventory) · Contribute to hoard (only when an active savings goal exists); parent sees Clock in · Create homework for a kid · Adjust coins · Adjust payment. Reward shop is deliberately **not** in quick actions — browsing rewards is a considered choice and belongs on the Treasury page. Clock-in is still the most common action and is the default focus when opened. The FAB continues to show a running-timer chip while clocked in so the at-a-glance signal is preserved.
+`QuickActionsFab` replaces the old `ClockFab` — single bottom-right button that opens `QuickActionsSheet` with role-aware contextual actions: child sees Clock in · Add homework · Submit due (only when a due assignment exists) · Ask for a print (deep-links to `/quests?tab=forge&new=1`, which opens the submit modal on mount) · Start a quest (only when a quest scroll is in inventory) · Contribute to hoard (only when an active savings goal exists); parent sees Clock in · Create homework for a kid · Adjust coins · Adjust payment. Reward shop is deliberately **not** in quick actions — browsing rewards is a considered choice and belongs on the Treasury page. Clock-in is still the most common action and is the default focus when opened. The FAB continues to show a running-timer chip while clocked in so the at-a-glance signal is preserved.
 
 ## Notifications constants parity
 
@@ -169,8 +218,13 @@ pages/
                                + Codex + Hatchery (4 sub-tabs all speaking
                                the Atlas template — see apps/pets/CLAUDE.md
                                for the alignment details)
-  quests/                      QuestsHub orchestrator (6 tabs) + QuestFolio
+  quests/                      QuestsHub orchestrator (7 tabs) + QuestFolio
                                shell + quests.constants
+  forge/                       3D print requests — index + PrintRequestCard,
+                               PlateFilenameChip, PrintRequestModal,
+                               ApprovalSheet, BudgetPanel, PrinterStatus,
+                               PrinterConfigPanel, UnlinkedJobsPanel,
+                               forge.constants
   trials/                      Trials sub-architecture (ActiveQuestFolio,
                                QuestCodex, TrialsFolio, FamilyTrialsFolio,
                                IssueChallengeForm, QuestTile,
@@ -203,6 +257,7 @@ Page-level `*Card` / `*Verse` / `*Sigil` / `*Spine` components (AssignmentCard, 
 ## Key entry points
 - `Dashboard.jsx` — role router.
 - `quests/index.jsx`, `quests/QuestFolio.jsx`, `quests/quests.constants.js`.
+- `forge/index.jsx`, `forge/forge.constants.js`, `forge/PlateFilenameChip.jsx`.
 - `trials/index.jsx`, `trials/QuestCodex.jsx`, `trials/trials.constants.js`.
 - `Achievements.jsx`, `achievements/SkillTreeView.jsx`, `achievements/SigilCodex.jsx`, `achievements/collections.constants.js`.
 - `Character.jsx`, `character/SigilFrontispiece.jsx`, `character/character.constants.js`, `character/WellbeingCard.jsx`.

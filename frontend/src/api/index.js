@@ -568,6 +568,49 @@ export const updateJournalEntry = (id, { title, summary }) =>
 // child hasn't written yet (the backend 204s and api.get resolves to null).
 export const getTodayJournal = () => api.get('/chronicle/journal/today/');
 
+// Forge — 3D print requests
+// A request may carry an uploaded model file, so `createPrintRequest` takes
+// either a plain object (link submissions — JSON) or a FormData (uploads —
+// multipart via api.upload). The backend viewset accepts both parsers.
+const forgeQuery = (params = {}) => {
+  const qs = Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== null && v !== '' && v !== false)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+  return qs ? `?${qs}` : '';
+};
+
+export const listPrintRequests = (params = {}) =>
+  api.get(`/print-requests/${forgeQuery(params)}`);
+export const createPrintRequest = (data) =>
+  (data instanceof FormData
+    ? api.upload('/print-requests/', data)
+    : api.post('/print-requests/', data));
+export const updatePrintRequest = (id, data) => api.patch(`/print-requests/${id}/`, data);
+export const deletePrintRequest = (id) => api.delete(`/print-requests/${id}/`);
+export const approvePrintRequest = (id, data) =>
+  api.post(`/print-requests/${id}/approve/`, data);
+export const rejectPrintRequest = (id, notes = '') =>
+  api.post(`/print-requests/${id}/reject/`, { notes });
+export const cancelPrintRequest = (id) => api.post(`/print-requests/${id}/cancel/`);
+export const previewPrintLink = (url) => api.post('/print-requests/preview/', { url });
+
+export const listPrintJobs = (params = {}) => api.get(`/print-jobs/${forgeQuery(params)}`);
+export const linkPrintJob = (jobId, requestId) =>
+  api.post(`/print-jobs/${jobId}/link/`, { request_id: requestId });
+export const unlinkPrintJob = (jobId) => api.post(`/print-jobs/${jobId}/unlink/`);
+
+export const listPrintBudgets = () => api.get('/print-budgets/');
+export const updatePrintBudget = (id, data) => api.patch(`/print-budgets/${id}/`, data);
+export const adjustPrintBudget = (id, data) => api.post(`/print-budgets/${id}/adjust/`, data);
+export const getPrintBudgetLedger = (id) => api.get(`/print-budgets/${id}/ledger/`);
+
+export const listPrinters = () => api.get('/printers/');
+export const createPrinter = (data) => api.post('/printers/', data);
+export const updatePrinter = (id, data) => api.patch(`/printers/${id}/`, data);
+export const deletePrinter = (id) => api.delete(`/printers/${id}/`);
+export const getPrinterStatus = (id) => api.get(`/printers/${id}/status/`);
+
 // Activity log (parent-only)
 export const listActivity = (params = {}) => {
   const qs = Object.entries(params)

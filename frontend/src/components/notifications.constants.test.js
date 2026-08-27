@@ -19,7 +19,9 @@ const BACKEND_NOTIFICATION_TYPES = [
   'habit_proposed', 'chore_proposal_approved', 'habit_proposal_approved',
   'chore_proposal_rejected', 'habit_proposal_rejected', 'quest_completed',
   'drop_received', 'pet_evolved', 'mount_bred', 'low_reward_stock',
-  'reward_restocked', 'expedition_returned',
+  'reward_restocked', 'expedition_returned', 'print_request_submitted',
+  'print_request_approved', 'print_request_rejected', 'print_started',
+  'print_finished', 'print_failed', 'print_budget_low',
 ];
 
 describe('notification type meta', () => {

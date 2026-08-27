@@ -314,6 +314,48 @@ export const handlers = [
   http.post(/\/api\/quests\/\d+\/assign\/$/, ok),
   http.get('*/api/quests/family/', empty),
 
+  // Forge — 3D print requests. Every endpoint in the `Forge` block of
+  // src/api/index.js needs a default here: setup.js runs MSW with
+  // `onUnhandledRequest: 'error'`, so an uncovered route fails any test
+  // that transitively mounts the Quests hub.
+  http.post('*/api/print-requests/preview/', () =>
+    HttpResponse.json({
+      title: '', thumbnail_url: '', author: '',
+      source_kind: 'other_url', error: null,
+    }),
+  ),
+  http.get('*/api/print-requests/', () =>
+    HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+  ),
+  http.post('*/api/print-requests/', () => HttpResponse.json({ id: 1 }, { status: 201 })),
+  http.post(/\/api\/print-requests\/\d+\/(approve|reject|cancel)\/$/, () =>
+    HttpResponse.json({ id: 1, status: 'approved', plate_filename: 'req-0001-thing.3mf' }),
+  ),
+  http.patch(/\/api\/print-requests\/\d+\/$/, () => HttpResponse.json({ id: 1 })),
+  http.delete(/\/api\/print-requests\/\d+\/$/, nullBody),
+
+  http.get('*/api/print-jobs/', () =>
+    HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+  ),
+  http.post(/\/api\/print-jobs\/\d+\/(link|unlink)\/$/, () => HttpResponse.json({ id: 1 })),
+
+  http.get(/\/api\/print-budgets\/\d+\/ledger\/$/, empty),
+  http.get('*/api/print-budgets/', () =>
+    HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+  ),
+  http.patch(/\/api\/print-budgets\/\d+\/$/, () => HttpResponse.json({ id: 1 })),
+  http.post(/\/api\/print-budgets\/\d+\/adjust\/$/, () => HttpResponse.json({ id: 1 })),
+
+  http.get(/\/api\/printers\/\d+\/status\/$/, () =>
+    HttpResponse.json({ printer: null, live: null, connected: false, job: null }),
+  ),
+  http.get('*/api/printers/', () =>
+    HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+  ),
+  http.post('*/api/printers/', () => HttpResponse.json({ id: 1 }, { status: 201 })),
+  http.patch(/\/api\/printers\/\d+\/$/, () => HttpResponse.json({ id: 1 })),
+  http.delete(/\/api\/printers\/\d+\/$/, nullBody),
+
   // Activity log (parent-only)
   http.get('*/api/activity/', () =>
     HttpResponse.json({ results: [], next: null, previous: null })),

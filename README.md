@@ -137,6 +137,15 @@ the-abby-project/
 │   ├── google_integration/  # OAuth2, GoogleAccount, CalendarEventMapping
 │   ├── activity/            # Cross-app activity feed
 │   ├── movement/            # Step counts / wearable integration scaffolding
+│   ├── printing/            # The Forge — 3D print requests, filament + print-time
+│   │   │                    #   budget, and automatic Bambu MQTT job tracking
+│   │   ├── matching.py      # Deterministic slug ↔ subtask_name linking
+│   │   ├── hms.py           # Decodes Bambu HMS / print_error into plain English
+│   │   ├── report.py        # Delta-merging MQTT report state
+│   │   ├── jobs.py          # The edge detector: reports in, timeline rows out
+│   │   ├── listener.py      # The ONE connection + its Redis advisory lock
+│   │   ├── fanout.py        # How everything else reads printer state
+│   │   └── transports/      # PrinterTransport ABC + local / cloud / in-memory
 │   ├── lorebook/            # Static mechanics explainer API backed by
 │   │                        #   content/lorebook/entries.yaml
 │   └── mcp_server/          # FastMCP server with 27 tool modules / ~207 tools
@@ -179,7 +188,16 @@ the-abby-project/
 - **ProjectCollaborator** — Additional child on a project with configurable `pay_split_percent`
 - **SavingsGoal** — Child-set targets with `target_amount` / `current_amount` and progress tracking
 - **ProjectIngestionJob** — Async job for importing projects from URLs or PDFs via AI pipeline
-- **Notification** — In-app notifications. Types include the approval/workflow set (timecard_ready/approved, project_approved/changes, payout_recorded, redemption_requested, chore_submitted/approved, exchange_requested/approved/denied, homework_created/submitted/approved/rejected), reminder set (project_due_soon, chore_reminder, approval_reminder, homework_due_soon), and the engagement set (badge_earned, skill_unlocked, milestone_completed, streak_milestone, perfect_day, daily_check_in).
+- **Notification** — In-app notifications. Types include the approval/workflow set (timecard_ready/approved, project_approved/changes, payout_recorded, redemption_requested, chore_submitted/approved, exchange_requested/approved/denied, homework_created/submitted/approved/rejected), reminder set (project_due_soon, chore_reminder, approval_reminder, homework_due_soon), and the engagement set (badge_earned, skill_unlocked, milestone_completed, streak_milestone, perfect_day, daily_check_in), plus the Forge set (print_request_submitted/approved/rejected, print_started, print_finished, print_failed, print_budget_low).
+
+### 3D Printing (the Forge)
+
+- **PrinterProfile** — One physical printer, scoped to a family. `transport` is `local` (the printer's own LAN broker) or `cloud` (`us.mqtt.bambulab.com`); swapping is a config change, not a rewrite. Credentials are Fernet-encrypted at rest and never serialized out.
+- **PrintRequest** — A child's ask: a MakerWorld/Printables link or an uploaded model, plus colour, reason and needed-by date. Approval mints a `slug` (`req-0042-dragon`) and a `plate_filename` (`req-0042-dragon.3mf`) — the deterministic key the MQTT listener matches `subtask_name` against, so no print is ever hand-linked.
+- **PrintBudget** — Per-child monthly allowance: `grams_per_month` and/or `minutes_per_month`. `null` on a dimension means no cap.
+- **PrintBudgetLedger** — Append-only, **two-dimensional** (grams + minutes). Not a `BaseLedgerService` subclass — that base assumes one `amount` column, and a print consumes two independent resources.
+- **PrintJob** — One observed print: state, layers, percent, ETA, and the decoded failure reason. A partial unique constraint enforces one open job per printer.
+- **PrintJobEvent** — The job timeline. Where a decoded HMS message (`"The AMS slot ran out of filament (unit A, slot 3)"`) replaces a raw code.
 
 ### Time & Pay
 
@@ -669,6 +687,75 @@ Grouped by domain:
 - **Family ops** — `users` (3), `timecards` (9)
 
 Uses OAuth 2.1 Bearer tokens (PKCE, RFC 8707 resource binding) for `/mcp/*`, DNS rebinding protection, stateless HTTP transport for horizontal scaling, and `sync_to_async` for Django ORM access. See the **MCP OAuth 2.1** gotcha in [`CLAUDE.md`](CLAUDE.md) for the auth surface.
+
+### The Forge — 3D Print Requests
+
+A child asks for a model to be printed; a parent approves it against a monthly
+filament and print-time budget; the parent slices and prints normally from
+Bambu Studio or Handy; a single MQTT listener notices the print, links it to
+the request, tracks it to FINISH or FAILED, and debits the budget.
+Frontend lives at `/quests?tab=forge`.
+
+**Matching is deterministic, not fuzzy.** On approval the app mints a slug
+embedding the request's primary key (`req-0042-dragon`) and tells the parent to
+save the sliced plate as `req-0042-dragon.3mf`. Bambu firmware reports that back
+as `print.subtask_name`, so linking is an equality check on a normalised string.
+Normalisation absorbs every shape firmware emits for the same plate — with or
+without `.3mf` / `.gcode` / `.gcode.3mf`, with a `_plate_1` suffix, a `(1)` copy
+suffix, a directory prefix, any case or separator. The manual
+`POST /api/print-jobs/<id>/link/` exists only for a plate someone started from
+Handy without renaming it.
+
+**Exactly one MQTT connection per printer.** The X1's embedded broker accepts
+roughly four simultaneous clients, and Bambu Studio, Handy and Home Assistant
+each hold one. The connection therefore lives in its own compose service
+(`printer_listener` running `manage.py run_printer_listener`) and nowhere else —
+gunicorn and Celery workers never open a socket. A Redis advisory lock is the
+runtime backstop. Everything else reads state through the fan-out: a cache
+snapshot behind `GET /api/printers/<id>/status/`, a Redis pub/sub channel, and
+an optional retained MQTT republish to `PRINT_FANOUT_MQTT_URL`. **If you already
+run Home Assistant against the printer, point it at that relay instead** and the
+connection-limit flapping stops.
+
+**Failures read as sentences, not codes.** The `hms` array is decoded into plain
+English on the job timeline — "The AMS slot ran out of filament (unit A, slot 3)"
+rather than `0700_2200_0002_0001`. `print_error` is decoded too, against its own
+separate table, and `0x0300400C` is special-cased as a normal user cancel so a
+stopped print doesn't read as a crash. An unrecognised code still renders its
+severity and module plus a wiki link, never a bare "unknown error".
+
+**Local ↔ cloud is a config change.** The listener is written against a
+`PrinterTransport` interface. `LocalMqttTransport` dials the printer's LAN
+broker (`bblp` + the access code from the printer screen, with hostname
+verification off because the certificate's CN is the serial rather than the IP);
+`CloudMqttTransport` dials `us.mqtt.bambulab.com:8883` with `u_<uid>` + a Bambu
+access token and full TLS verification. Switching is a value on
+`PrinterProfile.transport`.
+
+**Where grams come from.** The MQTT report carries no filament-consumed field —
+every `weight` in the payload is a spool's nominal weight. So grams are the
+parent's slicer estimate, captured at approval on `PrintRequest.estimated_grams`,
+and that is what the budget debits. Minutes are observed from the job's real
+duration. A failed or cancelled print is debited proportionally to layers
+completed, floored at 10%.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET/POST | `/api/print-requests/` | List (role-scoped) / submit a request. `?status=` filters. |
+| PATCH | `/api/print-requests/<id>/` | Owner edits title / colour / reason / needed-by while still open |
+| POST | `/api/print-requests/<id>/approve/` | Parent. `{estimated_grams, estimated_minutes, notes, force}`. Mints the slug + plate filename. **409** with `problems[]` when it would exceed the budget; re-POST with `force: true` to approve anyway. |
+| POST | `/api/print-requests/<id>/reject/` | Parent. `{notes}` |
+| POST | `/api/print-requests/<id>/cancel/` | Owner or parent, while pending or approved |
+| POST | `/api/print-requests/preview/` | `{url}` → scraped `{title, thumbnail_url, author, source_kind}`. Soft-fails with a URL-derived title so a slow model host never blocks a submit. |
+| GET | `/api/print-jobs/` | Observed prints + their timelines. `?unlinked=true` `?open=true` |
+| POST | `/api/print-jobs/<id>/link/` | Parent. `{request_id}` — the Handy fallback |
+| POST | `/api/print-jobs/<id>/unlink/` | Parent. Mis-link repair, before close-out |
+| GET | `/api/print-budgets/` | Monthly caps + usage (parent: one row per child) |
+| PATCH | `/api/print-budgets/<id>/` | Parent sets `grams_per_month` / `minutes_per_month` / `is_active` |
+| POST | `/api/print-budgets/<id>/adjust/` | Parent. `{grams, minutes, note}` — a compensating entry, never an edit |
+| GET | `/api/print-budgets/<id>/ledger/` | Recent budget entries |
+| GET/POST | `/api/printers/` | Parent-only printer config, family-scoped. Credentials are write-only. |
+| GET | `/api/printers/<id>/status/` | Live snapshot from the listener's fan-out cache + the open job |
 
 ### Google Calendar Integration
 OAuth2 flow for linking Google accounts. Syncs app events (project due dates, chores, time entries) to Google Calendar. `CalendarEventMapping` tracks synced events. Encrypted credential storage via Fernet. Parent-initiated linking for child accounts.
