@@ -182,7 +182,11 @@ jobs:
           ${SSH} ${TARGET} "cd ${DIR} && grep -q '^SENTRY_RELEASE=' .env 2>/dev/null && sed -i 's/^SENTRY_RELEASE=.*/SENTRY_RELEASE=${TAG}/' .env || echo 'SENTRY_RELEASE=${TAG}' >> .env" || true
 
           echo "=== Deploying app services ==="
-          for svc in django celery_worker celery_beat; do
+          # printer_listener is in this list because it is a real app service,
+          # not an optional extra: it is the only process that connects to a
+          # printer, so leaving it out ships the Forge with its MQTT half
+          # silently absent — prints would simply never link, with no error.
+          for svc in django celery_worker celery_beat printer_listener; do
             echo "  → ${svc}"
             ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${IMAGE} docker compose up -d --no-deps --force-recreate ${svc}"
             sleep 5
@@ -232,7 +236,7 @@ jobs:
             ${SSH} ${TARGET} "cd ${DIR} && docker compose logs --tail 50 django" || true
             if [ "${PREV}" != "none" ] && [ -n "${PREV}" ]; then
               echo "Rolling back to ${PREV}..."
-              for svc in django celery_worker celery_beat; do
+              for svc in django celery_worker celery_beat printer_listener; do
                 ${SSH} ${TARGET} "cd ${DIR} && IMAGE_TAG=${PREV} docker compose up -d --no-deps --force-recreate ${svc}"
               done
             fi
