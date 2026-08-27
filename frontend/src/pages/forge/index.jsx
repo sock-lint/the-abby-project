@@ -25,7 +25,9 @@ import BudgetPanel from './BudgetPanel';
 import PrinterStatus from './PrinterStatus';
 import PrinterConfigPanel from './PrinterConfigPanel';
 import UnlinkedJobsPanel from './UnlinkedJobsPanel';
-import { OPEN_REQUEST_STATUSES, budgetProgress } from './forge.constants';
+import {
+  CLOSED_REQUEST_STATUSES, OPEN_REQUEST_STATUSES, budgetProgress,
+} from './forge.constants';
 
 /**
  * Forge — the 3D print request tab of the Quests hub.
@@ -55,8 +57,27 @@ export default function Forge() {
   const [actionError, setActionError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const fetchRequests = useCallback(() => listPrintRequests(), []);
-  const { data: requestsData, loading, error, reload } = useApi(fetchRequests);
+  // Two fetches, not one, and the reason matters: the list endpoint is
+  // paginated at PAGE_SIZE 20 and ordered newest-first. Deriving the approval
+  // queue from a single unfiltered page means that once a family accumulates
+  // 20 finished requests, a still-pending one falls off the end and silently
+  // disappears from the parent's queue. Asking the server for the open
+  // statuses keeps the actionable set whole no matter how much history piles
+  // up behind it.
+  const fetchOpen = useCallback(
+    () => listPrintRequests({ status: OPEN_REQUEST_STATUSES.join(',') }), [],
+  );
+  const { data: openData, loading, error, reload: reloadOpen } = useApi(fetchOpen);
+
+  const fetchClosed = useCallback(
+    () => listPrintRequests({ status: CLOSED_REQUEST_STATUSES.join(',') }), [],
+  );
+  const { data: closedData, reload: reloadClosed } = useApi(fetchClosed);
+
+  const reload = useCallback(() => {
+    reloadOpen();
+    reloadClosed();
+  }, [reloadOpen, reloadClosed]);
 
   const fetchBudgets = useCallback(() => listPrintBudgets(), []);
   const { data: budgetsData, reload: reloadBudgets } = useApi(fetchBudgets);
@@ -72,15 +93,19 @@ export default function Forge() {
   );
   const { data: jobsData, reload: reloadJobs } = useApi(fetchJobs, [isParent]);
 
-  const requests = useMemo(() => normalizeList(requestsData), [requestsData]);
+  const open = useMemo(() => normalizeList(openData), [openData]);
+  const closed = useMemo(() => normalizeList(closedData), [closedData]);
+  // The linker needs every request a job may bind to, which spans both lists.
+  const requests = useMemo(() => [...open, ...closed], [open, closed]);
+  // The server's own count, so a truncated history reads as "20 of 57"
+  // rather than looking like the whole story.
+  const closedTotal = closedData?.count ?? closed.length;
   const budgets = useMemo(() => normalizeList(budgetsData), [budgetsData]);
   const printers = useMemo(() => normalizeList(printersData), [printersData]);
   const unlinkedJobs = useMemo(() => normalizeList(jobsData), [jobsData]);
 
-  const pending = requests.filter((r) => r.status === 'pending');
-  const open = requests.filter((r) => OPEN_REQUEST_STATUSES.includes(r.status));
-  const closed = requests.filter((r) => !OPEN_REQUEST_STATUSES.includes(r.status));
-  const printingCount = requests.filter((r) => r.status === 'printing').length;
+  const pending = open.filter((r) => r.status === 'pending');
+  const printingCount = open.filter((r) => r.status === 'printing').length;
 
   const gramsUsed = budgets.reduce((sum, b) => sum + (Number(b.grams_used) || 0), 0);
   const { pct: budgetPct, label: budgetLabel } = budgetProgress(budgets);
@@ -233,8 +258,13 @@ export default function Forge() {
         {closed.length > 0 && (
           <section>
             <ChapterRubric index={nextRubric()} name="Finished & closed" />
+            {closedTotal > closed.length && (
+              <p className="font-script text-caption text-ink-whisper mb-2">
+                Showing the {closed.length} most recent of {closedTotal}.
+              </p>
+            )}
             <div className="space-y-2">
-              {closed.slice(0, 20).map((request) => (
+              {closed.map((request) => (
                 <PrintRequestCard
                   key={request.id}
                   request={request}

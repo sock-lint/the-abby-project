@@ -11,13 +11,20 @@ function stubMe(user) {
   localStorage.setItem('abby_auth_token', 'test-token');
 }
 
-function stubRequests(rows) {
+// Mirrors the server: PrintRequestViewSet honours a CSV ?status= filter. The
+// page fetches the open and closed sets separately, so a stub that ignored the
+// param would hand both fetches the same rows and hide the split entirely.
+function stubRequests(rows, { total } = {}) {
   server.use(
-    http.get('*/api/print-requests/', () =>
-      HttpResponse.json({
-        count: rows.length, next: null, previous: null, results: rows,
-      }),
-    ),
+    http.get('*/api/print-requests/', ({ request }) => {
+      const wanted = new URL(request.url).searchParams.get('status');
+      const results = wanted
+        ? rows.filter((r) => wanted.split(',').includes(r.status))
+        : rows;
+      return HttpResponse.json({
+        count: total ?? results.length, next: null, previous: null, results,
+      });
+    }),
   );
 }
 
@@ -156,6 +163,37 @@ describe('Forge', () => {
 
     await waitFor(() => expect(urls.length).toBeGreaterThan(0));
     expect(urls[0]).toMatch(/\/api\/print-jobs\/\?unlinked=true$/);
+  });
+
+  it('asks the server for the open statuses so history cannot bury the queue', async () => {
+    // The list endpoint paginates at 20, newest first. Deriving the approval
+    // queue from one unfiltered page means a pending request falls off the end
+    // once 20 finished ones pile up in front of it.
+    const urls = [];
+    server.use(
+      http.get('*/api/print-requests/', ({ request }) => {
+        urls.push(request.url);
+        return HttpResponse.json({ count: 0, next: null, previous: null, results: [] });
+      }),
+    );
+    stubMe(buildParent());
+    renderWithProviders(<Forge />);
+
+    await waitFor(() => expect(urls.length).toBeGreaterThanOrEqual(2));
+    const statuses = urls.map((u) => new URL(u).searchParams.get('status'));
+    expect(statuses).toContain('pending,approved,printing,failed');
+    expect(statuses).toContain('completed,rejected,cancelled');
+  });
+
+  it('says how much closed history it is not showing', async () => {
+    stubMe(buildParent());
+    stubRequests(
+      [buildRequest({ id: 9, status: 'completed', title: 'Old dragon' })],
+      { total: 57 },
+    );
+    renderWithProviders(<Forge />);
+
+    expect(await screen.findByText(/Showing the 1 most recent of 57/i)).toBeInTheDocument();
   });
 
   it('shows the live printer view to a child only while her own print is running', async () => {

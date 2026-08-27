@@ -471,13 +471,42 @@ class PrinterProfileViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
         snapshot = read_state(printer.serial)
         open_job = (
             PrintJob.objects
-            .select_related("request")
+            .select_related("request", "user")
             .filter(printer=printer, finished_at__isnull=True)
             .first()
         )
+
+        # A child may only see the details of her OWN print. The printer is
+        # shared, so a sibling's job would otherwise leak its request title
+        # and owner to anyone in the family who hits this endpoint — the UI
+        # hides it, but the UI is not the access control. She still gets
+        # "busy", because "can I print now?" is a fair question to ask.
+        owns_it = (
+            request.user.role == "parent"
+            or (open_job is not None and open_job.user_id == request.user.id)
+        )
+
+        job_payload = None
+        if open_job is not None:
+            job_payload = (
+                PrintJobSerializer(open_job).data if owns_it
+                else {"busy_with_someone_elses_print": True}
+            )
+
+        # The snapshot leaks identity too, which is easy to miss: subtask_name
+        # IS the plate filename, and the plate filename embeds the slug — so
+        # it spells out the sibling's request title. Redact the two fields
+        # that carry a name; the telemetry (state, progress, temps) is fine
+        # for anyone in the household to see.
+        if snapshot is not None and not owns_it:
+            snapshot = {
+                key: value for key, value in snapshot.items()
+                if key not in ("subtask_name", "gcode_file")
+            }
+
         return Response({
             "printer": PrinterProfileSerializer(printer).data,
             "live": snapshot,
             "connected": snapshot is not None,
-            "job": PrintJobSerializer(open_job).data if open_job else None,
+            "job": job_payload,
         })

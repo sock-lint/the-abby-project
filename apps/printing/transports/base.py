@@ -225,15 +225,23 @@ class PahoTransportBase(PrinterTransport):
         context = ssl.create_default_context()
         if self.config.ca_cert_path:
             context.load_verify_locations(cafile=self.config.ca_cert_path)
-        if not self.config.verify_tls:
-            context.verify_mode = ssl.CERT_NONE
+
         # Python 3.13+ turns on VERIFY_X509_STRICT by default and Bambu's CA
         # omits the keyUsage extension, which trips "CA cert does not include
         # key usage extension". Clearing the flag is the documented workaround.
         context.verify_flags &= ~getattr(ssl, "VERIFY_X509_STRICT", 0)
-        # Must come after verify_mode: setting check_hostname True with
-        # CERT_NONE raises.
+
+        # ORDER IS LOAD-BEARING. create_default_context() returns a context
+        # with check_hostname=True, and Python refuses to set CERT_NONE while
+        # it is still on ("Cannot set verify_mode to CERT_NONE when
+        # check_hostname is enabled"). So check_hostname must be cleared
+        # FIRST. Getting this backwards raises on every single connect, and
+        # the LAN transport takes that branch by default — verify_tls is
+        # False until PRINT_BAMBU_CA_CERT is configured.
         context.check_hostname = self.config.check_hostname and self.config.verify_tls
+        if not self.config.verify_tls:
+            context.verify_mode = ssl.CERT_NONE
+
         if self.config.max_tls_version == "1.2":
             context.maximum_version = ssl.TLSVersion.TLSv1_2
         return context
