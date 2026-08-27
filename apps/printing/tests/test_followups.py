@@ -15,6 +15,9 @@
 """
 from __future__ import annotations
 
+import pathlib
+import tempfile
+import time
 from unittest.mock import patch
 
 from django.core.cache import cache
@@ -201,6 +204,65 @@ class SupervisorSurvivesDatabaseTroubleTests(_Fixture, TestCase):
         # rather than dialled — the pass completed either way.
         self.printer.refresh_from_db()
         self.assertIn("access code", self.printer.last_error)
+
+
+@override_settings(CACHES=LOCMEM)
+class HeartbeatTests(_Fixture, TestCase):
+    """The compose healthcheck reads a heartbeat file, not `pgrep`.
+
+    The runtime image is python:3.12-slim, which ships no `procps`, so a
+    `pgrep` healthcheck exits 127 and the container is unhealthy forever.
+    The heartbeat is also a better probe: a supervisor whose loop has wedged
+    stops stamping it, where the process still exists.
+    """
+
+    def setUp(self):
+        self.build_family()
+        cache.clear()
+        self.beat = pathlib.Path(tempfile.mkdtemp()) / "heartbeat"
+
+    def _run_one_pass(self, supervisor):
+        original = supervisor.sync
+
+        def once(*args, **kwargs):
+            try:
+                return original(*args, **kwargs)
+            finally:
+                supervisor.stop()
+
+        supervisor.sync = once
+        supervisor.run_forever()
+
+    def test_a_pass_stamps_the_heartbeat(self):
+        supervisor = ListenerSupervisor(
+            owner="test", poll_interval=0, heartbeat_path=str(self.beat),
+        )
+        self.assertFalse(self.beat.exists())
+        self._run_one_pass(supervisor)
+        self.assertTrue(self.beat.exists())
+        # Recent enough that the 120s healthcheck window passes.
+        self.assertLess(time.time() - self.beat.stat().st_mtime, 5)
+
+    def test_a_pass_that_failed_still_heartbeats(self):
+        # Waiting out a migration is alive. If this stopped stamping, every
+        # deploy would restart the container mid-wait for no reason.
+        from django.db import OperationalError
+
+        supervisor = ListenerSupervisor(
+            owner="test", poll_interval=0, heartbeat_path=str(self.beat),
+        )
+        with patch.object(
+            ListenerSupervisor, "sync", side_effect=OperationalError("down"),
+        ):
+            self._run_one_pass(supervisor)
+        self.assertTrue(self.beat.exists())
+
+    def test_an_unwritable_path_does_not_take_the_listener_down(self):
+        supervisor = ListenerSupervisor(
+            owner="test", poll_interval=0,
+            heartbeat_path="/nonexistent-dir/heartbeat",
+        )
+        self._run_one_pass(supervisor)  # must not raise
 
 
 class SslContextTests(TestCase):

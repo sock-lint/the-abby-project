@@ -203,6 +203,15 @@ services by hand (`.deploy.yml` → `app_services`, and the `for svc in …` loo
 * The four `PRINT_*` env vars are optional and defaulted; nothing has to be set
   for a LAN printer beyond the per-printer access code, which is entered in the
   app and stored encrypted, not as an env var.
+* Its healthcheck is a **heartbeat file**, not `pgrep`. The runtime image is
+  `python:3.12-slim`, which ships no `procps` — a `pgrep` check exits 127 and
+  leaves the container unhealthy forever. `ListenerSupervisor.touch_heartbeat`
+  stamps the file once per pass (including while waiting out a migration, which
+  is a live state), and the healthcheck asserts its mtime is under 120s. It is
+  the better probe regardless: a wedged loop stops stamping, where the process
+  still exists. **Note `celery_beat` has the same `pgrep` healthcheck and is
+  therefore very likely permanently unhealthy in production** — unnoticed
+  because nothing gates on it. Not fixed here; out of this subsystem's scope.
 * `deploy.replicas: 1` in compose is declarative — plain `docker compose up`
   ignores it outside Swarm. `PrinterLock` is what actually holds the line.
 * The container reaches the printer over the host's LAN through ordinary

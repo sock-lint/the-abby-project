@@ -35,6 +35,14 @@ STRIPPABLE_EXTENSIONS = (
 FAILED_PRINT_MIN_FRACTION = 0.1
 
 # --- Job tracking ---------------------------------------------------------
+#: The listener supervisor touches this file once per loop pass; the compose
+#: healthcheck asserts its mtime is recent. Deliberately NOT a `pgrep` check:
+#: the runtime image is python:3.12-slim, which has no `procps`, so `pgrep`
+#: exits 127 and the container is unhealthy forever. A heartbeat is also a
+#: better probe — it catches a supervisor whose loop has wedged, which a
+#: process-existence check cannot.
+LISTENER_HEARTBEAT_PATH = "/tmp/printer-listener.heartbeat"  # noqa: S108
+
 #: A job whose printer has said nothing for this long is considered stale
 #: and is closed out as ``unknown`` by the reconcile task, so a request
 #: never sticks in ``printing`` forever after a power cut.

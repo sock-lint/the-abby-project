@@ -274,8 +274,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Heartbeat, not pgrep. The runtime image is python:3.12-slim, which has
+    # no `procps` — `pgrep` exits 127 there and the container would be
+    # unhealthy forever. (celery_beat's healthcheck has the same problem; it
+    # goes unnoticed because nothing gates on its health.) A heartbeat is the
+    # better probe anyway: it catches a supervisor whose loop has wedged,
+    # which process-existence cannot. The supervisor stamps the file once per
+    # pass, including while it is waiting out a migration — waiting is alive.
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'run_printer_listener' || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import os,sys,time; p='/tmp/printer-listener.heartbeat'; sys.exit(0 if os.path.exists(p) and time.time()-os.path.getmtime(p) < 120 else 1)\""]
       interval: 30s
       timeout: 10s
       retries: 3

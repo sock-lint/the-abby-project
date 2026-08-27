@@ -32,6 +32,7 @@ from django.db import OperationalError, ProgrammingError
 from django.utils import timezone
 
 from . import fanout, report
+from .constants import LISTENER_HEARTBEAT_PATH
 from .jobs import PrinterJobTracker
 from .models import PrinterProfile
 from .transports import TransportError, build_transport
@@ -290,9 +291,11 @@ class PrinterListener:
 class ListenerSupervisor:
     """Own one listener per active printer, and keep the locks fresh."""
 
-    def __init__(self, *, owner: str, poll_interval: int = 5):
+    def __init__(self, *, owner: str, poll_interval: int = 5,
+                 heartbeat_path: str = LISTENER_HEARTBEAT_PATH):
         self.owner = owner
         self.poll_interval = poll_interval
+        self.heartbeat_path = heartbeat_path
         self.listeners: dict[int, PrinterListener] = {}
         self.locks: dict[int, PrinterLock] = {}
         self._stop = threading.Event()
@@ -341,9 +344,27 @@ class ListenerSupervisor:
                     )
                 except Exception:  # noqa: BLE001 - a bad pass must not end the process
                     logger.exception("printing: supervisor pass failed, continuing")
+                # Heartbeat AFTER the pass, including the failure branches: a
+                # supervisor waiting out a migration is alive and healthy. What
+                # this must not survive is the loop wedging or the process
+                # dying, and neither of those reaches here.
+                self.touch_heartbeat()
                 self._stop.wait(self.poll_interval)
         finally:
             self.shutdown()
+
+    def touch_heartbeat(self) -> None:
+        """Stamp the liveness file the compose healthcheck reads.
+
+        Never raises: a read-only or full /tmp is not a reason to take the
+        listener down, it just means the healthcheck goes stale and the
+        container gets restarted — which is the correct outcome anyway.
+        """
+        try:
+            with open(self.heartbeat_path, "w", encoding="utf-8") as handle:
+                handle.write(str(int(time.time())))
+        except OSError as exc:  # pragma: no cover - filesystem dependent
+            logger.warning("printing: could not write heartbeat: %s", exc)
 
     def sync(self) -> None:
         """Start listeners for printers we should own; drop the rest."""
