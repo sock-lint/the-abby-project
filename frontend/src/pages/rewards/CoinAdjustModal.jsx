@@ -31,7 +31,7 @@ export default function CoinAdjustModal({ onClose, onSaved }) {
   };
 
   return (
-    <BottomSheet title="Adjust Coins" onClose={onClose} dirty={dirty}>
+    <BottomSheet title="Adjust coins" onClose={onClose} dirty={dirty}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <SelectField

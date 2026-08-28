@@ -5,7 +5,7 @@ import SkillTagEditor from '../../components/SkillTagEditor';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import Button from '../../components/Button';
 import IconButton from '../../components/IconButton';
-import { TextField, TextAreaField, SelectField } from '../../components/form';
+import { TextField, TextAreaField, SelectField, CheckboxField } from '../../components/form';
 
 const DEFAULT_CHALLENGE = {
   name: '',
@@ -258,23 +258,20 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
             className="mt-3"
           />
 
-          <label className="mt-3 flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={challenge.is_coop}
-              onChange={(e) =>
-                setChallenge({
-                  ...challenge,
-                  is_coop: e.target.checked,
-                  coop_user_ids: e.target.checked ? challenge.coop_user_ids : [],
-                  assigned_to: e.target.checked ? '' : challenge.assigned_to,
-                })
-              }
-            />
-            <span className="font-body text-body text-ink-primary">
-              Co-op campaign (multiple kids on one shared quest)
-            </span>
-          </label>
+          <CheckboxField
+            id="challenge-coop"
+            className="mt-3"
+            label="Co-op campaign (multiple kids on one shared quest)"
+            checked={challenge.is_coop}
+            onChange={(e) =>
+              setChallenge({
+                ...challenge,
+                is_coop: e.target.checked,
+                coop_user_ids: e.target.checked ? challenge.coop_user_ids : [],
+                assigned_to: e.target.checked ? '' : challenge.assigned_to,
+              })
+            }
+          />
 
           <details className="mt-3">
             <summary className="cursor-pointer font-display italic text-body text-ink-secondary">
@@ -304,18 +301,14 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
                   );
                 })}
               </div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={challenge.on_time_only}
-                  onChange={(e) =>
-                    setChallenge({ ...challenge, on_time_only: e.target.checked })
-                  }
-                />
-                <span className="font-body text-body text-ink-secondary">
-                  Only count homework submitted on time / early
-                </span>
-              </label>
+              <CheckboxField
+                id="challenge-on-time"
+                label="Only count homework submitted on time / early"
+                checked={challenge.on_time_only}
+                onChange={(e) =>
+                  setChallenge({ ...challenge, on_time_only: e.target.checked })
+                }
+              />
             </div>
           </details>
 

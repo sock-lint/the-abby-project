@@ -5,8 +5,8 @@ import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
 import { useApi } from '../../hooks/useApi';
 import { formLabelClass } from '../../constants/styles';
-import Button from '../../components/Button';
-import { TextField, SelectField, TextAreaField } from '../../components/form';
+import ModalActions from '../../components/ModalActions';
+import { TextField, SelectField, TextAreaField, CheckboxField } from '../../components/form';
 import { downscaleImage } from '../../utils/image';
 import { normalizeList } from '../../utils/api';
 
@@ -79,11 +79,11 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <TextField label="Icon (emoji)" value={form.icon} onChange={onField('icon')} placeholder="🎁" />
           <TextField label="Cost (coins)" type="number" min="0" value={form.cost_coins} onChange={onField('cost_coins')} required />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Rarity" value={form.rarity} onChange={onField('rarity')}>
             {RARITIES.map((r) => (
               <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
@@ -101,7 +101,7 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
             className="text-sm text-ink-primary"
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <TextField label="Order" type="number" value={form.order} onChange={onField('order')} />
           <SelectField
             label="Fulfillment"
@@ -135,34 +135,23 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
             ))}
           </SelectField>
         )}
-        <div className="flex gap-4">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.requires_parent_approval}
-              onChange={onField('requires_parent_approval')}
-              className="accent-amber-primary"
-            />
-            Requires approval
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.is_active}
-              onChange={onField('is_active')}
-              className="accent-amber-primary"
-            />
-            Active
-          </label>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          <CheckboxField
+            label="Requires approval"
+            checked={form.requires_parent_approval}
+            onChange={onField('requires_parent_approval')}
+          />
+          <CheckboxField
+            label="Active"
+            checked={form.is_active}
+            onChange={onField('is_active')}
+          />
         </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper hover:text-ink-primary">
-            Cancel
-          </button>
-          <Button type="submit" size="sm" loading={saving}>
-            {isEdit ? 'Update' : 'Create'}
-          </Button>
-        </div>
+        <ModalActions
+          onClose={onClose}
+          saving={saving}
+          submitLabel={isEdit ? 'Update' : 'Create'}
+        />
       </form>
     </BottomSheet>
   );

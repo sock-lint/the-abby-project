@@ -7,6 +7,7 @@ import { getProjects, getProjectSuggestions, getChildren } from '../api';
 import { useApi } from '../hooks/useApi';
 import StarRating from '../components/StarRating';
 import EmptyState from '../components/EmptyState';
+import ErrorAlert from '../components/ErrorAlert';
 import CatalogSearch from '../components/CatalogSearch';
 import Loader from '../components/Loader';
 import StatusBadge from '../components/StatusBadge';
@@ -47,7 +48,7 @@ const STATUS_RUBRICS = [
 
 export default function Projects() {
   const { isParent } = useRole();
-  const { data, loading } = useApi(getProjects);
+  const { data, loading, error, reload } = useApi(getProjects);
   const { data: suggestions } = useApi(getProjectSuggestions);
   const { data: childrenData } = useApi(getChildren);
   const navigate = useNavigate();
@@ -125,6 +126,20 @@ export default function Projects() {
   );
 
   if (loading) return <Loader />;
+
+  // A dropped fetch used to fall straight through to "No ventures yet",
+  // which reads as "my ventures are gone" rather than "the network blinked"
+  // — and an installed PWA has no reload button to escape it with.
+  if (error) {
+    return (
+      <div className="space-y-3">
+        <ErrorAlert message={error} />
+        <Button variant="primary" onClick={reload}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
 
   const hasFilters = !!(statusFilter || typeFilter || childFilter || search);
 

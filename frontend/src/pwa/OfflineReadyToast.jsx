@@ -20,7 +20,18 @@ export default function OfflineReadyToast() {
   }, [offlineReady, dismissOfflineReady]);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 pointer-events-none">
+    // Anchored above the fixed ChapterBottomBar on phones — at bottom-4 this
+    // pointer-events-auto toast parked itself on top of the Atlas/Chronicle
+    // tabs and ate taps meant for them for a full 4s, and it's the very first
+    // toast a fresh install ever shows, i.e. exactly while a new kid is
+    // poking at the tabs. The 9.5rem anchor is the same one JournalShell's
+    // toast band uses: it clears the nav, the home-indicator inset, and the
+    // FAB zone above them. Back to the corner at lg, where neither exists.
+    <div
+      className="fixed z-50 pointer-events-none
+                 bottom-[calc(env(safe-area-inset-bottom)+9.5rem)] right-4
+                 lg:bottom-4"
+    >
       <AnimatePresence>
         {offlineReady && (
           <motion.div

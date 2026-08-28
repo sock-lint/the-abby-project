@@ -6,7 +6,9 @@ import { buildUser } from '../test/factories.js';
 import * as apiIndex from '../api/index.js';
 import { setToken } from '../api/client.js';
 import { STORAGE_KEYS } from '../constants/storage.js';
-import { AuthProvider, useApi, useAuth } from './useApi.js';
+import {
+  AuthProvider, OFFLINE_MESSAGE, useApi, useAuth,
+} from './useApi.js';
 
 describe('useApi', () => {
   it('starts in loading state, then resolves data', async () => {
@@ -75,6 +77,32 @@ describe('useApi', () => {
     expect(result.current.data).toEqual({ n: 2 });
     await act(async () => { await result.current.reload(); });
     expect(result.current.loading).toBe(false);
+  });
+
+  // A dead connection used to render the browser's own wording inside
+  // ErrorAlert — "Failed to fetch" on Chrome, "Load failed" on Safari — on
+  // every page a kid opened without signal.
+  it('translates a network failure into kid-readable copy', async () => {
+    const fn = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    const { result } = renderHook(() => useApi(fn, []));
+    await waitFor(() => expect(result.current.error).toBe(OFFLINE_MESSAGE));
+    expect(result.current.error).not.toMatch(/failed to fetch/i);
+  });
+
+  it('translates Safari\'s "Load failed" wording too', async () => {
+    const fn = vi.fn().mockRejectedValue(new TypeError('Load failed'));
+    const { result } = renderHook(() => useApi(fn, []));
+    await waitFor(() => expect(result.current.error).toBe(OFFLINE_MESSAGE));
+  });
+
+  // api/client.js attaches .status to every HTTP error; those messages come
+  // from the server and are already written for humans, so they pass through.
+  it('keeps server error messages verbatim', async () => {
+    const err = new Error('You already logged that today.');
+    err.status = 409;
+    const fn = vi.fn().mockRejectedValue(err);
+    const { result } = renderHook(() => useApi(fn, []));
+    await waitFor(() => expect(result.current.error).toBe('You already logged that today.'));
   });
 
   it('silently ignores AbortError', async () => {

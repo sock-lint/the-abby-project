@@ -296,8 +296,10 @@ function JournalBody({
     return (
       <EmptyState>
         <p className="font-semibold mb-1">No entries yet</p>
+        {/* Kid-agnostic surface — the parent may have picked any child, so
+            the copy stays pronoun-neutral rather than assuming a daughter. */}
         <p>{isParent
-          ? "When she writes her first journal entry, it'll appear here."
+          ? "When they write their first journal entry, it'll appear here."
           : "Write your first entry above. One per day, in your own words."}</p>
       </EmptyState>
     );

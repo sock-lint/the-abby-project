@@ -8,6 +8,7 @@ import { useApi } from '../../../hooks/useApi';
 import Loader from '../../../components/Loader';
 import EmptyState from '../../../components/EmptyState';
 import ErrorAlert from '../../../components/ErrorAlert';
+import Button from '../../../components/Button';
 import ParchmentCard from '../../../components/journal/ParchmentCard';
 import IncipitBand from '../../../components/atlas/IncipitBand';
 import TomeShelf from '../../../components/atlas/TomeShelf';
@@ -198,35 +199,42 @@ export default function Mounts() {
                       <Crown size={10} /> riding
                     </div>
                   ) : (
-                    <button
-                      type="button"
+                    // <Button> for the 44px floor these tile actions were
+                    // missing (~30px before). The gold/teal tints stay as
+                    // overrides — colour is the Bestiary's own vocabulary for
+                    // "mount action" vs "expedition action".
+                    <Button
+                      size="sm"
+                      variant="secondary"
                       onClick={() => handleActivateMount(mount.id)}
                       disabled={working || isOut}
-                      className="mt-2 w-full font-body text-xs py-1.5 rounded-lg bg-gold-leaf/20 text-ember-deep border border-gold-leaf/60 hover:bg-gold-leaf/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="mt-2 w-full !bg-gold-leaf/20 !text-ember-deep !border-gold-leaf/60 hover:!bg-gold-leaf/30 disabled:cursor-not-allowed"
                     >
                       {working ? 'Saddling…' : 'Saddle up'}
-                    </button>
+                    </Button>
                   )}
                   {isReady ? (
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="secondary"
                       onClick={() => handleClaim(expedition.id)}
                       disabled={working}
-                      className="mt-1 w-full font-body text-xs py-1.5 rounded-lg bg-gold-leaf/30 text-ember-deep border border-gold-leaf/80 hover:bg-gold-leaf/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed animate-gilded-glint"
+                      className="mt-1 w-full !bg-gold-leaf/30 !text-ember-deep !border-gold-leaf/80 hover:!bg-gold-leaf/40 disabled:cursor-not-allowed animate-gilded-glint"
                       aria-label={`Claim expedition loot for ${mount.species.name}`}
                     >
                       {working ? 'Claiming…' : 'Claim loot →'}
-                    </button>
+                    </Button>
                   ) : !isOut ? (
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="secondary"
                       onClick={() => setLaunchMount(mount)}
                       disabled={working}
-                      className="mt-1 w-full font-body text-xs py-1.5 rounded-lg bg-sheikah-teal-deep/15 text-sheikah-teal-deep border border-sheikah-teal-deep/50 hover:bg-sheikah-teal-deep/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
+                      className="mt-1 w-full inline-flex items-center justify-center gap-1 !bg-sheikah-teal-deep/15 !text-sheikah-teal-deep !border-sheikah-teal-deep/50 hover:!bg-sheikah-teal-deep/25 disabled:cursor-not-allowed"
                       aria-label={`Send ${mount.species.name} on an expedition`}
                     >
                       <MapIcon size={11} aria-hidden="true" /> Expedition
-                    </button>
+                    </Button>
                   ) : null}
                 </ParchmentCard>
               </motion.div>

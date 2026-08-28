@@ -136,6 +136,27 @@ describe('MovementSessionLogModal', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
+  // The action row now lives in BottomSheet's sticky footer, outside the
+  // <form>, so the submit is a real native form submit — which means the
+  // duration field has to actually pass constraint validation. It didn't:
+  // step="5" off min="1" made 30 (and every other round number) a step
+  // mismatch, silently masked while the button called the handler directly.
+  it('leaves the default duration a valid value for native form submission', async () => {
+    stubTypes();
+    stubSkills();
+    renderWithProviders(<MovementSessionLogModal onClose={() => {}} onSaved={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /what did you do/i })).not.toBeDisabled();
+    });
+
+    const duration = screen.getByRole('spinbutton', { name: /how long/i });
+    expect(duration.validity.stepMismatch).toBe(false);
+    expect(duration.checkValidity()).toBe(true);
+    expect(screen.getByRole('button', { name: /log session/i }))
+      .toHaveAttribute('form', 'movement-log-form');
+  });
+
   it('disables submit until a movement type is picked', async () => {
     stubTypes();
     stubSkills();

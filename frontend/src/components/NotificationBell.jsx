@@ -27,6 +27,7 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
+  const [markAllError, setMarkAllError] = useState('');
   const ref = useRef(null);
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
@@ -52,12 +53,31 @@ export default function NotificationBell() {
     }
   };
 
+  // Clear optimistically so the tap feels instant, then roll the whole view
+  // back if the request never lands. Without the catch a failed call left the
+  // button looking like a dead no-op — badge still lit, nothing said.
   const handleMarkAllRead = async () => {
-    await markAllReadApi();
+    const prevCount = unreadCount;
+    const prevNotifications = notifications;
+    setMarkAllError('');
     setUnreadCount(0);
     syncAppBadge(0);
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    try {
+      await markAllReadApi();
+    } catch {
+      setUnreadCount(prevCount);
+      syncAppBadge(prevCount);
+      setNotifications(prevNotifications);
+      setMarkAllError("Couldn't mark those read — check your connection and try again.");
+    }
   };
+
+  const markAllBanner = markAllError ? (
+    <p role="alert" className="text-caption text-ember-deep">
+      {markAllError}
+    </p>
+  ) : null;
 
   // Both the count and the list ride the shared heartbeat now — the bell used
   // to run its own 30s timer (one that never paused on a backgrounded tab)
@@ -134,7 +154,7 @@ export default function NotificationBell() {
   return (
     <div className="relative" ref={ref}>
       <IconButton
-        onClick={() => { if (!open) refresh(); setOpen(!open); }}
+        onClick={() => { if (!open) { refresh(); setMarkAllError(''); } setOpen(!open); }}
         variant="ghost"
         aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
         className="relative hover:bg-ink-page-shadow/60"
@@ -158,6 +178,7 @@ export default function NotificationBell() {
               Mark all read
             </Button>
           )}
+          {markAllBanner}
           {/* Bleed to the sheet's edges so rows are full-width tap targets. */}
           <div className="-mx-4">{listBody}</div>
         </BottomSheet>
@@ -182,6 +203,9 @@ export default function NotificationBell() {
                 </button>
               )}
             </div>
+            {markAllError && (
+              <div className="px-3 py-2 border-b border-ink-page-shadow">{markAllBanner}</div>
+            )}
             {listBody}
           </motion.div>
         )}

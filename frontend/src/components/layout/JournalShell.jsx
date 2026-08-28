@@ -39,12 +39,15 @@ export default function JournalShell() {
       >
         Skip to content
       </a>
-      {/* Toasts sit in the thumb zone on phones — above the bottom nav and
-          left of the FAB — and return to the top-right corner at lg where the
-          bottom bar doesn't exist. */}
+      {/* Toasts sit in the thumb zone on phones — stacked ABOVE the FAB, not
+          beside it — and return to the top-right corner at lg where the bottom
+          bar doesn't exist. The 9.5rem anchor clears the whole FAB zone (nav
+          + 6rem offset + ~3rem button), which the old 5.5rem/right-20 reserve
+          did not once the FAB grows into a clocked-in timer pill; toasts were
+          landing on top of the running timer and eating taps meant for it. */}
       <div
         className="fixed z-50 space-y-2 pointer-events-none
-                   bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] left-4 right-20
+                   bottom-[calc(env(safe-area-inset-bottom)+9.5rem)] left-4 right-4
                    lg:bottom-auto lg:left-auto lg:right-4 lg:top-[calc(env(safe-area-inset-top)+1rem)]
                    lg:w-80 lg:max-w-[calc(100vw-2rem)]"
         aria-live="polite"
@@ -60,13 +63,30 @@ export default function JournalShell() {
       <FirstEncounterSheet />
       <ChapterSidebar user={user} onLogout={logout} />
 
-      <main id="main-content" className="flex-1 ml-0 lg:ml-60 pb-20 lg:pb-8 min-w-0">
+      {/* The bottom padding clears the fixed ChapterBottomBar, which is
+          min-h-16 PLUS the home-indicator inset — a flat pb-20 left the last
+          ~18px of every page hidden behind the bar on notched iPhones. */}
+      <main
+        id="main-content"
+        className="flex-1 ml-0 lg:ml-60 min-w-0
+                   pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-8"
+      >
         {/* pt-[env(safe-area-inset-top)] keeps the header clear of the iOS
             status bar in the installed PWA (viewport-fit=cover draws the
-            page under it); the parchment backdrop still extends beneath. */}
+            page under it); the parchment backdrop still extends beneath.
+            The left/right insets matter in landscape, where the notch eats
+            ~47px on the sensor-housing side. */}
         <div className="sticky top-0 z-30 bg-ink-page backdrop-blur-[2px] pt-[env(safe-area-inset-top)]">
-          <header className="flex items-center px-4 lg:px-6 pt-3 lg:pt-4 pb-3 lg:pb-4 gap-3">
-            <div className="lg:hidden min-w-0 shrink-0">
+          <header
+            className="flex items-center gap-3 pt-3 lg:pt-4 pb-3 lg:pb-4
+                       pl-[max(1rem,env(safe-area-inset-left))]
+                       pr-[max(1rem,env(safe-area-inset-right))] lg:px-6"
+          >
+            {/* min-w-0 + a width cap (NOT shrink-0) so AvatarMenu's own
+                truncate can fire — a long display name plus the family line
+                used to squeeze the status pips, and the coin count, off the
+                right edge at 360px. */}
+            <div className="lg:hidden min-w-0 max-w-[38vw]">
               <AvatarMenu user={user} compact />
             </div>
             <div className="flex-1 min-w-0 flex justify-end lg:justify-center">
@@ -93,7 +113,11 @@ export default function JournalShell() {
           )}
         </div>
 
-        <div className="px-4 lg:px-6 pt-3 lg:pt-6">
+        <div
+          className="pt-3 lg:pt-6
+                     pl-[max(1rem,env(safe-area-inset-left))]
+                     pr-[max(1rem,env(safe-area-inset-right))] lg:px-6"
+        >
           {/* Suspense boundary for the lazy page chunks (App.jsx). Sitting
               inside <main> keeps the sticky header + nav mounted while a
               chunk downloads; the parchment skeleton fills the content well

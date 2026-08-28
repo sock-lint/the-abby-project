@@ -32,6 +32,26 @@ describe('Projects', () => {
     );
   });
 
+  it('shows a retry-able error instead of the empty state when the fetch fails', async () => {
+    const user = userEvent.setup();
+    let attempt = 0;
+    renderPage(buildUser(), [
+      http.get('*/api/projects/', () => {
+        attempt += 1;
+        return attempt === 1
+          ? HttpResponse.json({ error: 'server exploded' }, { status: 500 })
+          : HttpResponse.json([buildProject({ id: 1, title: 'Birdhouse' })]);
+      }),
+    ]);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/server exploded/i);
+    // "No ventures yet" would read as data loss on a flaky phone connection.
+    expect(screen.queryByText(/no ventures yet/i)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    expect(await screen.findByText('Birdhouse')).toBeInTheDocument();
+  });
+
   it('shows "New venture" only for parents', async () => {
     renderPage(buildParent(), [
       http.get('*/api/projects/', () => HttpResponse.json([])),

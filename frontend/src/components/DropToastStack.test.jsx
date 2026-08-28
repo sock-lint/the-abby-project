@@ -109,4 +109,24 @@ describe('DropToastStack', () => {
     expect(screen.getByText(/coin pouch/i)).toBeInTheDocument();
     expect(screen.getByText(/bone shard/i)).toBeInTheDocument();
   });
+
+  // A drop can land on the heartbeat while a kid is halfway through a form
+  // sheet. The full-screen reveal must wait its turn rather than stacking a
+  // second portal over the form and stealing its focus.
+  it('holds the rare reveal back until an open dialog closes', async () => {
+    const openSheet = document.createElement('div');
+    openSheet.setAttribute('role', 'dialog');
+    document.body.appendChild(openSheet);
+
+    const { beat } = renderWithBeats();
+    beat([drop({ id: 20, item_name: 'Sunset Cloak', item_rarity: 'epic' })]);
+
+    // Give the gate a beat to settle — it must still be holding.
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    expect(screen.queryByText(/sunset cloak/i)).toBeNull();
+
+    await act(async () => { openSheet.remove(); });
+    await waitFor(() => expect(screen.getByRole('alertdialog')).toBeInTheDocument());
+    expect(screen.getByText(/sunset cloak/i)).toBeInTheDocument();
+  });
 });

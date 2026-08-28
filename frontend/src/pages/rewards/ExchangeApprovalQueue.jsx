@@ -7,7 +7,7 @@ export default function ExchangeApprovalQueue({ pending, onApprove, onReject }) 
   return (
     <ApprovalQueue
       items={pending}
-      title="Pending Exchanges"
+      title="Pending exchanges"
       icon={<ArrowRightLeft size={18} />}
       onApprove={onApprove}
       onReject={onReject}

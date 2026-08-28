@@ -19,6 +19,13 @@ import { cosmeticLockHint } from './character.constants';
  * can feel a cover before committing. Release restores the current theme.
  * Disabled when the user prefers reduced motion (the cover shift can be
  * jarring for users with vestibular sensitivity).
+ *
+ * `currentThemeName` is what release restores to, so the OWNER of this tile
+ * must keep it in step with the equipped cover — on touch the emulated
+ * mouseleave fires on the next tap anywhere, so a stale value repaints the
+ * page back to the old cover and makes a fresh equip look like it failed.
+ * Character.jsx does this by applying the theme + moving the auth user on a
+ * successful `active_theme` equip.
  */
 export default function CosmeticSigil({
   entry,

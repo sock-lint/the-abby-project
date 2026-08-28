@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { delay, http, HttpResponse } from 'msw'
 
 import { renderWithProviders } from '../test/render'
 import { spyHandler } from '../test/spy'
@@ -59,6 +60,45 @@ describe('CelebrationModal', () => {
     )
     await user.click(screen.getByRole('button', { name: /turn the page/i }))
     await waitFor(() => expect(spy.calls).toHaveLength(1))
+    expect(onDismiss).toHaveBeenCalled()
+  })
+
+  // The drop reveal and the pet ceremony both close on a tap outside the
+  // card, so a kid trained by those taps the wash here too.
+  it('dismisses on a tap outside the card', async () => {
+    const onDismiss = vi.fn()
+    renderWithProviders(
+      <CelebrationModal notification={streakNotif} onDismiss={onDismiss} />,
+    )
+    const wash = screen.getByRole('alertdialog').firstChild
+    fireEvent.click(wash)
+    expect(onDismiss).toHaveBeenCalled()
+  })
+
+  it('does not dismiss on a tap inside the card', async () => {
+    const onDismiss = vi.fn()
+    renderWithProviders(
+      <CelebrationModal notification={streakNotif} onDismiss={onDismiss} />,
+    )
+    fireEvent.click(screen.getByRole('heading', { level: 2 }))
+    expect(onDismiss).not.toHaveBeenCalled()
+  })
+
+  // The overlay covers the whole app — it must never wait on the network to
+  // let go of the screen.
+  it('closes immediately even when mark_read never responds', async () => {
+    server.use(
+      http.post(/\/notifications\/88\/mark_read/, async () => {
+        await delay('infinite')
+        return HttpResponse.json({})
+      }),
+    )
+    const onDismiss = vi.fn()
+    const user = userEvent.setup()
+    renderWithProviders(
+      <CelebrationModal notification={streakNotif} onDismiss={onDismiss} />,
+    )
+    await user.click(screen.getByRole('button', { name: /turn the page/i }))
     expect(onDismiss).toHaveBeenCalled()
   })
 

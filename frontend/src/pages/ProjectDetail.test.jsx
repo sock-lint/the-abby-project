@@ -7,7 +7,7 @@ import ProjectDetail from './ProjectDetail.jsx';
 import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
-import { buildProject, buildUser } from '../test/factories.js';
+import { buildParent, buildProject, buildUser } from '../test/factories.js';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -56,6 +56,100 @@ describe('ProjectDetail', () => {
       </MemoryRouter>,
     );
     await waitFor(() => expect(screen.getByText(/not inscribed/i)).toBeInTheDocument());
+  });
+
+  it('offers a retry on a failed fetch rather than the "may have been deleted" copy', async () => {
+    const user = userEvent.setup();
+    let attempt = 0;
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get(/\/api\/projects\/42\/$/, () => {
+        attempt += 1;
+        return attempt === 1
+          ? HttpResponse.json({ error: 'gateway timeout' }, { status: 504 })
+          : HttpResponse.json(buildProject({ id: 42, title: 'TestPrj' }));
+      }),
+    );
+    render(
+      <MemoryRouter initialEntries={['/quests/ventures/42']}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/quests/ventures/:id" element={<ProjectDetail />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/gateway timeout/i);
+    expect(screen.queryByText(/not inscribed/i)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    expect(await screen.findByText('TestPrj')).toBeInTheDocument();
+  });
+
+  it('surfaces a failed step toggle instead of silently doing nothing', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get(/\/api\/projects\/42\/$/, () =>
+        HttpResponse.json(buildProject({
+          id: 42, title: 'TestPrj',
+          steps: [{ id: 5, title: 'Cut wood', is_completed: false, milestone: null }],
+        })),
+      ),
+      http.post(/\/api\/projects\/\d+\/steps\/\d+\/complete\/$/, () =>
+        HttpResponse.json({ error: 'step is locked' }, { status: 400 }),
+      ),
+    );
+    render(
+      <MemoryRouter initialEntries={['/quests/ventures/42']}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/quests/ventures/:id" element={<ProjectDetail />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByText('TestPrj')).toBeInTheDocument());
+    await user.click(screen.getByRole('tab', { name: /^plan$/i }));
+    await user.click(await screen.findByRole('button', { name: /mark step complete/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/step is locked/i);
+  });
+
+  it('surfaces a failed milestone delete instead of looking like a success', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get(/\/api\/projects\/42\/$/, () =>
+        HttpResponse.json(buildProject({
+          id: 42, title: 'TestPrj',
+          milestones: [{ id: 8, title: 'Frame', is_completed: false }],
+          steps: [],
+        })),
+      ),
+      http.delete(/\/api\/projects\/\d+\/milestones\/\d+\/$/, () =>
+        HttpResponse.json({ error: 'milestone already paid out' }, { status: 409 }),
+      ),
+    );
+    render(
+      <MemoryRouter initialEntries={['/quests/ventures/42']}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/quests/ventures/:id" element={<ProjectDetail />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByText('TestPrj')).toBeInTheDocument());
+    await user.click(screen.getByRole('tab', { name: /^plan$/i }));
+    await user.click(await screen.findByRole('button', { name: /delete milestone/i }));
+    const dialog = await screen.findByRole('alertdialog', { name: /delete this milestone/i });
+    await user.click(within(dialog).getByRole('button', { name: /^delete$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/already paid out/i);
   });
 
   it('switches between tabs', async () => {

@@ -6,10 +6,14 @@ export function formatCurrency(amount) {
   return `$${n.toFixed(2)}`;
 }
 
+// The one duration format in the app: "45m" under an hour, "1h 5m" over it.
+// Header pips, hero cards, timecards and clock entries all read the same, and
+// a sub-hour value never renders as the clunky "0h 45m".
 export function formatDuration(minutes) {
   const m = Number(minutes) || 0;
   const h = Math.floor(m / 60);
   const r = m % 60;
+  if (h === 0) return `${r}m`;
   return `${h}h ${r}m`;
 }
 

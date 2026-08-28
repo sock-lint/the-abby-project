@@ -60,6 +60,44 @@ describe('Movement page', () => {
     expect(screen.getByText(/medium/i)).toBeInTheDocument();
   });
 
+  it('surfaces a failed session fetch instead of falling through to the empty verso', async () => {
+    // useApi stores `error` as a message string; the page used to render
+    // `error?.message`, which is always undefined on a string — so a 500 read
+    // as "you have not logged anything today".
+    stubTypes();
+    server.use(
+      http.get('*/api/movement-sessions/', () =>
+        HttpResponse.json({ detail: 'Movement log is unavailable.' }, { status: 500 }),
+      ),
+    );
+    stubMe(buildUser());
+    renderWithProviders(<Movement />);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/movement log is unavailable/i);
+  });
+
+  it('renders session length through the shared duration formatter', async () => {
+    stubTypes();
+    const today = new Date().toISOString().slice(0, 10);
+    server.use(
+      http.get('*/api/movement-sessions/', () =>
+        HttpResponse.json([
+          {
+            id: 12, user: 1,
+            movement_type: 1, movement_type_name: 'Run', movement_type_icon: '🏃',
+            duration_minutes: 75, intensity: 'high',
+            occurred_on: today, notes: '',
+            xp_awarded: 0, created_at: '2026-04-23T15:00:00Z',
+          },
+        ]),
+      ),
+    );
+    stubMe(buildUser({ id: 1 }));
+    renderWithProviders(<Movement />);
+    expect(await screen.findByText(/1h 15m/)).toBeInTheDocument();
+    expect(screen.queryByText(/75 min/)).toBeNull();
+  });
+
   it('a child sees a "Log" button; parent does not', async () => {
     stubTypes();
     server.use(

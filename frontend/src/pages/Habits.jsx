@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import useSearchParamState from '../hooks/useSearchParamState';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, ThumbsUp, ThumbsDown, Pencil, Trash2 } from 'lucide-react';
 import {
@@ -22,8 +23,10 @@ import ChapterRubric from '../components/atlas/ChapterRubric';
 import { ScrollIcon } from '../components/icons/JournalIcons';
 import Button from '../components/Button';
 import IconButton from '../components/IconButton';
+import ModalActions from '../components/ModalActions';
 import { TextField, SelectField } from '../components/form';
 import { normalizeList } from '../utils/api';
+import { hapticTap } from '../utils/haptics';
 import QuestFolio from './quests/QuestFolio';
 
 // Strength color — journal-safe sepia gradient from ember (low) through
@@ -131,7 +134,7 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
     : isParent ? 'Create ritual' : 'Send to parent';
 
   return (
-    <BottomSheet title={title} onClose={onClose}>
+    <BottomSheet title={title} onClose={onClose} disabled={saving}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         {isApprove && habit?.created_by_name && (
@@ -180,9 +183,13 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
             />
           </>
         )}
-        <Button type="submit" loading={saving} className="w-full">
-          {submitLabel}
-        </Button>
+        {/* Cancel + submit pair, matching the sibling Duties sheet
+            (ChoreFormModal) and every other domain form modal. */}
+        <ModalActions
+          onClose={onClose}
+          submitLabel={submitLabel}
+          saving={saving}
+        />
       </form>
     </BottomSheet>
   );
@@ -207,8 +214,11 @@ export default function Habits() {
     isParent ? getSkills : () => Promise.resolve([]),
     [isParent],
   );
+  const [proposeParam, setProposeParam] = useSearchParamState('propose', '');
   const [error, setError] = useState('');
-  const [showForm, setShowForm] = useState(false);
+  // The quick-actions FAB deep-links here with ?propose=1; without this the
+  // row just landed on the tab and the kid had to find the button again.
+  const [showForm, setShowForm] = useState(proposeParam === '1');
   const [editingHabit, setEditingHabit] = useState(null);
   const [formMode, setFormMode] = useState('create');
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -252,6 +262,13 @@ export default function Habits() {
     setFormMode('create');
     setShowForm(true);
   };
+  // Drop ?propose=1 as the sheet closes so a tab switch back here (ChapterHub
+  // remounts tab bodies) doesn't re-open it.
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingHabit(null);
+    setProposeParam('');
+  };
   const openEdit = (habit) => {
     setEditingHabit(habit);
     setFormMode('edit');
@@ -264,6 +281,8 @@ export default function Habits() {
   };
 
   const handleTap = async (habit, direction) => {
+    // Same tap, same buzz as the dashboard's quick habit tap (ChildDashboard).
+    hapticTap();
     setTapping(`${habit.id}-${direction}`);
     setError('');
     // Optimistic bump — strength shifts by direction, positive taps also
@@ -533,8 +552,8 @@ export default function Habits() {
           skills={skills}
           isParent={isParent}
           mode={formMode}
-          onClose={() => { setShowForm(false); setEditingHabit(null); }}
-          onSaved={() => { setShowForm(false); setEditingHabit(null); refreshAll(); }}
+          onClose={closeForm}
+          onSaved={() => { closeForm(); refreshAll(); }}
         />
       )}
 

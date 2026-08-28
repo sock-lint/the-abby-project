@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import Timecards from './Timecards.jsx';
 import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
+import { spyHandler } from '../test/spy.js';
 import { buildParent, buildUser } from '../test/factories.js';
 
 vi.mock('framer-motion', async () => {
@@ -124,6 +125,89 @@ describe('Timecards', () => {
     await user.click(screen.getByRole('button', { name: /week of/i }));
     await user.click(await screen.findByRole('button', { name: /approve/i }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+  });
+
+  it('a failed timecard fetch shows a retry-able alert, not the empty state', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    renderPage(buildUser(), [
+      http.get('*/api/timecards/', () => {
+        attempts += 1;
+        if (attempts === 1) return HttpResponse.json({ detail: 'boom' }, { status: 500 });
+        return HttpResponse.json([
+          { id: 1, week_start: '2026-04-10', total_hours: 5, total_earnings: 50, status: 'pending' },
+        ]);
+      }),
+    ]);
+    await waitFor(() =>
+      expect(screen.getByText(/couldn't load your wages/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/no weeks logged yet/i)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    await waitFor(() => expect(screen.getByText('5h')).toBeInTheDocument());
+  });
+
+  it('surfaces a failed detail fetch inline, with a retry, instead of never expanding', async () => {
+    const user = userEvent.setup();
+    let detailCalls = 0;
+    renderPage(buildUser(), [
+      http.get('*/api/timecards/', () =>
+        HttpResponse.json([{ id: 5, week_start: '2026-04-10', total_hours: 3, total_earnings: 30, status: 'pending' }]),
+      ),
+      http.get('*/api/timecards/5/', () => {
+        detailCalls += 1;
+        if (detailCalls === 1) return HttpResponse.json({ detail: 'gone' }, { status: 500 });
+        return HttpResponse.json({
+          id: 5, hourly_earnings: 30, bonus_earnings: 0, total_earnings: 30,
+          entries: [{ id: 1, project_title: 'Shed', clock_in: '2026-04-10T12:00:00Z', duration_minutes: 60 }],
+        });
+      }),
+    ]);
+    await waitFor(() => expect(screen.getByText('3h')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /week of/i }));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    await waitFor(() => expect(screen.getByText('Shed')).toBeInTheDocument());
+  });
+
+  it('double-tapping Mark as paid only posts once', async () => {
+    // markTimecardPaid has no server-side status guard, so a second tap
+    // during the in-flight window really would write a second payout row.
+    const user = userEvent.setup();
+    const card = { id: 2, week_start: '2026-04-10', total_hours: 2, total_earnings: 20, status: 'approved' };
+    let listCalls = 0;
+    let releaseReload;
+    const reloadGate = new Promise((r) => { releaseReload = r; });
+    const paid = spyHandler('post', /\/api\/timecards\/\d+\/mark-paid\/$/, { ok: true });
+    renderPage(buildParent(), [
+      http.get('*/api/timecards/', async () => {
+        listCalls += 1;
+        // Hold the post-action refetch open so the button stays in its
+        // pending state long enough for a second tap.
+        if (listCalls > 1) await reloadGate;
+        return HttpResponse.json([card]);
+      }),
+      http.get('*/api/timecards/2/', () =>
+        HttpResponse.json({ id: 2, hourly_earnings: 20, bonus_earnings: 0, total_earnings: 20, entries: [] }),
+      ),
+      paid.handler,
+    ]);
+    await waitFor(() => expect(screen.getByText('2h')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /week of/i }));
+
+    await user.click(await screen.findByRole('button', { name: /mark as paid/i }));
+    const pendingButton = await screen.findByRole('button', { name: /marking as paid/i });
+    expect(pendingButton).toBeDisabled();
+
+    await user.click(pendingButton);
+    releaseReload();
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mark as paid/i })).toBeEnabled(),
+    );
+    expect(paid.calls).toHaveLength(1);
   });
 
   it('collapses an expanded timecard on second click', async () => {

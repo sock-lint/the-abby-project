@@ -7,7 +7,7 @@ import {
 } from '../api';
 import { normalizeList } from '../utils/api';
 import { toISODate } from '../utils/dates';
-import { formatDateTime } from '../utils/format';
+import { formatDateTime, formatDuration } from '../utils/format';
 import Loader from '../components/Loader';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
@@ -33,7 +33,7 @@ function SessionRow({ session, canDelete, onDelete }) {
           {session.movement_type_name}
         </div>
         <div className="font-script text-caption text-ink-whisper">
-          {formatDateTime(session.created_at)} · {session.duration_minutes} min
+          {formatDateTime(session.created_at)} · {formatDuration(session.duration_minutes)}
           {session.xp_awarded > 0 && (
             <span className="text-moss-deep"> · +{session.xp_awarded} XP</span>
           )}
@@ -125,11 +125,15 @@ export default function Movement() {
         progressPct={versoProgressPct}
         progressLabel={versoProgressLabel}
       >
-        <ErrorAlert message={error?.message || actionError} />
+        {/* useApi stores `error` as the message string, so `error?.message`
+            was always undefined and a failed fetch rendered nothing — the page
+            fell through to its empty verso as if there were no sessions. */}
+        <ErrorAlert message={error || actionError} />
 
         {!isParent && (
           <div className="flex justify-end">
             <Button
+              size="sm"
               onClick={() => setLogOpen(true)}
               className="flex items-center gap-1 shrink-0"
             >

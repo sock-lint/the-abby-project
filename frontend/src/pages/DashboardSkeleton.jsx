@@ -20,12 +20,15 @@ export default function DashboardSkeleton() {
       {/* HeroPrimaryCard */}
       <ParchmentSkeleton variant="hero" />
 
-      {/* VitalPipStrip placeholder — row of small pill shapes */}
-      <div className="flex gap-3">
+      {/* VitalPipStrip placeholder — must mirror the real strip exactly
+          (grid-cols-4 gap-2 of min-h-[72px] rounded-xl tiles, see
+          components/dashboard/VitalPipStrip.jsx) or the quest log below it
+          jumps ~40px the moment the payload lands. */}
+      <div className="grid grid-cols-4 gap-2">
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="h-8 flex-1 rounded-full bg-ink-page-shadow/20"
+            className="min-h-[72px] rounded-xl border border-ink-page-shadow bg-ink-page-aged/60"
           />
         ))}
       </div>

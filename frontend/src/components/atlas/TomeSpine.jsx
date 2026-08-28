@@ -333,21 +333,28 @@ function CodexBody({ name, icon, active, leather }) {
       {/* Vertical spine title — foil-stamped via .spine-foil (background-clip
           gradient) with the .spine-foil-glint sheen sweep on hover/active.
           writing-mode + text-orientation + rotate(180deg) keep the letters
-          upright reading bottom-to-top, mimicking a printed spine. */}
+          upright reading bottom-to-top, mimicking a printed spine.
+
+          The title WRAPS rather than ellipsizing: ~85px of vertical run at
+          14px fits only ~12 characters, so real chapter names ("Sophomore
+          Year", "Digital Creation") were being cut on the very control that
+          tells the tomes apart. `whiteSpace: normal` lets a long name break
+          into a second vertical column (w-full keeps it inside the spine),
+          which is exactly how a printed spine handles a two-word title. */}
       <span
         aria-hidden="true"
         data-spine-title="true"
-        className="spine-foil spine-foil-glint font-display italic font-bold leading-tight text-center px-0.5 flex items-center justify-center flex-1 min-h-0 relative z-10"
+        className="spine-foil spine-foil-glint font-display italic font-bold leading-tight text-center px-0.5 flex items-center justify-center flex-1 min-h-0 w-full relative z-10"
         style={{
           writingMode: 'vertical-rl',
           textOrientation: 'mixed',
           transform: 'rotate(180deg)',
           fontSize: '14px',
           letterSpacing: '0.05em',
-          lineHeight: 1,
+          lineHeight: 1.15,
           overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
+          overflowWrap: 'break-word',
+          whiteSpace: 'normal',
           '--foil-tone-top': leather.foilTop,
           '--foil-tone-bottom': leather.foilBottom,
         }}

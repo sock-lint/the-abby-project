@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Habits from './Habits.jsx';
@@ -14,13 +14,13 @@ vi.mock('framer-motion', async () => {
   return { ...a, AnimatePresence: ({ children }) => children };
 });
 
-function renderPage(user = buildUser(), handlers = []) {
+function renderPage(user = buildUser(), handlers = [], route = '/quests?tab=rituals') {
   server.use(
     http.get('*/api/auth/me/', () => HttpResponse.json(user)),
     ...handlers,
   );
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[route]}>
       <AuthProvider>
         <Habits />
       </AuthProvider>
@@ -29,6 +29,21 @@ function renderPage(user = buildUser(), handlers = []) {
 }
 
 describe('Habits', () => {
+  // Same deep link as Duties — the FAB's "Propose a ritual" row.
+  it('opens the propose sheet when deep-linked with ?propose=1', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', () => HttpResponse.json([])),
+    ], '/quests?tab=rituals&propose=1');
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('does not open the sheet without the param', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
   it('renders empty state when no habits', async () => {
     renderPage(buildUser(), [
       http.get('*/api/habits/', () => HttpResponse.json([])),
@@ -98,6 +113,57 @@ describe('Habits', () => {
       }),
     ]);
     await waitFor(() => expect(screen.getByText(/read 20 min/i)).toBeInTheDocument());
+  });
+
+  it('clicking virtue buzzes, matching the dashboard quick habit tap', async () => {
+    const vibrate = vi.fn();
+    Object.defineProperty(navigator, 'vibrate', { value: vibrate, configurable: true });
+    const user = userEvent.setup();
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', () =>
+        HttpResponse.json([
+          buildHabit({ id: 9, max_taps_per_day: 2, taps_today: 0 }),
+        ]),
+      ),
+      http.post(/\/api\/habits\/\d+\/log\/$/, () => HttpResponse.json({ ok: true })),
+    ]);
+
+    await user.click(await screen.findByRole('button', { name: /virtue/i }));
+    expect(vibrate).toHaveBeenCalled();
+  });
+
+  it('ritual form sheet offers a Cancel alongside submit, like the Duties sheet', async () => {
+    const user = userEvent.setup();
+    renderPage(buildParent(), [
+      http.get('*/api/habits/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+    ]);
+    await user.click(await screen.findByRole('button', { name: /new ritual/i }));
+    const dialog = await screen.findByRole('dialog', { name: /new ritual/i });
+    expect(within(dialog).getByRole('button', { name: /^cancel$/i })).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: /^cancel$/i }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /new ritual/i })).toBeNull(),
+    );
+  });
+
+  it('locks the ritual sheet closed while a create is in flight', async () => {
+    const user = userEvent.setup();
+    renderPage(buildParent(), [
+      http.get('*/api/habits/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      // Never resolves — holds the form in its saving state.
+      http.post('*/api/habits/', () => new Promise(() => {})),
+    ]);
+    await user.click(await screen.findByRole('button', { name: /new ritual/i }));
+    const dialog = await screen.findByRole('dialog', { name: /new ritual/i });
+    await user.type(within(dialog).getByRole('textbox', { name: /name/i }), 'Stretch');
+    await user.click(within(dialog).getByRole('button', { name: /create ritual/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^close$/i })).toBeDisabled(),
+    );
+    expect(screen.getByRole('dialog', { name: /new ritual/i })).toBeInTheDocument();
   });
 
   it('clicking virtue posts {direction:1} to /habits/{id}/log/', async () => {

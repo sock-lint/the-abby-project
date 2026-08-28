@@ -279,9 +279,9 @@ export function unlockHint(badge) {
       return hasN ? `Redeem ${n} reward${plural ? 's' : ''}` : 'Redeem a reward';
 
     case 'homework_planned_ahead':
-      return hasN ? `Plan ${n} assignment${plural ? 's' : ''} ahead of the due date` : 'Plan homework ahead';
+      return hasN ? `Plan ${n} assignment${plural ? 's' : ''} ahead of the due date` : 'Plan study ahead';
     case 'homework_on_time_count':
-      return hasN ? `Submit ${n} assignment${plural ? 's' : ''} on time` : 'Submit homework on time';
+      return hasN ? `Submit ${n} assignment${plural ? 's' : ''} on time` : 'Submit assignments on time';
     case 'journal_entries_written':
       return hasN ? `Write ${n} journal entr${plural ? 'ies' : 'y'}` : 'Write journal entries';
     case 'journal_streak_days':
@@ -293,14 +293,17 @@ export function unlockHint(badge) {
       return hasN ? `Log ${n} perfect day${plural ? 's' : ''}` : 'Log a perfect day';
     case 'streak_freeze_used':
       return 'Use a streak freeze';
+    // Hints speak the app's own tab vocabulary \u2014 Duties, Rituals, Study \u2014
+    // not the backend's model names (chores / habits / homework). These
+    // strings print under every unearned sigil a kid looks at.
     case 'habit_max_strength':
-      return 'Max out a habit\u2019s strength';
+      return 'Max out a ritual\u2019s strength';
     case 'habit_count_at_strength':
-      return hasN ? `Hold ${n} habits at full strength` : 'Stack strong habits';
+      return hasN ? `Hold ${n} rituals at full strength` : 'Stack strong rituals';
     case 'habit_taps_lifetime':
-      return hasN ? `Tap habits ${n} times lifetime` : 'Tap habits';
+      return hasN ? `Tap rituals ${n} times lifetime` : 'Tap rituals';
     case 'chore_completions':
-      return hasN ? `Complete ${n} chore${plural ? 's' : ''}` : 'Complete chores';
+      return hasN ? `Complete ${n} dut${plural ? 'ies' : 'y'}` : 'Complete duties';
     case 'quest_completed':
       return hasN ? `Finish ${n} quest${plural ? 's' : ''}` : 'Finish a quest';
     case 'boss_quests_completed':

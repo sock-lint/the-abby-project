@@ -1,19 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Flame, Stamp } from 'lucide-react';
+import { Clock, DollarSign, Flame, Stamp } from 'lucide-react';
 import { getDashboard } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import { usePulse } from '../../providers/pulseContext';
 import useParentPendingCounts from '../../hooks/useParentPendingCounts';
 import { CoinIcon } from '../icons/JournalIcons';
-
-function formatElapsedMins(mins) {
-  if (mins == null) return '';
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (h > 0) return `${h}h ${m.toString().padStart(2, '0')}`;
-  return `${m}m`;
-}
+import { formatDuration } from '../../utils/format';
 
 function Pip({ icon, label, tone = 'ink', active = false, onClick, ariaLabel }) {
   const toneClasses = {
@@ -91,7 +84,9 @@ export default function HeaderStatusPips({ user }) {
       out.push({
         key: 'clock',
         icon: <Clock size={14} />,
-        label: formatElapsedMins(activeTimer.elapsed_minutes),
+        // Same formatter as the hero card's live timer — the pip used to
+        // hand-roll "1h 05", which reads as a clock time, not a duration.
+        label: formatDuration(activeTimer.elapsed_minutes),
         tone: 'teal',
         active: true,
         ariaLabel: `Clocked in on ${activeTimer.project_title}`,
@@ -116,7 +111,10 @@ export default function HeaderStatusPips({ user }) {
       });
       out.push({
         key: 'earnings',
-        icon: <CoinIcon size={14} />,
+        // DollarSign, not CoinIcon: this pip is money. CoinIcon means the
+        // coins currency everywhere else in the app and the two economies
+        // are deliberately separate.
+        icon: <DollarSign size={14} />,
         label: `$${Math.round(Number(weekEarnings) || 0)}`,
         tone: 'gold',
         ariaLabel: 'Earnings this week',

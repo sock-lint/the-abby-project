@@ -80,6 +80,43 @@ describe('RewardShop', () => {
     expect(screen.getByText(/head to manage to add some/i)).toBeInTheDocument();
   });
 
+  it('a zero-match search shows the filtered empty state, not "no rewards yet"', async () => {
+    const onClearFilter = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <RewardShop
+        rewards={[]}
+        isParent={false}
+        coinBalance={100}
+        filterQuery="lego"
+        onClearFilter={onClearFilter}
+        onRedeem={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/ask a parent to add some/i)).toBeNull();
+    expect(screen.getByText(/no matches for/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /clear filter/i }));
+    expect(onClearFilter).toHaveBeenCalled();
+  });
+
+  it('still shows the no-rewards empty state when nothing is filtered', () => {
+    render(
+      <RewardShop
+        rewards={[]}
+        isParent={false}
+        coinBalance={0}
+        filterQuery=""
+        onClearFilter={vi.fn()}
+        onRedeem={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/ask a parent to add some/i)).toBeInTheDocument();
+  });
+
   it('parent can edit/delete', async () => {
     const onEdit = vi.fn();
     const onDelete = vi.fn();

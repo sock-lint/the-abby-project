@@ -79,7 +79,7 @@ export function ChapterSidebar({ user, onLogout }) {
                   />
                   {to === '/' && pendingCount > 0 && (
                     <span
-                      className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-[10px] font-rune font-bold leading-none px-1"
+                      className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-micro font-rune font-bold leading-none px-1"
                       aria-label={`${pendingCount} pending`}
                     >
                       {pendingCount > 9 ? '9+' : pendingCount}
@@ -182,6 +182,7 @@ export function ChapterBottomBar({ user }) {
       className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex justify-around
                  bg-ink-page-aged/95 backdrop-blur-sm border-t border-ink-page-shadow
                  pb-[env(safe-area-inset-bottom)]
+                 pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]
                  shadow-[0_-2px_0_var(--color-ink-page-rune-glow)_inset]"
     >
       {chapters.map(({ to, icon: Icon, shortLabel }) => (
@@ -202,7 +203,7 @@ export function ChapterBottomBar({ user }) {
                 <Icon size={20} className={isActive ? 'animate-rune-pulse' : ''} />
                 {to === '/' && pendingCount > 0 && (
                   <span
-                    className="absolute -top-1 -right-2 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-[9px] font-rune font-bold leading-none px-0.5"
+                    className="absolute -top-1 -right-2 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-micro font-rune font-bold leading-none px-1"
                     aria-label={`${pendingCount} pending`}
                   >
                     {pendingCount > 9 ? '9+' : pendingCount}

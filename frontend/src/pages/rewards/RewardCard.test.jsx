@@ -64,6 +64,24 @@ describe('RewardCard', () => {
     expect(screen.getByRole('button', { name: /out of stock/i })).toBeDisabled();
   });
 
+  it('keeps Barter tappable when the balance is unknown', () => {
+    // coinBalance === null means the balance fetch failed. Greying every
+    // card out with "Not enough coin" would be a lie about money the kid
+    // may well have.
+    render(
+      <RewardCard
+        reward={buildReward({ cost_coins: 100 })}
+        isParent={false}
+        coinBalance={null}
+        onRedeem={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /not enough coin/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /^barter$/i })).toBeEnabled();
+  });
+
   it('labels digital rewards as Satchel items', () => {
     render(
       <RewardCard

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HttpResponse } from 'msw';
-import { renderWithProviders, screen, waitFor } from '../../test/render';
+import { renderWithProviders, screen, waitFor, within } from '../../test/render';
 import { server } from '../../test/server';
 import { spyHandler } from '../../test/spy';
 import ApprovalSheet from './ApprovalSheet';
@@ -114,7 +114,7 @@ describe('ApprovalSheet', () => {
     ).toBeInTheDocument();
   });
 
-  it('POSTs the note to the reject endpoint', async () => {
+  it('POSTs the note to the reject endpoint after the confirm step', async () => {
     const spy = spyHandler('post', /\/api\/print-requests\/7\/reject\/$/, {
       id: 7, status: 'rejected',
     });
@@ -127,8 +127,35 @@ describe('ApprovalSheet', () => {
     await user.type(screen.getByLabelText(/note/i), 'not this month');
     await user.click(screen.getByRole('button', { name: 'Reject' }));
 
+    // Rejecting is final, so the first tap only opens the confirm — nothing
+    // has been POSTed yet.
+    expect(spy.calls).toHaveLength(0);
+    const confirm = await screen.findByRole('dialog', { name: /Reject “Articulated Dragon”\?/ });
+    // The note typed on the decide sheet carries into the confirm.
+    expect(screen.getByLabelText(/note for her/i)).toHaveValue('not this month');
+
+    await user.click(within(confirm).getByRole('button', { name: 'Reject' }));
+
     await waitFor(() => expect(spy.calls).toHaveLength(1));
     expect(spy.calls[0].url).toMatch(/\/api\/print-requests\/7\/reject\/$/);
     expect(spy.calls[0].body).toEqual({ notes: 'not this month' });
+  });
+
+  it('backs out of the confirm without rejecting', async () => {
+    const spy = spyHandler('post', /\/api\/print-requests\/7\/reject\/$/, {
+      id: 7, status: 'rejected',
+    });
+    server.use(spy.handler);
+
+    const { user } = renderWithProviders(
+      <ApprovalSheet request={REQUEST} onClose={() => {}} />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Reject' }));
+    await user.click(await screen.findByRole('button', { name: /keep it pending/i }));
+
+    expect(spy.calls).toHaveLength(0);
+    // Back on the decide sheet, both decisions still available.
+    expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument();
   });
 });

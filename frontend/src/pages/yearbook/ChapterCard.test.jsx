@@ -15,6 +15,21 @@ describe('ChapterCard', () => {
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
   })
 
+  // The surfaces that generate these entries are labelled Duties and Study in
+  // the Quests hub — the kid-facing recap has to speak the same vocabulary.
+  it('labels recap stats with the app vocabulary (Duties / Study)', () => {
+    render(<ChapterCard chapter={{
+      chapter_year: 2024, label: 'Grade 8', grade: 8,
+      is_current: false, is_post_hs: false,
+      stats: { homework_approved: 12, chores_approved: 30 },
+      entries: [],
+    }} />)
+    expect(screen.getByText(/duties approved/i)).toBeInTheDocument()
+    expect(screen.getByText(/study approved/i)).toBeInTheDocument()
+    expect(screen.queryByText(/chores approved/i)).toBeNull()
+    expect(screen.queryByText(/homework approved/i)).toBeNull()
+  })
+
   it('past-chapter shows frozen stats, no progress bar', () => {
     render(<ChapterCard chapter={{
       chapter_year: 2024, label: 'Grade 8', grade: 8,

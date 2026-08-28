@@ -31,20 +31,31 @@ describe('formatDuration', () => {
     expect(formatDuration(125)).toBe('2h 5m');
   });
 
+  // Sub-hour values drop the "0h" so the header clock pip, the hero card and
+  // the timecard rows can all share this one formatter without reading as
+  // "0h 45m" — the pip used to hand-roll "45m"/"1h 05" instead.
+  it('omits the hour part under an hour', () => {
+    expect(formatDuration(45)).toBe('45m');
+  });
+
   it('handles zero', () => {
-    expect(formatDuration(0)).toBe('0h 0m');
+    expect(formatDuration(0)).toBe('0m');
   });
 
   it('handles undefined as zero', () => {
-    expect(formatDuration(undefined)).toBe('0h 0m');
+    expect(formatDuration(undefined)).toBe('0m');
   });
 
   it('handles non-numeric strings as zero', () => {
-    expect(formatDuration('abc')).toBe('0h 0m');
+    expect(formatDuration('abc')).toBe('0m');
   });
 
   it('formats exact hours', () => {
     expect(formatDuration(60)).toBe('1h 0m');
+  });
+
+  it('does not pad the minute part past the hour', () => {
+    expect(formatDuration(65)).toBe('1h 5m');
   });
 });
 

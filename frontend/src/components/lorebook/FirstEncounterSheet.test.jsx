@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider } from '../../hooks/useApi.js';
@@ -131,5 +131,27 @@ describe('FirstEncounterSheet', () => {
         '/atlas?tab=lorebook&trial=pets',
       ),
     );
+  });
+
+  // The unlock rides the 30s heartbeat, which can land while a kid is typing
+  // in another sheet. Opening on top of it would steal focus and dismiss the
+  // phone keyboard mid-word, so the entry waits until the screen is clear.
+  it('waits for an already-open dialog to close before showing', async () => {
+    server.use(...baseHandlers(petsEntry));
+    const openForm = document.createElement('div');
+    openForm.setAttribute('role', 'dialog');
+    document.body.appendChild(openForm);
+
+    renderSheet([petsEntry.slug]);
+
+    await act(async () => { await new Promise((r) => setTimeout(r, 60)); });
+    expect(
+      screen.queryByRole('dialog', { name: /a new page is open/i }),
+    ).toBeNull();
+
+    await act(async () => { openForm.remove(); });
+    expect(
+      await screen.findByRole('dialog', { name: /a new page is open/i }),
+    ).toBeInTheDocument();
   });
 });

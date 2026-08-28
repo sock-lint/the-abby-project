@@ -105,6 +105,19 @@ describe('CreationLogModal', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
+  // The action row sits in BottomSheet's sticky footer so the on-screen
+  // keyboard can't bury it; the footer renders outside the <form>, so the
+  // submit button stays wired to it by id.
+  it('keeps the footer submit button associated with the form', async () => {
+    stubSkills();
+    renderWithProviders(<CreationLogModal onClose={() => {}} onSaved={() => {}} />);
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /primary skill/i })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /log creation/i }))
+      .toHaveAttribute('form', 'creation-log-form');
+  });
+
   it('shows the moss "first 2 per day earn XP" hint when remaining_with_xp > 0', async () => {
     stubSkills();
     server.use(

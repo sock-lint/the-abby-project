@@ -37,7 +37,7 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <TextField label="Icon (emoji)" value={form.icon} onChange={onField('icon')} />
           <div>
             <label className={formLabelClass}>Color</label>

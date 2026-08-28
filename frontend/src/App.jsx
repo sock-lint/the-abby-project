@@ -262,6 +262,15 @@ export default function App() {
               <Route path="/portfolio" element={<LegacyRedirect to="/chronicle?tab=sketchbook" />} />
               <Route path="/lorebook" element={<LegacyRedirect to="/atlas?tab=lorebook" />} />
               <Route path="/yearbook" element={<LegacyRedirect to="/chronicle?tab=yearbook" />} />
+
+              {/* Catch-all — a stale bookmark, a notification whose backend
+                  `link` points at a renamed route, or a typo used to render
+                  null: no shell, no nav, just the page background. The
+                  installed PWA has no URL bar to correct that with, so an
+                  unknown path lands on Today instead of stranding the kid on
+                  a blank screen. Logged-out users already had this via the
+                  Login fallback above. */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
             </Routes>
           </BrowserRouter>

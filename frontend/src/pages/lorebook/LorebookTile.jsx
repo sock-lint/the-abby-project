@@ -92,10 +92,11 @@ export default function LorebookTile({ entry, onSelect }) {
         {runeLabel}
       </div>
 
+      {/* Kicker carries the "how do I get this" line on locked tiles, which
+          are non-interactive — there is no detail sheet behind them to read
+          it at full size. text-tiny in full ink instead of 10px at 80%. */}
       <div
-        className={`mt-0.5 text-micro italic font-script text-center leading-snug px-1 line-clamp-2 ${
-          unlocked ? 'text-ink-whisper' : 'text-ink-whisper/80'
-        }`}
+        className="mt-0.5 text-tiny italic font-script text-center leading-snug px-1 line-clamp-2 text-ink-whisper"
       >
         {kicker}
       </div>

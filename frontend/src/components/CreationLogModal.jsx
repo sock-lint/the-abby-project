@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Music, Image as ImageIcon } from 'lucide-react';
 import BottomSheet from './BottomSheet';
-import Button from './Button';
 import ErrorAlert from './ErrorAlert';
+import ModalActions from './ModalActions';
 import { TextAreaField, SelectField } from './form';
 import { formLabelClass } from '../constants/styles';
 import { useApi } from '../hooks/useApi';
@@ -22,6 +22,10 @@ const CREATIVE_CATEGORY_NAMES = new Set([
 ]);
 
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10 MB
+
+// The action row lives in BottomSheet's sticky footer, outside this <form>.
+// A stable id keeps the submit button associated with it.
+const FORM_ID = 'creation-log-form';
 
 export default function CreationLogModal({ onClose, onSaved }) {
   const { data: skillsData, loading: skillsLoading } = useApi(getSkills);
@@ -107,8 +111,28 @@ export default function CreationLogModal({ onClose, onSaved }) {
   }
 
   return (
-    <BottomSheet title="Log a creation" onClose={onClose} disabled={saving} dirty={dirty}>
-      <form onSubmit={submit} className="space-y-3">
+    <BottomSheet
+      title="Log a creation"
+      onClose={onClose}
+      disabled={saving}
+      dirty={dirty}
+      // Sticky footer, not the end of the scroll flow: with the on-screen
+      // keyboard up on a phone this form is taller than the visible sheet, and
+      // an action row parked at the bottom of the scroller sits behind the
+      // keyboard. FORM_ID keeps the submit button wired to the form it left.
+      footer={(
+        <ModalActions
+          fullWidth
+          formId={FORM_ID}
+          onClose={onClose}
+          submitLabel="Log creation"
+          savingLabel="Logging…"
+          saving={saving}
+          submitDisabled={!canSubmit}
+        />
+      )}
+    >
+      <form id={FORM_ID} onSubmit={submit} className="space-y-3">
         {capHint && (
           <p
             role="status"
@@ -196,15 +220,6 @@ export default function CreationLogModal({ onClose, onSaved }) {
         </SelectField>
 
         {error && <ErrorAlert message={error} />}
-
-        <div className="flex gap-2 pt-1">
-          <Button variant="secondary" type="button" onClick={onClose} className="flex-1">
-            Cancel
-          </Button>
-          <Button type="submit" disabled={!canSubmit} loading={saving} className="flex-1">
-            Log creation
-          </Button>
-        </div>
       </form>
     </BottomSheet>
   );

@@ -3,6 +3,7 @@ import { Box, Link2, Upload } from 'lucide-react';
 import BottomSheet from '../../components/BottomSheet';
 import Button from '../../components/Button';
 import ErrorAlert from '../../components/ErrorAlert';
+import ModalActions from '../../components/ModalActions';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import { DateField, TextAreaField, TextField } from '../../components/form';
 import { createPrintRequest, previewPrintLink } from '../../api';
@@ -263,20 +264,14 @@ export default function PrintRequestModal({ onClose, onSaved }) {
 
         {error && <ErrorAlert message={error} />}
 
-        <div className="flex gap-2 pt-1">
-          <Button variant="secondary" type="button" onClick={onClose} className="flex-1">
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            onClick={submit}
-            disabled={!canSubmit}
-            loading={saving}
-            className="flex-1"
-          >
-            Send request
-          </Button>
-        </div>
+        <ModalActions
+          fullWidth
+          onClose={onClose}
+          submitLabel="Send request"
+          savingLabel="Sending…"
+          saving={saving}
+          submitDisabled={!canSubmit}
+        />
       </form>
     </BottomSheet>
   );

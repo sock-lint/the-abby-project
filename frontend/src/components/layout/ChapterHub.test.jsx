@@ -23,10 +23,20 @@ vi.mock('framer-motion', async () => {
     MOTION_ONLY_PROPS.forEach((key) => delete domProps[key]);
     return <Tag {...domProps}>{children}</Tag>;
   };
+  // Cache per tag the way framer-motion's own proxy does. Minting a fresh
+  // component on every property read gives React a new element type each
+  // render, which remounts the whole subtree — that would mask the very
+  // mount-retention this hub is responsible for.
+  const stubs = {};
   return {
     ...actual,
     useDragControls: () => ({ start: vi.fn() }),
-    motion: new Proxy({}, { get: (_t, tag) => passthrough(tag) }),
+    motion: new Proxy({}, {
+      get: (_t, tag) => {
+        if (!stubs[tag]) stubs[tag] = passthrough(tag);
+        return stubs[tag];
+      },
+    }),
   };
 });
 
@@ -85,6 +95,62 @@ describe('ChapterHub', () => {
     renderHub();
     await user.click(screen.getByRole('tab', { name: 'Beta' }));
     expect(screen.getByText('content-b')).toBeInTheDocument();
+  });
+
+  // Tab bodies used to be keyed by the active tab id, so every tap or swipe
+  // tore the page down: all fetches re-ran behind a loader and in-tab state
+  // (search text, filter pills) reset. Visited bodies now stay mounted.
+  describe('visited tab bodies stay mounted', () => {
+    const statefulTabs = [
+      {
+        id: 'a',
+        label: 'Alpha',
+        render: () => (
+          <label>
+            filter
+            <input />
+          </label>
+        ),
+      },
+      { id: 'b', label: 'Beta', render: () => <div>content-b</div> },
+    ];
+
+    function renderStatefulHub() {
+      return render(
+        <MemoryRouter initialEntries={['/']}>
+          <ChapterHub title="Test Hub" kicker="kicker" tabs={statefulTabs} />
+        </MemoryRouter>,
+      );
+    }
+
+    it('keeps in-tab state when flipping away and back', async () => {
+      const user = userEvent.setup();
+      renderStatefulHub();
+
+      await user.type(screen.getByLabelText('filter'), 'saw');
+      await user.click(screen.getByRole('tab', { name: 'Beta' }));
+      expect(screen.getByText('content-b')).toBeVisible();
+
+      await user.click(screen.getByRole('tab', { name: 'Alpha' }));
+      // Same input node, still holding what was typed — proof the body was
+      // hidden rather than unmounted and refetched.
+      expect(screen.getByLabelText('filter')).toHaveValue('saw');
+    });
+
+    it('hides the inactive body instead of leaving it visible', async () => {
+      const user = userEvent.setup();
+      renderStatefulHub();
+
+      await user.click(screen.getByRole('tab', { name: 'Beta' }));
+
+      expect(screen.getByLabelText('filter')).not.toBeVisible();
+      expect(screen.getByText('content-b')).toBeVisible();
+    });
+
+    it('does not mount a tab body before it is first visited', () => {
+      renderStatefulHub();
+      expect(screen.queryByText('content-b')).toBeNull();
+    });
   });
 
   it('sets aria-selected on the active tab', () => {

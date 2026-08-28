@@ -43,7 +43,9 @@ function NoChildrenWelcome() {
 }
 
 export default function ParentDashboard() {
-  const { pending, weekByKid, dashboard, reload, failedSources = [] } = useParentDashboard();
+  const {
+    pending, weekByKid, dashboard, reload, loading, failedSources = [],
+  } = useParentDashboard();
   const { data: children, loading: childrenLoading } = useApi(getChildren);
   const navigate = useNavigate();
   const { weekday, dateStr } = formatWeekdayDate();
@@ -74,6 +76,7 @@ export default function ParentDashboard() {
             ctx={{
               weekday, dateStr,
               pendingCount: pending.length,
+              loading,
             }}
           />
 
@@ -88,7 +91,11 @@ export default function ParentDashboard() {
             </div>
           )}
 
-          <ApprovalQueueList items={pending} onDone={reload} />
+          {/* `loading` is load-bearing: the queue aggregates eight fetches, and
+              without it the list renders "No pending approvals. All quiet" for
+              the whole multi-second round trip — a glance-and-leave parent
+              reads that as an all-clear and misses the queue entirely. */}
+          <ApprovalQueueList items={pending} loading={loading} onDone={reload} />
 
           <AccordionSection
             index={0}
@@ -101,23 +108,29 @@ export default function ParentDashboard() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {children.map((child) => {
                   const kidWeek = weekByKid.find((w) => w.kid_id === child.id);
+                  const name = child.display_name || child.username;
                   return (
-                    <ParchmentCard key={child.id}>
-                      <button
-                        type="button"
-                        onClick={() => navigate('/manage')}
-                        className="w-full text-left px-3 py-3 space-y-1"
-                      >
+                    // Button OUTSIDE the card (the Next Up pattern on
+                    // ChildDashboard) so the whole tile is the tap target and
+                    // the card pads once instead of p-5 + px-3 py-3.
+                    <button
+                      key={child.id}
+                      type="button"
+                      onClick={() => navigate('/manage')}
+                      aria-label={`Manage ${name}`}
+                      className="text-left"
+                    >
+                      <ParchmentCard className="h-full space-y-1">
                         <span className="font-display text-body text-ink-primary block">
-                          {child.display_name || child.username}
+                          {name}
                         </span>
                         {kidWeek && (
                           <span className="font-script text-caption text-ink-whisper block">
                             {kidWeek.hours ?? 0}h · {formatCurrency(kidWeek.earnings)} this week
                           </span>
                         )}
-                      </button>
-                    </ParchmentCard>
+                      </ParchmentCard>
+                    </button>
                   );
                 })}
               </div>
@@ -126,11 +139,14 @@ export default function ParentDashboard() {
             )}
 
             <div className="flex flex-wrap gap-2 mt-4">
+              {/* Labels match the tabs these land on (Study / Duties) and the
+                  queue's own row labels — "homework" and "chore" are the old
+                  vocabulary. */}
               <Button variant="secondary" size="sm" onClick={() => navigate('/quests?tab=study')}>
-                Assign homework
+                Assign study
               </Button>
               <Button variant="secondary" size="sm" onClick={() => navigate('/quests?tab=duties')}>
-                Create chore
+                New duty
               </Button>
               <Button variant="secondary" size="sm" onClick={() => navigate('/manage')}>
                 Manage family

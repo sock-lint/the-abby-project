@@ -123,7 +123,18 @@ export default function Homework() {
   };
 
   if (loading) return <Loader />;
-  if (error) return <ErrorAlert message={error} />;
+  // Installed as a PWA there is no browser reload chrome, so a bare alert is a
+  // dead end — pair it with the same Try-again affordance the sibling pages use.
+  if (error) {
+    return (
+      <div className="space-y-3">
+        <ErrorAlert message={error} />
+        <Button variant="primary" onClick={reload}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
 
   const renderCard = (a) => (
     <AssignmentCard
@@ -248,7 +259,7 @@ export default function Homework() {
               index={nextRubric()}
               title="Active assignments"
               items={dashboard?.assignments}
-              emptyText="No active assignments. Tap “New homework” to add one."
+              emptyText="No active assignments. Tap “New assignment” to add one."
             >
               {(a) => (
                 <AssignmentCard

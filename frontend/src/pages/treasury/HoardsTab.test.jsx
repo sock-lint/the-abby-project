@@ -128,6 +128,44 @@ describe('HoardsTab', () => {
     });
   });
 
+  it('renders a retry-able alert instead of a blank tab when the fetch fails', async () => {
+    // ErrorAlert only renders its `message` prop; the old call site passed
+    // the text as children, so a failed fetch painted nothing at all.
+    let attempts = 0;
+    server.use(
+      http.get('*/api/savings-goals/', () => {
+        attempts += 1;
+        if (attempts === 1) return HttpResponse.json({ detail: 'boom' }, { status: 500 });
+        return HttpResponse.json([makeGoal()]);
+      }),
+    );
+    const { user } = renderWithProviders(<HoardsTab />);
+
+    await waitFor(() =>
+      expect(screen.getByText(/couldn't load your hoards/i)).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    await waitFor(() => expect(screen.getByText('Lego Set')).toBeInTheDocument());
+  });
+
+  it('shows create-goal validation errors instead of nothing', async () => {
+    server.use(
+      http.get('*/api/savings-goals/', () => HttpResponse.json([])),
+    );
+    const { user } = renderWithProviders(<HoardsTab />);
+    await waitFor(() =>
+      expect(screen.getByText(/no hoards yet/i)).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('button', { name: /start a new hoard/i }));
+    await screen.findByLabelText(/What are you saving for/i);
+
+    await user.click(screen.getByRole('button', { name: /Start saving/i }));
+
+    expect(await screen.findByText(/give your hoard a name/i)).toBeInTheDocument();
+  });
+
   it('deletes a goal after confirm', async () => {
     server.use(
       http.get('*/api/savings-goals/', () =>

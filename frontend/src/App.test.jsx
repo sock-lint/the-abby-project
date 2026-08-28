@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
 import App from './App.jsx';
@@ -55,6 +55,33 @@ describe('App', () => {
     );
     renderApp();
     await waitFor(() => expect(screen.getByText(/today's entry/i)).toBeInTheDocument());
+  });
+});
+
+describe('App — unknown routes', () => {
+  afterEach(() => {
+    window.history.pushState({}, '', '/');
+  });
+
+  it('sends a signed-in user on an unknown URL back to Today instead of a blank screen', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({
+          active_timer: null, current_balance: 0, coin_balance: 0,
+          this_week: { hours_worked: 0, earnings: 0 },
+          active_projects: [], recent_badges: [], savings_goals: [], chores_today: [],
+          pending_chore_approvals: 0,
+          rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
+        }),
+      ),
+    );
+    window.history.pushState({}, '', '/a-route-that-does-not-exist');
+
+    renderApp();
+
+    await waitFor(() => expect(screen.getByText(/today's entry/i)).toBeInTheDocument());
+    expect(window.location.pathname).toBe('/');
   });
 });
 

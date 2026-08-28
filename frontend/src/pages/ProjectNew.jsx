@@ -5,6 +5,7 @@ import { createProject, getCategories, getChildren, getInstructablesPreview } fr
 import { useApi } from '../hooks/useApi';
 import BackLink from '../components/BackLink';
 import ParchmentCard from '../components/journal/ParchmentCard';
+import PageShell from '../components/layout/PageShell';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
 import { TextField, SelectField, TextAreaField, DueDateChips } from '../components/form';
@@ -66,9 +67,12 @@ export default function ProjectNew() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <PageShell width="narrow" rhythm="loose">
       <BackLink to="/quests?tab=ventures">Back to Ventures</BackLink>
-      <h1 className="font-display text-2xl font-bold">New Project</h1>
+      {/* "Venture" is the journal's word for a project everywhere else — the
+          nav tab, the routes, the card grid. The page the "New venture"
+          button opens says the same thing. */}
+      <h1 className="font-display text-2xl font-bold">New venture</h1>
 
       <Button
         variant="secondary"
@@ -186,10 +190,10 @@ export default function ProjectNew() {
           />
 
           <Button type="submit" className="w-full" loading={saving}>
-            Create Project
+            {saving ? <span>Inscribing…</span> : 'Create venture'}
           </Button>
         </ParchmentCard>
       </form>
-    </div>
+    </PageShell>
   );
 }

@@ -7,6 +7,13 @@ import { useApi } from '../../hooks/useApi';
  *  - Inert hairline (page divider) when no quest is active.
  *  - Sheikah-teal gradient scaled to quest progress when one is active, tap
  *    routes to the Trials page.
+ *
+ * When active the band is a real button, so it carries a real target: the
+ * visual gradient stays a 4-6px hairline but the button is min-h-11 with
+ * -my-2 pulling the extra height into the header's and the content well's
+ * existing padding, so the layout doesn't move. The quest name + percent
+ * render inline — they used to live in a `group-hover` tooltip, which no
+ * touch device can ever show.
  */
 export default function HeaderProgressBand() {
   const navigate = useNavigate();
@@ -34,17 +41,22 @@ export default function HeaderProgressBand() {
       onClick={() => navigate('/trials')}
       aria-label={`${title} · ${percent}% complete`}
       title={`${title} · ${percent}%`}
-      className="group relative w-full h-1 md:h-1.5 hover:h-2 transition-all bg-ink-page-shadow/50 focus:outline-none"
+      className="relative block w-full min-h-11 -my-2 pt-2 text-left focus:outline-none"
     >
-      <div
-        className="absolute inset-y-0 left-0 bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal animate-rune-pulse"
-        style={{ width: `${percent}%` }}
-      />
-      {/* Tooltip shown on hover (desktop only-ish, safe to keep). */}
+      <div className="relative w-full h-1 md:h-1.5 bg-ink-page-shadow/50">
+        <div
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal animate-rune-pulse"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
       <span
-        className="pointer-events-none absolute top-full right-2 mt-0.5 hidden group-hover:block bg-ink-page-aged border border-ink-page-shadow rounded px-2 py-0.5 font-rune text-micro text-ink-secondary"
+        className="flex items-center justify-between gap-2 pt-1
+                   pl-[max(1rem,env(safe-area-inset-left))]
+                   pr-[max(1rem,env(safe-area-inset-right))] lg:px-6
+                   font-rune text-tiny text-ink-secondary"
       >
-        {title} · {percent}%
+        <span className="truncate">{title}</span>
+        <span className="tabular-nums shrink-0">{percent}%</span>
       </span>
     </button>
   );

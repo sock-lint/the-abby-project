@@ -119,6 +119,41 @@ describe('HeroPrimaryCard — next-action variant', () => {
     expect(versal.textContent).toContain('M');
   });
 
+  it('quest-progress CTA calls the active quest a trial, matching its kicker', () => {
+    renderWithProviders(
+      <HeroPrimaryCard
+        role="child"
+        ctx={{
+          weekday: 'T', dateStr: 'Apr 16',
+          activeQuest: {
+            status: 'active', current_progress: 3, effective_target: 10,
+            progress_percent: 30, definition: { name: 'Dragon Slayer' },
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText(/active trial/i)).toBeInTheDocument();
+    // "View quest →" sent a kid looking for the Quests hub; the link lands on
+    // the Trials tab, so the label has to say trial.
+    expect(screen.getByRole('button', { name: /view trial/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /view quest/i })).toBeNull();
+  });
+
+  it('parent hero holds off the all-clear while the queue is still loading', () => {
+    renderWithProviders(
+      <HeroPrimaryCard role="parent" ctx={{ pendingCount: 0, loading: true }} />,
+    );
+    expect(screen.queryByText(/nothing needs your seal/i)).toBeNull();
+    expect(screen.getByText(/turning today's page/i)).toBeInTheDocument();
+  });
+
+  it('parent hero shows the all-clear once the queue has resolved empty', () => {
+    renderWithProviders(
+      <HeroPrimaryCard role="parent" ctx={{ pendingCount: 0, loading: false }} />,
+    );
+    expect(screen.getByText(/nothing needs your seal/i)).toBeInTheDocument();
+  });
+
   it('clocked variant still wins over nextAction', () => {
     renderWithProviders(
       <HeroPrimaryCard

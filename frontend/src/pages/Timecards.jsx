@@ -20,11 +20,16 @@ import { normalizeList } from '../utils/api';
 
 export default function Timecards() {
   const { isParent } = useRole();
-  const { data, loading, reload } = useApi(getTimecards);
+  const { data, loading, error: loadError, reload } = useApi(getTimecards);
   const [expandedId, setExpandedId] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [detailError, setDetailError] = useState('');
   const [error, setError] = useState('');
   const [exportError, setExportError] = useState('');
+  // id of the timecard whose approve / dispute / mark-paid request is in
+  // flight. `markTimecardPaid` has no server-side status guard, so a
+  // double-tap really does post two payout rows.
+  const [pendingId, setPendingId] = useState(null);
   // Per-row refs keyed by timecard id so we can scroll the expanded card
   // back into view on mobile — without this, expanding a mid-list card
   // pushes its detail below the fold and the user has to scroll manually.
@@ -32,15 +37,18 @@ export default function Timecards() {
 
   const timecards = normalizeList(data);
 
-  const toggleExpand = async (id) => {
-    if (expandedId === id) {
-      setExpandedId(null);
-      setDetail(null);
+  const loadDetail = async (id) => {
+    setDetail(null);
+    setDetailError('');
+    try {
+      const d = await getTimecard(id);
+      setDetail(d);
+    } catch (err) {
+      // Without this the promise rejected unhandled and the row simply
+      // never opened — indistinguishable from a dead tap.
+      setDetailError(err?.message || 'Could not open this week.');
       return;
     }
-    setExpandedId(id);
-    const d = await getTimecard(id);
-    setDetail(d);
     // After the detail mounts, nudge the now-tall card into view. Wrapped
     // in requestAnimationFrame so the height transition has started and
     // ``scrollIntoView`` lands on the post-expansion geometry rather than
@@ -53,6 +61,17 @@ export default function Timecards() {
         el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       }
     });
+  };
+
+  const toggleExpand = (id) => {
+    if (expandedId === id) {
+      setExpandedId(null);
+      setDetail(null);
+      setDetailError('');
+      return;
+    }
+    setExpandedId(id);
+    loadDetail(id);
   };
 
   const handleExport = async () => {
@@ -73,7 +92,9 @@ export default function Timecards() {
   };
 
   const handleAction = async (id, action) => {
+    if (pendingId) return;
     setError('');
+    setPendingId(id);
     try {
       if (action === 'approve') await approveTimecard(id, '');
       else if (action === 'dispute') await disputeTimecard(id);
@@ -81,9 +102,11 @@ export default function Timecards() {
         const tc = timecards.find((t) => t.id === id);
         await markTimecardPaid(id, tc?.total_earnings);
       }
-      reload();
+      await reload();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setPendingId(null);
     }
   };
 
@@ -119,7 +142,12 @@ export default function Timecards() {
       {exportError && <ErrorAlert message={exportError} />}
       <ErrorAlert message={error} />
 
-      {timecards.length === 0 ? (
+      {/* A failed list fetch used to read as "no weeks logged yet" — data
+          loss, as far as a kid on spotty wifi could tell — with no way back
+          short of force-quitting the installed app. */}
+      {loadError ? (
+        <ErrorAlert message={`Couldn't load your wages. ${loadError}`} onRetry={reload} />
+      ) : timecards.length === 0 ? (
         <EmptyState icon={<ScrollIcon size={36} />}>
           No weeks logged yet. Clock in on a venture to begin inking the ledger.
         </EmptyState>
@@ -170,6 +198,20 @@ export default function Timecards() {
                     )}
                   </div>
                 </button>
+
+                {/* Opens on tap even before the detail lands — otherwise
+                    only the chevron moves and a slow fetch reads as a
+                    dead row. */}
+                {expandedId === tc.id && !detail && !detailError && (
+                  <div className="mt-4 pt-4 border-t border-ink-page-shadow">
+                    <ParchmentSkeleton variant="list" count={3} />
+                  </div>
+                )}
+                {expandedId === tc.id && detailError && (
+                  <div className="mt-4 pt-4 border-t border-ink-page-shadow">
+                    <ErrorAlert message={detailError} onRetry={() => loadDetail(tc.id)} />
+                  </div>
+                )}
 
                 <AnimatePresence>
                   {expandedId === tc.id && detail && (
@@ -227,14 +269,16 @@ export default function Timecards() {
                               variant="success"
                               size="sm"
                               onClick={() => handleAction(tc.id, 'approve')}
+                              disabled={pendingId !== null}
                               className="flex-1"
                             >
-                              Approve
+                              {pendingId === tc.id ? 'Working…' : 'Approve'}
                             </Button>
                             <Button
                               variant="secondary"
                               size="sm"
                               onClick={() => handleAction(tc.id, 'dispute')}
+                              disabled={pendingId !== null}
                               className="flex-1"
                             >
                               Dispute
@@ -245,9 +289,12 @@ export default function Timecards() {
                           <Button
                             size="sm"
                             onClick={() => handleAction(tc.id, 'pay')}
+                            disabled={pendingId !== null}
                             className="w-full"
                           >
-                            Mark as Paid ({formatCurrency(tc.total_earnings)})
+                            {pendingId === tc.id
+                              ? 'Marking as paid…'
+                              : `Mark as paid (${formatCurrency(tc.total_earnings)})`}
                           </Button>
                         )}
                       </div>

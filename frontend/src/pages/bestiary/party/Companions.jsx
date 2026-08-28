@@ -6,6 +6,7 @@ import { useApi } from '../../../hooks/useApi';
 import Loader from '../../../components/Loader';
 import EmptyState from '../../../components/EmptyState';
 import ErrorAlert from '../../../components/ErrorAlert';
+import Button from '../../../components/Button';
 import ParchmentCard from '../../../components/journal/ParchmentCard';
 import IncipitBand from '../../../components/atlas/IncipitBand';
 import TomeShelf from '../../../components/atlas/TomeShelf';
@@ -23,8 +24,13 @@ import PetCeremonyModal from '../PetCeremonyModal';
  * to evolve) so a roster of dozens stays navigable.
  */
 export default function Companions() {
-  const { data: stableData, loading: loadingStable, reload: reloadStable } = useApi(getStable);
-  const { data: inventoryData, loading: loadingInventory, reload: reloadInventory } = useApi(getInventory);
+  const {
+    data: stableData, loading: loadingStable, error: stableError, reload: reloadStable,
+  } = useApi(getStable);
+  const {
+    data: inventoryData, loading: loadingInventory, error: inventoryError,
+    reload: reloadInventory,
+  } = useApi(getInventory);
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState('');
   const [selectedPet, setSelectedPet] = useState(null);
@@ -52,6 +58,23 @@ export default function Companions() {
   if (loadingStable || loadingInventory) return <Loader />;
 
   const refresh = () => { reloadStable(); reloadInventory(); };
+
+  // A failed stable fetch used to render "No companions yet. Find eggs and
+  // potions in drops…" — indistinguishable from an empty party, and the kid
+  // has no way to retry.
+  const fetchError = stableError || inventoryError;
+  // Only the stable is load-bearing here: a failed satchel fetch just costs
+  // the feed chips, so the party still renders with a banner over it.
+  if (fetchError && !stableData) {
+    return (
+      <div className="space-y-3 max-w-xl mx-auto">
+        <ErrorAlert message={fetchError} />
+        <Button variant="secondary" size="sm" onClick={refresh}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
 
   const handleFeed = async (pet, foodItemId) => {
     setWorking(true);
@@ -102,7 +125,9 @@ export default function Companions() {
         feed companions to grow them — at full bloom they evolve into mounts you can ride
       </p>
 
-      <ErrorAlert message={error} />
+      {/* Covers the partial case too: stable loaded but the satchel fetch
+          failed, which would otherwise just hide the feed chips. */}
+      <ErrorAlert message={error || fetchError} />
 
       {pets.length > 0 && (
         <TomeShelf
@@ -211,14 +236,17 @@ export default function Companions() {
                 {selectedPet?.id === pet.id && (
                   <div className="mt-3 pt-3 border-t border-ink-page-shadow/70 space-y-2">
                     {!pet.is_active && (
-                      <button
-                        type="button"
+                      // <Button> for the 44px floor — this was a ~30px
+                      // text-xs button inside a 2-col phone tile.
+                      <Button
+                        size="sm"
+                        variant="secondary"
                         onClick={(e) => { e.stopPropagation(); handleActivatePet(pet.id); }}
                         disabled={working}
-                        className="w-full font-body text-xs py-1.5 rounded-lg bg-moss/20 text-moss border border-moss/50 hover:bg-moss/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full !bg-moss/20 !text-moss !border-moss/50 hover:!bg-moss/30 disabled:cursor-not-allowed"
                       >
                         {working ? 'Setting…' : 'Set active'}
-                      </button>
+                      </Button>
                     )}
                     {!pet.evolved_to_mount && pet.species.slug === 'companion' && (
                       <div className="font-script text-tiny text-ink-whisper italic">
@@ -230,7 +258,12 @@ export default function Companions() {
                         <div className="font-script text-tiny text-ink-whisper mb-1">
                           feed{pet.species.food_preference ? ` · prefers ${pet.species.food_preference}` : ''}
                         </div>
-                        <div className="flex flex-wrap gap-1">
+                        {/* One full-width row per food instead of 32px sprite
+                            chips: feeding consumes the item on a single tap,
+                            and the name lived only in `title`, which never
+                            surfaces on touch — so a kid picking between
+                            look-alike sprites was feeding blind. */}
+                        <div className="flex flex-col gap-2">
                           {foods.map((f) => (
                             <button
                               key={f.item.id}
@@ -238,7 +271,7 @@ export default function Companions() {
                               onClick={(e) => { e.stopPropagation(); handleFeed(pet, f.item.id); }}
                               disabled={working}
                               title={f.item.name}
-                              className="font-body text-xs px-2 py-1 rounded bg-ink-page border border-ink-page-shadow hover:border-sheikah-teal/50 transition-colors flex items-center gap-1"
+                              className="w-full min-h-11 px-2 py-1 rounded bg-ink-page border border-ink-page-shadow hover:border-sheikah-teal/50 transition-colors flex items-center gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <RpgSprite
                                 spriteKey={f.item.sprite_key}
@@ -246,7 +279,12 @@ export default function Companions() {
                                 size={24}
                                 alt={f.item.name}
                               />
-                              ×{f.quantity}
+                              <span className="flex-1 min-w-0 font-body text-caption text-ink-primary truncate">
+                                {f.item.name}
+                              </span>
+                              <span className="shrink-0 font-rune text-tiny text-ink-whisper tabular-nums">
+                                ×{f.quantity}
+                              </span>
                             </button>
                           ))}
                         </div>

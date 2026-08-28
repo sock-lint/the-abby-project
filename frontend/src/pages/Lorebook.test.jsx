@@ -152,6 +152,53 @@ describe('Lorebook trial flow', () => {
   });
 });
 
+describe('Lorebook chapter shelf', () => {
+  it('shows one chapter folio at a time and swaps it when a spine is tapped', async () => {
+    const entries = [
+      baseEntry('study', { unlocked: true, trained: false, chapter: 'daily_life' }),
+      baseEntry('quests', { unlocked: true, trained: false, chapter: 'rpg_layer' }),
+    ];
+    server.use(
+      http.get('*/api/lorebook/', () => HttpResponse.json(buildResponse(entries))),
+    );
+    const { user } = renderWithProviders(<Lorebook />);
+
+    // Defaults to the first populated chapter — only its entries render.
+    expect(
+      await screen.findByRole('button', { name: /study · ready to train/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /quests · ready to train/i }),
+    ).toBeNull();
+
+    await user.click(screen.getByRole('tab', { name: /RPG Layer/i }));
+
+    expect(
+      await screen.findByRole('button', { name: /quests · ready to train/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /study · ready to train/i }),
+    ).toBeNull();
+  });
+
+  it('remembers the chapter the reader picked', async () => {
+    const entries = [
+      baseEntry('study', { unlocked: true, trained: false, chapter: 'daily_life' }),
+      baseEntry('quests', { unlocked: true, trained: false, chapter: 'rpg_layer' }),
+    ];
+    server.use(
+      http.get('*/api/lorebook/', () => HttpResponse.json(buildResponse(entries))),
+    );
+    const { user } = renderWithProviders(<Lorebook />);
+
+    await user.click(await screen.findByRole('tab', { name: /RPG Layer/i }));
+    await waitFor(() =>
+      expect(window.localStorage.getItem('atlas:lorebook-codex:active-chapter'))
+        .toBe('rpg_layer'),
+    );
+  });
+});
+
 describe('Lorebook detail view (kept for trained entries)', () => {
   it('opens the existing detail sheet when an inked tile is clicked', async () => {
     const entries = [

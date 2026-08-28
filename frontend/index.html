@@ -9,9 +9,58 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- "default" (dark status text), NOT "black-translucent" (white status
+         text drawn over the page). Five of the six journal covers are light
+         parchment — bg-ink-page is #f4ecd8 cream on the Hyrule default — so
+         white-on-cream made the clock/battery/signal effectively invisible
+         for every kid except the one on the dark Night Vigil cover. This
+         value is baked in at install time and can't follow applyTheme(), so
+         it has to be correct for the light-first default; Vigil trades a
+         slightly dim status bar for five readable ones. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Abby" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <!-- Pre-hydration cover paint. The app bundle is a deferred module, so
+         the first painted frame is whatever index.css's default tokens say —
+         always the cream Hyrule page. A kid on the dark Night Vigil cover
+         therefore got a full-screen parchment flash on every cold launch of
+         the installed app before applyTheme() swapped it. This reads the same
+         last-known-good user snapshot AuthProvider already writes (the
+         CACHED_USER key in src/constants/storage.js) and paints ONLY the page
+         background token; applyTheme() takes over with the full palette the
+         moment the bundle boots. Splash/theme-color stay cream on purpose —
+         they're fixed at install time and can't vary per cover.
+         COVER_PAGE mirrors `page` in src/themes.js; the parity gate in
+         src/pwa/bootCoverPaint.test.js fails if the two ever drift. -->
+    <script>
+      (function () {
+        var COVER_PAGE = {
+          hyrule: '#f4ecd8',
+          vigil: '#2a1f15',
+          sunlit: '#f7ecc9',
+          snowquill: '#e8eef5',
+          verdant: '#eff0d7',
+          harvest: '#f0dcc0'
+        };
+        var LEGACY_ALIASES = {
+          summer: 'sunlit',
+          winter: 'snowquill',
+          spring: 'verdant',
+          autumn: 'harvest'
+        };
+        try {
+          var raw = window.localStorage.getItem('auth:last-user');
+          if (!raw) return;
+          var theme = JSON.parse(raw).theme;
+          var page = COVER_PAGE[LEGACY_ALIASES[theme] || theme];
+          if (page) {
+            document.documentElement.style.setProperty('--color-ink-page', page);
+          }
+        } catch (e) {
+          /* private mode / corrupt JSON — fall through to the cream default */
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />

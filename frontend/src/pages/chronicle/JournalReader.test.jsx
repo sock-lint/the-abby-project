@@ -211,6 +211,25 @@ describe('JournalReader — parent view', () => {
     expect(screen.getByText(/private/i)).toBeInTheDocument();
   });
 
+  // The parent may have picked any child, so the empty state can't assume a
+  // daughter — this app hosts many households now.
+  it('uses pronoun-neutral copy in the parent empty state', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () =>
+        HttpResponse.json([{ id: 7, first_name: 'Max', username: 'max' }]),
+      ),
+      http.get('*/api/chronicle/summary/', () => HttpResponse.json(summaryPayload([]))),
+    );
+
+    renderReader();
+
+    await waitFor(() =>
+      expect(screen.getByText(/when they write their first journal entry/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/when she writes her first/i)).toBeNull();
+  });
+
   it('renders no-children empty-state when parent has no children', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),

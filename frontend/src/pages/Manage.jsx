@@ -33,7 +33,7 @@ import Button from '../components/Button';
 import PageShell from '../components/layout/PageShell';
 import IconButton from '../components/IconButton';
 import TabList from '../components/layout/TabList';
-import { TextField, SelectField, TextAreaField } from '../components/form';
+import { TextField, SelectField, TextAreaField, CheckboxField } from '../components/form';
 import { normalizeList } from '../utils/api';
 
 const BASE_TABS = ['Children', 'Family', 'Templates', 'Guide'];
@@ -114,7 +114,7 @@ export default function Manage() {
 /* ── Children Section ───────────────────────────────────────────── */
 
 function ChildrenSection() {
-  const { data, loading, reload } = useApi(getChildren);
+  const { data, loading, error, reload } = useApi(getChildren);
   const [editChild, setEditChild] = useState(null);
   const [creating, setCreating] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
@@ -141,7 +141,11 @@ function ChildrenSection() {
           <UserPlus size={14} /> New child
         </Button>
       </div>
-      {children.length === 0 && (
+      {/* A failed fetch is NOT an empty family — showing "No children yet" on a
+          500 tells a parent their kids are gone. Surface the error with a
+          retry and suppress the empty state until we actually know. */}
+      {error && <ErrorAlert message={error} onRetry={reload} />}
+      {!error && children.length === 0 && (
         <EmptyState>No children yet — tap <span className="font-semibold">New child</span> to add one.</EmptyState>
       )}
       {children.map((child) => {
@@ -579,7 +583,7 @@ function DeleteAccountConfirm({ user, kind, onConfirm, onCancel }) {
 
 function TemplatesSection() {
   const navigate = useNavigate();
-  const { data, loading, reload } = useApi(getTemplates);
+  const { data, loading, error, reload } = useApi(getTemplates);
   const { data: childrenData } = useApi(getChildren);
   const { data: categoriesData } = useApi(getCategories);
   const templates = normalizeList(data);
@@ -601,7 +605,10 @@ function TemplatesSection() {
 
   return (
     <div className="space-y-3">
-      {templates.length === 0 && (
+      {/* Same rule as Children: a failed fetch must not read as "you have
+          no templates". */}
+      {error && <ErrorAlert message={error} onRetry={reload} />}
+      {!error && templates.length === 0 && (
         <EmptyState>No templates yet. Save a completed project as a template from the project detail page.</EmptyState>
       )}
 
@@ -783,15 +790,12 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
           <TextField label="Bonus ($)" value={form.bonus_amount} onChange={onField('bonus_amount')} type="number" step="0.01" min="0" />
           <TextField label="Budget ($)" value={form.materials_budget} onChange={onField('materials_budget')} type="number" step="0.01" min="0" />
         </div>
-        <label className="flex items-center gap-2 text-body text-ink-primary cursor-pointer">
-          <input
-            type="checkbox"
-            checked={form.is_public}
-            onChange={(e) => set({ is_public: e.target.checked })}
-            className="accent-amber-primary"
-          />
-          Share publicly (other families can see this template)
-        </label>
+        <CheckboxField
+          label="Share publicly"
+          checked={form.is_public}
+          onChange={(e) => set({ is_public: e.target.checked })}
+          helpText="Other families can see and use this template."
+        />
         <div className="flex gap-2">
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel

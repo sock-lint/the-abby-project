@@ -84,10 +84,13 @@ export default function BadgeSigil({ badge, earned, earnedAt, hint = '', onSelec
           {rarity}
         </div>
 
+        {/* The unlock hint is what turns the codex into a goal map, so it
+            reads at text-tiny in full ink rather than 10px at 80% whisper —
+            the tile has the vertical room (min-h 136px). */}
         {!earned && visibleHint && (
           <div
             data-sigil-hint="true"
-            className="mt-0.5 text-micro italic font-script text-center leading-snug text-ink-whisper/80 line-clamp-2 px-1"
+            className="mt-0.5 text-tiny italic font-script text-center leading-snug text-ink-whisper line-clamp-2 px-1"
           >
             {visibleHint}
           </div>

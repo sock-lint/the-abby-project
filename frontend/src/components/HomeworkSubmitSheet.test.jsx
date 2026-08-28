@@ -65,6 +65,27 @@ describe('HomeworkSubmitSheet', () => {
     expect(onSubmitted).toHaveBeenCalled();
   });
 
+  // The remove badge on a 64px thumbnail was a ~17px target — a kid
+  // correcting a mis-picked photo mostly missed it.
+  it('removes a proof photo through a 44px-floor remove control', async () => {
+    const user = userEvent.setup();
+    render(<HomeworkSubmitSheet assignment={assignment} onClose={vi.fn()} onSubmitted={vi.fn()} />);
+
+    const file = new File(['x'], 'proof.jpg', { type: 'image/jpeg' });
+    await user.upload(document.body.querySelector('input[type="file"]'), file);
+
+    const remove = await inSheet().findByRole('button', { name: /remove photo/i });
+    expect(remove.className).toContain('min-h-11');
+    expect(remove.className).toContain('min-w-11');
+
+    const submit = inSheet().getByRole('button', { name: /submit for review/i });
+    await waitFor(() => expect(submit).not.toBeDisabled());
+
+    await user.click(remove);
+    expect(inSheet().queryByRole('button', { name: /remove photo/i })).not.toBeInTheDocument();
+    expect(inSheet().getByRole('button', { name: /submit for review/i })).toBeDisabled();
+  });
+
   it('surfaces an error when the submit request fails', async () => {
     const user = userEvent.setup();
     server.use(

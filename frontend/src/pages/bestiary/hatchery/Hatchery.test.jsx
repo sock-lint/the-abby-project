@@ -34,6 +34,25 @@ describe('Hatchery', () => {
     );
   });
 
+  // "No eggs or potions in your Satchel yet…" used to render on a failed
+  // satchel fetch too — an empty-inventory message for a broken load.
+  it('shows a retry-able error instead of the empty state when the satchel fetch fails', async () => {
+    server.use(
+      http.get('*/api/pets/stable/', () =>
+        HttpResponse.json({ pets: [], mounts: [], total_possible: 48 }),
+      ),
+      http.get('*/api/inventory/', () =>
+        HttpResponse.json({ detail: 'Satchel offline' }, { status: 500 }),
+      ),
+    );
+    renderHatchery();
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toMatch(/satchel offline/i),
+    );
+    expect(screen.queryByText(/no eggs or potions/i)).toBeNull();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+  });
+
   it('renders the Hatch + Breed sections under atlas chapter numerals (§I / §II)', async () => {
     server.use(
       http.get('*/api/pets/stable/', () =>

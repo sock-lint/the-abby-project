@@ -5,8 +5,36 @@ import {
 import {
   getMe, login as apiLogin, logout as apiLogout, signup as apiSignup,
 } from '../api';
-import { getToken, setToken } from '../api/client';
+import { getToken, setToken, OFFLINE_MESSAGE } from '../api/client';
 import { STORAGE_KEYS } from '../constants/storage';
+
+// A fetch that never reaches the server rejects with browser-internal text —
+// "Failed to fetch" in Chrome, the even more cryptic "Load failed" in Safari —
+// which used to render verbatim inside ErrorAlert on every page a kid opened
+// without signal. api/client.js now translates that at the wrapper, so every
+// call site benefits, not just the ones going through useApi; the wording is
+// re-exported here because callers already import it from this module.
+export { OFFLINE_MESSAGE };
+
+export function isNetworkError(err) {
+  if (!err || err.status !== undefined) return false;
+  // `offline` is stamped by api/client.js; the TypeError / navigator checks
+  // still catch a rejection raised outside that wrapper.
+  if (err.offline === true) return true;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  return err.name === 'TypeError';
+}
+
+/**
+ * Kid-readable text for a rejected API call. Network failures become
+ * OFFLINE_MESSAGE; everything else keeps the server's own message, which is
+ * already written for humans. Exported so mutation call sites (which catch
+ * their own errors rather than going through useApi) can share the wording.
+ */
+export function friendlyErrorMessage(err) {
+  if (isNetworkError(err)) return OFFLINE_MESSAGE;
+  return err?.message || 'Something went wrong.';
+}
 
 export function useApi(apiFn, deps = []) {
   const [data, setData] = useState(null);
@@ -50,7 +78,7 @@ export function useApi(apiFn, deps = []) {
     } catch (err) {
       if (!mountedRef.current || controller.signal.aborted) return;
       if (err?.name === 'AbortError') return;
-      setError(err.message);
+      setError(friendlyErrorMessage(err));
     } finally {
       if (mountedRef.current && !controller.signal.aborted) {
         setLoading(false);

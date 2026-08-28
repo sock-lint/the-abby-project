@@ -20,6 +20,7 @@ import { EggIcon } from '../components/icons/JournalIcons';
 import RpgSprite from '../components/rpg/RpgSprite';
 import BoostStrip from '../components/rpg/BoostStrip';
 import CatalogSearch from '../components/CatalogSearch';
+import PageShell from '../components/layout/PageShell';
 import TomeShelf from '../components/atlas/TomeShelf';
 import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
 import { normalizeList } from '../utils/api';
@@ -194,7 +195,10 @@ export default function Inventory() {
   }));
 
   return (
-    <div className="space-y-6 pb-32 md:pb-8">
+    // animate={false}: this is a Treasury hub tab and ChapterHub already
+    // runs a per-tab entrance animation — PageShell here is for the shared
+    // spine width + rhythm, not a second fade stacked on the first.
+    <PageShell rhythm="loose" animate={false} className="pb-32 md:pb-8">
       <header>
         <div className="font-script text-sheikah-teal-deep text-base">
           the satchel · all that's been gathered
@@ -247,7 +251,10 @@ export default function Inventory() {
           />
         ) : (
           <EmptyState icon={<EggIcon size={36} />}>
-            <div>No items yet. Complete quests, chores, and homework to earn drops.</div>
+            {/* Same vocabulary as the Hatchery's equivalent empty state —
+                a kid bouncing between Bestiary and Treasury was reading two
+                different names for one earning loop. */}
+            <div>No items yet. Drops fall from clocked work, duties, study, and quests.</div>
             <div className="font-script text-body text-ink-whisper mt-2 not-italic">
               eggs hatch pets, potions tint them, food feeds them, cosmetics dress your sigil, consumables fire one effect
             </div>
@@ -357,7 +364,7 @@ export default function Inventory() {
           )}
         </>
       )}
-    </div>
+    </PageShell>
   );
 }
 

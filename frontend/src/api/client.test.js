@@ -2,7 +2,9 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as Sentry from '@sentry/react';
 import { server } from '../test/server.js';
-import { api, getBlob, getToken, setToken } from './client.js';
+import {
+  api, getBlob, getToken, setToken, OFFLINE_MESSAGE,
+} from './client.js';
 
 describe('token helpers', () => {
   it('returns empty string when no token is stored', () => {
@@ -130,6 +132,52 @@ describe('api errors', () => {
       existing: { id: 77 },
     });
     expect(caught.message).toBe('You already wrote a journal entry today.');
+  });
+});
+
+describe('network failures', () => {
+  // A dead connection rejects fetch with the browser's own wording — "Failed
+  // to fetch" on Chrome, "Load failed" on Safari — and ~79 call sites render
+  // err.message straight into an ErrorAlert. Translating at this seam covers
+  // all of them at once.
+  it('translates a fetch rejection into kid-readable copy', async () => {
+    server.use(http.get('*/api/projects/', () => HttpResponse.error()));
+    await expect(api.get('/projects/')).rejects.toThrow(OFFLINE_MESSAGE);
+  });
+
+  it('leaves the error without a status so HTTP branching still works', async () => {
+    server.use(http.get('*/api/projects/', () => HttpResponse.error()));
+    const err = await api.get('/projects/').catch((e) => e);
+    expect(err.status).toBeUndefined();
+    expect(err.offline).toBe(true);
+  });
+
+  it('keeps server error messages verbatim', async () => {
+    server.use(http.get('*/api/projects/', () =>
+      HttpResponse.json({ error: 'You already logged that today.' }, { status: 409 }),
+    ));
+    const err = await api.get('/projects/').catch((e) => e);
+    expect(err.message).toBe('You already logged that today.');
+    expect(err.status).toBe(409);
+    expect(err.offline).toBeUndefined();
+  });
+
+  // useApi keys cancellation off err.name, so an abort must never be
+  // relabelled as a connection failure. `request()` takes no signal today, so
+  // the guard is exercised by rejecting at the fetch boundary directly.
+  it('lets an AbortError through untouched', async () => {
+    const abortErr = new Error('aborted');
+    abortErr.name = 'AbortError';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(abortErr);
+    const err = await api.get('/projects/').catch((e) => e);
+    expect(err.name).toBe('AbortError');
+    expect(err.message).not.toBe(OFFLINE_MESSAGE);
+    fetchSpy.mockRestore();
+  });
+
+  it('translates a failed blob download too', async () => {
+    server.use(http.get('*/api/payments/export/', () => HttpResponse.error()));
+    await expect(getBlob('/payments/export/')).rejects.toThrow(OFFLINE_MESSAGE);
   });
 });
 

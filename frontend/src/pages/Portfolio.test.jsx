@@ -4,7 +4,7 @@ import Portfolio from './Portfolio.jsx';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
 import { buildProject, buildUser, buildParent } from '../test/factories.js';
-import { renderWithProviders, screen, waitFor } from '../test/render.jsx';
+import { act, renderWithProviders, screen, waitFor } from '../test/render.jsx';
 import { setToken } from '../api/client.js';
 
 vi.mock('framer-motion', async () => {
@@ -120,6 +120,54 @@ describe('Portfolio', () => {
     await waitFor(() => expect(screen.getByText('Proj1')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /View hello/ }));
     expect(screen.getByRole('dialog', { name: /photo viewer/i })).toBeInTheDocument();
+  });
+
+  // In the installed PWA there is no browser chrome, so back is the only
+  // "dismiss this photo" gesture a kid has. Without a history sentinel it
+  // navigated off the Atlas page and lost the filter + scroll position.
+  it('closes the lightbox on the back gesture instead of leaving the page', async () => {
+    mockAuth(buildUser({ id: 1 }));
+    server.use(
+      http.get('*/api/portfolio/', () =>
+        HttpResponse.json({
+          projects: [{
+            project_id: 1, project_title: 'Proj1',
+            photos: [{ id: 9, image: '/x.jpg', caption: 'hello', user: 1, uploaded_at: '2026-04-10T00:00:00Z' }],
+          }],
+          homework: [],
+        }),
+      ),
+    );
+    const { user } = renderWithProviders(<Portfolio />);
+    await waitFor(() => expect(screen.getByText('Proj1')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /View hello/ }));
+    expect(screen.getByRole('dialog', { name: /photo viewer/i })).toBeInTheDocument();
+
+    await act(async () => {
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /photo viewer/i })).toBeNull(),
+    );
+    // The page underneath is still mounted — back closed the photo, not the route.
+    expect(screen.getByText('Proj1')).toBeInTheDocument();
+  });
+
+  // A failed fetch used to render "No pages yet — affix your first progress
+  // photo", which reads as "you have nothing" and offers no way to retry.
+  it('shows a retry-able error instead of the empty state when the fetch fails', async () => {
+    mockAuth(buildUser({ id: 1 }));
+    server.use(
+      http.get('*/api/portfolio/', () =>
+        HttpResponse.json({ detail: 'Server exploded' }, { status: 500 }),
+      ),
+    );
+    renderWithProviders(<Portfolio />);
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toMatch(/server exploded/i),
+    );
+    expect(screen.queryByText(/no pages yet/i)).toBeNull();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
   it('deletes a photo after confirm', async () => {
@@ -320,6 +368,53 @@ describe('Portfolio', () => {
     await user.click(screen.getByRole('button', { name: /affix photo/i }));
     await user.click(screen.getByRole('button', { name: /upload photo/i }));
     expect(screen.getByRole('button', { name: /upload photo/i })).toBeDisabled();
+  });
+
+  // The submit moved from an onClick button to a <form onSubmit> + the
+  // shared <ModalActions> row, so pin that the POST still fires.
+  it('uploads the picked photo when the sheet is submitted', async () => {
+    mockAuth(buildUser({ id: 1 }));
+    server.use(
+      http.get('*/api/portfolio/', () => HttpResponse.json({ projects: [], homework: [] })),
+      http.get('*/api/projects/', () =>
+        HttpResponse.json([buildProject({ id: 7, title: 'Target' })]),
+      ),
+    );
+    const spy = spyHandler('post', /\/api\/photos\/$/, { ok: true });
+    server.use(spy.handler);
+    window.URL.createObjectURL = vi.fn(() => 'blob:preview');
+
+    const { user } = renderWithProviders(<Portfolio />);
+    await waitFor(() => expect(screen.getByText(/affix photo/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /affix photo/i }));
+
+    await user.selectOptions(screen.getByLabelText(/^project$/i), '7');
+    await user.upload(
+      document.querySelector('input[type="file"]'),
+      new File(['x'], 'shot.png', { type: 'image/png' }),
+    );
+
+    const submit = screen.getByRole('button', { name: /^upload photo$/i });
+    await waitFor(() => expect(submit).not.toBeDisabled());
+    await user.click(submit);
+    await waitFor(() => expect(spy.calls).toHaveLength(1));
+    expect(spy.calls[0].url).toMatch(/\/api\/photos\/$/);
+  });
+
+  it('offers a Cancel alongside the upload action', async () => {
+    mockAuth(buildUser({ id: 1 }));
+    server.use(
+      http.get('*/api/portfolio/', () => HttpResponse.json({ projects: [], homework: [] })),
+      http.get('*/api/projects/', () => HttpResponse.json([])),
+    );
+    const { user } = renderWithProviders(<Portfolio />);
+    await waitFor(() => expect(screen.getByText(/affix photo/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /affix photo/i }));
+    expect(screen.getByRole('button', { name: /^cancel$/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /upload photo/i })).toBeNull(),
+    );
   });
 
   // `capture` forces the live camera and hides the photo library, so a kid

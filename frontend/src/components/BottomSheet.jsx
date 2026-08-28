@@ -5,6 +5,7 @@ import ConfirmDialog from './ConfirmDialog';
 import ModalBackdrop from './modal/ModalBackdrop';
 import SealCloseButton from './modal/SealCloseButton';
 import SealPulseRing from './modal/SealPulseRing';
+import useVisualViewportInset from './modal/useVisualViewportInset';
 import useIsDesktop from '../hooks/useIsDesktop';
 
 // Shared modal shell for every form dialog in the app. Dual-mode under the
@@ -27,15 +28,31 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
   // touch-action on the scroll container, so tall sheets couldn't scroll
   // natively on phones and a downward pan while reading dismissed the form.
   const dragControls = useDragControls();
+  const keyboardInset = useVisualViewportInset();
 
+  // Every dismiss affordance funnels through here — the seal button, the
+  // backdrop, Escape, drag-to-dismiss and the Android back gesture — so the
+  // three rules below live in exactly one place instead of being re-checked
+  // (and, in the back gesture's case, silently skipped) per call site.
   const safeClose = useCallback(() => {
-    if (dirty && !confirmingClose) {
+    // 1. Mid-save sheets don't close. The back gesture used to ignore this and
+    //    call an `onClose` that busy consumers deliberately pass as undefined.
+    if (disabled) return;
+    // 2. While the discard guard is up it owns the top layer, so a repeat
+    //    dismiss gesture belongs to it, not to the sheet underneath. Without
+    //    this, a second tap on the seal button fell through to onClose() and
+    //    discarded the very form the guard exists to protect.
+    if (confirmingClose) {
+      setConfirmingClose(false);
+      return;
+    }
+    // 3. Unsaved work gets a confirmation; the guard's own Confirm closes.
+    if (dirty) {
       setConfirmingClose(true);
       return;
     }
-    setConfirmingClose(false);
-    onClose();
-  }, [dirty, confirmingClose, onClose]);
+    onClose?.();
+  }, [disabled, confirmingClose, dirty, onClose]);
 
   const dialogCallbackRef = useCallback((node) => {
     dialogRef.current = node;
@@ -58,8 +75,8 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
   useEffect(() => {
     window.history.pushState({ abbySheet: sheetHistoryId }, '');
     const handlePop = () => {
-      // Re-arm immediately: if the sheet is dirty, safeClose only opens the
-      // confirm dialog and the sheet stays up — so back must stay trapped.
+      // Re-arm immediately: safeClose may well leave the sheet up (dirty, or
+      // mid-save), so back must stay trapped for the next press.
       window.history.pushState({ abbySheet: sheetHistoryId }, '');
       safeCloseRef.current();
     };
@@ -74,12 +91,13 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
   }, [sheetHistoryId]);
 
   useEffect(() => {
+    // safeClose owns the disabled / dirty / guard rules — don't re-check here.
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && !disabled) safeClose();
+      if (e.key === 'Escape') safeClose();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [safeClose, disabled]);
+  }, [safeClose]);
 
   useEffect(() => {
     const node = dialogRef.current;
@@ -122,7 +140,7 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
             animate={{ scale: 1, opacity: 1, rotate: 0 }}
             exit={{ scale: 0.94, opacity: 0 }}
             transition={{ type: 'spring', damping: 22, stiffness: 260 }}
-            className="pointer-events-auto relative w-full max-w-lg parchment-bg-aged border border-ink-page-shadow rounded-2xl modal-seal-ring max-h-[85dvh] overflow-y-auto overflow-x-hidden scrollbar-hide"
+            className={`${confirmingClose ? 'pointer-events-none' : 'pointer-events-auto'} relative w-full max-w-lg parchment-bg-aged border border-ink-page-shadow rounded-2xl modal-seal-ring max-h-[85dvh] overflow-y-auto overflow-x-hidden scrollbar-hide`}
           >
             <SealPulseRing rounded="rounded-2xl" />
             <div className="relative flex items-center justify-between px-5 pt-4 pb-2">
@@ -156,9 +174,18 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
           dragConstraints={{ top: 0 }}
           dragElastic={0.1}
           onDragEnd={(_e, info) => {
-            if (info.offset.y > 100 && !disabled) safeClose();
+            if (info.offset.y > 100) safeClose();
           }}
-          className="fixed bottom-0 left-0 right-0 parchment-bg-aged border-t border-ink-page-shadow rounded-t-2xl z-50 max-h-[90dvh] flex flex-col modal-seal-ring"
+          className={`fixed bottom-0 left-0 right-0 parchment-bg-aged border-t border-ink-page-shadow rounded-t-2xl z-50 max-h-[90dvh] flex flex-col modal-seal-ring${confirmingClose ? ' pointer-events-none' : ''}`}
+          // The on-screen keyboard overlays a bottom-anchored fixed sheet
+          // instead of shrinking it (dvh doesn't track the visual viewport),
+          // hiding the field errors and the action row below the focused
+          // input. Sit the sheet on top of the keyboard instead — see
+          // modal/useVisualViewportInset.js. Inline styles beat the
+          // bottom-0 / max-h-[90dvh] classes above only while a keyboard is up.
+          style={keyboardInset
+            ? { bottom: keyboardInset, maxHeight: `calc(90dvh - ${keyboardInset}px)` }
+            : undefined}
         >
           {/* Top-edge teal halo — one-shot animation that radiates as the
               sheet settles, reinforcing the "paper slipped onto the journal"
@@ -205,10 +232,11 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
       )}
       {confirmingClose && (
         <ConfirmDialog
+          stacked
           title="Discard changes?"
           message="You have unsaved changes that will be lost."
           confirmLabel="Discard"
-          onConfirm={() => { setConfirmingClose(false); onClose(); }}
+          onConfirm={() => { setConfirmingClose(false); onClose?.(); }}
           onCancel={() => setConfirmingClose(false)}
         />
       )}

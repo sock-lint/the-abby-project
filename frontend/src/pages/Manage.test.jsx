@@ -95,6 +95,35 @@ describe('Manage', () => {
     expect(await screen.findByRole('heading', { name: /economy diagram/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /study/i })).toBeInTheDocument();
   });
+
+  it('shows a retry-able error instead of "No children yet" when the fetch fails', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () =>
+        HttpResponse.json({ detail: 'boom' }, { status: 500 }),
+      ),
+    );
+    renderPage();
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    // "No children yet" on a 500 reads as "your kids are gone".
+    expect(screen.queryByText(/no children yet/i)).toBeNull();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+  });
+
+  it('shows a retry-able error instead of "No templates yet" when the fetch fails', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/templates/', () =>
+        HttpResponse.json({ detail: 'boom' }, { status: 500 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('tab', { name: /templates/i }));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(screen.queryByText(/no templates yet/i)).toBeNull();
+  });
 });
 
 describe('Manage — create child flow', () => {

@@ -56,8 +56,11 @@ export default function Badges() {
     );
   }
 
+  // space-y-5 is the shared hub-tab-body rhythm (PageShell's `default`
+  // tier) — sibling Atlas tabs used to each pick their own, so switching
+  // tabs inside one hub visibly changed section spacing.
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {allBadges.length > 0 && (
         <CatalogSearch
           value={filter}
