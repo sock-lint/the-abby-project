@@ -23,6 +23,17 @@ fallback for a plate someone started from Handy without renaming it.
   or Bambu cloud uid + token) live in `encrypted_secret` as a Fernet blob via
   `set_secrets()` / `get_secrets()` — never in cleartext columns, never
   serialized out. `transport` is `local` | `cloud`.
+  **`missing_credentials` is the primitive**, not `has_credentials`: it returns
+  the *write-serializer field names* still blank for this transport (`host` +
+  `access_code` for LAN, `cloud_user_id` + `cloud_token` for cloud), which is
+  what lets the API hang a 400 on the exact input and the card say which field
+  to fill. `has_credentials` and `credential_hint` (one human sentence) both
+  derive from it, so the API, the parent UI and the supervisor's skip-reason
+  can't disagree. `PrinterProfileWriteSerializer.validate()` refuses an
+  incomplete printer outright — a saved-but-undialable printer is the failure
+  mode this subsystem is worst at explaining, so it never gets created. That
+  check needs `instance=` on PATCH to see the stored secrets; without it a
+  rename-only PATCH reads as a create with no access code and 400s.
 - `PrintRequest` — the ask. `ApprovalWorkflowModel` + `TimestampedModel`.
   `slug` carries a **partial** unique constraint (`~Q(slug="")`) because many
   pending rows sit at `""` before approval. `estimated_grams` is what the budget

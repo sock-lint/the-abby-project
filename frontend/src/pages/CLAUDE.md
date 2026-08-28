@@ -107,7 +107,14 @@ the frontend half is under [`pages/forge/`](/frontend/src/pages/forge/):
   `LINKABLE_REQUEST_STATUSES` so a rejected or cancelled request can never
   absorb a print.
 - `PrinterConfigPanel.jsx` — parent-only printer registry. Credentials are
-  write-only; blank fields on an edit mean "keep what is stored".
+  write-only; blank fields on an edit mean "keep what is stored". The server
+  refuses an incomplete printer, so a 400 comes back keyed by field
+  (`{access_code: [...]}`) and `fieldErrors` from [`utils/api.js`](/frontend/src/utils/api.js)
+  hangs each message on its own input rather than letting the client's
+  `JSON.stringify` fallback print raw JSON in the banner. Anything the form has
+  no input for still falls through to the banner. Cards render
+  `credential_hint` (or `last_error`) beneath the meta line — the red badge on
+  its own never said *which* field was blank.
 - `forge.constants.js` — tone maps, `formatGrams` / `formatMinutes` /
   `formatCap`, `usagePercent`, `budgetProgress`, `jobProgressLabel`, `isJobOpen`.
 

@@ -159,12 +159,66 @@ class PrinterProfile(TimestampedModel):
             current[key] = value
         self.encrypted_secret = encrypt_secrets(current)
 
+    #: What the parent has to supply, per transport, before the listener can
+    #: open a connection. Keys are the *write-serializer field names* so the
+    #: API can hang a validation error on the exact input that is blank.
+    #: ``host`` lives on the model; the rest live in ``encrypted_secret``.
+    REQUIRED_BY_TRANSPORT = {
+        Transport.LOCAL: ("host", "access_code"),
+        Transport.CLOUD: ("cloud_user_id", "cloud_token"),
+    }
+
+    @property
+    def missing_credentials(self) -> list[str]:
+        """Field names still blank for this printer's transport.
+
+        Empty means the listener has everything it needs to dial. This is the
+        primitive; ``has_credentials`` and ``credential_hint`` are both
+        derived from it, so the API, the parent UI and the listener's
+        skip-reason can never disagree about what is wrong.
+        """
+        present = {**self.get_secrets(), "host": self.host}
+        # ``.get`` rather than ``[]``: this property runs inside the listener
+        # supervisor's loop, and one row with an out-of-choices transport must
+        # not take down every other printer with a KeyError.
+        required = self.REQUIRED_BY_TRANSPORT.get(
+            self.transport, self.REQUIRED_BY_TRANSPORT[self.Transport.LOCAL],
+        )
+        return [field for field in required if not present.get(field)]
+
     @property
     def has_credentials(self) -> bool:
-        secrets = self.get_secrets()
+        return not self.missing_credentials
+
+    @property
+    def credential_hint(self) -> str:
+        """One sentence naming what is missing, or ``""`` when nothing is.
+
+        Rendered on the printer card and stamped into ``last_error`` by the
+        listener supervisor, because "it doesn't work" without saying which
+        field is blank is the single most common way this feature strands a
+        parent.
+        """
+        missing = self.missing_credentials
+        if not missing:
+            return ""
         if self.transport == self.Transport.CLOUD:
-            return bool(secrets.get("cloud_user_id") and secrets.get("cloud_token"))
-        return bool(secrets.get("access_code") and self.host)
+            wanted = " and ".join(
+                {"cloud_user_id": "user id", "cloud_token": "access token"}[field]
+                for field in missing
+            )
+            return f"No Bambu Cloud {wanted} saved."
+        if missing == ["host"]:
+            return "No LAN address saved — the printer's IP is on its network screen."
+        prefix = (
+            "No LAN address or access code saved"
+            if len(missing) > 1
+            else "No LAN access code saved"
+        )
+        return (
+            f"{prefix} — the access code is on the printer's screen "
+            "under Settings → Network."
+        )
 
 
 class PrintRequest(ApprovalWorkflowModel, TimestampedModel):

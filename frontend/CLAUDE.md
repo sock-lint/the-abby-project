@@ -65,7 +65,7 @@ frontend/src/
                      <Button>/<IconButton>, and formLabelClass/HelpClass/
                      ErrorClass shared by the form primitives), storage.js
                      (localStorage key constants).
-  utils/             format.js, api.js (normalizeList), image.js,
+  utils/             format.js, api.js (normalizeList, fieldErrors), image.js,
                      dates.js (toISODate + quickDueDates for due-date chips),
                      contrast.js (WCAG contrast helper for themeContrast.test.js).
   pwa/               see components/pwa/ above — PwaStatusProvider mounts
@@ -83,7 +83,7 @@ frontend/src/
 
 - Token stored in `localStorage` key `abby_auth_token`, sent as `Authorization: Token <key>`.
 - **401 self-heal in the fetch wrapper** ([api/client.js](src/api/client.js)): when any API call returns 401 AND the request carried an `Authorization` header, the client clears `abby_auth_token` and calls `window.location.reload()`. `AuthProvider`'s boot flow then lands on the Login page with no stale token in localStorage. This is the recovery path for users whose stored tokens go invalid (e.g., after a Coolify redeploy we haven't pinned down yet) — without it, non-technical users had to manually purge all site data to escape "Invalid token" loops. The **"only if Authorization was sent"** guard is load-bearing: it prevents boot-time `getMe()` 401s (no header → no reload) from entering an infinite reload loop, and lets the Login page surface "Invalid credentials" without self-reloading. Tests live in the `401 self-heal` describe block of [api/client.test.js](src/api/client.test.js).
-- **API error shape** ([api/client.js](src/api/client.js)): every non-2xx response throws an `Error` augmented with two extra fields — `err.status` (HTTP status code as a number) and `err.response` (the parsed JSON body). Callers can branch on specific codes — e.g., `JournalEntryFormModal` catches `err.status === 409` and reads `err.response.existing` to flip into edit mode, and the same modal catches `err.status === 403` for the "entry locked after midnight" case. The default `.message` still carries the human-readable text (`error`/`detail`/stringified body fallback) so generic `catch { toast(err.message) }` paths keep working. When adding a new branching check, prefer status over string-matching `.message`.
+- **API error shape** ([api/client.js](src/api/client.js)): every non-2xx response throws an `Error` augmented with two extra fields — `err.status` (HTTP status code as a number) and `err.response` (the parsed JSON body). Callers can branch on specific codes — e.g., `JournalEntryFormModal` catches `err.status === 409` and reads `err.response.existing` to flip into edit mode, and the same modal catches `err.status === 403` for the "entry locked after midnight" case. The default `.message` still carries the human-readable text (`error`/`detail`/stringified body fallback) so generic `catch { toast(err.message) }` paths keep working. When adding a new branching check, prefer status over string-matching `.message`. **For a 400 on a form**, use `fieldErrors(err)` from [utils/api.js](src/utils/api.js): DRF answers with `{field: ["message"]}`, which has no `error`/`detail` key and so falls through to the `JSON.stringify` fallback — the user reads raw JSON in a banner unless the form maps each message onto its own input's `error` prop. Reference: [`PrinterConfigPanel.jsx`](src/pages/forge/PrinterConfigPanel.jsx).
 
 ## Design system (`components/README.md` is the canonical doc)
 

@@ -714,6 +714,119 @@ class PrinterProfileViewTests(_ApiFixture):
         self.assertEqual(printer.family, self.household.family)
         self.assertEqual(printer.get_secrets()["access_code"], "abcd1234")
 
+    def test_registering_without_an_access_code_is_a_400_not_a_broken_printer(self):
+        # The whole point: a printer the listener can never dial used to 201
+        # and then sit in the list wearing a red "No credentials" badge, with
+        # the field that fixes it hidden behind Edit. Refuse it at the point
+        # the parent is still looking at the form.
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post("/api/printers/", {
+            "name": "Basement P1S",
+            "serial": "00M09A000000010",
+            "host": "192.168.1.51",
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("access_code", resp.json())
+        self.assertIn("Settings", resp.json()["access_code"][0])
+        self.assertFalse(
+            PrinterProfile.objects.filter(serial="00M09A000000010").exists(),
+        )
+
+    def test_a_lan_printer_without_a_host_is_a_400_on_the_host_field(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post("/api/printers/", {
+            "name": "Basement P1S", "serial": "00M09A000000011",
+            "access_code": "abcd1234",
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(list(resp.json()), ["host"])
+
+    def test_a_cloud_printer_needs_a_uid_and_a_token(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post("/api/printers/", {
+            "name": "Cloud X1C", "serial": "00M09A000000012", "transport": "cloud",
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(
+            sorted(resp.json()), ["cloud_token", "cloud_user_id"],
+        )
+
+    def test_switching_transport_without_the_new_credentials_is_refused(self):
+        # A LAN printer flipped to cloud keeps its access code, which is
+        # useless there — the write must not leave a printer the supervisor
+        # will silently skip.
+        self.client.force_authenticate(self.parent)
+        resp = self.client.patch(f"/api/printers/{self.printer.id}/", {
+            "transport": "cloud",
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(sorted(resp.json()), ["cloud_token", "cloud_user_id"])
+        self.printer.refresh_from_db()
+        self.assertEqual(self.printer.transport, PrinterProfile.Transport.LOCAL)
+
+    def test_clearing_a_stored_access_code_is_refused(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.patch(f"/api/printers/{self.printer.id}/", {
+            "access_code": "",
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.printer.refresh_from_db()
+        self.assertEqual(self.printer.get_secrets()["access_code"], ACCESS_CODE)
+
+    def test_re_adding_a_serial_answers_400_rather_than_500(self):
+        # (family, serial) is unique in the database and this is a plain
+        # Serializer, so nothing turned that into a validation error: a parent
+        # who removed a printer and re-added it got an IntegrityError 500.
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post("/api/printers/", {
+            "name": "Garage X1C again", "serial": self.printer.serial,
+            "host": "192.168.1.50", "access_code": "abcd1234",
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("serial", resp.json())
+
+    def test_the_same_serial_in_another_household_is_fine(self):
+        other = make_family("Bravo", parents=[{"username": "bravo_parent2"}])
+        self.client.force_authenticate(other.parents[0])
+        resp = self.client.post("/api/printers/", {
+            "name": "Their X1C", "serial": self.printer.serial,
+            "host": "10.0.0.9", "access_code": "abcd1234",
+        }, format="json")
+        self.assertEqual(resp.status_code, 201, resp.content)
+
+    def test_a_rename_keeps_its_own_serial_without_tripping_the_clash_check(self):
+        self.client.force_authenticate(self.parent)
+        resp = self.client.patch(f"/api/printers/{self.printer.id}/", {
+            "name": "Garage X1C v2", "serial": self.printer.serial,
+        }, format="json")
+        self.assertEqual(resp.status_code, 200, resp.content)
+
+    def test_the_read_shape_says_which_field_is_missing(self):
+        broken = PrinterProfile.objects.create(
+            family=self.household.family, name="Half-configured P1S",
+            serial="00M09A000000013", host="192.168.1.60",
+        )
+        self.client.force_authenticate(self.parent)
+        body = self.client.get(f"/api/printers/{broken.id}/").json()
+        self.assertFalse(body["has_credentials"])
+        self.assertEqual(body["missing_credentials"], ["access_code"])
+        self.assertIn("access code", body["credential_hint"])
+        # And a healthy printer says nothing, so the card stays quiet.
+        ok_body = self.client.get(f"/api/printers/{self.printer.id}/").json()
+        self.assertEqual(ok_body["missing_credentials"], [])
+        self.assertEqual(ok_body["credential_hint"], "")
+
+    def test_saving_a_printer_clears_the_supervisors_stale_complaint(self):
+        PrinterProfile.objects.filter(pk=self.printer.pk).update(
+            last_error="No LAN access code saved — ...",
+        )
+        self.client.force_authenticate(self.parent)
+        resp = self.client.patch(f"/api/printers/{self.printer.id}/", {
+            "access_code": "99887766",
+        }, format="json")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json()["last_error"], "")
+
     def test_a_child_cannot_register_a_printer(self):
         self.client.force_authenticate(self.child)
         resp = self.client.post("/api/printers/", {

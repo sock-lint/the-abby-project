@@ -382,17 +382,14 @@ class ListenerSupervisor:
                 # picked up on the next reconnect.
                 self.listeners[pk].printer = printer
                 continue
-            if not printer.has_credentials:
+            reason = printer.credential_hint
+            if reason:
                 # Stamp the reason. Skipping silently is the same as the
                 # printer simply not working, and "no access code saved" is
                 # the single most common misconfiguration — the parent needs
-                # to see it on the printer card, not guess.
-                reason = (
-                    "No Bambu user id / access token saved."
-                    if printer.transport == PrinterProfile.Transport.CLOUD
-                    else "No LAN access code saved (it's on the printer screen "
-                         "under Settings → Network)."
-                )
+                # to see it on the printer card, not guess. The wording comes
+                # off the model so the card, the API and this loop all name
+                # the same missing field.
                 if printer.last_error != reason:
                     PrinterProfile.objects.filter(pk=pk).update(last_error=reason)
                 continue

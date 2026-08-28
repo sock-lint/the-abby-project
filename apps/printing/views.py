@@ -421,7 +421,9 @@ class PrinterProfileViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
         return super().get_queryset().filter(family_id=user.family_id)
 
     def create(self, request, *args, **kwargs):
-        write = PrinterProfileWriteSerializer(data=request.data)
+        write = PrinterProfileWriteSerializer(
+            data=request.data, context={"request": request},
+        )
         write.is_valid(raise_exception=True)
         data = dict(write.validated_data)
         secrets = {
@@ -439,7 +441,14 @@ class PrinterProfileViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         printer = self.get_object()
-        write = PrinterProfileWriteSerializer(data=request.data, partial=True)
+        # ``instance=`` is load-bearing, not decoration: the serializer's
+        # completeness check reads the stored secrets off it, so without it a
+        # rename-only PATCH would look like a create with no access code and
+        # 400. See PrinterProfileWriteSerializer.validate().
+        write = PrinterProfileWriteSerializer(
+            instance=printer, data=request.data, partial=True,
+            context={"request": request},
+        )
         write.is_valid(raise_exception=True)
         data = dict(write.validated_data)
         secrets = {
@@ -450,6 +459,10 @@ class PrinterProfileViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
             setattr(printer, field, value)
         # Omitted credentials keep their stored value — see set_secrets().
         printer.set_secrets(**secrets)
+        # The stamp describes the config we just replaced, so keeping it would
+        # show the parent a solved problem. The supervisor re-stamps on its
+        # next pass if the printer still won't connect.
+        printer.last_error = ""
         printer.save()
         return Response(PrinterProfileSerializer(printer).data)
 

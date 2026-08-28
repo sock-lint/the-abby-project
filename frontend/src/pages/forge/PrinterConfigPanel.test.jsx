@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { http, HttpResponse } from 'msw';
 import { renderWithProviders, screen, waitFor, within } from '../../test/render';
 import { server } from '../../test/server';
 import { spyHandler } from '../../test/spy';
@@ -27,6 +28,28 @@ describe('PrinterConfigPanel', () => {
     expect(screen.getByText('X1C in the garage')).toBeInTheDocument();
     expect(screen.getByText('Ready')).toBeInTheDocument();
     expect(screen.getByText('No credentials')).toBeInTheDocument();
+  });
+
+  it('says which field is blank instead of leaving the badge a dead end', () => {
+    renderWithProviders(
+      <PrinterConfigPanel printers={[{
+        ...PRINTER,
+        has_credentials: false,
+        missing_credentials: ['access_code'],
+        credential_hint: "No LAN access code saved — the access code is on the "
+          + 'printer’s screen under Settings → Network.',
+      }]} />,
+    );
+    expect(screen.getByText(/Settings → Network/)).toBeInTheDocument();
+  });
+
+  it('falls back to the listener’s own complaint once credentials are set', () => {
+    renderWithProviders(
+      <PrinterConfigPanel printers={[{
+        ...PRINTER, credential_hint: '', last_error: 'Connection refused.',
+      }]} />,
+    );
+    expect(screen.getByText('Connection refused.')).toBeInTheDocument();
   });
 
   it('prompts to add one when the family has no printer yet', () => {
@@ -88,6 +111,47 @@ describe('PrinterConfigPanel', () => {
       is_active: true,
     });
     expect(spy.calls[0].body).not.toHaveProperty('access_code');
+  });
+
+  it('hangs a rejected access code under its own input, not in a JSON blob', async () => {
+    // The server refuses an incomplete printer, and DRF answers with
+    // {access_code: [...]}. Without the field mapping that body falls through
+    // to the client's JSON.stringify fallback and the parent reads raw JSON.
+    server.use(http.post(/\/api\/printers\/$/, () => HttpResponse.json(
+      { access_code: ['Enter the printer’s LAN access code — it’s on the printer’s screen under Settings → Network.'] },
+      { status: 400 },
+    )));
+
+    const { user } = renderWithProviders(<PrinterConfigPanel printers={[]} />);
+    await user.click(screen.getByRole('button', { name: /add printer/i }));
+    await user.type(await screen.findByLabelText('Name'), 'P1S upstairs');
+    await user.type(screen.getByLabelText('Serial'), '01P00A000000002');
+    const sheet = screen.getByRole('dialog', { name: /add a printer/i });
+    await user.click(within(sheet).getByRole('button', { name: 'Add printer' }));
+
+    const message = await screen.findByText(/LAN access code/);
+    expect(message).toBeInTheDocument();
+    // The input owns the message, so a screen reader reads it with the field.
+    expect(screen.getByLabelText(/access code/i).getAttribute('aria-describedby'))
+      .toContain(message.getAttribute('id'));
+    expect(screen.queryByText(/^\{/)).not.toBeInTheDocument();
+    // The sheet stays open so the parent can fix it in place.
+    expect(screen.getByRole('dialog', { name: /add a printer/i })).toBeInTheDocument();
+  });
+
+  it('banners a rejection that has no input to hang on', async () => {
+    server.use(http.post(/\/api\/printers\/$/, () => HttpResponse.json(
+      { detail: 'You do not have permission to perform this action.' },
+      { status: 403 },
+    )));
+
+    const { user } = renderWithProviders(<PrinterConfigPanel printers={[]} />);
+    await user.click(screen.getByRole('button', { name: /add printer/i }));
+    await user.type(await screen.findByLabelText('Name'), 'P1S upstairs');
+    const sheet = screen.getByRole('dialog', { name: /add a printer/i });
+    await user.click(within(sheet).getByRole('button', { name: 'Add printer' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/do not have permission/i);
   });
 
   it('DELETEs the printer after the parent confirms', async () => {
