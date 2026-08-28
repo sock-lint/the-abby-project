@@ -34,6 +34,14 @@ fallback for a plate someone started from Handy without renaming it.
   mode this subsystem is worst at explaining, so it never gets created. That
   check needs `instance=` on PATCH to see the stored secrets; without it a
   rename-only PATCH reads as a create with no access code and 400s.
+  **Where the access code lives is one string**, `constants.ACCESS_CODE_LOCATION`,
+  read by the model hint, the serializer's validation error, the LAN transport's
+  connect error and the form's help text. Four hand-written copies once shipped
+  `Settings → Network`, a menu X1 firmware does not have; the code is inside the
+  **LAN Only** panel, readable with the toggle still off — and it must stay off,
+  since switching LAN Only on is what severs Handy/cloud access while buying us
+  nothing (the local broker publishes status in Cloud mode either way).
+  `AccessCodeLocationTests` pins all four surfaces to the constant.
 - `PrintRequest` — the ask. `ApprovalWorkflowModel` + `TimestampedModel`.
   `slug` carries a **partial** unique constraint (`~Q(slug="")`) because many
   pending rows sit at `""` before approval. `estimated_grams` is what the budget

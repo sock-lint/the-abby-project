@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
+from .constants import ACCESS_CODE_LOCATION
 from .models import (
     PrintBudget,
     PrintBudgetLedger,
@@ -351,10 +352,7 @@ class PrinterProfileWriteSerializer(serializers.Serializer):
     #: in front of the printer, not by whoever wrote the MQTT transport.
     MISSING_MESSAGES = {
         "host": "Enter the printer's IP address or hostname on your network.",
-        "access_code": (
-            "Enter the printer's LAN access code — it's on the printer's "
-            "screen under Settings → Network."
-        ),
+        "access_code": f"Enter the printer's LAN access code — {ACCESS_CODE_LOCATION}",
         "cloud_user_id": "Enter the user id from your Bambu Cloud account.",
         "cloud_token": "Enter your Bambu Cloud access token.",
     }

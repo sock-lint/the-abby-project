@@ -6,9 +6,11 @@ Connection facts, all of which are load-bearing:
   is configured by hand on the ``PrinterProfile``.
 * Port 8883, TLS mandatory — there is no plaintext port.
 * Username is the literal string ``bblp``. Password is the 8-character **LAN
-  Access Code** from the printer's touchscreen (Settings → Network) — not the
-  serial, not the Bambu account password. It rotates if the user regenerates
-  it on screen.
+  Access Code** from the printer's touchscreen — not the serial, not the
+  Bambu account password. It rotates if the user regenerates it on screen.
+  X1 firmware puts it inside the *LAN Only* panel, readable with the toggle
+  still off; ``constants.ACCESS_CODE_LOCATION`` is the one place that wording
+  lives, so every surface points at the same menu.
 * LAN-Only Mode is **not** required: the local broker keeps pushing status
   while the printer is in Cloud mode, and reading status is all a listener
   needs. (Sending *control* commands is a different story — firmware
@@ -26,6 +28,7 @@ from __future__ import annotations
 
 from django.conf import settings
 
+from ..constants import ACCESS_CODE_LOCATION
 from .base import PahoTransportBase, TransportConfig, TransportError
 
 #: The printer's local broker only ever accepts this username.
@@ -37,9 +40,8 @@ def build_local_config(printer) -> TransportConfig:
     access_code = secrets.get("access_code") or ""
     if not access_code:
         raise TransportError(
-            f"{printer.name} has no LAN access code saved. Add it in "
-            f"Manage → Printers (it's on the printer screen under "
-            f"Settings → Network).",
+            f"{printer.name} has no LAN access code saved. Add it under "
+            f"Quests → Forge → Printers — {ACCESS_CODE_LOCATION}",
         )
     if not printer.host:
         raise TransportError(f"{printer.name} has no LAN IP address configured.")
