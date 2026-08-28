@@ -1,5 +1,7 @@
+import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { ChapterSidebar, ChapterBottomBar } from './ChapterNav';
+import ParchmentSkeleton from '../ParchmentSkeleton';
 import QuickActionsFab from './QuickActionsFab';
 import NotificationBell from '../NotificationBell';
 import AvatarMenu from '../AvatarMenu';
@@ -27,7 +29,7 @@ import { useAuth } from '../../hooks/useApi';
  *   [Mobile: bottom ChapterBottomBar + QuickActionsFab bottom-right]
  */
 export default function JournalShell() {
-  const { user, logout } = useAuth();
+  const { user, logout, offline } = useAuth();
 
   return (
     <div className="flex min-h-dvh relative">
@@ -66,12 +68,38 @@ export default function JournalShell() {
           </header>
 
           <HeaderProgressBand />
+
+          {/* Offline banner — shown when AuthProvider hydrated the session
+              from the cached /auth/me/ snapshot because the network was
+              unreachable at boot. Lives inside the sticky band so it stays
+              visible while scrolling a stale page. */}
+          {offline && (
+            <div
+              role="status"
+              className="bg-ink-page-aged border-y border-ink-page-shadow px-4 lg:px-6 py-1.5 text-center font-body text-caption text-ink-secondary"
+            >
+              Offline — showing your last journal
+            </div>
+          )}
         </div>
 
         <div className="px-4 lg:px-6 pt-3 lg:pt-6">
-          <PageTurnTransition>
-            <Outlet />
-          </PageTurnTransition>
+          {/* Suspense boundary for the lazy page chunks (App.jsx). Sitting
+              inside <main> keeps the sticky header + nav mounted while a
+              chunk downloads; the parchment skeleton fills the content well
+              so the page structure reads as "loading", not "blank". */}
+          <Suspense
+            fallback={(
+              <div className="space-y-3">
+                <ParchmentSkeleton variant="hero" />
+                <ParchmentSkeleton variant="list" />
+              </div>
+            )}
+          >
+            <PageTurnTransition>
+              <Outlet />
+            </PageTurnTransition>
+          </Suspense>
         </div>
       </main>
 

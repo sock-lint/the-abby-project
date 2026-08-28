@@ -26,10 +26,12 @@ describe('QuestFolio', () => {
         <p>recto body</p>
       </QuestFolio>,
     );
-    expect(screen.getByText('Ventures')).toBeInTheDocument();
+    // Title renders twice: once on the full md+ plate, once in the
+    // compact phone header (jsdom renders both responsive variants).
+    expect(screen.getAllByText('Ventures')).toHaveLength(2);
     expect(screen.getByText(/the big adventures/i)).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
-    expect(screen.getByText(/in progress/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/in progress/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('5')).toBeInTheDocument();
     expect(screen.getByText(/^done$/i)).toBeInTheDocument();
   });
@@ -69,10 +71,58 @@ describe('QuestFolio', () => {
     render(
       <QuestFolio letter="S" title="Study" progressPct={42}>x</QuestFolio>,
     );
-    const bar = screen.getByRole('progressbar', { name: /study progress/i });
-    expect(bar).toHaveAttribute('aria-valuenow', '42');
-    expect(bar).toHaveAttribute('aria-valuemin', '0');
-    expect(bar).toHaveAttribute('aria-valuemax', '100');
+    // One bar on the full md+ plate, one in the compact phone header —
+    // CSS shows exactly one per breakpoint but jsdom renders both.
+    const bars = screen.getAllByRole('progressbar', { name: /study progress/i });
+    expect(bars).toHaveLength(2);
+    bars.forEach((bar) => {
+      expect(bar).toHaveAttribute('aria-valuenow', '42');
+      expect(bar).toHaveAttribute('aria-valuemin', '0');
+      expect(bar).toHaveAttribute('aria-valuemax', '100');
+    });
+  });
+
+  it('renders a compact phone header inside the verso alongside the full plate', () => {
+    const { container } = render(
+      <QuestFolio
+        letter="D"
+        title="Duties"
+        kicker="the daily keep"
+        stats={[
+          { value: 12, label: 'done' },
+          { value: 3, label: 'waiting' },
+        ]}
+        progressPct={80}
+        progressLabel="12 of 15 sealed"
+      >
+        x
+      </QuestFolio>,
+    );
+    const compact = container.querySelector('[data-folio-verso-compact="true"]');
+    expect(compact).not.toBeNull();
+    // Compact row shows only below md; the full plate only at md+.
+    expect(compact.className).toContain('md:hidden');
+    const full = container.querySelector('[data-folio-verso-full="true"]');
+    expect(full).not.toBeNull();
+    expect(full.className).toContain('hidden');
+    expect(full.className).toContain('md:flex');
+    // Compact row mirrors the tier/progress data attributes.
+    expect(compact).toHaveAttribute('data-tier', 'cresting');
+    expect(compact).toHaveAttribute('data-progress', '80');
+    // Small versal + title + inlined stats caption + progress label.
+    expect(compact.querySelector('[data-versal="true"]')).not.toBeNull();
+    expect(compact).toHaveTextContent('Duties');
+    expect(compact).toHaveTextContent('12 done · 3 waiting');
+    expect(compact).toHaveTextContent('12 of 15 sealed');
+    // The compact progress bar carries real progressbar semantics.
+    const bar = compact.querySelector('[role="progressbar"]');
+    expect(bar).not.toBeNull();
+    expect(bar).toHaveAttribute('aria-valuenow', '80');
+    // The ornament stays out of the compact row: kicker + medallion live
+    // only on the full plate.
+    expect(compact.textContent).not.toContain('the daily keep');
+    expect(compact.querySelector('[data-folio-medallion="true"]')).toBeNull();
+    expect(full.querySelector('[data-folio-medallion="true"]')).not.toBeNull();
   });
 
   it('omits RarityStrand when rarityCounts is not provided', () => {

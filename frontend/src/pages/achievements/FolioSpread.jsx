@@ -84,7 +84,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
         <aside
           data-folio-verso="true"
           data-tier={tierKey}
-          className="relative px-5 pt-7 pb-5 md:pb-6 flex flex-col items-center text-center gap-3 border-b md:border-b-0 md:border-r border-ink-page-shadow/30"
+          className="relative px-4 pt-4 pb-3 md:px-5 md:pt-7 md:pb-6 flex flex-col items-center text-center gap-3 border-b md:border-b-0 md:border-r border-ink-page-shadow/30"
         >
           <span
             aria-hidden="true"
@@ -96,6 +96,68 @@ export default function FolioSpread({ tree, onSelectSkill }) {
                 'inset 0 -1px 0 rgba(45, 31, 21, 0.35), inset 0 1px 0 rgba(255, 248, 224, 0.25)',
             }}
           />
+
+          {/* Compact incipit — phones only. Small versal, category title,
+              rank + XP inlined as one caption line, and a thin progress
+              bar over the illuminated count. The full plate below is
+              untouched at md+. */}
+          <div
+            data-folio-verso-compact="true"
+            data-tier={tierKey}
+            className="md:hidden flex w-full items-center gap-3 text-left"
+          >
+            <IlluminatedVersal
+              letter={firstLetter}
+              progressPct={shelfPct}
+              tier={tier}
+              size="sm"
+            />
+            <div className="min-w-0 flex-1">
+              <h2
+                className="spine-foil font-display italic text-lede leading-tight truncate"
+                style={{
+                  letterSpacing: '0.02em',
+                  '--foil-tone-top': 'var(--color-gold-leaf)',
+                  '--foil-tone-bottom': tone.foilBottom,
+                }}
+              >
+                {category?.icon ? (
+                  <span aria-hidden="true" className="mr-1 opacity-80 not-italic">
+                    {category.icon}
+                  </span>
+                ) : null}
+                {category?.name}
+              </h2>
+              <div className="text-micro font-rune uppercase tracking-wider text-ink-whisper truncate mt-0.5">
+                L{level} rank · {totalXp.toLocaleString()} total xp
+              </div>
+              <div className="mt-1.5">
+                <div
+                  role="progressbar"
+                  aria-label={`${category?.name} category progress`}
+                  aria-valuenow={Math.round(levelPct)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  className="relative h-1 bg-ink-page-shadow/50 rounded-full overflow-hidden"
+                >
+                  <span
+                    className={`absolute inset-y-0 left-0 rounded-full ${tier.bar}`}
+                    style={{ width: `${levelPct}%`, transition: 'width 600ms cubic-bezier(0.4, 0, 0.2, 1)' }}
+                  />
+                </div>
+                <div className="font-script text-caption text-ink-whisper truncate mt-0.5">
+                  {illuminated} of {total} illuminated
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Full illuminated plate — md+ only. Markup unchanged from the
+              single-variant version so desktop keeps every ornament. */}
+          <div
+            data-folio-verso-full="true"
+            className="hidden w-full md:flex flex-col items-center text-center gap-3"
+          >
           <div className="font-rune text-micro uppercase tracking-wider text-ember-deep">
             · the codex of mastery ·
           </div>
@@ -195,6 +257,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
                 {maxed ? 'mastery sealed' : `${toNext.toLocaleString()} to L${level + 1}`}
               </span>
             </div>
+          </div>
           </div>
         </aside>
 

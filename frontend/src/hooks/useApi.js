@@ -5,7 +5,8 @@ import {
 import {
   getMe, login as apiLogin, logout as apiLogout, signup as apiSignup,
 } from '../api';
-import { setToken } from '../api/client';
+import { getToken, setToken } from '../api/client';
+import { STORAGE_KEYS } from '../constants/storage';
 
 export function useApi(apiFn, deps = []) {
   const [data, setData] = useState(null);
@@ -66,9 +67,37 @@ export function useApi(apiFn, deps = []) {
 
 const AuthContext = createContext(null);
 
+// Best-effort read/write of the last-known-good /auth/me/ payload. Both
+// swallow storage errors (private mode, quota, corrupt JSON) — the cache is
+// a convenience for the offline-hydrate path, never a hard dependency.
+function readCachedUser() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.CACHED_USER);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedUser(u) {
+  try {
+    if (u) {
+      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify(u));
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.CACHED_USER);
+    }
+  } catch {
+    // best-effort — ignore storage failures
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  // True only when the session was hydrated from the CACHED_USER snapshot
+  // because boot-time getMe() failed with a network error. Cleared by any
+  // successful live auth (boot fetch, login, signup) and by logout.
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     // Handle token from Google OAuth callback redirect
@@ -83,11 +112,30 @@ export function AuthProvider({ children }) {
     getMe()
       .then((u) => {
         setUser(u);
+        setOffline(false);
+        writeCachedUser(u);
         Sentry.setUser(u ? { id: u.id, username: u.username, role: u.role } : null);
       })
-      .catch(() => {
-        setUser(null);
-        Sentry.setUser(null);
+      .catch((err) => {
+        // Distinguish "the server said no" from "we never reached the
+        // server". api/client.js attaches ``.status`` to every HTTP error,
+        // so a rejection WITHOUT one is a fetch/network failure — e.g. the
+        // service worker served the app shell but the wifi is out. In that
+        // case a kid with a perfectly valid token should land on their
+        // journal (hydrated from the last-known-good snapshot), not the
+        // Login form. HTTP rejections (401 invalid token, etc.) keep the
+        // logged-out path.
+        const cached = err?.status === undefined && getToken()
+          ? readCachedUser()
+          : null;
+        if (cached) {
+          setUser(cached);
+          setOffline(true);
+          Sentry.setUser({ id: cached.id, username: cached.username, role: cached.role });
+        } else {
+          setUser(null);
+          Sentry.setUser(null);
+        }
       })
       .finally(() => setLoading(false));
   }, []);
@@ -95,6 +143,8 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (username, password) => {
     const u = await apiLogin(username, password);
     setUser(u);
+    setOffline(false);
+    writeCachedUser(u);
     Sentry.setUser(u ? { id: u.id, username: u.username, role: u.role } : null);
     return u;
   }, []);
@@ -106,17 +156,26 @@ export function AuthProvider({ children }) {
     const data = await apiSignup(payload);
     const u = data?.user || null;
     setUser(u);
+    setOffline(false);
+    writeCachedUser(u);
     Sentry.setUser(u ? { id: u.id, username: u.username, role: u.role } : null);
     return u;
   }, []);
 
   const logout = useCallback(async () => {
-    await apiLogout();
-    setUser(null);
-    Sentry.setUser(null);
+    try {
+      await apiLogout();
+    } finally {
+      // Even if the logout POST fails (offline), drop all local session
+      // state — apiLogout's own finally already cleared the token.
+      writeCachedUser(null);
+      setUser(null);
+      setOffline(false);
+      Sentry.setUser(null);
+    }
   }, []);
 
-  const value = { user, loading, login, signup, logout, setUser };
+  const value = { user, loading, offline, login, signup, logout, setUser };
   return createElement(AuthContext.Provider, { value }, children);
 }
 

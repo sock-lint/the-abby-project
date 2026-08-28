@@ -53,7 +53,41 @@ export default defineConfig(({ command }) => {
           /^\/media\//,
           /^\/\.well-known\//,
         ],
-        runtimeCaching: [],
+        runtimeCaching: [
+          // Same-origin GET /api/ reads: network first with a short timeout,
+          // falling back to the last cached response so flaky-wifi and
+          // fully-offline boots still show recent data. NOTE: the Cache
+          // Storage entries are per-browser-profile (each family member's
+          // own device/profile only sees responses their own token fetched)
+          // — this is a family app on trusted devices, so a same-profile
+          // stale read is acceptable. Non-GET requests are never cached.
+          {
+            urlPattern: ({ sameOrigin, url }) =>
+              sameOrigin && url.pathname.startsWith('/api/'),
+            method: 'GET',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-reads',
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 60, maxAgeSeconds: 86400 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          // Google Fonts: the stylesheet (fonts.googleapis.com) and the font
+          // binaries (fonts.gstatic.com) are immutable-in-practice — cache
+          // first for a year so typography survives offline boots. One route
+          // for both hosts: two entries sharing a cacheName would register
+          // duplicate ExpirationPlugins on the same cache.
+          {
+            urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts',
+              expiration: { maxEntries: 30, maxAgeSeconds: 31536000 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
         cleanupOutdatedCaches: true,
       },
     }),
@@ -84,6 +118,28 @@ export default defineConfig(({ command }) => {
     plugins,
     build: {
       sourcemap: 'hidden',
+      rollupOptions: {
+        output: {
+          // Stable long-lived vendor chunks so a deploy that only touches app
+          // code doesn't invalidate the React/motion/Sentry bytes the SW has
+          // already precached. Page chunks come from React.lazy in App.jsx.
+          // Function form: Vite 8 (rolldown) doesn't accept the object form.
+          // Each group also captures its own internal deps (scheduler,
+          // motion-dom/utils, @sentry-internal) so the graph stays acyclic.
+          manualChunks(id) {
+            if (/[\\/]node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom)[\\/]/.test(id)) {
+              return 'vendor'
+            }
+            if (/[\\/]node_modules[\\/](framer-motion|motion-dom|motion-utils)[\\/]/.test(id)) {
+              return 'motion'
+            }
+            if (/[\\/]node_modules[\\/]@sentry(-internal)?[\\/]/.test(id)) {
+              return 'sentry'
+            }
+            return undefined
+          },
+        },
+      },
     },
     server: {
       host: '0.0.0.0',

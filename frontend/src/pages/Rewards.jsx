@@ -170,10 +170,12 @@ export default function Rewards() {
           <div className="font-script text-sheikah-teal-deep text-base">
             the bazaar · barter coins for treasures
           </div>
-          <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+          {/* Below md the Treasury hub's tab strip already names this page —
+              the stacked h1 + explainer ate ~100px above the fold on phones. */}
+          <h1 className="hidden md:block font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
             Bazaar
           </h1>
-          <div className="font-script text-body text-ink-whisper mt-1 max-w-xl">
+          <div className="hidden md:block font-script text-body text-ink-whisper mt-1 max-w-xl">
             barter coins earned from work, duties, rituals, and badges · some treasures need a parent's nod first
           </div>
         </div>

@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/react';
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from './hooks/useApi';
 import { applyTheme } from './themes';
@@ -15,25 +15,34 @@ import UpdateBanner from './pwa/UpdateBanner';
 import OfflineReadyToast from './pwa/OfflineReadyToast';
 import RouteAnnouncer from './components/RouteAnnouncer';
 import ScrollToTop from './components/ScrollToTop';
+// Landing views stay eager: Login/Signup are the first paint for logged-out
+// users and Dashboard is the first paint for logged-in ones — lazy-loading
+// them would just add a skeleton flash to every cold start.
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
-import ProjectDetail from './pages/ProjectDetail';
-import ProjectNew from './pages/ProjectNew';
-import ProjectIngest from './pages/ProjectIngest';
-import ClockPage from './pages/ClockPage';
-import Manage from './pages/Manage';
-import CodexPage from './pages/CodexPage';
-import ActivityPage from './pages/activity/ActivityPage';
-import SettingsPage from './pages/SettingsPage';
-import QuestsHub from './pages/quests';
-import BestiaryHub from './pages/bestiary';
-import Character from './pages/Character';
-import TreasuryHub from './pages/treasury';
-import AtlasHub from './pages/atlas';
-import ChronicleHub from './pages/chronicle';
-import DesignShowcase from './pages/__design';
 import Loader from './components/Loader';
+
+// Everything else code-splits into per-page chunks (React.lazy + the
+// Suspense boundary around JournalShell's Outlet). Keeps the entry chunk
+// small on phones and means a deploy only re-downloads the chunks that
+// actually changed instead of one monolithic bundle.
+const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
+const ProjectNew = lazy(() => import('./pages/ProjectNew'));
+const ProjectIngest = lazy(() => import('./pages/ProjectIngest'));
+const ClockPage = lazy(() => import('./pages/ClockPage'));
+const Manage = lazy(() => import('./pages/Manage'));
+const CodexPage = lazy(() => import('./pages/CodexPage'));
+const ActivityPage = lazy(() => import('./pages/activity/ActivityPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const QuestsHub = lazy(() => import('./pages/quests'));
+const BestiaryHub = lazy(() => import('./pages/bestiary'));
+const Character = lazy(() => import('./pages/Character'));
+const TreasuryHub = lazy(() => import('./pages/treasury'));
+const AtlasHub = lazy(() => import('./pages/atlas'));
+const ChronicleHub = lazy(() => import('./pages/chronicle'));
+// Dev-only showcase — lazy also drops it from the production entry chunk.
+const DesignShowcase = lazy(() => import('./pages/__design'));
 
 function ErrorFallback({ error, resetError }) {
   return (
@@ -128,7 +137,15 @@ export default function App() {
   if (typeof window !== 'undefined' && window.location.pathname === '/__design') {
     return (
       <Sentry.ErrorBoundary fallback={ErrorFallback} showDialog={false}>
-        <DesignShowcase />
+        <Suspense
+          fallback={(
+            <div className="min-h-dvh flex items-center justify-center parchment-bg">
+              <Loader />
+            </div>
+          )}
+        >
+          <DesignShowcase />
+        </Suspense>
       </Sentry.ErrorBoundary>
     );
   }

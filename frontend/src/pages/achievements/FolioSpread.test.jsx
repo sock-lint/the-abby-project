@@ -66,28 +66,54 @@ function buildTree(over = {}) {
 describe('FolioSpread', () => {
   it('renders the category name and icon in the verso hero', () => {
     renderWithProviders(<FolioSpread tree={buildTree()} onSelectSkill={() => {}} />);
-    expect(screen.getByText(/Woodworking/)).toBeInTheDocument();
+    // Rendered twice: full md+ plate + compact phone header (jsdom
+    // renders both responsive variants).
+    expect(screen.getAllByText(/Woodworking/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('🪵').length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows category level + total XP in the verso hero', () => {
     renderWithProviders(<FolioSpread tree={buildTree()} onSelectSkill={() => {}} />);
     // "L4" appears on both the category hero and any skill at L4; assert
-    // the hero-specific total XP value (2850) is present once and that at
-    // least one "L4" chip exists.
+    // the hero-specific total XP value (2850) is present (full plate +
+    // compact phone header) and that at least one "L4" chip exists.
     expect(screen.getAllByText(/L ?4/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/2,?850/)).toBeInTheDocument();
+    expect(screen.getAllByText(/2,?850/).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders a category progressbar', () => {
+  it('renders a category progressbar on both the full plate and the compact header', () => {
     renderWithProviders(<FolioSpread tree={buildTree()} onSelectSkill={() => {}} />);
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.getAllByRole('progressbar')).toHaveLength(2);
   });
 
   it('counts illuminated skills based on the subjects array', () => {
     renderWithProviders(<FolioSpread tree={buildTree()} onSelectSkill={() => {}} />);
-    // All 3 have xp_points > 0 → "3 of 3 illuminated"
-    expect(screen.getByText(/3 of 3 illuminated/i)).toBeInTheDocument();
+    // All 3 have xp_points > 0 → "3 of 3 illuminated" (once on the full
+    // plate, once on the compact phone header).
+    expect(screen.getAllByText(/3 of 3 illuminated/i)).toHaveLength(2);
+  });
+
+  it('condenses the verso into a compact header below md, keeping the full plate at md+', () => {
+    const { container } = renderWithProviders(
+      <FolioSpread tree={buildTree()} onSelectSkill={() => {}} />,
+    );
+    const compact = container.querySelector('[data-folio-verso-compact="true"]');
+    expect(compact).not.toBeNull();
+    expect(compact.className).toContain('md:hidden');
+    const full = container.querySelector('[data-folio-verso-full="true"]');
+    expect(full).not.toBeNull();
+    expect(full.className).toContain('hidden');
+    expect(full.className).toContain('md:flex');
+    // Compact header: small versal, title, rank + XP caption line, and
+    // the illuminated count under a thin progress bar.
+    expect(compact.querySelector('[data-versal="true"]')).not.toBeNull();
+    expect(compact).toHaveTextContent('Woodworking');
+    expect(compact).toHaveTextContent(/L4 rank · 2,?850 total xp/);
+    expect(compact).toHaveTextContent('3 of 3 illuminated');
+    expect(compact.querySelector('[role="progressbar"]')).not.toBeNull();
+    // The medallion ornament stays on the full plate only.
+    expect(compact.querySelector('[data-folio-medallion="true"]')).toBeNull();
+    expect(full.querySelector('[data-folio-medallion="true"]')).not.toBeNull();
   });
 
   it('renders a chapter rubric + skills for every subject', () => {

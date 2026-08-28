@@ -199,10 +199,12 @@ export default function Inventory() {
         <div className="font-script text-sheikah-teal-deep text-base">
           the satchel · all that's been gathered
         </div>
-        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+        {/* Below md the Treasury hub's tab strip already names this page —
+            the stacked h1 + explainer ate ~100px above the fold on phones. */}
+        <h1 className="hidden md:block font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
           The Satchel
         </h1>
-        <div className="font-script text-body text-ink-whisper mt-1 max-w-xl">
+        <div className="hidden md:block font-script text-body text-ink-whisper mt-1 max-w-xl">
           drops fall from clocked work, duties, study, and quests · the ringed colour is rarity, common to legendary
         </div>
         <BoostStrip profile={profile} className="mt-3" />

@@ -5,6 +5,7 @@ import { server } from '../test/server.js';
 import { buildUser } from '../test/factories.js';
 import * as apiIndex from '../api/index.js';
 import { setToken } from '../api/client.js';
+import { STORAGE_KEYS } from '../constants/storage.js';
 import { AuthProvider, useApi, useAuth } from './useApi.js';
 
 describe('useApi', () => {
@@ -61,7 +62,10 @@ describe('useApi', () => {
     dep = 'b';
     rerender();
     await waitFor(() => expect(fn).toHaveBeenCalledTimes(2));
-    expect(result.current.loading).toBe(false);
+    // waitFor: the call-count assertion above passes the moment the second
+    // fetch STARTS (loading just flipped back to true) — the resolved state
+    // lands a microtask later, which loses the race under a loaded CI run.
+    await waitFor(() => expect(result.current.loading).toBe(false));
   });
 
   it('aborts in-flight requests on unmount', async () => {
@@ -123,6 +127,60 @@ describe('AuthProvider + useAuth', () => {
     expect(result.current.user).toBeNull();
   });
 
+  it('stashes the user snapshot in localStorage on a successful boot fetch', async () => {
+    const user = buildUser();
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(user)));
+    const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.offline).toBe(false);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.CACHED_USER))).toEqual(user);
+  });
+
+  describe('offline boot hydration', () => {
+    const cached = buildUser({ first_name: 'Cached' });
+
+    it('hydrates from the cached user + flags offline when getMe network-errors and a token is present', async () => {
+      localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, 'tok-123');
+      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify(cached));
+      // HttpResponse.error() = a fetch/network rejection — the thrown error
+      // has no .status, unlike HTTP errors from api/client.js.
+      server.use(http.get('*/api/auth/me/', () => HttpResponse.error()));
+      const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.user).toEqual(cached);
+      expect(result.current.offline).toBe(true);
+    });
+
+    it('does NOT hydrate on an HTTP rejection — a .status error keeps the logged-out path', async () => {
+      localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, 'tok-123');
+      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify(cached));
+      // 403 (not 401) so the api client's 401 self-heal reload stays out of
+      // the picture; any err.status must skip the cache.
+      server.use(
+        http.get('*/api/auth/me/', () =>
+          HttpResponse.json({ detail: 'forbidden' }, { status: 403 }),
+        ),
+      );
+      const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.user).toBeNull();
+      expect(result.current.offline).toBe(false);
+    });
+
+    it('does NOT hydrate without an auth token, even on a network error', async () => {
+      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify(cached));
+      server.use(http.get('*/api/auth/me/', () => HttpResponse.error()));
+      const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.user).toBeNull();
+      expect(result.current.offline).toBe(false);
+    });
+  });
+
   describe('login/logout callbacks', () => {
     let loginSpy;
     let logoutSpy;
@@ -150,15 +208,17 @@ describe('AuthProvider + useAuth', () => {
       expect(loginSpy).toHaveBeenCalledWith('abby', 'x');
     });
 
-    it('logout() clears user', async () => {
+    it('logout() clears user and the cached snapshot', async () => {
       server.use(
         http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       );
       const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
       const { result } = renderHook(() => useAuth(), { wrapper });
       await waitFor(() => expect(result.current.user).not.toBeNull());
+      expect(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).not.toBeNull();
       await act(async () => { await result.current.logout(); });
       expect(result.current.user).toBeNull();
+      expect(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).toBeNull();
       expect(logoutSpy).toHaveBeenCalled();
     });
   });
