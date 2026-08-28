@@ -7,6 +7,15 @@ import { formatDate } from '../utils/format';
 import IconButton from './IconButton';
 import { metaForNotification } from './notifications.constants';
 
+// Mirror the unread count onto the installed-PWA home-screen icon
+// (Badging API — Android + iOS 16.4+ standalone; a no-op everywhere else).
+function syncAppBadge(count) {
+  try {
+    if (count > 0) navigator.setAppBadge?.(count)?.catch?.(() => {});
+    else navigator.clearAppBadge?.()?.catch?.(() => {});
+  } catch { /* unsupported — in-app bell still shows the count */ }
+}
+
 export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
@@ -18,6 +27,7 @@ export default function NotificationBell() {
     try {
       const data = await getUnreadCount();
       setUnreadCount(data.count);
+      syncAppBadge(data.count);
     } catch { /* network errors here are non-fatal */ }
   };
 
@@ -35,7 +45,9 @@ export default function NotificationBell() {
         setNotifications(prev =>
           prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
         );
-        setUnreadCount(prev => Math.max(0, prev - 1));
+        const next = Math.max(0, unreadCount - 1);
+        setUnreadCount(next);
+        syncAppBadge(next);
       } catch { /* network errors here are non-fatal */ }
     }
     const { defaultRoute } = metaForNotification(notification);
@@ -49,6 +61,7 @@ export default function NotificationBell() {
   const handleMarkAllRead = async () => {
     await markAllReadApi();
     setUnreadCount(0);
+    syncAppBadge(0);
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };
 

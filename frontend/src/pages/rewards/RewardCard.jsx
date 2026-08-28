@@ -75,7 +75,7 @@ export default function RewardCard({
             type="button"
             disabled={!affordable || outOfStock || pending}
             onClick={() => onRedeem(reward)}
-            className="flex-1 bg-sheikah-teal-deep hover:bg-sheikah-teal disabled:opacity-40 disabled:cursor-not-allowed text-ink-page-rune-glow text-xs font-body font-semibold py-1.5 rounded-lg border border-sheikah-teal-deep/60 transition-colors"
+            className="flex-1 min-h-11 bg-sheikah-teal-deep hover:bg-sheikah-teal disabled:opacity-40 disabled:cursor-not-allowed text-ink-page-rune-glow text-xs font-body font-semibold py-1.5 rounded-lg border border-sheikah-teal-deep/60 transition-colors"
           >
             {pending ? 'Bartering…' : outOfStock ? 'Out of stock' : affordable ? 'Barter' : 'Not enough coin'}
           </button>

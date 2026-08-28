@@ -52,6 +52,9 @@ export default function CoinAdjustModal({ onClose, onSaved }) {
         <TextField
           label="Amount (positive to add, negative to deduct)"
           type="number"
+          // Signed field — inputMode="text" keeps a minus-capable keyboard
+          // (the iOS numeric pad has no minus key).
+          inputMode="text"
           value={form.amount}
           onChange={onField('amount')}
           required

@@ -121,14 +121,17 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview }) {
             : item.reward}
         </div>
       )}
-      <div className="flex items-center gap-1.5 shrink-0">
+      {/* 44px circles with real spacing — parents triage this queue
+          one-handed, and approve/reject sitting 6px apart at 32px was the
+          classic wrong-button mis-tap. Mirrors ApprovalButtons' 44px floor. */}
+      <div className="flex items-center gap-3 shrink-0">
         {isProposal ? (
           <button
             type="button"
             aria-label={`Review ${item.title}`}
             disabled={!!busy}
             onClick={handleApprove}
-            className="px-3 h-8 rounded-full border border-gold-leaf/70 text-gold-leaf hover:bg-gold-leaf/10 disabled:opacity-50 flex items-center justify-center font-body text-caption"
+            className="px-3 h-11 rounded-full border border-gold-leaf/70 text-gold-leaf hover:bg-gold-leaf/10 disabled:opacity-50 flex items-center justify-center font-body text-caption"
           >
             Review
           </button>
@@ -138,9 +141,9 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview }) {
             aria-label={`Approve ${item.title}`}
             disabled={!!busy}
             onClick={handleApprove}
-            className="w-8 h-8 rounded-full border border-moss/60 text-moss hover:bg-moss/10 disabled:opacity-50 flex items-center justify-center"
+            className="w-11 h-11 rounded-full border border-moss/60 text-moss hover:bg-moss/10 disabled:opacity-50 flex items-center justify-center"
           >
-            <Check size={15} />
+            <Check size={18} />
           </button>
         )}
         <button
@@ -148,9 +151,9 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview }) {
           aria-label={`Reject ${item.title}`}
           disabled={!!busy}
           onClick={handleReject}
-          className="w-8 h-8 rounded-full border border-ember/60 text-ember-deep hover:bg-ember/10 disabled:opacity-50 flex items-center justify-center"
+          className="w-11 h-11 rounded-full border border-ember/60 text-ember-deep hover:bg-ember/10 disabled:opacity-50 flex items-center justify-center"
         >
-          <X size={15} />
+          <X size={18} />
         </button>
       </div>
     </motion.li>
@@ -369,7 +372,7 @@ export default function ApprovalQueueList({ items = [], onDone }) {
                     onClick={() => handleBulkClick(kidId, group)}
                     disabled={inFlight}
                     aria-label={`Approve all ${visibleApprovable.length} from ${group.kidName}`}
-                    className="inline-flex items-center gap-1 px-3 h-8 rounded-full border border-moss/60 text-moss hover:bg-moss/10 disabled:opacity-50 font-body text-caption"
+                    className="inline-flex items-center gap-1 px-3 h-11 rounded-full border border-moss/60 text-moss hover:bg-moss/10 disabled:opacity-50 font-body text-caption"
                   >
                     <CheckCheck size={14} />
                     {inFlight ? 'Approving…' : `Approve all (${visibleApprovable.length})`}

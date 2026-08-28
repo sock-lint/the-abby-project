@@ -13,6 +13,7 @@ import { ClockFabIcon, InkwellIcon } from '../components/icons/JournalIcons';
 import { SelectField, TextAreaField } from '../components/form';
 import { formatDate, formatDuration } from '../utils/format';
 import { normalizeList } from '../utils/api';
+import { activeProjectsOf, defaultClockProjectId, rememberClockProject } from '../utils/clock';
 
 // Below this elapsed-seconds threshold a clock-out is almost certainly an
 // "oh wait I just started" misclick recovery — letting the confirm fire
@@ -27,7 +28,9 @@ export default function ClockPage() {
   const { data: status, reload: reloadStatus } = useApi(getClockStatus);
   const { data: projectsData } = useApi(getProjects);
   const { data: entriesData, reload: reloadEntries } = useApi(getTimeEntries);
-  const [selectedProject, setSelectedProject] = useState('');
+  // null = untouched (falls back to the remembered/default venture); a real
+  // selection — including explicitly clearing to '' — always wins.
+  const [selectedProject, setSelectedProject] = useState(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [now, setNow] = useState(() => Date.now());
@@ -38,6 +41,11 @@ export default function ClockPage() {
   const entries = normalizeList(entriesData);
   const isClocked = status && status.status === 'active';
   const clockInAt = isClocked ? status?.clock_in : null;
+
+  // Preselect the remembered venture (or the only active one) so the daily
+  // repeat case is a single tap on the Play seal instead of a picker session.
+  const activeProjects = activeProjectsOf(projects);
+  const effectiveProject = selectedProject ?? defaultClockProjectId(activeProjects);
 
   useEffect(() => {
     if (!clockInAt) return undefined;
@@ -58,9 +66,10 @@ export default function ClockPage() {
 
   const handleClockIn = async () => {
     setError('');
-    if (!selectedProject) { setError('Select a venture first'); return; }
+    if (!effectiveProject) { setError('Select a venture first'); return; }
     try {
-      await clockIn(parseInt(selectedProject));
+      await clockIn(parseInt(effectiveProject));
+      rememberClockProject(effectiveProject);
       reloadStatus();
     } catch (err) {
       setError(err.message);
@@ -165,11 +174,11 @@ export default function ClockPage() {
                 </div>
                 <div className="mb-4">
                   <SelectField
-                    value={selectedProject}
+                    value={effectiveProject}
                     onChange={(e) => setSelectedProject(e.target.value)}
                   >
                     <option value="">Select a venture…</option>
-                    {projects.filter((p) => ['active', 'in_progress'].includes(p.status)).map((p) => (
+                    {activeProjects.map((p) => (
                       <option key={p.id} value={p.id}>{p.title}</option>
                     ))}
                   </SelectField>

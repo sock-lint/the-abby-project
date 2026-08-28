@@ -481,7 +481,7 @@ export default function Habits() {
                             onClick={() => handleTap(habit, 1)}
                             disabled={tapping === `${habit.id}-1` || atCap}
                             title={atCap ? `Daily limit reached (${habit.max_taps_per_day}/day)` : undefined}
-                            className="flex items-center gap-1 min-h-[44px]"
+                            className="flex items-center gap-1"
                           >
                             <ThumbsUp size={14} /> {atCap ? 'done' : 'virtue'}
                           </Button>
@@ -493,7 +493,7 @@ export default function Habits() {
                           size="sm"
                           onClick={() => handleTap(habit, -1)}
                           disabled={tapping === `${habit.id}--1`}
-                          className="flex items-center gap-1 min-h-[44px]"
+                          className="flex items-center gap-1"
                         >
                           <ThumbsDown size={14} /> vice
                         </Button>
@@ -504,14 +504,13 @@ export default function Habits() {
                         <IconButton
                           onClick={() => openEdit(habit)}
                           aria-label="Edit ritual"
-                          className="min-w-[44px] min-h-[44px]"
                         >
                           <Pencil size={16} />
                         </IconButton>
                         <IconButton
                           onClick={() => setConfirmDelete(habit)}
                           aria-label="Delete ritual"
-                          className="min-w-[44px] min-h-[44px] hover:text-ember-deep"
+                          className="hover:text-ember-deep"
                         >
                           <Trash2 size={16} />
                         </IconButton>

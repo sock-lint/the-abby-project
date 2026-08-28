@@ -30,14 +30,14 @@ export default function JournalShell() {
   const { user, logout } = useAuth();
 
   return (
-    <div className="flex min-h-screen relative">
+    <div className="flex min-h-dvh relative">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-sheikah-teal-deep focus:text-ink-page focus:rounded-lg focus:font-display focus:text-sm"
       >
         Skip to content
       </a>
-      <div className="fixed top-4 right-4 z-50 space-y-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none" aria-live="polite" aria-atomic="false">
+      <div className="fixed top-[calc(env(safe-area-inset-top)+1rem)] right-4 z-50 space-y-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none" aria-live="polite" aria-atomic="false">
         <DropToastStack inline />
         <SavingsToastStack inline />
         <CompanionGrowthToastStack inline />
@@ -49,7 +49,10 @@ export default function JournalShell() {
       <ChapterSidebar user={user} onLogout={logout} />
 
       <main id="main-content" className="flex-1 ml-0 lg:ml-60 pb-20 lg:pb-8 min-w-0">
-        <div className="sticky top-0 z-30 bg-ink-page backdrop-blur-[2px]">
+        {/* pt-[env(safe-area-inset-top)] keeps the header clear of the iOS
+            status bar in the installed PWA (viewport-fit=cover draws the
+            page under it); the parchment backdrop still extends beneath. */}
+        <div className="sticky top-0 z-30 bg-ink-page backdrop-blur-[2px] pt-[env(safe-area-inset-top)]">
           <header className="flex items-center px-4 lg:px-6 pt-3 lg:pt-4 pb-3 lg:pb-4 gap-3">
             <div className="lg:hidden min-w-0 shrink-0">
               <AvatarMenu user={user} compact />

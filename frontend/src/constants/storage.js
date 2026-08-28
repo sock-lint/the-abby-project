@@ -47,4 +47,11 @@ export const STORAGE_KEYS = {
 
   // FAB onboarding tooltip dismissed. Stored as "1" after first open.
   FAB_ONBOARDED: 'fab-onboarded',
+
+  // Last project id (stringified) the user clocked into, written on every
+  // successful clock-in. ClockPage + the FAB's ClockPane preselect it so the
+  // daily repeat case skips the venture picker; the FAB menu upgrades to a
+  // one-tap "Clock in · <venture>" row when it still matches an active
+  // project. Best-effort — ignored when the id no longer matches.
+  LAST_CLOCK_PROJECT: 'clock:last-project-id',
 };

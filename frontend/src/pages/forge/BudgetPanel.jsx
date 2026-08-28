@@ -213,10 +213,13 @@ function BudgetRow({ budget, onChanged }) {
             Nothing is ever edited or deleted — a correction is its own entry.
             Positive consumes budget, negative gives it back.
           </p>
+          {/* Signed fields — inputMode="text" keeps a minus-capable keyboard
+              ("negative gives it back"; the iOS numeric pad has no minus). */}
           <TextField
             id={`forge-adj-grams-${budget.id}`}
             label="Grams"
             type="number"
+            inputMode="text"
             value={adjGrams}
             onChange={(e) => setAdjGrams(e.target.value)}
           />
@@ -224,6 +227,7 @@ function BudgetRow({ budget, onChanged }) {
             id={`forge-adj-minutes-${budget.id}`}
             label="Minutes"
             type="number"
+            inputMode="text"
             value={adjMinutes}
             onChange={(e) => setAdjMinutes(e.target.value)}
           />

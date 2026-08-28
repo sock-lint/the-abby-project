@@ -15,10 +15,12 @@ const VARIANT_CLASSES = {
   success: buttonSuccess,
 };
 
+// Padding stays small so the icon keeps its visual weight, but every size
+// carries a minimum hit-area floor (40px sm / 44px md+) for phone thumbs.
 const SIZE_CLASSES = {
-  sm: 'p-1.5',
-  md: 'p-2',
-  lg: 'p-2.5',
+  sm: 'p-1.5 min-h-10 min-w-10',
+  md: 'p-2 min-h-11 min-w-11',
+  lg: 'p-2.5 min-h-11 min-w-11',
 };
 
 /**

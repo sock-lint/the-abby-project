@@ -66,7 +66,7 @@ export default function Login({ onLogin }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 parchment-bg">
+    <div className="min-h-dvh flex items-center justify-center p-4 parchment-bg">
       <div className="w-full max-w-sm">
         <div className="text-center mb-5">
           <div className="font-script text-sheikah-teal-deep text-base">

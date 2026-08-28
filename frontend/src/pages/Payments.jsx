@@ -93,6 +93,9 @@ function PaymentAdjustModal({ onClose, onSaved }) {
           label={<>Amount <span className="text-ink-whisper">(positive = credit, negative = debit)</span></>}
           type="number"
           step="0.01"
+          // Signed field — inputMode="text" keeps a minus-capable keyboard
+          // (the iOS decimal pad has no minus key).
+          inputMode="text"
           value={form.amount}
           onChange={onField('amount')}
           required

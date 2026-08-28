@@ -125,7 +125,8 @@ body {
 }
 
 #root {
-  min-height: 100vh;
+  /* dvh so iOS Safari's collapsing chrome doesn't leave dead space. */
+  min-height: 100dvh;
 }
 
 /* Display + script utilities default to the journal tone. */

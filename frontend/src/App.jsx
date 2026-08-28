@@ -14,6 +14,7 @@ import { InstallPromptProvider } from './pwa/useInstallPrompt';
 import UpdateBanner from './pwa/UpdateBanner';
 import OfflineReadyToast from './pwa/OfflineReadyToast';
 import RouteAnnouncer from './components/RouteAnnouncer';
+import ScrollToTop from './components/ScrollToTop';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
@@ -36,7 +37,7 @@ import Loader from './components/Loader';
 
 function ErrorFallback({ error, resetError }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center parchment-bg p-8 gap-4">
+    <div className="min-h-dvh flex flex-col items-center justify-center parchment-bg p-8 gap-4">
       <h1 className="font-display text-2xl text-ember-deep italic">Ink spilled.</h1>
       <p className="font-body text-ink-secondary text-sm max-w-sm text-center">
         {error?.message || 'An unexpected error occurred while rendering this page.'}
@@ -134,7 +135,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center parchment-bg">
+      <div className="min-h-dvh flex items-center justify-center parchment-bg">
         <Loader />
       </div>
     );
@@ -174,6 +175,7 @@ export default function App() {
         <SpriteCatalogProvider>
           <BrowserRouter>
             <RouteAnnouncer />
+            <ScrollToTop />
             <Routes>
             <Route element={<JournalShell />}>
               {/* Chapter I — Today */}

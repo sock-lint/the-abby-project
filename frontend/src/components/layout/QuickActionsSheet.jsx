@@ -12,6 +12,12 @@ import {
 import { useApi } from '../../hooks/useApi';
 import { useRole } from '../../hooks/useRole';
 import { normalizeList } from '../../utils/api';
+import {
+  activeProjectsOf,
+  defaultClockProjectId,
+  rememberClockProject,
+  rememberedClockProject,
+} from '../../utils/clock';
 import Button from '../Button';
 import { SelectField, TextAreaField } from '../form';
 import JournalEntryFormModal from '../../pages/yearbook/JournalEntryFormModal';
@@ -55,19 +61,22 @@ function ActionRow({ icon, label, hint, onClick, tone = 'ink', disabled = false 
   );
 }
 
-function ClockPane({ status, isClocked, elapsedSecs, onBack, onClockReload }) {
-  const { data: projectsData } = useApi(getProjects);
-  const projects = normalizeList(projectsData);
-  const [selectedProject, setSelectedProject] = useState('');
+function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockReload }) {
+  // null = untouched — falls back to the remembered/default venture below.
+  const [selectedProject, setSelectedProject] = useState(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const activeProjects = activeProjectsOf(projects);
+  const effectiveProject = selectedProject ?? defaultClockProjectId(activeProjects);
+
   const handleIn = async () => {
-    if (!selectedProject) { setError('Select a venture first'); return; }
+    if (!effectiveProject) { setError('Select a venture first'); return; }
     setBusy(true); setError('');
     try {
-      await clockIn(parseInt(selectedProject, 10));
+      await clockIn(parseInt(effectiveProject, 10));
+      rememberClockProject(effectiveProject);
       await onClockReload();
       onBack();
     } catch (e) { setError(e.message); }
@@ -117,11 +126,11 @@ function ClockPane({ status, isClocked, elapsedSecs, onBack, onClockReload }) {
           <SelectField
             id="qa-clock-project"
             label="Which venture?"
-            value={selectedProject}
+            value={effectiveProject}
             onChange={(e) => setSelectedProject(e.target.value)}
           >
             <option value="">Select a project…</option>
-            {projects.filter((p) => ['active', 'in_progress'].includes(p.status)).map((p) => (
+            {activeProjects.map((p) => (
               <option key={p.id} value={p.id}>{p.title}</option>
             ))}
           </SelectField>
@@ -182,6 +191,30 @@ export default function QuickActionsSheet({
   const { data: goalsData } = useApi(isParent ? () => Promise.resolve([]) : getSavingsGoals);
   const { data: inventoryData } = useApi(isParent ? () => Promise.resolve([]) : getInventory);
 
+  // Projects load at the sheet level (shared with ClockPane) so the menu can
+  // upgrade "Clock in" to a one-tap row for the remembered venture — clock-in
+  // is the most-repeated action in the app and used to cost five interactions.
+  const { data: projectsData } = useApi(getProjects);
+  const projects = normalizeList(projectsData);
+  const quickClockProject = isClocked ? null : rememberedClockProject(activeProjectsOf(projects));
+  const [quickClockBusy, setQuickClockBusy] = useState(false);
+
+  const handleQuickClockIn = async () => {
+    setQuickClockBusy(true);
+    try {
+      await clockIn(quickClockProject.id);
+      rememberClockProject(quickClockProject.id);
+      await onClockReload();
+      onClose();
+    } catch {
+      // Whatever went wrong (project archived, already clocked in…), the
+      // full pane has the picker and shows the real error on retry.
+      setPane('clock');
+    } finally {
+      setQuickClockBusy(false);
+    }
+  };
+
   const hasDueHw = !isParent && (
     normalizeList(hwDashboard?.today).length > 0 ||
     normalizeList(hwDashboard?.overdue).length > 0
@@ -238,13 +271,33 @@ export default function QuickActionsSheet({
     <BottomSheet title={pane === 'menu' ? 'Quick actions' : 'Clock'} onClose={onClose}>
       {pane === 'menu' && (
         <div className="space-y-2">
-          <ActionRow
-            icon={isClocked ? <Square size={18} /> : <Play size={18} />}
-            label={isClocked ? 'Stop clock' : 'Clock in'}
-            hint={isClocked ? status?.project_title : 'Open an entry'}
-            tone={isClocked ? 'ember' : 'teal'}
-            onClick={() => setPane('clock')}
-          />
+          {quickClockProject ? (
+            <>
+              <ActionRow
+                icon={<Play size={18} />}
+                label={quickClockBusy ? 'Clocking in…' : `Clock in · ${quickClockProject.title}`}
+                hint="One tap — starts the timer"
+                tone="teal"
+                disabled={quickClockBusy}
+                onClick={handleQuickClockIn}
+              />
+              <button
+                type="button"
+                onClick={() => setPane('clock')}
+                className="block w-full text-left px-3 py-1 font-script text-caption text-sheikah-teal-deep hover:underline"
+              >
+                choose a different venture →
+              </button>
+            </>
+          ) : (
+            <ActionRow
+              icon={isClocked ? <Square size={18} /> : <Play size={18} />}
+              label={isClocked ? 'Stop clock' : 'Clock in'}
+              hint={isClocked ? status?.project_title : 'Open an entry'}
+              tone={isClocked ? 'ember' : 'teal'}
+              onClick={() => setPane('clock')}
+            />
+          )}
 
           {!isParent && (
             <>
@@ -361,6 +414,7 @@ export default function QuickActionsSheet({
           status={status}
           isClocked={isClocked}
           elapsedSecs={elapsedSecs}
+          projects={projects}
           onBack={() => setPane('menu')}
           onClockReload={onClockReload}
         />
