@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Clock, Flame, Stamp } from 'lucide-react';
 import { getDashboard } from '../../api';
 import { useApi } from '../../hooks/useApi';
+import { usePulse } from '../../providers/pulseContext';
 import useParentPendingCounts from '../../hooks/useParentPendingCounts';
 import { CoinIcon } from '../icons/JournalIcons';
 
@@ -66,15 +67,22 @@ export default function HeaderStatusPips({ user }) {
   // ``useRole().isParent`` directly.
 
   const { data: dashboard } = useApi(getDashboard);
+  // The dashboard is fetched once at shell mount and the shell never
+  // remounts, so these numbers used to sit frozen all day — a kid could
+  // finish three chores, watch the drop toasts fire, and still see the
+  // morning's coin count. The heartbeat carries fresh values; fall back to
+  // the mount-time payload until the first beat lands.
+  const { pulse } = usePulse();
 
   // Parent-only pending counts. Shared with ``useParentDashboard`` via the
   // ``useParentPendingCounts`` hook so the two callers don't fork the
   // Promise.all of the same three endpoints.
   const { total: pending } = useParentPendingCounts({ enabled: isParent });
 
-  const activeTimer = dashboard?.active_timer || null;
-  const coins = dashboard?.coin_balance ?? 0;
-  const streak = dashboard?.rpg?.login_streak ?? dashboard?.streak_days ?? 0;
+  const activeTimer = pulse?.header?.active_timer ?? dashboard?.active_timer ?? null;
+  const coins = pulse?.header?.coin_balance ?? dashboard?.coin_balance ?? 0;
+  const streak = pulse?.header?.streak_days
+    ?? dashboard?.rpg?.login_streak ?? dashboard?.streak_days ?? 0;
   const weekEarnings = dashboard?.this_week?.earnings ?? 0;
 
   const pips = useMemo(() => {

@@ -106,6 +106,18 @@ PRINT_BAMBU_CLOUD_PORT = int(os.environ.get("PRINT_BAMBU_CLOUD_PORT", "8883"))
 # Example: mqtt://homeassistant:secret@mosquitto:1883
 PRINT_FANOUT_MQTT_URL = os.environ.get("PRINT_FANOUT_MQTT_URL", "")
 
+# --- Web Push (VAPID) --------------------------------------------------
+# Generate a keypair once and set both halves in the environment:
+#   python manage.py generate_vapid_keys
+# With either half missing, push is INERT — subscriptions are refused and
+# notify() skips the fan-out entirely, so the app runs exactly as it did
+# before push existed. The in-app bell is unaffected either way.
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
+# RFC 8292 requires a contact for the push service to reach if a key
+# misbehaves. Must be a mailto: or https: URL.
+VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:noreply@summerforge.local")
+
 # --- Dev tools ------------------------------------------------------------
 # Manual-testing helpers (``python manage.py force_drop`` etc.) are gated
 # behind ``DEBUG=True`` OR ``DEV_TOOLS_ENABLED=True``. Production deploys

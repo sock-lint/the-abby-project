@@ -7,6 +7,7 @@ import IconButton from './IconButton';
 import RpgSprite from './rpg/RpgSprite';
 import RareDropReveal from './RareDropReveal';
 import { RARE_TIERS } from './rareDropTiers';
+import { swipeToDismiss } from './toastSwipe';
 
 const RARITY_BG = {
   common: 'bg-gray-600 border-gray-400',
@@ -28,6 +29,7 @@ function ToastItem({ toast, onDismiss }) {
       initial={{ x: 300, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 300, opacity: 0 }}
+      {...swipeToDismiss(() => onDismiss(toast.id))}
       className={`flex items-center gap-3 rounded-lg border px-3 py-2 shadow-lg ${RARITY_BG[toast.item_rarity] || RARITY_BG.common}`}
     >
       <Package size={18} className="text-white shrink-0" />

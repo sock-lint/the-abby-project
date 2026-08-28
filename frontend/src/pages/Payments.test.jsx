@@ -225,4 +225,49 @@ describe('Payments', () => {
     expect(createSpy).toHaveBeenCalled();
     expect(revokeSpy).toHaveBeenCalled();
   });
+
+  describe('ledger readability (parent)', () => {
+    const balanceWithEntries = {
+      balance: '42.00',
+      recent_transactions: [
+        {
+          id: 1, entry_type: 'chore_reward', amount: '2.00',
+          description: 'Dishes', created_at: '2026-08-15T18:00:00Z', user: 9,
+        },
+      ],
+    };
+
+    it('shows the date and, family-wide, whose entry it is', async () => {
+      renderPage(buildParent(), [
+        http.get('*/api/balance/', () => HttpResponse.json(balanceWithEntries)),
+        http.get('*/api/children/', () =>
+          HttpResponse.json([{ id: 9, username: 'abby', display_name: 'Abby' }]),
+        ),
+      ]);
+      // Without these a multi-entry ledger can only be read by filtering.
+      // Match the meta line itself, not the kid-filter <option>.
+      const matches = await screen.findAllByText(
+        (_content, el) => el?.tagName === 'DIV'
+          && el.children.length === 0
+          && /·\s*Abby$/.test(el.textContent || ''),
+      );
+      // The innermost match is the row's meta line: "8/15/2026 · Abby".
+      expect(matches[matches.length - 1].textContent).toMatch(/\d.*·\s*Abby/);
+    });
+
+    it('range chips fill both date fields in one tap', async () => {
+      const user = userEvent.setup();
+      renderPage(buildParent(), [
+        http.get('*/api/balance/', () => HttpResponse.json(balanceWithEntries)),
+        http.get('*/api/children/', () => HttpResponse.json([])),
+        http.get('*/api/ledger/', () => HttpResponse.json([])),
+      ]);
+      await user.click(await screen.findByRole('button', { name: /this month/i }));
+
+      const from = screen.getByLabelText('From');
+      const to = screen.getByLabelText('To');
+      expect(from.value).toMatch(/^\d{4}-\d{2}-01$/);
+      expect(to.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+  });
 });

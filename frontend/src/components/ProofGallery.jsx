@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import IconButton from './IconButton';
+import SwipeableImage from './SwipeableImage';
 
 export default function ProofGallery({ proofs = [] }) {
   const [viewerIndex, setViewerIndex] = useState(null);
@@ -72,11 +73,13 @@ export default function ProofGallery({ proofs = [] }) {
               <ChevronRight size={32} />
             </IconButton>
           )}
-          <img
+          <SwipeableImage
             src={proofs[viewerIndex].image}
             alt={proofs[viewerIndex].caption || `Proof ${viewerIndex + 1}`}
-            className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg"
-            onClick={(e) => e.stopPropagation()}
+            className="max-h-[85dvh] max-w-[90vw] object-contain rounded-lg"
+            onPrev={viewerIndex > 0 ? () => setViewerIndex(viewerIndex - 1) : undefined}
+            onNext={viewerIndex < proofs.length - 1 ? () => setViewerIndex(viewerIndex + 1) : undefined}
+            onClose={() => setViewerIndex(null)}
           />
           {proofs[viewerIndex].caption && (
             <p className="absolute bottom-6 text-white/80 text-body">{proofs[viewerIndex].caption}</p>

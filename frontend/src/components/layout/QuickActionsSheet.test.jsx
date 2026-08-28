@@ -8,6 +8,7 @@ import { AuthProvider } from '../../hooks/useApi';
 import { server } from '../../test/server';
 import { spyHandler } from '../../test/spy';
 import { buildUser, buildParent } from '../../test/factories';
+import { STORAGE_KEYS } from '../../constants/storage';
 
 // Bypass exit animation on the BottomSheet so unmount assertions don't hang.
 vi.mock('framer-motion', async () => {
@@ -161,6 +162,58 @@ describe('QuickActionsSheet', () => {
       expect(
         screen.getByRole('dialog', { name: /edit your journal entry/i }),
       ).toBeInTheDocument(),
+    );
+  });
+
+  it('one-taps clock-in for the remembered venture and POSTs the clock action', async () => {
+    const u = userEvent.setup();
+    localStorage.setItem(STORAGE_KEYS.LAST_CLOCK_PROJECT, '7');
+    const clock = spyHandler('post', /\/api\/clock\/$/, { ok: true });
+    const onClose = vi.fn();
+    renderSheet(
+      buildUser(),
+      [
+        http.get('*/api/homework/dashboard/', () => HttpResponse.json({ today: [], overdue: [], pending_submissions: [] })),
+        http.get('*/api/savings-goals/', () => HttpResponse.json([])),
+        http.get('*/api/inventory/', () => HttpResponse.json([])),
+        http.get('*/api/projects/', () =>
+          HttpResponse.json([
+            { id: 7, title: 'Birdhouse', status: 'active' },
+            { id: 8, title: 'Robot', status: 'active' },
+          ]),
+        ),
+        clock.handler,
+      ],
+      { onClose },
+    );
+
+    const row = await screen.findByRole('button', { name: /clock in · birdhouse/i });
+    await u.click(row);
+
+    await waitFor(() => expect(clock.calls).toHaveLength(1));
+    expect(clock.calls[0].body).toMatchObject({ action: 'in', project_id: 7 });
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it('keeps the plain Clock in row (opening the picker pane) when nothing is remembered', async () => {
+    const u = userEvent.setup();
+    renderSheet(buildUser(), [
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({ today: [], overdue: [], pending_submissions: [] })),
+      http.get('*/api/savings-goals/', () => HttpResponse.json([])),
+      http.get('*/api/inventory/', () => HttpResponse.json([])),
+      http.get('*/api/projects/', () =>
+        HttpResponse.json([
+          { id: 7, title: 'Birdhouse', status: 'active' },
+          { id: 8, title: 'Robot', status: 'active' },
+        ]),
+      ),
+    ]);
+
+    const row = await screen.findByRole('button', { name: /^clock in/i });
+    await u.click(row);
+    // The pane opens with the venture picker rather than firing a request.
+    await waitFor(() =>
+      expect(screen.getByLabelText(/which venture/i)).toBeInTheDocument(),
     );
   });
 

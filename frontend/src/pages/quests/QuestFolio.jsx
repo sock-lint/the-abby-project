@@ -54,6 +54,10 @@ export default function QuestFolio({
   const tone = TIER_TONE[tierKey] ?? TIER_TONE.rising;
   const safeStats = (stats ?? []).slice(0, 3);
   const firstLetter = (letter || title || '✦').toString().trim().charAt(0).toUpperCase() || '✦';
+  // Phone-only condensed incipit: the same stats the full plate renders,
+  // inlined as a single caption line ("12 done · 3 waiting").
+  const compactStats = safeStats.map((s) => `${s.value} ${s.label}`).join(' · ');
+  const showProgress = Boolean(progressLabel) || safePct > 0;
 
   return (
     <ParchmentCard
@@ -70,12 +74,14 @@ export default function QuestFolio({
           className="hidden md:block absolute inset-y-4 left-[220px] lg:left-[260px] w-px bg-gradient-to-b from-transparent via-ink-page-shadow/60 to-transparent pointer-events-none"
         />
 
-        {/* Verso — the chapter incipit. */}
+        {/* Verso — the chapter incipit. Below md it condenses to a single
+            compact row (~100px) so the working list starts near the top of
+            a phone screen; the full illuminated plate is untouched at md+. */}
         <aside
           data-folio-verso="true"
           data-tier={tierKey}
           data-progress={Math.round(safePct)}
-          className="relative px-5 pt-7 pb-5 md:pb-6 flex flex-col items-center text-center gap-3 border-b md:border-b-0 md:border-r border-ink-page-shadow/30"
+          className="relative px-4 pt-4 pb-3 md:px-5 md:pt-7 md:pb-6 flex flex-col items-center text-center gap-3 border-b md:border-b-0 md:border-r border-ink-page-shadow/30"
         >
           <span
             aria-hidden="true"
@@ -87,6 +93,71 @@ export default function QuestFolio({
                 'inset 0 -1px 0 rgba(45, 31, 21, 0.35), inset 0 1px 0 rgba(255, 248, 224, 0.25)',
             }}
           />
+
+          {/* Compact incipit — phones only. Small versal, title, inline
+              stats caption, and a thin progress bar with its label. */}
+          <div
+            data-folio-verso-compact="true"
+            data-tier={tierKey}
+            data-progress={Math.round(safePct)}
+            className="md:hidden flex w-full items-center gap-3 text-left"
+          >
+            <IlluminatedVersal
+              letter={firstLetter}
+              progressPct={safePct}
+              tier={tier}
+              size="sm"
+            />
+            <div className="min-w-0 flex-1">
+              <h2
+                className="spine-foil font-display italic text-lede leading-tight truncate"
+                style={{
+                  letterSpacing: '0.02em',
+                  '--foil-tone-top': 'var(--color-gold-leaf)',
+                  '--foil-tone-bottom': tone.foilBottom,
+                }}
+              >
+                {title}
+              </h2>
+              {compactStats && (
+                <div className="text-micro font-rune uppercase tracking-wider text-ink-whisper truncate mt-0.5">
+                  {compactStats}
+                </div>
+              )}
+              {showProgress && (
+                <div className="mt-1.5">
+                  <div
+                    role="progressbar"
+                    aria-label={`${title} progress`}
+                    aria-valuenow={Math.round(safePct)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    className="relative h-1 bg-ink-page-shadow/50 rounded-full overflow-hidden"
+                  >
+                    <span
+                      className={`absolute inset-y-0 left-0 rounded-full ${tier.bar}`}
+                      style={{
+                        width: `${safePct}%`,
+                        transition: 'width 600ms cubic-bezier(0.4, 0, 0.2, 1)',
+                      }}
+                    />
+                  </div>
+                  {progressLabel && (
+                    <div className="font-script text-caption text-ink-whisper truncate mt-0.5">
+                      {progressLabel}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Full illuminated plate — md+ only. Markup unchanged from the
+              single-variant version so desktop keeps every ornament. */}
+          <div
+            data-folio-verso-full="true"
+            className="hidden w-full md:flex flex-col items-center text-center gap-3"
+          >
           {kicker && (
             <div className="font-rune text-micro uppercase tracking-wider text-ember-deep">
               · {kicker} ·
@@ -187,6 +258,7 @@ export default function QuestFolio({
               <RarityStrand counts={rarityCounts} compact />
             </div>
           )}
+          </div>
         </aside>
 
         {/* Recto — consumer's working list. */}

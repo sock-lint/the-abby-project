@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { getNotifications } from '../api';
 import { STORAGE_KEYS } from '../constants/storage';
+import { usePulse } from '../providers/pulseContext';
 import { useAuth } from './useApi';
 
 const STORAGE_KEY = STORAGE_KEYS.SEEN_APPROVAL_TOASTS;
-const POLL_INTERVAL_MS = 30000;
 
 // Notification types where the *child* receives the row when a parent
 // has decided on their submission. Approval-style decisions only —
@@ -58,7 +57,7 @@ function persistSeen(set) {
 }
 
 /**
- * Polls the child's notifications for newly-arrived approval decisions
+ * Watches the shared heartbeat for newly-arrived approval decisions
  * (chore approved, homework approved, creation approved, etc.) and
  * emits a toast the first time we observe each one.
  *
@@ -72,76 +71,46 @@ function persistSeen(set) {
  * `useSavingsCompletionToasts`. Toast shape:
  *   { id, title, message, type, positive }
  */
-export function useApprovalToasts(pollIntervalMs = POLL_INTERVAL_MS) {
+export function useApprovalToasts() {
   const { user } = useAuth();
+  const { pulse } = usePulse();
   const [toasts, setToasts] = useState([]);
   const seenRef = useRef(loadSeen());
   const initializedRef = useRef(false);
 
   useEffect(() => {
-    if (!user || user.role !== 'child') return undefined;
-    let cancelled = false;
+    if (!pulse) return;
+    if (!user || user.role !== 'child') return;
 
-    const poll = async () => {
-      // Skip backgrounded tab — same-rationale as useDropToasts.
-      if (typeof document !== 'undefined' && document.hidden) return;
-      try {
-        const data = await getNotifications();
-        const list = Array.isArray(data)
-          ? data
-          : (data?.results || []);
-        if (cancelled) return;
+    const list = Array.isArray(pulse.notifications) ? pulse.notifications : [];
+    const approvalRows = list.filter((n) => APPROVAL_TYPES.has(n.notification_type));
 
-        const approvalRows = list.filter(
-          (n) => APPROVAL_TYPES.has(n.notification_type),
-        );
-
-        if (!initializedRef.current) {
-          // Seed seen IDs without toasting — first poll catches up to
-          // whatever already happened pre-mount.
-          for (const n of approvalRows) seenRef.current.add(n.id);
-          persistSeen(seenRef.current);
-          initializedRef.current = true;
-          return;
-        }
-
-        const fresh = approvalRows.filter((n) => !seenRef.current.has(n.id));
-        if (fresh.length === 0) return;
-
-        for (const n of fresh) seenRef.current.add(n.id);
-        persistSeen(seenRef.current);
-
-        setToasts((prev) => [
-          ...prev,
-          ...fresh.map((n) => ({
-            id: n.id,
-            title: n.title,
-            message: n.message,
-            type: n.notification_type,
-            positive: POSITIVE_TYPES.has(n.notification_type),
-          })),
-        ]);
-      } catch {
-        // silent — caught on next poll
-      }
-    };
-
-    poll();
-    const interval = setInterval(poll, pollIntervalMs);
-    const onVisibility = () => {
-      if (typeof document !== 'undefined' && !document.hidden) poll();
-    };
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', onVisibility);
+    if (!initializedRef.current) {
+      // Seed seen IDs without toasting — the first beat catches up to
+      // whatever already happened pre-mount.
+      for (const n of approvalRows) seenRef.current.add(n.id);
+      persistSeen(seenRef.current);
+      initializedRef.current = true;
+      return;
     }
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-      if (typeof document !== 'undefined') {
-        document.removeEventListener('visibilitychange', onVisibility);
-      }
-    };
-  }, [pollIntervalMs, user]);
+
+    const fresh = approvalRows.filter((n) => !seenRef.current.has(n.id));
+    if (fresh.length === 0) return;
+
+    for (const n of fresh) seenRef.current.add(n.id);
+    persistSeen(seenRef.current);
+
+    setToasts((prev) => [
+      ...prev,
+      ...fresh.map((n) => ({
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        type: n.notification_type,
+        positive: POSITIVE_TYPES.has(n.notification_type),
+      })),
+    ]);
+  }, [pulse, user]);
 
   const dismiss = (id) => setToasts((prev) => prev.filter((t) => t.id !== id));
 

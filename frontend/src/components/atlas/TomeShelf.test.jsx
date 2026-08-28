@@ -94,4 +94,63 @@ describe('TomeShelf', () => {
     );
     expect(container.querySelector('[role="tablist"]')).toBeNull();
   });
+
+  describe('vessel pill row (phone-aware filters)', () => {
+    const vesselItems = [
+      { id: 'all', name: 'All', icon: '✦', chip: '×3', variant: 'vessel' },
+      { id: 'boss', name: 'Boss', icon: '🐲', chip: '×2', variant: 'vessel' },
+      { id: 'collection', name: 'Collection', icon: '🍓', chip: '×1', variant: 'vessel' },
+    ];
+
+    it('renders a pill row alongside the spine rail when every item is a vessel', () => {
+      const { container } = renderWithProviders(
+        <TomeShelf
+          items={vesselItems}
+          activeId="all"
+          onSelect={() => {}}
+          ariaLabel="Filter trials by kind"
+        />,
+      );
+      // Pill row exists and is mobile-only; the spine rail stays in the DOM
+      // (CSS-hidden below md) so tab-role queries keep working.
+      const pillRow = container.querySelector('[data-vessel-pills="true"]');
+      expect(pillRow).not.toBeNull();
+      expect(pillRow.className).toMatch(/md:hidden/);
+      const shelfWrap = container.querySelector('[data-shelf-board="true"]').parentElement;
+      expect(shelfWrap.classList.contains('hidden')).toBe(true);
+      expect(shelfWrap.classList.contains('md:block')).toBe(true);
+      // Spines keep the tablist/tab contract...
+      expect(screen.getAllByRole('tab')).toHaveLength(3);
+      // ...while pills are plain buttons with aria-pressed — never a second
+      // set of tabs for the same picker.
+      const pills = screen.getAllByRole('button');
+      expect(pills).toHaveLength(3);
+      expect(pills[0]).toHaveAttribute('aria-pressed', 'true');
+      expect(pills[1]).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('fires the same onSelect from a pill tap', async () => {
+      const user = userEvent.setup();
+      const spy = vi.fn();
+      renderWithProviders(
+        <TomeShelf
+          items={vesselItems}
+          activeId="all"
+          onSelect={spy}
+          ariaLabel="Filter trials by kind"
+        />,
+      );
+      await user.click(screen.getByRole('button', { name: 'Boss' }));
+      expect(spy).toHaveBeenCalledWith('boss');
+    });
+
+    it('does not render a pill row for codex/category shelves', () => {
+      const { container } = renderWithProviders(
+        <TomeShelf items={items} activeId={1} onSelect={() => {}} ariaLabel="Shelves" />,
+      );
+      expect(container.querySelector('[data-vessel-pills="true"]')).toBeNull();
+      const shelfWrap = container.querySelector('[data-shelf-board="true"]').parentElement;
+      expect(shelfWrap.classList.contains('hidden')).toBe(false);
+    });
+  });
 });

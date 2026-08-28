@@ -6,6 +6,7 @@ import IconButton from './IconButton';
 import { TOAST_DURATION_STANDARD } from '../constants/timing';
 import RpgSprite from './rpg/RpgSprite';
 import PetCeremonyModal from '../pages/bestiary/PetCeremonyModal';
+import { swipeToDismiss } from './toastSwipe';
 
 /**
  * Surfaces silent companion auto-growth events as a slide-in toast strip
@@ -30,6 +31,7 @@ function GrowthToast({ event, onDismiss }) {
       initial={{ x: 300, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 300, opacity: 0 }}
+      {...swipeToDismiss(() => onDismiss(event._toastId))}
       className="flex items-center gap-3 rounded-lg border border-moss/60 bg-moss/15 px-3 py-2 shadow-lg"
     >
       <Sprout size={18} className="text-moss shrink-0" aria-hidden="true" />

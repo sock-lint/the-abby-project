@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import useScrollFades from '../../hooks/useScrollFades';
 
 /**
@@ -33,8 +33,25 @@ export default function TabList({
   className = '',
 }) {
   const stripRef = useRef(null);
+  const tabRefs = useRef(new Map());
   const { showLeft, showRight, onScroll } = useScrollFades(stripRef);
   const fadesActive = scrollFades && (showLeft || showRight);
+
+  // Keep the active tab visible when the strip overflows (7 Quests tabs on a
+  // 390px phone). Deep links and the remembered-tab restore can land on a
+  // right-side tab with the strip pinned far left — same fix TomeShelf ships.
+  useEffect(() => {
+    if (activeId == null) return;
+    const node = tabRefs.current.get(activeId);
+    if (node?.scrollIntoView) {
+      node.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }, [activeId]);
+
+  const setTabRef = (id) => (node) => {
+    if (node) tabRefs.current.set(id, node);
+    else tabRefs.current.delete(id);
+  };
 
   const isBookmark = variant === 'bookmark';
   const sizing = stretch ? 'flex-1' : 'shrink-0';
@@ -73,6 +90,7 @@ export default function TabList({
             return (
               <button
                 key={tab.id}
+                ref={setTabRef(tab.id)}
                 role="tab"
                 type="button"
                 aria-selected={active}
@@ -96,6 +114,7 @@ export default function TabList({
           return (
             <button
               key={tab.id}
+              ref={setTabRef(tab.id)}
               role="tab"
               type="button"
               aria-selected={active}

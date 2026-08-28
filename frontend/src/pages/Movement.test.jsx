@@ -71,7 +71,9 @@ describe('Movement page', () => {
     unmount();
     stubMe(buildParent());
     renderWithProviders(<Movement />);
-    expect(await screen.findByText(/Movement/)).toBeInTheDocument();
+    // Title renders on both the full verso plate and the compact phone
+    // header (jsdom renders both responsive variants).
+    expect((await screen.findAllByText(/Movement/)).length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByRole('button', { name: /^Log$/i })).not.toBeInTheDocument();
   });
 

@@ -21,6 +21,16 @@ const TextField = forwardRef(function TextField(
 ) {
   const { id, helpId, errorId, describedBy } = useFieldIds({ idProp, helpText, error });
 
+  // Mobile keypads: number inputs raise the large numeric/decimal keypad
+  // instead of the cramped full keyboard. Derived only when the call site
+  // doesn't pass its own inputMode — signed-amount fields (the coin/payment
+  // adjust modals, forge budget adjustments) pass inputMode="text" because
+  // the iOS numeric and decimal pads have no minus key.
+  const derivedInputMode =
+    rest.type === 'number'
+      ? (String(rest.step ?? '').includes('.') ? 'decimal' : 'numeric')
+      : undefined;
+
   return (
     <div className={className}>
       {label && <label htmlFor={id} className={formLabelClass}>{label}</label>}
@@ -30,6 +40,7 @@ const TextField = forwardRef(function TextField(
         className={inputClass}
         aria-invalid={error ? 'true' : undefined}
         aria-describedby={describedBy}
+        inputMode={derivedInputMode}
         {...rest}
       />
       {helpText && !error && <p id={helpId} className={formHelpClass}>{helpText}</p>}

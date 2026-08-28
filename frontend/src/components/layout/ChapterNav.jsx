@@ -209,7 +209,10 @@ export function ChapterBottomBar({ user }) {
                   </span>
                 )}
               </span>
-              <span className={`font-script text-micro leading-none ${isActive ? 'inline' : 'hidden min-[400px]:inline'}`}>
+              {/* Labels always render — iPhones are 375-393px CSS wide, and
+                  the old min-[400px] gate left five unlabeled fantasy icons
+                  on exactly the phones this app lives on. */}
+              <span className="font-script text-micro leading-none">
                 {shortLabel}
               </span>
               {isActive && (

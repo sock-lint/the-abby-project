@@ -14,6 +14,7 @@ urlpatterns = [
     path("auth/", views.AuthView.as_view(), name="auth"),
     path("auth/me/", views.MeView.as_view(), name="me"),
     path("dashboard/", views.DashboardView.as_view(), name="dashboard"),
+    path("pulse/", views.PulseView.as_view(), name="pulse"),
     path(
         "projects/<int:project_pk>/milestones/",
         views.ProjectMilestoneViewSet.as_view({"get": "list", "post": "create"}),

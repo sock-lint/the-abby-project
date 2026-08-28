@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BottomSheet from './BottomSheet.jsx';
 
@@ -100,5 +100,43 @@ describe('BottomSheet', () => {
     renderMobile({ title: 'Add chore' });
     const dialog = screen.getByRole('dialog', { name: 'Add chore' });
     expect(dialog).toHaveAttribute('aria-modal', 'true');
+  });
+
+  describe('back-gesture handling', () => {
+    it('pushes a sentinel history entry on open and closes on popstate', async () => {
+      const onClose = vi.fn();
+      const pushSpy = vi.spyOn(window.history, 'pushState');
+      renderMobile({ onClose });
+
+      // Opening arms the sentinel so a back press has something to pop.
+      expect(pushSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ abbySheet: expect.anything() }),
+        '',
+      );
+
+      await act(async () => {
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      });
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps a dirty sheet open on back and re-arms the sentinel for the next press', async () => {
+      const onClose = vi.fn();
+      renderMobile({ onClose, dirty: true });
+      const pushSpy = vi.spyOn(window.history, 'pushState');
+
+      await act(async () => {
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      });
+
+      // Dirty sheets route through the discard guard rather than closing…
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByRole('alertdialog', { name: /discard changes/i })).toBeInTheDocument();
+      // …and back stays trapped for the next press.
+      expect(pushSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ abbySheet: expect.anything() }),
+        '',
+      );
+    });
   });
 });

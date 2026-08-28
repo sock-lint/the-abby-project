@@ -31,3 +31,24 @@ export function quickDueDates(now = new Date()) {
     nextWeek: toISODate(addDays(today, 7)),
   };
 }
+
+/**
+ * Stock ledger ranges for the Payments filter. Answering "did Saturday's
+ * payout post?" shouldn't cost two native date-picker sessions — these set
+ * both ends in one tap, with the manual fields left as the override.
+ */
+export function quickRanges(now = new Date()) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dow = today.getDay();
+  // Week starts Sunday, matching the app's Sunday timecard rollover.
+  const weekStart = addDays(today, -dow);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const end = toISODate(today);
+
+  return {
+    thisWeek: { label: 'This week', start: toISODate(weekStart), end },
+    thisMonth: { label: 'This month', start: toISODate(monthStart), end },
+    last30: { label: 'Last 30 days', start: toISODate(addDays(today, -30)), end },
+    all: { label: 'All time', start: '', end: '' },
+  };
+}

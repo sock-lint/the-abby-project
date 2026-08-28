@@ -14,6 +14,7 @@ function unifyChore(c) {
     kidName: c.user_name || c.user_display_name || 'Unassigned',
     title: c.chore_title || 'Duty',
     subtitle: c.notes || null,
+    notes: c.notes || null,
     reward: c.reward_amount_snapshot ?? null,
     submittedAt: c.submitted_at || c.created_at || null,
   };
@@ -29,6 +30,10 @@ function unifyHomework(h) {
     subtitle: h.timeliness ? `submitted ${h.timeliness}` : null,
     reward: h.reward_amount_snapshot ?? null,
     submittedAt: h.submitted_at || h.created_at || null,
+    // The kid's evidence — carried through so a parent can judge the work
+    // from the queue instead of hopping to Quests → Study to see it.
+    notes: h.notes || null,
+    proofs: normalizeList(h.proofs),
   };
 }
 

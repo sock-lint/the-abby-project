@@ -4,13 +4,38 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { MemoryRouter } from 'react-router-dom';
 import NotificationBell from './NotificationBell.jsx';
+import MockPulse from '../test/pulse.jsx';
+import { emptyPulse } from '../test/pulseFixtures.js';
 import { server } from '../test/server.js';
 
-function renderBell() {
+function setViewport(desktop) {
+  window.matchMedia = vi.fn().mockImplementation((query) => ({
+    matches: desktop && query.includes('min-width'),
+    media: query,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    onchange: null,
+    dispatchEvent: vi.fn(),
+  }));
+}
+
+/**
+ * The bell reads both the unread count and the list off the shared heartbeat,
+ * so tests seed a pulse rather than stubbing two endpoints on a timer.
+ */
+function renderBell({ desktop = true, notifications = [], unread = 0, pulse } = {}) {
+  setViewport(desktop);
+  const seeded = pulse === undefined
+    ? emptyPulse({ notifications, unread_count: unread })
+    : pulse;
   return render(
-    <MemoryRouter>
-      <NotificationBell />
-    </MemoryRouter>,
+    <MockPulse pulse={seeded}>
+      <MemoryRouter>
+        <NotificationBell />
+      </MemoryRouter>
+    </MockPulse>,
   );
 }
 
@@ -18,12 +43,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('NotificationBell (real timers)', () => {
-  it('closes when clicking outside', async () => {
-    server.use(
-      http.get('*/api/notifications/unread_count/', () => HttpResponse.json({ count: 0 })),
-      http.get('*/api/notifications/', () => HttpResponse.json([])),
-    );
+describe('NotificationBell', () => {
+  it('closes when clicking outside (desktop popover only)', async () => {
     const user = userEvent.setup();
     const { container } = renderBell();
     await user.click(container.querySelector('button'));
@@ -36,15 +57,12 @@ describe('NotificationBell (real timers)', () => {
     await waitFor(() => expect(screen.queryByText(/all caught up/i)).toBeNull());
   });
 
-  it('navigates when a notification has a link and closes dropdown', async () => {
-    server.use(
-      http.get('*/api/notifications/unread_count/', () => HttpResponse.json({ count: 1 })),
-      http.get('*/api/notifications/', () =>
-        HttpResponse.json([{ id: 7, title: 'go', is_read: true, link: '/quests', created_at: 'x' }]),
-      ),
-    );
+  it('navigates when a notification has a link and closes the dropdown', async () => {
     const user = userEvent.setup();
-    renderBell();
+    renderBell({
+      unread: 1,
+      notifications: [{ id: 7, title: 'go', is_read: true, link: '/quests', created_at: 'x' }],
+    });
     await user.click(screen.getAllByRole('button')[0]);
     const row = await screen.findByText('go');
     await user.click(row);
@@ -52,38 +70,31 @@ describe('NotificationBell (real timers)', () => {
   });
 
   it('renders the type-specific lucide icon for a known notification type', async () => {
-    server.use(
-      http.get('*/api/notifications/unread_count/', () => HttpResponse.json({ count: 1 })),
-      http.get('*/api/notifications/', () =>
-        HttpResponse.json([{
-          id: 11, title: 'Sealed!', is_read: true,
-          notification_type: 'badge_earned', link: '', created_at: 'x',
-        }]),
-      ),
-    );
     const user = userEvent.setup();
-    const { container } = renderBell();
+    const { container } = renderBell({
+      unread: 1,
+      notifications: [{
+        id: 11, title: 'Sealed!', is_read: true,
+        notification_type: 'badge_earned', link: '', created_at: 'x',
+      }],
+    });
     await user.click(screen.getAllByRole('button')[0]);
     await screen.findByText('Sealed!');
     // ``badge_earned`` maps to lucide's Award icon, which carries
     // ``.lucide-award`` on its rendered SVG. The Bell icon stays in the
     // header trigger; the row icon is the one we want.
-    const rowIcon = container.querySelector('.lucide-award');
-    expect(rowIcon).not.toBeNull();
+    expect(container.querySelector('.lucide-award')).not.toBeNull();
   });
 
   it('falls back to the type-default route when link is empty', async () => {
-    server.use(
-      http.get('*/api/notifications/unread_count/', () => HttpResponse.json({ count: 1 })),
-      http.get('*/api/notifications/', () =>
-        HttpResponse.json([{
-          id: 9, title: 'Sealed!', is_read: true,
-          notification_type: 'badge_earned', link: '', created_at: 'x',
-        }]),
-      ),
-    );
     const user = userEvent.setup();
-    renderBell();
+    renderBell({
+      unread: 1,
+      notifications: [{
+        id: 9, title: 'Sealed!', is_read: true,
+        notification_type: 'badge_earned', link: '', created_at: 'x',
+      }],
+    });
     await user.click(screen.getAllByRole('button')[0]);
     const row = await screen.findByText('Sealed!');
     // The type-default route closes the dropdown the same way an explicit
@@ -93,25 +104,18 @@ describe('NotificationBell (real timers)', () => {
     await waitFor(() => expect(screen.queryByText('Sealed!')).toBeNull());
   });
 
-  it('opens the dropdown and loads notifications on click', async () => {
-    server.use(
-      http.get('*/api/notifications/unread_count/', () => HttpResponse.json({ count: 1 })),
-      http.get('*/api/notifications/', () =>
-        HttpResponse.json([{ id: 1, title: 'Hi', message: 'There', is_read: false, created_at: '2026-04-16T00:00:00Z' }]),
-      ),
-    );
+  it('renders the heartbeat list when opened', async () => {
     const user = userEvent.setup();
-    renderBell();
+    renderBell({
+      unread: 1,
+      notifications: [{ id: 1, title: 'Hi', message: 'There', is_read: false, created_at: '2026-04-16T00:00:00Z' }],
+    });
     await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument());
     await user.click(screen.getByRole('button'));
     await waitFor(() => expect(screen.getByText('Hi')).toBeInTheDocument());
   });
 
   it('shows empty state when no notifications', async () => {
-    server.use(
-      http.get('*/api/notifications/unread_count/', () => HttpResponse.json({ count: 0 })),
-      http.get('*/api/notifications/', () => HttpResponse.json([])),
-    );
     const user = userEvent.setup();
     renderBell();
     await user.click(screen.getAllByRole('button')[0]);
@@ -120,15 +124,12 @@ describe('NotificationBell (real timers)', () => {
   });
 
   it('marks-all-read calls the API and clears the count', async () => {
-    server.use(
-      http.get('*/api/notifications/unread_count/', () => HttpResponse.json({ count: 2 })),
-      http.get('*/api/notifications/', () =>
-        HttpResponse.json([{ id: 1, title: 'a', is_read: false, created_at: 'x' }]),
-      ),
-      http.post('*/api/notifications/mark_all_read/', () => HttpResponse.json({})),
-    );
+    server.use(http.post('*/api/notifications/mark_all_read/', () => HttpResponse.json({})));
     const user = userEvent.setup();
-    renderBell();
+    renderBell({
+      unread: 2,
+      notifications: [{ id: 1, title: 'a', is_read: false, created_at: 'x' }],
+    });
     await user.click(screen.getAllByRole('button')[0]);
     const markAll = await screen.findByRole('button', { name: /mark all read/i });
     await user.click(markAll);
@@ -136,15 +137,12 @@ describe('NotificationBell (real timers)', () => {
   });
 
   it('marks a single notification read on click', async () => {
-    server.use(
-      http.get('*/api/notifications/unread_count/', () => HttpResponse.json({ count: 1 })),
-      http.get('*/api/notifications/', () =>
-        HttpResponse.json([{ id: 5, title: 'clickable', is_read: false, created_at: 'x' }]),
-      ),
-      http.post(/\/notifications\/5\/mark_read/, () => HttpResponse.json({})),
-    );
+    server.use(http.post(/\/notifications\/5\/mark_read/, () => HttpResponse.json({})));
     const user = userEvent.setup();
-    renderBell();
+    renderBell({
+      unread: 1,
+      notifications: [{ id: 5, title: 'clickable', is_read: false, created_at: 'x' }],
+    });
     await user.click(screen.getAllByRole('button')[0]);
     const row = await screen.findByText('clickable');
     await user.click(row);
@@ -152,62 +150,44 @@ describe('NotificationBell (real timers)', () => {
   });
 
   it('renders zero unread by default', async () => {
-    server.use(
-      http.get('*/api/notifications/unread_count/', () =>
-        HttpResponse.json({ count: 0 }),
-      ),
-    );
     renderBell();
     await waitFor(() => expect(screen.queryByText('0')).toBeNull());
   });
 
   it('shows the unread badge when count > 0', async () => {
-    server.use(
-      http.get('*/api/notifications/unread_count/', () =>
-        HttpResponse.json({ count: 3 }),
-      ),
-    );
-    renderBell();
+    renderBell({ unread: 3 });
     await waitFor(() => expect(screen.getByText('3')).toBeInTheDocument());
   });
 
   it('clamps large counts to 9+', async () => {
-    server.use(
-      http.get('*/api/notifications/unread_count/', () =>
-        HttpResponse.json({ count: 42 }),
-      ),
-    );
-    renderBell();
+    renderBell({ unread: 42 });
     await waitFor(() => expect(screen.getByText('9+')).toBeInTheDocument());
   });
 
-  it('silently swallows count fetch errors', async () => {
-    server.use(
-      http.get('*/api/notifications/unread_count/', () =>
-        HttpResponse.json({ error: 'boom' }, { status: 500 }),
-      ),
-    );
-    renderBell();
-    // No badge should render after the fetch fails.
+  it('renders no badge before the first heartbeat lands', async () => {
+    // A missed or not-yet-arrived beat must leave the bell quiet rather than
+    // flashing a stale or zero badge.
+    renderBell({ pulse: null });
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByText(/^[0-9]+$/)).toBeNull();
   });
-});
 
-describe('NotificationBell polling (fake timers)', () => {
-  it('polls the unread count at 30s intervals', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    let calls = 0;
-    server.use(
-      http.get('*/api/notifications/unread_count/', () => {
-        calls += 1;
-        return HttpResponse.json({ count: calls });
-      }),
-    );
-    const { unmount } = renderBell();
-    await waitFor(() => expect(calls).toBeGreaterThanOrEqual(1));
-    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
-    await waitFor(() => expect(calls).toBeGreaterThanOrEqual(2));
-    unmount();
+  it('opens a bottom sheet instead of a popover on phones', async () => {
+    const user = userEvent.setup();
+    const { container } = renderBell({
+      desktop: false,
+      unread: 2,
+      notifications: [
+        { id: 1, title: 'Chore submitted', message: 'Dishes', is_read: false, created_at: '2026-08-20T10:00:00Z', notification_type: 'chore_submitted' },
+      ],
+    });
+    await user.click(container.querySelector('button'));
+
+    // A real sheet — full-width rows in the thumb zone rather than a 320px
+    // dropdown pinned under the header.
+    const sheet = await screen.findByRole('dialog', { name: /notifications/i });
+    expect(sheet).toBeInTheDocument();
+    expect(screen.getByText('Chore submitted')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /mark all read/i })).toBeInTheDocument();
   });
 });

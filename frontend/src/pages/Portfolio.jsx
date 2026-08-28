@@ -19,6 +19,7 @@ import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
 import IconButton from '../components/IconButton';
+import SwipeableImage from '../components/SwipeableImage';
 import ShareButton from '../components/ShareButton';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { TextField, SelectField } from '../components/form';
@@ -569,11 +570,13 @@ function Lightbox({ viewer, onClose, onPrev, onNext }) {
           <ChevronRight size={32} />
         </IconButton>
       )}
-      <img
+      <SwipeableImage
         src={current.image}
         alt={current.caption || current.groupLabel}
-        className="max-h-[75vh] max-w-[90vw] object-contain rounded-lg"
-        onClick={(e) => e.stopPropagation()}
+        className="max-h-[75dvh] max-w-[90vw] object-contain rounded-lg"
+        onPrev={viewer.index > 0 ? onPrev : undefined}
+        onNext={viewer.index < viewer.items.length - 1 ? onNext : undefined}
+        onClose={onClose}
       />
       <div className="absolute bottom-6 text-center left-0 right-0 px-4 space-y-2">
         {current.kind === 'creation' && current.audio && (

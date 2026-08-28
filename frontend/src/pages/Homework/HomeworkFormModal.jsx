@@ -4,8 +4,8 @@ import { useFormState } from '../../hooks/useFormState';
 import BottomSheet from '../../components/BottomSheet';
 import ErrorAlert from '../../components/ErrorAlert';
 import Button from '../../components/Button';
-import { TextField, SelectField, TextAreaField } from '../../components/form';
-import { quickDueDates, toISODate } from '../../utils/dates';
+import { TextField, SelectField, TextAreaField, DueDateChips } from '../../components/form';
+import { toISODate } from '../../utils/dates';
 
 const SUBJECTS = [
   { value: 'math', label: 'Math' },
@@ -31,17 +31,7 @@ export default function HomeworkFormModal({
     assigned_to: assignment?.assigned_to ?? '',
   });
 
-  const presets = quickDueDates();
   const today = toISODate(new Date());
-  const rawChips = [
-    { label: 'Tomorrow', value: presets.tomorrow, relative: true },
-    { label: 'Friday', value: presets.friday, relative: false },
-    { label: 'Next Mon', value: presets.nextMonday, relative: false },
-    { label: '+1 week', value: presets.nextWeek, relative: true },
-  ];
-  const presetChips = rawChips.filter((c, i, arr) =>
-    c.relative || !arr.some((o, j) => j !== i && o.relative && o.value === c.value),
-  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -108,27 +98,11 @@ export default function HomeworkFormModal({
         <div>
           <span className="font-script text-body text-ink-secondary mb-1 block">Due</span>
           {!isEdit && (
-            <div className="flex flex-wrap gap-2 mb-2">
-              {presetChips.map((chip) => {
-                const active = form.due_date === chip.value;
-                return (
-                  <button
-                    key={chip.label}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => set({ due_date: chip.value })}
-                    className={
-                      'px-3 py-1 text-caption font-medium rounded-full border transition-colors ' +
-                      (active
-                        ? 'bg-sheikah-teal-deep text-ink-page-rune-glow border-sheikah-teal-deep'
-                        : 'bg-ink-page-aged text-ink-secondary border-ink-page-shadow hover:text-ink-primary')
-                    }
-                  >
-                    {chip.label}
-                  </button>
-                );
-              })}
-            </div>
+            <DueDateChips
+              value={form.due_date}
+              onSelect={(date) => set({ due_date: date })}
+              className="mb-2"
+            />
           )}
           <div className="grid grid-cols-2 gap-3">
             <SelectField

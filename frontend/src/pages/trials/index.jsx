@@ -102,18 +102,24 @@ export default function Trials() {
 
   return (
     <div className="space-y-6">
-      <IncipitBand
-        letter="T"
-        title="Trials"
-        kicker="· boss campaigns & collection hunts ·"
-        meta={(
-          <>
-            <span className="tabular-nums">{progress.triumphs} of {progress.total}</span>
-            <span>triumphed</span>
-          </>
-        )}
-        progressPct={progress.progressPct}
-      />
+      {/* When a quest is underway, ActiveQuestFolio's verso banner already
+          carries the letter/title/progress vocabulary — stacking the hero
+          above it is hero-on-hero on a phone, so the IncipitBand goes
+          CSS-hidden below md in that case (desktop keeps both). */}
+      <div className={activeQuest ? 'hidden md:block' : ''}>
+        <IncipitBand
+          letter="T"
+          title="Trials"
+          kicker="· boss campaigns & collection hunts ·"
+          meta={(
+            <>
+              <span className="tabular-nums">{progress.triumphs} of {progress.total}</span>
+              <span>triumphed</span>
+            </>
+          )}
+          progressPct={progress.progressPct}
+        />
+      </div>
 
       <p className="font-script text-sm text-ink-whisper -mt-2 max-w-xl">
         boss trials take damage from your work and study · collection trials count items earned · only one active at a time

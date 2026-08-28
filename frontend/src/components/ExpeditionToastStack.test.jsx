@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '../test/render';
-import { server } from '../test/server';
+import { emptyPulse } from '../test/pulseFixtures.js';
 import ExpeditionToastStack from './ExpeditionToastStack';
 
 const readyExpedition = {
@@ -21,7 +20,6 @@ const readyExpedition = {
 
 describe('ExpeditionToastStack', () => {
   beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('abby:expeditions:dismissed');
     }
@@ -34,17 +32,9 @@ describe('ExpeditionToastStack', () => {
   });
 
   it('renders a soft slide-in nudge for a ready-to-claim expedition', async () => {
-    server.use(
-      http.get('*/api/expeditions/', ({ request }) => {
-        const url = new URL(request.url);
-        // Hook calls the endpoint with ?ready=true.
-        if (url.searchParams.get('ready') === 'true') {
-          return HttpResponse.json({ expeditions: [readyExpedition] });
-        }
-        return HttpResponse.json({ expeditions: [] });
-      }),
-    );
-    renderWithProviders(<ExpeditionToastStack />);
+    renderWithProviders(<ExpeditionToastStack />, {
+      pulse: emptyPulse({ expeditions_ready: [readyExpedition] }),
+    });
     await waitFor(() => {
       expect(screen.getByText(/Griffon is back/i)).toBeInTheDocument();
     });
@@ -52,13 +42,10 @@ describe('ExpeditionToastStack', () => {
   });
 
   it('hides a dismissed expedition and persists the choice in localStorage', async () => {
-    server.use(
-      http.get('*/api/expeditions/', () =>
-        HttpResponse.json({ expeditions: [readyExpedition] }),
-      ),
-    );
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    renderWithProviders(<ExpeditionToastStack />);
+    const user = userEvent.setup();
+    renderWithProviders(<ExpeditionToastStack />, {
+      pulse: emptyPulse({ expeditions_ready: [readyExpedition] }),
+    });
     await waitFor(() => expect(screen.getByText(/Griffon is back/i)).toBeInTheDocument());
 
     await user.click(screen.getByRole('button', { name: /dismiss notification/i }));
@@ -70,11 +57,8 @@ describe('ExpeditionToastStack', () => {
   });
 
   it('does not render anything when no expeditions are ready', async () => {
-    server.use(
-      http.get('*/api/expeditions/', () => HttpResponse.json({ expeditions: [] })),
-    );
-    renderWithProviders(<ExpeditionToastStack />);
-    // No toast text appears even after a poll cycle.
+    renderWithProviders(<ExpeditionToastStack />, { pulse: emptyPulse() });
+    // No toast text appears even after a beat.
     await waitFor(() => {
       // Use queryAll because the component still renders an empty wrapper.
       expect(screen.queryByText(/is back/i)).toBeNull();

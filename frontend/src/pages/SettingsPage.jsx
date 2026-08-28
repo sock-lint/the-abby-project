@@ -25,6 +25,7 @@ import { downscaleImage } from '../utils/image';
 import Button from '../components/Button';
 import { ToggleField } from '../components/form';
 import InstallCard from '../pwa/InstallCard';
+import PushNotificationsCard from '../pwa/PushNotificationsCard';
 
 // Auto-dismiss window for transient Google-account status banners. Long
 // enough to read but short enough that the user doesn't come back to
@@ -476,6 +477,7 @@ export default function SettingsPage() {
       <DeckleDivider glyph="flourish-corner" className="my-2" />
 
       <InstallCard />
+      <PushNotificationsCard />
 
       {confirmRemoveAvatar && (
         <ConfirmDialog

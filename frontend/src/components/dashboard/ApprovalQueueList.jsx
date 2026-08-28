@@ -6,6 +6,7 @@ import EmptyState from '../EmptyState';
 import ParchmentCard from '../journal/ParchmentCard';
 import RuneBadge from '../journal/RuneBadge';
 import BottomSheet from '../BottomSheet';
+import ProofGallery from '../ProofGallery';
 import ConfirmDialog from '../ConfirmDialog';
 import Button from '../Button';
 import { TextAreaField } from '../form';
@@ -66,7 +67,16 @@ function rowKey(item) {
   return `${item.kind}-${item.id}`;
 }
 
-function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview }) {
+// First photo a kid attached to this submission, if any.
+function thumbFor(item) {
+  return item.image || item.proofs?.[0]?.image || null;
+}
+
+function hasDetail(item) {
+  return Boolean(thumbFor(item) || item.notes);
+}
+
+function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview, onOpenDetail }) {
   const [busy, setBusy] = useState(null); // 'approve' | 'reject' | null
   const [error, setError] = useState('');
   const meta = KIND_LABELS[item.kind] || KIND_LABELS.chore;
@@ -101,19 +111,54 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview }) {
       transition={{ duration: 0.2 }}
       className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${error ? 'border-ember/60 bg-ember/5' : 'border-ink-page-shadow bg-ink-page'}`}
     >
-      <Icon size={18} className="text-ink-secondary shrink-0" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-body font-semibold text-body truncate">{item.title}</span>
-          <RuneBadge tone={meta.tone} size="sm">{meta.label}</RuneBadge>
+      {thumbFor(item) ? (
+        <img
+          src={thumbFor(item)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="w-11 h-11 rounded-lg object-cover border border-ink-page-shadow shrink-0"
+        />
+      ) : (
+        <Icon size={18} className="text-ink-secondary shrink-0" />
+      )}
+      {/* The body is a button when there's evidence to inspect — approving
+          homework or a creation from a one-line title alone is approving
+          blind, and the photo is already in the payload. */}
+      {hasDetail(item) ? (
+        <button
+          type="button"
+          onClick={() => onOpenDetail(item)}
+          className="flex-1 min-w-0 text-left"
+        >
+          <div className="flex items-center gap-2">
+            <span className="font-body font-semibold text-body truncate">{item.title}</span>
+            <RuneBadge tone={meta.tone} size="sm">{meta.label}</RuneBadge>
+          </div>
+          {item.subtitle && (
+            <div className="font-script text-caption text-ink-whisper truncate">{item.subtitle}</div>
+          )}
+          <div className="font-script text-caption text-sheikah-teal-deep">
+            tap to see the work
+          </div>
+          {error && (
+            <div className="font-script text-caption text-ember-deep mt-1">{error}</div>
+          )}
+        </button>
+      ) : (
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-body font-semibold text-body truncate">{item.title}</span>
+            <RuneBadge tone={meta.tone} size="sm">{meta.label}</RuneBadge>
+          </div>
+          {item.subtitle && (
+            <div className="font-script text-caption text-ink-whisper truncate">{item.subtitle}</div>
+          )}
+          {error && (
+            <div className="font-script text-caption text-ember-deep mt-1">{error}</div>
+          )}
         </div>
-        {item.subtitle && (
-          <div className="font-script text-caption text-ink-whisper truncate">{item.subtitle}</div>
-        )}
-        {error && (
-          <div className="font-script text-caption text-ember-deep mt-1">{error}</div>
-        )}
-      </div>
+      )}
       {item.reward != null && item.reward !== '' && (
         <div className="font-rune text-caption text-ember-deep pl-2 shrink-0">
           {typeof item.reward === 'number'
@@ -121,14 +166,17 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview }) {
             : item.reward}
         </div>
       )}
-      <div className="flex items-center gap-1.5 shrink-0">
+      {/* 44px circles with real spacing — parents triage this queue
+          one-handed, and approve/reject sitting 6px apart at 32px was the
+          classic wrong-button mis-tap. Mirrors ApprovalButtons' 44px floor. */}
+      <div className="flex items-center gap-3 shrink-0">
         {isProposal ? (
           <button
             type="button"
             aria-label={`Review ${item.title}`}
             disabled={!!busy}
             onClick={handleApprove}
-            className="px-3 h-8 rounded-full border border-gold-leaf/70 text-gold-leaf hover:bg-gold-leaf/10 disabled:opacity-50 flex items-center justify-center font-body text-caption"
+            className="px-3 h-11 rounded-full border border-gold-leaf/70 text-gold-leaf hover:bg-gold-leaf/10 disabled:opacity-50 flex items-center justify-center font-body text-caption"
           >
             Review
           </button>
@@ -138,9 +186,9 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview }) {
             aria-label={`Approve ${item.title}`}
             disabled={!!busy}
             onClick={handleApprove}
-            className="w-8 h-8 rounded-full border border-moss/60 text-moss hover:bg-moss/10 disabled:opacity-50 flex items-center justify-center"
+            className="w-11 h-11 rounded-full border border-moss/60 text-moss hover:bg-moss/10 disabled:opacity-50 flex items-center justify-center"
           >
-            <Check size={15} />
+            <Check size={18} />
           </button>
         )}
         <button
@@ -148,12 +196,70 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview }) {
           aria-label={`Reject ${item.title}`}
           disabled={!!busy}
           onClick={handleReject}
-          className="w-8 h-8 rounded-full border border-ember/60 text-ember-deep hover:bg-ember/10 disabled:opacity-50 flex items-center justify-center"
+          className="w-11 h-11 rounded-full border border-ember/60 text-ember-deep hover:bg-ember/10 disabled:opacity-50 flex items-center justify-center"
         >
-          <X size={15} />
+          <X size={18} />
         </button>
       </div>
     </motion.li>
+  );
+}
+
+function DetailSheet({ item, onClose, onApprove, onReject }) {
+  const [busy, setBusy] = useState(false);
+  const meta = KIND_LABELS[item.kind] || KIND_LABELS.chore;
+  const photos = item.proofs?.length
+    ? item.proofs
+    : (item.image ? [{ id: 'image', image: item.image, caption: null }] : []);
+
+  const handleApprove = async () => {
+    setBusy(true);
+    try {
+      await onApprove(item);
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <BottomSheet title={item.title} onClose={onClose} disabled={busy}>
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <RuneBadge tone={meta.tone} size="sm">{meta.label}</RuneBadge>
+          <span className="font-script text-caption text-ink-whisper">
+            {item.kidName}
+            {item.subtitle ? ` · ${item.subtitle}` : ''}
+          </span>
+        </div>
+        {photos.length > 0 && (
+          <ProofGallery proofs={photos} />
+        )}
+        {item.notes && (
+          <p className="font-body text-body text-ink-secondary whitespace-pre-line">
+            {item.notes}
+          </p>
+        )}
+        <div className="flex gap-2 pt-1">
+          <Button
+            variant="success"
+            onClick={handleApprove}
+            disabled={busy}
+            className="flex-1"
+          >
+            {busy ? 'Approving…' : 'Approve'}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => { onClose(); onReject(item); }}
+            disabled={busy}
+            className="flex-1"
+          >
+            Reject
+          </Button>
+        </div>
+      </div>
+    </BottomSheet>
   );
 }
 
@@ -230,6 +336,7 @@ export default function ApprovalQueueList({ items = [], onDone }) {
   const [bulkInFlight, setBulkInFlight] = useState(new Set());
   const [pendingBulk, setPendingBulk] = useState(null); // { kidId, group } awaiting confirm
   const [rejectTarget, setRejectTarget] = useState(null);
+  const [detailTarget, setDetailTarget] = useState(null);
 
   const hide = (key) => {
     setHiddenIds((prev) => {
@@ -369,7 +476,7 @@ export default function ApprovalQueueList({ items = [], onDone }) {
                     onClick={() => handleBulkClick(kidId, group)}
                     disabled={inFlight}
                     aria-label={`Approve all ${visibleApprovable.length} from ${group.kidName}`}
-                    className="inline-flex items-center gap-1 px-3 h-8 rounded-full border border-moss/60 text-moss hover:bg-moss/10 disabled:opacity-50 font-body text-caption"
+                    className="inline-flex items-center gap-1 px-3 h-11 rounded-full border border-moss/60 text-moss hover:bg-moss/10 disabled:opacity-50 font-body text-caption"
                   >
                     <CheckCheck size={14} />
                     {inFlight ? 'Approving…' : `Approve all (${visibleApprovable.length})`}
@@ -392,6 +499,7 @@ export default function ApprovalQueueList({ items = [], onDone }) {
                     onApprove={handleApproveOne}
                     onOpenReject={(target) => setRejectTarget(target)}
                     onProposalReview={openProposalReview}
+                    onOpenDetail={(target) => setDetailTarget(target)}
                   />
                 ))}
               </AnimatePresence>
@@ -399,6 +507,14 @@ export default function ApprovalQueueList({ items = [], onDone }) {
           </ParchmentCard>
         );
       })}
+      {detailTarget && (
+        <DetailSheet
+          item={detailTarget}
+          onClose={() => setDetailTarget(null)}
+          onApprove={handleApproveOne}
+          onReject={(target) => setRejectTarget(target)}
+        />
+      )}
       {rejectTarget && (
         <RejectSheet
           item={rejectTarget}

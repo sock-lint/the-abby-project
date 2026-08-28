@@ -7,6 +7,8 @@ import { AuthProvider } from '../../hooks/useApi.js';
 import { server } from '../../test/server.js';
 import { buildUser } from '../../test/factories.js';
 import { spyHandler } from '../../test/spy.js';
+import MockPulse from '../../test/pulse.jsx';
+import { emptyPulse } from '../../test/pulseFixtures.js';
 import FirstEncounterSheet from './FirstEncounterSheet.jsx';
 
 localStorage.setItem('abby_auth_token', 'test-token');
@@ -23,23 +25,27 @@ function LocationProbe() {
   return <div data-testid="probe-url">{location.pathname + location.search}</div>;
 }
 
-function renderSheet() {
+// Newly-unlocked slugs ride the shared heartbeat now (the hook used to
+// re-fetch the entire dashboard every 20s just to read them).
+function renderSheet(slugs = []) {
   return render(
-    <MemoryRouter initialEntries={['/']}>
-      <AuthProvider>
-        <Routes>
-          <Route
-            path="*"
-            element={
-              <>
-                <FirstEncounterSheet pollIntervalMs={100000} />
-                <LocationProbe />
-              </>
-            }
-          />
-        </Routes>
-      </AuthProvider>
-    </MemoryRouter>,
+    <MockPulse pulse={emptyPulse({ newly_unlocked_lorebook: slugs })}>
+      <MemoryRouter initialEntries={['/']}>
+        <AuthProvider>
+          <Routes>
+            <Route
+              path="*"
+              element={
+                <>
+                  <FirstEncounterSheet />
+                  <LocationProbe />
+                </>
+              }
+            />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    </MockPulse>,
   );
 }
 
@@ -86,7 +92,7 @@ describe('FirstEncounterSheet', () => {
     server.use(patch.handler);
 
     const user = userEvent.setup();
-    renderSheet();
+    renderSheet([petsEntry.slug]);
 
     expect(
       await screen.findByRole('dialog', { name: /a new page is open/i }),
@@ -111,7 +117,7 @@ describe('FirstEncounterSheet', () => {
     server.use(patch.handler);
 
     const user = userEvent.setup();
-    renderSheet();
+    renderSheet([petsEntry.slug]);
 
     expect(
       await screen.findByRole('dialog', { name: /a new page is open/i }),

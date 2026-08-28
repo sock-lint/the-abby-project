@@ -15,10 +15,13 @@ const VARIANT_CLASSES = {
   success: buttonSuccess,
 };
 
+// Every size carries a 44px min-height floor — sm buttons back the
+// highest-frequency taps in the app (chore Done, homework Submit, the hero
+// CTA), and a visually-small button still needs a thumb-sized hit area.
 const SIZE_CLASSES = {
-  sm: 'px-3 py-1 text-sm',
-  md: 'px-4 py-2',
-  lg: 'px-5 py-3 text-lg',
+  sm: 'px-3 py-1 text-sm min-h-11',
+  md: 'px-4 py-2 min-h-11',
+  lg: 'px-5 py-3 text-lg min-h-11',
 };
 
 /**

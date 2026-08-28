@@ -55,7 +55,7 @@ describe('DailyChallengeCard', () => {
     expect(get.calls).toHaveLength(0);
   });
 
-  it('renders title, kicker, progress, and rewards preview when in progress', async () => {
+  it('renders the compact single row (count + countdown + bar) when in progress', async () => {
     renderCard(buildUser(), [
       http.get('*/api/challenges/daily/', () =>
         HttpResponse.json(buildChallenge({ current_progress: 1, target_value: 2 })),
@@ -63,14 +63,18 @@ describe('DailyChallengeCard', () => {
     ]);
 
     await screen.findByText(/today's rite/i);
-    expect(screen.getByText(/a small deed before the day turns/i)).toBeInTheDocument();
-    expect(screen.getByText(/complete 2 chores/i)).toBeInTheDocument();
-    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+    // One fused meta line: "1 / 2 · resets in Nh Nm".
+    expect(screen.getByText(/1 \/ 2 · resets in/i)).toBeInTheDocument();
     const bar = screen.getByRole('progressbar');
     expect(bar).toHaveAttribute('aria-valuenow', '1');
     expect(bar).toHaveAttribute('aria-valuemax', '2');
+    expect(bar).toHaveAttribute('aria-label', 'Complete 2 chores progress');
+    // The full-card flourish (kicker, tutorial line, reward preview, claim
+    // button) stays out of the compact everyday row.
+    expect(screen.queryByText(/a small deed before the day turns/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/a fresh micro-quest each dawn/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/reward waiting/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /claim/i })).not.toBeInTheDocument();
-    expect(screen.getByText(/reward waiting: 10 coins · 20 xp/i)).toBeInTheDocument();
   });
 
   it('shows an enabled Claim button when the challenge is complete and unclaimed', async () => {
@@ -93,6 +97,11 @@ describe('DailyChallengeCard', () => {
       name: /claim 10 coins and 20 xp/i,
     });
     expect(button).toBeEnabled();
+    // Ready-to-claim keeps the FULL celebration card — kicker, challenge
+    // line, and count all present (not the compact everyday row).
+    expect(screen.getByText(/a small deed before the day turns/i)).toBeInTheDocument();
+    expect(screen.getByText(/complete 2 chores/i)).toBeInTheDocument();
+    expect(screen.getByText('2 / 2')).toBeInTheDocument();
   });
 
   it('clicking Claim POSTs to /challenges/daily/claim/ and shows the inked readout', async () => {
@@ -152,6 +161,8 @@ describe('DailyChallengeCard', () => {
       screen.getByText(/already claimed — a new rite opens at midnight/i),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /claim/i })).not.toBeInTheDocument();
+    // Prior-session claims collapse back to the compact row too.
+    expect(screen.queryByText(/a small deed before the day turns/i)).not.toBeInTheDocument();
   });
 
   it('renders nothing when the backend returns an empty payload', async () => {
