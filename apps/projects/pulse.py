@@ -28,7 +28,6 @@ looks at the newest handful, and the bell renders at most 20."""
 
 def build_pulse(user) -> dict[str, Any]:
     """Return every background signal the shell polls for, in one payload."""
-    from apps.notifications.models import Notification
     from apps.notifications.serializers import NotificationSerializer
     from apps.pets.expeditions import ExpeditionService
     from apps.pets.serializers import MountExpeditionSerializer
