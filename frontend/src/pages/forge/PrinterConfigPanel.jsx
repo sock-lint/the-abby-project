@@ -118,7 +118,7 @@ function PrinterForm({ printer, onClose, onSaved }) {
               error={fieldError.access_code}
               helpText={printer
                 ? 'Leave blank to keep the stored code.'
-                : 'Eight digits, on the printer’s screen under Settings → Network.'}
+                : 'Eight digits. On the printer: Settings → LAN Only — open that row to read the code, and leave the toggle off.'}
             />
           </>
         ) : (

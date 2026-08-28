@@ -727,7 +727,9 @@ class PrinterProfileViewTests(_ApiFixture):
         }, format="json")
         self.assertEqual(resp.status_code, 400)
         self.assertIn("access_code", resp.json())
-        self.assertIn("Settings", resp.json()["access_code"][0])
+        # The menu path is firmware-specific and we shipped the wrong one
+        # once — X1 firmware has no Settings → Network. Pin the real path.
+        self.assertIn("LAN Only", resp.json()["access_code"][0])
         self.assertFalse(
             PrinterProfile.objects.filter(serial="00M09A000000010").exists(),
         )

@@ -60,3 +60,19 @@ UNNAMED_PRINT_GRACE_SECONDS = 90
 #: Progress events are only written when the percentage moves at least this
 #: much, so a 4-hour print writes ~20 timeline rows rather than thousands.
 PROGRESS_EVENT_STEP_PERCENT = 5
+
+# --- Where the parent finds the LAN access code ---------------------------
+#: One sentence, reused by the model's ``credential_hint``, the write
+#: serializer's validation error, the LAN transport's connect error and the
+#: form's help text, so the app can never point at two different menus.
+#:
+#: The path is firmware-specific and we got it wrong once: X1 firmware has no
+#: ``Settings → Network`` entry. The code lives inside the **LAN Only** panel,
+#: which is reachable — and readable — with the toggle still Off. Saying so
+#: matters twice over, because switching LAN Only on is what severs the
+#: printer's Handy/cloud access, and nothing here needs it: the local broker
+#: keeps publishing status in Cloud mode (see transports/local.py).
+ACCESS_CODE_LOCATION = (
+    "on the printer's screen it's under Settings → LAN Only "
+    "(just open that row to read it — leave the toggle off)."
+)

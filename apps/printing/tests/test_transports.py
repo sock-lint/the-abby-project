@@ -381,6 +381,39 @@ class MissingCredentialsTests(_Fixture):
         self.assertEqual(printer.missing_credentials, ["access_code"])
 
 
+class AccessCodeLocationTests(_Fixture):
+    """Every surface that tells a parent where to find the access code
+    must read it off one constant.
+
+    We shipped ``Settings → Network`` — a menu X1 firmware does not have —
+    to four places at once, because each had its own copy of the sentence.
+    """
+
+    def test_every_surface_quotes_the_same_menu_path(self):
+        from apps.printing.constants import ACCESS_CODE_LOCATION
+        from apps.printing.serializers import PrinterProfileWriteSerializer
+        from apps.printing.transports.local import build_local_config
+
+        printer = self.make_printer(serial="00M09A000000014")
+        self.assertIn(ACCESS_CODE_LOCATION, printer.credential_hint)
+        self.assertIn(
+            ACCESS_CODE_LOCATION,
+            PrinterProfileWriteSerializer.MISSING_MESSAGES["access_code"],
+        )
+        with self.assertRaises(TransportError) as caught:
+            build_local_config(printer)
+        self.assertIn(ACCESS_CODE_LOCATION, str(caught.exception))
+
+    def test_it_does_not_send_anyone_to_a_menu_that_is_not_there(self):
+        from apps.printing.constants import ACCESS_CODE_LOCATION
+
+        self.assertNotIn("Settings → Network", ACCESS_CODE_LOCATION)
+        self.assertIn("LAN Only", ACCESS_CODE_LOCATION)
+        # Reading the code needs the panel, never the toggle — turning LAN
+        # Only on is what severs the printer's Handy/cloud access.
+        self.assertIn("toggle off", ACCESS_CODE_LOCATION)
+
+
 class InMemoryTransportTests(TestCase):
     def test_request_full_status_publishes_the_exact_pushall_payload(self):
         transport = InMemoryTransport(on_payload=lambda payload: None)

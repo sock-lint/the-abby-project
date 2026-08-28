@@ -23,6 +23,8 @@ from config.base_models import (
     TimestampedModel,
 )
 
+from .constants import ACCESS_CODE_LOCATION
+
 
 class PrinterProfile(TimestampedModel):
     """One physical printer, owned by a family.
@@ -215,10 +217,7 @@ class PrinterProfile(TimestampedModel):
             if len(missing) > 1
             else "No LAN access code saved"
         )
-        return (
-            f"{prefix} — the access code is on the printer's screen "
-            "under Settings → Network."
-        )
+        return f"{prefix} — {ACCESS_CODE_LOCATION}"
 
 
 class PrintRequest(ApprovalWorkflowModel, TimestampedModel):

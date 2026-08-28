@@ -36,11 +36,12 @@ describe('PrinterConfigPanel', () => {
         ...PRINTER,
         has_credentials: false,
         missing_credentials: ['access_code'],
-        credential_hint: "No LAN access code saved — the access code is on the "
-          + 'printer’s screen under Settings → Network.',
+        credential_hint: 'No LAN access code saved — on the printer’s screen '
+          + 'it’s under Settings → LAN Only (just open that row to read it — '
+          + 'leave the toggle off).',
       }]} />,
     );
-    expect(screen.getByText(/Settings → Network/)).toBeInTheDocument();
+    expect(screen.getByText(/Settings → LAN Only/)).toBeInTheDocument();
   });
 
   it('falls back to the listener’s own complaint once credentials are set', () => {
@@ -118,7 +119,7 @@ describe('PrinterConfigPanel', () => {
     // {access_code: [...]}. Without the field mapping that body falls through
     // to the client's JSON.stringify fallback and the parent reads raw JSON.
     server.use(http.post(/\/api\/printers\/$/, () => HttpResponse.json(
-      { access_code: ['Enter the printer’s LAN access code — it’s on the printer’s screen under Settings → Network.'] },
+      { access_code: ['Enter the printer’s LAN access code — on the printer’s screen it’s under Settings → LAN Only.'] },
       { status: 400 },
     )));
 
