@@ -33,7 +33,7 @@ import { normalizeList } from '../utils/api';
 import Button from '../components/Button';
 import IconButton from '../components/IconButton';
 import ModalActions from '../components/ModalActions';
-import { TextField, SelectField, TextAreaField } from '../components/form';
+import { TextField, SelectField, TextAreaField, CheckboxField } from '../components/form';
 import QuestFolio from './quests/QuestFolio';
 
 const RECURRENCE_LABELS = { daily: 'Daily', weekly: 'Weekly', one_time: 'One-time' };
@@ -185,10 +185,11 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
                 )}
               </div>
             )}
-            <label className="flex items-center gap-2 font-body text-body text-ink-primary">
-              <input type="checkbox" checked={form.is_active} onChange={onField('is_active')} className="accent-sheikah-teal-deep" />
-              Active
-            </label>
+            <CheckboxField
+              label="Active"
+              checked={form.is_active}
+              onChange={onField('is_active')}
+            />
             <SkillTagEditor
               skills={skills}
               value={form.skill_tags}

@@ -49,7 +49,7 @@ export default function AddResourceModal({ projectId, steps, onClose, onSaved })
           autoFocus
         />
         <TextField label="Title (optional)" value={form.title} onChange={onField('title')} />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Type" value={form.resource_type} onChange={onField('resource_type')}>
             <option value="link">Link</option>
             <option value="video">Video</option>

@@ -45,6 +45,21 @@ describe('TimelineEntry', () => {
     expect(screen.getByText('Big day')).toBeInTheDocument()
   })
 
+  // The raw DRF "YYYY-MM-DD" leaked into the timeline; it also has to parse
+  // as a LOCAL day so an entry never shows up dated the evening before.
+  it('renders occurred_on in the reader\'s date format, not the raw ISO', () => {
+    renderWithProviders(
+      <TimelineEntry entry={{
+        id: 5, kind: 'manual', title: 'Rode bike',
+        occurred_on: '2026-09-03', metadata: {},
+      }} />,
+    )
+    expect(
+      screen.getByText(new Date(2026, 8, 3).toLocaleDateString()),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('2026-09-03')).toBeNull()
+  })
+
   it('renders the quill glyph for journal kind', () => {
     renderWithProviders(
       <TimelineEntry entry={{

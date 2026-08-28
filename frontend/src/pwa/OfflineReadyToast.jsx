@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
 import { usePwaStatus } from './PwaStatusProvider';
+import { RARITY_SOLID_COLORS } from '../constants/colors';
 
 const DISMISS_AFTER_MS = 4000;
 
@@ -40,8 +41,12 @@ export default function OfflineReadyToast() {
             initial={{ x: 300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 300, opacity: 0 }}
-            // intentional: raw green Tailwind colors borrowed from DropToastStack's rarity tier styling
-            className="flex items-center gap-3 rounded-lg border border-green-400 bg-green-700 px-3 py-2 text-caption text-white shadow-lg pointer-events-auto"
+            // Same chip as the drop and savings toasts it shares a band with:
+            // white text on a solid tier surface with a white/25 hairline.
+            // The green here is the cover-invariant --color-rarity-common
+            // token rather than `bg-moss`, because the dark Vigil cover
+            // remaps moss to a pale #a8c48a that would strand the white text.
+            className={`flex items-center gap-3 rounded-lg border border-white/25 px-3 py-2 text-caption text-white shadow-lg pointer-events-auto ${RARITY_SOLID_COLORS.common}`}
           >
             <CheckCircle2 size={18} aria-hidden="true" />
             <span>Ready to work offline.</span>

@@ -56,7 +56,7 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
         <ErrorAlert message={error} />
         <TextField label="Title" value={form.title} onChange={onField('title')} required />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={3} />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Category" value={form.category_id} onChange={onField('category_id')}>
             <option value="">None</option>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
@@ -65,7 +65,7 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
             {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
           </SelectField>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Assign To" value={form.assigned_to_id} onChange={onField('assigned_to_id')}>
             <option value="">Unassigned</option>
             {children.map((c) => (
@@ -77,7 +77,7 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
             <option value="bounty">Bounty</option>
           </SelectField>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <TextField
             label={form.payment_kind === 'bounty' ? 'Bounty ($)' : 'Bonus ($)'}
             value={form.bonus_amount}

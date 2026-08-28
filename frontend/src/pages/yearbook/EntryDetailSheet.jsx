@@ -5,6 +5,7 @@ import Button from '../../components/Button'
 import RuneBadge from '../../components/journal/RuneBadge'
 import JournalEntryFormModal from './JournalEntryFormModal'
 import { useRole } from '../../hooks/useRole'
+import { formatDate } from '../../utils/format'
 
 function todayISO() {
   const now = new Date()
@@ -41,7 +42,7 @@ export default function EntryDetailSheet({ entry, onClose }) {
     <BottomSheet title={entry.title} onClose={onClose}>
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-caption text-ink-whisper">
-          <span>{entry.occurred_on}</span>
+          <span>{formatDate(entry.occurred_on)}</span>
           {showLock && (
             <RuneBadge
               tone="ink"

@@ -142,7 +142,7 @@ export default function SpriteGenerateModal({ sprite, mode = 'create', onClose, 
           helpText="What Gemini should draw. Be specific about species, pose, colors."
         />
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField
             label="Motion"
             value={form.motion}
@@ -168,7 +168,7 @@ export default function SpriteGenerateModal({ sprite, mode = 'create', onClose, 
           </SelectField>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField
             label="Tile size"
             value={form.tile_size}

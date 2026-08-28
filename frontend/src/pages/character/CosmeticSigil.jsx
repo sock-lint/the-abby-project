@@ -125,10 +125,14 @@ export default function CosmeticSigil({
         {rarity}
       </div>
 
+      {/* The unlock hint is the only thing telling a kid how to earn a locked
+          cosmetic, and locked tiles are most of this grid — so it reads at
+          text-tiny in full ink rather than 10px at 80% whisper, matching the
+          sibling BadgeSigil / LorebookTile surfaces. */}
       {!owned && (
         <div
           data-cosmetic-hint="true"
-          className="mt-0.5 text-micro italic font-script text-center leading-snug text-ink-whisper/80 line-clamp-2 px-1"
+          className="mt-0.5 text-tiny italic font-script text-center leading-snug text-ink-whisper line-clamp-2 px-1"
         >
           {cosmeticLockHint(item)}
         </div>

@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect, useId } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Image, Download, Plus, Camera, BookOpen,
@@ -13,6 +13,7 @@ import {
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
+import useBackDismiss from '../hooks/useBackDismiss';
 import BottomSheet from '../components/BottomSheet';
 import EmptyState from '../components/EmptyState';
 import Loader from '../components/Loader';
@@ -253,10 +254,13 @@ export default function Portfolio() {
           <div className="font-script text-sheikah-teal-deep text-base">
             the sketchbook · pressed between pages
           </div>
-          <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+          {/* Below md the Chronicle hub's tab strip already names this page —
+              the stacked h1 + explainer ate ~100px above the fold on phones.
+              Same treatment as the Skills tab (pages/Achievements.jsx). */}
+          <h1 className="hidden md:block font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
             Sketchbook
           </h1>
-          <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+          <div className="hidden md:block font-script text-body text-ink-whisper mt-1 max-w-xl">
             every photo from your ventures, study proofs, and creations · tap a tile to leaf through
           </div>
         </div>
@@ -558,32 +562,6 @@ function PhotoGrid({
   );
 }
 
-/**
- * Android back (and the iOS edge-swipe) is the universal "dismiss this photo"
- * gesture in an installed PWA with no browser chrome. Without a sentinel the
- * press navigates away from the Atlas page entirely, throwing away the
- * sketchbook's filter and scroll position. Same trick BottomSheet uses
- * (components/BottomSheet.jsx) — push one history entry on open, close the
- * overlay when it pops, and consume it again on unmount if it's still ours.
- */
-function useBackDismiss(onDismiss) {
-  const sentinelId = useId();
-  const dismissRef = useRef(onDismiss);
-  useEffect(() => { dismissRef.current = onDismiss; }, [onDismiss]);
-  useEffect(() => {
-    window.history.pushState({ abbyOverlay: sentinelId }, '');
-    const handlePop = () => { dismissRef.current?.(); };
-    window.addEventListener('popstate', handlePop);
-    return () => {
-      window.removeEventListener('popstate', handlePop);
-      // Only when the sentinel is still the current entry — if the overlay
-      // closed *because* of a back press it has already been consumed, and
-      // popping again would navigate the page underneath.
-      if (window.history.state?.abbyOverlay === sentinelId) window.history.back();
-    };
-  }, [sentinelId]);
-}
-
 function Lightbox({ viewer, onClose, onPrev, onNext }) {
   const current = viewer.items[viewer.index];
   useBackDismiss(onClose);
@@ -729,7 +707,7 @@ function UploadSheet({ projects, onClose, onUploaded }) {
           onChange={(e) => setProjectId(e.target.value)}
           disabled={uploading}
         >
-          <option value="">Select a project...</option>
+          <option value="">Select a venture…</option>
           {projects.map((p) => (
             <option key={p.id} value={p.id}>
               {p.title}

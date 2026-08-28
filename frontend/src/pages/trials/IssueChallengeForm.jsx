@@ -160,6 +160,10 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
                 <div className="font-script text-caption text-ink-whisper uppercase tracking-wider mb-1">
                   Co-op participants
                 </div>
+                {/* intentional: a multi-select chip strip, not a checkbox
+                    list — the input is sr-only and the pill itself is the
+                    control, so CheckboxField's visible box + label row is the
+                    wrong primitive here. */}
                 <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto rounded-lg border border-ink-page-shadow bg-ink-page p-2">
                   {children.map((c) => {
                     const checked = challenge.coop_user_ids.includes(String(c.id));
@@ -282,6 +286,9 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
                 Leave all unchecked to count every action. Checking some
                 limits damage / collection to those triggers.
               </div>
+              {/* intentional: same sr-only chip strip as the co-op picker
+                  above — the pill is the control, so CheckboxField does not
+                  apply. */}
               <div className="flex flex-wrap gap-1.5">
                 {TRIGGER_OPTIONS.map(([slug, label]) => {
                   const checked = challenge.allowed_triggers.includes(slug);

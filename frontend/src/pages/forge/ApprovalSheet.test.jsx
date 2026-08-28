@@ -132,7 +132,7 @@ describe('ApprovalSheet', () => {
     expect(spy.calls).toHaveLength(0);
     const confirm = await screen.findByRole('dialog', { name: /Reject “Articulated Dragon”\?/ });
     // The note typed on the decide sheet carries into the confirm.
-    expect(screen.getByLabelText(/note for her/i)).toHaveValue('not this month');
+    expect(screen.getByLabelText(/note for them/i)).toHaveValue('not this month');
 
     await user.click(within(confirm).getByRole('button', { name: 'Reject' }));
 

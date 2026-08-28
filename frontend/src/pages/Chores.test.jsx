@@ -117,6 +117,26 @@ describe('Chores', () => {
     expect(screen.getByRole('button', { name: /add skill/i })).toBeInTheDocument();
   });
 
+  // Regression: the Active toggle was a raw <input type="checkbox"> in a
+  // hand-rolled <label>, so it had no htmlFor/id association. CheckboxField
+  // gives it one, which is what makes getByLabelText resolve it.
+  it('renders the Active toggle as a labelled checkbox', async () => {
+    const user = userEvent.setup();
+    renderPage(buildParent(), [
+      http.get('*/api/chores/', () => HttpResponse.json([])),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+    ]);
+    await user.click(await screen.findByRole('button', { name: /new duty/i }));
+
+    const active = await screen.findByLabelText('Active');
+    expect(active).toHaveAttribute('type', 'checkbox');
+    expect(active).toBeChecked();
+    await user.click(active);
+    expect(active).not.toBeChecked();
+  });
+
   it('saving a new duty posts skill_tags alongside the chore', async () => {
     const user = userEvent.setup();
     const create = spyHandler('post', /\/api\/chores\/$/, { id: 1, title: 'Dishes' });

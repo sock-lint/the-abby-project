@@ -74,7 +74,7 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
   };
 
   return (
-    <BottomSheet title={isEdit ? 'Edit Reward' : 'New Reward'} onClose={onClose} dirty={dirty}>
+    <BottomSheet title={isEdit ? 'Edit reward' : 'New reward'} onClose={onClose} dirty={dirty}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />

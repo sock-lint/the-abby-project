@@ -2,7 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- interactive-widget=resizes-content makes Chrome/Android resize the
+         viewport when the on-screen keyboard opens, instead of the default
+         overlays-content, where the keyboard is painted over a viewport that
+         never changed size. Without it a focused input near the bottom of a
+         BottomSheet sat underneath the keyboard, and the sheet's submit row
+         with it. Complementary to — not a replacement for — the JS half in
+         src/components/modal/useVisualViewportInset.js, which measures
+         window.visualViewport and covers iOS, where this hint is ignored.
+         viewport-fit=cover stays: the journal draws into the notch insets. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>The Abby Project</title>
     <meta name="description" content="Track projects, chores, and homework — earn money, coins, and badges." />
     <meta name="theme-color" content="#f4ecd8" />

@@ -353,7 +353,7 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
           onChange={(e) =>
             set({ grade_entry_year: e.target.value ? Number(e.target.value) : '' })
           }
-          helpText="Year she entered 9th grade (August)."
+          helpText="Year they entered 9th grade (August)."
         >
           <option value="">—</option>
           {Array.from({ length: 9 }, (_, i) => new Date().getFullYear() - 4 + i).map((year) => (
@@ -593,14 +593,24 @@ function TemplatesSection() {
   const [useModal, setUseModal] = useState(null);
   const [editModal, setEditModal] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [actionError, setActionError] = useState(null);
 
   if (loading) return <Loader />;
 
+  // Same shape as UserManagementActions: the dialog closes, and a failed
+  // DELETE lands in its own alert above the list. Without the catch a 403 or
+  // a dropped connection looked exactly like a success — the sheet shut and
+  // the row was still there with nothing to explain why.
   const confirmDelete = async () => {
     const id = deleteId;
     setDeleteId(null);
-    await deleteTemplate(id);
-    reload();
+    setActionError(null);
+    try {
+      await deleteTemplate(id);
+      reload();
+    } catch (err) {
+      setActionError(err.message || 'Could not delete that template.');
+    }
   };
 
   return (
@@ -608,6 +618,7 @@ function TemplatesSection() {
       {/* Same rule as Children: a failed fetch must not read as "you have
           no templates". */}
       {error && <ErrorAlert message={error} onRetry={reload} />}
+      <ErrorAlert message={actionError} />
       {!error && templates.length === 0 && (
         <EmptyState>No templates yet. Save a completed project as a template from the project detail page.</EmptyState>
       )}
@@ -719,7 +730,7 @@ function UseTemplateModal({ template, children, onClose, onCreated }) {
     <BottomSheet title={`Create from "${template.title}"`} onClose={onClose} disabled={creating} dirty={Boolean(assignedTo)}>
       <ErrorAlert message={error} />
       <p className="text-body text-ink-whisper">
-        This will create a new project with {template.milestones?.length || 0} milestones
+        This will create a new venture with {template.milestones?.length || 0} milestones
         and {template.materials?.length || 0} materials from this template.
       </p>
       <SelectField label="Assign To" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
@@ -733,7 +744,7 @@ function UseTemplateModal({ template, children, onClose, onCreated }) {
           Cancel
         </Button>
         <Button onClick={handleCreate} disabled={creating} className="flex-1">
-          {creating ? 'Creating...' : 'Create Project'}
+          {creating ? 'Creating…' : 'Create venture'}
         </Button>
       </div>
     </BottomSheet>

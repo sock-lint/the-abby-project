@@ -4,6 +4,7 @@ import { KIND_ICON } from './yearbook.constants'
 import EntryDetailSheet from './EntryDetailSheet'
 import RuneBadge from '../../components/journal/RuneBadge'
 import { useRole } from '../../hooks/useRole'
+import { formatDate } from '../../utils/format'
 
 export default function TimelineEntry({ entry }) {
   const [open, setOpen] = useState(false)
@@ -37,7 +38,7 @@ export default function TimelineEntry({ entry }) {
                 </RuneBadge>
               )}
             </span>
-            <span className="block text-caption text-ink-whisper">{entry.occurred_on}</span>
+            <span className="block text-caption text-ink-whisper">{formatDate(entry.occurred_on)}</span>
           </span>
         </button>
       </li>

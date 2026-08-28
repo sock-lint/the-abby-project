@@ -139,7 +139,7 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
             value={effectiveProject}
             onChange={(e) => setSelectedProject(e.target.value)}
           >
-            <option value="">Select a project…</option>
+            <option value="">Select a venture…</option>
             {activeProjects.map((p) => (
               <option key={p.id} value={p.id}>{p.title}</option>
             ))}

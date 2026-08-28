@@ -99,17 +99,17 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
       >
         <div className="space-y-3">
           <p className="font-body text-body text-ink-secondary">
-            This closes the request. She can always ask again with a different
+            This closes the request. They can always ask again with a different
             model or a smaller print.
           </p>
           <TextAreaField
             id="forge-reject-notes"
-            label="Note for her (optional)"
+            label="Note for them (optional)"
             value={notes}
             onChange={(e) => setNotes(e.target.value.slice(0, 2000))}
             placeholder="e.g. too much filament this month — try after the 1st"
             rows={3}
-            helpText="Shows up in her notification feed."
+            helpText="Shows up in their notification feed."
           />
           {error && <ErrorAlert message={error} />}
           <div className="flex gap-2 pt-1">
@@ -192,7 +192,7 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
           label="Note (optional)"
           value={notes}
           onChange={(e) => setNotes(e.target.value.slice(0, 2000))}
-          placeholder="Shared with her either way."
+          placeholder="Shared with them either way."
           rows={2}
         />
 

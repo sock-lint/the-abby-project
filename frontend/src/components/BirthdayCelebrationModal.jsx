@@ -34,13 +34,17 @@ export default function BirthdayCelebrationModal({ entry, onDismiss }) {
   const age = ageMatch ? ageMatch[0] : ''
   const gift = entry.metadata?.gift_coins ?? 0
 
-  const dismiss = async () => {
+  // Close first, then tell the server. This overlay covers the whole app, so
+  // waiting on a flaky connection would freeze everything behind it for as
+  // long as the request hangs. markChronicleViewed is idempotent and the
+  // chronicle poll tolerates a retry, so a dropped call is harmless. Same
+  // shape as CelebrationModal — the two celebrations must not disagree about
+  // whether the network can hold the screen hostage.
+  const dismiss = () => {
+    if (leaving) return
     setLeaving(true)
-    try {
-      await markChronicleViewed(entry.id)
-    } finally {
-      onDismiss?.()
-    }
+    markChronicleViewed(entry.id).catch(() => {})
+    onDismiss?.()
   }
 
   const content = (
@@ -49,6 +53,7 @@ export default function BirthdayCelebrationModal({ entry, onDismiss }) {
       aria-labelledby={titleId}
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center"
+      onClick={dismiss}
     >
       <div className="absolute inset-0 bg-[rgba(204,170,92,0.25)] backdrop-blur-sm" />
       <motion.div
@@ -57,6 +62,7 @@ export default function BirthdayCelebrationModal({ entry, onDismiss }) {
         exit={{ opacity: 0 }}
         transition={reduced ? { duration: 0.15 } : { duration: 0.6 }}
         className="relative parchment-bg-aged p-8 text-center max-w-sm w-full rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
         <img src={candlePng} alt="" aria-hidden="true" className="mx-auto h-16 w-16" />
         <h2 id={titleId} className="mt-4 font-serif text-2xl text-ink-primary">

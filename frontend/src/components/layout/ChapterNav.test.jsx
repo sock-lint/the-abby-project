@@ -31,6 +31,15 @@ describe('ChapterSidebar', () => {
     expect(screen.queryByText('Manage')).toBeNull();
   });
 
+  it('labels the /codex link "Content Catalog", matching the page heading', () => {
+    renderSidebar(buildParent({ display_name: 'Dad' }));
+    const link = screen.getByRole('link', { name: /content catalog/i });
+    expect(link.getAttribute('href')).toBe('/codex');
+    // "Codex" named two unrelated surfaces — this one and the Bestiary hub's
+    // kid-facing species tab.
+    expect(screen.queryByText('Codex')).toBeNull();
+  });
+
   it('fires onLogout when Sign off is clicked', async () => {
     const onLogout = vi.fn();
     const user = userEvent.setup();
