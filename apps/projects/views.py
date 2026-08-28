@@ -272,6 +272,21 @@ class DashboardView(APIView):
         return Response(build_dashboard(request.user))
 
 
+class PulseView(APIView):
+    """GET /api/pulse/ — one heartbeat for every background poller.
+
+    Replaces eight independent timers in the SPA shell (six toast stacks,
+    the notification bell, the first-encounter check) that together fired
+    ~21 requests a minute for a logged-in child. Assembly lives in
+    ``apps.projects.pulse`` so it is unit-testable without a request, the
+    same split DashboardView uses.
+    """
+
+    def get(self, request):
+        from apps.projects.pulse import build_pulse
+        return Response(build_pulse(request.user))
+
+
 class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
     serializer_class = ProjectDetailSerializer
     queryset = Project.objects.all()

@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, BellRing } from 'lucide-react';
-import { getNotifications, getUnreadCount, markAllRead as markAllReadApi, markNotificationRead } from '../api';
+import { markAllRead as markAllReadApi, markNotificationRead } from '../api';
+import { usePulse } from '../providers/pulseContext';
 import { formatDate } from '../utils/format';
 import IconButton from './IconButton';
 import BottomSheet from './BottomSheet';
@@ -20,6 +21,9 @@ function syncAppBadge(count) {
 }
 
 export default function NotificationBell() {
+  const { pulse, refresh } = usePulse();
+  // Seeded from the shared heartbeat, then mutated locally on read so a tap
+  // feels instant; the next beat reconciles.
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
@@ -27,20 +31,6 @@ export default function NotificationBell() {
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
 
-  const loadCount = async () => {
-    try {
-      const data = await getUnreadCount();
-      setUnreadCount(data.count);
-      syncAppBadge(data.count);
-    } catch { /* network errors here are non-fatal */ }
-  };
-
-  const loadNotifications = async () => {
-    try {
-      const data = await getNotifications();
-      setNotifications(data.results || data || []);
-    } catch { /* network errors here are non-fatal */ }
-  };
 
   const handleNotificationClick = async (notification) => {
     if (!notification.is_read) {
@@ -69,17 +59,16 @@ export default function NotificationBell() {
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };
 
+  // Both the count and the list ride the shared heartbeat now — the bell used
+  // to run its own 30s timer (one that never paused on a backgrounded tab)
+  // and a second fetch every time the dropdown opened.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional polling: kick off the first fetch and refresh every 30s
-    loadCount();
-    const interval = setInterval(loadCount, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch the list lazily when the dropdown opens
-    if (open) loadNotifications();
-  }, [open]);
+    if (!pulse) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local view state to each new heartbeat
+    setUnreadCount(pulse.unread_count ?? 0);
+    setNotifications(Array.isArray(pulse.notifications) ? pulse.notifications : []);
+    syncAppBadge(pulse.unread_count ?? 0);
+  }, [pulse]);
 
   useEffect(() => {
     // Only the desktop popover dismisses on an outside click — the mobile
@@ -145,7 +134,7 @@ export default function NotificationBell() {
   return (
     <div className="relative" ref={ref}>
       <IconButton
-        onClick={() => setOpen(!open)}
+        onClick={() => { if (!open) refresh(); setOpen(!open); }}
         variant="ghost"
         aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
         className="relative hover:bg-ink-page-shadow/60"

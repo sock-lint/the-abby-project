@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { getSavingsGoals } from '../api';
 import { STORAGE_KEYS } from '../constants/storage';
 import { normalizeList } from '../utils/api';
+import { usePulse } from '../providers/pulseContext';
 
 const STORAGE_KEY = STORAGE_KEYS.SEEN_SAVINGS_COMPLETIONS;
-const POLL_INTERVAL_MS = 30000;
 const COINS_PER_DOLLAR = 2;
 
 function loadSeen() {
@@ -28,63 +27,47 @@ function persistSeen(set) {
 }
 
 /**
- * Polls savings goals and emits a toast the first time we observe a
- * newly-completed one. Seen IDs persist in localStorage so we don't
+ * Watches the shared heartbeat and emits a toast the first time we observe
+ * a newly-completed savings goal. Seen IDs persist in localStorage so we don't
  * re-toast a goal the child already saw on a prior page load.
  *
  * Returns `{ toasts, dismiss }` — same contract as `useDropToasts`.
  * Toast shape: `{ id, title, icon, coin_bonus }`.
  */
-export function useSavingsCompletionToasts(pollIntervalMs = POLL_INTERVAL_MS) {
+export function useSavingsCompletionToasts() {
+  const { pulse } = usePulse();
   const [toasts, setToasts] = useState([]);
   const seenRef = useRef(loadSeen());
   const initializedRef = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
+    if (!pulse) return;
+    const goals = normalizeList(pulse.savings_goals);
+    const completed = goals.filter((g) => g.is_completed && g.id != null);
 
-    const poll = async () => {
-      try {
-        const data = await getSavingsGoals();
-        const goals = normalizeList(data);
-        if (cancelled) return;
+    if (!initializedRef.current) {
+      for (const g of completed) seenRef.current.add(g.id);
+      persistSeen(seenRef.current);
+      initializedRef.current = true;
+      return;
+    }
 
-        const completed = goals.filter((g) => g.is_completed && g.id != null);
+    const fresh = completed.filter((g) => !seenRef.current.has(g.id));
+    if (fresh.length === 0) return;
 
-        if (!initializedRef.current) {
-          for (const g of completed) seenRef.current.add(g.id);
-          persistSeen(seenRef.current);
-          initializedRef.current = true;
-          return;
-        }
+    for (const g of fresh) seenRef.current.add(g.id);
+    persistSeen(seenRef.current);
 
-        const fresh = completed.filter((g) => !seenRef.current.has(g.id));
-        if (fresh.length === 0) return;
-
-        for (const g of fresh) seenRef.current.add(g.id);
-        persistSeen(seenRef.current);
-
-        setToasts((prev) => [
-          ...prev,
-          ...fresh.map((g) => ({
-            id: `savings-${g.id}`,
-            title: g.title,
-            icon: g.icon || '🏆',
-            coin_bonus: Math.round(Number(g.target_amount || 0) * COINS_PER_DOLLAR),
-          })),
-        ]);
-      } catch {
-        // silent — we'll catch it on the next poll
-      }
-    };
-
-    poll();
-    const interval = setInterval(poll, pollIntervalMs);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [pollIntervalMs]);
+    setToasts((prev) => [
+      ...prev,
+      ...fresh.map((g) => ({
+        id: `savings-${g.id}`,
+        title: g.title,
+        icon: g.icon || '🏆',
+        coin_bonus: Math.round(Number(g.target_amount || 0) * COINS_PER_DOLLAR),
+      })),
+    ]);
+  }, [pulse]);
 
   const dismiss = (id) => setToasts((prev) => prev.filter((t) => t.id !== id));
 

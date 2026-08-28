@@ -7,6 +7,7 @@ import { getPendingCelebration, getPendingCelebrationNotification } from './api'
 import BirthdayCelebrationModal from './components/BirthdayCelebrationModal';
 import CelebrationModal from './components/CelebrationModal';
 import { SpriteCatalogProvider } from './providers/SpriteCatalogProvider';
+import { PulseProvider } from './providers/PulseProvider';
 import SuccessToastProvider from './components/SuccessToast';
 import JournalShell from './components/layout/JournalShell';
 import { PwaStatusProvider } from './pwa/PwaStatusProvider';
@@ -190,6 +191,10 @@ export default function App() {
         )}
         <SuccessToastProvider>
         <SpriteCatalogProvider>
+        {/* One heartbeat for every background signal — see PulseProvider.
+            Mounted inside the authed branch so it never polls a logged-out
+            shell. */}
+        <PulseProvider>
           <BrowserRouter>
             <RouteAnnouncer />
             <ScrollToTop />
@@ -261,6 +266,7 @@ export default function App() {
             </Routes>
           </BrowserRouter>
           <OfflineReadyToast />
+        </PulseProvider>
         </SpriteCatalogProvider>
         </SuccessToastProvider>
         </PwaStatusProvider>

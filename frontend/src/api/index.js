@@ -25,6 +25,8 @@ export const updateMe = (data) => api.patch('/auth/me/', data);
 
 // Dashboard
 export const getDashboard = () => api.get('/dashboard/');
+// One heartbeat for every background poller — see PulseProvider.
+export const getPulse = () => api.get('/pulse/');
 
 // Lorebook — shared mechanics explainer for parents and kids
 export const getLorebook = () => api.get('/lorebook/');

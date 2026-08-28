@@ -1,8 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '../test/render';
-import { server } from '../test/server';
+import { emptyPulse } from '../test/pulseFixtures.js';
 import CompanionGrowthToastStack from './CompanionGrowthToastStack';
 
 const tickEvent = {
@@ -29,20 +28,14 @@ const evolveEvent = {
 };
 
 describe('CompanionGrowthToastStack', () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-  });
   afterEach(() => {
     vi.useRealTimers();
   });
 
   it('renders a tick event as a toast', async () => {
-    server.use(
-      http.get('*/api/pets/companion-growth/recent/', () =>
-        HttpResponse.json({ events: [tickEvent] }),
-      ),
-    );
-    renderWithProviders(<CompanionGrowthToastStack />);
+    renderWithProviders(<CompanionGrowthToastStack />, {
+      pulse: emptyPulse({ companion_growth: { events: [tickEvent] } }),
+    });
     await waitFor(() => {
       expect(screen.getByText(/fire companion grew/i)).toBeInTheDocument();
     });
@@ -51,12 +44,9 @@ describe('CompanionGrowthToastStack', () => {
   });
 
   it('escalates an evolved event into the PetCeremonyModal', async () => {
-    server.use(
-      http.get('*/api/pets/companion-growth/recent/', () =>
-        HttpResponse.json({ events: [evolveEvent] }),
-      ),
-    );
-    renderWithProviders(<CompanionGrowthToastStack />);
+    renderWithProviders(<CompanionGrowthToastStack />, {
+      pulse: emptyPulse({ companion_growth: { events: [evolveEvent] } }),
+    });
     await waitFor(() => {
       expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     });

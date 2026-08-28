@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { listExpeditions } from '../api';
+import { useCallback, useState } from 'react';
+import { usePulse } from '../providers/pulseContext';
 
 const READY_SEEN_KEY = 'abby:expeditions:dismissed';
 
@@ -26,8 +26,8 @@ function persistSeen(set) {
 }
 
 /**
- * useExpeditionToasts — polls /api/expeditions/?ready=true every 60s and
- * surfaces ready-to-claim mounts as a soft "your mount is back" nudge.
+ * useExpeditionToasts — surfaces ready-to-claim mounts from the shared
+ * heartbeat as a soft "your mount is back" nudge.
  *
  * Dismissals are persisted in localStorage so a refresh doesn't re-show
  * the same nudge. The actual claim happens on the Mounts page — the
@@ -37,40 +37,11 @@ function persistSeen(set) {
  * Returns ``{ ready, dismiss }`` where ``ready`` is the list of
  * ready-to-claim expeditions filtered against the dismissed set.
  */
-export function useExpeditionToasts(pollIntervalMs = 60000) {
-  const [ready, setReady] = useState([]);
+export function useExpeditionToasts() {
+  const { pulse } = usePulse();
   const [dismissed, setDismissed] = useState(() => loadSeen());
 
-  const poll = useCallback(async () => {
-    if (typeof document !== 'undefined' && document.hidden) return;
-    try {
-      const res = await listExpeditions(true);
-      const list = Array.isArray(res?.expeditions) ? res.expeditions : [];
-      setReady(list);
-    } catch {
-      // silent fail — never break the app for a poll error
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    const safePoll = () => { if (!cancelled) poll(); };
-    safePoll();
-    const interval = setInterval(safePoll, pollIntervalMs);
-    const onVisibility = () => {
-      if (typeof document !== 'undefined' && !document.hidden) safePoll();
-    };
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', onVisibility);
-    }
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-      if (typeof document !== 'undefined') {
-        document.removeEventListener('visibilitychange', onVisibility);
-      }
-    };
-  }, [pollIntervalMs, poll]);
+  const ready = Array.isArray(pulse?.expeditions_ready) ? pulse.expeditions_ready : [];
 
   const dismiss = useCallback((expeditionId) => {
     setDismissed((prev) => {

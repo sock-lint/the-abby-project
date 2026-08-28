@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { screen, waitFor, act } from '@testing-library/react';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
 import ApprovalToastStack from './ApprovalToastStack';
+import { emptyPulse } from '../test/pulseFixtures.js';
 import { STORAGE_KEYS } from '../constants/storage';
 
 const childUser = {
@@ -23,57 +24,46 @@ const parentUser = {
   family: { id: 1, name: 'Test Family' },
 };
 
+const approval = {
+  id: 1,
+  title: 'Chore approved',
+  message: 'Trash taken — nice.',
+  notification_type: 'chore_approved',
+};
+
+function renderStack(pulse) {
+  return renderWithProviders(<ApprovalToastStack />, { pulse });
+}
+
 describe('ApprovalToastStack', () => {
   beforeEach(() => {
     localStorage.removeItem(STORAGE_KEYS.SEEN_APPROVAL_TOASTS);
   });
 
-  it('emits a toast when a new chore_approved notification arrives', async () => {
-    let callCount = 0;
-    server.use(
-      http.get('*/api/auth/me/', () => HttpResponse.json(childUser)),
-      http.get(/\/api\/notifications\/$/, () => {
-        callCount += 1;
-        if (callCount === 1) return HttpResponse.json([]);
-        return HttpResponse.json([
-          {
-            id: 1,
-            title: 'Chore approved',
-            message: 'Trash taken — nice.',
-            notification_type: 'chore_approved',
-          },
-        ]);
-      }),
-    );
+  it('emits a toast when a new approval arrives after the seed beat', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(childUser)));
+    const { beat } = renderStack(emptyPulse());
+    // Wait for auth to resolve so the role gate opens and the seed beat lands.
+    await waitFor(() => expect(screen.queryByText(/chore approved/i)).toBeNull());
 
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      renderWithProviders(<ApprovalToastStack />);
-      // Wait for the seed call (after auth resolves).
-      await waitFor(() => expect(callCount).toBeGreaterThanOrEqual(1));
-      await act(async () => {
-        vi.advanceTimersByTime(31_000);
-      });
-      await waitFor(() => {
-        expect(screen.getByText(/chore approved/i)).toBeInTheDocument();
-      });
-      expect(screen.getByText(/trash taken/i)).toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-    }
+    beat(emptyPulse({ notifications: [approval] }));
+
+    await waitFor(() => expect(screen.getByText(/chore approved/i)).toBeInTheDocument());
+    expect(screen.getByText(/trash taken/i)).toBeInTheDocument();
   });
 
-  it('does not poll for parents (role gate)', async () => {
-    let calls = 0;
-    server.use(
-      http.get('*/api/auth/me/', () => HttpResponse.json(parentUser)),
-      http.get(/\/api\/notifications\/$/, () => {
-        calls += 1;
-        return HttpResponse.json([]);
-      }),
-    );
-    renderWithProviders(<ApprovalToastStack />);
+  it('seeds silently — a decision already in the first beat does not toast', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(childUser)));
+    renderStack(emptyPulse({ notifications: [approval] }));
     await new Promise((r) => setTimeout(r, 50));
-    expect(calls).toBe(0);
+    expect(screen.queryByText(/chore approved/i)).toBeNull();
+  });
+
+  it('stays silent for parents (role gate)', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(parentUser)));
+    const { beat } = renderStack(emptyPulse());
+    beat(emptyPulse({ notifications: [approval] }));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText(/chore approved/i)).toBeNull();
   });
 });
