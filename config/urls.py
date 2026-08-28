@@ -145,6 +145,9 @@ if not settings.USE_S3_STORAGE:
 # Inserted before the SPA catch-all so it doesn't intercept them.
 _PWA_ROOT_FILES = [
     "sw.js",
+    # Imported by sw.js via workbox importScripts, so it must serve from root
+    # with the same scope as the service worker itself.
+    "push-sw.js",
     "registerSW.js",
     "manifest.webmanifest",
     "pwa-192x192.png",

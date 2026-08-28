@@ -95,3 +95,37 @@ class Notification(CreatedAtModel):
 
     def __str__(self):
         return f"{self.user} — {self.title}"
+
+
+class PushSubscription(CreatedAtModel):
+    """A browser's Web Push endpoint for one user.
+
+    One row per (user, browser) — a parent with the app installed on a phone
+    and open on a laptop has two. The endpoint URL is the unique handle the
+    push service gives us; ``p256dh`` and ``auth`` are the client's encryption
+    keys, which pywebpush needs to encrypt each payload.
+
+    Rows are disposable: when a push service answers 404/410 the subscription
+    is dead (app uninstalled, permission revoked, browser data cleared) and
+    ``PushService`` deletes it. Never treat one as durable user state.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="push_subscriptions",
+    )
+    # Push endpoints are long (FCM URLs run past 200 chars); TextField with a
+    # hash-free unique constraint keeps it simple across Postgres and SQLite.
+    endpoint = models.TextField(unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    # Free-text UA string, purely so a person can tell their devices apart if
+    # we ever surface a "signed-in devices" list.
+    user_agent = models.CharField(max_length=300, blank=True, default="")
+    last_success_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user} — {self.endpoint[:40]}…"

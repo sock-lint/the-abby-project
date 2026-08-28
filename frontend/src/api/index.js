@@ -255,6 +255,10 @@ export const deleteCategory = (id) => api.delete(`/categories/${id}/`);
 // Notifications
 export const getNotifications = () => api.get('/notifications/');
 export const getUnreadCount = () => api.get('/notifications/unread_count/');
+// Web Push — the VAPID public key + whether the server can send at all.
+export const getPushConfig = () => api.get('/push/config/');
+export const subscribeToPush = (subscription) => api.post('/push/subscribe/', subscription);
+export const unsubscribeFromPush = (endpoint) => api.post('/push/unsubscribe/', { endpoint });
 export const markAllRead = () => api.post('/notifications/mark_all_read/');
 export const markNotificationRead = (id) => api.post(`/notifications/${id}/mark_read/`);
 export const getPendingCelebrationNotification = () =>

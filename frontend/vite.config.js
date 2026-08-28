@@ -45,6 +45,10 @@ export default defineConfig(({ command }) => {
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // Web Push handlers live in their own root-served file rather than
+        // switching this whole config to injectManifest — see push-sw.js for
+        // why generateSW stays in charge.
+        importScripts: ['/push-sw.js'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [
           /^\/api\//,

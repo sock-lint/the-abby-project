@@ -252,6 +252,11 @@ export const handlers = [
   http.post(/\/api\/habits\/\d+\/log\/$/, ok),
   http.post(/\/api\/habits\/\d+\/approve\/$/, ok),
   http.get('*/api/inventory/', empty),
+  http.get('*/api/push/config/', () =>
+    HttpResponse.json({ enabled: false, public_key: '' }),
+  ),
+  http.post('*/api/push/subscribe/', () => HttpResponse.json({ ok: true }, { status: 201 })),
+  http.post('*/api/push/unsubscribe/', () => HttpResponse.json({ ok: true, removed: 0 })),
   http.get('*/api/pulse/', () =>
     HttpResponse.json({
       unread_count: 0,
