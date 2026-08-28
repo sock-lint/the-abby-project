@@ -321,4 +321,24 @@ describe('Portfolio', () => {
     await user.click(screen.getByRole('button', { name: /upload photo/i }));
     expect(screen.getByRole('button', { name: /upload photo/i })).toBeDisabled();
   });
+
+  // `capture` forces the live camera and hides the photo library, so a kid
+  // could never attach a shot they'd taken earlier. Every other upload path
+  // in the app uses a bare accept="image/*".
+  it('lets the OS picker offer the photo library, not just the camera', async () => {
+    mockAuth(buildUser({ id: 1 }));
+    server.use(
+      http.get('*/api/portfolio/', () => HttpResponse.json({ projects: [], homework: [] })),
+      http.get('*/api/projects/', () =>
+        HttpResponse.json([buildProject({ id: 7, title: 'Target' })]),
+      ),
+    );
+    const { user } = renderWithProviders(<Portfolio />);
+    await waitFor(() => expect(screen.getByText(/affix photo/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /affix photo/i }));
+
+    const input = document.querySelector('input[type="file"]');
+    expect(input).toHaveAttribute('accept', 'image/*');
+    expect(input).not.toHaveAttribute('capture');
+  });
 });

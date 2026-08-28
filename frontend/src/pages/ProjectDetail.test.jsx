@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ProjectDetail from './ProjectDetail.jsx';
@@ -128,6 +128,12 @@ describe('ProjectDetail', () => {
     await user.click(screen.getByRole('tab', { name: /^plan$/i }));
     const msBtn = await screen.findByRole('button', { name: /mark milestone complete/i });
     await user.click(msBtn);
+
+    // Completing a milestone pays out its bonus, so it goes through a confirm
+    // first — the circle sits right beside the accordion toggle.
+    const dialog = await screen.findByRole('alertdialog', { name: /mark this milestone complete/i });
+    expect(dialog).toHaveTextContent('$2.00');
+    await user.click(within(dialog).getByRole('button', { name: /^mark complete$/i }));
 
     await waitFor(() => expect(complete.calls).toHaveLength(1));
     expect(complete.calls[0].url).toMatch(/\/projects\/42\/milestones\/8\/complete\/$/);

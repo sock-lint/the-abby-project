@@ -396,13 +396,13 @@ export default function QuickActionsSheet({
                 icon={<CircleDollarSign size={18} />}
                 label="Adjust coins"
                 tone="gold"
-                onClick={() => { onClose(); navigate('/manage?tab=coins'); }}
+                onClick={() => { onClose(); navigate('/treasury?tab=bazaar&adjust=1'); }}
               />
               <ActionRow
                 icon={<UserCog size={18} />}
                 label="Adjust payment"
                 tone="ember"
-                onClick={() => { onClose(); navigate('/manage?tab=payments'); }}
+                onClick={() => { onClose(); navigate('/treasury?tab=coffers&adjust=1'); }}
               />
             </>
           )}

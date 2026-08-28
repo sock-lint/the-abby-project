@@ -111,7 +111,12 @@ export default function PrintRequestModal({ onClose, onSaved }) {
   };
 
   return (
-    <BottomSheet title="Ask for a print" onClose={onClose}>
+    <BottomSheet
+      title="Ask for a print"
+      onClose={onClose}
+      disabled={saving}
+      dirty={Boolean(url || file || title || color || reason || neededBy)}
+    >
       <form onSubmit={submit} className="space-y-3">
         <div className="flex gap-2" role="group" aria-label="Where the model comes from">
           <Button

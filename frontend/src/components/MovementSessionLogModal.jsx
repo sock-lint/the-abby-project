@@ -229,7 +229,12 @@ export default function MovementSessionLogModal({ onClose, onSaved }) {
   const title = mode === 'new' ? 'Add activity' : 'Log a session';
 
   return (
-    <BottomSheet title={title} onClose={onClose}>
+    <BottomSheet
+      title={title}
+      onClose={onClose}
+      disabled={saving}
+      dirty={Boolean(movementTypeId || notes) || duration !== 30 || intensity !== 'medium'}
+    >
       {mode === 'new' ? (
         <NewTypeSubForm
           skills={physicalSkills}

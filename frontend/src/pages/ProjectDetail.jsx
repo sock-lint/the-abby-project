@@ -10,6 +10,7 @@ import {
   deleteResource,
 } from '../api';
 import { useApi } from '../hooks/useApi';
+import { formatCurrency } from '../utils/format';
 import { useConfirmState } from '../hooks/useConfirmState';
 import { useRole } from '../hooks/useRole';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -108,15 +109,29 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleCompleteMilestone = async (msId) => {
+  // Completing a milestone posts a milestone_bonus to PaymentLedger, so it is
+  // a payout, not a checkbox — and the circle sits right beside the accordion
+  // toggle. Confirm first, like every other irreversible action on this page.
+  const handleCompleteMilestone = (msId) => {
     if (pendingMilestoneId) return;
-    setPendingMilestoneId(msId);
-    try {
-      await completeMilestone(id, msId);
-      reload();
-    } finally {
-      setPendingMilestoneId(null);
-    }
+    const ms = (project.milestones || []).find((m) => m.id === msId);
+    const bonus = ms?.bonus_amount ? ` and pay the ${formatCurrency(ms.bonus_amount)} bonus` : '';
+    askConfirm({
+      title: 'Mark this milestone complete?',
+      message: `This will close out “${ms?.title || 'this milestone'}”${bonus}. It can't be undone.`,
+      confirmLabel: 'Mark complete',
+      onConfirm: async () => {
+        setPendingMilestoneId(msId);
+        try {
+          await completeMilestone(id, msId);
+          reload();
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setPendingMilestoneId(null);
+        }
+      },
+    });
   };
 
   const handleMarkPurchased = async (matId, cost) => {

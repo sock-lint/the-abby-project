@@ -35,12 +35,46 @@ describe('useApi', () => {
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
+  // Almost every page early-returns a full-page Loader/skeleton on `loading`,
+  // so a reload() that raised it unmounted the page the action was fired from
+  // — every habit tap and step toggle blanked the screen and lost scroll.
+  it('reload() keeps loading false and holds the old data while re-fetching', async () => {
+    let resolveSecond;
+    let call = 0;
+    const fn = vi.fn(() => {
+      call += 1;
+      if (call === 1) return Promise.resolve({ n: 1 });
+      return new Promise((res) => { resolveSecond = () => res({ n: 2 }); });
+    });
+    const { result } = renderHook(() => useApi(fn, []));
+    await waitFor(() => expect(result.current.data).toEqual({ n: 1 }));
+
+    act(() => { result.current.reload(); });
+    await waitFor(() => expect(result.current.refreshing).toBe(true));
+    expect(result.current.loading).toBe(false);
+    expect(result.current.data).toEqual({ n: 1 });
+
+    await act(async () => { resolveSecond(); });
+    await waitFor(() => expect(result.current.refreshing).toBe(false));
+    expect(result.current.data).toEqual({ n: 2 });
+  });
+
   it('setData mutates locally without re-fetching', async () => {
     const fn = vi.fn().mockResolvedValue(1);
     const { result } = renderHook(() => useApi(fn, []));
     await waitFor(() => expect(result.current.data).toBe(1));
     act(() => result.current.setData(99));
     expect(result.current.data).toBe(99);
+  });
+
+  it('setData accepts an updater and keeps reload() off the full-page loader', async () => {
+    const fn = vi.fn().mockResolvedValue({ n: 1 });
+    const { result } = renderHook(() => useApi(fn, []));
+    await waitFor(() => expect(result.current.data).toEqual({ n: 1 }));
+    act(() => result.current.setData((prev) => ({ n: prev.n + 1 })));
+    expect(result.current.data).toEqual({ n: 2 });
+    await act(async () => { await result.current.reload(); });
+    expect(result.current.loading).toBe(false);
   });
 
   it('silently ignores AbortError', async () => {

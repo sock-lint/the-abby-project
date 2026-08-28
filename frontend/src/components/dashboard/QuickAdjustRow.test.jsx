@@ -14,12 +14,15 @@ function renderRow() {
     <MemoryRouter initialEntries={['/dashboard']}>
       <Routes>
         <Route path="/dashboard" element={<><QuickAdjustRow /><LocationProbe /></>} />
-        <Route path="/manage" element={<LocationProbe />} />
+        <Route path="/treasury" element={<LocationProbe />} />
       </Routes>
     </MemoryRouter>,
   );
 }
 
+// Both adjusters live on Treasury — Bazaar holds the coin adjuster, Coffers
+// the balance adjuster. They were pointed at /manage?tab=coins|payments, tabs
+// Manage has never had, so every tap silently landed on Manage → Children.
 describe('QuickAdjustRow', () => {
   it('renders both adjust buttons', () => {
     renderRow();
@@ -27,17 +30,17 @@ describe('QuickAdjustRow', () => {
     expect(screen.getByRole('button', { name: /adjust payment/i })).toBeInTheDocument();
   });
 
-  it('Adjust coins navigates to /manage?tab=coins', async () => {
+  it('Adjust coins navigates to the Bazaar coin adjuster', async () => {
     const user = userEvent.setup();
     renderRow();
     await user.click(screen.getByRole('button', { name: /adjust coins/i }));
-    expect(screen.getByTestId('loc')).toHaveTextContent('/manage?tab=coins');
+    expect(screen.getByTestId('loc')).toHaveTextContent('/treasury?tab=bazaar&adjust=1');
   });
 
-  it('Adjust payment navigates to /manage?tab=payments', async () => {
+  it('Adjust payment navigates to the Coffers balance adjuster', async () => {
     const user = userEvent.setup();
     renderRow();
     await user.click(screen.getByRole('button', { name: /adjust payment/i }));
-    expect(screen.getByTestId('loc')).toHaveTextContent('/manage?tab=payments');
+    expect(screen.getByTestId('loc')).toHaveTextContent('/treasury?tab=coffers&adjust=1');
   });
 });

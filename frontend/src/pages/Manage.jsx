@@ -206,7 +206,7 @@ function ChildrenSection() {
 }
 
 function CreateChildModal({ onClose, onCreated }) {
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     username: '',
     password: '',
     display_name: '',
@@ -235,7 +235,7 @@ function CreateChildModal({ onClose, onCreated }) {
   };
 
   return (
-    <BottomSheet title="New child" onClose={onClose} disabled={saving}>
+    <BottomSheet title="New child" onClose={onClose} disabled={saving} dirty={dirty}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <TextField
@@ -282,7 +282,7 @@ function CreateChildModal({ onClose, onCreated }) {
 }
 
 function EditChildModal({ child, onClose, onSaved, onRemoved }) {
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     display_name: child.display_name || '',
     hourly_rate: child.hourly_rate || '',
     date_of_birth: child.date_of_birth || '',
@@ -331,7 +331,7 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
   };
 
   return (
-    <BottomSheet title={`Edit ${child.display_name || child.username}`} onClose={onClose} disabled={saving}>
+    <BottomSheet title={`Edit ${child.display_name || child.username}`} onClose={onClose} disabled={saving} dirty={dirty}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <TextField label="Display Name" value={form.display_name} onChange={onField('display_name')} placeholder={child.username} />
@@ -709,7 +709,7 @@ function UseTemplateModal({ template, children, onClose, onCreated }) {
   };
 
   return (
-    <BottomSheet title={`Create from "${template.title}"`} onClose={onClose} disabled={creating}>
+    <BottomSheet title={`Create from "${template.title}"`} onClose={onClose} disabled={creating} dirty={Boolean(assignedTo)}>
       <ErrorAlert message={error} />
       <p className="text-body text-ink-whisper">
         This will create a new project with {template.milestones?.length || 0} milestones
@@ -734,7 +734,7 @@ function UseTemplateModal({ template, children, onClose, onCreated }) {
 }
 
 function EditTemplateModal({ template, categories, onClose, onSaved }) {
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     title: template.title || '',
     description: template.description || '',
     difficulty: template.difficulty || 2,
@@ -765,7 +765,7 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
   };
 
   return (
-    <BottomSheet title="Edit Template" onClose={onClose} disabled={saving}>
+    <BottomSheet title="Edit Template" onClose={onClose} disabled={saving} dirty={dirty}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <TextField label="Title" value={form.title} onChange={onField('title')} required />
@@ -901,7 +901,7 @@ function FamilySection() {
 }
 
 function CreateParentModal({ onClose, onCreated }) {
-  const { form, onField, saving, setSaving, error, setError } = useFormState({
+  const { form, onField, saving, setSaving, error, setError, dirty } = useFormState({
     username: '',
     password: '',
     display_name: '',
@@ -926,7 +926,7 @@ function CreateParentModal({ onClose, onCreated }) {
   };
 
   return (
-    <BottomSheet title="Add co-parent" onClose={onClose} disabled={saving}>
+    <BottomSheet title="Add co-parent" onClose={onClose} disabled={saving} dirty={dirty}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <p className="text-body text-ink-whisper">
@@ -968,7 +968,7 @@ function CreateParentModal({ onClose, onCreated }) {
 }
 
 function EditParentModal({ parent, onClose, onSaved, onRemoved }) {
-  const { form, onField, saving, setSaving, error, setError } = useFormState({
+  const { form, onField, saving, setSaving, error, setError, dirty } = useFormState({
     display_name: parent.display_name || '',
   });
 
@@ -989,7 +989,7 @@ function EditParentModal({ parent, onClose, onSaved, onRemoved }) {
   };
 
   return (
-    <BottomSheet title={`Edit ${parent.display_name || parent.username}`} onClose={onClose} disabled={saving}>
+    <BottomSheet title={`Edit ${parent.display_name || parent.username}`} onClose={onClose} disabled={saving} dirty={dirty}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <TextField

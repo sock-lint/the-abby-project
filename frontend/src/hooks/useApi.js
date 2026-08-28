@@ -11,6 +11,7 @@ import { STORAGE_KEYS } from '../constants/storage';
 export function useApi(apiFn, deps = []) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   // Unmount guard + per-request AbortController. Without these, a fetch
@@ -19,6 +20,12 @@ export function useApi(apiFn, deps = []) {
   // which is how transient errors silently left the content area blank.
   const mountedRef = useRef(true);
   const controllerRef = useRef(null);
+  // Nearly every call site gates a full-page Loader/skeleton on `loading`, so
+  // it has to mean "nothing to show yet" rather than "a request is in flight".
+  // A reload() after an action keeps the rendered page mounted and raises
+  // `refreshing` instead — otherwise every habit tap, step toggle and pet feed
+  // unmounted the page it was fired from and threw away scroll position.
+  const dataRef = useRef(null);
 
   // ``deps`` is dynamic — callers pass an array literal that changes per
   // call site, so this hook intentionally trusts them rather than statically
@@ -30,20 +37,25 @@ export function useApi(apiFn, deps = []) {
     const controller = new AbortController();
     controllerRef.current = controller;
 
-    setLoading(true);
+    if (dataRef.current === null) setLoading(true);
+    else setRefreshing(true);
     setError(null);
     try {
       // Pass the signal through — endpoint functions that opt in can abort;
       // those that ignore the argument are unaffected.
       const result = await apiFn(controller.signal);
       if (!mountedRef.current || controller.signal.aborted) return;
+      dataRef.current = result;
       setData(result);
     } catch (err) {
       if (!mountedRef.current || controller.signal.aborted) return;
       if (err?.name === 'AbortError') return;
       setError(err.message);
     } finally {
-      if (mountedRef.current && !controller.signal.aborted) setLoading(false);
+      if (mountedRef.current && !controller.signal.aborted) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
@@ -57,7 +69,19 @@ export function useApi(apiFn, deps = []) {
     };
   }, [load]);
 
-  return { data, loading, error, reload: load, setData };
+  // Optimistic writes have to move dataRef too, or a reload() straight after
+  // one would read the ref as empty and re-raise the full-page loader.
+  const setDataTracked = useCallback((next) => {
+    setData((prev) => {
+      const value = typeof next === 'function' ? next(prev) : next;
+      dataRef.current = value;
+      return value;
+    });
+  }, []);
+
+  return {
+    data, loading, refreshing, error, reload: load, setData: setDataTracked,
+  };
 }
 
 // --- Auth context ----------------------------------------------------------

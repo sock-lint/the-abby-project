@@ -118,10 +118,12 @@ function PaymentAdjustModal({ onClose, onSaved }) {
 export default function Payments() {
   const { isParent } = useRole();
   const { data, loading, error, reload } = useApi(getBalance);
-  const [showAdjust, setShowAdjust] = useState(false);
   // entry_types and user_id sync to URL search params for bookmarkable views.
   // Date ranges stay in local state since they're less commonly bookmarked.
   const [searchParams, setSearchParams] = useSearchParams();
+  // ?adjust=1 opens the balance adjuster straight from the quick-actions FAB
+  // and the dashboard's Quick adjusts row (same shape as ?new=1 on Forge).
+  const [showAdjust, setShowAdjust] = useState(searchParams.get('adjust') === '1');
 
   const entryTypesParam = searchParams.get('types') ?? '';
   const entryTypes = useMemo(
@@ -129,6 +131,17 @@ export default function Payments() {
     [entryTypesParam],
   );
   const userIdParam = searchParams.get('kid') ?? '';
+
+  // Drop ?adjust=1 as the sheet closes so a tab switch back here (ChapterHub
+  // remounts tab bodies) doesn't re-open it.
+  const closeAdjust = useCallback(() => {
+    setShowAdjust(false);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('adjust');
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   // 30-day earnings trend for the balance hero; follows the kid filter so
   // a parent narrowing the ledger sees that child's curve.
@@ -557,8 +570,8 @@ export default function Payments() {
 
       {showAdjust && (
         <PaymentAdjustModal
-          onClose={() => setShowAdjust(false)}
-          onSaved={() => { setShowAdjust(false); reload(); }}
+          onClose={closeAdjust}
+          onSaved={() => { closeAdjust(); reload(); }}
         />
       )}
     </div>

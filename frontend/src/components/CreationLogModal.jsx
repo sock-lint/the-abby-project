@@ -55,6 +55,10 @@ export default function CreationLogModal({ onClose, onSaved }) {
   const [error, setError] = useState('');
 
   const canSubmit = image && primary && !saving;
+  // Guards the backdrop tap and the Android back gesture — both route through
+  // BottomSheet's safeClose, which without this threw away a photo, an audio
+  // clip and a caption with no confirmation.
+  const dirty = Boolean(image || audio || caption || primary || secondary);
 
   const handleImage = (e) => {
     const f = e.target.files?.[0] || null;
@@ -103,7 +107,7 @@ export default function CreationLogModal({ onClose, onSaved }) {
   }
 
   return (
-    <BottomSheet title="Log a creation" onClose={onClose}>
+    <BottomSheet title="Log a creation" onClose={onClose} disabled={saving} dirty={dirty}>
       <form onSubmit={submit} className="space-y-3">
         {capHint && (
           <p

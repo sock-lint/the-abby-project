@@ -3,6 +3,7 @@ import {
   Check, Trash2, Video, FileText, Image as ImageIcon, Link as LinkIcon,
 } from 'lucide-react';
 import ParchmentCard from '../../components/journal/ParchmentCard';
+import IconButton from '../../components/IconButton';
 import { SelectField } from '../../components/form';
 
 const RESOURCE_ICONS = {
@@ -34,17 +35,24 @@ export function StepCard({
     <motion.div layout>
       <ParchmentCard className={step.is_completed ? 'opacity-60' : ''}>
         <div className="flex items-start gap-3">
+          {/* The visible circle stays 24px; the padding around it carries the
+              hit area up to the app's 44px tap floor. -m-2.5 keeps the row
+              layout identical to the un-padded version. */}
           <button
             type="button"
             onClick={() => onToggle(step)}
             aria-label={step.is_completed ? 'Uncheck step' : 'Mark step complete'}
-            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${
-              step.is_completed
-                ? 'bg-moss border-moss'
-                : 'border-ink-page-shadow hover:border-sheikah-teal-deep hover:bg-sheikah-teal/15'
-            }`}
+            className="min-w-11 min-h-11 -m-2.5 p-2.5 flex items-start justify-center shrink-0 group/step"
           >
-            {step.is_completed && <Check size={14} className="text-ink-page-rune-glow" strokeWidth={3} />}
+            <span
+              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                step.is_completed
+                  ? 'bg-moss border-moss'
+                  : 'border-ink-page-shadow group-hover/step:border-sheikah-teal-deep group-hover/step:bg-sheikah-teal/15'
+              }`}
+            >
+              {step.is_completed && <Check size={14} className="text-ink-page-rune-glow" strokeWidth={3} />}
+            </span>
           </button>
           <div className="flex-1 min-w-0">
             <div className={`font-body font-medium text-sm text-ink-primary ${step.is_completed ? 'line-through' : ''}`}>
@@ -84,14 +92,14 @@ export function StepCard({
             )}
           </div>
           {isParent && (
-            <button
-              type="button"
+            <IconButton
+              variant="ghost"
               onClick={() => onDelete(step.id)}
               aria-label="Delete step"
-              className="text-ink-secondary hover:text-ember-deep p-1 transition-colors shrink-0"
+              className="shrink-0 -m-1.5 hover:text-ember-deep"
             >
               <Trash2 size={14} />
-            </button>
+            </IconButton>
           )}
         </div>
       </ParchmentCard>

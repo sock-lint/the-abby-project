@@ -4,6 +4,7 @@ import {
   formatDate,
   formatDateTime,
   formatDuration,
+  formatMonth,
 } from './format.js';
 
 describe('formatCurrency', () => {
@@ -56,6 +57,28 @@ describe('formatDate', () => {
 
   it('returns a locale date for a valid ISO string', () => {
     expect(formatDate('2026-04-16T00:00:00Z')).not.toBe('');
+  });
+
+  // DRF DateField sends a bare "YYYY-MM-DD". new Date() reads that as UTC
+  // midnight, which is the evening BEFORE in America/Phoenix — so timecards
+  // labelled themselves "week of" Saturday and duties showed yesterday.
+  it('keeps a date-only string on its own calendar day', () => {
+    const d = new Date(2026, 3, 16);
+    expect(formatDate('2026-04-16')).toBe(d.toLocaleDateString());
+  });
+
+  it('keeps a date-only string on its own day across a month boundary', () => {
+    const d = new Date(2026, 0, 1);
+    expect(formatDate('2026-01-01')).toBe(d.toLocaleDateString());
+  });
+});
+
+describe('formatMonth', () => {
+  it('keeps a date-only string in its own month', () => {
+    const d = new Date(2026, 0, 1);
+    expect(formatMonth('2026-01-01')).toBe(
+      d.toLocaleDateString(undefined, { year: 'numeric', month: 'long' }),
+    );
   });
 });
 

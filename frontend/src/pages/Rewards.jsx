@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import useSearchParamState from '../hooks/useSearchParamState';
 import { Coins, Plus } from 'lucide-react';
 import {
@@ -46,12 +46,24 @@ export default function Rewards() {
   const [pendingId, setPendingId] = useState(null);
   const [showRewardForm, setShowRewardForm] = useState(false);
   const [editingReward, setEditingReward] = useState(null);
-  const [showCoinAdjust, setShowCoinAdjust] = useState(false);
+  // ?adjust=1 opens the coin adjuster straight from the quick-actions FAB
+  // and the dashboard's Quick adjusts row (same shape as ?new=1 on Forge).
+  const [showCoinAdjust, setShowCoinAdjust] = useState(
+    () => new URLSearchParams(window.location.search).get('adjust') === '1',
+  );
   const [showExchange, setShowExchange] = useState(false);
   const [outOfStock, setOutOfStock] = useState(null);
   const [confirmRedeem, setConfirmRedeem] = useState(null);
   const [shopFilter, setShopFilter] = useSearchParamState('q', '');
+  const [, setAdjustParam] = useSearchParamState('adjust', '');
   const { confirmState, askConfirm, closeConfirm } = useConfirmState();
+
+  // Drop ?adjust=1 as the sheet closes so a tab switch back here (ChapterHub
+  // remounts tab bodies) doesn't re-open it.
+  const closeCoinAdjust = useCallback(() => {
+    setShowCoinAdjust(false);
+    setAdjustParam('');
+  }, [setAdjustParam]);
 
   const refresh = () => {
     reloadRewards(); reloadRedemptions(); reloadBalance(); reloadExchanges();
@@ -313,8 +325,8 @@ export default function Rewards() {
 
       {showCoinAdjust && (
         <CoinAdjustModal
-          onClose={() => setShowCoinAdjust(false)}
-          onSaved={() => { setShowCoinAdjust(false); refresh(); }}
+          onClose={closeCoinAdjust}
+          onSaved={() => { closeCoinAdjust(); refresh(); }}
         />
       )}
 

@@ -62,7 +62,12 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
   // label/htmlFor wiring; the className stays in lockstep via the constant.
 
   return (
-    <BottomSheet onClose={handleClose} title="Affix photographic evidence">
+    <BottomSheet
+      onClose={handleClose}
+      title="Affix photographic evidence"
+      disabled={submitting}
+      dirty={images.length > 0 || Boolean(notes)}
+    >
       <div className="space-y-4">
         <div>
           <h3 className="font-display text-lg text-ink-primary">{assignment.title}</h3>

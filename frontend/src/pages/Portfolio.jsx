@@ -644,7 +644,12 @@ function UploadSheet({ projects, onClose, onUploaded }) {
   };
 
   return (
-    <BottomSheet title="Upload Photo" onClose={onClose} disabled={uploading}>
+    <BottomSheet
+      title="Upload Photo"
+      onClose={onClose}
+      disabled={uploading}
+      dirty={Boolean(file || caption)}
+    >
       <ErrorAlert message={error} />
 
       <SelectField
@@ -662,12 +667,15 @@ function UploadSheet({ projects, onClose, onUploaded }) {
       </SelectField>
 
       <div>
-        <label className="block text-sm text-ink-whisper mb-1">Photo</label>
+        <label className="block text-body text-ink-whisper mb-1">Photo</label>
+        {/* No `capture` attribute: it forces the live camera and hides the
+            photo library, so a kid could never attach a shot they took
+            earlier. Every other upload path in the app uses a plain
+            accept="image/*" and lets the OS picker offer both. */}
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          capture="environment"
           onChange={handleFile}
           className="hidden"
           disabled={uploading}
@@ -680,7 +688,9 @@ function UploadSheet({ projects, onClose, onUploaded }) {
             className="relative w-full aspect-video rounded-lg overflow-hidden bg-ink-page border border-ink-page-shadow"
           >
             <img src={preview} alt="" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity text-white text-sm">
+            {/* Always-visible affordance — hover never fires on touch, so the
+                preview used to read as a static image with no way back. */}
+            <div className="absolute inset-x-0 bottom-0 bg-black/55 py-2 text-center font-body text-body text-white">
               Change photo
             </div>
           </button>
@@ -692,7 +702,7 @@ function UploadSheet({ projects, onClose, onUploaded }) {
             className="w-full aspect-video rounded-lg border-2 border-dashed border-ink-page-shadow hover:border-sheikah-teal/60 transition-colors flex flex-col items-center justify-center gap-2 text-ink-whisper"
           >
             <Camera size={28} />
-            <span className="text-sm">Take photo or choose from library</span>
+            <span className="text-body">Take photo or choose from library</span>
           </button>
         )}
       </div>

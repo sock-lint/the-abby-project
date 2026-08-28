@@ -365,37 +365,42 @@ function BulkStepper({ value, max, onChange, disabled }) {
   const dec = () => onChange(Math.max(1, value - 1));
   const inc = () => onChange(Math.min(max, value + 1));
   const useAll = () => onChange(max);
+  // −/count/+ on their own row with "all" beneath: the single-row version was
+  // ~190px of unshrinkable controls inside a ~145px two-column phone tile, so
+  // it spilled over the card border into the neighbouring item.
   return (
-    <div className="flex items-center justify-center gap-1.5 mb-1.5">
-      <IconButton
-        variant="secondary"
-        onClick={dec}
-        disabled={disabled || value <= 1}
-        aria-label="Use one fewer"
-        className="min-w-11 min-h-11 w-11 h-11 rounded-full text-body leading-none"
-      >
-        −
-      </IconButton>
-      <span className="font-script text-tiny text-ink-secondary tabular-nums min-w-[2.5rem] text-center">
-        {value} / {max}
-      </span>
-      <IconButton
-        variant="secondary"
-        onClick={inc}
-        disabled={disabled || value >= max}
-        aria-label="Use one more"
-        className="min-w-11 min-h-11 w-11 h-11 rounded-full text-body leading-none"
-      >
-        +
-      </IconButton>
+    <div className="flex flex-col items-center gap-1 mb-1.5">
+      <div className="flex items-center justify-center gap-1.5">
+        <IconButton
+          variant="secondary"
+          onClick={dec}
+          disabled={disabled || value <= 1}
+          aria-label="Use one fewer"
+          className="min-w-11 min-h-11 w-11 h-11 rounded-full text-body leading-none"
+        >
+          −
+        </IconButton>
+        <span className="font-script text-tiny text-ink-secondary tabular-nums min-w-[2.5rem] text-center">
+          {value} / {max}
+        </span>
+        <IconButton
+          variant="secondary"
+          onClick={inc}
+          disabled={disabled || value >= max}
+          aria-label="Use one more"
+          className="min-w-11 min-h-11 w-11 h-11 rounded-full text-body leading-none"
+        >
+          +
+        </IconButton>
+      </div>
       <Button
         variant="ghost"
         size="sm"
         onClick={useAll}
         disabled={disabled || value >= max}
-        className="min-h-11 font-script text-tiny text-sheikah-teal-deep hover:text-sheikah-teal underline-offset-2 hover:underline"
+        className="min-h-11 w-full font-script text-tiny text-sheikah-teal-deep hover:text-sheikah-teal underline-offset-2 hover:underline"
       >
-        all
+        all {max}
       </Button>
     </div>
   );

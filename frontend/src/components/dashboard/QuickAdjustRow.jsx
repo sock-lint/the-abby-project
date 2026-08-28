@@ -16,7 +16,8 @@ function AdjustButton({ icon, label, onClick }) {
 
 /**
  * QuickAdjustRow — parent shortcuts to the two manual ledger adjustments.
- * These live on /manage today; this is a fast door.
+ * Both live on Treasury (Bazaar holds the coin adjuster, Coffers the balance
+ * adjuster); ?adjust=1 opens the sheet on arrival.
  */
 export default function QuickAdjustRow() {
   const navigate = useNavigate();
@@ -25,12 +26,12 @@ export default function QuickAdjustRow() {
       <AdjustButton
         icon={<Wallet size={16} />}
         label="Adjust coins"
-        onClick={() => navigate('/manage?tab=coins')}
+        onClick={() => navigate('/treasury?tab=bazaar&adjust=1')}
       />
       <AdjustButton
         icon={<CircleDollarSign size={16} />}
         label="Adjust payment"
-        onClick={() => navigate('/manage?tab=payments')}
+        onClick={() => navigate('/treasury?tab=coffers&adjust=1')}
       />
     </div>
   );

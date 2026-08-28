@@ -145,6 +145,26 @@ describe('CreationLogModal', () => {
     expect(screen.queryByText(/will earn xp|won.t earn xp/i)).toBeNull();
   });
 
+  // The sheet holds a photo, an optional audio clip and a caption; a stray
+  // backdrop tap (or the Android back gesture, which routes to the same
+  // safeClose) used to discard all of it with no confirmation.
+  it('guards a filled-in form against a backdrop-tap discard', async () => {
+    stubSkills();
+    const onClose = vi.fn();
+    const { user } = renderWithProviders(
+      <CreationLogModal onClose={onClose} onSaved={() => {}} />,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /primary skill/i })).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText(/caption/i), 'my dragon drawing');
+    await user.click(document.querySelector('.modal-ink-wash'));
+
+    expect(await screen.findByRole('alertdialog', { name: /discard changes/i })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('rejects audio files over 10 MB with an inline error', async () => {
     stubSkills();
     const { user } = renderWithProviders(
