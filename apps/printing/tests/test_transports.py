@@ -314,6 +314,73 @@ class HasCredentialsTests(_Fixture):
         )
 
 
+class MissingCredentialsTests(_Fixture):
+    """``missing_credentials`` is the primitive the other two derive from.
+
+    It names *which* field is blank rather than just answering "something is",
+    which is what lets the API hang a validation error on the right input and
+    the printer card say something more useful than a red badge.
+    """
+
+    def test_it_names_each_blank_field_for_a_lan_printer(self):
+        self.assertEqual(
+            self.make_printer(host="").missing_credentials,
+            ["host", "access_code"],
+        )
+        self.assertEqual(
+            self.make_printer(serial="00M09A000000006").missing_credentials,
+            ["access_code"],
+        )
+        self.assertEqual(
+            self.make_printer(
+                serial="00M09A000000007", host="", secrets={"access_code": ACCESS_CODE},
+            ).missing_credentials,
+            ["host"],
+        )
+        self.assertEqual(
+            self.make_printer(
+                serial="00M09A000000008", secrets={"access_code": ACCESS_CODE},
+            ).missing_credentials,
+            [],
+        )
+
+    def test_it_names_each_blank_field_for_a_cloud_printer(self):
+        self.assertEqual(
+            self.make_printer(
+                serial="00M09A000000009",
+                transport=PrinterProfile.Transport.CLOUD,
+                secrets={"cloud_user_id": "1234567"},
+            ).missing_credentials,
+            ["cloud_token"],
+        )
+
+    def test_the_hint_names_the_field_and_is_empty_when_nothing_is_missing(self):
+        self.assertIn(
+            "access code",
+            self.make_printer(serial="00M09A000000010").credential_hint,
+        )
+        # Host-only is the case the old boolean flattened into a flat lie:
+        # the access code IS saved, so "no credentials" was never the problem.
+        host_only = self.make_printer(
+            serial="00M09A000000011", host="", secrets={"access_code": ACCESS_CODE},
+        ).credential_hint
+        self.assertIn("LAN address", host_only)
+        self.assertNotIn("access code", host_only)
+        self.assertEqual(
+            self.make_printer(
+                serial="00M09A000000012", secrets={"access_code": ACCESS_CODE},
+            ).credential_hint,
+            "",
+        )
+
+    def test_an_out_of_choices_transport_does_not_raise(self):
+        # The supervisor loops over every printer, so one bad row must not
+        # take the rest of the household's printers down with it.
+        printer = self.make_printer(serial="00M09A000000013")
+        printer.transport = "carrier-pigeon"
+        self.assertEqual(printer.missing_credentials, ["access_code"])
+
+
 class InMemoryTransportTests(TestCase):
     def test_request_full_status_publishes_the_exact_pushall_payload(self):
         transport = InMemoryTransport(on_payload=lambda payload: None)

@@ -284,6 +284,13 @@ class PrinterProfileSerializer(serializers.ModelSerializer):
         source="get_transport_display", read_only=True,
     )
     has_credentials = serializers.BooleanField(read_only=True)
+    # The boolean alone is a dead end in the UI — it says something is wrong
+    # without saying which field is blank. These two carry the "what" so the
+    # parent card can print it instead of making them guess behind Edit.
+    missing_credentials = serializers.ListField(
+        child=serializers.CharField(), read_only=True,
+    )
+    credential_hint = serializers.CharField(read_only=True)
     live = serializers.SerializerMethodField()
 
     class Meta:
@@ -291,11 +298,13 @@ class PrinterProfileSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "serial", "model_name", "transport",
             "transport_display", "host", "port", "is_active",
-            "has_credentials", "last_report_at", "last_gcode_state",
+            "has_credentials", "missing_credentials", "credential_hint",
+            "last_report_at", "last_gcode_state",
             "last_error", "live", "created_at", "updated_at",
         ]
         read_only_fields = [
-            "id", "has_credentials", "last_report_at", "last_gcode_state",
+            "id", "has_credentials", "missing_credentials", "credential_hint",
+            "last_report_at", "last_gcode_state",
             "last_error", "live", "created_at", "updated_at",
         ]
 
@@ -336,3 +345,83 @@ class PrinterProfileWriteSerializer(serializers.Serializer):
     cloud_token = serializers.CharField(
         max_length=4096, required=False, allow_blank=True, write_only=True,
     )
+
+    #: Keyed by the same field names as ``PrinterProfile.REQUIRED_BY_TRANSPORT``
+    #: so the two can't drift. Each one has to be readable by a parent standing
+    #: in front of the printer, not by whoever wrote the MQTT transport.
+    MISSING_MESSAGES = {
+        "host": "Enter the printer's IP address or hostname on your network.",
+        "access_code": (
+            "Enter the printer's LAN access code — it's on the printer's "
+            "screen under Settings → Network."
+        ),
+        "cloud_user_id": "Enter the user id from your Bambu Cloud account.",
+        "cloud_token": "Enter your Bambu Cloud access token.",
+    }
+
+    def validate(self, attrs):
+        """Refuse a printer the listener could never connect to.
+
+        The credential fields are ``required=False`` because this serializer
+        also backs PATCH, where an omitted code means "keep the stored one".
+        That makes them optional field-by-field, so completeness has to be
+        checked here, against the printer that *results* from the write: the
+        incoming value where one was sent, the stored one otherwise.
+
+        Without this a parent can save a printer that 201s cleanly and then
+        sits in the list wearing a red "No credentials" badge, with the field
+        that would fix it buried behind an Edit button. Sending a blank
+        deliberately (the documented "clear this secret" gesture) is rejected
+        for the same reason — clearing an access code leaves a printer the
+        supervisor will only ever skip.
+
+        Pass ``instance=`` for a PATCH; without it every partial update looks
+        like a create with no stored secrets and fails.
+        """
+        printer = self.instance
+        stored = printer.get_secrets() if printer is not None else {}
+        transport = attrs.get(
+            "transport",
+            getattr(printer, "transport", None) or PrinterProfile.Transport.LOCAL,
+        )
+        # A field present in the payload wins, blank included; an absent one
+        # keeps whatever is already on the row. Mirrors set_secrets().
+        resulting = {
+            "host": attrs.get("host", getattr(printer, "host", "") or ""),
+            "access_code": attrs.get("access_code", stored.get("access_code", "")),
+            "cloud_user_id": attrs.get(
+                "cloud_user_id", stored.get("cloud_user_id", ""),
+            ),
+            "cloud_token": attrs.get("cloud_token", stored.get("cloud_token", "")),
+        }
+        required = PrinterProfile.REQUIRED_BY_TRANSPORT.get(
+            transport, PrinterProfile.REQUIRED_BY_TRANSPORT[
+                PrinterProfile.Transport.LOCAL
+            ],
+        )
+        errors = {
+            field: self.MISSING_MESSAGES[field]
+            for field in required
+            if not str(resulting[field]).strip()
+        }
+
+        # ``(family, serial)`` is unique in the database, and this is a plain
+        # Serializer rather than a ModelSerializer, so nothing else turns that
+        # constraint into a 400 — a parent re-adding a printer they had just
+        # removed, or double-tapping submit, got an IntegrityError 500. The
+        # constraint is still the real backstop for the narrow race between
+        # this check and the INSERT.
+        serial = attrs.get("serial", getattr(printer, "serial", ""))
+        family_id = getattr(
+            getattr(self.context.get("request"), "user", None), "family_id", None,
+        )
+        if serial and family_id is not None:
+            clash = PrinterProfile.objects.filter(family_id=family_id, serial=serial)
+            if printer is not None:
+                clash = clash.exclude(pk=printer.pk)
+            if clash.exists():
+                errors["serial"] = "You already have a printer with this serial."
+
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
