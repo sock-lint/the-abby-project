@@ -5,6 +5,7 @@ import { Sword, X } from 'lucide-react';
 import { useQuestProgressToasts } from '../hooks/useQuestProgressToasts';
 import IconButton from './IconButton';
 import { TOAST_DURATION_STANDARD } from '../constants/timing';
+import { swipeToDismiss } from './toastSwipe';
 
 function Toast({ toast, onDismiss }) {
   useEffect(() => {
@@ -18,6 +19,7 @@ function Toast({ toast, onDismiss }) {
       initial={{ x: 300, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 300, opacity: 0 }}
+      {...swipeToDismiss(() => onDismiss(toast.id))}
       className="flex items-center gap-3 rounded-lg border border-royal/60 bg-gradient-to-r from-royal to-royal/80 px-3 py-2 shadow-lg"
     >
       <Sword size={18} className="text-white shrink-0" aria-hidden="true" />

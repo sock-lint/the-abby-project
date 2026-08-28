@@ -183,4 +183,35 @@ describe('ApprovalQueueList', () => {
       screen.getByText(/1 of 2 could not be approved/i),
     ).toBeInTheDocument();
   });
+
+  describe('evidence detail sheet', () => {
+    const withProof = {
+      id: 51, kind: 'homework', kidId: 3, kidName: 'Abby',
+      title: 'Math packet', subtitle: 'submitted on time', reward: null,
+      submittedAt: '2026-08-20T10:00:00Z',
+      notes: 'Took me two tries',
+      proofs: [{ id: 9, image: 'https://example.test/proof.jpg', caption: null }],
+    };
+
+    it('shows a thumbnail and opens the work in a sheet', async () => {
+      const user = userEvent.setup();
+      renderList([withProof]);
+
+      // The photo the kid attached rides along in the payload — show it.
+      expect(document.querySelector('img[src="https://example.test/proof.jpg"]')).toBeTruthy();
+
+      await user.click(screen.getByRole('button', { name: /tap to see the work/i }));
+      const sheet = await screen.findByRole('dialog', { name: /math packet/i });
+      expect(within(sheet).getByText(/took me two tries/i)).toBeInTheDocument();
+      expect(within(sheet).getByRole('button', { name: /^approve$/i })).toBeInTheDocument();
+    });
+
+    it('leaves rows without evidence as plain, non-tappable text', () => {
+      renderList([{
+        id: 7, kind: 'chore', kidId: 3, kidName: 'Abby',
+        title: 'Dishes', subtitle: null, reward: 2, submittedAt: null,
+      }]);
+      expect(screen.queryByText(/tap to see the work/i)).not.toBeInTheDocument();
+    });
+  });
 });

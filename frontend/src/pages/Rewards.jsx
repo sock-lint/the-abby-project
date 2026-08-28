@@ -49,6 +49,7 @@ export default function Rewards() {
   const [showCoinAdjust, setShowCoinAdjust] = useState(false);
   const [showExchange, setShowExchange] = useState(false);
   const [outOfStock, setOutOfStock] = useState(null);
+  const [confirmRedeem, setConfirmRedeem] = useState(null);
   const [shopFilter, setShopFilter] = useSearchParamState('q', '');
   const { confirmState, askConfirm, closeConfirm } = useConfirmState();
 
@@ -56,13 +57,22 @@ export default function Rewards() {
     reloadRewards(); reloadRedemptions(); reloadBalance(); reloadExchanges();
   };
 
-  const handleRedeem = async (reward) => {
+  // Tapping Barter opens a confirm step rather than spending immediately —
+  // coins are held the moment the request posts and a kid can't cancel it.
+  const handleRedeem = (reward) => {
     setError('');
+    setConfirmRedeem(reward);
+  };
+
+  const performRedeem = async (reward) => {
+    setError('');
+    setConfirmRedeem(null);
     const balance = balanceData?.balance ?? 0;
-    if (reward.cost > balance) {
-      const short = reward.cost - balance;
+    const cost = reward.cost_coins ?? 0;
+    if (cost > balance) {
+      const short = cost - balance;
       setError(
-        `Not enough coins yet — need ${short} more (cost: ${reward.cost}, you have ${balance}).`,
+        `Not enough coins yet — need ${short} more (cost: ${cost}, you have ${balance}).`,
       );
       return;
     }
@@ -330,6 +340,14 @@ export default function Rewards() {
         />
       )}
 
+      {confirmRedeem && (
+        <ConfirmRedeemSheet
+          reward={confirmRedeem}
+          balance={balanceData?.balance ?? 0}
+          onClose={() => setConfirmRedeem(null)}
+          onConfirm={() => performRedeem(confirmRedeem)}
+        />
+      )}
       {outOfStock && (
         <OutOfStockSheet
           state={outOfStock}
@@ -348,6 +366,34 @@ export default function Rewards() {
         />
       )}
     </PageShell>
+  );
+}
+
+function ConfirmRedeemSheet({ reward, balance, onClose, onConfirm }) {
+  const cost = reward.cost_coins ?? 0;
+  return (
+    <BottomSheet title={`${reward.icon || '🎁'} ${reward.name}`} onClose={onClose}>
+      <div className="space-y-3">
+        <div className="text-center">
+          <div className="font-rune text-3xl font-bold text-gold-leaf tabular-nums">
+            {balance} → {Math.max(0, balance - cost)}
+          </div>
+          <div className="font-script text-body text-ink-whisper mt-1">
+            costs {cost} coins
+          </div>
+        </div>
+        <p className="font-body text-caption text-ink-secondary text-center">
+          Your coins are held as soon as you ask — a parent has to approve it
+          before you get the reward, and only they can hand them back.
+        </p>
+        <Button onClick={onConfirm} variant="primary" className="w-full">
+          Yes, barter it
+        </Button>
+        <Button onClick={onClose} variant="ghost" size="sm" className="w-full">
+          Not yet
+        </Button>
+      </div>
+    </BottomSheet>
   );
 }
 

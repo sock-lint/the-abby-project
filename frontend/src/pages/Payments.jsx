@@ -15,7 +15,8 @@ import EmptyState from '../components/EmptyState';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import DeckleDivider from '../components/journal/DeckleDivider';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatDate } from '../utils/format';
+import { quickRanges } from '../utils/dates';
 import { normalizeList } from '../utils/api';
 import Button from '../components/Button';
 import Sparkline from '../components/Sparkline';
@@ -177,6 +178,13 @@ export default function Payments() {
     [isParent],
   );
   const children = useMemo(() => normalizeList(childrenData), [childrenData]);
+
+  // The ledger serializer sends `user` as a bare id; resolve it against the
+  // already-loaded roster so family-wide rows say who they belong to.
+  const kidNameFor = useCallback((userId) => {
+    const kid = children.find((c) => c.id === userId);
+    return kid ? (kid.display_name || kid.username) : null;
+  }, [children]);
 
   // Any filter active? Drives whether we fetch the ledger directly vs.
   // showing the summary's recent_transactions slice.
@@ -430,16 +438,38 @@ export default function Payments() {
           )}
         </div>
         {isParent && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {Object.entries(quickRanges()).map(([key, range]) => {
+              const active = startDate === range.start && endDate === range.end;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => { setStartDate(range.start); setEndDate(range.end); }}
+                  className={`min-h-9 px-3 rounded-full border font-body text-caption transition-colors ${
+                    active
+                      ? 'bg-sheikah-teal-deep text-ink-page-rune-glow border-sheikah-teal-deep'
+                      : 'border-ink-page-shadow text-ink-secondary hover:text-ink-primary'
+                  }`}
+                >
+                  {range.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {isParent && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mb-2">
             <DateField
               variant="filter"
-              aria-label="Filter from date"
+              label="From"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
             />
             <DateField
               variant="filter"
-              aria-label="Filter to date"
+              label="To"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
             />
@@ -487,6 +517,15 @@ export default function Payments() {
                       </div>
                       <div className="font-script text-caption text-ink-whisper truncate">
                         {tx.description}
+                      </div>
+                      {/* When (and, on the family-wide view, whose) — without
+                          these a multi-entry ledger can only be read by
+                          working the filters. */}
+                      <div className="font-script text-tiny text-ink-whisper">
+                        {formatDate(tx.created_at)}
+                        {isParent && !userIdParam && kidNameFor(tx.user)
+                          ? ` · ${kidNameFor(tx.user)}`
+                          : ''}
                       </div>
                     </div>
                   </div>

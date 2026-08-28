@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Rewards from './Rewards.jsx';
@@ -81,10 +81,8 @@ describe('Rewards', () => {
     expect(screen.getByText('Movie Night')).toBeInTheDocument();
   });
 
-  it('child clicking Barter posts to /rewards/{id}/redeem/', async () => {
-    const user = userEvent.setup();
-    const redeem = spyHandler('post', /\/api\/rewards\/\d+\/redeem\/$/, { ok: true });
-    renderPage(buildUser(), [
+  function redeemHandlers(redeem) {
+    return [
       http.get('*/api/rewards/', () =>
         HttpResponse.json([{ id: 13, name: 'Ice Cream', cost_coins: 50, stock: 5, rarity: 'common', is_active: true }]),
       ),
@@ -92,15 +90,43 @@ describe('Rewards', () => {
       http.get('*/api/coins/', () => HttpResponse.json({ balance: 120, recent: [] })),
       http.get('*/api/coins/exchange/list/', () => HttpResponse.json([])),
       http.get('*/api/coins/exchange/rate/', () => HttpResponse.json({ coins_per_dollar: 10 })),
-      redeem.handler,
-    ]);
+      ...(redeem ? [redeem.handler] : []),
+    ];
+  }
 
-    const button = await screen.findByRole('button', { name: /barter/i });
-    await user.click(button);
+  it('child confirming Barter posts to /rewards/{id}/redeem/', async () => {
+    const user = userEvent.setup();
+    const redeem = spyHandler('post', /\/api\/rewards\/\d+\/redeem\/$/, { ok: true });
+    renderPage(buildUser(), redeemHandlers(redeem));
+
+    await user.click(await screen.findByRole('button', { name: /barter/i }));
+
+    // Coins are held on request with no kid-side undo, so the spend goes
+    // through a confirm step showing the balance it will leave behind.
+    const sheet = await screen.findByRole('dialog', { name: /ice cream/i });
+    expect(within(sheet).getByText('120 → 70')).toBeInTheDocument();
+    expect(redeem.calls).toHaveLength(0);
+
+    await user.click(within(sheet).getByRole('button', { name: /yes, barter it/i }));
 
     await waitFor(() => expect(redeem.calls).toHaveLength(1));
     expect(redeem.calls[0].url).toMatch(/\/rewards\/13\/redeem\/$/);
     expect(redeem.calls[0].body).toEqual({});
+  });
+
+  it('backing out of the Barter confirm spends nothing', async () => {
+    const user = userEvent.setup();
+    const redeem = spyHandler('post', /\/api\/rewards\/\d+\/redeem\/$/, { ok: true });
+    renderPage(buildUser(), redeemHandlers(redeem));
+
+    await user.click(await screen.findByRole('button', { name: /barter/i }));
+    const sheet = await screen.findByRole('dialog', { name: /ice cream/i });
+    await user.click(within(sheet).getByRole('button', { name: /not yet/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /ice cream/i })).not.toBeInTheDocument(),
+    );
+    expect(redeem.calls).toHaveLength(0);
   });
 
   it('parent approving a redemption posts to /redemptions/{id}/approve/', async () => {

@@ -5,6 +5,7 @@ import { CheckCircle2, X, XCircle } from 'lucide-react';
 import { useApprovalToasts } from '../hooks/useApprovalToasts';
 import IconButton from './IconButton';
 import { TOAST_DURATION_LONG } from '../constants/timing';
+import { swipeToDismiss } from './toastSwipe';
 
 function Toast({ toast, onDismiss }) {
   useEffect(() => {
@@ -24,6 +25,7 @@ function Toast({ toast, onDismiss }) {
       initial={{ x: 300, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 300, opacity: 0 }}
+      {...swipeToDismiss(() => onDismiss(toast.id))}
       className={`flex items-start gap-3 rounded-lg border px-3 py-2 shadow-lg ${palette}`}
     >
       <Icon size={20} className="text-white shrink-0 mt-0.5" aria-hidden="true" />

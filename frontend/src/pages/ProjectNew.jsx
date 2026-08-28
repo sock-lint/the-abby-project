@@ -7,7 +7,7 @@ import BackLink from '../components/BackLink';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
-import { TextField, SelectField, TextAreaField } from '../components/form';
+import { TextField, SelectField, TextAreaField, DueDateChips } from '../components/form';
 import { normalizeList } from '../utils/api';
 import { toISODate } from '../utils/dates';
 
@@ -166,7 +166,14 @@ export default function ProjectNew() {
               inputMode="decimal"
             />
             <TextField label="Materials Budget ($)" value={form.materials_budget} onChange={set('materials_budget')} type="number" step="0.01" min="0" inputMode="decimal" />
-            <TextField label="Due Date" value={form.due_date} onChange={set('due_date')} type="date" min={today} />
+            <div>
+              <TextField label="Due Date" value={form.due_date} onChange={set('due_date')} type="date" min={today} />
+              <DueDateChips
+                value={form.due_date}
+                onSelect={(date) => set('due_date')({ target: { value: date } })}
+                className="mt-2"
+              />
+            </div>
           </div>
 
           {/* Parent Notes */}

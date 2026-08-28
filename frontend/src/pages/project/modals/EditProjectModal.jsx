@@ -4,7 +4,7 @@ import ErrorAlert from '../../../components/ErrorAlert';
 import { useApi } from '../../../hooks/useApi';
 import { useFormState } from '../../../hooks/useFormState';
 import Button from '../../../components/Button';
-import { TextField, SelectField, TextAreaField } from '../../../components/form';
+import { TextField, SelectField, TextAreaField, DueDateChips } from '../../../components/form';
 import { normalizeList } from '../../../utils/api';
 
 export default function EditProjectModal({ project, onClose, onSaved }) {
@@ -89,7 +89,14 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
           <TextField label="Budget ($)" value={form.materials_budget} onChange={onField('materials_budget')} type="number" step="0.01" min="0" />
           <TextField label="Rate Override ($)" value={form.hourly_rate_override} onChange={onField('hourly_rate_override')} type="number" step="0.01" min="0" placeholder="Default" />
         </div>
-        <TextField label="Due Date" value={form.due_date} onChange={onField('due_date')} type="date" />
+        <div>
+          <TextField label="Due Date" value={form.due_date} onChange={onField('due_date')} type="date" />
+          <DueDateChips
+            value={form.due_date}
+            onSelect={(date) => onField('due_date')({ target: { value: date } })}
+            className="mt-2"
+          />
+        </div>
         <TextAreaField label="Parent Notes" value={form.parent_notes} onChange={onField('parent_notes')} rows={2} placeholder="Private notes" />
         <div className="flex gap-2">
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">

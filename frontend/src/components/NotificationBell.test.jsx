@@ -6,7 +6,21 @@ import { MemoryRouter } from 'react-router-dom';
 import NotificationBell from './NotificationBell.jsx';
 import { server } from '../test/server.js';
 
-function renderBell() {
+function setViewport(desktop) {
+  window.matchMedia = vi.fn().mockImplementation((query) => ({
+    matches: desktop && query.includes('min-width'),
+    media: query,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    onchange: null,
+    dispatchEvent: vi.fn(),
+  }));
+}
+
+function renderBell({ desktop = true } = {}) {
+  setViewport(desktop);
   return render(
     <MemoryRouter>
       <NotificationBell />
@@ -19,7 +33,7 @@ afterEach(() => {
 });
 
 describe('NotificationBell (real timers)', () => {
-  it('closes when clicking outside', async () => {
+  it('closes when clicking outside (desktop popover only)', async () => {
     server.use(
       http.get('*/api/notifications/unread_count/', () => HttpResponse.json({ count: 0 })),
       http.get('*/api/notifications/', () => HttpResponse.json([])),
@@ -209,5 +223,26 @@ describe('NotificationBell polling (fake timers)', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
     await waitFor(() => expect(calls).toBeGreaterThanOrEqual(2));
     unmount();
+  });
+
+  it('opens a bottom sheet instead of a popover on phones', async () => {
+    server.use(
+      http.get('*/api/notifications/unread_count/', () => HttpResponse.json({ count: 2 })),
+      http.get('*/api/notifications/', () =>
+        HttpResponse.json([
+          { id: 1, title: 'Chore submitted', message: 'Dishes', is_read: false, created_at: '2026-08-20T10:00:00Z', notification_type: 'chore_submitted' },
+        ]),
+      ),
+    );
+    const user = userEvent.setup();
+    const { container } = renderBell({ desktop: false });
+    await user.click(container.querySelector('button'));
+
+    // A real sheet — full-width rows in the thumb zone rather than a 320px
+    // dropdown pinned under the header.
+    const sheet = await screen.findByRole('dialog', { name: /notifications/i });
+    expect(sheet).toBeInTheDocument();
+    expect(screen.getByText('Chore submitted')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /mark all read/i })).toBeInTheDocument();
   });
 });

@@ -4,6 +4,7 @@ import { Map as MapIcon, X } from 'lucide-react';
 import IconButton from './IconButton';
 import RpgSprite from './rpg/RpgSprite';
 import { useExpeditionToasts } from '../hooks/useExpeditionToasts';
+import { swipeToDismiss } from './toastSwipe';
 
 /**
  * ExpeditionToastStack — soft slide-in nudge when one or more mounts
@@ -26,6 +27,7 @@ export default function ExpeditionToastStack({ inline = false }) {
             initial={{ x: 300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 300, opacity: 0 }}
+            {...swipeToDismiss(() => dismiss(expedition.id))}
             className="pointer-events-auto flex items-center gap-3 rounded-lg border border-gold-leaf/60 bg-gold-leaf/15 px-3 py-2 shadow-lg cursor-pointer"
             onClick={() => navigate('/bestiary?tab=mounts')}
             role="button"

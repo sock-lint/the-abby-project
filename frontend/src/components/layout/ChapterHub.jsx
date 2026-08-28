@@ -1,10 +1,13 @@
 import { useEffect } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useDragControls } from 'framer-motion';
 import DeckleDivider from '../journal/DeckleDivider';
 import TabList from './TabList';
 import { inkBleed } from '../../motion/variants';
 import { STORAGE_KEYS } from '../../constants/storage';
+
+// Horizontal travel before a swipe counts as a tab change.
+const SWIPE_TAB_THRESHOLD_PX = 70;
 
 /**
  * ChapterHub — shared wrapper for the four hub pages (Quests, Bestiary,
@@ -45,6 +48,34 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeTab.id]);
 
+  // Swipe between tabs. The mobile dot row under the strip already reads as a
+  // pager, and the strip is not sticky — without this, switching tabs from
+  // deep in a list means scrolling back to the top first.
+  const dragControls = useDragControls();
+  const activeIndex = tabs.findIndex((t) => t.id === activeTab.id);
+
+  const startSwipe = (event) => {
+    // Desktop keeps click-to-switch; hijacking mouse drags would break text
+    // selection for no gain (the whole strip is visible at md+ anyway).
+    if (event.pointerType === 'mouse') return;
+    // Yield to any horizontally-scrollable ancestor under the finger — tab
+    // strips, TomeShelf rails and vessel pill rows own their own pans.
+    let node = event.target;
+    while (node && node !== event.currentTarget) {
+      if (node.scrollWidth > node.clientWidth + 1
+        && /(auto|scroll)/.test(getComputedStyle(node).overflowX)) return;
+      node = node.parentElement;
+    }
+    dragControls.start(event);
+  };
+
+  const handleSwipeEnd = (_event, info) => {
+    if (Math.abs(info.offset.x) < SWIPE_TAB_THRESHOLD_PX) return;
+    const step = info.offset.x < 0 ? 1 : -1;
+    const next = tabs[activeIndex + step];
+    if (next) setTab(next.id);
+  };
+
   return (
     <motion.div
       variants={inkBleed}
@@ -83,6 +114,13 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
+        drag="x"
+        dragControls={dragControls}
+        dragListener={false}
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.15}
+        onPointerDown={startSwipe}
+        onDragEnd={handleSwipeEnd}
       >
         {activeTab.render()}
       </motion.div>

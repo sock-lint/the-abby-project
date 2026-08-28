@@ -5,21 +5,7 @@ import ConfirmDialog from './ConfirmDialog';
 import ModalBackdrop from './modal/ModalBackdrop';
 import SealCloseButton from './modal/SealCloseButton';
 import SealPulseRing from './modal/SealPulseRing';
-
-// Tiny local hook — avoids shipping a new shared utility just for one modal.
-function useIsDesktop() {
-  const [isDesktop, setIsDesktop] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    return window.matchMedia('(min-width: 768px)').matches;
-  });
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 768px)');
-    const onChange = (e) => setIsDesktop(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-  return isDesktop;
-}
+import useIsDesktop from '../hooks/useIsDesktop';
 
 // Shared modal shell for every form dialog in the app. Dual-mode under the
 // "Sheikah Stamp" DNA:
@@ -33,6 +19,7 @@ const FOCUSABLE_SELECTOR =
 export default function BottomSheet({ title, onClose, disabled, dirty, footer, children }) {
   const isDesktop = useIsDesktop();
   const titleId = useId();
+  const sheetHistoryId = useId();
   const dialogRef = useRef(null);
   const [confirmingClose, setConfirmingClose] = useState(false);
   // Drag-to-dismiss is scoped to the glyph handle (dragListener={false} +
@@ -57,6 +44,34 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
       if (first) first.focus();
     }
   }, []);
+
+  // The popstate listener below is registered once, so it needs a live
+  // handle on safeClose (whose identity changes with `dirty`).
+  const safeCloseRef = useRef(safeClose);
+  useEffect(() => { safeCloseRef.current = safeClose; }, [safeClose]);
+
+  // Android back (and the iOS edge-swipe) is the universal "dismiss" gesture
+  // in an installed PWA with no browser chrome. Without this the back press
+  // navigates the route *underneath* the sheet, unmounting the form and
+  // discarding a half-typed entry without ever reaching the dirty guard.
+  // A sentinel history entry makes back close the sheet instead.
+  useEffect(() => {
+    window.history.pushState({ abbySheet: sheetHistoryId }, '');
+    const handlePop = () => {
+      // Re-arm immediately: if the sheet is dirty, safeClose only opens the
+      // confirm dialog and the sheet stays up — so back must stay trapped.
+      window.history.pushState({ abbySheet: sheetHistoryId }, '');
+      safeCloseRef.current();
+    };
+    window.addEventListener('popstate', handlePop);
+    return () => {
+      window.removeEventListener('popstate', handlePop);
+      // Consume the sentinel only when it is still the current entry. If the
+      // sheet closed by navigating somewhere (QuickActionsSheet rows do this),
+      // popping here would undo that navigation.
+      if (window.history.state?.abbySheet === sheetHistoryId) window.history.back();
+    };
+  }, [sheetHistoryId]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {

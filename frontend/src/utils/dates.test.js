@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toISODate, quickDueDates } from './dates';
+import { toISODate, quickDueDates, quickRanges } from './dates';
 
 describe('toISODate', () => {
   it('returns local YYYY-MM-DD (not UTC-shifted)', () => {
@@ -47,5 +47,28 @@ describe('quickDueDates', () => {
   it('nextWeek is today + 7 days', () => {
     const wed = new Date(2026, 3, 15);
     expect(quickDueDates(wed).nextWeek).toBe('2026-04-22');
+  });
+});
+
+describe('quickRanges', () => {
+  // Wednesday 2026-08-19.
+  const wed = new Date(2026, 7, 19);
+
+  it('starts this week on the preceding Sunday and ends today', () => {
+    const { thisWeek } = quickRanges(wed);
+    expect(thisWeek.start).toBe('2026-08-16');
+    expect(thisWeek.end).toBe('2026-08-19');
+  });
+
+  it('starts this month on the 1st', () => {
+    expect(quickRanges(wed).thisMonth.start).toBe('2026-08-01');
+  });
+
+  it('counts back 30 days for the rolling range', () => {
+    expect(quickRanges(wed).last30.start).toBe('2026-07-20');
+  });
+
+  it('clears both ends for all time', () => {
+    expect(quickRanges(wed).all).toMatchObject({ start: '', end: '' });
   });
 });

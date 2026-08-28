@@ -39,7 +39,17 @@ export default function JournalShell() {
       >
         Skip to content
       </a>
-      <div className="fixed top-[calc(env(safe-area-inset-top)+1rem)] right-4 z-50 space-y-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none" aria-live="polite" aria-atomic="false">
+      {/* Toasts sit in the thumb zone on phones — above the bottom nav and
+          left of the FAB — and return to the top-right corner at lg where the
+          bottom bar doesn't exist. */}
+      <div
+        className="fixed z-50 space-y-2 pointer-events-none
+                   bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] left-4 right-20
+                   lg:bottom-auto lg:left-auto lg:right-4 lg:top-[calc(env(safe-area-inset-top)+1rem)]
+                   lg:w-80 lg:max-w-[calc(100vw-2rem)]"
+        aria-live="polite"
+        aria-atomic="false"
+      >
         <DropToastStack inline />
         <SavingsToastStack inline />
         <CompanionGrowthToastStack inline />
