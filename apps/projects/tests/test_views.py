@@ -120,7 +120,9 @@ class MilestoneTests(_Fixture):
         ms = ProjectMilestone.objects.create(
             project=self.project, title="Ch1",
         )
-        self.client.force_authenticate(self.child)
+        # Parent-only: completing a milestone posts its bonus to
+        # PaymentLedger. See test_action_permission_bypass.py for the child path.
+        self.client.force_authenticate(self.parent)
         resp = self.client.post(
             f"/api/projects/{self.project.pk}/milestones/{ms.pk}/complete/"
         )

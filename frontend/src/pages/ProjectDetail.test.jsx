@@ -194,11 +194,13 @@ describe('ProjectDetail', () => {
     expect(complete.calls[0].url).toMatch(/\/projects\/42\/steps\/5\/complete\/$/);
   });
 
+  // Parent-only: completing a milestone posts a milestone_bonus to
+  // PaymentLedger, and the server refuses it from a child.
   it('completing a milestone posts to /projects/{pid}/milestones/{mid}/complete/', async () => {
     const user = userEvent.setup();
     const complete = spyHandler('post', /\/api\/projects\/\d+\/milestones\/\d+\/complete\/$/, { ok: true });
     server.use(
-      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
       http.get(/\/api\/projects\/42\/$/, () =>
         HttpResponse.json(buildProject({
           id: 42, title: 'TestPrj',
@@ -231,6 +233,28 @@ describe('ProjectDetail', () => {
 
     await waitFor(() => expect(complete.calls).toHaveLength(1));
     expect(complete.calls[0].url).toMatch(/\/projects\/42\/milestones\/8\/complete\/$/);
+  });
+
+  // The kid does the work but a parent closes the milestone out, so a child
+  // must not be shown a control the API answers with 403.
+  it('shows a child the milestone state without an actionable control', async () => {
+    const user = userEvent.setup();
+    renderPage(buildUser(), {
+      milestones: [{ id: 8, title: 'Frame', bonus_amount: '2.00', is_completed: false }],
+      steps: [{ id: 5, title: 'Cut wood', is_completed: true, milestone: 8 }],
+    });
+
+    await waitFor(() => expect(screen.getByText('TestPrj')).toBeInTheDocument());
+    await user.click(screen.getByRole('tab', { name: /^plan$/i }));
+
+    expect(await screen.findByText('Frame')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /mark milestone complete/i })).toBeNull();
+    // …and with every step done, the kid is told what happens next rather
+    // than being offered the parent's button.
+    expect(screen.getByText(/a parent closes this one out/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /all steps done/i }),
+    ).toBeNull();
   });
 
   it('marking a material purchased posts to /projects/{pid}/materials/{mid}/mark-purchased/', async () => {

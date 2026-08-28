@@ -227,6 +227,27 @@ class ApprovalActionMixin:
     approval_approve_method = "approve"
     approval_reject_method = "reject"
 
+    _APPROVAL_ACTIONS = ("approve", "reject")
+
+    def get_permissions(self):
+        """Gate approve/reject here rather than relying on the decorators.
+
+        The ``@action(permission_classes=[IsParent])`` declarations below are
+        only applied by a **router**, which turns an action's decorator kwargs
+        into the view's ``initkwargs``. Consumers wired by hand — e.g.
+        ``ExchangeRequestViewSet`` via ``as_view({"post": "approve"})`` in
+        apps/rewards/urls.py — never go through a router, so the decorator is
+        silently inert and the endpoint falls back to the ``IsAuthenticated``
+        default. That let a child approve their own money->coins exchange:
+        real money off PaymentLedger, coins on, ``decided_by`` set to
+        themselves. Gating here makes the protection independent of how the
+        URL was wired. The decorators stay for router-wired consumers and to
+        keep the intent readable at the call site.
+        """
+        if getattr(self, "action", None) in self._APPROVAL_ACTIONS:
+            return [IsParent()]
+        return super().get_permissions()
+
     def _run_approval_action(self, method_name, request):
         instance = self.get_object()
         service_method = getattr(self.approval_service, method_name)
