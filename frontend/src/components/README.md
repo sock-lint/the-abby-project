@@ -127,6 +127,9 @@ Use these primitives whenever a surface is meant to feel like an authored chapte
 
 CSS contract (declared once in [`../index.css`](../index.css), reused by every cohort consumer):
 
+- `.spine-leather` + `--color-leather-{locked,nascent,rising,cresting,gilded}` — the tome binding. Each tier mixes **its own accent token** into a dark leather base via `color-mix`, so a shelf reads as a row of dyed morocco and the tier ladder is legible across it, and so a journal-cover swap retunes the shelf. They were previously five near-identical tans inside a 1.9° hue band — one binding at five exposures — as fixed hexes `applyTheme` never touched, which also left the shelf pale tan on the dark Vigil cover
+- `.spine-foil` — gilt-stamped spine title. Its gradient puts `--foil-tone-bottom` at the **50% stop**, i.e. the middle of every title, so that stop must stay light against dark leather; legibility is carried by the class's deboss `drop-shadow` (how real gilt stamping reads — pressed in, with a dark edge) rather than by tuning fill colors per tier. `locked` keeps dark foil because its cloth stays pale
+
 - `.versal-gilt` — `background-clip: text` + linear gradient using `--versal-fill` custom property as the fill stop. The variable is set inline by `<IlluminatedVersal>` based on `progressPct`. Underlying letterform is drawn twice (a stroke in `ink-whisper` + the gilt overlay) so the un-illuminated portion stays visible
 - `--color-gold-leaf`, `--color-rarity-{common,uncommon,rare,epic,legendary}` — cover-tuned color tokens. Don't write hex literals for these; reach for the token
 - `@keyframes halo-rise` (`.animate-halo-rise`) — radial expansion glow on freshly-mastered tiers
