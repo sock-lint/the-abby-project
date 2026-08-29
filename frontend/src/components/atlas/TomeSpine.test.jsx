@@ -268,10 +268,10 @@ describe('TomeSpine', () => {
     expect(container.querySelector('[data-spine-edge="true"]')).toBeNull();
     expect(container.querySelector('[data-spine-medallion="true"]')).toBeNull();
     expect(container.querySelector('[data-spine-title="true"]')).toBeNull();
-    // Vessel ribbon does NOT carry the cloth-curl settle animation — that
-    // beat belongs to the bound codex, not the drawer pull.
-    const ribbon = container.querySelector('[data-tome-ribbon="true"]');
-    expect(ribbon.className).not.toMatch(/animate-ribbon-settle/);
+    // A drawer has no bookmark. Sharing the ribbon across variants was the
+    // strongest cue telling the eye a tome and a drawer were the same kind of
+    // object; a vessel now says "active" by sliding out of its case instead.
+    expect(container.querySelector('[data-tome-ribbon="true"]')).toBeNull();
   });
 
   it('active codex ribbon gets the cloth-settle keyframe so it reads as fabric falling into place', () => {

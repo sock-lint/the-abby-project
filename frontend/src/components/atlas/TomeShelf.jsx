@@ -102,23 +102,39 @@ export default function TomeShelf({ items, activeId, onSelect, ariaLabel }) {
           })}
         </div>
       )}
-      <div className={`relative pt-3 pb-2 ${allVessel ? 'hidden md:block' : ''}`}>
-        {/* Wooden shelf board — a sepia plank under the tomes with a
-            repeating-linear-gradient grain pattern. The plank takes ~14 px
-            of the bottom edge and the spines sit on top of it (z-0 board,
-            spines render above via stacking). A soft outer shadow lets the
-            plank cast under the row. */}
-        <div
-          aria-hidden="true"
-          data-shelf-board="true"
-          className="shelf-board absolute inset-x-0 bottom-0 h-3 rounded-sm"
-        />
-        {/* Plank front-lip shadow — a slightly darker sliver right under the
-            board, gives the shelf its sense of "in front of the wall." */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 -bottom-1 h-1 bg-gradient-to-b from-[rgba(45,31,21,0.30)] to-transparent rounded-b-sm pointer-events-none"
-        />
+      <div
+        className={`relative pt-3 pb-2 ${allVessel ? 'hidden md:block px-2.5' : ''}`}
+      >
+        {allVessel ? (
+          /* Cabinet case — a drawer is housed IN a frame, where a tome rests
+             ON a plank. Sharing the plank was what made a row of drawers
+             read as a row of books stood on a shelf. Painted behind the
+             drawers (earlier in the DOM, pointer-events-none). */
+          <div
+            aria-hidden="true"
+            data-shelf-case="true"
+            className="drawer-case absolute inset-0 rounded-md pointer-events-none"
+          />
+        ) : (
+          <>
+            {/* Wooden shelf board — a sepia plank under the tomes with a
+                repeating-linear-gradient grain pattern. The plank takes ~14 px
+                of the bottom edge and the spines sit on top of it (z-0 board,
+                spines render above via stacking). A soft outer shadow lets the
+                plank cast under the row. */}
+            <div
+              aria-hidden="true"
+              data-shelf-board="true"
+              className="shelf-board absolute inset-x-0 bottom-0 h-3 rounded-sm"
+            />
+            {/* Plank front-lip shadow — a slightly darker sliver right under the
+                board, gives the shelf its sense of "in front of the wall." */}
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-0 -bottom-1 h-1 bg-gradient-to-b from-[rgba(45,31,21,0.30)] to-transparent rounded-b-sm pointer-events-none"
+            />
+          </>
+        )}
         {/* Scroll-fade gradients — signal "more spines off-screen" without
             adding a scrollbar that fights the shelf-board aesthetic. Mirror
             ChapterHub's pattern so the cue reads identically across hubs and
