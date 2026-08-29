@@ -16,6 +16,18 @@ export const PROGRESS_TIER = {
   gilded: { bar: 'bg-gold-leaf', chip: 'text-ember-deep' },
 };
 
+// RuneBadge tone per progress tier. The badge primitive's tone set happens to
+// be a one-to-one match for the tier ladder, so a folio can wear its tier as
+// an ordinary status chip instead of inventing an ornament for it. Kept here
+// rather than in either folio so the two stay in lockstep.
+export const TIER_BADGE_TONE = {
+  locked: 'ink',
+  nascent: 'moss',
+  rising: 'teal',
+  cresting: 'ember',
+  gilded: 'gold',
+};
+
 export function tierForProgress({ unlocked, progressPct, level, maxLevel = 6 }) {
   if (!unlocked) return PROGRESS_TIER.locked;
   if (level >= maxLevel) return PROGRESS_TIER.gilded;

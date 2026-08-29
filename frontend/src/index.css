@@ -103,11 +103,7 @@
   --color-leather-grain-strong: rgba(45, 31, 21, 0.28);
   --color-page-block: #f8efd2;
   --color-page-block-line: rgba(133, 100, 24, 0.22);
-  /* `locked` is deliberately the quietest of the five: at 0 progress the
-     band should recede, not shout. The old #6b5639 was the darkest tint
-     of the set, so an empty folio drew a heavier cap than a gilded one
-     and progress read backwards in visual weight. */
-  --color-headband-locked: #9c8763;
+  --color-headband-locked: #6b5639;
   --color-headband-nascent: #456a3a;
   --color-headband-rising: #157064;
   --color-headband-cresting: #a04a28;
@@ -388,26 +384,6 @@ h1, h2, h3, h4 {
       var(--color-page-block-line) 1.5px,
       var(--color-page-block-line) 2px
     );
-}
-
-/* Folio headband — the woven cloth cap across the top of an open folio's
-   verso (see components/atlas/FolioHeadband.jsx). Below `md` the verso is
-   a full-width banner rather than a 220-260px column, and a hard-edged
-   band drawn the whole way across reads as chrome — a stalled progress
-   bar — no matter how it is textured. Fading the trailing end lets it
-   read as cloth running off toward the binding instead of a rule ruled
-   across the page. At `md+` the band spans only the verso column and
-   terminates at the gutter fold, so it needs no mask. */
-.folio-headband {
-  -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 52%, transparent 100%);
-  mask-image: linear-gradient(90deg, #000 0%, #000 52%, transparent 100%);
-}
-
-@media (min-width: 48rem) {
-  .folio-headband {
-    -webkit-mask-image: none;
-    mask-image: none;
-  }
 }
 
 .animate-flame-flicker { animation: flame-flicker 2.4s ease-in-out infinite; transform-origin: 50% 85%; }

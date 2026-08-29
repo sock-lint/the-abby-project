@@ -1,9 +1,9 @@
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import ChapterRubric from '../../components/atlas/ChapterRubric';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
-import FolioHeadband from '../../components/atlas/FolioHeadband';
+import RuneBadge from '../../components/journal/RuneBadge';
 import SkillVerse from './SkillVerse';
-import { countIlluminated, tierForProgress } from '../../components/atlas/mastery.constants';
+import { countIlluminated, tierForProgress, TIER_BADGE_TONE } from '../../components/atlas/mastery.constants';
 import { XP_THRESHOLDS } from './skillTree.constants';
 
 /**
@@ -39,8 +39,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
   const firstLetter = (category?.name || '✦').trim().charAt(0).toUpperCase() || '✦';
   // Tier-tinted carry-through from TomeSpine — the open codex inherits the
   // same foil tone as the spine it was extracted from, so the closed-to-open
-  // transition reads as the same physical book. The headband carries the
-  // matching tier tint of its own (components/atlas/FolioHeadband).
+  // transition reads as the same physical book.
   const foilBottomTone = {
     locked: 'var(--color-ink-page-shadow)',
     nascent: 'var(--color-ember-deep)',
@@ -79,17 +78,14 @@ export default function FolioSpread({ tree, onSelectSkill }) {
 
         {/* Verso — category hero. No §-numeral here: those belong to the
             subject rubrics on the recto so the hierarchy reads cleanly
-            (category name · subject §I · subject §II …). The cloth
-            headband across the top is the spine's headband, carried
-            through so the open codex matches the tome it was pulled
-            from — see components/atlas/FolioHeadband. */}
+            (category name · subject §I · subject §II …). Tier rides the
+            kicker's badge tone plus the versal / bar / count tints, the
+            same PROGRESS_TIER channels every other card uses. */}
         <aside
           data-folio-verso="true"
           data-tier={tierKey}
           className="relative px-4 pt-4 pb-3 md:px-5 md:pt-7 md:pb-6 flex flex-col items-center text-center gap-3 border-b md:border-b-0 md:border-r border-ink-page-shadow/30"
         >
-          <FolioHeadband tierKey={tierKey} />
-
           {/* Compact incipit — phones only. Small versal, category title,
               rank + XP inlined as one caption line, and a thin progress
               bar over the illuminated count. The full plate below is
@@ -151,9 +147,9 @@ export default function FolioSpread({ tree, onSelectSkill }) {
             data-folio-verso-full="true"
             className="hidden w-full md:flex flex-col items-center text-center gap-3"
           >
-          <div className="font-rune text-micro uppercase tracking-wider text-ember-deep">
-            · the codex of mastery ·
-          </div>
+          <RuneBadge tone={TIER_BADGE_TONE[tierKey] ?? 'ink'} variant="outlined">
+            the codex of mastery
+          </RuneBadge>
           {/* Brass-rimmed medallion frame around the illuminated versal —
               matches the head-cap medallion on the spine. The ring sits
               just outside the versal's letterform, so the gilt fill

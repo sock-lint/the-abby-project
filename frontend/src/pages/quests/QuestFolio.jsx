@@ -1,8 +1,8 @@
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
-import FolioHeadband from '../../components/atlas/FolioHeadband';
+import RuneBadge from '../../components/journal/RuneBadge';
 import RarityStrand from '../../components/atlas/RarityStrand';
-import { tierForProgress } from '../../components/atlas/mastery.constants';
+import { tierForProgress, TIER_BADGE_TONE } from '../../components/atlas/mastery.constants';
 
 /**
  * QuestFolio — the verso/recto shell shared by Ventures, Duties, Study,
@@ -10,10 +10,14 @@ import { tierForProgress } from '../../components/atlas/mastery.constants';
  * but parameterised so a tab can fill in its own letter / title / stats /
  * progress without dragging the skill-tree XP math along.
  *
- * Verso (left, ~220-260px desktop · top banner mobile): cloth headband
- *   tied to tier (components/atlas/FolioHeadband), brass-rimmed
- *   illuminated drop-cap, script kicker, display-serif title with
+ * Verso (left, ~220-260px desktop · top banner mobile): tier-toned kicker
+ *   chip, brass-rimmed illuminated drop-cap, display-serif title with
  *   foil-glint, stats row, progress bar, optional rarity strand.
+ *
+ * Tier is carried the way the rest of the app carries state — PROGRESS_TIER's
+ * `bar` and `chip` channels (the versal's gilt fill, the progress bar, the
+ * stat values, and the kicker's badge tone) — rather than by an applied
+ * ornament. See components/README.md → Atlas cohort.
  *
  * Recto (right): consumer-supplied children — the working list.
  *
@@ -22,8 +26,7 @@ import { tierForProgress } from '../../components/atlas/mastery.constants';
  */
 
 // Bottom stop of the title's foil gradient, tier-tinted so the folio's
-// heading matches the spine it opens from. The headband's own tier tint
-// lives in components/atlas/FolioHeadband.
+// heading matches the spine it opens from.
 const FOIL_BOTTOM = {
   locked: 'var(--color-ink-page-shadow)',
   nascent: 'var(--color-ember-deep)',
@@ -59,8 +62,9 @@ export default function QuestFolio({
   const safeStats = (stats ?? []).slice(0, 3);
   const firstLetter = (letter || title || '✦').toString().trim().charAt(0).toUpperCase() || '✦';
   // Phone-only condensed incipit: the same stats the full plate renders,
-  // inlined as a single caption line ("12 done · 3 waiting").
-  const compactStats = safeStats.map((s) => `${s.value} ${s.label}`).join(' · ');
+  // inlined as a single caption line ("12 done · 3 waiting"). The values wear
+  // tier.chip here too — the full plate already tints its big numerals, and
+  // without this the compact row was the one place tier went unsaid.
   const showProgress = Boolean(progressLabel) || safePct > 0;
 
   return (
@@ -87,8 +91,6 @@ export default function QuestFolio({
           data-progress={Math.round(safePct)}
           className="relative px-4 pt-4 pb-3 md:px-5 md:pt-7 md:pb-6 flex flex-col items-center text-center gap-3 border-b md:border-b-0 md:border-r border-ink-page-shadow/30"
         >
-          <FolioHeadband tierKey={tierKey} />
-
           {/* Compact incipit — phones only. Small versal, title, inline
               stats caption, and a thin progress bar with its label. */}
           <div
@@ -114,9 +116,14 @@ export default function QuestFolio({
               >
                 {title}
               </h2>
-              {compactStats && (
+              {safeStats.length > 0 && (
                 <div className="text-micro font-rune uppercase tracking-wider text-ink-whisper truncate mt-0.5">
-                  {compactStats}
+                  {safeStats.map((s, i) => (
+                    <span key={`${s.label}-${i}`}>
+                      {i > 0 && ' · '}
+                      <span className={tier.chip}>{s.value}</span> {s.label}
+                    </span>
+                  ))}
                 </div>
               )}
               {showProgress && (
@@ -154,9 +161,9 @@ export default function QuestFolio({
             className="hidden w-full md:flex flex-col items-center text-center gap-3"
           >
           {kicker && (
-            <div className="font-rune text-micro uppercase tracking-wider text-ember-deep">
-              · {kicker} ·
-            </div>
+            <RuneBadge tone={TIER_BADGE_TONE[tierKey] ?? 'ink'} variant="outlined">
+              {kicker}
+            </RuneBadge>
           )}
           {/* Brass-rimmed medallion around the versal — same head-cap
               shape FolioSpread uses on the Skills tome. */}
