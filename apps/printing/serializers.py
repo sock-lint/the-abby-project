@@ -185,7 +185,7 @@ class PrintJobSerializer(serializers.ModelSerializer):
             "finished_at", "duration_minutes", "last_report_at",
             "link_source", "failure_code", "failure_reason",
             "failure_severity", "grams_debited", "minutes_debited",
-            "events", "created_at",
+            "dismissed_at", "events", "created_at",
         ]
         read_only_fields = fields
 

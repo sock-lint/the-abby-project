@@ -605,6 +605,11 @@ export const listPrintJobs = (params = {}) => api.get(`/print-jobs/${forgeQuery(
 export const linkPrintJob = (jobId, requestId) =>
   api.post(`/print-jobs/${jobId}/link/`, { request_id: requestId });
 export const unlinkPrintJob = (jobId) => api.post(`/print-jobs/${jobId}/unlink/`);
+// Housekeeping on prints nobody claimed. dismiss is the reversible one —
+// restore is what makes it worth having over delete.
+export const dismissPrintJob = (jobId) => api.post(`/print-jobs/${jobId}/dismiss/`);
+export const restorePrintJob = (jobId) => api.post(`/print-jobs/${jobId}/restore/`);
+export const deletePrintJob = (jobId) => api.delete(`/print-jobs/${jobId}/`);
 
 export const listPrintBudgets = () => api.get('/print-budgets/');
 export const updatePrintBudget = (id, data) => api.patch(`/print-budgets/${id}/`, data);

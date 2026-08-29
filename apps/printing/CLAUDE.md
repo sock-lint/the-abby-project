@@ -63,6 +63,9 @@ fallback for a plate someone started from Handy without renaming it.
   as the printer sees it, and it is stored for exactly one reason: it is what
   a restarted listener matches on to re-attach to this row. See "Surviving a
   restart".
+  `dismissed_at` / `dismissed_by` are housekeeping, not state: a **soft hide**
+  from the Forge's unlinked panel that keeps the row and its timeline. See
+  "Emptying the unlinked panel".
 - `PrintJobEvent` — the timeline. Append-only. This is the surface where a
   decoded HMS message replaces a raw code.
 
@@ -217,6 +220,42 @@ Adopting also fixes the reverse case: reconnecting to a printer already
 sitting in `FINISH` closes the row **as finished** on that first report,
 instead of leaving it for `reconcile_stale_jobs` to write off as `unknown`
 hours later with a partial-failure debit.
+
+## Emptying the unlinked panel
+
+Every print a parent runs for themselves reaches the printer with a name that
+matches no request, so it opens an unlinked job and lands in "Prints without a
+request". With only a Link action that list grows forever and stops reading as
+a queue — the panel is a to-do list, and a to-do list you cannot finish is
+just noise. Two ways out, both parent-only:
+
+- **`POST /api/print-jobs/<id>/dismiss/`** stamps `dismissed_at` /
+  `dismissed_by`. The row, its timeline and its place in the printer's history
+  all stay; it just leaves the default list. `restore` clears the stamps, and
+  the panel surfaces dismissed rows behind a "Show N cleared prints" toggle —
+  **a dismiss nobody can undo is just a delete that lies about it**, so the way
+  back has to exist in the UI, not only in the admin.
+- **`DELETE /api/print-jobs/<id>/`** removes the job and cascades its
+  `PrintJobEvent` rows. Irreversible, and gated behind a `ConfirmDialog`.
+
+Both refuse two shapes, and the refusals are the interesting half:
+
+1. **An open job** — that is a print happening right now.
+2. **A job with a `request`** — that row is a child's record of their print.
+   `unlink` first if you really mean it; making it two deliberate acts is what
+   keeps it from being an accident.
+
+Guard 2 also means a deleted job can never have been debited: only a linked
+job reaches `close_out`. Even if one somehow were, **`PrintBudgetLedger.job`
+is `SET_NULL`** — the filament debit is a fact about the month, not about the
+row that caused it. If that FK ever became `CASCADE`, clearing the panel would
+silently hand back a month's budget.
+
+`dismissed` is a list-only query param (`?unlinked=true&dismissed=true` shows
+what was cleared). All three of the viewset's params are scoped to
+`self.action == "list"`, because `get_object()` runs through `get_queryset()`
+too: filtering unconditionally 404s the very rows the detail routes exist to
+act on — most sharply `restore`, whose whole job is to reach a dismissed one.
 
 ## HMS decoding
 `hms.py` + `hms_codes.py`. Two namespaces, two encodings, **do not mix them**:
