@@ -19,8 +19,9 @@ import { PROGRESS_TIER } from './mastery.constants';
  *     Reads as "a labeled drawer / apothecary jar."
  *
  * Domain-agnostic: pass flat props for whatever the consumer wants to show.
- * The active spine lifts, tilts, and unfurls a bookmark ribbon
- * regardless of variant. Lives inside a
+ * Each variant says "active" in its own physical language: a codex lifts,
+ * tilts open on its binding, and unfurls a bookmark ribbon; a vessel slides
+ * out of its case with its pull gripped and no ribbon at all. Lives inside a
  * role="tablist" parent (TomeShelf) — same keyboard contract
  * (ArrowRight/Left) and same aria-selected semantics as any tab.
  *
@@ -117,9 +118,13 @@ const TomeSpine = forwardRef(function TomeSpine(
       ? 'border-gold-leaf shadow-[0_12px_26px_-8px_rgba(45,31,21,0.55)] [transform:translateY(-6px)_rotate(-1.2deg)_rotateY(-7deg)]'
       : 'border-ink-page-shadow hover:border-sheikah-teal/60 hover:[transform:translateY(-4px)_scale(1.03)] hover:shadow-[0_14px_24px_-6px_rgba(45,31,21,0.45)]';
   } else {
+    // A drawer does not tilt open on its hinge — it slides out of its case
+    // toward you. So: no rotation, a small scale-up, and a shadow cast down
+    // and out as the face clears the frame. `drawer-face` keeps the idle
+    // state debossed into the case (see index.css).
     buttonCls = active
-      ? 'bg-ink-page-rune-glow border-gold-leaf shadow-[0_6px_18px_-6px_rgba(45,31,21,0.45)] -translate-y-1 -rotate-1'
-      : 'bg-ink-page-aged border-ink-page-shadow hover:border-sheikah-teal/60 hover:bg-ink-page-rune-glow';
+      ? 'drawer-face-open bg-ink-page-rune-glow border-gold-leaf scale-[1.06] shadow-[0_14px_24px_-6px_rgba(45,31,21,0.55)] z-10'
+      : 'drawer-face bg-ink-page-aged border-ink-page-shadow hover:border-sheikah-teal/60 hover:bg-ink-page-rune-glow hover:scale-[1.02]';
   }
 
   const surfaceCls = isCodex ? 'spine-leather' : '';
@@ -196,23 +201,25 @@ const TomeSpine = forwardRef(function TomeSpine(
         )}
       </span>
 
-      {/* Bookmark ribbon — draped from the head cap only on the active spine.
-          Shared across variants so the active-state vocabulary stays
-          consistent across the shelf. Codex variants get an extra settle
-          curl (animate-ribbon-settle) so the ribbon reads as fabric falling
-          into place; vessels keep the original scale-y tween. The
-          scale-y-0/100 classes are preserved (tests pin against them). */}
+      {/* Bookmark ribbon — draped from the head cap of the active spine.
+          Codex only: a drawer has no bookmark, and sharing it was the single
+          strongest cue telling the eye a tome and a drawer were the same
+          kind of object. Vessels say "active" by sliding out instead (see
+          the drawer shell in buttonCls). The scale-y-0/100 classes are
+          preserved (tests pin against them). */}
+      {isCodex && (
       <span
         aria-hidden="true"
         data-tome-ribbon="true"
         className={`absolute top-0 right-3 w-2 bg-sheikah-teal-deep origin-top transition-transform duration-300 ease-out z-20 ${
-          active ? `scale-y-100 ${isCodex ? 'animate-ribbon-settle' : ''}` : 'scale-y-0'
+          active ? 'scale-y-100 animate-ribbon-settle' : 'scale-y-0'
         }`}
         style={{
           height: '38px',
           clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%)',
         }}
       />
+      )}
     </button>
   );
 });
@@ -377,8 +384,10 @@ function VesselBody({ name, icon, active }) {
       <span
         aria-hidden="true"
         data-vessel-pull="true"
-        className={`h-1 w-6 rounded-full ${
-          active ? 'bg-gold-leaf' : 'bg-ink-page-shadow/60'
+        className={`h-1 rounded-full transition-all duration-200 ${
+          active
+            ? 'w-9 bg-gold-leaf shadow-[0_1px_2px_rgba(45,31,21,0.45)]'
+            : 'w-6 bg-ink-page-shadow/60'
         }`}
       />
 

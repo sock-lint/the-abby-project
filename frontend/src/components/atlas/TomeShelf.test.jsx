@@ -116,7 +116,11 @@ describe('TomeShelf', () => {
       const pillRow = container.querySelector('[data-vessel-pills="true"]');
       expect(pillRow).not.toBeNull();
       expect(pillRow.className).toMatch(/md:hidden/);
-      const shelfWrap = container.querySelector('[data-shelf-board="true"]').parentElement;
+      // An all-vessel shelf is a cabinet, not a plank: drawers are housed in
+      // a case, where tomes stand on a board. Sharing the board was part of
+      // why the two variants read as the same object.
+      expect(container.querySelector('[data-shelf-board="true"]')).toBeNull();
+      const shelfWrap = container.querySelector('[data-shelf-case="true"]').parentElement;
       expect(shelfWrap.classList.contains('hidden')).toBe(true);
       expect(shelfWrap.classList.contains('md:block')).toBe(true);
       // Spines keep the tablist/tab contract...

@@ -381,6 +381,35 @@ h1, h2, h3, h4 {
     0 2px 4px rgba(45, 31, 21, 0.18);
 }
 
+/* Cabinet case — the frame a row of drawers is set into. Tomes rest ON a
+   shelf board; drawers sit IN a case, and giving them the same plank was
+   what made the two variants read as the same object. Sepia frame with an
+   inner shadow so the drawer faces below look recessed into it. */
+.drawer-case {
+  background-color: color-mix(in srgb, var(--color-ink-page-shadow) 55%, var(--color-ink-page-aged));
+  border: 1px solid color-mix(in srgb, var(--color-ink-page-shadow) 80%, var(--color-ember-deep));
+  box-shadow:
+    inset 0 2px 6px rgba(45, 31, 21, 0.35),
+    inset 0 -1px 0 rgba(255, 248, 224, 0.15),
+    0 2px 5px rgba(45, 31, 21, 0.20);
+}
+
+/* Drawer face — debossed into the case while shut, so it reads as a panel
+   set back behind the frame rather than a board standing proud of a shelf.
+   `-open` drops the deboss: the face has cleared the case and is now in
+   front of it, which is what the scale-up and cast shadow are selling. */
+.drawer-face {
+  box-shadow:
+    inset 0 1px 3px rgba(45, 31, 21, 0.28),
+    inset 0 -1px 0 rgba(255, 248, 224, 0.25);
+}
+
+.drawer-face-open {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 224, 0.55),
+    0 14px 24px -6px rgba(45, 31, 21, 0.55);
+}
+
 .animate-flame-flicker { animation: flame-flicker 2.4s ease-in-out infinite; transform-origin: 50% 85%; }
 .animate-rune-pulse    { animation: rune-pulse 2.6s ease-in-out infinite; }
 .animate-rune-band     { animation: rune-band-shimmer 3.2s linear infinite; }
