@@ -18,12 +18,14 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.test import APITestCase
 
 from config.tests.factories import make_family
 
 from apps.payments.models import PaymentLedger
 from apps.rewards.models import CoinLedger, ExchangeRequest
+from apps.rewards.services import ExchangeService
 
 
 class ChildCannotApproveOwnExchangeTests(APITestCase):
@@ -95,3 +97,54 @@ class ChildCannotApproveOwnExchangeTests(APITestCase):
         self.assertEqual(resp.status_code, 200, resp.content)
         self.request_row.refresh_from_db()
         self.assertEqual(self.request_row.status, ExchangeRequest.Status.DENIED)
+
+
+class ExchangeServiceRefusesNonParentTests(APITestCase):
+    """Defence in depth: the service refuses even when the viewset is bypassed.
+
+    ``ExchangeService.approve`` treats ``parent`` as attribution only, so the
+    permission class was the single thing standing between a child and the
+    ledger write. These call the service directly — no HTTP layer — so they
+    still fail if someone adds a new caller that forgets to check the role.
+    """
+
+    def setUp(self):
+        self.household = make_family(
+            "Household",
+            parents=[{"username": "parent"}],
+            children=[{"username": "kid"}],
+        )
+        self.parent = self.household.parents[0]
+        self.child = self.household.children[0]
+        PaymentLedger.objects.create(
+            user=self.child, amount=Decimal("20.00"),
+            entry_type=PaymentLedger.EntryType.ADJUSTMENT, description="seed",
+        )
+        self.request_row = ExchangeRequest.objects.create(
+            user=self.child, dollar_amount=Decimal("5.00"), coin_amount=50,
+            exchange_rate=10, status=ExchangeRequest.Status.PENDING,
+        )
+
+    def test_approve_refuses_a_child_caller(self):
+        with self.assertRaises(PermissionDenied):
+            ExchangeService.approve(self.request_row, self.child)
+        self.request_row.refresh_from_db()
+        self.assertEqual(self.request_row.status, ExchangeRequest.Status.PENDING)
+        self.assertFalse(CoinLedger.objects.filter(user=self.child).exists())
+        self.assertFalse(
+            PaymentLedger.objects.filter(
+                user=self.child,
+                entry_type=PaymentLedger.EntryType.COIN_EXCHANGE,
+            ).exists(),
+        )
+
+    def test_approve_refuses_a_missing_caller(self):
+        with self.assertRaises(PermissionDenied):
+            ExchangeService.approve(self.request_row, None)
+        self.request_row.refresh_from_db()
+        self.assertEqual(self.request_row.status, ExchangeRequest.Status.PENDING)
+
+    def test_approve_still_accepts_a_parent(self):
+        result = ExchangeService.approve(self.request_row, self.parent)
+        self.assertEqual(result.status, ExchangeRequest.Status.APPROVED)
+        self.assertTrue(CoinLedger.objects.filter(user=self.child).exists())
