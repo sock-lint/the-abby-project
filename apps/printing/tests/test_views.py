@@ -21,6 +21,8 @@ Invariants this file exists to protect:
    appear anywhere in a response.
 8. The live status endpoint reads the listener's cache, so a cold cache is a
    clean ``connected: false`` rather than an error or a second MQTT socket.
+9. Housekeeping on unmatched prints is parent-only, and neither dismissing nor
+   deleting can take a running print or a child's linked record with it.
 """
 from __future__ import annotations
 
@@ -39,6 +41,7 @@ from apps.printing.models import (
     PrintBudgetLedger,
     PrinterProfile,
     PrintJob,
+    PrintJobEvent,
     PrintRequest,
 )
 from apps.printing.services import PrintRequestService
@@ -895,3 +898,137 @@ class PrinterProfileViewTests(_ApiFixture):
         self.assertTrue(body["connected"])
         self.assertEqual(body["live"]["percent"], 42)
         self.assertEqual(body["job"]["id"], job.id)
+
+
+class PrintJobHousekeepingTests(_ApiFixture):
+    """Dismiss and delete: the two ways a parent clears the unlinked panel.
+
+    Every print a parent runs for themselves lands in that panel, so without
+    these it only ever grows. The interesting half is what they refuse.
+    """
+
+    def test_a_parent_dismisses_an_unmatched_job_out_of_the_panel(self):
+        job = self.make_job(open_=False)
+        self.client.force_authenticate(self.parent)
+
+        resp = self.client.post(f"/api/print-jobs/{job.id}/dismiss/")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertIsNotNone(resp.json()["dismissed_at"])
+
+        job.refresh_from_db()
+        self.assertEqual(job.dismissed_by, self.parent)
+        # Hidden from the panel, but still very much a row.
+        ids = [row["id"] for row in rows(
+            self.client.get("/api/print-jobs/?unlinked=true"))]
+        self.assertNotIn(job.id, ids)
+        self.assertTrue(PrintJob.objects.filter(pk=job.pk).exists())
+
+    def test_a_dismissed_job_is_findable_and_restorable(self):
+        # A dismiss nobody can undo is just a delete that lies about it.
+        job = self.make_job(open_=False)
+        self.client.force_authenticate(self.parent)
+        self.client.post(f"/api/print-jobs/{job.id}/dismiss/")
+
+        shown = [row["id"] for row in rows(
+            self.client.get("/api/print-jobs/?unlinked=true&dismissed=true"))]
+        self.assertIn(job.id, shown)
+
+        resp = self.client.post(f"/api/print-jobs/{job.id}/restore/")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertIsNone(resp.json()["dismissed_at"])
+        self.assertIn(job.id, [row["id"] for row in rows(
+            self.client.get("/api/print-jobs/?unlinked=true"))])
+
+    def test_dismissing_twice_keeps_the_first_stamp(self):
+        job = self.make_job(open_=False)
+        self.client.force_authenticate(self.parent)
+        first = self.client.post(f"/api/print-jobs/{job.id}/dismiss/").json()
+        second = self.client.post(f"/api/print-jobs/{job.id}/dismiss/").json()
+        self.assertEqual(first["dismissed_at"], second["dismissed_at"])
+
+    def test_a_parent_deletes_an_unmatched_job_and_its_timeline(self):
+        job = self.make_job(open_=False)
+        PrintJobEvent.objects.create(
+            job=job, kind=PrintJobEvent.Kind.STARTED, message="Started",
+        )
+        self.client.force_authenticate(self.parent)
+
+        resp = self.client.delete(f"/api/print-jobs/{job.id}/")
+        self.assertEqual(resp.status_code, 204, resp.content)
+        self.assertFalse(PrintJob.objects.filter(pk=job.pk).exists())
+        self.assertFalse(PrintJobEvent.objects.filter(job_id=job.pk).exists())
+
+    def test_deleting_a_job_never_refunds_the_filament_it_burned(self):
+        # PrintBudgetLedger.job is SET_NULL on purpose: the debit is a fact
+        # about the month, not about the row that caused it. If this ever
+        # became CASCADE, clearing the panel would silently hand back a
+        # month's budget.
+        request = self.approved_request(self.child)
+        job = self.make_job(request=request, subtask_name=request.slug, open_=False)
+        PrintBudgetService.record(
+            self.child, grams=Decimal("40.00"), minutes=30,
+            reason=PrintBudgetLedger.Reason.PRINT_COMPLETED,
+            request=request, job=job,
+        )
+        before = PrintBudgetService.get_usage(self.child)["grams"]
+
+        job.request = None
+        job.save(update_fields=["request"])
+        self.client.force_authenticate(self.parent)
+        self.assertEqual(self.client.delete(f"/api/print-jobs/{job.id}/").status_code,
+                         204)
+
+        self.assertEqual(PrintBudgetLedger.objects.count(), 1)
+        self.assertEqual(PrintBudgetService.get_usage(self.child)["grams"], before)
+
+    def test_neither_action_touches_a_print_that_is_still_running(self):
+        job = self.make_job()  # open
+        self.client.force_authenticate(self.parent)
+
+        dismissed = self.client.post(f"/api/print-jobs/{job.id}/dismiss/")
+        self.assertEqual(dismissed.status_code, 400)
+        self.assertIn("still running", dismissed.json()["error"])
+
+        deleted = self.client.delete(f"/api/print-jobs/{job.id}/")
+        self.assertEqual(deleted.status_code, 400)
+        self.assertTrue(PrintJob.objects.filter(pk=job.pk).exists())
+
+    def test_neither_action_touches_a_job_linked_to_a_request(self):
+        # That row is a child's record of their print. Unlinking first is the
+        # deliberate second act that makes losing it a choice.
+        request = self.approved_request(self.child)
+        job = self.make_job(request=request, subtask_name=request.slug, open_=False)
+        self.client.force_authenticate(self.parent)
+
+        dismissed = self.client.post(f"/api/print-jobs/{job.id}/dismiss/")
+        self.assertEqual(dismissed.status_code, 400)
+        self.assertIn("Unlink it first", dismissed.json()["error"])
+
+        deleted = self.client.delete(f"/api/print-jobs/{job.id}/")
+        self.assertEqual(deleted.status_code, 400)
+        self.assertTrue(PrintJob.objects.filter(pk=job.pk).exists())
+
+    def test_a_child_can_neither_dismiss_nor_delete(self):
+        job = self.make_job(open_=False)
+        self.client.force_authenticate(self.child)
+        self.assertEqual(
+            self.client.post(f"/api/print-jobs/{job.id}/dismiss/").status_code, 403,
+        )
+        # A child cannot even see an unmatched job, so the delete 404s before
+        # the role check — either way the row survives, which is the point.
+        self.assertIn(self.client.delete(f"/api/print-jobs/{job.id}/").status_code,
+                      (403, 404))
+        self.assertTrue(PrintJob.objects.filter(pk=job.pk).exists())
+
+    def test_a_parent_cannot_reach_another_household_s_job(self):
+        outsider = self.make_job(open_=False)
+        neighbours = make_family("Neighbours", parents=[{"username": "nextdoor"}])
+        self.client.force_authenticate(neighbours.parents[0])
+        self.assertEqual(
+            self.client.post(f"/api/print-jobs/{outsider.id}/dismiss/").status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.delete(f"/api/print-jobs/{outsider.id}/").status_code, 404,
+        )
+        self.assertTrue(PrintJob.objects.filter(pk=outsider.pk).exists())

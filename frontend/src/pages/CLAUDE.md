@@ -117,7 +117,15 @@ the frontend half is under [`pages/forge/`](/frontend/src/pages/forge/):
   clients total, shared with Studio / Handy / Home Assistant.
 - `UnlinkedJobsPanel.jsx` — parent-only Handy escape hatch. Picker is filtered to
   `LINKABLE_REQUEST_STATUSES` so a rejected or cancelled request can never
-  absorb a print.
+  absorb a print. It also has to be *emptyable* — every print a parent runs
+  for themselves lands here and matches nothing — so each row carries
+  **Dismiss** (soft hide, reversible from the "Show N cleared prints" toggle)
+  and **Delete** (irreversible, behind a `ConfirmDialog`). The page fetches
+  the cleared rows as a second `listPrintJobs({unlinked, dismissed})` call
+  rather than a flag on the first, so the default list stays exactly what
+  needs attention. The server refuses both actions on a running or linked
+  job; the panel renders that refusal in its `ErrorAlert` rather than
+  no-op'ing.
 - `PrinterConfigPanel.jsx` — parent-only printer registry. Credentials are
   write-only; blank fields on an edit mean "keep what is stored". The server
   refuses an incomplete printer, so a 400 comes back keyed by field

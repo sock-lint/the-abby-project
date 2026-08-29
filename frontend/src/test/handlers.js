@@ -355,7 +355,8 @@ export const handlers = [
   http.get('*/api/print-jobs/', () =>
     HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
   ),
-  http.post(/\/api\/print-jobs\/\d+\/(link|unlink)\/$/, () => HttpResponse.json({ id: 1 })),
+  http.post(/\/api\/print-jobs\/\d+\/(link|unlink|dismiss|restore)\/$/, () => HttpResponse.json({ id: 1 })),
+  http.delete(/\/api\/print-jobs\/\d+\/$/, () => new HttpResponse(null, { status: 204 })),
 
   http.get(/\/api\/print-budgets\/\d+\/ledger\/$/, empty),
   http.get('*/api/print-budgets/', () =>

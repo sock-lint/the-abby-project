@@ -604,6 +604,25 @@ class PrintJob(TimestampedModel):
     )
     failure_severity = models.CharField(max_length=16, blank=True)
 
+    # --- Housekeeping -----------------------------------------------------
+    dismissed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Set when a parent clears an unmatched print out of the Forge's "
+            "'Prints without a request' panel. A soft hide, not a delete: the "
+            "job and its timeline stay for diagnosis, and clearing this field "
+            "puts it back in the panel."
+        ),
+    )
+    dismissed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
     # --- Budget close-out -------------------------------------------------
     grams_debited = models.DecimalField(
         max_digits=7, decimal_places=2, null=True, blank=True,

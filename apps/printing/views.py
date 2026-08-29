@@ -15,6 +15,7 @@ targets a child by id.
 from __future__ import annotations
 
 from django.db.models import Prefetch
+from django.utils import timezone
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -245,13 +246,25 @@ class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         })
 
 
-class PrintJobViewSet(viewsets.ReadOnlyModelViewSet):
+class PrintJobViewSet(mixins.DestroyModelMixin, viewsets.ReadOnlyModelViewSet):
     """`/api/print-jobs/` — what the printer actually did.
 
     Not ``RoleFilteredQuerySetMixin``: an unmatched job has ``user=None``, and
     the mixin's parent filter (``user__family=…``) would hide exactly the rows
     a parent needs to see in order to link them. Parents scope by the
     printer's family instead; children still see only their own.
+
+    **Housekeeping.** Every print a parent runs for themselves lands in the
+    Forge's unlinked panel and, without a way out, stays there forever — so
+    ``dismiss`` soft-hides one and ``destroy`` removes it outright. Both are
+    parent-only and both refuse a job that is still open or that belongs to a
+    request: the panel is for prints *without* one, and a parent who really
+    means it can ``unlink`` first, which is a deliberate second act rather
+    than an accident. That guard also means a destroyed job can never have
+    been debited — only a linked job reaches ``close_out``. Even if one
+    somehow were, ``PrintBudgetLedger.job`` is ``SET_NULL``, so the filament
+    debit outlives the row it came from and deleting can never silently
+    refund a month's budget.
     """
 
     serializer_class = PrintJobSerializer
@@ -273,10 +286,25 @@ class PrintJobViewSet(viewsets.ReadOnlyModelViewSet):
         else:
             qs = qs.filter(user=user)
 
+        # Query params narrow a *list*; they must never narrow an object
+        # lookup. get_object() runs through here too, so filtering
+        # unconditionally would 404 the very rows the detail routes exist to
+        # act on — most sharply `restore`, whose whole job is to reach a
+        # dismissed one.
+        if self.action != "list":
+            return qs
+
         if self.request.query_params.get("unlinked") == "true":
             qs = qs.filter(request__isnull=True)
         if self.request.query_params.get("open") == "true":
             qs = qs.filter(finished_at__isnull=True)
+        # Dismissed rows are hidden by default and only ever returned when
+        # asked for by name, so the panel can offer "show what I cleared"
+        # without the default list quietly growing again.
+        if self.request.query_params.get("dismissed") == "true":
+            qs = qs.filter(dismissed_at__isnull=False)
+        else:
+            qs = qs.filter(dismissed_at__isnull=True)
         return qs
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
@@ -305,6 +333,65 @@ class PrintJobViewSet(viewsets.ReadOnlyModelViewSet):
         except PrintRequestError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(PrintJobSerializer(job).data)
+
+    def _refuse_housekeeping(self, job):
+        """Why this job may not be dismissed or deleted, or ``None``.
+
+        Two refusals, both about not losing something that still matters:
+        an open job is a print happening right now, and a linked job is a
+        child's record of it.
+        """
+        if job.is_open:
+            return "That print is still running — wait for it to finish."
+        if job.request_id is not None:
+            return (
+                "That print belongs to a request. Unlink it first if you "
+                "really want it gone."
+            )
+        return None
+
+    @action(detail=True, methods=["post"], permission_classes=[IsParent])
+    def dismiss(self, request, pk=None):
+        """Clear an unmatched print out of the Forge panel, reversibly.
+
+        A soft hide: the job row and its timeline stay exactly where they
+        are, so "what did the printer do on the 12th" is still answerable.
+        ``restore`` is the way back, which is what makes this worth having
+        rather than just deleting.
+        """
+        job = self.get_object()
+        refusal = self._refuse_housekeeping(job)
+        if refusal:
+            return Response({"error": refusal}, status=status.HTTP_400_BAD_REQUEST)
+
+        if job.dismissed_at is None:  # idempotent: keep the first stamp
+            job.dismissed_at = timezone.now()
+            job.dismissed_by = request.user
+            job.save(update_fields=["dismissed_at", "dismissed_by", "updated_at"])
+        return Response(PrintJobSerializer(job).data)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsParent])
+    def restore(self, request, pk=None):
+        """Put a dismissed print back in the panel."""
+        job = self.get_object()
+        if job.dismissed_at is not None:
+            job.dismissed_at = None
+            job.dismissed_by = None
+            job.save(update_fields=["dismissed_at", "dismissed_by", "updated_at"])
+        return Response(PrintJobSerializer(job).data)
+
+    def destroy(self, request, *args, **kwargs):
+        """Remove an unmatched print for good, timeline included."""
+        if request.user.role != "parent":
+            return Response(
+                {"error": "Only a parent can delete a print."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        job = self.get_object()
+        refusal = self._refuse_housekeeping(job)
+        if refusal:
+            return Response({"error": refusal}, status=status.HTTP_400_BAD_REQUEST)
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def unlink(self, request, pk=None):

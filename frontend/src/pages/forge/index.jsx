@@ -93,6 +93,19 @@ export default function Forge() {
   );
   const { data: jobsData, reload: reloadJobs } = useApi(fetchJobs, [isParent]);
 
+  // Dismissed rows are a second fetch rather than a flag on the first: the
+  // panel's default list must stay exactly what needs attention, and the
+  // cleared ones are only rendered behind a toggle.
+  const fetchDismissed = useCallback(
+    () => (isParent
+      ? listPrintJobs({ unlinked: true, dismissed: true })
+      : Promise.resolve([])),
+    [isParent],
+  );
+  const { data: dismissedData, reload: reloadDismissed } = useApi(
+    fetchDismissed, [isParent],
+  );
+
   const open = useMemo(() => normalizeList(openData), [openData]);
   const closed = useMemo(() => normalizeList(closedData), [closedData]);
   // The linker needs every request a job may bind to, which spans both lists.
@@ -103,6 +116,7 @@ export default function Forge() {
   const budgets = useMemo(() => normalizeList(budgetsData), [budgetsData]);
   const printers = useMemo(() => normalizeList(printersData), [printersData]);
   const unlinkedJobs = useMemo(() => normalizeList(jobsData), [jobsData]);
+  const dismissedJobs = useMemo(() => normalizeList(dismissedData), [dismissedData]);
 
   const pending = open.filter((r) => r.status === 'pending');
   const printingCount = open.filter((r) => r.status === 'printing').length;
@@ -243,8 +257,10 @@ export default function Forge() {
             <ChapterRubric index={nextRubric()} name="Prints without a request" />
             <UnlinkedJobsPanel
               jobs={unlinkedJobs}
+              dismissedJobs={dismissedJobs}
               requests={requests}
-              onLinked={() => { reloadJobs(); reload(); }}
+              onLinked={() => { reloadJobs(); reloadDismissed(); reload(); }}
+              onChanged={() => { reloadJobs(); reloadDismissed(); }}
             />
           </section>
         )}
