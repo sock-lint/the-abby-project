@@ -26,19 +26,19 @@ export default function QuickActionsFab() {
   const { data: status, reload: reloadStatus } = useApi(getClockStatus);
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const [bouncing, setBouncing] = useState(false);
-
   const storedVal = localStorage.getItem(STORAGE_KEYS.FAB_ONBOARDED);
   const visitCount = storedVal === 'done' ? Infinity : Number(storedVal || '0');
   const [showHint, setShowHint] = useState(() => visitCount < 3);
+  // Whether to bounce is known at first render, so seed it rather than
+  // switching it on from an effect — which cost a second render pass and
+  // started the animation a frame late. The effect owns only the stop timer.
+  const [bouncing, setBouncing] = useState(() => visitCount < 2);
 
   useEffect(() => {
-    if (visitCount < 2) {
-      setBouncing(true);
-      const timer = setTimeout(() => setBouncing(false), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!bouncing) return undefined;
+    const timer = setTimeout(() => setBouncing(false), 2000);
+    return () => clearTimeout(timer);
+  }, [bouncing]);
 
   const isClocked = status && status.status === 'active';
   const clockInAt = isClocked ? status?.clock_in : null;

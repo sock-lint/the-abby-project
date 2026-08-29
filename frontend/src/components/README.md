@@ -57,6 +57,10 @@ Promote to `components/cards/` only when a **second** page imports it. Until the
 
 Do not pre-emptively promote a card that has only one importer. The cost of moving is small; the cost of premature abstraction is real.
 
+#### Provider contexts live beside the provider, in a `.js` file
+
+`react-refresh/only-export-components` forbids non-component exports from a `.jsx` file, and a React context plus its `use*` hook are exactly that. So a provider ships as two files: `XProvider.jsx` exporting only the component, and a sibling `x.context.js` holding `createContext` + the hook. Current pairs: [`providers/SpriteCatalogProvider.jsx`](../providers/SpriteCatalogProvider.jsx) + [`providers/spriteCatalog.context.js`](../providers/spriteCatalog.context.js), and [`pwa/PwaStatusProvider.jsx`](./pwa/PwaStatusProvider.jsx) + [`pwa/pwaStatus.context.js`](./pwa/pwaStatus.context.js). Import the hook from the `.context.js` module, never re-export it from the `.jsx` — that re-triggers the rule.
+
 #### Per-area shared constants
 
 When a page-area has constants used by both a parent and an extracted card (e.g. XP thresholds, type orderings), house them in a sibling `.constants.js` file rather than exporting from the parent component file. ESLint's `react-refresh/only-export-components` rule forbids non-component exports from a `.jsx` component file; using a separate `.constants.js` keeps both the lint rule happy and the constant in lockstep across consumers.

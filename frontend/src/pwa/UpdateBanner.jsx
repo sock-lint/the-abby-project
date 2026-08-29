@@ -1,5 +1,5 @@
 import { RefreshCw } from 'lucide-react';
-import { usePwaStatus } from './PwaStatusProvider';
+import { usePwaStatus } from './pwaStatus.context';
 
 /**
  * UpdateBanner — a thin top banner shown when a new service worker is

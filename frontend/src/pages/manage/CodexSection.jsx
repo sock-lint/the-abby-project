@@ -4,7 +4,7 @@ import {
   fetchSpriteAdminList,
 } from '../../api';
 import { useApi } from '../../hooks/useApi';
-import { useSpriteCatalog } from '../../providers/SpriteCatalogProvider';
+import { useSpriteCatalog } from '../../providers/spriteCatalog.context';
 import BottomSheet from '../../components/BottomSheet';
 import Button from '../../components/Button';
 import ParchmentCard from '../../components/journal/ParchmentCard';

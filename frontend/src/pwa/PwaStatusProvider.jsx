@@ -1,9 +1,8 @@
-import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { registerSW } from 'virtual:pwa-register';
 
 import { STORAGE_KEYS } from '../constants/storage';
-
-const noop = () => {};
+import { PwaStatusContext } from './pwaStatus.context';
 
 // Safety-net delay: if `controllerchange` hasn't fired by then, force the
 // reload anyway. iOS Safari PWAs and some Android browsers don't reliably
@@ -47,13 +46,6 @@ function markReloadAttempt() {
     // ignore
   }
 }
-
-export const PwaStatusContext = createContext({
-  updateReady: false,
-  offlineReady: false,
-  applyUpdate: noop,
-  dismissOfflineReady: noop,
-});
 
 export function PwaStatusProvider({ children }) {
   const [updateReady, setUpdateReady] = useState(false);
@@ -121,6 +113,3 @@ export function PwaStatusProvider({ children }) {
   );
 }
 
-export function usePwaStatus() {
-  return useContext(PwaStatusContext);
-}

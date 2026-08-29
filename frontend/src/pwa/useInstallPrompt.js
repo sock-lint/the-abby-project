@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 function detectStandalone() {
   if (typeof window === 'undefined') return false;
@@ -33,20 +33,22 @@ function readStashedPrompt() {
 
 export function InstallPromptProvider({ children }) {
   const stashed = readStashedPrompt();
-  const [canInstall, setCanInstall] = useState(Boolean(stashed));
+  // The deferred event is held in state, not a ref. Its presence IS
+  // `canInstall`, so a ref plus a mirrored boolean was two sources for one
+  // fact — and a callback closing over the ref trips react-hooks/refs, which
+  // cannot prove the ref is never read during render.
+  const [promptEvent, setPromptEvent] = useState(stashed);
   const [isStandalone, setIsStandalone] = useState(detectStandalone);
-  const eventRef = useRef(stashed);
+  const canInstall = Boolean(promptEvent);
 
   useEffect(() => {
     function onBeforeInstallPrompt(event) {
       event.preventDefault();
-      eventRef.current = event;
-      setCanInstall(true);
+      setPromptEvent(event);
     }
     function onAppInstalled() {
-      eventRef.current = null;
       if (typeof window !== 'undefined') window.__deferredInstallPrompt = null;
-      setCanInstall(false);
+      setPromptEvent(null);
       setIsStandalone(true);
     }
     window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
@@ -58,21 +60,20 @@ export function InstallPromptProvider({ children }) {
   }, []);
 
   const install = useCallback(async () => {
-    const event = eventRef.current;
-    if (!event) return { outcome: 'dismissed' };
-    await event.prompt();
-    const choice = await event.userChoice;
-    eventRef.current = null;
+    if (!promptEvent) return { outcome: 'dismissed' };
+    await promptEvent.prompt();
+    const choice = await promptEvent.userChoice;
     if (typeof window !== 'undefined') window.__deferredInstallPrompt = null;
-    setCanInstall(false);
+    setPromptEvent(null);
     return choice;
-  }, []);
+  }, [promptEvent]);
 
-  return React.createElement(
-    InstallPromptContext.Provider,
-    { value: { canInstall, install, isStandalone } },
-    children,
+  const value = useMemo(
+    () => ({ canInstall, install, isStandalone }),
+    [canInstall, install, isStandalone],
   );
+
+  return React.createElement(InstallPromptContext.Provider, { value }, children);
 }
 
 /**

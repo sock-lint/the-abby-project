@@ -56,15 +56,14 @@ export default function Yearbook() {
     }
   }, [isParent])
 
+  // A parent with no child selected, or a child with no birthday on file,
+  // has nothing to fetch. Deriving that at render — rather than writing the
+  // resolved-empty shape into state from the effect — keeps the effect free
+  // of a synchronous setState, which cost a render pass every time.
+  const canFetch = isParent ? Boolean(targetUserId) : Boolean(user?.date_of_birth)
+
   const fetchSummary = () => {
-    if (isParent && !targetUserId) {
-      setState({ loading: false, chapters: [], error: null })
-      return
-    }
-    if (!isParent && !user?.date_of_birth) {
-      setState({ loading: false, chapters: [], error: null })
-      return
-    }
+    if (!canFetch) return
     getChronicleSummary(isParent ? targetUserId : undefined)
       .then((res) => {
         const chapters = res?.chapters ?? []
@@ -74,15 +73,8 @@ export default function Yearbook() {
   }
 
   useEffect(() => {
+    if (!canFetch) return undefined
     let cancelled = false
-    if (isParent && !targetUserId) {
-      setState({ loading: false, chapters: [], error: null })
-      return undefined
-    }
-    if (!isParent && !user?.date_of_birth) {
-      setState({ loading: false, chapters: [], error: null })
-      return undefined
-    }
     getChronicleSummary(isParent ? targetUserId : undefined)
       .then((res) => {
         if (cancelled) return
@@ -95,14 +87,16 @@ export default function Yearbook() {
     return () => {
       cancelled = true
     }
-  }, [targetUserId, isParent, user?.id, user?.date_of_birth])
+  }, [canFetch, targetUserId, isParent, user?.id, user?.date_of_birth])
 
   // Sort chronologically so §I → §N reads left-to-right on the shelf, with
   // the current chapter on the right edge — same as flipping through a
   // book's spines.
+  const view = canFetch ? state : { loading: false, chapters: [], error: null }
+
   const sortedChapters = useMemo(
-    () => [...(state.chapters || [])].sort((a, b) => a.chapter_year - b.chapter_year),
-    [state.chapters],
+    () => [...(view.chapters || [])].sort((a, b) => a.chapter_year - b.chapter_year),
+    [view.chapters],
   )
 
   // Effective active chapter id — derived during render, per child.
@@ -158,12 +152,12 @@ export default function Yearbook() {
     sortedChapters.find((c) => String(c.chapter_year) === activeChapterId)
     || sortedChapters[sortedChapters.length - 1]
 
-  if (state.loading) return <Loader />
+  if (view.loading) return <Loader />
 
-  if (state.error) {
+  if (view.error) {
     return (
       <div className="space-y-3 max-w-xl mx-auto">
-        <ErrorAlert message={state.error?.message || 'Could not load the yearbook.'} />
+        <ErrorAlert message={view.error?.message || 'Could not load the yearbook.'} />
         <Button variant="secondary" size="sm" onClick={fetchSummary}>
           Try again
         </Button>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { http, HttpResponse } from 'msw';
+import { HttpResponse } from 'msw';
 import { renderWithProviders, screen, waitFor } from '../test/render';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
