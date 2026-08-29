@@ -79,14 +79,11 @@ export default function ReviewStep({
 
       <div className="flex gap-2">
         <Button onClick={onCommit} disabled={committing} className="flex-1">
-          {committing ? 'Creating…' : 'Create Project'}
+          {committing ? 'Creating…' : 'Create venture'}
         </Button>
-        <button
-          onClick={onDiscard}
-          className="px-4 py-2.5 rounded-lg border border-ink-page-shadow text-sm text-ink-whisper"
-        >
+        <Button variant="secondary" onClick={onDiscard}>
           Discard
-        </button>
+        </Button>
       </div>
     </div>
   );

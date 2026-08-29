@@ -2,7 +2,7 @@ import { createBadge, updateBadge } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
-import Button from '../../components/Button';
+import ModalActions from '../../components/ModalActions';
 import { TextField, SelectField, TextAreaField } from '../../components/form';
 
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
@@ -63,7 +63,7 @@ export default function BadgeFormModal({ item, subjects, onClose, onSaved }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} required />
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <TextField label="Icon" value={form.icon} onChange={onField('icon')} />
           <SelectField label="Rarity" value={form.rarity} onChange={onField('rarity')}>
             {RARITIES.map((r) => (
@@ -89,12 +89,11 @@ export default function BadgeFormModal({ item, subjects, onClose, onSaved }) {
           onChange={onField('criteria_value')}
           placeholder='{"count": 5}'
         />
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-          <Button type="submit" size="sm" loading={saving}>
-            {isEdit ? 'Update' : 'Create'}
-          </Button>
-        </div>
+        <ModalActions
+          onClose={onClose}
+          saving={saving}
+          submitLabel={isEdit ? 'Update' : 'Create'}
+        />
       </form>
     </BottomSheet>
   );

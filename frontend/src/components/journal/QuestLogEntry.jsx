@@ -47,7 +47,7 @@ export default function QuestLogEntry({
 
   return (
     <li
-      className={`group relative flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors
+      className={`group relative rounded-xl border transition-colors
         ${processing
           ? 'bg-sheikah-teal/5 border-sheikah-teal/40 opacity-75'
           : done
@@ -59,55 +59,67 @@ export default function QuestLogEntry({
           : 'bg-ink-page border-ink-page-shadow hover:border-sheikah-teal/60'
         } ${className}`}
     >
-      {/* Leading check-glyph */}
+      {/*
+        The whole row is the button. The 28px check-glyph used to be the only
+        hit area on the most-tapped control in the kids' daily loop — a tap on
+        the title (the obvious target) did nothing. Wrapping the row keeps a
+        single control per row, so the accessible name stays "Complete {title}"
+        and the row clears the app's 44px tap floor on its own height.
+      */}
       <button
         type="button"
         onClick={!locked && !processing ? handleAction : undefined}
         disabled={locked || processing}
         aria-label={done ? 'Completed' : processing ? `Processing ${title}` : actionLabel || `Complete ${title}`}
-        className={`flex-shrink-0 w-7 h-7 rounded-full border flex items-center justify-center transition-all
-          ${done
-            ? 'bg-moss border-moss text-ink-page-rune-glow'
-            : processing
-            ? 'border-sheikah-teal animate-pulse'
-            : overdue
-            ? 'border-ember/70 hover:bg-ember/20'
-            : locked
-            ? 'border-ink-page-shadow cursor-not-allowed'
-            : 'border-sheikah-teal/60 hover:bg-sheikah-teal/15 hover:border-sheikah-teal'
-          }`}
+        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left min-h-11 disabled:cursor-not-allowed"
       >
-        {done ? <Check size={14} strokeWidth={3} /> : processing ? <Loader2 size={14} className="animate-spin text-sheikah-teal-deep" /> : null}
-      </button>
+        {/* Leading check-glyph — decorative now that the row carries the label. */}
+        <span
+          aria-hidden="true"
+          className={`flex-shrink-0 w-7 h-7 rounded-full border flex items-center justify-center transition-all
+            ${done
+              ? 'bg-moss border-moss text-ink-page-rune-glow'
+              : processing
+              ? 'border-sheikah-teal animate-pulse'
+              : overdue
+              ? 'border-ember/70 group-hover:bg-ember/20'
+              : locked
+              ? 'border-ink-page-shadow'
+              : 'border-sheikah-teal/60 group-hover:bg-sheikah-teal/15 group-hover:border-sheikah-teal'
+            }`}
+        >
+          {done ? <Check size={14} strokeWidth={3} /> : processing ? <Loader2 size={14} className="animate-spin text-sheikah-teal-deep" /> : null}
+        </span>
 
-      {/* Body */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          {icon ? <span className="flex-shrink-0 text-ink-secondary">{icon}</span> : null}
-          <span
-            className={`font-body font-semibold text-body truncate ${done ? 'line-through opacity-70' : ''}`}
-          >
-            {title}
+        {/* Body */}
+        <span className="flex-1 min-w-0 block">
+          <span className="flex items-center gap-2 flex-wrap">
+            {icon ? <span className="flex-shrink-0 text-ink-secondary">{icon}</span> : null}
+            <span
+              className={`font-body font-semibold text-body truncate ${done ? 'line-through opacity-70' : ''}`}
+            >
+              {title}
+            </span>
+            {kind ? (
+              <RuneBadge tone={tone} size="sm">
+                {kind}
+              </RuneBadge>
+            ) : null}
           </span>
-          {kind ? (
-            <RuneBadge tone={tone} size="sm">
-              {kind}
-            </RuneBadge>
+          {meta ? (
+            <span className="text-caption font-script text-ink-whisper mt-0.5 truncate block">
+              {meta}
+            </span>
           ) : null}
-        </div>
-        {meta ? (
-          <div className="text-caption font-script text-ink-whisper mt-0.5 truncate">
-            {meta}
-          </div>
-        ) : null}
-      </div>
+        </span>
 
-      {/* Reward tag */}
-      {reward ? (
-        <div className="flex-shrink-0 font-rune text-caption text-ember-deep pl-2">
-          {reward}
-        </div>
-      ) : null}
+        {/* Reward tag */}
+        {reward ? (
+          <span className="flex-shrink-0 font-rune text-caption text-ember-deep pl-2">
+            {reward}
+          </span>
+        ) : null}
+      </button>
     </li>
   );
 }

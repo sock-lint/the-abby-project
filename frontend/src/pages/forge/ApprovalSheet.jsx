@@ -36,6 +36,11 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
   const [error, setError] = useState('');
   const [conflict, setConflict] = useState(null); // { problems, budget }
   const [approved, setApproved] = useState(null); // the saved request
+  // Rejecting a print is final for that request, and the two buttons sit side
+  // by side under a thumb. Every other reject in the app (dashboard approval
+  // queue, chores) asks once more with a note field before it fires, so this
+  // one does too rather than being a single irreversible tap.
+  const [confirmingReject, setConfirmingReject] = useState(false);
 
   const numeric = (value) => {
     const trimmed = (value ?? '').toString().trim();
@@ -84,6 +89,51 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
       setBusy(false);
     }
   };
+
+  if (confirmingReject) {
+    return (
+      <BottomSheet
+        title={`Reject “${request.title}”?`}
+        onClose={busy ? undefined : () => setConfirmingReject(false)}
+        disabled={busy}
+      >
+        <div className="space-y-3">
+          <p className="font-body text-body text-ink-secondary">
+            This closes the request. They can always ask again with a different
+            model or a smaller print.
+          </p>
+          <TextAreaField
+            id="forge-reject-notes"
+            label="Note for them (optional)"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value.slice(0, 2000))}
+            placeholder="e.g. too much filament this month — try after the 1st"
+            rows={3}
+            helpText="Shows up in their notification feed."
+          />
+          {error && <ErrorAlert message={error} />}
+          <div className="flex gap-2 pt-1">
+            <Button
+              variant="secondary"
+              onClick={() => setConfirmingReject(false)}
+              disabled={busy}
+              className="flex-1"
+            >
+              Keep it pending
+            </Button>
+            <Button
+              variant="danger"
+              onClick={doReject}
+              loading={busy}
+              className="flex-1"
+            >
+              {busy ? <span>Rejecting…</span> : 'Reject'}
+            </Button>
+          </div>
+        </div>
+      </BottomSheet>
+    );
+  }
 
   if (approved) {
     return (
@@ -142,7 +192,7 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
           label="Note (optional)"
           value={notes}
           onChange={(e) => setNotes(e.target.value.slice(0, 2000))}
-          placeholder="Shared with her either way."
+          placeholder="Shared with them either way."
           rows={2}
         />
 
@@ -184,7 +234,7 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
         <div className="flex gap-2 pt-1">
           <Button
             variant="danger"
-            onClick={doReject}
+            onClick={() => { setError(''); setConfirmingReject(true); }}
             disabled={busy}
             className="flex-1"
           >

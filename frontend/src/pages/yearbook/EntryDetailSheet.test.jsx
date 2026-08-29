@@ -42,7 +42,13 @@ describe('EntryDetailSheet', () => {
       />,
     )
     const dialog = screen.getByRole('dialog', { name: /rode bike/i })
-    expect(within(dialog).getByText('2026-04-21')).toBeInTheDocument()
+    // A memoir surface reads the reader's own date format, never the raw
+    // DRF "YYYY-MM-DD" — and the date-only string parses as a LOCAL day, so
+    // it never renders as the evening before.
+    expect(
+      within(dialog).getByText(new Date(2026, 3, 21).toLocaleDateString()),
+    ).toBeInTheDocument()
+    expect(within(dialog).queryByText('2026-04-21')).toBeNull()
     expect(within(dialog).getByText('Big day')).toBeInTheDocument()
   })
 

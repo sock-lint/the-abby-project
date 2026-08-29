@@ -533,8 +533,13 @@ h1, h2, h3, h4 {
   padding-bottom: 2px;
 }
 
-/* Mobile touch optimizations */
-@media (max-width: 768px) {
+/* Touch optimizations. Gated on the primary pointer being coarse rather than
+   on viewport width: an iPad in portrait is 820-1024px wide and missed the
+   old max-width:768px query entirely, so kids on tablets got the default gray
+   tap-highlight flash on every button press in an app whose whole interaction
+   vocabulary is tapping. `pointer: coarse` reports the primary input device,
+   so a touchscreen laptop driven by a trackpad still reads as `fine`. */
+@media (pointer: coarse) {
   button, a, [role="button"] {
     -webkit-tap-highlight-color: transparent;
   }

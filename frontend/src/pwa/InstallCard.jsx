@@ -3,10 +3,25 @@ import ParchmentCard from '../components/journal/ParchmentCard';
 import Button from '../components/Button';
 import { useInstallPrompt } from './useInstallPrompt';
 
+// iPadOS 13+ Safari reports a desktop-class "Macintosh; Intel Mac OS X" user
+// agent, so a UA sniff alone can't tell an iPad from a Mac. maxTouchPoints is
+// the standard tiebreaker: real Macs report 0, iPads report 5. Without this
+// every modern iPad fell through both the iOS and the Android branch onto the
+// "your browser doesn't support installing this app" fallback — and iPads
+// never fire beforeinstallprompt either, so nothing else rescued them.
+function isIpadOs() {
+  if (typeof window === 'undefined') return false;
+  const nav = window.navigator;
+  return /Macintosh/.test(nav.userAgent) && (nav.maxTouchPoints || 0) > 1;
+}
+
 function isIosSafari() {
   if (typeof window === 'undefined') return false;
   const ua = window.navigator.userAgent;
-  return /iPhone|iPad|iPod/.test(ua) && /Safari/.test(ua) && !/CriOS|FxiOS/.test(ua);
+  if (!/iPhone|iPad|iPod/.test(ua) && !isIpadOs()) return false;
+  // Chrome/Firefox on iOS are WebKit wrappers that can't Add to Home Screen
+  // from the share sheet the same way; they keep the generic fallback.
+  return /Safari/.test(ua) && !/CriOS|FxiOS/.test(ua);
 }
 
 function isAndroidChrome() {
@@ -28,7 +43,7 @@ function isAndroidChrome() {
  * relevant cases:
  *   1. Already installed → render nothing
  *   2. Any browser with a captured beforeinstallprompt → button
- *   3. iOS Safari (which never fires beforeinstallprompt) → instructions
+ *   3. iOS/iPadOS Safari (which never fires beforeinstallprompt) → instructions
  *   4. Android Chrome without beforeinstallprompt → menu instructions
  *   5. Anything else → soft fallback message
  */
@@ -65,7 +80,7 @@ export default function InstallCard() {
         <div className="flex items-start gap-2 rounded-md border border-ink-whisper/30 bg-ink-page-aged/40 px-3 py-2 text-caption text-ink-secondary">
           <Share size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>
-            On iPhone: tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.
+            On iPhone or iPad: tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.
           </span>
         </div>
       )}

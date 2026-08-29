@@ -200,7 +200,10 @@ function CreateGoalSheet({ onClose, onCreated }) {
           placeholder="🧱"
           maxLength={4}
         />
-        {error && <ErrorAlert>{error}</ErrorAlert>}
+        {/* ErrorAlert renders its `message` prop and nothing else — passing
+            the text as children made submit failures render as literally
+            nothing and the sheet just sat there. */}
+        <ErrorAlert message={error} />
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" type="button" onClick={onClose} disabled={busy}>
             Cancel
@@ -262,7 +265,16 @@ export default function HoardsTab() {
   }, [data]);
 
   if (loading) return <Loader />;
-  if (error) return <ErrorAlert>{error}</ErrorAlert>;
+  // Same footgun as the create sheet: children never render, so a failed
+  // savings-goals fetch painted a completely blank Hoards tab.
+  if (error) {
+    return (
+      <ErrorAlert
+        message={`Couldn't load your hoards. ${error}`}
+        onRetry={reload}
+      />
+    );
+  }
 
   const handleDeleteConfirm = async () => {
     const goal = pendingDelete;

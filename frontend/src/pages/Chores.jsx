@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import useSearchParamState from '../hooks/useSearchParamState';
 import { motion } from 'framer-motion';
 import {
   Check, Plus, Pencil, Trash2,
@@ -27,19 +28,25 @@ import SkillTagEditor from '../components/SkillTagEditor';
 import ChapterRubric from '../components/atlas/ChapterRubric';
 import { CoinIcon, ScrollIcon } from '../components/icons/JournalIcons';
 import { formatDate } from '../utils/format';
+import { hapticTap } from '../utils/haptics';
 import { normalizeList } from '../utils/api';
 import Button from '../components/Button';
 import IconButton from '../components/IconButton';
 import ModalActions from '../components/ModalActions';
-import { TextField, SelectField, TextAreaField } from '../components/form';
+import { TextField, SelectField, TextAreaField, CheckboxField } from '../components/form';
 import QuestFolio from './quests/QuestFolio';
 
 const RECURRENCE_LABELS = { daily: 'Daily', weekly: 'Weekly', one_time: 'One-time' };
 const WEEK_SCHEDULE_LABELS = { every_week: 'Every week', alternating: 'Alternating weeks' };
 
+// Mirrors the canonical STATUS_COLORS map in constants/colors.js, which
+// StatusBadge renders on the sibling Study tab: waiting-on-a-parent is gold,
+// the ember/error tone is reserved for rejected. Pending used to share ember
+// with rejected, so the two states were indistinguishable by colour between
+// two adjacent tabs of the same Quests hub.
 const STATUS_TONE = {
   approved: 'moss',
-  pending: 'ember',
+  pending: 'gold',
   rejected: 'ember',
 };
 
@@ -126,7 +133,7 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
     : isParent ? 'Create' : 'Send to parent';
 
   return (
-    <BottomSheet title={title} onClose={onClose}>
+    <BottomSheet title={title} onClose={onClose} disabled={saving}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         {isApprove && chore?.created_by_name && (
@@ -178,10 +185,11 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
                 )}
               </div>
             )}
-            <label className="flex items-center gap-2 font-body text-body text-ink-primary">
-              <input type="checkbox" checked={form.is_active} onChange={onField('is_active')} className="accent-sheikah-teal-deep" />
-              Active
-            </label>
+            <CheckboxField
+              label="Active"
+              checked={form.is_active}
+              onChange={onField('is_active')}
+            />
             <SkillTagEditor
               skills={skills}
               value={form.skill_tags}
@@ -217,8 +225,11 @@ export default function Chores() {
   const { data: childrenData } = useApi(isParent ? getChildren : () => Promise.resolve([]), [isParent]);
   const { data: skillsData } = useApi(isParent ? getSkills : () => Promise.resolve([]), [isParent]);
 
+  const [proposeParam, setProposeParam] = useSearchParamState('propose', '');
   const [error, setError] = useState('');
-  const [showForm, setShowForm] = useState(false);
+  // The quick-actions FAB deep-links here with ?propose=1; without this the
+  // row just landed on the tab and the kid had to find the button again.
+  const [showForm, setShowForm] = useState(proposeParam === '1');
   const [editingChore, setEditingChore] = useState(null);
   const [formMode, setFormMode] = useState('create');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -244,6 +255,8 @@ export default function Chores() {
   };
 
   const handleComplete = async (choreId) => {
+    // Same tap, same buzz as the dashboard's quick-complete (ChildDashboard).
+    hapticTap();
     setError('');
     try {
       await completeChore(choreId);
@@ -321,6 +334,12 @@ export default function Chores() {
     setFormMode('create');
     setShowForm(true);
   };
+  // Drop ?propose=1 as the sheet closes so a tab switch back here (ChapterHub
+  // remounts tab bodies) doesn't re-open it.
+  const closeForm = () => {
+    setShowForm(false);
+    setProposeParam('');
+  };
   const openEdit = (chore) => {
     setEditingChore(chore);
     setFormMode('edit');
@@ -389,8 +408,12 @@ export default function Chores() {
               onApprove={handleApprove}
               onReject={handleReject}
             >
+              {/* Stacked, not side-by-side: ApprovalButtons is ~220px of
+                  labelled 44px targets, which left the kid-name + duty title
+                  about 60px of column at 360px. Same shape as the Study tab's
+                  pending-submission card. */}
               {({ item: c, actions }) => (
-                <ParchmentCard key={c.id} className="flex items-center justify-between">
+                <ParchmentCard key={c.id} className="space-y-3">
                   <div className="min-w-0">
                     <div className="font-body text-body font-medium text-ink-primary">
                       {c.user_name} — {c.chore_icon} {c.chore_title}
@@ -404,7 +427,9 @@ export default function Chores() {
                       </div>
                     )}
                   </div>
-                  <div className="shrink-0">{actions}</div>
+                  <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                    {actions}
+                  </div>
                 </ParchmentCard>
               )}
             </ApprovalQueue>
@@ -426,7 +451,7 @@ export default function Chores() {
                     <div className="font-body text-body font-medium text-ink-primary flex items-center gap-2">
                       <span className="text-lg">{p.icon || '📋'}</span>
                       {p.title}
-                      <RuneBadge tone="ember" size="sm">pending</RuneBadge>
+                      <RuneBadge tone="gold" size="sm">pending</RuneBadge>
                     </div>
                     <div className="font-script text-caption text-ink-whisper">
                       {isParent
@@ -510,7 +535,11 @@ export default function Chores() {
                         {chore.description}
                       </div>
                     )}
-                    <div className="flex items-center gap-3 mt-1 font-script text-caption text-ink-whisper">
+                    {/* Up to five chips ($, coins, recurrence, alt. weeks,
+                        assignee) in a text column the parent view squeezes to
+                        ~130px at 360px — wraps like its Study and Forge
+                        siblings instead of painting past the card edge. */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 font-script text-caption text-ink-whisper">
                       <span className="flex items-center gap-0.5">
                         <DollarSign size={10} />{chore.reward_amount}
                       </span>
@@ -552,7 +581,7 @@ export default function Chores() {
                       </div>
                     ) : isDone ? (
                       <div className="flex items-center gap-2">
-                        <RuneBadge tone={STATUS_TONE[chore.today_status] || 'ember'} size="sm">
+                        <RuneBadge tone={STATUS_TONE[chore.today_status] || 'ink'} size="sm">
                           {chore.today_status}
                         </RuneBadge>
                         {chore.today_status === 'pending' && chore.today_completion_id && (
@@ -611,7 +640,7 @@ export default function Chores() {
                       </div>
                     </div>
                   </div>
-                  <RuneBadge tone={STATUS_TONE[c.status] || 'ember'} size="sm">
+                  <RuneBadge tone={STATUS_TONE[c.status] || 'ink'} size="sm">
                     {c.status}
                   </RuneBadge>
                 </ParchmentCard>
@@ -628,8 +657,8 @@ export default function Chores() {
           skills={skills}
           isParent={isParent}
           mode={formMode}
-          onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); refresh(); }}
+          onClose={closeForm}
+          onSaved={() => { closeForm(); refresh(); }}
         />
       )}
 

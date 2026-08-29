@@ -25,8 +25,13 @@ const CHROMATIC_UPGRADE_RATE = '1 in 50';
  * the chromatic-upgrade odds so the wildcard outcome isn't a surprise.
  */
 export default function Hatchery() {
-  const { data: stableData, loading: loadingStable, reload: reloadStable } = useApi(getStable);
-  const { data: inventoryData, loading: loadingInventory, reload: reloadInventory } = useApi(getInventory);
+  const {
+    data: stableData, loading: loadingStable, error: stableError, reload: reloadStable,
+  } = useApi(getStable);
+  const {
+    data: inventoryData, loading: loadingInventory, error: inventoryError,
+    reload: reloadInventory,
+  } = useApi(getInventory);
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
   const [hatchEgg, setHatchEgg] = useState('');
@@ -45,6 +50,24 @@ export default function Hatchery() {
   const potions = inventory.filter((e) => e.item.item_type === 'potion');
 
   const refresh = () => { reloadStable(); reloadInventory(); };
+
+  // A failed satchel fetch used to render "No eggs or potions in your Satchel
+  // yet — drops fall from clocked work…", which reads as "you own nothing"
+  // rather than "we couldn't load it", with no way to retry.
+  const fetchError = stableError || inventoryError;
+  // Both panels need both feeds — the hatch ritual reads the satchel, the
+  // breed ritual reads the stable — so either one missing means the page
+  // can't tell the truth about what you own.
+  if (fetchError && (!inventoryData || !stableData)) {
+    return (
+      <div className="space-y-3 max-w-xl mx-auto">
+        <ErrorAlert message={fetchError} />
+        <Button variant="secondary" size="sm" onClick={refresh}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
 
   const mountReadiness = mounts.map((m) => ({
     mount: m,
@@ -129,7 +152,8 @@ export default function Hatchery() {
         pair an egg + potion to summon a companion · pair two mounts to inherit a hybrid egg & potion
       </p>
 
-      <ErrorAlert message={error} />
+      {/* Covers the partial case too — stable loaded, satchel didn't. */}
+      <ErrorAlert message={error || fetchError} />
 
       <ParchmentCard flourish>
         <ChapterRubric index={0} name="Hatch a New Pet" icon="✨" />

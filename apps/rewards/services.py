@@ -4,7 +4,9 @@ from decimal import Decimal, InvalidOperation
 from django.conf import settings as django_settings
 from django.db import transaction
 from django.db.models import F
+from rest_framework.exceptions import PermissionDenied
 
+from apps.accounts.models import User
 from apps.notifications.models import NotificationType
 from apps.notifications.services import get_display_name, notify, notify_parents
 from config.services import BaseLedgerService, finalize_decision
@@ -366,6 +368,17 @@ class ExchangeService:
     @staticmethod
     @transaction.atomic
     def approve(exchange, parent, notes=""):
+        # Defence in depth on the one service method that moves real money.
+        # ``parent`` is otherwise used only for attribution, so nothing here
+        # would have stopped a non-parent caller: the viewset's permission
+        # class was the only gate, and when ExchangeRequestViewSet's approve
+        # was wired by hand its @action gate was silently inert (see
+        # ApprovalActionMixin.get_permissions). Both API call sites already
+        # check the role — DRF via IsParent, MCP via require_parent() — so this
+        # only fires if a future caller forgets.
+        if getattr(parent, "role", None) != User.Role.PARENT:
+            raise PermissionDenied("Only a parent can approve an exchange.")
+
         if exchange.status != ExchangeRequest.Status.PENDING:
             return exchange
 

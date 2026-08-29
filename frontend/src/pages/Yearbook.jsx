@@ -191,11 +191,14 @@ export default function Yearbook() {
 
   return (
     <div className="space-y-4">
-      <header className="text-center max-w-xl mx-auto">
+      {/* Below md the Chronicle hub's tab strip already names this page —
+          the stacked h1 + explainer ate ~100px above the fold on phones.
+          Same treatment as the Skills tab (pages/Achievements.jsx). */}
+      <header className="hidden md:block text-center max-w-xl mx-auto">
         <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
           The Yearbook
         </h1>
-        <p className="font-script text-sm text-ink-whisper mt-1">
+        <p className="font-script text-body text-ink-whisper mt-1">
           a lifelong journal of chapters, milestones, and daily entries · birthdays and graduations land here too
         </p>
       </header>

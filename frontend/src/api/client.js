@@ -37,6 +37,33 @@ export function __resetSelfHealForTesting() {
   _reloadInFlight = false;
 }
 
+// A dead connection rejects `fetch` with the browser's own wording — "Failed
+// to fetch" on Chrome, "Load failed" on Safari — and ~79 call sites render
+// `err.message` straight into an ErrorAlert. Translating here rather than at
+// each call site covers every one of them, and keeps the shape callers expect:
+// no `.status` (it never reached the server), so the 401 self-heal and every
+// `err.status === 409` branch are unaffected.
+export const OFFLINE_MESSAGE = 'No connection — check your wifi and try again.';
+
+function asOfflineError(cause) {
+  const err = new Error(OFFLINE_MESSAGE);
+  err.offline = true;
+  err.cause = cause;
+  return err;
+}
+
+// AbortError is a caller-initiated cancel (useApi aborts in-flight requests on
+// unmount and on dep changes), not a connection failure — it must pass through
+// untouched or those aborts start rendering as "no connection".
+async function fetchOrOffline(url, config) {
+  try {
+    return await fetch(url, config);
+  } catch (err) {
+    if (err?.name === 'AbortError') throw err;
+    throw asOfflineError(err);
+  }
+}
+
 async function request(path, options = {}) {
   const url = `${BASE}${path}`;
   const token = getToken();
@@ -58,7 +85,7 @@ async function request(path, options = {}) {
     delete config.headers['Content-Type'];
   }
   const hadAuth = Boolean(config.headers?.Authorization);
-  const res = await fetch(url, config);
+  const res = await fetchOrOffline(url, config);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     const errorMessage = err.error || err.detail || JSON.stringify(err);
@@ -130,7 +157,7 @@ export async function getBlob(path) {
   const url = `${BASE}${path}`;
   const token = getToken();
   const hadAuth = Boolean(token);
-  const res = await fetch(url, {
+  const res = await fetchOrOffline(url, {
     headers: token ? { Authorization: `Token ${token}` } : {},
   });
   if (!res.ok) {

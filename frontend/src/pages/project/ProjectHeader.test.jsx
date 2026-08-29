@@ -37,6 +37,21 @@ describe('ProjectHeader', () => {
     }
   });
 
+  it('the assignee submits for review through the shared Button primitive', async () => {
+    const onAction = vi.fn();
+    const user = userEvent.setup();
+    renderHeader({
+      isAssigned: true,
+      project: { status: 'in_progress' },
+      onAction,
+    });
+    const submit = screen.getByRole('button', { name: /submit for review/i });
+    // Same 44px floor as its size="sm" siblings in this row.
+    expect(submit.className).toMatch(/min-h-11/);
+    await user.click(submit);
+    expect(onAction).toHaveBeenCalledWith('submit');
+  });
+
   it('renders an illuminated versal of the title first letter with status-driven gilt', () => {
     const { container } = renderHeader({
       project: { title: 'Adobe Brick Oven', status: 'in_review' },

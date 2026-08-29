@@ -10,6 +10,7 @@ export default function SourceStep({
   url, setUrl,
   file, setFile,
   onStart,
+  starting = false,
 }) {
   const disabled = sourceTab === 'url' ? !url : !file;
 
@@ -36,19 +37,30 @@ export default function SourceStep({
       ) : (
         <div>
           <label className={formLabelClass}>PDF Tutorial</label>
-          {/* Raw <input type="file"> stays — file picker has custom file:* tailwind treatment, not inputClass */}
+          {/* intentional: raw <input type="file"> — the form primitives don't
+              wrap file pickers, so the control keeps its file:* treatment.
+              The colors are current tokens, not the legacy amber alias. */}
           <input
             type="file"
             accept="application/pdf"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="block w-full text-sm text-ink-whisper file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-amber-primary file:text-black file:font-semibold"
+            className="block w-full text-body text-ink-whisper file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-sheikah-teal-deep file:text-ink-page-rune-glow file:font-semibold"
           />
-          {file && <p className="text-xs text-ink-whisper mt-1">{file.name}</p>}
+          {file && <p className="text-caption text-ink-whisper mt-1">{file.name}</p>}
         </div>
       )}
 
-      <Button onClick={onStart} disabled={disabled} className="w-full">
-        Parse Source
+      {/* Starting an ingest POSTs a job that runs the paid LLM enrichment
+          pipeline, so the button has to look busy the moment it is tapped —
+          a phone upload on cellular takes seconds and every extra tap would
+          queue another job. */}
+      <Button
+        onClick={onStart}
+        disabled={disabled || starting}
+        loading={starting}
+        className="w-full"
+      >
+        {starting ? <span>Reading…</span> : 'Parse Source'}
       </Button>
     </ParchmentCard>
   );

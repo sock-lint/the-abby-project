@@ -33,6 +33,22 @@ describe('QuestLogEntry', () => {
     expect(onAction).toHaveBeenCalled();
   });
 
+  it('fires onAction when the row title is tapped, not just the check glyph', async () => {
+    // The check glyph used to be the only hit area (28px); a tap on the title
+    // — the obvious target on a phone — did nothing.
+    const onAction = vi.fn();
+    const user = userEvent.setup();
+    render(<QuestLogEntry title="Do dishes" meta="duty · $1" onAction={onAction} />);
+    await user.click(screen.getByText('Do dishes'));
+    expect(onAction).toHaveBeenCalled();
+  });
+
+  it('exposes exactly one control per row so the accessible name stays unambiguous', () => {
+    render(<QuestLogEntry title="Do dishes" reward="$1" onAction={vi.fn()} />);
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: /complete do dishes/i })).toBeInTheDocument();
+  });
+
   it('does not fire onAction when status=locked', async () => {
     const onAction = vi.fn();
     const user = userEvent.setup();

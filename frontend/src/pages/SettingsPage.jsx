@@ -52,7 +52,14 @@ export default function SettingsPage() {
   const [googleLoading, setGoogleLoading] = useState(true);
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  // Successes and failures are kept apart on purpose. They used to share one
+  // decorative teal script line, so "Failed to unlink Google account." read
+  // exactly like "Google account linked successfully."
   const [googleMessage, setGoogleMessage] = useState('');
+  const [googleError, setGoogleError] = useState('');
+  // Calendar failures get their own slot so the alert lands in the card
+  // that holds the toggle rather than one card up.
+  const [calendarError, setCalendarError] = useState('');
 
   const avatarInputRef = useRef(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -102,7 +109,7 @@ export default function SettingsPage() {
       window.history.replaceState({}, '', window.location.pathname);
     } else if (googleStatus === 'error') {
       const detail = params.get('detail') || 'unknown';
-      setGoogleMessage(`Google linking failed: ${detail}`);
+      setGoogleError(`Google linking failed: ${detail}`);
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
@@ -118,12 +125,12 @@ export default function SettingsPage() {
     }
   }, [user?.theme]);
 
-  // Auto-dismiss transient Google status banners. We only auto-clear
-  // success messages — error messages stay until the user navigates or
-  // a new event lands, since users need time to read what went wrong.
+  // Auto-dismiss transient Google status banners. Only successes live in
+  // ``googleMessage`` now, so this no longer has to sniff the copy for the
+  // word "failed" — failures go to ``googleError`` and stay until the user
+  // navigates or the next attempt lands.
   useEffect(() => {
     if (!googleMessage) return undefined;
-    if (/fail|error/i.test(googleMessage)) return undefined;
     const timer = setTimeout(() => setGoogleMessage(''), GOOGLE_MESSAGE_DISMISS_MS);
     return () => clearTimeout(timer);
   }, [googleMessage]);
@@ -194,44 +201,50 @@ export default function SettingsPage() {
   };
 
   const handleLinkGoogle = async () => {
+    setGoogleError('');
     try {
       const data = await getGoogleAuthUrl();
       if (data?.authorization_url) {
         window.location.href = data.authorization_url;
       }
     } catch {
-      setGoogleMessage('Could not start Google linking.');
+      setGoogleError('Could not start Google linking.');
     }
   };
 
   const handleUnlinkGoogle = async () => {
+    setGoogleError('');
     try {
       await unlinkGoogleAccount();
       setGoogleAccount({ linked: false });
       setCalendarEnabled(false);
       setGoogleMessage('Google account unlinked.');
     } catch {
-      setGoogleMessage('Failed to unlink Google account.');
+      setGoogleError('Failed to unlink Google account.');
     }
   };
 
   const handleToggleCalendar = async () => {
     const newVal = !calendarEnabled;
+    setCalendarError('');
     try {
       await updateCalendarSettings({ calendar_sync_enabled: newVal });
       setCalendarEnabled(newVal);
     } catch {
-      setGoogleMessage('Failed to update calendar settings.');
+      // The toggle snaps back on its own (calendarEnabled never moved) —
+      // the ember alert is what tells the parent why.
+      setCalendarError('Failed to update calendar settings. The toggle was left as it was.');
     }
   };
 
   const handleSync = async () => {
     setSyncing(true);
+    setCalendarError('');
     try {
       await triggerCalendarSync();
       setGoogleMessage('Calendar sync started.');
     } catch {
-      setGoogleMessage('Failed to start sync.');
+      setCalendarError('Failed to start sync.');
     } finally {
       setSyncing(false);
     }
@@ -492,6 +505,7 @@ export default function SettingsPage() {
       {/* Google */}
       <ParchmentCard>
         <SectionHeader index={3} title="Google account" kicker="connect a calendar" className="mb-4" />
+        {googleError && <ErrorAlert message={googleError} className="mb-3" />}
         {googleMessage && (
           <div className="font-script text-body text-sheikah-teal-deep mb-3">{googleMessage}</div>
         )}
@@ -530,6 +544,7 @@ export default function SettingsPage() {
           <p className="font-body text-body text-ink-secondary mb-4">
             Sync project deadlines, chore schedules, and work sessions to your Google Calendar.
           </p>
+          {calendarError && <ErrorAlert message={calendarError} className="mb-3" />}
           <div className="space-y-3">
             <ToggleField
               checked={calendarEnabled}

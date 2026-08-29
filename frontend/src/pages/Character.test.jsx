@@ -12,10 +12,17 @@ vi.mock('framer-motion', async () => {
   return { ...a, AnimatePresence: ({ children }) => children };
 });
 
+vi.mock('../themes', async () => {
+  const actual = await vi.importActual('../themes');
+  return { ...actual, applyTheme: vi.fn() };
+});
+import { applyTheme } from '../themes';
+
 beforeEach(() => {
   // jsdom doesn't implement scrollIntoView — TomeShelf calls it whenever
   // activeId changes.
   Element.prototype.scrollIntoView = vi.fn();
+  applyTheme.mockClear();
   try { window.localStorage.clear(); } catch { /* ignore */ }
 });
 
@@ -118,6 +125,52 @@ describe('Character (/sigil)', () => {
     await waitFor(() => expect(screen.getByText(/gold frame/i)).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /Gold Frame.*click to equip/i }));
     await waitFor(() => expect(equipSpy).toHaveBeenCalled());
+  });
+
+  // Equipping a journal cover writes User.theme server-side. If the page
+  // doesn't mirror that, CosmeticSigil's release handler — which on a phone
+  // fires on the NEXT tap anywhere — repaints the OLD cover and the equip
+  // looks like it silently failed.
+  it('keeps the newly-equipped journal cover painted after the tile releases', async () => {
+    const user = userEvent.setup();
+    const cover = {
+      id: 3, name: 'Vigil Cover', icon: '🌙', rarity: 'rare',
+      metadata: { theme: 'vigil' },
+    };
+    stubRoutes({
+      profile: {
+        display_name: 'Abby', username: 'abby', level: 1,
+        login_streak: 0, longest_login_streak: 0, perfect_days_count: 0,
+        active_trophy_badge: null,
+      },
+      cosmetics: {
+        active_frame: [], active_title: [], active_theme: [cover], active_pet_accessory: [],
+      },
+      catalog: {
+        active_frame: [], active_title: [], active_theme: [cover], active_pet_accessory: [],
+      },
+      user: buildUser({ theme: 'hyrule' }),
+    });
+    server.use(http.post('*/api/character/equip/', () => HttpResponse.json({ ok: true })));
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByRole('tablist', { name: /cosmetic chapters/i })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('tab', { name: /Journal Covers/i }));
+    const tile = await screen.findByRole('button', { name: /Vigil Cover.*click to equip/i });
+    await user.click(tile);
+    // The toast only fires after the equip round-trip resolves.
+    await waitFor(() =>
+      expect(screen.getByText(/now wearing vigil cover/i)).toBeInTheDocument(),
+    );
+
+    applyTheme.mockClear();
+    const equipped = screen.getByRole('button', { name: /Vigil Cover/i });
+    await user.hover(equipped);
+    await user.unhover(equipped);
+    // Pre-fix this restored 'hyrule' — the stale auth-context theme.
+    await waitFor(() => expect(applyTheme).toHaveBeenLastCalledWith('vigil'));
   });
 
   it('surfaces an error when equip fails', async () => {

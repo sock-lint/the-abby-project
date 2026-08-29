@@ -61,6 +61,10 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
 
   if (role === 'parent') {
     const count = Number(ctx.pendingCount) || 0;
+    // An empty queue while the aggregate is still in flight is "we don't know
+    // yet", not "all clear" — saying "Nothing needs your seal" and then popping
+    // into a full queue is how a glancing parent misses approvals.
+    const settling = Boolean(ctx.loading) && count === 0;
     return (
       <motion.div variants={inkBleed} initial="initial" animate="animate">
         <ParchmentCard tone="bright" flourish className="relative overflow-hidden">
@@ -73,7 +77,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
                 {count} {count === 1 ? 'thing needs' : 'things need'} your seal today
               </h1>
               <div className="font-body text-body text-ink-secondary mt-1">
-                Review duties, homework, and redemptions below.
+                Review duties, study, and rewards below.
               </div>
               <div className="mt-3 flex items-center gap-2">
                 <Button
@@ -87,6 +91,15 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
                   <ClipboardCheck size={16} /> Review queue
                 </Button>
                 <RuneBadge tone="ember">pending</RuneBadge>
+              </div>
+            </>
+          ) : settling ? (
+            <>
+              <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+                Turning today&apos;s page…
+              </h1>
+              <div className="font-body text-body text-ink-secondary mt-1">
+                Gathering what&apos;s waiting for your seal.
               </div>
             </>
           ) : (
@@ -184,13 +197,16 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
                   style={{ width: `${Math.min(100, quest.progress_percent)}%` }}
                 />
               </div>
-              <button
-                type="button"
+              {/* "trial", not "quest" — the destination is the Trials tab and
+                  the kicker above already calls it a trial. */}
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => navigate('/trials')}
-                className="mt-3 font-script text-body text-sheikah-teal-deep hover:underline"
+                className="mt-3 -ml-3 font-script text-body text-sheikah-teal-deep! hover:underline"
               >
-                View quest →
-              </button>
+                View trial →
+              </Button>
             </div>
           </div>
         )}
@@ -203,13 +219,14 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
             <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5">
               Nothing pressing — pick something.
             </h1>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => navigate('/quests')}
-              className="mt-3 font-script text-body text-sheikah-teal-deep hover:underline"
+              className="mt-3 -ml-3 font-script text-body text-sheikah-teal-deep! hover:underline"
             >
               Open the quests hub →
-            </button>
+            </Button>
           </>
         )}
       </ParchmentCard>

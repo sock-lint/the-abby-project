@@ -14,13 +14,13 @@ vi.mock('framer-motion', async () => {
   return { ...a, AnimatePresence: ({ children }) => children };
 });
 
-function renderPage(user = buildUser(), handlers = []) {
+function renderPage(user = buildUser(), handlers = [], route = '/quests?tab=duties') {
   server.use(
     http.get('*/api/auth/me/', () => HttpResponse.json(user)),
     ...handlers,
   );
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[route]}>
       <AuthProvider>
         <Chores />
       </AuthProvider>
@@ -29,6 +29,23 @@ function renderPage(user = buildUser(), handlers = []) {
 }
 
 describe('Chores', () => {
+  // The quick-actions FAB deep-links here with ?propose=1. The param was
+  // never read, so the row just landed on the tab and the kid had to hunt
+  // for the button again.
+  it('opens the propose sheet when deep-linked with ?propose=1', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/chores/', () => HttpResponse.json([])),
+    ], '/quests?tab=duties&propose=1');
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('does not open the sheet without the param', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/chores/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
   it('renders empty state for children', async () => {
     renderPage(buildUser(), [
       http.get('*/api/chores/', () => HttpResponse.json([])),
@@ -100,6 +117,26 @@ describe('Chores', () => {
     expect(screen.getByRole('button', { name: /add skill/i })).toBeInTheDocument();
   });
 
+  // Regression: the Active toggle was a raw <input type="checkbox"> in a
+  // hand-rolled <label>, so it had no htmlFor/id association. CheckboxField
+  // gives it one, which is what makes getByLabelText resolve it.
+  it('renders the Active toggle as a labelled checkbox', async () => {
+    const user = userEvent.setup();
+    renderPage(buildParent(), [
+      http.get('*/api/chores/', () => HttpResponse.json([])),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+    ]);
+    await user.click(await screen.findByRole('button', { name: /new duty/i }));
+
+    const active = await screen.findByLabelText('Active');
+    expect(active).toHaveAttribute('type', 'checkbox');
+    expect(active).toBeChecked();
+    await user.click(active);
+    expect(active).not.toBeChecked();
+  });
+
   it('saving a new duty posts skill_tags alongside the chore', async () => {
     const user = userEvent.setup();
     const create = spyHandler('post', /\/api\/chores\/$/, { id: 1, title: 'Dishes' });
@@ -165,6 +202,46 @@ describe('Chores', () => {
     await waitFor(() => expect(complete.calls).toHaveLength(1));
     expect(complete.calls[0].url).toMatch(/\/chores\/12\/complete\/$/);
     expect(complete.calls[0].body).toEqual({ notes: '' });
+  });
+
+  it('child clicking Done buzzes, matching the dashboard quick-complete', async () => {
+    const vibrate = vi.fn();
+    Object.defineProperty(navigator, 'vibrate', { value: vibrate, configurable: true });
+    const user = userEvent.setup();
+    renderPage(buildUser(), [
+      http.get('*/api/chores/', ({ request }) => {
+        const pending = new URL(request.url).searchParams.get('pending') === 'true';
+        return HttpResponse.json(pending
+          ? []
+          : [buildChore({ id: 12, title: 'Dishes', is_available: true, today_status: null })],
+        );
+      }),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.post(/\/api\/chores\/\d+\/complete\/$/, () => HttpResponse.json({ ok: true })),
+    ]);
+
+    await user.click(await screen.findByRole('button', { name: /done/i }));
+    expect(vibrate).toHaveBeenCalled();
+  });
+
+  it('locks the duty sheet closed while a create is in flight', async () => {
+    const user = userEvent.setup();
+    renderPage(buildParent(), [
+      http.get('*/api/chores/', () => HttpResponse.json([])),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      // Never resolves — holds the form in its saving state.
+      http.post('*/api/chores/', () => new Promise(() => {})),
+    ]);
+    await user.click(await screen.findByRole('button', { name: /new duty/i }));
+    const dialog = await screen.findByRole('dialog', { name: /new duty/i });
+    await user.type(within(dialog).getByRole('textbox', { name: /title/i }), 'Sweep');
+    await user.click(within(dialog).getByRole('button', { name: /^create$/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^close$/i })).toBeDisabled(),
+    );
+    expect(screen.getByRole('dialog', { name: /new duty/i })).toBeInTheDocument();
   });
 
   it('parent approving a pending completion posts to /chore-completions/{id}/approve/', async () => {

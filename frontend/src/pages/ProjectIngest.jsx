@@ -11,6 +11,7 @@ import {
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import ParchmentCard from '../components/journal/ParchmentCard';
+import PageShell from '../components/layout/PageShell';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
@@ -34,6 +35,10 @@ export default function ProjectIngest() {
   const [jobId, setJobId] = useState(null);
   const [draft, setDraft] = useState(null);
   const [committing, setCommitting] = useState(false);
+  // The POST that opens an ingestion job runs the LLM enrichment pipeline
+  // server-side, so the source step stays rendered — and its button stays
+  // tappable — for the whole round trip unless we flag it as in flight.
+  const [starting, setStarting] = useState(false);
   const [overrides, setOverrides] = useState({
     category_id: '', difficulty: 2, bonus_amount: '0', materials_budget: '0', due_date: '',
   });
@@ -87,7 +92,9 @@ export default function ProjectIngest() {
   };
 
   const startJob = async () => {
+    if (starting) return;
     setError('');
+    setStarting(true);
     try {
       const payload = sourceTab === 'pdf'
         ? { source_type: 'pdf', source_file: file }
@@ -101,6 +108,8 @@ export default function ProjectIngest() {
       beginPolling(job.id);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setStarting(false);
     }
   };
 
@@ -225,7 +234,7 @@ export default function ProjectIngest() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <PageShell width="narrow" rhythm="loose">
       <BackLink to="/quests?tab=ventures">Back to Ventures</BackLink>
       <div>
         <h1 className="font-display text-2xl font-bold">Auto-fill from Source</h1>
@@ -242,6 +251,7 @@ export default function ProjectIngest() {
           url={url} setUrl={setUrl}
           file={file} setFile={setFile}
           onStart={startJob}
+          starting={starting}
         />
       )}
 
@@ -280,6 +290,6 @@ export default function ProjectIngest() {
           onDiscard={discard}
         />
       )}
-    </div>
+    </PageShell>
   );
 }

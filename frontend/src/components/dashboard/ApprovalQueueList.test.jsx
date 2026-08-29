@@ -12,10 +12,10 @@ vi.mock('framer-motion', async () => {
   return { ...actual, AnimatePresence: ({ children }) => children };
 });
 
-function renderList(items = [], onDone = () => {}) {
+function renderList(items = [], onDone = () => {}, extraProps = {}) {
   return render(
     <MemoryRouter>
-      <ApprovalQueueList items={items} onDone={onDone} />
+      <ApprovalQueueList items={items} onDone={onDone} {...extraProps} />
     </MemoryRouter>,
   );
 }
@@ -37,6 +37,14 @@ describe('ApprovalQueueList', () => {
   it('renders empty state when no pending items', () => {
     renderList([]);
     expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument();
+  });
+
+  it('shows a skeleton instead of "all quiet" while the queue is still loading', () => {
+    renderList([], () => {}, { loading: true });
+    // An empty array mid-fetch means "we don't know yet" — claiming an
+    // all-clear here is how a glancing parent misses pending approvals.
+    expect(screen.queryByText(/no pending approvals/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('status', { name: /loading/i })).toBeInTheDocument();
   });
 
   it('groups items by kid', () => {
@@ -204,6 +212,33 @@ describe('ApprovalQueueList', () => {
       const sheet = await screen.findByRole('dialog', { name: /math packet/i });
       expect(within(sheet).getByText(/took me two tries/i)).toBeInTheDocument();
       expect(within(sheet).getByRole('button', { name: /^approve$/i })).toBeInTheDocument();
+    });
+
+    it('surfaces a failed approve inside the sheet and keeps it open', async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.post('*/api/homework-submissions/:id/approve/', () =>
+          HttpResponse.json({ detail: 'proof is unreadable' }, { status: 400 }),
+        ),
+      );
+      renderList([withProof]);
+
+      await user.click(screen.getByRole('button', { name: /tap to see the work/i }));
+      const sheet = await screen.findByRole('dialog', { name: /math packet/i });
+      await user.click(within(sheet).getByRole('button', { name: /^approve$/i }));
+
+      // The failure has to be visible — pre-fix the promise rejected
+      // unhandled, the button flipped back to "Approve", and the parent had
+      // no way to tell whether the work was approved.
+      await waitFor(() =>
+        expect(within(sheet).getByRole('alert')).toHaveTextContent(
+          /proof is unreadable|could not save/i,
+        ),
+      );
+      // …and the sheet stays open so they can retry or reject.
+      expect(
+        screen.getByRole('dialog', { name: /math packet/i }),
+      ).toBeInTheDocument();
     });
 
     it('leaves rows without evidence as plain, non-tappable text', () => {

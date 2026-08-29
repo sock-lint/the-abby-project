@@ -6,7 +6,9 @@ import { buildUser } from '../test/factories.js';
 import * as apiIndex from '../api/index.js';
 import { setToken } from '../api/client.js';
 import { STORAGE_KEYS } from '../constants/storage.js';
-import { AuthProvider, useApi, useAuth } from './useApi.js';
+import {
+  AuthProvider, OFFLINE_MESSAGE, useApi, useAuth,
+} from './useApi.js';
 
 describe('useApi', () => {
   it('starts in loading state, then resolves data', async () => {
@@ -35,12 +37,72 @@ describe('useApi', () => {
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
+  // Almost every page early-returns a full-page Loader/skeleton on `loading`,
+  // so a reload() that raised it unmounted the page the action was fired from
+  // — every habit tap and step toggle blanked the screen and lost scroll.
+  it('reload() keeps loading false and holds the old data while re-fetching', async () => {
+    let resolveSecond;
+    let call = 0;
+    const fn = vi.fn(() => {
+      call += 1;
+      if (call === 1) return Promise.resolve({ n: 1 });
+      return new Promise((res) => { resolveSecond = () => res({ n: 2 }); });
+    });
+    const { result } = renderHook(() => useApi(fn, []));
+    await waitFor(() => expect(result.current.data).toEqual({ n: 1 }));
+
+    act(() => { result.current.reload(); });
+    await waitFor(() => expect(result.current.refreshing).toBe(true));
+    expect(result.current.loading).toBe(false);
+    expect(result.current.data).toEqual({ n: 1 });
+
+    await act(async () => { resolveSecond(); });
+    await waitFor(() => expect(result.current.refreshing).toBe(false));
+    expect(result.current.data).toEqual({ n: 2 });
+  });
+
   it('setData mutates locally without re-fetching', async () => {
     const fn = vi.fn().mockResolvedValue(1);
     const { result } = renderHook(() => useApi(fn, []));
     await waitFor(() => expect(result.current.data).toBe(1));
     act(() => result.current.setData(99));
     expect(result.current.data).toBe(99);
+  });
+
+  it('setData accepts an updater and keeps reload() off the full-page loader', async () => {
+    const fn = vi.fn().mockResolvedValue({ n: 1 });
+    const { result } = renderHook(() => useApi(fn, []));
+    await waitFor(() => expect(result.current.data).toEqual({ n: 1 }));
+    act(() => result.current.setData((prev) => ({ n: prev.n + 1 })));
+    expect(result.current.data).toEqual({ n: 2 });
+    await act(async () => { await result.current.reload(); });
+    expect(result.current.loading).toBe(false);
+  });
+
+  // A dead connection used to render the browser's own wording inside
+  // ErrorAlert — "Failed to fetch" on Chrome, "Load failed" on Safari — on
+  // every page a kid opened without signal.
+  it('translates a network failure into kid-readable copy', async () => {
+    const fn = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    const { result } = renderHook(() => useApi(fn, []));
+    await waitFor(() => expect(result.current.error).toBe(OFFLINE_MESSAGE));
+    expect(result.current.error).not.toMatch(/failed to fetch/i);
+  });
+
+  it('translates Safari\'s "Load failed" wording too', async () => {
+    const fn = vi.fn().mockRejectedValue(new TypeError('Load failed'));
+    const { result } = renderHook(() => useApi(fn, []));
+    await waitFor(() => expect(result.current.error).toBe(OFFLINE_MESSAGE));
+  });
+
+  // api/client.js attaches .status to every HTTP error; those messages come
+  // from the server and are already written for humans, so they pass through.
+  it('keeps server error messages verbatim', async () => {
+    const err = new Error('You already logged that today.');
+    err.status = 409;
+    const fn = vi.fn().mockRejectedValue(err);
+    const { result } = renderHook(() => useApi(fn, []));
+    await waitFor(() => expect(result.current.error).toBe('You already logged that today.'));
   });
 
   it('silently ignores AbortError', async () => {

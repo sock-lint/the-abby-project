@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { motion, useDragControls } from 'framer-motion';
 import DeckleDivider from '../journal/DeckleDivider';
@@ -37,12 +37,30 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
     || tabs.find((t) => t.id === defaultTabId)
     || tabs[0];
 
+  // Tab bodies stay mounted once visited and are hidden rather than torn down.
+  // Keying the body on activeTab.id remounted the whole page on every tap or
+  // swipe: `useApi` has no cache, so each flip re-ran every fetch behind a
+  // full-tab loader and dropped in-tab state (search text, filter pills,
+  // expanded folios). Retained bodies live only as long as the hub itself —
+  // leaving the chapter unmounts them all.
+  const [visitedIds, setVisitedIds] = useState(() => [activeTab.id]);
+
   const setTab = (id) => {
     const next = new URLSearchParams(searchParams);
     next.set('tab', id);
     setSearchParams(next, { replace: true });
     localStorage.setItem(storageKey, id);
+    // Remember both sides of the flip: the body being left stays mounted, and
+    // the one being entered is retained for the trip back.
+    setVisitedIds((prev) => {
+      const withCurrent = prev.includes(activeTab.id) ? prev : [...prev, activeTab.id];
+      return withCurrent.includes(id) ? withCurrent : [...withCurrent, id];
+    });
   };
+
+  const mountedTabs = tabs.filter(
+    (t) => t.id === activeTab.id || visitedIds.includes(t.id),
+  );
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -110,10 +128,6 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
       <DeckleDivider glyph={glyph} className="mt-0 mb-6" />
 
       <motion.div
-        key={activeTab.id}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, ease: 'easeOut' }}
         drag="x"
         dragControls={dragControls}
         dragListener={false}
@@ -122,7 +136,17 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
         onPointerDown={startSwipe}
         onDragEnd={handleSwipeEnd}
       >
-        {activeTab.render()}
+        {mountedTabs.map((t) => (
+          <motion.div
+            key={t.id}
+            hidden={t.id !== activeTab.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            {t.render()}
+          </motion.div>
+        ))}
       </motion.div>
     </motion.div>
   );

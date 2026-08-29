@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Companions from './Companions.jsx';
@@ -81,6 +81,22 @@ describe('Companions tab', () => {
     await waitFor(() =>
       expect(screen.getByText(/no companions yet/i)).toBeInTheDocument(),
     );
+  });
+
+  // "No companions yet. Find eggs and potions in drops…" used to render on a
+  // failed fetch too, which reads as an empty party rather than a broken load.
+  it('shows a retry-able error instead of the empty state when the stable fetch fails', async () => {
+    renderPage([
+      http.get('*/api/pets/stable/', () =>
+        HttpResponse.json({ detail: 'Stable offline' }, { status: 500 }),
+      ),
+      http.get('*/api/inventory/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toMatch(/stable offline/i),
+    );
+    expect(screen.queryByText(/no companions yet/i)).toBeNull();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
   it('renders pets and counts each filter pill', async () => {
@@ -227,5 +243,22 @@ describe('Companions tab', () => {
     await waitFor(() => expect(feed.calls).toHaveLength(1));
     expect(feed.calls[0].url).toMatch(/\/pets\/1\/feed\/$/);
     expect(feed.calls[0].body).toEqual({ food_item_id: 100 });
+  });
+
+  // Feeding consumes the item on one tap, and the name used to live only in
+  // `title` — which never surfaces on touch, the app's primary device class.
+  it('prints the food name on the chip face, not just in a hover title', async () => {
+    const user = userEvent.setup();
+    renderPage([
+      http.get('*/api/pets/stable/', () =>
+        HttpResponse.json({ pets: [PETS[0]], mounts: [], total_possible: 48 }),
+      ),
+      http.get('*/api/inventory/', () => HttpResponse.json(FOOD_INVENTORY)),
+    ]);
+    await waitFor(() => expect(screen.getByText(/Drake/)).toBeInTheDocument());
+    await user.click(screen.getByText(/Drake/));
+    const chip = await screen.findByTitle('Berries');
+    expect(within(chip).getByText('Berries')).toBeInTheDocument();
+    expect(within(chip).getByText('×5')).toBeInTheDocument();
   });
 });

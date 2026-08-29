@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Button from '../../../components/Button';
 
 export default function SequenceTrial({ entry, onReady }) {
   const trial = entry.trial || {};
@@ -57,18 +58,21 @@ export default function SequenceTrial({ entry, onReady }) {
         })}
       </ol>
 
-      <div className="flex items-center justify-between text-caption text-ink-whisper">
+      <div className="flex items-center justify-between gap-3 text-caption text-ink-whisper">
         <span aria-live="polite" className="tabular-nums">
           {Math.min(advanced, steps.length)} of {steps.length}
         </span>
-        <button
-          type="button"
+        {/* Tapped once per step of the trial — same 44px floor every other
+            repeated-tap affordance in the app gets. */}
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={advance}
           disabled={advanced >= steps.length}
-          className="font-rune text-tiny uppercase tracking-wider text-sheikah-teal-deep hover:text-sheikah-teal disabled:text-ink-whisper/40 disabled:cursor-not-allowed"
+          className="font-rune uppercase tracking-wider"
         >
           {advanced >= steps.length ? 'sequence complete' : 'advance'}
-        </button>
+        </Button>
       </div>
 
       <AnimatePresence>

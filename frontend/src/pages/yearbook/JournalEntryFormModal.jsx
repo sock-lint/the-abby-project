@@ -9,6 +9,23 @@ import { formLabelClass } from '../../constants/styles';
 import { useSpeechDictation } from '../../hooks/useSpeechDictation';
 import { writeJournal, updateJournalEntry } from '../../api';
 
+// The Web Speech API reports failures as terse machine codes. Declining the
+// mic prompt (or having it blocked at the OS level) is the most common
+// first-tap outcome on a phone, and iOS re-asks per session in the installed
+// app — without this the mic button just flickers and reads as broken.
+const DICTATION_HINTS = {
+  'not-allowed': 'Mic is blocked — allow microphone access in your settings, then tap again.',
+  'service-not-allowed': 'Mic is blocked — allow microphone access in your settings, then tap again.',
+  'audio-capture': "Can't find a microphone on this device.",
+  'no-speech': "Didn't catch anything — tap the mic and try again.",
+  network: 'Dictation needs a connection — type instead, or try again later.',
+};
+
+function dictationHint(code) {
+  if (!code) return '';
+  return DICTATION_HINTS[code] || 'Dictation stopped — tap the mic to try again.';
+}
+
 /**
  * JournalEntryFormModal — child-facing form for writing (or editing, same-day)
  * a private journal entry that appears on the Yearbook timeline.
@@ -52,7 +69,9 @@ export default function JournalEntryFormModal({
 
   // Dictated chunks append to summary with a trailing space (the hook
   // normalizes that) so the text reads naturally as it grows.
-  const { start, stop, isListening, interim, supported } = useSpeechDictation({
+  const {
+    start, stop, isListening, interim, supported, error: dictationError,
+  } = useSpeechDictation({
     onFinal: (chunk) => {
       setSummary((prev) => (prev ? `${prev}${chunk}` : chunk));
     },
@@ -190,6 +209,11 @@ export default function JournalEntryFormModal({
           {isListening && interim && (
             <p className="font-script text-tiny text-sheikah-teal-deep italic mt-1.5">
               Listening… “{interim}”
+            </p>
+          )}
+          {!isListening && dictationError && (
+            <p className="font-script text-tiny text-ember-deep italic mt-1.5">
+              {dictationHint(dictationError)}
             </p>
           )}
         </div>

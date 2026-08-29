@@ -10,10 +10,12 @@ import {
   deleteResource,
 } from '../api';
 import { useApi } from '../hooks/useApi';
+import { formatCurrency } from '../utils/format';
 import { useConfirmState } from '../hooks/useConfirmState';
 import { useRole } from '../hooks/useRole';
 import ConfirmDialog from '../components/ConfirmDialog';
 import BackLink from '../components/BackLink';
+import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import ParchmentSkeleton from '../components/ParchmentSkeleton';
@@ -35,7 +37,7 @@ const tabs = ['Overview', 'Plan', 'Materials'];
 export default function ProjectDetail() {
   const { user, isParent } = useRole();
   const { id } = useParams();
-  const { data: project, loading, reload } = useApi(() => getProject(id), [id]);
+  const { data: project, loading, error: loadError, reload } = useApi(() => getProject(id), [id]);
   const [activeTab, setActiveTab] = useState('Overview');
   const [changesOpen, setChangesOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -58,6 +60,18 @@ export default function ProjectDetail() {
       <ParchmentSkeleton variant="list" count={3} />
     </div>
   );
+  // A failed fetch is not a missing venture. Without this branch a tunnel or a
+  // dropped wifi frame renders the "may have been deleted" copy below, telling
+  // a kid their project is gone and offering no way back.
+  if (loadError) return (
+    <div className="space-y-4">
+      <BackLink to="/quests?tab=ventures">Back to Ventures</BackLink>
+      <ErrorAlert message={loadError} />
+      <Button variant="primary" onClick={reload}>
+        Try again
+      </Button>
+    </div>
+  );
   if (!project) return (
     <div className="space-y-4">
       <BackLink to="/quests?tab=ventures">Back to Ventures</BackLink>
@@ -74,11 +88,24 @@ export default function ProjectDetail() {
     setAddStepOpen(true);
   };
 
-  const handleMoveStep = async (step, newMilestoneId) => {
+  // Every mutation on this page routes its failure into the page-level
+  // ErrorAlert. Without the catch a flaky network turned a step tap, a
+  // purchase tick or a delete into a silent no-op that looked exactly like
+  // success — the row simply didn't move and nothing said why.
+  const runAction = async (fn) => {
+    setError('');
+    try {
+      await fn();
+      reload();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleMoveStep = (step, newMilestoneId) => {
     const value = newMilestoneId === '' ? null : Number(newMilestoneId);
     if (value === (step.milestone ?? null)) return;
-    await updateStep(id, step.id, { milestone: value });
-    reload();
+    return runAction(() => updateStep(id, step.id, { milestone: value }));
   };
 
   const handleAction = async (action) => {
@@ -108,54 +135,65 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleCompleteMilestone = async (msId) => {
+  // Completing a milestone posts a milestone_bonus to PaymentLedger, so it is
+  // a payout, not a checkbox — and the circle sits right beside the accordion
+  // toggle. Confirm first, like every other irreversible action on this page.
+  const handleCompleteMilestone = (msId) => {
     if (pendingMilestoneId) return;
-    setPendingMilestoneId(msId);
-    try {
-      await completeMilestone(id, msId);
-      reload();
-    } finally {
-      setPendingMilestoneId(null);
-    }
+    const ms = (project.milestones || []).find((m) => m.id === msId);
+    const bonus = ms?.bonus_amount ? ` and pay the ${formatCurrency(ms.bonus_amount)} bonus` : '';
+    askConfirm({
+      title: 'Mark this milestone complete?',
+      message: `This will close out “${ms?.title || 'this milestone'}”${bonus}. It can't be undone.`,
+      confirmLabel: 'Mark complete',
+      onConfirm: async () => {
+        setPendingMilestoneId(msId);
+        try {
+          await completeMilestone(id, msId);
+          reload();
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setPendingMilestoneId(null);
+        }
+      },
+    });
   };
 
-  const handleMarkPurchased = async (matId, cost) => {
-    await markPurchased(id, matId, cost);
-    reload();
-  };
+  const handleMarkPurchased = (matId, cost) =>
+    runAction(() => markPurchased(id, matId, cost));
 
-  const handleToggleStep = async (step) => {
-    if (step.is_completed) await uncompleteStep(id, step.id);
-    else await completeStep(id, step.id);
-    reload();
-  };
+  const handleToggleStep = (step) =>
+    runAction(() => (step.is_completed
+      ? uncompleteStep(id, step.id)
+      : completeStep(id, step.id)));
 
   const handleDeleteMilestone = (msId) =>
     askConfirm({
       title: 'Delete this milestone?',
       message: 'This action cannot be undone.',
-      onConfirm: async () => { await deleteMilestone(id, msId); reload(); },
+      onConfirm: () => runAction(() => deleteMilestone(id, msId)),
     });
 
   const handleDeleteMaterial = (matId) =>
     askConfirm({
       title: 'Delete this material?',
       message: 'This action cannot be undone.',
-      onConfirm: async () => { await deleteMaterial(id, matId); reload(); },
+      onConfirm: () => runAction(() => deleteMaterial(id, matId)),
     });
 
   const handleDeleteStep = (stepId) =>
     askConfirm({
       title: 'Delete this step?',
       message: 'Any attached resources will also be removed.',
-      onConfirm: async () => { await deleteStep(id, stepId); reload(); },
+      onConfirm: () => runAction(() => deleteStep(id, stepId)),
     });
 
   const handleDeleteResource = (resId) =>
     askConfirm({
       title: 'Delete this resource?',
       message: 'This action cannot be undone.',
-      onConfirm: async () => { await deleteResource(id, resId); reload(); },
+      onConfirm: () => runAction(() => deleteResource(id, resId)),
     });
 
   return (

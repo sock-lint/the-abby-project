@@ -62,6 +62,20 @@ describe('ActivityPage', () => {
     );
   });
 
+  it('surfaces a failed fetch instead of a blank page', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/activity/', () =>
+        HttpResponse.json({ detail: 'boom' }, { status: 500 })),
+    );
+    renderPage();
+    // ErrorAlert reads `message`, not children — passed as children the alert
+    // rendered nothing and a 500 was indistinguishable from a quiet log.
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(screen.queryByText(/no activity yet/i)).toBeNull();
+  });
+
   it('renders an event row with summary and event_type slug', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),

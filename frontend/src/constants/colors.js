@@ -77,3 +77,37 @@ export const RARITY_RING_COLORS = {
   epic: 'ring-ember/60',
   legendary: 'ring-gold-leaf/70',
 };
+
+// Rarity outline — a solid tier border with no surface fill, for cards that
+// already own their background (the RareDropReveal parchment card).
+export const RARITY_BORDER_COLORS = {
+  common: 'border-moss',
+  uncommon: 'border-sheikah-teal',
+  rare: 'border-royal',
+  epic: 'border-ember',
+  legendary: 'border-gold-leaf',
+};
+
+// Filled rarity chips — a solid tier surface carrying white text (the drop
+// and savings toasts). These read the cover-invariant --color-rarity-*
+// tokens rather than the per-cover `tones`: the dark Vigil cover inverts
+// gold-leaf / royal / ember to light values, which would strand white text
+// on a pale chip. Same hues as the maps above on every other cover.
+export const RARITY_SOLID_COLORS = {
+  common: 'bg-rarity-common',
+  uncommon: 'bg-rarity-uncommon',
+  rare: 'bg-rarity-rare',
+  epic: 'bg-rarity-epic',
+  legendary: 'bg-rarity-legendary',
+};
+
+// Raw tier colors for the few places that need a value rather than a utility
+// class (the RareDropReveal box-shadow glow). These follow the cover's tones
+// so the glow stays visible on the dark Vigil page.
+export const RARITY_GLOW_COLORS = {
+  common: 'var(--color-moss)',
+  uncommon: 'var(--color-sheikah-teal)',
+  rare: 'var(--color-royal)',
+  epic: 'var(--color-ember)',
+  legendary: 'var(--color-gold-leaf)',
+};

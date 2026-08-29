@@ -4,13 +4,18 @@ import { useFirstEncounter } from '../../hooks/useFirstEncounter';
 import BottomSheet from '../BottomSheet';
 import Button from '../Button';
 import IlluminatedVersal from '../atlas/IlluminatedVersal';
+import { useDeferUntilDialogsClose } from './dialogPresence';
 
 export default function FirstEncounterSheet({ pollIntervalMs }) {
   const { activeEntry: entry, dismiss } = useFirstEncounter(pollIntervalMs);
+  // The unlock arrives on the heartbeat, which can land while a kid is
+  // mid-form. Hold the sheet — and the focus steal that comes with it —
+  // until whatever they opened is closed. The entry stays queued in the hook.
+  const ready = useDeferUntilDialogsClose(entry);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
 
-  if (!entry) return null;
+  if (!entry || !ready) return null;
 
   const handleDismiss = async () => {
     setSaving(true);

@@ -17,9 +17,11 @@ export const KIND_ICON = {
   creation: '🎨',
 }
 
+// Labels track the app's own vocabulary (Quests hub tabs: Study, Duties);
+// keys stay aligned with the backend recap payload.
 export const RECAP_STAT_FIELDS = [
   { key: 'projects_completed', label: 'Projects completed' },
-  { key: 'homework_approved',  label: 'Homework approved' },
-  { key: 'chores_approved',    label: 'Chores approved' },
+  { key: 'homework_approved',  label: 'Study approved' },
+  { key: 'chores_approved',    label: 'Duties approved' },
   { key: 'coins_earned',       label: 'Coins earned' },
 ]

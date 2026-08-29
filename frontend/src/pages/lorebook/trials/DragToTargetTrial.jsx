@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Button from '../../../components/Button';
 
 /**
  * Pointer-based "drag" — uses framer-motion's drag with a drop target instead
@@ -34,14 +35,18 @@ export default function DragToTargetTrial({ entry, onReady }) {
           <div className="text-5xl leading-none mb-2" aria-hidden="true">
             {trial.source_icon || '🪙'}
           </div>
-          <button
-            type="button"
+          {/* A kid taps this up to `source_count` times to pass the trial —
+              it rides the shared Button's 44px floor rather than being a
+              ~16px-tall text link. Rune styling rides along in className. */}
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={deliver}
             disabled={delivered >= target}
-            className="font-rune text-tiny uppercase tracking-wider text-sheikah-teal-deep hover:text-sheikah-teal disabled:text-ink-whisper/40 disabled:cursor-not-allowed"
+            className="w-full font-rune uppercase tracking-wider"
           >
             {delivered >= target ? 'empty' : 'send one'}
-          </button>
+          </Button>
         </div>
 
         {/* Target */}

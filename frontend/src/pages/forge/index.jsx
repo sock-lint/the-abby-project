@@ -165,6 +165,7 @@ export default function Forge() {
         {!isParent && (
           <div className="flex justify-end">
             <Button
+              size="sm"
               onClick={() => setSubmitOpen(true)}
               className="flex items-center gap-1 shrink-0"
             >
@@ -294,7 +295,7 @@ export default function Forge() {
       {pendingCancel && (
         <ConfirmDialog
           title="Cancel this print request?"
-          message={`“${pendingCancel.title}” goes away. She can always ask again.`}
+          message={`“${pendingCancel.title}” goes away. They can always ask again.`}
           confirmLabel={busy ? 'Cancelling…' : 'Cancel it'}
           onConfirm={doCancel}
           onCancel={() => setPendingCancel(null)}

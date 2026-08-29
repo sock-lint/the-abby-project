@@ -3,7 +3,7 @@ import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
 import Button from '../../components/Button';
-import { TextField, SelectField, TextAreaField } from '../../components/form';
+import { TextField, SelectField, TextAreaField, CheckboxField } from '../../components/form';
 
 export default function SkillFormModal({ item, categories, subjects, onClose, onSaved }) {
   const isEdit = !!item;
@@ -59,7 +59,7 @@ export default function SkillFormModal({ item, categories, subjects, onClose, on
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Category" value={form.category} onChange={onField('category')} required>
             <option value="">Select...</option>
             {categories.map((c) => (
@@ -73,7 +73,7 @@ export default function SkillFormModal({ item, categories, subjects, onClose, on
             ))}
           </SelectField>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <TextField label="Icon" value={form.icon} onChange={onField('icon')} />
           <TextField label="Order" type="number" value={form.order} onChange={onField('order')} />
         </div>
@@ -84,15 +84,11 @@ export default function SkillFormModal({ item, categories, subjects, onClose, on
           onChange={onField('level_names')}
           placeholder='{"0":"Novice","1":"Apprentice"}'
         />
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={form.is_locked_by_default}
-            onChange={onField('is_locked_by_default')}
-            className="accent-amber-primary"
-          />
-          Locked by default
-        </label>
+        <CheckboxField
+          label="Locked by default"
+          checked={form.is_locked_by_default}
+          onChange={onField('is_locked_by_default')}
+        />
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
           <Button type="submit" size="sm" loading={saving}>

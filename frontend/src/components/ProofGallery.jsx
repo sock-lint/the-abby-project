@@ -1,10 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import IconButton from './IconButton';
 import SwipeableImage from './SwipeableImage';
+import useBackDismiss from '../hooks/useBackDismiss';
 
 export default function ProofGallery({ proofs = [] }) {
   const [viewerIndex, setViewerIndex] = useState(null);
+
+  const closeViewer = useCallback(() => setViewerIndex(null), []);
+
+  // In the installed PWA back is the "close this photo" gesture; without the
+  // history sentinel it navigated off the page holding the submission.
+  // Shared with the Sketchbook lightbox (pages/Portfolio.jsx) so there is one
+  // implementation of the trick.
+  useBackDismiss(closeViewer, viewerIndex !== null);
 
   useEffect(() => {
     if (viewerIndex === null) return undefined;

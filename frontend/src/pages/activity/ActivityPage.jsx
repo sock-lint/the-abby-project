@@ -6,6 +6,7 @@ import Loader from '../../components/Loader';
 import EmptyState from '../../components/EmptyState';
 import ErrorAlert from '../../components/ErrorAlert';
 import Button from '../../components/Button';
+import PageShell from '../../components/layout/PageShell';
 import { SelectField } from '../../components/form';
 import { normalizeList } from '../../utils/api';
 import EventRow from './EventRow';
@@ -29,7 +30,7 @@ export default function ActivityPage() {
   // Initial fetch + re-fetch when filters change goes through the shared
   // ``useApi`` hook — that hook owns the AbortController + unmount-guard
   // + initial-setState-in-effect pattern, so callers don't repeat it.
-  const { data, loading, error } = useApi(
+  const { data, loading, error, reload } = useApi(
     () => listActivity({ subject, category }),
     [subject, category],
   );
@@ -90,7 +91,7 @@ export default function ActivityPage() {
   }, [events]);
 
   return (
-    <div className="space-y-6">
+    <PageShell rhythm="loose">
       <header className="flex items-center gap-3">
         <History
           size={24} className="text-sheikah-teal-deep" aria-hidden="true"
@@ -168,8 +169,10 @@ export default function ActivityPage() {
         </div>
       </section>
 
-      {error && <ErrorAlert>{error}</ErrorAlert>}
-      {loadMoreError && <ErrorAlert>{loadMoreError}</ErrorAlert>}
+      {/* ErrorAlert reads `message`, not children — passed as children these
+          two rendered nothing at all, so a failed fetch showed a bare page. */}
+      <ErrorAlert message={error} onRetry={reload} />
+      <ErrorAlert message={loadMoreError} onRetry={handleLoadMore} />
       {loading && <Loader label="Loading activity…" />}
 
       {!loading && !error && events.length === 0 && (
@@ -205,6 +208,6 @@ export default function ActivityPage() {
           </Button>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

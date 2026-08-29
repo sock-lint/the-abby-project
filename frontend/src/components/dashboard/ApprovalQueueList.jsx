@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X, ClipboardCheck, BookOpen, Gift, Palette, Sparkles, Feather, CheckCheck, Coins } from 'lucide-react';
 import EmptyState from '../EmptyState';
+import ParchmentSkeleton from '../ParchmentSkeleton';
 import ParchmentCard from '../journal/ParchmentCard';
 import RuneBadge from '../journal/RuneBadge';
 import BottomSheet from '../BottomSheet';
 import ProofGallery from '../ProofGallery';
 import ConfirmDialog from '../ConfirmDialog';
 import Button from '../Button';
+import ModalActions from '../ModalActions';
 import { TextAreaField } from '../form';
 import { formatCurrency } from '../../utils/format';
 import {
@@ -207,16 +209,23 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview, onOpen
 
 function DetailSheet({ item, onClose, onApprove, onReject }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   const meta = KIND_LABELS[item.kind] || KIND_LABELS.chore;
   const photos = item.proofs?.length
     ? item.proofs
     : (item.image ? [{ id: 'image', image: item.image, caption: null }] : []);
 
+  // A rejected approve MUST surface here and keep the sheet open — this is the
+  // flow where the parent inspected the photo before deciding, and a silent
+  // return to "Approve" reads as "it worked". Mirrors the inline Row's catch.
   const handleApprove = async () => {
     setBusy(true);
+    setError('');
     try {
       await onApprove(item);
       onClose();
+    } catch (e) {
+      setError(e?.message || 'Could not save.');
     } finally {
       setBusy(false);
     }
@@ -240,15 +249,15 @@ function DetailSheet({ item, onClose, onApprove, onReject }) {
             {item.notes}
           </p>
         )}
+        {error && (
+          <p role="alert" className="font-script text-body text-ember-deep">
+            {error}
+          </p>
+        )}
+        {/* Reject left, Approve right — same order as the forge approval
+            sheet and ModalActions, so a parent moving between the two
+            queues isn't re-learning which half is which. */}
         <div className="flex gap-2 pt-1">
-          <Button
-            variant="success"
-            onClick={handleApprove}
-            disabled={busy}
-            className="flex-1"
-          >
-            {busy ? 'Approving…' : 'Approve'}
-          </Button>
           <Button
             variant="danger"
             onClick={() => { onClose(); onReject(item); }}
@@ -256,6 +265,14 @@ function DetailSheet({ item, onClose, onApprove, onReject }) {
             className="flex-1"
           >
             Reject
+          </Button>
+          <Button
+            variant="success"
+            onClick={handleApprove}
+            disabled={busy}
+            className="flex-1"
+          >
+            {busy ? 'Approving…' : 'Approve'}
           </Button>
         </div>
       </div>
@@ -304,19 +321,13 @@ function RejectSheet({ item, onCancel, onConfirm }) {
           </p>
         )}
         {error && <p className="text-body text-ember-deep">{error}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={busy}
-            className="px-4 py-2 text-body text-ink-secondary hover:text-ink-primary disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <Button type="submit" variant="danger" size="sm" disabled={busy}>
-            {busy ? 'Rejecting…' : (isProposal ? 'Delete' : 'Reject')}
-          </Button>
-        </div>
+        <ModalActions
+          onClose={onCancel}
+          submitVariant="danger"
+          submitLabel={isProposal ? 'Delete' : 'Reject'}
+          savingLabel={isProposal ? 'Deleting…' : 'Rejecting…'}
+          saving={busy}
+        />
       </form>
     </BottomSheet>
   );
@@ -326,10 +337,13 @@ function RejectSheet({ item, onCancel, onConfirm }) {
  * ApprovalQueueList — parent's merged pending approvals grouped by kid.
  *
  * Props:
- *   items  : unified array (see useParentDashboard shape)
- *   onDone : called after a successful approve/reject (used to reload counts)
+ *   items   : unified array (see useParentDashboard shape)
+ *   loading : true while the first aggregate is still in flight. Renders a
+ *             skeleton instead of the "all quiet" empty state — an empty
+ *             array means "nothing pending" ONLY once the fetches resolve.
+ *   onDone  : called after a successful approve/reject (used to reload counts)
  */
-export default function ApprovalQueueList({ items = [], onDone }) {
+export default function ApprovalQueueList({ items = [], loading = false, onDone }) {
   const navigate = useNavigate();
   const [hiddenIds, setHiddenIds] = useState(() => new Set());
   const [bulkErrors, setBulkErrors] = useState({}); // kidId -> error message
@@ -435,9 +449,13 @@ export default function ApprovalQueueList({ items = [], onDone }) {
   if (!items || items.length === 0) {
     return (
       <section id="approval-queue">
-        <EmptyState>
-          No pending approvals. All quiet on the journal.
-        </EmptyState>
+        {loading ? (
+          <ParchmentSkeleton variant="list" count={3} />
+        ) : (
+          <EmptyState>
+            No pending approvals. All quiet on the journal.
+          </EmptyState>
+        )}
       </section>
     );
   }

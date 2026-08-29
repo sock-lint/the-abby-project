@@ -59,16 +59,20 @@ export default function CatalogSearch({
         onChange={(e) => handleChange(e.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel}
-        className={`${inputClass} pl-9 pr-9`}
+        className={`${inputClass} pl-9 pr-11`}
       />
+      {/* Clear button owns a full-height 44px column at the right edge (the
+          input reserves pr-11 for it). A ~22px icon-sized target meant a
+          missed tap landed in the field and popped the keyboard open —
+          the exact opposite of what "clear the filter" is asking for. */}
       {localValue && (
         <button
           type="button"
           onClick={handleClear}
           aria-label="Clear filter"
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-whisper hover:text-ink-primary p-1 rounded"
+          className="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-ink-whisper hover:text-ink-primary rounded-r-lg"
         >
-          <X size={14} />
+          <X size={16} aria-hidden="true" />
         </button>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Play, Square, BookOpen, Box, Target, CircleDollarSign, UserCog, PenTool, Palette, Sparkles, Feather, Activity } from 'lucide-react';
 import BottomSheet from '../BottomSheet';
@@ -24,6 +24,9 @@ import JournalEntryFormModal from '../../pages/yearbook/JournalEntryFormModal';
 import CreationLogModal from '../CreationLogModal';
 import MovementSessionLogModal from '../MovementSessionLogModal';
 import HomeworkFormModal from '../../pages/Homework/HomeworkFormModal';
+import HomeworkSubmitSheet from '../HomeworkSubmitSheet';
+import { SuccessToastContext } from '../../contexts/SuccessToastContext';
+import { formatDuration } from '../../utils/format';
 
 function formatClock(secs) {
   const h = Math.floor(secs / 3600);
@@ -67,6 +70,9 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Optional: App mounts SuccessToastProvider around the whole authed tree,
+  // but the sheet is also rendered on its own in tests.
+  const showSuccess = useContext(SuccessToastContext);
 
   const activeProjects = activeProjectsOf(projects);
   const effectiveProject = selectedProject ?? defaultClockProjectId(activeProjects);
@@ -78,6 +84,8 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
       await clockIn(parseInt(effectiveProject, 10));
       rememberClockProject(effectiveProject);
       await onClockReload();
+      const started = activeProjects.find((p) => String(p.id) === String(effectiveProject));
+      showSuccess?.(started ? `Clocked in · ${started.title}` : 'Clocked in');
       onBack();
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
@@ -88,6 +96,8 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
       await clockOut(notes);
       await onClockReload();
       setNotes('');
+      // The elapsed readout disappears with the sheet, so say what landed.
+      showSuccess?.(`Clocked out · ${formatDuration(Math.round(elapsedSecs / 60))} logged`);
       onBack();
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
@@ -118,7 +128,7 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
             disabled={busy}
             className="w-full flex items-center justify-center gap-2"
           >
-            <Square size={18} /> Clock Out
+            <Square size={18} /> Clock out
           </Button>
         </>
       ) : (
@@ -129,7 +139,7 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
             value={effectiveProject}
             onChange={(e) => setSelectedProject(e.target.value)}
           >
-            <option value="">Select a project…</option>
+            <option value="">Select a venture…</option>
             {activeProjects.map((p) => (
               <option key={p.id} value={p.id}>{p.title}</option>
             ))}
@@ -140,7 +150,7 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
             disabled={busy}
             className="w-full flex items-center justify-center gap-2"
           >
-            <Play size={18} /> Clock In
+            <Play size={18} /> Clock in
           </Button>
         </>
       )}
@@ -151,22 +161,31 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
 /**
  * QuickActionsSheet — contextual action launcher shown by QuickActionsFab.
  * Role-aware and hide rules:
- *   - Child: Clock, Add homework, Submit homework (only if due),
+ *   - Child: Clock, Add study, Turn in study (only if due),
  *            Ask for a print, Start quest (only if scroll in inventory),
  *            Request reward, Contribute to savings goal (only if goals exist).
- *   - Parent: Clock (rare), Create chore, Create homework, Adjust coins,
- *            Adjust payment.
+ *   - Parent: Clock (rare), Assign study, Adjust coins, Adjust payment.
+ *
+ * Copy convention: rows name the surface the way the app does (Study, Duty,
+ * Ritual) and put the old word in the hint. Labels are sentence case, here
+ * and on the clock pane's buttons.
  */
 export default function QuickActionsSheet({
   status, isClocked, elapsedSecs, onClose, onClockReload,
 }) {
   const navigate = useNavigate();
-  const { user, isParent } = useRole();
+  const { isParent } = useRole();
   const [pane, setPane] = useState('menu'); // 'menu' | 'clock'
   const [journalOpen, setJournalOpen] = useState(false);
   const [creationOpen, setCreationOpen] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
   const [homeworkOpen, setHomeworkOpen] = useState(false);
+  // The assignment being turned in, or null. Opening the submit sheet right
+  // here mirrors the other rows (creation / movement / journal / add study)
+  // and replaces a `?submit=<id>` deep link that the Study tab never read.
+  const [submitAssignment, setSubmitAssignment] = useState(null);
+  // Optional — see ClockPane.
+  const showSuccess = useContext(SuccessToastContext);
   // Child only: today's journal entry (if already written). Drives the row
   // label + whether the modal opens in edit or create mode.
   const { data: todayJournal } = useApi(
@@ -205,6 +224,7 @@ export default function QuickActionsSheet({
       await clockIn(quickClockProject.id);
       rememberClockProject(quickClockProject.id);
       await onClockReload();
+      showSuccess?.(`Clocked in · ${quickClockProject.title}`);
       onClose();
     } catch {
       // Whatever went wrong (project archived, already clocked in…), the
@@ -268,6 +288,16 @@ export default function QuickActionsSheet({
         }}
       />
     )}
+    <HomeworkSubmitSheet
+      assignment={submitAssignment}
+      onClose={() => setSubmitAssignment(null)}
+      onSubmitted={() => {
+        setSubmitAssignment(null);
+        showSuccess?.('Turned in — waiting on a parent');
+        onClose();
+      }}
+    />
+
     <BottomSheet title={pane === 'menu' ? 'Quick actions' : 'Clock'} onClose={onClose}>
       {pane === 'menu' && (
         <div className="space-y-2">
@@ -326,22 +356,24 @@ export default function QuickActionsSheet({
                 tone="royal"
                 onClick={openJournal}
               />
+              {/* Study rows carry the tab's name with the old one as the hint,
+                  the same shape as the duty / ritual rows below. */}
               <ActionRow
                 icon={<BookOpen size={18} />}
-                label="Add homework"
-                hint="Self-assign an assignment"
+                label="Add study"
+                hint="Self-assign homework"
                 tone="royal"
                 onClick={() => setHomeworkOpen(true)}
               />
               {hasDueHw && (
                 <ActionRow
                   icon={<BookOpen size={18} />}
-                  label="Submit homework"
-                  hint={firstDueHw?.title || 'Turn in due work'}
+                  label="Turn in study"
+                  hint={firstDueHw?.title || 'Homework that is due'}
                   tone="teal"
                   onClick={() => {
-                    onClose();
-                    navigate(firstDueHw ? `/quests?tab=study&submit=${firstDueHw.id}` : '/quests?tab=study');
+                    if (firstDueHw) setSubmitAssignment(firstDueHw);
+                    else { onClose(); navigate('/quests?tab=study'); }
                   }}
                 />
               )}
@@ -388,7 +420,8 @@ export default function QuickActionsSheet({
             <>
               <ActionRow
                 icon={<BookOpen size={18} />}
-                label="Create homework for a kid"
+                label="Assign study"
+                hint="Homework for a kid"
                 tone="royal"
                 onClick={() => { onClose(); navigate('/quests?tab=study&new=1'); }}
               />
@@ -396,13 +429,13 @@ export default function QuickActionsSheet({
                 icon={<CircleDollarSign size={18} />}
                 label="Adjust coins"
                 tone="gold"
-                onClick={() => { onClose(); navigate('/manage?tab=coins'); }}
+                onClick={() => { onClose(); navigate('/treasury?tab=bazaar&adjust=1'); }}
               />
               <ActionRow
                 icon={<UserCog size={18} />}
                 label="Adjust payment"
                 tone="ember"
-                onClick={() => { onClose(); navigate('/manage?tab=payments'); }}
+                onClick={() => { onClose(); navigate('/treasury?tab=coffers&adjust=1'); }}
               />
             </>
           )}

@@ -16,7 +16,9 @@ import Button from '../components/Button';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import EmptyState from '../components/EmptyState';
+import PageShell from '../components/layout/PageShell';
 import TomeShelf from '../components/atlas/TomeShelf';
+import { applyTheme } from '../themes';
 import { tierForProgress } from '../components/atlas/mastery.constants';
 import SigilFrontispiece from './character/SigilFrontispiece';
 import CosmeticChapter from './character/CosmeticChapter';
@@ -38,7 +40,7 @@ const ACTIVE_CHAPTER_KEY = 'atlas:sigil-frontispiece:active-chapter';
  * under AnimatePresence so it can slide in and out without refetching.
  */
 export default function Character() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const {
     data: profile, loading: loadingProfile, error: profileError,
     reload: reloadProfile, setData: setProfileData,
@@ -163,6 +165,17 @@ export default function Character() {
     setProfileData({ ...profile, [slot]: next });
     try {
       await equipCosmetic(itemId);
+      // Equipping a journal cover writes `User.theme` server-side
+      // (CosmeticService.equip), so mirror it locally: paint the cover AND
+      // move the auth user. Without the second half, `currentThemeName` below
+      // still reads the OLD cover, and CosmeticSigil's mouseleave — which on a
+      // phone fires on the next tap anywhere — repainted the page back to it,
+      // making a successful equip look like it silently failed.
+      const themeSlug = slot === 'active_theme' ? next?.metadata?.theme : null;
+      if (themeSlug) {
+        applyTheme(themeSlug);
+        if (user) setUser({ ...user, theme: themeSlug });
+      }
       const name = next?.name || cosmeticName(slot, itemId);
       setEquipToast({
         msg: name ? `Now wearing ${name}` : 'Cosmetic equipped',
@@ -224,7 +237,7 @@ export default function Character() {
     COSMETIC_CHAPTERS.find((c) => c.slot === activeChapterSlot) || COSMETIC_CHAPTERS[0];
 
   return (
-    <div className="space-y-5 max-w-4xl mx-auto">
+    <PageShell width="narrow">
       <ErrorAlert message={error} />
 
       <AnimatePresence>
@@ -287,6 +300,6 @@ export default function Character() {
           />
         )}
       </AnimatePresence>
-    </div>
+    </PageShell>
   );
 }

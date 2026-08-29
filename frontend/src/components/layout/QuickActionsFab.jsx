@@ -82,7 +82,8 @@ export default function QuickActionsFab() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 8 }}
-          className="fixed z-30 bottom-40 right-4 lg:bottom-20 lg:right-6
+          className="fixed z-30 right-4 lg:right-6
+                     bottom-[calc(env(safe-area-inset-bottom)+10rem)] lg:bottom-20
                      bg-ink-page-aged border border-sheikah-teal/40 rounded-lg
                      px-3 py-2 shadow-lg max-w-[160px]"
         >
@@ -97,12 +98,17 @@ export default function QuickActionsFab() {
         </motion.div>
       )}
 
+      {/* The bottom bar is 4rem tall PLUS the home-indicator inset, so a flat
+          bottom-24 sat the FAB right on the nav on notched iPhones. Both
+          siblings (the nav itself and the shell's toast band) already carry
+          the inset — this keeps the gap above the bar constant everywhere. */}
       <button
         type="button"
         onClick={handleOpen}
         aria-label={isClocked ? 'Quick actions (clocked in)' : 'Quick actions'}
         className={`fixed z-30 rounded-full shadow-xl transition-all
-                    bottom-24 right-4 lg:bottom-6 lg:right-6
+                    bottom-[calc(env(safe-area-inset-bottom)+6rem)] right-4
+                    lg:bottom-6 lg:right-6
                     flex items-center gap-2 ${isClocked ? 'pl-3 pr-4' : 'p-3.5'} py-3
                     ${bouncing ? 'animate-bounce' : ''}
                     ${isClocked

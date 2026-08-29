@@ -1,11 +1,19 @@
+// Journal tokens only. The five raw Tailwind palette entries this map used to
+// carry (emerald-400 / amber-400 / orange-400 / pink-400 / indigo-400) are
+// pastels tuned for dark UIs — on the light parchment page they washed out to
+// roughly 1.5:1 and the subject label read as a smudge. Every tone here is one
+// of the six accent tokens the per-cover contrast gate already guards
+// (test/themeContrast.test.js), so each chip stays legible on all six covers.
+// Music reuses royal but wears the outlined shape so it stays distinct from
+// writing.
 const SUBJECT_COLORS = {
-  math: 'bg-blue-500/20 text-sheikah-teal-deep',
-  reading: 'bg-emerald-500/20 text-emerald-400',
+  math: 'bg-sheikah-teal/20 text-sheikah-teal-deep',
+  reading: 'bg-moss/20 text-moss-deep',
   writing: 'bg-royal/20 text-royal',
-  science: 'bg-amber-500/20 text-amber-400',
-  social_studies: 'bg-orange-500/20 text-orange-400',
-  art: 'bg-pink-500/20 text-pink-400',
-  music: 'bg-indigo-500/20 text-indigo-400',
+  science: 'bg-gold-leaf/20 text-ember-deep',
+  social_studies: 'bg-ember/20 text-ember-deep',
+  art: 'bg-rose/20 text-rose',
+  music: 'bg-royal/10 text-royal border border-royal/45',
   other: 'bg-ink-whisper/15 text-ink-secondary border border-ink-whisper/30',
 };
 

@@ -66,6 +66,46 @@ describe('Homework', () => {
     );
   });
 
+  it('offers a Try again button when the dashboard fetch fails, and refetches on tap', async () => {
+    // Installed as a PWA there is no browser reload chrome, so a bare alert
+    // left a kid with no recovery path.
+    const user = userEvent.setup();
+    let calls = 0;
+    renderPage(buildUser(), [
+      http.get('*/api/homework/dashboard/', () => {
+        calls += 1;
+        if (calls === 1) {
+          return HttpResponse.json({ detail: 'Study is offline.' }, { status: 500 });
+        }
+        return HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} });
+      }),
+    ]);
+
+    const retry = await screen.findByRole('button', { name: /try again/i });
+    expect(screen.getByRole('alert')).toHaveTextContent(/study is offline/i);
+
+    await user.click(retry);
+
+    await waitFor(() => expect(calls).toBeGreaterThanOrEqual(2));
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /try again/i })).toBeNull(),
+    );
+    expect(screen.getByRole('button', { name: /new assignment/i })).toBeInTheDocument();
+  });
+
+  it('parent empty state names the button that actually exists on the page', async () => {
+    renderPage(buildParent(), [
+      http.get('*/api/homework/dashboard/', () =>
+        HttpResponse.json({ assignments: [], pending_submissions: [] }),
+      ),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+    ]);
+    expect(
+      await screen.findByText(/tap “new assignment” to add one/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/new homework/i)).toBeNull();
+  });
+
   it('renders the QuestFolio verso with a RarityStrand when assignments span effort levels', async () => {
     const { container } = renderPage(buildUser(), [
       http.get('*/api/homework/dashboard/', () =>

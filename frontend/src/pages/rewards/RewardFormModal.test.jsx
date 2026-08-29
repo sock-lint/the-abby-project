@@ -26,6 +26,21 @@ describe('RewardFormModal', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
+  it('wires both toggles as labelled checkboxes', async () => {
+    const user = userEvent.setup();
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([])));
+    render(<RewardFormModal onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    const approval = screen.getByLabelText(/requires approval/i);
+    const active = screen.getByLabelText(/^active$/i);
+    expect(approval).toBeChecked();
+    expect(active).toBeChecked();
+
+    await user.click(approval);
+    expect(approval).not.toBeChecked();
+    expect(active).toBeChecked();
+  });
+
   it('edits an existing reward', () => {
     server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([])));
     render(

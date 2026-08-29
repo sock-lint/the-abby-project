@@ -11,10 +11,15 @@ import { DragonIcon } from './icons/JournalIcons';
  *   - JournalShell mobile header     → <AvatarMenu user={user} compact />
  *   - ChapterNav desktop sidebar     → <AvatarMenu user={user} align="top" />
  *
- * Menu items: Sigil (profile) + Manage / Activity / Codex (parent-only) +
- * Settings. On mobile the bottom tab bar holds only the six chapters, so the
- * avatar dropdown is the sole mobile entry point to /settings and the parent
- * utility pages.
+ * Menu items: Sigil (profile) + Manage / Activity / Content Catalog
+ * (parent-only) + Settings. On mobile the bottom tab bar holds only the six
+ * chapters, so the avatar dropdown is the sole mobile entry point to
+ * /settings and the parent utility pages.
+ *
+ * The /codex row is labelled "Content Catalog" to match the page heading:
+ * it administers the RPG catalog (items, creatures, mounts, adventures,
+ * sprites), NOT the kid-facing Lorebook at /lorebook, and "Codex" already
+ * names the Bestiary hub's species tab.
  */
 export default function AvatarMenu({ user, compact = false, align = 'bottom' }) {
   const [open, setOpen] = useState(false);
@@ -212,10 +217,10 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                     <BookOpen size={20} className="text-sheikah-teal-deep shrink-0" />
                     <span className="min-w-0">
                       <span className="block font-display text-base tracking-wide leading-tight">
-                        Codex
+                        Content Catalog
                       </span>
                       <span className="block font-script text-ink-whisper text-caption leading-tight">
-                        lorebook authoring
+                        items, creatures, adventures, sprites
                       </span>
                     </span>
                   </NavLink>

@@ -1,9 +1,12 @@
+import { Link } from 'react-router-dom';
 import { Send, ExternalLink, Sparkles, Pencil, Trash2, Undo2 } from 'lucide-react';
 import SubjectBadge from '../../components/SubjectBadge';
 import StarRating from '../../components/StarRating';
 import StatusBadge from '../../components/StatusBadge';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import Button from '../../components/Button';
+import IconButton from '../../components/IconButton';
+import { formatDate } from '../../utils/format';
 
 export default function AssignmentCard({
   assignment, onSubmit, onPlan, planning, canPlan,
@@ -26,67 +29,70 @@ export default function AssignmentCard({
           {sub && <StatusBadge status={sub.status} />}
         </div>
       </div>
-      <div className="font-script text-sm text-ink-whisper">
-        due {a.due_date}
+      <div className="font-script text-body text-ink-whisper">
+        due {formatDate(a.due_date)}
       </div>
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
         {!sub && (
           <Button
             variant="success"
             size="sm"
             onClick={onSubmit}
-            className="flex items-center gap-1 text-xs"
+            className="flex items-center gap-1"
           >
-            <Send size={12} /> Submit
+            <Send size={14} /> Submit
           </Button>
         )}
         {canWithdraw && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => onWithdraw(sub.id)}
             title="Pull this submission back so you can re-photo or re-submit"
-            className="flex items-center gap-1 px-3 py-1 bg-ink-page border border-ink-page-shadow hover:border-ember/60 rounded-lg text-xs font-body text-ink-secondary hover:text-ember-deep transition-colors"
+            className="flex items-center gap-1"
           >
-            <Undo2 size={12} /> Withdraw
-          </button>
+            <Undo2 size={14} /> Withdraw
+          </Button>
         )}
         {!hasProject && canPlan && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={onPlan}
             disabled={planning}
             title="turn this assignment into a planned venture with steps and materials"
-            className="flex items-center gap-1 px-3 py-1 bg-royal/20 hover:bg-royal/30 text-royal border border-royal/50 disabled:opacity-50 rounded-lg text-xs font-body font-medium transition-colors"
+            className="flex items-center gap-1"
           >
-            <Sparkles size={12} /> {planning ? 'Planning…' : 'Plan it out'}
-          </button>
+            <Sparkles size={14} /> {planning ? 'Planning…' : 'Plan it out'}
+          </Button>
         )}
         {hasProject && (
-          <a
-            href={`/quests/ventures/${a.project}`}
-            className="flex items-center gap-1 px-3 py-1 bg-ink-page border border-ink-page-shadow hover:border-sheikah-teal/60 rounded-lg text-xs font-body font-medium transition-colors"
+          // Client-side transition. A raw <a> tore the installed PWA down to
+          // the splash screen and refetched every dashboard call on the way
+          // back in.
+          <Link
+            to={`/quests/ventures/${a.project}`}
+            className="inline-flex items-center gap-1 min-h-11 px-3 py-1 bg-ink-page-aged hover:bg-ink-page-shadow border border-ink-page-shadow rounded-lg text-body font-body font-medium text-ink-primary transition-colors"
           >
-            <ExternalLink size={12} /> View plan
-          </a>
+            <ExternalLink size={14} /> View plan
+          </Link>
         )}
         {canManage && (
           <div className="flex gap-1 ml-auto">
-            <button
-              type="button"
+            <IconButton
+              variant="secondary"
               onClick={onEdit}
               aria-label="Edit assignment"
-              className="p-1.5 bg-ink-page hover:bg-ink-page-shadow/70 rounded text-ink-secondary hover:text-ink-primary transition-colors"
             >
-              <Pencil size={14} />
-            </button>
-            <button
-              type="button"
+              <Pencil size={16} />
+            </IconButton>
+            <IconButton
+              variant="danger"
               onClick={onDelete}
               aria-label="Delete assignment"
-              className="p-1.5 bg-ink-page hover:bg-ember/25 rounded text-ink-secondary hover:text-ember-deep transition-colors"
             >
-              <Trash2 size={14} />
-            </button>
+              <Trash2 size={16} />
+            </IconButton>
           </div>
         )}
       </div>

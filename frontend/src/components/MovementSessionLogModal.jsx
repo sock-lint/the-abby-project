@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import BottomSheet from './BottomSheet';
-import Button from './Button';
 import ErrorAlert from './ErrorAlert';
+import ModalActions from './ModalActions';
 import { TextField, SelectField, TextAreaField } from './form';
 import { useApi } from '../hooks/useApi';
 import { normalizeList } from '../utils/api';
@@ -19,6 +19,10 @@ const INTENSITY_OPTIONS = [
 ];
 
 const NEW_TYPE_SENTINEL = '__new__';
+
+// The log form's action row lives in BottomSheet's sticky footer, outside the
+// <form>. A stable id keeps the submit button associated with it.
+const LOG_FORM_ID = 'movement-log-form';
 
 function groupSkillsBySubject(skills) {
   const groups = new Map();
@@ -142,14 +146,18 @@ function NewTypeSubForm({ skills, skillsLoading, onCancel, onCreated }) {
 
       {error && <ErrorAlert message={error} />}
 
-      <div className="flex gap-2 pt-1">
-        <Button variant="secondary" type="button" onClick={onCancel} className="flex-1">
-          Back
-        </Button>
-        <Button type="submit" onClick={submit} disabled={!canSubmit} loading={saving} className="flex-1">
-          Add activity
-        </Button>
-      </div>
+      {/* Stays in flow rather than in the sheet's sticky footer: this is a
+          nested sub-form, and its Back/Add pair belongs to the sub-form rather
+          than to the sheet. */}
+      <ModalActions
+        fullWidth
+        onClose={onCancel}
+        cancelLabel="Back"
+        submitLabel="Add activity"
+        savingLabel="Adding…"
+        saving={saving}
+        submitDisabled={!canSubmit}
+      />
     </form>
   );
 }
@@ -229,7 +237,26 @@ export default function MovementSessionLogModal({ onClose, onSaved }) {
   const title = mode === 'new' ? 'Add activity' : 'Log a session';
 
   return (
-    <BottomSheet title={title} onClose={onClose}>
+    <BottomSheet
+      title={title}
+      onClose={onClose}
+      disabled={saving}
+      dirty={Boolean(movementTypeId || notes) || duration !== 30 || intensity !== 'medium'}
+      // Sticky footer so the action row clears the on-screen keyboard while
+      // the notes field has focus. Only in log mode — the "Add activity"
+      // sub-form carries its own row inline.
+      footer={mode === 'new' ? null : (
+        <ModalActions
+          fullWidth
+          formId={LOG_FORM_ID}
+          onClose={onClose}
+          submitLabel="Log session"
+          savingLabel="Logging…"
+          saving={saving}
+          submitDisabled={!canSubmit}
+        />
+      )}
+    >
       {mode === 'new' ? (
         <NewTypeSubForm
           skills={physicalSkills}
@@ -238,7 +265,7 @@ export default function MovementSessionLogModal({ onClose, onSaved }) {
           onCreated={handleTypeCreated}
         />
       ) : (
-        <form onSubmit={submit} className="space-y-3">
+        <form id={LOG_FORM_ID} onSubmit={submit} className="space-y-3">
           <SelectField
             id="movement-type"
             label="What did you do?"
@@ -261,7 +288,13 @@ export default function MovementSessionLogModal({ onClose, onSaved }) {
             type="number"
             min="1"
             max="600"
-            step="5"
+            // step="5" off a min of 1 made every round duration a step
+            // mismatch — 30 included — so the browser refused to submit the
+            // form. It went unnoticed while the submit button called the
+            // handler directly and preventDefault()'d its way past native
+            // submission; now that the row is a real form submit, the field
+            // has to actually be valid.
+            step="1"
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
           />
@@ -288,15 +321,6 @@ export default function MovementSessionLogModal({ onClose, onSaved }) {
           />
 
           {error && <ErrorAlert message={error} />}
-
-          <div className="flex gap-2 pt-1">
-            <Button variant="secondary" type="button" onClick={onClose} className="flex-1">
-              Cancel
-            </Button>
-            <Button type="submit" onClick={submit} disabled={!canSubmit} loading={saving} className="flex-1">
-              Log session
-            </Button>
-          </div>
         </form>
       )}
     </BottomSheet>

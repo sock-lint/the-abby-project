@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders, screen, userEvent, waitFor, within } from '../../test/render';
 import { server } from '../../test/server';
@@ -11,13 +11,15 @@ function getDialog() {
 }
 
 // Mock the speech hook so jsdom doesn't need a real SpeechRecognition
-// global. Default: supported, never fires. Per-test overrides below.
-vi.mock('../../hooks/useSpeechDictation.js', () => {
-  let current = { supported: true };
-  return {
-    useSpeechDictation: () => current,
-    __setSpeech: (value) => { current = value; },
-  };
+// global. Default: supported, never fires. Per-test overrides assign to
+// `speech.current` before rendering.
+const speech = vi.hoisted(() => ({ current: { supported: true } }));
+vi.mock('../../hooks/useSpeechDictation.js', () => ({
+  useSpeechDictation: () => speech.current,
+}));
+
+beforeEach(() => {
+  speech.current = { supported: true };
 });
 
 // Stub AnimatePresence so close-on-submit renders synchronously.
@@ -83,6 +85,42 @@ describe('JournalEntryFormModal', () => {
     await waitFor(() => expect(spy.calls).toHaveLength(1));
     expect(spy.calls[0].url).toMatch(/\/chronicle\/7\/journal\/$/);
     expect(spy.calls[0].body).toEqual({ title: 'Renamed', summary: 'x' });
+  });
+
+  // Declining the mic prompt flips isListening on and straight back off. With
+  // no visible feedback the button just reads as broken.
+  it('explains a blocked mic instead of failing silently', () => {
+    speech.current = {
+      supported: true, isListening: false, interim: '', error: 'not-allowed',
+      start: vi.fn(), stop: vi.fn(),
+    };
+    renderWithProviders(
+      <JournalEntryFormModal mode="create" onClose={() => {}} onSaved={() => {}} />,
+    );
+    expect(
+      within(getDialog()).getByText(/mic is blocked/i),
+    ).toBeInTheDocument();
+  });
+
+  it('falls back to a generic hint for an unrecognized dictation error', () => {
+    speech.current = {
+      supported: true, isListening: false, interim: '', error: 'weird-code',
+      start: vi.fn(), stop: vi.fn(),
+    };
+    renderWithProviders(
+      <JournalEntryFormModal mode="create" onClose={() => {}} onSaved={() => {}} />,
+    );
+    expect(
+      within(getDialog()).getByText(/dictation stopped/i),
+    ).toBeInTheDocument();
+  });
+
+  it('shows no dictation hint when nothing has gone wrong', () => {
+    renderWithProviders(
+      <JournalEntryFormModal mode="create" onClose={() => {}} onSaved={() => {}} />,
+    );
+    expect(within(getDialog()).queryByText(/mic is blocked/i)).toBeNull();
+    expect(within(getDialog()).queryByText(/dictation stopped/i)).toBeNull();
   });
 
   it('renders the privacy whisper line', () => {

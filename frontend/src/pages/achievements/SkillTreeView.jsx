@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getSkillTree } from '../../api';
 import CatalogSearch from '../../components/CatalogSearch';
@@ -9,6 +9,8 @@ import { tierForProgress } from '../../components/atlas/mastery.constants';
 import FolioSpread from './FolioSpread';
 import SkillDetailSheet from './SkillDetailSheet';
 import { XP_THRESHOLDS } from './skillTree.constants';
+
+const STORAGE_KEY = 'atlas:skill-tree:active-category';
 
 // Convert a SkillCategory + its summary into the flat spine-descriptor
 // shape the lifted TomeShelf expects. The XP math used to live inside
@@ -47,33 +49,71 @@ function categoryToSpine(category, summary) {
  * SkillDetailSheet opens on verse selection.
  */
 export default function SkillTreeView({ categories, summaryByCategory }) {
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [tree, setTree] = useState(null);
-  const [treeLoading, setTreeLoading] = useState(false);
+  // User-clicked override, seeded from localStorage. The *effective* active
+  // category is derived below so the shelf self-heals when a parent renames
+  // or deletes the remembered category. Same shape SigilCodex uses on the
+  // Badges tab, so both Atlas shelves open on a real folio instead of an
+  // empty "pull a tome" state on every visit.
+  const [override, setOverride] = useState(() => {
+    try {
+      return window.localStorage?.getItem(STORAGE_KEY) || null;
+    } catch {
+      return null;
+    }
+  });
+  // One state cell holding `{ key, tree }` for the fetch that finished, so
+  // "is the folio loading?" is derived (key mismatch) rather than a second
+  // setState fired synchronously from the effect.
+  const [loaded, setLoaded] = useState(null);
   const [selectedSkill, setSelectedSkill] = useState(null);
   const [filter, setFilter] = useState('');
+  // Bumped on every spine tap so re-tapping the open tome re-fetches its
+  // folio (the old behavior was to collapse it back to an empty state).
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const requestRef = useRef(0);
 
   const shelfItems = useMemo(
     () => (categories || []).map((cat) => categoryToSpine(cat, summaryByCategory?.[cat.id])),
     [categories, summaryByCategory],
   );
 
-  const loadTree = async (catId) => {
-    if (selectedCategory === catId) {
-      setSelectedCategory(null);
-      setTree(null);
-      return;
-    }
-    setSelectedCategory(catId);
-    setTreeLoading(true);
+  // Priority: (1) remembered category that still exists, (2) first category.
+  const selectedCategory = useMemo(() => {
+    const list = categories || [];
+    const remembered = list.find((cat) => String(cat.id) === String(override));
+    return remembered?.id ?? list[0]?.id ?? null;
+  }, [categories, override]);
+
+  // Selecting is a plain set — tapping the active spine no longer collapses
+  // the folio back to the empty state (an easy accidental double-tap).
+  const selectCategory = (catId) => {
+    setOverride(String(catId));
+    setReloadNonce((n) => n + 1);
     try {
-      const data = await getSkillTree(catId);
-      setTree(data);
+      window.localStorage?.setItem(STORAGE_KEY, String(catId));
     } catch {
-      setTree(null);
+      // ignore quota / disabled storage
     }
-    setTreeLoading(false);
   };
+
+  const loadKey = `${selectedCategory}:${reloadNonce}`;
+
+  useEffect(() => {
+    // Only reachable with zero categories, which short-circuits to the
+    // "no skill categories yet" empty state below — nothing to fetch.
+    if (selectedCategory == null) return;
+    const token = ++requestRef.current;
+    getSkillTree(selectedCategory)
+      .then((data) => {
+        if (requestRef.current === token) setLoaded({ key: loadKey, tree: data });
+      })
+      .catch(() => {
+        if (requestRef.current === token) setLoaded({ key: loadKey, tree: null });
+      });
+  }, [selectedCategory, loadKey]);
+
+  const tree = loaded?.key === loadKey ? loaded.tree : null;
+  const treeLoading = selectedCategory != null && loaded?.key !== loadKey;
 
   const q = filter.trim().toLowerCase();
   const filteredTree = useMemo(() => {
@@ -107,7 +147,7 @@ export default function SkillTreeView({ categories, summaryByCategory }) {
       <TomeShelf
         items={shelfItems}
         activeId={selectedCategory}
-        onSelect={loadTree}
+        onSelect={selectCategory}
         ariaLabel="Skill categories"
       />
 
@@ -122,13 +162,15 @@ export default function SkillTreeView({ categories, summaryByCategory }) {
 
       {treeLoading && <Loader />}
 
+      {/* A tome is always open now, so a missing tree means the folio failed
+          to load — not "you haven't picked one yet". */}
       {!tree && !treeLoading && (
         <EmptyState>
           <div className="text-body font-medium text-ink-primary mb-1">
-            Pull a tome from the shelf
+            This tome would not open
           </div>
           <div className="text-caption">
-            Tap a spine above to open its folio and leaf through its skills.
+            Tap its spine again to retry, or pull a different one from the shelf.
           </div>
         </EmptyState>
       )}

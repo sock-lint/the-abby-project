@@ -39,16 +39,18 @@ export default function Achievements() {
   const categories = normalizeList(categoriesData);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <header className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
             the atlas · mastery charted in rune
           </div>
-          <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+          {/* Below md the Atlas hub's tab strip already names this page —
+              the stacked h1 + explainer ate ~100px above the fold on phones. */}
+          <h1 className="hidden md:block font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
             Skills
           </h1>
-          <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+          <div className="hidden md:block font-script text-body text-ink-whisper mt-1 max-w-xl">
             skills grow from clocked ventures, approved duties, study, rituals, quests, and journal entries
           </div>
         </div>
@@ -77,6 +79,12 @@ export default function Achievements() {
   );
 }
 
+/**
+ * Parent-only View | Manage pill. Speaks TabList's `pill` vocabulary
+ * (aged-parchment tray, teal-filled active pill, font-display text-body) but
+ * stays local so each pill can carry the app's 44px `min-h-11` touch floor —
+ * TabList's shared pill tops out around 36px and lives outside this page.
+ */
 function TopTabButton({ active, onClick, children }) {
   return (
     <button
@@ -84,7 +92,7 @@ function TopTabButton({ active, onClick, children }) {
       role="tab"
       aria-selected={active ? 'true' : 'false'}
       onClick={onClick}
-      className={`px-3 py-1.5 rounded font-display text-sm transition-colors ${
+      className={`min-h-11 px-3 py-2 rounded-md font-display text-body transition-colors ${
         active
           ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
           : 'text-ink-secondary hover:text-ink-primary'

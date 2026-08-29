@@ -76,6 +76,31 @@ describe('ConfirmDialog', () => {
     expect(onConfirm).toHaveBeenCalled();
   });
 
+  // The escape hatch next to a destructive seal used to be a hand-rolled
+  // ~37px text button 8px from Delete — a slightly-off thumb landed on Delete.
+  it('gives Cancel the shared 44px tap floor and keeps it clear of the seal', () => {
+    render(<ConfirmDialog title="x" message="y" onConfirm={() => {}} onCancel={() => {}} />);
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    const confirm = screen.getByRole('button', { name: 'Delete' });
+    expect(cancel.className).toContain('min-h-11');
+    expect(confirm.className).toContain('min-h-11');
+    expect(cancel.parentElement.className).toContain('gap-4');
+  });
+
+  // Standalone the wash belongs below the z-50 card; stacked over an open
+  // BottomSheet (also z-50) it has to clear the sheet or the "modal" dialog
+  // leaves the sheet undimmed and fully tappable.
+  it('raises the backdrop into the z-50 tier when stacked', () => {
+    const { unmount } = render(
+      <ConfirmDialog title="x" message="y" onConfirm={() => {}} onCancel={() => {}} />,
+    );
+    expect(document.querySelector('.modal-ink-wash').className).toContain('z-40');
+    unmount();
+
+    render(<ConfirmDialog stacked title="x" message="y" onConfirm={() => {}} onCancel={() => {}} />);
+    expect(document.querySelector('.modal-ink-wash').className).toContain('z-50');
+  });
+
   it('generates unique IDs for multiple stacked dialogs', () => {
     render(
       <>

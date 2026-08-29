@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ProofGallery from './ProofGallery.jsx';
 
@@ -66,6 +66,24 @@ describe('ProofGallery', () => {
     const backdrop = document.querySelector('.fixed.inset-0');
     await user.click(backdrop);
     expect(screen.queryByText('Alpha')).toBeNull();
+  });
+
+  // In the installed PWA there is no browser chrome, so back is the only
+  // "close this photo" gesture a kid has. Without a history sentinel it
+  // navigated off the page holding the submission instead.
+  it('closes the viewer on the back gesture instead of leaving the page', async () => {
+    const user = userEvent.setup();
+    render(<ProofGallery proofs={PROOFS} />);
+    await user.click(screen.getAllByRole('button')[0]);
+    expect(screen.getByText('Alpha')).toBeInTheDocument();
+
+    await act(async () => {
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(screen.queryByText('Alpha')).toBeNull();
+    // The thumbnail strip underneath is still mounted — back closed the
+    // photo, not the page.
+    expect(screen.getAllByRole('button')).toHaveLength(3);
   });
 
   it('renders alt fallback for proofs without caption', () => {

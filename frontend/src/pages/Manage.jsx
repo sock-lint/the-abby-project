@@ -33,7 +33,7 @@ import Button from '../components/Button';
 import PageShell from '../components/layout/PageShell';
 import IconButton from '../components/IconButton';
 import TabList from '../components/layout/TabList';
-import { TextField, SelectField, TextAreaField } from '../components/form';
+import { TextField, SelectField, TextAreaField, CheckboxField } from '../components/form';
 import { normalizeList } from '../utils/api';
 
 const BASE_TABS = ['Children', 'Family', 'Templates', 'Guide'];
@@ -114,7 +114,7 @@ export default function Manage() {
 /* ── Children Section ───────────────────────────────────────────── */
 
 function ChildrenSection() {
-  const { data, loading, reload } = useApi(getChildren);
+  const { data, loading, error, reload } = useApi(getChildren);
   const [editChild, setEditChild] = useState(null);
   const [creating, setCreating] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
@@ -141,7 +141,11 @@ function ChildrenSection() {
           <UserPlus size={14} /> New child
         </Button>
       </div>
-      {children.length === 0 && (
+      {/* A failed fetch is NOT an empty family — showing "No children yet" on a
+          500 tells a parent their kids are gone. Surface the error with a
+          retry and suppress the empty state until we actually know. */}
+      {error && <ErrorAlert message={error} onRetry={reload} />}
+      {!error && children.length === 0 && (
         <EmptyState>No children yet — tap <span className="font-semibold">New child</span> to add one.</EmptyState>
       )}
       {children.map((child) => {
@@ -206,7 +210,7 @@ function ChildrenSection() {
 }
 
 function CreateChildModal({ onClose, onCreated }) {
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     username: '',
     password: '',
     display_name: '',
@@ -235,7 +239,7 @@ function CreateChildModal({ onClose, onCreated }) {
   };
 
   return (
-    <BottomSheet title="New child" onClose={onClose} disabled={saving}>
+    <BottomSheet title="New child" onClose={onClose} disabled={saving} dirty={dirty}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <TextField
@@ -282,7 +286,7 @@ function CreateChildModal({ onClose, onCreated }) {
 }
 
 function EditChildModal({ child, onClose, onSaved, onRemoved }) {
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     display_name: child.display_name || '',
     hourly_rate: child.hourly_rate || '',
     date_of_birth: child.date_of_birth || '',
@@ -331,7 +335,7 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
   };
 
   return (
-    <BottomSheet title={`Edit ${child.display_name || child.username}`} onClose={onClose} disabled={saving}>
+    <BottomSheet title={`Edit ${child.display_name || child.username}`} onClose={onClose} disabled={saving} dirty={dirty}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <TextField label="Display Name" value={form.display_name} onChange={onField('display_name')} placeholder={child.username} />
@@ -349,7 +353,7 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
           onChange={(e) =>
             set({ grade_entry_year: e.target.value ? Number(e.target.value) : '' })
           }
-          helpText="Year she entered 9th grade (August)."
+          helpText="Year they entered 9th grade (August)."
         >
           <option value="">—</option>
           {Array.from({ length: 9 }, (_, i) => new Date().getFullYear() - 4 + i).map((year) => (
@@ -579,7 +583,7 @@ function DeleteAccountConfirm({ user, kind, onConfirm, onCancel }) {
 
 function TemplatesSection() {
   const navigate = useNavigate();
-  const { data, loading, reload } = useApi(getTemplates);
+  const { data, loading, error, reload } = useApi(getTemplates);
   const { data: childrenData } = useApi(getChildren);
   const { data: categoriesData } = useApi(getCategories);
   const templates = normalizeList(data);
@@ -589,19 +593,33 @@ function TemplatesSection() {
   const [useModal, setUseModal] = useState(null);
   const [editModal, setEditModal] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [actionError, setActionError] = useState(null);
 
   if (loading) return <Loader />;
 
+  // Same shape as UserManagementActions: the dialog closes, and a failed
+  // DELETE lands in its own alert above the list. Without the catch a 403 or
+  // a dropped connection looked exactly like a success — the sheet shut and
+  // the row was still there with nothing to explain why.
   const confirmDelete = async () => {
     const id = deleteId;
     setDeleteId(null);
-    await deleteTemplate(id);
-    reload();
+    setActionError(null);
+    try {
+      await deleteTemplate(id);
+      reload();
+    } catch (err) {
+      setActionError(err.message || 'Could not delete that template.');
+    }
   };
 
   return (
     <div className="space-y-3">
-      {templates.length === 0 && (
+      {/* Same rule as Children: a failed fetch must not read as "you have
+          no templates". */}
+      {error && <ErrorAlert message={error} onRetry={reload} />}
+      <ErrorAlert message={actionError} />
+      {!error && templates.length === 0 && (
         <EmptyState>No templates yet. Save a completed project as a template from the project detail page.</EmptyState>
       )}
 
@@ -709,10 +727,10 @@ function UseTemplateModal({ template, children, onClose, onCreated }) {
   };
 
   return (
-    <BottomSheet title={`Create from "${template.title}"`} onClose={onClose} disabled={creating}>
+    <BottomSheet title={`Create from "${template.title}"`} onClose={onClose} disabled={creating} dirty={Boolean(assignedTo)}>
       <ErrorAlert message={error} />
       <p className="text-body text-ink-whisper">
-        This will create a new project with {template.milestones?.length || 0} milestones
+        This will create a new venture with {template.milestones?.length || 0} milestones
         and {template.materials?.length || 0} materials from this template.
       </p>
       <SelectField label="Assign To" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
@@ -726,7 +744,7 @@ function UseTemplateModal({ template, children, onClose, onCreated }) {
           Cancel
         </Button>
         <Button onClick={handleCreate} disabled={creating} className="flex-1">
-          {creating ? 'Creating...' : 'Create Project'}
+          {creating ? 'Creating…' : 'Create venture'}
         </Button>
       </div>
     </BottomSheet>
@@ -734,7 +752,7 @@ function UseTemplateModal({ template, children, onClose, onCreated }) {
 }
 
 function EditTemplateModal({ template, categories, onClose, onSaved }) {
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     title: template.title || '',
     description: template.description || '',
     difficulty: template.difficulty || 2,
@@ -765,7 +783,7 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
   };
 
   return (
-    <BottomSheet title="Edit Template" onClose={onClose} disabled={saving}>
+    <BottomSheet title="Edit Template" onClose={onClose} disabled={saving} dirty={dirty}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <TextField label="Title" value={form.title} onChange={onField('title')} required />
@@ -783,15 +801,12 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
           <TextField label="Bonus ($)" value={form.bonus_amount} onChange={onField('bonus_amount')} type="number" step="0.01" min="0" />
           <TextField label="Budget ($)" value={form.materials_budget} onChange={onField('materials_budget')} type="number" step="0.01" min="0" />
         </div>
-        <label className="flex items-center gap-2 text-body text-ink-primary cursor-pointer">
-          <input
-            type="checkbox"
-            checked={form.is_public}
-            onChange={(e) => set({ is_public: e.target.checked })}
-            className="accent-amber-primary"
-          />
-          Share publicly (other families can see this template)
-        </label>
+        <CheckboxField
+          label="Share publicly"
+          checked={form.is_public}
+          onChange={(e) => set({ is_public: e.target.checked })}
+          helpText="Other families can see and use this template."
+        />
         <div className="flex gap-2">
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
@@ -901,7 +916,7 @@ function FamilySection() {
 }
 
 function CreateParentModal({ onClose, onCreated }) {
-  const { form, onField, saving, setSaving, error, setError } = useFormState({
+  const { form, onField, saving, setSaving, error, setError, dirty } = useFormState({
     username: '',
     password: '',
     display_name: '',
@@ -926,7 +941,7 @@ function CreateParentModal({ onClose, onCreated }) {
   };
 
   return (
-    <BottomSheet title="Add co-parent" onClose={onClose} disabled={saving}>
+    <BottomSheet title="Add co-parent" onClose={onClose} disabled={saving} dirty={dirty}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <p className="text-body text-ink-whisper">
@@ -968,7 +983,7 @@ function CreateParentModal({ onClose, onCreated }) {
 }
 
 function EditParentModal({ parent, onClose, onSaved, onRemoved }) {
-  const { form, onField, saving, setSaving, error, setError } = useFormState({
+  const { form, onField, saving, setSaving, error, setError, dirty } = useFormState({
     display_name: parent.display_name || '',
   });
 
@@ -989,7 +1004,7 @@ function EditParentModal({ parent, onClose, onSaved, onRemoved }) {
   };
 
   return (
-    <BottomSheet title={`Edit ${parent.display_name || parent.username}`} onClose={onClose} disabled={saving}>
+    <BottomSheet title={`Edit ${parent.display_name || parent.username}`} onClose={onClose} disabled={saving} dirty={dirty}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <TextField

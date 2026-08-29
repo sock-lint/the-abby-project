@@ -95,6 +95,61 @@ describe('Manage', () => {
     expect(await screen.findByRole('heading', { name: /economy diagram/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /study/i })).toBeInTheDocument();
   });
+
+  it('shows a retry-able error instead of "No children yet" when the fetch fails', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () =>
+        HttpResponse.json({ detail: 'boom' }, { status: 500 }),
+      ),
+    );
+    renderPage();
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    // "No children yet" on a 500 reads as "your kids are gone".
+    expect(screen.queryByText(/no children yet/i)).toBeNull();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+  });
+
+  it('shows a retry-able error instead of "No templates yet" when the fetch fails', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/templates/', () =>
+        HttpResponse.json({ detail: 'boom' }, { status: 500 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('tab', { name: /templates/i }));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(screen.queryByText(/no templates yet/i)).toBeNull();
+  });
+
+  it('surfaces a failed template delete instead of swallowing it', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/templates/', () =>
+        HttpResponse.json([{ id: 7, title: 'Birdhouse', difficulty: 2 }]),
+      ),
+      http.delete(/\/api\/templates\/7\/$/, () =>
+        HttpResponse.json({ detail: 'Template is in use.' }, { status: 400 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('tab', { name: /templates/i }));
+    await user.click(await screen.findByRole('button', { name: /delete template/i }));
+
+    const confirm = await screen.findByRole('alertdialog');
+    await user.click(within(confirm).getByRole('button', { name: /^delete$/i }));
+
+    // Before the catch, the dialog closed and the row stayed put with no
+    // explanation — a failed DELETE was indistinguishable from a success.
+    expect(await screen.findByText('Template is in use.')).toBeInTheDocument();
+    expect(screen.getByText('Birdhouse')).toBeInTheDocument();
+  });
 });
 
 describe('Manage — create child flow', () => {

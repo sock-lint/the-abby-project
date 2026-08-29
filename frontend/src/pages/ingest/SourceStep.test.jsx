@@ -30,6 +30,21 @@ describe('SourceStep', () => {
     expect(setSourceTab).toHaveBeenCalledWith('pdf');
   });
 
+  it('disables and relabels the start button while a job is being opened', () => {
+    render(
+      <SourceStep
+        sourceTab="url" setSourceTab={vi.fn()}
+        url="https://example.com/how-to" setUrl={vi.fn()}
+        file={null} setFile={vi.fn()}
+        onStart={vi.fn()}
+        starting
+      />,
+    );
+    const start = screen.getByRole('button', { name: /reading/i });
+    expect(start).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /parse source/i })).toBeNull();
+  });
+
   it('types into the URL input', async () => {
     const setUrl = vi.fn();
     const user = userEvent.setup();

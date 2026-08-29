@@ -29,7 +29,7 @@ describe('SkillFormModal', () => {
     expect(screen.getByDisplayValue('Addition')).toBeInTheDocument();
   });
 
-  it('toggles is_locked_by_default via checkbox', async () => {
+  it('toggles is_locked_by_default via its labelled checkbox', async () => {
     const user = userEvent.setup();
     render(
       <SkillFormModal
@@ -39,7 +39,11 @@ describe('SkillFormModal', () => {
         onSaved={() => {}}
       />,
     );
-    const checkbox = document.querySelector('input[type="checkbox"]');
-    if (checkbox) await user.click(checkbox);
+    // Now a <CheckboxField>, so the label is associated via htmlFor/id
+    // instead of being a hand-rolled wrapper <label>.
+    const checkbox = screen.getByLabelText(/locked by default/i);
+    expect(checkbox).not.toBeChecked();
+    await user.click(checkbox);
+    expect(checkbox).toBeChecked();
   });
 });

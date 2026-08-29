@@ -6,7 +6,7 @@ export default function RedemptionApprovalQueue({ pending, onApprove, onReject }
   return (
     <ApprovalQueue
       items={pending}
-      title="Pending Approvals"
+      title="Pending approvals"
       onApprove={onApprove}
       onReject={onReject}
     >

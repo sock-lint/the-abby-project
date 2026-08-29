@@ -136,6 +136,22 @@ describe('NotificationBell', () => {
     await waitFor(() => expect(screen.queryByText('2')).toBeNull());
   });
 
+  // Offline, the old handler rejected unhandled: no state updates ran and the
+  // button read as a dead no-op with the badge still lit.
+  it('rolls the badge back and says so when mark-all-read fails', async () => {
+    server.use(http.post('*/api/notifications/mark_all_read/', () => HttpResponse.error()));
+    const user = userEvent.setup();
+    renderBell({
+      unread: 2,
+      notifications: [{ id: 1, title: 'a', is_read: false, created_at: 'x' }],
+    });
+    await user.click(screen.getAllByRole('button')[0]);
+    const markAll = await screen.findByRole('button', { name: /mark all read/i });
+    await user.click(markAll);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/try again/i);
+    expect(screen.getByText('2')).toBeInTheDocument();
+  });
+
   it('marks a single notification read on click', async () => {
     server.use(http.post(/\/notifications\/5\/mark_read/, () => HttpResponse.json({})));
     const user = userEvent.setup();

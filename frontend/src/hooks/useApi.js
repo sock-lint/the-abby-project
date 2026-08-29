@@ -5,12 +5,41 @@ import {
 import {
   getMe, login as apiLogin, logout as apiLogout, signup as apiSignup,
 } from '../api';
-import { getToken, setToken } from '../api/client';
+import { getToken, setToken, OFFLINE_MESSAGE } from '../api/client';
 import { STORAGE_KEYS } from '../constants/storage';
+
+// A fetch that never reaches the server rejects with browser-internal text —
+// "Failed to fetch" in Chrome, the even more cryptic "Load failed" in Safari —
+// which used to render verbatim inside ErrorAlert on every page a kid opened
+// without signal. api/client.js now translates that at the wrapper, so every
+// call site benefits, not just the ones going through useApi; the wording is
+// re-exported here because callers already import it from this module.
+export { OFFLINE_MESSAGE };
+
+export function isNetworkError(err) {
+  if (!err || err.status !== undefined) return false;
+  // `offline` is stamped by api/client.js; the TypeError / navigator checks
+  // still catch a rejection raised outside that wrapper.
+  if (err.offline === true) return true;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  return err.name === 'TypeError';
+}
+
+/**
+ * Kid-readable text for a rejected API call. Network failures become
+ * OFFLINE_MESSAGE; everything else keeps the server's own message, which is
+ * already written for humans. Exported so mutation call sites (which catch
+ * their own errors rather than going through useApi) can share the wording.
+ */
+export function friendlyErrorMessage(err) {
+  if (isNetworkError(err)) return OFFLINE_MESSAGE;
+  return err?.message || 'Something went wrong.';
+}
 
 export function useApi(apiFn, deps = []) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   // Unmount guard + per-request AbortController. Without these, a fetch
@@ -19,6 +48,12 @@ export function useApi(apiFn, deps = []) {
   // which is how transient errors silently left the content area blank.
   const mountedRef = useRef(true);
   const controllerRef = useRef(null);
+  // Nearly every call site gates a full-page Loader/skeleton on `loading`, so
+  // it has to mean "nothing to show yet" rather than "a request is in flight".
+  // A reload() after an action keeps the rendered page mounted and raises
+  // `refreshing` instead — otherwise every habit tap, step toggle and pet feed
+  // unmounted the page it was fired from and threw away scroll position.
+  const dataRef = useRef(null);
 
   // ``deps`` is dynamic — callers pass an array literal that changes per
   // call site, so this hook intentionally trusts them rather than statically
@@ -30,20 +65,25 @@ export function useApi(apiFn, deps = []) {
     const controller = new AbortController();
     controllerRef.current = controller;
 
-    setLoading(true);
+    if (dataRef.current === null) setLoading(true);
+    else setRefreshing(true);
     setError(null);
     try {
       // Pass the signal through — endpoint functions that opt in can abort;
       // those that ignore the argument are unaffected.
       const result = await apiFn(controller.signal);
       if (!mountedRef.current || controller.signal.aborted) return;
+      dataRef.current = result;
       setData(result);
     } catch (err) {
       if (!mountedRef.current || controller.signal.aborted) return;
       if (err?.name === 'AbortError') return;
-      setError(err.message);
+      setError(friendlyErrorMessage(err));
     } finally {
-      if (mountedRef.current && !controller.signal.aborted) setLoading(false);
+      if (mountedRef.current && !controller.signal.aborted) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
@@ -57,7 +97,19 @@ export function useApi(apiFn, deps = []) {
     };
   }, [load]);
 
-  return { data, loading, error, reload: load, setData };
+  // Optimistic writes have to move dataRef too, or a reload() straight after
+  // one would read the ref as empty and re-raise the full-page loader.
+  const setDataTracked = useCallback((next) => {
+    setData((prev) => {
+      const value = typeof next === 'function' ? next(prev) : next;
+      dataRef.current = value;
+      return value;
+    });
+  }, []);
+
+  return {
+    data, loading, refreshing, error, reload: load, setData: setDataTracked,
+  };
 }
 
 // --- Auth context ----------------------------------------------------------

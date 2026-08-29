@@ -62,7 +62,26 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
   // label/htmlFor wiring; the className stays in lockstep via the constant.
 
   return (
-    <BottomSheet onClose={handleClose} title="Affix photographic evidence">
+    <BottomSheet
+      onClose={handleClose}
+      title="Affix photographic evidence"
+      disabled={submitting}
+      dirty={images.length > 0 || Boolean(notes)}
+      // Sticky footer so the submit button stays reachable while the notes
+      // field has focus — the on-screen keyboard overlays the sheet rather
+      // than shrinking it, burying anything parked at the end of the scroller.
+      footer={(
+        <Button
+          variant="success"
+          size="sm"
+          onClick={handleSubmit}
+          disabled={!images.length || submitting}
+          className="w-full flex items-center justify-center gap-2"
+        >
+          <Send size={16} /> {submitting ? 'Submitting…' : 'Submit for review'}
+        </Button>
+      )}
+    >
       <div className="space-y-4">
         <div>
           <h3 className="font-display text-lg text-ink-primary">{assignment.title}</h3>
@@ -82,14 +101,21 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
                 <img src={URL.createObjectURL(img)} alt="" className="w-full h-full object-cover" />
                 {/* intentional: corner-flush remove badge on the photo
                     thumbnail. IconButton's default padding + rounding
-                    breaks the in-image overlay shape. */}
+                    breaks the in-image overlay shape.
+                    The button itself is a transparent 44px box anchored to
+                    the corner — the badge alone was a ~17px target, so a kid
+                    correcting a mis-picked photo mostly missed it. Nothing
+                    else on the thumbnail is tappable, so the larger hit area
+                    costs no competing target. */}
                 <button
                   type="button"
                   onClick={() => setImages(images.filter((_, j) => j !== i))}
                   aria-label="Remove photo"
-                  className="absolute top-0 right-0 bg-ink-primary/80 rounded-bl-lg p-0.5 text-ink-page-rune-glow"
+                  className="absolute top-0 right-0 min-h-11 min-w-11 flex items-start justify-end"
                 >
-                  <X size={12} />
+                  <span className="flex bg-ink-primary/80 rounded-bl-lg p-0.5 text-ink-page-rune-glow">
+                    <X size={12} />
+                  </span>
                 </button>
               </div>
             ))}
@@ -112,16 +138,6 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
         />
 
         {error && <ErrorAlert message={error} />}
-
-        <Button
-          variant="success"
-          size="sm"
-          onClick={handleSubmit}
-          disabled={!images.length || submitting}
-          className="w-full flex items-center justify-center gap-2"
-        >
-          <Send size={16} /> {submitting ? 'Submitting…' : 'Submit for review'}
-        </Button>
       </div>
     </BottomSheet>
   );

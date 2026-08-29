@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import useSearchParamState from '../hooks/useSearchParamState';
 import { Coins, Plus } from 'lucide-react';
 import {
@@ -33,29 +33,52 @@ import RewardShop from './rewards/RewardShop';
 
 export default function Rewards() {
   const { isParent } = useRole();
+  // Every fetch here surfaces its own error + retry. A swallowed balance
+  // fetch used to paint a confident gold "0" over the kid's real coins, and
+  // a swallowed shop fetch read as "no rewards yet — ask a parent".
   const {
-    data: rewardsData, loading: loadingRewards, reload: reloadRewards,
-    setData: setRewardsData,
+    data: rewardsData, loading: loadingRewards, error: rewardsError,
+    reload: reloadRewards, setData: setRewardsData,
   } = useApi(getRewards);
-  const { data: redemptionsData, loading: loadingRedemptions, reload: reloadRedemptions } = useApi(getRedemptions);
-  const { data: balanceData, loading: loadingBalance, reload: reloadBalance } = useApi(getCoinBalance);
-  const { data: exchangeData, loading: loadingExchanges, reload: reloadExchanges } = useApi(getExchangeRequests);
-  const { data: rateData } = useApi(getExchangeRate);
+  const {
+    data: redemptionsData, loading: loadingRedemptions,
+    error: redemptionsError, reload: reloadRedemptions,
+  } = useApi(getRedemptions);
+  const {
+    data: balanceData, loading: loadingBalance, error: balanceError,
+    reload: reloadBalance,
+  } = useApi(getCoinBalance);
+  const {
+    data: exchangeData, loading: loadingExchanges, error: exchangesError,
+    reload: reloadExchanges,
+  } = useApi(getExchangeRequests);
+  const { data: rateData, error: rateError, reload: reloadRate } = useApi(getExchangeRate);
 
   const [error, setError] = useState('');
   const [pendingId, setPendingId] = useState(null);
   const [showRewardForm, setShowRewardForm] = useState(false);
   const [editingReward, setEditingReward] = useState(null);
-  const [showCoinAdjust, setShowCoinAdjust] = useState(false);
   const [showExchange, setShowExchange] = useState(false);
   const [outOfStock, setOutOfStock] = useState(null);
   const [confirmRedeem, setConfirmRedeem] = useState(null);
   const [shopFilter, setShopFilter] = useSearchParamState('q', '');
+  const [adjustParam, setAdjustParam] = useSearchParamState('adjust', '');
+  // ?adjust=1 opens the coin adjuster straight from the quick-actions FAB
+  // and the dashboard's Quick adjusts row (same shape as ?new=1 on Forge).
+  const [showCoinAdjust, setShowCoinAdjust] = useState(adjustParam === '1');
   const { confirmState, askConfirm, closeConfirm } = useConfirmState();
+
+  // Drop ?adjust=1 as the sheet closes so a tab switch back here (ChapterHub
+  // remounts tab bodies) doesn't re-open it.
+  const closeCoinAdjust = useCallback(() => {
+    setShowCoinAdjust(false);
+    setAdjustParam('');
+  }, [setAdjustParam]);
 
   const refresh = () => {
     reloadRewards(); reloadRedemptions(); reloadBalance(); reloadExchanges();
   };
+
 
   // Tapping Barter opens a confirm step rather than spending immediately —
   // coins are held the moment the request posts and a kid can't cancel it.
@@ -67,9 +90,12 @@ export default function Rewards() {
   const performRedeem = async (reward) => {
     setError('');
     setConfirmRedeem(null);
-    const balance = balanceData?.balance ?? 0;
+    const balance = coinBalance;
     const cost = reward.cost_coins ?? 0;
-    if (cost > balance) {
+    // balance === null means the fetch failed — skip the client-side
+    // shortfall guard rather than telling the kid they're short by a number
+    // we don't actually know. The server still enforces the real balance.
+    if (balance !== null && cost > balance) {
       const short = cost - balance;
       setError(
         `Not enough coins yet — need ${short} more (cost: ${cost}, you have ${balance}).`,
@@ -148,7 +174,7 @@ export default function Rewards() {
 
   const handleDeleteReward = (id) =>
     askConfirm({
-      title: 'Delete Reward?',
+      title: 'Delete reward?',
       message: 'This cannot be undone. Existing redemptions will be preserved.',
       onConfirm: async () => {
         try {
@@ -161,7 +187,9 @@ export default function Rewards() {
   const rewards = normalizeList(rewardsData);
   const redemptions = normalizeList(redemptionsData);
   const exchanges = normalizeList(exchangeData);
-  const coinBalance = balanceData?.balance ?? 0;
+  // null = we don't know (fetch failed). Downstream treats unknown as
+  // "let them try" rather than as zero.
+  const coinBalance = balanceError ? null : (balanceData?.balance ?? 0);
   const pending = redemptions.filter((r) => r.status === 'pending');
   const pendingExchanges = exchanges.filter((e) => e.status === 'pending');
   const exchangeRate = rateData?.coins_per_dollar;
@@ -197,14 +225,14 @@ export default function Rewards() {
               onClick={() => setShowCoinAdjust(true)}
               className="flex items-center gap-1"
             >
-              <Coins size={14} /> Adjust Coins
+              <Coins size={14} /> Adjust coins
             </Button>
             <Button
               size="sm"
               onClick={() => { setEditingReward(null); setShowRewardForm(true); }}
               className="flex items-center gap-1"
             >
-              <Plus size={14} /> New Reward
+              <Plus size={14} /> New reward
             </Button>
           </div>
         )}
@@ -212,7 +240,12 @@ export default function Rewards() {
 
       <ErrorAlert message={error} />
 
-      {loadingBalance ? <Loader /> : (
+      {loadingBalance ? <Loader /> : balanceError ? (
+        <ErrorAlert
+          message={`Couldn't load your coin balance. ${balanceError}`}
+          onRetry={reloadBalance}
+        />
+      ) : (
         <CoinBalanceCard
           coinBalance={coinBalance}
           isParent={isParent}
@@ -220,10 +253,26 @@ export default function Rewards() {
         />
       )}
 
+      {/* Ungated by role: these feed the parent's pending queues AND both
+          roles' history accordions, so a swallowed failure silently drops a
+          whole section for a child too. */}
+      {redemptionsError && (
+        <ErrorAlert
+          message={`Couldn't load redemptions. ${redemptionsError}`}
+          onRetry={reloadRedemptions}
+        />
+      )}
+      {exchangesError && (
+        <ErrorAlert
+          message={`Couldn't load exchanges. ${exchangesError}`}
+          onRetry={reloadExchanges}
+        />
+      )}
+
       {isParent && (
         loadingRedemptions ? <Loader /> : pending.length > 0 && (
           <section>
-            <SectionHeader index={0} title="Pending Redemptions" count={pending.length} />
+            <SectionHeader index={0} title="Pending redemptions" count={pending.length} />
             <div className="mt-3">
               <RedemptionApprovalQueue
                 pending={pending}
@@ -239,7 +288,7 @@ export default function Rewards() {
       {isParent && (
         loadingExchanges ? <Loader /> : pendingExchanges.length > 0 && (
           <section>
-            <SectionHeader index={1} title="Pending Exchanges" count={pendingExchanges.length} />
+            <SectionHeader index={1} title="Pending exchanges" count={pendingExchanges.length} />
             <div className="mt-3">
               <ExchangeApprovalQueue
                 pending={pendingExchanges}
@@ -259,7 +308,12 @@ export default function Rewards() {
           kicker="browse the bazaar"
         />
         <div className="mt-3 space-y-4">
-          {loadingRewards ? <Loader /> : (
+          {loadingRewards ? <Loader /> : rewardsError ? (
+            <ErrorAlert
+              message={`Couldn't load the bazaar. ${rewardsError}`}
+              onRetry={reloadRewards}
+            />
+          ) : (
             <>
               {rewards.length > 0 && (
                 <div className="space-y-1">
@@ -281,6 +335,8 @@ export default function Rewards() {
                 isParent={isParent}
                 coinBalance={coinBalance}
                 pendingId={pendingId}
+                filterQuery={shopFilter}
+                onClearFilter={() => setShopFilter('')}
                 onRedeem={handleRedeem}
                 onEdit={handleEditReward}
                 onDelete={handleDeleteReward}
@@ -292,13 +348,13 @@ export default function Rewards() {
       </section>
 
       {!loadingRedemptions && redemptions.length > 0 && (
-        <AccordionSection index={isParent ? 3 : 1} title="Redemption History" count={redemptions.length}>
+        <AccordionSection index={isParent ? 3 : 1} title="Redemption history" count={redemptions.length}>
           <RedemptionHistory redemptions={redemptions} isParent={isParent} />
         </AccordionSection>
       )}
 
       {!loadingExchanges && exchanges.length > 0 && (
-        <AccordionSection index={isParent ? 4 : 2} title="Exchange History" count={exchanges.length}>
+        <AccordionSection index={isParent ? 4 : 2} title="Exchange history" count={exchanges.length}>
           <ExchangeHistory exchanges={exchanges} isParent={isParent} />
         </AccordionSection>
       )}
@@ -313,14 +369,16 @@ export default function Rewards() {
 
       {showCoinAdjust && (
         <CoinAdjustModal
-          onClose={() => setShowCoinAdjust(false)}
-          onSaved={() => { setShowCoinAdjust(false); refresh(); }}
+          onClose={closeCoinAdjust}
+          onSaved={() => { closeCoinAdjust(); refresh(); }}
         />
       )}
 
       {showExchange && (
         <CoinExchangeModal
           exchangeRate={exchangeRate}
+          rateError={rateError}
+          onRetryRate={reloadRate}
           onClose={() => setShowExchange(false)}
           onSaved={() => { setShowExchange(false); refresh(); }}
         />
@@ -343,7 +401,7 @@ export default function Rewards() {
       {confirmRedeem && (
         <ConfirmRedeemSheet
           reward={confirmRedeem}
-          balance={balanceData?.balance ?? 0}
+          balance={coinBalance}
           onClose={() => setConfirmRedeem(null)}
           onConfirm={() => performRedeem(confirmRedeem)}
         />
@@ -371,15 +429,20 @@ export default function Rewards() {
 
 function ConfirmRedeemSheet({ reward, balance, onClose, onConfirm }) {
   const cost = reward.cost_coins ?? 0;
+  // balance === null means the balance fetch failed — show the cost alone
+  // rather than inventing a before/after sum out of a number we don't have.
+  const balanceKnown = balance !== null && balance !== undefined;
   return (
     <BottomSheet title={`${reward.icon || '🎁'} ${reward.name}`} onClose={onClose}>
       <div className="space-y-3">
         <div className="text-center">
           <div className="font-rune text-3xl font-bold text-gold-leaf tabular-nums">
-            {balance} → {Math.max(0, balance - cost)}
+            {balanceKnown ? `${balance} → ${Math.max(0, balance - cost)}` : `${cost} coins`}
           </div>
           <div className="font-script text-body text-ink-whisper mt-1">
-            costs {cost} coins
+            {balanceKnown
+              ? `costs ${cost} coins`
+              : `costs ${cost} coins · your balance couldn't be reached just now`}
           </div>
         </div>
         <p className="font-body text-caption text-ink-secondary text-center">

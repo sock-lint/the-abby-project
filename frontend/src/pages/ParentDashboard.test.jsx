@@ -203,6 +203,61 @@ describe('ParentDashboard', () => {
     expect(screen.getByText('$15.00')).toBeInTheDocument();
   });
 
+  it('does not claim "all quiet" while the approval aggregate is still loading', async () => {
+    let releaseChores;
+    const choresPending = new Promise((resolve) => { releaseChores = resolve; });
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({ ...emptyDashboard, children_count: 1 }),
+      ),
+      http.get('*/api/chore-completions/', async () => {
+        await choresPending;
+        return HttpResponse.json([
+          { id: 12, chore_title: 'Trash', user: 2, user_name: 'Abby' },
+        ]);
+      }),
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({ pending_submissions: [] })),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+    ]);
+
+    // Mid-flight: neither the queue's empty state nor the hero's all-clear
+    // may render — both told the parent "nothing pending" before the fetches
+    // that carried the pending rows had even resolved.
+    await waitFor(() =>
+      expect(screen.getByText(/turning today's page/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/no pending approvals/i)).toBeNull();
+    expect(screen.queryByText(/nothing needs your seal/i)).toBeNull();
+
+    releaseChores();
+    await waitFor(() => expect(screen.getByText('Trash')).toBeInTheDocument());
+  });
+
+  it('makes the whole Family Snapshot tile a single tap target', async () => {
+    const user = userEvent.setup();
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({ ...emptyDashboard, children_count: 1 }),
+      ),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({ pending_submissions: [] })),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () =>
+        HttpResponse.json([{ id: 2, username: 'abby', display_name: 'Abby' }]),
+      ),
+    ]);
+
+    await user.click(await screen.findByRole('button', { name: /family snapshot/i }));
+    const tile = await screen.findByRole('button', { name: /manage abby/i });
+    // The card is INSIDE the button (the Next Up pattern) — previously the
+    // button sat inside the card, leaving its 20px padded ring inert.
+    expect(tile.querySelector('.rounded-xl')).not.toBeNull();
+    expect(tile).toHaveTextContent('Abby');
+  });
+
   it('approving a redemption fires /redemptions/{id}/approve/ with notes body', async () => {
     const user = userEvent.setup();
     const approve = spyHandler('post', /\/api\/redemptions\/\d+\/approve\/$/, { ok: true });

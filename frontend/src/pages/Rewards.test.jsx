@@ -247,6 +247,46 @@ describe('Rewards', () => {
     );
   });
 
+  it('a failed balance fetch shows a retry-able alert instead of a gold "0"', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    renderPage(buildUser(), [
+      http.get('*/api/rewards/', () => HttpResponse.json([])),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/coins/', () => {
+        attempts += 1;
+        if (attempts === 1) return HttpResponse.json({ detail: 'boom' }, { status: 500 });
+        return HttpResponse.json({ balance: 42, recent: [] });
+      }),
+      http.get('*/api/coins/exchange/list/', () => HttpResponse.json([])),
+      http.get('*/api/coins/exchange/rate/', () => HttpResponse.json({ coins_per_dollar: 10 })),
+    ]);
+
+    await waitFor(() =>
+      expect(screen.getByText(/couldn't load your coin balance/i)).toBeInTheDocument(),
+    );
+    // The false zero is gone — no balance is claimed at all.
+    expect(screen.queryByText('0')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
+  });
+
+  it('a failed rewards fetch shows a retry-able alert instead of "no rewards yet"', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/rewards/', () => HttpResponse.json({ detail: 'boom' }, { status: 500 })),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/coins/', () => HttpResponse.json({ balance: 10, recent: [] })),
+      http.get('*/api/coins/exchange/list/', () => HttpResponse.json([])),
+      http.get('*/api/coins/exchange/rate/', () => HttpResponse.json({ coins_per_dollar: 10 })),
+    ]);
+
+    await waitFor(() =>
+      expect(screen.getByText(/couldn't load the bazaar/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/ask a parent to add some/i)).toBeNull();
+  });
+
   it('parent approving an exchange posts to /coins/exchange/{id}/approve/', async () => {
     const user = userEvent.setup();
     const approve = spyHandler('post', /\/api\/coins\/exchange\/\d+\/approve\/$/, { ok: true });

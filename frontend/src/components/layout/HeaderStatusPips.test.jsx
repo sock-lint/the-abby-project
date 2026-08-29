@@ -65,5 +65,21 @@ describe('HeaderStatusPips', () => {
     await waitFor(() =>
       expect(screen.getByLabelText(/clocked in on bird feeder/i)).toBeInTheDocument(),
     );
+    // Shared formatDuration — the pip used to render "1h 15", which reads as
+    // a clock time and disagreed with the hero card's "1h 15m" for the same
+    // running timer.
+    expect(screen.getByText('1h 15m')).toBeInTheDocument();
+  });
+
+  it('formats a sub-hour timer without an hour part', async () => {
+    renderPips(buildUser(), [
+      http.get('*/api/dashboard/', () =>
+        HttpResponse.json({
+          ...emptyDash,
+          active_timer: { project_title: 'Bird Feeder', elapsed_minutes: 45, project_id: 2 },
+        }),
+      ),
+    ]);
+    await waitFor(() => expect(screen.getByText('45m')).toBeInTheDocument());
   });
 });

@@ -387,7 +387,33 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         return Response(ProjectDetailSerializer(project).data)
 
 
-class ProjectMilestoneViewSet(NestedProjectResourceMixin, viewsets.ModelViewSet):
+class ProjectMilestoneViewSet(
+    NestedProjectResourceMixin, ParentWritePermissionMixin, viewsets.ModelViewSet,
+):
+    """Milestones are parent-authored chapters, and completing one pays out.
+
+    ``handle_milestone_completed`` (apps/projects/signals.py) fires on any save
+    that flips ``is_completed``, posting a ``milestone_bonus`` to PaymentLedger.
+    The viewset therefore has to be parent-only on every write, not just on
+    ``complete``: with the DRF default of IsAuthenticated a child could PATCH
+    ``{"is_completed": true}`` for the identical payout, or create a milestone
+    with a ``bonus_amount`` of their choosing and then complete it.
+    ``complete`` is added to the mixin's parent-only list rather than carrying
+    ``permission_classes`` on its ``@action`` decorator. These nested routes are
+    wired by hand in apps/projects/urls.py (``as_view({"post": "complete"})``),
+    not by a router, and it is the **router** that turns an action's decorator
+    kwargs into ``initkwargs`` on the view. Hand-wired, the decorator's
+    ``permission_classes`` is never applied — and worse than merely inert:
+    ``action_declares_permissions`` inspects the decorator, so declaring it
+    would make the mixin defer to ``super().get_permissions()`` and hand back
+    the ``IsAuthenticated`` default, turning the gate off. Regression coverage
+    is in apps/projects/tests/test_action_permission_bypass.py.
+    """
+
+    _PARENT_ONLY_ACTIONS = (
+        *ParentWritePermissionMixin._PARENT_ONLY_ACTIONS, "complete",
+    )
+
     serializer_class = ProjectMilestoneSerializer
     queryset = ProjectMilestone.objects.all()
 

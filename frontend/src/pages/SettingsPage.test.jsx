@@ -235,4 +235,40 @@ describe('SettingsPage', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /change avatar/i })).toBeInTheDocument());
     expect(screen.getByRole('button', { name: /^remove$/i })).toBeInTheDocument();
   });
+
+  it('renders a Google unlink failure as an ember alert, not a teal success note', async () => {
+    const user = userEvent.setup();
+    renderPage([
+      http.get('*/api/auth/google/account/', () =>
+        HttpResponse.json({ linked: true, google_email: 'x@x.com', calendar_sync_enabled: false }),
+      ),
+      http.delete('*/api/auth/google/account/', () =>
+        HttpResponse.json({ detail: 'nope' }, { status: 500 }),
+      ),
+    ]);
+    await waitFor(() => expect(screen.getByText(/x@x\.com/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /unlink google account/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/failed to unlink google account/i);
+  });
+
+  it('renders a calendar-toggle failure as an alert and leaves the toggle where it was', async () => {
+    const user = userEvent.setup();
+    renderPage([
+      http.get('*/api/auth/google/account/', () =>
+        HttpResponse.json({ linked: true, google_email: 'x@x.com', calendar_sync_enabled: false }),
+      ),
+      http.patch('*/api/auth/google/calendar/', () =>
+        HttpResponse.json({ detail: 'nope' }, { status: 500 }),
+      ),
+    ]);
+    await waitFor(() => expect(screen.getAllByText(/calendar sync/i).length).toBeGreaterThan(0));
+    const toggle = screen.getByRole('switch');
+    await user.click(toggle);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/failed to update calendar settings/i);
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+  });
 });

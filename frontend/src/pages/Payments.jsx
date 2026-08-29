@@ -37,16 +37,19 @@ const typeIcons = {
   chore_reward:            { icon: TrendingUp,    tone: 'text-moss' },
 };
 
+// Display labels only — the keys stay the backend ``entry_type`` values.
+// Kid-facing wording follows the nav: chores are Duties, projects are
+// Ventures. Sentence case matches the rest of the app's headings.
 const typeLabels = {
   hourly: 'Hourly',
-  project_bonus: 'Project Bonus',
+  project_bonus: 'Venture bonus',
   bounty_payout: 'Bounty',
-  milestone_bonus: 'Milestone Bonus',
+  milestone_bonus: 'Milestone bonus',
   materials_reimbursement: 'Reimbursement',
   payout: 'Payout',
   adjustment: 'Adjustment',
-  coin_exchange: 'Coin Exchange',
-  chore_reward: 'Chore Reward',
+  coin_exchange: 'Coin exchange',
+  chore_reward: 'Duty reward',
 };
 
 function PaymentAdjustModal({ onClose, onSaved }) {
@@ -72,7 +75,7 @@ function PaymentAdjustModal({ onClose, onSaved }) {
   };
 
   return (
-    <BottomSheet title="Adjust Balance" onClose={onClose}>
+    <BottomSheet title="Adjust balance" onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <SelectField
@@ -118,10 +121,12 @@ function PaymentAdjustModal({ onClose, onSaved }) {
 export default function Payments() {
   const { isParent } = useRole();
   const { data, loading, error, reload } = useApi(getBalance);
-  const [showAdjust, setShowAdjust] = useState(false);
   // entry_types and user_id sync to URL search params for bookmarkable views.
   // Date ranges stay in local state since they're less commonly bookmarked.
   const [searchParams, setSearchParams] = useSearchParams();
+  // ?adjust=1 opens the balance adjuster straight from the quick-actions FAB
+  // and the dashboard's Quick adjusts row (same shape as ?new=1 on Forge).
+  const [showAdjust, setShowAdjust] = useState(searchParams.get('adjust') === '1');
 
   const entryTypesParam = searchParams.get('types') ?? '';
   const entryTypes = useMemo(
@@ -129,6 +134,17 @@ export default function Payments() {
     [entryTypesParam],
   );
   const userIdParam = searchParams.get('kid') ?? '';
+
+  // Drop ?adjust=1 as the sheet closes so a tab switch back here (ChapterHub
+  // remounts tab bodies) doesn't re-open it.
+  const closeAdjust = useCallback(() => {
+    setShowAdjust(false);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('adjust');
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   // 30-day earnings trend for the balance hero; follows the kid filter so
   // a parent narrowing the ledger sees that child's curve.
@@ -333,7 +349,7 @@ export default function Payments() {
               onClick={() => setShowAdjust(true)}
               className="flex items-center gap-1"
             >
-              <Plus size={14} /> Adjust Balance
+              <Plus size={14} /> Adjust balance
             </Button>
           </div>
         )}
@@ -401,6 +417,9 @@ export default function Payments() {
       {/* Filter strip — entry-type pills, optional date range + child select */}
       <section aria-labelledby="ledger-filters-heading">
         <DeckleDivider glyph="flourish-corner" label="recent entries" />
+        {/* Entry-type pills carry the same min-h-9 / px-3 sizing as the
+            date-range chips below them — one toolbar shouldn't hold two
+            different tap standards. */}
         <div className="flex flex-wrap items-center gap-1.5 mb-2" id="ledger-filters-heading">
           <Filter size={12} className="text-ink-whisper" aria-hidden="true" />
           {Object.entries(typeLabels).map(([type, label]) => {
@@ -411,7 +430,7 @@ export default function Payments() {
                 type="button"
                 onClick={() => toggleEntryType(type)}
                 aria-pressed={active}
-                className={`px-2 py-0.5 text-tiny font-script rounded-full border transition-colors ${
+                className={`min-h-9 px-3 text-caption font-script rounded-full border transition-colors ${
                   active
                     ? 'bg-sheikah-teal-deep/15 text-sheikah-teal-deep border-sheikah-teal-deep/40'
                     : 'bg-ink-page-aged hover:bg-ink-page-shadow/40 text-ink-whisper border-ink-page-shadow/30'
@@ -423,16 +442,16 @@ export default function Payments() {
           })}
           {hasFilter && (
             <>
-              <span className="font-script text-tiny text-sheikah-teal-deep tabular-nums">
+              <span className="font-script text-caption text-sheikah-teal-deep tabular-nums">
                 ({entriesToRender.length})
               </span>
               <button
                 type="button"
                 onClick={clearFilters}
-                className="px-2 py-0.5 text-tiny font-script rounded-full bg-ember-deep/10 text-ember-deep border border-ember-deep/30 hover:bg-ember-deep/20 flex items-center gap-1"
+                className="min-h-9 px-3 text-caption font-script rounded-full bg-ember-deep/10 text-ember-deep border border-ember-deep/30 hover:bg-ember-deep/20 flex items-center gap-1"
                 aria-label="Clear all filters"
               >
-                <X size={10} aria-hidden="true" /> clear
+                <X size={12} aria-hidden="true" /> clear
               </button>
             </>
           )}
@@ -557,8 +576,8 @@ export default function Payments() {
 
       {showAdjust && (
         <PaymentAdjustModal
-          onClose={() => setShowAdjust(false)}
-          onSaved={() => { setShowAdjust(false); reload(); }}
+          onClose={closeAdjust}
+          onSaved={() => { closeAdjust(); reload(); }}
         />
       )}
     </div>

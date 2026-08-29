@@ -204,7 +204,10 @@ export default function DailyChallengeCard() {
                 {pending ? 'Claiming…' : `Claim reward · +${coin_reward} coins · +${xp_reward} XP`}
               </Button>
               {claimError && (
-                <p role="alert" className="font-script text-body text-rose-700">
+                // ``text-ember-deep`` is the theme's error ink — the raw
+                // ``text-rose-700`` this replaced bypassed the per-cover
+                // palette and went unreadable on the dark Vigil cover.
+                <p role="alert" className="font-script text-body text-ember-deep">
                   {claimError}
                 </p>
               )}

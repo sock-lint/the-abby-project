@@ -97,13 +97,17 @@ export default function ProjectHeader({
             </Button>
           )}
           {isAssigned && project.status === 'in_progress' && (
-            <button
-              type="button"
+            // Royal tone marks the child's one hand-off action apart from the
+            // parent's teal actions beside it; the `!` overrides ride on the
+            // Button primitive so height, disabled and focus behavior stay in
+            // lockstep with its size="sm" siblings in this row.
+            <Button
+              size="sm"
               onClick={() => onAction('submit')}
-              className="bg-royal hover:bg-royal/85 text-ink-page-rune-glow px-4 py-2 rounded-lg text-body font-body font-medium transition-colors border border-royal/70"
+              className="!bg-royal hover:!bg-royal/85 !border-royal/70 !text-ink-page-rune-glow"
             >
               Submit for review
-            </button>
+            </Button>
           )}
           {isParent && project.status === 'in_review' && (
             <>

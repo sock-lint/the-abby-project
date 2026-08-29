@@ -227,7 +227,7 @@ export default function ChildDashboard({ data, reload }) {
               Your adventure begins here
             </h2>
             <p className="font-script text-ink-secondary text-body max-w-md mx-auto">
-              Once your parent sets up duties, homework, or ventures, they'll
+              Once your parent sets up duties, study, or ventures, they&apos;ll
               appear right here for you to tackle.
             </p>
             <div className="flex flex-wrap justify-center gap-3 pt-2">
@@ -499,13 +499,14 @@ export default function ChildDashboard({ data, reload }) {
               </button>
             ))}
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => navigate('/treasury?tab=hoards')}
-            className="mt-3 font-script text-caption text-sheikah-teal-deep hover:text-sheikah-teal-deep/80"
+            className="mt-3 -ml-3 font-script text-caption text-sheikah-teal-deep! hover:underline"
           >
             View all in Treasury →
-          </button>
+          </Button>
         </AccordionSection>
       )}
 

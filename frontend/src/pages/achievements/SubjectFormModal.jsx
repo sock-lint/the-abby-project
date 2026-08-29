@@ -42,7 +42,7 @@ export default function SubjectFormModal({ item, categories, onClose, onSaved })
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Category" value={form.category} onChange={onField('category')} required>
             <option value="">Select...</option>
             {categories.map((c) => (

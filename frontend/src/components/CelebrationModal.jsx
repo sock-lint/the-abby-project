@@ -77,13 +77,15 @@ export default function CelebrationModal({ notification, onDismiss }) {
   const isPerfectDay = notification.notification_type === 'perfect_day'
   const days = isStreak ? parseStreakDays(notification.title) : null
 
-  const dismiss = async () => {
+  // Close first, then tell the server. This overlay covers the whole app, so
+  // waiting on a flaky connection would freeze everything behind it for as
+  // long as the request hangs. markNotificationRead is idempotent and the
+  // pending-celebration poll tolerates a retry, so a dropped call is harmless.
+  const dismiss = () => {
+    if (leaving) return
     setLeaving(true)
-    try {
-      await markNotificationRead(notification.id)
-    } finally {
-      onDismiss?.()
-    }
+    markNotificationRead(notification.id).catch(() => {})
+    onDismiss?.()
   }
 
   // Unknown celebration type — render nothing rather than a broken modal.
@@ -95,6 +97,7 @@ export default function CelebrationModal({ notification, onDismiss }) {
       aria-labelledby={titleId}
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center"
+      onClick={dismiss}
     >
       <div className="absolute inset-0 bg-[rgba(204,170,92,0.25)] backdrop-blur-sm" />
       <motion.div
@@ -103,6 +106,7 @@ export default function CelebrationModal({ notification, onDismiss }) {
         exit={{ opacity: 0 }}
         transition={reduced ? { duration: 0.15 } : { duration: 0.6 }}
         className="relative parchment-bg-aged p-8 text-center max-w-sm w-full rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
         <div id={titleId} className="sr-only">
           {notification.title}

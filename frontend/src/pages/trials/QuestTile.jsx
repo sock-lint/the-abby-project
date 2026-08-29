@@ -64,6 +64,18 @@ function AvailableTile({ quest, canBegin, starting, onBegin, onSelect }) {
         aria-label={`${def.name} — available trial`}
         className="text-center transition-all"
       >
+        {/* Whole-card open target, matching ProgressTile / LockedTile, which
+            wrap their entire card in a button. A nested <button> would be
+            invalid inside those, so available tiles use the stretched-overlay
+            shape instead: the sprite, name, description and meta rows all
+            open the detail sheet, while Begin — positioned, and later in the
+            DOM — paints above the overlay and keeps its own tap. */}
+        <button
+          type="button"
+          onClick={() => onSelect?.(def)}
+          aria-label={`Open ${def.name}`}
+          className="absolute inset-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep"
+        />
         <div className="flex items-center justify-center h-16 mb-2">
           <RpgSprite
             spriteKey={def.sprite_key}
@@ -72,13 +84,9 @@ function AvailableTile({ quest, canBegin, starting, onBegin, onSelect }) {
             alt={def.name}
           />
         </div>
-        <button
-          type="button"
-          onClick={() => onSelect?.(def)}
-          className="font-display text-base text-ink-primary leading-tight w-full hover:text-sheikah-teal-deep transition-colors text-left"
-        >
+        <div className="font-display text-base text-ink-primary leading-tight">
           {def.name}
-        </button>
+        </div>
         <p className="font-script text-micro text-ink-whisper mt-1 line-clamp-2 min-h-[2em]">
           {def.description}
         </p>
@@ -96,7 +104,7 @@ function AvailableTile({ quest, canBegin, starting, onBegin, onSelect }) {
             size="sm"
             onClick={() => onBegin(def)}
             disabled={starting}
-            className="mt-2 inline-flex items-center gap-1"
+            className="relative mt-2 inline-flex items-center gap-1"
           >
             <Play size={12} /> {starting ? 'Starting…' : 'Begin'}
           </Button>

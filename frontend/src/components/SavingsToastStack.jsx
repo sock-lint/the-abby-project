@@ -5,6 +5,7 @@ import { useSavingsCompletionToasts } from '../hooks/useSavingsCompletionToasts'
 import IconButton from './IconButton';
 import { TOAST_DURATION_LONG } from '../constants/timing';
 import { swipeToDismiss } from './toastSwipe';
+import { RARITY_SOLID_COLORS } from '../constants/colors';
 
 function Toast({ toast, onDismiss }) {
   useEffect(() => {
@@ -12,6 +13,8 @@ function Toast({ toast, onDismiss }) {
     return () => clearTimeout(timer);
   }, [toast.id, onDismiss]);
 
+  // Gold-leaf tier surface — the journal's "treasure" hue, matching the drop
+  // toasts this shares a band with rather than a raw Tailwind amber gradient.
   return (
     <motion.div
       layout
@@ -19,7 +22,7 @@ function Toast({ toast, onDismiss }) {
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 300, opacity: 0 }}
       {...swipeToDismiss(() => onDismiss(toast.id))}
-      className="flex items-center gap-3 rounded-lg border border-amber-300 bg-gradient-to-r from-amber-600 to-amber-500 px-3 py-2 shadow-lg"
+      className={`flex items-center gap-3 rounded-lg border border-white/25 px-3 py-2 shadow-lg ${RARITY_SOLID_COLORS.legendary}`}
     >
       <Trophy size={18} className="text-white shrink-0" />
       <span className="text-xl shrink-0" aria-hidden="true">{toast.icon}</span>

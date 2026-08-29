@@ -1,5 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import ParchmentCard from '../../components/journal/ParchmentCard';
+import Button from '../../components/Button';
 import { TextField, TextAreaField } from '../../components/form';
 
 export default function MilestonesEditor({ milestones, onAdd, onUpdate, onRemove }) {
@@ -7,9 +8,14 @@ export default function MilestonesEditor({ milestones, onAdd, onUpdate, onRemove
     <ParchmentCard className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg font-bold">Milestones ({milestones.length})</h2>
-        <button onClick={onAdd} className="text-xs text-sheikah-teal-deep hover:text-sheikah-teal-deep flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onAdd}
+          className="flex items-center gap-1 !text-sheikah-teal-deep hover:!text-sheikah-teal"
+        >
           <Plus size={14} /> Add
-        </button>
+        </Button>
       </div>
       <p className="text-xs text-ink-whisper">
         Optional payment goals — chapters of the project. Each one can hold a $ bonus and group its own steps below.

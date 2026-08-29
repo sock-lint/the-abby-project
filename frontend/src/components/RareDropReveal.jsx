@@ -6,27 +6,12 @@ import { Sparkles } from 'lucide-react';
 import Button from './Button';
 import RpgSprite from './rpg/RpgSprite';
 import { hapticSuccess } from '../utils/haptics';
-
-const RARITY_GLOW = {
-  rare: {
-    border: 'border-blue-300',
-    glow: 'shadow-[0_0_60px_8px_rgba(96,165,250,0.55)]',
-    text: 'text-blue-300',
-    label: 'Rare',
-  },
-  epic: {
-    border: 'border-purple-300',
-    glow: 'shadow-[0_0_60px_10px_rgba(196,131,252,0.6)]',
-    text: 'text-purple-300',
-    label: 'Epic',
-  },
-  legendary: {
-    border: 'border-amber-300',
-    glow: 'shadow-[0_0_70px_12px_rgba(251,191,36,0.65)]',
-    text: 'text-amber-300',
-    label: 'Legendary',
-  },
-};
+import { RARE_TIERS } from './rareDropTiers';
+import {
+  RARITY_BORDER_COLORS,
+  RARITY_GLOW_COLORS,
+  RARITY_TEXT_COLORS,
+} from '../constants/colors';
 
 function usePrefersReducedMotion() {
   const [pref, setPref] = useState(() =>
@@ -61,8 +46,13 @@ export default function RareDropReveal({ drop, onDismiss }) {
 
   useEffect(() => { hapticSuccess() }, []);
 
-  const tier = RARITY_GLOW[drop?.item_rarity];
-  if (!tier) return null;
+  const rarity = drop?.item_rarity;
+  if (!RARE_TIERS.has(rarity)) return null;
+
+  // Same rarity vocabulary the Satchel pills, badge halos and bestiary rings
+  // speak — a kid learns the tier by its hue, so the reveal must not recolor it.
+  const label = rarity.charAt(0).toUpperCase() + rarity.slice(1);
+  const glow = `0 0 64px 10px color-mix(in srgb, ${RARITY_GLOW_COLORS[rarity]} 55%, transparent)`;
 
   const dismiss = () => onDismiss?.(drop.id);
 
@@ -92,14 +82,15 @@ export default function RareDropReveal({ drop, onDismiss }) {
               ? { duration: 0.15 }
               : { duration: 0.55, ease: [0.22, 1.4, 0.36, 1] }
           }
-          className={`relative parchment-bg-aged p-8 text-center max-w-sm w-[88%] rounded-2xl border-2 ${tier.border} ${tier.glow}`}
+          className={`relative parchment-bg-aged p-8 text-center max-w-sm w-[88%] rounded-2xl border-2 ${RARITY_BORDER_COLORS[rarity]}`}
+          style={{ boxShadow: glow }}
           onClick={(e) => e.stopPropagation()}
         >
           <div
-            className={`flex items-center justify-center gap-2 font-script text-base ${tier.text}`}
+            className={`flex items-center justify-center gap-2 font-script text-base ${RARITY_TEXT_COLORS[rarity]}`}
           >
             <Sparkles size={18} aria-hidden="true" />
-            <span className="uppercase tracking-widest">{tier.label} drop</span>
+            <span className="uppercase tracking-widest">{label} drop</span>
             <Sparkles size={18} aria-hidden="true" />
           </div>
           <motion.div

@@ -1,9 +1,10 @@
 import * as Sentry from '@sentry/react';
+import { Link } from 'react-router-dom';
 import { createHomework, updateHomework } from '../../api';
 import { useFormState } from '../../hooks/useFormState';
 import BottomSheet from '../../components/BottomSheet';
 import ErrorAlert from '../../components/ErrorAlert';
-import Button from '../../components/Button';
+import ModalActions from '../../components/ModalActions';
 import { TextField, SelectField, TextAreaField, DueDateChips } from '../../components/form';
 import { toISODate } from '../../utils/dates';
 
@@ -104,7 +105,7 @@ export default function HomeworkFormModal({
               className="mb-2"
             />
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <SelectField
               value={form.subject}
               onChange={(e) => set({ subject: e.target.value })}
@@ -146,18 +147,15 @@ export default function HomeworkFormModal({
         )}
         {isParent && childrenList.length === 0 && (
           <p className="font-script text-body text-ember-deep italic">
-            No children registered yet — add one in <a href="/manage" className="underline">Manage</a> before creating homework.
+            No children registered yet — add one in <Link to="/manage" className="underline">Manage</Link> before creating homework.
           </p>
         )}
         {error && <ErrorAlert message={error} />}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" size="sm" loading={saving}>
-            {isEdit ? 'Update assignment' : 'Create assignment'}
-          </Button>
-        </div>
+        <ModalActions
+          onClose={onClose}
+          saving={saving}
+          submitLabel={isEdit ? 'Update assignment' : 'Create assignment'}
+        />
       </form>
     </BottomSheet>
   );

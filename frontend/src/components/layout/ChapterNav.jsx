@@ -12,10 +12,15 @@ import useParentPendingCounts from '../../hooks/useParentPendingCounts';
  *   - mobile  : bottom tab bar, six equal columns (same for both roles)
  *
  * The Clock is NOT a chapter — it lives in ClockFab (floating action).
- * Manage / Activity / Codex (parent-only) sit in the desktop sidebar footer.
- * Mobile has no footer — Settings, Manage, Activity, and Codex are all reached
- * via the header AvatarMenu so the bottom bar keeps showing all six chapters
- * (Chronicle included) for parents the same as it does for children.
+ * Manage / Activity / Content Catalog (parent-only) sit in the desktop
+ * sidebar footer. Mobile has no footer — Settings, Manage, Activity, and
+ * Content Catalog are all reached via the header AvatarMenu so the bottom bar
+ * keeps showing all six chapters (Chronicle included) for parents the same as
+ * it does for children.
+ *
+ * The /codex link reads "Content Catalog", matching the page heading: it
+ * administers the RPG catalog, not the kid-facing Lorebook, and "Codex"
+ * already names the Bestiary hub's species tab.
  */
 
 const CHAPTERS = [
@@ -79,7 +84,7 @@ export function ChapterSidebar({ user, onLogout }) {
                   />
                   {to === '/' && pendingCount > 0 && (
                     <span
-                      className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-[10px] font-rune font-bold leading-none px-1"
+                      className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-micro font-rune font-bold leading-none px-1"
                       aria-label={`${pendingCount} pending`}
                     >
                       {pendingCount > 9 ? '9+' : pendingCount}
@@ -129,7 +134,7 @@ export function ChapterSidebar({ user, onLogout }) {
           <NavLink
             to="/codex"
             className={({ isActive }) =>
-              `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-body transition-colors ${
+              `flex items-center gap-2 px-3 py-2 rounded-lg text-body font-body transition-colors ${
                 isActive
                   ? 'bg-sheikah-teal/10 text-ink-primary'
                   : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
@@ -137,7 +142,7 @@ export function ChapterSidebar({ user, onLogout }) {
             }
           >
             <BookOpen size={16} />
-            Codex
+            Content Catalog
           </NavLink>
         )}
         <NavLink
@@ -172,9 +177,9 @@ export function ChapterBottomBar({ user }) {
   const isParent = user?.role === 'parent';
   const { total: pendingCount } = useParentPendingCounts({ enabled: isParent });
 
-  // Both roles get the same six chapters — Manage / Activity / Codex for
-  // parents reach via AvatarMenu in the mobile header so Chronicle isn't
-  // displaced out of the bottom bar.
+  // Both roles get the same six chapters — Manage / Activity / Content
+  // Catalog for parents reach via AvatarMenu in the mobile header so Chronicle
+  // isn't displaced out of the bottom bar.
   const chapters = CHAPTERS;
 
   return (
@@ -182,6 +187,7 @@ export function ChapterBottomBar({ user }) {
       className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex justify-around
                  bg-ink-page-aged/95 backdrop-blur-sm border-t border-ink-page-shadow
                  pb-[env(safe-area-inset-bottom)]
+                 pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]
                  shadow-[0_-2px_0_var(--color-ink-page-rune-glow)_inset]"
     >
       {chapters.map(({ to, icon: Icon, shortLabel }) => (
@@ -202,7 +208,7 @@ export function ChapterBottomBar({ user }) {
                 <Icon size={20} className={isActive ? 'animate-rune-pulse' : ''} />
                 {to === '/' && pendingCount > 0 && (
                   <span
-                    className="absolute -top-1 -right-2 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-[9px] font-rune font-bold leading-none px-0.5"
+                    className="absolute -top-1 -right-2 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-micro font-rune font-bold leading-none px-1"
                     aria-label={`${pendingCount} pending`}
                   >
                     {pendingCount > 9 ? '9+' : pendingCount}

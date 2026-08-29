@@ -209,6 +209,87 @@ describe('ClockPage', () => {
     expect(screen.queryByRole('button', { name: /close entry/i })).toBeNull();
   });
 
+  it('does not paint the idle Play seal while the clock status is still loading', async () => {
+    // A kid who IS clocked in used to see (and could tap) the idle
+    // 00:00:00 + Play seal during the status round-trip.
+    let releaseStatus;
+    const gate = new Promise((r) => { releaseStatus = r; });
+    renderPage(buildUser(), [
+      http.get('*/api/clock/', async () => {
+        await gate;
+        return HttpResponse.json({
+          status: 'active',
+          project_title: 'Ongoing',
+          clock_in: new Date(Date.now() - 5000).toISOString(),
+        });
+      }),
+      http.get('*/api/projects/', () => HttpResponse.json([])),
+      http.get('*/api/time-entries/', () => HttpResponse.json([])),
+    ]);
+    await waitFor(() => expect(screen.getByText('Clock')).toBeInTheDocument());
+    expect(screen.queryByText('00:00:00')).toBeNull();
+    expect(
+      screen.queryAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-play')),
+    ).toBeUndefined();
+
+    releaseStatus();
+    await waitFor(() => expect(screen.getByText(/now inking/i)).toBeInTheDocument());
+  });
+
+  it('holds the entries empty state until the entries fetch resolves', async () => {
+    let releaseEntries;
+    const gate = new Promise((r) => { releaseEntries = r; });
+    renderPage(buildUser(), [
+      http.get('*/api/clock/', () => HttpResponse.json({ status: 'idle' })),
+      http.get('*/api/projects/', () => HttpResponse.json([])),
+      http.get('*/api/time-entries/', async () => {
+        await gate;
+        return HttpResponse.json([
+          { id: 4, project_title: 'Past', clock_in: '2026-04-10T12:00:00Z', duration_minutes: 60, status: 'completed' },
+        ]);
+      }),
+    ]);
+    await waitFor(() => expect(screen.getByText('Clock')).toBeInTheDocument());
+    expect(screen.queryByText(/no entries yet/i)).toBeNull();
+
+    releaseEntries();
+    await waitFor(() => expect(screen.getByText('Past')).toBeInTheDocument());
+    expect(screen.queryByText(/no entries yet/i)).toBeNull();
+  });
+
+  it('double-tapping the Play seal only posts one clock-in', async () => {
+    const user = userEvent.setup();
+    let releaseStatusReload;
+    const reloadGate = new Promise((r) => { releaseStatusReload = r; });
+    let statusCalls = 0;
+    const clock = spyHandler('post', '*/api/clock/', { ok: true });
+    renderPage(buildUser(), [
+      http.get('*/api/clock/', async () => {
+        statusCalls += 1;
+        // Hold the post-clock-in status refetch so the seal stays busy.
+        if (statusCalls > 1) await reloadGate;
+        return HttpResponse.json({ status: 'idle' });
+      }),
+      http.get('*/api/projects/', () =>
+        HttpResponse.json([buildProject({ id: 7, title: 'Alpha', status: 'active' })]),
+      ),
+      http.get('*/api/time-entries/', () => HttpResponse.json([])),
+      clock.handler,
+    ]);
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+    await user.selectOptions(screen.getByRole('combobox'), '7');
+
+    const play = () =>
+      screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-play'));
+    await user.click(play());
+    await waitFor(() => expect(play()).toBeDisabled());
+    await user.click(play());
+
+    releaseStatusReload();
+    await waitFor(() => expect(play()).toBeEnabled());
+    expect(clock.calls).toHaveLength(1);
+  });
+
   it('surfaces clock-in server error', async () => {
     const user = userEvent.setup();
     renderPage(buildUser(), [

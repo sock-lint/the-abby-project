@@ -105,6 +105,19 @@ describe('CreationLogModal', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
+  // The action row sits in BottomSheet's sticky footer so the on-screen
+  // keyboard can't bury it; the footer renders outside the <form>, so the
+  // submit button stays wired to it by id.
+  it('keeps the footer submit button associated with the form', async () => {
+    stubSkills();
+    renderWithProviders(<CreationLogModal onClose={() => {}} onSaved={() => {}} />);
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /primary skill/i })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /log creation/i }))
+      .toHaveAttribute('form', 'creation-log-form');
+  });
+
   it('shows the moss "first 2 per day earn XP" hint when remaining_with_xp > 0', async () => {
     stubSkills();
     server.use(
@@ -143,6 +156,26 @@ describe('CreationLogModal', () => {
     // Status hint ``role="status"`` is the only one in this modal — assert
     // it's absent at first paint (the form itself has no other role="status").
     expect(screen.queryByText(/will earn xp|won.t earn xp/i)).toBeNull();
+  });
+
+  // The sheet holds a photo, an optional audio clip and a caption; a stray
+  // backdrop tap (or the Android back gesture, which routes to the same
+  // safeClose) used to discard all of it with no confirmation.
+  it('guards a filled-in form against a backdrop-tap discard', async () => {
+    stubSkills();
+    const onClose = vi.fn();
+    const { user } = renderWithProviders(
+      <CreationLogModal onClose={onClose} onSaved={() => {}} />,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /primary skill/i })).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText(/caption/i), 'my dragon drawing');
+    await user.click(document.querySelector('.modal-ink-wash'));
+
+    expect(await screen.findByRole('alertdialog', { name: /discard changes/i })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('rejects audio files over 10 MB with an inline error', async () => {

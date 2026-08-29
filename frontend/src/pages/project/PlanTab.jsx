@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, ChevronDown, DollarSign, Trash2 } from 'lucide-react';
 import EmptyState from '../../components/EmptyState';
+import IconButton from '../../components/IconButton';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import { chapterMark } from '../../components/atlas/mastery.constants';
 import DashedAddButton from './DashedAddButton';
@@ -72,22 +73,45 @@ export default function PlanTab({
           <motion.div key={ms.id} layout>
             <ParchmentCard className={ms.is_completed ? 'opacity-60' : ''}>
               <div className="flex items-start gap-3">
-                <button
-                  type="button"
-                  onClick={() => !ms.is_completed && !isCompleting && onCompleteMilestone(ms.id)}
-                  disabled={ms.is_completed || isCompleting}
-                  aria-busy={isCompleting || undefined}
-                  aria-label={ms.is_completed ? 'Milestone completed' : (isCompleting ? 'Marking milestone complete…' : 'Mark milestone complete')}
-                  className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${
-                    ms.is_completed
-                      ? 'bg-moss border-moss'
-                      : isCompleting
-                        ? 'border-sheikah-teal-deep bg-sheikah-teal/25 animate-pulse cursor-progress'
-                        : 'border-ink-page-shadow hover:border-sheikah-teal-deep hover:bg-sheikah-teal/15'
-                  }`}
-                >
-                  {ms.is_completed && <Check size={14} className="text-ink-page-rune-glow" strokeWidth={3} />}
-                </button>
+                {/* Completing a milestone pays out its bonus, so the server
+                    only accepts it from a parent. Children see the same mark
+                    as a read-only status dot rather than a control that would
+                    come back 403. For parents the 28px circle sits inside a
+                    44px hit area — it used to sit flush against the flex-1
+                    accordion toggle, where a thumb aiming to expand the
+                    milestone could land on it instead. */}
+                {isParent ? (
+                  <button
+                    type="button"
+                    onClick={() => !ms.is_completed && !isCompleting && onCompleteMilestone(ms.id)}
+                    disabled={ms.is_completed || isCompleting}
+                    aria-busy={isCompleting || undefined}
+                    aria-label={ms.is_completed ? 'Milestone completed' : (isCompleting ? 'Marking milestone complete…' : 'Mark milestone complete')}
+                    className="min-w-11 min-h-11 -m-2 p-2 flex items-start justify-center shrink-0 group/ms"
+                  >
+                    <span
+                      className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${
+                        ms.is_completed
+                          ? 'bg-moss border-moss'
+                          : isCompleting
+                            ? 'border-sheikah-teal-deep bg-sheikah-teal/25 animate-pulse cursor-progress'
+                            : 'border-ink-page-shadow group-hover/ms:border-sheikah-teal-deep group-hover/ms:bg-sheikah-teal/15'
+                      }`}
+                    >
+                      {ms.is_completed && <Check size={14} className="text-ink-page-rune-glow" strokeWidth={3} />}
+                    </span>
+                  </button>
+                ) : (
+                  <span
+                    role="img"
+                    aria-label={ms.is_completed ? 'Milestone completed' : 'Milestone not completed yet'}
+                    className={`w-7 h-7 mt-0.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      ms.is_completed ? 'bg-moss border-moss' : 'border-ink-page-shadow'
+                    }`}
+                  >
+                    {ms.is_completed && <Check size={14} className="text-ink-page-rune-glow" strokeWidth={3} />}
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => toggleMilestone(ms.id)}
@@ -139,20 +163,20 @@ export default function PlanTab({
                   )}
                 </button>
                 {isParent && (
-                  <button
-                    type="button"
+                  <IconButton
+                    variant="ghost"
                     onClick={() => onDeleteMilestone(ms.id)}
                     aria-label="Delete milestone"
-                    className="text-ink-secondary hover:text-ember-deep p-1 transition-colors shrink-0"
+                    className="shrink-0 -m-1.5 hover:text-ember-deep"
                   >
                     <Trash2 size={14} />
-                  </button>
+                  </IconButton>
                 )}
               </div>
 
               {!collapsed && (
                 <div className="mt-3 ml-10 space-y-2">
-                  {allDone && !ms.is_completed && (
+                  {allDone && !ms.is_completed && (isParent ? (
                     <button
                       type="button"
                       onClick={() => !isCompleting && onCompleteMilestone(ms.id)}
@@ -164,7 +188,13 @@ export default function PlanTab({
                     >
                       {isCompleting ? 'Marking complete…' : 'All steps done — mark milestone complete?'}
                     </button>
-                  )}
+                  ) : (
+                    // The kid has finished the work; tell them what happens
+                    // next rather than showing a button the server refuses.
+                    <p className="w-full font-script text-caption text-ink-secondary bg-moss/10 border border-moss/30 rounded-lg py-2 px-3 text-center">
+                      All steps done — a parent closes this one out.
+                    </p>
+                  ))}
                   {childSteps.map((step) => (
                     <StepCard
                       key={step.id}
@@ -223,14 +253,14 @@ export default function PlanTab({
             {project.resources.map((r) => (
               <ParchmentCard key={r.id} className="flex items-center justify-between py-2">
                 <ResourcePill resource={r} />
-                <button
-                  type="button"
+                <IconButton
+                  variant="ghost"
                   onClick={() => onDeleteResource(r.id)}
                   aria-label="Delete resource"
-                  className="text-ink-secondary hover:text-ember-deep p-1 transition-colors"
+                  className="-m-1.5 hover:text-ember-deep"
                 >
                   <Trash2 size={14} />
-                </button>
+                </IconButton>
               </ParchmentCard>
             ))}
           </div>

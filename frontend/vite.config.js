@@ -29,7 +29,13 @@ export default defineConfig(({ command }) => {
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        orientation: 'portrait',
+        // Deliberately NOT 'portrait'. Android enforces the manifest
+        // orientation in standalone mode (iOS ignores it), so a portrait
+        // lock left a kid with an Android tablet in a kickstand or keyboard
+        // case stuck sideways while the same device on iOS rotated freely.
+        // Nothing in the layout needs portrait — JournalShell already has a
+        // wide arrangement (sidebar at lg) that landscape viewports use.
+        orientation: 'any',
         background_color: '#f4ecd8',
         theme_color: '#f4ecd8',
         icons: [
@@ -75,6 +81,35 @@ export default defineConfig(({ command }) => {
               networkTimeoutSeconds: 3,
               expiration: { maxEntries: 60, maxAgeSeconds: 86400 },
               cacheableResponse: { statuses: [200] },
+            },
+          },
+          // Images. The api-reads cache above keeps JSON payloads for 24h so
+          // an offline boot still renders real data — but in production every
+          // image field in those payloads is a presigned Ceph URL whose
+          // signature dies after AWS_QUERYSTRING_EXPIRE (1h), and the media
+          // host is cross-origin, so none of it was runtime-cached at all.
+          // Sketchbook tiles, pet art, proof thumbnails and avatars therefore
+          // collapsed into broken-image icons on exactly the stale/offline
+          // boots the SW otherwise supports.
+          //
+          // ``matchOptions.ignoreSearch`` is the load-bearing bit: the bytes
+          // are stored under the full signed URL, but lookups compare paths
+          // only, so tomorrow's freshly-signed URL still hits the entry that
+          // yesterday's signature downloaded. Opaque cross-origin responses
+          // (an <img> with no crossorigin attribute fetches no-cors) arrive
+          // as status 0, hence the [0, 200] allowance — same as the fonts
+          // route below. /static/ is excluded because the precache route
+          // already owns the app's own bundled art.
+          {
+            urlPattern: ({ request, url }) =>
+              request.destination === 'image'
+              && !url.pathname.startsWith('/static/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'media-images',
+              matchOptions: { ignoreSearch: true },
+              expiration: { maxEntries: 120, maxAgeSeconds: 2592000 },
+              cacheableResponse: { statuses: [0, 200] },
             },
           },
           // Google Fonts: the stylesheet (fonts.googleapis.com) and the font

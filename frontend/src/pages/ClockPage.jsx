@@ -8,6 +8,8 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import ParchmentCard from '../components/journal/ParchmentCard';
+import ParchmentSkeleton from '../components/ParchmentSkeleton';
+import PageShell from '../components/layout/PageShell';
 import IconButton from '../components/IconButton';
 import { ClockFabIcon, InkwellIcon } from '../components/icons/JournalIcons';
 import { SelectField, TextAreaField } from '../components/form';
@@ -25,9 +27,9 @@ const CLOCK_OUT_CONFIRM_THRESHOLD_SECONDS = 60;
 
 export default function ClockPage() {
   const { isParent } = useRole();
-  const { data: status, reload: reloadStatus } = useApi(getClockStatus);
+  const { data: status, loading: loadingStatus, reload: reloadStatus } = useApi(getClockStatus);
   const { data: projectsData } = useApi(getProjects);
-  const { data: entriesData, reload: reloadEntries } = useApi(getTimeEntries);
+  const { data: entriesData, loading: loadingEntries, reload: reloadEntries } = useApi(getTimeEntries);
   // null = untouched (falls back to the remembered/default venture); a real
   // selection — including explicitly clearing to '' — always wins.
   const [selectedProject, setSelectedProject] = useState(null);
@@ -36,6 +38,9 @@ export default function ClockPage() {
   const [now, setNow] = useState(() => Date.now());
   const [voidEntryId, setVoidEntryId] = useState(null);
   const [confirmingClockOut, setConfirmingClockOut] = useState(false);
+  // The 112px seals are the easiest thing on the page to double-tap on a
+  // slow connection; without this a second tap fires clockIn/clockOut again.
+  const [clockBusy, setClockBusy] = useState(false);
 
   const projects = normalizeList(projectsData);
   const entries = normalizeList(entriesData);
@@ -66,25 +71,32 @@ export default function ClockPage() {
 
   const handleClockIn = async () => {
     setError('');
+    if (clockBusy) return;
     if (!effectiveProject) { setError('Select a venture first'); return; }
+    setClockBusy(true);
     try {
       await clockIn(parseInt(effectiveProject));
       rememberClockProject(effectiveProject);
-      reloadStatus();
+      await reloadStatus();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setClockBusy(false);
     }
   };
 
   const performClockOut = async () => {
     setError('');
+    if (clockBusy) return;
+    setClockBusy(true);
     try {
       await clockOut(notes);
       setNotes('');
-      reloadStatus();
-      reloadEntries();
+      await Promise.all([reloadStatus(), reloadEntries()]);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setClockBusy(false);
     }
   };
 
@@ -113,7 +125,7 @@ export default function ClockPage() {
   };
 
   return (
-    <div className="max-w-lg mx-auto space-y-6">
+    <PageShell width="narrow" rhythm="loose">
       <header className="text-center">
         <div className="font-script text-sheikah-teal-deep text-base">
           the expedition log
@@ -126,84 +138,100 @@ export default function ClockPage() {
         </div>
       </header>
 
-      {/* Timer Display */}
-      <motion.div layout>
-        <ParchmentCard
-          flourish
-          tone={isClocked ? 'bright' : 'default'}
-          className={`text-center py-8 ${isClocked ? 'border-ember/60' : ''}`}
-        >
-          <AnimatePresence mode="wait">
-            {isClocked ? (
-              <motion.div key="active" initial={{ scale: 0.85 }} animate={{ scale: 1 }}>
-                <div className="font-script text-sheikah-teal-deep text-body uppercase tracking-widest mb-1">
-                  now inking
-                </div>
-                <div className="font-display text-lg text-ink-primary mb-3">
-                  {status.project_title}
-                </div>
-                <div className="font-rune text-5xl md:text-6xl font-bold text-ember-deep mb-6 tabular-nums">
-                  {formatTime(elapsed)}
-                </div>
-                <div className="mb-4">
-                  <TextAreaField
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Scribble what you did…"
-                    inputMode="text"
-                    rows={3}
-                  />
-                </div>
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleClockOut}
-                  className="w-28 h-28 mx-auto rounded-full bg-ember-deep hover:bg-ember flex items-center justify-center text-ink-page-rune-glow shadow-xl shadow-ember-deep/25 transition-colors border-2 border-ember"
-                >
-                  <Square size={36} />
-                </motion.button>
-                <div className="font-script text-body text-ink-whisper mt-3">
-                  tap to close the entry · the hour rolls into your weekly wages
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div key="idle" initial={{ scale: 0.85 }} animate={{ scale: 1 }}>
-                <ClockFabIcon size={36} className="text-ink-whisper mx-auto mb-3" />
-                <div className="font-rune text-5xl md:text-6xl font-bold text-ink-whisper mb-6 tabular-nums">
-                  00:00:00
-                </div>
-                <div className="mb-4">
-                  <SelectField
-                    value={effectiveProject}
-                    onChange={(e) => setSelectedProject(e.target.value)}
+      {/* Timer Display — held behind a skeleton until getClockStatus lands.
+          Painting the idle 00:00:00 + Play seal first meant a kid who WAS
+          clocked in saw (and could tap) the wrong control. */}
+      {loadingStatus ? (
+        <ParchmentSkeleton variant="hero" />
+      ) : (
+        <motion.div layout>
+          <ParchmentCard
+            flourish
+            tone={isClocked ? 'bright' : 'default'}
+            className={`text-center py-8 ${isClocked ? 'border-ember/60' : ''}`}
+          >
+            <AnimatePresence mode="wait">
+              {isClocked ? (
+                <motion.div key="active" initial={{ scale: 0.85 }} animate={{ scale: 1 }}>
+                  <div className="font-script text-sheikah-teal-deep text-body uppercase tracking-widest mb-1">
+                    now inking
+                  </div>
+                  <div className="font-display text-lg text-ink-primary mb-3">
+                    {status.project_title}
+                  </div>
+                  <div className="font-rune text-5xl md:text-6xl font-bold text-ember-deep mb-6 tabular-nums">
+                    {formatTime(elapsed)}
+                  </div>
+                  <div className="mb-4">
+                    <TextAreaField
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Scribble what you did…"
+                      inputMode="text"
+                      rows={3}
+                    />
+                  </div>
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleClockOut}
+                    disabled={clockBusy}
+                    aria-busy={clockBusy}
+                    className="w-28 h-28 mx-auto rounded-full bg-ember-deep hover:bg-ember disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-ink-page-rune-glow shadow-xl shadow-ember-deep/25 transition-colors border-2 border-ember"
                   >
-                    <option value="">Select a venture…</option>
-                    {activeProjects.map((p) => (
-                      <option key={p.id} value={p.id}>{p.title}</option>
-                    ))}
-                  </SelectField>
-                </div>
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleClockIn}
-                  className="w-28 h-28 mx-auto rounded-full bg-moss hover:bg-moss/90 flex items-center justify-center text-ink-page-rune-glow shadow-xl shadow-moss/25 transition-colors border-2 border-moss/80"
-                >
-                  <Play size={36} className="ml-1" />
-                </motion.button>
-                <div className="font-script text-body text-ink-whisper mt-3">
-                  tap to begin inking · earns coins and XP per hour
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </ParchmentCard>
-      </motion.div>
+                    <Square size={36} />
+                  </motion.button>
+                  <div className="font-script text-body text-ink-whisper mt-3">
+                    {clockBusy
+                      ? 'closing the entry…'
+                      : 'tap to close the entry · the hour rolls into your weekly wages'}
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div key="idle" initial={{ scale: 0.85 }} animate={{ scale: 1 }}>
+                  <ClockFabIcon size={36} className="text-ink-whisper mx-auto mb-3" />
+                  <div className="font-rune text-5xl md:text-6xl font-bold text-ink-whisper mb-6 tabular-nums">
+                    00:00:00
+                  </div>
+                  <div className="mb-4">
+                    <SelectField
+                      value={effectiveProject}
+                      onChange={(e) => setSelectedProject(e.target.value)}
+                    >
+                      <option value="">Select a venture…</option>
+                      {activeProjects.map((p) => (
+                        <option key={p.id} value={p.id}>{p.title}</option>
+                      ))}
+                    </SelectField>
+                  </div>
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleClockIn}
+                    disabled={clockBusy}
+                    aria-busy={clockBusy}
+                    className="w-28 h-28 mx-auto rounded-full bg-moss hover:bg-moss/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-ink-page-rune-glow shadow-xl shadow-moss/25 transition-colors border-2 border-moss/80"
+                  >
+                    <Play size={36} className="ml-1" />
+                  </motion.button>
+                  <div className="font-script text-body text-ink-whisper mt-3">
+                    {clockBusy
+                      ? 'opening the entry…'
+                      : 'tap to begin inking · earns coins and XP per hour'}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </ParchmentCard>
+        </motion.div>
+      )}
 
       <ErrorAlert message={error} />
 
       {/* Recent entries */}
-      {entries.length > 0 && (
+      {loadingEntries && <ParchmentSkeleton variant="list" count={3} />}
+
+      {!loadingEntries && entries.length > 0 && (
         <section>
           <h2 className="font-display text-xl text-ink-primary leading-tight mb-3">
             Recent entries
@@ -252,7 +280,9 @@ export default function ClockPage() {
         </section>
       )}
 
-      {entries.length === 0 && (
+      {/* Gated on its own loading flag — this used to flash on every visit
+          while the entries request was still in flight. */}
+      {!loadingEntries && entries.length === 0 && (
         <EmptyState icon={<ClockFabIcon size={36} />}>
           No entries yet — clock in to begin the log. Each hour earns coin, XP, and a weekly wage.
         </EmptyState>
@@ -277,6 +307,6 @@ export default function ClockPage() {
           onCancel={() => setConfirmingClockOut(false)}
         />
       )}
-    </div>
+    </PageShell>
   );
 }

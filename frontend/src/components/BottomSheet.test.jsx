@@ -138,5 +138,109 @@ describe('BottomSheet', () => {
         '',
       );
     });
+
+    // Every other dismiss affordance checked `disabled`; the popstate handler
+    // didn't, so Android back closed a sheet mid-save.
+    it('leaves a saving sheet open on back', async () => {
+      const onClose = vi.fn();
+      renderMobile({ onClose, disabled: true });
+
+      await act(async () => {
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      });
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByRole('dialog', { name: 'Title' })).toBeInTheDocument();
+    });
+
+    // Busy consumers pass `onClose={busy ? undefined : onClose}`; back during a
+    // submit used to call it and throw inside the popstate listener.
+    it('does not throw when a busy sheet has no onClose handler', async () => {
+      renderMobile({ onClose: undefined, disabled: true });
+
+      await expect(act(async () => {
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      })).resolves.not.toThrow();
+
+      expect(screen.getByRole('dialog', { name: 'Title' })).toBeInTheDocument();
+    });
+  });
+
+  describe('discard guard stacking', () => {
+    it('does not discard when the close affordance is tapped a second time', async () => {
+      const onClose = vi.fn();
+      const user = userEvent.setup();
+      renderMobile({ onClose, dirty: true });
+
+      const seal = screen.getByRole('button', { name: /close/i });
+      await user.click(seal);
+      expect(screen.getByRole('alertdialog', { name: /discard changes/i })).toBeInTheDocument();
+
+      // The repeat gesture belongs to the guard on top, not to the sheet
+      // underneath — it used to fall straight through to onClose().
+      await user.click(seal);
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.queryByRole('alertdialog', { name: /discard changes/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: 'Title' })).toBeInTheDocument();
+    });
+
+    it('renders the guard backdrop over the sheet surface and makes the sheet inert', async () => {
+      const user = userEvent.setup();
+      renderMobile({ onClose: vi.fn(), dirty: true });
+
+      // With only the sheet up, its own wash sits below the z-50 surface.
+      expect(document.querySelector('.modal-ink-wash.z-50')).toBeNull();
+
+      await user.click(screen.getByRole('button', { name: /close/i }));
+
+      // The guard's wash has to clear the sheet's own z-50 surface, otherwise
+      // the sheet stays undimmed and fully tappable behind an "alertdialog".
+      expect(document.querySelector('.modal-ink-wash.z-50')).not.toBeNull();
+      expect(screen.getByRole('dialog', { name: 'Title' }).className)
+        .toContain('pointer-events-none');
+    });
+
+    it('confirming the guard closes the sheet', async () => {
+      const onClose = vi.fn();
+      const user = userEvent.setup();
+      renderMobile({ onClose, dirty: true });
+
+      await user.click(screen.getByRole('button', { name: /close/i }));
+      await user.click(screen.getByRole('button', { name: 'Discard' }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('sticky footer + on-screen keyboard', () => {
+    it('renders the footer slot outside the scrolling body', () => {
+      renderMobile({ footer: <button type="button">Save it</button> });
+      expect(screen.getByRole('button', { name: 'Save it' })).toBeInTheDocument();
+    });
+
+    // dvh doesn't shrink for the keyboard, so a bottom-anchored sheet keeps
+    // its full height and the keyboard covers the action row.
+    it('lifts the mobile sheet above the on-screen keyboard', async () => {
+      const listeners = {};
+      window.visualViewport = {
+        height: 800,
+        offsetTop: 0,
+        addEventListener: (event, cb) => { listeners[event] = cb; },
+        removeEventListener: vi.fn(),
+      };
+      window.innerHeight = 800;
+
+      renderMobile();
+      const dialog = screen.getByRole('dialog', { name: 'Title' });
+      expect(dialog.style.bottom).toBe('');
+
+      // Keyboard up: the visual viewport shrinks, the layout viewport doesn't.
+      window.visualViewport.height = 460;
+      await act(async () => { listeners.resize?.(); });
+
+      expect(dialog.style.bottom).toBe('340px');
+      expect(dialog.style.maxHeight).toBe('calc(90dvh - 340px)');
+
+      delete window.visualViewport;
+    });
   });
 });

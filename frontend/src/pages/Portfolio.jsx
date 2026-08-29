@@ -13,16 +13,19 @@ import {
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
+import useBackDismiss from '../hooks/useBackDismiss';
 import BottomSheet from '../components/BottomSheet';
 import EmptyState from '../components/EmptyState';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
 import IconButton from '../components/IconButton';
+import ModalActions from '../components/ModalActions';
 import SwipeableImage from '../components/SwipeableImage';
 import ShareButton from '../components/ShareButton';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { TextField, SelectField } from '../components/form';
+import { formLabelClass } from '../constants/styles';
 import TomeShelf from '../components/atlas/TomeShelf';
 import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
 import { downscaleImage } from '../utils/image';
@@ -37,9 +40,14 @@ const FILTERS = [
   { key: 'timelapses', label: 'Timelapses', icon: '🎬' },
 ];
 
+const SORT_MODES = [
+  { key: 'project', label: 'By project' },
+  { key: 'date',    label: 'By date' },
+];
+
 export default function Portfolio() {
   const { user, isParent } = useRole();
-  const { data, loading, reload } = useApi(getPortfolio);
+  const { data, loading, error: loadError, reload } = useApi(getPortfolio);
   const { data: projectsData } = useApi(getProjects);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [filter, setFilter] = useState('all');
@@ -160,6 +168,19 @@ export default function Portfolio() {
   }, [sortMode, byDate, byGroup]);
 
   if (loading) return <Loader />;
+  // A failed fetch used to fall straight through to "No pages yet — affix
+  // your first progress photo", which reads as "you have nothing" rather
+  // than "we couldn't load it". Same shape as the Character page's retry.
+  if (loadError && !data) {
+    return (
+      <div className="space-y-3 max-w-xl mx-auto">
+        <ErrorAlert message={loadError} />
+        <Button variant="secondary" size="sm" onClick={reload}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
 
   const openViewer = (item) => {
     const idx = orderedItems.findIndex((i) => i.id === item.id);
@@ -220,17 +241,26 @@ export default function Portfolio() {
   const hasContent = allItems.length > 0;
 
   return (
-    <div className="space-y-6">
+    // space-y-5 matches the sibling Atlas tabs (Skills, Badges) so switching
+    // tabs inside the hub does not visibly change section spacing.
+    <div className="space-y-5">
       {deleteError && <ErrorAlert message={deleteError} />}
+      {/* A refresh that fails while pages are already on screen keeps the
+          sketchbook rendered and says so, rather than silently serving
+          stale tiles. */}
+      {loadError && <ErrorAlert message={loadError} />}
       <header className="flex items-start justify-between gap-2 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
             the sketchbook · pressed between pages
           </div>
-          <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+          {/* Below md the Chronicle hub's tab strip already names this page —
+              the stacked h1 + explainer ate ~100px above the fold on phones.
+              Same treatment as the Skills tab (pages/Achievements.jsx). */}
+          <h1 className="hidden md:block font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
             Sketchbook
           </h1>
-          <div className="font-script text-sm text-ink-whisper mt-1 max-w-xl">
+          <div className="hidden md:block font-script text-body text-ink-whisper mt-1 max-w-xl">
             every photo from your ventures, study proofs, and creations · tap a tile to leaf through
           </div>
         </div>
@@ -275,37 +305,38 @@ export default function Portfolio() {
                 ariaLabel: `${label}, ${counts[key]} item${counts[key] === 1 ? '' : 's'}`,
               }))}
           />
+          {/* Arrange toggle wears TomeShelf's vessel-pill shape (min-h-11
+              thumb targets in a single tray) rather than the 12px bare-text
+              links it used to be — those gave a ~16px-tall tap area on the
+              page's most-used control. */}
           <div
-            className="flex gap-2 text-xs font-script text-ink-whisper items-center justify-end"
+            className="flex gap-2 items-center justify-end"
             role="group"
             aria-label="Sort"
           >
-            <span aria-hidden="true">Arrange:</span>
-            <button
-              type="button"
-              onClick={() => setSortMode('project')}
-              aria-pressed={sortMode === 'project'}
-              className={
-                sortMode === 'project'
-                  ? 'text-sheikah-teal-deep underline'
-                  : 'hover:text-ink-primary'
-              }
-            >
-              By project
-            </button>
-            <span aria-hidden="true">·</span>
-            <button
-              type="button"
-              onClick={() => setSortMode('date')}
-              aria-pressed={sortMode === 'date'}
-              className={
-                sortMode === 'date'
-                  ? 'text-sheikah-teal-deep underline'
-                  : 'hover:text-ink-primary'
-              }
-            >
-              By date
-            </button>
+            <span aria-hidden="true" className="font-script text-caption text-ink-whisper">
+              Arrange:
+            </span>
+            <div className="flex flex-nowrap gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow">
+              {SORT_MODES.map(({ key, label }) => {
+                const active = sortMode === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSortMode(key)}
+                    aria-pressed={active}
+                    className={`shrink-0 min-h-11 px-3 py-2 rounded-md font-display text-body transition-colors ${
+                      active
+                        ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
+                        : 'text-ink-secondary hover:text-ink-primary'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           {filter === 'creations' && (
             <p className="font-script text-tiny text-ink-whisper text-center">
@@ -533,15 +564,57 @@ function PhotoGrid({
 
 function Lightbox({ viewer, onClose, onPrev, onNext }) {
   const current = viewer.items[viewer.index];
+  useBackDismiss(onClose);
   if (!current) return null;
+  const hasPrev = viewer.index > 0;
+  const hasNext = viewer.index < viewer.items.length - 1;
   return (
+    // Column layout: the photo gets the free space, the caption/audio strip
+    // gets its own reserved row. Absolutely overlaying that strip covered the
+    // bottom third of tall portrait shots on a phone.
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Photo viewer"
-      className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+      className="fixed inset-0 z-50 bg-black/90 flex flex-col"
       onClick={onClose}
     >
+      <div className="relative flex-1 min-h-0 flex items-center justify-center px-4 pt-16">
+        {/* Chevrons are desktop-only: at 390px the image already fills the
+            width, so pinned arrows sat on top of the photo. SwipeableImage
+            gives phones the fling gesture they expect from a camera roll. */}
+        {hasPrev && (
+          <IconButton
+            onClick={(e) => { e.stopPropagation(); onPrev(); }}
+            variant="ghost"
+            aria-label="Previous photo"
+            className="max-md:hidden absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white"
+          >
+            <ChevronLeft size={32} />
+          </IconButton>
+        )}
+        {hasNext && (
+          <IconButton
+            onClick={(e) => { e.stopPropagation(); onNext(); }}
+            variant="ghost"
+            aria-label="Next photo"
+            className="max-md:hidden absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white"
+          >
+            <ChevronRight size={32} />
+          </IconButton>
+        )}
+        <SwipeableImage
+          src={current.image}
+          alt={current.caption || current.groupLabel}
+          className="max-h-full max-w-full object-contain rounded-lg"
+          onPrev={hasPrev ? onPrev : undefined}
+          onNext={hasNext ? onNext : undefined}
+          onClose={onClose}
+        />
+      </div>
+      {/* Rendered after the image row on purpose: both are positioned, and
+          the later sibling paints on top — that keeps the seal reachable
+          without inventing a z-index outside the app's three tiers. */}
       <IconButton
         onClick={(e) => { e.stopPropagation(); onClose(); }}
         variant="ghost"
@@ -550,47 +623,19 @@ function Lightbox({ viewer, onClose, onPrev, onNext }) {
       >
         <X size={24} />
       </IconButton>
-      {viewer.index > 0 && (
-        <IconButton
-          onClick={(e) => { e.stopPropagation(); onPrev(); }}
-          variant="ghost"
-          aria-label="Previous photo"
-          className="absolute left-4 text-white/70 hover:text-white"
-        >
-          <ChevronLeft size={32} />
-        </IconButton>
-      )}
-      {viewer.index < viewer.items.length - 1 && (
-        <IconButton
-          onClick={(e) => { e.stopPropagation(); onNext(); }}
-          variant="ghost"
-          aria-label="Next photo"
-          className="absolute right-4 text-white/70 hover:text-white"
-        >
-          <ChevronRight size={32} />
-        </IconButton>
-      )}
-      <SwipeableImage
-        src={current.image}
-        alt={current.caption || current.groupLabel}
-        className="max-h-[75dvh] max-w-[90vw] object-contain rounded-lg"
-        onPrev={viewer.index > 0 ? onPrev : undefined}
-        onNext={viewer.index < viewer.items.length - 1 ? onNext : undefined}
-        onClose={onClose}
-      />
-      <div className="absolute bottom-6 text-center left-0 right-0 px-4 space-y-2">
+      <div className="shrink-0 text-center px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] space-y-2">
         {current.kind === 'creation' && current.audio && (
           <audio
             controls
             src={current.audio}
             preload="metadata"
-            className="mx-auto max-w-[90vw] w-80"
+            className="mx-auto max-w-full w-80"
             onClick={(e) => e.stopPropagation()}
           >
             Your browser doesn&apos;t support inline audio.
           </audio>
         )}
-        <div className="font-script text-white/90 text-sm">
+        <div className="font-script text-white/90 text-body">
           {current.caption || current.groupLabel}
         </div>
         <div className="flex justify-center">
@@ -622,7 +667,8 @@ function UploadSheet({ projects, onClose, onUploaded }) {
     setError('');
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e?.preventDefault?.();
     if (!projectId) {
       setError('Pick a project first.');
       return;
@@ -644,76 +690,93 @@ function UploadSheet({ projects, onClose, onUploaded }) {
   };
 
   return (
-    <BottomSheet title="Upload Photo" onClose={onClose} disabled={uploading}>
-      <ErrorAlert message={error} />
+    <BottomSheet
+      title="Upload Photo"
+      onClose={onClose}
+      disabled={uploading}
+      dirty={Boolean(file || caption)}
+    >
+      {/* A real <form> so the caption field's Enter key submits and
+          ModalActions' type="submit" button has something to submit. */}
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <ErrorAlert message={error} />
 
-      <SelectField
-        label="Project"
-        value={projectId}
-        onChange={(e) => setProjectId(e.target.value)}
-        disabled={uploading}
-      >
-        <option value="">Select a project...</option>
-        {projects.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.title}
-          </option>
-        ))}
-      </SelectField>
-
-      <div>
-        <label className="block text-sm text-ink-whisper mb-1">Photo</label>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFile}
-          className="hidden"
+        <SelectField
+          label="Project"
+          value={projectId}
+          onChange={(e) => setProjectId(e.target.value)}
           disabled={uploading}
+        >
+          <option value="">Select a venture…</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.title}
+            </option>
+          ))}
+        </SelectField>
+
+        <div>
+          {/* formLabelClass, not a hand-rolled one: this label sits between two
+              form-primitive labels and used to render in a different typeface. */}
+          <label className={formLabelClass}>Photo</label>
+          {/* No `capture` attribute: it forces the live camera and hides the
+              photo library, so a kid could never attach a shot they took
+              earlier. Every other upload path in the app uses a plain
+              accept="image/*" and lets the OS picker offer both. */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFile}
+            className="hidden"
+            disabled={uploading}
+          />
+          {preview ? (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="relative w-full aspect-video rounded-lg overflow-hidden bg-ink-page border border-ink-page-shadow"
+            >
+              <img src={preview} alt="" className="w-full h-full object-cover" />
+              {/* Always-visible affordance — hover never fires on touch, so the
+                  preview used to read as a static image with no way back. */}
+              <div className="absolute inset-x-0 bottom-0 bg-black/55 py-2 text-center font-body text-body text-white">
+                Change photo
+              </div>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="w-full aspect-video rounded-lg border-2 border-dashed border-ink-page-shadow hover:border-sheikah-teal/60 transition-colors flex flex-col items-center justify-center gap-2 text-ink-whisper"
+            >
+              <Camera size={28} />
+              <span className="text-body">Take photo or choose from library</span>
+            </button>
+          )}
+        </div>
+
+        <TextField
+          label="Caption (optional)"
+          type="text"
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          placeholder="What are we looking at?"
+          disabled={uploading}
+          maxLength={255}
         />
-        {preview ? (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="relative w-full aspect-video rounded-lg overflow-hidden bg-ink-page border border-ink-page-shadow"
-          >
-            <img src={preview} alt="" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity text-white text-sm">
-              Change photo
-            </div>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="w-full aspect-video rounded-lg border-2 border-dashed border-ink-page-shadow hover:border-sheikah-teal/60 transition-colors flex flex-col items-center justify-center gap-2 text-ink-whisper"
-          >
-            <Camera size={28} />
-            <span className="text-sm">Take photo or choose from library</span>
-          </button>
-        )}
-      </div>
 
-      <TextField
-        label="Caption (optional)"
-        type="text"
-        value={caption}
-        onChange={(e) => setCaption(e.target.value)}
-        placeholder="What are we looking at?"
-        disabled={uploading}
-        maxLength={255}
-      />
-
-      <Button
-        onClick={handleSubmit}
-        disabled={uploading || !file || !projectId}
-        className="w-full"
-      >
-        {uploading ? 'Uploading…' : 'Upload Photo'}
-      </Button>
+        <ModalActions
+          fullWidth
+          onClose={onClose}
+          submitLabel="Upload Photo"
+          savingLabel="Uploading…"
+          saving={uploading}
+          submitDisabled={!file || !projectId}
+        />
+      </form>
     </BottomSheet>
   );
 }

@@ -134,6 +134,9 @@ describe('DragToTargetTrial', () => {
     render(<DragToTargetTrial entry={entry} onReady={onReady} />);
 
     const send = screen.getByRole('button', { name: /send one/i });
+    // Tapped up to source_count times — it must clear the app's 44px floor,
+    // not be a bare 11px text link.
+    expect(send.className).toContain('min-h-11');
     await user.click(send);
     await user.click(send);
     expect(onReady).not.toHaveBeenCalled();
@@ -157,6 +160,8 @@ describe('SequenceTrial', () => {
     render(<SequenceTrial entry={entry} onReady={onReady} />);
 
     const advance = screen.getByRole('button', { name: /advance/i });
+    // Tapped once per step — same 44px floor as every other repeat-tap control.
+    expect(advance.className).toContain('min-h-11');
     await user.click(advance);
     await user.click(advance);
     expect(onReady).not.toHaveBeenCalled();

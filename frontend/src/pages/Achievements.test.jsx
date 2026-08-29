@@ -41,6 +41,15 @@ describe('Achievements (Skills page)', () => {
         http.get('*/api/categories/', () =>
           HttpResponse.json([{ id: 1, name: 'Woodworking', icon: '🪵' }]),
         ),
+        // The shelf now opens the first tome on mount, so the folio fetch
+        // fires without a tap.
+        http.get('*/api/skills/tree/1/', () =>
+          HttpResponse.json({
+            category: { id: 1, name: 'Woodworking', icon: '🪵' },
+            summary: { level: 0, total_xp: 0 },
+            subjects: [],
+          }),
+        ),
       ],
     });
     await waitFor(() =>
@@ -52,7 +61,7 @@ describe('Achievements (Skills page)', () => {
     expect(screen.getByRole('tab', { name: /Woodworking/ })).toBeInTheDocument();
   });
 
-  it('reveals the search and filters skills inside the loaded folio', async () => {
+  it('opens the first tome on mount and filters skills inside the loaded folio', async () => {
     const user = userEvent.setup();
     renderPage({
       handlers: [
@@ -77,11 +86,9 @@ describe('Achievements (Skills page)', () => {
         ),
       ],
     });
-    // No search before a tome is opened.
-    expect(screen.queryByRole('searchbox', { name: /filter skills/i })).toBeNull();
-
-    await user.click(await screen.findByRole('tab', { name: /Woodworking/ }));
+    // The folio opens without a tap — no "pull a tome" dead end on arrival.
     await waitFor(() => expect(screen.getByText('Mortise and Tenon')).toBeInTheDocument());
+    expect(screen.queryByText(/pull a tome from the shelf/i)).toBeNull();
 
     const search = screen.getByRole('searchbox', { name: /filter skills/i });
     await user.type(search, 'dovetail');
