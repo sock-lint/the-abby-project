@@ -98,6 +98,18 @@ the frontend half is under [`pages/forge/`](/frontend/src/pages/forge/):
   cap renders "No cap" (zero is a real cap meaning "nothing this month") and a
   negative remaining renders as an ember overage rather than being clamped.
   Inline cap editor, append-only adjustment form, recent ledger.
+- `FilamentChip.jsx` — one loaded spool, read-only on the printer card and a
+  button in the request form. Honest about absence: a null `hex` (unread tag)
+  is a dashed outline, never black — `#000000` is real black filament — and a
+  null `remain_percent` (any spool without an RFID tag, i.e. every third-party
+  roll) renders no number rather than "0%".
+- `FilamentPicker.jsx` — the swatch row above the Colour field. Reads
+  `live.filaments` from each active printer's status, dedupes by name+colour,
+  and **fills the free-text field in** rather than replacing it: the AMS
+  reports what is loaded *now*, and the plate may be sliced days later. It
+  stores the readable name, never a slot. Renders nothing — not an error, not
+  an empty state — when the printer is asleep or the call fails, because the
+  form has to keep working exactly as it did before.
 - `PrinterStatus.jsx` — polls `GET /api/printers/<id>/status/` on the
   `ProjectIngest` pattern (setTimeout recursion, ref cleared on unmount,
   `document.hidden` skip), 10s while a job is open and 45s idle. It reads our
@@ -116,7 +128,8 @@ the frontend half is under [`pages/forge/`](/frontend/src/pages/forge/):
   `credential_hint` (or `last_error`) beneath the meta line — the red badge on
   its own never said *which* field was blank.
 - `forge.constants.js` — tone maps, `formatGrams` / `formatMinutes` /
-  `formatCap`, `usagePercent`, `budgetProgress`, `jobProgressLabel`, `isJobOpen`.
+  `formatCap`, `usagePercent`, `budgetProgress`, `jobProgressLabel`,
+  `isJobOpen`, `describeFilament`.
 
 Child sees their own requests, a submit button, and the live view only while one
 of *their* prints is running. Parents additionally get the approval queue, the

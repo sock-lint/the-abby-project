@@ -150,3 +150,18 @@ export function jobProgressLabel(job) {
   }
   return parts.join(' · ');
 }
+
+/**
+ * "A1 · PLA Basic · 92% left" — one string for the a11y name and the title.
+ *
+ * The percentage is omitted rather than zeroed when the spool has no RFID
+ * tag: the AMS genuinely does not know, and "0% left" on a full third-party
+ * roll is a worse answer than saying nothing.
+ */
+export function describeFilament(filament) {
+  const parts = [filament.slot, filament.display_name || filament.material];
+  if (typeof filament.remain_percent === 'number') {
+    parts.push(`${filament.remain_percent}% left`);
+  }
+  return parts.filter(Boolean).join(' · ');
+}

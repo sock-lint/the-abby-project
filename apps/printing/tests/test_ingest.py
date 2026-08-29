@@ -636,3 +636,69 @@ class ListenerRestartTests(IngestFixture):
         listener = self.restarted()
         listener.process(snapshot(gcode_state="IDLE"))
         self.assertEqual(PrintJob.objects.count(), 0)
+
+
+class FilamentSnapshotTests(IngestFixture):
+    """The AMS reaches the fan-out snapshot, which is the UI's only source.
+
+    Everything the Forge shows about loaded filament comes through
+    `GET /api/printers/<id>/status/`, which serves this snapshot — so if it
+    isn't here, no amount of frontend work can show it.
+    """
+
+    AMS = {
+        "ams": [{
+            "id": "0", "humidity": "4", "temp": "26.4",
+            "tray": [
+                {"id": "0", "tray_type": "PLA", "tray_sub_brands": "PLA Basic",
+                 "tray_color": "00AE42FF", "tray_info_idx": "GFA00", "remain": 92},
+                {"id": "1", "tray_type": "PETG", "tray_sub_brands": "PETG HF",
+                 "tray_color": "1E90FFFF", "tray_info_idx": "GFG00", "remain": -1},
+                {"id": "2", "tray_type": "", "tray_color": "00000000", "remain": -1},
+                {"id": "3", "tray_type": "", "tray_color": "00000000", "remain": -1},
+            ],
+        }],
+        "ams_exist_bits": "1", "version": 3,
+    }
+
+    def test_the_snapshot_carries_the_loaded_spools(self):
+        self.listener.process(snapshot(gcode_state="IDLE", ams=self.AMS))
+        filaments = self.state.snapshot()["filaments"]
+
+        self.assertEqual([f["slot"] for f in filaments], ["A1", "A2"])
+        self.assertEqual(filaments[0]["hex"], "#00AE42")
+        self.assertEqual(filaments[0]["remain_percent"], 92)
+        self.assertEqual(filaments[0]["display_name"], "PLA Basic")
+        # The third-party spool is listed, without a made-up percentage.
+        self.assertIsNone(filaments[1]["remain_percent"])
+
+    def test_a_partial_ams_delta_does_not_blank_the_other_bays(self):
+        self.listener.process(snapshot(gcode_state="IDLE", ams=self.AMS))
+        self.listener.process(push({"ams": {"ams": [
+            {"id": "0", "tray": [{"id": "0", "remain": 41}]},
+        ]}}))
+
+        filaments = self.state.snapshot()["filaments"]
+        self.assertEqual([f["slot"] for f in filaments], ["A1", "A2"])
+        self.assertEqual(filaments[0]["remain_percent"], 41)
+        self.assertEqual(filaments[1]["hex"], "#1E90FF")
+
+    def test_the_external_spool_holder_reaches_the_snapshot(self):
+        self.listener.process(snapshot(
+            gcode_state="IDLE",
+            vt_tray={"id": "254", "tray_type": "TPU", "tray_color": "FF8800FF"},
+        ))
+        filaments = self.state.snapshot()["filaments"]
+        self.assertEqual([f["slot"] for f in filaments], ["Ext"])
+        self.assertTrue(filaments[0]["is_external"])
+
+    def test_no_ams_reported_is_an_empty_list_not_a_missing_key(self):
+        # The UI branches on length; a missing key would throw instead.
+        self.listener.process(snapshot(gcode_state="IDLE"))
+        self.assertEqual(self.state.snapshot()["filaments"], [])
+
+    def test_a_command_acknowledgement_cannot_blank_the_ams(self):
+        self.listener.process(snapshot(gcode_state="IDLE", ams=self.AMS))
+        self.listener.process({"print": {"command": "ams_change_filament",
+                                         "ams": {"ams": []}}})
+        self.assertEqual(len(self.state.snapshot()["filaments"]), 2)

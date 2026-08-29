@@ -22,7 +22,9 @@ by a bounded queue; the paho thread only parses JSON and enqueues.
 """
 from __future__ import annotations
 
+import json
 import logging
+import os
 import queue
 import threading
 import time
@@ -93,13 +95,71 @@ class PrinterLock:
         self.held = False
 
 
+class PayloadCapture:
+    """Append every ingested payload to a JSONL file, for ``--replay`` later.
+
+    Diagnosing this subsystem means answering "what did the printer actually
+    say", and the honest answer only exists on the wire. A capture turns a
+    live session into a file that ``run_printer_listener --replay`` pushes
+    back through the real pipeline with no network — which is how you debug a
+    print that didn't link, or write a parser against a firmware you don't
+    have in front of you.
+
+    One file per serial, holding nothing but raw payloads, so a capture is
+    directly replayable with no unwrapping step. Writes happen on the
+    consumer thread and never on paho's network thread: the broker drops a
+    client that misses a PINGREQ, and a filesystem stall must not cost us the
+    connection. Every line is flushed, so a session killed with Ctrl-C still
+    leaves a usable file.
+
+    Best-effort throughout — a capture that cannot write is a lost diagnostic,
+    never a reason to stop ingesting.
+    """
+
+    def __init__(self, directory: str, serial: str):
+        self.path = os.path.join(directory, f"{serial}.jsonl")
+        self._handle = None
+        self._failed = False
+        try:
+            os.makedirs(directory, exist_ok=True)
+            self._handle = open(self.path, "a", encoding="utf-8")  # noqa: SIM115
+        except OSError as exc:
+            self._failed = True
+            logger.warning("printing[%s]: cannot capture to %s: %s",
+                           serial, self.path, exc)
+
+    def write(self, payload: dict) -> None:
+        if self._handle is None or self._failed:
+            return
+        try:
+            self._handle.write(json.dumps(payload, separators=(",", ":")) + "\n")
+            self._handle.flush()
+        except (OSError, TypeError, ValueError) as exc:
+            # Latched: at ~1 report/second a broken capture would otherwise
+            # log the same line thousands of times.
+            self._failed = True
+            logger.warning("printing: capture to %s stopped: %s", self.path, exc)
+
+    def close(self) -> None:
+        if self._handle is not None:
+            try:
+                self._handle.close()
+            except OSError:  # pragma: no cover - closing a broken handle
+                pass
+            self._handle = None
+
+
 class PrinterListener:
     """One printer: one transport, one merged state, one job tracker."""
 
-    def __init__(self, printer: PrinterProfile, *, transport=None):
+    def __init__(self, printer: PrinterProfile, *, transport=None,
+                 capture_dir: str | None = None):
         self.printer = printer
         self.state = report.PrinterState(serial=printer.serial)
         self.tracker = PrinterJobTracker(printer)
+        self.capture = (
+            PayloadCapture(capture_dir, printer.serial) if capture_dir else None
+        )
         self._queue: queue.Queue = queue.Queue(maxsize=INGEST_QUEUE_MAX)
         self._stop = threading.Event()
         self._consumer: threading.Thread | None = None
@@ -148,6 +208,8 @@ class PrinterListener:
             pass
         if self._consumer is not None:
             self._consumer.join(timeout=5)
+        if self.capture is not None:
+            self.capture.close()
 
     @property
     def transport(self):
@@ -206,6 +268,12 @@ class PrinterListener:
                 continue
             if payload is None:
                 continue
+            if self.capture is not None:
+                # Here rather than in _enqueue: this is the consumer thread,
+                # and paho's must not touch the filesystem. The trade is that
+                # a payload dropped by a full queue is not captured either —
+                # which is right, since it was not ingested.
+                self.capture.write(payload)
             try:
                 self.process(payload)
             except Exception:  # noqa: BLE001 - one bad report must not end ingest
@@ -292,10 +360,14 @@ class ListenerSupervisor:
     """Own one listener per active printer, and keep the locks fresh."""
 
     def __init__(self, *, owner: str, poll_interval: int = 5,
-                 heartbeat_path: str = LISTENER_HEARTBEAT_PATH):
+                 heartbeat_path: str = LISTENER_HEARTBEAT_PATH,
+                 capture_dir: str | None = None):
         self.owner = owner
         self.poll_interval = poll_interval
         self.heartbeat_path = heartbeat_path
+        #: When set, every printer we own writes its payload stream to
+        #: ``<capture_dir>/<serial>.jsonl``. A diagnostic, off by default.
+        self.capture_dir = capture_dir
         self.listeners: dict[int, PrinterListener] = {}
         self.locks: dict[int, PrinterLock] = {}
         self._stop = threading.Event()
@@ -400,7 +472,7 @@ class ListenerSupervisor:
                     printer.serial,
                 )
                 continue
-            listener = PrinterListener(printer)
+            listener = PrinterListener(printer, capture_dir=self.capture_dir)
             try:
                 listener.start()
             except TransportError as exc:

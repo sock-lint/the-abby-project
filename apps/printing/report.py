@@ -16,6 +16,12 @@ does not mean the print ended.
 ``msg: 0`` (or absent) marks a **full snapshot**, which is what
 ``pushall`` returns and what seeds the state.
 
+Nesting is the first trap's sharp edge. ``keep the previous value`` is a
+rule about *keys*, and it cannot reach inside a nested block: assigning
+``state.ams = block["ams"]`` looks like the same rule but silently blanks
+every bay a partial delta didn't mention. ``ams`` is therefore merged by
+``filament.merge_ams``, by unit and tray id.
+
 Type instability is the second trap. Bambu mixes quoted strings and raw
 numbers inconsistently across firmware versions — ``task_id``,
 ``gcode_start_time`` and ``mc_print_stage`` arrive as strings while
@@ -28,6 +34,8 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
+
+from .filament import merge_ams
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +105,13 @@ class PrinterState:
     nozzle_temper: float = 0.0
     bed_temper: float = 0.0
     hms: list = field(default_factory=list)
+    #: The AMS's own view of every bay: material, colour, remaining. Nested,
+    #: so it is merged by ``filament.merge_ams`` rather than by the flat rule
+    #: above — see that module for why the merge has to be by id.
+    ams: dict = field(default_factory=dict)
+    #: The external spool holder. Present on printers with no AMS at all, and
+    #: a sibling of ``ams`` rather than a member of it.
+    vt_tray: dict = field(default_factory=dict)
     #: Set once, from the print-start payload only — it is NOT in the pushall
     #: snapshot, so if we weren't listening when the print began it is
     #: unrecoverable for that job.
@@ -117,6 +132,13 @@ class PrinterState:
     def plate_index(self) -> int | None:
         match = _PLATE_RE.search(self.gcode_file or "")
         return int(match.group(1)) if match else None
+
+    @property
+    def filaments(self) -> list:
+        """Loaded spools, normalised. Empty when the AMS hasn't reported yet."""
+        from .filament import describe_trays
+
+        return describe_trays(self.ams, self.vt_tray)
 
     @property
     def is_user_job(self) -> bool:
@@ -142,6 +164,7 @@ class PrinterState:
             "bed_temper": self.bed_temper,
             "print_error": self.print_error,
             "hms": list(self.hms),
+            "filaments": [slot.as_dict() for slot in self.filaments],
             "stage": self.stg_cur,
             "seeded": self.seeded,
         }
@@ -233,6 +256,14 @@ def merge(state: PrinterState, payload: dict) -> PrinterState:
         # clear — so an empty list here genuinely means "all clear", unlike
         # most absent-key cases.
         state.hms = block["hms"]
+    if "ams" in block and isinstance(block["ams"], dict):
+        # Nested, so the flat keep-previous rule can't reach inside it: a
+        # partial ``ams`` delta merged by assignment would blank the bays it
+        # didn't mention. merge_ams merges by unit and tray id instead.
+        state.ams = merge_ams(state.ams, block["ams"])
+    if "vt_tray" in block and isinstance(block["vt_tray"], dict):
+        # Flat, one tray, so plain assignment is the right merge here.
+        state.vt_tray = {**state.vt_tray, **block["vt_tray"]}
     if "ams_mapping" in block and isinstance(block["ams_mapping"], list):
         state.ams_mapping = block["ams_mapping"]
 
