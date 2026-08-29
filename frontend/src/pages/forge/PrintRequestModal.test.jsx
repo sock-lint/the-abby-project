@@ -124,4 +124,39 @@ describe('PrintRequestModal', () => {
       color: 'grey', reason: 'i made it', title: 'dragon.stl', hasFile: true,
     });
   });
+
+  it('fills the colour field from the filament loaded on the printer', async () => {
+    // The picker is a convenience over free text, never a replacement: what
+    // lands in the request is the name a human reads, not a slot number.
+    server.use(
+      http.get(/\/api\/printers\/1\/status\/$/, () => HttpResponse.json({
+        printer: { id: 1, name: 'X1C' },
+        live: {
+          gcode_state: 'IDLE',
+          filaments: [{
+            slot: 'A1', material: 'PLA', label: 'PLA Basic',
+            display_name: 'PLA Basic', hex: '#00AE42', remain_percent: 92,
+            is_external: false,
+          }],
+        },
+        connected: true,
+        job: null,
+      })),
+    );
+    const { user } = renderWithProviders(
+      <PrintRequestModal
+        onClose={() => {}}
+        printers={[{ id: 1, name: 'X1C', is_active: true }]}
+      />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: /A1 · PLA Basic/ }));
+    expect(screen.getByLabelText(/colour/i)).toHaveValue('PLA Basic');
+  });
+
+  it('still takes a typed colour when no printer is reporting', async () => {
+    const { user } = renderWithProviders(<PrintRequestModal onClose={() => {}} />);
+    await user.type(screen.getByLabelText(/colour/i), 'glow in the dark green');
+    expect(screen.getByLabelText(/colour/i)).toHaveValue('glow in the dark green');
+  });
 });

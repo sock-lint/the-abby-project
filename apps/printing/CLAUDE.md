@@ -136,6 +136,48 @@ Other traps `report.py` and `jobs.py` handle, each of which has bitten someone:
 - `hms: []` in a delta genuinely means "all clear" — that field IS re-sent.
 - `ams_mapping` is sent **once**, at print start, and is not in the snapshot.
 
+## Reading the AMS
+
+`filament.py` turns the `ams` block into the list the UI picks from, and it is
+the one module that knows that payload's shape — the same division `hms.py`
+has. Two things it exists to get right:
+
+**Nesting breaks the delta rule.** "Keep the previous value when the key is
+absent" is a rule about *keys*, and it cannot reach inside `ams`. Assigning
+`state.ams = block["ams"]` looks like the same rule and silently blanks every
+bay a partial delta didn't mention. `merge_ams` merges by unit id and tray id
+instead: a full block merges to itself, a partial one keeps what it didn't
+mention, and knowledge only accumulates. Deciding what is *currently* in a bay
+is `describe_trays`' job, on the state of the moment — which is also how a
+spool **removal** works, since firmware reports it as the tray with its fields
+blanked rather than as an absent entry.
+
+**Most fields are optional, and the honest answer is often "we don't know."**
+Every uncertain value is `None`, never a plausible-looking zero:
+- `remain` comes off an RFID tag, so **third-party spools have no percentage**
+  and report `-1`. The UI renders no number rather than "0% left" on a full
+  roll.
+- `tray_color` is RGB**A**. Alpha `00` means unread or empty — which is *not*
+  `000000FF`, real black filament, so the alpha check comes before any
+  "is it all zeroes" instinct. A null colour renders as a dashed outline.
+- `tray_weight` is the spool's **nominal** weight and is deliberately not
+  surfaced: it reads as a quantity and is wrong every time. Consumed filament
+  is still not in this payload — see "Where grams come from".
+- `vt_tray` is the external spool holder, a *sibling* of `ams`, and on a
+  printer with no AMS it is the only filament path there is.
+
+`tray_exist_bits` would be a second opinion on which bays are occupied, but its
+bit ordering across multiple units is unverified against hardware and
+`describe_trays` already answers from the tray's own fields. We don't guess at
+a bitfield to duplicate an answer we already have.
+
+The snapshot carries `filaments: [{slot, material, label, display_name, hex,
+remain_percent, is_external, filament_id}]`, so it reaches the SPA through
+`GET /api/printers/<id>/status/` like everything else — no second connection.
+`live_status` is `IsAuthenticated`, not parent-only, which is what lets a
+child's request form show the picker. Filament is shared-hardware fact, not
+identity, so unlike `subtask_name` it is not redacted for a sibling.
+
 ## Surviving a restart
 
 `PrinterJobTracker.open_job_id` is in-memory state, and the process holding it
@@ -243,9 +285,14 @@ estimates, so they would add a dependency without adding truth.
 - `matching.py` — the deterministic-linking contract.
 - `jobs.py::PrinterJobTracker.handle` — one merged report in, rows out.
 - `listener.py::ListenerSupervisor` — owns the connections and the locks.
+- `filament.py` — the AMS payload's shape, and what we will claim from it.
 - `management/commands/run_printer_listener.py` — the only process that connects.
-  `--replay session.jsonl --serial <s>` pushes captured payloads through the real
-  pipeline with no network, which is how you debug "why didn't this link".
+  `--capture <dir>` records what the printer actually said (one
+  `<serial>.jsonl` of raw payloads per printer, written on the consumer thread
+  so paho's never touches the filesystem); `--replay <file> --serial <s>`
+  pushes it back through the real pipeline with no network. Together they are
+  how you debug "why didn't this link" — or write a parser against firmware
+  you don't have in front of you.
 - `apps/printing/tests/test_ingest.py` — end-to-end ingest with no broker.
 
 ## Deploying it
@@ -297,7 +344,14 @@ failure rather than a completed print.
 ## Known gaps
 - Per-AMS-slot filament attribution is impossible after the fact: `ams_mapping`
   arrives once at print start and is absent from the snapshot, so a listener that
-  wasn't live when the print began can never recover it.
+  wasn't live when the print began can never recover it. What *is* recoverable
+  is which spools are loaded right now — that is `filament.py`, and it is why
+  the request form's picker is a convenience rather than a record of what a
+  print was made from.
+- The filament picker reflects the bays at *request* time, and a plate may be
+  sliced days later against different spools. `PrintRequest.color` therefore
+  stays free text and stores the human-readable name, never a slot: "A2" means
+  something else next week.
 - Control commands (pause/stop) are not implemented. Firmware 01.08.02+ rejects
   unsigned third-party writes unless the printer is in LAN-Only + Developer mode;
   we only ever publish `pushall`, which is a read.

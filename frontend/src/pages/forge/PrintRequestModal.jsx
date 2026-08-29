@@ -8,6 +8,7 @@ import ParchmentCard from '../../components/journal/ParchmentCard';
 import { DateField, TextAreaField, TextField } from '../../components/form';
 import { createPrintRequest, previewPrintLink } from '../../api';
 import { quickDueDates } from '../../utils/dates';
+import FilamentPicker from './FilamentPicker';
 
 const DUE_CHIPS = [
   { key: 'tomorrow', label: 'Tomorrow' },
@@ -28,8 +29,14 @@ const DUE_CHIPS = [
  * and change their markup. A failed scrape renders as a hint, never as a
  * blocker — the child can still submit, and `enrich_request_metadata` gets
  * another shot at the title and thumbnail after the row exists.
+ *
+ * The filament picker above the Colour field is soft in the same way, and for
+ * the same reason: it reads what the AMS has loaded *right now*, which is a
+ * good guess days before the plate is actually sliced and no guess at all
+ * when the printer is off. It fills the field in and disappears when it has
+ * nothing to say. `color` stays free text end to end.
  */
-export default function PrintRequestModal({ onClose, onSaved }) {
+export default function PrintRequestModal({ onClose, onSaved, printers = [] }) {
   const [mode, setMode] = useState('link'); // 'link' | 'upload'
   const [url, setUrl] = useState('');
   const [file, setFile] = useState(null);
@@ -223,13 +230,20 @@ export default function PrintRequestModal({ onClose, onSaved }) {
           helpText="We fill this in from the link when we can."
         />
 
-        <TextField
-          id="forge-color"
-          label="Colour"
-          value={color}
-          onChange={(e) => setColor(e.target.value.slice(0, 40))}
-          placeholder="Glow in the dark green"
-        />
+        <div className="space-y-2">
+          <FilamentPicker
+            printers={printers}
+            value={color}
+            onSelect={(name) => setColor(name.slice(0, 40))}
+          />
+          <TextField
+            id="forge-color"
+            label="Colour"
+            value={color}
+            onChange={(e) => setColor(e.target.value.slice(0, 40))}
+            placeholder="Glow in the dark green"
+          />
+        </div>
 
         <TextAreaField
           id="forge-reason"

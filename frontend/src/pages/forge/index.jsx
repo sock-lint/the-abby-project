@@ -281,6 +281,7 @@ export default function Forge() {
         <PrintRequestModal
           onClose={() => setSubmitOpen(false)}
           onSaved={() => { setSubmitOpen(false); reload(); }}
+          printers={printers}
         />
       )}
 

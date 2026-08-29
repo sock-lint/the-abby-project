@@ -94,4 +94,44 @@ describe('PrinterStatus', () => {
     expect(await screen.findByText(/Not linked to a request yet/i)).toBeInTheDocument();
     expect(screen.getByText('benchy')).toBeInTheDocument();
   });
+
+  it('shows the filament loaded in the AMS', async () => {
+    stubStatus({
+      printer: PRINTER,
+      connected: true,
+      job: null,
+      live: {
+        gcode_state: 'IDLE',
+        filaments: [
+          {
+            slot: 'A1', material: 'PLA', label: 'PLA Basic',
+            display_name: 'PLA Basic', hex: '#00AE42', remain_percent: 92,
+            is_external: false,
+          },
+          {
+            slot: 'Ext', material: 'TPU', label: '', display_name: 'TPU',
+            hex: '#FF8800', remain_percent: null, is_external: true,
+          },
+        ],
+      },
+    });
+    renderWithProviders(<PrinterStatus printer={PRINTER} />);
+
+    expect(await screen.findByText('PLA Basic')).toBeInTheDocument();
+    expect(screen.getByText('92%')).toBeInTheDocument();
+    // The external spool is a filament source too — on a printer with no AMS
+    // it is the only one.
+    expect(screen.getByText('Ext')).toBeInTheDocument();
+    expect(screen.getByText('TPU')).toBeInTheDocument();
+  });
+
+  it('renders no filament row when the AMS has not reported', async () => {
+    stubStatus({
+      printer: PRINTER, connected: true, job: null,
+      live: { gcode_state: 'IDLE', filaments: [] },
+    });
+    const { container } = renderWithProviders(<PrinterStatus printer={PRINTER} />);
+    await screen.findByText('Connected');
+    expect(container.querySelector('[data-filament]')).toBeNull();
+  });
 });

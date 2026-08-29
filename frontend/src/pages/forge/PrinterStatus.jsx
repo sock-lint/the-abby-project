@@ -6,6 +6,7 @@ import ProgressBar from '../../components/ProgressBar';
 import ErrorAlert from '../../components/ErrorAlert';
 import { getPrinterStatus } from '../../api';
 import { formatDateTime } from '../../utils/format';
+import FilamentChip from './FilamentChip';
 import {
   EVENT_TONE, JOB_STATE_TONE, SEVERITY_TONE, formatMinutes, isJobOpen,
 } from './forge.constants';
@@ -75,6 +76,7 @@ export default function PrinterStatus({ printer }) {
   const connected = Boolean(snapshot?.connected);
   const name = snapshot?.printer?.name || printer?.name || 'Printer';
   const events = job?.events || [];
+  const filaments = live?.filaments || [];
 
   return (
     <ParchmentCard className="space-y-3">
@@ -131,6 +133,17 @@ export default function PrinterStatus({ printer }) {
           {connected
             ? `Idle${live?.gcode_state ? ` · ${live.gcode_state.toLowerCase()}` : ''}`
             : 'No live report — the listener isn’t connected to this printer.'}
+        </div>
+      )}
+
+      {filaments.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {filaments.map((filament) => (
+            <FilamentChip
+              key={`${filament.slot}-${filament.display_name}`}
+              filament={filament}
+            />
+          ))}
         </div>
       )}
 

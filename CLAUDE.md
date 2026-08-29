@@ -80,9 +80,11 @@ docker compose exec django python manage.py runmcp
 # It is the only process allowed to connect to a printer; do not scale past 1.
 docker compose up -d printer_listener
 docker compose logs -f printer_listener
-# Replay a captured session through the real ingest path, no network:
+# Capture what the printer actually says (one <serial>.jsonl per printer),
+# then replay it through the real ingest path with no network:
+docker compose exec django python manage.py run_printer_listener --capture ./captures
 docker compose exec django python manage.py run_printer_listener \
-  --replay session.jsonl --serial 00M09A342000000
+  --replay ./captures/00M09A342000000.jsonl --serial 00M09A342000000
 
 # Dev helpers (not for production)
 docker compose exec django python manage.py force_drop <username>

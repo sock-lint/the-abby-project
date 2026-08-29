@@ -19,14 +19,26 @@ Invariants this file exists to protect:
    acknowledgements carry a ``print`` key too, and merging one corrupts state.
 5. Fan-out writes a snapshot the status endpoint can serve, so the SPA reads
    Redis instead of opening its own connection to the printer.
+6. ``--capture`` writes a file ``--replay`` can read back, and a capture that
+   cannot be written never costs us the connection.
 """
 from __future__ import annotations
+
+import json
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 
 from apps.printing import fanout
-from apps.printing.listener import ListenerSupervisor, PrinterListener, PrinterLock
+from apps.printing.listener import (
+    ListenerSupervisor,
+    PayloadCapture,
+    PrinterListener,
+    PrinterLock,
+)
 from apps.printing.models import PrinterProfile, PrintJob
 from apps.printing.transports.memory import InMemoryTransport
 from config.tests.factories import make_family
@@ -262,3 +274,102 @@ class FanoutTests(_Fixture):
     def test_publishing_never_raises_even_with_no_redis(self):
         # Fan-out is best effort: a cache/Redis outage must not break ingest.
         fanout.publish_state(self.printer.serial, {"serial": self.printer.serial})
+
+
+@override_settings(CACHES=LOCMEM)
+class PayloadCaptureTests(_Fixture):
+    """`--capture` is only useful if `--replay` can read what it wrote.
+
+    The two are one tool split across a session boundary, so the format is
+    the contract: raw payloads, one JSON object per line, nothing wrapped
+    around them.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self._dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._dir.cleanup)
+        self.capture_dir = self._dir.name
+
+    def read_lines(self, serial=None):
+        path = Path(self.capture_dir) / f"{serial or self.printer.serial}.jsonl"
+        if not path.exists():
+            return []
+        return [json.loads(line) for line in path.read_text().splitlines() if line]
+
+    def test_a_captured_line_is_the_raw_payload_replay_expects(self):
+        capture = PayloadCapture(self.capture_dir, self.printer.serial)
+        payload = {"print": {"command": "push_status", "msg": 0, "gcode_state": "RUNNING"}}
+        capture.write(payload)
+        capture.close()
+        self.assertEqual(self.read_lines(), [payload])
+
+    def test_each_printer_gets_its_own_file(self):
+        # One interleaved file would be unreplayable: --replay takes a single
+        # serial and every line has to belong to it.
+        PayloadCapture(self.capture_dir, "SERIAL-A").write({"a": 1})
+        PayloadCapture(self.capture_dir, "SERIAL-B").write({"b": 2})
+        self.assertEqual(self.read_lines("SERIAL-A"), [{"a": 1}])
+        self.assertEqual(self.read_lines("SERIAL-B"), [{"b": 2}])
+
+    def test_lines_are_flushed_so_a_killed_session_still_replays(self):
+        # The realistic way a capture ends is Ctrl-C, not a clean close.
+        capture = PayloadCapture(self.capture_dir, self.printer.serial)
+        capture.write({"first": True})
+        self.assertEqual(self.read_lines(), [{"first": True}])
+
+    def test_the_directory_is_created_if_it_does_not_exist(self):
+        nested = str(Path(self.capture_dir) / "deep" / "nested")
+        PayloadCapture(nested, "SERIAL-C").write({"ok": True})
+        self.assertTrue((Path(nested) / "SERIAL-C.jsonl").exists())
+
+    def test_an_unwritable_capture_is_a_lost_diagnostic_not_an_outage(self):
+        # A capture that cannot open must never raise into ingest: losing the
+        # MQTT connection to save a debug file is a bad trade.
+        capture = PayloadCapture("/proc/nope/cannot-create", self.printer.serial)
+        capture.write({"anything": True})
+        capture.close()
+
+    def test_an_unserialisable_payload_does_not_stop_ingest(self):
+        capture = PayloadCapture(self.capture_dir, self.printer.serial)
+        capture.write({"bad": {1, 2, 3}})  # a set is not JSON
+        capture.write({"good": True})
+        # Latched off after the first failure rather than logging per report.
+        self.assertEqual(self.read_lines(), [])
+
+    def test_the_listener_captures_what_it_ingests(self):
+        listener = PrinterListener(
+            self.printer,
+            transport=InMemoryTransport(on_payload=lambda p: None),
+            capture_dir=self.capture_dir,
+        )
+        listener.start()
+        payload = {"print": {"command": "push_status", "msg": 0,
+                             "gcode_state": "IDLE", "subtask_name": ""}}
+        listener._enqueue(payload)
+        listener.stop()
+        self.assertEqual(self.read_lines(), [payload])
+
+    def test_no_capture_directory_means_no_file_and_no_capture_object(self):
+        listener = PrinterListener(
+            self.printer,
+            transport=InMemoryTransport(on_payload=lambda p: None),
+        )
+        self.assertIsNone(listener.capture)
+
+    def test_the_supervisor_hands_the_directory_to_each_listener(self):
+        # build_transport is patched out because sync() would otherwise dial
+        # the configured host for real — no test in this file opens a socket.
+        supervisor = ListenerSupervisor(
+            owner="this-process", capture_dir=self.capture_dir,
+        )
+        with patch(
+            "apps.printing.listener.build_transport",
+            side_effect=lambda printer, **kwargs: InMemoryTransport(**kwargs),
+        ):
+            supervisor.sync()
+            self.addCleanup(supervisor.shutdown)
+            listener = supervisor.listeners[self.printer.pk]
+
+        self.assertIsNotNone(listener.capture)
+        self.assertTrue(listener.capture.path.endswith(f"{self.printer.serial}.jsonl"))
