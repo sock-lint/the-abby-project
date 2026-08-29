@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, DollarSign, Flame, Stamp } from 'lucide-react';
 import { getDashboard } from '../../api';
@@ -17,18 +17,25 @@ function Pip({ icon, label, tone = 'ink', active = false, onClick, ariaLabel }) 
     moss: 'text-moss bg-moss/10 border-moss/40 hover:bg-moss/20',
   }[tone] || 'text-ink-secondary bg-ink-page-aged border-ink-page-shadow';
 
-  const prevLabel = useRef(label);
+  // Bump the pip whenever its label changes. Comparing the previous label
+  // during render is React's documented way to adjust state on a prop change
+  // (https://react.dev/learn/you-might-not-need-an-effect); doing it in an
+  // effect meant a synchronous setState there, i.e. a second render pass for
+  // every label change. The effect now owns only the timer, so its setState
+  // fires from a callback rather than from the effect body.
+  const [prevLabel, setPrevLabel] = useState(label);
   const [bumped, setBumped] = useState(false);
 
+  if (prevLabel !== label) {
+    setPrevLabel(label);
+    if (prevLabel !== undefined) setBumped(true);
+  }
+
   useEffect(() => {
-    if (prevLabel.current !== label && prevLabel.current !== undefined) {
-      setBumped(true);
-      const timer = setTimeout(() => setBumped(false), 600);
-      prevLabel.current = label;
-      return () => clearTimeout(timer);
-    }
-    prevLabel.current = label;
-  }, [label]);
+    if (!bumped) return undefined;
+    const timer = setTimeout(() => setBumped(false), 600);
+    return () => clearTimeout(timer);
+  }, [bumped]);
 
   return (
     <button

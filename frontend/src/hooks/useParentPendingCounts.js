@@ -16,6 +16,17 @@ import { normalizeList } from '../utils/api';
  * Failures are swallowed per-source: one endpoint hiccup shouldn't
  * blank out the whole pip strip.
  */
+// Disabled means there is nothing to fetch and nothing to wait for, so this
+// shape is derived at return time rather than written into state from the
+// effect — which cost a render pass purely to flip `ready`.
+const DISABLED_COUNTS = {
+  chores: 0,
+  homework: 0,
+  redemptions: 0,
+  total: 0,
+  ready: true,
+};
+
 export default function useParentPendingCounts({ enabled = true } = {}) {
   const [counts, setCounts] = useState({
     chores: 0,
@@ -26,10 +37,7 @@ export default function useParentPendingCounts({ enabled = true } = {}) {
   });
 
   useEffect(() => {
-    if (!enabled) {
-      setCounts((c) => ({ ...c, ready: true }));
-      return undefined;
-    }
+    if (!enabled) return undefined;
     let cancelled = false;
     (async () => {
       try {
@@ -60,5 +68,5 @@ export default function useParentPendingCounts({ enabled = true } = {}) {
     return () => { cancelled = true; };
   }, [enabled]);
 
-  return counts;
+  return enabled ? counts : DISABLED_COUNTS;
 }

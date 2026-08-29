@@ -47,28 +47,35 @@ export default function LorebookCodex({
   const navigate = useNavigate();
 
   // Deep-link from FirstEncounterSheet: ?trial=<slug> auto-opens that trial.
-  // Idempotent: once the param is stripped, subsequent runs find no slug
-  // and return early, so depending on the full location.search + entries
-  // array is safe — and prevents the prior bug where a navigation that
-  // arrived before entries finished loading would silently miss the trial.
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const slug = params.get('trial');
-    if (!slug) return;
-    const target = entries.find((e) => e.slug === slug);
+  // Opening it is an adjustment to a changed input (the URL), which React
+  // does during render rather than in an effect — a synchronous setState
+  // there costs a second render pass on every arrival. The trial has to
+  // outlive the param that opened it, so it cannot simply be derived: the
+  // effect below strips the param immediately so a refresh doesn't re-open
+  // it, and `handledTrialSlug` keeps this to one pass per deep link.
+  const trialSlug = new URLSearchParams(location.search).get('trial');
+  const [handledTrialSlug, setHandledTrialSlug] = useState(null);
+
+  if (trialSlug && trialSlug !== handledTrialSlug) {
+    setHandledTrialSlug(trialSlug);
+    const target = entries.find((entry) => entry.slug === trialSlug);
     if (target && target.unlocked && !target.trained) {
       setTrialEntry(target);
       // Open the shelf on the chapter the deep-linked entry lives in, so
       // closing the trial leaves the kid looking at the right folio.
       if (target.chapter) setOverride(target.chapter);
     }
-    // Strip the param so a refresh doesn't re-trigger.
+  }
+
+  useEffect(() => {
+    if (!trialSlug) return;
+    const params = new URLSearchParams(location.search);
     params.delete('trial');
     navigate(
       { pathname: location.pathname, search: params.toString() },
       { replace: true },
     );
-  }, [entries, location.pathname, location.search, navigate]);
+  }, [trialSlug, location.pathname, location.search, navigate]);
 
   const handleSelect = (entry, selectMode) => {
     if (selectMode === 'trial') setTrialEntry(entry);

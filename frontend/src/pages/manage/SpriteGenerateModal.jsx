@@ -7,13 +7,13 @@ import RpgSprite from '../../components/rpg/RpgSprite';
 import { TextField, SelectField, TextAreaField } from '../../components/form';
 import { generateSprite } from '../../api';
 
-export const MOTION_OPTIONS = [
+const MOTION_OPTIONS = [
   'idle', 'walk', 'bounce', 'bubble', 'flicker', 'glow', 'wobble', 'sway',
 ];
 
-export const FRAME_OPTIONS = [1, 2, 4, 6, 8];
-export const TILE_OPTIONS = [32, 64, 128];
-export const FPS_OPTIONS = [0, 4, 6, 8, 10, 12];
+const FRAME_OPTIONS = [1, 2, 4, 6, 8];
+const TILE_OPTIONS = [32, 64, 128];
+const FPS_OPTIONS = [0, 4, 6, 8, 10, 12];
 
 function defaultsFromSprite(sprite) {
   if (!sprite) {

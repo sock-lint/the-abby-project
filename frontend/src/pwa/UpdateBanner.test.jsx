@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import UpdateBanner from './UpdateBanner';
-import { PwaStatusContext } from './PwaStatusProvider';
+import { PwaStatusContext } from './pwaStatus.context';
 
 function renderWithStatus(value) {
   return render(

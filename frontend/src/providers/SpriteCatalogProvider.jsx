@@ -1,12 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchSpriteCatalog } from '../api';
 import { STORAGE_KEYS } from '../constants/storage';
-
-const SpriteCatalogContext = createContext({
-  getSpriteUrl: () => null,
-  getSpriteMeta: () => null,
-  refetchCatalog: () => Promise.resolve(),
-});
+import { SpriteCatalogContext } from './spriteCatalog.context';
 
 const STORAGE_KEY = STORAGE_KEYS.SPRITE_CATALOG;
 const ETAG_KEY = STORAGE_KEYS.SPRITE_CATALOG_ETAG;
@@ -95,6 +90,3 @@ export function SpriteCatalogProvider({ children }) {
   );
 }
 
-export function useSpriteCatalog() {
-  return useContext(SpriteCatalogContext);
-}

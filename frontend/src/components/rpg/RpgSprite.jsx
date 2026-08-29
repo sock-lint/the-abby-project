@@ -1,4 +1,4 @@
-import { useSpriteCatalog } from '../../providers/SpriteCatalogProvider';
+import { useSpriteCatalog } from '../../providers/spriteCatalog.context';
 
 const SIZE_TO_TEXT_CLASS = {
   24: 'text-xl',

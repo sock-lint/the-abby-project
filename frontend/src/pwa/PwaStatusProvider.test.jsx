@@ -18,7 +18,8 @@ vi.mock('virtual:pwa-register', () => ({
 }));
 
 // Import the provider AFTER the mock is set up.
-import { PwaStatusProvider, usePwaStatus } from './PwaStatusProvider';
+import { PwaStatusProvider } from './PwaStatusProvider';
+import { usePwaStatus } from './pwaStatus.context';
 
 function StatusProbe() {
   const { updateReady, offlineReady } = usePwaStatus();

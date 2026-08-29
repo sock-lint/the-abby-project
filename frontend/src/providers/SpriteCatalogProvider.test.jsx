@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { renderHook, waitFor } from '@testing-library/react';
-import { SpriteCatalogProvider, useSpriteCatalog } from './SpriteCatalogProvider';
+import { SpriteCatalogProvider } from './SpriteCatalogProvider';
+import { useSpriteCatalog } from './spriteCatalog.context';
 import { server } from '../test/server';
 
 function wrap({ children }) {

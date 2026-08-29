@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
-import { usePwaStatus } from './PwaStatusProvider';
+import { usePwaStatus } from './pwaStatus.context';
 import { RARITY_SOLID_COLORS } from '../constants/colors';
 
 const DISMISS_AFTER_MS = 4000;
