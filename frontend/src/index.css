@@ -101,13 +101,19 @@
      journal-cover swap retunes the shelf, which the old fixed hexes
      never did: they stayed pale tan even on the dark Vigil cover.
 
-     Titles stay legible on dark leather via the deboss shadow on
-     `.spine-foil` rather than by tuning fill colors per tier. */
+     Titles stay legible via BOTH the deboss shadow on `.spine-foil` and the
+     foil stops being kept light — see the note on `.spine-foil`. */
+  /* 26% accent, not 45%: the mix has to stay dark enough for gilt to read on
+     EVERY cover, and Vigil's accent tokens are far brighter than Hyrule's, so
+     a fixed high fraction produced leathers there that swallowed the foil.
+     At 26% the dimmest foil stop holds >=5:1 against all four dyed tiers on
+     both the lightest and darkest covers, with the tier hues still separable.
+     See the .spine-foil note below — the two are tuned as a pair. */
   --color-leather-locked: color-mix(in srgb, var(--color-ink-page-aged) 62%, #8a7a5c);
-  --color-leather-nascent: color-mix(in srgb, var(--color-moss) 45%, #3f3a24);
-  --color-leather-rising: color-mix(in srgb, var(--color-sheikah-teal-deep) 42%, #2f3a34);
-  --color-leather-cresting: color-mix(in srgb, var(--color-ember) 45%, #3d2418);
-  --color-leather-gilded: color-mix(in srgb, var(--color-gold-leaf) 40%, #4a3410);
+  --color-leather-nascent: color-mix(in srgb, var(--color-moss) 26%, #3f3a24);
+  --color-leather-rising: color-mix(in srgb, var(--color-sheikah-teal-deep) 26%, #2f3a34);
+  --color-leather-cresting: color-mix(in srgb, var(--color-ember) 26%, #3d2418);
+  --color-leather-gilded: color-mix(in srgb, var(--color-gold-leaf) 26%, #4a3410);
   --color-leather-grain: rgba(45, 31, 21, 0.18);
   --color-leather-grain-strong: rgba(45, 31, 21, 0.28);
   --color-headband-locked: #6b5639;
@@ -304,6 +310,15 @@ h1, h2, h3, h4 {
   color: transparent;
   filter: drop-shadow(0 1px 0.5px rgba(45, 31, 21, 0.7));
 }
+
+/* Foil legibility is a property of the STOPS, not just the deboss. The
+   gradient puts `--foil-tone-bottom` at its 50% mark, i.e. through the middle
+   of every letter, so that stop sets the worst-case contrast for the whole
+   title. Pointing it at raw `--color-gold-leaf` measured 1.6:1 against the
+   dyed leathers on Hyrule (where gold-leaf is a dark #856418 ochre, not a
+   bright gold) — the ends of each word read and the middle vanished. The
+   stops TomeSpine passes are kept light enough to hold >=4.5:1 on every
+   cover; if you retune them, measure the mid stop, not the ends. */
 
 /* Foil-glint — the sheen sweep that runs across the foil title on
    hover/active. Same vocabulary as gilded-glint but tuned for the

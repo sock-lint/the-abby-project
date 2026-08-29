@@ -37,16 +37,19 @@ import { PROGRESS_TIER } from './mastery.constants';
 // now mix each tier's own accent into a dark leather base, so journal-cover
 // swaps (hyrule / vigil / sunlit / …) drive the look from one place.
 //
-// Foil is cream→gold gilt on the dyed tiers. It was gold→ember-deep, which
-// put the gradient's DARK stop at the middle of every title (see the 50%
-// stop in `.spine-foil`) — invisible once the leather went dark. `locked`
-// keeps dark foil because its cloth stays pale.
+// Foil is cream→pale-gilt on the dyed tiers. `.spine-foil` puts foilBottom at
+// its 50% mark — the middle of every letter — so that stop, not the ends,
+// decides whether a title reads. Raw gold-leaf there measured 1.6:1 against
+// the dyed leathers (Hyrule's gold-leaf is a dark ochre); mixed 30% into
+// cream it holds >=4.5:1 on every cover. `locked` stays plain dark ink on its
+// pale cloth, via ink-primary, which flips light on the dark Vigil cover —
+// ink-whisper/page-shadow there measured 1.2-2.1:1.
 const TIER_LEATHER = {
   locked: {
     spineTint: 'var(--color-leather-locked)',
     headband: 'var(--color-headband-locked)',
-    foilTop: 'var(--color-ink-whisper)',
-    foilBottom: 'var(--color-ink-page-shadow)',
+    foilTop: 'var(--color-ink-primary)',
+    foilBottom: 'var(--color-ink-primary)',
     edgeOpacity: 0.35,
     discBg: 'var(--color-ink-page-shadow)',
     discDim: true,
@@ -55,7 +58,7 @@ const TIER_LEATHER = {
     spineTint: 'var(--color-leather-nascent)',
     headband: 'var(--color-headband-nascent)',
     foilTop: 'var(--color-amber-glow)',
-    foilBottom: 'var(--color-gold-leaf)',
+    foilBottom: 'color-mix(in srgb, var(--color-gold-leaf) 30%, var(--color-amber-glow))',
     edgeOpacity: 0.62,
     discBg: 'var(--color-gold-leaf)',
     discDim: false,
@@ -64,7 +67,7 @@ const TIER_LEATHER = {
     spineTint: 'var(--color-leather-rising)',
     headband: 'var(--color-headband-rising)',
     foilTop: 'var(--color-amber-glow)',
-    foilBottom: 'var(--color-gold-leaf)',
+    foilBottom: 'color-mix(in srgb, var(--color-gold-leaf) 30%, var(--color-amber-glow))',
     edgeOpacity: 0.75,
     discBg: 'var(--color-gold-leaf)',
     discDim: false,
@@ -73,7 +76,7 @@ const TIER_LEATHER = {
     spineTint: 'var(--color-leather-cresting)',
     headband: 'var(--color-headband-cresting)',
     foilTop: 'var(--color-amber-glow)',
-    foilBottom: 'var(--color-gold-leaf)',
+    foilBottom: 'color-mix(in srgb, var(--color-gold-leaf) 30%, var(--color-amber-glow))',
     edgeOpacity: 0.88,
     discBg: 'var(--color-gold-leaf)',
     discDim: false,
@@ -82,7 +85,7 @@ const TIER_LEATHER = {
     spineTint: 'var(--color-leather-gilded)',
     headband: 'var(--color-headband-gilded)',
     foilTop: 'var(--color-amber-glow)',
-    foilBottom: 'var(--color-gold-leaf)',
+    foilBottom: 'color-mix(in srgb, var(--color-gold-leaf) 30%, var(--color-amber-glow))',
     edgeOpacity: 1,
     discBg: 'var(--color-gold-leaf)',
     discDim: false,
