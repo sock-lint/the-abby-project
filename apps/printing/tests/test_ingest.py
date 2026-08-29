@@ -20,16 +20,21 @@ Invariants pinned here:
    goes back to approved so it can be re-printed.
 8. Progress rows are throttled; a 100-report print does not write 100 rows.
 9. An unmatched print still produces a job a parent can link by hand.
+10. A listener that restarts mid-print re-attaches to the job row that print
+    already has, instead of opening a second one and debiting twice.
 """
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 
 from django.test import TestCase
+from django.utils import timezone
 
 from config.tests.factories import make_family
 
 from apps.printing.budget import PrintBudgetService
+from apps.printing.constants import STALE_JOB_MINUTES
 from apps.printing.listener import PrinterListener
 from apps.printing.models import (
     PrintBudgetLedger,
@@ -54,6 +59,7 @@ def snapshot(**fields) -> dict:
         "subtask_name": "",
         "gcode_file": "",
         "task_id": "0",
+        "gcode_start_time": "0",
         "print_type": "idle",
         "layer_num": 0,
         "total_layer_num": 0,
@@ -106,8 +112,9 @@ class IngestFixture(TestCase):
             estimated_minutes=minutes,
         )
 
-    def start_print(self, plate_name: str, *, total_layers=100):
-        self.listener.process(snapshot(
+    def start_print(self, plate_name: str, *, total_layers=100,
+                    start_time="1756000000", listener=None):
+        (listener or self.listener).process(snapshot(
             gcode_state="RUNNING",
             subtask_name=plate_name,
             gcode_file="/data/Metadata/plate_1.gcode",
@@ -116,6 +123,7 @@ class IngestFixture(TestCase):
             total_layer_num=total_layers,
             mc_percent=0,
             mc_remaining_time=180,
+            gcode_start_time=start_time,
         ))
 
 
@@ -449,3 +457,182 @@ class TimelineTests(IngestFixture):
         self.assertEqual(
             kinds[:2], [PrintJobEvent.Kind.STARTED, PrintJobEvent.Kind.LINKED],
         )
+
+
+class ListenerRestartTests(IngestFixture):
+    """A restarted listener must re-attach to a print, not re-open it.
+
+    ``PrinterJobTracker.open_job_id`` is in-memory state, the process holding
+    it restarts on every deploy, and a print runs for hours — so a restart
+    lands mid-print routinely. Without the resume step the new tracker sees
+    "printing, named, and no open job", writes a second row for one plate,
+    force-closes the first as ``unknown``, and debits the budget twice.
+
+    Every test here builds a *second* ``PrinterListener`` over the same
+    printer, which is exactly what the new process does.
+    """
+
+    def restarted(self):
+        return PrinterListener(
+            self.printer,
+            transport=InMemoryTransport(on_payload=lambda payload: None),
+        )
+
+    def resume_snapshot(self, plate_name, **fields):
+        """What pushall answers with when we reconnect to a print in progress."""
+        base = {
+            "gcode_state": "RUNNING",
+            "subtask_name": plate_name,
+            "gcode_file": "/data/Metadata/plate_1.gcode",
+            "print_type": "local",
+            "layer_num": 40,
+            "total_layer_num": 100,
+            "mc_percent": 40,
+            "mc_remaining_time": 90,
+            "gcode_start_time": "1756000000",
+        }
+        base.update(fields)
+        return snapshot(**base)
+
+    def test_a_restart_mid_print_reattaches_to_the_open_job(self):
+        request = self.approved_request()
+        self.start_print(request.plate_filename)
+        original = PrintJob.objects.get()
+
+        listener = self.restarted()
+        listener.process(self.resume_snapshot(request.plate_filename))
+
+        self.assertEqual(PrintJob.objects.count(), 1)
+        self.assertEqual(listener.tracker.open_job_id, original.pk)
+        original.refresh_from_db()
+        self.assertEqual(original.state, PrintJob.State.RUNNING)
+        self.assertIsNone(original.finished_at)
+        self.assertEqual(original.percent_complete, 40)
+
+    def test_a_restart_mid_print_does_not_debit_the_budget_twice(self):
+        # The expensive half of the duplicate: the abandoned row closes as
+        # unknown and is debited as a partial failure, then the second row
+        # finishes and is debited the full estimate on top.
+        request = self.approved_request(grams="120.00")
+        self.start_print(request.plate_filename)
+
+        listener = self.restarted()
+        listener.process(self.resume_snapshot(request.plate_filename))
+        listener.process(push({
+            "gcode_state": "FINISH", "mc_percent": 100, "layer_num": 100,
+        }))
+
+        self.assertEqual(PrintJob.objects.count(), 1)
+        self.assertEqual(PrintBudgetLedger.objects.count(), 1)
+        self.assertEqual(PrintBudgetService.get_usage(self.child)["grams"],
+                         Decimal("120.00"))
+        request.refresh_from_db()
+        self.assertEqual(request.status, PrintRequest.Status.COMPLETED)
+        self.assertEqual(request.print_count, 1)
+
+    def test_coming_back_to_a_finished_printer_closes_the_row_as_finished(self):
+        # The printer holds the finished print's name and start time until the
+        # next one begins, so a listener that missed the FINISH transition can
+        # still close the row correctly instead of leaving it for the stale
+        # sweep to write off as unknown.
+        request = self.approved_request(grams="120.00")
+        self.start_print(request.plate_filename)
+
+        listener = self.restarted()
+        listener.process(self.resume_snapshot(
+            request.plate_filename, gcode_state="FINISH",
+            layer_num=100, mc_percent=100, mc_remaining_time=0,
+        ))
+
+        job = PrintJob.objects.get()
+        self.assertEqual(job.state, PrintJob.State.FINISHED)
+        self.assertIsNotNone(job.finished_at)
+        request.refresh_from_db()
+        self.assertEqual(request.status, PrintRequest.Status.COMPLETED)
+
+    def test_a_restart_between_two_prints_still_opens_the_second_job(self):
+        self.start_print("Card Holder", start_time="1756000000")
+
+        listener = self.restarted()
+        listener.process(self.resume_snapshot(
+            "Battery Tray", gcode_start_time="1756009999",
+        ))
+
+        self.assertEqual(PrintJob.objects.count(), 2)
+        first, second = PrintJob.objects.order_by("started_at")
+        self.assertEqual(first.state, PrintJob.State.UNKNOWN)
+        self.assertEqual(second.subtask_name, "Battery Tray")
+        self.assertEqual(second.state, PrintJob.State.RUNNING)
+
+    def test_a_reprint_of_the_same_plate_is_not_absorbed(self):
+        # Same name, different run: the start time is what tells them apart,
+        # and adopting here would lose a whole print.
+        self.start_print("Card Holder", start_time="1756000000")
+
+        listener = self.restarted()
+        listener.process(self.resume_snapshot(
+            "Card Holder", gcode_start_time="1756009999",
+        ))
+
+        self.assertEqual(PrintJob.objects.count(), 2)
+
+    def test_a_row_predating_the_start_time_is_matched_by_name(self):
+        # The upgrade path: a job already open when this shipped has no
+        # gcode_start_time, so the name is all there is to go on. Adopting it
+        # also backfills the id, so the next restart gets the strong check.
+        self.start_print("Card Holder")
+        PrintJob.objects.update(gcode_start_time="")
+
+        listener = self.restarted()
+        listener.process(self.resume_snapshot("Card Holder"))
+
+        job = PrintJob.objects.get()
+        self.assertEqual(listener.tracker.open_job_id, job.pk)
+        self.assertEqual(job.gcode_start_time, "1756000000")
+
+    def test_a_row_left_open_by_an_old_print_is_not_adopted(self):
+        # No ids on either side and the same plate name, but the printer went
+        # quiet on that row hours ago — it is a power-cut leftover, not this
+        # print. Adopting it would merge two prints into one row.
+        self.start_print("Card Holder")
+        PrintJob.objects.update(
+            gcode_start_time="",
+            started_at=timezone.now() - timedelta(minutes=STALE_JOB_MINUTES + 30),
+            last_report_at=timezone.now() - timedelta(minutes=STALE_JOB_MINUTES + 30),
+        )
+
+        listener = self.restarted()
+        listener.process(self.resume_snapshot("Card Holder", gcode_start_time="0"))
+
+        self.assertEqual(PrintJob.objects.count(), 2)
+        self.assertEqual(
+            PrintJob.objects.filter(state=PrintJob.State.UNKNOWN).count(), 1,
+        )
+
+    def test_alerts_already_on_the_timeline_are_not_logged_again(self):
+        # The hms array is re-sent every second while an alert is active, so a
+        # tracker that came back with an empty memory of it would write the
+        # same row a second time.
+        alert = [{"attr": 0x07002000, "code": 0x00020001}]
+        self.start_print("Card Holder")
+        self.listener.process(push({"hms": alert}))
+
+        listener = self.restarted()
+        listener.process(self.resume_snapshot("Card Holder", hms=alert))
+
+        self.assertEqual(
+            PrintJobEvent.objects.filter(kind=PrintJobEvent.Kind.HMS).count(), 1,
+        )
+
+    def test_reattaching_leaves_a_note_on_the_timeline(self):
+        self.start_print("Card Holder")
+        listener = self.restarted()
+        listener.process(self.resume_snapshot("Card Holder"))
+
+        note = PrintJobEvent.objects.filter(kind=PrintJobEvent.Kind.NOTE).get()
+        self.assertIn("listener restarted", note.message)
+
+    def test_an_idle_printer_with_no_open_job_resumes_nothing(self):
+        listener = self.restarted()
+        listener.process(snapshot(gcode_state="IDLE"))
+        self.assertEqual(PrintJob.objects.count(), 0)
