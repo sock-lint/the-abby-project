@@ -190,7 +190,10 @@ describe('TomeSpine', () => {
     expect(title.className).toMatch(/spine-foil-glint/);
   });
 
-  it('reveals the page-block sliver only when active (the rotateY tilt would expose nothing otherwise)', () => {
+  it('marks the active spine without the page-block sliver', () => {
+    // The cream sliver read as page edges on pale tan leather but as a white
+    // slab once the leathers became dark dyed morocco. It is gone; the lift,
+    // the tilt, and the ribbon still carry "active" on their own.
     const { container, rerender } = renderWithProviders(
       <TomeSpine
         id="electronics"
@@ -202,6 +205,8 @@ describe('TomeSpine', () => {
       />,
     );
     expect(container.querySelector('[data-spine-pageblock="true"]')).toBeNull();
+    expect(container.querySelector('[data-tome-ribbon="true"]').className).toMatch(/scale-y-0/);
+
     rerender(
       <TomeSpine
         id="electronics"
@@ -212,7 +217,8 @@ describe('TomeSpine', () => {
         onClick={() => {}}
       />,
     );
-    expect(container.querySelector('[data-spine-pageblock="true"]')).not.toBeNull();
+    expect(container.querySelector('[data-spine-pageblock="true"]')).toBeNull();
+    expect(container.querySelector('[data-tome-ribbon="true"]').className).toMatch(/scale-y-100/);
   });
 
   it('codex headband tier-colors map to the PROGRESS_TIER vocabulary', () => {

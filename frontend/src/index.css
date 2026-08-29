@@ -89,20 +89,27 @@
      The TomeSpine codex variant renders a hand-bound library tome.
      `leather-*` tones are the spine cover (locked → burnished gilded).
      `leather-grain` is the warm-dark hairline that draws the tooled
-     leather striations. `page-block` is the cream-striated edge that
-     peeks from the right side of the spine; `headband-*` is the woven
-     cloth cap at the top of the binding. All five headband tints are
-     pulled from the existing PROGRESS_TIER bar colors so the closed
-     spine and the open folio share one progress vocabulary. */
-  --color-leather-locked: #c4b594;
-  --color-leather-nascent: #b8a888;
-  --color-leather-rising: #ac9c7c;
-  --color-leather-cresting: #a39071;
-  --color-leather-gilded: #b89e62;
+     leather striations; `headband-*` is the woven cloth cap at the top
+     of the binding.
+
+     The five leather tones are dyed morocco, each mixing its own tier
+     accent into a dark leather base, so a shelf reads as a real row of
+     bindings and the tier ladder is legible across it. They used to be
+     five near-identical tans inside a 1.9deg hue band — one binding at
+     five exposures, with no ladder to read. Mixing from the cover's own
+     accent tokens (moss / sheikah-teal / ember / gold-leaf) also means a
+     journal-cover swap retunes the shelf, which the old fixed hexes
+     never did: they stayed pale tan even on the dark Vigil cover.
+
+     Titles stay legible on dark leather via the deboss shadow on
+     `.spine-foil` rather than by tuning fill colors per tier. */
+  --color-leather-locked: color-mix(in srgb, var(--color-ink-page-aged) 62%, #8a7a5c);
+  --color-leather-nascent: color-mix(in srgb, var(--color-moss) 45%, #3f3a24);
+  --color-leather-rising: color-mix(in srgb, var(--color-sheikah-teal-deep) 42%, #2f3a34);
+  --color-leather-cresting: color-mix(in srgb, var(--color-ember) 45%, #3d2418);
+  --color-leather-gilded: color-mix(in srgb, var(--color-gold-leaf) 40%, #4a3410);
   --color-leather-grain: rgba(45, 31, 21, 0.18);
   --color-leather-grain-strong: rgba(45, 31, 21, 0.28);
-  --color-page-block: #f8efd2;
-  --color-page-block-line: rgba(133, 100, 24, 0.22);
   --color-headband-locked: #6b5639;
   --color-headband-nascent: #456a3a;
   --color-headband-rising: #157064;
@@ -295,6 +302,7 @@ h1, h2, h3, h4 {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  filter: drop-shadow(0 1px 0.5px rgba(45, 31, 21, 0.7));
 }
 
 /* Foil-glint — the sheen sweep that runs across the foil title on
@@ -371,19 +379,6 @@ h1, h2, h3, h4 {
     inset 0 1px 0 rgba(255, 248, 224, 0.18),
     inset 0 -1px 0 rgba(45, 31, 21, 0.30),
     0 2px 4px rgba(45, 31, 21, 0.18);
-}
-
-/* Page-block sliver — the cream-striated edge that peeks from the right
-   of an active spine, mimicking the cut block of pages bound inside. */
-.page-block {
-  background-image:
-    repeating-linear-gradient(
-      to bottom,
-      var(--color-page-block) 0,
-      var(--color-page-block) 1.5px,
-      var(--color-page-block-line) 1.5px,
-      var(--color-page-block-line) 2px
-    );
 }
 
 .animate-flame-flicker { animation: flame-flicker 2.4s ease-in-out infinite; transform-origin: 50% 85%; }
