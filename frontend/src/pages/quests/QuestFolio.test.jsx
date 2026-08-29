@@ -30,10 +30,45 @@ describe('QuestFolio', () => {
     // compact phone header (jsdom renders both responsive variants).
     expect(screen.getAllByText('Ventures')).toHaveLength(2);
     expect(screen.getByText(/the big adventures/i)).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
+    // Each stat value renders twice for the same reason the title does — the
+    // full plate's numeral and the compact row's. The compact row used to
+    // inline them into one string; they are their own nodes now so the
+    // numerals can carry tier.chip like the full plate's already do.
+    expect(screen.getAllByText('3').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/in progress/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('5')).toBeInTheDocument();
-    expect(screen.getByText(/^done$/i)).toBeInTheDocument();
+    expect(screen.getAllByText('5').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/^done$/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('wears its tier as a kicker chip rather than an applied ornament', () => {
+    // The folio used to carry a tier-tinted band across the top of the verso,
+    // which was the only place in the app expressing state as applied
+    // ornament. Tier now rides PROGRESS_TIER's own channels — one of them
+    // being the kicker, rendered as a RuneBadge in the matching tone.
+    const { container, rerender } = render(
+      <QuestFolio letter="V" title="Ventures" kicker="the big adventures" progressPct={0}>
+        x
+      </QuestFolio>,
+    );
+    expect(container.querySelector('[data-folio-headband="true"]')).toBeNull();
+
+    const chipOf = () => screen.getByText('the big adventures');
+    // locked -> ink, cresting -> ember, gilded -> gold.
+    expect(chipOf().className).toMatch(/ink-page-shadow|ink-secondary/);
+
+    rerender(
+      <QuestFolio letter="V" title="Ventures" kicker="the big adventures" progressPct={70}>
+        x
+      </QuestFolio>,
+    );
+    expect(chipOf().className).toMatch(/ember/);
+
+    rerender(
+      <QuestFolio letter="V" title="Ventures" kicker="the big adventures" progressPct={100}>
+        x
+      </QuestFolio>,
+    );
+    expect(chipOf().className).toMatch(/gold-leaf/);
   });
 
   it('renders consumer children on the recto', () => {
