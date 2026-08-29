@@ -1,6 +1,7 @@
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import ChapterRubric from '../../components/atlas/ChapterRubric';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
+import FolioHeadband from '../../components/atlas/FolioHeadband';
 import SkillVerse from './SkillVerse';
 import { countIlluminated, tierForProgress } from '../../components/atlas/mastery.constants';
 import { XP_THRESHOLDS } from './skillTree.constants';
@@ -37,17 +38,18 @@ export default function FolioSpread({ tree, onSelectSkill }) {
   const toNext = Math.max(0, next - totalXp);
   const firstLetter = (category?.name || '✦').trim().charAt(0).toUpperCase() || '✦';
   // Tier-tinted carry-through from TomeSpine — the open codex inherits the
-  // same headband / foil tone as the spine it was extracted from so the
-  // closed-to-open transition reads as the same physical book.
-  const tierTone = {
-    locked: { headband: 'var(--color-headband-locked)', foilBottom: 'var(--color-ink-page-shadow)' },
-    nascent: { headband: 'var(--color-headband-nascent)', foilBottom: 'var(--color-ember-deep)' },
-    rising: { headband: 'var(--color-headband-rising)', foilBottom: 'var(--color-ember-deep)' },
-    cresting: { headband: 'var(--color-headband-cresting)', foilBottom: 'var(--color-ember-deep)' },
-    gilded: { headband: 'var(--color-headband-gilded)', foilBottom: 'var(--color-gold-leaf)' },
+  // same foil tone as the spine it was extracted from, so the closed-to-open
+  // transition reads as the same physical book. The headband carries the
+  // matching tier tint of its own (components/atlas/FolioHeadband).
+  const foilBottomTone = {
+    locked: 'var(--color-ink-page-shadow)',
+    nascent: 'var(--color-ember-deep)',
+    rising: 'var(--color-ember-deep)',
+    cresting: 'var(--color-ember-deep)',
+    gilded: 'var(--color-gold-leaf)',
   };
   const tierKey =
-    Object.keys(tierTone).find((k) => {
+    Object.keys(foilBottomTone).find((k) => {
       const t = tier;
       return (
         (k === 'gilded' && t.bar?.includes('gold-leaf')) ||
@@ -57,7 +59,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
         (k === 'locked' && t.bar?.includes('shadow'))
       );
     }) || 'rising';
-  const tone = tierTone[tierKey];
+  const foilBottom = foilBottomTone[tierKey];
 
   return (
     <ParchmentCard
@@ -80,22 +82,13 @@ export default function FolioSpread({ tree, onSelectSkill }) {
             (category name · subject §I · subject §II …). The cloth
             headband across the top is the spine's headband, carried
             through so the open codex matches the tome it was pulled
-            from. */}
+            from — see components/atlas/FolioHeadband. */}
         <aside
           data-folio-verso="true"
           data-tier={tierKey}
           className="relative px-4 pt-4 pb-3 md:px-5 md:pt-7 md:pb-6 flex flex-col items-center text-center gap-3 border-b md:border-b-0 md:border-r border-ink-page-shadow/30"
         >
-          <span
-            aria-hidden="true"
-            data-folio-headband="true"
-            className="absolute top-0 left-0 right-0 h-1.5"
-            style={{
-              backgroundColor: tone.headband,
-              boxShadow:
-                'inset 0 -1px 0 rgba(45, 31, 21, 0.35), inset 0 1px 0 rgba(255, 248, 224, 0.25)',
-            }}
-          />
+          <FolioHeadband tierKey={tierKey} />
 
           {/* Compact incipit — phones only. Small versal, category title,
               rank + XP inlined as one caption line, and a thin progress
@@ -118,7 +111,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
                 style={{
                   letterSpacing: '0.02em',
                   '--foil-tone-top': 'var(--color-gold-leaf)',
-                  '--foil-tone-bottom': tone.foilBottom,
+                  '--foil-tone-bottom': foilBottom,
                 }}
               >
                 {category?.icon ? (
@@ -201,7 +194,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
               style={{
                 letterSpacing: '0.02em',
                 '--foil-tone-top': 'var(--color-gold-leaf)',
-                '--foil-tone-bottom': tone.foilBottom,
+                '--foil-tone-bottom': foilBottom,
               }}
             >
               {category?.icon ? (
