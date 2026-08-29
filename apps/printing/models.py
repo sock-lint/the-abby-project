@@ -551,6 +551,17 @@ class PrintJob(TimestampedModel):
     gcode_file = models.CharField(max_length=255, blank=True)
     task_id = models.CharField(max_length=40, blank=True, db_index=True)
     subtask_id = models.CharField(max_length=40, blank=True)
+    gcode_start_time = models.CharField(
+        max_length=32,
+        blank=True,
+        help_text=(
+            "print.gcode_start_time as reported — unix seconds, as a string. "
+            "The printer's own identity for this print RUN, and the only "
+            "field that survives a listener restart, so it is what lets a "
+            "restarted listener re-attach to this row instead of opening a "
+            "second one for a print already in progress."
+        ),
+    )
 
     # --- Progress ---------------------------------------------------------
     state = models.CharField(

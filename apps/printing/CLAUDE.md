@@ -59,7 +59,10 @@ fallback for a plate someone started from Handy without renaming it.
   queryset scoping is one join; an unmatched job has `user=None` and is visible
   to parents only. A partial unique constraint enforces **one open job per
   printer** — the X1 prints one plate at a time, so a second open row means we
-  failed to close the first.
+  failed to close the first. `gcode_start_time` is the *print run's* identity
+  as the printer sees it, and it is stored for exactly one reason: it is what
+  a restarted listener matches on to re-attach to this row. See "Surviving a
+  restart".
 - `PrintJobEvent` — the timeline. Append-only. This is the surface where a
   decoded HMS message replaces a raw code.
 
@@ -132,6 +135,46 @@ Other traps `report.py` and `jobs.py` handle, each of which has bitten someone:
 - `print_type == "system"` is calibration gcode, not a user's print.
 - `hms: []` in a delta genuinely means "all clear" — that field IS re-sent.
 - `ams_mapping` is sent **once**, at print start, and is not in the snapshot.
+
+## Surviving a restart
+
+`PrinterJobTracker.open_job_id` is in-memory state, and the process holding it
+restarts on every deploy. A print runs for hours, so **a restart lands
+mid-print routinely** — this is the normal case, not an edge case. The tracker
+therefore does not trust its own empty memory: on the first seeded report
+`_resume` asks the database whether this printer already has an open job for
+the print it is now watching, and re-attaches to it (`_adopt`), restoring the
+open job id, the last persisted percent, the last `gcode_state` and the set of
+HMS codes already on that timeline.
+
+Skipping that step is what "prints are being duplicated" looks like from the
+Forge: the restarted tracker sees "printing, named, and no open job", writes a
+**second** row for one plate, `_force_close_stale` closes the first as
+`unknown`, and the parent gets a pair of rows in "Prints without a request"
+for a single print. On a *linked* print it is also an accounting bug —
+`close_out` debits the abandoned row as a partial failure and then debits the
+new one the full estimate, and `request.print_count` counts one plate twice.
+
+Identity is `_is_same_print`, three rungs, strongest first, and the first rung
+both sides can answer settles it **in both directions** — a mismatch is a real
+"no", not a fall-through to something weaker:
+
+1. `gcode_start_time` — the printer's own id for the run, present in the
+   pushall snapshot, so it survives our restart. This is the rung that
+   normally decides.
+2. `task_id` — only meaningful for cloud-started prints; a LAN start reports
+   `"0"`. Both `"0"` and `""` mean *no id*, not *id zero*, which is what
+   `_print_identity` exists to say.
+3. The normalised name, and only for a row the printer was still reporting on
+   within `STALE_JOB_MINUTES`. This rung covers rows written before
+   `gcode_start_time` existed (adopting one backfills it) and firmware that
+   reports neither id. The freshness bound is what stops a re-print of the
+   same plate from absorbing a row a power cut left open.
+
+Adopting also fixes the reverse case: reconnecting to a printer already
+sitting in `FINISH` closes the row **as finished** on that first report,
+instead of leaving it for `reconcile_stale_jobs` to write off as `unknown`
+hours later with a partial-failure debit.
 
 ## HMS decoding
 `hms.py` + `hms_codes.py`. Two namespaces, two encodings, **do not mix them**:

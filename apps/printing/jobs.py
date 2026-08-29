@@ -9,11 +9,23 @@ Job bracketing is driven by ``gcode_state`` transitions and nothing else.
 ``mc_percent`` is not trustworthy at a job boundary (it can still read 100
 from the previous print at the instant a new one starts) and layer numbers
 briefly read 0 during PREPARE.
+
+The tracker is in-memory state in front of a database, and the process
+holding it restarts — on every deploy, and whenever the container is
+recycled. A print takes hours, so a restart lands *mid-print* routinely.
+``_resume`` is what makes that survivable: on the first seeded report the
+tracker asks the database whether this printer already has an open job for
+the print it is currently watching, and re-attaches to it. Without that step
+the restarted tracker sees "printing, named, and no open job", opens a
+*second* row for one plate, force-closes the first as ``unknown``, and — if
+the print is linked to a request — debits the budget twice for it. That
+double row is what a parent sees in "Prints without a request".
 """
 from __future__ import annotations
 
 import logging
 import time
+from datetime import timedelta
 
 from django.db import transaction
 from django.utils import timezone
@@ -22,7 +34,11 @@ from apps.notifications.models import NotificationType
 from apps.notifications.services import notify
 
 from . import hms as hms_decoder
-from .constants import PROGRESS_EVENT_STEP_PERCENT, UNNAMED_PRINT_GRACE_SECONDS
+from .constants import (
+    PROGRESS_EVENT_STEP_PERCENT,
+    STALE_JOB_MINUTES,
+    UNNAMED_PRINT_GRACE_SECONDS,
+)
 from .matching import find_request, normalize_subtask_name
 from .models import PrintJob, PrintJobEvent, PrintRequest
 from .report import NOT_PRINTING_STATES, PrinterState
@@ -53,6 +69,10 @@ class PrinterJobTracker:
         #: hold it until the job closes. Polling for it loses the value.
         self.latched_print_error = 0
         self.open_job_id: int | None = None
+        #: ``_resume`` runs exactly once, on the first seeded report. After
+        #: that ``open_job_id`` is authoritative and re-querying would only
+        #: cost a round trip per message.
+        self._resumed = False
 
     # ------------------------------------------------------------------ #
     def handle(self, state: PrinterState) -> None:
@@ -63,6 +83,9 @@ class PrinterJobTracker:
             return
 
         self._latch_error(state)
+        # Before reading our own in-memory edges: a restarted process has
+        # none, and the printer is mid-print regardless.
+        self._resume(state)
 
         was_printing = self.last_gcode_state not in NOT_PRINTING_STATES
         is_printing = state.is_printing
@@ -83,13 +106,115 @@ class PrinterJobTracker:
             self.latched_print_error = state.print_error
 
     # ------------------------------------------------------------------ #
+    def _resume(self, state: PrinterState) -> None:
+        """Re-attach to the job row this print already has, once, on startup.
+
+        ``open_job_id`` is in-memory state and this process restarts on every
+        deploy, so "no open job in memory" does not mean "no open job". The
+        printer, meanwhile, keeps reporting the same ``gcode_start_time`` and
+        ``subtask_name`` right across our restart, so the row is recoverable —
+        and recovering it is the difference between one print with one row and
+        one print with two rows, two timeline halves, and two budget debits.
+
+        Adopting also restores the edge state ``handle`` reads a line later,
+        so both outcomes fall out of the ordinary bracket logic: still
+        printing it and we carry on writing to the row; done with it (we came
+        back to a printer already sitting in FINISH) and it closes on this
+        very report with the terminal state the printer is actually
+        reporting, rather than waiting hours for ``reconcile_stale_jobs`` to
+        write it off as ``unknown``.
+        """
+        if self._resumed:
+            return
+        self._resumed = True
+
+        job = PrintJob.objects.filter(
+            printer=self.printer, finished_at__isnull=True,
+        ).first()
+        if job is None or not self._is_same_print(job, state):
+            # Nothing of ours here. A row that belongs to some *other* print
+            # is left alone deliberately — ``_force_close_stale`` closes it
+            # when the next print opens, which is where that decision lives.
+            return
+
+        self._adopt(job, state)
+
+    def _adopt(self, job: PrintJob, state: PrinterState) -> None:
+        """Make ``job`` this tracker's open job again."""
+        self.open_job_id = job.pk
+        self.last_persisted_percent = job.percent_complete
+        # Re-seed the edge detectors from the row so the first report after a
+        # restart doesn't re-announce a pause, or re-log alerts that are still
+        # active and were already written to this timeline.
+        self.last_gcode_state = job.gcode_state_raw or state.gcode_state
+        self.last_hms_codes = {
+            code
+            for code in job.events.filter(
+                kind=PrintJobEvent.Kind.HMS,
+            ).values_list("code", flat=True)
+            if code
+        }
+
+        if not job.gcode_start_time and _print_identity(state.gcode_start_time):
+            # Backfill rows written before we stored it, so the *next* restart
+            # gets the strong identity check rather than the name fallback.
+            job.gcode_start_time = state.gcode_start_time[:32]
+            job.save(update_fields=["gcode_start_time", "updated_at"])
+
+        PrintJobEvent.objects.create(
+            job=job,
+            kind=PrintJobEvent.Kind.NOTE,
+            message="Picked this print back up after the listener restarted.",
+            layer_num=state.layer_num,
+            percent_complete=state.mc_percent,
+            context={"gcode_state": state.gcode_state},
+        )
+        logger.info(
+            "printing[%s]: resumed tracking job %s (%r) after a restart",
+            self.printer.serial, job.pk, job.subtask_name,
+        )
+
+    def _is_same_print(self, job: PrintJob, state: PrinterState) -> bool:
+        """Is ``job`` the row this exact print run already opened?
+
+        Three rungs, strongest first, and the first rung that both sides can
+        answer settles it — in *both* directions, so a mismatch is a real "no"
+        rather than a fall-through to something weaker.
+
+        ``gcode_start_time`` is the printer's own id for the run and is in the
+        pushall snapshot, so it survives our restart; it is the rung that
+        normally decides. ``task_id`` is only meaningful for cloud-started
+        prints — a LAN start reports ``"0"``. With neither (a row written
+        before we stored the start time, or firmware that reports neither) we
+        fall back to the name, and then only for a row the printer was still
+        reporting on recently: a re-print of the same plate must not absorb
+        the row a power cut left open.
+        """
+        for reported, recorded in (
+            (state.gcode_start_time, job.gcode_start_time),
+            (state.task_id, job.task_id),
+        ):
+            reported, recorded = _print_identity(reported), _print_identity(recorded)
+            if reported and recorded:
+                return reported == recorded
+
+        if normalize_subtask_name(state.subtask_name) != job.normalized_name:
+            return False
+        last_seen = job.last_report_at or job.started_at
+        if last_seen is None:  # pragma: no cover - started_at is never null
+            return False
+        return timezone.now() - last_seen < timedelta(minutes=STALE_JOB_MINUTES)
+
+    # ------------------------------------------------------------------ #
     def _ensure_job(self, state: PrinterState) -> PrintJob | None:
         """Open a job the first time we see a named, user-initiated print.
 
         Deliberately not a strict ``IDLE → RUNNING`` edge: when the listener
         starts up mid-print we still want a job row, and ``subtask_name`` can
         arrive a beat after the state flips. "Printing, named, and no open
-        job" covers all three cases with one condition.
+        job" covers both cases with one condition — but only because
+        ``_resume`` has already run, so "no open job" means the database
+        agrees, not merely that this process was born a moment ago.
         """
         if self.open_job_id is not None:
             return None
@@ -132,6 +257,7 @@ class PrinterJobTracker:
                 gcode_file=state.gcode_file[:255],
                 task_id=state.task_id[:40],
                 subtask_id=state.subtask_id[:40],
+                gcode_start_time=state.gcode_start_time[:32],
                 state=PrintJob.State.RUNNING,
                 gcode_state_raw=state.gcode_state[:24],
                 layer_num=state.layer_num,
@@ -398,6 +524,17 @@ class PrinterJobTracker:
         self.last_hms_codes = set()
 
         PrintRequestService.close_out(job)
+
+
+def _print_identity(value: str) -> str:
+    """Return a usable print-run id, or ``""`` for the firmware placeholders.
+
+    ``task_id`` is ``"0"`` for a LAN-started print and ``gcode_start_time``
+    reads ``"0"`` on an idle printer. Both mean "no id", not "id zero", and
+    comparing two of them for equality would match every print to every other.
+    """
+    text = (value or "").strip()
+    return "" if text in ("", "0", "-1") else text
 
 
 def _elapsed_minutes(started_at, finished_at) -> int:
