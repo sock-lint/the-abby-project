@@ -1,5 +1,6 @@
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
+import FolioHeadband from '../../components/atlas/FolioHeadband';
 import RarityStrand from '../../components/atlas/RarityStrand';
 import { tierForProgress } from '../../components/atlas/mastery.constants';
 
@@ -10,9 +11,9 @@ import { tierForProgress } from '../../components/atlas/mastery.constants';
  * progress without dragging the skill-tree XP math along.
  *
  * Verso (left, ~220-260px desktop · top banner mobile): cloth headband
- *   tied to tier, brass-rimmed illuminated drop-cap, script kicker,
- *   display-serif title with foil-glint, stats row, progress bar,
- *   optional rarity strand.
+ *   tied to tier (components/atlas/FolioHeadband), brass-rimmed
+ *   illuminated drop-cap, script kicker, display-serif title with
+ *   foil-glint, stats row, progress bar, optional rarity strand.
  *
  * Recto (right): consumer-supplied children — the working list.
  *
@@ -20,12 +21,15 @@ import { tierForProgress } from '../../components/atlas/mastery.constants';
  * the existing Atlas cohort (per components/README.md guidance).
  */
 
-const TIER_TONE = {
-  locked: { headband: 'var(--color-headband-locked)', foilBottom: 'var(--color-ink-page-shadow)' },
-  nascent: { headband: 'var(--color-headband-nascent)', foilBottom: 'var(--color-ember-deep)' },
-  rising: { headband: 'var(--color-headband-rising)', foilBottom: 'var(--color-ember-deep)' },
-  cresting: { headband: 'var(--color-headband-cresting)', foilBottom: 'var(--color-ember-deep)' },
-  gilded: { headband: 'var(--color-headband-gilded)', foilBottom: 'var(--color-gold-leaf)' },
+// Bottom stop of the title's foil gradient, tier-tinted so the folio's
+// heading matches the spine it opens from. The headband's own tier tint
+// lives in components/atlas/FolioHeadband.
+const FOIL_BOTTOM = {
+  locked: 'var(--color-ink-page-shadow)',
+  nascent: 'var(--color-ember-deep)',
+  rising: 'var(--color-ember-deep)',
+  cresting: 'var(--color-ember-deep)',
+  gilded: 'var(--color-gold-leaf)',
 };
 
 function tierKeyOf(tier) {
@@ -51,7 +55,7 @@ export default function QuestFolio({
   const safePct = Math.max(0, Math.min(100, Number(progressPct) || 0));
   const tier = tierForProgress({ unlocked: safePct > 0, progressPct: safePct, level: 0 });
   const tierKey = tierKeyOf(tier);
-  const tone = TIER_TONE[tierKey] ?? TIER_TONE.rising;
+  const foilBottom = FOIL_BOTTOM[tierKey] ?? FOIL_BOTTOM.rising;
   const safeStats = (stats ?? []).slice(0, 3);
   const firstLetter = (letter || title || '✦').toString().trim().charAt(0).toUpperCase() || '✦';
   // Phone-only condensed incipit: the same stats the full plate renders,
@@ -83,16 +87,7 @@ export default function QuestFolio({
           data-progress={Math.round(safePct)}
           className="relative px-4 pt-4 pb-3 md:px-5 md:pt-7 md:pb-6 flex flex-col items-center text-center gap-3 border-b md:border-b-0 md:border-r border-ink-page-shadow/30"
         >
-          <span
-            aria-hidden="true"
-            data-folio-headband="true"
-            className="absolute top-0 left-0 right-0 h-1.5"
-            style={{
-              backgroundColor: tone.headband,
-              boxShadow:
-                'inset 0 -1px 0 rgba(45, 31, 21, 0.35), inset 0 1px 0 rgba(255, 248, 224, 0.25)',
-            }}
-          />
+          <FolioHeadband tierKey={tierKey} />
 
           {/* Compact incipit — phones only. Small versal, title, inline
               stats caption, and a thin progress bar with its label. */}
@@ -114,7 +109,7 @@ export default function QuestFolio({
                 style={{
                   letterSpacing: '0.02em',
                   '--foil-tone-top': 'var(--color-gold-leaf)',
-                  '--foil-tone-bottom': tone.foilBottom,
+                  '--foil-tone-bottom': foilBottom,
                 }}
               >
                 {title}
@@ -198,7 +193,7 @@ export default function QuestFolio({
               style={{
                 letterSpacing: '0.02em',
                 '--foil-tone-top': 'var(--color-gold-leaf)',
-                '--foil-tone-bottom': tone.foilBottom,
+                '--foil-tone-bottom': foilBottom,
               }}
             >
               {title}
