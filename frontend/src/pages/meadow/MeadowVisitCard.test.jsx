@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { renderWithProviders, screen } from '../../test/render';
+import { render, screen } from '@testing-library/react';
 import MeadowVisitCard from './MeadowVisitCard';
 
 describe('Meadow visit card', () => {
-  it('offers a child-dashboard entry point to the shared world', () => {
-    renderWithProviders(<MeadowVisitCard />, { withAuth: false });
-    expect(screen.getByRole('link', { name: /visit your meadow/i })).toHaveAttribute('href', '/meadow');
-    expect(screen.getByText('Keep a memory. Spend a moment with your companion.')).toBeInTheDocument();
+  it('launches Play directly without requiring a router or auth provider', () => {
+    render(<MeadowVisitCard />);
+    const link = screen.getByRole('link', { name: 'Visit Play, your companion and rewards' });
+    expect(link).toHaveAttribute('href', '/play/');
+    expect(link.href).toBe(new URL('/play/', window.location.href).href);
+    expect(link).not.toHaveAttribute('data-discover');
+    expect(screen.getByText('Spend a moment with your companion and see what you’ve earned.')).toBeInTheDocument();
   });
 });

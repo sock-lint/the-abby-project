@@ -1,6 +1,6 @@
-# Abby Camp — first Unity prototype
+# The Abby Project — Play prototype
 
-A first Unity prototype connected to the existing Django app. The phone Web prototype now opens a small **Memory Meadow** with a following dragon, touch exploration, direct task access, and confirmed journal keepsakes. The dragon art is a temporary project-authored illustration; the explorer still uses the original Kenney placeholder. **The primary product target is Abby's iPhone on iOS; Android is the first available test device.**
+A Unity presentation layer connected to the existing Django app. The current public preview opens **Memory Meadow** with temporary art; the licensed preview uses the purchased Meshtint Cute Series companion and forest. Both currently include walking, direct task access and confirmed journal keepsakes. The product direction below replaces the focus on exploration with rewards, updates and creature care. **The primary product target is Abby's iPhone on iOS; Android is the first available test device.**
 
 ## Shared meadow slice
 
@@ -31,6 +31,22 @@ animation mappings. These prepared growth forms do not yet add evolution rules.
 
 ## Product goal and next slice
 
+### Agreed web and Play responsibilities — 2026-10-10
+
+The two clients are one product from Abby's perspective. The web app owns recording and revisiting life: journal and grade entry, homework, projects, chores, memories and family participation. Play owns reward presentation, the child's notification inbox and creature interactions. Eventually Bestiary, pets, mounts, companions, hatching, feeding, evolution, breeding, creature accessories and expeditions belong in Play. Parent approvals, content authoring and family management stay in the web app.
+
+Play opens directly into a fixed companion scene with clearly labeled actions. Player walking, proximity gates and an explorer avatar are not requirements. The forest is a setting for reward reveals, updates and the companion; visiting or tapping it does not earn progress by itself. Journal, grades and other detailed forms remain web entry points for this slice.
+
+The backend remains the authority for rewards, ownership and notification state. Both surfaces use the same account, palette, typography and asset identities. Web navigation should open `/play/` as a real document navigation, without another launch page or engine branding. Play must provide a visible return to Today and route notification actions to the relevant web tab while preserving the existing authenticated session. Browser/system push delivery continues through the existing web service worker when Play is closed.
+
+The next functional slice is a rewards-and-updates home: confirmed coin balance and recent earned rewards, global unread count and a paginated inbox with explicit per-item acknowledgement, the account's active companion, and direct links to journal and grades. The companion is currently a presentation prototype, not an owned pet; that distinction must disappear through real stable integration rather than assigning fictional ownership. Memory blooms remain one supported reward source, not the main navigation loop.
+
+Migrate Bestiary one capability at a time. Keep existing web routes functional until Play supports their actions, accessible controls, loading/failure states and phone validation. Then move the child navigation and notification destinations together, including already-stored notification links. Retain parent access until an equivalent role-aware flow exists. Do not create two simultaneous automatic consumers of drop, growth or celebration queues: introduce durable event-specific reveal acknowledgement before handing those consumers to Play. Notification read state and reward reveal state have different purposes; marking the inbox read must not discard unseen rewards.
+
+The immediate handoff changes are direct Today-to-Play navigation, automatic branded loading and disabled Unity splash/logo. The current walking scene and web Bestiary remain until the functional slice above replaces them.
+
+### Recording and recognition
+
 The core loop is **record life → save a lasting memory → receive recognition → return for family interaction and reflection**. Abby should be able to add journals, school results, creations, photos, and milestones, and look back on them later in life. Parents should be able to participate through encouragement, shared prompts, memories, and rewards. Game progression is driven by these contributions; the visual theme remains open.
 
 Reward each eligible saved contribution once. Keep content capture available after the day's reward allowance is used. Recognize recording and reflecting on a grade consistently across good and disappointing results. Accumulated milestones can unlock companion progress, customization, album covers, and adventure chapters. Edits and revisits remain interactive while reward eligibility stays tied to distinct contributions.
@@ -43,7 +59,7 @@ Journal and grade entries default to **Only you**. Abby can explicitly share an 
 
 The phone prototype has a responsive portrait/landscape layout, safe-area insets, scrollable sheets, keyboard-aware login, tap-to-walk, a following camera, and direct Tasks access from anywhere. Tap the companion or **Say hello** for a friendly local reaction with no reward or account mutation. Theme selection remains open pending Abby's preferences. Browser viewport checks help development; Android and iPhone hardware still need performance, keyboard, resume, and safe-area testing.
 
-There is no Mac available yet. The existing React home-screen web app handles capture and history; Unity exports a separate Web scene served at **/play/** on the same HTTPS origin. Its welcome screen loads Unity after an explicit tap, and offers a return link to the web app. Unity 6.6 supports [iOS Safari 15 and newer and Android Chrome](https://docs.unity.com/en-us/engine/6000.6/manual/platform-specific/webgl/intro/browsercompatibility); Web builds and native iOS builds are separate validation targets. Native packaging can follow when a Mac or cloud build route is available.
+There is no Mac available yet. The existing React home-screen web app handles capture and history; Unity exports a Web scene served at **/play/** on the same HTTPS origin. Opening Play automatically loads it behind the shared-brand progress screen and offers **Back to Today** while loading or after a failure. The Unity splash and logo are disabled in project settings and enforced by a build preprocessor for both scripted and Editor builds. Unity 6.6 supports [iOS Safari 15 and newer and Android Chrome](https://docs.unity.com/en-us/engine/6000.6/manual/platform-specific/webgl/intro/browsercompatibility); Web builds and native iOS builds are separate validation targets. Native packaging can follow when a Mac or cloud build route is available.
 
 The existing backend's skill, pet, quest, and milestone systems can drive long-term progression. Owned-pet integration, evolving scenery, furnishings, and world unlocks are not implemented in this Unity prototype. Presentation should read authoritative progress and preserve it when the theme or assets change.
 
@@ -107,6 +123,7 @@ From the repository root in PowerShell:
 ./scripts/unity/Publish-Web.ps1 -BuildImage -SaveImage -ImageTag abby-unity-web:preview-1
 ./scripts/unity/Test-WebHosting.ps1 -ImageTag abby-unity-web:preview-1
 node --test scripts/unity/test_browser_session.cjs
+node --test scripts/unity/test_web_template.cjs
 ```
 
 The build script uses **6000.6.5f1** at Unity Hub's default Windows installation location. A custom installation path can be passed with `-UnityEditor`. Close this project in the editor before a batch build. Web output is in `Builds/Web` with a `Logs/build-web.log` log. Normal builds preserve the saved scene. Pass `-RebuildScene` only to regenerate the starting camp and replace its scene and generated presentation assets. `-ValidateOnly` performs scene/API checks without exporting; `-Target Windows` retains the desktop harness.
