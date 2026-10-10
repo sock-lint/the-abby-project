@@ -7,7 +7,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   globalIgnores(['dist', 'coverage']),
   {
-    files: ['**/*.{js,jsx}'],
+    files: ['**/*.{js,jsx,mjs}'],
     extends: [
       js.configs.recommended,
       reactHooks.configs.flat.recommended,
@@ -43,7 +43,7 @@ export default defineConfig([
   {
     // Build/config files run in Node, not the browser, so allow ``process``
     // and friends.
-    files: ['vite.config.js', 'vitest.config.js', 'eslint.config.js', 'playwright.config.js', 'e2e/**/*.js'],
+    files: ['vite.config.js', 'vitest.config.js', 'eslint.config.js', 'playwright.config.js', 'e2e/**/*.js', 'scripts/**/*.mjs'],
     languageOptions: { globals: globals.node },
   },
   {
