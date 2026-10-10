@@ -4,7 +4,12 @@
 __pycache__
 *.pyc
 node_modules
+**/node_modules
+.venv/
 frontend/dist
+frontend/coverage/
+frontend/test-results/
+frontend/.pwa-fixtures/
 docker-compose.yml
 docker-compose.override.yml
 *.md
@@ -15,3 +20,8 @@ docker-compose.override.yml
 # should never contain an editor cache, desktop player, or source art.
 unity/
 scripts/unity/
+
+# Purchased source art stays out of every Docker build context. A private
+# BuildKit staging step supplies only the validated portraits to Vite.
+frontend/src/storybook/licensed/
+shared/storybook/licensed/

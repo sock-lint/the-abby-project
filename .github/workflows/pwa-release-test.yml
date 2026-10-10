@@ -37,6 +37,9 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
+      - name: Verify private portrait build loader
+        working-directory: frontend
+        run: npm run test:licensed-art
       - name: Verify release replacement and offline behavior
         working-directory: frontend
         run: npm run test:pwa
