@@ -301,7 +301,31 @@ Per-subsystem game-design constants (drop rates, growth caps, rage shield steps)
 - **Lorebook lock-step**: when adding a new `TriggerType` (`apps/rpg/constants.py`), `Badge.CriteriaType` (`apps/achievements/models.py`), `PaymentLedger.EntryType` (`apps/payments/models.py`), `CoinLedger.Reason` (`apps/rewards/models.py`), or a new tunable Django setting referenced by an explainer, update [`content/lorebook/entries.yaml`](content/lorebook/entries.yaml) so the kid- and parent-facing Lorebook still describes how the system works. The parity test in [`apps/lorebook/tests/test_parity.py`](apps/lorebook/tests/test_parity.py) fails CI otherwise — its error message tells you which `LOREBOOK_*_COVERAGE` map to extend.
 - Frontend conventions live in [`frontend/CLAUDE.md`](frontend/CLAUDE.md) (form/button/card/type scale + interaction-test rule).
 
+## Shared API response fixtures
+
+[`contracts/api/README.md`](contracts/api/README.md) documents the synthetic raw
+responses shared by Django, React, and Unity. Initial coverage is login, verified
+identity, paginated habits, confirmed positive taps (with and without the optional
+game event), and daily-limit rejection. `config.tests.test_api_contract_fixtures`
+compares real rendered endpoint responses under fixed inputs with the checked-in
+JSON; `frontend/src/api/sharedContractFixtures.test.js` exercises the React API
+wrappers with the same bodies. Unity's Editor-only `ApiContractValidation` reads
+the canonical files from a full repository checkout during `-ValidateOnly` and
+builds. Keep fixture updates and affected producer/consumer checks together;
+regeneration is an explicit local operation described in the fixture guide.
+
 ## CI/CD pipeline (`.github/workflows/ci-cd.yml`)
+
+Separate [`pr-validation.yml`](.github/workflows/pr-validation.yml) checks every
+PR to `main` and merge-queue request before merge: `Browser bridge`, `API fixtures`,
+and `Unity validation`. Hosted bridge/API checks run independently. Unity invokes
+the existing scene/asset/API validation on a dedicated licensed Linux or Windows
+runner with the `unity-6000.6.5f1` label; `UNITY_VALIDATION_RUNNER_OS` selects the
+operating system. The hosted readiness/result checks fail explicitly
+when setup or validation is incomplete. See
+[`docs/operations/pr-validation.md`](docs/operations/pr-validation.md) for the
+runner variable, setup, stable required-check names, and local reproduction.
+
 Pipeline runs on `push` to `main` (self-hosted runner):
 1. **`frontend-test`** — `npm ci` → `npm run lint` → `npm run test:coverage`
 2. **`backend-test`** — Postgres 16 + Redis 7 services, `pip install -r requirements.txt`, `migrate`, `python manage.py test`

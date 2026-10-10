@@ -38,6 +38,16 @@ npm run test:coverage            # gated in CI
 CI runs both suites on every push to `main`; see
 [`.github/workflows/ci-cd.yml`](./.github/workflows/ci-cd.yml).
 
+Pull requests to `main` also run `Browser bridge`, `API fixtures`, and
+`Unity validation` through
+[`.github/workflows/pr-validation.yml`](./.github/workflows/pr-validation.yml).
+The Unity check requires the dedicated licensed runner described in
+[`docs/operations/pr-validation.md`](./docs/operations/pr-validation.md);
+missing setup reports a failed check. This workflow also runs for merge queues.
+For shared API changes, follow
+[`contracts/api/README.md`](./contracts/api/README.md) to update the real-response
+fixtures and the affected Django, React, and Unity checks together.
+
 ## Code style
 
 - **Python** — `ruff` via [`pyproject.toml`](./pyproject.toml) (line-length 120,
@@ -82,6 +92,10 @@ pre-commit run --all-files
 
 - **How an app fits together** → `CLAUDE.md` has a per-app breakdown
   under *Architecture*.
+- **Instructions for coding agents** → [`AGENTS.md`](./AGENTS.md) points to the
+  canonical root and subsystem guidance.
+- **Cross-client API contracts** → [`contracts/api/README.md`](./contracts/api/README.md).
+- **PR checks and Unity runner setup** → [`docs/operations/pr-validation.md`](./docs/operations/pr-validation.md).
 - **Why a decision was made** → read the owning service's module
   docstring first, then `docs/superpowers/specs/*` for the bigger designs.
 - **How to back up / restore** → [`docs/operations/backup.md`](./docs/operations/backup.md).
