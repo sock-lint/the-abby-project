@@ -55,7 +55,10 @@ test('production Django routes survive offline boots and replacement releases un
     expect(release.html).toContain('href="/manifest.webmanifest"');
   }
   const sw = await request.get(`${origin}/sw.js`);
-  expect(sw.headers()['cache-control']).toBe('no-cache');
+  // Additional freshness directives may strengthen this policy without
+  // changing the release protocol's requirement to revalidate the worker.
+  const workerCacheDirectives = sw.headers()['cache-control']?.split(',').map((directive) => directive.trim().toLowerCase());
+  expect(workerCacheDirectives).toContain('no-cache');
   expect(sw.headers()['content-type']).toContain('javascript');
   const manifest = await request.get(`${origin}/manifest.webmanifest`);
   expect(manifest.headers()['content-type']).toContain('application/manifest+json');
