@@ -28,6 +28,14 @@ Dockerfile handling; the tracked release pointer supplies the artwork cache key.
 Keep the staging RUN and `npm run build` RUN
 separate: Coolify injects existing Sentry/VITE secrets into the latter.
 
+Only `django` declares the shared application image's Compose build. The Celery
+worker, beat and printer listener use the same image tag. Coolify 4.1.2 accumulates
+Dockerfile output when rewriting the same Dockerfile for multiple services with
+build secrets enabled, eventually failing with `Argument list too long`. Building
+once avoids that failure. Coolify builds before starting services, and a full
+local `docker compose up --build` builds the shared image too. On a fresh checkout,
+run `docker compose build django` before starting an individual worker service.
+
 Upload each immutable release object privately before updating the pointer.
 The JSON artifact has this shape (the example is synthetic):
 

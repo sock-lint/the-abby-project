@@ -112,6 +112,8 @@ services:
   #   deploy.
   django:
     image: ${IMAGE_TAG:-the-abby-project}
+    # Build the shared application image once; the three workers reuse it.
+    # Repeating this build also breaks Coolify's build-secret Dockerfile rewrite.
     build:
       context: .
       dockerfile: Dockerfile
@@ -170,9 +172,6 @@ services:
 
   celery_worker:
     image: ${IMAGE_TAG:-the-abby-project}
-    build:
-      context: .
-      dockerfile: Dockerfile
     command: celery -A config worker -l info --concurrency 4
     env_file:
       - .env
@@ -207,9 +206,6 @@ services:
 
   celery_beat:
     image: ${IMAGE_TAG:-the-abby-project}
-    build:
-      context: .
-      dockerfile: Dockerfile
     command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     env_file:
       - .env
@@ -274,9 +270,6 @@ services:
   # point is that there is one.
   printer_listener:
     image: ${IMAGE_TAG:-the-abby-project}
-    build:
-      context: .
-      dockerfile: Dockerfile
     command: python manage.py run_printer_listener
     env_file:
       - .env
