@@ -10,11 +10,66 @@ Nunito comes from the official Google Fonts repository (`google/fonts`, `ofl/nun
 
 The authored presentation and dragon definition live under `Assets/AbbyCamp/Presentation`, outside generated Kenney defaults. A model takes precedence over a portrait. Model controllers map speed and celebration intents; portrait definitions can provide idle, happy and blink sprites with camera-facing rendering and local reactions. Both preserve the gameplay root, collider, following behavior and content identity. Rebuilds validate these references and the canonical palette instead of replacing authored art.
 
-Meshtint's Cute Series is the current ready-made candidate for companions, growth forms, scenery and matching web portraits. No paid Meshtint or 3DDisco assets are included in this slice. Purchased source models, textures and packages must stay out of the public source repository; importing one requires a separate local source folder and a retained applicable license. Do not assume humanoid accessories fit a dragon or that recolors supply evolved body forms.
+## Purchased Cute Series layer
 
-Start with the [Spark / Fire / Inferno evolution pack](https://www.meshtint.com/products/dragon-fire-inferno-evolution-pack-cute-series) and its [matching portrait icons](https://www.meshtint.com/products/icons-for-monsters-ultimate-pack-02-cute-series). These provide three distinct dragon forms and web portraits without custom drawing. The Fire stage advertises flying locomotion, so each form needs its own animation mapping. No common skeleton, fitted dragon wardrobe, or further evolution forms are promised. Simple attached accessories can be fitted per stage; deforming clothing requires additional modeling/rigging work.
+The starter selection is Chick / Fledgling / Bird Evolution, Forest Ruins 1.2,
+Icons for Monsters Ultimate Pack 01 v2, and Female Archer Pack 01. Bird01/02/03
+are the matching transparent portraits for the three model forms. The public
+project-authored dragon remains a fallback; all purchased sources and generated
+references stay in ignored folders, including their `.meta` files.
 
-Later scenery can come from [Forest Ruins](https://www.meshtint.com/products/forest-ruins-pack-cute-series), and a player avatar from the [modular Female Archer](https://www.meshtint.com/products/female-archer-modular-pack-01-cute-series), within the same Cute Series. Meshtint's Toon and Polygonal lines have different styles. Check materials in this project's URP configuration and test the actual models on Android before expanding the library. The publisher's [direct-store license](https://www.meshtint.com/pages/terms-of-use-license) allows modifications and app/website use but restricts distributing the source assets. Use licensed embedded exports for the app; keep paid raw sources in private storage.
+From the repository root:
+
+```powershell
+python scripts/unity/stage_meshtint.py --downloads "$env:USERPROFILE\Downloads"
+./scripts/unity/Build-Camp.ps1 -Target Web -PrepareLicensed
+```
+
+The staging script reads the original ZIPs, including the evolution bundle's
+nested ZIPs and Unity packages, and retains asset GUIDs. It imports FBX, PNG,
+**PSD textures**, materials and prefabs into `Assets/ThirdParty/Meshtint`, skipping
+publisher demo scenes/scripts. Originals remain in Downloads. Pack filenames,
+SHA-256 hashes and counts are recorded in the ignored
+`Assets/AbbyCamp/Licensed/import-report.json`; retain purchase and license records
+alongside the original archives in private backup storage.
+
+Unity menu **Abby Camp → Licensed Cute Series → Prepare meadow** creates
+`Assets/AbbyCamp/Licensed/MemoryMeadow.unity`. It converts materials to URP,
+caps imported textures at 512 pixels, normalizes model bounds and creates
+separate animation controllers/definitions for each form. The explorer sample
+has its bow, arrow and quiver removed; the original modular sources are retained.
+Chick maps Idle / Jump Forward In Place, Fledgling maps Idle / Walk Forward In
+Place, Bird maps Fly Idle / Fly Forward In Place. The humanoid explorer maps
+Idle / Walk Forward In Place. Root motion stays disabled. Greetings use the
+project's small procedural hop instead of combat animations.
+
+The purchased forms are prepared appearances, **not implemented evolution
+unlocks**. The secondary form remains a development appearance-swap check.
+The `starter-companion` gameplay identity, controllers, journal receipts and
+account boundaries are unchanged. Fitted creature outfits remain additional
+art/integration work; modular humanoid clothing does not automatically fit a
+creature. Forest art replaces the primitive trees and rocks and adds mushrooms
+and a ruin arch. The original flat walking surface, bounds and simple tree
+obstacles still own physics.
+
+The staging script also writes ignored `shared/storybook/licensed` and
+`frontend/src/storybook/licensed` overlays. React bundles their hashed portraits
+only when a valid matching manifest and resting image exist; otherwise the
+complete public placeholder remains usable. This pack supplies one portrait
+per form, so greetings reuse that portrait with the existing local interaction.
+The shared palette, font and bloom artwork still come from the canonical public
+presentation. `sync_presentation.py` only synchronizes public fallback sources;
+rerun licensed staging separately after changing that presentation.
+
+Normal Unity builds select the local licensed scene when present; public
+checkouts build `Assets/AbbyCamp/Scenes/Camp.unity`. Licensed production builds
+must stage the purchased archives locally or from authenticated private storage
+before compiling. A public Git checkout alone cannot reproduce the licensed
+art. The [publisher license](https://www.meshtint.com/pages/terms-of-use-license)
+permits use and modifications in applications/websites and restricts distributing
+source assets. Keep source packs/portraits and their generated Unity assets out
+of public Git; deploy compiled runtime exports. Android/iPhone hardware checks
+remain necessary before judging phone performance.
 
 ## Original harness models
 

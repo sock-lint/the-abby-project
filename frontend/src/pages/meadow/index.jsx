@@ -70,7 +70,7 @@ function ChildMeadow() {
         <Link to="/chronicle?tab=journal" className="meadow-text-link"><BookOpen size={18} aria-hidden="true" /> My journal</Link>
       </header>
 
-      <section className={`meadow-scene ${newKeepsake ? 'meadow-celebrating' : ''}`} aria-label="Your dragon’s meadow">
+      <section className={`meadow-scene ${newKeepsake ? 'meadow-celebrating' : ''}`} aria-label={`${MEADOW_COMPANION.name}’s meadow`}>
         <div className="meadow-hill meadow-hill-back" aria-hidden="true" />
         <div className="meadow-hill meadow-hill-front" aria-hidden="true" />
         <div className="meadow-cloud meadow-cloud-one" aria-hidden="true" />
@@ -83,7 +83,7 @@ function ChildMeadow() {
           <div className="meadow-speech" role="status" aria-live="polite">
             {newKeepsake ? 'A new memory bloom! This one is yours to keep.' : hello ? 'I’m happy you’re here. What little moment will we remember?' : 'Hello, you. Let’s keep a little piece of today.'}
           </div>
-          <img className="meadow-dragon" src={newKeepsake || hello ? MEADOW_COMPANION.happyPortrait : MEADOW_COMPANION.portrait} alt="Your little dragon companion" width="360" height="360" />
+          <img className="meadow-companion-art" src={newKeepsake || hello ? MEADOW_COMPANION.happyPortrait : MEADOW_COMPANION.portrait} alt={MEADOW_COMPANION.name} width="360" height="360" />
           <div className="meadow-companion-actions">
             <Button variant="primary" className="meadow-button meadow-button-primary" disabled={todayLoading || Boolean(todayError)} onClick={() => setJournal(today?.id ? { mode: 'edit', entry: today } : { mode: 'create' })}>
               <BookOpen size={18} aria-hidden="true" /> {todayLoading ? 'Checking today…' : today?.id ? 'Add to today’s entry' : 'Keep a memory'}

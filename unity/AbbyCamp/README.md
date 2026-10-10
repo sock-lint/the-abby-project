@@ -18,6 +18,17 @@ python scripts/unity/web_fixture_server.py --frontend-root frontend/dist --port 
 
 This fixture seeds synthetic accounts and writing skills; it never reads `.env` or the project database. Sign in with the fixture credentials, keep a test memory at `/meadow`, then open `/play/` in the same browser. Physical phone performance, keyboard and lifecycle checks remain necessary.
 
+## Licensed Cute Series preview
+
+The purchased starter packs can replace the temporary companion, explorer and
+forest scenery locally. Run `python scripts/unity/stage_meshtint.py`, then
+`./scripts/unity/Build-Camp.ps1 -Target Web -PrepareLicensed`. Open the generated
+`Assets/AbbyCamp/Licensed/MemoryMeadow.unity` to preview the licensed scene in the
+editor. Normal builds select it when present; checkouts without paid sources
+retain the public prototype. Matching web portraits are staged by the same
+script. See [AssetNotes.md](AssetNotes.md) for source protection and exact
+animation mappings. These prepared growth forms do not yet add evolution rules.
+
 ## Product goal and next slice
 
 The core loop is **record life → save a lasting memory → receive recognition → return for family interaction and reflection**. Abby should be able to add journals, school results, creations, photos, and milestones, and look back on them later in life. Parents should be able to participate through encouragement, shared prompts, memories, and rewards. Game progression is driven by these contributions; the visual theme remains open.
@@ -135,3 +146,24 @@ The handoff passed 25 Django auth/family tests, 12 JavaScript bridge tests, and 
 Browser checks against disposable loopback Django accounts confirmed automatic adoption, journal/world coexistence, local camp sign-out and reconnection, journal logout, stale-token rejection/clearing, parent-session preservation, and restoration after reloading `/play/`. Switching to another family's child while an earlier save response was delayed removed the old account's tasks and toast; the new account could save its own ritual without inheriting the old uncertainty. The fixture recorded exactly two explicitly requested habit saves, with no automatic retries. Its four password logins came only from the fixture's journal controls, including account changes; opening, reconnecting, and reloading the world added none.
 
 This validates the browser/IL2CPP bridge and live Django boundary. Physical iPhone/Android lifecycle testing remains outstanding. The source patch and local Web export do not update the deployed preview; deployment is a separate step.
+
+## Purchased Cute Series verification — 2026-10-10
+
+All four downloaded starter packs were staged privately, including their PSD
+textures, and prepared in Unity 6000.6.5f1. The licensed Web build passed scene,
+three-form animation/portrait, material-texture and 56 API contract checks.
+React's public fallback and licensed builds passed; 31 focused Meadow tests and
+five synthetic archive/import safety checks passed.
+
+A disposable Django/browser walkthrough at 393×852 and 844×393 verified supplied
+character/scenery textures, explorer movement and companion following, greeting,
+account adoption and keepsakes. One private synthetic journal earned 15 XP and
+one bloom on the web page and in Play. Greeting and movement sent no API writes
+and left that receipt count unchanged; Play's response did not expose journal
+text. The Archer's supplied animation imports report copied-avatar bone
+position/rotation warnings. The walkthrough showed movement without obvious
+clipping, but this does not establish compatibility for every modular outfit or
+animation. Physical Android/iPhone animation and performance checks remain open.
+
+The licensed files and original archive backups remain private/local. No deployed
+application is changed by staging assets or updating this source branch.

@@ -26,17 +26,26 @@ namespace AbbyCamp.Editor
         [MenuItem("Abby Camp/Create or rebuild camp")]
         public static void Build()
         {
+            BuildScene(null, ScenePath);
+        }
+
+        public static void BuildScene(CampPresentationDefinition authored, string scenePath, Action decorate = null)
+        {
             Directory.CreateDirectory("Assets/AbbyCamp/Scenes");
             Directory.CreateDirectory(GeneratedPath);
             AssetDatabase.Refresh();
-            ConfigureKenneyImports();
-            ConfigureStorybookImports();
-            presentation = LoadPresentation();
+            if (authored == null)
+            {
+                ConfigureKenneyImports();
+                ConfigureStorybookImports();
+            }
+            presentation = authored != null ? authored : LoadPresentation();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             MakeMaterials();
             BuildCameraAndLighting();
             BuildGround();
             BuildScenery();
+            decorate?.Invoke();
             var playerAppearance = presentation.PlayerAppearance;
             var dogAppearance = presentation.CompanionAppearance;
             var foxAppearance = presentation.AlternateCompanionAppearance;
@@ -46,23 +55,29 @@ namespace AbbyCamp.Editor
             var session = new GameObject("CampSession").AddComponent<CampPrototypeController>();
             session.Configure(player, companion, board, presentation);
             EditorSceneManager.MarkSceneDirty(scene);
-            EditorSceneManager.SaveScene(scene, ScenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+            EditorSceneManager.SaveScene(scene, scenePath);
+            if (scenePath == ScenePath)
+                EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             AssetDatabase.SaveAssets();
-            Debug.Log("ABBY_CAMP_BUILD_OK: saved " + ScenePath);
+            Debug.Log("ABBY_CAMP_BUILD_OK: saved " + scenePath);
         }
 
         [MenuItem("Abby Camp/Validate prototype")]
         public static void Validate()
         {
-            if (SceneManager.GetActiveScene().path != ScenePath)
-                EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            ValidateScene(ScenePath, PresentationPath);
+        }
+
+        public static void ValidateScene(string scenePath, string presentationPath)
+        {
+            if (SceneManager.GetActiveScene().path != scenePath)
+                EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
             var player = UnityEngine.Object.FindFirstObjectByType<CampPlayerController>();
             var companion = UnityEngine.Object.FindFirstObjectByType<CompanionFollower>();
             var board = UnityEngine.Object.FindFirstObjectByType<CampTaskBoard>();
             Require(player != null && companion != null && board != null, "Missing gameplay actors.");
             Require(UnityEngine.Object.FindFirstObjectByType<CampPrototypeController>() != null, "Missing session UI.");
-            var authored = AssetDatabase.LoadAssetAtPath<CampPresentationDefinition>(PresentationPath);
+            var authored = AssetDatabase.LoadAssetAtPath<CampPresentationDefinition>(presentationPath);
             Require(authored != null && player.Appearance.Definition == authored.PlayerAppearance && companion.PrimaryAppearance == authored.CompanionAppearance,
                 "Scene does not use its authored presentation references.");
             Require(authored.UiFont != null, "The shared Nunito UI font is missing.");

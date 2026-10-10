@@ -1,16 +1,19 @@
 import presentation from '../../storybook/presentation.json';
+import { resolveCompanionPresentation } from './companionPresentation';
 
 // Vite hashes every image URL. Filenames come from the shared presentation
 // contract; they never act as collection keys or economic identities.
 const assets = import.meta.glob('../../storybook/assets/*.png', { eager: true, query: '?url', import: 'default' });
 const art = (name) => assets[`../../storybook/assets/${name}`];
+// Optional glob imports remain valid when the licensed staging folder is absent.
+// Only privately staged release builds bundle the purchased companion portraits.
+const licensedManifests = import.meta.glob('../../storybook/licensed/presentation.json', { eager: true, import: 'default' });
+const licensedAssets = import.meta.glob('../../storybook/licensed/*.png', { eager: true, query: '?url', import: 'default' });
+const licensedArt = (name) => licensedAssets[`../../storybook/licensed/${name}`];
 
-export const MEADOW_COMPANION = {
-  id: presentation.companion.id,
-  name: presentation.companion.label,
-  portrait: art(presentation.companion.portrait),
-  happyPortrait: art(presentation.companion.happy_portrait),
-};
+export const MEADOW_COMPANION = resolveCompanionPresentation(
+  presentation, art, licensedManifests['../../storybook/licensed/presentation.json'], licensedArt,
+);
 
 export const MEADOW_ART = {
   memoryBloom: art(presentation.keepsakes.find((item) => item.type === 'memory_bloom')?.image),

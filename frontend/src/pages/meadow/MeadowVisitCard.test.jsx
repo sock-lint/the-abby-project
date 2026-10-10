@@ -6,5 +6,6 @@ describe('Meadow visit card', () => {
   it('offers a child-dashboard entry point to the shared world', () => {
     renderWithProviders(<MeadowVisitCard />, { withAuth: false });
     expect(screen.getByRole('link', { name: /visit your meadow/i })).toHaveAttribute('href', '/meadow');
+    expect(screen.getByText('Keep a memory. Spend a moment with your companion.')).toBeInTheDocument();
   });
 });

@@ -105,7 +105,7 @@ namespace AbbyCamp.UI
                 player.TaskBoardTapped += OpenTaskBoard;
             }
             RefreshHud();
-            Toast("Tap the meadow to explore, or say hello to your dragon.", 7f);
+            Toast("Tap the meadow to explore, or say hello to your companion.", 7f);
 #if UNITY_WEBGL && !UNITY_EDITOR
             browserSessionDirty = true;
 #endif
@@ -340,7 +340,7 @@ namespace AbbyCamp.UI
                 if (unseen != null)
                 {
                     companion?.Celebrate();
-                    Toast("A memory bloom joined your collection. Your dragon is cheering you on!", 8f);
+                    Toast("A memory bloom joined your collection. Your companion is cheering you on!", 8f);
                 }
             }
             RefreshHud();
@@ -627,7 +627,7 @@ namespace AbbyCamp.UI
             if (modeLabel == null) return;
             modeLabel.text = IsDemo ? "EXPLORE THE MEADOW" : "CONNECTED · " + api.CurrentUser.DisplayName;
             sessionHint.text = IsDemo ? "Explore, say hello, or try a practice ritual."
-                : "Record in your journal, then return to your dragon.";
+                : "Record in your journal, then return to your companion.";
             connectButton.GetComponentInChildren<Text>().text = IsDemo ? "Connect your account" : "Sign out of camp";
             connectButton.interactable = !busy;
             progressLabel.text = IsDemo

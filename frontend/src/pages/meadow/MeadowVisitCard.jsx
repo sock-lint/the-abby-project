@@ -10,7 +10,7 @@ export default function MeadowVisitCard() {
       <span className="meadow-visit-copy">
         <span className="meadow-eyebrow">A little place to grow</span>
         <span className="meadow-visit-title">Visit your meadow</span>
-        <span>Keep a memory. Spend a moment with your dragon.</span>
+        <span>Keep a memory. Spend a moment with your companion.</span>
       </span>
       <ArrowRight size={22} aria-hidden="true" />
     </Link>
