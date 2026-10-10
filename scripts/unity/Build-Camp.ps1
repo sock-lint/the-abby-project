@@ -2,11 +2,13 @@ param(
     [string]$UnityEditor,
     [switch]$ValidateOnly,
     [switch]$RebuildScene,
+    [switch]$PrepareLicensed,
     [ValidateSet('Windows', 'Web')]
     [string]$Target = 'Windows',
     [string]$OutputDirectory
 )
 $ErrorActionPreference = 'Stop'
+if ($PrepareLicensed -and $RebuildScene) { throw 'Choose -PrepareLicensed or -RebuildScene, not both.' }
 $taskRepository = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $taskProject = Join-Path $taskRepository 'unity\AbbyCamp'
 if ([string]::IsNullOrWhiteSpace($UnityEditor)) {
@@ -27,12 +29,15 @@ $taskLogDirectory = Join-Path $taskProject 'Logs'
 New-Item -ItemType Directory -Path $taskLogDirectory -Force | Out-Null
 $taskLog = Join-Path $taskLogDirectory $(if ($ValidateOnly) { 'validate.log' } elseif ($Target -eq 'Web') { 'build-web.log' } else { 'build.log' })
 $taskMethod = if ($ValidateOnly) {
-    if ($RebuildScene) { 'AbbyCamp.Editor.CampBuild.PrepareAndValidate' } else { 'AbbyCamp.Editor.CampBuild.ValidateAll' }
+    if ($PrepareLicensed) { 'AbbyCamp.Editor.CampBuild.PrepareLicensedAndValidate' }
+    elseif ($RebuildScene) { 'AbbyCamp.Editor.CampBuild.PrepareAndValidate' } else { 'AbbyCamp.Editor.CampBuild.ValidateAll' }
 } else {
     if ($Target -eq 'Web') {
-        if ($RebuildScene) { 'AbbyCamp.Editor.CampBuild.RebuildAndBuildWeb' } else { 'AbbyCamp.Editor.CampBuild.BuildWeb' }
+        if ($PrepareLicensed) { 'AbbyCamp.Editor.CampBuild.PrepareLicensedAndBuildWeb' }
+        elseif ($RebuildScene) { 'AbbyCamp.Editor.CampBuild.RebuildAndBuildWeb' } else { 'AbbyCamp.Editor.CampBuild.BuildWeb' }
     } else {
-        if ($RebuildScene) { 'AbbyCamp.Editor.CampBuild.RebuildAndBuildWindows' } else { 'AbbyCamp.Editor.CampBuild.BuildWindows' }
+        if ($PrepareLicensed) { 'AbbyCamp.Editor.CampBuild.PrepareLicensedAndBuildWindows' }
+        elseif ($RebuildScene) { 'AbbyCamp.Editor.CampBuild.RebuildAndBuildWindows' } else { 'AbbyCamp.Editor.CampBuild.BuildWindows' }
     }
 }
 $taskArguments = @('-batchmode', '-nographics', '-quit', '-projectPath', ('"' + $taskProject + '"'), '-executeMethod', $taskMethod, '-logFile', ('"' + $taskLog + '"'))

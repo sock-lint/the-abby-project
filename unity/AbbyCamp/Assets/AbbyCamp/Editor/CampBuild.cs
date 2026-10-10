@@ -12,6 +12,7 @@ namespace AbbyCamp.Editor
         public static void ValidateAll()
         {
             CampSceneBuilder.Validate();
+            if (File.Exists(MeshtintSetup.ScenePath)) MeshtintSetup.Validate();
             ApiContractValidation.Run();
             Debug.Log("ABBY_CAMP_VALIDATION_PASSED: scene, asset swap, and API contracts.");
         }
@@ -20,6 +21,24 @@ namespace AbbyCamp.Editor
         {
             CampSceneBuilder.Build();
             ValidateAll();
+        }
+
+        public static void PrepareLicensedAndValidate()
+        {
+            MeshtintSetup.Prepare();
+            ValidateAll();
+        }
+
+        public static void PrepareLicensedAndBuildWeb()
+        {
+            MeshtintSetup.Prepare();
+            BuildWeb();
+        }
+
+        public static void PrepareLicensedAndBuildWindows()
+        {
+            MeshtintSetup.Prepare();
+            BuildWindows();
         }
 
         [MenuItem("Abby Camp/Build Windows prototype")]
@@ -39,7 +58,7 @@ namespace AbbyCamp.Editor
             Directory.CreateDirectory(Path.GetDirectoryName(output));
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
-                scenes = new[] { "Assets/AbbyCamp/Scenes/Camp.unity" },
+                scenes = new[] { SelectedScenePath },
                 locationPathName = output,
                 target = BuildTarget.StandaloneWindows64,
                 options = BuildOptions.Development
@@ -81,7 +100,7 @@ namespace AbbyCamp.Editor
             Directory.CreateDirectory(output);
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
-                scenes = new[] { CampSceneBuilder.ScenePath },
+                scenes = new[] { SelectedScenePath },
                 locationPathName = output,
                 target = BuildTarget.WebGL,
                 // Test the same release output that static hosting will serve.
@@ -118,6 +137,9 @@ namespace AbbyCamp.Editor
                     throw new ArgumentException("Choose a Web output directory outside Unity's source and cache folders.");
             return output;
         }
+
+        private static string SelectedScenePath => File.Exists(MeshtintSetup.ScenePath)
+            ? MeshtintSetup.ScenePath : CampSceneBuilder.ScenePath;
 
         private static bool IsInside(string path, string directory)
         {

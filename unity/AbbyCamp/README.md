@@ -1,6 +1,33 @@
 # Abby Camp — first Unity prototype
 
-A first Unity prototype connected to the existing Django app. The phone Web prototype demonstrates touch exploration, a following companion, direct task access, and confirmed-save reactions using ready-made Kenney art and animations. **The primary product target is Abby's iPhone on iOS; Android is the first available test device.** The camp theme is provisional, and the existing web app and backend continue to work independently.
+A first Unity prototype connected to the existing Django app. The phone Web prototype now opens a small **Memory Meadow** with a following dragon, touch exploration, direct task access, and confirmed journal keepsakes. The dragon art is a temporary project-authored illustration; the explorer still uses the original Kenney placeholder. **The primary product target is Abby's iPhone on iOS; Android is the first available test device.**
+
+## Shared meadow slice
+
+The child-only web page at `/meadow` is reachable from Today. It uses the existing private-by-default journal form and its interrupted-save reconciliation. A new eligible journal's confirmed reward receipt appears as a **Memory bloom** on both the web page and Play. Editing a journal, greeting the dragon, refreshing, or reopening Play grants nothing. The read-only `/api/chronicle/meadow/` response contains receipt identifiers, dates and counts, never journal words or family replies. It shows the newest 30 blooms and all-time totals, projected from existing journal records; legacy entries without verified awards and administratively deleted entries are not retained as separate collectibles.
+
+Play reads the same authenticated child account, refreshes after browser resume and periodically, and clears the old collection on account changes. Its first visit displays existing blooms without replaying their celebrations. Later new receipts cause one local reaction per origin and child on this device; this acknowledgement is presentation only.
+
+`shared/storybook/presentation.json` and its exported artwork/font are canonical for both clients. Run `python scripts/storybook/sync_presentation.py` after editing them, or `--check` to detect drift. The authored `Assets/AbbyCamp/Presentation/Meadow.asset` holds appearances, palette and shared Nunito font. Rebuilding preserves its appearance references and the authored dragon definition. Replace that definition's portrait or model and animation mapping without changing the companion ID or journal receipt IDs. See [AssetNotes.md](AssetNotes.md) for provenance and replacement details.
+
+For a disposable same-origin React and Unity preview, build both clients and run:
+
+```powershell
+python scripts/unity/web_fixture_server.py --frontend-root frontend/dist --port 8089
+```
+
+This fixture seeds synthetic accounts and writing skills; it never reads `.env` or the project database. Sign in with the fixture credentials, keep a test memory at `/meadow`, then open `/play/` in the same browser. Physical phone performance, keyboard and lifecycle checks remain necessary.
+
+## Licensed Cute Series preview
+
+The purchased starter packs can replace the temporary companion, explorer and
+forest scenery locally. Run `python scripts/unity/stage_meshtint.py`, then
+`./scripts/unity/Build-Camp.ps1 -Target Web -PrepareLicensed`. Open the generated
+`Assets/AbbyCamp/Licensed/MemoryMeadow.unity` to preview the licensed scene in the
+editor. Normal builds select it when present; checkouts without paid sources
+retain the public prototype. Matching web portraits are staged by the same
+script. See [AssetNotes.md](AssetNotes.md) for source protection and exact
+animation mappings. These prepared growth forms do not yet add evolution rules.
 
 ## Product goal and next slice
 
@@ -119,3 +146,24 @@ The handoff passed 25 Django auth/family tests, 12 JavaScript bridge tests, and 
 Browser checks against disposable loopback Django accounts confirmed automatic adoption, journal/world coexistence, local camp sign-out and reconnection, journal logout, stale-token rejection/clearing, parent-session preservation, and restoration after reloading `/play/`. Switching to another family's child while an earlier save response was delayed removed the old account's tasks and toast; the new account could save its own ritual without inheriting the old uncertainty. The fixture recorded exactly two explicitly requested habit saves, with no automatic retries. Its four password logins came only from the fixture's journal controls, including account changes; opening, reconnecting, and reloading the world added none.
 
 This validates the browser/IL2CPP bridge and live Django boundary. Physical iPhone/Android lifecycle testing remains outstanding. The source patch and local Web export do not update the deployed preview; deployment is a separate step.
+
+## Purchased Cute Series verification — 2026-10-10
+
+All four downloaded starter packs were staged privately, including their PSD
+textures, and prepared in Unity 6000.6.5f1. The licensed Web build passed scene,
+three-form animation/portrait, material-texture and 56 API contract checks.
+React's public fallback and licensed builds passed; 31 focused Meadow tests and
+five synthetic archive/import safety checks passed.
+
+A disposable Django/browser walkthrough at 393×852 and 844×393 verified supplied
+character/scenery textures, explorer movement and companion following, greeting,
+account adoption and keepsakes. One private synthetic journal earned 15 XP and
+one bloom on the web page and in Play. Greeting and movement sent no API writes
+and left that receipt count unchanged; Play's response did not expose journal
+text. The Archer's supplied animation imports report copied-avatar bone
+position/rotation warnings. The walkthrough showed movement without obvious
+clipping, but this does not establish compatibility for every modular outfit or
+animation. Physical Android/iPhone animation and performance checks remain open.
+
+The licensed files and original archive backups remain private/local. No deployed
+application is changed by staging assets or updating this source branch.

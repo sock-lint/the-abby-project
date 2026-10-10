@@ -2,7 +2,76 @@
 
 This selection makes the first scene usable without drawing characters, modeling pets, or authoring movement animations. Keep original source assets under `Assets/ThirdParty`; presentation definitions and generated project materials belong elsewhere. Gameplay identities and saved progression should refer to the project's content IDs, never a Kenney filename.
 
-## Selected models
+## Shared meadow presentation
+
+The first meadow slice uses the same temporary dragon expressions, memory-bloom icon, palette and Nunito font as React. Canonical sources are under `shared/storybook`; `scripts/storybook/sync_presentation.py` copies runtime exports into both clients. Temporary dragon and bloom SVGs are project-authored illustrations, with PNG exports, rather than licensed store previews or a substitute for the final purchased models.
+
+Nunito comes from the official Google Fonts repository (`google/fonts`, `ofl/nunito`). The static runtime font is an instance of the variable font at weight 600, with the OFL license also embedded in its metadata. The original variable font and copyright/license text remain in `shared/storybook/fonts`.
+
+The authored presentation and dragon definition live under `Assets/AbbyCamp/Presentation`, outside generated Kenney defaults. A model takes precedence over a portrait. Model controllers map speed and celebration intents; portrait definitions can provide idle, happy and blink sprites with camera-facing rendering and local reactions. Both preserve the gameplay root, collider, following behavior and content identity. Rebuilds validate these references and the canonical palette instead of replacing authored art.
+
+## Purchased Cute Series layer
+
+The starter selection is Chick / Fledgling / Bird Evolution, Forest Ruins 1.2,
+Icons for Monsters Ultimate Pack 01 v2, and Female Archer Pack 01. Bird01/02/03
+are the matching transparent portraits for the three model forms. The public
+project-authored dragon remains a fallback; all purchased sources and generated
+references stay in ignored folders, including their `.meta` files.
+
+From the repository root:
+
+```powershell
+python scripts/unity/stage_meshtint.py --downloads "$env:USERPROFILE\Downloads"
+./scripts/unity/Build-Camp.ps1 -Target Web -PrepareLicensed
+```
+
+The staging script reads the original ZIPs, including the evolution bundle's
+nested ZIPs and Unity packages, and retains asset GUIDs. It imports FBX, PNG,
+**PSD textures**, materials and prefabs into `Assets/ThirdParty/Meshtint`, skipping
+publisher demo scenes/scripts. Originals remain in Downloads. Pack filenames,
+SHA-256 hashes and counts are recorded in the ignored
+`Assets/AbbyCamp/Licensed/import-report.json`; retain purchase and license records
+alongside the original archives in private backup storage.
+
+Unity menu **Abby Camp → Licensed Cute Series → Prepare meadow** creates
+`Assets/AbbyCamp/Licensed/MemoryMeadow.unity`. It converts materials to URP,
+caps imported textures at 512 pixels, normalizes model bounds and creates
+separate animation controllers/definitions for each form. The explorer sample
+has its bow, arrow and quiver removed; the original modular sources are retained.
+Chick maps Idle / Jump Forward In Place, Fledgling maps Idle / Walk Forward In
+Place, Bird maps Fly Idle / Fly Forward In Place. The humanoid explorer maps
+Idle / Walk Forward In Place. Root motion stays disabled. Greetings use the
+project's small procedural hop instead of combat animations.
+
+The purchased forms are prepared appearances, **not implemented evolution
+unlocks**. The secondary form remains a development appearance-swap check.
+The `starter-companion` gameplay identity, controllers, journal receipts and
+account boundaries are unchanged. Fitted creature outfits remain additional
+art/integration work; modular humanoid clothing does not automatically fit a
+creature. Forest art replaces the primitive trees and rocks and adds mushrooms
+and a ruin arch. The original flat walking surface, bounds and simple tree
+obstacles still own physics.
+
+The staging script also writes ignored `shared/storybook/licensed` and
+`frontend/src/storybook/licensed` overlays. React bundles their hashed portraits
+only when a valid matching manifest and resting image exist; otherwise the
+complete public placeholder remains usable. This pack supplies one portrait
+per form, so greetings reuse that portrait with the existing local interaction.
+The shared palette, font and bloom artwork still come from the canonical public
+presentation. `sync_presentation.py` only synchronizes public fallback sources;
+rerun licensed staging separately after changing that presentation.
+
+Normal Unity builds select the local licensed scene when present; public
+checkouts build `Assets/AbbyCamp/Scenes/Camp.unity`. Licensed production builds
+must stage the purchased archives locally or from authenticated private storage
+before compiling. A public Git checkout alone cannot reproduce the licensed
+art. The [publisher license](https://www.meshtint.com/pages/terms-of-use-license)
+permits use and modifications in applications/websites and restricts distributing
+source assets. Keep source packs/portraits and their generated Unity assets out
+of public Git; deploy compiled runtime exports. Android/iPhone hardware checks
+remain necessary before judging phone performance.
+
+## Original harness models
 
 Paths below are relative to `Assets/ThirdParty/Kenney`.
 
