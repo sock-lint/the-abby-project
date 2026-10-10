@@ -575,7 +575,7 @@ export default function SettingsPage() {
 
       {/* About */}
       <ParchmentCard>
-        <SectionHeader index={5} title="About Hyrule Field Notes" className="mb-2" />
+        <SectionHeader index={5} title="About The Abby Project" className="mb-2" />
         <p className="font-body text-body text-ink-secondary">
           Chronicle ventures, duties, rituals, and study. Ink hours, earn XP, unlock
           skills, collect coins, and grow the party.

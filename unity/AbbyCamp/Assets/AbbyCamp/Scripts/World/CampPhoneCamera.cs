@@ -11,8 +11,16 @@ namespace AbbyCamp.World
         private Camera view;
         private Vector3 offset;
         private Vector3 focus;
+        [SerializeField] private float portraitSize = 5.6f;
+        [SerializeField] private Vector3 framingOffset = new Vector3(0f, .5f, 0f);
 
         public void Configure(Transform player) => target = player;
+
+        public void ConfigureFraming(float size, Vector3 lookAhead)
+        {
+            portraitSize = Mathf.Clamp(size, 5f, 8f);
+            framingOffset = lookAhead;
+        }
 
         private void Start()
         {
@@ -31,7 +39,7 @@ namespace AbbyCamp.World
             var position = target.position;
             if (companion != null && Vector3.Distance(position, companion.transform.position) < 8f)
                 position = Vector3.Lerp(position, companion.transform.position, .35f);
-            return position + Vector3.up * .5f;
+            return position + framingOffset;
         }
 
         private void LateUpdate()
@@ -39,7 +47,7 @@ namespace AbbyCamp.World
             if (view == null || target == null) return;
             focus = Vector3.Lerp(focus, ActorFocus(), 1f - Mathf.Exp(-5f * Time.deltaTime));
             // Portrait gets closer to the actors; landscape keeps enough vertical space.
-            float wantedSize = view.aspect < 1f ? 5.6f : 6.2f;
+            float wantedSize = view.aspect < 1f ? portraitSize : 6.2f;
             view.orthographicSize = Mathf.Lerp(view.orthographicSize, wantedSize, 1f - Mathf.Exp(-6f * Time.deltaTime));
             transform.position = focus + offset;
         }

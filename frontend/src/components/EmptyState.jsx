@@ -9,7 +9,7 @@ export default function EmptyState({ children, icon, action, className = '' }) {
     <ParchmentCard
       flourish
       role="status"
-      className={`text-center py-10 text-ink-secondary font-body italic ${className}`}
+      className={`text-center py-10 text-ink-secondary font-body ${className}`}
     >
       {icon && <div className="flex justify-center mb-2 text-ink-whisper">{icon}</div>}
       {children}

@@ -7,6 +7,7 @@ import ParchmentCard from '../components/journal/ParchmentCard';
 import Button from '../components/Button';
 import IconButton from '../components/IconButton';
 import { TextField } from '../components/form';
+import StorybookWelcome from '../components/StorybookWelcome';
 
 /**
  * Login — the front page of the journal. Sign-in form on parchment with
@@ -68,21 +69,14 @@ export default function Login({ onLogin }) {
   return (
     <div className="min-h-dvh flex items-center justify-center p-4 parchment-bg">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-5">
-          <div className="font-script text-sheikah-teal-deep text-base">
-            a codex of
-          </div>
-          <h1 className="font-display italic text-3xl text-ink-primary leading-tight">
-            Hyrule Field Notes
-          </h1>
-        </div>
+        <StorybookWelcome kicker="A little everyday magic" description="Keep your memories. Grow your story." />
 
         <ParchmentCard flourish as="form" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <ErrorAlert message={error} />
             <TextField
               id="login-username"
-              label="Name in the ledger"
+              label="Username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -92,7 +86,7 @@ export default function Login({ onLogin }) {
             <div className="relative">
               <TextField
                 id="login-password"
-                label="Secret word"
+                label="Password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -110,13 +104,13 @@ export default function Login({ onLogin }) {
               </IconButton>
             </div>
             <Button type="submit" disabled={loading} className="w-full">
-              {loading ? 'Unsealing…' : 'Enter'}
+              {loading ? 'Signing in…' : 'Sign in'}
             </Button>
 
             {import.meta.env.VITE_ALLOW_SIGNUP !== 'false' && (
               <Link
                 to="/signup"
-                className="block text-center font-script text-sheikah-teal-deep text-xs hover:underline"
+                className="flex min-h-11 items-center justify-center text-center font-body text-sheikah-teal-deep text-body hover:underline"
               >
                 Create a family
               </Link>
@@ -126,7 +120,7 @@ export default function Login({ onLogin }) {
               <>
                 <div className="flex items-center gap-3 font-script text-ink-whisper text-xs">
                   <div className="flex-1 border-t border-ink-page-shadow" />
-                  <span>or call upon</span>
+                  <span>or continue with</span>
                   <div className="flex-1 border-t border-ink-page-shadow" />
                 </div>
                 <button

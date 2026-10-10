@@ -1,6 +1,6 @@
 /**
- * RuneBadge — small glyph-framed badge for status, rarity, and category tags.
- * Used as the parchment-era replacement for the old amber/tinted pill badges.
+ * RuneBadge — rounded badge for status, rarity, and category tags.
+ * Tinted surfaces carry the tone; the label keeps strong contrast.
  *
  * Props:
  *   tone    - visual tone: "teal" | "moss" | "ember" | "royal" | "gold" | "ink"
@@ -17,31 +17,31 @@ export default function RuneBadge({
 }) {
   const tones = {
     teal: {
-      filled: 'bg-sheikah-teal/20 text-sheikah-teal-deep border-sheikah-teal/50',
+      filled: 'bg-sheikah-teal/20 text-ink-primary border-sheikah-teal/50',
       outlined: 'text-sheikah-teal-deep border-sheikah-teal/60',
     },
     moss: {
-      filled: 'bg-moss/20 text-moss border-moss/50',
+      filled: 'bg-moss/20 text-ink-primary border-moss/50',
       outlined: 'text-moss border-moss/60',
     },
     ember: {
-      filled: 'bg-ember/20 text-ember-deep border-ember/50',
+      filled: 'bg-ember/20 text-ink-primary border-ember/50',
       outlined: 'text-ember-deep border-ember/60',
     },
     royal: {
-      filled: 'bg-royal/20 text-royal border-royal/50',
+      filled: 'bg-royal/20 text-ink-primary border-royal/50',
       outlined: 'text-royal border-royal/60',
     },
     gold: {
-      filled: 'bg-gold-leaf/25 text-ember-deep border-gold-leaf/60',
+      filled: 'bg-gold-leaf/25 text-ink-primary border-gold-leaf/60',
       outlined: 'text-ember-deep border-gold-leaf/70',
     },
     ink: {
-      filled: 'bg-ink-page-shadow/50 text-ink-secondary border-ink-page-shadow',
+      filled: 'bg-ink-page-shadow/50 text-ink-primary border-ink-page-shadow',
       outlined: 'text-ink-secondary border-ink-page-shadow',
     },
     rose: {
-      filled: 'bg-rose/20 text-ember-deep border-rose/50',
+      filled: 'bg-rose/20 text-ink-primary border-rose/50',
       outlined: 'text-ember-deep border-rose/60',
     },
   };

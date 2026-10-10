@@ -48,9 +48,31 @@ unlocks**. The secondary form remains a development appearance-swap check.
 The `starter-companion` gameplay identity, controllers, journal receipts and
 account boundaries are unchanged. Fitted creature outfits remain additional
 art/integration work; modular humanoid clothing does not automatically fit a
-creature. Forest art replaces the primitive trees and rocks and adds mushrooms
-and a ruin arch. The original flat walking surface, bounds and simple tree
-obstacles still own physics.
+creature. The licensed backdrop uses the purchased soft-edge ground, soil
+clearing, stone steps, a mixed mint/lavender treeline, grass, mushrooms, rocks,
+pillars and broken ruin gateways. Most tall scenery stays beyond the north/west
+walking rim; four smaller trees and an arch frame the starting task board.
+The southeast foreground stays low for the phone camera.
+The task route and memory-bloom landmark remain open. All purchased scenery
+colliders and rigidbodies are removed; the original flat walking surface and
+perimeter own physics, and obsolete placeholder tree obstacles are removed.
+
+This first woodland layout has 61 purchased props, 91 renderers and 13,564
+scenery triangles. Its distant trees, grass and ground do not cast shadows;
+23 small ruin/rock/mushroom renderers do. Preparation marks static geometry
+for batching and validation rejects missing geometry, imported physics or a
+backdrop exceeding 100 renderers, 150,000 triangles or 25 shadow casters.
+These are editor scene budgets, not an Android/iPhone performance benchmark.
+Preparing again reconstructs the licensed scene rather than accumulating props.
+
+Only ignored, generated environment material copies receive the softer shared
+palette. A private copy of the supplied color atlas preserves its texture detail
+and alpha while creating a mint/sand/sky version for the scene; the purchased
+source pixels and importer are not edited by that recoloring. Creature/avatar
+materials retain their supplied colors. The licensed phone camera uses a wider
+portrait view and a small look-ahead to show the treeline below the top HUD;
+the public fallback keeps its existing camera settings. The task-board welcome
+mat is smaller and mint rather than a large white disk.
 
 The staging script also writes ignored `shared/storybook/licensed` and
 `frontend/src/storybook/licensed` overlays. React bundles their hashed portraits

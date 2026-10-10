@@ -5044,6 +5044,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e70ea704c614e0db963f4745e1d41a9, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::AbbyCamp.World.CampPhoneCamera
+  portraitSize: 5.6
+  framingOffset: {x: 0, y: 0.5, z: 0}
 --- !u!20 &452074764
 Camera:
   m_ObjectHideFlags: 0

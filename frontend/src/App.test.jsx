@@ -36,7 +36,7 @@ describe('App', () => {
     );
     renderApp();
     await waitFor(() =>
-      expect(screen.getByText(/hyrule field notes/i)).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: 'The Abby Project' })).toBeInTheDocument(),
     );
   });
 

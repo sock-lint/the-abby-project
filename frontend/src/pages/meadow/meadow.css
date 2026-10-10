@@ -1,12 +1,5 @@
-/* Scoped first slice: shared presentation tokens follow the companion into
-   Play without changing the existing journal cover or utility pages. */
-@font-face {
-  font-family: "Abby Nunito";
-  src: url("../../storybook/assets/Nunito-SemiBold.ttf") format("truetype");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
+/* Shared colors and bundled Nunito now continue throughout the web shell.
+   The scene keeps its own companion presentation across every cover. */
 
 .meadow-page,
 .meadow-visit {

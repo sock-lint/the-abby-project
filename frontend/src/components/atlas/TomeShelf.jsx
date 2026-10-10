@@ -3,26 +3,25 @@ import TomeSpine from './TomeSpine';
 import useScrollFades from '../../hooks/useScrollFades';
 
 /**
- * TomeShelf — horizontal snap-scroll rail of TomeSpine tabs.
+ * TomeShelf — horizontal snap-scroll rail of collection tabs.
  *
  * Contract: role="tablist", role="tab" per child, arrow-key nav with
  * wrap-around, scrollIntoView fires when activeId changes so the chosen
- * spine is centered even in a long catalog. The shelf itself is styled
- * with a warm underglow + bottom hairline suggesting a wooden display
- * shelf. Domain-agnostic — each `item` is a flat spine descriptor:
+ * tile is centered even in a long catalog. Domain-agnostic — each `item`
+ * is a flat descriptor:
  * `{ id, name, icon, chip?, progressPct?, tier?, ariaLabel? }`.
  *
  * Phone-aware vessels: when EVERY item is `variant: 'vessel'` (a small
  * filter set — Companions/Mounts buckets, QuestCodex kinds, satchel
- * compartments), the tall spine rail costs ~230px of phone height for what
- * is really a 2-4 way picker. Below md those shelves render instead as a
+ * compartments), a tile rail is unnecessary for a 2-4 way picker.
+ * Below md those shelves render instead as a
  * horizontal pill row (icon + label + count chip, TabList's pill visual
  * language) and the spine rail is CSS-hidden (`hidden md:block`), so
  * existing markup — role="tablist"/"tab", data-spine-* — stays in the DOM
  * for tests and for md+ viewports. The pills are plain buttons wired to
  * the same `onSelect` with `aria-pressed` state — NOT role="tab" — so a
  * page never exposes two tablists for one picker. Codex/category shelves
- * keep the full spine rail at every width.
+ * keep the collection tile rail at every width.
  */
 export default function TomeShelf({ items, activeId, onSelect, ariaLabel }) {
   const refs = useRef(new Map());
@@ -62,7 +61,7 @@ export default function TomeShelf({ items, activeId, onSelect, ariaLabel }) {
           role="group"
           aria-label={ariaLabel}
           data-vessel-pills="true"
-          className="md:hidden flex flex-nowrap gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow overflow-x-auto scrollbar-hide"
+          className="md:hidden flex flex-nowrap gap-1.5 bg-ink-page-rune-glow rounded-2xl p-1.5 border border-ink-page-shadow overflow-x-auto scrollbar-hide"
         >
           {items.map((item) => {
             const active = activeId === item.id;
@@ -74,7 +73,7 @@ export default function TomeShelf({ items, activeId, onSelect, ariaLabel }) {
                 aria-label={item.ariaLabel || item.name}
                 onClick={() => onSelect(item.id)}
                 data-pill-id={item.id}
-                className={`shrink-0 min-h-11 py-2 px-3 rounded-md font-display text-body transition-colors flex items-center gap-1.5 ${
+                className={`shrink-0 min-h-11 py-2 px-3 rounded-xl font-display font-bold text-body transition-colors flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep ${
                   active
                     ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
                     : 'text-ink-secondary hover:text-ink-primary'
@@ -88,7 +87,7 @@ export default function TomeShelf({ items, activeId, onSelect, ariaLabel }) {
                 <span>{item.name}</span>
                 {item.chip != null && item.chip !== '' && (
                   <span
-                    className={`text-tiny font-rune tabular-nums px-1.5 py-0.5 rounded ${
+                    className={`text-tiny font-body tabular-nums px-1.5 py-0.5 rounded-full ${
                       active
                         ? 'bg-ink-page-rune-glow/20'
                         : 'bg-ink-page-shadow/40 text-ink-whisper'
@@ -103,35 +102,22 @@ export default function TomeShelf({ items, activeId, onSelect, ariaLabel }) {
         </div>
       )}
       <div
-        className={`relative pt-3 pb-2 ${allVessel ? 'hidden md:block px-2.5' : ''}`}
+        className={`relative py-1 ${allVessel ? 'hidden md:block px-2.5' : ''}`}
       >
         {allVessel ? (
-          /* Cabinet case — a drawer is housed IN a frame, where a tome rests
-             ON a plank. Sharing the plank was what made a row of drawers
-             read as a row of books stood on a shelf. Painted behind the
-             drawers (earlier in the DOM, pointer-events-none). */
+          /* Existing shelf hooks remain available to the filter consumers. */
           <div
             aria-hidden="true"
             data-shelf-case="true"
-            className="drawer-case absolute inset-0 rounded-md pointer-events-none"
+            className="drawer-case absolute inset-0 rounded-3xl pointer-events-none"
           />
         ) : (
           <>
-            {/* Wooden shelf board — a sepia plank under the tomes with a
-                repeating-linear-gradient grain pattern. The plank takes ~14 px
-                of the bottom edge and the spines sit on top of it (z-0 board,
-                spines render above via stacking). A soft outer shadow lets the
-                plank cast under the row. */}
+            {/* A quiet baseline under the collection row. */}
             <div
               aria-hidden="true"
               data-shelf-board="true"
-              className="shelf-board absolute inset-x-0 bottom-0 h-3 rounded-sm"
-            />
-            {/* Plank front-lip shadow — a slightly darker sliver right under the
-                board, gives the shelf its sense of "in front of the wall." */}
-            <div
-              aria-hidden="true"
-              className="absolute inset-x-0 -bottom-1 h-1 bg-gradient-to-b from-[rgba(45,31,21,0.30)] to-transparent rounded-b-sm pointer-events-none"
+              className="shelf-board absolute inset-x-0 bottom-0 h-px rounded-full"
             />
           </>
         )}
@@ -159,7 +145,7 @@ export default function TomeShelf({ items, activeId, onSelect, ariaLabel }) {
           aria-orientation="horizontal"
           aria-label={ariaLabel}
           onScroll={onShelfScroll}
-          className="relative flex gap-2 md:gap-3 overflow-x-auto pt-4 pb-4 px-1 snap-x snap-mandatory"
+          className="relative flex gap-2 md:gap-3 overflow-x-auto py-3 px-1 snap-x snap-mandatory"
           style={{ scrollbarWidth: 'thin' }}
         >
           {items.map((item) => (

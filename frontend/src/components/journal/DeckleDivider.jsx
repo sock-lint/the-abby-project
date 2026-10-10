@@ -1,44 +1,19 @@
-import compassRoseUrl from '../../assets/glyphs/compass-rose.svg';
-import dragonCrestUrl from '../../assets/glyphs/dragon-crest.svg';
-import flourishCornerUrl from '../../assets/glyphs/flourish-corner.svg';
-import runeOrbUrl from '../../assets/glyphs/rune-orb.svg';
-import sheikahEyeUrl from '../../assets/glyphs/sheikah-eye.svg';
-import waxSealUrl from '../../assets/glyphs/wax-seal.svg';
+import { Compass, Sprout, Sparkles, Flower2, Eye, Heart } from 'lucide-react';
 
-const GLYPH_URLS = {
-  'compass-rose': compassRoseUrl,
-  'dragon-crest': dragonCrestUrl,
-  'flourish-corner': flourishCornerUrl,
-  'rune-orb': runeOrbUrl,
-  'sheikah-eye': sheikahEyeUrl,
-  'wax-seal': waxSealUrl,
+const GLYPHS = {
+  'compass-rose': Compass, 'dragon-crest': Sprout, 'flourish-corner': Sparkles,
+  'rune-orb': Flower2, 'sheikah-eye': Eye, 'wax-seal': Heart,
 };
 
-/**
- * DeckleDivider — a torn-paper section divider with an optional Sheikah
- * glyph centered in the tear. Used between sections of long pages.
- */
+// Legacy glyph props remain compatible; the marks now match the shared icons.
 export default function DeckleDivider({ glyph = 'compass-rose', label, className = '' }) {
+  const Glyph = GLYPHS[glyph] || Compass;
   return (
-    <div
-      className={`relative flex items-center justify-center my-6 ${className}`}
-      role="separator"
-      aria-hidden={!label}
-    >
+    <div className={`relative flex items-center justify-center my-6 ${className}`} role="separator" aria-hidden={!label}>
       <div className="flex-1 h-px bg-ink-page-shadow" />
-      <div className="px-3 flex items-center gap-2">
-        <img
-          src={GLYPH_URLS[glyph] ?? GLYPH_URLS['compass-rose']}
-          alt=""
-          aria-hidden="true"
-          className="w-6 h-6 opacity-60"
-          style={{ filter: 'sepia(1) saturate(0.6) brightness(0.5)' }}
-        />
-        {label ? (
-          <span className="font-script text-body text-ink-whisper uppercase tracking-wider">
-            {label}
-          </span>
-        ) : null}
+      <div className="px-3 flex items-center gap-2 text-sheikah-teal">
+        <Glyph size={18} aria-hidden="true" />
+        {label && <span className="font-body text-caption text-ink-secondary">{label}</span>}
       </div>
       <div className="flex-1 h-px bg-ink-page-shadow" />
     </div>

@@ -2,11 +2,8 @@ import { RARITY_TEXT_COLORS } from '../../constants/colors';
 import { RARITY_HALO, isRecentlyEarned } from './mastery.constants';
 
 /**
- * BadgeSigil — a wax-seal badge tile. Earned sigils carry a rarity halo, a
- * foil sheen (for recently-earned), and a thin gilt ledge showing the XP
- * bonus. Unearned sigils render as debossed silhouettes — a pressed
- * intaglio impression with an optional script `hint` underneath, so the
- * codex reads as a goal map rather than a grid of empty squares.
+ * BadgeSigil — a rounded badge tile. Rarity rings and a small XP label
+ * distinguish earned badges; readable unlock hints keep future goals clear.
  *
  * `hint` is caller-supplied so the primitive stays domain-agnostic — the
  * Reliquary Codex passes `unlockHint(badge)` from collections.constants;
@@ -23,7 +20,7 @@ export default function BadgeSigil({ badge, earned, earnedAt, hint = '', onSelec
 
   const earnedShell = `${RARITY_HALO[rarity] || RARITY_HALO.common} bg-ink-page-rune-glow/95 border border-ink-page-shadow`;
   const unearnedShell =
-    'border border-dashed border-ink-whisper/30 bg-ink-page-aged/40 text-ink-whisper/60 shadow-[inset_0_2px_6px_-2px_rgba(45,31,21,0.25),inset_0_-1px_0_rgba(255,248,224,0.4)]';
+    'border border-dashed border-ink-page-shadow bg-ink-page/70 text-ink-whisper';
 
   const accessibleName = earned
     ? `${badge.name} · ${rarity}`
@@ -40,22 +37,22 @@ export default function BadgeSigil({ badge, earned, earnedAt, hint = '', onSelec
         })
       }
       aria-label={accessibleName}
-      className="w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal rounded-2xl"
+      className="w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-3xl"
     >
       <div
         data-sigil="true"
         data-earned={earned ? 'true' : 'false'}
         data-rarity={rarity}
-        className={`relative rounded-2xl p-3 flex flex-col items-center gap-1.5 min-h-[136px] transition-transform active:scale-[0.98] ${
+        className={`relative rounded-3xl p-3 flex flex-col items-center gap-2 min-h-[136px] transition-transform active:scale-[0.98] ${
           earned ? earnedShell : unearnedShell
         } ${recent ? 'animate-gilded-glint' : ''}`}
       >
-        {/* Wax-seal icon ring — outer parchment for earned; pressed intaglio well for unearned. */}
+        {/* A soft icon surface; unearned icons keep their quiet silhouette. */}
         <div
-          className={`relative w-14 h-14 rounded-full flex items-center justify-center ${
+          className={`relative w-14 h-14 rounded-2xl flex items-center justify-center ${
             earned
-              ? 'bg-ink-page-aged shadow-[inset_0_1px_0_rgba(255,248,224,0.6),inset_0_-2px_4px_rgba(45,31,21,0.15)]'
-              : 'bg-ink-page-shadow/25 shadow-[inset_0_2px_4px_rgba(45,31,21,0.35),inset_0_-1px_0_rgba(255,248,224,0.25)]'
+              ? 'bg-ink-page-aged'
+              : 'bg-ink-page-shadow/20'
           }`}
         >
           <span
@@ -69,16 +66,16 @@ export default function BadgeSigil({ badge, earned, earnedAt, hint = '', onSelec
         </div>
 
         <div
-          className={`text-caption text-center font-medium leading-tight line-clamp-2 ${
-            earned ? 'text-ink-primary' : 'text-ink-whisper/75'
+          className={`text-body text-center font-bold leading-tight line-clamp-2 ${
+            earned ? 'text-ink-primary' : 'text-ink-whisper'
           }`}
         >
           {badge.name}
         </div>
 
         <div
-          className={`text-micro font-rune uppercase tracking-wider ${
-            earned ? (RARITY_TEXT_COLORS[rarity] || 'text-ink-secondary') : 'text-ink-whisper/55'
+          className={`text-caption font-body ${
+            earned ? (RARITY_TEXT_COLORS[rarity] || 'text-ink-secondary') : 'text-ink-whisper'
           }`}
         >
           {rarity}
@@ -90,7 +87,7 @@ export default function BadgeSigil({ badge, earned, earnedAt, hint = '', onSelec
         {!earned && visibleHint && (
           <div
             data-sigil-hint="true"
-            className="mt-0.5 text-tiny italic font-script text-center leading-snug text-ink-whisper line-clamp-2 px-1"
+            className="mt-0.5 text-caption font-body text-center leading-snug text-ink-whisper line-clamp-2 px-1"
           >
             {visibleHint}
           </div>
@@ -99,7 +96,7 @@ export default function BadgeSigil({ badge, earned, earnedAt, hint = '', onSelec
         {earned && xp > 0 && (
           <div
             data-sigil-xp="true"
-            className="mt-auto pt-1 text-micro font-rune uppercase tracking-wider text-gold-leaf"
+            className="mt-auto pt-1 text-caption font-body font-bold text-gold-leaf"
           >
             +{xp} XP
           </div>

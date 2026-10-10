@@ -1,19 +1,26 @@
-@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Caveat:wght@400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Space+Mono:wght@400;700&display=swap");
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Abby Nunito";
+  src: url("./storybook/assets/Nunito-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
-  /* Fonts */
-  --font-display: "Cormorant Garamond", "EB Garamond", Georgia, serif;
-  --font-script: "Caveat", "Segoe Script", cursive;
-  --font-body: "Crimson Text", "EB Garamond", Georgia, serif;
-  --font-rune: "Space Mono", ui-monospace, monospace;
+  /* Bundled with the app so every screen, including offline boot, matches Play. */
+  --font-display: "Abby Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --font-script: "Abby Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Abby Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --font-rune: "Abby Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --font-heading: "Abby Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
 
-  /* Legacy aliases — keep until all call sites migrate */
-  --font-heading: "Cormorant Garamond", "EB Garamond", Georgia, serif;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 1.75rem;
+  --radius-3xl: 2rem;
 
-  /* Type scale — paired with line-height so utilities double as leading.
-     Values are calibrated against the cohort of arbitrary text-[Npx] uses
-     audited 2026-04-16. text-base remains the Tailwind default (16px). */
   --text-micro: 10px;
   --text-micro--line-height: 14px;
   --text-tiny: 11px;
@@ -25,102 +32,65 @@
   --text-lede: 18px;
   --text-lede--line-height: 26px;
 
-  /* Parchment core */
-  --color-ink-page: #f4ecd8;
-  --color-ink-page-aged: #e8dcc0;
-  --color-ink-page-shadow: #d4c7a6;
-  --color-ink-page-rune-glow: #fff8e0;
+  /* Existing token names remain compatible with every tracking screen. */
+  --color-ink-page: #FFF8EE;
+  --color-ink-page-aged: #FBF6FF;
+  --color-ink-page-shadow: #E5DCF6;
+  --color-ink-page-rune-glow: #FFF8EE;
+  --color-ink-primary: #49384F;
+  --color-ink-secondary: #726779;
+  --color-ink-whisper: #685E70;
+  --color-sheikah-teal: #685093;
+  --color-sheikah-teal-deep: #7560A8;
+  --color-sheikah-teal-glow: color-mix(in srgb, var(--color-sheikah-teal) 20%, transparent);
+  --color-ember: #A24C41;
+  --color-ember-deep: #A24C41;
+  --color-moss: #486B55;
+  --color-moss-deep: #3C5C48;
+  --color-royal: #685093;
+  --color-rose: #A24F6F;
+  --color-gold-leaf: #866329;
 
-  /* Ink & text (Hyrule defaults — overridden per-cover by applyTheme) */
-  --color-ink-primary: #2d1f15;
-  --color-ink-secondary: #6b5639;
-  --color-ink-whisper: #755a38;
+  --color-rarity-common: var(--color-moss);
+  --color-rarity-uncommon: var(--color-sheikah-teal-deep);
+  --color-rarity-rare: var(--color-royal);
+  --color-rarity-epic: var(--color-ember);
+  --color-rarity-legendary: var(--color-gold-leaf);
 
-  /* Sheikah accents (Hyrule defaults) */
-  --color-sheikah-teal: #1d8a80;
-  --color-sheikah-teal-deep: #157064;
-  --color-sheikah-teal-glow: rgba(77, 208, 225, 0.4);
+  --color-modal-wash: color-mix(in srgb, #49384F 35%, transparent);
+  --color-modal-vignette-mid: color-mix(in srgb, #49384F 8%, transparent);
+  --color-modal-vignette-edge: color-mix(in srgb, #49384F 15%, transparent);
+  --color-modal-seal-glow: color-mix(in srgb, var(--color-sheikah-teal) 8%, transparent);
+  --color-modal-seal-edge: var(--color-ink-page-shadow);
+  --color-modal-seal-glow-strong: color-mix(in srgb, var(--color-ember) 8%, transparent);
+  --color-modal-seal-edge-strong: color-mix(in srgb, var(--color-ember) 25%, var(--color-ink-page-shadow));
+  --color-modal-shadow: color-mix(in srgb, #49384F 16%, transparent);
+  --color-modal-shadow-strong: color-mix(in srgb, #49384F 25%, transparent);
+  --color-modal-highlight: color-mix(in srgb, var(--color-ink-page-rune-glow) 60%, transparent);
 
-  /* Supporting accents (Hyrule defaults — overridden per-cover by applyTheme) */
-  --color-ember: #a04a28;
-  --color-ember-deep: #8f3e1d;
-  --color-moss: #456a3a;
-  --color-moss-deep: #385829;
-  --color-royal: #5449a3;
-  --color-rose: #a54865;
-  --color-gold-leaf: #856418;
+  --color-forge-bg: #FFF8EE;
+  --color-forge-card: #FBF6FF;
+  --color-forge-border: #E5DCF6;
+  --color-forge-muted: #E5DCF6;
+  --color-forge-text: #49384F;
+  --color-forge-text-dim: #726779;
+  --color-amber-primary: #7560A8;
+  --color-amber-highlight: #685093;
+  --color-amber-glow: #E5DCF6;
 
-  /* Rarity tiers (journal vocabulary) */
-  --color-rarity-common: #456a3a;
-  --color-rarity-uncommon: #1d8a80;
-  --color-rarity-rare: #5449a3;
-  --color-rarity-epic: #a04a28;
-  --color-rarity-legendary: #856418;
-
-  /* Modal chrome (Hyrule defaults — themes.js may override per cover).
-     `wash`, `vignette-edge`, and `shadow` happen to share rgba(45,31,21,0.45)
-     in Hyrule but represent three distinct semantic roles (backdrop wash,
-     outer vignette ring, drop shadow). Covers like Vigil will diverge them.
-     Do not dedupe. */
-  --color-modal-wash: rgba(45, 31, 21, 0.45);
-  --color-modal-vignette-mid: rgba(45, 31, 21, 0.25);
-  --color-modal-vignette-edge: rgba(45, 31, 21, 0.45);
-  --color-modal-seal-glow: rgba(77, 208, 225, 0.18);
-  --color-modal-seal-edge: rgba(77, 208, 225, 0.28);
-  --color-modal-seal-glow-strong: rgba(77, 208, 225, 0.22);
-  --color-modal-seal-edge-strong: rgba(217, 117, 72, 0.40);
-  --color-modal-shadow: rgba(45, 31, 21, 0.45);
-  --color-modal-shadow-strong: rgba(45, 31, 21, 0.55);
-  --color-modal-highlight: rgba(255, 248, 224, 0.4);
-
-  /* Legacy forge aliases — map old tokens to new palette so un-migrated
-     components still render coherently while Phase 2+ rolls forward. */
-  --color-forge-bg: #f4ecd8;
-  --color-forge-card: #e8dcc0;
-  --color-forge-border: #d4c7a6;
-  --color-forge-muted: #c4b594;
-  --color-forge-text: #2d1f15;
-  --color-forge-text-dim: #6b5639;
-  --color-amber-primary: #157064;
-  --color-amber-highlight: #1d8a80;
-  --color-amber-glow: #fff8e0;
-
-  /* Library of Mastery — codex spine vocabulary.
-     The TomeSpine codex variant renders a hand-bound library tome.
-     `leather-*` tones are the spine cover (locked → burnished gilded).
-     `leather-grain` is the warm-dark hairline that draws the tooled
-     leather striations; `headband-*` is the woven cloth cap at the top
-     of the binding.
-
-     The five leather tones are dyed morocco, each mixing its own tier
-     accent into a dark leather base, so a shelf reads as a real row of
-     bindings and the tier ladder is legible across it. They used to be
-     five near-identical tans inside a 1.9deg hue band — one binding at
-     five exposures, with no ladder to read. Mixing from the cover's own
-     accent tokens (moss / sheikah-teal / ember / gold-leaf) also means a
-     journal-cover swap retunes the shelf, which the old fixed hexes
-     never did: they stayed pale tan even on the dark Vigil cover.
-
-     Titles stay legible via BOTH the deboss shadow on `.spine-foil` and the
-     foil stops being kept light — see the note on `.spine-foil`. */
-  /* 26% accent, not 45%: the mix has to stay dark enough for gilt to read on
-     EVERY cover, and Vigil's accent tokens are far brighter than Hyrule's, so
-     a fixed high fraction produced leathers there that swallowed the foil.
-     At 26% the dimmest foil stop holds >=5:1 against all four dyed tiers on
-     both the lightest and darkest covers, with the tier hues still separable.
-     See the .spine-foil note below — the two are tuned as a pair. */
-  --color-leather-locked: color-mix(in srgb, var(--color-ink-page-aged) 62%, #8a7a5c);
-  --color-leather-nascent: color-mix(in srgb, var(--color-moss) 26%, #3f3a24);
-  --color-leather-rising: color-mix(in srgb, var(--color-sheikah-teal-deep) 26%, #2f3a34);
-  --color-leather-cresting: color-mix(in srgb, var(--color-ember) 26%, #3d2418);
-  --color-leather-gilded: color-mix(in srgb, var(--color-gold-leaf) 26%, #4a3410);
-  --color-leather-grain: rgba(45, 31, 21, 0.18);
-  --color-leather-grain-strong: rgba(45, 31, 21, 0.28);
-  --color-headband-locked: #6b5639;
-  --color-headband-nascent: #456a3a;
-  --color-headband-rising: #157064;
-  --color-headband-cresting: #a04a28;
-  --color-headband-gilded: #856418;
+  /* Compatibility aliases for the collection components' progress tiers. */
+  --color-leather-locked: var(--color-ink-page-aged);
+  --color-leather-nascent: color-mix(in srgb, var(--color-moss) 9%, var(--color-ink-page));
+  --color-leather-rising: color-mix(in srgb, var(--color-sheikah-teal-deep) 9%, var(--color-ink-page));
+  --color-leather-cresting: color-mix(in srgb, var(--color-ember) 9%, var(--color-ink-page));
+  --color-leather-gilded: color-mix(in srgb, var(--color-gold-leaf) 9%, var(--color-ink-page));
+  --color-leather-grain: transparent;
+  --color-leather-grain-strong: transparent;
+  --color-headband-locked: var(--color-ink-whisper);
+  --color-headband-nascent: var(--color-moss);
+  --color-headband-rising: var(--color-sheikah-teal-deep);
+  --color-headband-cresting: var(--color-ember);
+  --color-headband-gilded: var(--color-gold-leaf);
 }
 
 body {
@@ -130,9 +100,9 @@ body {
   line-height: 1.5;
   color: var(--color-ink-primary);
   background-color: var(--color-ink-page);
-  background-image: url("./assets/parchment.svg");
-  background-size: 480px 480px;
-  background-blend-mode: multiply;
+  background-image:
+    radial-gradient(ellipse at 12% 0%, color-mix(in srgb, var(--color-amber-glow) 45%, transparent), transparent 45%),
+    radial-gradient(ellipse at 100% 30%, color-mix(in srgb, var(--color-moss) 5%, transparent), transparent 50%);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -147,7 +117,8 @@ h1, h2, h3, h4 {
   font-family: var(--font-display);
   color: var(--color-ink-primary);
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.025em;
+  font-style: normal;
 }
 
 /* Scrollbar — rendered as an ink-gutter */
@@ -290,35 +261,12 @@ h1, h2, h3, h4 {
   .versal-gilt { transition: none; }
 }
 
-/* Foil-stamp title for the TomeSpine codex. Mirror of `.versal-gilt`: clips
-   a metallic gradient to text via background-clip. Three tones via
-   `--foil-tone` (default brass, gold-leaf for gilded tomes, dim for locked).
-   The `::after` overlay sweeps a brighter sheen left → right on hover via
-   the `foil-glint` keyframe — same animation discipline as `.gilded-glint`.
-   Vertical writing-mode is set inline on the consuming <span> so this
-   class stays writing-mode-agnostic. */
+/* Legacy spine classes now render readable labels and soft collection tiles. */
 .spine-foil {
-  position: relative;
-  background-image: linear-gradient(
-    180deg,
-    var(--foil-tone-top, var(--color-gold-leaf)) 0%,
-    var(--foil-tone-bottom, var(--color-ember-deep)) 50%,
-    var(--foil-tone-top, var(--color-gold-leaf)) 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 1px 0.5px rgba(45, 31, 21, 0.7));
+  color: var(--color-ink-primary);
+  background-image: none;
+  filter: none;
 }
-
-/* Foil legibility is a property of the STOPS, not just the deboss. The
-   gradient puts `--foil-tone-bottom` at its 50% mark, i.e. through the middle
-   of every letter, so that stop sets the worst-case contrast for the whole
-   title. Pointing it at raw `--color-gold-leaf` measured 1.6:1 against the
-   dyed leathers on Hyrule (where gold-leaf is a dark #856418 ochre, not a
-   bright gold) — the ends of each word read and the middle vanished. The
-   stops TomeSpine passes are kept light enough to hold >=4.5:1 on every
-   cover; if you retune them, measure the mid stop, not the ends. */
 
 /* Foil-glint — the sheen sweep that runs across the foil title on
    hover/active. Same vocabulary as gilded-glint but tuned for the
@@ -337,92 +285,31 @@ h1, h2, h3, h4 {
   100% { transform: scaleY(1) translateY(0); }
 }
 
-/* Spine-grain texture utility — the tooled-leather panel. A faint
-   repeating-linear-gradient draws two interlocked hairlines + a soft
-   radial bloom for organic warmth. Color comes from the tier-tinted
-   leather token on the host element. */
+/* Collection tile tint; the compatibility class no longer adds grain. */
 .spine-leather {
-  background-image:
-    radial-gradient(
-      ellipse at 50% 35%,
-      rgba(255, 248, 224, 0.10) 0%,
-      transparent 65%
-    ),
-    repeating-linear-gradient(
-      168deg,
-      transparent 0,
-      transparent 3px,
-      var(--color-leather-grain) 3px,
-      var(--color-leather-grain) 4px
-    ),
-    repeating-linear-gradient(
-      12deg,
-      transparent 0,
-      transparent 6px,
-      var(--color-leather-grain-strong) 6px,
-      var(--color-leather-grain-strong) 6.5px
-    );
-  background-color: var(--spine-tint, var(--color-leather-rising));
+  background-color: var(--spine-tint, var(--color-ink-page-aged));
+  background-image: none;
 }
 
-/* Wooden shelf board — the plank the codex tomes sit on. Sepia gradient
-   + repeating hairlines build a wood-grain feel; one horizontal knot
-   stripe adds character without an asset. */
+/* Compatibility surfaces for existing shelf and drawer consumers. */
 .shelf-board {
-  background-image:
-    linear-gradient(
-      to bottom,
-      rgba(45, 31, 21, 0.16) 0%,
-      transparent 18%,
-      transparent 72%,
-      rgba(45, 31, 21, 0.22) 100%
-    ),
-    repeating-linear-gradient(
-      89deg,
-      rgba(133, 100, 24, 0.05) 0,
-      rgba(133, 100, 24, 0.05) 2px,
-      transparent 2px,
-      transparent 5px
-    ),
-    linear-gradient(
-      to bottom,
-      var(--color-ember-deep) 0%,
-      var(--color-gold-leaf) 45%,
-      var(--color-ember-deep) 100%
-    );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 248, 224, 0.18),
-    inset 0 -1px 0 rgba(45, 31, 21, 0.30),
-    0 2px 4px rgba(45, 31, 21, 0.18);
+  background: var(--color-ink-page-shadow);
+  box-shadow: none;
 }
 
-/* Cabinet case — the frame a row of drawers is set into. Tomes rest ON a
-   shelf board; drawers sit IN a case, and giving them the same plank was
-   what made the two variants read as the same object. Sepia frame with an
-   inner shadow so the drawer faces below look recessed into it. */
 .drawer-case {
-  background-color: color-mix(in srgb, var(--color-ink-page-shadow) 55%, var(--color-ink-page-aged));
-  border: 1px solid color-mix(in srgb, var(--color-ink-page-shadow) 80%, var(--color-ember-deep));
-  box-shadow:
-    inset 0 2px 6px rgba(45, 31, 21, 0.35),
-    inset 0 -1px 0 rgba(255, 248, 224, 0.15),
-    0 2px 5px rgba(45, 31, 21, 0.20);
+  background: var(--color-ink-page-aged);
+  border: 1px solid var(--color-ink-page-shadow);
+  box-shadow: none;
 }
 
-/* Drawer face — debossed into the case while shut, so it reads as a panel
-   set back behind the frame rather than a board standing proud of a shelf.
-   `-open` drops the deboss: the face has cleared the case and is now in
-   front of it, which is what the scale-up and cast shadow are selling. */
+/* Selected collection surfaces lift with a subtle shadow. */
 .drawer-face {
-  box-shadow:
-    inset 0 1px 3px rgba(45, 31, 21, 0.28),
-    inset 0 -1px 0 rgba(255, 248, 224, 0.25);
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--color-ink-primary) 5%, transparent);
 }
 
 .drawer-face-open {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 248, 224, 0.55),
-    0 14px 24px -6px rgba(45, 31, 21, 0.55);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-ink-primary) 10%, transparent);
 }
 
 .animate-flame-flicker { animation: flame-flicker 2.4s ease-in-out infinite; transform-origin: 50% 85%; }
@@ -540,27 +427,17 @@ h1, h2, h3, h4 {
    <body> layer alone isn't enough (e.g. inside modals). */
 .parchment-bg {
   background-color: var(--color-ink-page);
-  background-image: url("./assets/parchment.svg");
-  background-size: 480px 480px;
-  background-blend-mode: multiply;
+  background-image: none;
 }
 
 .parchment-bg-aged {
   background-color: var(--color-ink-page-aged);
-  background-image: url("./assets/parchment.svg");
-  background-size: 480px 480px;
-  background-blend-mode: multiply;
+  background-image: none;
 }
 
 /* Deckle-edge card — torn paper feel via SVG mask. */
 .deckle-edge {
-  --deckle-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none' viewBox='0 0 200 200'><path d='M4 8 C 20 3 40 9 60 5 C 80 2 100 8 120 4 C 140 1 160 7 180 3 L 196 6 L 194 40 L 198 80 L 195 120 L 197 160 L 194 194 L 160 196 L 120 193 L 80 197 L 40 194 L 8 196 L 4 160 L 7 120 L 3 80 L 6 40 Z' fill='white'/></svg>");
-  -webkit-mask-image: var(--deckle-mask);
-          mask-image: var(--deckle-mask);
-  -webkit-mask-size: 100% 100%;
-          mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-          mask-repeat: no-repeat;
+  border-radius: var(--radius-xl);
 }
 
 /* Ink underline — used on chapter titles & hover states. */

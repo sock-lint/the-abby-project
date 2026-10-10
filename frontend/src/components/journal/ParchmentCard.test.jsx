@@ -34,14 +34,14 @@ describe('ParchmentCard', () => {
     expect(container.firstChild.className).toContain('bg-ink-page-shadow/80');
   });
 
-  it('renders corner flourishes when flourish=true', () => {
+  it('keeps card accents decorative when flourish=true', () => {
     const { container } = render(<ParchmentCard flourish>x</ParchmentCard>);
-    expect(container.querySelectorAll('img[aria-hidden]').length).toBeGreaterThanOrEqual(4);
+    expect(container.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThanOrEqual(4);
   });
 
-  it('renders wax seal when seal=true', () => {
+  it('keeps the optional corner accent decorative when seal=true', () => {
     const { container } = render(<ParchmentCard seal>x</ParchmentCard>);
-    const seals = container.querySelectorAll('img[aria-hidden]');
+    const seals = container.querySelectorAll('[aria-hidden="true"]');
     expect(seals.length).toBeGreaterThan(0);
   });
 

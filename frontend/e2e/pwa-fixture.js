@@ -33,6 +33,7 @@ export async function buildReleases() {
         import { createRoot } from 'react-dom/client';
         import { PwaStatusProvider } from '${sourceImport('pwa/PwaStatusProvider.jsx')}';
         import UpdateBanner from '${sourceImport('pwa/UpdateBanner.jsx')}';
+        import '${sourceImport('index.css')}';
         import './main.css';
         function Fixture() {
           const [lazy, setLazy] = useState('');

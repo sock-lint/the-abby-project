@@ -80,8 +80,8 @@ describe('SettingsPage', () => {
       http.get('*/api/cosmetics/', () =>
         HttpResponse.json({
           active_theme: [
-            { id: 101, name: 'Hyrule Day', metadata: { theme: 'hyrule' }, rarity: 'common' },
-            { id: 102, name: 'Night Vigil', metadata: { theme: 'vigil' }, rarity: 'rare' },
+            { id: 101, name: 'Memory Meadow', metadata: { theme: 'hyrule' }, rarity: 'common' },
+            { id: 102, name: 'Twilight Meadow', metadata: { theme: 'vigil' }, rarity: 'rare' },
           ],
           active_frame: [], active_title: [], active_pet_accessory: [],
         }),
@@ -90,9 +90,9 @@ describe('SettingsPage', () => {
     );
     renderWithProviders(<SettingsPage />);
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Pick Night Vigil cover/i })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: /Pick Twilight Meadow cover/i })).toBeInTheDocument(),
     );
-    await u.click(screen.getByRole('button', { name: /Pick Night Vigil cover/i }));
+    await u.click(screen.getByRole('button', { name: /Pick Twilight Meadow cover/i }));
     await waitFor(() => expect(spy.calls).toHaveLength(1));
     expect(spy.calls[0].body).toEqual({ item_id: 102 });
     expect(spy.calls[0].url).toMatch(/\/api\/character\/equip\/$/);
@@ -106,8 +106,8 @@ describe('SettingsPage', () => {
       http.get('*/api/cosmetics/', () =>
         HttpResponse.json({
           active_theme: [
-            { id: 101, name: 'Hyrule Day', metadata: { theme: 'hyrule' }, rarity: 'common' },
-            { id: 102, name: 'Night Vigil', metadata: { theme: 'vigil' }, rarity: 'rare' },
+            { id: 101, name: 'Memory Meadow', metadata: { theme: 'hyrule' }, rarity: 'common' },
+            { id: 102, name: 'Twilight Meadow', metadata: { theme: 'vigil' }, rarity: 'rare' },
           ],
           active_frame: [], active_title: [], active_pet_accessory: [],
         }),
@@ -116,13 +116,13 @@ describe('SettingsPage', () => {
     );
     renderWithProviders(<SettingsPage />);
 
-    // Default cover is Hyrule Day (from buildUser) — initially active.
-    const hyrule = await screen.findByRole('button', { name: /Pick Hyrule Day cover/i });
-    const vigil = screen.getByRole('button', { name: /Pick Night Vigil cover/i });
+    // Default cover is Memory Meadow (from buildUser) — initially active.
+    const hyrule = await screen.findByRole('button', { name: /Pick Memory Meadow cover/i });
+    const vigil = screen.getByRole('button', { name: /Pick Twilight Meadow cover/i });
     expect(hyrule).toHaveAttribute('aria-pressed', 'true');
     expect(vigil).toHaveAttribute('aria-pressed', 'false');
 
-    // Switch to Night Vigil — aria-pressed + READING flip to the new tile.
+    // Switch to Twilight Meadow — aria-pressed + READING flip to the new tile.
     await u.click(vigil);
     expect(vigil).toHaveAttribute('aria-pressed', 'true');
     expect(hyrule).toHaveAttribute('aria-pressed', 'false');
@@ -136,7 +136,7 @@ describe('SettingsPage', () => {
       http.get('*/api/cosmetics/', () =>
         HttpResponse.json({
           active_theme: [
-            { id: 101, name: 'Hyrule Day', metadata: { theme: 'hyrule' }, rarity: 'common' },
+            { id: 101, name: 'Memory Meadow', metadata: { theme: 'hyrule' }, rarity: 'common' },
           ],
           active_frame: [], active_title: [], active_pet_accessory: [],
         }),
@@ -145,10 +145,10 @@ describe('SettingsPage', () => {
     await waitFor(() => expect(screen.getByText(/journal cover/i)).toBeInTheDocument());
 
     // Hyrule is owned → renders as an interactive button.
-    expect(screen.getByRole('button', { name: /Pick Hyrule Day cover/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Pick Memory Meadow cover/i })).toBeInTheDocument();
 
     // The other 5 covers render as locked intaglios (``role="img"``).
-    const lockedNames = ['Night Vigil', 'Sunlit Field', 'Snowquill Tome', 'Verdant Pages', 'Harvest Folio'];
+    const lockedNames = ['Twilight Meadow', 'Honey Meadow', 'Cloud Meadow', 'Clover Meadow', 'Peach Meadow'];
     for (const name of lockedNames) {
       expect(
         screen.getByRole('img', { name: new RegExp(`${name} cover .* not yet earned`, 'i') }),

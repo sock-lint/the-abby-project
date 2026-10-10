@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { motion, useDragControls } from 'framer-motion';
-import DeckleDivider from '../journal/DeckleDivider';
 import TabList from './TabList';
 import { inkBleed } from '../../motion/variants';
 import { STORAGE_KEYS } from '../../constants/storage';
@@ -16,13 +15,12 @@ const SWIPE_TAB_THRESHOLD_PX = 70;
  * component. Active tab is persisted in the URL via `?tab=…`.
  *
  * Props:
- *   title    : string — chapter title (displayed in Cormorant display)
- *   kicker   : string — hand-lettered label above the title
- *   glyph    : string — glyph name (see DeckleDivider's GLYPH_URLS) for the divider
+ *   title    : string — accessible section title
+ *   kicker   : string — supporting section label
  *   tabs     : Array<{ id, label, render: () => JSX }>
  *   defaultTabId? : string — tab to fall back to when ?tab= is missing
  */
-export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs, defaultTabId }) {
+export default function ChapterHub({ title, kicker, tabs, defaultTabId }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { pathname } = useLocation();
   const requestedTab = searchParams.get('tab');
@@ -99,7 +97,7 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
       variants={inkBleed}
       initial="initial"
       animate="animate"
-      className="max-w-6xl mx-auto"
+      className="max-w-6xl mx-auto font-body"
     >
       {/* Chapter breadcrumb — kicker only. The active tab page owns the page
           h1; carrying a hub-level h1 here on top of the per-tab h1 stacked
@@ -107,14 +105,14 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
           The `title` prop is still accepted (it falls through to `aria-label`
           on the tab strip below) so anchors and breadcrumbs are honored. */}
       {kicker && (
-        <header className="text-center md:text-left mb-2">
-          <div className="font-script text-sheikah-teal-deep text-base md:text-lg">
+        <header className="text-left mb-2">
+          <div className="font-body font-semibold text-sheikah-teal-deep text-caption">
             {kicker}
           </div>
         </header>
       )}
 
-      {/* Tab strip — bookmark-ribbon variant of the shared TabList primitive. */}
+      {/* Shared rounded tab strip keeps deep links and swipe navigation. */}
       <TabList
         tabs={tabs}
         activeId={activeTab.id}
@@ -122,10 +120,8 @@ export default function ChapterHub({ title, kicker, glyph = 'compass-rose', tabs
         variant="bookmark"
         ariaLabel={`${title} sections`}
         showDots
-        className="mt-3"
+        className="mt-3 mb-5"
       />
-
-      <DeckleDivider glyph={glyph} className="mt-0 mb-6" />
 
       <motion.div
         drag="x"
