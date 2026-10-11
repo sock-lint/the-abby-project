@@ -457,7 +457,7 @@ function IngestForm({ userId }) {
               : phase === 'uncertain' ? 'Check whether your venture was created before continuing.'
                 : 'Your existing import is kept. Continue when your connection returns.'}
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {phase === 'missing' ? (
               <Button size="sm" onClick={forget}>Forget this import & start again</Button>
             ) : phase === 'uncertain' ? (

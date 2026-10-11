@@ -1,4 +1,3 @@
-import { ArrowRightLeft } from 'lucide-react';
 import ApprovalQueue from '../../components/ApprovalQueue';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import { formatCurrency, formatDateTime } from '../../utils/format';
@@ -7,14 +6,12 @@ export default function ExchangeApprovalQueue({ pending, onApprove, onReject }) 
   return (
     <ApprovalQueue
       items={pending}
-      title="Pending exchanges"
-      icon={<ArrowRightLeft size={18} />}
       onApprove={onApprove}
       onReject={onReject}
     >
       {({ item: ex, actions }) => (
-        <ParchmentCard key={ex.id} className="flex items-center justify-between">
-          <div>
+        <ParchmentCard key={ex.id} className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="w-full min-w-0 break-words sm:w-auto sm:flex-1">
             <div className="font-body text-body font-medium">
               {ex.user_name} — {formatCurrency(ex.dollar_amount)} → {ex.coin_amount} coins
             </div>

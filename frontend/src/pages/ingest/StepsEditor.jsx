@@ -1,12 +1,13 @@
 import { Plus, Trash2 } from 'lucide-react';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import Button from '../../components/Button';
+import IconButton from '../../components/IconButton';
 import { TextField, SelectField, TextAreaField } from '../../components/form';
 
 export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemove }) {
   return (
     <ParchmentCard className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h2 className="font-display text-lg font-bold">Steps ({steps.length})</h2>
         <Button
           variant="ghost"
@@ -17,11 +18,11 @@ export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemo
           <Plus size={14} /> Add
         </Button>
       </div>
-      <p className="text-xs text-ink-whisper">
+      <p className="text-caption text-ink-whisper">
         Ordered walkthrough instructions. Assign a step to a milestone above to group it under that chapter — leave loose if it's a one-off.
       </p>
       {steps.length === 0 && (
-        <div className="text-xs text-ink-whisper italic">
+        <div className="text-caption text-ink-whisper italic">
           No walkthrough steps parsed. Add some manually or accept an AI suggestion above.
         </div>
       )}
@@ -29,21 +30,22 @@ export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemo
         <div key={`s-${i}`} className="bg-ink-page border border-ink-page-shadow rounded-lg p-3 space-y-2">
           <div className="flex gap-2">
             <TextField
-              className="flex-1"
+              className="flex-1 min-w-0"
+              aria-label={`Step ${i + 1} title`}
               value={s.title}
               onChange={(e) => onUpdate(i, { title: e.target.value })}
               placeholder={`Step ${i + 1}`}
             />
-            <button
-              type="button"
+            <IconButton
               onClick={() => onRemove(i)}
               aria-label="Remove step"
-              className="text-ink-whisper hover:text-ember-deep shrink-0 min-h-10 min-w-10 flex items-center justify-center rounded-lg"
+              className="text-ink-whisper hover:text-ember-deep shrink-0"
             >
               <Trash2 size={18} />
-            </button>
+            </IconButton>
           </div>
           <TextAreaField
+            aria-label={`Step ${i + 1} description`}
             value={s.description || ''}
             onChange={(e) => onUpdate(i, { description: e.target.value })}
             rows={3}
@@ -51,6 +53,7 @@ export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemo
           />
           {milestones.length > 0 && (
             <SelectField
+              aria-label={`Step ${i + 1} milestone`}
               value={s.milestone_index == null ? '' : String(s.milestone_index)}
               onChange={(e) =>
                 onUpdate(i, {

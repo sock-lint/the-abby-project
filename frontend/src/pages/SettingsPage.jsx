@@ -255,8 +255,8 @@ export default function SettingsPage() {
     [ownedByTheme],
   );
 
-  const fieldLabel = 'font-script text-body text-ink-whisper';
-  const fieldValue = 'font-body text-ink-primary';
+  const fieldLabel = 'shrink-0 font-script text-body text-ink-whisper';
+  const fieldValue = 'min-w-0 break-words text-right font-body text-ink-primary';
 
   return (
     <PageShell width="narrow" rhythm="loose">
@@ -273,7 +273,7 @@ export default function SettingsPage() {
       <ParchmentCard>
         <SectionHeader index={0} title="Profile" kicker="who's keeping this journal" className="mb-4" />
         <div className="space-y-3">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <div className="w-20 h-20 rounded-full bg-sheikah-teal/20 border border-sheikah-teal/40 flex items-center justify-center text-sheikah-teal-deep font-rune text-2xl overflow-hidden shrink-0">
               {user?.avatar ? (
                 <img src={user.avatar} alt="" className="w-full h-full object-cover" />
@@ -314,19 +314,19 @@ export default function SettingsPage() {
             </div>
           </div>
           {avatarError && <ErrorAlert message={avatarError} />}
-          <div className="flex justify-between items-baseline text-body">
+          <div className="flex justify-between items-baseline gap-3 text-body">
             <span className={fieldLabel}>Username</span>
             <span className={fieldValue}>{user?.username}</span>
           </div>
-          <div className="flex justify-between items-baseline text-body">
+          <div className="flex justify-between items-baseline gap-3 text-body">
             <span className={fieldLabel}>Display name</span>
             <span className={fieldValue}>{user?.display_name || '—'}</span>
           </div>
-          <div className="flex justify-between items-baseline text-body">
+          <div className="flex justify-between items-baseline gap-3 text-body">
             <span className={fieldLabel}>Role</span>
             <RuneBadge tone="teal" size="sm">{user?.role}</RuneBadge>
           </div>
-          <div className="flex justify-between items-baseline text-body">
+          <div className="flex justify-between items-baseline gap-3 text-body">
             <span className={fieldLabel}>Hourly rate</span>
             <span className="font-rune font-bold text-ink-primary tabular-nums">
               ${user?.hourly_rate}/hr
@@ -341,7 +341,7 @@ export default function SettingsPage() {
       {user?.role === 'parent' && user?.family && (
         <ParchmentCard>
           <SectionHeader index={1} title="Family" kicker="your household" className="mb-2" />
-          <div className="font-display text-base text-ink-primary">
+          <div className="font-display text-base text-ink-primary break-words">
             {user.family.name}
           </div>
           <div className="font-script text-ink-whisper text-caption mt-1">
@@ -378,9 +378,9 @@ export default function SettingsPage() {
                     <Lock size={10} strokeWidth={2.5} />
                     locked
                   </span>
-                  <div className="flex items-baseline gap-2 opacity-70">
-                    <div className="text-2xl leading-none" aria-hidden>{theme.icon}</div>
-                    <div className="font-display text-base font-semibold leading-tight text-ink-whisper">
+                  <div className="flex items-baseline gap-2 pr-20 opacity-70">
+                    <div className="shrink-0 text-2xl leading-none" aria-hidden>{theme.icon}</div>
+                    <div className="min-w-0 break-words font-display text-base font-semibold leading-tight text-ink-whisper">
                       {theme.name}
                     </div>
                   </div>
@@ -420,10 +420,10 @@ export default function SettingsPage() {
                     reading
                   </span>
                 )}
-                <div className="flex items-baseline gap-2">
-                  <div className="text-2xl leading-none" aria-hidden>{theme.icon}</div>
+                <div className={`flex items-baseline gap-2 ${active ? 'pr-20' : ''}`}>
+                  <div className="shrink-0 text-2xl leading-none" aria-hidden>{theme.icon}</div>
                   <div
-                    className="font-display text-base font-semibold leading-tight"
+                    className="min-w-0 break-words font-display text-base font-semibold leading-tight"
                     style={{ color: theme.ink }}
                   >
                     {theme.name}
@@ -441,7 +441,7 @@ export default function SettingsPage() {
                 >
                   — 6 chapters opened
                 </div>
-                <div className="flex items-center gap-1.5 mt-2.5">
+                <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
                   <span
                     className="inline-flex items-center gap-1 h-6 px-1.5 rounded-full border text-tiny font-rune tabular-nums"
                     style={{
@@ -513,7 +513,7 @@ export default function SettingsPage() {
           <div className="font-script text-body text-ink-whisper">Loading…</div>
         ) : googleAccount?.linked ? (
           <div className="space-y-3">
-            <div className="flex justify-between items-center text-body">
+            <div className="flex justify-between items-center gap-3 text-body">
               <span className={fieldLabel}>Linked to</span>
               <span className={fieldValue}>{googleAccount.google_email}</span>
             </div>

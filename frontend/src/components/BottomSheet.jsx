@@ -89,8 +89,8 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
             style={surfaceStyle}
           >
             <SealPulseRing rounded="rounded-2xl" />
-            <div className="relative flex items-center justify-between px-5 pt-4 pb-2">
-              <h2 id={titleId} className="font-display text-lg font-bold text-ink-primary">{title}</h2>
+            <div className="relative flex items-center justify-between gap-3 px-5 pt-4 pb-2">
+              <h2 id={titleId} className="min-w-0 flex-1 break-words font-display text-lg font-bold text-ink-primary">{title}</h2>
               <SealCloseButton onClick={safeClose} disabled={disabled} />
             </div>
             <div className="relative px-5 pb-5 space-y-3">
@@ -142,7 +142,7 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
             className="pointer-events-none absolute left-0 right-0 -top-1 h-2 animate-halo-rise"
             style={{
               background:
-                'linear-gradient(to right, transparent 0%, rgba(77, 208, 225, 0.65) 50%, transparent 100%)',
+                'linear-gradient(to right, transparent 0%, color-mix(in srgb, var(--color-sheikah-teal) 65%, transparent) 50%, transparent 100%)',
               filter: 'blur(3px)',
             }}
           />
@@ -161,8 +161,8 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
               }}
             />
           </div>
-          <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
-            <h2 id={titleId} className="font-display text-lg font-bold text-ink-primary">{title}</h2>
+          <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2 shrink-0">
+            <h2 id={titleId} className="min-w-0 flex-1 break-words font-display text-lg font-bold text-ink-primary">{title}</h2>
             <SealCloseButton onClick={safeClose} disabled={disabled} />
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide overscroll-contain pb-[env(safe-area-inset-bottom)]">

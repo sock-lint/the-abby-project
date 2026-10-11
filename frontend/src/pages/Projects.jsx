@@ -149,11 +149,11 @@ export default function Projects() {
       type="button"
       variants={staggerItem}
       whileHover={{ y: -3 }}
-      className="text-left cursor-pointer"
+      className="min-w-0 text-left cursor-pointer"
       onClick={() => navigate(`/quests/ventures/${p.id}`)}
       aria-label={`Open ${p.title}`}
     >
-      <ParchmentCard className="h-full">
+      <ParchmentCard className="h-full min-w-0">
         {p.cover_photo && (
           <img
             src={p.cover_photo}
@@ -162,19 +162,19 @@ export default function Projects() {
           />
         )}
         <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="font-display text-lg leading-tight text-ink-primary">
+          <h3 className="min-w-0 flex-1 break-words font-display text-lg leading-tight text-ink-primary">
             {p.title}
           </h3>
-          <div className="flex items-center gap-1 flex-wrap justify-end">
+          <div className="shrink-0 flex items-center gap-1 flex-wrap justify-end">
             {p.payment_kind === 'bounty' && (
               <RuneBadge tone="royal" size="sm">bounty</RuneBadge>
             )}
             <StatusBadge status={p.status} />
           </div>
         </div>
-        <div className="flex items-center gap-3 font-script text-xs text-ink-whisper mb-3">
+        <div className="flex flex-wrap items-center gap-3 font-script text-caption text-ink-whisper mb-3">
           {p.category && (
-            <span className="flex items-center gap-1">
+            <span className="min-w-0 break-words flex items-center gap-1">
               {p.category.icon} {p.category.name}
             </span>
           )}
@@ -195,12 +195,12 @@ export default function Projects() {
           </div>
         )}
         {p.assigned_to && (
-          <div className="font-script text-xs text-ink-secondary">
+          <div className="font-script text-caption text-ink-secondary break-words">
             assigned to {p.assigned_to.display_name || p.assigned_to.username}
           </div>
         )}
         {!p.assigned_to && p.payment_kind === 'bounty' && (
-          <div className="font-script text-xs text-royal">open bounty</div>
+          <div className="font-script text-caption text-royal">open bounty</div>
         )}
       </ParchmentCard>
     </motion.button>

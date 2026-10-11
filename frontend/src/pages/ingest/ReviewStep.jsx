@@ -23,7 +23,7 @@ export default function ReviewStep({
   return (
     <div className="space-y-4">
       {(draft.warnings?.length > 0 || draft.pipeline_warnings?.length > 0) && (
-        <div className="text-xs text-sheikah-teal-deep bg-amber-highlight/10 border border-amber-highlight/30 rounded-lg p-3 space-y-1">
+        <div className="text-caption text-sheikah-teal-deep bg-amber-highlight/10 border border-amber-highlight/30 rounded-lg p-3 space-y-1 break-words">
           {draft.warnings?.map((w, i) => <div key={`w-${i}`}>⚠ {w}</div>)}
           {draft.pipeline_warnings?.map((w, i) => <div key={`pw-${i}`} className="opacity-70">⚙ {w}</div>)}
         </div>
@@ -77,7 +77,7 @@ export default function ReviewStep({
         onRemove={materialHandlers.remove}
       />
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button onClick={onCommit} disabled={committing} className="flex-1">
           {committing ? 'Creating…' : 'Create venture'}
         </Button>

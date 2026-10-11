@@ -24,7 +24,12 @@ describe('StepsEditor', () => {
         onRemove={onRemove}
       />,
     );
+    expect(screen.getByRole('textbox', { name: 'Step 1 title' })).toHaveValue('Cut');
+    expect(screen.getByRole('textbox', { name: 'Step 1 description' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Step 1 milestone' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /add/i }));
     expect(onAdd).toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Remove step' }));
+    expect(onRemove).toHaveBeenCalledWith(0);
   });
 });

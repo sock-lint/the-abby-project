@@ -33,7 +33,7 @@ import {
  * `last_bred_at` field added to UserMountSerializer.
  */
 export default function Mounts() {
-  const { data: stableData, loading, reload } = useApi(getStable);
+  const { data: stableData, loading, error: stableError, reload } = useApi(getStable);
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
@@ -57,6 +57,17 @@ export default function Mounts() {
   }, [mounts, filter]);
 
   if (loading) return <Loader />;
+
+  if (stableError && !stableData) {
+    return (
+      <div className="space-y-3 max-w-xl mx-auto">
+        <ErrorAlert message={stableError} />
+        <Button variant="secondary" size="sm" onClick={reload}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
 
   const handleActivateMount = async (mountId) => {
     setWorking(true);
@@ -95,11 +106,11 @@ export default function Mounts() {
         progressPct={totalPossible ? (mounts.length / totalPossible) * 100 : 0}
       />
 
-      <p className="font-script text-sm text-ink-whisper -mt-2 max-w-xl">
+      <p className="font-script text-body text-ink-whisper -mt-2 max-w-xl">
         companions that bloomed past growth 100 evolve into mounts · pair two on the Hatchery tab to breed a hybrid egg
       </p>
 
-      <ErrorAlert message={error} />
+      <ErrorAlert message={error || stableError} />
 
       {mounts.length > 0 && (
         <TomeShelf
@@ -133,7 +144,7 @@ export default function Mounts() {
           No mounts match this filter.
         </EmptyState>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {visibleMounts.map((mount) => {
             const cooldownDaysLeft = daysUntilReady(mount.last_bred_at);
             const expedition = mount.active_expedition;
@@ -145,7 +156,7 @@ export default function Mounts() {
             return (
               <motion.div key={mount.id} whileHover={{ y: -2 }}>
                 <ParchmentCard
-                  className={`text-center cursor-pointer transition-all ${
+                  className={`text-center transition-all ${
                     mount.is_active
                       ? 'ring-2 ring-offset-2 ring-offset-ink-page ring-gold-leaf'
                       : ''
@@ -168,7 +179,7 @@ export default function Mounts() {
                       />
                     </div>
                   </div>
-                  <div className="font-body text-sm font-medium leading-tight">
+                  <div className="font-body text-body font-medium leading-tight break-words">
                     {mount.potion.name} {mount.species.name}
                   </div>
                   <div

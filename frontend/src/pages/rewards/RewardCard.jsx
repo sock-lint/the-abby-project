@@ -17,7 +17,7 @@ export default function RewardCard({
 
   return (
     <ParchmentCard
-      className={`${RARITY_COLORS[reward.rarity]} flex flex-col relative`}
+      className={`${RARITY_COLORS[reward.rarity]} min-w-0 flex flex-col relative`}
     >
       {/* Thumb-sized edit/delete, matching the Duties/Rituals card pattern —
           these used to be ~20px marks 4px apart, with destructive Trash2
@@ -50,7 +50,7 @@ export default function RewardCard({
         </div>
       )}
       <div className="text-4xl mb-1 text-center">{reward.icon || '🎁'}</div>
-      <div className="font-body text-body font-semibold text-center text-ink-primary">
+      <div className="font-body text-body font-semibold text-center text-ink-primary break-words">
         {reward.name}
       </div>
       {reward.description && (

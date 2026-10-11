@@ -69,7 +69,7 @@ export default function ExpeditionLaunchSheet({ mount, onDismiss, onLaunched }) 
       disabled={working}
     >
       <div className="space-y-4">
-        <p className="font-script text-sm text-ink-whisper flex items-start gap-2">
+        <p className="font-script text-body text-ink-whisper flex items-start gap-2">
           <MapIcon size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>
             Pick a length. Loot is rolled the moment your mount leaves —
@@ -87,11 +87,11 @@ export default function ExpeditionLaunchSheet({ mount, onDismiss, onLaunched }) 
               disabled={working}
               className="w-full text-left p-3 rounded-lg border border-ink-page-shadow bg-ink-page-aged hover:bg-ink-page-glow disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-sheikah-teal-deep"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="font-display italic text-lg text-ink-primary">
                   {tier.label}
                 </div>
-                <div className="font-script text-xs text-sheikah-teal-deep flex items-center gap-1">
+                <div className="font-script text-caption text-sheikah-teal-deep flex items-center gap-1">
                   <Hourglass size={11} aria-hidden="true" /> {tier.duration_label}
                 </div>
               </div>

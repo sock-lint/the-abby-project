@@ -6,13 +6,12 @@ export default function RedemptionApprovalQueue({ pending, onApprove, onReject }
   return (
     <ApprovalQueue
       items={pending}
-      title="Pending approvals"
       onApprove={onApprove}
       onReject={onReject}
     >
       {({ item: r, actions }) => (
-        <ParchmentCard key={r.id} className="flex items-center justify-between">
-          <div>
+        <ParchmentCard key={r.id} className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="w-full min-w-0 break-words sm:w-auto sm:flex-1">
             <div className="font-body text-body font-medium">
               {r.user_name} → {r.reward.icon} {r.reward.name}
             </div>

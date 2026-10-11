@@ -57,7 +57,7 @@ export default function OnboardingChecklist({ data }) {
                 type="button"
                 onClick={() => !complete && navigate(step.route)}
                 disabled={complete}
-                className={`flex items-center gap-2.5 w-full text-left px-2 py-1.5 rounded-lg transition-colors ${
+                className={`flex min-h-11 items-center gap-2.5 w-full text-left px-2 py-1.5 rounded-lg transition-colors ${
                   complete
                     ? 'text-moss cursor-default'
                     : 'text-ink-secondary hover:bg-ink-page/40 hover:text-ink-primary'
@@ -68,7 +68,7 @@ export default function OnboardingChecklist({ data }) {
                 ) : (
                   <Circle size={18} className="shrink-0 text-ink-whisper" />
                 )}
-                <span className={`text-caption font-body ${complete ? 'line-through' : ''}`}>
+                <span className={`min-w-0 break-words text-caption font-body ${complete ? 'line-through' : ''}`}>
                   {step.label}
                 </span>
               </button>

@@ -56,18 +56,18 @@ export default function ConfirmDialog({
           transition={{ type: 'spring', damping: 20, stiffness: 240 }}
         >
           <SealPulseRing rounded="rounded-[22px]" />
-          <div className="relative parchment-bg-aged deckle-edge p-6 modal-seal-ring-strong">
-            <h3 id={titleId} className="font-display font-bold text-lg text-ink-primary mb-2">
+          <div className="relative parchment-bg-aged deckle-edge p-6 modal-seal-ring-strong max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
+            <h3 id={titleId} className="font-display font-bold text-lg text-ink-primary mb-2 break-words">
               {title}
             </h3>
-            <p id={messageId} className="text-body text-ink-secondary mb-5 leading-relaxed">
+            <p id={messageId} className="text-body text-ink-secondary mb-5 leading-relaxed break-words">
               {message}
             </p>
             {/* gap-4, not gap-2: this is the one row in the app where a
                 slightly-off thumb aimed at the escape hatch would land on a
                 destructive action. Both controls clear the 44px floor —
                 Cancel via <Button>'s min-h-11, the seal explicitly. */}
-            <div className="flex justify-end gap-4 items-center">
+            <div className="flex flex-wrap justify-end gap-4 items-center">
               <Button ref={cancelRef} variant="ghost" onClick={onCancel}>
                 Cancel
               </Button>

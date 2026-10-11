@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, DollarSign, Flame, Stamp, Coins } from 'lucide-react';
 import { getDashboard } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import { usePulse } from '../../providers/pulseContext';
 import useParentPendingCounts from '../../hooks/useParentPendingCounts';
+import useScrollFades from '../../hooks/useScrollFades';
 import { formatDuration } from '../../utils/format';
 
 function Pip({ icon, label, tone = 'ink', active = false, onClick, ariaLabel }) {
@@ -57,6 +58,8 @@ function Pip({ icon, label, tone = 'ink', active = false, onClick, ariaLabel }) 
  */
 export default function HeaderStatusPips({ user }) {
   const navigate = useNavigate();
+  const stripRef = useRef(null);
+  const { showLeft, showRight, onScroll } = useScrollFades(stripRef);
   // Caller passes ``user`` so we still respect the prop API. Use the
   // shared role check to keep the convention consistent.
   const isParent = user?.role === 'parent';
@@ -147,19 +150,52 @@ export default function HeaderStatusPips({ user }) {
     return out;
   }, [activeTimer, isParent, pending, streak, coins, weekEarnings, navigate]);
 
+  // A larger count can change scrollWidth without resizing the rail itself.
+  // Refresh the cues after each new set of labels as well as on scroll/resize.
+  useEffect(() => { onScroll(); }, [onScroll, pips]);
+
+  const revealFocusedPip = (event) => {
+    const strip = stripRef.current;
+    if (!strip) return;
+    const rail = strip.getBoundingClientRect();
+    const pip = event.target.getBoundingClientRect();
+    const delta = pip.left < rail.left ? pip.left - rail.left
+      : pip.right > rail.right ? pip.right - rail.right : 0;
+    // Browser focus scrolling can leave a partially visible button clipped.
+    // Reveal it within this rail without scrolling the page or moving focus.
+    if (delta) strip.scrollTo?.({ left: Math.max(0, strip.scrollLeft + delta), behavior: 'auto' });
+    onScroll();
+  };
+
   return (
-    <div className="flex items-center gap-1.5 md:gap-2 min-w-0 overflow-x-auto scrollbar-hide">
-      {pips.map((p) => (
-        <Pip
-          key={p.key}
-          icon={p.icon}
-          label={p.label}
-          tone={p.tone}
-          active={p.active}
-          onClick={p.onClick}
-          ariaLabel={p.ariaLabel}
+    <div role="group" aria-label="Status shortcuts" className="relative min-w-0 max-w-full">
+      {showLeft && (
+        <div
+          aria-hidden="true"
+          data-scroll-fade="left"
+          className="pointer-events-none absolute inset-y-0 left-0 w-4 z-10 bg-gradient-to-r from-ink-page to-transparent"
         />
-      ))}
+      )}
+      {showRight && (
+        <div
+          aria-hidden="true"
+          data-scroll-fade="right"
+          className="pointer-events-none absolute inset-y-0 right-0 w-4 z-10 bg-gradient-to-l from-ink-page to-transparent"
+        />
+      )}
+      <div ref={stripRef} onScroll={onScroll} onFocus={revealFocusedPip} className="flex items-center gap-1.5 md:gap-2 min-w-0 overflow-x-auto scrollbar-hide">
+        {pips.map((p) => (
+          <Pip
+            key={p.key}
+            icon={p.icon}
+            label={p.label}
+            tone={p.tone}
+            active={p.active}
+            onClick={p.onClick}
+            ariaLabel={p.ariaLabel}
+          />
+        ))}
+      </div>
     </div>
   );
 }

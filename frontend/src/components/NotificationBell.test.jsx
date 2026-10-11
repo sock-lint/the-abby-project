@@ -52,6 +52,37 @@ afterEach(() => {
 });
 
 describe('NotificationBell', () => {
+  it('exposes the desktop popover state and returns focus to the bell on Escape', async () => {
+    const user = userEvent.setup();
+    renderBell({ notifications: [buildNotification({ is_read: true, title: 'Family update', message: '', link: '' })] });
+    const bell = screen.getByRole('button', { name: 'Notifications' });
+    expect(bell).toHaveAttribute('aria-expanded', 'false');
+    await user.click(bell);
+    const popover = screen.getByRole('region', { name: 'Notifications' });
+    expect(bell).toHaveAttribute('aria-expanded', 'true');
+    expect(bell).toHaveAttribute('aria-controls', popover.id);
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Family update' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(bell).toHaveFocus();
+    expect(bell).toHaveAttribute('aria-expanded', 'false');
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Notifications' })).toBeNull());
+  });
+
+  it('dismisses the desktop popover when keyboard focus leaves it', async () => {
+    const user = userEvent.setup();
+    const { container } = renderBell();
+    const outside = document.createElement('button');
+    outside.textContent = 'Outside action';
+    container.appendChild(outside);
+    const bell = screen.getByRole('button', { name: 'Notifications' });
+    await user.click(bell);
+    await user.tab();
+    expect(outside).toHaveFocus();
+    expect(bell).toHaveAttribute('aria-expanded', 'false');
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Notifications' })).toBeNull());
+  });
+
   it('closes when clicking outside (desktop popover only)', async () => {
     const user = userEvent.setup();
     const { container } = renderBell();
@@ -249,16 +280,24 @@ describe('NotificationBell', () => {
     expect(screen.getByText(/no new notifications/i)).toBeInTheDocument();
   });
 
-  it('marks-all-read calls the API and clears the count', async () => {
-    server.use(http.post('*/api/notifications/mark_all_read/', () => HttpResponse.json({})));
+  it.each([true, false])('marks all read from the desktop=%s surface using the expected API request', async (desktop) => {
+    const markAll = spyHandler('post', /\/api\/notifications\/mark_all_read\/$/, {});
+    server.use(markAll.handler);
     const user = userEvent.setup();
     renderBell({
+      desktop,
       unread: 2,
       notifications: [{ id: 1, title: 'a', is_read: false, created_at: 'x' }],
     });
     await user.click(screen.getAllByRole('button')[0]);
-    const markAll = await screen.findByRole('button', { name: /mark all read/i });
-    await user.click(markAll);
+    const markAllButton = await screen.findByRole('button', { name: /mark all read/i });
+    await user.click(markAllButton);
+    await waitFor(() => expect(markAll.calls).toHaveLength(1));
+    expect(markAll.calls[0]).toEqual({
+      url: expect.stringMatching(/\/api\/notifications\/mark_all_read\/$/),
+      method: 'POST',
+      body: null,
+    });
     await waitFor(() => expect(screen.queryByText('2')).toBeNull());
   });
 

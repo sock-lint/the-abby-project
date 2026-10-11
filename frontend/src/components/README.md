@@ -92,6 +92,8 @@ Use React's `useId()` to generate per-instance IDs for `aria-labelledby` / `aria
 
 `BottomSheet` and `ConfirmDialog` share `modal/useModalFocus.js`: only the topmost modal handles Tab and Escape, and closing it restores focus to its opener. Destructive confirmations initially focus Cancel. Use this shared hook for modal surfaces instead of adding competing document keyboard listeners.
 
+Text buttons, icon buttons (including `size="sm"`) and filter selects share a 44px minimum touch target. Section and page header actions stack on phones and wrap within the available width. Long dialog titles wrap beside the close control; confirmations and header menus scroll within the viewport on short screens. `IncipitBand` uses one decorative versal that grows from 48px on phones to 96px at `sm`, preserving room for its title. `npm run test:pwa -- e2e/mobile-ui.pw.js` checks shared-control geometry at 320, 375, 768 and 1280px and confirmation reachability on a short phone screen.
+
 For icon-only interactive elements, an `aria-label` is mandatory — the upcoming `<IconButton>` primitive enforces this; raw `<button>` tags wrapping a single Lucide icon need it added by hand.
 
 When a `ProgressBar` or `QuillProgress` accepts an `aria-label`, prefer a context-rich one (e.g. `"${skill.name} XP progress toward level ${n+1}"`) over the default if the page renders multiple bars.

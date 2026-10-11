@@ -70,20 +70,13 @@ describe('IncipitBand', () => {
     expect(screen.getByRole('heading', { name: 'Chapter Alpha' })).toBeInTheDocument();
   });
 
-  it('renders a responsive versal pair by default — md below sm, xl at sm+', () => {
-    // Phone-aware default: the versal is a CSS-visibility pair so a 390px
-    // phone gets the 48px drop-cap instead of the 96px one. jsdom renders
-    // both; the visibility classes are the contract.
+  it('renders one decorative versal by default at every breakpoint', () => {
     const { container } = renderWithProviders(
       <IncipitBand letter="T" title="Trials" progressPct={30} />,
     );
     const versals = container.querySelectorAll('[data-versal="true"]');
-    expect(versals).toHaveLength(2);
-    expect(versals[0].classList.contains('sm:hidden')).toBe(true);
-    expect(versals[0].className).toMatch(/w-12/); // md-size box
-    expect(versals[1].classList.contains('hidden')).toBe(true);
-    expect(versals[1].classList.contains('sm:inline-flex')).toBe(true);
-    expect(versals[1].className).toMatch(/w-24/); // xl-size box
+    expect(versals).toHaveLength(1);
+    expect(versals[0]).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('honors an explicitly-passed versalSize with a single fixed versal', () => {

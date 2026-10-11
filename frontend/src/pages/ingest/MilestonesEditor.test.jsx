@@ -15,7 +15,8 @@ describe('MilestonesEditor', () => {
         onAdd={onAdd} onUpdate={onUpdate} onRemove={onRemove}
       />,
     );
-    expect(screen.getByDisplayValue('Design')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Milestone 1 title' })).toHaveValue('Design');
+    expect(screen.getByRole('textbox', { name: 'Milestone 1 description' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /add/i }));
     expect(onAdd).toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: /remove milestone/i }));

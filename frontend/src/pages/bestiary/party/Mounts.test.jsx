@@ -62,6 +62,25 @@ describe('Mounts tab', () => {
     await waitFor(() => expect(screen.getByText(/no mounts yet/i)).toBeInTheDocument());
   });
 
+  it('shows a stable load error and retries without claiming the collection is empty', async () => {
+    const user = userEvent.setup();
+    let requests = 0;
+    renderPage([
+      http.get('*/api/pets/stable/', () => {
+        requests += 1;
+        return requests === 1
+          ? HttpResponse.json({ detail: 'Stable offline' }, { status: 500 })
+          : HttpResponse.json({ pets: [], mounts: [MOUNTS[0]], total_possible: 48 });
+      }),
+    ]);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Stable offline');
+    expect(screen.queryByText(/no mounts yet/i)).toBeNull();
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    expect(await screen.findByText(/Sky Griffon/)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(requests).toBe(2);
+  });
+
   it('renders mounts and counts each filter pill', async () => {
     renderPage([
       http.get('*/api/pets/stable/', () =>

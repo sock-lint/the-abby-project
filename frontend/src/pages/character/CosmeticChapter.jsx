@@ -40,7 +40,7 @@ export default function CosmeticChapter({
 
   return (
     <ParchmentCard as="section" variant="plain" tone="default" aria-labelledby={headingId}>
-      <header className="flex items-start gap-4">
+      <header className="flex flex-col items-start gap-2 sm:flex-row sm:gap-4">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <span
             aria-hidden="true"
@@ -66,7 +66,7 @@ export default function CosmeticChapter({
             </div>
           </div>
         </div>
-        <div className="shrink-0 text-right font-body text-caption text-ink-whisper pt-1">
+        <div className="shrink-0 font-body text-caption text-ink-whisper sm:pt-1 sm:text-right">
           <span className="tabular-nums">{ownedCount} of {totalCount}</span> owned
         </div>
       </header>

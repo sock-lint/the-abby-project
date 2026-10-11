@@ -15,13 +15,13 @@ describe('MaterialsEditor', () => {
         onAdd={onAdd} onUpdate={onUpdate} onRemove={onRemove}
       />,
     );
-    expect(screen.getByDisplayValue('Wood')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Material 1 name' })).toHaveValue('Wood');
+    expect(screen.getByRole('spinbutton', { name: 'Material 1 estimated cost' })).toHaveValue(5);
     await user.click(screen.getByRole('button', { name: /add/i }));
     expect(onAdd).toHaveBeenCalled();
-    await user.type(screen.getByDisplayValue('Wood'), 'x');
-    expect(onUpdate).toHaveBeenCalled();
-    const removeBtn = screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-trash2'));
-    await user.click(removeBtn);
+    await user.type(screen.getByRole('textbox', { name: 'Material 1 name' }), 'x');
+    expect(onUpdate).toHaveBeenCalledWith(0, { name: 'Woodx' });
+    await user.click(screen.getByRole('button', { name: 'Remove material' }));
     expect(onRemove).toHaveBeenCalledWith(0);
   });
 });

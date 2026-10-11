@@ -111,97 +111,101 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview, onOpen
       initial={{ opacity: 1, height: 'auto' }}
       exit={{ opacity: 0, x: 60, scale: 0.95 }}
       transition={{ duration: 0.2 }}
-      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${error ? 'border-ember/60 bg-ember/5' : 'border-ink-page-shadow bg-ink-page'}`}
+      className={`flex flex-col gap-3 rounded-xl border px-3 py-2.5 sm:flex-row sm:items-center ${error ? 'border-ember/60 bg-ember/5' : 'border-ink-page-shadow bg-ink-page'}`}
     >
-      {thumbFor(item) ? (
-        <img
-          src={thumbFor(item)}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          className="w-11 h-11 rounded-lg object-cover border border-ink-page-shadow shrink-0"
-        />
-      ) : (
-        <Icon size={18} className="text-ink-secondary shrink-0" />
-      )}
-      {/* The body is a button when there's evidence to inspect — approving
-          homework or a creation from a one-line title alone is approving
-          blind, and the photo is already in the payload. */}
-      {hasDetail(item) ? (
-        <button
-          type="button"
-          onClick={() => onOpenDetail(item)}
-          className="flex-1 min-w-0 text-left"
-        >
-          <div className="flex items-center gap-2">
-            <span className="font-body font-semibold text-body truncate">{item.title}</span>
-            <RuneBadge tone={meta.tone} size="sm">{meta.label}</RuneBadge>
-          </div>
-          {item.subtitle && (
-            <div className="font-script text-caption text-ink-whisper truncate">{item.subtitle}</div>
-          )}
-          <div className="font-script text-caption text-sheikah-teal-deep">
-            tap to see the work
-          </div>
-          {error && (
-            <div className="font-script text-caption text-ember-deep mt-1">{error}</div>
-          )}
-        </button>
-      ) : (
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-body font-semibold text-body truncate">{item.title}</span>
-            <RuneBadge tone={meta.tone} size="sm">{meta.label}</RuneBadge>
-          </div>
-          {item.subtitle && (
-            <div className="font-script text-caption text-ink-whisper truncate">{item.subtitle}</div>
-          )}
-          {error && (
-            <div className="font-script text-caption text-ember-deep mt-1">{error}</div>
-          )}
-        </div>
-      )}
-      {item.reward != null && item.reward !== '' && (
-        <div className="font-rune text-caption text-ember-deep pl-2 shrink-0">
-          {typeof item.reward === 'number'
-            ? formatCurrency(item.reward)
-            : item.reward}
-        </div>
-      )}
-      {/* 44px circles with real spacing — parents triage this queue
-          one-handed, and approve/reject sitting 6px apart at 32px was the
-          classic wrong-button mis-tap. Mirrors ApprovalButtons' 44px floor. */}
-      <div className="flex items-center gap-3 shrink-0">
-        {isProposal ? (
+      <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+        {thumbFor(item) ? (
+          <img
+            src={thumbFor(item)}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="w-11 h-11 rounded-lg object-cover border border-ink-page-shadow shrink-0"
+          />
+        ) : (
+          <Icon size={18} className="text-ink-secondary shrink-0" />
+        )}
+        {/* The body is a button when there's evidence to inspect — approving
+            homework or a creation from a one-line title alone is approving
+            blind, and the photo is already in the payload. */}
+        {hasDetail(item) ? (
           <button
             type="button"
-            aria-label={`Review ${item.title}`}
-            disabled={!!busy}
-            onClick={handleApprove}
-            className="px-3 h-11 rounded-full border border-gold-leaf/70 text-gold-leaf hover:bg-gold-leaf/10 disabled:opacity-50 flex items-center justify-center font-body text-caption"
+            onClick={() => onOpenDetail(item)}
+            className="flex-1 min-w-0 text-left"
           >
-            Review
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-body font-semibold text-body break-words [overflow-wrap:anywhere]">{item.title}</span>
+              <RuneBadge tone={meta.tone} size="sm">{meta.label}</RuneBadge>
+            </div>
+            {item.subtitle && (
+              <div className="font-script text-caption text-ink-whisper break-words">{item.subtitle}</div>
+            )}
+            <div className="font-script text-caption text-sheikah-teal-deep">
+              tap to see the work
+            </div>
+            {error && (
+              <div className="font-script text-caption text-ember-deep mt-1 break-words">{error}</div>
+            )}
           </button>
         ) : (
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-body font-semibold text-body break-words [overflow-wrap:anywhere]">{item.title}</span>
+              <RuneBadge tone={meta.tone} size="sm">{meta.label}</RuneBadge>
+            </div>
+            {item.subtitle && (
+              <div className="font-script text-caption text-ink-whisper break-words">{item.subtitle}</div>
+            )}
+            {error && (
+              <div className="font-script text-caption text-ember-deep mt-1 break-words">{error}</div>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="flex min-w-0 items-center justify-end gap-3 sm:shrink-0">
+        {item.reward != null && item.reward !== '' && (
+          <div className="mr-auto min-w-0 font-rune text-caption text-ember-deep break-words sm:mr-0 sm:pl-2">
+            {typeof item.reward === 'number'
+              ? formatCurrency(item.reward)
+              : item.reward}
+          </div>
+        )}
+        {/* 44px circles with real spacing — parents triage this queue
+            one-handed, and approve/reject sitting 6px apart at 32px was the
+            classic wrong-button mis-tap. Mirrors ApprovalButtons' 44px floor. */}
+        <div className="flex items-center gap-3 shrink-0">
+          {isProposal ? (
+            <button
+              type="button"
+              aria-label={`Review ${item.title}`}
+              disabled={!!busy}
+              onClick={handleApprove}
+              className="px-3 h-11 rounded-full border border-gold-leaf/70 text-gold-leaf hover:bg-gold-leaf/10 disabled:opacity-50 flex items-center justify-center font-body text-caption"
+            >
+              Review
+            </button>
+          ) : (
+            <button
+              type="button"
+              aria-label={`Approve ${item.title}`}
+              disabled={!!busy}
+              onClick={handleApprove}
+              className="w-11 h-11 rounded-full border border-moss/60 text-moss hover:bg-moss/10 disabled:opacity-50 flex items-center justify-center"
+            >
+              <Check size={18} />
+            </button>
+          )}
           <button
             type="button"
-            aria-label={`Approve ${item.title}`}
+            aria-label={`Reject ${item.title}`}
             disabled={!!busy}
-            onClick={handleApprove}
-            className="w-11 h-11 rounded-full border border-moss/60 text-moss hover:bg-moss/10 disabled:opacity-50 flex items-center justify-center"
+            onClick={handleReject}
+            className="w-11 h-11 rounded-full border border-ember/60 text-ember-deep hover:bg-ember/10 disabled:opacity-50 flex items-center justify-center"
           >
-            <Check size={18} />
+            <X size={18} />
           </button>
-        )}
-        <button
-          type="button"
-          aria-label={`Reject ${item.title}`}
-          disabled={!!busy}
-          onClick={handleReject}
-          className="w-11 h-11 rounded-full border border-ember/60 text-ember-deep hover:bg-ember/10 disabled:opacity-50 flex items-center justify-center"
-        >
-          <X size={18} />
-        </button>
+        </div>
       </div>
     </motion.li>
   );
@@ -479,11 +483,11 @@ export default function ApprovalQueueList({ items = [], loading = false, onDone 
         const error = bulkErrors[kidId];
         return (
           <ParchmentCard key={kidId}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-sheikah-teal/15 border border-sheikah-teal/40 flex items-center justify-center font-display text-sheikah-teal-deep text-body">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <div className="w-8 h-8 shrink-0 rounded-full bg-sheikah-teal/15 border border-sheikah-teal/40 flex items-center justify-center font-display text-sheikah-teal-deep text-body">
                 {group.kidName?.[0]?.toUpperCase() || '?'}
               </div>
-              <div className="font-display text-base text-ink-primary truncate">
+              <div className="min-w-0 font-display text-base text-ink-primary break-words [overflow-wrap:anywhere]">
                 {group.kidName}
               </div>
               <RuneBadge tone="ember" size="sm">{group.items.length}</RuneBadge>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, History, Settings, SlidersHorizontal } from 'lucide-react';
@@ -30,20 +30,53 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
     return true;
   });
   const ref = useRef(null);
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+  const focusLast = useRef(false);
+  const menuId = useId();
+
+  const closeMenu = () => {
+    setOpen(false);
+    triggerRef.current?.focus({ preventScroll: true });
+  };
+
+  const handleMenuKeyDown = (event) => {
+    const items = Array.from(menuRef.current?.querySelectorAll('[role="menuitem"]') || []);
+    const index = items.indexOf(document.activeElement);
+    let next;
+    if (event.key === 'ArrowDown') next = (index + 1) % items.length;
+    else if (event.key === 'ArrowUp') next = (index - 1 + items.length) % items.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = items.length - 1;
+    else if (event.key === 'Tab') {
+      closeMenu();
+      return;
+    }
+    else if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      closeMenu();
+      return;
+    } else return;
+    event.preventDefault();
+    items[next]?.focus();
+  };
 
   useEffect(() => {
     if (!open) return undefined;
+    const items = menuRef.current?.querySelectorAll('[role="menuitem"]');
+    items?.[focusLast.current ? items.length - 1 : 0]?.focus({ preventScroll: true });
     const handleClick = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
-    const handleKey = (e) => {
-      if (e.key === 'Escape') setOpen(false);
+    const handleFocus = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleKey);
+    document.addEventListener('focusin', handleFocus);
     return () => {
       document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('keydown', handleKey);
+      document.removeEventListener('focusin', handleFocus);
     };
   }, [open]);
 
@@ -61,12 +94,21 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
   return (
     <div className="relative" ref={ref}>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => { focusLast.current = false; setOpen((v) => !v); }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            focusLast.current = event.key === 'ArrowUp';
+            setOpen(true);
+          } else if (event.key === 'Escape' && open) closeMenu();
+        }}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
         aria-label="Open profile menu"
-        className={`flex items-center gap-2 min-w-0 rounded-lg transition-colors
+        className={`flex items-center gap-2 min-w-11 min-h-11 max-w-full rounded-2xl transition-colors
                     ${compact ? 'pr-2' : 'w-full px-2 py-1'}
                     hover:bg-sheikah-teal/10 focus-visible:outline-none
                     focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep/50`}
@@ -106,13 +148,18 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
       <AnimatePresence>
         {open && (
           <motion.div
+            ref={menuRef}
+            id={menuId}
             role="menu"
+            aria-label="Profile"
+            onKeyDown={handleMenuKeyDown}
             initial={{ opacity: 0, y: menuInitialY, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: menuInitialY, scale: 0.98 }}
             transition={{ duration: 0.14, ease: 'easeOut' }}
-            className={`absolute ${menuPos} w-60 bg-ink-page-aged border border-ink-page-shadow
-                        rounded-xl shadow-xl overflow-hidden z-50
+            className={`absolute ${menuPos} w-60 lg:w-full max-w-[calc(100vw-2rem-env(safe-area-inset-left)-env(safe-area-inset-right))] bg-ink-page-aged border border-ink-page-shadow
+                        rounded-2xl shadow-xl overflow-y-auto overflow-x-hidden overscroll-contain z-50
+                        max-h-[calc(100dvh-10rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:max-h-[calc(100dvh-6rem)]
                         shadow-[0_0_0_1px_var(--color-sheikah-teal-deep)_inset,0_8px_24px_rgba(0,0,0,0.18)]`}
           >
             {/* Menu header — reads as "you are …" so the menu feels like a profile drawer */}
@@ -137,6 +184,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
               <NavLink
                 to="/sigil"
                 role="menuitem"
+                tabIndex={-1}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
                   `group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all
@@ -161,6 +209,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                   <NavLink
                     to="/manage"
                     role="menuitem"
+                    tabIndex={-1}
                     onClick={() => setOpen(false)}
                     className={({ isActive }) =>
                       `group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all
@@ -183,6 +232,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                   <NavLink
                     to="/activity"
                     role="menuitem"
+                    tabIndex={-1}
                     onClick={() => setOpen(false)}
                     className={({ isActive }) =>
                       `group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all
@@ -205,6 +255,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                   <NavLink
                     to="/codex"
                     role="menuitem"
+                    tabIndex={-1}
                     onClick={() => setOpen(false)}
                     className={({ isActive }) =>
                       `group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all
@@ -229,6 +280,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
               <NavLink
                 to="/settings"
                 role="menuitem"
+                tabIndex={-1}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
                   `group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all
