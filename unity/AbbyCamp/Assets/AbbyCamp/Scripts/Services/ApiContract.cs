@@ -144,31 +144,143 @@ namespace AbbyCamp.Services
             var ids = new HashSet<int>();
             for (int index = 0; index < pets.Count; index++)
             {
-                var row = ReadObject(pets[index]);
-                if (!ids.Add(RequireInteger(row, "id", 1))) throw new FormatException("The stable contains duplicate pets.");
-                ValidateOwnedCreature(row);
-                int growth = RequireInteger(row, "growth_points", 0);
-                if (growth > 100) throw new FormatException("The companion growth is outside its supported range.");
-                RequireBoolean(row, "evolved_to_mount");
-                RequireBoolean(row, "is_fully_grown");
-                BoundedString(row, "name", 100);
-                string happiness = BoundedString(row, "happiness_level", 40, true);
-                if (happiness != "happy" && happiness != "bored" && happiness != "stale" && happiness != "away")
-                    throw new FormatException("The companion has an unknown happiness state.");
-                var pet = JsonUtility.FromJson<OwnedPetDto>(pets[index]);
-                pet.last_fed_at = NullableDate(row, "last_fed_at");
-                if (pet.is_fully_grown != (growth >= 100)) throw new FormatException("The companion growth flags are inconsistent.");
+                var pet = ParseOwnedPet(pets[index]);
+                if (!ids.Add(pet.id)) throw new FormatException("The stable contains duplicate pets.");
                 result.pets[index] = pet;
             }
             ids.Clear();
             for (int index = 0; index < mounts.Count; index++)
             {
-                var row = ReadObject(mounts[index]);
-                if (!ids.Add(RequireInteger(row, "id", 1))) throw new FormatException("The stable contains duplicate mounts.");
-                ValidateOwnedCreature(row);
-                var mount = JsonUtility.FromJson<OwnedMountDto>(mounts[index]);
-                mount.last_bred_at = NullableDate(row, "last_bred_at");
+                var mount = ParseOwnedMount(mounts[index]);
+                if (!ids.Add(mount.id)) throw new FormatException("The stable contains duplicate mounts.");
                 result.mounts[index] = mount;
+            }
+            return result;
+        }
+
+        public static OwnedPetDto ParseOwnedPet(string json)
+        {
+            var row = ReadObject(json);
+            RequireInteger(row, "id", 1);
+            ValidateOwnedCreature(row);
+            int growth = RequireInteger(row, "growth_points", 0);
+            if (growth > 100) throw new FormatException("The companion growth is outside its supported range.");
+            RequireBoolean(row, "evolved_to_mount");
+            RequireBoolean(row, "is_fully_grown");
+            BoundedString(row, "name", 100);
+            string happiness = BoundedString(row, "happiness_level", 40, true);
+            if (happiness != "happy" && happiness != "bored" && happiness != "stale" && happiness != "away")
+                throw new FormatException("The companion has an unknown happiness state.");
+            var pet = JsonUtility.FromJson<OwnedPetDto>(json);
+            pet.last_fed_at = NullableDate(row, "last_fed_at");
+            if (pet.is_fully_grown != (growth >= 100)) throw new FormatException("The companion growth flags are inconsistent.");
+            return pet;
+        }
+
+        public static OwnedMountDto ParseOwnedMount(string json)
+        {
+            var row = ReadObject(json);
+            int id = RequireInteger(row, "id", 1);
+            ValidateOwnedCreature(row);
+            var mount = JsonUtility.FromJson<OwnedMountDto>(json);
+            mount.last_bred_at = NullableDate(row, "last_bred_at");
+            string expeditionJson = Require(row, "active_expedition");
+            mount.active_expedition = null;
+            if (expeditionJson != "null")
+            {
+                var expedition = ReadObject(expeditionJson);
+                RequireInteger(expedition, "id", 1);
+                if (RequireInteger(expedition, "mount_id", 1) != id || BoundedString(expedition, "status", 40, true) != "active")
+                    throw new FormatException("The active expedition does not belong to this mount.");
+                RequireBoolean(expedition, "is_ready");
+                // Django returns negative seconds after return, and truncates
+                // fractional seconds to zero just before is_ready becomes true.
+                RequireInteger(expedition, "seconds_remaining", int.MinValue);
+                mount.active_expedition = JsonUtility.FromJson<MountExpeditionDto>(expeditionJson);
+            }
+            return mount;
+        }
+
+        public static PetFeedDto ParsePetFeed(string json)
+        {
+            var row = ReadObject(json);
+            int growth = RequireInteger(row, "growth_added", 1);
+            int total = RequireInteger(row, "new_growth", 0);
+            RequireBoolean(row, "evolved");
+            int mount = Require(row, "mount_id") == "null" ? 0 : RequireInteger(row, "mount_id", 1);
+            var result = new PetFeedDto { growth_added = growth, new_growth = total, evolved = Require(row, "evolved") == "true", mount_id = mount };
+            if (growth > 100 || total > 100 || result.evolved != (mount > 0) || result.evolved != (total == 100))
+                throw new FormatException("The server did not confirm a consistent feeding outcome.");
+            return result;
+        }
+
+        public static PetFeedDto ParsePetFeed(string json, int previousGrowth)
+        {
+            var result = ParsePetFeed(json);
+            if (previousGrowth < 0 || previousGrowth >= 100 || result.new_growth <= previousGrowth)
+                throw new FormatException("The server did not confirm increased growth for this companion.");
+            return result;
+        }
+
+        public static OwnedPetDto ParsePetActivation(string json, OwnedPetDto expected)
+        {
+            var result = ParseOwnedPet(json);
+            if (expected == null || result.id != expected.id || result.species.id != expected.species.id || result.potion.id != expected.potion.id
+                || !result.is_active || result.evolved_to_mount)
+                throw new FormatException("The server did not confirm this companion as active.");
+            return result;
+        }
+
+        public static OwnedMountDto ParseMountActivation(string json, OwnedMountDto expected)
+        {
+            var result = ParseOwnedMount(json);
+            if (expected == null || result.id != expected.id || result.species.id != expected.species.id || result.potion.id != expected.potion.id
+                || !result.is_active || result.active_expedition != null)
+                throw new FormatException("The server did not confirm this available mount as active.");
+            return result;
+        }
+
+        /// <summary>The current endpoint returns a bare array. Bounded DRF pages
+        /// are also accepted so continuation URLs can be checked before use.</summary>
+        public static InventoryPageDto ParseInventoryPage(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) throw new FormatException("The inventory response was empty.");
+            List<string> records;
+            var result = new InventoryPageDto();
+            if (json.TrimStart().StartsWith("[", StringComparison.Ordinal))
+            {
+                records = BoundedRecords(json, 10000);
+                result.count = records.Count;
+            }
+            else
+            {
+                var fields = ReadObject(json);
+                result.count = RequireInteger(fields, "count", 0);
+                records = BoundedRecords(Require(fields, "results"), 1000);
+                result.next = NullableString(fields, "next", 2048);
+                if (result.count > 10000 || records.Count > result.count || (result.next != null && (result.next.Length == 0 || records.Count == 0)))
+                    throw new FormatException("The inventory pagination was invalid.");
+            }
+            result.results = new InventoryEntryDto[records.Count];
+            var ids = new HashSet<int>();
+            var itemIds = new HashSet<int>();
+            for (int index = 0; index < records.Count; index++)
+            {
+                var row = ReadObject(records[index]);
+                if (!ids.Add(RequireInteger(row, "id", 1))) throw new FormatException("The inventory contains duplicate rows.");
+                RequireInteger(row, "quantity", 0);
+                RequiredDate(row, "updated_at");
+                var item = ReadObject(Require(row, "item"));
+                if (!itemIds.Add(RequireInteger(item, "id", 1))) throw new FormatException("The inventory contains duplicate items.");
+                BoundedString(item, "name", 200, true);
+                BoundedString(item, "description", 16384);
+                BoundedString(item, "icon", 100);
+                BoundedString(item, "sprite_key", 100);
+                BoundedString(item, "item_type", 100, true);
+                NullableString(item, "food_species_name", 100);
+                var entry = JsonUtility.FromJson<InventoryEntryDto>(records[index]);
+                entry.item.food_species_name = NullableString(item, "food_species_name", 100);
+                result.results[index] = entry;
             }
             return result;
         }
@@ -349,7 +461,7 @@ namespace AbbyCamp.Services
             message = message.Replace('\r', ' ').Replace('\n', ' ');
             if (message.Length > 400) message = message.Substring(0, 400);
             bool unknown = mutation && (transportFailure || status == 408 || status >= 500 || (status >= 300 && status < 400));
-            if (unknown) message += " The habit may have been saved. Refresh its state before logging it again.";
+            if (unknown) message += " The action may have been saved. Refresh and review its state before trying again.";
             return new ApiError(message, status, unknown, status == 401);
         }
 

@@ -193,10 +193,61 @@ namespace AbbyCamp.Data
         public PotionDto potion;
         public bool is_active;
         public string last_bred_at;
+        public MountExpeditionDto active_expedition;
         public string created_at;
         public string updated_at;
 
         public string DisplayName => potion.name + " " + species.name;
+    }
+
+    [Serializable]
+    public sealed class MountExpeditionDto
+    {
+        public int id;
+        public int mount_id;
+        public string status;
+        public bool is_ready;
+        public int seconds_remaining;
+    }
+
+    [Serializable]
+    public sealed class InventoryItemDto
+    {
+        public int id;
+        public string name;
+        public string description;
+        public string icon;
+        public string sprite_key;
+        public string item_type;
+        public string food_species_name;
+    }
+
+    [Serializable]
+    public sealed class InventoryEntryDto
+    {
+        public int id;
+        public InventoryItemDto item;
+        public int quantity;
+        public string updated_at;
+    }
+
+    [Serializable]
+    public sealed class InventoryPageDto
+    {
+        public int count;
+        public string next;
+        public InventoryEntryDto[] results;
+    }
+
+    [Serializable]
+    public sealed class PetFeedDto
+    {
+        // growth_added is the server's configured feed amount; new_growth is
+        // the confirmed total after the evolution threshold has clamped it.
+        public int growth_added;
+        public int new_growth;
+        public bool evolved;
+        public int mount_id;
     }
 
     [Serializable]
@@ -328,7 +379,7 @@ namespace AbbyCamp.Data
     {
         public readonly string Message;
         public readonly long StatusCode;
-        // True means a habit tap may have reached Django. Refresh server state
+        // True means an action may have reached Django. Refresh server state
         // and ask the user to reconcile it; never replay that POST automatically.
         public readonly bool OutcomeUnknown;
         public readonly bool RequiresLogin;
