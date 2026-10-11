@@ -39,6 +39,12 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `pet-feed-already-evolved.json` | Feed rejected with HTTP 400 because the pet has already evolved |
 | `pet-not-owned.json` | Foreign or unknown pet feed/activation rejected with the same HTTP 400 body |
 | `mount-not-owned.json` | Foreign or unknown mount activation rejected with the same HTTP 400 body |
+| `inventory-hatching.json` | `GET /api/inventory/`, owned eggs and hatching potions with quantities and nullable typed species/potion names |
+| `pet-hatch.json` | `POST /api/pets/hatch/`, HTTP 201 full newly owned pet after consuming one egg and one potion |
+| `pet-hatch-missing-ingredients.json` | Hatch rejected with HTTP 400 because either ingredient ID is absent |
+| `pet-hatch-unavailable-egg.json` | Hatch rejected with HTTP 400 because the child does not own that egg |
+| `pet-hatch-unavailable-potion.json` | Hatch rejected with HTTP 400 because the child does not own that potion |
+| `pet-hatch-duplicate.json` | Hatch rejected with HTTP 400 because the child already owns that species/potion combination, including an evolved pet |
 
 `config/tests/test_api_contract_fixtures.py` seeds fixed family/user/habit/skill
 and companion/item IDs and a fixed clock, sends requests through the real Django
@@ -54,6 +60,19 @@ owner's state. Evolution uses the real service and a test-table sequence reset
 to keep the newly generated mount ID deterministic on PostgreSQL/SQLite and
 test-suite ordering. Inventory is an unpaginated array; its inventory-entry IDs
 are distinct from the item-definition IDs submitted to the feed endpoint.
+
+Hatching also submits item-definition IDs, using `egg_item_id` and
+`potion_item_id`. The real service consumes exactly one of each owned ingredient,
+deletes a depleted inventory row, and returns a full new pet at zero growth that
+is neither active nor evolved. It preserves the existing active pet and records
+the first-hatch chronicle entry. Producer checks keep the generated pet identity
+deterministic on PostgreSQL/SQLite, reject missing, unowned and wrong-type
+ingredients without writes, reject duplicates even after evolution, and verify
+sibling/foreign-family inventory remains untouched. A supplied `user_id` cannot
+change the owner; unauthenticated requests are rejected. Typed inventory fields
+`pet_species_name` and `potion_type_name` are display names or explicit null;
+they do not expose catalog IDs or declare potion compatibility. The server
+remains authoritative for ingredient eligibility.
 
 `config/tests/test_greenlight_api_contract_fixtures.py` sends the payout,
 snapshot, preview and reconciliation requests through their real views with a
@@ -83,7 +102,9 @@ statement workflow, not a claim that every Greenlight export has these columns.
 
 `frontend/src/api/sharedContractFixtures.test.js` serves these same files with
 MSW and exercises the real React API wrappers, token handling, list normalization
-and HTTP error propagation, including feed/evolution and pet/mount activation.
+and HTTP error propagation, including feed/evolution, pet/mount activation, and
+the complete HTTP 201 hatch receipt. Hatching checks assert the exact ingredient
+request and preserve the real rejection body/status without replaying a POST.
 Notification page links are root-relative so an HTTP tunnel behind a public
 HTTPS site cannot change the client's destination origin. Producer checks cover
 HTTP, HTTPS and forwarded proxy headers, pagination in both directions, unchanged
