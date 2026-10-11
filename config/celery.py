@@ -18,15 +18,21 @@ register_celery_failure_handler()
 # automatically; Celery tasks don't. Without these hooks, worker processes
 # hold DB connections past CONN_MAX_AGE and accumulate stale slots over time
 # — the canonical Celery/Django integration recipe.
+# Eager tasks run inside their caller's transaction. Closing that connection
+# would discard the caller's uncommitted work, so leave its lifecycle alone.
 @task_prerun.connect
-def _close_stale_db_connections_before_task(*args, **kwargs):
+def _close_stale_db_connections_before_task(sender=None, **kwargs):
+    if getattr(getattr(sender, "request", None), "is_eager", False):
+        return
     from django.db import close_old_connections
 
     close_old_connections()
 
 
 @task_postrun.connect
-def _close_stale_db_connections_after_task(*args, **kwargs):
+def _close_stale_db_connections_after_task(sender=None, **kwargs):
+    if getattr(getattr(sender, "request", None), "is_eager", False):
+        return
     from django.db import close_old_connections
 
     close_old_connections()

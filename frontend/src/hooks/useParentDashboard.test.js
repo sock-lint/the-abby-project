@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { renderHook, waitFor } from '@testing-library/react';
 import useParentDashboard from './useParentDashboard';
 import { server } from '../test/server';
+import { spyHandler } from '../test/spy';
 
 describe('useParentDashboard', () => {
   it('merges chores + homework + redemptions into a single pending list sorted newest-first', async () => {
@@ -21,8 +22,8 @@ describe('useParentDashboard', () => {
       ),
       http.get('*/api/redemptions/', () =>
         HttpResponse.json([
-          { id: 3, reward_name: 'Movie', user_id: 2, user_name: 'Abby', status: 'pending', created_at: '2026-04-16T09:00:00Z' },
-          { id: 4, reward_name: 'Fulfilled thing', user_id: 2, user_name: 'Abby', status: 'fulfilled', created_at: '2026-04-16T07:00:00Z' },
+          { id: 3, reward: { name: 'Movie', cost_coins: 60 }, coin_cost_snapshot: 50, user: 2, user_name: 'Abby', status: 'pending', requested_at: '2026-04-16T09:00:00Z' },
+          { id: 4, reward: { name: 'Fulfilled thing' }, coin_cost_snapshot: 20, user: 2, user_name: 'Abby', status: 'fulfilled', requested_at: '2026-04-16T07:00:00Z' },
         ]),
       ),
       http.get('*/api/dashboard/', () =>
@@ -39,6 +40,55 @@ describe('useParentDashboard', () => {
     expect(result.current.pending.map((i) => i.kind)).toEqual([
       'homework', 'redemption', 'chore',
     ]);
+    expect(result.current.pending[1]).toMatchObject({
+      title: 'Movie', subtitle: '50 coins', kidId: 2, submittedAt: '2026-04-16T09:00:00Z',
+    });
+  });
+
+  it.each([
+    ['/api/redemptions/', 'redemption', '?status=pending'],
+    ['/api/coins/exchange/list/', 'exchange', '?status=pending'],
+    ['/api/chore-completions/', 'chore', '?status=pending'],
+    ['/api/chores/', 'chore_proposal', '?pending=true'],
+    ['/api/habits/', 'habit_proposal', '?pending=true'],
+  ])('includes every pending page from %s', async (path, kind, filter) => {
+    const makeRow = (id) => ({
+      id, user: 2, created_by: 2, user_name: 'Abby', status: 'pending',
+      reward: { name: `Prize ${id}` }, coin_cost_snapshot: 30,
+      dollar_amount: '3.00', coin_amount: 30,
+    });
+    const fetch = spyHandler('get', `*${path}`, ({ request }) => {
+      const url = new URL(request.url);
+      expect(url.searchParams.toString()).toContain(filter.slice(1));
+      return url.searchParams.get('page') === '2'
+        ? { count: 21, next: null, results: [makeRow(21)] }
+        : { count: 21, next: `http://localhost${path}${filter}&page=2`, results: Array.from({ length: 20 }, (_, i) => makeRow(i + 1)) };
+    });
+    server.use(fetch.handler);
+    const { result } = renderHook(() => useParentDashboard());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const pending = result.current.pending.filter((row) => row.kind === kind);
+    expect(pending).toHaveLength(21);
+    expect(pending.some((row) => row.id === 21)).toBe(true);
+    expect(fetch.calls).toHaveLength(2);
+    expect(result.current.failedSources).toEqual([]);
+  });
+
+  it('reports an incomplete paginated queue as failed instead of silently showing its first page', async () => {
+    const fetch = spyHandler('get', '*/api/redemptions/', ({ request }) =>
+      new URL(request.url).searchParams.has('page')
+        ? HttpResponse.json({ detail: 'Temporary failure' }, { status: 503 })
+        : {
+          count: 21, next: 'http://localhost/api/redemptions/?status=pending&page=2',
+          results: [{ id: 1, status: 'pending', reward: { name: 'Movie' } }],
+        },
+    );
+    server.use(fetch.handler);
+    const { result } = renderHook(() => useParentDashboard());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.failedSources).toContain('reward redemptions');
+    expect(result.current.pending.filter((row) => row.kind === 'redemption')).toEqual([]);
+    expect(fetch.calls).toHaveLength(2);
   });
 
   it('includes pending money→coins exchange requests', async () => {

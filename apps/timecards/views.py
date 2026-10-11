@@ -113,15 +113,20 @@ class TimecardViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=["post"])
     def dispute(self, request, pk=None):
         timecard = self.get_object()
-        timecard.status = "disputed"
-        timecard.save()
+        try:
+            TimecardService.dispute_timecard(timecard)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(TimecardSerializer(timecard).data)
 
     @action(detail=True, methods=["post"], url_path="mark-paid", permission_classes=[IsParent])
     def mark_paid(self, request, pk=None):
         timecard = self.get_object()
         amount = request.data.get("amount", timecard.total_earnings)
-        TimecardService.mark_paid(timecard, request.user, amount)
+        try:
+            TimecardService.mark_paid(timecard, request.user, amount)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(TimecardSerializer(timecard).data)
 
 

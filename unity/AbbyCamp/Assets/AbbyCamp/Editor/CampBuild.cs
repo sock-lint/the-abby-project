@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
@@ -147,6 +148,22 @@ namespace AbbyCamp.Editor
             directory = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             return string.Equals(path, directory, StringComparison.OrdinalIgnoreCase)
                 || path.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    // Apply to scripted and Editor builds immediately before compilation.
+    // A changed build profile must not reintroduce engine branding in Play.
+    public sealed class CampBrandingBuildGuard : IPreprocessBuildWithReport
+    {
+        public int callbackOrder => int.MaxValue;
+
+        public void OnPreprocessBuild(BuildReport report)
+        {
+            PlayerSettings.SplashScreen.show = false;
+            PlayerSettings.SplashScreen.showUnityLogo = false;
+            if (PlayerSettings.SplashScreen.show || PlayerSettings.SplashScreen.showUnityLogo)
+                throw new BuildFailedException("Abby builds require the engine splash screen and logo to be disabled.");
+            Debug.Log($"ABBY_CAMP_BRANDING: engine splash={PlayerSettings.SplashScreen.show}, Unity logo={PlayerSettings.SplashScreen.showUnityLogo}; target={report.summary.platform}.");
         }
     }
 }

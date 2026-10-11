@@ -783,8 +783,8 @@ if SENTRY_DSN:
 # Testing — use syncdb for fast model/API test databases.
 #
 # Fresh installs are repaired by projects.0001_initial_with_accounts_bootstrap.
-# The focused accounts migration regressions run the real graph in isolated
-# processes, without this shortcut, and verify existing migration records.
+# The accounts and config migration regressions run the real graph in isolated
+# processes, without this shortcut, and verify existing records and model state.
 # Keep ordinary model/API tests using current state for faster setup.
 # ──────────────────────────────────────────────────────────────────────────
 if "test" in sys.argv:

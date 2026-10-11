@@ -1,5 +1,6 @@
 from rest_framework import permissions, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 
 from config.permissions import IsParent, IsStaffParent
@@ -42,15 +43,20 @@ class RoleFilteredQuerySetMixin:
 def filter_projects_accessible_to(user, queryset):
     """Filter a ``Project`` queryset to those the user can see.
 
-    Parents see all projects in their family. Children see only projects
-    they're assigned to or collaborating on. Use this for any standalone
+    Parents see projects assigned within their family, plus unassigned drafts
+    created by a family member. Assignment remains the family boundary when
+    present, even if the creator belongs to a different family. Children see
+    only projects they're assigned to or collaborating on. Use this for any standalone
     project lookup (clock-in, QR code) that takes a parent-supplied
     project id — without it, a child can guess project ids from another
     family and clock-in time / generate QR codes against them.
     """
     from django.db.models import Q
     if user.role == "parent":
-        return queryset.filter(assigned_to__family=user.family)
+        return queryset.filter(
+            Q(assigned_to__family=user.family)
+            | Q(assigned_to__isnull=True, created_by__family=user.family),
+        )
     return queryset.filter(
         Q(assigned_to=user) | Q(collaborators__user=user),
     ).distinct()
@@ -70,7 +76,11 @@ def filter_resources_under_accessible_projects(
     from django.db.models import Q
     if user.role == "parent":
         return queryset.filter(
-            **{f"{project_field}__assigned_to__family": user.family},
+            Q(**{f"{project_field}__assigned_to__family": user.family})
+            | Q(**{
+                f"{project_field}__assigned_to__isnull": True,
+                f"{project_field}__created_by__family": user.family,
+            }),
         )
     fa = f"{project_field}__assigned_to"
     fc = f"{project_field}__collaborators__user"
@@ -95,8 +105,26 @@ class NestedProjectResourceMixin:
             self.request.user, qs,
         )
 
+    def get_project(self):
+        """Authorize the parent even when no nested row is looked up."""
+        from django.shortcuts import get_object_or_404
+        from apps.projects.models import Project
+
+        if not hasattr(self, "_accessible_project"):
+            self._accessible_project = get_object_or_404(
+                filter_projects_accessible_to(self.request.user, Project.objects.all()),
+                pk=self.kwargs["project_pk"],
+            )
+        return self._accessible_project
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.action in ("create", "update", "partial_update"):
+            context["project"] = self.get_project()
+        return context
+
     def perform_create(self, serializer):
-        serializer.save(project_id=self.kwargs["project_pk"])
+        serializer.save(project=self.get_project())
 
 
 def get_child_or_404(child_id, requesting_user=None):
@@ -251,7 +279,12 @@ class ApprovalActionMixin:
     def _run_approval_action(self, method_name, request):
         instance = self.get_object()
         service_method = getattr(self.approval_service, method_name)
-        service_method(instance, request.user, notes=request.data.get("notes", ""))
+        try:
+            service_method(instance, request.user, notes=request.data.get("notes", ""))
+        except instance.__class__.DoesNotExist:
+            # Withdrawal may delete the request after get_object, while the
+            # decision service waits for its fresh row lock.
+            raise NotFound("This request no longer exists.") from None
         return Response(self.get_serializer(instance).data)
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])

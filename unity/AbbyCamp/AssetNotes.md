@@ -8,7 +8,7 @@ The first meadow slice uses the same temporary dragon expressions, memory-bloom 
 
 Nunito comes from the official Google Fonts repository (`google/fonts`, `ofl/nunito`). The static runtime font is an instance of the variable font at weight 600, with the OFL license also embedded in its metadata. The original variable font and copyright/license text remain in `shared/storybook/fonts`.
 
-The authored presentation and dragon definition live under `Assets/AbbyCamp/Presentation`, outside generated Kenney defaults. A model takes precedence over a portrait. Model controllers map speed and celebration intents; portrait definitions can provide idle, happy and blink sprites with camera-facing rendering and local reactions. Both preserve the gameplay root, collider, following behavior and content identity. Rebuilds validate these references and the canonical palette instead of replacing authored art.
+The authored presentation and dragon definition live under `Assets/AbbyCamp/Presentation`, outside generated Kenney defaults. A model takes precedence over a portrait. Model controllers map speed and celebration intents; portrait definitions can provide idle, happy and blink sprites with camera-facing rendering and local reactions. Both preserve the stationary root, tap interaction and content identity. Rebuilds validate these references and the canonical palette instead of replacing authored art. The home has no walking avatar, board, movement collider or proximity gate.
 
 ## Purchased Cute Series layer
 
@@ -36,8 +36,9 @@ alongside the original archives in private backup storage.
 Unity menu **Abby Camp → Licensed Cute Series → Prepare meadow** creates
 `Assets/AbbyCamp/Licensed/MemoryMeadow.unity`. It converts materials to URP,
 caps imported textures at 512 pixels, normalizes model bounds and creates
-separate animation controllers/definitions for each form. The explorer sample
-has its bow, arrow and quiver removed; the original modular sources are retained.
+separate animation controllers/definitions for each form. The prepared Archer
+sample remains available for later uses but is not instantiated in the home;
+the original modular sources are retained.
 Chick maps Idle / Jump Forward In Place, Fledgling maps Idle / Walk Forward In
 Place, Bird maps Fly Idle / Fly Forward In Place. The humanoid explorer maps
 Idle / Walk Forward In Place. Root motion stays disabled. Greetings use the
@@ -48,9 +49,30 @@ unlocks**. The secondary form remains a development appearance-swap check.
 The `starter-companion` gameplay identity, controllers, journal receipts and
 account boundaries are unchanged. Fitted creature outfits remain additional
 art/integration work; modular humanoid clothing does not automatically fit a
-creature. Forest art replaces the primitive trees and rocks and adds mushrooms
-and a ruin arch. The original flat walking surface, bounds and simple tree
-obstacles still own physics.
+creature. The licensed backdrop uses the purchased soft-edge ground, soil
+clearing, stone steps, a mixed mint/lavender treeline, grass, mushrooms, rocks,
+pillars and broken ruin gateways. The backdrop is brought closer around the
+fixed hero. All scenery and actor colliders/rigidbodies are removed; companion
+taps use the active appearance's renderer bounds and exclude interface hits.
+
+This first woodland layout has 61 purchased props, 91 renderers and 13,564
+scenery triangles. Its distant trees, grass and ground do not cast shadows;
+23 small ruin/rock/mushroom renderers do. Preparation marks static geometry
+for batching and validation rejects missing geometry, imported physics or a
+backdrop exceeding 100 renderers, 150,000 triangles or 25 shadow casters.
+These are editor scene budgets, not an Android/iPhone performance benchmark.
+Preparing again reconstructs the licensed scene rather than accumulating props.
+
+Only ignored, generated environment material copies receive the softer shared
+palette. A private copy of the supplied color atlas preserves its texture detail
+and alpha while creating a mint/sand/sky version for the scene; the purchased
+source pixels and importer are not edited by that recoloring. Creature/avatar
+materials retain their supplied colors. The licensed forms are normalized to
+1.8–2 world units and face the fixed, shallow-angle camera. Framing reserves
+space for the top account panel and bottom home actions, with the world on the
+left in landscape. The public fallback uses the same fixed camera contract.
+The scene bird is an artwork preview rather than a fictional owned species;
+Bestiary displays actual account ownership and growth independently.
 
 The staging script also writes ignored `shared/storybook/licensed` and
 `frontend/src/storybook/licensed` overlays. React bundles their hashed portraits
@@ -116,9 +138,9 @@ Nature FBX files specify decimeters and use a different source scale. Normalize 
 1. Import a new model into its own source folder and retain its license.
 2. Create or update its visual definition with the prefab, scale, offset, and orientation.
 3. Map its animations to the existing gameplay intents. A new rig can have its own controller.
-4. Assign that definition to the player or companion; preserve the gameplay identity and saved progression.
-5. Check movement direction, grounding, interaction reach, reward reaction, and lighting in the scene.
+4. Assign that definition to the companion presentation; preserve its gameplay identity and saved progression. Map owned species explicitly before representing an account creature with that artwork.
+5. Check fixed camera framing, grounding, visible-bounds taps, modal input exclusion, reward reaction, and lighting in portrait and landscape.
 
-The included dog/fox and green-shirt/orange-jacket choices provide a small, concrete appearance-swap check without changing gameplay code or save data. Future asset packs may require additional rig and material setup, but should not require rewriting the habit loop.
+The public companion's appearance swap and licensed bird forms provide concrete checks without changing gameplay code or save data. Character outfits from the earlier walking harness remain unused. Future asset packs may require rig and material setup while preserving the account and reward systems.
 
 Pack provenance and license paths are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Kenney's official import reference is [Importing 3D models into game engines](https://kenney.nl/knowledge-base/game-assets-3d/importing-3d-models-into-game-engines).

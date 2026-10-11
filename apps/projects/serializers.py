@@ -148,7 +148,28 @@ class ParentSerializer(serializers.ModelSerializer):
         return User.objects.create_user(password=password, **validated_data)
 
 
-class ProjectMilestoneSerializer(serializers.ModelSerializer):
+class NestedProjectResourceSerializer(serializers.ModelSerializer):
+    """The URL owns the project; nested links must stay under that project."""
+
+    project = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        project = self.context.get("project") or getattr(self.instance, "project", None)
+        if project is None:
+            return attrs
+        if "project" in self.initial_data:
+            supplied_id = serializers.IntegerField().run_validation(self.initial_data["project"])
+            if supplied_id != project.pk:
+                raise serializers.ValidationError({"project": "Must match the project in the URL."})
+        for field in ("milestone", "step"):
+            related = attrs.get(field)
+            if related is not None and related.project_id != project.pk:
+                raise serializers.ValidationError({field: "Must belong to this project."})
+        return attrs
+
+
+class ProjectMilestoneSerializer(NestedProjectResourceSerializer):
     class Meta:
         model = ProjectMilestone
         fields = [
@@ -158,7 +179,7 @@ class ProjectMilestoneSerializer(serializers.ModelSerializer):
         read_only_fields = ["completed_at"]
 
 
-class MaterialItemSerializer(serializers.ModelSerializer):
+class MaterialItemSerializer(NestedProjectResourceSerializer):
     class Meta:
         model = MaterialItem
         fields = [
@@ -169,7 +190,7 @@ class MaterialItemSerializer(serializers.ModelSerializer):
         read_only_fields = ["purchased_at"]
 
 
-class ProjectResourceSerializer(serializers.ModelSerializer):
+class ProjectResourceSerializer(NestedProjectResourceSerializer):
     class Meta:
         model = ProjectResource
         fields = [
@@ -177,7 +198,7 @@ class ProjectResourceSerializer(serializers.ModelSerializer):
         ]
 
 
-class ProjectStepSerializer(serializers.ModelSerializer):
+class ProjectStepSerializer(NestedProjectResourceSerializer):
     resources = ProjectResourceSerializer(many=True, read_only=True)
 
     class Meta:
@@ -393,7 +414,7 @@ class ProjectTemplateSerializer(serializers.ModelSerializer):
         return TemplateResourceSerializer(qs, many=True).data
 
 
-class ProjectCollaboratorSerializer(serializers.ModelSerializer):
+class ProjectCollaboratorSerializer(NestedProjectResourceSerializer):
     user = UserSerializer(read_only=True)
     user_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), source="user", write_only=True,

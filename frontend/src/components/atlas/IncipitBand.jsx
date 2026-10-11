@@ -37,11 +37,9 @@ export default function IncipitBand({
     <ParchmentCard
       variant="sealed"
       tone="bright"
-      flourish
-      seal="top-right"
       className={`overflow-hidden ${className}`}
     >
-      <div className="flex items-center gap-3 sm:gap-5 pr-6 sm:pr-12">
+      <div className="flex items-center gap-3 sm:gap-5">
         {versalSize ? (
           <IlluminatedVersal
             letter={letter}
@@ -73,7 +71,7 @@ export default function IncipitBand({
               {kicker}
             </div>
           )}
-          <h1 className="font-display italic text-2xl sm:text-3xl md:text-4xl text-ink-primary leading-tight">
+          <h1 className="font-display font-bold text-2xl sm:text-3xl md:text-4xl text-ink-primary leading-tight break-words">
             {title}
           </h1>
           {meta && (

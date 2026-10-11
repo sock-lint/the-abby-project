@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus } from 'lucide-react';
+import { Plus, Clock } from 'lucide-react';
 import { getClockStatus } from '../../api';
 import { useApi } from '../../hooks/useApi';
-import { ClockFabIcon } from '../icons/JournalIcons';
 import QuickActionsSheet from './QuickActionsSheet';
 import { STORAGE_KEYS } from '../../constants/storage';
 
@@ -82,17 +81,17 @@ export default function QuickActionsFab() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 8 }}
-          className="fixed z-30 right-4 lg:right-6
+          className="fixed z-30 right-[max(1rem,env(safe-area-inset-right))] lg:right-6
                      bottom-[calc(env(safe-area-inset-bottom)+10rem)] lg:bottom-20
-                     bg-ink-page-aged border border-sheikah-teal/40 rounded-lg
-                     px-3 py-2 shadow-lg max-w-[160px]"
+                     bg-ink-page-aged border border-sheikah-teal/20 rounded-2xl
+                     px-3 py-2 shadow-sm max-w-[160px] pointer-events-none"
         >
-          <p className="font-script text-caption text-sheikah-teal-deep text-center">
+          <p className="font-body font-semibold text-caption text-sheikah-teal-deep text-center">
             Tap for quick actions
           </p>
           <div
             className="absolute -bottom-1.5 right-6 w-3 h-3 bg-ink-page-aged
-                       border-b border-r border-sheikah-teal/40 rotate-45"
+                       border-b border-r border-sheikah-teal/20 rotate-45"
             aria-hidden="true"
           />
         </motion.div>
@@ -106,18 +105,18 @@ export default function QuickActionsFab() {
         type="button"
         onClick={handleOpen}
         aria-label={isClocked ? 'Quick actions (clocked in)' : 'Quick actions'}
-        className={`fixed z-30 rounded-full shadow-xl transition-all
-                    bottom-[calc(env(safe-area-inset-bottom)+6rem)] right-4
+        className={`fixed z-30 min-h-14 min-w-14 rounded-full shadow-lg transition-colors
+                    bottom-[calc(env(safe-area-inset-bottom)+6rem)] right-[max(1rem,env(safe-area-inset-right))]
                     lg:bottom-6 lg:right-6
-                    flex items-center gap-2 ${isClocked ? 'pl-3 pr-4' : 'p-3.5'} py-3
+                    flex items-center justify-center gap-2 ${isClocked ? 'pl-3 pr-4' : 'p-3.5'} py-3
                     ${bouncing ? 'animate-bounce' : ''}
                     ${isClocked
-                      ? 'bg-ember text-ink-page-rune-glow border border-ember-deep animate-rune-pulse'
-                      : 'bg-sheikah-teal-deep text-ink-page-rune-glow border border-sheikah-teal-deep/60 hover:bg-sheikah-teal'
+                      ? 'bg-ember-deep text-ink-page border border-ember-deep'
+                      : 'bg-sheikah-teal-deep text-ink-page border border-sheikah-teal-deep/60 hover:bg-sheikah-teal'
                     }`}
       >
-        {isClocked ? <ClockFabIcon size={22} /> : <Plus size={22} />}
-        {label && <span className="font-rune text-body font-bold tabular-nums">{label}</span>}
+        {isClocked ? <Clock size={22} /> : <Plus size={22} />}
+        {label && <span className="font-body text-body font-bold tabular-nums">{label}</span>}
       </button>
 
       <AnimatePresence>

@@ -7,6 +7,7 @@ import IconButton from '../components/IconButton';
 import ErrorAlert from '../components/ErrorAlert';
 import { TextField } from '../components/form';
 import ParchmentCard from '../components/journal/ParchmentCard';
+import StorybookWelcome from '../components/StorybookWelcome';
 
 /**
  * Signup — found a new family. Mirrors Login's parchment-cover aesthetic;
@@ -66,23 +67,16 @@ export default function Signup({ onSignup }) {
   return (
     <div className="min-h-dvh flex items-center justify-center p-4 parchment-bg">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-5">
-          <div className="font-script text-sheikah-teal-deep text-base">
-            found a new household
-          </div>
-          <h1 className="font-display italic text-3xl text-ink-primary leading-tight">
-            Hyrule Field Notes
-          </h1>
-        </div>
+        <StorybookWelcome kicker="Make room for your family" description="Little moments, shared adventures, and a story to keep." />
 
         {disabled ? (
           <ParchmentCard flourish>
             <div className="space-y-4 text-center">
               <h2 className="font-display italic text-xl text-ink-primary">
-                Signup is sealed.
+                Signups are closed.
               </h2>
               <p className="font-body text-ink-secondary text-sm">
-                New families can&apos;t be founded on this codex right now.
+                New families can&apos;t join right now.
               </p>
               <Link
                 to="/login"
@@ -108,7 +102,7 @@ export default function Signup({ onSignup }) {
               />
               <TextField
                 id="signup-display"
-                label="Your name as the head scribe"
+                label="Your name"
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}

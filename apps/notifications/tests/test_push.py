@@ -6,15 +6,22 @@ path behaves exactly as it did before push existed.
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
+from unittest import skipUnless
 from unittest.mock import MagicMock, patch
 
-from django.test import TestCase, override_settings
+from django.core.cache import cache
+from django.db import close_old_connections, connection
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
+from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from apps.notifications.models import Notification, PushSubscription
 from apps.notifications.push import push_enabled, send_to_user
 from apps.notifications.services import notify
+from apps.notifications.views import _lock_push_credential
 from config.tests.factories import make_family
 
 KEYS = {
@@ -180,6 +187,10 @@ class PushAPITests(TestCase):
         ).children[0]
         self.client = APIClient()
 
+    def authenticate(self, user):
+        credential, _ = Token.objects.get_or_create(user=user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {credential.key}")
+
     def body(self, endpoint="https://push.example/abc"):
         return {
             "endpoint": endpoint,
@@ -191,7 +202,7 @@ class PushAPITests(TestCase):
 
     @override_settings(**KEYS)
     def test_config_exposes_only_the_public_key(self):
-        self.client.force_authenticate(user=self.child)
+        self.authenticate(self.child)
         data = self.client.get(reverse("push-config")).data
         self.assertTrue(data["enabled"])
         self.assertEqual(data["public_key"], "test-public")
@@ -199,14 +210,14 @@ class PushAPITests(TestCase):
 
     @override_settings(VAPID_PUBLIC_KEY="", VAPID_PRIVATE_KEY="")
     def test_config_reports_disabled_without_keys(self):
-        self.client.force_authenticate(user=self.child)
+        self.authenticate(self.child)
         data = self.client.get(reverse("push-config")).data
         self.assertFalse(data["enabled"])
         self.assertEqual(data["public_key"], "")
 
     @override_settings(**KEYS)
     def test_subscribe_registers_the_browser(self):
-        self.client.force_authenticate(user=self.child)
+        self.authenticate(self.child)
         response = self.client.post(reverse("push-subscribe"), self.body(), format="json")
         self.assertEqual(response.status_code, 201)
         subscription = PushSubscription.objects.get()
@@ -215,7 +226,7 @@ class PushAPITests(TestCase):
 
     @override_settings(**KEYS)
     def test_subscribe_is_idempotent_on_endpoint(self):
-        self.client.force_authenticate(user=self.child)
+        self.authenticate(self.child)
         self.client.post(reverse("push-subscribe"), self.body(), format="json")
         self.client.post(reverse("push-subscribe"), self.body(), format="json")
         # Re-subscribing the same browser must not double-notify.
@@ -225,16 +236,36 @@ class PushAPITests(TestCase):
     def test_resubscribing_a_shared_device_reassigns_it(self):
         # A shared family tablet: whoever signed in last owns the endpoint,
         # otherwise the previous user keeps getting the new user's pushes.
-        self.client.force_authenticate(user=self.child)
+        self.authenticate(self.child)
         self.client.post(reverse("push-subscribe"), self.body(), format="json")
-        self.client.force_authenticate(user=self.family.parents[0])
+        self.authenticate(self.family.parents[0])
         self.client.post(reverse("push-subscribe"), self.body(), format="json")
         self.assertEqual(PushSubscription.objects.count(), 1)
         self.assertEqual(PushSubscription.objects.get().user, self.family.parents[0])
 
     @override_settings(**KEYS)
+    def test_shared_device_rebind_and_old_logout_preserve_each_users_other_devices(self):
+        make_subscription(self.child, "https://push.example/child-phone")
+        make_subscription(self.other, "https://push.example/other-phone")
+        self.authenticate(self.child)
+        self.client.post(reverse("push-subscribe"), self.body(), format="json")
+        self.authenticate(self.other)
+        self.client.post(reverse("push-subscribe"), self.body(), format="json")
+        self.authenticate(self.child)
+        response = self.client.post(
+            reverse("push-unsubscribe"), {"endpoint": "https://push.example/abc"}, format="json",
+        )
+        self.assertEqual(response.data["removed"], 0)
+        self.assertEqual(PushSubscription.objects.count(), 3)
+        self.assertEqual(
+            PushSubscription.objects.get(endpoint="https://push.example/abc").user, self.other,
+        )
+        self.assertTrue(PushSubscription.objects.filter(user=self.child, endpoint="https://push.example/child-phone").exists())
+        self.assertTrue(PushSubscription.objects.filter(user=self.other, endpoint="https://push.example/other-phone").exists())
+
+    @override_settings(**KEYS)
     def test_subscribe_rejects_an_incomplete_payload(self):
-        self.client.force_authenticate(user=self.child)
+        self.authenticate(self.child)
         response = self.client.post(
             reverse("push-subscribe"), {"endpoint": "https://x/"}, format="json",
         )
@@ -243,14 +274,14 @@ class PushAPITests(TestCase):
 
     @override_settings(VAPID_PUBLIC_KEY="", VAPID_PRIVATE_KEY="")
     def test_subscribe_refuses_when_the_server_cannot_send(self):
-        self.client.force_authenticate(user=self.child)
+        self.authenticate(self.child)
         response = self.client.post(reverse("push-subscribe"), self.body(), format="json")
         self.assertEqual(response.status_code, 503)
 
     @override_settings(**KEYS)
     def test_unsubscribe_removes_the_row(self):
         make_subscription(self.child)
-        self.client.force_authenticate(user=self.child)
+        self.authenticate(self.child)
         response = self.client.post(
             reverse("push-unsubscribe"),
             {"endpoint": "https://push.example/abc"},
@@ -262,10 +293,117 @@ class PushAPITests(TestCase):
     @override_settings(**KEYS)
     def test_unsubscribe_cannot_silence_someone_elses_device(self):
         make_subscription(self.other, "https://push.example/theirs")
-        self.client.force_authenticate(user=self.child)
+        self.authenticate(self.child)
         self.client.post(
             reverse("push-unsubscribe"),
             {"endpoint": "https://push.example/theirs"},
             format="json",
         )
         self.assertEqual(PushSubscription.objects.count(), 1)
+
+    @override_settings(**KEYS)
+    def test_stale_authenticated_bind_cannot_recreate_endpoint_after_logout(self):
+        credential = Token.objects.create(user=self.child)
+        delayed = APIClient()
+        delayed.force_authenticate(user=self.child, token=credential)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {credential.key}")
+        logout = self.client.post(
+            "/api/auth/", {"action": "logout", "push_endpoint": self.body()["endpoint"]}, format="json",
+        )
+        self.assertEqual(logout.status_code, 200)
+        response = delayed.post(reverse("push-subscribe"), self.body(), format="json")
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(PushSubscription.objects.exists())
+
+    @override_settings(**KEYS)
+    def test_logout_between_bind_authentication_and_write_rejects_bind(self):
+        self.authenticate(self.child)
+
+        def logout_before_lock(request):
+            response = self.client.post(
+                "/api/auth/", {"action": "logout", "push_endpoint": self.body()["endpoint"]}, format="json",
+            )
+            self.assertEqual(response.status_code, 200)
+            return _lock_push_credential(request)
+
+        with patch("apps.notifications.views._lock_push_credential", side_effect=logout_before_lock):
+            response = self.client.post(reverse("push-subscribe"), self.body(), format="json")
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(PushSubscription.objects.exists())
+
+    @override_settings(**KEYS)
+    def test_stale_authenticated_unsubscribe_preserves_new_session_endpoint(self):
+        credential = Token.objects.create(user=self.child)
+        delayed = APIClient()
+        delayed.force_authenticate(user=self.child, token=credential)
+        credential.delete()
+        replacement = Token.objects.create(user=self.child)
+        make_subscription(self.child)
+        response = delayed.post(
+            reverse("push-unsubscribe"), {"endpoint": self.body()["endpoint"]}, format="json",
+        )
+        self.assertEqual(response.status_code, 401)
+        self.assertTrue(Token.objects.filter(key=replacement.key).exists())
+        self.assertTrue(PushSubscription.objects.filter(endpoint=self.body()["endpoint"]).exists())
+
+    @override_settings(**KEYS)
+    def test_bind_without_token_cannot_bypass_credential_fence(self):
+        self.client.force_authenticate(user=self.child)
+        response = self.client.post(reverse("push-subscribe"), self.body(), format="json")
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(PushSubscription.objects.exists())
+
+
+@skipUnless(connection.vendor == "postgresql", "Requires PostgreSQL row locks")
+@override_settings(**KEYS)
+class PushLogoutConcurrencyTests(TransactionTestCase):
+    def test_logout_waits_for_bind_then_removes_endpoint_before_revocation(self):
+        cache.clear()
+        family = make_family(children=[{"username": "push-child"}])
+        user = family.children[0]
+        credential = Token.objects.create(user=user)
+        endpoint = "https://push.example/concurrent"
+        bound_lock, release_bind, logout_started, logout_finished = (Event() for _ in range(4))
+
+        def hold_bind_lock(request):
+            result = _lock_push_credential(request)
+            bound_lock.set()
+            if not release_bind.wait(timeout=10):
+                raise TimeoutError("Bind was not released")
+            return result
+
+        def request(path, body, *, logout=False):
+            close_old_connections()
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SET lock_timeout = '5s'")
+                client = APIClient()
+                client.credentials(HTTP_AUTHORIZATION=f"Token {credential.key}")
+                if logout:
+                    logout_started.set()
+                result = client.post(path, body, format="json")
+                if logout:
+                    logout_finished.set()
+                return result.status_code
+            finally:
+                connection.close()
+
+        with patch("apps.notifications.views._lock_push_credential", side_effect=hold_bind_lock):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                bind = pool.submit(
+                    request, reverse("push-subscribe"),
+                    {"endpoint": endpoint, "keys": {"p256dh": "p", "auth": "a"}},
+                )
+                try:
+                    self.assertTrue(bound_lock.wait(timeout=10))
+                    logout = pool.submit(
+                        request, "/api/auth/", {"action": "logout", "push_endpoint": endpoint}, logout=True,
+                    )
+                    self.assertTrue(logout_started.wait(timeout=10))
+                    self.assertFalse(logout_finished.wait(timeout=0.1))
+                finally:
+                    release_bind.set()
+                self.assertEqual(bind.result(timeout=15), 201)
+                self.assertEqual(logout.result(timeout=15), 200)
+        self.assertFalse(Token.objects.filter(key=credential.key).exists())
+        self.assertFalse(PushSubscription.objects.filter(endpoint=endpoint).exists())

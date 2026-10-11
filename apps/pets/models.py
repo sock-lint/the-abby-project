@@ -196,6 +196,10 @@ class MountExpedition(TimestampedModel):
     ``returns_at``. See apps/pets/expeditions.py for the orchestration.
     """
 
+    # pets.0008 created an integer primary key; retain it independently of
+    # the app's BigAutoField default so existing tables and IDs stay intact.
+    id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")
+
     class Tier(models.TextChoices):
         SHORT = "short", "Short (2h)"
         STANDARD = "standard", "Standard (4h)"

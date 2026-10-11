@@ -37,14 +37,13 @@ export function tierForProgress({ unlocked, progressPct, level, maxLevel = 6 }) 
   return PROGRESS_TIER.nascent;
 }
 
-// Radial glow behind a badge sigil. Shadow uses the cover token so a Vigil
-// (dark) user gets the same gold-leaf halo the variable resolves to for them.
+// Quiet rarity rings share each cover's readable accent palette.
 export const RARITY_HALO = {
-  common: 'shadow-[0_0_18px_rgba(123,158,99,0.35)] ring-1 ring-moss/40',
-  uncommon: 'shadow-[0_0_22px_rgba(64,140,140,0.40)] ring-1 ring-sheikah-teal/45',
-  rare: 'shadow-[0_0_26px_rgba(76,94,158,0.45)] ring-1 ring-royal/50',
-  epic: 'shadow-[0_0_30px_rgba(191,84,56,0.50)] ring-1 ring-ember/55',
-  legendary: 'shadow-[0_0_36px_rgba(216,176,88,0.60)] ring-2 ring-gold-leaf/70',
+  common: 'shadow-sm ring-1 ring-moss/30',
+  uncommon: 'shadow-sm ring-1 ring-sheikah-teal/35',
+  rare: 'shadow-sm ring-1 ring-royal/40',
+  epic: 'shadow-sm ring-1 ring-ember/45',
+  legendary: 'shadow-sm ring-2 ring-gold-leaf/50',
 };
 
 export const CHAPTER_NUMERALS = [

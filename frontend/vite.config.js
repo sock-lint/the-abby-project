@@ -26,7 +26,7 @@ export default defineConfig(({ command }) => {
         name: 'The Abby Project',
         short_name: 'Abby',
         description:
-          'Track projects, chores, and homework — earn money, coins, and badges.',
+          'Keep your memories, grow your story, and share little adventures with your family.',
         start_url: '/',
         scope: '/',
         display: 'standalone',
@@ -37,8 +37,8 @@ export default defineConfig(({ command }) => {
         // Nothing in the layout needs portrait — JournalShell already has a
         // wide arrangement (sidebar at lg) that landscape viewports use.
         orientation: 'any',
-        background_color: '#f4ecd8',
-        theme_color: '#f4ecd8',
+        background_color: '#FFF8EE',
+        theme_color: '#FFF8EE',
         icons: [
           { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
@@ -51,7 +51,7 @@ export default defineConfig(({ command }) => {
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2,ttf}'],
         // The worker and shell have root URLs, but bundled assets are served
         // by WhiteNoise at /static/assets/. Cache the same URLs index.html
         // requests so the previous release can still boot after a deploy.
@@ -63,7 +63,7 @@ export default defineConfig(({ command }) => {
         // Web Push handlers live in their own root-served file rather than
         // switching this whole config to injectManifest — see push-sw.js for
         // why generateSW stays in charge.
-        importScripts: ['/push-sw.js'],
+        importScripts: ['/push-sw.js', '/privacy-sw.js'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [
           /^\/api\//,
@@ -76,31 +76,9 @@ export default defineConfig(({ command }) => {
           /^\/\.well-known\//,
         ],
         runtimeCaching: [
-          // Same-origin GET /api/ reads: network first with a short timeout,
-          // falling back to the last cached response so flaky-wifi and
-          // fully-offline boots still show recent data. NOTE: the Cache
-          // Storage entries are per-browser-profile (each family member's
-          // own device/profile only sees responses their own token fetched)
-          // Chronicle reads stay on the network: journals and conversations
-          // have author-controlled sharing, and an offline cached response
-          // must not cross accounts or bypass a later sharing change.
-          // Non-GET requests are never cached.
-          {
-            urlPattern: ({ sameOrigin, url }) =>
-              sameOrigin && url.pathname.startsWith('/api/')
-              && !url.pathname.startsWith('/api/chronicle/'),
-            method: 'GET',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-reads',
-              networkTimeoutSeconds: 3,
-              expiration: { maxEntries: 60, maxAgeSeconds: 86400 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-          // Images. The api-reads cache above keeps JSON payloads for 24h so
-          // an offline boot still renders real data — but in production every
-          // image field in those payloads is a presigned Ceph URL whose
+          // Private API reads always reach the network. URL-only caches
+          // cannot distinguish accounts sharing a browser profile.
+          // Images remain available offline. Image fields are presigned Ceph URLs whose
           // signature dies after AWS_QUERYSTRING_EXPIRE (1h), and the media
           // host is cross-origin, so none of it was runtime-cached at all.
           // Sketchbook tiles, pet art, proof thumbnails and avatars therefore

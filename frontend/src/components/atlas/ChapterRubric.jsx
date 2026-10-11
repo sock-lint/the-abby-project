@@ -18,10 +18,10 @@ export default function ChapterRubric({ index, subject, name, icon, summary }) {
   const displaySummary = summary ?? subject?.summary;
   return (
     <header className="pt-4 pb-1">
-      <div className="flex items-baseline gap-3">
+      <div className="flex flex-wrap items-baseline gap-2 sm:gap-3">
         <span
           aria-hidden="true"
-          className="font-display italic text-xl md:text-2xl text-ember-deep leading-none select-none"
+          className="font-display font-bold text-body text-sheikah-teal-deep leading-none select-none"
         >
           {chapterMark(index)}
         </span>
@@ -30,16 +30,16 @@ export default function ChapterRubric({ index, subject, name, icon, summary }) {
             {displayIcon}
           </span>
         )}
-        <h3 className="font-display italic text-lede md:text-xl text-ink-primary leading-tight truncate flex-1">
+        <h3 className="font-display font-bold text-lede md:text-xl text-ink-primary leading-tight break-words min-w-0 flex-1">
           {displayName}
         </h3>
         {displaySummary && (
-          <span className="text-caption text-ink-whisper font-rune uppercase tracking-wider shrink-0">
+          <span className="text-caption text-ink-whisper font-body shrink-0">
             L{displaySummary.level} · {(displaySummary.total_xp ?? 0).toLocaleString()} XP
           </span>
         )}
       </div>
-      <div className="mt-2 h-px bg-gradient-to-r from-ember-deep/30 via-ink-page-shadow/60 to-transparent" />
+      <div className="mt-2 h-px bg-ink-page-shadow/40" />
     </header>
   );
 }

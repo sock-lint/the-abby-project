@@ -15,9 +15,8 @@ import MockPulse from './pulse.jsx';
  *   routePath    — route pattern if the component uses useParams (e.g.
  *                   '/quests/ventures/:id')
  *   withAuth     — wrap in AuthProvider (default true). The provider fetches
- *                   /auth/me/ on mount, so pages that mount before tests
- *                   stub /auth/me/ will see a null user; provide a token
- *                   in localStorage before render if you need one.
+ *                   /auth/me/ using the authenticated fixture token seeded
+ *                   by setup.js. Anonymous tests explicitly clear the token.
  *   pulse        — seed the shared heartbeat (PulseProvider's context) with
  *                   a payload. Returns a ``beat(next)`` helper that
  *                   re-renders with a new heartbeat, which is how the toast

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ConfirmDialog from './ConfirmDialog.jsx';
@@ -66,14 +67,56 @@ describe('ConfirmDialog', () => {
     expect(descEl).toHaveTextContent('This cannot be undone.');
   });
 
-  it('autofocuses the confirm button so Enter triggers onConfirm', async () => {
+  it('focuses Cancel so an immediate Enter does not confirm a destructive action', async () => {
     const onConfirm = vi.fn();
+    const onCancel = vi.fn();
     const user = userEvent.setup();
-    render(<ConfirmDialog title="x" message="y" onConfirm={onConfirm} onCancel={() => {}} />);
-    const confirmBtn = screen.getByRole('button', { name: 'Delete' });
-    expect(document.activeElement).toBe(confirmBtn);
+    render(<ConfirmDialog title="x" message="y" onConfirm={onConfirm} onCancel={onCancel} />);
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
     await user.keyboard('{Enter}');
-    expect(onConfirm).toHaveBeenCalled();
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('keeps Tab and Shift+Tab within the confirmation', async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <button>Background control</button>
+        <ConfirmDialog title="Delete?" message="Are you sure?" onConfirm={() => {}} onCancel={() => {}} />
+      </>,
+    );
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    const confirm = screen.getByRole('button', { name: 'Delete' });
+    await user.tab();
+    expect(confirm).toHaveFocus();
+    await user.tab();
+    expect(cancel).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(confirm).toHaveFocus();
+    screen.getByRole('button', { name: 'Background control' }).focus();
+    expect(cancel).toHaveFocus();
+  });
+
+  it('cancels on Escape and restores focus to the opener', async () => {
+    const onCancel = vi.fn();
+    function Deletion() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Delete record</button>
+          {open && <ConfirmDialog title="Delete?" message="Are you sure?" onConfirm={() => {}} onCancel={() => { onCancel(); setOpen(false); }} />}
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    render(<Deletion />);
+    const opener = screen.getByRole('button', { name: 'Delete record' });
+    await user.click(opener);
+    await user.keyboard('{Escape}');
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
   });
 
   // The escape hatch next to a destructive seal used to be a hand-rolled

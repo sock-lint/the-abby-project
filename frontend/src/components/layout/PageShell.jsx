@@ -42,7 +42,7 @@ export default function PageShell({
 }) {
   const rhythmClass = RHYTHM_CLASSES[rhythm] || RHYTHM_CLASSES.default;
   const widthClass = WIDTH_CLASSES[width] || WIDTH_CLASSES.wide;
-  const combined = `${widthClass} mx-auto ${rhythmClass} ${className}`;
+  const combined = `${widthClass} mx-auto font-body ${rhythmClass} ${className}`;
 
   if (!animate) {
     const Tag = as;

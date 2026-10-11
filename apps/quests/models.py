@@ -184,6 +184,10 @@ class DailyChallenge(TimestampedModel):
     doesn't compete with the real quest system for attention.
     """
 
+    # quests.0004 created an integer primary key; retain it independently of
+    # the app's BigAutoField default so existing tables and IDs stay intact.
+    id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")
+
     class ChallengeType(models.TextChoices):
         CLOCK_HOUR = "clock_hour", "Clock an hour today"
         CHORES = "chores", "Finish N chores today"

@@ -81,7 +81,7 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
         # .exclude(...).first() — that call bypasses the prefetch cache
         # and fires one query per assignment in list views.
         for sub in obj.submissions.all():
-            if sub.status != HomeworkSubmission.Status.REJECTED:
+            if sub.user_id == obj.assigned_to_id and sub.status != HomeworkSubmission.Status.REJECTED:
                 return {"id": sub.id, "status": sub.status}
         return None
 

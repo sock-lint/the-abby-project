@@ -10,9 +10,8 @@ import { tierForProgress, TIER_BADGE_TONE } from '../../components/atlas/mastery
  * but parameterised so a tab can fill in its own letter / title / stats /
  * progress without dragging the skill-tree XP math along.
  *
- * Verso (left, ~220-260px desktop · top banner mobile): tier-toned kicker
- *   chip, brass-rimmed illuminated drop-cap, display-serif title with
- *   foil-glint, stats row, progress bar, optional rarity strand.
+ * Verso (left, ~220-260px desktop · top banner mobile): a soft summary
+ *   panel with a tier chip, letter tile, stats and progress.
  *
  * Tier is carried the way the rest of the app carries state — PROGRESS_TIER's
  * `bar` and `chip` channels (the versal's gilt fill, the progress bar, the
@@ -24,16 +23,6 @@ import { tierForProgress, TIER_BADGE_TONE } from '../../components/atlas/mastery
  * No new tier ladders, halo colors, or keyframes — composition against
  * the existing Atlas cohort (per components/README.md guidance).
  */
-
-// Bottom stop of the title's foil gradient, tier-tinted so the folio's
-// heading matches the spine it opens from.
-const FOIL_BOTTOM = {
-  locked: 'var(--color-ink-page-shadow)',
-  nascent: 'var(--color-ember-deep)',
-  rising: 'var(--color-ember-deep)',
-  cresting: 'var(--color-ember-deep)',
-  gilded: 'var(--color-gold-leaf)',
-};
 
 function tierKeyOf(tier) {
   if (tier.bar?.includes('gold-leaf')) return 'gilded';
@@ -58,7 +47,6 @@ export default function QuestFolio({
   const safePct = Math.max(0, Math.min(100, Number(progressPct) || 0));
   const tier = tierForProgress({ unlocked: safePct > 0, progressPct: safePct, level: 0 });
   const tierKey = tierKeyOf(tier);
-  const foilBottom = FOIL_BOTTOM[tierKey] ?? FOIL_BOTTOM.rising;
   const safeStats = (stats ?? []).slice(0, 3);
   const firstLetter = (letter || title || '✦').toString().trim().charAt(0).toUpperCase() || '✦';
   // Phone-only condensed incipit: the same stats the full plate renders,
@@ -70,16 +58,15 @@ export default function QuestFolio({
   return (
     <ParchmentCard
       tone="bright"
-      flourish
       as="section"
       aria-label={`${title} folio`}
       className={`!p-0 overflow-hidden ${className}`}
     >
       <div className="relative grid grid-cols-1 md:grid-cols-[220px_1fr] lg:grid-cols-[260px_1fr]">
-        {/* Gutter — vertical fold shadow down the center on desktop. */}
+        {/* Summary divider on desktop. */}
         <div
           aria-hidden="true"
-          className="hidden md:block absolute inset-y-4 left-[220px] lg:left-[260px] w-px bg-gradient-to-b from-transparent via-ink-page-shadow/60 to-transparent pointer-events-none"
+          className="hidden md:block absolute inset-y-4 left-[220px] lg:left-[260px] w-px bg-ink-page-shadow/30 pointer-events-none"
         />
 
         {/* Verso — the chapter incipit. Below md it condenses to a single
@@ -89,7 +76,7 @@ export default function QuestFolio({
           data-folio-verso="true"
           data-tier={tierKey}
           data-progress={Math.round(safePct)}
-          className="relative px-4 pt-4 pb-3 md:px-5 md:pt-7 md:pb-6 flex flex-col items-center text-center gap-3 border-b md:border-b-0 md:border-r border-ink-page-shadow/30"
+          className="relative bg-ink-page-aged/40 px-4 pt-4 pb-3 md:px-5 md:pt-7 md:pb-6 flex flex-col items-center text-center gap-3 border-b md:border-b-0 md:border-r border-ink-page-shadow/30"
         >
           {/* Compact incipit — phones only. Small versal, title, inline
               stats caption, and a thin progress bar with its label. */}
@@ -107,17 +94,12 @@ export default function QuestFolio({
             />
             <div className="min-w-0 flex-1">
               <h2
-                className="spine-foil font-display italic text-lede leading-tight truncate"
-                style={{
-                  letterSpacing: '0.02em',
-                  '--foil-tone-top': 'var(--color-gold-leaf)',
-                  '--foil-tone-bottom': foilBottom,
-                }}
+                className="font-display font-bold text-ink-primary text-lede leading-tight break-words"
               >
                 {title}
               </h2>
               {safeStats.length > 0 && (
-                <div className="text-micro font-rune uppercase tracking-wider text-ink-whisper truncate mt-0.5">
+                <div className="text-caption font-body text-ink-whisper mt-0.5">
                   {safeStats.map((s, i) => (
                     <span key={`${s.label}-${i}`}>
                       {i > 0 && ' · '}
@@ -154,8 +136,7 @@ export default function QuestFolio({
             </div>
           </div>
 
-          {/* Full illuminated plate — md+ only. Markup unchanged from the
-              single-variant version so desktop keeps every ornament. */}
+          {/* Full summary — md+ only, with the same progress and stats. */}
           <div
             data-folio-verso-full="true"
             className="hidden w-full md:flex flex-col items-center text-center gap-3"
@@ -165,25 +146,14 @@ export default function QuestFolio({
               {kicker}
             </RuneBadge>
           )}
-          {/* Brass-rimmed medallion around the versal — same head-cap
-              shape FolioSpread uses on the Skills tome. */}
+          {/* Soft letter tile shared with the Skills summary. */}
           <span
             aria-hidden="true"
             data-folio-medallion="true"
-            className="relative inline-flex items-center justify-center rounded-full p-1"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle at 50% 30%, rgba(255,248,224,0.35) 0%, transparent 55%), linear-gradient(160deg, var(--color-gold-leaf) 0%, var(--color-ember-deep) 80%)',
-              boxShadow:
-                'inset 0 1px 0 rgba(255, 248, 224, 0.65), inset 0 -2px 2px rgba(45, 31, 21, 0.45), 0 0 0 1px rgba(143, 62, 29, 0.45), 0 4px 10px rgba(45, 31, 21, 0.35)',
-            }}
+            className="relative inline-flex items-center justify-center rounded-3xl p-2 bg-ink-page-aged"
           >
             <span
-              className="rounded-full bg-ink-page p-1"
-              style={{
-                boxShadow:
-                  'inset 0 0 0 1px rgba(45, 31, 21, 0.25), inset 0 2px 4px rgba(45, 31, 21, 0.18)',
-              }}
+              className="rounded-2xl bg-ink-page-rune-glow p-1"
             >
               <IlluminatedVersal
                 letter={firstLetter}
@@ -196,12 +166,7 @@ export default function QuestFolio({
           <div className="space-y-0.5">
             <h2
               data-folio-title="true"
-              className="spine-foil spine-foil-glint font-display italic text-xl md:text-2xl leading-tight"
-              style={{
-                letterSpacing: '0.02em',
-                '--foil-tone-top': 'var(--color-gold-leaf)',
-                '--foil-tone-bottom': foilBottom,
-              }}
+              className="font-display font-bold text-ink-primary text-xl md:text-2xl leading-tight break-words"
             >
               {title}
             </h2>
@@ -219,10 +184,10 @@ export default function QuestFolio({
                     <span className="h-8 w-px bg-ink-page-shadow/40" aria-hidden="true" />
                   )}
                   <span className="text-center">
-                    <span className={`block font-display italic font-bold leading-none text-2xl ${tier.chip}`}>
+                    <span className={`block font-display font-bold leading-none text-2xl ${tier.chip}`}>
                       {s.value}
                     </span>
-                    <span className="block text-micro font-rune uppercase tracking-wider text-ink-whisper mt-0.5">
+                    <span className="block text-caption font-body text-ink-whisper mt-0.5">
                       {s.label}
                     </span>
                   </span>

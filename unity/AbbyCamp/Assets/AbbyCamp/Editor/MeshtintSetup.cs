@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using AbbyCamp.Presentation;
@@ -18,6 +19,7 @@ namespace AbbyCamp.Editor
         public const string PresentationPath = GeneratedPath + "/Meadow.asset";
         private const string ForestPath = SourcePath + "/Forest Ruins Pack Cute Series/Prefabs/";
         private const string ArcherPath = SourcePath + "/Female Archer Pack 01 Cute Series/";
+        private static readonly Dictionary<Material, Material> ForestMaterials = new Dictionary<Material, Material>();
 
         [MenuItem("Abby Camp/Licensed Cute Series/Prepare meadow")]
         public static void Prepare()
@@ -36,18 +38,20 @@ namespace AbbyCamp.Editor
                 AssetDatabase.CreateAsset(settings, PresentationPath);
             }
             // Palette/font/receipts stay shared. These definitions only replace appearance.
-            var chick = CreateCreature("Chick", "Idle", "Jump Forward In Place", .9f, 0f);
-            var fledgling = CreateCreature("Fledgling", "Idle", "Walk Forward In Place", 1.05f, 0f);
-            CreateCreature("Bird", "Fly Idle", "Fly Forward In Place", 1.3f, .3f);
+            var chick = CreateCreature("Chick", "Idle", "Jump Forward In Place", 1.8f, 0f);
+            var fledgling = CreateCreature("Fledgling", "Idle", "Walk Forward In Place", 1.9f, 0f);
+            CreateCreature("Bird", "Fly Idle", "Fly Forward In Place", 2f, .3f);
             settings.CompanionAppearance = chick;
             // Appearance preview demonstrates swaps; it is not an earned evolution.
             settings.AlternateCompanionAppearance = fledgling;
-            if (Directory.Exists(ArcherPath)) settings.PlayerAppearance = CreateArcher();
+            // A companion garden has no player avatar. Keep the purchased pack
+            // staged privately, without bundling it through this presentation.
+            settings.PlayerAppearance = null;
             EditorUtility.SetDirty(settings);
             AssetDatabase.SaveAssets();
             CampSceneBuilder.BuildScene(settings, ScenePath, DecorateForest);
             Validate();
-            Debug.Log("ABBY_MESHTINT_PREPARED: licensed companion, stage definitions, avatar, forest and shared portraits.");
+            Debug.Log("ABBY_MESHTINT_PREPARED: fixed licensed companion garden, stage definitions, forest and shared portraits.");
         }
 
         private static void ConfigureMaterialsAndTextures()
@@ -219,38 +223,228 @@ namespace AbbyCamp.Editor
 
         private static void DecorateForest()
         {
+            ForestMaterials.Clear();
+            UnityEngine.Object.FindFirstObjectByType<CampPhoneCamera>().ConfigureFraming(4.6f, new Vector3(0f, .95f, 0f));
+            var sun = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsSortMode.None).First(light => light.type == LightType.Directional);
+            sun.intensity = .95f;
+            sun.color = new Color(1f, .98f, .96f);
+            RenderSettings.ambientLight = new Color(.67f, .69f, .7f);
             var scenery = GameObject.Find("Replaceable meadow scenery").transform;
             foreach (var child in scenery.Cast<Transform>().ToArray())
-                if (child.name.StartsWith("Round tree", StringComparison.Ordinal) || child.name.StartsWith("Little meadow stone", StringComparison.Ordinal))
+                if (child.name.StartsWith("Round tree", StringComparison.Ordinal) || child.name.StartsWith("Little meadow stone", StringComparison.Ordinal)
+                    || child.name.StartsWith("Meadow flower", StringComparison.Ordinal) || child.name.StartsWith("Tree collision", StringComparison.Ordinal))
                     UnityEngine.Object.DestroyImmediate(child.gameObject);
-            var positions = new[] { new Vector3(-6.8f, 0f, 3.8f), new Vector3(-5f, 0f, 5.5f), new Vector3(5.8f, 0f, 4.5f), new Vector3(7.2f, 0f, 1.7f), new Vector3(-7f, 0f, -3.5f) };
-            for (var i = 0; i < positions.Length; i++)
-                Place("Nature/" + (i % 2 == 0 ? "Tree 02 Green Twoside" : "Tree 03 Green Twoside") + ".prefab", positions[i], 3.1f, i * 47f, scenery);
-            for (var i = 0; i < 10; i++)
+            var forest = new GameObject("Purchased woodland backdrop").transform;
+            forest.SetParent(scenery, false);
+
+            // Ground and props are appearance only; no movement or imported
+            // terrain physics is needed in the companion garden.
+            GameObject.Find("Soft meadow island").SetActive(false);
+            GameObject.Find("Meadow edge").SetActive(false);
+            PlaceFootprint("Grounds and Platforms/Ground 01 Soft Edge.prefab", Vector3.zero, 25f, 22f, -.015f, 0f, forest);
+            GameObject.Find("Welcome clearing").SetActive(false);
+            PlaceFootprint("Grounds and Platforms/Soil 01.prefab", new Vector3(-.7f, 0f, .7f), 8.2f, 7.6f, .012f, -12f, forest);
+            for (var i = 0; i < 5; i++)
             {
-                var angle = i * 2.399963f;
-                var position = new Vector3(Mathf.Cos(angle) * 6.3f, 0f, Mathf.Sin(angle) * 4.4f);
-                Place("Rocks/Rock 01.prefab", position, .35f + i % 3 * .1f, i * 63f, scenery);
-                if (i % 3 == 0) Place("Nature/Mushroom 01.prefab", position + new Vector3(.55f, 0f, .2f), .35f, i * 32f, scenery);
+                GameObject.Find("Stepping stone " + (i + 1)).SetActive(false);
+                var position = Vector3.Lerp(new Vector3(1f, 0f, -4.7f), new Vector3(-3f, 0f, 2.5f), i / 4f);
+                PlaceFootprint("Steps/Stone Step 01.prefab", position, 1.1f, .8f, .035f, 18f + i * 11f, forest);
             }
-            Place("Structures and Buildings/Arch Gate 01.prefab", new Vector3(3.6f, 0f, 4.5f), 2.4f, 0f, scenery);
+
+            // Tall silhouettes frame the companion from behind, with low
+            // foliage in front so its eyes stay clear on a phone.
+            var trees = new[] {
+                new Vector3(-10f, 0f, -5f), new Vector3(-10.3f, 0f, -1.8f), new Vector3(-10f, 0f, 1.5f),
+                new Vector3(-9.2f, 0f, 4.8f), new Vector3(-7.3f, 0f, 7.4f), new Vector3(-4.2f, 0f, 8.3f),
+                new Vector3(-1.1f, 0f, 8.9f), new Vector3(2.2f, 0f, 8.7f), new Vector3(5.5f, 0f, 8.2f),
+                new Vector3(8.3f, 0f, 6.8f), new Vector3(10.2f, 0f, 4.2f), new Vector3(11f, 0f, 1.1f),
+                new Vector3(-11.5f, 0f, 6f), new Vector3(-6f, 0f, 10.5f), new Vector3(.7f, 0f, 11f),
+                new Vector3(7f, 0f, 10f),
+                new Vector3(-6.5f, 0f, 3.1f), new Vector3(-6.6f, 0f, 5.6f),
+                new Vector3(-2.4f, 0f, 5.9f), new Vector3(.5f, 0f, 5.9f)
+            };
+            for (var i = 0; i < trees.Length; i++)
+            {
+                var tree = i % 4 == 0 ? "Tree 05" : i % 3 == 0 ? "Tree 03 Orange Twoside"
+                    : i % 2 == 0 ? "Tree 03 Green Twoside" : "Tree 02 Green Twoside";
+                Place("Nature/" + tree + ".prefab", trees[i], i < 16 ? 3.6f + i % 3 * .45f : 2.65f, i * 47f, forest, false);
+            }
+
+            // A broken garden gateway frames the bloom side, with small ruin
+            // fragments along the woodland beside the companion clearing.
+            Place("Structures and Buildings/Arch Gate 01.prefab", new Vector3(3.8f, 0f, 6.2f), 3.3f, -18f, forest);
+            Place("Structures and Buildings/Arch Gate 01.prefab", new Vector3(-5.2f, 0f, 5.9f), 2.7f, -18f, forest);
+            Place("Structures and Buildings/Arch Gate Debris 01.prefab", new Vector3(6.9f, 0f, 5.4f), .7f, 35f, forest);
+            Place("Structures and Buildings/Ancient Pillar 01.prefab", new Vector3(7.8f, 0f, 3.6f), 1.9f, 24f, forest);
+            Place("Structures and Buildings/Ancient Pillar 01.prefab", new Vector3(-7.8f, 0f, 5.3f), 1.45f, 66f, forest);
+            Place("Structures and Buildings/Arch Gate Debris 02.prefab", new Vector3(-8.1f, 0f, .1f), .55f, 80f, forest);
+
+            var pockets = new[] {
+                new Vector3(-7f, 0f, -3.7f), new Vector3(-7.4f, 0f, -.8f), new Vector3(-6.7f, 0f, 1.6f),
+                new Vector3(-5.8f, 0f, 5.8f), new Vector3(-2.5f, 0f, 6.3f), new Vector3(.6f, 0f, 6.4f),
+                new Vector3(6.1f, 0f, 3.5f), new Vector3(7f, 0f, .5f), new Vector3(6.6f, 0f, -2.6f),
+                new Vector3(4.3f, 0f, -4.9f), new Vector3(-2.8f, 0f, -4.9f)
+            };
+            for (var i = 0; i < pockets.Length; i++)
+            {
+                Place("Rocks/Rock 01.prefab", pockets[i], .3f + i % 3 * .12f, i * 63f, forest);
+                Place("Nature/Grass 01A Two Sided.prefab", pockets[i] + new Vector3(.5f, 0f, .3f), .45f, i * 39f, forest, false);
+                if (i % 2 == 0)
+                    Place("Nature/Mushroom " + (i % 4 == 0 ? "01" : "02") + ".prefab", pockets[i] + new Vector3(-.35f, 0f, .45f), .35f, i * 32f, forest);
+            }
+            // Helpers normalize props in an unscaled frame first. Bring the
+            // complete backdrop closer without changing their proportions.
+            forest.localScale = Vector3.one * .55f;
+            AssetDatabase.SaveAssets();
+            ValidateForest();
         }
 
-        private static void Place(string path, Vector3 position, float height, float yaw, Transform parent)
+        private static Material ForestMaterial(Material source)
+        {
+            if (ForestMaterials.TryGetValue(source, out var known)) return known;
+            var path = GeneratedPath + "/forest-" + AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(source)) + ".mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                material = new Material(source);
+                AssetDatabase.CreateAsset(material, path);
+            }
+            else material.CopyPropertiesFromMaterial(source);
+            var palette = AssetDatabase.LoadAssetAtPath<CampPresentationDefinition>(PresentationPath);
+            var name = source.name;
+            if (name == "Forest Ruins")
+            {
+                material.SetTexture("_BaseMap", SoftForestAtlas(source.GetTexture("_BaseMap") as Texture2D, palette));
+                material.SetColor("_BaseColor", Color.white);
+            }
+            else if (name.Contains("Leaves"))
+                material.SetColor("_BaseColor", name.Contains("Orange") ? Color.Lerp(palette.Primary, palette.Paper, .64f)
+                    : name.Contains("Blue") ? palette.Sky : Color.Lerp(palette.Grass, palette.Paper, .12f));
+            else if (name.Contains("Grass")) material.SetColor("_BaseColor", palette.Grass);
+            EditorUtility.SetDirty(material);
+            ForestMaterials.Add(source, material);
+            return material;
+        }
+
+        private static Texture2D SoftForestAtlas(Texture2D source, CampPresentationDefinition palette)
+        {
+            if (source == null) throw new InvalidOperationException("The supplied Forest Ruins atlas is missing.");
+            // Read a private copy, never edit the purchased source pixels or its
+            // importer. Keep the atlas detail/alpha while softening its colors.
+            var sourcePath = AssetDatabase.GetAssetPath(source);
+            var copyPath = GeneratedPath + "/forest-palette-source" + Path.GetExtension(sourcePath);
+            File.Copy(sourcePath, copyPath, true);
+            AssetDatabase.ImportAsset(copyPath, ImportAssetOptions.ForceSynchronousImport);
+            var copyImporter = (TextureImporter)AssetImporter.GetAtPath(copyPath);
+            copyImporter.isReadable = true;
+            copyImporter.maxTextureSize = 512;
+            copyImporter.textureCompression = TextureImporterCompression.Uncompressed;
+            copyImporter.mipmapEnabled = false;
+            copyImporter.SaveAndReimport();
+            var copy = AssetDatabase.LoadAssetAtPath<Texture2D>(copyPath);
+            var pixels = copy.GetPixels();
+            for (var i = 0; i < pixels.Length; i++)
+            {
+                var original = pixels[i];
+                Color.RGBToHSV(original, out var hue, out var saturation, out var value);
+                var tint = saturation < .15f ? Color.Lerp(palette.Sky, palette.Paper, .55f)
+                    : hue >= .15f && hue < .5f ? Color.Lerp(palette.Grass, palette.Paper, .12f)
+                    : hue < .045f && saturation > .55f ? Color.Lerp(palette.Accent, palette.Paper, .2f)
+                    : hue < .15f ? Color.Lerp(palette.Path, Color.Lerp(palette.Accent, palette.Paper, .65f), .5f)
+                    : Color.Lerp(palette.Sky, palette.Paper, .2f);
+                tint *= Mathf.Lerp(.45f, .88f, Mathf.Sqrt(value));
+                tint.a = original.a;
+                pixels[i] = tint;
+            }
+            var softened = new Texture2D(copy.width, copy.height, TextureFormat.RGBA32, false);
+            softened.SetPixels(pixels);
+            softened.Apply();
+            var path = GeneratedPath + "/forest-soft-atlas.png";
+            File.WriteAllBytes(path, softened.EncodeToPNG());
+            UnityEngine.Object.DestroyImmediate(softened);
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            importer.maxTextureSize = 512;
+            importer.alphaIsTransparency = true;
+            importer.isReadable = false;
+            importer.SaveAndReimport();
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
+        private static GameObject ForestInstance(string path, float yaw, Transform parent)
         {
             var source = AssetDatabase.LoadAssetAtPath<GameObject>(ForestPath + path);
             if (source == null) throw new InvalidOperationException("Missing forest art: " + path);
             var instance = UnityEngine.Object.Instantiate(source, parent);
+            instance.name = source.name;
             instance.transform.position = Vector3.zero;
             instance.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
             instance.transform.localScale = Vector3.one;
-            foreach (var collider in instance.GetComponentsInChildren<Collider>()) UnityEngine.Object.DestroyImmediate(collider);
-            var renderers = instance.GetComponentsInChildren<Renderer>();
+            foreach (var collider in instance.GetComponentsInChildren<Collider>(true)) UnityEngine.Object.DestroyImmediate(collider);
+            foreach (var rigidbody in instance.GetComponentsInChildren<Rigidbody>(true)) UnityEngine.Object.DestroyImmediate(rigidbody);
+            foreach (var child in instance.GetComponentsInChildren<Transform>(true))
+                GameObjectUtility.SetStaticEditorFlags(child.gameObject, StaticEditorFlags.BatchingStatic);
+            foreach (var renderer in instance.GetComponentsInChildren<Renderer>(true))
+                renderer.sharedMaterials = renderer.sharedMaterials.Select(ForestMaterial).ToArray();
+            return instance;
+        }
+
+        private static Bounds ForestBounds(GameObject instance)
+        {
+            var renderers = instance.GetComponentsInChildren<Renderer>().Where(renderer => renderer.enabled).ToArray();
+            if (renderers.Length == 0) throw new InvalidOperationException("No visible forest geometry: " + instance.name);
             var bounds = renderers[0].bounds;
             foreach (var renderer in renderers.Skip(1)) bounds.Encapsulate(renderer.bounds);
-            var scale = height / Mathf.Max(.01f, bounds.size.y);
+            if (bounds.size.x <= .001f || bounds.size.z <= .001f)
+                throw new InvalidOperationException("Degenerate forest geometry: " + instance.name);
+            return bounds;
+        }
+
+        private static void Place(string path, Vector3 position, float height, float yaw, Transform parent, bool shadows = true)
+        {
+            var instance = ForestInstance(path, yaw, parent);
+            var bounds = ForestBounds(instance);
+            if (bounds.size.y <= .001f) throw new InvalidOperationException("A height-scaled forest prop must have height: " + instance.name);
+            var scale = height / bounds.size.y;
             instance.transform.localScale = Vector3.one * scale;
-            instance.transform.position = position + Vector3.down * bounds.min.y * scale;
+            instance.transform.position = position - new Vector3(bounds.center.x, bounds.min.y, bounds.center.z) * scale;
+            if (!shadows)
+                foreach (var renderer in instance.GetComponentsInChildren<Renderer>())
+                    renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
+        private static void PlaceFootprint(string path, Vector3 position, float width, float depth, float top, float yaw, Transform parent)
+        {
+            var instance = ForestInstance(path, yaw, parent);
+            var bounds = ForestBounds(instance);
+            var scale = Mathf.Min(width / bounds.size.x, depth / bounds.size.z);
+            instance.transform.localScale = Vector3.one * scale;
+            instance.transform.position = position + new Vector3(-bounds.center.x * scale, top - bounds.max.y * scale, -bounds.center.z * scale);
+            foreach (var renderer in instance.GetComponentsInChildren<Renderer>())
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
+        private static void ValidateForest()
+        {
+            ValidateForest(GameObject.Find("Purchased woodland backdrop"));
+        }
+
+        private static void ValidateForest(GameObject forest)
+        {
+            if (forest == null) throw new InvalidOperationException("The purchased woodland backdrop is missing; prepare the licensed meadow again.");
+            if (forest.GetComponentsInChildren<Collider>(true).Length > 0 || forest.GetComponentsInChildren<Rigidbody>(true).Length > 0)
+                throw new InvalidOperationException("Purchased garden scenery must not introduce physics or movement.");
+            var renderers = forest.GetComponentsInChildren<Renderer>().Where(renderer => renderer.enabled).ToArray();
+            long triangles = 0;
+            foreach (var filter in forest.GetComponentsInChildren<MeshFilter>())
+            {
+                if (filter.sharedMesh == null) throw new InvalidOperationException("Missing forest mesh on " + filter.name);
+                for (var i = 0; i < filter.sharedMesh.subMeshCount; i++) triangles += (long)filter.sharedMesh.GetIndexCount(i) / 3;
+            }
+            var shadowCasters = renderers.Count(renderer => renderer.shadowCastingMode != UnityEngine.Rendering.ShadowCastingMode.Off);
+            if (renderers.Length > 100 || triangles > 150000 || shadowCasters > 25)
+                throw new InvalidOperationException($"Forest exceeds the phone scene budget: {renderers.Length} renderers, {triangles} triangles, {shadowCasters} shadow casters.");
+            Debug.Log($"ABBY_MESHTINT_FOREST: {forest.transform.childCount} purchased props, {renderers.Length} renderers, {triangles} triangles, {shadowCasters} shadow casters; fixed garden without imported physics.");
         }
 
         [MenuItem("Abby Camp/Licensed Cute Series/Validate meadow")]
@@ -258,6 +452,11 @@ namespace AbbyCamp.Editor
         {
             CampSceneBuilder.ValidateScene(ScenePath, PresentationPath, scene =>
             {
+                var forest = scene.GetRootGameObjects()
+                    .SelectMany(root => root.GetComponentsInChildren<Transform>())
+                    .FirstOrDefault(candidate => candidate.gameObject.activeInHierarchy
+                        && candidate.name == "Purchased woodland backdrop")?.gameObject;
+                ValidateForest(forest);
                 foreach (var name in new[] { "chick", "fledgling", "bird" })
                 {
                     var definition = AssetDatabase.LoadAssetAtPath<VisualDefinition>(GeneratedPath + "/" + name + ".asset");

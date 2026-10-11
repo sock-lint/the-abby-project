@@ -57,13 +57,11 @@ export default function IlluminatedVersal({
       data-tier={key}
       data-progress={Math.round(fillPct)}
       style={{ '--versal-fill': `${fillPct}%` }}
-      className={`relative inline-flex items-center justify-center rounded-md border border-ink-page-shadow bg-ink-page-aged overflow-hidden shrink-0 ${sz.box} ${halo} ${className}`}
+      className={`relative inline-flex items-center justify-center rounded-2xl border border-ink-page-shadow/60 bg-ink-page-aged overflow-hidden shrink-0 ${sz.box} ${halo} ${className}`}
     >
       {/* Base (unilluminated) letter — the stone carving under the gilt. */}
       <span
-        className={`absolute inset-0 flex items-center justify-center font-display italic font-bold leading-none ${sz.text} ${
-          locked ? 'text-ink-whisper/60' : 'text-ink-whisper'
-        }`}
+        className={`absolute inset-0 flex items-center justify-center font-display font-bold leading-none ${sz.text} text-ink-whisper`}
       >
         {glyph}
       </span>
@@ -74,17 +72,11 @@ export default function IlluminatedVersal({
       {!locked && (
         <span
           data-versal-gilt="true"
-          className={`versal-gilt absolute inset-0 flex items-center justify-center font-display italic font-bold leading-none ${sz.text}`}
+          className={`versal-gilt absolute inset-0 flex items-center justify-center font-display font-bold leading-none ${sz.text}`}
         >
           {glyph}
         </span>
       )}
-      {/* Inner highlight — subtle page-curl sheen. Matches ParchmentCard's
-          inset shadow vocabulary. */}
-      <span
-        aria-hidden="true"
-        className="absolute inset-0 pointer-events-none rounded-md shadow-[0_1px_0_0_var(--color-ink-page-rune-glow)_inset]"
-      />
     </span>
   );
 }

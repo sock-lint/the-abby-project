@@ -7,10 +7,9 @@ import { countIlluminated, tierForProgress, TIER_BADGE_TONE } from '../../compon
 import { XP_THRESHOLDS } from './skillTree.constants';
 
 /**
- * FolioSpread — the open codex that a selected tome reveals. On desktop
- * it's a two-column parchment spread with a gutter shadow down the
- * center; on mobile it collapses into a single column with the hero as
- * a top banner.
+ * FolioSpread — selected collection summary and its skills. On desktop
+ * the soft summary panel sits beside the working list; phones keep a
+ * compact summary above it.
  *
  * Verso (left, ~36%): category incipit with a huge illuminated drop-cap
  *   whose gilt fills with category progress, chapter mark in rune, name
@@ -37,18 +36,9 @@ export default function FolioSpread({ tree, onSelectSkill }) {
   const maxed = level >= 6;
   const toNext = Math.max(0, next - totalXp);
   const firstLetter = (category?.name || '✦').trim().charAt(0).toUpperCase() || '✦';
-  // Tier-tinted carry-through from TomeSpine — the open codex inherits the
-  // same foil tone as the spine it was extracted from, so the closed-to-open
-  // transition reads as the same physical book.
-  const foilBottomTone = {
-    locked: 'var(--color-ink-page-shadow)',
-    nascent: 'var(--color-ember-deep)',
-    rising: 'var(--color-ember-deep)',
-    cresting: 'var(--color-ember-deep)',
-    gilded: 'var(--color-gold-leaf)',
-  };
+  const tierKeys = ['locked', 'nascent', 'rising', 'cresting', 'gilded'];
   const tierKey =
-    Object.keys(foilBottomTone).find((k) => {
+    tierKeys.find((k) => {
       const t = tier;
       return (
         (k === 'gilded' && t.bar?.includes('gold-leaf')) ||
@@ -58,22 +48,19 @@ export default function FolioSpread({ tree, onSelectSkill }) {
         (k === 'locked' && t.bar?.includes('shadow'))
       );
     }) || 'rising';
-  const foilBottom = foilBottomTone[tierKey];
 
   return (
     <ParchmentCard
       tone="bright"
-      flourish
       as="section"
       aria-label={`${category?.name} folio`}
       className="!p-0 overflow-hidden"
     >
       <div className="relative grid grid-cols-1 md:grid-cols-[220px_1fr] lg:grid-cols-[260px_1fr]">
-        {/* Gutter — a vertical fold shadow down the center of the spread on
-            desktop. Decorative only. */}
+        {/* Summary divider on desktop. Decorative only. */}
         <div
           aria-hidden="true"
-          className="hidden md:block absolute inset-y-4 left-[220px] lg:left-[260px] w-px bg-gradient-to-b from-transparent via-ink-page-shadow/60 to-transparent pointer-events-none"
+          className="hidden md:block absolute inset-y-4 left-[220px] lg:left-[260px] w-px bg-ink-page-shadow/30 pointer-events-none"
         />
 
         {/* Verso — category hero. No §-numeral here: those belong to the
@@ -84,7 +71,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
         <aside
           data-folio-verso="true"
           data-tier={tierKey}
-          className="relative px-4 pt-4 pb-3 md:px-5 md:pt-7 md:pb-6 flex flex-col items-center text-center gap-3 border-b md:border-b-0 md:border-r border-ink-page-shadow/30"
+          className="relative bg-ink-page-aged/40 px-4 pt-4 pb-3 md:px-5 md:pt-7 md:pb-6 flex flex-col items-center text-center gap-3 border-b md:border-b-0 md:border-r border-ink-page-shadow/30"
         >
           {/* Compact incipit — phones only. Small versal, category title,
               rank + XP inlined as one caption line, and a thin progress
@@ -103,12 +90,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
             />
             <div className="min-w-0 flex-1">
               <h2
-                className="spine-foil font-display italic text-lede leading-tight truncate"
-                style={{
-                  letterSpacing: '0.02em',
-                  '--foil-tone-top': 'var(--color-gold-leaf)',
-                  '--foil-tone-bottom': foilBottom,
-                }}
+                className="font-display font-bold text-ink-primary text-lede leading-tight break-words"
               >
                 {category?.icon ? (
                   <span aria-hidden="true" className="mr-1 opacity-80 not-italic">
@@ -117,7 +99,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
                 ) : null}
                 {category?.name}
               </h2>
-              <div className="text-micro font-rune uppercase tracking-wider text-ink-whisper truncate mt-0.5">
+              <div className="text-caption font-body text-ink-whisper mt-0.5">
                 L{level} rank · {totalXp.toLocaleString()} total xp
               </div>
               <div className="mt-1.5">
@@ -141,8 +123,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
             </div>
           </div>
 
-          {/* Full illuminated plate — md+ only. Markup unchanged from the
-              single-variant version so desktop keeps every ornament. */}
+          {/* Full summary — md+ only, with the same category progress. */}
           <div
             data-folio-verso-full="true"
             className="hidden w-full md:flex flex-col items-center text-center gap-3"
@@ -150,27 +131,14 @@ export default function FolioSpread({ tree, onSelectSkill }) {
           <RuneBadge tone={TIER_BADGE_TONE[tierKey] ?? 'ink'} variant="outlined">
             the codex of mastery
           </RuneBadge>
-          {/* Brass-rimmed medallion frame around the illuminated versal —
-              matches the head-cap medallion on the spine. The ring sits
-              just outside the versal's letterform, so the gilt fill
-              remains visible. */}
+          {/* Soft letter tile shared with the quest summaries. */}
           <span
             aria-hidden="true"
             data-folio-medallion="true"
-            className="relative inline-flex items-center justify-center rounded-full p-1"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle at 50% 30%, rgba(255,248,224,0.35) 0%, transparent 55%), linear-gradient(160deg, var(--color-gold-leaf) 0%, var(--color-ember-deep) 80%)',
-              boxShadow:
-                'inset 0 1px 0 rgba(255, 248, 224, 0.65), inset 0 -2px 2px rgba(45, 31, 21, 0.45), 0 0 0 1px rgba(143, 62, 29, 0.45), 0 4px 10px rgba(45, 31, 21, 0.35)',
-            }}
+            className="relative inline-flex items-center justify-center rounded-3xl p-2 bg-ink-page-aged"
           >
             <span
-              className="rounded-full bg-ink-page p-1"
-              style={{
-                boxShadow:
-                  'inset 0 0 0 1px rgba(45, 31, 21, 0.25), inset 0 2px 4px rgba(45, 31, 21, 0.18)',
-              }}
+              className="rounded-2xl bg-ink-page-rune-glow p-1"
             >
               <IlluminatedVersal
                 letter={firstLetter}
@@ -186,12 +154,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
             </div>
             <h2
               data-folio-title="true"
-              className="spine-foil spine-foil-glint font-display italic text-xl md:text-2xl leading-tight"
-              style={{
-                letterSpacing: '0.02em',
-                '--foil-tone-top': 'var(--color-gold-leaf)',
-                '--foil-tone-bottom': foilBottom,
-              }}
+              className="font-display font-bold text-ink-primary text-xl md:text-2xl leading-tight break-words"
             >
               {category?.icon ? (
                 <span aria-hidden="true" className="mr-1 opacity-80 not-italic">
@@ -204,22 +167,22 @@ export default function FolioSpread({ tree, onSelectSkill }) {
           <div className="flex items-center gap-4 pt-1">
             <div className="text-center">
               <div
-                className={`font-display italic font-bold leading-none text-2xl ${
+                className={`font-display font-bold leading-none text-2xl ${
                   maxed ? 'text-gold-leaf' : tier.chip
                 }`}
               >
                 L{level}
               </div>
-              <div className="text-micro font-rune uppercase tracking-wider text-ink-whisper mt-0.5">
+              <div className="text-caption font-body text-ink-whisper mt-0.5">
                 rank
               </div>
             </div>
             <div className="h-8 w-px bg-ink-page-shadow/40" aria-hidden="true" />
             <div className="text-center">
-              <div className="font-display italic font-bold leading-none text-2xl text-ink-primary">
+              <div className="font-display font-bold leading-none text-2xl text-ink-primary">
                 {totalXp.toLocaleString()}
               </div>
-              <div className="text-micro font-rune uppercase tracking-wider text-ink-whisper mt-0.5">
+              <div className="text-caption font-body text-ink-whisper mt-0.5">
                 total xp
               </div>
             </div>

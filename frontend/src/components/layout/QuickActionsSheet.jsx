@@ -2,7 +2,6 @@ import { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Play, Square, BookOpen, Box, Target, CircleDollarSign, UserCog, PenTool, Palette, Sparkles, Feather, Activity } from 'lucide-react';
 import BottomSheet from '../BottomSheet';
-import { DragonIcon } from '../icons/JournalIcons';
 import {
   clockIn, clockOut, getProjects,
   getHomeworkDashboard,
@@ -50,15 +49,15 @@ function ActionRow({ icon, label, hint, onClick, tone = 'ink', disabled = false 
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-ink-page-shadow bg-ink-page hover:bg-ink-page-rune-glow transition-colors disabled:opacity-50 text-left"
+      className="w-full min-h-14 flex items-center gap-3 px-3 py-2.5 rounded-2xl border border-ink-page-shadow/60 bg-ink-page hover:bg-sheikah-teal/5 transition-colors disabled:opacity-50 text-left"
     >
-      <span className={`${toneText} shrink-0`}>{icon}</span>
+      <span className={`${toneText} size-9 flex items-center justify-center rounded-xl bg-ink-page-aged shrink-0`}>{icon}</span>
       <span className="flex-1 min-w-0">
         <span className="block font-body text-body font-semibold text-ink-primary">
           {label}
         </span>
         {hint && (
-          <span className="block font-script text-caption text-ink-whisper truncate">{hint}</span>
+          <span className="block font-body text-caption text-ink-whisper truncate">{hint}</span>
         )}
       </span>
     </button>
@@ -106,14 +105,14 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
 
   return (
     <div className="space-y-3">
-      <button type="button" onClick={onBack} className="font-script text-body text-sheikah-teal-deep hover:underline">
+      <button type="button" onClick={onBack} className="min-h-11 px-3 rounded-full font-body font-semibold text-body text-ink-primary hover:bg-sheikah-teal/10">
         ← Back
       </button>
       {isClocked ? (
         <>
-          <div className="font-script text-ink-whisper text-caption uppercase tracking-wider">Time still inking</div>
-          <div className="font-display text-lg truncate">{status?.project_title}</div>
-          <div className="font-rune text-3xl font-bold text-ember-deep tabular-nums text-center">
+          <div className="font-body text-ink-whisper text-caption uppercase tracking-wider">Time in progress</div>
+          <div className="font-body text-lg truncate">{status?.project_title}</div>
+          <div className="font-body text-3xl font-bold text-ember-deep tabular-nums text-center">
             {formatClock(elapsedSecs)}
           </div>
           <TextAreaField
@@ -122,7 +121,7 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
             placeholder="Scribble what you did…"
             rows={3}
           />
-          {error && <div className="text-ember-deep text-body font-script">{error}</div>}
+          {error && <div className="text-ember-deep text-body font-body">{error}</div>}
           <Button
             variant="danger"
             onClick={handleOut}
@@ -145,7 +144,7 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
               <option key={p.id} value={p.id}>{p.title}</option>
             ))}
           </SelectField>
-          {error && <div className="text-ember-deep text-body font-script">{error}</div>}
+          {error && <div className="text-ember-deep text-body font-body">{error}</div>}
           <Button
             onClick={handleIn}
             disabled={busy}
@@ -326,7 +325,7 @@ export default function QuickActionsSheet({
               <button
                 type="button"
                 onClick={() => setPane('clock')}
-                className="block w-full text-left px-3 py-1 font-script text-caption text-sheikah-teal-deep hover:underline"
+                className="block w-full min-h-11 text-left px-3 py-2 rounded-xl font-body text-caption text-ink-primary hover:bg-sheikah-teal/10"
               >
                 choose a different venture →
               </button>
@@ -398,7 +397,7 @@ export default function QuickActionsSheet({
               )}
               {hasScroll && (
                 <ActionRow
-                  icon={<DragonIcon size={18} />}
+                  icon={<Sparkles size={18} />}
                   label="Start a quest"
                   hint="Spend a scroll"
                   tone="moss"

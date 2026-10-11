@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ClockPage from './ClockPage.jsx';
@@ -29,6 +29,103 @@ function renderPage(user = buildUser(), handlers = []) {
 }
 
 describe('ClockPage', () => {
+  it('shows a retry instead of an idle timer when clock status fails', async () => {
+    const user = userEvent.setup();
+    let statusCalls = 0;
+    renderPage(buildUser(), [
+      http.get('*/api/clock/', () => {
+        statusCalls += 1;
+        return statusCalls === 1
+          ? HttpResponse.json({ error: 'Clock unavailable' }, { status: 503 })
+          : HttpResponse.json({ status: 'active', project_title: 'Ongoing', clock_in: new Date().toISOString() });
+      }),
+      http.get('*/api/projects/', () => HttpResponse.json([])),
+      http.get('*/api/time-entries/', () => HttpResponse.json([])),
+    ]);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/couldn't check your clock.*clock unavailable/i);
+    expect(screen.queryByText('00:00:00')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Clock in' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Clock out' })).not.toBeInTheDocument();
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('button', { name: 'Clock out' })).toBeEnabled();
+    expect(screen.getByRole('textbox', { name: 'Session notes' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('keeps clock-in disabled while ventures failed to load and retries them', async () => {
+    const user = userEvent.setup();
+    let projectCalls = 0;
+    const clock = spyHandler('post', '*/api/clock/', { ok: true });
+    renderPage(buildUser(), [
+      http.get('*/api/clock/', () => HttpResponse.json({ status: 'idle' })),
+      http.get('*/api/projects/', () => {
+        projectCalls += 1;
+        return projectCalls === 1
+          ? HttpResponse.json({ error: 'Ventures unavailable' }, { status: 503 })
+          : HttpResponse.json([buildProject({ id: 7, title: 'Alpha', status: 'active' })]);
+      }),
+      http.get('*/api/time-entries/', () => HttpResponse.json([])),
+      clock.handler,
+    ]);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/couldn't load ventures/i);
+    const play = screen.getByRole('button', { name: 'Clock in' });
+    expect(play).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Venture' })).toBeDisabled();
+    await user.click(play);
+    expect(clock.calls).toHaveLength(0);
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(play).toBeEnabled());
+    expect(screen.getByRole('combobox', { name: 'Venture' })).toBeEnabled();
+    expect(screen.getByRole('option', { name: 'Alpha' })).toBeInTheDocument();
+  });
+
+  it('does not claim there are no time entries when history fails', async () => {
+    const user = userEvent.setup();
+    let entryCalls = 0;
+    renderPage(buildUser(), [
+      http.get('*/api/clock/', () => HttpResponse.json({ status: 'idle' })),
+      http.get('*/api/projects/', () => HttpResponse.json([])),
+      http.get('*/api/time-entries/', () => {
+        entryCalls += 1;
+        return entryCalls === 1
+          ? HttpResponse.json({ error: 'History unavailable' }, { status: 503 })
+          : HttpResponse.json([{ id: 4, project_title: 'Past', clock_in: '2026-04-10T12:00:00Z', duration_minutes: 60, status: 'completed' }]);
+      }),
+    ]);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/couldn't load recent entries/i);
+    expect(screen.queryByText(/no entries yet/i)).not.toBeInTheDocument();
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Past')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('removes stale clock-in controls when the status refresh after clock-in fails', async () => {
+    const user = userEvent.setup();
+    let statusCalls = 0;
+    const clock = spyHandler('post', '*/api/clock/', { ok: true });
+    renderPage(buildUser(), [
+      http.get('*/api/clock/', () => {
+        statusCalls += 1;
+        return statusCalls === 1
+          ? HttpResponse.json({ status: 'idle' })
+          : HttpResponse.json({ error: 'Clock unavailable' }, { status: 503 });
+      }),
+      http.get('*/api/projects/', () => HttpResponse.json([buildProject({ id: 7, title: 'Alpha', status: 'active' })])),
+      http.get('*/api/time-entries/', () => HttpResponse.json([])),
+      clock.handler,
+    ]);
+    const play = await screen.findByRole('button', { name: 'Clock in' });
+    await waitFor(() => expect(play).toBeEnabled());
+    await user.click(play);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/couldn't check your clock/i);
+    expect(screen.queryByRole('button', { name: 'Clock in' })).not.toBeInTheDocument();
+    expect(screen.queryByText('00:00:00')).not.toBeInTheDocument();
+    expect(clock.calls).toHaveLength(1);
+  });
+
   it('renders idle state with project dropdown', async () => {
     renderPage(buildUser(), [
       http.get('*/api/clock/', () => HttpResponse.json({ status: 'idle' })),

@@ -14,7 +14,7 @@ describe('Signup', () => {
       screen.getByLabelText(/family called/i),
       'The Sageb Family',
     );
-    await user.type(screen.getByLabelText(/head scribe/i), 'Mike');
+    await user.type(screen.getByLabelText(/^your name$/i), 'Mike');
     await user.type(screen.getByLabelText(/sign-in name/i), 'mike');
     await user.type(screen.getByLabelText(/secret word/i), 'ApbBy1!Strong');
     await user.click(screen.getByRole('button', { name: /found a family/i }));
@@ -51,7 +51,7 @@ describe('Signup', () => {
     await user.type(screen.getByLabelText(/secret word/i), 'pw');
     await user.click(screen.getByRole('button', { name: /found a family/i }));
 
-    expect(await screen.findByText(/signup is sealed/i)).toBeInTheDocument();
+    expect(await screen.findByText(/signups are closed/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /back to sign in/i })).toBeInTheDocument();
   });
 

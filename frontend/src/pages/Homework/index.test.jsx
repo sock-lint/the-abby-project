@@ -53,6 +53,38 @@ function renderPage(user, handlers = [], { route = '/homework' } = {}) {
 }
 
 describe('Homework', () => {
+  it('keeps overdue pending homework visible and lets the child withdraw it', async () => {
+    const user = userEvent.setup();
+    let withdrawn = false;
+    const assignment = buildAssignment({
+      title: 'Yesterday’s lab report', due_date: '2026-04-01',
+      submission_status: { id: 77, status: 'pending' },
+    });
+    const withdraw = spyHandler('post', /\/api\/homework-submissions\/77\/withdraw\/$/, () => {
+      withdrawn = true;
+      return new HttpResponse(null, { status: 204 });
+    });
+    renderPage(buildUser(), [
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({
+        today: [], upcoming: [],
+        overdue: withdrawn ? [{ ...assignment, submission_status: null }] : [],
+        pending: withdrawn ? [] : [assignment], stats: {},
+      })),
+      withdraw.handler,
+    ]);
+
+    const heading = await screen.findByRole('heading', { name: 'Awaiting approval' });
+    const pendingSection = within(heading.closest('section'));
+    expect(pendingSection.getByText('Yesterday’s lab report')).toBeInTheDocument();
+    await user.click(pendingSection.getByRole('button', { name: 'Withdraw' }));
+    await waitFor(() => expect(withdraw.calls).toHaveLength(1));
+    expect(withdraw.calls[0].url).toMatch(/\/homework-submissions\/77\/withdraw\/$/);
+    expect(withdraw.calls[0].body).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Awaiting approval' })).toBeNull());
+    const overdueSection = within(screen.getByRole('heading', { name: 'Overdue' }).closest('section'));
+    expect(overdueSection.getByRole('button', { name: 'Submit' })).toBeInTheDocument();
+  });
+
   it('renders for a child with an empty dashboard', async () => {
     renderPage(buildUser(), [
       http.get('*/api/homework/dashboard/', () =>
@@ -609,11 +641,6 @@ describe('Homework — child self-plan gate', () => {
     const plan = spyHandler('post', /\/api\/homework\/\d+\/plan\/$/, {
       project_id: 555,
     });
-    // Stub window.location.href to avoid jsdom navigation noise.
-    const origHref = window.location.href;
-    delete window.location;
-    window.location = { href: origHref };
-
     renderPage(buildUser(), [
       http.get('*/api/homework/dashboard/', () =>
         HttpResponse.json({

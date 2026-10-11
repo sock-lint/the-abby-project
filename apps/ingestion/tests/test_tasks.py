@@ -1,6 +1,6 @@
 """Tests for the ``run_ingestion_job`` Celery task.
 
-The task itself is small but it owns three load-bearing contracts that the
+The task itself is small but it owns four load-bearing contracts that the
 view-level tests don't exercise:
 
 1. Status transitions: ``pending → running → ready`` on success,
@@ -11,12 +11,15 @@ view-level tests don't exercise:
 3. Argument forwarding: ``source_type``, ``source_url``, and (for PDFs)
    ``source_file`` are passed through to ``run_ingestion`` exactly as the
    job recorded them.
+4. Claim/finish updates skip duplicate deliveries and preserve terminal
+   state changes made while the pipeline is running.
 
 The pipeline itself is exercised in ``test_pipeline.py``; here we mock
 ``run_ingestion`` to keep the surface narrow.
 """
 from __future__ import annotations
 
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -24,7 +27,7 @@ from django.test import TestCase
 from apps.ingestion.models import ProjectIngestionJob
 from apps.ingestion.pipeline.base import IngestionResult, StepDraft
 from apps.ingestion.tasks import run_ingestion_job
-from apps.projects.models import User
+from apps.projects.models import Project, User
 
 
 class _Fixture(TestCase):
@@ -183,10 +186,9 @@ class FailurePathTests(_Fixture):
         self.assertIsNone(job.result_json)
 
     def test_failure_does_not_overwrite_prior_result_json(self):
-        """When a retry fails, the previous ready result shouldn't be wiped
-        — the parent can still commit from the last good run."""
+        """A failed retry preserves the prior draft for review/recovery."""
         job = self._make_job(
-            status=ProjectIngestionJob.Status.READY,
+            status=ProjectIngestionJob.Status.FAILED,
             result_json={"title": "prior good run"},
         )
         with patch("apps.ingestion.pipeline.run_ingestion") as mocked:
@@ -220,3 +222,144 @@ class StatusTransitionOrderTests(_Fixture):
         )
         job.refresh_from_db()
         self.assertEqual(job.status, ProjectIngestionJob.Status.READY)
+
+
+class RedeliveryTests(_Fixture):
+    def test_running_ready_and_terminal_jobs_do_not_run_pipeline(self):
+        for status in (
+            ProjectIngestionJob.Status.RUNNING, ProjectIngestionJob.Status.READY,
+            ProjectIngestionJob.Status.DISCARDED, ProjectIngestionJob.Status.COMMITTED,
+        ):
+            with self.subTest(status=status):
+                job = self._make_job(status=status, error="Existing error", result_json={"title": "Keep draft"})
+                before = job.updated_at
+                with patch("apps.ingestion.pipeline.run_ingestion") as pipeline:
+                    message = run_ingestion_job(str(job.pk))
+                pipeline.assert_not_called()
+                job.refresh_from_db()
+                self.assertEqual(job.status, status)
+                self.assertEqual(job.error, "Existing error")
+                self.assertEqual(job.result_json, {"title": "Keep draft"})
+                self.assertEqual(job.updated_at, before)
+                self.assertIn("skipped", message)
+
+    def test_linked_project_blocks_claim_even_if_job_has_retryable_status(self):
+        project = Project.objects.create(title="Existing project", created_by=self.parent)
+        for status in (ProjectIngestionJob.Status.PENDING, ProjectIngestionJob.Status.FAILED):
+            with self.subTest(status=status):
+                job = self._make_job(status=status, project=project)
+                with patch("apps.ingestion.pipeline.run_ingestion") as pipeline:
+                    run_ingestion_job(str(job.pk))
+                pipeline.assert_not_called()
+                job.refresh_from_db()
+                self.assertEqual(job.status, status)
+                self.assertEqual(job.project_id, project.pk)
+
+    def test_committed_project_deleted_before_redelivery_stays_committed(self):
+        project = Project.objects.create(title="Deleted project", created_by=self.parent)
+        job = self._make_job(status=ProjectIngestionJob.Status.COMMITTED, project=project)
+        project.delete()
+        with patch("apps.ingestion.pipeline.run_ingestion") as pipeline:
+            run_ingestion_job(str(job.pk))
+        pipeline.assert_not_called()
+        job.refresh_from_db()
+        self.assertEqual(job.status, ProjectIngestionJob.Status.COMMITTED)
+        self.assertIsNone(job.project_id)
+
+    def test_delivery_during_pipeline_does_not_claim_running_job_again(self):
+        job = self._make_job()
+        nested_messages = []
+
+        def run(**kwargs):
+            if not nested_messages:
+                # Set a sentinel first so the old unconditional implementation
+                # fails the call-count assertion without recursing indefinitely.
+                nested_messages.append(None)
+                nested_messages[0] = run_ingestion_job(str(job.pk))
+            return IngestionResult(title="One pipeline result")
+
+        with patch("apps.ingestion.pipeline.run_ingestion", side_effect=run) as pipeline:
+            run_ingestion_job(str(job.pk))
+        pipeline.assert_called_once()
+        self.assertIn("skipped", nested_messages[0])
+        job.refresh_from_db()
+        self.assertEqual(job.status, ProjectIngestionJob.Status.READY)
+
+
+class StateChangeDuringPipelineTests(_Fixture):
+    def test_finishing_worker_does_not_overwrite_discard_or_commit(self):
+        for status in (ProjectIngestionJob.Status.DISCARDED, ProjectIngestionJob.Status.COMMITTED):
+            for failure in (False, True):
+                with self.subTest(status=status, failure=failure):
+                    job = self._make_job(result_json={"title": "Prior draft"})
+                    project = Project.objects.create(title="Committed project", created_by=self.parent)
+
+                    def change_state(**kwargs):
+                        ProjectIngestionJob.objects.filter(pk=job.pk).update(
+                            status=status, project=project if status == ProjectIngestionJob.Status.COMMITTED else None,
+                            error="New state", result_json={"title": "New draft"},
+                        )
+                        if failure:
+                            raise ValueError("Worker failed after state change")
+                        return IngestionResult(title="Worker result")
+
+                    with patch("apps.ingestion.pipeline.run_ingestion", side_effect=change_state):
+                        message = run_ingestion_job(str(job.pk))
+                    job.refresh_from_db()
+                    self.assertEqual(job.status, status)
+                    self.assertEqual(job.error, "New state")
+                    self.assertEqual(job.result_json, {"title": "New draft"})
+                    self.assertEqual(
+                        job.project_id, project.pk if status == ProjectIngestionJob.Status.COMMITTED else None,
+                    )
+                    self.assertIn("skipped", message)
+
+    def test_deleted_job_is_not_recreated_on_success_or_failure(self):
+        for failure in (False, True):
+            with self.subTest(failure=failure):
+                job = self._make_job()
+                job_id = job.pk
+
+                def delete_job(**kwargs):
+                    ProjectIngestionJob.objects.filter(pk=job_id).delete()
+                    if failure:
+                        raise ValueError("Worker failed after deletion")
+                    return IngestionResult(title="Worker result")
+
+                with patch("apps.ingestion.pipeline.run_ingestion", side_effect=delete_job):
+                    message = run_ingestion_job(str(job_id))
+                self.assertFalse(ProjectIngestionJob.objects.filter(pk=job_id).exists())
+                self.assertIn("skipped", message)
+
+    def test_linked_project_during_run_blocks_finish_even_if_status_is_running(self):
+        job = self._make_job(result_json={"title": "Prior draft"})
+        project = Project.objects.create(title="Already materialized", created_by=self.parent)
+
+        def link_project(**kwargs):
+            ProjectIngestionJob.objects.filter(pk=job.pk).update(project=project)
+            return IngestionResult(title="Worker result")
+
+        with patch("apps.ingestion.pipeline.run_ingestion", side_effect=link_project):
+            message = run_ingestion_job(str(job.pk))
+        job.refresh_from_db()
+        self.assertEqual(job.status, ProjectIngestionJob.Status.RUNNING)
+        self.assertEqual(job.result_json, {"title": "Prior draft"})
+        self.assertEqual(job.project_id, project.pk)
+        self.assertIn("skipped", message)
+
+    def test_claim_and_finish_update_timestamps(self):
+        job = self._make_job()
+        claimed_at = job.updated_at + timedelta(seconds=1)
+        finished_at = job.updated_at + timedelta(seconds=2)
+        observed = []
+
+        def observe(**kwargs):
+            observed.append(ProjectIngestionJob.objects.get(pk=job.pk).updated_at)
+            return IngestionResult(title="Done")
+
+        with patch("apps.ingestion.tasks.timezone.now", side_effect=[claimed_at, finished_at]):
+            with patch("apps.ingestion.pipeline.run_ingestion", side_effect=observe):
+                run_ingestion_job(str(job.pk))
+        job.refresh_from_db()
+        self.assertEqual(observed, [claimed_at])
+        self.assertEqual(job.updated_at, finished_at)

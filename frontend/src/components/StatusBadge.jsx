@@ -21,7 +21,7 @@ const STATUS_ICONS = {
 };
 
 export default function StatusBadge({ status, showIcon = true }) {
-  const color = STATUS_COLORS[status] || 'bg-ink-whisper/15 text-ink-secondary border border-ink-whisper/30';
+  const color = STATUS_COLORS[status] || 'bg-ink-whisper/15 text-ink-primary border border-ink-whisper/30';
   const label = STATUS_LABELS[status] || status?.charAt(0).toUpperCase() + status?.slice(1);
   const Icon = showIcon ? STATUS_ICONS[status] : null;
   return (

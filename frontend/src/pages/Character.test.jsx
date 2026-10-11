@@ -6,6 +6,7 @@ import Character from './Character.jsx';
 import { server } from '../test/server.js';
 import { renderWithProviders } from '../test/render.jsx';
 import { buildUser } from '../test/factories.js';
+import { setToken } from '../api/client.js';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -24,6 +25,7 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
   applyTheme.mockClear();
   try { window.localStorage.clear(); } catch { /* ignore */ }
+  setToken('character-test-session');
 });
 
 function stubRoutes({

@@ -4,22 +4,21 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#FFF8EE">
-    <title>Memory Meadow — Abby's World</title>
+    <title>Play — The Abby Project</title>
     <link rel="stylesheet" href="TemplateData/phone.css">
     <link rel="stylesheet" href="TemplateData/storybook.css">
   </head>
   <body>
-    <main id="world" aria-label="Abby's interactive world">
-      <canvas id="unity-canvas" width="{{{ WIDTH }}}" height="{{{ HEIGHT }}}" tabindex="-1" aria-label="Explore your world using touch or the arrow keys"></canvas>
+    <main id="world" aria-label="Play">
+      <canvas id="unity-canvas" width="{{{ WIDTH }}}" height="{{{ HEIGHT }}}" tabindex="-1" aria-label="Your companion and progress"></canvas>
       <section id="welcome" class="overlay" aria-labelledby="welcome-title">
         <div class="card">
-          <p class="eyebrow">A little space for you</p>
-          <h1 id="welcome-title">Memory Meadow</h1>
-          <p id="welcome-message">Meet your companion and explore at your own pace.</p>
-          <button id="start" type="button">Let's explore</button>
-          <progress id="progress" value="0" max="1" aria-label="Loading your world" hidden></progress>
+          <p class="eyebrow">The Abby Project</p>
+          <h1 id="welcome-title">Play</h1>
+          <p id="welcome-message">Getting your companion ready.</p>
+          <progress id="progress" value="0" max="1" aria-label="Loading Play"></progress>
           <p id="load-status" role="status" aria-live="polite"></p>
-          <a href="/">Back to Abby's app</a>
+          <a href="/">Back to Today</a>
         </div>
       </section>
       <section id="error" class="overlay" aria-labelledby="error-title" hidden>
@@ -27,21 +26,19 @@
           <h1 id="error-title">Let's try that again</h1>
           <p id="error-message">Your world couldn't load. Check your connection, then try again.</p>
           <button id="retry" type="button">Try again</button>
-          <a href="/">Back to Abby's app</a>
+          <a href="/">Back to Today</a>
         </div>
       </section>
-      <noscript><p class="no-script">Turn on JavaScript to explore this world. <a href="/">Back to Abby's app</a></p></noscript>
+      <noscript><p class="no-script">Turn on JavaScript to open Play. <a href="/">Back to Today</a></p></noscript>
     </main>
     <script>
       (() => {
         const canvas = document.getElementById('unity-canvas');
         const welcome = document.getElementById('welcome');
-        const start = document.getElementById('start');
         const progress = document.getElementById('progress');
         const status = document.getElementById('load-status');
         const error = document.getElementById('error');
         const retry = document.getElementById('retry');
-        let started = false;
         let failed = false;
 
         function fitViewport() {
@@ -96,13 +93,8 @@
           }
         };
 
-        start.addEventListener('click', () => {
-          if (started) return;
-          started = true;
-          start.disabled = true;
-          start.textContent = 'Getting ready...';
-          progress.hidden = false;
-          status.textContent = 'Loading your world...';
+        function loadPlay() {
+          status.textContent = 'Loading Play...';
           const loader = document.createElement('script');
           loader.src = 'Build/{{{ LOADER_FILENAME }}}';
           loader.onerror = () => fail('Could not download the Unity loader');
@@ -110,7 +102,7 @@
             try {
               createUnityInstance(canvas, config, (value) => {
                 progress.value = value;
-                status.textContent = value < 0.9 ? `Loading your world... ${Math.round(value * 100)}%` : 'Saying hello to your companion...';
+                status.textContent = value < 0.9 ? `Loading Play... ${Math.round(value * 100)}%` : 'Saying hello to your companion...';
               }).then(() => {
                 if (failed) return;
                 welcome.hidden = true;
@@ -121,11 +113,13 @@
             }
           };
           document.body.appendChild(loader);
-        });
+        }
 
         if (window.location.protocol === 'file:') {
-          document.getElementById('error-message').textContent = 'Open this world through Abby\'s app to play.';
+          document.getElementById('error-message').textContent = 'Open Play through The Abby Project.';
           fail('Unity Web builds must be served over HTTP or HTTPS');
+        } else {
+          loadPlay();
         }
       })();
     </script>

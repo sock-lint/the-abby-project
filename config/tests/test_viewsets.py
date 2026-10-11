@@ -4,9 +4,57 @@ from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory
 
 from apps.notifications.models import Notification
-from apps.projects.models import User
+from apps.projects.models import Project, ProjectCollaborator, ProjectResource, ProjectStep, User
 from config.tests.factories import make_family
-from config.viewsets import filter_queryset_by_role, get_child_or_404, resolve_target_user
+from config.viewsets import (
+    filter_projects_accessible_to, filter_queryset_by_role, filter_resources_under_accessible_projects,
+    get_child_or_404, resolve_target_user,
+)
+
+
+class ProjectAccessFilterTests(TestCase):
+    def setUp(self):
+        self.fam = make_family(
+            "Project access", parents=[{"username": "access-parent"}],
+            children=[{"username": "access-child"}, {"username": "access-sibling"}],
+        )
+        self.other = make_family(
+            "Foreign project access", parents=[{"username": "foreign-access-parent"}],
+            children=[{"username": "foreign-access-child"}],
+        )
+        self.draft = Project.objects.create(title="Family draft", created_by=self.fam.parents[0])
+        self.assigned = Project.objects.create(
+            title="Family assignment", created_by=self.other.parents[0], assigned_to=self.fam.children[0],
+        )
+        self.foreign_draft = Project.objects.create(title="Foreign draft", created_by=self.other.parents[0])
+        self.foreign_assignment = Project.objects.create(
+            title="Foreign assignment", created_by=self.fam.parents[0], assigned_to=self.other.children[0],
+        )
+        for project in (self.draft, self.assigned, self.foreign_draft, self.foreign_assignment):
+            step = ProjectStep.objects.create(project=project, title="Task")
+            ProjectResource.objects.create(project=project, step=step, url="https://example.com/task")
+
+    def test_parent_project_and_nested_filters_apply_the_same_family_rule(self):
+        expected = {self.draft.pk, self.assigned.pk}
+        projects = filter_projects_accessible_to(self.fam.parents[0], Project.objects.all())
+        self.assertEqual(set(projects.values_list("pk", flat=True)), expected)
+        steps = filter_resources_under_accessible_projects(self.fam.parents[0], ProjectStep.objects.all())
+        self.assertEqual(set(steps.values_list("project_id", flat=True)), expected)
+
+    def test_nested_filter_supports_an_indirect_project_field(self):
+        resources = filter_resources_under_accessible_projects(
+            self.fam.parents[0], ProjectResource.objects.all(), project_field="step__project",
+        )
+        self.assertEqual(set(resources.values_list("project_id", flat=True)), {self.draft.pk, self.assigned.pk})
+
+    def test_child_assignee_and_collaborator_access_is_preserved_without_draft_access(self):
+        ProjectCollaborator.objects.create(project=self.assigned, user=self.fam.children[1])
+        for child in self.fam.children:
+            with self.subTest(child=child.username):
+                projects = filter_projects_accessible_to(child, Project.objects.all())
+                self.assertEqual(set(projects.values_list("pk", flat=True)), {self.assigned.pk})
+                steps = filter_resources_under_accessible_projects(child, ProjectStep.objects.all())
+                self.assertEqual(set(steps.values_list("project_id", flat=True)), {self.assigned.pk})
 
 
 class FilterQuerysetByRoleTests(TestCase):

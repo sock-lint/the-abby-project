@@ -5,6 +5,7 @@ import App from './App.jsx';
 import { AuthProvider } from './hooks/useApi.js';
 import { server } from './test/server.js';
 import { buildUser } from './test/factories.js';
+import * as pushSession from './pwa/pushSession.js';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -20,6 +21,22 @@ function renderApp() {
 }
 
 describe('App', () => {
+  it('shows the sign-in page and cleanup error when an OAuth switch cannot stop old notifications', async () => {
+    const replace = vi.spyOn(pushSession, 'replaceSessionToken').mockRejectedValue(
+      new Error('Could not stop notifications on this device. Reconnect and try again.'),
+    );
+    window.history.replaceState({}, '', '/?token=another-account');
+    try {
+      renderApp();
+      expect(await screen.findByRole('alert')).toHaveTextContent(/could not stop notifications/i);
+      expect(screen.getByRole('button', { name: /^sign in$/i })).toBeEnabled();
+      expect(replace).toHaveBeenCalledWith('another-account');
+      expect(window.location.search).toBe('');
+    } finally {
+      replace.mockRestore();
+      window.history.replaceState({}, '', '/');
+    }
+  });
   it('renders the loader while auth is bootstrapping', () => {
     // /auth/me/ never resolves — stays in loading state.
     server.use(
@@ -36,7 +53,7 @@ describe('App', () => {
     );
     renderApp();
     await waitFor(() =>
-      expect(screen.getByText(/hyrule field notes/i)).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: 'The Abby Project' })).toBeInTheDocument(),
     );
   });
 

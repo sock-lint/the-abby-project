@@ -14,19 +14,24 @@ afterEach(() => {
 const renderLogin = (props) =>
   render(
     <MemoryRouter>
-      <Login onLogin={props?.onLogin || (() => {})} />
+      <Login onLogin={props?.onLogin || (() => {})} sessionError={props?.sessionError} />
     </MemoryRouter>,
   );
 
 describe('Login', () => {
+  it('explains an account-switch cleanup failure while keeping sign-in available', () => {
+    renderLogin({ sessionError: 'Could not stop notifications on this device. Reconnect and try again.' });
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not stop notifications/i);
+    expect(screen.getByRole('button', { name: /^sign in$/i })).toBeEnabled();
+  });
   it('renders the form fields', () => {
     server.use(
       http.get('*/api/auth/google/login/', () => HttpResponse.json({})),
     );
     renderLogin();
-    expect(screen.getByLabelText(/name in the ledger/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/secret word/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /enter/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^username$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument();
   });
 
   it('shows the "Create a family" link by default', () => {
@@ -54,9 +59,9 @@ describe('Login', () => {
     const onLogin = vi.fn().mockResolvedValue();
     const user = userEvent.setup();
     renderLogin({ onLogin });
-    await user.type(screen.getByLabelText(/name in the ledger/i), 'abby');
-    await user.type(screen.getByLabelText(/secret word/i), 'pw');
-    await user.click(screen.getByRole('button', { name: /enter/i }));
+    await user.type(screen.getByLabelText(/^username$/i), 'abby');
+    await user.type(screen.getByLabelText(/^password$/i), 'pw');
+    await user.click(screen.getByRole('button', { name: /^sign in$/i }));
     expect(onLogin).toHaveBeenCalledWith('abby', 'pw');
   });
 
@@ -67,9 +72,9 @@ describe('Login', () => {
     const onLogin = vi.fn().mockRejectedValue(new Error('bad password'));
     const user = userEvent.setup();
     renderLogin({ onLogin });
-    await user.type(screen.getByLabelText(/name in the ledger/i), 'a');
-    await user.type(screen.getByLabelText(/secret word/i), 'b');
-    await user.click(screen.getByRole('button', { name: /enter/i }));
+    await user.type(screen.getByLabelText(/^username$/i), 'a');
+    await user.type(screen.getByLabelText(/^password$/i), 'b');
+    await user.click(screen.getByRole('button', { name: /^sign in$/i }));
     expect(await screen.findByText(/bad password/i)).toBeInTheDocument();
   });
 

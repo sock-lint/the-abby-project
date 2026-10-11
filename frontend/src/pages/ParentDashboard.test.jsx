@@ -61,7 +61,7 @@ describe('ParentDashboard', () => {
       ),
       http.get('*/api/redemptions/', () =>
         HttpResponse.json([
-          { id: 30, reward_name: 'Screen time', user_id: 2, user_name: 'Abby', cost_coins: 25, status: 'pending', created_at: '2026-04-16T08:00:00Z' },
+          { id: 30, reward: { name: 'Screen time' }, user: 2, user_name: 'Abby', coin_cost_snapshot: 25, status: 'pending', requested_at: '2026-04-16T08:00:00Z' },
         ]),
       ),
       http.get('*/api/children/', () => HttpResponse.json([])),
@@ -268,7 +268,7 @@ describe('ParentDashboard', () => {
       http.get('*/api/homework/dashboard/', () => HttpResponse.json({ pending_submissions: [] })),
       http.get('*/api/redemptions/', () =>
         HttpResponse.json([
-          { id: 33, reward_name: 'Movie night', user_id: 2, user_name: 'Abby', status: 'pending' },
+          { id: 33, reward: { name: 'Movie night' }, user: 2, user_name: 'Abby', coin_cost_snapshot: 30, requested_at: '2026-04-16T08:00:00Z', status: 'pending' },
         ]),
       ),
       http.get('*/api/children/', () => HttpResponse.json([])),

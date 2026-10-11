@@ -23,7 +23,12 @@ import { http, HttpResponse } from 'msw';
 export function spyHandler(method, urlPattern, response) {
   const calls = [];
   const m = method.toLowerCase();
-  const handler = http[m](urlPattern, async ({ request }) => {
+  // The client adds a noncredential namespace while legacy workers retire.
+  // Endpoint spies keep asserting route/body contracts independently of it.
+  const pattern = urlPattern instanceof RegExp
+    ? new RegExp(urlPattern.source.replace(/\$$/, '(?:[?&]_abby_session=[^&]+)?$'), urlPattern.flags)
+    : urlPattern;
+  const handler = http[m](pattern, async ({ request }) => {
     let body = null;
     if (m !== 'get' && m !== 'delete' && m !== 'head') {
       try {
@@ -32,7 +37,8 @@ export function spyHandler(method, urlPattern, response) {
         body = null;
       }
     }
-    calls.push({ url: request.url, method: request.method, body });
+    const url = request.url.replace(/([?&])_abby_session=[^&]+(&|$)/, (_match, start, end) => end ? start : '');
+    calls.push({ url, method: request.method, body });
     const value = typeof response === 'function' ? response({ request, body }) : response;
     if (value instanceof HttpResponse) return value;
     return HttpResponse.json(value ?? { ok: true });

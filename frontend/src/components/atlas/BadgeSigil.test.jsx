@@ -25,7 +25,7 @@ describe('BadgeSigil', () => {
     expect(sigil.className).toMatch(/ring-gold-leaf/);
   });
 
-  it('renders unearned badges as a debossed silhouette', () => {
+  it('keeps unearned badges identified as future goals', () => {
     const badge = buildBadge({ rarity: 'rare' });
     const { container } = renderWithProviders(
       <BadgeSigil badge={badge} earned={false} onSelect={() => {}} />,
@@ -33,8 +33,7 @@ describe('BadgeSigil', () => {
     const sigil = container.querySelector('[data-sigil="true"]');
     expect(sigil.getAttribute('data-earned')).toBe('false');
     expect(sigil.className).toMatch(/border-dashed/);
-    // Debossed ring carries an inset shadow that sells the pressed impression.
-    expect(sigil.className).toMatch(/shadow-\[inset/);
+    expect(screen.getByRole('button', { name: /not yet earned/i })).toBeInTheDocument();
   });
 
   it('renders the unlock hint for unearned badges', () => {

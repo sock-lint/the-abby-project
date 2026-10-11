@@ -28,6 +28,16 @@ class RewardUnavailableError(Exception):
     pass
 
 
+def _lock_decision(instance):
+    """Refresh a caller's possibly stale decision while holding its row lock.
+
+    Call inside an atomic block. Keep the supplied instance current because
+    the shared approval views serialize it after the service returns.
+    """
+    type(instance).objects.select_for_update().get(pk=instance.pk)
+    instance.refresh_from_db()
+
+
 class CoinService(BaseLedgerService):
     ledger_model = CoinLedger
     category_field = "reason"
@@ -211,6 +221,7 @@ class RewardService:
     @staticmethod
     @transaction.atomic
     def approve(redemption, parent, notes=""):
+        _lock_decision(redemption)
         if redemption.status != RewardRedemption.Status.PENDING:
             return redemption
         finalize_decision(
@@ -232,10 +243,9 @@ class RewardService:
         """Credit the linked ItemDefinition to UserInventory when the reward
         is a digital-item fulfillment.
 
-        Idempotent-ish: only fires from ``approve``'s transition into
-        ``FULFILLED``, so it never double-credits even if this method is
-        called repeatedly. A noop for ``real_world`` rewards or rewards
-        without a linked item. Missing FK + non-real_world kind is logged
+        Called once within the locked transition into ``FULFILLED`` (or
+        the initial auto-fulfillment transaction). A noop for ``real_world``
+        rewards or rewards without a linked item. Missing FK + non-real_world kind is logged
         but not raised — we don't want a mis-configured reward to block
         an approval the parent already greenlit.
         """
@@ -275,6 +285,7 @@ class RewardService:
         only the callable/route name is normalized to ``reject`` to match
         chores/homework.
         """
+        _lock_decision(redemption)
         if redemption.status != RewardRedemption.Status.PENDING:
             return redemption
         CoinService.award_coins(
@@ -379,6 +390,7 @@ class ExchangeService:
         if getattr(parent, "role", None) != User.Role.PARENT:
             raise PermissionDenied("Only a parent can approve an exchange.")
 
+        _lock_decision(exchange)
         if exchange.status != ExchangeRequest.Status.PENDING:
             return exchange
 
@@ -389,6 +401,10 @@ class ExchangeService:
         dollar_amount = exchange.dollar_amount
         coin_amount = exchange.coin_amount
 
+        # Different pending requests can spend the same wallet. Serialize
+        # their balance check and debit on the stable user row, including
+        # when there are no prior ledger rows to lock.
+        User.objects.select_for_update(no_key=True).get(pk=user.pk)
         balance = PaymentService.get_balance(user)
         if balance < dollar_amount:
             raise InsufficientFundsError(
@@ -466,6 +482,7 @@ class ExchangeService:
         Persisted status stays ``DENIED`` for backward compatibility; only
         the method/route name is normalized to match chores/homework.
         """
+        _lock_decision(exchange)
         if exchange.status != ExchangeRequest.Status.PENDING:
             return exchange
 

@@ -13,9 +13,17 @@ class TimeEntrySerializer(serializers.ModelSerializer):
             "duration_minutes", "notes", "auto_clocked_out", "status",
         ]
         read_only_fields = [
-            "user", "clock_in", "clock_out", "duration_minutes",
+            "user", "project", "clock_in", "clock_out", "duration_minutes",
             "auto_clocked_out", "status",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if self.instance is not None and "project" in self.initial_data:
+            project_id = serializers.IntegerField().run_validation(self.initial_data["project"])
+            if project_id != self.instance.project_id:
+                raise serializers.ValidationError({"project": "Cannot change the project after clock-in."})
+        return attrs
 
 
 class TimecardSerializer(serializers.ModelSerializer):

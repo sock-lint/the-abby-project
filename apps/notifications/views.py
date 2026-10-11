@@ -1,6 +1,9 @@
 from django.conf import settings
+from django.db import transaction
 from rest_framework import permissions, status, viewsets
+from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -14,6 +17,23 @@ CELEBRATION_TYPES = (
     NotificationType.STREAK_MILESTONE,
     NotificationType.PERFECT_DAY,
 )
+
+
+def _lock_push_credential(request):
+    """Fence a bind against logout, even after DRF authenticated the request.
+
+    TokenAuthentication is the API's sole authentication scheme. Holding the
+    credential lock through the endpoint write makes logout either remove that
+    completed bind or revoke the credential before a delayed bind can start.
+    """
+    if not isinstance(request.auth, Token):
+        raise AuthenticationFailed("Invalid token.")
+    credential = Token.objects.select_for_update().filter(
+        key=request.auth.key, user_id=request.user.pk,
+    ).first()
+    if credential is None:
+        raise AuthenticationFailed("Invalid token.")
+    return credential
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
@@ -98,6 +118,7 @@ class PushSubscribeView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         if not push_enabled():
             return Response(
@@ -116,6 +137,7 @@ class PushSubscribeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        _lock_push_credential(request)
         PushSubscription.objects.update_or_create(
             endpoint=endpoint,
             defaults={
@@ -138,6 +160,7 @@ class PushUnsubscribeView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         endpoint = (request.data.get("endpoint") or "").strip()
         if not endpoint:
@@ -145,6 +168,7 @@ class PushUnsubscribeView(APIView):
                 {"detail": "endpoint is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        _lock_push_credential(request)
         deleted, _ = PushSubscription.objects.filter(
             user=request.user, endpoint=endpoint,
         ).delete()

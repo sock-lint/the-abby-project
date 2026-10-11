@@ -4,6 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RewardFormModal from './RewardFormModal.jsx';
 import { server } from '../../test/server.js';
+import { spyHandler } from '../../test/spy.js';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -11,6 +12,30 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('RewardFormModal', () => {
+  it.each([0, 7])('clears existing stock %s to unlimited with an explicit empty multipart field', async (stock) => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    const forms = [];
+    const update = spyHandler('patch', /\/api\/rewards\/3\/$/, ({ request }) => {
+      forms.push(request.clone().formData().then((form) => Object.fromEntries(form)));
+      return { id: 3, stock: null };
+    });
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([])), update.handler);
+    render(<RewardFormModal reward={{ id: 3, name: 'Toy', cost_coins: 20, stock }} onClose={vi.fn()} onSaved={onSaved} />);
+
+    await user.clear(screen.getByLabelText(/stock/i));
+    await user.click(screen.getByRole('button', { name: /update/i }));
+
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(update.calls[0].url).toMatch(/\/api\/rewards\/3\/$/);
+    expect(await forms[0]).toEqual({
+      name: 'Toy', description: '', icon: '', cost_coins: '20', rarity: 'common',
+      stock: '', requires_parent_approval: 'true', is_active: 'true', order: '0',
+      fulfillment_kind: 'real_world', item_definition: '',
+    });
+    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+  });
+
   it('creates a new reward', async () => {
     const user = userEvent.setup();
     const onSaved = vi.fn();

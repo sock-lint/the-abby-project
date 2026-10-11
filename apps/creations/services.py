@@ -29,8 +29,8 @@ from config.services import bump_daily_counter, finalize_decision
 logger = logging.getLogger(__name__)
 
 
-class CreationError(Exception):
-    """Raised when a Creation cannot be logged (non-creative skill, etc.)."""
+class CreationError(ValueError):
+    """Raised when a creation operation cannot be completed."""
 
 
 @dataclass
@@ -54,6 +54,12 @@ class CreationService:
     SECONDARY_WEIGHT = 3
     DAILY_XP_LIMIT = 2
     DEFAULT_BONUS_XP = 15
+
+    @staticmethod
+    def _lock_creation(creation):
+        """Reload the supplied instance under a lock held by the caller's transaction."""
+        Creation.objects.select_for_update().get(pk=creation.pk)
+        creation.refresh_from_db()
 
     @classmethod
     def _assert_creative_skill(cls, skill) -> None:
@@ -203,8 +209,10 @@ class CreationService:
         on their behalf) decided not to ask for the bonus after all. The
         creation row, image, and any baseline XP already granted on log
         all stay; only the review state is undone. APPROVED / REJECTED /
-        LOGGED are no-ops so concurrent calls are safe.
+        LOGGED are no-ops. Refresh under the same lock used by approval so
+        an older pending instance cannot withdraw an already awarded bonus.
         """
+        cls._lock_creation(creation)
         if creation.status != Creation.Status.PENDING:
             return creation
         creation.status = Creation.Status.LOGGED
@@ -215,6 +223,7 @@ class CreationService:
     @transaction.atomic
     def submit_for_bonus(cls, creation: Creation) -> Creation:
         """Flip status to PENDING and notify parents."""
+        cls._lock_creation(creation)
         if creation.status in {Creation.Status.PENDING, Creation.Status.APPROVED}:
             return creation
         creation.status = Creation.Status.PENDING
@@ -257,6 +266,10 @@ class CreationService:
         ``[{"skill_id": 1, "xp_weight": 2}, ...]``. When omitted or empty,
         the pool falls back to the child's primary skill at weight 1.
         """
+        cls._lock_creation(creation)
+        if creation.status != Creation.Status.PENDING:
+            return creation
+
         from apps.achievements.models import Skill
         from apps.achievements.services import AwardService
 
@@ -288,10 +301,13 @@ class CreationService:
                 # Audit H8: same scopes as the baseline log.
                 badge_scopes={"creation", "skill_xp", "badges"},
             )
-        except Exception:
+        except Exception as exc:
             logger.exception(
                 "Creation bonus award failed for creation %s", creation.pk,
             )
+            # The approval transaction also owns its tag rows and audit
+            # fields. Leave everything pending if the reward did not commit.
+            raise CreationError("Bonus could not be awarded. Please try again.") from exc
 
         # ``bonus_xp_awarded`` is creation-specific so we save it explicitly;
         # ``finalize_decision`` then stamps the shared status / decided_at /
@@ -331,6 +347,10 @@ class CreationService:
     @transaction.atomic
     def reject_bonus(cls, creation: Creation, parent, notes: str = "") -> Creation:
         """Mark REJECTED. Baseline XP stays — matches every other flow."""
+        cls._lock_creation(creation)
+        if creation.status != Creation.Status.PENDING:
+            return creation
+
         finalize_decision(
             creation, Creation.Status.REJECTED, parent, "",
             activity_category="approval",

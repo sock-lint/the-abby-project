@@ -1,6 +1,8 @@
 # Components
 
-Shared primitives and composition components for the Hyrule Field Notes UI. See [CLAUDE.md](../../../CLAUDE.md#frontendsrc) at the repo root for the full architectural overview.
+Shared primitives and composition components for The Abby Project. See [CLAUDE.md](../../../CLAUDE.md#frontendsrc) at the repo root for the full architectural overview.
+
+The web app, Memory Meadow and Unity Play share a soft storybook direction: bundled Nunito, cream pages, lavender and mint tints, rounded surfaces and controls, and clear Lucide icons. `shared/storybook/presentation.json` supplies the baseline palette and companion presentation; `themes.js` adds readable semantic colors and six coordinated covers. Keep paid art in the private asset pipeline. Legacy component and CSS names remain compatibility APIs; they no longer require parchment, wax or leather effects.
 
 ## Conventions
 
@@ -10,7 +12,7 @@ Shared primitives and composition components for the Hyrule Field Notes UI. See 
 - Per-cover overrides live in [`../themes.js`](../themes.js).
 - Component-level class strings live in [`../constants/styles.js`](../constants/styles.js); status/rarity color maps live in [`../constants/colors.js`](../constants/colors.js).
 - Avoid arbitrary Tailwind values (`text-[10px]`, `bg-[#abc123]`). The project type scale lives in `@theme` as `--text-micro` (10px), `--text-tiny` (11px), `--text-caption` (12px), `--text-body` (14px), `--text-lede` (18px). If a value doesn't fit the existing scale, add a token to `@theme` rather than inlining.
-- Hex literals in component code should be migrated to token references. The exceptions documented in the codebase are: HTML5 `<input type="color">` defaults (user data), official brand-color SVGs (e.g. Google sign-in logo), and theme-invariant decorative palettes (e.g. wax-seal gradient stops in `ConfirmDialog`/`SealCloseButton`). Each retention carries an inline `// intentional:` comment explaining why.
+- Hex literals in component code should be migrated to token references. Exceptions are HTML5 `<input type="color">` defaults (user data) and official brand-color SVGs (e.g. Google sign-in logo). Each retention carries an inline `// intentional:` comment explaining why.
 
 ### Z-index stack
 
@@ -27,8 +29,8 @@ Everything that floats above page chrome lives at `z-50`. That means a toast emi
 ### File layout
 
 - Root `components/*.jsx` — domain-agnostic primitives (Button, Loader, EmptyState, BottomSheet, etc.)
-- `components/journal/` — Hyrule-themed surface compositions (ParchmentCard, RuneBand, StreakFlame)
-- `components/atlas/` — illuminated-manuscript primitives (IlluminatedVersal, BadgeSigil, IncipitBand, ChapterRubric, RarityStrand, mastery.constants). See [Atlas cohort](#atlas-cohort) below
+- `components/journal/` — shared storybook surface compositions (ParchmentCard, RuneBand, StreakFlame)
+- `components/atlas/` — collection and progress primitives (IlluminatedVersal, BadgeSigil, IncipitBand, ChapterRubric, RarityStrand, mastery.constants). See [Atlas cohort](#atlas-cohort) below
 - `components/layout/` — page chrome (JournalShell, ChapterNav, QuickActionsFab)
 - `components/modal/` — modal building blocks (ModalBackdrop, SealCloseButton, SealPulseRing)
 - `components/dashboard/` — Today-page composites (HeroPrimaryCard, ApprovalQueueList)
@@ -82,6 +84,8 @@ Shared primitives carry consistent ARIA roles. Match these when building new one
 | `TomeShelf` / `TomeSpine` | `tablist` + `tab` + `aria-selected` + `aria-orientation="horizontal"` | Keyboard-navigable category switcher |
 
 Use React's `useId()` to generate per-instance IDs for `aria-labelledby` / `aria-describedby` so multiple stacked instances don't collide.
+
+`BottomSheet` and `ConfirmDialog` share `modal/useModalFocus.js`: only the topmost modal handles Tab and Escape, and closing it restores focus to its opener. Destructive confirmations initially focus Cancel. Use this shared hook for modal surfaces instead of adding competing document keyboard listeners.
 
 For icon-only interactive elements, an `aria-label` is mandatory — the upcoming `<IconButton>` primitive enforces this; raw `<button>` tags wrapping a single Lucide icon need it added by hand.
 

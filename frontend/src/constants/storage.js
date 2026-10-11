@@ -55,7 +55,8 @@ export const STORAGE_KEYS = {
   // project. Best-effort — ignored when the id no longer matches.
   LAST_CLOCK_PROJECT: 'clock:last-project-id',
 
-  // Last successful /api/auth/me/ payload, JSON-serialized. Written on every
+  // Last successful /api/auth/me/ payload in a versioned { token, user }
+  // envelope, bound to the exact credential which fetched it. Written on every
   // successful boot fetch / login / signup by AuthProvider (hooks/useApi.js).
   // Read ONLY when boot-time getMe() rejects with a NETWORK error (no
   // ``.status`` on the thrown error — api/client.js attaches ``.status`` to
@@ -65,4 +66,8 @@ export const STORAGE_KEYS = {
   // Best-effort cache — never trusted over a live response, and never read
   // for HTTP 401/403 rejections.
   CACHED_USER: 'auth:last-user',
+
+  // Last verified browser push binding. Used only to avoid a delayed cleanup
+  // removing a newer account's endpoint. Cleared with local unsubscribe.
+  PUSH_SESSION: 'push:session',
 };

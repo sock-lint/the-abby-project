@@ -29,6 +29,73 @@ function renderPage(user = buildUser(), handlers = []) {
 }
 
 describe('Rewards', () => {
+  it.each([
+    ['/api/redemptions/', '/api/redemptions/21/approve/', 'Redemption history', 'redemptions'],
+    ['/api/coins/exchange/list/', '/api/coins/exchange/21/approve/', 'Exchange history', 'exchanges'],
+  ])('allows approval on the second pending page of %s while keeping history separate', async (path, approvePath, historyTitle, noun) => {
+    const user = userEvent.setup();
+    const row = (id, status = 'pending') => ({
+      id, user: 2, user_name: id === 21 ? 'Older request' : 'Abby', status,
+      reward: { name: id === 21 ? 'Older toy' : `Toy ${id}`, icon: '🎁' },
+      coin_cost_snapshot: 80, requested_at: '2026-04-15T12:00:00Z',
+      dollar_amount: '5.00', coin_amount: 50, exchange_rate: 10, created_at: '2026-04-15T12:00:00Z',
+    });
+    const reads = spyHandler('get', `*${path}`, ({ request }) => {
+      const url = new URL(request.url);
+      if (!url.searchParams.has('status')) {
+        return { count: 41, next: `http://localhost${path}?page=2`, results: Array.from({ length: 20 }, (_, i) => row(i + 101, 'fulfilled')) };
+      }
+      expect(url.searchParams.get('status')).toBe('pending');
+      return url.searchParams.get('page') === '2'
+        ? { count: 21, next: null, results: [row(21)] }
+        : { count: 21, next: `http://localhost${path}?status=pending&page=2`, results: Array.from({ length: 20 }, (_, i) => row(i + 1)) };
+    });
+    const approve = spyHandler('post', `*${approvePath}`, { id: 21, status: 'fulfilled' });
+    renderPage(buildParent(), [
+      reads.handler, approve.handler,
+      http.get('*/api/rewards/', () => HttpResponse.json([])),
+      http.get('*/api/redemptions/', () => HttpResponse.json([])),
+      http.get('*/api/coins/exchange/list/', () => HttpResponse.json([])),
+    ]);
+
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /^approve$/i })).toHaveLength(21));
+    expect(reads.calls).toHaveLength(3);
+    expect(reads.calls.some(({ url }) => new URL(url).searchParams.get('page') === '2')).toBe(true);
+    expect(reads.calls.filter(({ url }) => new URL(url).searchParams.has('page')).every(({ url }) => new URL(url).searchParams.get('status') === 'pending')).toBe(true);
+    await user.click(screen.getAllByRole('button', { name: /^approve$/i })[20]);
+    await waitFor(() => expect(approve.calls).toHaveLength(1));
+    expect(new URL(approve.calls[0].url).pathname).toBe(approvePath);
+    expect(approve.calls[0].body).toEqual({ notes: '' });
+
+    await user.click(screen.getByRole('button', { name: new RegExp(historyTitle, 'i') }));
+    expect(await screen.findByText(`Showing the 20 most recent of 41 ${noun}.`)).toBeInTheDocument();
+  });
+
+  it('shows a retry when a later pending page fails and does not expose a partial approval queue', async () => {
+    const user = userEvent.setup();
+    let failSecondPage = true;
+    const reads = spyHandler('get', '*/api/redemptions/', ({ request }) => {
+      const url = new URL(request.url);
+      if (!url.searchParams.has('status')) return [];
+      const row = { id: 22, user_name: 'Abby', status: 'pending', reward: { name: 'Recovered toy', icon: '🎁' }, coin_cost_snapshot: 80 };
+      if (url.searchParams.has('page')) {
+        if (failSecondPage) {
+          failSecondPage = false;
+          return HttpResponse.json({ detail: 'Temporary queue failure' }, { status: 503 });
+        }
+        return { count: 2, next: null, results: [{ ...row, id: 23 }] };
+      }
+      return { count: 2, next: 'http://localhost/api/redemptions/?status=pending&page=2', results: [row] };
+    });
+    renderPage(buildParent(), [reads.handler]);
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load pending redemptions. Temporary queue failure");
+    expect(screen.queryByRole('button', { name: /^approve$/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /^approve$/i })).toHaveLength(2));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(reads.calls.filter(({ url }) => new URL(url).searchParams.has('page'))).toHaveLength(2);
+  });
+
   it('renders an empty reward shop for a child', async () => {
     renderPage(buildUser(), [
       http.get('*/api/rewards/', () => HttpResponse.json([])),
