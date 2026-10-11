@@ -56,8 +56,10 @@ and API contracts; it does not export a player. Inspect `Logs/validate.log`.
 For affected runtime behavior, use the disposable fixture/browser workflow in
 the README or build the Windows harness and run `./scripts/unity/Test-Camp.ps1`.
 Web exports must be served over HTTP/HTTPS. Report separately whether source
-validation, an exported-player check, and actual phone testing ran. A source
-merge does not build or deploy Unity.
+validation, an exported-player check, and actual phone testing ran. A
+PR does not build or deploy Unity. After merge to main, the separate licensed Web
+build and deployment jobs run in CI; see
+[../../docs/operations/unity-web-release.md](../../docs/operations/unity-web-release.md).
 
 Linux CI uses `bash scripts/unity/Validate-Camp.sh` from the repository root.
 See [../../docs/operations/pr-validation.md](../../docs/operations/pr-validation.md)

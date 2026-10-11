@@ -120,7 +120,7 @@ node --test scripts/unity/test_web_template.cjs
 
 The build script uses **6000.6.5f1** at Unity Hub's default Windows installation location. A custom installation path can be passed with `-UnityEditor`. Close this project in the editor before a batch build. Web output is in `Builds/Web` with a `Logs/build-web.log` log. Normal builds preserve the saved scene. Pass `-RebuildScene` only to regenerate the starting camp and replace its scene and generated presentation assets. `-ValidateOnly` performs scene/API checks without exporting; `-Target Windows` retains the desktop harness.
 
-The Web output must be served over HTTP/HTTPS, not opened as a local file. [Coolify hosting instructions](../../docs/unity-web-hosting.md) describe the separate image and `/play/` path routing. A Git PR/main merge updates source but does not compile or deploy Unity. Generated builds and image archives remain ignored. The React service-worker update must also be deployed and accepted by any installed PWA, so it stops substituting the React index for `/play/`.
+The Web output must be served over HTTP/HTTPS, not opened as a local file. [Coolify hosting instructions](../../docs/unity-web-hosting.md) describe the separate image and `/play/` path routing. PR checks validate source; after merge to main, [Unity Web release jobs](../../docs/operations/unity-web-release.md) compile the licensed player and deploy it after the platform release succeeds. Generated builds and image archives remain ignored. The React service-worker update must also be deployed and accepted by any installed PWA, so it stops substituting the React index for `/play/`.
 
 For local browser checks with disposable API data:
 
@@ -148,7 +148,7 @@ Unity 6000.6.5f1 validated the public and licensed fixed scenes and 108 API cont
 
 The disposable browser walkthrough verified automatic shared sign-in, Journal/Grades/Tasks routes, explicit one-item read acknowledgement and account replacement while an earlier read response was delayed. Opening sheets, paging and greeting the companion left rewards and progression unchanged. Browser viewport checks cover 320×568 and 393×852 portrait and 844×393 landscape; they do not establish physical Android/iPhone performance, touch or lifecycle behavior. The purchased forest and fixed bird are presentation previews; Bestiary lists authoritative owned creatures without assigning that artwork to every saved species. Care, hatching and mount actions still open their existing web screens.
 
-These checks and local exports do not deploy `/play/`; Unity must be rebuilt and its web image published after the source is integrated.
+These checks and local exports do not deploy `/play/`; the main CI/CD release jobs or an administrator release must build and publish its web image after the source is integrated.
 
 ## Earlier walking prototype verification — 2026-10-10
 

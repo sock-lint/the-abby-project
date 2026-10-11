@@ -23,6 +23,20 @@ defaults:
     shell: bash
 
 jobs:
+  unity-release-guards:
+    name: Unity release guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test packaging, source identity, and restricted deployment
+        run: python -m unittest discover -s scripts/unity -p 'test_*release.py'
+
   browser-bridge:
     name: Browser bridge
     runs-on: ubuntu-latest

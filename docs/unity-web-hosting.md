@@ -1,10 +1,10 @@
 # Unity Web through Coolify
 
-Unity source and the existing React/Django deployment have separate builds. A PR merge updates source; it does **not** compile or deploy the game. The Unity export, packaging contexts, logs, and screenshots stay ignored under `unity/AbbyCamp/Builds` and are not committed.
+Unity source and the existing React/Django deployment have separate builds. The main CI/CD pipeline exports the licensed Unity player and deploys the separate `/play/` service after platform deployment succeeds; see [Unity Web releases](operations/unity-web-release.md). PR validation checks source and does not deploy. The manual commands below remain available for administrator releases and rollback. Local exports, packaging contexts, logs, and screenshots stay ignored and are not committed.
 
 ## Shared sign-in release — 2026-10-10
 
-The deployed Unity image is **`abby-unity-web:release-8a61458-20261010-183538`**, built from commit `8a614580eb2b0087daab753997eca09320363a13`. Its local archive is `unity/AbbyCamp/Builds/WebHosting/21627b864d324ceb81f5ae35d41927c0/unity-web-image.tar`, SHA-256 `928bc5e6bab5baf7671d3d071c425ea6b2a2bb32fc3c8bb19de0c32ecdf7351a`. Coolify activity 75 deployed it after all nine hosting checks, exact-image health verification, and public runtime file checksum verification. The web application separately deployed the shared sign-in changes through Coolify deployment 2218.
+The shared sign-in release used **`abby-unity-web:release-8a61458-20261010-183538`**, built from commit `8a614580eb2b0087daab753997eca09320363a13`. Its local archive is `unity/AbbyCamp/Builds/WebHosting/21627b864d324ceb81f5ae35d41927c0/unity-web-image.tar`, SHA-256 `928bc5e6bab5baf7671d3d071c425ea6b2a2bb32fc3c8bb19de0c32ecdf7351a`. Coolify activity 75 deployed it after all nine hosting checks, exact-image health verification, and public runtime file checksum verification. The web application separately deployed the shared sign-in changes through Coolify deployment 2218. This is historical release evidence; inspect `/play/release.json` for CI releases or the current Coolify image for administrator releases.
 
 An initial deployment exposed a browser using the previous framework with the new Wasm. The previous Unity image was restored while the build was corrected. Unity now names its runtime files by content hash, so changed runtime versions use distinct URLs. The release command also builds into a fresh `Builds/WebReleases` directory each time, preserving older exports and preventing obsolete files from entering a new package.
 

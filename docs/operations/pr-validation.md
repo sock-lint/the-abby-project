@@ -17,6 +17,12 @@ uploads its available log for seven days, including failed runs. The existing
 push-to-main [`CI/CD Pipeline`](../../.github/workflows/ci-cd.yml) continues to
 test, build, scan, and deploy independently.
 
+The hosted `Unity release guards` job also tests artifact provenance, safe
+packaging and the restricted deployment protocol. It uses no licensed editor or
+production credentials. The separate [Unity Web release jobs](unity-web-release.md)
+compile and deploy the player after integration; source validation alone does not
+exercise Web Build Support.
+
 ## Provision the Unity runner once
 
 The workflow source supports Linux and Windows, but source configuration does
