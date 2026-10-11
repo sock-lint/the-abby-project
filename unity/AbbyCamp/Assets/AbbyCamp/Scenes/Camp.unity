@@ -10523,7 +10523,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 956180f604518eb40a75193b033c969c, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::AbbyCamp.UI.CampPrototypeController
   gardenInput: {fileID: 1653086492}
   companion: {fileID: 1788559326}
@@ -14500,7 +14500,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0fcd51e895ab4d5f9c41d690c945b1f8, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::AbbyCamp.World.CampGardenInput
   companion: {fileID: 1788559326}
 --- !u!4 &1653086493
@@ -15898,7 +15898,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e76e1b689bf65a54c9f5608e99515495, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::AbbyCamp.World.CompanionFollower
   primaryAppearance: {fileID: 11400000, guid: ca0badea2f05eb8449115db698247512, type: 2}
   secondaryAppearance: {fileID: 11400000, guid: 9975ae4fd3bd1c945985b350a4192ac0, type: 2}
@@ -15914,7 +15914,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 63a73701d226bd3429235501378f9fa5, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::AbbyCamp.Presentation.RewardReaction
   particleMaterial: {fileID: 2100000, guid: 32d830033074e684fadb18911c23449f, type: 2}
 --- !u!114 &1788559328
@@ -15927,7 +15927,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8efae6a4ba1a31447b358f172a8ba903, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::AbbyCamp.Presentation.VisualPresenter
   definition: {fileID: 11400000, guid: ca0badea2f05eb8449115db698247512, type: 2}
 --- !u!114 &1788559329
@@ -15940,7 +15940,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9713202bcfd3fda48821f6996dd792e2, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::AbbyCamp.World.CampEntityIdentity
   contentId: starter-companion
 --- !u!4 &1788559330
@@ -15996,7 +15996,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e70ea704c614e0db963f4745e1d41a9, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::AbbyCamp.World.CampPhoneCamera
   subject: {fileID: 1788559330}
   portraitWorldHeight: 4.6
