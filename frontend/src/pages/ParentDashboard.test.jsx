@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -29,11 +29,17 @@ const emptyDashboard = {
 };
 
 describe('ParentDashboard', () => {
-  it('renders the all-clear hero when the queue is empty', async () => {
+  it.each([
+    { response: 'immediate', queueDelay: 0 },
+    { response: 'slower than one second', queueDelay: 1500 },
+  ])('renders the all-clear hero when the queue is empty with $response data', async ({ queueDelay }) => {
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
       http.get('*/api/dashboard/', () => HttpResponse.json(emptyDashboard)),
-      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/chore-completions/', async () => {
+        await delay(queueDelay);
+        return HttpResponse.json([]);
+      }),
       http.get('*/api/homework/dashboard/', () => HttpResponse.json({ pending_submissions: [] })),
       http.get('*/api/redemptions/', () => HttpResponse.json([])),
       http.get('*/api/children/', () => HttpResponse.json([])),
