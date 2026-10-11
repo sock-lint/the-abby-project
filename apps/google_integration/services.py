@@ -10,6 +10,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ SCOPES = [
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
-    "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar.events.owned",
 ]
 
 # ``oauthlib`` rejects token responses whose ``scope`` differs from what we
@@ -408,7 +409,8 @@ class GoogleCalendarService:
             "summary": f"[Abby] {project.title} due",
             "description": f"Project deadline for {project.assigned_to}",
             "start": {"date": str(project.due_date)},
-            "end": {"date": str(project.due_date)},
+            # Google Calendar uses an exclusive end for all-day events.
+            "end": {"date": str(project.due_date + timedelta(days=1))},
             "reminders": {
                 "useDefault": False,
                 "overrides": [
@@ -419,9 +421,9 @@ class GoogleCalendarService:
         }
         cls._upsert_event(project.assigned_to, "project_due", project.id, event_body)
 
-    @classmethod
-    def sync_chore(cls, chore):
-        """Create/update a recurring calendar event for a chore."""
+    @staticmethod
+    def _chore_event_body(chore):
+        """Build the same duty event for automatic and manual sync."""
         tz = settings.TIME_ZONE
         today = timezone.localdate()
 
@@ -438,7 +440,7 @@ class GoogleCalendarService:
             "summary": f"[Abby] {chore.title}",
             "description": f"Chore — reward: ${chore.reward_amount}",
             "start": {"date": str(today), "timeZone": tz},
-            "end": {"date": str(today), "timeZone": tz},
+            "end": {"date": str(today + timedelta(days=1)), "timeZone": tz},
             "reminders": {
                 "useDefault": False,
                 "overrides": [{"method": "popup", "minutes": 30}],
@@ -446,25 +448,39 @@ class GoogleCalendarService:
         }
         if rrule:
             event_body["recurrence"] = [rrule]
+        return event_body
 
-        # Sync to children in the chore's family. If the chore is assigned to
-        # a specific child, only push to that child; otherwise fan out to every
-        # child in the family. NEVER sync globally — that would push another
-        # household's chore into a different family's calendar.
+    @classmethod
+    def sync_chore(cls, chore):
+        """Create/update a recurring calendar event for eligible children."""
+        if not chore.is_active or chore.pending_parent_review or not chore.family_id:
+            return
+
+        # The duty's explicit family owns it, even if its creator later moves
+        # families. Invalid or outdated assignments must never cross that
+        # boundary or deliver child duties to a parent or inactive account.
+        children = chore.family.members.filter(role="child", is_active=True)
         if chore.assigned_to_id:
-            cls._upsert_event(chore.assigned_to, "chore", chore.id, event_body)
-            return
+            children = children.filter(pk=chore.assigned_to_id)
 
-        family = getattr(chore.created_by, "family", None)
-        if family is None:
-            return
-        for child in family.members.filter(role="child", is_active=True):
+        event_body = cls._chore_event_body(chore)
+        for child in children:
             cls._upsert_event(child, "chore", chore.id, event_body)
 
     @classmethod
     def sync_time_entry(cls, time_entry):
         """Create a time block for a completed time entry."""
         if not time_entry.clock_out or not time_entry.user_id:
+            return
+
+        from apps.projects.models import Project
+        from config.viewsets import filter_projects_accessible_to
+
+        # A historical entry can outlive a project's assignment. Do not
+        # export the current title after the user loses project access.
+        if not filter_projects_accessible_to(
+            time_entry.user, Project.objects.filter(pk=time_entry.project_id),
+        ).exists():
             return
 
         tz = settings.TIME_ZONE
@@ -487,6 +503,7 @@ class GoogleCalendarService:
         from apps.chores.models import Chore
         from apps.projects.models import Project
         from apps.timecards.models import TimeEntry
+        from config.viewsets import filter_projects_accessible_to
 
         # Sync project due dates
         projects = Project.objects.filter(assigned_to=user, due_date__isnull=False)
@@ -496,33 +513,18 @@ class GoogleCalendarService:
         # Sync completed time entries (last 30 days)
         cutoff = timezone.now() - timedelta(days=30)
         entries = TimeEntry.objects.filter(
-            user=user, status="completed", clock_out__isnull=False, clock_in__gte=cutoff
+            user=user, status="completed", clock_out__isnull=False, clock_in__gte=cutoff,
+            project__in=filter_projects_accessible_to(user, Project.objects.all()),
         )
         for entry in entries:
             cls.sync_time_entry(entry)
 
-        # Sync active chores
-        chores = Chore.objects.filter(is_active=True)
+        # Match automatic duty recipients while resyncing only the requesting
+        # child's calendar; calling sync_chore here would also touch siblings.
+        if user.role != "child" or not user.is_active or not user.family_id:
+            return
+        chores = Chore.objects.filter(
+            family_id=user.family_id, is_active=True, pending_parent_review=False,
+        ).filter(Q(assigned_to=user) | Q(assigned_to__isnull=True))
         for chore in chores:
-            cls._upsert_event(
-                user,
-                "chore",
-                chore.id,
-                {
-                    "summary": f"[Abby] {chore.title}",
-                    "description": f"Chore — reward: ${chore.reward_amount}",
-                    "start": {"date": str(timezone.localdate()), "timeZone": settings.TIME_ZONE},
-                    "end": {"date": str(timezone.localdate()), "timeZone": settings.TIME_ZONE},
-                    "reminders": {
-                        "useDefault": False,
-                        "overrides": [{"method": "popup", "minutes": 30}],
-                    },
-                    **(
-                        {"recurrence": ["RRULE:FREQ=DAILY"]}
-                        if chore.recurrence == "daily"
-                        else {"recurrence": ["RRULE:FREQ=WEEKLY"]}
-                        if chore.recurrence == "weekly"
-                        else {}
-                    ),
-                },
-            )
+            cls._upsert_event(user, "chore", chore.id, cls._chore_event_body(chore))
