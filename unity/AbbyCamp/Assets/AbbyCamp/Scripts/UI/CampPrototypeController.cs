@@ -200,9 +200,11 @@ namespace AbbyCamp.UI
             headingPanel = Panel(safeArea, "PlayHeading", Vector2.zero, Vector2.up, Vector2.up, Vector2.zero, paper);
             titleLabel = Label(headingPanel, "Play", 30, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink);
             titleLabel.name = "CampTitle";
+            titleLabel.verticalOverflow = VerticalWrapMode.Overflow;
             modeLabel = Label(headingPanel, "", 15, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink); modeLabel.name = "AccountMode";
             coinsLabel = Label(headingPanel, "", 15, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink); coinsLabel.name = "CoinsBalance";
             homeStatusLabel = Label(headingPanel, "", 13, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink); homeStatusLabel.name = "HomeStatus";
+            homeStatusLabel.verticalOverflow = VerticalWrapMode.Overflow;
             connectButton = Button(headingPanel, "Connect", Vector2.zero, Vector2.zero, OpenConnection, true); connectButton.name = "AccountButton";
             todayButton = Button(headingPanel, "Today", Vector2.zero, Vector2.zero, () => Navigate(PlayDestination.Today), true); todayButton.name = "TodayButton";
             controlsPanel = Panel(safeArea, "PlayActions", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, paper);
@@ -214,7 +216,7 @@ namespace AbbyCamp.UI
             tasksButton = Button(controlsPanel, "Tasks", Vector2.zero, Vector2.zero, () => Navigate(PlayDestination.Tasks), true); tasksButton.name = "TasksButton";
             footerPanel = Panel(safeArea, "CompanionGreeting", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, paper);
             companionNameLabel = Label(footerPanel, "Meadow friend", 20, Vector2.zero, Vector2.zero, TextAnchor.MiddleLeft, ink); companionNameLabel.name = "CompanionName";
-            companionHintLabel = Label(footerPanel, "Bird artwork preview", 13, Vector2.zero, Vector2.zero, TextAnchor.MiddleLeft, ink);
+            companionHintLabel = Label(footerPanel, "Artwork preview", 13, Vector2.zero, Vector2.zero, TextAnchor.MiddleLeft, ink);
             patButton = Button(footerPanel, "Say hello", Vector2.zero, Vector2.zero, PatCompanion); patButton.name = "PatCompanionButton";
             toastPanel = Panel(safeArea, "PlayToast", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, paper);
             toastLabel = Label(toastPanel, "", 14, Vector2.zero, Vector2.zero, TextAnchor.MiddleCenter, ink); toastLabel.name = "CampMessage";
@@ -261,7 +263,7 @@ namespace AbbyCamp.UI
             companionNameLabel.text = "Meadow friend";
             // The bird is a scene preview. Never silently portray an unrelated
             // saved species as this purchased model or invent owned progression.
-            companionHintLabel.text = "Bird artwork preview";
+            companionHintLabel.text = "Artwork preview";
         }
 
         public void OpenRewards() => OpenSection(Section.Rewards);
@@ -350,7 +352,11 @@ namespace AbbyCamp.UI
 
         private void DrawActiveSection(bool resetScroll = false)
         {
-            var scroll = resetScroll || modalScroll == null ? 1 : modalScroll.verticalNormalizedPosition;
+            // ScrollRect can report zero for a short, top-aligned loading sheet.
+            // Preserve the top when data makes that sheet taller than its viewport.
+            var scroll = resetScroll || modalScroll == null
+                || modalScroll.content.rect.height <= modalScroll.viewport.rect.height + 1f
+                ? 1 : modalScroll.verticalNormalizedPosition;
             switch (section)
             {
                 case Section.Rewards: DrawRewards(); break;
@@ -359,6 +365,8 @@ namespace AbbyCamp.UI
                 default: return;
             }
             LayoutInterface();
+            Canvas.ForceUpdateCanvases();
+            modalScroll.StopMovement();
             modalScroll.verticalNormalizedPosition = scroll;
         }
 
@@ -477,7 +485,9 @@ namespace AbbyCamp.UI
                     yield return api.FetchUnreadNotificationCount(value => unreadCount = value, error => failure = error);
                     if (!Current(epoch) || view != viewVersion) yield break;
                 }
-                inboxStatus = failure == null ? "Read status saved" : "Couldn't confirm the read status. Refresh or try Mark read again.";
+                inboxStatus = failure == null ? "Read status saved" : saved != null
+                    ? "Read status saved. Refresh to update the unread count."
+                    : "Couldn't confirm the read status. Refresh or try Mark read again.";
             }
             finally
             {
@@ -503,7 +513,7 @@ namespace AbbyCamp.UI
                 {
                     FlowLabel(content, "StableCounts", stable.total_pets + " pets · " + stable.total_mounts + " mounts", 22, ink);
                     FlowLabel(content, "ActiveCompanion", stable.ActiveCompanion == null ? "No active companion yet" : "Active companion: " + PetName(stable.ActiveCompanion), 18, ink);
-                    FlowLabel(content, "CompanionArtNote", "The bird in this scene is an artwork preview. Your saved creatures and their progress are listed below.", 14, ink);
+                    FlowLabel(content, "CompanionArtNote", "The companion in this scene is an artwork preview. Your saved creatures and their progress are listed below.", 14, ink);
                     FlowLabel(content, "PetsHeading", "Companions", 19, ink);
                     if (stable.pets.Length == 0) FlowLabel(content, "EmptyPets", "Your first companion is waiting to be discovered.", 16, ink);
                     foreach (var pet in stable.pets)
@@ -595,6 +605,7 @@ namespace AbbyCamp.UI
                 message.text = failure == null ? "Play uses a child account. Parent tools are in the web app." : failure.Message;
                 submit.interactable = cancel.interactable = true; RefreshHud(); yield break;
             }
+            toastPanel.gameObject.SetActive(false);
             CloseModal(); RefreshHud(); yield return RefreshHome();
         }
 
@@ -619,6 +630,7 @@ namespace AbbyCamp.UI
             modalSafeArea = Box(backdrop, "ModalSafeArea", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
             modalSheet = Panel(modalSafeArea, "CampSheet", Vector2.zero, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, paper);
             modalTitle = Label(modalSheet, title, 25, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink); modalTitle.name = "SheetTitle";
+            modalTitle.verticalOverflow = VerticalWrapMode.Overflow;
             modalSubtitle = Label(modalSheet, subtitle, 15, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink); modalSubtitle.name = "SheetSubtitle";
             var viewport = Panel(modalSheet, "SheetViewport", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, new Color(0, 0, 0, .02f));
             viewport.anchorMax = Vector2.one;
