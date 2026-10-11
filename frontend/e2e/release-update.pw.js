@@ -83,7 +83,7 @@ test('production Django routes survive offline boots and replacement releases un
   const urls = await cacheUrls(page);
   await test.info().attach('release-a-cache-urls', { body: JSON.stringify(urls, null, 2), contentType: 'application/json' });
   for (const asset of fixtures.releases.A.entryAssets) expect(urls).toContain(`${origin}${asset}`);
-  expect(urls.some((url) => /\/static\/assets\/Nunito-SemiBold-[^/]+\.ttf$/.test(new URL(url).pathname))).toBe(true);
+  expect(urls.some((url) => /\/static\/assets\/Nunito-Variable-[^/]+\.ttf$/.test(new URL(url).pathname))).toBe(true);
   expect(urls.some((url) => new URL(url).pathname.startsWith('/assets/'))).toBe(false);
 
   expect(await page.evaluate(async () => (await fetch('/api/pwa-fixture/')).json())).toEqual({ synthetic: '/api/pwa-fixture/' });
