@@ -79,6 +79,23 @@ pre-commit run --all-files
 
 ## Commit & PR conventions
 
+- Follow the mandatory [agent worktree lifecycle](./AGENTS.md#worktree-lifecycle):
+  reuse owned checkouts, attach PRs, archive eligible managed worktrees after a
+  confirmed merge or completed disposable verification, and account for every
+  retained checkout at handoff. The user's standing cleanup request also
+  authorizes normal removal of this chat's clean, inactive, fully merged unmanaged
+  worktree once its exact PR and absolute path are verified; never force removal.
+  Managed Codex worktrees always use archival. The
+  [verification and recovery details](./CLAUDE.md#worktree-lifecycle) cover
+  preservation of additional work and owner-chat merge monitors. Repository
+  documentation does not install an automatic cleanup hook.
+- Follow the [branch lifecycle rules](./AGENTS.md#branch-lifecycle): after a
+  verified PR merge, clean up eligible owned worktrees and inactive task branches.
+  GitHub's automatic merged-head deletion handles remote branches; owner-chat
+  monitors handle local cleanup. Preserve active, protected, shared, checked-out,
+  or unknown-owner branches and additional work. See the
+  [branch verification and recovery details](./CLAUDE.md#branch-lifecycle) for
+  squash/rebase merges; never bulk-force deletion.
 - Branch off `main`; keep PRs focused. Large refactors should land behind
   a short description of the migration path in the PR body.
 - Update [`CLAUDE.md`](./CLAUDE.md) when you change anything a future
