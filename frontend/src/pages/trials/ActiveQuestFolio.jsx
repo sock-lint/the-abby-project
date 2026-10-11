@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import QuestFolio from '../quests/QuestFolio';
 import RpgSprite from '../../components/rpg/RpgSprite';
 import RuneBadge from '../../components/journal/RuneBadge';
+import AddToCalendar from '../../components/AddToCalendar';
 import { formatDate } from '../../utils/format';
 import { STATUS_TONE } from './trials.constants';
 
@@ -78,6 +79,21 @@ function RectoBody({ quest }) {
           {def.description}
         </p>
       </div>
+
+      {quest.end_date && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-script text-caption text-ink-whisper">
+            ends {formatDate(quest.end_date)}
+          </span>
+          <AddToCalendar event={{
+            id: `quest:${quest.id}`,
+            title: `Quest deadline: ${def.name}`,
+            start: quest.end_date,
+            description: 'Quest deadline.',
+            path: '/quests?tab=trials',
+          }} />
+        </div>
+      )}
 
       {quest.participants?.length > 1 && (
         <PartyTable quest={quest} />

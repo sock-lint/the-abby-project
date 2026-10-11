@@ -1,6 +1,7 @@
 import { ExternalLink } from 'lucide-react';
 import ParchmentCard from '../../components/journal/ParchmentCard';
-import RuneBadge from '../../components/journal/RuneBadge';
+import AddToCalendar from '../../components/AddToCalendar';
+import { formatDate } from '../../utils/format';
 import { ResourcePill } from './ProjectPlanItems';
 
 export default function OverviewTab({ project, isParent }) {
@@ -34,7 +35,17 @@ export default function OverviewTab({ project, isParent }) {
         />
         <StatTile label="Budget" value={`$${project.materials_budget}`} />
         <StatTile label="XP reward" value={project.xp_reward} tone="teal" />
-        <StatTile label="Due date" value={project.due_date || 'None'} />
+        <StatTile label="Due date" value={project.due_date ? formatDate(project.due_date) : 'None'}>
+          {project.due_date && (
+            <AddToCalendar className="w-full justify-center" event={{
+              id: `project:${project.id}`,
+              title: `Project due: ${project.title}`,
+              start: project.due_date,
+              description: 'Project due date.',
+              path: `/quests/ventures/${project.id}`,
+            }} />
+          )}
+        </StatTile>
       </div>
 
       {project.assigned_to && (
@@ -89,7 +100,7 @@ export default function OverviewTab({ project, isParent }) {
   );
 }
 
-function StatTile({ label, value, tone = 'default' }) {
+function StatTile({ label, value, tone = 'default', children }) {
   const toneClasses = {
     default: 'text-ink-primary',
     royal: 'text-royal',
@@ -97,13 +108,14 @@ function StatTile({ label, value, tone = 'default' }) {
     teal: 'text-sheikah-teal-deep',
   }[tone];
   return (
-    <ParchmentCard>
+    <ParchmentCard className="min-w-0">
       <div className="font-script text-xs text-ink-whisper uppercase tracking-wider">
         {label}
       </div>
-      <div className={`font-display font-semibold text-lg tabular-nums ${toneClasses}`}>
+      <div className={`break-words font-display font-semibold text-lg tabular-nums ${toneClasses}`}>
         {value}
       </div>
+      {children && <div className="mt-2">{children}</div>}
     </ParchmentCard>
   );
 }

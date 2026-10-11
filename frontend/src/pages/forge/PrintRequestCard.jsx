@@ -4,6 +4,7 @@ import RuneBadge from '../../components/journal/RuneBadge';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import Button from '../../components/Button';
+import AddToCalendar from '../../components/AddToCalendar';
 import { formatDate } from '../../utils/format';
 import PlateFilenameChip from './PlateFilenameChip';
 import { isJobOpen, jobProgressLabel } from './forge.constants';
@@ -74,9 +75,18 @@ export default function PrintRequestCard({
               </RuneBadge>
             )}
             {request.needed_by && (
-              <RuneBadge tone="gold" icon={<CalendarClock size={11} />}>
-                by {formatDate(request.needed_by)}
-              </RuneBadge>
+              <>
+                <RuneBadge tone="gold" icon={<CalendarClock size={11} />}>
+                  by {formatDate(request.needed_by)}
+                </RuneBadge>
+                <AddToCalendar event={{
+                  id: `print:${request.id}`,
+                  title: `Print needed: ${request.title}`,
+                  start: request.needed_by,
+                  description: 'Requested print needed by this date.',
+                  path: '/quests?tab=forge',
+                }} />
+              </>
             )}
             {showOwner && request.user_name && (
               <span className="font-script text-caption text-ink-whisper">

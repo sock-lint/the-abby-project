@@ -17,8 +17,10 @@ import ChapterRubric from '../components/atlas/ChapterRubric';
 import { InkwellIcon } from '../components/icons/JournalIcons';
 import { useRole } from '../hooks/useRole';
 import Button from '../components/Button';
+import AddToCalendar from '../components/AddToCalendar';
 import { SelectField } from '../components/form';
 import { normalizeList } from '../utils/api';
+import { formatDate } from '../utils/format';
 import { staggerChildren, staggerItem } from '../motion/variants';
 import QuestFolio from './quests/QuestFolio';
 import { buildRarityCounts, difficultyToRarity } from './quests/quests.constants';
@@ -144,66 +146,84 @@ export default function Projects() {
   const hasFilters = !!(statusFilter || typeFilter || childFilter || search);
 
   const renderProjectCard = (p) => (
-    <motion.button
+    <motion.div
       key={p.id}
-      type="button"
       variants={staggerItem}
       whileHover={{ y: -3 }}
-      className="min-w-0 text-left cursor-pointer"
-      onClick={() => navigate(`/quests/ventures/${p.id}`)}
-      aria-label={`Open ${p.title}`}
+      className="min-w-0"
     >
       <ParchmentCard className="h-full min-w-0">
-        {p.cover_photo && (
-          <img
-            src={p.cover_photo}
-            alt=""
-            className="w-full h-32 object-cover rounded-lg mb-3 -mt-1 border border-ink-page-shadow"
-          />
-        )}
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="min-w-0 flex-1 break-words font-display text-lg leading-tight text-ink-primary">
-            {p.title}
-          </h3>
-          <div className="shrink-0 flex items-center gap-1 flex-wrap justify-end">
-            {p.payment_kind === 'bounty' && (
-              <RuneBadge tone="royal" size="sm">bounty</RuneBadge>
-            )}
-            <StatusBadge status={p.status} />
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 font-script text-caption text-ink-whisper mb-3">
-          {p.category && (
-            <span className="min-w-0 break-words flex items-center gap-1">
-              {p.category.icon} {p.category.name}
-            </span>
+        <motion.button
+          type="button"
+          className="block w-full min-h-11 text-left cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sheikah-teal"
+          onClick={() => navigate(`/quests/ventures/${p.id}`)}
+          aria-label={`Open ${p.title}`}
+        >
+          {p.cover_photo && (
+            <img
+              src={p.cover_photo}
+              alt=""
+              className="w-full h-32 object-cover rounded-lg mb-3 -mt-1 border border-ink-page-shadow"
+            />
           )}
-          <StarRating value={p.difficulty} />
-        </div>
-        {p.milestones_total > 0 && (
-          <div className="mb-2">
-            <div className="flex justify-between font-rune text-tiny text-ink-whisper mb-1">
-              <span>MILESTONES</span>
-              <span>{p.milestones_completed}/{p.milestones_total}</span>
-            </div>
-            <div className="h-1.5 rounded-full bg-ink-page-shadow/60 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal"
-                style={{ width: `${(p.milestones_completed / p.milestones_total) * 100}%` }}
-              />
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <h3 className="min-w-0 flex-1 break-words font-display text-lg leading-tight text-ink-primary">
+              {p.title}
+            </h3>
+            <div className="shrink-0 flex items-center gap-1 flex-wrap justify-end">
+              {p.payment_kind === 'bounty' && (
+                <RuneBadge tone="royal" size="sm">bounty</RuneBadge>
+              )}
+              <StatusBadge status={p.status} />
             </div>
           </div>
-        )}
-        {p.assigned_to && (
-          <div className="font-script text-caption text-ink-secondary break-words">
-            assigned to {p.assigned_to.display_name || p.assigned_to.username}
+          <div className="flex flex-wrap items-center gap-3 font-script text-caption text-ink-whisper mb-3">
+            {p.category && (
+              <span className="min-w-0 break-words flex items-center gap-1">
+                {p.category.icon} {p.category.name}
+              </span>
+            )}
+            <StarRating value={p.difficulty} />
           </div>
-        )}
-        {!p.assigned_to && p.payment_kind === 'bounty' && (
-          <div className="font-script text-caption text-royal">open bounty</div>
+          {p.milestones_total > 0 && (
+            <div className="mb-2">
+              <div className="flex justify-between font-rune text-tiny text-ink-whisper mb-1">
+                <span>MILESTONES</span>
+                <span>{p.milestones_completed}/{p.milestones_total}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-ink-page-shadow/60 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal"
+                  style={{ width: `${(p.milestones_completed / p.milestones_total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+          {p.assigned_to && (
+            <div className="font-script text-caption text-ink-secondary break-words">
+              assigned to {p.assigned_to.display_name || p.assigned_to.username}
+            </div>
+          )}
+          {!p.assigned_to && p.payment_kind === 'bounty' && (
+            <div className="font-script text-caption text-royal">open bounty</div>
+          )}
+        </motion.button>
+        {p.due_date && (
+          <div className="flex flex-wrap items-center gap-2 mt-3">
+            <span className="font-script text-caption text-ink-whisper">
+              due {formatDate(p.due_date)}
+            </span>
+            <AddToCalendar event={{
+              id: `project:${p.id}`,
+              title: `Project due: ${p.title}`,
+              start: p.due_date,
+              description: 'Project due date.',
+              path: `/quests/ventures/${p.id}`,
+            }} />
+          </div>
         )}
       </ParchmentCard>
-    </motion.button>
+    </motion.div>
   );
 
   return (
