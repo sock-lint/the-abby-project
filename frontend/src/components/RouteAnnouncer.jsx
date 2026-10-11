@@ -25,7 +25,7 @@ export default function RouteAnnouncer() {
       || 'Page';
     const label = `Navigated to ${title}`;
     if (ref.current) ref.current.textContent = label;
-    document.title = `${title} — Hyrule Field Notes`;
+    document.title = `${title} — The Abby Project`;
   }, [pathname]);
 
   return (

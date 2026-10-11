@@ -25,12 +25,12 @@ function NoChildrenWelcome() {
         <div className="mx-auto w-12 h-12 rounded-full bg-sheikah-teal/15 border border-sheikah-teal/40 flex items-center justify-center text-sheikah-teal-deep">
           <UserPlus size={22} />
         </div>
-        <h2 className="font-display italic text-2xl text-ink-primary">
+        <h2 className="font-body font-bold text-2xl text-ink-primary">
           Welcome — let&apos;s add your first kid.
         </h2>
         <p className="font-script text-ink-secondary max-w-md mx-auto text-body">
-          Once a child is on the journal, you&apos;ll see their pending duties,
-          studies, and rewards land here for one-tap approval.
+          Add a child to see their projects, study, and rewards here.
+          You can encourage their progress and review what needs approval.
         </p>
         <div className="pt-2">
           <Link to="/manage">
@@ -63,8 +63,8 @@ export default function ParentDashboard() {
   return (
     <PageShell variants={inkBleed}>
       <PageHeader
-        title="Today's Entry"
-        kicker={`${weekday} · ${dateStr}`}
+        title="Today"
+        kicker={`${weekday} · ${dateStr} · your family's day at a glance`}
       />
 
       {showWelcome ? (

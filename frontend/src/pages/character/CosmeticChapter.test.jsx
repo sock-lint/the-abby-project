@@ -27,7 +27,7 @@ describe('CosmeticChapter', () => {
     );
     expect(screen.getByRole('region', { name: frameChapter.name })).toBeInTheDocument();
     expect(screen.getByText('\u00a7I')).toBeInTheDocument();
-    expect(screen.getByText(/a border of renown/)).toBeInTheDocument();
+    expect(screen.getByText('A colorful frame for your initial')).toBeInTheDocument();
     expect(screen.getByText(/1 of 2/)).toBeInTheDocument();
   });
 

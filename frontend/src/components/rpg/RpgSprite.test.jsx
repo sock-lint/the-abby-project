@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import RpgSprite from './RpgSprite';
 import { SpriteCatalogProvider } from '../../providers/SpriteCatalogProvider';
+import { SpriteCatalogContext } from '../../providers/spriteCatalog.context';
 
 // Seed the catalog via localStorage so the provider resolves immediately
 // without network.
@@ -29,6 +30,54 @@ describe('RpgSprite', () => {
     const img = screen.getByAltText('dragon');
     expect(img.tagName).toBe('IMG');
     expect(img.src).toBe('https://s/dragon.png');
+    expect(img).toHaveStyle({ imageRendering: 'auto', objectFit: 'contain' });
+  });
+
+  it('supports an explicit crisp rendering mode for pixel artwork', () => {
+    renderWithCatalog(<RpgSprite spriteKey="dragon" alt="dragon" rendering="pixelated" />,
+      { dragon: { url: 'https://s/dragon.png', frames: 1 } });
+    expect(screen.getByAltText('dragon')).toHaveStyle({ imageRendering: 'pixelated' });
+  });
+
+  it('tries the base species when the primary portrait fails, then keeps a labelled icon', () => {
+    renderWithCatalog(<RpgSprite spriteKey="fox-mount" fallbackSpriteKey="fox" icon="🦊" alt="Fox mount" dim="bored" />,
+      { 'fox-mount': { url: 'https://s/mount.png', frames: 1 }, fox: { url: 'https://s/fox.png', frames: 1 } });
+    fireEvent.error(screen.getByRole('img', { name: 'Fox mount' }));
+    expect(screen.getByRole('img', { name: 'Fox mount' })).toHaveAttribute('src', 'https://s/fox.png');
+    fireEvent.error(screen.getByRole('img', { name: 'Fox mount' }));
+    const fallback = screen.getByRole('img', { name: 'Fox mount' });
+    expect(fallback.tagName).toBe('SPAN');
+    expect(fallback).toHaveTextContent('🦊');
+    expect(fallback).toHaveAttribute('data-dim', 'bored');
+    expect(fallback).toHaveStyle({ filter: 'grayscale(0.25) opacity(0.85)' });
+  });
+
+  it('recovers from a failure when the catalog supplies a fresh URL', () => {
+    const sprite = (url) => ({ getSpriteMeta: () => ({ url, frames: 1 }) });
+    const ui = (url) => <SpriteCatalogContext.Provider value={sprite(url)}><RpgSprite spriteKey="bird" icon="🐦" alt="Bird" /></SpriteCatalogContext.Provider>;
+    const { rerender } = render(ui('https://s/old.png'));
+    fireEvent.error(screen.getByRole('img', { name: 'Bird' }));
+    expect(screen.getByRole('img', { name: 'Bird' }).tagName).toBe('SPAN');
+    rerender(ui('https://s/new.png'));
+    expect(screen.getByRole('img', { name: 'Bird' })).toHaveAttribute('src', 'https://s/new.png');
+  });
+
+  it('falls back accessibly when an animated strip fails to load', () => {
+    const { container } = renderWithCatalog(<RpgSprite spriteKey="flame" icon="🔥" alt="Flame" />,
+      { flame: { url: 'https://s/flame.png', frames: 4, fps: 6 } });
+    fireEvent.error(container.querySelector('img'));
+    expect(screen.getByRole('img', { name: 'Flame' })).toHaveTextContent('🔥');
+    expect(container.querySelector('img')).toBeNull();
+  });
+
+  it.each([1, 4])('ignores an old image error after the URL changes (%s frames)', (frames) => {
+    const ui = (url) => <SpriteCatalogContext.Provider value={{ getSpriteMeta: () => ({ url, frames, fps: 6 }) }}><RpgSprite spriteKey="bird" icon="🐦" alt="Bird" /></SpriteCatalogContext.Provider>;
+    const { container, rerender } = render(ui('https://s/old.png'));
+    const oldImage = container.querySelector('img');
+    rerender(ui('https://s/new.png'));
+    fireEvent.error(oldImage);
+    expect(container.querySelector('img')).toHaveAttribute('src', 'https://s/new.png');
+    expect(screen.getByRole('img', { name: 'Bird' })).not.toHaveTextContent('🐦');
   });
 
   it('renders an animated sprite as a span with canonical step animation', () => {

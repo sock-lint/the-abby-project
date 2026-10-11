@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Flame } from 'lucide-react';
 import { CoinIcon, EggIcon } from '../icons/JournalIcons';
+import RpgSprite from '../rpg/RpgSprite';
 
 function VitalPip({ label, value, icon, tone = 'ink', onClick, ariaLabel }) {
   const toneText = {
@@ -17,7 +18,7 @@ function VitalPip({ label, value, icon, tone = 'ink', onClick, ariaLabel }) {
       type="button"
       onClick={onClick}
       aria-label={ariaLabel || `${label}: ${value}`}
-      className="flex flex-col items-center justify-center gap-0.5 rounded-xl border border-ink-page-shadow bg-ink-page-aged min-h-[72px] px-2 py-2 hover:bg-ink-page-rune-glow transition-colors"
+      className="min-w-0 flex flex-col items-center justify-center gap-1 rounded-2xl border border-ink-page-shadow bg-ink-page-aged min-h-[72px] px-2 py-2 hover:bg-ink-page-rune-glow transition-colors"
     >
       <div className={`flex items-center gap-1 ${toneText}`}>
         {icon}
@@ -25,7 +26,7 @@ function VitalPip({ label, value, icon, tone = 'ink', onClick, ariaLabel }) {
           {value}
         </span>
       </div>
-      <div className="font-script text-tiny text-ink-whisper uppercase tracking-wider leading-none">
+      <div className="font-body font-semibold text-tiny text-ink-secondary leading-snug">
         {label}
       </div>
     </button>
@@ -44,12 +45,14 @@ export default function VitalPipStrip({
 }) {
   const navigate = useNavigate();
 
-  const petIcon = activePet?.species?.icon_url ? (
-    <img
-      src={activePet.species.icon_url}
-      alt=""
-      className="w-5 h-5 object-contain"
-      aria-hidden="true"
+  const petIcon = activePet ? (
+    <RpgSprite
+      spriteKey={activePet.species?.sprite_key}
+      icon={activePet.species?.icon || '🐾'}
+      potionSlug={activePet.potion?.slug}
+      dim={activePet.evolved_to_mount || activePet.happiness_level === 'happy' ? null : activePet.happiness_level}
+      alt={[activePet.potion?.name, activePet.species?.name || 'Companion'].filter(Boolean).join(' ')}
+      size={24}
     />
   ) : (
     <EggIcon size={16} />
@@ -84,7 +87,7 @@ export default function VitalPipStrip({
       <VitalPip
         icon={petIcon}
         value={activePet ? (activePet.growth_points != null ? `${activePet.growth_points}%` : '•') : '—'}
-        label={activePet ? 'pet' : 'no pet'}
+        label={activePet ? 'companion' : 'no pet'}
         tone="royal"
         ariaLabel={activePet ? `${activePet.species?.name || 'pet'} growth` : 'Find a pet'}
         onClick={() => navigate(activePet ? '/bestiary?tab=companions' : '/treasury?tab=satchel')}

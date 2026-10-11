@@ -8,6 +8,7 @@ import { tierForProgress } from '../atlas/mastery.constants';
 import { formatDuration } from '../../utils/format';
 import { inkBleed } from '../../motion/variants';
 import Button from '../Button';
+import ProgressBar from '../ProgressBar';
 
 const ICON_MAP = { BookOpen, Sparkles, Flame, Play, Square, ClipboardCheck };
 
@@ -62,7 +63,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
   if (role === 'parent') {
     const count = Number(ctx.pendingCount) || 0;
     // An empty queue while the aggregate is still in flight is "we don't know
-    // yet", not "all clear" — saying "Nothing needs your seal" and then popping
+    // yet", not "all clear" — claiming the queue is empty and then popping
     // into a full queue is how a glancing parent misses approvals.
     const settling = Boolean(ctx.loading) && count === 0;
     return (
@@ -73,42 +74,43 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
           </div>
           {count > 0 ? (
             <>
-              <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-                {count} {count === 1 ? 'thing needs' : 'things need'} your seal today
-              </h1>
+              <h2 className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight break-words">
+                {count} {count === 1 ? 'thing' : 'things'} to review today
+              </h2>
               <div className="font-body text-body text-ink-secondary mt-1">
-                Review duties, study, and rewards below.
+                A little encouragement goes a long way. Review completed work and rewards below.
               </div>
               <div className="mt-3 flex items-center gap-2">
                 <Button
                   size="sm"
                   onClick={() => {
                     const el = document.getElementById('approval-queue');
-                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                    if (el) el.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
                   }}
                   className="inline-flex items-center gap-2"
                 >
-                  <ClipboardCheck size={16} /> Review queue
+                  <ClipboardCheck size={16} /> Review approvals
                 </Button>
                 <RuneBadge tone="ember">pending</RuneBadge>
               </div>
             </>
           ) : settling ? (
             <>
-              <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-                Turning today&apos;s page…
-              </h1>
+              <h2 className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight">
+                Checking for updates…
+              </h2>
               <div className="font-body text-body text-ink-secondary mt-1">
-                Gathering what&apos;s waiting for your seal.
+                Gathering completed work and reward requests.
               </div>
             </>
           ) : (
             <>
-              <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-                Nothing needs your seal.
-              </h1>
+              <h2 className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight">
+                You&apos;re all caught up.
+              </h2>
               <div className="font-body text-body text-ink-secondary mt-1">
-                A quiet page. The kids are on their own today.
+                Nothing is waiting for approval. Take a moment to see how everyone&apos;s doing.
               </div>
             </>
           )}
@@ -144,11 +146,11 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
             />
             <div className="min-w-0 flex-1">
               <div className="font-script text-caption text-ink-whisper uppercase tracking-wider">
-                Still inking
+                Time well spent
               </div>
-              <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 truncate">
+              <h2 className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 break-words">
                 {activeTimer.project_title}
-              </h1>
+              </h2>
               <div className="font-rune text-3xl md:text-4xl font-bold text-ember-deep tabular-nums mt-2">
                 {formatDuration(activeTimer.elapsed_minutes)}
               </div>
@@ -185,18 +187,18 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
               <div className="font-script text-caption text-royal uppercase tracking-wider">
                 Active trial
               </div>
-              <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 truncate">
+              <h2 className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 break-words">
                 {quest.definition?.name}
-              </h1>
+              </h2>
               <div className="font-body text-body text-ink-secondary mt-1">
                 {quest.current_progress}/{quest.effective_target} · {quest.progress_percent}%
               </div>
-              <div className="h-2 mt-2 rounded-full bg-ink-page-shadow/60 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal"
-                  style={{ width: `${Math.min(100, quest.progress_percent)}%` }}
-                />
-              </div>
+              <ProgressBar
+                value={quest.progress_percent}
+                max={100}
+                aria-label={`${quest.definition?.name || 'Active trial'} progress`}
+                className="h-2 mt-2"
+              />
               {/* "trial", not "quest" — the destination is the Trials tab and
                   the kicker above already calls it a trial. */}
               <Button
@@ -214,11 +216,11 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
         {variant === 'idle' && (
           <>
             <div className="flex items-center gap-1.5 font-script text-caption text-ink-whisper uppercase tracking-wider">
-              <Sparkles size={14} /> A quiet page
+              <Sparkles size={14} /> Room for something good
             </div>
-            <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5">
-              Nothing pressing — pick something.
-            </h1>
+            <h2 className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5">
+              No rush. Choose your next adventure.
+            </h2>
             <Button
               variant="ghost"
               size="sm"
@@ -259,9 +261,9 @@ function NextActionBody({ action, onOpenHomework, onCompleteChore, onTapHabit, o
         <div className={`flex items-center gap-1.5 font-script text-caption ${accentClass} uppercase tracking-wider`}>
           <Icon size={14} /> Next up
         </div>
-        <h1 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 truncate">
+        <h2 className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 break-words">
           {action.title}
-        </h1>
+        </h2>
         <div className="font-body text-body text-ink-secondary mt-1">
           {action.subtitle}
         </div>

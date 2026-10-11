@@ -5,13 +5,12 @@ import { groupBadgesByCollection } from '../achievements/collections.constants';
 
 /**
  * TrophyBadgePicker — BottomSheet that shows every earned badge grouped
- * by its Reliquary Codex chapter. Click a sigil to set it as the hero
- * trophy. Click the current trophy to clear the slot.
+ * by collection. Select a badge to display it as the profile trophy.
+ * Select the current trophy to clear the slot.
  *
  * Deliberately reuses `groupBadgesByCollection` + `BadgeSigil` so the
  * picker speaks the exact same visual language as `/atlas?tab=badges`.
- * The child never needs to mentally re-map — the seal that was sitting
- * in their reliquary is the same seal that can stand on their hero plate.
+ * Earned badges keep the same names, rarity and artwork as the collection.
  */
 export default function TrophyBadgePicker({
   allBadges = [],
@@ -24,19 +23,19 @@ export default function TrophyBadgePicker({
   const grandEarned = earnedBadges.length;
 
   return (
-    <BottomSheet title="Choose your hero seal" onClose={onClose}>
+    <BottomSheet title="Choose your trophy badge" onClose={onClose}>
       <div className="space-y-4">
         <p className="text-center font-script text-ink-whisper text-caption leading-snug">
-          pick the seal you wish to display on your frontispiece.
+          Choose an earned badge to show on your profile.
           {currentTrophyId
-            ? ' Click your current seal again to clear the slot.'
+            ? ' Select your current trophy badge again to remove it.'
             : ''}
         </p>
 
         {grandEarned === 0 ? (
           <EmptyState>
-            You haven’t earned any seals yet — finish a quest or complete a
-            project to forge your first.
+            You haven’t earned any badges yet. Keep exploring projects and
+            quests to earn your first.
           </EmptyState>
         ) : (
           <div className="space-y-4">
@@ -63,7 +62,7 @@ export default function TrophyBadgePicker({
                       {chapter.collection.name}
                     </h3>
                     <span className="font-script text-micro text-ink-whisper ml-auto">
-                      {earnedInChapter.length} sealed
+                      {earnedInChapter.length} earned
                     </span>
                   </div>
                   <ul className="grid grid-cols-3 sm:grid-cols-4 gap-2 list-none p-0 m-0">

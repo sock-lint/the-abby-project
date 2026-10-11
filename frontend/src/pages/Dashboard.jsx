@@ -6,6 +6,8 @@ import ChildDashboard from './ChildDashboard';
 import ParentDashboard from './ParentDashboard';
 import DashboardSkeleton from './DashboardSkeleton';
 import { formatWeekdayDate } from './_dashboardShared';
+import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 
 /**
  * Dashboard — the "Today" page. Thin router that loads dashboard data once,
@@ -19,11 +21,10 @@ export default function Dashboard() {
   if (loading) return <DashboardSkeleton />;
   if (error || !data) {
     return (
-      <div className="max-w-6xl mx-auto space-y-3">
-        {/* Show a soft dated header so the date test passes even in error state. */}
+      <PageShell animate={false}>
         <DateHeader />
-        <ErrorAlert message={error || "Could not load today’s entry."} onRetry={reload} />
-      </div>
+        <ErrorAlert message={error || 'Could not load today. Please try again.'} onRetry={reload} />
+      </PageShell>
     );
   }
 
@@ -33,13 +34,6 @@ export default function Dashboard() {
 function DateHeader() {
   const { weekday, dateStr } = formatWeekdayDate();
   return (
-    <header>
-      <div className="font-script text-sheikah-teal-deep text-base md:text-lg">
-        {weekday} · {dateStr}
-      </div>
-      <h1 className="font-display italic text-3xl md:text-5xl text-ink-primary leading-tight">
-        Today&apos;s Entry
-      </h1>
-    </header>
+    <PageHeader title="Today" kicker={`${weekday} · ${dateStr}`} />
   );
 }

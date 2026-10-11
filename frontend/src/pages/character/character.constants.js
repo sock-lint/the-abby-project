@@ -1,4 +1,4 @@
-// Frontispiece constants — shared by SigilFrontispiece, CosmeticChapter,
+// Profile constants — shared by SigilFrontispiece, CosmeticChapter,
 // CosmeticSigil, TrophySlot, StreakGlyph. Kept in a .js file so the
 // non-component exports don't trip react-refresh/only-export-components.
 
@@ -14,28 +14,28 @@ export const COSMETIC_CHAPTERS = [
     rubric: '\u00a7I',
     letter: 'F',
     name: 'Frames',
-    kicker: 'a border of renown',
+    kicker: 'A colorful frame for your initial',
   },
   {
     slot: 'active_title',
     rubric: '\u00a7II',
     letter: 'T',
     name: 'Titles',
-    kicker: 'the name you bear',
+    kicker: 'A title that tells your story',
   },
   {
     slot: 'active_theme',
     rubric: '\u00a7III',
     letter: 'B',
     name: 'Journal Covers',
-    kicker: 'the binding of your tome',
+    kicker: 'Choose the colors for your world',
   },
   {
     slot: 'active_pet_accessory',
     rubric: '\u00a7IV',
     letter: 'P',
     name: 'Pet Regalia',
-    kicker: 'cloth for your companion',
+    kicker: 'Little extras for your companion',
   },
 ];
 

@@ -18,7 +18,8 @@ describe('SigilFrontispiece', () => {
         onOpenTrophyPicker={() => {}}
       />,
     );
-    expect(screen.getByRole('heading', { name: 'Abby' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Abby' })).toBeInTheDocument();
+    expect(screen.getByText('Make this little world your own')).toBeInTheDocument();
   });
 
   it('renders all three vital pips', () => {
@@ -46,7 +47,7 @@ describe('SigilFrontispiece', () => {
         onOpenTrophyPicker={() => {}}
       />,
     );
-    const slot = screen.getByRole('button', { name: /no hero seal/i });
+    const slot = screen.getByRole('button', { name: /no trophy badge/i });
     expect(slot).toBeInTheDocument();
   });
 
@@ -66,7 +67,7 @@ describe('SigilFrontispiece', () => {
         onOpenTrophyPicker={() => {}}
       />,
     );
-    expect(screen.getByRole('button', { name: /Hero seal: Night Owl/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Trophy badge: Night Owl/i })).toBeInTheDocument();
   });
 
   it('clicking the trophy slot opens the picker', async () => {
@@ -78,7 +79,7 @@ describe('SigilFrontispiece', () => {
         onOpenTrophyPicker={spy}
       />,
     );
-    await user.click(screen.getByRole('button', { name: /no hero seal/i }));
+    await user.click(screen.getByRole('button', { name: /no trophy badge/i }));
     expect(spy).toHaveBeenCalledTimes(1);
   });
 

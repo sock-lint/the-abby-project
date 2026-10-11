@@ -6,8 +6,8 @@ describe('TrophySlot', () => {
   it('renders the empty-state with an accessible prompt', () => {
     renderWithProviders(<TrophySlot badge={null} onOpen={() => {}} />);
     const btn = screen.getByRole('button');
-    expect(btn.getAttribute('aria-label')).toMatch(/no hero seal/i);
-    expect(screen.getByText(/choose from your reliquary/i)).toBeInTheDocument();
+    expect(btn.getAttribute('aria-label')).toMatch(/no trophy badge/i);
+    expect(screen.getByText('Choose an earned badge')).toBeInTheDocument();
   });
 
   it('renders the occupied-state with badge name + rarity chip', () => {
@@ -15,7 +15,7 @@ describe('TrophySlot', () => {
     renderWithProviders(<TrophySlot badge={badge} onOpen={() => {}} />);
     expect(screen.getByText('Centennial')).toBeInTheDocument();
     expect(screen.getByText('legendary')).toBeInTheDocument();
-    expect(screen.getByText(/your hero seal/i)).toBeInTheDocument();
+    expect(screen.getByText('Your trophy badge')).toBeInTheDocument();
   });
 
   it('fires onOpen when clicked', async () => {

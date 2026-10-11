@@ -2,19 +2,28 @@ import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import Dashboard from './Dashboard.jsx';
 import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
 import { buildUser } from '../test/factories.js';
+import { SpriteCatalogContext } from '../providers/spriteCatalog.context';
 
-function renderDashboard(extraHandlers = []) {
+function LocationProbe() {
+  const location = useLocation();
+  return <span data-testid="location">{location.pathname}{location.search}</span>;
+}
+
+function renderDashboard(extraHandlers = [], catalog = {}) {
   server.use(...extraHandlers);
   return render(
     <MemoryRouter>
       <AuthProvider>
-        <Dashboard />
+        <SpriteCatalogContext.Provider value={{ getSpriteMeta: (key) => catalog[key] || null }}>
+          <Dashboard />
+        </SpriteCatalogContext.Provider>
+        <LocationProbe />
       </AuthProvider>
     </MemoryRouter>,
   );
@@ -123,12 +132,12 @@ describe('ChildDashboard', () => {
       ),
       http.get('*/api/pets/stable/', () =>
         HttpResponse.json({
-          pets: [{ id: 1, is_active: true, species: { name: 'Drake', icon_url: '/drake.png' }, potion: { name: 'Fire' }, growth_points: 40 }],
+          pets: [{ id: 1, is_active: true, species: { name: 'Drake', icon: '🐉', sprite_key: 'drake' }, potion: { name: 'Fire', slug: 'fire' }, growth_points: 40 }],
           mounts: [],
         }),
       ),
       http.get('*/api/drops/recent/', () =>
-        HttpResponse.json([{ id: 1, item_name: 'Coin', item_icon: '🪙', rarity: 'common', was_salvaged: false }]),
+        HttpResponse.json([{ id: 1, item_name: 'Coin', item_icon: '🪙', item_sprite_key: 'coin', item_rarity: 'common', was_salvaged: false }]),
       ),
     ]);
     await waitFor(() => expect(screen.getByText(/recent loot/i)).toBeInTheDocument());
@@ -153,6 +162,40 @@ describe('ChildDashboard', () => {
       ),
     ]);
     await waitFor(() => expect(screen.getByLabelText(/find a pet/i)).toBeInTheDocument());
+  });
+
+  it('uses the recent-drop serializer fields for catalog artwork, rarity, and satchel navigation', async () => {
+    const user = userEvent.setup();
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/dashboard/', () => HttpResponse.json({ next_actions: [] })),
+      http.get('*/api/drops/recent/', () => HttpResponse.json([{
+        id: 17, item: 24, item_name: 'Sky potion', item_icon: '🧪',
+        item_sprite_key: 'sky-potion', item_rarity: 'rare', trigger_type: 'chore_complete',
+        quantity: 1, was_salvaged: false, created_at: '2026-10-10T12:00:00Z',
+      }])),
+    ], { 'sky-potion': { url: '/sprites/sky-potion.png', frames: 1 } });
+
+    const card = await screen.findByRole('button', { name: 'Sky potion — open satchel' });
+    expect(screen.getByRole('img', { name: 'Sky potion' })).toHaveAttribute('src', '/sprites/sky-potion.png');
+    expect(card).toHaveClass('ring-royal/60');
+    expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    await user.click(card);
+    expect(screen.getByTestId('location')).toHaveTextContent('/treasury?tab=satchel');
+  });
+
+  it('opens earned badges when a recent accolade is selected', async () => {
+    const user = userEvent.setup();
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/dashboard/', () => HttpResponse.json({
+        next_actions: [], recent_badges: [{ badge__id: 9, badge__name: 'Kind helper', badge__icon: '🏅' }],
+      })),
+    ]);
+    await user.click(await screen.findByRole('button', { name: /recent accolades/i }));
+    await user.click(await screen.findByRole('button', { name: 'Kind helper — view earned badges' }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/atlas?tab=badges');
   });
 
   it('renders hero using next_actions[0] and groups quest log by kind', async () => {

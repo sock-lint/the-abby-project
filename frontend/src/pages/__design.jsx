@@ -25,15 +25,15 @@ export default function DesignShowcase() {
       {/* Header */}
       <header>
         <div className={headingScript + ' text-lg'}>
-          Entry №01 · Hyrule Field Notes
+          Meadow · Shared UI foundations
         </div>
-        <h1 className={headingDisplay + ' text-4xl md:text-5xl italic'}>
+        <h1 className={headingDisplay + ' text-4xl md:text-5xl font-bold'}>
           Design Showcase
         </h1>
         <p className="font-body text-ink-secondary mt-2 max-w-prose">
-          A visual QA page for every journal primitive. Navigate to{' '}
+          A visual QA page for our Meadow components. Navigate to{' '}
           <code className="font-rune text-sm">/__design</code> in dev to inspect
-          the foundations before the rest of the app is reskinned.
+          check typography, controls, collection tiles and progress states.
         </p>
       </header>
 
@@ -41,23 +41,23 @@ export default function DesignShowcase() {
 
       <section className="grid md:grid-cols-2 gap-6">
         <ParchmentCard flourish>
-          <h2 className="font-display text-2xl mb-1">Cormorant Garamond</h2>
-          <p className="font-script text-ink-whisper text-sm">display — chapter titles, heroes</p>
+          <h2 className="font-display text-2xl font-bold mb-1">Nunito headings</h2>
+          <p className="font-script text-ink-whisper text-sm">One bundled family, with real weights for every surface</p>
           <p className="font-body text-base mt-3">
-            The quick brown fox jumps over the lazy dog. <em>italic</em>,{' '}
-            <strong>bold</strong>, and <span className="font-display italic">display italic</span>.
+            Keep a little piece of today. <span className="font-normal">Regular body copy</span>,{' '}
+            <span className="font-semibold">semibold labels</span>, and <strong>bold headings</strong>.
           </p>
         </ParchmentCard>
         <ParchmentCard>
-          <h2 className="font-script text-3xl text-ink-primary">Caveat kicker</h2>
+          <h2 className="font-script text-3xl font-bold text-ink-primary">Clear labels and tallies</h2>
           <p className="font-body text-base mt-1 text-ink-secondary">
-            Hand-lettered for dates, page numbers, asides.
+            Friendly, readable dates, counts and supporting text.
           </p>
           <div className="font-rune text-sm mt-3 text-ember-deep">
             02:47:13 · $24.50 · 120🪙
           </div>
           <p className="font-script text-xs text-ink-whisper mt-1">
-            Space Mono as rune tallies for numbers.
+            Nunito with tabular numbers keeps balances and timers aligned.
           </p>
         </ParchmentCard>
       </section>

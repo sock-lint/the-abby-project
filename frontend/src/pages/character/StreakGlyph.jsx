@@ -18,8 +18,8 @@ const TIER_CHIP = {
  *   • `perfect` — cumulative perfect-day count (Star icon, gold tone).
  *   • `best`    — longest-ever streak (Award laurel icon, royal tone).
  *
- * Each pip is an illuminated stat cell: a glyph above, large rune numeral
- * in the middle, and a script label beneath. Color tone comes from the
+ * Each pip is a soft stat cell: an icon above, a clear numeral
+ * in the middle, and a readable label beneath. Color tone comes from the
  * streak ladder for the streak pip; perfect-days/best both render in a
  * static "achievement" tone so only the streak animates.
  */
@@ -37,12 +37,12 @@ export default function StreakGlyph({
       <div
         data-streak-glyph="streak"
         data-tier={tier}
-        className="rounded-xl border border-ink-page-shadow bg-ink-page-aged/60 p-3 text-center shadow-[inset_0_1px_0_rgba(255,248,224,0.4)]"
+        className="rounded-2xl border border-ink-page-shadow bg-ink-page-aged p-2 sm:p-3 text-center"
       >
         <div className="flex items-center justify-center">
-          <StreakFlame streak={numeric} longest={longestStreak} className="scale-90 origin-center" />
+          <StreakFlame streak={numeric} longest={longestStreak} className="w-full flex-col sm:w-auto sm:flex-row scale-90 origin-center" />
         </div>
-        <div className={`mt-1 font-rune uppercase tracking-wider text-micro ${chip.chip}`}>
+        <div className={`mt-1 font-body font-semibold text-caption ${chip.chip}`}>
           streak
         </div>
       </div>
@@ -53,13 +53,15 @@ export default function StreakGlyph({
     return (
       <div
         data-streak-glyph="perfect"
-        className="rounded-xl border border-ink-page-shadow bg-ink-page-aged/60 p-3 text-center shadow-[inset_0_1px_0_rgba(255,248,224,0.4)]"
+        className="rounded-2xl border border-ink-page-shadow bg-ink-page-aged p-2 sm:p-3 text-center"
       >
-        <Star size={20} className="mx-auto text-gold-leaf" />
-        <div className="mt-1 font-rune font-bold text-lede text-ink-primary tabular-nums">
+        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-ink-page">
+          <Star size={20} aria-hidden="true" className="text-gold-leaf" />
+        </div>
+        <div className="mt-1 font-body font-bold text-lede text-ink-primary tabular-nums">
           {numeric}
         </div>
-        <div className="font-script text-caption text-ink-whisper leading-tight">
+        <div className="font-body text-caption text-ink-whisper leading-tight">
           perfect days
         </div>
       </div>
@@ -70,13 +72,15 @@ export default function StreakGlyph({
   return (
     <div
       data-streak-glyph="best"
-      className="rounded-xl border border-ink-page-shadow bg-ink-page-aged/60 p-3 text-center shadow-[inset_0_1px_0_rgba(255,248,224,0.4)]"
+      className="rounded-2xl border border-ink-page-shadow bg-ink-page-aged p-2 sm:p-3 text-center"
     >
-      <Award size={20} className="mx-auto text-royal" />
-      <div className="mt-1 font-rune font-bold text-lede text-ink-primary tabular-nums">
+      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-ink-page">
+        <Award size={20} aria-hidden="true" className="text-royal" />
+      </div>
+      <div className="mt-1 font-body font-bold text-lede text-ink-primary tabular-nums">
         {numeric}
       </div>
-      <div className="font-script text-caption text-ink-whisper leading-tight">
+      <div className="font-body text-caption text-ink-whisper leading-tight">
         best streak
       </div>
     </div>

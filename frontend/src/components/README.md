@@ -4,6 +4,10 @@ Shared primitives and composition components for The Abby Project. See [CLAUDE.m
 
 The web app, Memory Meadow and Unity Play share a soft storybook direction: bundled Nunito, cream pages, lavender and mint tints, rounded surfaces and controls, and clear Lucide icons. `shared/storybook/presentation.json` supplies the baseline palette and companion presentation; `themes.js` adds readable semantic colors and six coordinated covers. Keep paid art in the private asset pipeline. Legacy component and CSS names remain compatibility APIs; they no longer require parchment, wax or leather effects.
 
+React's `Abby Nunito` face uses the bundled variable TTF with real weights 200–1000, rather than stretching a single semibold face across body and heading styles. Heading weight defaults live in the base CSS layer so component weights can override them. The public source and OFL license remain in `shared/storybook/fonts`; `scripts/storybook/sync_presentation.py` maintains its runtime copy and Unity's fixed weight-600 font. The React font is included in the service-worker precache.
+
+The licensed Meadow/welcome companion is a replaceable artwork preview. It does not represent an owned account species, an evolution unlock or earned progression. Use the server's species `sprite_key` for owned companions and preserve their potion and happiness presentation.
+
 ## Conventions
 
 ### Token-first styling
@@ -35,7 +39,7 @@ Everything that floats above page chrome lives at `z-50`. That means a toast emi
 - `components/modal/` — modal building blocks (ModalBackdrop, SealCloseButton, SealPulseRing)
 - `components/dashboard/` — Today-page composites (HeroPrimaryCard, ApprovalQueueList)
 - `components/cards/` — promoted page-card components (added when a `*Card` from `pages/` is reused twice)
-- `components/icons/` — custom SVG icon set (lucide-react covers the rest)
+- `components/icons/` — legacy `JournalIcons` exports backed by decorative Lucide icons; names and `size`/`className` props remain compatible
 
 A component lives in `pages/` until it's reused twice; promote to `components/` (or a sub-folder) on the second use.
 
@@ -45,7 +49,7 @@ Page-specific `*Card` components start as sibling files inside their owning page
 
 - `pages/Homework/AssignmentCard.jsx` — used only by `pages/Homework/index.jsx`
 - `pages/manage/CatalogCard.jsx` — used only by `pages/manage/CodexSection.jsx`
-- `pages/achievements/TomeSpine.jsx` + `TomeShelf.jsx` + `FolioSpread.jsx` + `SkillVerse.jsx` + `ChapterRubric` (now in `components/atlas/`) + `PrereqChain.jsx` + `SkillDetailSheet.jsx` — Skills-only domain code at `pages/achievements/SkillTreeView.jsx`. The "tome shelf opening onto an illuminated folio" metaphor replaced the older pennant-ribbon + stanza-grid in the 2026-04-23 Skills redesign. The five primitives that backed both Skills and Badges (`IlluminatedVersal`, `BadgeSigil`, `IncipitBand`, `ChapterRubric`, `RarityStrand`) and `mastery.constants` were lifted to `components/atlas/` once a third surface (Lorebook) started importing them — see [Atlas cohort](#atlas-cohort)
+- `pages/achievements/FolioSpread.jsx` + `SkillVerse.jsx` + `PrereqChain.jsx` + `SkillDetailSheet.jsx` — Skills-only domain code at `pages/achievements/SkillTreeView.jsx`. Reusable `TomeShelf`, `TomeSpine` and `ChapterRubric` live in `components/atlas/`. The "tome shelf opening onto an illuminated folio" metaphor replaced the older pennant-ribbon + stanza-grid in the 2026-04-23 Skills redesign. The five primitives that backed both Skills and Badges (`IlluminatedVersal`, `BadgeSigil`, `IncipitBand`, `ChapterRubric`, `RarityStrand`) and `mastery.constants` were lifted to `components/atlas/` once a third surface (Lorebook) started importing them — see [Atlas cohort](#atlas-cohort)
 - `pages/achievements/SigilCodex.jsx` + `CollectionFolio.jsx` + `BadgeDetailSheet.jsx` — used only by `pages/Badges.jsx`. The "Reliquary Codex" structure (seven criterion-family chapters, each a parchment folio with rubric numeral + illuminated drop-cap + rarity strand) replaced the flat `BadgeSigilGrid` in the 2026-04-22 Sigil Case redesign. Kept under `achievements/` because `ManagePanel.jsx` is the single cross-cutting admin surface for badges, and `collections.constants.js` (the Reliquary chapter taxonomy + `unlockHint`) is badge-domain data that doesn't belong at the shared layer
 - `pages/character/SigilFrontispiece.jsx` + `TrophySlot.jsx` + `TrophyBadgePicker.jsx` + `CosmeticChapter.jsx` + `CosmeticSigil.jsx` + `StreakGlyph.jsx` — used only by `pages/Character.jsx`. The 2026-04-22 Frontispiece redesign turns the `/sigil` page into a personal author-portrait plate: illuminated initial + trophy seal hero, four `CollectionFolio`-style cosmetic chapters with locked intaglios for un-owned items, and a live hover preview on journal-cover cosmetics. `TrophyBadgePicker` imports `groupBadgesByCollection` from `pages/achievements/collections.constants.js` — the only cross-page reuse, and it's intentional so the picker speaks the Reliquary Codex's chapter taxonomy
 - `pages/bestiary/celebration/usePhasedSequence.js` + `SparkleBurst.jsx` + `PotionAura.jsx` — used only by `pages/bestiary/PetCeremonyModal.jsx`. The phased-sequence hook + sparkle/aura primitives back the hatch / evolve / breed lifecycle animations (see CLAUDE.md → "Pet lifecycle animations"). Promote to `components/celebration/` if a second surface (e.g. quest-complete modal) reuses them
@@ -67,7 +71,7 @@ Do not pre-emptively promote a card that has only one importer. The cost of movi
 
 When a page-area has constants used by both a parent and an extracted card (e.g. XP thresholds, type orderings), house them in a sibling `.constants.js` file rather than exporting from the parent component file. ESLint's `react-refresh/only-export-components` rule forbids non-component exports from a `.jsx` component file; using a separate `.constants.js` keeps both the lint rule happy and the constant in lockstep across consumers.
 
-Examples: [`pages/achievements/skillTree.constants.js`](../pages/achievements/skillTree.constants.js) holds `XP_THRESHOLDS` (the level curve, shared by `SkillTreeView.jsx`, `SkillVerse.jsx`, `SkillDetailSheet.jsx`, `FolioSpread.jsx`, and `TomeSpine.jsx`); [`components/atlas/mastery.constants.js`](./atlas/mastery.constants.js) holds the Illuminated Atlas shared vocabulary — see [Atlas cohort](#atlas-cohort) for the full export list; [`pages/achievements/collections.constants.js`](../pages/achievements/collections.constants.js) holds the Reliquary Codex taxonomy — `COLLECTIONS` (seven chapters keyed by criterion family), `collectionForCriterion` / `collectionForBadge`, `groupBadgesByCollection`, `rarityCounts`, `unlockHint` (plain-English template for every known `criterion_type` — passed to `<BadgeSigil hint={...}>` by `CollectionFolio`), and `ladderSiblings` (tier progressions for the detail sheet); [`pages/character/character.constants.js`](../pages/character/character.constants.js) holds the Frontispiece taxonomy — `COSMETIC_CHAPTERS` (four cosmetic slots keyed to rubric numerals + drop-cap letters), `STREAK_TIERS` + `streakTier(days)` (flame-size ladder aligned with backend streak milestones), `mergeSlotCosmetics` (dedupe + sort owned against catalog), `slotRarityCounts`, and `cosmeticLockHint`. The Reliquary chapter taxonomy and the cosmetic chapter taxonomy are deliberately page-scoped — only the rarity / progress / chapter-numeral vocabulary is shared.
+Examples: [`pages/achievements/skillTree.constants.js`](../pages/achievements/skillTree.constants.js) holds `XP_THRESHOLDS` (the level curve used by Skills domain components); [`components/atlas/mastery.constants.js`](./atlas/mastery.constants.js) holds the Illuminated Atlas shared vocabulary — see [Atlas cohort](#atlas-cohort) for the full export list; [`pages/achievements/collections.constants.js`](../pages/achievements/collections.constants.js) holds the Reliquary Codex taxonomy — `COLLECTIONS` (seven chapters keyed by criterion family), `collectionForCriterion` / `collectionForBadge`, `groupBadgesByCollection`, `rarityCounts`, `unlockHint` (plain-English template for every known `criterion_type` — passed to `<BadgeSigil hint={...}>` by `CollectionFolio`), and `ladderSiblings` (tier progressions for the detail sheet); [`pages/character/character.constants.js`](../pages/character/character.constants.js) holds the Frontispiece taxonomy — `COSMETIC_CHAPTERS` (four cosmetic slots keyed to rubric numerals + drop-cap letters), `STREAK_TIERS` + `streakTier(days)` (flame-size ladder aligned with backend streak milestones), `mergeSlotCosmetics` (dedupe + sort owned against catalog), `slotRarityCounts`, and `cosmeticLockHint`. The Reliquary chapter taxonomy and the cosmetic chapter taxonomy are deliberately page-scoped — only the rarity / progress / chapter-numeral vocabulary is shared.
 
 ### Accessibility roles
 
@@ -81,7 +85,8 @@ Shared primitives carry consistent ARIA roles. Match these when building new one
 | `ProgressBar` / `QuillProgress` | `progressbar` + `aria-valuenow/min/max` | Widget with measurable state |
 | `BottomSheet` | `dialog` + `aria-modal="true"` + `aria-labelledby` | Modal surface |
 | `ConfirmDialog` | `alertdialog` + `aria-modal="true"` + `aria-labelledby` + `aria-describedby` | Destructive-action modal |
-| `TomeShelf` / `TomeSpine` | `tablist` + `tab` + `aria-selected` + `aria-orientation="horizontal"` | Keyboard-navigable category switcher |
+| `TomeShelf` / `TomeSpine` | `tablist` + `tab` + `aria-selected` + `aria-orientation="horizontal"` | Keyboard-navigable category switcher; centers within its rail without scrolling the page or taking focus on mount |
+| `TabList` | `tablist` + `tab` + `aria-selected` + one tab stop | Left/Right wrap and select; Home/End select first/last; horizontal rail scrolling respects reduced motion |
 
 Use React's `useId()` to generate per-instance IDs for `aria-labelledby` / `aria-describedby` so multiple stacked instances don't collide.
 
@@ -160,14 +165,14 @@ Test attributes mirror the rest of the cohort: `data-folio-verso="true"`, `data-
 
 `<RpgSprite spriteKey="slug" icon="🐉" size={32} alt="..." className="..." />`
 
-Renders an RPG-domain icon from the runtime sprite catalog. Call sites provide a `spriteKey` (slug string) and an `icon` emoji fallback — slug resolution and URL lookup happen internally via `useSpriteCatalog()` from `SpriteCatalogProvider`. The component has three render modes:
+Renders an RPG-domain icon from the runtime sprite catalog. Call sites provide a `spriteKey` (slug string) and an `icon` emoji fallback — slug resolution and URL lookup happen internally via `useSpriteCatalog()` from `SpriteCatalogProvider`. Smooth scaling (`image-rendering: auto`) is the default; pass `rendering="pixelated"` when an asset needs crisp pixel edges. The component has three render modes:
 
-- **Static** (`frames === 1`): renders `<img src={url} style="image-rendering: pixelated">`. Most sprites are static.
+- **Static** (`frames === 1`): renders a lazy `<img>` fitted inside the requested size with `object-fit: contain`. Most sprites are static.
 - **Animated** (`frames > 1`): renders `<span role="img" aria-label={alt}>` with a CSS `background-position` step animation. The shared `@keyframes sprite-cycle` rule is injected once by `SpriteCatalogProvider`; each instance sets `--sprite-end-x` as an inline custom property so any render size works without separate keyframe declarations.
-- **Fallback** (unknown slug or catalog still loading): renders the `icon` emoji. The emoji contract means call sites never show an empty gap.
+- **Fallback** (unknown slug, catalog still loading or failed image): tries `fallbackSpriteKey`, then renders the `icon` emoji (or a sparkle when no icon is supplied). Static portraits and animated strips share this recovery path. Failures are bound to the failing URL; a fresh catalog URL is eligible to load without remounting the component.
 
-Props: `spriteKey` (required), `icon` (required emoji fallback), `size` (px, default `32`), `alt` (accessible label, falls back to `spriteKey`), `className`.
+Props: `spriteKey`, `fallbackSpriteKey` (optional base-species fallback), `icon` (emoji fallback), `size` (px, default `32`), `alt` (accessible label, falls back to `spriteKey`), `className`, `rendering` (`smooth` by default or `pixelated`), `potionSlug` (variant filter) and `dim` (happiness presentation).
 
-A11y: static `<img>` gets `alt`; the animated `<span>` gets `role="img"` + `aria-label`. The fallback emoji is wrapped in `aria-hidden` with a visually-hidden `<span>` carrying the label so screen readers announce the name, not the glyph. Animations respect `prefers-reduced-motion` via a one-line freeze rule in `index.css` — no per-instance logic needed.
+A11y: static `<img>` gets `alt`; animated and fallback `<span>` elements get `role="img"` + `aria-label`. The fallback glyph and animated strip's load probe are hidden from assistive technology, so the entity name is announced once. Potion and happiness filters apply to every render mode. Animations respect `prefers-reduced-motion` via a freeze rule in `index.css` — no per-instance motion logic needed.
 
 Do not call `fetchSpriteCatalog` or access `localStorage` directly in pages; go through `useSpriteCatalog().getSpriteUrl` / `.getSpriteMeta` for consistent cache behavior.

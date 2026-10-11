@@ -39,6 +39,9 @@ def destinations() -> list[tuple[Path, Path]]:
             (source, ROOT / "unity/AbbyCamp/Assets/AbbyCamp/Art/Shared" / filename),
             (source, ROOT / "unity/AbbyCamp/Assets/WebGLTemplates/AbbyPhone/TemplateData" / filename),
         ])
+    # React uses the full weight range for body copy, labels and headings;
+    # the fixed shared weight remains available to Unity's font asset.
+    pairs.append((SOURCE / "fonts/Nunito-Variable.ttf", ROOT / "frontend/src/storybook/assets/Nunito-Variable.ttf"))
     for filename in sorted(filenames):
         if Path(filename).name != filename or not filename.endswith(".png"):
             raise ValueError("Artwork must be a local PNG filename")

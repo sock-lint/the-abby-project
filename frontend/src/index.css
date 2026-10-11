@@ -2,8 +2,8 @@
 
 @font-face {
   font-family: "Abby Nunito";
-  src: url("./storybook/assets/Nunito-SemiBold.ttf") format("truetype");
-  font-weight: 600;
+  src: url("./storybook/assets/Nunito-Variable.ttf") format("truetype");
+  font-weight: 200 1000;
   font-style: normal;
   font-display: swap;
 }
@@ -112,11 +112,14 @@ body {
   min-height: 100dvh;
 }
 
-/* Display + script utilities default to the journal tone. */
+/* Heading defaults leave explicit component weights in control. */
+@layer base {
+  h1, h2, h3, h4 { font-weight: 600; }
+}
+
 h1, h2, h3, h4 {
   font-family: var(--font-display);
   color: var(--color-ink-primary);
-  font-weight: 600;
   letter-spacing: -0.025em;
   font-style: normal;
 }
@@ -157,7 +160,6 @@ h1, h2, h3, h4 {
 :focus-visible {
   outline: 2px solid var(--color-sheikah-teal);
   outline-offset: 2px;
-  border-radius: 4px;
 }
 
 /* ─── Motion keyframes ─────────────────────────────────────────── */

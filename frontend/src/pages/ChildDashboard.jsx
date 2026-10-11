@@ -34,6 +34,7 @@ import { RARITY_RING_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem, inkBleed } from '../motion/variants';
 import { formatWeekdayDate, mapProjectTone } from './_dashboardShared';
 import MeadowVisitCard from './meadow/MeadowVisitCard';
+import RpgSprite from '../components/rpg/RpgSprite';
 
 const VISIBLE_LOG_CAP = 5;
 
@@ -170,8 +171,8 @@ export default function ChildDashboard({ data, reload }) {
   return (
     <PageShell variants={inkBleed}>
       <PageHeader
-        title="Today's Entry"
-        kicker={`${weekday} · ${dateStr} · to be inked before nightfall`}
+        title="Today"
+        kicker={`${weekday} · ${dateStr} · a little progress, a little magic`}
       />
 
       <MeadowVisitCard />
@@ -225,8 +226,10 @@ export default function ChildDashboard({ data, reload }) {
       {totalLogCount === 0 && !active_projects?.length && !savings_goals?.length && !recent_badges?.length && (
         <ParchmentCard tone="bright">
           <div className="text-center py-6 px-4 space-y-4">
-            <div className="text-4xl">🗺️</div>
-            <h2 className="font-display italic text-2xl text-ink-primary">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-sheikah-teal/10 text-sheikah-teal-deep" aria-hidden="true">
+              <Compass size={28} />
+            </div>
+            <h2 className="font-body font-bold text-2xl text-ink-primary">
               Your adventure begins here
             </h2>
             <p className="font-script text-ink-secondary text-body max-w-md mx-auto">
@@ -329,10 +332,12 @@ export default function ChildDashboard({ data, reload }) {
                 whileHover={{ y: -2 }}
                 onClick={() => navigate('/treasury?tab=satchel')}
                 aria-label={`${d.item_name}${d.was_salvaged ? ' (salvaged)' : ''} — open satchel`}
-                className={`shrink-0 w-28 p-3 rounded-xl bg-ink-page-aged border border-ink-page-shadow text-center ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[d.rarity] || 'ring-transparent'}`}
+                className={`shrink-0 w-28 p-3 rounded-2xl bg-ink-page-aged border border-ink-page-shadow text-center ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[d.item_rarity] || 'ring-transparent'}`}
               >
-                <div className="text-3xl mb-1" aria-hidden="true">{d.item_icon || '📦'}</div>
-                <div className="font-body text-caption font-medium truncate">{d.item_name}</div>
+                <div className="flex h-10 items-center justify-center mb-2">
+                  <RpgSprite spriteKey={d.item_sprite_key} icon={d.item_icon || '📦'} size={40} alt={d.item_name} />
+                </div>
+                <div className="font-body text-caption font-semibold break-words leading-snug">{d.item_name}</div>
                 {d.was_salvaged && (
                   <div className="font-script text-micro text-gold-leaf mt-0.5">salvaged</div>
                 )}
@@ -433,7 +438,7 @@ export default function ChildDashboard({ data, reload }) {
               >
                 <ParchmentCard>
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <div className="font-display text-lg leading-tight truncate">{p.title}</div>
+                    <div className="min-w-0 font-body font-bold text-lg leading-tight break-words">{p.title}</div>
                     <RuneBadge tone={mapProjectTone(p.status)} size="sm">
                       {p.status.replace('_', ' ')}
                     </RuneBadge>
@@ -531,11 +536,12 @@ export default function ChildDashboard({ data, reload }) {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: i * 0.05 }}
-                onClick={() => navigate('/atlas?tab=skills')}
+                onClick={() => navigate('/atlas?tab=badges')}
+                aria-label={`${b.badge__name} — view earned badges`}
                 className="shrink-0 w-28 text-center p-3 rounded-xl bg-ink-page-aged border border-ink-page-shadow hover:border-gold-leaf/60 transition-colors"
               >
-                <div className="text-4xl mb-1">{b.badge__icon || '🏅'}</div>
-                <div className="font-body text-caption font-medium truncate">{b.badge__name}</div>
+                <div className="text-4xl mb-1" aria-hidden="true">{b.badge__icon || '🏅'}</div>
+                <div className="font-body text-caption font-semibold break-words leading-snug">{b.badge__name}</div>
               </motion.button>
             ))}
           </ScrollRail>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderWithProviders, screen, userEvent } from '../../test/render';
+import { render, renderWithProviders, screen, userEvent } from '../../test/render';
 import TomeShelf from './TomeShelf';
 
 const items = [
@@ -11,6 +11,7 @@ const items = [
 describe('TomeShelf', () => {
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn();
+    Element.prototype.scrollTo = vi.fn();
   });
 
   it('exposes a horizontal tablist with the supplied ariaLabel', () => {
@@ -41,17 +42,22 @@ describe('TomeShelf', () => {
     );
   });
 
-  it('scrolls the active tome into view when activeId changes', () => {
-    const { rerender } = renderWithProviders(
+  it('centers the active tome within its rail without scrolling the page or stealing focus', () => {
+    const { rerender } = render(
       <TomeShelf items={items} activeId={1} onSelect={() => {}} ariaLabel="Shelves" />,
     );
-    const spy = vi.fn();
-    Element.prototype.scrollIntoView = spy;
+    expect(screen.getByRole('tab', { name: /Woodworking/ })).not.toHaveFocus();
+    const shelf = screen.getByRole('tablist');
+    Object.defineProperty(shelf, 'clientWidth', { value: 200 });
+    shelf.getBoundingClientRect = () => ({ left: 10 });
+    screen.getByRole('tab', { name: /Sewing/ }).getBoundingClientRect = () => ({ left: 320, width: 100 });
+    Element.prototype.scrollTo.mockClear();
     rerender(
       <TomeShelf items={items} activeId={3} onSelect={() => {}} ariaLabel="Shelves" />,
     );
-    expect(spy).toHaveBeenCalled();
-    expect(spy.mock.calls[0][0]).toMatchObject({ inline: 'center', block: 'nearest' });
+    expect(Element.prototype.scrollTo).toHaveBeenCalledWith({ left: 260, behavior: 'smooth' });
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    expect(screen.getByRole('tab', { name: /Sewing/ })).not.toHaveFocus();
   });
 
   it('calls onSelect with the item id when a tome is clicked', async () => {

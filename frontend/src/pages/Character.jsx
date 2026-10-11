@@ -250,7 +250,7 @@ export default function Character() {
             transition={{ duration: 0.2 }}
             role="status"
             aria-live="polite"
-            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 rounded-full bg-gold-leaf/90 text-ink-primary px-4 py-1.5 font-script text-sm shadow-lg"
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 rounded-full bg-gold-leaf/90 text-ink-primary px-4 py-1.5 font-body font-semibold text-body shadow-lg"
           >
             {equipToast.msg}
           </motion.div>
@@ -266,8 +266,8 @@ export default function Character() {
 
       <AdventuresEntry />
 
-      <p className="font-script text-sm text-ink-whisper text-center max-w-xl mx-auto">
-        your inside-cover plate · choose a trophy seal you've earned, equip cosmetics from the four chapters below
+      <p className="font-body text-body text-ink-secondary text-center leading-relaxed max-w-xl mx-auto">
+        Make this profile yours. Choose an earned badge for your trophy, then personalize your look with the four collections below.
       </p>
 
       <TomeShelf

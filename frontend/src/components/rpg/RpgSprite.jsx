@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSpriteCatalog } from '../../providers/spriteCatalog.context';
 
 const SIZE_TO_TEXT_CLASS = {
@@ -55,11 +56,16 @@ export default function RpgSprite({
   alt = '',
   potionSlug = null,
   dim = null,
+  rendering = 'smooth',
 }) {
   const { getSpriteMeta } = useSpriteCatalog();
-  const meta = getSpriteMeta(spriteKey) || (
-    fallbackSpriteKey ? getSpriteMeta(fallbackSpriteKey) : null
-  );
+  // Bind failures to the URL that failed. A late error from the previous
+  // portrait must not hide a new species or a refreshed catalog URL.
+  const [failedUrls, setFailedUrls] = useState(() => new Set());
+  const meta = [getSpriteMeta(spriteKey), fallbackSpriteKey ? getSpriteMeta(fallbackSpriteKey) : null]
+    .find((candidate) => candidate?.url && !failedUrls.has(candidate.url));
+  const onImageError = () => setFailedUrls((previous) => new Set(previous).add(meta.url));
+  const imageRendering = rendering === 'pixelated' ? 'pixelated' : 'auto';
   const potionFilter = potionSlug ? POTION_FILTERS[potionSlug] : undefined;
   const dimFilter = dim ? DIM_FILTERS[dim] : undefined;
   const composedFilter = [potionFilter, dimFilter].filter(Boolean).join(' ') || undefined;
@@ -67,14 +73,17 @@ export default function RpgSprite({
   if (meta && meta.frames === 1) {
     return (
       <img
+        key={meta.url}
         src={meta.url}
         alt={alt || spriteKey || 'sprite'}
         width={size}
         height={size}
         loading="lazy"
+        onError={onImageError}
         data-dim={dim || undefined}
         style={{
-          imageRendering: 'pixelated',
+          imageRendering,
+          objectFit: 'contain',
           width: size,
           height: size,
           filter: composedFilter,
@@ -108,12 +117,16 @@ export default function RpgSprite({
           backgroundImage: `url(${meta.url})`,
           backgroundSize: `${totalWidth}px ${size}px`,
           backgroundPositionX: 0,
-          imageRendering: 'pixelated',
+          imageRendering,
           filter: composedFilter,
           '--sprite-end-x': `${endX}px`,
           animation: `sprite-cycle ${duration}s steps(${meta.frames}) infinite`,
         }}
-      />
+      >
+        {/* CSS backgrounds have no error event. This hidden probe lets a
+            failed strip use the same fallback as a failed static portrait. */}
+        <img key={meta.url} src={meta.url} alt="" aria-hidden="true" className="hidden" onError={onImageError} />
+      </span>
     );
   }
 
@@ -123,11 +136,12 @@ export default function RpgSprite({
     return (
       <span
         className={`leading-none inline-block ${cls} ${className}`}
-        aria-label={alt}
+        role="img"
+        aria-label={alt || spriteKey || 'Item'}
         data-dim={dim || undefined}
         style={composedFilter ? { filter: composedFilter } : undefined}
       >
-        {icon || '✨'}
+        <span aria-hidden="true">{icon || '✨'}</span>
       </span>
     );
   }
@@ -135,10 +149,11 @@ export default function RpgSprite({
     <span
       className={`leading-none inline-block ${className}`}
       style={{ fontSize: size, filter: composedFilter }}
-      aria-label={alt}
+      role="img"
+      aria-label={alt || spriteKey || 'Item'}
       data-dim={dim || undefined}
     >
-      {icon || '✨'}
+      <span aria-hidden="true">{icon || '✨'}</span>
     </span>
   );
 }

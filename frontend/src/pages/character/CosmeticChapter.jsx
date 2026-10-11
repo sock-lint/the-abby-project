@@ -8,11 +8,10 @@ import CosmeticSigil from './CosmeticSigil';
 import { mergeSlotCosmetics, slotRarityCounts } from './character.constants';
 
 /**
- * CosmeticChapter — one cosmetic folio in the Frontispiece. Mirrors the
- * Reliquary Codex's `CollectionFolio`: rubric numeral + IlluminatedVersal
- * + script kicker + rarity strand + sigil grid. Owned cosmetics render
- * in full color (with halo + "equipped" ribbon when active); un-owned
- * cosmetics render as debossed intaglios with an unlock hint.
+ * CosmeticChapter — one profile collection. Shared chapter and rarity
+ * signals introduce the cosmetic grid. Owned cosmetics render in full
+ * color (with a ring + "equipped" label when active); un-owned cosmetics
+ * use soft dashed tiles with readable unlock hints.
  */
 export default function CosmeticChapter({
   chapter,
@@ -45,7 +44,7 @@ export default function CosmeticChapter({
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <span
             aria-hidden="true"
-            className="font-display italic text-2xl text-ink-secondary/70 leading-none tabular-nums pt-1"
+            className="shrink-0 font-body font-bold text-2xl text-ink-secondary leading-none tabular-nums pt-1"
           >
             {chapter.rubric}
           </span>
@@ -55,19 +54,19 @@ export default function CosmeticChapter({
             tier={tier}
             progressPct={progressPct}
           />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2
               id={headingId}
-              className="font-display italic text-xl md:text-2xl text-ink-primary leading-tight truncate"
+              className="font-body font-bold text-xl md:text-2xl text-ink-primary leading-tight break-words"
             >
               {chapter.name}
             </h2>
-            <div className="font-script text-caption text-ink-whisper leading-snug truncate">
+            <div className="font-body text-caption text-ink-whisper leading-snug break-words">
               {chapter.kicker}
             </div>
           </div>
         </div>
-        <div className="shrink-0 text-right font-script text-caption text-ink-whisper pt-1">
+        <div className="shrink-0 text-right font-body text-caption text-ink-whisper pt-1">
           <span className="tabular-nums">{ownedCount} of {totalCount}</span> owned
         </div>
       </header>
@@ -82,7 +81,7 @@ export default function CosmeticChapter({
       />
 
       {entries.length === 0 ? (
-        <p className="mt-4 font-script italic text-caption text-ink-whisper/80">
+        <p className="mt-4 font-body text-caption text-ink-whisper">
           no cosmetics authored yet
         </p>
       ) : (

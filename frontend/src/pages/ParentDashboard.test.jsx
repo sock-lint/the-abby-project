@@ -29,7 +29,7 @@ const emptyDashboard = {
 };
 
 describe('ParentDashboard', () => {
-  it('renders "nothing needs your seal" hero when queue is empty', async () => {
+  it('renders the all-clear hero when the queue is empty', async () => {
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
       http.get('*/api/dashboard/', () => HttpResponse.json(emptyDashboard)),
@@ -39,8 +39,11 @@ describe('ParentDashboard', () => {
       http.get('*/api/children/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
-      expect(screen.getByText(/nothing needs your seal/i)).toBeInTheDocument(),
+      expect(screen.getByText(/you're all caught up/i)).toBeInTheDocument(),
     );
+    expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 2, name: /you're all caught up/i })).toBeInTheDocument();
   });
 
   it('renders count copy and approval queue grouped by kid', async () => {
@@ -67,7 +70,7 @@ describe('ParentDashboard', () => {
       http.get('*/api/children/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
-      expect(screen.getByText(/3 things need your seal today/i)).toBeInTheDocument(),
+      expect(screen.getByText(/3 things to review today/i)).toBeInTheDocument(),
     );
     expect(screen.getByText(/dishes/i)).toBeInTheDocument();
     expect(screen.getByText(/math packet/i)).toBeInTheDocument();
@@ -153,10 +156,10 @@ describe('ParentDashboard', () => {
     );
     const link = screen.getByRole('link', { name: /add a child/i });
     expect(link).toHaveAttribute('href', '/manage');
-    // The "nothing needs your seal" hero (which lives on the populated path)
+    // The "you're all caught up" hero (which lives on the populated path)
     // must NOT render — that copy is reserved for parents who already have
     // kids but a clean queue.
-    expect(screen.queryByText(/nothing needs your seal/i)).toBeNull();
+    expect(screen.queryByText(/you're all caught up/i)).toBeNull();
   });
 
   it('hides NoChildrenWelcome when children_count is positive', async () => {
@@ -173,7 +176,7 @@ describe('ParentDashboard', () => {
       http.get('*/api/children/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
-      expect(screen.getByText(/nothing needs your seal/i)).toBeInTheDocument(),
+      expect(screen.getByText(/you're all caught up/i)).toBeInTheDocument(),
     );
     expect(screen.queryByText(/welcome — let's add your first kid/i)).toBeNull();
   });
@@ -226,10 +229,10 @@ describe('ParentDashboard', () => {
     // may render — both told the parent "nothing pending" before the fetches
     // that carried the pending rows had even resolved.
     await waitFor(() =>
-      expect(screen.getByText(/turning today's page/i)).toBeInTheDocument(),
+      expect(screen.getByText(/checking for updates/i)).toBeInTheDocument(),
     );
     expect(screen.queryByText(/no pending approvals/i)).toBeNull();
-    expect(screen.queryByText(/nothing needs your seal/i)).toBeNull();
+    expect(screen.queryByText(/you're all caught up/i)).toBeNull();
 
     releaseChores();
     await waitFor(() => expect(screen.getByText('Trash')).toBeInTheDocument());

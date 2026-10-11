@@ -31,7 +31,8 @@ describe('Dashboard (router)', () => {
         }),
       ),
     ]);
-    await waitFor(() => expect(screen.getByText(/today's entry/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument());
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     // Treasury is rendered as an accordion heading — the title text is present.
     expect(screen.getByText(/treasury/i)).toBeInTheDocument();
   });
@@ -71,5 +72,6 @@ describe('Dashboard (router)', () => {
       ),
     ]);
     await waitFor(() => expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument());
+    expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
   });
 });

@@ -1,7 +1,19 @@
-import { describe, it, expect, vi } from 'vitest';
+import { useState } from 'react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { useReducedMotion } from 'framer-motion';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import TabList from './TabList';
+
+vi.mock('framer-motion', async () => ({
+  ...await vi.importActual('framer-motion'),
+  useReducedMotion: vi.fn(() => false),
+}));
+
+beforeEach(() => {
+  vi.mocked(useReducedMotion).mockReturnValue(false);
+  Element.prototype.scrollTo = vi.fn();
+});
 
 const tabs = [
   { id: 'a', label: 'Alpha' },
@@ -10,6 +22,57 @@ const tabs = [
 ];
 
 describe('TabList', () => {
+  it('keeps one tab stop and moves focus and selection with arrows, Home and End', async () => {
+    const user = userEvent.setup();
+    function Hub() {
+      const [active, setActive] = useState('b');
+      return <TabList tabs={tabs} activeId={active} onSelect={setActive} ariaLabel="Hub" />;
+    }
+    render(<Hub />);
+    const alpha = screen.getByRole('tab', { name: 'Alpha' });
+    const beta = screen.getByRole('tab', { name: 'Beta' });
+    const gamma = screen.getByRole('tab', { name: 'Gamma' });
+    expect(alpha.tabIndex).toBe(-1);
+    expect(beta.tabIndex).toBe(0);
+    expect(gamma.tabIndex).toBe(-1);
+    await user.tab();
+    expect(beta).toHaveFocus();
+    await user.keyboard('{ArrowRight}');
+    expect(gamma).toHaveFocus();
+    expect(gamma).toHaveAttribute('aria-selected', 'true');
+    await user.keyboard('{ArrowRight}');
+    expect(alpha).toHaveFocus();
+    await user.keyboard('{ArrowLeft}');
+    expect(gamma).toHaveFocus();
+    await user.keyboard('{Home}');
+    expect(alpha).toHaveFocus();
+    await user.keyboard('{End}');
+    expect(gamma).toHaveFocus();
+    expect(gamma.tabIndex).toBe(0);
+    expect(alpha.tabIndex).toBe(-1);
+    await user.tab();
+    expect(gamma).not.toHaveFocus();
+  });
+
+  it('allows keyboard entry when the active id is missing', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(<TabList tabs={tabs} activeId="unknown" onSelect={onSelect} ariaLabel="Hub" />);
+    await user.tab();
+    expect(screen.getByRole('tab', { name: 'Alpha' })).toHaveFocus();
+    await user.keyboard('{ArrowRight}');
+    expect(onSelect).toHaveBeenCalledWith('b');
+  });
+
+  it('reveals the active tab without smooth scrolling when motion is reduced', () => {
+    vi.mocked(useReducedMotion).mockReturnValue(true);
+    const pageScroll = vi.spyOn(Element.prototype, 'scrollIntoView');
+    render(<TabList tabs={tabs} activeId="b" onSelect={() => {}} ariaLabel="Hub" />);
+    expect(Element.prototype.scrollTo).toHaveBeenCalledWith({ behavior: 'auto', left: 0 });
+    expect(pageScroll).not.toHaveBeenCalled();
+    pageScroll.mockRestore();
+  });
+
   it('exposes a tablist with the supplied ariaLabel', () => {
     render(
       <TabList tabs={tabs} activeId="a" onSelect={() => {}} ariaLabel="Hub sections" />,

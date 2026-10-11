@@ -8,10 +8,9 @@ import StreakGlyph from './StreakGlyph';
 import TrophySlot from './TrophySlot';
 
 /**
- * SigilFrontispiece — the hero frontispiece plate of `/sigil`. A bound,
- * sealed parchment that reads like the inside-cover plate of a leather
- * journal: oversized illuminated initial on the verso, name + title +
- * level strap in the middle, and the trophy seal on the recto.
+ * SigilFrontispiece — the profile hero at `/sigil`. A soft identity panel
+ * brings together the initial, equipped frame and title, level, and earned
+ * trophy. The single-column layout centers the identity on phones.
  *
  * Below the hero row, three StreakGlyph pips visualise the RPG vitals
  * (current streak, perfect days, best streak). The active streak flame
@@ -43,14 +42,14 @@ export default function SigilFrontispiece({ profile, onOpenTrophyPicker }) {
       seal="bottom-right"
       className="overflow-hidden"
     >
-      <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto] items-center gap-6 pr-4">
+      <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto] items-center gap-4 md:gap-6 md:pr-4">
         <div
-          className="relative"
+          className="relative inline-flex justify-self-center md:justify-self-start"
           style={
             frameColor
               ? {
                   boxShadow: `0 0 0 3px var(--color-ink-page-aged), 0 0 0 4px ${frameColor}, 0 0 0 6px var(--color-ink-page-shadow)`,
-                  borderRadius: '12px',
+                  borderRadius: '1rem',
                 }
               : undefined
           }
@@ -64,21 +63,21 @@ export default function SigilFrontispiece({ profile, onOpenTrophyPicker }) {
         </div>
 
         <div className="min-w-0 text-center md:text-left">
-          <div className="font-script text-sheikah-teal-deep text-base leading-snug">
-            · the frontispiece ·
+          <div className="font-body font-semibold text-sheikah-teal-deep text-caption leading-snug mb-1">
+            Make this little world your own
           </div>
-          <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight break-words">
+          <h1 className="font-body font-bold text-3xl md:text-4xl text-ink-primary leading-tight break-words">
             {displayName}
           </h1>
           {titleText && (
-            <div className="mt-1 font-script text-lede text-gold-leaf flex items-center justify-center md:justify-start gap-1">
+            <div className="mt-1 font-body font-semibold text-lede text-gold-leaf flex items-center justify-center md:justify-start gap-1">
               <Crown size={14} className="text-gold-leaf" /> {titleText}
             </div>
           )}
-          <div className="mt-2 flex items-center justify-center md:justify-start gap-2">
+          <div className="mt-2 flex flex-wrap items-center justify-center md:justify-start gap-2">
             <RuneBadge tone="teal" size="md">level {level}</RuneBadge>
-            <span className="font-script text-caption text-ink-whisper tabular-nums">
-              · {Math.round(levelProgress)}% to next
+            <span className="font-body text-caption text-ink-secondary tabular-nums">
+              {Math.round(levelProgress)}% toward the next level
             </span>
           </div>
         </div>

@@ -120,7 +120,7 @@ export default function WellbeingCard() {
           </div>
           <h2
             id={headingId}
-            className="font-display italic text-lg text-ink-primary leading-tight mt-0.5"
+            className="font-body font-bold text-lg text-ink-primary leading-tight mt-0.5"
           >
             For you, today
           </h2>
@@ -137,9 +137,9 @@ export default function WellbeingCard() {
       )}
 
       <div>
-        <div className="font-display italic text-base text-ink-primary mb-2">
+        <h3 className="font-body font-bold text-base text-ink-primary mb-2">
           Three small things you're grateful for
-        </div>
+        </h3>
         <p className="font-script text-tiny text-ink-whisper mb-3">
           jot one or three — short is fine, blanks are fine
           {!alreadyPaid && (
