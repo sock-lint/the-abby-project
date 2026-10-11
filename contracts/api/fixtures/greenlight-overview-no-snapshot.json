@@ -1,0 +1,15 @@
+{
+  "user_id": 7,
+  "owed_balance": "25.00",
+  "approved_payable": "20.00",
+  "pending_hourly": "5.00",
+  "balance_snapshot": null,
+  "approved_timecards": [
+    {
+      "id": 11,
+      "week_start": "2026-09-28",
+      "total_earnings": "12.50"
+    }
+  ],
+  "payouts": []
+}

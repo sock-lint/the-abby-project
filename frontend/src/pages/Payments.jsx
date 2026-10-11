@@ -22,6 +22,7 @@ import Button from '../components/Button';
 import Sparkline from '../components/Sparkline';
 import PageShell from '../components/layout/PageShell';
 import { TextField, SelectField, DateField } from '../components/form';
+import GreenlightWorkflow from './payments/GreenlightWorkflow';
 
 // Each ledger category maps to a journal-compatible tone rather than a
 // neon accent. Icons remain lucide-react glyphs, colored via tone class.
@@ -75,7 +76,7 @@ function PaymentAdjustModal({ onClose, onSaved }) {
   };
 
   return (
-    <BottomSheet title="Adjust balance" onClose={onClose}>
+    <BottomSheet title="Adjust money owed" onClose={onClose}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <SelectField
@@ -119,8 +120,17 @@ function PaymentAdjustModal({ onClose, onSaved }) {
 }
 
 export default function Payments() {
+  const { user } = useRole();
+  const [params] = useSearchParams();
+  if (!user) return <ParchmentSkeleton variant="hero" />;
+  // Identity and child changes discard forms/previews and fence pending API
+  // responses. A fresh child must never inherit the previous child's totals.
+  return <PaymentsView key={`${user.id}:${user.family?.id || ''}:${params.get('kid') || ''}`} />;
+}
+
+function PaymentsView() {
   const { isParent } = useRole();
-  const { data, loading, error, reload } = useApi(getBalance);
+  const { user } = useRole();
   // entry_types and user_id sync to URL search params for bookmarkable views.
   // Date ranges stay in local state since they're less commonly bookmarked.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -134,6 +144,15 @@ export default function Payments() {
     [entryTypesParam],
   );
   const userIdParam = searchParams.get('kid') ?? '';
+  const { data, loading, error, reload } = useApi(
+    () => getBalance({ user_id: isParent ? userIdParam || undefined : undefined }),
+    [userIdParam, isParent],
+  );
+  const [ledgerVersion, setLedgerVersion] = useState(0);
+  const ledgerChanged = () => {
+    reload();
+    setLedgerVersion((version) => version + 1);
+  };
 
   // Drop ?adjust=1 as the sheet closes so a tab switch back here (ChapterHub
   // remounts tab bodies) doesn't re-open it.
@@ -188,6 +207,7 @@ export default function Payments() {
   }), [entryTypes, startDate, endDate, userIdParam]);
   const [filteredLedger, setFilteredLedger] = useState(null);
   const [filterLoading, setFilterLoading] = useState(false);
+  const [filterError, setFilterError] = useState('');
   const [exportError, setExportError] = useState('');
   const { data: childrenData } = useApi(
     isParent ? getChildren : () => Promise.resolve({ results: [] }),
@@ -229,6 +249,7 @@ export default function Payments() {
     // should be derived state, not ones that wrap async network IO.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFilterLoading(true);
+    setFilterError('');
     const params = {
       start_date: filters.start_date || undefined,
       end_date: filters.end_date || undefined,
@@ -243,16 +264,17 @@ export default function Payments() {
         if (cancelled) return;
         setFilteredLedger(normalizeList(resp));
       })
-      .catch(() => {
+      .catch((failure) => {
         if (cancelled) return;
         setFilteredLedger([]);
+        setFilterError(failure.message || 'Could not load the filtered ledger.');
       })
       .finally(() => {
         if (cancelled) return;
         setFilterLoading(false);
       });
     return () => { cancelled = true; };
-  }, [filters, hasFilter]);
+  }, [filters, hasFilter, ledgerVersion]);
 
   const toggleEntryType = (type) => {
     const has = entryTypes.includes(type);
@@ -349,7 +371,7 @@ export default function Payments() {
               onClick={() => setShowAdjust(true)}
               className="flex items-center gap-1"
             >
-              <Plus size={14} /> Adjust balance
+              <Plus size={14} /> Adjust money owed
             </Button>
           </div>
         )}
@@ -357,11 +379,18 @@ export default function Payments() {
 
       {exportError && <ErrorAlert message={exportError} />}
 
+      {isParent && <SelectField label="Kid for payments and Greenlight" value={userIdParam}
+        onChange={(event) => setUserIdParam(event.target.value)}
+        helpText={userIdParam ? 'Totals, records and Greenlight actions below belong to this kid.' : 'Choose a kid to record or reconcile Greenlight transfers.'}>
+        <option value="">All kids — payment ledger summary</option>
+        {children.map((child) => <option key={child.id} value={child.id}>{child.display_name || child.username}</option>)}
+      </SelectField>}
+
       {/* Balance hero — rendered as a wax-sealed ledger entry */}
       <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
         <ParchmentCard flourish tone="bright" className="text-center py-8">
           <div className="font-script text-ink-whisper text-body uppercase tracking-widest">
-            current balance
+            money still owed{isParent && !userIdParam ? ' · all kids' : ''}
           </div>
           <div
             className={`font-display font-semibold text-5xl md:text-6xl tabular-nums ${
@@ -384,6 +413,13 @@ export default function Payments() {
           )}
         </ParchmentCard>
       </motion.div>
+
+      {(!isParent || userIdParam) && <GreenlightWorkflow
+        userId={isParent ? userIdParam : user.id}
+        kidName={isParent ? kidNameFor(Number(userIdParam)) || 'this kid' : user.display_name || user.username}
+        ownerKey={`${user.id}:${user.family?.id || ''}:${isParent ? userIdParam : user.id}`}
+        isParent={isParent} onLedgerChanged={ledgerChanged}
+      />}
 
       {/* Breakdown */}
       {breakdown && Object.keys(breakdown).length > 0 && (
@@ -509,6 +545,11 @@ export default function Payments() {
         )}
       </section>
 
+      {filterError && <div className="space-y-2">
+        <ErrorAlert message={filterError} />
+        <Button variant="secondary" onClick={() => setLedgerVersion((version) => version + 1)}>Retry ledger</Button>
+      </div>}
+
       {/* Ledger entries — switches to filtered ledger when any filter is active */}
       {entriesToRender.length > 0 && (
         <section>
@@ -577,7 +618,7 @@ export default function Payments() {
       {showAdjust && (
         <PaymentAdjustModal
           onClose={closeAdjust}
-          onSaved={() => { closeAdjust(); reload(); }}
+          onSaved={() => { closeAdjust(); ledgerChanged(); }}
         />
       )}
     </div>

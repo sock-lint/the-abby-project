@@ -26,6 +26,10 @@ class TimecardPaymentConcurrencyTests(TransactionTestCase):
             user=family.children[0], week_start=date(2026, 10, 5), week_end=date(2026, 10, 11),
             total_earnings=Decimal("5.00"), status=Timecard.Status.APPROVED,
         )
+        PaymentLedger.objects.create(
+            user=family.children[0], timecard=card,
+            amount=Decimal("5.00"), entry_type=PaymentLedger.EntryType.HOURLY,
+        )
         ready = Barrier(2)
 
         def pay():

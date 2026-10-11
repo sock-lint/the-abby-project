@@ -100,30 +100,19 @@ class RecordEntryDownstreamFailureTests(_Fixture):
 
 
 class RecordPayoutSignTests(_Fixture):
-    """``record_payout`` normalizes the amount with ``-abs(amount)`` — every
-    code path that builds a payout (CSV import, payout view, manual
-    parent action) must end up with a negative ledger row regardless of
-    what sign the caller passed in. The existing tests cover positive +
-    negative inputs; this also pins zero, str, and Decimal coercion."""
+    """Positive validated confirmations produce negative settlement entries."""
 
-    def test_zero_payout_writes_zero(self):
-        """``-abs(0)`` is ``0`` — no exception, but also no real-world
-        effect. Pinning so a future "reject zero" change is deliberate."""
-        entry = PaymentService.record_payout(
-            self.child, Decimal("0"), self.parent,
-        )
-        self.assertEqual(entry.amount, Decimal("0"))
-        self.assertEqual(entry.entry_type, PaymentLedger.EntryType.PAYOUT)
+    def test_zero_payout_rejected(self):
+        from rest_framework.exceptions import ValidationError
+
+        with self.assertRaises(ValidationError):
+            PaymentService.record_payout(self.child, Decimal("0"), self.parent)
+        self.assertFalse(PaymentLedger.objects.filter(entry_type=PaymentLedger.EntryType.PAYOUT).exists())
 
     def test_string_amount_accepted_via_decimal(self):
-        """Greenlight CSV import hands strings to the service — must be
-        coerced rather than crashing on ``-abs("10.00")``."""
-        # abs() on a Decimal works; on a str it raises TypeError. The
-        # service is documented as accepting numeric inputs — strings
-        # would surface as TypeError, which is the contract we want to
-        # pin: callers must Decimal()-coerce before invoking.
-        with self.assertRaises(TypeError):
-            PaymentService.record_payout(self.child, "10.00", self.parent)
+        PaymentService.record_entry(self.child, Decimal("10.00"), PaymentLedger.EntryType.CHORE_REWARD)
+        entry = PaymentService.record_payout(self.child, "10.00", self.parent)
+        self.assertEqual(entry.amount, Decimal("-10.00"))
 
 
 # ── Exchange approval atomicity ───────────────────────────────────────────

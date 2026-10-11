@@ -21,6 +21,7 @@ Deep subsystem details live next to the code they describe, in subtree CLAUDE.md
 | [`apps/rewards/CLAUDE.md`](apps/rewards/CLAUDE.md) | Coins economy · reward shop · wishlist · money→coins exchange |
 | [`apps/chores/CLAUDE.md`](apps/chores/CLAUDE.md) | Duties · alternating-week schedules · submit-then-approve workflow |
 | [`apps/timecards/CLAUDE.md`](apps/timecards/CLAUDE.md) | Clock-in/out · weekly timecards · auto clock-out · CSV export |
+| [`apps/payments/CLAUDE.md`](apps/payments/CLAUDE.md) | Money owed · Greenlight transfer confirmations · statement reconciliation · reported balances |
 | [`apps/habits/CLAUDE.md`](apps/habits/CLAUDE.md) | Rituals · positive/negative taps · strength decay |
 | [`apps/movement/CLAUDE.md`](apps/movement/CLAUDE.md) | Physical activity sessions · intensity scaling · daily reward cap |
 | [`apps/printing/CLAUDE.md`](apps/printing/CLAUDE.md) | 3D print requests · Bambu MQTT listener · HMS decoding · filament budget |
@@ -160,9 +161,10 @@ apps/
   ingestion/         ProjectIngestionJob + Scrapy-style pipeline package.
                      → apps/ingestion/CLAUDE.md
   timecards/         → apps/timecards/CLAUDE.md
-  payments/          PaymentLedger (10 entry types), PaymentService (extends
-                     BaseLedgerService), Greenlight CSV import,
-                     PaymentAdjustmentView.
+  payments/          PaymentLedger, PaymentService (extends BaseLedgerService),
+                     Greenlight transfer confirmations, CSV preview/reconciliation,
+                     and separately reported Greenlight balance snapshots.
+                     → apps/payments/CLAUDE.md
   achievements/      → apps/achievements/CLAUDE.md
   rewards/           → apps/rewards/CLAUDE.md
   chores/            → apps/chores/CLAUDE.md
@@ -252,6 +254,8 @@ frontend/            → frontend/CLAUDE.md (design system / testing / PWA)
 - **Project payment kinds:** `Project.payment_kind` is `required` (counts toward allowance) or `bounty` (up-for-grabs cash reward). On completion, the signal posts either `project_bonus` or `bounty_payout` to `PaymentLedger`.
 
 - **Payments page** (`/payments`): `PaymentLedgerViewSet` honors `entry_type` (CSV multi-select), `start_date`, `end_date`, and parent-only `user_id` query params for filtered ledger views. Parents also get a `@action(export)` that streams the filtered ledger as CSV via `StreamingHttpResponse` (children get 403 — they shouldn't pull bulk financial data).
+
+- **Greenlight workflow** (`apps/payments/`): the payment ledger represents money still owed by the parent, not money held on a debit card. Parents confirm transfers performed outside the app and reconcile selected CSV transfer rows against existing payouts or new payments. Preview never posts a payout. A separately dated, parent-reported Greenlight balance is a snapshot; confirming a transfer does not infer a current card balance. No Greenlight credentials, live balance feed, or automatic money movement are involved. See `apps/payments/CLAUDE.md` for the supported CSV format, approval rules, idempotency, and matching behavior.
 
 - **Steps vs. Milestones:** `ProjectMilestone` are the *chapters* of a project — parent-authored, optional `bonus_amount` that hits `PaymentLedger.milestone_bonus` via `apps/projects/signals.py:85-125` on completion, optional `MilestoneSkillTag` XP. `ProjectStep` are the *tasks inside a chapter* — instructional walkthrough rows that never award XP, coins, or money. `ProjectStep.milestone` is a nullable FK (`SET_NULL`) so a step can either be grouped under a milestone or "loose". Deleting a milestone un-groups its steps rather than cascading. The frontend's unified **Plan** tab renders milestones as accordions with their nested steps + a per-phase progress bar; projects with zero milestones fall back to a flat step list. **Milestone completion is not auto-triggered** when the last step is checked — parents control bonus payouts manually because the milestone-complete signal posts to PaymentLedger. Templates mirror the same shape and both clone directions preserve the step→milestone linkage by rebuilding `ms_id_map` on each side.
 

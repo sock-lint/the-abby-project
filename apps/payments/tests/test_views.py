@@ -139,12 +139,13 @@ class BalanceViewTests(_Fixture):
 
 class PayoutViewTests(_Fixture):
     def test_parent_records_payout(self):
-        # Note: the product's PaymentService.record_payout does abs(amount) without
-        # coercing strings, so JSON clients must send numeric. Mirrors production usage.
-        PaymentService.record_entry(self.child, Decimal("20"), PaymentLedger.EntryType.HOURLY)
+        from django.utils import timezone
+
+        PaymentService.record_entry(self.child, Decimal("20"), PaymentLedger.EntryType.CHORE_REWARD)
         self.client.force_authenticate(self.parent)
         resp = self.client.post("/api/payments/payout/", {
-            "user_id": self.child.id, "amount": 10,
+            "user_id": self.child.id, "amount": "10.00",
+            "transferred_on": timezone.localdate().isoformat(), "idempotency_key": "legacy-payout-test",
         }, format="json")
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(PaymentService.get_balance(self.child), Decimal("10"))

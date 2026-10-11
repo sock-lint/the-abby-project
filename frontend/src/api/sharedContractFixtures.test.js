@@ -8,6 +8,13 @@ import emptyPage from '../../../contracts/api/fixtures/habits-empty.json';
 import confirmedTap from '../../../contracts/api/fixtures/habit-positive-tap.json';
 import tapWithoutEvent from '../../../contracts/api/fixtures/habit-positive-tap-no-event.json';
 import rejectedTap from '../../../contracts/api/fixtures/habit-positive-tap-limit.json';
+import greenlightUnknown from '../../../contracts/api/fixtures/greenlight-overview-no-snapshot.json';
+import greenlightOverview from '../../../contracts/api/fixtures/greenlight-overview.json';
+import greenlightSnapshot from '../../../contracts/api/fixtures/greenlight-balance-snapshot.json';
+import greenlightPayout from '../../../contracts/api/fixtures/greenlight-payout.json';
+import greenlightPreview from '../../../contracts/api/fixtures/greenlight-preview.json';
+import greenlightReconciled from '../../../contracts/api/fixtures/greenlight-reconcile.json';
+import greenlightFinal from '../../../contracts/api/fixtures/greenlight-overview-reconciled.json';
 import stableResponse from '../../../contracts/api/fixtures/pets-stable.json';
 import emptyStable from '../../../contracts/api/fixtures/pets-stable-empty.json';
 import inventoryResponse from '../../../contracts/api/fixtures/inventory-food.json';
@@ -26,7 +33,9 @@ import { server } from '../test/server';
 import { normalizeList } from '../utils/api';
 import { api, getToken, setToken } from './client';
 import {
-  activateMount, activatePet, feedPet, getHabits, getInventory, getMe, getStable, logHabitTap, login,
+  activateMount, activatePet, feedPet, getGreenlightOverview, getHabits, getInventory,
+  getMe, getStable, logHabitTap, login,
+  previewGreenlightCsv, reconcileGreenlightCsv, recordGreenlightPayout, saveGreenlightSnapshot,
 } from './index';
 
 // These are the raw response files checked against Django views and loaded
@@ -140,6 +149,102 @@ describe('shared Django response fixtures through the React API client', () => {
       status: 400, message: 'Daily limit reached (1 taps/day).', response: rejectedTap,
     });
     expect(calls).toBe(2);
+  });
+
+  it('keeps money owed and the separately reported Greenlight balance distinct, including unknown balance', async () => {
+    const children = [];
+    let response = greenlightUnknown;
+    server.use(http.get('*/api/payments/greenlight/overview/', ({ request }) => {
+      children.push(new URL(request.url).searchParams.get('user_id'));
+      return HttpResponse.json(response);
+    }));
+
+    const unknown = await getGreenlightOverview(7);
+    expect(unknown).toEqual(greenlightUnknown);
+    expect(unknown).toMatchObject({
+      user_id: 7, owed_balance: '25.00', approved_payable: '20.00', pending_hourly: '5.00',
+      balance_snapshot: null,
+    });
+    response = greenlightOverview;
+    const reported = await getGreenlightOverview(7);
+    expect(reported).toEqual(greenlightOverview);
+    expect(reported.balance_snapshot).toEqual(greenlightSnapshot);
+    expect(reported.balance_snapshot.amount).toBe('40.25');
+    expect(Date.parse(reported.balance_snapshot.as_of)).toBe(Date.parse('2026-10-11T18:00:00Z'));
+    expect(reported.owed_balance).toBe(unknown.owed_balance);
+    expect(children).toEqual(['7', '7']);
+  });
+
+  it('records a parent-confirmed payout with its retry identity and a separate balance snapshot', async () => {
+    const submitted = [];
+    setToken(loginResponse.token);
+    server.use(
+      http.post('*/api/payments/greenlight/payout/', async ({ request }) => {
+        submitted.push({ body: await request.json(), authorization: request.headers.get('authorization') });
+        return HttpResponse.json(greenlightPayout, { status: 201 });
+      }),
+      http.post('*/api/payments/greenlight/snapshot/', async ({ request }) => {
+        submitted.push({ body: await request.json(), authorization: request.headers.get('authorization') });
+        return HttpResponse.json(greenlightSnapshot, { status: 201 });
+      }),
+    );
+    const payoutRequest = {
+      user_id: 7, amount: '12.50', transferred_on: '2026-10-11',
+      reference: 'fixture-week-1', memo: 'Transferred after approval', timecard_id: 11,
+      idempotency_key: '11111111-1111-4111-8111-111111111111',
+    };
+    const snapshotRequest = {
+      user_id: 7, amount: '40.25', as_of: '2026-10-11T18:00:00Z', memo: 'Checked in the Greenlight app',
+    };
+    expect(await recordGreenlightPayout(payoutRequest)).toEqual(greenlightPayout);
+    expect(greenlightPayout.payout).toMatchObject({
+      amount: '12.50', timecard: 11, source: 'manual', reconciled: false,
+    });
+    expect(await saveGreenlightSnapshot(snapshotRequest)).toEqual(greenlightSnapshot);
+    expect(submitted).toEqual([
+      { body: payoutRequest, authorization: `Token ${loginResponse.token}` },
+      { body: snapshotRequest, authorization: `Token ${loginResponse.token}` },
+    ]);
+  });
+
+  it('previews statement rows, matches an existing payout and records only the selected new transfer', async () => {
+    const submitted = [];
+    server.use(
+      http.post('*/api/payments/greenlight/preview/', async ({ request }) => {
+        submitted.push(await request.json());
+        return HttpResponse.json(greenlightPreview);
+      }),
+      http.post('*/api/payments/greenlight/reconcile/', async ({ request }) => {
+        submitted.push(await request.json());
+        return HttpResponse.json(greenlightReconciled);
+      }),
+      http.get('*/api/payments/greenlight/overview/', () => HttpResponse.json(greenlightFinal)),
+    );
+    const csv_data = 'date,amount,description,reference,type\n'
+      + '2026-10-11,12.50,Weekly project payout,fixture-week-1,transfer\n'
+      + '2026-10-11,7.50,Approved chore payout,fixture-chore-1,transfer\n'
+      + '2026-10-11,-3.00,Bookshop purchase,fixture-purchase-1,purchase\n';
+    const previewRequest = { user_id: 7, csv_data };
+    const preview = await previewGreenlightCsv(previewRequest);
+    expect(preview).toEqual(greenlightPreview);
+    expect(preview.rows[0]).toMatchObject({ eligible: true, match_candidates: [greenlightPayout.payout.id] });
+    expect(preview.rows[1]).toMatchObject({ eligible: true, amount: '7.50' });
+    expect(preview.rows[2]).toMatchObject({ eligible: false, amount: '-3.00' });
+    const reconcileRequest = {
+      ...previewRequest,
+      selections: [
+        { fingerprint: preview.rows[0].fingerprint, match_payment_id: greenlightPayout.payout.id },
+        { fingerprint: preview.rows[1].fingerprint },
+      ],
+    };
+    expect(await reconcileGreenlightCsv(reconcileRequest)).toEqual({ recorded: 1, matched: 1, duplicates: 0 });
+    expect(submitted).toEqual([previewRequest, reconcileRequest]);
+    const final = await getGreenlightOverview(7);
+    expect(final).toEqual(greenlightFinal);
+    expect(final).toMatchObject({ owed_balance: '5.00', approved_payable: '0.00', pending_hourly: '5.00' });
+    expect(final.balance_snapshot).toEqual(greenlightSnapshot);
+    expect(final.payouts).toHaveLength(2);
+    expect(final.payouts.every((payout) => payout.reconciled)).toBe(true);
   });
 
   it('reads owned pets, mounts and the raw inventory array without losing nested care fields', async () => {

@@ -205,7 +205,7 @@ class TimecardServiceTests(_Fixture):
         monday = date(2026, 4, 13)
         self._entry_in_week(monday, 0, 60)
         tc = TimecardService.generate_weekly_timecard(self.child, monday)
-
+        TimecardService.approve_timecard(tc, self.parent)
         TimecardService.mark_paid(tc, self.parent, Decimal("5.00"))
         tc.refresh_from_db()
         self.assertEqual(tc.status, "paid")

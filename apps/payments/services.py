@@ -1,6 +1,8 @@
 import logging
 from decimal import Decimal
 
+from django.db import transaction
+
 from config.services import BaseLedgerService
 
 from .models import PaymentLedger
@@ -77,11 +79,19 @@ class PaymentService(BaseLedgerService):
         return entry
 
     @classmethod
+    @transaction.atomic
     def record_payout(cls, user, amount, parent_user):
-        """Record a payout (Greenlight transfer)."""
+        """Legacy payout confirmation; same lock and payable guard as Greenlight."""
+        from .greenlight import authorize_parent, lock_child, money, validate_payable
+
+        authorize_parent(parent_user, user)
+        user = lock_child(user)
+        authorize_parent(parent_user, user)
+        amount = money(amount)
+        validate_payable(user, amount)
         return cls.record_entry(
             user,
-            -abs(amount),
+            -amount,
             PaymentLedger.EntryType.PAYOUT,
             description=f"Greenlight payout: ${amount}",
             created_by=parent_user,

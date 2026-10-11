@@ -204,7 +204,7 @@ const CASES = [
 
   ['getBalance', [], /\/api\/balance\/$/, 'GET'],
   ['getPayments', [], /\/api\/payments\/$/, 'GET'],
-  ['recordPayout', [1, 10], /\/api\/payments\/payout\/$/, 'POST'],
+  ['recordPayout', [{ user_id: 1, amount: '10.00', transferred_on: '2026-10-11', idempotency_key: 'fixture-transfer' }], /\/api\/payments\/payout\/$/, 'POST'],
   ['adjustPayment', [1, 10, 'd'], /\/api\/payments\/adjust\/$/, 'POST'],
   ['adjustPayment', [1, 10], /\/api\/payments\/adjust\/$/, 'POST'], // default description
 

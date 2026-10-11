@@ -164,6 +164,7 @@ class GenerationIntegrityTests(TestCase):
     def test_payout_prevents_regeneration_even_with_legacy_disputed_status(self):
         self.entry()
         card = self.generate()
+        TimecardService.approve_timecard(card, self.parent)
         TimecardService.mark_paid(card, self.parent, "5.00")
         card.status = Timecard.Status.DISPUTED
         card.save()
@@ -189,6 +190,7 @@ class GenerationIntegrityTests(TestCase):
     def test_paid_card_cannot_be_disputed_or_reapproved_from_stale_instance(self):
         self.entry()
         card = self.generate()
+        TimecardService.approve_timecard(card, self.parent)
         stale = Timecard.objects.get(pk=card.pk)
         TimecardService.mark_paid(card, self.parent, "5.00")
         TimecardService.approve_timecard(stale, self.parent)

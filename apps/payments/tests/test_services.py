@@ -4,6 +4,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.test import TestCase
+from rest_framework.exceptions import ValidationError
 
 from apps.payments.models import PaymentLedger
 from apps.payments.services import PaymentService
@@ -57,16 +58,20 @@ class RecordEntryTests(_Fixture):
 
 
 class RecordPayoutTests(_Fixture):
+    def setUp(self):
+        super().setUp()
+        PaymentService.record_entry(self.child, Decimal("20.00"), PaymentLedger.EntryType.CHORE_REWARD)
+
     def test_payout_writes_negative_amount(self):
         entry = PaymentService.record_payout(self.child, Decimal("10"), self.parent)
         self.assertEqual(entry.amount, Decimal("-10"))
         self.assertEqual(entry.entry_type, "payout")
         self.assertEqual(entry.created_by, self.parent)
 
-    def test_payout_normalizes_sign(self):
-        """Payout should produce negative even if caller passes negative."""
-        entry = PaymentService.record_payout(self.child, Decimal("-15"), self.parent)
-        self.assertEqual(entry.amount, Decimal("-15"))
+    def test_payout_rejects_negative_input(self):
+        with self.assertRaises(ValidationError):
+            PaymentService.record_payout(self.child, Decimal("-15"), self.parent)
+        self.assertFalse(PaymentLedger.objects.filter(entry_type="payout").exists())
 
 
 class BalanceTests(_Fixture):

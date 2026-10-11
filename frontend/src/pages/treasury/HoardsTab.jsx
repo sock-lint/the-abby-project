@@ -296,11 +296,14 @@ export default function HoardsTab() {
       <IncipitBand
         letter="H"
         title="Hoards"
-        kicker="· stockpiles set aside ·"
+        kicker="· goals for money still owed ·"
         meta={metaLabel}
         progressPct={overallPercent}
         versalSize="xl"
       />
+      <p className="text-body text-ink-secondary">
+        These goals track earned money your parent still owes you. They do not track money already in Greenlight; recording a payout reduces this goal progress.
+      </p>
 
       <div className="flex justify-end">
         <Button
@@ -325,8 +328,8 @@ export default function HoardsTab() {
             no hoards yet
           </p>
           <p className="mt-2 font-body text-body text-ink-whisper max-w-md mx-auto">
-            set a goal and begin to fill it — every dollar in your balance
-            counts toward what's set aside.
+            set a goal and begin to fill it — every dollar still owed to you
+            counts toward your goal.
           </p>
         </ParchmentCard>
       )}

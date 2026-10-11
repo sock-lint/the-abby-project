@@ -86,6 +86,17 @@ export const handlers = [
   http.get('*/api/payments/', empty),
   http.post('*/api/payments/payout/', ok),
   http.post('*/api/payments/adjust/', ok),
+  http.get('*/api/payments/greenlight/overview/', ({ request }) =>
+    HttpResponse.json({
+      user_id: Number(new URL(request.url).searchParams.get('user_id')),
+      owed_balance: '0.00', approved_payable: '0.00', pending_hourly: '0.00',
+      balance_snapshot: null, approved_timecards: [], payouts: [],
+    }),
+  ),
+  http.post('*/api/payments/greenlight/payout/', ok),
+  http.post('*/api/payments/greenlight/snapshot/', ok),
+  http.post('*/api/payments/greenlight/preview/', () => HttpResponse.json({ rows: [], schema: [] })),
+  http.post('*/api/payments/greenlight/reconcile/', () => HttpResponse.json({ recorded: 0, matched: 0, duplicates: 0 })),
 
   // Achievements
   http.get('*/api/badges/', empty),

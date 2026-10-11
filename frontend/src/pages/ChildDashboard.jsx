@@ -361,10 +361,10 @@ export default function ChildDashboard({ data, reload }) {
             variants={staggerItem}
             type="button"
             onClick={() => navigate('/treasury?tab=coffers')}
-            aria-label={`Balance ${formatCurrency(current_balance)} — open coffers`}
+            aria-label={`Money owed ${formatCurrency(current_balance)} — open coffers`}
             className="text-left rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 hover:bg-ink-page-rune-glow transition-colors"
           >
-            <div className="font-script text-caption uppercase tracking-wider text-moss">Balance</div>
+            <div className="font-script text-caption uppercase tracking-wider text-moss">Money owed</div>
             <div className="font-display text-xl font-semibold text-ink-primary">{formatCurrency(current_balance)}</div>
           </motion.button>
           <motion.button
@@ -413,7 +413,7 @@ export default function ChildDashboard({ data, reload }) {
           </div>
         )}
         <div className="font-script text-caption text-ink-whisper mt-3 leading-relaxed">
-          balance: pay from clocked ventures · coins: earned across all your work, spent in the bazaar · hours and earnings: this week's clocked time
+          money owed: earned money still owed by your parent · coins: earned across all your work, spent in the bazaar · hours and earnings: this week's clocked time
         </div>
       </AccordionSection>
 

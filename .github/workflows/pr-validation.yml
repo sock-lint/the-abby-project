@@ -88,7 +88,7 @@ jobs:
       - name: Compare Django responses with shared fixtures
         run: |
           mkdir -p artifacts
-          python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures --verbosity=2 2>&1 | tee artifacts/backend-api-fixtures.log
+          python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures --verbosity=2 2>&1 | tee artifacts/backend-api-fixtures.log
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
