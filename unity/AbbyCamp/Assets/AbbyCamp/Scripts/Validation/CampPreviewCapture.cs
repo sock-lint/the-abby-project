@@ -110,6 +110,20 @@ namespace AbbyCamp.Validation
             foreach (var text in UnityEngine.Object.FindObjectsByType<Text>(FindObjectsSortMode.None))
             {
                 if (!names.Contains(text.name) || !text.isActiveAndEnabled || string.IsNullOrEmpty(text.text)) continue;
+                var scroll = text.GetComponentInParent<ScrollRect>();
+                if (scroll != null && scroll.viewport != null)
+                {
+                    var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(scroll.viewport, text.rectTransform);
+                    var view = scroll.viewport.rect;
+                    // A user can deliberately scroll a status out of view.
+                    // Smoke checks its initial top position separately.
+                    if (bounds.max.x <= view.xMin || bounds.min.x >= view.xMax
+                        || bounds.max.y <= view.yMin || bounds.min.y >= view.yMax)
+                    {
+                        Debug.Log($"ABBY_PLAY_CAPTURE_TEXT_OFFSCREEN: {text.name}; rowBounds={bounds}, viewport={view}.");
+                        continue;
+                    }
+                }
                 // Unity 6 returns the renderer's borrowed mesh; its owner keeps it.
                 var mesh = text.canvasRenderer.GetMesh();
                 int vertices = mesh == null ? 0 : mesh.vertexCount;
