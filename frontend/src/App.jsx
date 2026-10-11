@@ -85,7 +85,7 @@ function TrialsLegacyRedirect() {
 }
 
 export default function App() {
-  const { user, loading, login, signup } = useAuth();
+  const { user, loading, login, signup, sessionError } = useAuth();
   const [celebration, setCelebration] = useState(null);
   const [celebrationNotice, setCelebrationNotice] = useState(null);
 
@@ -166,7 +166,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/signup" element={<Signup onSignup={signup} />} />
-          <Route path="*" element={<Login onLogin={login} />} />
+          <Route path="*" element={<Login onLogin={login} sessionError={sessionError} />} />
         </Routes>
       </BrowserRouter>
     );

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  getChoreCompletions, getHomeworkDashboard, getRedemptions, getDashboard,
+  getChoreCompletions, getHomeworkDashboard, getPendingRedemptions, getDashboard,
   listPendingCreations, listPendingChoreProposals, listPendingHabitProposals,
-  getExchangeRequests,
+  getPendingExchangeRequests, getAllApprovalPages,
 } from '../api';
 import { normalizeList } from '../utils/api';
 
@@ -85,10 +85,10 @@ function unifyRedemption(r) {
     kind: 'redemption',
     kidId: r.user_id ?? r.user ?? null,
     kidName: r.user_name || 'Unassigned',
-    title: r.reward_name || 'Reward',
-    subtitle: r.cost_coins != null ? `${r.cost_coins} coins` : null,
+    title: r.reward?.name || 'Reward',
+    subtitle: r.coin_cost_snapshot != null ? `${r.coin_cost_snapshot} coins` : null,
     reward: null,
-    submittedAt: r.created_at || null,
+    submittedAt: r.requested_at || null,
   };
 }
 
@@ -116,14 +116,14 @@ function byRecent(a, b) {
 // Each fetch in load() is paired with a label here; failures get reported
 // up to the dashboard so a 500 doesn't silently disappear from the queue.
 const SOURCES = [
-  { key: 'chores',         label: 'chore approvals',      fn: () => getChoreCompletions('pending'),  fallback: [] },
+  { key: 'chores',         label: 'chore approvals',      fn: () => getAllApprovalPages(() => getChoreCompletions('pending')), fallback: [] },
   { key: 'homework',       label: 'homework approvals',   fn: () => getHomeworkDashboard(),          fallback: { pending_submissions: [] } },
-  { key: 'redemptions',    label: 'reward redemptions',   fn: () => getRedemptions(),                fallback: [] },
+  { key: 'redemptions',    label: 'reward redemptions',   fn: getPendingRedemptions,                 fallback: [] },
   { key: 'dashboard',      label: 'week summary',         fn: () => getDashboard(),                  fallback: null },
-  { key: 'creations',      label: 'creation bonuses',     fn: () => listPendingCreations(),          fallback: [] },
-  { key: 'choreProposals', label: 'chore proposals',      fn: () => listPendingChoreProposals(),     fallback: [] },
-  { key: 'habitProposals', label: 'habit proposals',      fn: () => listPendingHabitProposals(),     fallback: [] },
-  { key: 'exchanges',      label: 'coin exchanges',       fn: () => getExchangeRequests(),           fallback: [] },
+  { key: 'creations',      label: 'creation bonuses',     fn: () => getAllApprovalPages(listPendingCreations),      fallback: [] },
+  { key: 'choreProposals', label: 'chore proposals',      fn: () => getAllApprovalPages(listPendingChoreProposals), fallback: [] },
+  { key: 'habitProposals', label: 'habit proposals',      fn: () => getAllApprovalPages(listPendingHabitProposals), fallback: [] },
+  { key: 'exchanges',      label: 'coin exchanges',       fn: getPendingExchangeRequests,            fallback: [] },
 ];
 
 /**

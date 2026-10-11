@@ -113,6 +113,10 @@ beforeAll(() => {
 
 beforeEach(() => {
   localStorage.clear();
+  // Default API fixtures represent an authenticated user. Anonymous cases
+  // explicitly clear this credential so successful /me/ mocks cannot stand
+  // in for authentication without a session.
+  localStorage.setItem('abby_auth_token', 'test-session');
 });
 
 afterEach(() => {

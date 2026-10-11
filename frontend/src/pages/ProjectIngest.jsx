@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackLink from '../components/BackLink';
 import {
@@ -10,6 +10,8 @@ import {
   updateIngestJob,
 } from '../api';
 import { useApi } from '../hooks/useApi';
+import { useRole } from '../hooks/useRole';
+import { getToken } from '../api/client';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import PageShell from '../components/layout/PageShell';
 import Loader from '../components/Loader';
@@ -18,81 +20,169 @@ import Button from '../components/Button';
 import { normalizeList } from '../utils/api';
 import SourceStep from './ingest/SourceStep';
 import ReviewStep from './ingest/ReviewStep';
+import {
+  clearIngestDraft, DEFAULT_OVERRIDES, normalizeIngestDraft, readIngestDraft, storeIngestDraft,
+} from './ingest/ingestDraft';
 
 const POLL_INTERVAL_MS = 1500;
 const POLL_MAX_MS = 60000;
 
 export default function ProjectIngest() {
+  const { user } = useRole();
+  if (!user) return <Loader />;
+  return <IngestForm key={user.id} userId={user.id} />;
+}
+
+function IngestForm({ userId }) {
   const navigate = useNavigate();
   const { data: categoriesData } = useApi(getCategories);
   const categories = normalizeList(categoriesData);
 
-  const [phase, setPhase] = useState('source'); // source | polling | preview | error
-  const [sourceTab, setSourceTab] = useState('url'); // url | pdf
-  const [url, setUrl] = useState('');
+  const [restored] = useState(() => readIngestDraft(userId));
+  const [snapshot, setSnapshot] = useState(() => restored || {
+    jobId: null, draft: null, overrides: DEFAULT_OVERRIDES,
+    sourceTab: 'url', url: '', pendingCommit: false,
+  });
+  const snapshotRef = useRef(snapshot);
+  const { jobId, draft, overrides, sourceTab, url, pendingCommit } = snapshot;
+  const [phase, setPhase] = useState(restored ? 'polling' : 'source');
   const [file, setFile] = useState(null);
   const [error, setError] = useState('');
-  const [jobId, setJobId] = useState(null);
-  const [draft, setDraft] = useState(null);
   const [committing, setCommitting] = useState(false);
-  // The POST that opens an ingestion job runs the LLM enrichment pipeline
-  // server-side, so the source step stays rendered — and its button stays
-  // tappable — for the whole round trip unless we flag it as in flight.
   const [starting, setStarting] = useState(false);
-  const [overrides, setOverrides] = useState({
-    category_id: '', difficulty: 2, bonus_amount: '0', materials_budget: '0', due_date: '',
+  const [discarding, setDiscarding] = useState(false);
+  const [storageState, setStorageState] = useState(restored ? 'saved' : 'idle');
+  const [syncState, setSyncState] = useState('idle');
+  const [sessionToken] = useState(getToken);
+  const mounted = useRef(true);
+  const inFlight = useRef(false);
+  const savedDraft = useRef(null);
+  const saveQueue = useRef(Promise.resolve());
+
+  const isCurrentSession = useCallback(
+    () => mounted.current && getToken() === sessionToken,
+    [sessionToken],
+  );
+
+  const changeSnapshot = useCallback((patch) => {
+    if (!isCurrentSession()) return;
+    const next = { ...snapshotRef.current, ...patch };
+    snapshotRef.current = next;
+    if (next.jobId) setStorageState(storeIngestDraft(userId, next) ? 'saved' : 'unavailable');
+    setSnapshot(next);
+    return next;
+  }, [isCurrentSession, userId]);
+
+  const setDraft = (next) => {
+    setSyncState('idle');
+    changeSnapshot({ draft: typeof next === 'function' ? next(snapshotRef.current.draft) : next });
+  };
+  const setOverrides = (next) => changeSnapshot({
+    overrides: typeof next === 'function' ? next(snapshotRef.current.overrides) : next,
   });
+  const setSourceTab = (next) => changeSnapshot({ sourceTab: next });
+  const setUrl = (next) => changeSnapshot({ url: next });
 
-  const pollTimer = useRef(null);
-
-  useEffect(() => () => {
-    if (pollTimer.current) clearTimeout(pollTimer.current);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
   }, []);
 
-  const beginPolling = (id) => {
-    // Capture the start timestamp when polling begins, not when startJob runs,
-    // to keep the impure Date.now() call out of the parent's render path.
+  const openProject = useCallback((project) => {
+    if (!isCurrentSession()) return;
+    clearIngestDraft(userId, snapshotRef.current.jobId);
+    navigate(`/quests/ventures/${typeof project === 'object' ? project.id : project}`);
+  }, [isCurrentSession, navigate, userId]);
+
+  useEffect(() => {
+    if (phase !== 'polling' || !jobId) return;
     const startedAt = Date.now();
+    let cancelled = false;
+    let timer;
     const tick = async () => {
       try {
-        const job = await getIngestJob(id);
+        const job = await getIngestJob(jobId);
+        if (cancelled || !isCurrentSession()) return;
+        if (job.status === 'committed') {
+          if (job.project) openProject(job.project);
+          else {
+            setError('The venture created from this import has been removed. You can start a fresh import.');
+            setPhase('missing');
+          }
+          return;
+        }
         if (job.status === 'ready') {
-          // Defend against in-flight staging rows that predate the steps/
-          // resources fields — rehydrate empty arrays so the editors render.
-          const rj = job.result_json || {};
-          setDraft({
-            ...rj,
-            milestones: rj.milestones || [],
-            materials: rj.materials || [],
-            steps: rj.steps || [],
-            resources: rj.resources || [],
+          const serverDraft = normalizeIngestDraft(job.result_json || {});
+          savedDraft.current = JSON.stringify(serverDraft);
+          const current = snapshotRef.current;
+          changeSnapshot({
+            draft: current.draft || serverDraft,
+            overrides: current.draft ? current.overrides : {
+              ...current.overrides, difficulty: serverDraft.difficulty_hint || current.overrides.difficulty,
+            },
           });
-          // Seed override defaults from staged draft where possible
-          setOverrides((o) => ({ ...o, difficulty: rj.difficulty_hint || o.difficulty }));
-          setPhase('preview');
+          setError('');
+          setPhase(current.pendingCommit ? 'uncertain' : 'preview');
+          return;
+        }
+        if (job.status === 'discarded') {
+          setError('This import was discarded. You can start a fresh import.');
+          setPhase('missing');
           return;
         }
         if (job.status === 'failed') {
+          changeSnapshot({ pendingCommit: false });
           setError(job.error?.split('\n')[0] || 'Ingestion failed');
-          setPhase('error');
+          setPhase('failed');
           return;
         }
         if (Date.now() - startedAt > POLL_MAX_MS) {
-          setError('Ingestion timed out. Try again or use the manual form.');
-          setPhase('error');
+          setError('This import is taking longer than expected. Check the existing import to continue.');
+          setPhase('paused');
           return;
         }
-        pollTimer.current = setTimeout(tick, POLL_INTERVAL_MS);
+        timer = setTimeout(tick, POLL_INTERVAL_MS);
       } catch (err) {
+        if (cancelled || !isCurrentSession()) return;
         setError(err.message);
-        setPhase('error');
+        setPhase(err.status === 404 ? 'missing' : 'paused');
       }
     };
     tick();
-  };
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [phase, jobId, changeSnapshot, isCurrentSession, openProject]);
+
+  const saveStaging = useCallback((current) => {
+    // Serialize PATCHes so a slower, older autosave cannot undo newer edits.
+    const request = saveQueue.current.catch(() => {}).then(async () => {
+      if (!isCurrentSession()) return;
+      await updateIngestJob(current.jobId, { result_json: current.draft });
+      if (isCurrentSession()) savedDraft.current = JSON.stringify(current.draft);
+    });
+    saveQueue.current = request;
+    return request;
+  }, [isCurrentSession]);
+
+  useEffect(() => {
+    if (phase !== 'preview' || !draft || committing || discarding || pendingCommit
+      || JSON.stringify(draft) === savedDraft.current) return;
+    const timer = setTimeout(async () => {
+      setSyncState('saving');
+      try {
+        await saveStaging(snapshotRef.current);
+        if (isCurrentSession()) setSyncState(
+          JSON.stringify(snapshotRef.current.draft) === savedDraft.current ? 'saved' : 'idle',
+        );
+      } catch {
+        if (isCurrentSession()) setSyncState('failed');
+      }
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [phase, draft, committing, discarding, pendingCommit, saveStaging, isCurrentSession]);
 
   const startJob = async () => {
-    if (starting) return;
+    if (inFlight.current || jobId) return;
+    inFlight.current = true;
     setError('');
     setStarting(true);
     try {
@@ -103,13 +193,22 @@ export default function ProjectIngest() {
             source_url: url,
           };
       const job = await startIngest(payload);
-      setJobId(job.id);
+      if (!isCurrentSession()) {
+        // Leaving the page during upload must not orphan the job whose ID
+        // arrives later. Keep it only if this session still owns the response
+        // and no newer import has already claimed this user's draft slot.
+        if (getToken() === sessionToken && !readIngestDraft(userId)) {
+          storeIngestDraft(userId, { ...snapshotRef.current, jobId: job.id });
+        }
+        return;
+      }
+      changeSnapshot({ jobId: job.id });
       setPhase('polling');
-      beginPolling(job.id);
     } catch (err) {
-      setError(err.message);
+      if (isCurrentSession()) setError(err.message);
     } finally {
-      setStarting(false);
+      inFlight.current = false;
+      if (isCurrentSession()) setStarting(false);
     }
   };
 
@@ -202,35 +301,109 @@ export default function ProjectIngest() {
   };
 
   const commit = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setCommitting(true);
     setError('');
     try {
-      // Persist the edited draft first so the server has the latest copy on
-      // commit even if overrides don't carry everything through.
-      await updateIngestJob(jobId, { result_json: draft });
-      const project = await commitIngestJob(jobId, {
-        title: draft.title,
-        description: draft.description,
-        category_id: overrides.category_id || null,
-        difficulty: parseInt(overrides.difficulty, 10) || 2,
-        bonus_amount: overrides.bonus_amount || '0',
-        materials_budget: overrides.materials_budget || '0',
-        due_date: overrides.due_date || null,
-        milestones: draft.milestones,
-        materials: draft.materials,
-        steps: draft.steps,
-        resources: draft.resources,
+      const current = snapshotRef.current;
+      const job = await getIngestJob(current.jobId);
+      if (!isCurrentSession()) return;
+      if (job.status === 'committed') {
+        if (job.project) openProject(job.project);
+        else {
+          setError('The venture created from this import has been removed. You can start a fresh import.');
+          setPhase('missing');
+        }
+        return;
+      }
+      if (job.status !== 'ready') {
+        setError('The import is not ready yet. Check its progress to continue.');
+        setPhase('paused');
+        return;
+      }
+      // Finish queued autosaves before recording the immutable creation request.
+      // On a retry the original draft/overrides stay frozen; the same job's
+      // idempotent commit endpoint returns its project if it already succeeded.
+      if (!current.pendingCommit) await saveStaging(current);
+      if (!isCurrentSession()) return;
+      changeSnapshot({ pendingCommit: true });
+      const project = await commitIngestJob(current.jobId, {
+        title: current.draft.title,
+        description: current.draft.description,
+        category_id: current.overrides.category_id || null,
+        difficulty: parseInt(current.overrides.difficulty, 10) || 2,
+        bonus_amount: current.overrides.bonus_amount || '0',
+        materials_budget: current.overrides.materials_budget || '0',
+        due_date: current.overrides.due_date || null,
+        milestones: current.draft.milestones,
+        materials: current.draft.materials,
+        steps: current.draft.steps,
+        resources: current.draft.resources,
       });
-      navigate(`/projects/${project.id}`);
+      openProject(project);
     } catch (err) {
-      setError(err.message);
-      setCommitting(false);
+      if (!isCurrentSession()) return;
+      if (err.status === 404) {
+        setError(err.message);
+        setPhase('missing');
+      } else if (err.status === 409) {
+        // A staging save can conflict with another tab's successful commit.
+        // Reload the job before deciding whether to open or forget it.
+        setError(err.message);
+        setPhase('polling');
+      } else if (snapshotRef.current.pendingCommit && !(err.status >= 400 && err.status < 500)) {
+        setError('We could not confirm creation. Check creation to safely finish this same import.');
+        setPhase('uncertain');
+      } else {
+        changeSnapshot({ pendingCommit: false });
+        setError(err.message);
+        setPhase('preview');
+      }
+    } finally {
+      inFlight.current = false;
+      if (isCurrentSession()) setCommitting(false);
     }
   };
 
-  const discard = async () => {
-    if (jobId) await discardIngestJob(jobId).catch(() => {});
-    navigate('/projects');
+  const discard = async (restart = false) => {
+    if (inFlight.current || pendingCommit) return;
+    inFlight.current = true;
+    setDiscarding(true);
+    setError('');
+    try {
+      await saveQueue.current.catch(() => {});
+      await discardIngestJob(jobId);
+      if (!isCurrentSession()) return;
+      clearIngestDraft(userId, jobId);
+      if (restart) {
+        changeSnapshot({ jobId: null, draft: null, overrides: DEFAULT_OVERRIDES, pendingCommit: false });
+        setStorageState('idle');
+        setSyncState('idle');
+        setPhase('source');
+      } else {
+        navigate('/quests?tab=ventures');
+      }
+    } catch (err) {
+      if (isCurrentSession()) {
+        setError(err.message || 'Could not discard the import. Try again.');
+        if (err.status === 404) setPhase('missing');
+        else if (err.status === 409) setPhase('polling');
+      }
+    } finally {
+      inFlight.current = false;
+      if (isCurrentSession()) setDiscarding(false);
+    }
+  };
+
+  const resume = () => { setError(''); setPhase('polling'); };
+  const forget = () => {
+    clearIngestDraft(userId, jobId);
+    changeSnapshot({ jobId: null, draft: null, overrides: DEFAULT_OVERRIDES, pendingCommit: false });
+    setStorageState('idle');
+    setSyncState('idle');
+    setError('');
+    setPhase('source');
   };
 
   return (
@@ -244,6 +417,20 @@ export default function ProjectIngest() {
       </div>
 
       <ErrorAlert message={error} />
+
+      {jobId && (
+        <div role="status" aria-live="polite" className="space-y-1 text-caption text-ink-whisper">
+          {restored?.jobId === jobId && <p>Your unfinished import was restored.</p>}
+          <p>{pendingCommit ? 'Creation is not confirmed yet. Your original plan is kept for a safe retry.'
+            : storageState === 'unavailable' ? 'This browser cannot keep a draft. Keep this window open until you create the venture.'
+              : 'Your import and edits are kept on this device. The venture has not been created yet.'}</p>
+          {syncState === 'saving' && <p>Saving the edited plan…</p>}
+          {syncState === 'saved' && <p>The edited plan is saved with this import.</p>}
+          {syncState === 'failed' && <p>{storageState === 'saved'
+            ? 'The plan could not sync. Your device draft is kept; creating the venture will try again.'
+            : 'The plan could not sync. Keep this window open and try creating the venture again.'}</p>}
+        </div>
+      )}
 
       {phase === 'source' && (
         <SourceStep
@@ -262,33 +449,48 @@ export default function ProjectIngest() {
         </ParchmentCard>
       )}
 
-      {phase === 'error' && (
+      {['paused', 'failed', 'uncertain', 'missing'].includes(phase) && (
         <ParchmentCard className="space-y-3">
-          <p className="text-body text-ink-whisper">We couldn't parse that source.</p>
+          <p className="text-body text-ink-whisper">
+            {phase === 'missing' ? 'This saved import is no longer available.'
+              : phase === 'failed' ? 'This import could not be completed.'
+              : phase === 'uncertain' ? 'Check whether your venture was created before continuing.'
+                : 'Your existing import is kept. Continue when your connection returns.'}
+          </p>
           <div className="flex gap-2">
-            <Button size="sm" onClick={() => { setPhase('source'); setError(''); }}>
-              Try Again
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => navigate('/projects/new')}>
-              Manual form
-            </Button>
+            {phase === 'missing' ? (
+              <Button size="sm" onClick={forget}>Forget this import & start again</Button>
+            ) : phase === 'uncertain' ? (
+              <Button size="sm" onClick={commit} loading={committing}>Check creation</Button>
+            ) : phase === 'paused' ? (
+              <Button size="sm" onClick={resume}>Check import</Button>
+            ) : (
+              <Button size="sm" onClick={() => discard(true)} loading={discarding}>Discard & start again</Button>
+            )}
+            {!pendingCommit && phase === 'paused' && (
+              <Button size="sm" variant="secondary" onClick={() => discard()} disabled={discarding}>
+                Discard import
+              </Button>
+            )}
           </div>
         </ParchmentCard>
       )}
 
       {phase === 'preview' && draft && (
-        <ReviewStep
-          draft={draft} setDraft={setDraft}
-          overrides={overrides} setOverrides={setOverrides}
-          categories={categories}
-          milestoneHandlers={milestoneHandlers}
-          stepHandlers={stepHandlers}
-          resourceHandlers={resourceHandlers}
-          materialHandlers={materialHandlers}
-          committing={committing}
-          onCommit={commit}
-          onDiscard={discard}
-        />
+        <fieldset disabled={committing || discarding} className="min-w-0">
+          <ReviewStep
+            draft={draft} setDraft={setDraft}
+            overrides={overrides} setOverrides={setOverrides}
+            categories={categories}
+            milestoneHandlers={milestoneHandlers}
+            stepHandlers={stepHandlers}
+            resourceHandlers={resourceHandlers}
+            materialHandlers={materialHandlers}
+            committing={committing || discarding}
+            onCommit={commit}
+            onDiscard={() => discard()}
+          />
+        </fieldset>
       )}
     </PageShell>
   );

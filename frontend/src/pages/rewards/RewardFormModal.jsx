@@ -52,7 +52,9 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
       fd.append('icon', form.icon);
       fd.append('cost_coins', parseInt(form.cost_coins) || 0);
       fd.append('rarity', form.rarity);
-      if (form.stock !== '' && form.stock !== null) fd.append('stock', parseInt(form.stock));
+      // DRF accepts an empty multipart field as null; omitting it on PATCH
+      // would leave the previous finite stock unchanged.
+      fd.append('stock', form.stock === '' || form.stock === null ? '' : parseInt(form.stock));
       fd.append('requires_parent_approval', form.requires_parent_approval);
       fd.append('is_active', form.is_active);
       fd.append('order', parseInt(form.order) || 0);

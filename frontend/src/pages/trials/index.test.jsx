@@ -8,6 +8,7 @@ import { AuthProvider } from '../../hooks/useApi.js';
 import { server } from '../../test/server.js';
 import { spyHandler } from '../../test/spy.js';
 import { buildUser, buildParent } from '../../test/factories.js';
+import { setToken } from '../../api/client.js';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -35,6 +36,7 @@ function renderTrials(initialEntries = ['/quests?tab=trials']) {
 beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
   try { window.localStorage.clear(); } catch { /* ignore */ }
+  setToken('trials-test-session');
 });
 
 describe('Trials (illuminated codex)', () => {

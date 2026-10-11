@@ -1,19 +1,43 @@
 import * as Sentry from '@sentry/react';
 
 import { STORAGE_KEYS } from '../constants/storage';
+import { purgePrivateApiCaches } from '../pwa/privacy';
 
 const BASE = `${import.meta.env.VITE_API_URL || ''}/api`;
+export const AUTH_CHANGED_EVENT = 'abby:auth-changed';
+let readToken;
+let readNamespace;
+
+// A prompted worker upgrade leaves the old worker controlling this page.
+// Fresh noncredential query keys prevent it matching another session's JSON,
+// including an old request which completes after its cache was purged.
+function privateReadUrl(path, token) {
+  if (readToken !== token || !readNamespace) {
+    readToken = token;
+    readNamespace = crypto.randomUUID();
+  }
+  const url = new URL(`${BASE}${path}`, window.location.origin);
+  url.searchParams.set('_abby_session', readNamespace);
+  return url.href;
+}
 
 export function getToken() {
   return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) || '';
 }
 
 export function setToken(token) {
+  const previous = getToken();
+  if (previous !== (token || '')) {
+    localStorage.removeItem(STORAGE_KEYS.CACHED_USER);
+    readNamespace = undefined;
+    void purgePrivateApiCaches();
+  }
   if (token) {
     localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
   } else {
     localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
   }
+  if (previous !== (token || '')) window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
 }
 
 // Requests can finish after another tab/client has logged out or switched
@@ -72,8 +96,10 @@ async function fetchOrOffline(url, config) {
 }
 
 async function request(path, options = {}) {
-  const url = `${BASE}${path}`;
-  const token = getToken();
+  const { token: explicitToken, selfHeal = true, ...fetchOptions } = options;
+  const token = explicitToken ?? getToken();
+  const url = !options.method || options.method === 'GET'
+    ? privateReadUrl(path, token) : `${BASE}${path}`;
   const authHeader = token ? { Authorization: `Token ${token}` } : {};
   const config = {
     // Never serve API responses from the HTTP cache. If an upstream proxy
@@ -82,8 +108,8 @@ async function request(path, options = {}) {
     // serving that stale HTML for hours — and res.json() would blow up on
     // `<!DOCTYPE html>`. no-store bypasses disk cache on every request.
     cache: 'no-store',
-    headers: { 'Content-Type': 'application/json', ...authHeader, ...options.headers },
-    ...options,
+    ...fetchOptions,
+    headers: { 'Content-Type': 'application/json', ...authHeader, ...fetchOptions.headers },
   };
   if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
     config.body = JSON.stringify(config.body);
@@ -113,7 +139,7 @@ async function request(path, options = {}) {
     // anonymous access (boot-time getMe, login-form credential retries).
     // Only clear the credential this request used: a delayed 401 must not
     // discard a newer sign-in. Concurrent 401s coalesce — see audit L5.
-    if (res.status === 401 && hadAuth) {
+    if (res.status === 401 && hadAuth && selfHeal) {
       _selfHealReload(token);
     }
 
@@ -155,17 +181,18 @@ async function request(path, options = {}) {
 
 export const api = {
   get: (path) => request(path),
-  post: (path, body) => request(path, { method: 'POST', body }),
+  post: (path, body, options) => request(path, { ...options, method: 'POST', body }),
   patch: (path, body) => request(path, { method: 'PATCH', body }),
   delete: (path) => request(path, { method: 'DELETE' }),
   upload: (path, formData) => request(path, { method: 'POST', body: formData }),
 };
 
 export async function getBlob(path) {
-  const url = `${BASE}${path}`;
   const token = getToken();
+  const url = privateReadUrl(path, token);
   const hadAuth = Boolean(token);
   const res = await fetchOrOffline(url, {
+    cache: 'no-store',
     headers: token ? { Authorization: `Token ${token}` } : {},
   });
   if (!res.ok) {

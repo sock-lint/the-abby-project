@@ -83,6 +83,8 @@ Shared primitives carry consistent ARIA roles. Match these when building new one
 
 Use React's `useId()` to generate per-instance IDs for `aria-labelledby` / `aria-describedby` so multiple stacked instances don't collide.
 
+`BottomSheet` and `ConfirmDialog` share `modal/useModalFocus.js`: only the topmost modal handles Tab and Escape, and closing it restores focus to its opener. Destructive confirmations initially focus Cancel. Use this shared hook for modal surfaces instead of adding competing document keyboard listeners.
+
 For icon-only interactive elements, an `aria-label` is mandatory — the upcoming `<IconButton>` primitive enforces this; raw `<button>` tags wrapping a single Lucide icon need it added by hand.
 
 When a `ProgressBar` or `QuillProgress` accepts an `aria-label`, prefer a context-rich one (e.g. `"${skill.name} XP progress toward level ${n+1}"`) over the default if the page renders multiple bars.

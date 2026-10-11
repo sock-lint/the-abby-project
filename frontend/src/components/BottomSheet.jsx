@@ -8,6 +8,7 @@ import SealPulseRing from './modal/SealPulseRing';
 import useVisualViewportInset from './modal/useVisualViewportInset';
 import { registerSheetHistory } from './modal/sheetHistory';
 import useIsDesktop from '../hooks/useIsDesktop';
+import useModalFocus from './modal/useModalFocus';
 
 // Shared modal shell for every form dialog in the app. Dual-mode under the
 // "Sheikah Stamp" DNA:
@@ -15,9 +16,6 @@ import useIsDesktop from '../hooks/useIsDesktop';
 //   Mobile          — bottom-sheet slide (thumb-reach), sheikah-glyph drag
 //                     handle, one-shot teal halo across the top edge,
 //                     parchment texture carried through.
-const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
-
 export default function BottomSheet({ title, onClose, disabled, dirty, footer, children }) {
   const isDesktop = useIsDesktop();
   const titleId = useId();
@@ -55,13 +53,7 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
     onClose?.();
   }, [disabled, confirmingClose, dirty, onClose]);
 
-  const dialogCallbackRef = useCallback((node) => {
-    dialogRef.current = node;
-    if (node) {
-      const first = node.querySelector(FOCUSABLE_SELECTOR);
-      if (first) first.focus();
-    }
-  }, []);
+  useModalFocus({ dialogRef, onEscape: safeClose, surfaceKey: isDesktop });
 
   // The popstate listener below is registered once, so it needs a live
   // handle on safeClose (whose identity changes with `dirty`).
@@ -75,41 +67,6 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
   // A sentinel history entry makes back close the sheet instead.
   useEffect(() => registerSheetHistory(sheetHistoryId, () => safeCloseRef.current()), [sheetHistoryId]);
 
-  useEffect(() => {
-    // safeClose owns the disabled / dirty / guard rules — don't re-check here.
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') safeClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [safeClose]);
-
-  useEffect(() => {
-    const node = dialogRef.current;
-    if (!node) return;
-
-    const handleTab = (e) => {
-      if (e.key !== 'Tab') return;
-
-      const focusable = Array.from(node.querySelectorAll(FOCUSABLE_SELECTOR));
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-
-    node.addEventListener('keydown', handleTab);
-    return () => node.removeEventListener('keydown', handleTab);
-  });
-
   return createPortal(
     <AnimatePresence>
       <ModalBackdrop onClick={safeClose} disabled={disabled} zIndex="z-40" />
@@ -117,8 +74,9 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
           <motion.div
             key="sheet-desktop"
-            ref={dialogCallbackRef}
+            ref={dialogRef}
             role="dialog"
+            tabIndex={-1}
             aria-modal="true"
             aria-labelledby={titleId}
             initial={{ scale: 0.88, opacity: 0, rotate: -1.5 }}
@@ -145,8 +103,9 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
       ) : (
         <motion.div
           key="sheet-mobile"
-          ref={dialogCallbackRef}
+          ref={dialogRef}
           role="dialog"
+          tabIndex={-1}
           aria-modal="true"
           aria-labelledby={titleId}
           initial={{ y: '100%' }}

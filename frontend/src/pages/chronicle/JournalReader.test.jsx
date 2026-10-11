@@ -8,6 +8,7 @@ import { AuthProvider } from '../../hooks/useApi.js';
 import { server } from '../../test/server.js';
 import { spyHandler } from '../../test/spy.js';
 import { buildUser, buildParent } from '../../test/factories.js';
+import { STORAGE_KEYS } from '../../constants/storage.js';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -18,7 +19,8 @@ beforeEach(() => {
   // jsdom doesn't implement scrollIntoView — the chapter-year shelf calls
   // it whenever activeId changes.
   Element.prototype.scrollIntoView = vi.fn();
-  try { window.localStorage.clear(); } catch { /* ignore */ }
+  window.localStorage.clear();
+  window.localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, 'journal-reader-test-session');
 });
 
 function summaryPayload(entries) {

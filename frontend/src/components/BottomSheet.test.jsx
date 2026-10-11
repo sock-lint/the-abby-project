@@ -278,6 +278,96 @@ describe('BottomSheet', () => {
   });
 
   describe('discard guard stacking', () => {
+    it('gives an initially nested sheet keyboard ownership despite child-first effects', async () => {
+      const parentClose = vi.fn();
+      const innerClose = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <StrictMode>
+          <BottomSheet title="Parent" onClose={parentClose}>
+            <BottomSheet title="Inner" onClose={innerClose}>Details</BottomSheet>
+          </BottomSheet>
+        </StrictMode>,
+      );
+      expect(within(screen.getByRole('dialog', { name: 'Inner' })).getByRole('button', { name: /close/i })).toHaveFocus();
+      await user.keyboard('{Escape}');
+      expect(innerClose).toHaveBeenCalledOnce();
+      expect(parentClose).not.toHaveBeenCalled();
+    });
+
+    it('restores the outer opener when nested sheets close together', async () => {
+      function NestedSheets() {
+        const [open, setOpen] = useState(false);
+        const [inner, setInner] = useState(false);
+        return (
+          <>
+            <button onClick={() => setOpen(true)}>Open parent</button>
+            {open && (
+              <BottomSheet title="Parent" onClose={() => setOpen(false)}>
+                <button onClick={() => setInner(true)}>Open inner</button>
+                {inner && <BottomSheet title="Inner" onClose={() => setOpen(false)}>Details</BottomSheet>}
+              </BottomSheet>
+            )}
+          </>
+        );
+      }
+      const user = userEvent.setup();
+      render(<NestedSheets />);
+      const opener = screen.getByRole('button', { name: 'Open parent' });
+      await user.click(opener);
+      await user.click(screen.getByRole('button', { name: 'Open inner' }));
+      await user.keyboard('{Escape}');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(opener).toHaveFocus();
+      await settleHistory();
+    });
+
+    it('traps focus in the guard and Escape cancels only that guard', async () => {
+      const onClose = vi.fn();
+      const user = userEvent.setup();
+      renderDesktop({ onClose, dirty: true });
+      const close = screen.getByRole('button', { name: /close/i });
+      await user.click(close);
+      const cancel = screen.getByRole('button', { name: 'Cancel' });
+      const discard = screen.getByRole('button', { name: 'Discard' });
+      expect(cancel).toHaveFocus();
+      await user.tab();
+      expect(discard).toHaveFocus();
+      await user.tab();
+      expect(cancel).toHaveFocus();
+      await user.tab({ shift: true });
+      expect(discard).toHaveFocus();
+      await user.keyboard('{Escape}');
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: 'Title' })).toBeInTheDocument();
+      expect(close).toHaveFocus();
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('Escape closes only an inner sheet and restores focus in its parent', async () => {
+      const parentClose = vi.fn();
+      const innerClose = vi.fn();
+      function NestedSheets() {
+        const [inner, setInner] = useState(false);
+        return (
+          <BottomSheet title="Parent" onClose={parentClose}>
+            <button onClick={() => setInner(true)}>Open inner</button>
+            {inner && <BottomSheet title="Inner" onClose={() => { innerClose(); setInner(false); }}>Details</BottomSheet>}
+          </BottomSheet>
+        );
+      }
+      const user = userEvent.setup();
+      render(<NestedSheets />);
+      const opener = screen.getByRole('button', { name: 'Open inner' });
+      await user.click(opener);
+      expect(within(screen.getByRole('dialog', { name: 'Inner' })).getByRole('button', { name: /close/i })).toHaveFocus();
+      await user.keyboard('{Escape}');
+      expect(innerClose).toHaveBeenCalledOnce();
+      expect(parentClose).not.toHaveBeenCalled();
+      expect(opener).toHaveFocus();
+      await settleHistory();
+    });
+
     it('does not discard when the close affordance is tapped a second time', async () => {
       const onClose = vi.fn();
       const user = userEvent.setup();

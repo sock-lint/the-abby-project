@@ -495,11 +495,13 @@ class HomeworkService:
         todays = []
         upcoming = []
         overdue = []
+        pending = []
 
         for a in assignments:
-            active_sub = a.submissions.exclude(
-                status=HomeworkSubmission.Status.REJECTED,
-            ).first()
+            active_sub = next((
+                sub for sub in a.submissions.all()
+                if sub.user_id == user.pk and sub.status != HomeworkSubmission.Status.REJECTED
+            ), None)
 
             item = {
                 "assignment": a,
@@ -507,7 +509,11 @@ class HomeworkService:
                 "status": active_sub.status if active_sub else None,
             }
 
-            if a.due_date < today and not active_sub:
+            # Submitted work stays visible until the parent decides, even
+            # after midnight moves its due date out of today's section.
+            if active_sub and active_sub.status == HomeworkSubmission.Status.PENDING:
+                pending.append(item)
+            elif a.due_date < today and not active_sub:
                 overdue.append(item)
             elif a.due_date == today:
                 todays.append(item)
@@ -544,6 +550,7 @@ class HomeworkService:
             "today": sorted(todays, key=lambda x: -x["assignment"].effort_level),
             "upcoming": sorted(upcoming, key=lambda x: x["assignment"].due_date),
             "overdue": sorted(overdue, key=lambda x: x["assignment"].due_date),
+            "pending": sorted(pending, key=lambda x: x["assignment"].due_date),
             "stats": stats,
         }
 

@@ -51,10 +51,14 @@ export default defineConfig(({ command }) => {
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // The worker has root scope, while Django serves bundled files at
+        // /static/. Precache the URLs used by index.html and lazy imports so
+        // offline loads work even without a warm browser HTTP cache.
+        modifyURLPrefix: { 'assets/': '/static/assets/' },
         // Web Push handlers live in their own root-served file rather than
         // switching this whole config to injectManifest — see push-sw.js for
         // why generateSW stays in charge.
-        importScripts: ['/push-sw.js'],
+        importScripts: ['/push-sw.js', '/privacy-sw.js'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [
           /^\/api\//,
@@ -67,31 +71,9 @@ export default defineConfig(({ command }) => {
           /^\/\.well-known\//,
         ],
         runtimeCaching: [
-          // Same-origin GET /api/ reads: network first with a short timeout,
-          // falling back to the last cached response so flaky-wifi and
-          // fully-offline boots still show recent data. NOTE: the Cache
-          // Storage entries are per-browser-profile (each family member's
-          // own device/profile only sees responses their own token fetched)
-          // Chronicle reads stay on the network: journals and conversations
-          // have author-controlled sharing, and an offline cached response
-          // must not cross accounts or bypass a later sharing change.
-          // Non-GET requests are never cached.
-          {
-            urlPattern: ({ sameOrigin, url }) =>
-              sameOrigin && url.pathname.startsWith('/api/')
-              && !url.pathname.startsWith('/api/chronicle/'),
-            method: 'GET',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-reads',
-              networkTimeoutSeconds: 3,
-              expiration: { maxEntries: 60, maxAgeSeconds: 86400 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-          // Images. The api-reads cache above keeps JSON payloads for 24h so
-          // an offline boot still renders real data — but in production every
-          // image field in those payloads is a presigned Ceph URL whose
+          // Private API reads always reach the network. URL-only caches
+          // cannot distinguish accounts sharing a browser profile.
+          // Images remain available offline. Image fields are presigned Ceph URLs whose
           // signature dies after AWS_QUERYSTRING_EXPIRE (1h), and the media
           // host is cross-origin, so none of it was runtime-cached at all.
           // Sketchbook tiles, pet art, proof thumbnails and avatars therefore

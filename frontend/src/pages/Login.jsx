@@ -12,7 +12,7 @@ import { TextField } from '../components/form';
  * Login — the front page of the journal. Sign-in form on parchment with
  * optional Google OAuth; no book-cover intro gate.
  */
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, sessionError = '' }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -79,7 +79,7 @@ export default function Login({ onLogin }) {
 
         <ParchmentCard flourish as="form" onSubmit={handleSubmit}>
           <div className="space-y-4">
-            <ErrorAlert message={error} />
+            <ErrorAlert message={error || sessionError} />
             <TextField
               id="login-username"
               label="Name in the ledger"

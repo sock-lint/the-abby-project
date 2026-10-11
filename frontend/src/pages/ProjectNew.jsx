@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExternalLink, Sparkles } from 'lucide-react';
 import { createProject, getCategories, getChildren, getInstructablesPreview } from '../api';
@@ -29,20 +29,33 @@ export default function ProjectNew() {
   const [preview, setPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const previewRequest = useRef(0);
   const today = toISODate(new Date());
 
   const fetchPreview = async (url) => {
+    const requestId = ++previewRequest.current;
     if (!url || !url.includes('instructables.com')) { setPreview(null); return; }
     setPreviewLoading(true);
     try {
       const data = await getInstructablesPreview(url);
+      if (requestId !== previewRequest.current) return;
       setPreview(data);
-      if (data.title && !form.title) setForm(prev => ({ ...prev, title: data.title }));
-    } catch { setPreview(null); }
-    setPreviewLoading(false);
+      if (data.title) setForm(prev => prev.title ? prev : { ...prev, title: data.title });
+    } catch {
+      if (requestId === previewRequest.current) setPreview(null);
+    } finally {
+      if (requestId === previewRequest.current) setPreviewLoading(false);
+    }
   };
 
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const set = (k) => (e) => {
+    if (k === 'instructables_url') {
+      previewRequest.current += 1;
+      setPreview(null);
+      setPreviewLoading(false);
+    }
+    setForm(prev => ({ ...prev, [k]: e.target.value }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();

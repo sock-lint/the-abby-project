@@ -10,6 +10,7 @@ from rest_framework.test import APIClient
 
 from apps.homework.models import HomeworkAssignment, HomeworkProof, HomeworkSubmission
 from apps.projects.models import User
+from config.tests.base import BaseFamilyAPITestCase
 
 
 def _fake_image():
@@ -259,6 +260,7 @@ class HomeworkDashboardTests(_Fixture):
         self.assertIn("today", data)
         self.assertIn("upcoming", data)
         self.assertIn("overdue", data)
+        self.assertIn("pending", data)
         self.assertIn("stats", data)
 
     def test_parent_dashboard_returns_pending(self):
@@ -266,6 +268,66 @@ class HomeworkDashboardTests(_Fixture):
         resp = self.client.get("/api/homework/dashboard/")
         self.assertEqual(resp.status_code, 200)
         self.assertIn("pending_submissions", resp.json())
+
+
+class HomeworkChildPendingDashboardTests(BaseFamilyAPITestCase):
+    family_parents = [{"username": "pending-parent"}]
+    family_children = [{"username": "pending-child"}, {"username": "sibling"}]
+
+    def setUp(self):
+        self.client.force_authenticate(self.children[0])
+
+    def make_assignment(self, offset, *, child=None, submission_status="pending"):
+        child = child or self.children[0]
+        assignment = HomeworkAssignment.objects.create(
+            title=f"Homework due {offset}", subject="math",
+            due_date=timezone.localdate() + timedelta(days=offset),
+            assigned_to=child, created_by=self.parents[0],
+        )
+        submission = HomeworkSubmission.objects.create(
+            assignment=assignment, user=child,
+            status=submission_status, timeliness="on_time",
+        )
+        return assignment, submission
+
+    def test_pending_work_stays_visible_once_regardless_of_due_date(self):
+        assignments = [self.make_assignment(offset)[0] for offset in (-1, 0, 1)]
+        data = self.client.get("/api/homework/dashboard/").json()
+        self.assertEqual([row["id"] for row in data["pending"]], [a.id for a in assignments])
+        self.assertTrue(all(row["submission_status"]["status"] == "pending" for row in data["pending"]))
+        self.assertEqual(data["today"] + data["upcoming"] + data["overdue"], [])
+
+    def test_pending_section_excludes_another_childs_work(self):
+        assignment, _ = self.make_assignment(-1)
+        self.make_assignment(-1, child=self.children[1])
+        data = self.client.get("/api/homework/dashboard/").json()
+        self.assertEqual([row["id"] for row in data["pending"]], [assignment.id])
+
+    def test_reassigned_work_does_not_show_the_previous_childs_submission(self):
+        assignment, _ = self.make_assignment(-1)
+        assignment.assigned_to = self.children[1]
+        assignment.save(update_fields=["assigned_to"])
+        self.client.force_authenticate(self.children[1])
+        data = self.client.get("/api/homework/dashboard/").json()
+        self.assertEqual(data["pending"], [])
+        self.assertEqual([row["id"] for row in data["overdue"]], [assignment.id])
+        self.assertIsNone(data["overdue"][0]["submission_status"])
+
+    def test_withdrawn_overdue_work_returns_to_overdue(self):
+        assignment, submission = self.make_assignment(-1)
+        response = self.client.post(f"/api/homework-submissions/{submission.id}/withdraw/")
+        self.assertEqual(response.status_code, 204)
+        data = self.client.get("/api/homework/dashboard/").json()
+        self.assertEqual(data["pending"], [])
+        self.assertEqual([row["id"] for row in data["overdue"]], [assignment.id])
+        self.assertIsNone(data["overdue"][0]["submission_status"])
+
+    def test_rejected_work_is_overdue_and_approved_work_stays_in_history(self):
+        rejected, _ = self.make_assignment(-1, submission_status="rejected")
+        self.make_assignment(-1, submission_status="approved")
+        data = self.client.get("/api/homework/dashboard/").json()
+        self.assertEqual(data["pending"], [])
+        self.assertEqual([row["id"] for row in data["overdue"]], [rejected.id])
 
 
 class HomeworkParentDashboardFamilyScopingTests(TestCase):

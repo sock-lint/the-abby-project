@@ -148,6 +148,7 @@ _PWA_ROOT_FILES = [
     # Imported by sw.js via workbox importScripts, so it must serve from root
     # with the same scope as the service worker itself.
     "push-sw.js",
+    "privacy-sw.js",
     "registerSW.js",
     "manifest.webmanifest",
     "pwa-192x192.png",

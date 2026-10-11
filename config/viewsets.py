@@ -1,5 +1,6 @@
 from rest_framework import permissions, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 
 from config.permissions import IsParent, IsStaffParent
@@ -95,8 +96,26 @@ class NestedProjectResourceMixin:
             self.request.user, qs,
         )
 
+    def get_project(self):
+        """Authorize the parent even when no nested row is looked up."""
+        from django.shortcuts import get_object_or_404
+        from apps.projects.models import Project
+
+        if not hasattr(self, "_accessible_project"):
+            self._accessible_project = get_object_or_404(
+                filter_projects_accessible_to(self.request.user, Project.objects.all()),
+                pk=self.kwargs["project_pk"],
+            )
+        return self._accessible_project
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.action in ("create", "update", "partial_update"):
+            context["project"] = self.get_project()
+        return context
+
     def perform_create(self, serializer):
-        serializer.save(project_id=self.kwargs["project_pk"])
+        serializer.save(project=self.get_project())
 
 
 def get_child_or_404(child_id, requesting_user=None):
@@ -251,7 +270,12 @@ class ApprovalActionMixin:
     def _run_approval_action(self, method_name, request):
         instance = self.get_object()
         service_method = getattr(self.approval_service, method_name)
-        service_method(instance, request.user, notes=request.data.get("notes", ""))
+        try:
+            service_method(instance, request.user, notes=request.data.get("notes", ""))
+        except instance.__class__.DoesNotExist:
+            # Withdrawal may delete the request after get_object, while the
+            # decision service waits for its fresh row lock.
+            raise NotFound("This request no longer exists.") from None
         return Response(self.get_serializer(instance).data)
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])

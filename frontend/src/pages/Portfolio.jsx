@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import SubjectBadge from '../components/SubjectBadge';
 import {
-  getPortfolio, getProjects, uploadPhoto,
+  getPortfolio, getProjects, uploadPhoto, downloadPortfolioZip,
   deletePhoto, deleteHomeworkProof,
   deleteCreation, submitCreation, withdrawCreation,
 } from '../api';
@@ -56,6 +56,9 @@ export default function Portfolio() {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [exportError, setExportError] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const exportInFlight = useRef(false);
 
   const allItems = useMemo(() => {
     if (!data) return [];
@@ -240,11 +243,36 @@ export default function Portfolio() {
   const projects = normalizeList(projectsData);
   const hasContent = allItems.length > 0;
 
+  const handleExport = async () => {
+    if (exportInFlight.current) return;
+    exportInFlight.current = true;
+    setExporting(true);
+    setExportError('');
+    let url;
+    try {
+      const blob = await downloadPortfolioZip();
+      url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'portfolio.zip';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      setExportError(`Couldn't download your sketchbook: ${err?.message || 'Download failed'}`);
+    } finally {
+      if (url) URL.revokeObjectURL(url);
+      exportInFlight.current = false;
+      setExporting(false);
+    }
+  };
+
   return (
     // space-y-5 matches the sibling Atlas tabs (Skills, Badges) so switching
     // tabs inside the hub does not visibly change section spacing.
     <div className="space-y-5">
       {deleteError && <ErrorAlert message={deleteError} />}
+      {exportError && <ErrorAlert message={exportError} />}
       {/* A refresh that fails while pages are already on screen keeps the
           sketchbook rendered and says so, rather than silently serving
           stale tiles. */}
@@ -266,12 +294,16 @@ export default function Portfolio() {
         </div>
         <div className="flex items-center gap-2">
           {hasContent && (
-            <a
-              href="/api/export/portfolio/"
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleExport}
+              disabled={exporting}
+              aria-label={exporting ? 'Downloading sketchbook' : 'Download all'}
               className="flex items-center gap-1.5 font-script text-sm text-sheikah-teal-deep hover:text-sheikah-teal transition-colors px-2 min-h-10"
             >
-              <Download size={16} /> <span className="hidden sm:inline">download all</span>
-            </a>
+              <Download size={16} /> <span className="hidden sm:inline">{exporting ? 'downloading…' : 'download all'}</span>
+            </Button>
           )}
           <Button
             size="sm"

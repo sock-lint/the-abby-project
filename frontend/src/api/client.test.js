@@ -8,6 +8,7 @@ import {
 
 describe('token helpers', () => {
   it('returns empty string when no token is stored', () => {
+    setToken(null);
     expect(getToken()).toBe('');
   });
 
@@ -182,6 +183,65 @@ describe('network failures', () => {
 });
 
 describe('cache bypass', () => {
+  it('rotates legacy-worker read URLs when the credential changes, including logout', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } }));
+    try {
+      setToken('account-a');
+      await api.get('/dashboard/');
+      await api.get('/dashboard/');
+      const first = fetchSpy.mock.calls[0][0];
+      expect(fetchSpy.mock.calls[1][0]).toBe(first);
+      setToken('account-b');
+      await api.get('/dashboard/');
+      const second = fetchSpy.mock.calls[2][0];
+      setToken(null);
+      await api.get('/dashboard/');
+      expect(new Set([first, second, fetchSpy.mock.calls[3][0]]).size).toBe(3);
+      for (const [url] of fetchSpy.mock.calls) {
+        const namespace = new URL(url).searchParams.get('_abby_session');
+        expect(namespace).toBeTruthy();
+        expect(url).not.toMatch(/account-[ab]/);
+      }
+    } finally { fetchSpy.mockRestore(); }
+  });
+
+  it('replaces an echoed pagination namespace rather than accumulating query keys', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      new Response('{}', { headers: { 'Content-Type': 'application/json' } }));
+    try {
+      await api.get('/projects/?page=2&_abby_session=previous&_abby_session=duplicate&search=Art%20%26%20design');
+      const url = new URL(fetchSpy.mock.calls[0][0]);
+      expect(url.searchParams.getAll('_abby_session')).toHaveLength(1);
+      expect(url.searchParams.get('_abby_session')).not.toBe('previous');
+      expect(url.searchParams.get('page')).toBe('2');
+      expect(url.searchParams.get('search')).toBe('Art & design');
+    } finally { fetchSpy.mockRestore(); }
+  });
+
+  it('cannot read the previous account from an active URL-only legacy worker after switching offline', async () => {
+    const cache = new Map();
+    let online = true;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, options) => {
+      if (online) {
+        const response = { owner: options.headers.Authorization };
+        cache.set(url, response);
+        return new Response(JSON.stringify(response), { headers: { 'Content-Type': 'application/json' } });
+      }
+      if (!cache.has(url)) throw new TypeError('offline');
+      return new Response(JSON.stringify(cache.get(url)), { headers: { 'Content-Type': 'application/json' } });
+    });
+    try {
+      setToken('account-a');
+      await expect(api.get('/dashboard/')).resolves.toEqual({ owner: 'Token account-a' });
+      online = false;
+      setToken('account-b');
+      await expect(api.get('/dashboard/')).rejects.toThrow(OFFLINE_MESSAGE);
+      setToken(null);
+      await expect(api.get('/dashboard/')).rejects.toThrow(OFFLINE_MESSAGE);
+    } finally { fetchSpy.mockRestore(); }
+  });
+
   it('sends cache: "no-store" on every request so disk-cached HTML errors can never poison the API surface', async () => {
     // Spy directly on fetch — MSW runs at the network layer and swallows the
     // fetch init object. We just want to verify the init the client builds.
@@ -417,6 +477,7 @@ describe('401 self-heal', () => {
   });
 
   it('does NOT reload when request() gets a 401 without an Authorization header (boot-time getMe)', async () => {
+    setToken(null);
     // No token stored — first-time visitor or freshly-cleared localStorage.
     server.use(
       http.get('*/api/auth/me/', () =>
@@ -433,6 +494,7 @@ describe('401 self-heal', () => {
   });
 
   it('does NOT reload on a failed login attempt (no auth header sent)', async () => {
+    setToken(null);
     server.use(
       http.post('*/api/auth/', () =>
         HttpResponse.json({ error: 'Invalid credentials' }, { status: 401 }),
@@ -461,6 +523,7 @@ describe('401 self-heal', () => {
   });
 
   it('does NOT reload when getBlob() gets a 401 without a stored token', async () => {
+    setToken(null);
     server.use(
       http.get('*/api/timecards/export.csv', () =>
         HttpResponse.json(

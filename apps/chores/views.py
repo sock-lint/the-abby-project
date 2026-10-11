@@ -1,4 +1,5 @@
 from django.db import IntegrityError, transaction
+from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -263,6 +264,7 @@ class ChoreCompletionViewSet(
         return qs
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def withdraw(self, request, pk=None):
         """Owner withdraws a pending submission they no longer want reviewed.
 
@@ -274,6 +276,11 @@ class ChoreCompletionViewSet(
         coin / money grants to unwind, so deletion is symmetric.
         """
         completion = self.get_object()
+        # Approval locks the same row. Check the persisted state only after
+        # acquiring it so a waiting withdrawal cannot erase a paid approval.
+        completion = get_object_or_404(
+            ChoreCompletion.objects.select_for_update(), pk=completion.pk,
+        )
         if completion.user_id != request.user.id:
             return Response(
                 {"error": "Only the submitter can withdraw a duty submission."},

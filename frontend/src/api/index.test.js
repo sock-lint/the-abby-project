@@ -3,6 +3,7 @@
 // be tested uniformly (query strings, FormData uploads, etc.).
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { waitFor } from '@testing-library/react';
 import * as api from './index.js';
 import { setToken } from './client.js';
 
@@ -26,14 +27,17 @@ beforeEach(() => {
 
 function lastCall() {
   const [url, init] = fetchSpy.mock.calls.at(-1);
-  return { url, method: init?.method || 'GET', body: init?.body };
+  // Endpoint assertions ignore the client-only legacy-worker privacy key.
+  const endpoint = url.replace(/([?&])_abby_session=[^&]+(&|$)/, (_match, start, end) => end ? start : '');
+  return { url: endpoint, method: init?.method || 'GET', body: init?.body };
 }
 
 describe('auth endpoints', () => {
   it('login posts credentials', async () => {
     fetchSpy.mockImplementationOnce(() => okJson({ token: 'x', user: { id: 1 } }));
     await api.login('a', 'b');
-    const { url, method, body } = lastCall();
+    const [url, init] = fetchSpy.mock.calls.find(([_url, options]) => JSON.parse(options.body).action === 'login');
+    const { method, body } = init;
     expect(url).toMatch(/\/api\/auth\/$/);
     expect(method).toBe('POST');
     expect(JSON.parse(body)).toEqual({ action: 'login', username: 'a', password: 'b' });
@@ -74,6 +78,7 @@ describe('auth endpoints', () => {
     let finishLogout;
     fetchSpy.mockImplementationOnce(() => new Promise((resolve) => { finishLogout = resolve; }));
     const pending = api.logout().catch((err) => err);
+    await waitFor(() => expect(finishLogout).toBeTypeOf('function'));
     const logoutInit = fetchSpy.mock.calls.at(-1)[1];
     expect(logoutInit.headers.Authorization).toBe('Token tok');
     expect(JSON.parse(logoutInit.body)).toEqual({ action: 'logout' });
@@ -103,7 +108,7 @@ describe('auth endpoints', () => {
 describe('grade memories', () => {
   it('requests a selected child and subsequent history page from the grade endpoint', async () => {
     await api.getGrades({ user_id: 23, page: 2, search: 'Art & design', unused: undefined });
-    expect(lastCall().url).toMatch(/\/api\/chronicle\/grades\/\?user_id=23&page=2&search=Art%20%26%20design$/);
+    expect(lastCall().url).toMatch(/\/api\/chronicle\/grades\/\?user_id=23&page=2&search=Art\+%26\+design$/);
     expect(lastCall().method).toBe('GET');
   });
 
@@ -473,7 +478,7 @@ describe('getInstructablesPreview', () => {
   it('encodes the URL into the query string', async () => {
     await api.getInstructablesPreview('https://example.com/a b?c=d');
     expect(lastCall().url).toMatch(/\/api\/instructables\/preview\/\?url=/);
-    expect(lastCall().url).toContain(encodeURIComponent('https://example.com/a b?c=d'));
+    expect(new URL(lastCall().url).searchParams.get('url')).toBe('https://example.com/a b?c=d');
   });
 });
 

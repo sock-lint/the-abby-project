@@ -1,0 +1,24 @@
+{
+  "id": 7,
+  "username": "fixture-child",
+  "display_name": "Fixture Child",
+  "role": "child",
+  "hourly_rate": "8.00",
+  "avatar": null,
+  "theme": "hyrule",
+  "lorebook_flags": {},
+  "google_linked": false,
+  "date_of_birth": null,
+  "grade_entry_year": null,
+  "age_years": null,
+  "current_grade": null,
+  "school_year_label": null,
+  "family": {
+    "id": 1,
+    "name": "Fixture Family",
+    "slug": "fixture-family",
+    "timezone": "America/Phoenix",
+    "default_theme": "hyrule"
+  },
+  "token": "0123456789012345678901234567890123456789"
+}

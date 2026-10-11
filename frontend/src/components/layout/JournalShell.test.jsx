@@ -43,7 +43,9 @@ describe('JournalShell', () => {
   it('hydrates from the cached user and shows the offline banner when boot getMe network-errors', async () => {
     const cached = buildUser({ display_name: 'Cached Abby' });
     localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, 'tok-123');
-    localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify(cached));
+    localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify({
+      version: 2, token: 'tok-123', user: cached,
+    }));
     // HttpResponse.error() rejects the fetch itself (no .status on the
     // thrown error) — the flaky-wifi shape, not an HTTP 401.
     server.use(http.get('*/api/auth/me/', () => HttpResponse.error()));

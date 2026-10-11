@@ -4,7 +4,7 @@ import { Coins, Plus } from 'lucide-react';
 import {
   approveExchange, approveRedemption, rejectExchange, rejectRedemption,
   deleteReward, getCoinBalance, getExchangeRate, getExchangeRequests,
-  getRedemptions, getRewards, redeemReward,
+  getRedemptions, getRewards, redeemReward, getPendingRedemptions, getPendingExchangeRequests,
   addRewardToWishlist, removeRewardFromWishlist,
 } from '../api';
 import { hapticSuccess } from '../utils/haptics';
@@ -52,6 +52,14 @@ export default function Rewards() {
     data: exchangeData, loading: loadingExchanges, error: exchangesError,
     reload: reloadExchanges,
   } = useApi(getExchangeRequests);
+  const {
+    data: pendingRedemptionsData, loading: loadingPendingRedemptions,
+    error: pendingRedemptionsError, reload: reloadPendingRedemptions,
+  } = useApi(() => isParent ? getPendingRedemptions() : Promise.resolve([]), [isParent]);
+  const {
+    data: pendingExchangesData, loading: loadingPendingExchanges,
+    error: pendingExchangesError, reload: reloadPendingExchanges,
+  } = useApi(() => isParent ? getPendingExchangeRequests() : Promise.resolve([]), [isParent]);
   const { data: rateData, error: rateError, reload: reloadRate } = useApi(getExchangeRate);
 
   const [error, setError] = useState('');
@@ -77,6 +85,7 @@ export default function Rewards() {
 
   const refresh = () => {
     reloadRewards(); reloadRedemptions(); reloadBalance(); reloadExchanges();
+    reloadPendingRedemptions(); reloadPendingExchanges();
   };
 
 
@@ -190,8 +199,8 @@ export default function Rewards() {
   // null = we don't know (fetch failed). Downstream treats unknown as
   // "let them try" rather than as zero.
   const coinBalance = balanceError ? null : (balanceData?.balance ?? 0);
-  const pending = redemptions.filter((r) => r.status === 'pending');
-  const pendingExchanges = exchanges.filter((e) => e.status === 'pending');
+  const pending = normalizeList(pendingRedemptionsData).filter((r) => r.status === 'pending');
+  const pendingExchanges = normalizeList(pendingExchangesData).filter((e) => e.status === 'pending');
   const exchangeRate = rateData?.coins_per_dollar;
   const shopQ = shopFilter.trim().toLowerCase();
   const filteredRewards = shopQ
@@ -268,9 +277,21 @@ export default function Rewards() {
           onRetry={reloadExchanges}
         />
       )}
+      {isParent && pendingRedemptionsError && (
+        <ErrorAlert
+          message={`Couldn't load pending redemptions. ${pendingRedemptionsError}`}
+          onRetry={reloadPendingRedemptions}
+        />
+      )}
+      {isParent && pendingExchangesError && (
+        <ErrorAlert
+          message={`Couldn't load pending exchanges. ${pendingExchangesError}`}
+          onRetry={reloadPendingExchanges}
+        />
+      )}
 
       {isParent && (
-        loadingRedemptions ? <Loader /> : pending.length > 0 && (
+        loadingPendingRedemptions ? <Loader /> : !pendingRedemptionsError && pending.length > 0 && (
           <section>
             <SectionHeader index={0} title="Pending redemptions" count={pending.length} />
             <div className="mt-3">
@@ -286,7 +307,7 @@ export default function Rewards() {
       )}
 
       {isParent && (
-        loadingExchanges ? <Loader /> : pendingExchanges.length > 0 && (
+        loadingPendingExchanges ? <Loader /> : !pendingExchangesError && pendingExchanges.length > 0 && (
           <section>
             <SectionHeader index={1} title="Pending exchanges" count={pendingExchanges.length} />
             <div className="mt-3">
@@ -349,12 +370,22 @@ export default function Rewards() {
 
       {!loadingRedemptions && redemptions.length > 0 && (
         <AccordionSection index={isParent ? 3 : 1} title="Redemption history" count={redemptions.length}>
+          {redemptionsData?.count > redemptions.length && (
+            <p className="font-script text-caption text-ink-whisper">
+              Showing the {redemptions.length} most recent of {redemptionsData.count} redemptions.
+            </p>
+          )}
           <RedemptionHistory redemptions={redemptions} isParent={isParent} />
         </AccordionSection>
       )}
 
       {!loadingExchanges && exchanges.length > 0 && (
         <AccordionSection index={isParent ? 4 : 2} title="Exchange history" count={exchanges.length}>
+          {exchangeData?.count > exchanges.length && (
+            <p className="font-script text-caption text-ink-whisper">
+              Showing the {exchanges.length} most recent of {exchangeData.count} exchanges.
+            </p>
+          )}
           <ExchangeHistory exchanges={exchanges} isParent={isParent} />
         </AccordionSection>
       )}

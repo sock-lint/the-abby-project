@@ -51,37 +51,56 @@ namespace AbbyCamp.Editor
         [MenuItem("Abby Camp/Validate prototype")]
         public static void Validate()
         {
-            if (SceneManager.GetActiveScene().path != ScenePath)
-                EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
-            var player = UnityEngine.Object.FindFirstObjectByType<CampPlayerController>();
-            var companion = UnityEngine.Object.FindFirstObjectByType<CompanionFollower>();
-            var board = UnityEngine.Object.FindFirstObjectByType<CampTaskBoard>();
-            Require(player != null && companion != null && board != null, "Missing gameplay actors.");
-            Require(UnityEngine.Object.FindFirstObjectByType<CampPrototypeController>() != null, "Missing session UI.");
-            Require(Camera.main != null && Camera.main.orthographic, "Missing fixed isometric camera.");
-            Require(player.GetComponent<CharacterController>() != null && companion.GetComponent<CharacterController>() != null, "Movement requires root controllers.");
-            Require(board.IsInRange, "Player must start in reach of task board.");
-            Require(companion.PrimaryAppearance != null && companion.SecondaryAppearance != null, "Companion needs two swappable appearances.");
-            var originalDefinition = companion.Appearance.Definition;
-            var beforePosition = companion.transform.position;
-            var beforeRotation = companion.transform.rotation;
-            var beforeScale = companion.transform.localScale;
-            var identity = companion.GetComponent<CampEntityIdentity>();
-            var originalId = identity.ContentId;
-            companion.ApplyAppearance(companion.SecondaryAppearance);
-            Require(companion.Appearance.Definition == companion.SecondaryAppearance, "Appearance switch did not apply.");
-            Require(companion.transform.position == beforePosition && companion.transform.rotation == beforeRotation && companion.transform.localScale == beforeScale, "Appearance switch moved gameplay root.");
-            Require(identity.ContentId == originalId && companion.GetComponent<CharacterController>().enabled, "Appearance switch changed identity or movement.");
-            companion.ApplyAppearance(originalDefinition);
-            var appearances = new[] { player.Appearance.Definition, companion.PrimaryAppearance, companion.SecondaryAppearance };
-            foreach (var definition in appearances)
+            // Validate saved source in an isolated scene: appearance swaps must
+            // not modify a contributor's open scene or serialize new instance IDs.
+            var scene = EditorSceneManager.OpenPreviewScene(ScenePath);
+            try
             {
-                Require(definition.ModelPrefab != null, "Missing imported model for " + definition.AppearanceId);
-                Require(definition.AnimatorController != null, "Missing animation mapping for " + definition.AppearanceId);
+                var player = FindSceneComponent<CampPlayerController>(scene);
+                var companion = FindSceneComponent<CompanionFollower>(scene);
+                var board = FindSceneComponent<CampTaskBoard>(scene);
+                var camera = scene.GetRootGameObjects()
+                    .SelectMany(root => root.GetComponentsInChildren<Camera>())
+                    .FirstOrDefault(candidate => candidate.gameObject.activeInHierarchy && candidate.enabled && candidate.CompareTag("MainCamera"));
+                Require(player != null && companion != null && board != null, "Missing gameplay actors.");
+                Require(FindSceneComponent<CampPrototypeController>(scene) != null, "Missing session UI.");
+                Require(camera != null && camera.orthographic, "Missing fixed isometric camera.");
+                Require(player.GetComponent<CharacterController>() != null && companion.GetComponent<CharacterController>() != null, "Movement requires root controllers.");
+                Require(board.IsInRange, "Player must start in reach of task board.");
+                Require(player.Appearance != null && companion.Appearance != null, "Missing actor appearance presenters.");
+                Require(companion.PrimaryAppearance != null && companion.SecondaryAppearance != null, "Companion needs two swappable appearances.");
+                var originalDefinition = companion.Appearance.Definition;
+                var beforePosition = companion.transform.position;
+                var beforeRotation = companion.transform.rotation;
+                var beforeScale = companion.transform.localScale;
+                var identity = companion.GetComponent<CampEntityIdentity>();
+                Require(identity != null, "Missing companion gameplay identity.");
+                var originalId = identity.ContentId;
+                companion.ApplyAppearance(companion.SecondaryAppearance);
+                Require(companion.Appearance.Definition == companion.SecondaryAppearance, "Appearance switch did not apply.");
+                Require(companion.transform.position == beforePosition && companion.transform.rotation == beforeRotation && companion.transform.localScale == beforeScale, "Appearance switch moved gameplay root.");
+                Require(identity.ContentId == originalId && companion.GetComponent<CharacterController>().enabled, "Appearance switch changed identity or movement.");
+                companion.ApplyAppearance(originalDefinition);
+                var appearances = new[] { player.Appearance.Definition, companion.PrimaryAppearance, companion.SecondaryAppearance };
+                foreach (var definition in appearances)
+                {
+                    Require(definition != null, "Missing actor appearance definition.");
+                    Require(definition.ModelPrefab != null, "Missing imported model for " + definition.AppearanceId);
+                    Require(definition.AnimatorController != null, "Missing animation mapping for " + definition.AppearanceId);
+                }
+                Debug.Log("ABBY_CAMP_VALIDATE_OK: actors, interaction, models, animations, and two-model swap preserve gameplay identity and transforms.");
             }
-            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
-            EditorSceneManager.SaveScene(SceneManager.GetActiveScene());
-            Debug.Log("ABBY_CAMP_VALIDATE_OK: actors, interaction, models, animations, and two-model swap preserve gameplay identity and transforms.");
+            finally
+            {
+                EditorSceneManager.ClosePreviewScene(scene);
+            }
+        }
+
+        private static T FindSceneComponent<T>(Scene scene) where T : Component
+        {
+            return scene.GetRootGameObjects()
+                .SelectMany(root => root.GetComponentsInChildren<T>())
+                .FirstOrDefault(component => component.gameObject.activeInHierarchy);
         }
 
         private static void Require(bool condition, string message)

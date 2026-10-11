@@ -6,12 +6,16 @@ backdoor). Both are pinned here.
 """
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from django.core.cache import cache
+from django.db.models import QuerySet
 from django.test import TestCase
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from apps.projects.models import User
+from apps.notifications.models import PushSubscription
 from config.tests.factories import make_family
 
 
@@ -113,6 +117,11 @@ class LoginTokenRotationTests(_AuthFixture):
 
 
 class LogoutTests(_AuthFixture):
+    def subscription(self, endpoint, user=None):
+        return PushSubscription.objects.create(
+            user=user or self.user, endpoint=endpoint, p256dh="test-key", auth="test-auth",
+        )
+
     def test_logout_deletes_token(self):
         token = Token.objects.create(user=self.user)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
@@ -129,6 +138,69 @@ class LogoutTests(_AuthFixture):
         )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json(), {"ok": True})
+
+    def test_logout_fences_current_device_and_preserves_other_devices(self):
+        current = self.subscription("https://push.example/current")
+        other = self.subscription("https://push.example/other-device")
+        credential = Token.objects.create(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {credential.key}")
+        response = self.client.post(
+            "/api/auth/", {"action": "logout", "push_endpoint": current.endpoint}, format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Token.objects.filter(key=credential.key).exists())
+        self.assertFalse(PushSubscription.objects.filter(pk=current.pk).exists())
+        self.assertTrue(PushSubscription.objects.filter(pk=other.pk).exists())
+
+    def test_logout_cannot_remove_foreign_account_endpoint(self):
+        other_user = User.objects.create_user(username="other-account", password="pw")
+        endpoint = self.subscription("https://push.example/foreign", other_user)
+        credential = Token.objects.create(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {credential.key}")
+        response = self.client.post(
+            "/api/auth/", {"action": "logout", "push_endpoint": endpoint.endpoint}, format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(PushSubscription.objects.filter(pk=endpoint.pk).exists())
+        self.assertFalse(Token.objects.filter(key=credential.key).exists())
+
+    def test_logout_without_endpoint_preserves_other_registered_devices(self):
+        endpoint = self.subscription("https://push.example/other")
+        credential = Token.objects.create(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {credential.key}")
+        response = self.client.post("/api/auth/", {"action": "logout"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(PushSubscription.objects.filter(pk=endpoint.pk).exists())
+        self.assertFalse(Token.objects.filter(key=credential.key).exists())
+
+    def test_invalid_logout_endpoint_does_not_revoke_credential(self):
+        credential = Token.objects.create(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {credential.key}")
+        response = self.client.post(
+            "/api/auth/", {"action": "logout", "push_endpoint": ["invalid"]}, format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(Token.objects.filter(key=credential.key).exists())
+
+    def test_endpoint_cleanup_failure_rolls_back_logout(self):
+        endpoint = self.subscription("https://push.example/current")
+        credential = Token.objects.create(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {credential.key}")
+        original_delete = QuerySet.delete
+
+        def delete_then_fail(queryset):
+            result = original_delete(queryset)
+            if queryset.model is PushSubscription:
+                raise RuntimeError("Cleanup failed after deletion")
+            return result
+
+        with patch.object(QuerySet, "delete", delete_then_fail):
+            with self.assertRaisesRegex(RuntimeError, "Cleanup failed"):
+                self.client.post(
+                    "/api/auth/", {"action": "logout", "push_endpoint": endpoint.endpoint}, format="json",
+                )
+        self.assertTrue(Token.objects.filter(key=credential.key).exists())
+        self.assertTrue(PushSubscription.objects.filter(pk=endpoint.pk).exists())
 
     def test_already_authenticated_old_logout_preserves_replacement_login(self):
         original = Token.objects.create(user=self.user)
@@ -148,12 +220,15 @@ class LogoutTests(_AuthFixture):
         replacement = login.json()["token"]
         self.assertFalse(Token.objects.filter(key=original.key).exists())
 
+        current_device = self.subscription("https://push.example/replacement-session")
+
         response = delayed_logout.post(
-            "/api/auth/", {"action": "logout"}, format="json",
+            "/api/auth/", {"action": "logout", "push_endpoint": current_device.endpoint}, format="json",
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"ok": True})
         self.assertTrue(Token.objects.filter(user=self.user, key=replacement).exists())
+        self.assertTrue(PushSubscription.objects.filter(pk=current_device.pk).exists())
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {replacement}")
         self.assertEqual(self.client.get("/api/auth/me/").status_code, 200)
 

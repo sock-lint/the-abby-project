@@ -23,6 +23,7 @@ namespace AbbyCamp.Services
         private string token;
         private string configurationError;
         private int sessionVersion;
+        private string readNamespace = Guid.NewGuid().ToString("N");
         private bool loginInFlight;
         private string browserOrigin;
         private string observedBrowserToken;
@@ -180,10 +181,32 @@ namespace AbbyCamp.Services
         public void ClearSession()
         {
             sessionVersion++;
+            readNamespace = Guid.NewGuid().ToString("N");
             token = null;
             CurrentUser = null;
             knownHabits.Clear();
             foreach (var request in activeRequests) request.Abort();
+        }
+
+        /// <summary>Separates private GETs from an older service worker's API
+        /// cache. The random namespace stays in memory for this session and
+        /// contains no credential. Pagination may carry an older namespace;
+        /// replace every copy while preserving other query parameters.</summary>
+        public string BuildReadUrl(string url)
+        {
+            var builder = new UriBuilder(url);
+            var parameters = new List<string>();
+            foreach (var parameter in builder.Query.TrimStart('?').Split('&'))
+            {
+                if (parameter.Length == 0) continue;
+                int separator = parameter.IndexOf('=');
+                string key = separator < 0 ? parameter : parameter.Substring(0, separator);
+                if (Uri.UnescapeDataString(key.Replace("+", " ")) == "_abby_session") continue;
+                parameters.Add(parameter);
+            }
+            parameters.Add("_abby_session=" + readNamespace);
+            builder.Query = string.Join("&", parameters);
+            return builder.Uri.AbsoluteUri;
         }
 
         public IEnumerator Login(string username, string password, Action<UserDto> success, Action<ApiError> failure)
@@ -386,7 +409,9 @@ namespace AbbyCamp.Services
             int version = sessionVersion;
             string requestToken = token;
             if (mutation) MutationInFlight = true;
-            using (var request = new UnityWebRequest(url, method))
+            string requestUrl = string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase)
+                ? BuildReadUrl(url) : url;
+            using (var request = new UnityWebRequest(requestUrl, method))
             {
                 request.downloadHandler = new DownloadHandlerBuffer();
                 request.timeout = Mathf.Clamp(timeoutSeconds, 5, 60);

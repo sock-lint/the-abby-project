@@ -27,9 +27,18 @@ const CLOCK_OUT_CONFIRM_THRESHOLD_SECONDS = 60;
 
 export default function ClockPage() {
   const { isParent } = useRole();
-  const { data: status, loading: loadingStatus, reload: reloadStatus } = useApi(getClockStatus);
-  const { data: projectsData } = useApi(getProjects);
-  const { data: entriesData, loading: loadingEntries, reload: reloadEntries } = useApi(getTimeEntries);
+  const {
+    data: status, loading: loadingStatus, refreshing: refreshingStatus,
+    error: statusError, reload: reloadStatus,
+  } = useApi(getClockStatus);
+  const {
+    data: projectsData, loading: loadingProjects, refreshing: refreshingProjects,
+    error: projectsError, reload: reloadProjects,
+  } = useApi(getProjects);
+  const {
+    data: entriesData, loading: loadingEntries,
+    error: entriesError, reload: reloadEntries,
+  } = useApi(getTimeEntries);
   // null = untouched (falls back to the remembered/default venture); a real
   // selection — including explicitly clearing to '' — always wins.
   const [selectedProject, setSelectedProject] = useState(null);
@@ -46,6 +55,8 @@ export default function ClockPage() {
   const entries = normalizeList(entriesData);
   const isClocked = status && status.status === 'active';
   const clockInAt = isClocked ? status?.clock_in : null;
+  const statusReady = Boolean(status) && !loadingStatus && !refreshingStatus && !statusError;
+  const projectsReady = !loadingProjects && !refreshingProjects && !projectsError;
 
   // Preselect the remembered venture (or the only active one) so the daily
   // repeat case is a single tap on the Play seal instead of a picker session.
@@ -71,7 +82,7 @@ export default function ClockPage() {
 
   const handleClockIn = async () => {
     setError('');
-    if (clockBusy) return;
+    if (clockBusy || !statusReady || !projectsReady) return;
     if (!effectiveProject) { setError('Select a venture first'); return; }
     setClockBusy(true);
     try {
@@ -87,7 +98,7 @@ export default function ClockPage() {
 
   const performClockOut = async () => {
     setError('');
-    if (clockBusy) return;
+    if (clockBusy || !statusReady) return;
     setClockBusy(true);
     try {
       await clockOut(notes);
@@ -101,6 +112,7 @@ export default function ClockPage() {
   };
 
   const handleClockOut = () => {
+    if (clockBusy || !statusReady) return;
     if (elapsed >= CLOCK_OUT_CONFIRM_THRESHOLD_SECONDS) {
       setConfirmingClockOut(true);
       return;
@@ -138,12 +150,21 @@ export default function ClockPage() {
         </div>
       </header>
 
+      <ErrorAlert
+        message={statusError ? `Couldn't check your clock. ${statusError}` : null}
+        onRetry={reloadStatus}
+      />
+      <ErrorAlert
+        message={projectsError ? `Couldn't load ventures. ${projectsError}` : null}
+        onRetry={reloadProjects}
+      />
+
       {/* Timer Display — held behind a skeleton until getClockStatus lands.
           Painting the idle 00:00:00 + Play seal first meant a kid who WAS
           clocked in saw (and could tap) the wrong control. */}
       {loadingStatus ? (
         <ParchmentSkeleton variant="hero" />
-      ) : (
+      ) : status && !statusError ? (
         <motion.div layout>
           <ParchmentCard
             flourish
@@ -164,6 +185,7 @@ export default function ClockPage() {
                   </div>
                   <div className="mb-4">
                     <TextAreaField
+                      label="Session notes"
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="Scribble what you did…"
@@ -175,7 +197,8 @@ export default function ClockPage() {
                     type="button"
                     whileTap={{ scale: 0.95 }}
                     onClick={handleClockOut}
-                    disabled={clockBusy}
+                    disabled={clockBusy || !statusReady}
+                    aria-label="Clock out"
                     aria-busy={clockBusy}
                     className="w-28 h-28 mx-auto rounded-full bg-ember-deep hover:bg-ember disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-ink-page-rune-glow shadow-xl shadow-ember-deep/25 transition-colors border-2 border-ember"
                   >
@@ -195,8 +218,10 @@ export default function ClockPage() {
                   </div>
                   <div className="mb-4">
                     <SelectField
+                      label="Venture"
                       value={effectiveProject}
                       onChange={(e) => setSelectedProject(e.target.value)}
+                      disabled={!projectsReady}
                     >
                       <option value="">Select a venture…</option>
                       {activeProjects.map((p) => (
@@ -208,7 +233,8 @@ export default function ClockPage() {
                     type="button"
                     whileTap={{ scale: 0.95 }}
                     onClick={handleClockIn}
-                    disabled={clockBusy}
+                    disabled={clockBusy || !statusReady || !projectsReady}
+                    aria-label="Clock in"
                     aria-busy={clockBusy}
                     className="w-28 h-28 mx-auto rounded-full bg-moss hover:bg-moss/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-ink-page-rune-glow shadow-xl shadow-moss/25 transition-colors border-2 border-moss/80"
                   >
@@ -224,11 +250,15 @@ export default function ClockPage() {
             </AnimatePresence>
           </ParchmentCard>
         </motion.div>
-      )}
+      ) : null}
 
       <ErrorAlert message={error} />
 
       {/* Recent entries */}
+      <ErrorAlert
+        message={entriesError ? `Couldn't load recent entries. ${entriesError}` : null}
+        onRetry={reloadEntries}
+      />
       {loadingEntries && <ParchmentSkeleton variant="list" count={3} />}
 
       {!loadingEntries && entries.length > 0 && (
@@ -282,7 +312,7 @@ export default function ClockPage() {
 
       {/* Gated on its own loading flag — this used to flash on every visit
           while the entries request was still in flight. */}
-      {!loadingEntries && entries.length === 0 && (
+      {!loadingEntries && !entriesError && entries.length === 0 && (
         <EmptyState icon={<ClockFabIcon size={36} />}>
           No entries yet — clock in to begin the log. Each hour earns coin, XP, and a weekly wage.
         </EmptyState>

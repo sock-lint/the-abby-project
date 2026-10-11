@@ -164,4 +164,6 @@ class HomeworkDailyCounter(DailyCounterModel):
     """
 
     class Meta(DailyCounterModel.Meta):
-        pass
+        # Keep the deployed index from homework.0005 instead of renaming it
+        # to the name generated for the inherited abstract-model index.
+        indexes = [models.Index(fields=["user", "occurred_on"], name="homework_h_user_id_dc01a8_idx")]

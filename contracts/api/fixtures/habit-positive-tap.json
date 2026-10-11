@@ -1,0 +1,27 @@
+{
+  "direction": 1,
+  "xp_reward": 5,
+  "new_strength": -1,
+  "game_event": {
+    "trigger_type": "habit_log",
+    "streak": {
+      "is_first_today": true,
+      "check_in_bonus_coins": 5,
+      "streak": 1,
+      "multiplier": 1.1,
+      "freeze_consumed": false,
+      "streak_broken": false
+    },
+    "notifications": [],
+    "drops": [],
+    "quest": null,
+    "daily_challenge": {
+      "challenge_id": 3,
+      "challenge_type": "habits",
+      "progress": 1,
+      "target": 2,
+      "newly_completed": false
+    },
+    "chronicle": null
+  }
+}

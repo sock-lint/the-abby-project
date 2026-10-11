@@ -1,3 +1,5 @@
+from django.db import transaction
+from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -99,6 +101,7 @@ class CreationViewSet(
         return Response(CreationSerializer(creation).data)
 
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    @transaction.atomic
     def withdraw(self, request, pk=None):
         """Owner (or parent) cancels a pending bonus request.
 
@@ -108,6 +111,7 @@ class CreationViewSet(
         status so an approved bonus can't be silently un-awarded.
         """
         creation = self.get_object()
+        creation = get_object_or_404(Creation.objects.select_for_update(), pk=creation.pk)
         if request.user.role != "parent" and creation.user_id != request.user.id:
             raise PermissionDenied("You can only withdraw your own creations.")
         if creation.status != Creation.Status.PENDING:

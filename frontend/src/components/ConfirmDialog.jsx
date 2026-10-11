@@ -1,9 +1,10 @@
-import { useId } from 'react';
+import { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ModalBackdrop from './modal/ModalBackdrop';
 import SealPulseRing from './modal/SealPulseRing';
 import Button from './Button';
+import useModalFocus from './modal/useModalFocus';
 
 // Destructive-confirmation dialog. "Sheikah Stamp" with added drama:
 // deckle-edge torn-paper card, stronger stamp rotation, ember-tinted
@@ -21,6 +22,9 @@ export default function ConfirmDialog({
 }) {
   const titleId = useId();
   const messageId = useId();
+  const dialogRef = useRef(null);
+  const cancelRef = useRef(null);
+  useModalFocus({ dialogRef, initialFocusRef: cancelRef, onEscape: onCancel });
   return createPortal(
     <AnimatePresence>
       {/* Backdrop is a sibling of the centering wrapper (not a child) so the
@@ -39,7 +43,9 @@ export default function ConfirmDialog({
         {/* Wrapper holds the pulse ring. The inner card carries the deckle mask
             (which would otherwise clip the ring). */}
         <motion.div
+          ref={dialogRef}
           role="alertdialog"
+          tabIndex={-1}
           aria-modal="true"
           aria-labelledby={titleId}
           aria-describedby={messageId}
@@ -62,12 +68,11 @@ export default function ConfirmDialog({
                 destructive action. Both controls clear the 44px floor —
                 Cancel via <Button>'s min-h-11, the seal explicitly. */}
             <div className="flex justify-end gap-4 items-center">
-              <Button variant="ghost" onClick={onCancel}>
+              <Button ref={cancelRef} variant="ghost" onClick={onCancel}>
                 Cancel
               </Button>
               <button
                 type="button"
-                autoFocus
                 onClick={onConfirm}
                 className="relative min-h-11 px-5 py-2 text-body font-semibold text-ink-page-rune-glow rounded-full transition-transform duration-150 hover:scale-[1.03] active:scale-95"
                 style={{
