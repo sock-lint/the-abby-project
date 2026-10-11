@@ -21,7 +21,6 @@ from datetime import timedelta
 from urllib.parse import parse_qs, urlparse
 
 from django.test import TestCase, TransactionTestCase, override_settings
-from django.urls import reverse
 from django.utils import timezone
 
 from config.tests.factories import make_family, make_oauth_token
@@ -303,6 +302,8 @@ class MCPBearerAuthTests(TransactionTestCase):
         Returns (status_code, body_dict).
         """
         import asyncio
+        from asgiref.sync import sync_to_async
+        from django.db import connections
         from apps.mcp_server.auth import TokenAuthMiddleware
 
         async def call_next(_request):
@@ -341,8 +342,12 @@ class MCPBearerAuthTests(TransactionTestCase):
                     await response(_scope, _receive, _send)
 
             mw = TokenAuthMiddleware(InnerApp())
-            await mw(scope, receive, send)
-            return sent
+            try:
+                await mw(scope, receive, send)
+                return sent
+            finally:
+                # The ORM connection belongs to asgiref's shared sync worker.
+                await sync_to_async(connections.close_all, thread_sensitive=True)()
 
         sent = asyncio.run(runner())
         # First message is response.start, second is response.body.

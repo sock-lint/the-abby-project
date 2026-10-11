@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import io
 import zipfile
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
@@ -49,6 +49,10 @@ class ProjectPhotoModelTests(_Fixture):
     def test_ordering_most_recent_first(self):
         p1 = ProjectPhoto.objects.create(project=self.project, user=self.child, caption="a")
         p2 = ProjectPhoto.objects.create(project=self.project, user=self.child, caption="b")
+        # Fixed times make this ordering check independent of clock resolution.
+        uploaded_at = datetime(2026, 1, 1, 12, tzinfo=timezone.utc)
+        ProjectPhoto.objects.filter(pk=p1.pk).update(uploaded_at=uploaded_at - timedelta(seconds=1))
+        ProjectPhoto.objects.filter(pk=p2.pk).update(uploaded_at=uploaded_at)
         photos = list(ProjectPhoto.objects.all())
         self.assertEqual(photos[0], p2)
         self.assertEqual(photos[1], p1)

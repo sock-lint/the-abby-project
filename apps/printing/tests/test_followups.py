@@ -21,7 +21,7 @@ import time
 from unittest.mock import patch
 
 from django.core.cache import cache
-from django.test import TestCase, override_settings
+from django.test import TestCase, TransactionTestCase, override_settings
 from rest_framework.test import APITestCase
 
 from config.tests.factories import make_family
@@ -144,7 +144,7 @@ class LiveStatusPrivacyTests(_Fixture, APITestCase):
 
 
 @override_settings(CACHES=LOCMEM)
-class SupervisorSurvivesDatabaseTroubleTests(_Fixture, TestCase):
+class SupervisorSurvivesDatabaseTroubleTests(_Fixture, TransactionTestCase):
     """The listener outlives deploys, so a bad pass must not end the process.
 
     Two real cases: this container can start before the ``django`` service
@@ -152,6 +152,9 @@ class SupervisorSurvivesDatabaseTroubleTests(_Fixture, TestCase):
     Postgres restarts under a rolling deploy. Either killing the process
     means dropping the MQTT connection — and if that lands mid-print the
     FINISH transition is missed entirely.
+
+    Autocommit matches the standalone listener and lets the loop perform
+    real connection cleanup outside TestCase's wrapping transaction.
     """
 
     def setUp(self):
@@ -207,13 +210,15 @@ class SupervisorSurvivesDatabaseTroubleTests(_Fixture, TestCase):
 
 
 @override_settings(CACHES=LOCMEM)
-class HeartbeatTests(_Fixture, TestCase):
+class HeartbeatTests(_Fixture, TransactionTestCase):
     """The compose healthcheck reads a heartbeat file, not `pgrep`.
 
     The runtime image is python:3.12-slim, which ships no `procps`, so a
     `pgrep` healthcheck exits 127 and the container is unhealthy forever.
     The heartbeat is also a better probe: a supervisor whose loop has wedged
     stops stamping it, where the process still exists.
+
+    These loop checks use autocommit so real connection cleanup is exercised.
     """
 
     def setUp(self):

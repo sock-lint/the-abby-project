@@ -14,9 +14,10 @@ import unittest
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
+# Actions' Python needs its loader path to keep the shared runtime aligned.
 _BOOTSTRAP_ENV = (
     "PATH", "SystemRoot", "WINDIR", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP",
-    "HOME", "USERPROFILE",
+    "HOME", "USERPROFILE", "LD_LIBRARY_PATH",
 )
 
 _SETUP = """

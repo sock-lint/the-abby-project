@@ -28,6 +28,13 @@ bounded to four workers. GHCR credentials use a unique directory under each
 job's runner temporary directory and are removed afterwards, leaving other
 repositories' Docker credentials alone.
 
+Backend tests run real PostgreSQL 16 with the disposable data directory on a
+1 GiB tmpfs. This preserves PostgreSQL transaction and locking checks while
+avoiding disk-sync stalls on the shared runner's storage. The explicit size
+limit caps this temporary filesystem's allocation. Actions removes the service
+container and its test data after the job; production uses its native persistent
+Compose volumes.
+
 ## Integration configuration
 
 Set these GitHub Actions values through the repository's secret/variable
