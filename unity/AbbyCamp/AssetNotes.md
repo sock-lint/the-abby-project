@@ -8,7 +8,7 @@ The first meadow slice uses the same temporary dragon expressions, memory-bloom 
 
 Nunito comes from the official Google Fonts repository (`google/fonts`, `ofl/nunito`). The static runtime font is an instance of the variable font at weight 600, with the OFL license also embedded in its metadata. The original variable font and copyright/license text remain in `shared/storybook/fonts`.
 
-The authored presentation and dragon definition live under `Assets/AbbyCamp/Presentation`, outside generated Kenney defaults. A model takes precedence over a portrait. Model controllers map speed and celebration intents; portrait definitions can provide idle, happy and blink sprites with camera-facing rendering and local reactions. Both preserve the gameplay root, collider, following behavior and content identity. Rebuilds validate these references and the canonical palette instead of replacing authored art.
+The authored presentation and dragon definition live under `Assets/AbbyCamp/Presentation`, outside generated Kenney defaults. A model takes precedence over a portrait. Model controllers map speed and celebration intents; portrait definitions can provide idle, happy and blink sprites with camera-facing rendering and local reactions. Both preserve the stationary root, tap interaction and content identity. Rebuilds validate these references and the canonical palette instead of replacing authored art. The home has no walking avatar, board, movement collider or proximity gate.
 
 ## Purchased Cute Series layer
 
@@ -36,8 +36,9 @@ alongside the original archives in private backup storage.
 Unity menu **Abby Camp → Licensed Cute Series → Prepare meadow** creates
 `Assets/AbbyCamp/Licensed/MemoryMeadow.unity`. It converts materials to URP,
 caps imported textures at 512 pixels, normalizes model bounds and creates
-separate animation controllers/definitions for each form. The explorer sample
-has its bow, arrow and quiver removed; the original modular sources are retained.
+separate animation controllers/definitions for each form. The prepared Archer
+sample remains available for later uses but is not instantiated in the home;
+the original modular sources are retained.
 Chick maps Idle / Jump Forward In Place, Fledgling maps Idle / Walk Forward In
 Place, Bird maps Fly Idle / Fly Forward In Place. The humanoid explorer maps
 Idle / Walk Forward In Place. Root motion stays disabled. Greetings use the
@@ -50,12 +51,9 @@ account boundaries are unchanged. Fitted creature outfits remain additional
 art/integration work; modular humanoid clothing does not automatically fit a
 creature. The licensed backdrop uses the purchased soft-edge ground, soil
 clearing, stone steps, a mixed mint/lavender treeline, grass, mushrooms, rocks,
-pillars and broken ruin gateways. Most tall scenery stays beyond the north/west
-walking rim; four smaller trees and an arch frame the starting task board.
-The southeast foreground stays low for the phone camera.
-The task route and memory-bloom landmark remain open. All purchased scenery
-colliders and rigidbodies are removed; the original flat walking surface and
-perimeter own physics, and obsolete placeholder tree obstacles are removed.
+pillars and broken ruin gateways. The backdrop is brought closer around the
+fixed hero. All scenery and actor colliders/rigidbodies are removed; companion
+taps use the active appearance's renderer bounds and exclude interface hits.
 
 This first woodland layout has 61 purchased props, 91 renderers and 13,564
 scenery triangles. Its distant trees, grass and ground do not cast shadows;
@@ -69,10 +67,12 @@ Only ignored, generated environment material copies receive the softer shared
 palette. A private copy of the supplied color atlas preserves its texture detail
 and alpha while creating a mint/sand/sky version for the scene; the purchased
 source pixels and importer are not edited by that recoloring. Creature/avatar
-materials retain their supplied colors. The licensed phone camera uses a wider
-portrait view and a small look-ahead to show the treeline below the top HUD;
-the public fallback keeps its existing camera settings. The task-board welcome
-mat is smaller and mint rather than a large white disk.
+materials retain their supplied colors. The licensed forms are normalized to
+1.8–2 world units and face the fixed, shallow-angle camera. Framing reserves
+space for the top account panel and bottom home actions, with the world on the
+left in landscape. The public fallback uses the same fixed camera contract.
+The scene bird is an artwork preview rather than a fictional owned species;
+Bestiary displays actual account ownership and growth independently.
 
 The staging script also writes ignored `shared/storybook/licensed` and
 `frontend/src/storybook/licensed` overlays. React bundles their hashed portraits

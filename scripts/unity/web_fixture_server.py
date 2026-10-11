@@ -31,7 +31,7 @@ def web_application(web_root: Path, api, frontend_root: Path | None = None):
 
     def application(environ, start_response):
         path = environ.get("PATH_INFO", "/")
-        if path.startswith("/api/"):
+        if path.startswith("/api/") or path == "/__fixture/play-state/":
             return api(environ, start_response)
         if path in ("/", "/play") and (frontend_root is None or path == "/play"):
             start_response("302 Found", [("Location", "/play/"), ("Cache-Control", "no-store")])
@@ -80,6 +80,7 @@ def main():
     parser.add_argument("--stop-file", type=Path)
     parser.add_argument("--lifetime-seconds", type=float, default=1800)
     parser.add_argument("--fail-first-log", action="store_true")
+    parser.add_argument("--fail-first-mark-read", action="store_true")
     args = parser.parse_args()
     if not (args.web_root / "index.html").is_file():
         parser.error("Build the Web target first; index.html is missing.")
@@ -101,7 +102,9 @@ def main():
             fixture = seed_fixture()
             from django.core.wsgi import get_wsgi_application
 
-            api = fixture_wsgi(get_wsgi_application(), fail_first_log=args.fail_first_log)
+            fixture["fail_first_mark_read"] = args.fail_first_mark_read
+            api = fixture_wsgi(get_wsgi_application(), fail_first_log=args.fail_first_log,
+                               fail_first_mark_read=args.fail_first_mark_read)
             with make_server("127.0.0.1", args.port, web_application(args.web_root, api, args.frontend_root), server_class=PreviewServer) as server:
                 server.timeout = .25
                 fixture["url"] = f"http://127.0.0.1:{server.server_port}"

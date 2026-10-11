@@ -39,7 +39,10 @@ function loadBridge(initial = {}, options = {}) {
       if (options.accessError) throw new Error('Storage denied');
       return storage;
     },
-    location: { assign: (target) => navigations.push(target) },
+    location: { assign: (target) => {
+      if (options.navigationError) throw new Error('Navigation unavailable');
+      navigations.push(target);
+    } },
   };
   function allocate(size) {
     const address = nextAddress;
@@ -78,6 +81,13 @@ function loadBridge(initial = {}, options = {}) {
       const address = allocate(size);
       writeString(expected, address, size);
       library.AbbySession_ClearToken(address);
+    },
+    openDestination(target) {
+      if (target === null) return library.AbbySession_OpenDestination(0);
+      const size = Buffer.byteLength(target, 'utf8') + 1;
+      const address = allocate(size);
+      writeString(target, address, size);
+      return library.AbbySession_OpenDestination(address);
     },
     checkNoGlobals: () => assert.deepEqual(Object.keys(context), originalGlobals),
   };
@@ -195,10 +205,46 @@ test('failed storage removal is best effort and does not escape to Unity', () =>
   assert.deepEqual(bridge.removed, []);
 });
 
-test('journal navigation uses the same-origin root with no credentials or query', () => {
+test('journal navigation opens the existing journal tab without credentials', () => {
   const bridge = loadBridge({ [keys.AUTH_TOKEN]: firstToken });
   bridge.library.AbbySession_OpenJournal();
-  assert.deepEqual(bridge.navigations, ['/']);
+  assert.deepEqual(bridge.navigations, ['/chronicle?tab=journal']);
   assert.deepEqual(bridge.removed, []);
   bridge.checkNoGlobals();
+});
+
+test('every Unity typed destination is accepted by the same-origin bridge', () => {
+  const clientSource = fs.readFileSync(path.join(root,
+    'unity/AbbyCamp/Assets/AbbyCamp/Scripts/Services/AbbyApiClient.cs'), 'utf8');
+  const targets = Array.from(clientSource.matchAll(/case PlayDestination\.\w+: return "([^"]+)";/g),
+    (match) => match[1]);
+  assert.equal(targets.length, 27, 'All approved destinations are covered');
+  assert.equal(new Set(targets).size, targets.length);
+  const bridge = loadBridge({ [keys.AUTH_TOKEN]: firstToken });
+  for (const target of targets) assert.equal(bridge.openDestination(target), 1, target);
+  assert.deepEqual(bridge.navigations, targets);
+  assert.equal(bridge.values.get(keys.AUTH_TOKEN), firstToken);
+  assert.deepEqual(bridge.removed, []);
+  bridge.checkNoGlobals();
+});
+
+test('destination bridge rejects arbitrary URLs, credentials and unknown routes', () => {
+  const rejected = [null, '', 'https://abby.example.com/', 'https://outside.example/',
+    '//outside.example/', 'javascript:alert(1)', 'data:text/html,unsafe',
+    '/\\outside.example/', '/api/auth/', '/manage', '/not-a-route',
+    `/chronicle?tab=journal&token=${firstToken}`, '/chronicle?tab=unknown',
+    '/chronicle?tab=journal#token', '/%2foutside.example',
+    '/bestiary?tab=mounts&next=https://outside.example', ' /', '/\n'];
+  const bridge = loadBridge({ [keys.AUTH_TOKEN]: firstToken });
+  for (const target of rejected) assert.equal(bridge.openDestination(target), 0, String(target));
+  assert.deepEqual(bridge.navigations, []);
+  assert.equal(bridge.values.get(keys.AUTH_TOKEN), firstToken);
+  assert.deepEqual(bridge.removed, []);
+  bridge.checkNoGlobals();
+});
+
+test('destination navigation failures do not escape the WebGL bridge', () => {
+  const bridge = loadBridge({}, { navigationError: true });
+  assert.equal(bridge.openDestination('/'), 0);
+  assert.deepEqual(bridge.navigations, []);
 });
