@@ -98,6 +98,15 @@ def configure_django(temporary_root: Path) -> None:
 
     django.setup()
     from django.core.management import call_command
+    from rest_framework.pagination import PageNumberPagination
+    from apps.notifications.views import NotificationViewSet
+
+    # Only this throwaway process overrides the Inbox to its production page
+    # size. Keep habits at 2 so their aggregate-page API contract is exercised.
+    class PlayNotificationPagination(PageNumberPagination):
+        page_size = 20
+
+    NotificationViewSet.pagination_class = PlayNotificationPagination
 
     call_command("migrate", run_syncdb=True, verbosity=0, interactive=False)
 
@@ -212,8 +221,8 @@ def seed_play_account(user, actor, *, balance: int, species_name: str, pet_name:
             user=user, item=item, trigger_type="chore_complete", quantity=index + 1,
         )
         drops.append(drop.pk)
-    # Older read history exceeds a production-sized inbox page, while the
-    # harness PAGE_SIZE of 2 also exercises habit pagination and read status.
+    # Older read history exceeds the production-sized Inbox page; all three
+    # actionable unread items remain newest on the first page.
     for index in range(22 if notification_count > 1 else 1):
         read = notify(user, f"Earlier memory {index + 1}", notification_type=NotificationType.JOURNAL_REPLY,
                       link="/chronicle?tab=journal")
@@ -369,6 +378,8 @@ def check_fixture(fixture: dict, *, fail_first_log: bool = False, fail_first_mar
     stable = client.get("/api/pets/stable/").json()
     assert [row["id"] for row in stable["pets"]] == [fixture["play"]["pet_id"]]
     assert [row["id"] for row in stable["mounts"]] == [fixture["play"]["mount_id"]]
+    notification_page = client.get("/api/notifications/").json()
+    assert notification_page["count"] == 25 and len(notification_page["results"]) == 20 and notification_page["next"]
     notifications = collect_rows("/api/notifications/")
     assert {row["id"] for row in notifications if not row["is_read"]} == set(fixture["play"]["notification_ids"])
     assert play_state() == before, "Opening rewards/inbox/stable must not award or consume anything"

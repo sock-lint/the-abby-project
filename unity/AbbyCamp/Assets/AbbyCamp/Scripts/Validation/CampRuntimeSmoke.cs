@@ -171,8 +171,9 @@ namespace AbbyCamp.Validation
                 CheckStableWorld(camera, pet, cameraPosition, cameraRotation, petPosition);
                 yield return OpenSection(ui, garden, "Inbox");
                 yield return api.FetchNotifications(value => notices = value, error => problem = error);
-                Check(problem == null && notices != null && notices.count == initial.notification_count && notices.count > 20 && !string.IsNullOrEmpty(notices.next),
-                    "Inbox uses actual paginated history with more than twenty saved notifications");
+                Check(problem == null && notices != null && notices.count == initial.notification_count && notices.count > 20
+                    && notices.results.Length == 20 && NamedRowCount("Notification_") == 20 && !string.IsNullOrEmpty(notices.next),
+                    "Inbox renders a production-sized twenty-row first page from saved history");
                 yield return ReadFixtureState(value => after = value);
                 CheckAwardsUnchanged(before, after, "Home, greetings and all view sections award or consume nothing");
                 Check(EqualIds(initial.unread_ids, Account(after, primaryUser).unread_ids), "Opening the inbox does not mark anything read");
@@ -199,7 +200,8 @@ namespace AbbyCamp.Validation
                 string unreadLabel = NamedText("UnreadCount"), firstRows = NamedRows("Notification_");
                 Click("NextInboxPageButton");
                 yield return WaitUntil(() => !ui.IsSectionLoading && !ui.IsBusy, 15f, "Next inbox page finishes");
-                Check(NamedRows("Notification_") != firstRows && NamedText("UnreadCount") == unreadLabel, "Next page changes displayed IDs without clearing global unread count");
+                Check(NamedRows("Notification_") != firstRows && NamedRowCount("Notification_") == initial.notification_count - 20
+                    && NamedText("UnreadCount") == unreadLabel, "Next page changes displayed IDs without clearing global unread count");
                 yield return Capture("connected-inbox-next-page-portrait.png");
                 Click("PreviousInboxPageButton");
                 yield return WaitUntil(() => !ui.IsSectionLoading && !ui.IsBusy, 15f, "Previous inbox page finishes");
@@ -441,6 +443,12 @@ namespace AbbyCamp.Validation
         }
 
         private static bool HasNamedPrefix(string prefix) => NamedRows(prefix).Length > 0;
+
+        private static int NamedRowCount(string prefix)
+        {
+            string rows = NamedRows(prefix);
+            return rows.Length == 0 ? 0 : rows.Split('|').Length;
+        }
 
         private static string NamedRows(string prefix)
         {

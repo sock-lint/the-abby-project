@@ -138,9 +138,9 @@ Nature FBX files specify decimeters and use a different source scale. Normalize 
 1. Import a new model into its own source folder and retain its license.
 2. Create or update its visual definition with the prefab, scale, offset, and orientation.
 3. Map its animations to the existing gameplay intents. A new rig can have its own controller.
-4. Assign that definition to the player or companion; preserve the gameplay identity and saved progression.
-5. Check movement direction, grounding, interaction reach, reward reaction, and lighting in the scene.
+4. Assign that definition to the companion presentation; preserve its gameplay identity and saved progression. Map owned species explicitly before representing an account creature with that artwork.
+5. Check fixed camera framing, grounding, visible-bounds taps, modal input exclusion, reward reaction, and lighting in portrait and landscape.
 
-The included dog/fox and green-shirt/orange-jacket choices provide a small, concrete appearance-swap check without changing gameplay code or save data. Future asset packs may require additional rig and material setup, but should not require rewriting the habit loop.
+The public companion's appearance swap and licensed bird forms provide concrete checks without changing gameplay code or save data. Character outfits from the earlier walking harness remain unused. Future asset packs may require rig and material setup while preserving the account and reward systems.
 
 Pack provenance and license paths are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Kenney's official import reference is [Importing 3D models into game engines](https://kenney.nl/knowledge-base/game-assets-3d/importing-3d-models-into-game-engines).
