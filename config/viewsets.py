@@ -45,8 +45,8 @@ def filter_projects_accessible_to(user, queryset):
 
     Parents see projects assigned within their family, plus unassigned drafts
     created by a family member. Assignment remains the family boundary when
-    present, even if the creator belongs to a different family. Children see only projects
-    they're assigned to or collaborating on. Use this for any standalone
+    present, even if the creator belongs to a different family. Children see
+    only projects they're assigned to or collaborating on. Use this for any standalone
     project lookup (clock-in, QR code) that takes a parent-supplied
     project id — without it, a child can guess project ids from another
     family and clock-in time / generate QR codes against them.
