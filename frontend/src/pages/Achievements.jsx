@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getAchievementsSummary, getCategories } from '../api';
+import { getCategories } from '../api';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
@@ -20,16 +20,17 @@ import SkillTreeView from './achievements/SkillTreeView';
  */
 export default function Achievements() {
   const { isParent } = useRole();
-  const { data: summary, loading, error, reload } = useApi(getAchievementsSummary);
-  const { data: categoriesData, reload: reloadCategories } = useApi(getCategories);
+  const {
+    data: categoriesData, loading, error, reload: reloadCategories,
+  } = useApi(getCategories);
   const [topTab, setTopTab] = useState('view');
 
   if (loading) return <Loader />;
-  if (error || !summary) {
+  if (error || !categoriesData) {
     return (
       <PageShell rhythm="tight" animate={false}>
         <ErrorAlert message={error || 'Could not load the atlas.'} />
-        <Button variant="primary" onClick={reload}>
+        <Button variant="primary" onClick={reloadCategories}>
           Try again
         </Button>
       </PageShell>
