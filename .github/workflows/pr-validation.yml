@@ -206,7 +206,7 @@ jobs:
 
   unity-validation:
     name: Unity validation
-    needs: [unity-readiness, unity-editor]
+    needs: [unity-readiness, unity-editor, unity-release-guards]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -217,8 +217,9 @@ jobs:
         env:
           READINESS_RESULT: ${{ needs.unity-readiness.result }}
           EDITOR_RESULT: ${{ needs.unity-editor.result }}
+          RELEASE_GUARDS_RESULT: ${{ needs.unity-release-guards.result }}
         run: |
-          if [ "$READINESS_RESULT" != 'success' ] || [ "$EDITOR_RESULT" != 'success' ]; then
-            echo "::error::Unity validation did not pass (runner readiness: $READINESS_RESULT; editor validation: $EDITOR_RESULT). See the job logs and docs/operations/pr-validation.md."
+          if [ "$READINESS_RESULT" != 'success' ] || [ "$EDITOR_RESULT" != 'success' ] || [ "$RELEASE_GUARDS_RESULT" != 'success' ]; then
+            echo "::error::Unity validation did not pass (runner readiness: $READINESS_RESULT; editor validation: $EDITOR_RESULT; release guards: $RELEASE_GUARDS_RESULT). See the job logs and docs/operations/pr-validation.md."
             exit 1
           fi

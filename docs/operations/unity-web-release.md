@@ -22,6 +22,10 @@ after the React/Django deployment succeeds. PR validation does not deploy.
 4. After platform deployment succeeds, `Deploy and verify Unity Web` validates
    the artifact against the exact Actions identity, builds a versioned nginx
    image, tests its HTTP output, and scans fixable HIGH/CRITICAL vulnerabilities.
+   The image build pulls the current nginx base and disables Docker layer reuse
+   so `apk upgrade --no-cache` installs available runtime security fixes on every
+   release, even when the upstream base image digest has not changed. Local
+   `--verify-only` checks use the same build and vulnerability gate.
 5. A forced-command SSH broker checks current main, fixed service/daemon identity,
    and archive/image checksums. It loads the image and changes only
    `UNITY_WEB_IMAGE`, through Coolify's installed `StartService` action.

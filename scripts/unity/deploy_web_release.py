@@ -613,7 +613,7 @@ def client_main(artifact_dir, verify_only=False):
         hosting.mkdir(parents=True)
         shutil.copy(repository_root / "scripts/unity/hosting/nginx.conf", hosting)
         request["manifest_sha256"] = hashlib.sha256(raw).hexdigest()
-        build_args = ["docker", "build", "--pull", "--file", str(context / "Dockerfile.unity-web"), "--tag", tag]
+        build_args = ["docker", "build", "--pull", "--no-cache", "--file", str(context / "Dockerfile.unity-web"), "--tag", tag]
         for key, value in image_labels(request).items():
             build_args += ["--label", f"{key}={value}"]
         if command(["docker", "image", "inspect", tag], allow_failure=True) is not None:

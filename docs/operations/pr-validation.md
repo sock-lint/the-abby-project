@@ -19,7 +19,9 @@ test, build, scan, and deploy independently.
 
 The hosted `Unity release guards` job also tests artifact provenance, safe
 packaging and the restricted deployment protocol. It uses no licensed editor or
-production credentials. The separate [Unity Web release jobs](unity-web-release.md)
+production credentials. Its result is included in the required `Unity validation`
+aggregate, preserving the existing branch-protection check name. The separate
+[Unity Web release jobs](unity-web-release.md)
 compile and deploy the player after integration; source validation alone does not
 exercise Web Build Support.
 
@@ -171,9 +173,10 @@ powershell -NoProfile -File scripts/unity/Build-Camp.ps1 -ValidateOnly
 
 ## Diagnose a failed Unity check
 
-`Unity validation` passes only if both `Unity runner readiness` and
-`Unity scene and API checks` succeed. A missing license, unavailable editor,
-import/compile error, contract failure, or skipped editor job fails the aggregate.
+`Unity validation` passes only if `Unity runner readiness`,
+`Unity scene and API checks`, and `Unity release guards` succeed. A missing
+license, unavailable editor, import/compile error, contract or release-guard
+failure, or skipped prerequisite job fails the aggregate.
 The editor job checks the executable version against the pinned project version,
 removes any stale validation log, runs `Validate-Camp.sh` on Linux or
 `Build-Camp.ps1 -ValidateOnly` on Windows without rebuilding the saved scene,

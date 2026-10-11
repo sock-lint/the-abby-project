@@ -429,7 +429,8 @@ and `Unity validation`. Hosted bridge/API checks run independently. Unity invoke
 the existing scene/asset/API validation on a dedicated licensed Linux or Windows
 runner with the `unity-6000.6.5f1` label; `UNITY_VALIDATION_RUNNER_OS` selects the
 operating system. The hosted readiness/result checks fail explicitly
-when setup or validation is incomplete. See
+when setup or validation is incomplete. The required `Unity validation` aggregate
+also requires the hosted release packaging/deployment guard tests to pass. See
 [`docs/operations/pr-validation.md`](docs/operations/pr-validation.md) for the
 runner variable, setup, stable required-check names, and local reproduction.
 
