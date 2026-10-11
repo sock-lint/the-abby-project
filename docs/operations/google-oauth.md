@@ -42,7 +42,9 @@ before changing any setting.
 5. In **Data Access**, declare the exact current scopes:
    `openid`, `https://www.googleapis.com/auth/userinfo.email`,
    `https://www.googleapis.com/auth/userinfo.profile`, and
-   `https://www.googleapis.com/auth/calendar.events`.
+   `https://www.googleapis.com/auth/calendar.events.owned`. Replace the older
+   `calendar.events` declaration; the application now requests the narrower
+   permission for the primary calendar and other calendars owned by the user.
 6. In **Audience**, choose the actual audience. For External / Testing, add
    intended Google accounts as test users. Testing and personally known limited
    users can have verification exceptions, warning screens, caps, and limited
@@ -76,9 +78,15 @@ incremental authorization.
   created Calendar events are not removed
   automatically by that change. Review existing calendars and mappings for
   stale events, and remove unwanted events directly in Google Calendar.
-- Review whether the requested scope is the narrowest suitable one. The current
-  implementation writes to an existing primary calendar and maps app-created
-  events; do not justify the scope with features the app does not implement.
+- The requested `calendar.events.owned` scope supports writes to the user's
+  existing primary calendar and other owned calendars. Read-only scopes cannot
+  create or update events, and `calendar.app.created` would require changing
+  the feature to use a separate app-created calendar. Calendars owned by
+  someone else are outside the newly requested permission. Do not claim that
+  the broader `calendar.events` scope is necessary for primary-calendar writes.
+  Older grants may retain broader access: revoking at Google and reconnecting
+  is required to remove those grants; deploying this change does not revoke
+  them automatically.
 
 ## Verify the public pages and linking
 

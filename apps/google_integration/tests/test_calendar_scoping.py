@@ -1,5 +1,5 @@
 """Calendar exports must preserve family and individual assignment boundaries."""
-from datetime import timedelta
+from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
@@ -99,6 +99,45 @@ class CalendarScopingTests(TestCase):
 
     def mappings(self):
         return set(CalendarEventMapping.objects.values_list("user_id", "content_type", "object_id"))
+
+    def test_project_deadline_is_one_all_day_event_with_exclusive_end(self):
+        project = self.project("Year-end deadline", due_date=date(2026, 12, 31))
+
+        GoogleCalendarService.sync_project_due_date(project)
+        GoogleCalendarService.full_sync(self.child)
+
+        events = self.google.events.return_value
+        events.insert.assert_called_once()
+        events.update.assert_called_once()
+        for call in (events.insert.call_args, events.update.call_args):
+            body = call.kwargs["body"]
+            self.assertEqual(body["start"], {"date": "2026-12-31"})
+            self.assertEqual(body["end"], {"date": "2027-01-01"})
+            self.assertNotIn("recurrence", body)
+
+    @patch("apps.google_integration.services.timezone.localdate", return_value=date(2026, 12, 31))
+    def test_duty_events_use_next_day_end_for_automatic_and_manual_sync(self, _localdate):
+        recurrences = (Chore.Recurrence.DAILY, Chore.Recurrence.WEEKLY, Chore.Recurrence.ONE_TIME)
+        for recurrence in recurrences:
+            chore = self.chore(f"{recurrence} duty", assigned_to=self.child, recurrence=recurrence)
+            GoogleCalendarService.sync_chore(chore)
+
+        GoogleCalendarService.full_sync(self.child)
+
+        events = self.google.events.return_value
+        self.assertEqual(events.insert.call_count, 3)
+        self.assertEqual(events.update.call_count, 3)
+        for call in events.insert.call_args_list + events.update.call_args_list:
+            body = call.kwargs["body"]
+            self.assertEqual(body["start"]["date"], "2026-12-31")
+            self.assertEqual(body["end"]["date"], "2027-01-01")
+            self.assertEqual(body["start"]["timeZone"], body["end"]["timeZone"])
+            if "one_time" in body["summary"]:
+                self.assertNotIn("recurrence", body)
+            elif "weekly" in body["summary"]:
+                self.assertEqual(body["recurrence"], ["RRULE:FREQ=WEEKLY"])
+            else:
+                self.assertEqual(body["recurrence"], ["RRULE:FREQ=DAILY"])
 
     def test_full_sync_exports_only_approved_own_or_shared_family_duties(self):
         assigned = self.chore("My weekly duty", assigned_to=self.child, recurrence="weekly")

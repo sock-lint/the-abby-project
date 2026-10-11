@@ -18,7 +18,7 @@
     <section id="google">
       <h2>Google account connection</h2>
       <p>Google connection is optional. You can use Abby's core family features with an Abby username and password. Google sign-in works only after a Google account is linked to an existing Abby account through Settings.</p>
-      <p>During authorization, Abby requests <code>openid</code>, email and basic profile permission, and <code>https://www.googleapis.com/auth/calendar.events</code>. The current flow requests Calendar event permission during both linking and later Google sign-in, including before calendar sync is enabled.</p>
+      <p>During authorization, Abby requests <code>openid</code>, email and basic profile permission, and <code>https://www.googleapis.com/auth/calendar.events.owned</code> for events on calendars you own. The current flow requests Calendar event permission during both linking and later Google sign-in, including before calendar sync is enabled.</p>
       <p>Abby verifies Google's identity token and stores your Google account identifier and email address to recognize the linked account. It stores access tokens, refresh tokens when provided, token expiry and scope information in encrypted credentials. This lets the server maintain the connection without repeatedly asking you to sign in. It also stores mappings between Abby records and the Google Calendar events it creates.</p>
       <p>Basic profile permission is part of the authorization request; the current integration does not import your Google profile photo or contact list. It does not access Gmail or Google Drive.</p>
     </section>
@@ -26,7 +26,7 @@
     <section>
       <h2>Optional Google Calendar sync</h2>
       <p>Calendar sync is off by default. Abby uses the Calendar connection only when you enable <strong>Enable calendar sync</strong> in Settings. It creates and updates events for project deadlines, chore schedules, and completed work sessions. Events can include titles, dates, times, reminders, and chore reward details from Abby.</p>
-      <p>Events go to the linked account's primary Google Calendar by default. A different calendar can be configured through the app's calendar settings API. Abby keeps the identifiers of its created events so it can update or remove the corresponding event when app behavior calls for it. The current integration does not import unrelated Calendar events into Abby or use them to build a personal profile.</p>
+      <p>Events go to the linked account's primary Google Calendar by default. A different calendar you own can be configured through the app's calendar settings API. Abby keeps the identifiers of its created events so it can update or remove the corresponding event when app behavior calls for it. The current integration does not import unrelated Calendar events into Abby or use them to build a personal profile.</p>
       <p>Information sent to Google Calendar is handled by Google under its own policies and the calendar's sharing settings. People who can view that calendar may be able to see synced event information.</p>
     </section>
 
@@ -46,6 +46,7 @@
         <li><strong>Remove Calendar events:</strong> delete existing Abby events directly in Google Calendar if you no longer want them.</li>
       </ul>
       <p>Unlinking in Abby does not revoke Google's authorization grant or delete previously created Calendar events. Turning off sync also leaves existing events in place. Revoking Google permission prevents authorized API access; you can additionally unlink in Abby to remove its stored connection.</p>
+      <p>Older connections may retain a previously granted, broader Calendar permission. To remove that earlier grant and use the narrower permission now requested by Abby, revoke Abby's access at Google, then unlink and reconnect in Abby.</p>
     </section>
 
     <section>

@@ -20,7 +20,7 @@ SCOPES = [
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
-    "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar.events.owned",
 ]
 
 # ``oauthlib`` rejects token responses whose ``scope`` differs from what we
@@ -409,7 +409,8 @@ class GoogleCalendarService:
             "summary": f"[Abby] {project.title} due",
             "description": f"Project deadline for {project.assigned_to}",
             "start": {"date": str(project.due_date)},
-            "end": {"date": str(project.due_date)},
+            # Google Calendar uses an exclusive end for all-day events.
+            "end": {"date": str(project.due_date + timedelta(days=1))},
             "reminders": {
                 "useDefault": False,
                 "overrides": [
@@ -439,7 +440,7 @@ class GoogleCalendarService:
             "summary": f"[Abby] {chore.title}",
             "description": f"Chore — reward: ${chore.reward_amount}",
             "start": {"date": str(today), "timeZone": tz},
-            "end": {"date": str(today), "timeZone": tz},
+            "end": {"date": str(today + timedelta(days=1)), "timeZone": tz},
             "reminders": {
                 "useDefault": False,
                 "overrides": [{"method": "popup", "minutes": 30}],

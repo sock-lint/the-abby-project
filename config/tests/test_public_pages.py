@@ -46,7 +46,7 @@ class PublicInformationPagesTests(SimpleTestCase):
         response = self.client.get(reverse("public-privacy"))
         for disclosure in (
             "October 11, 2026",
-            "https://www.googleapis.com/auth/calendar.events",
+            "https://www.googleapis.com/auth/calendar.events.owned",
             "encrypted credentials",
             "does not revoke Google's authorization grant",
             "Google API Services User Data Policy",
