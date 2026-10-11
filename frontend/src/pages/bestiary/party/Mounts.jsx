@@ -9,6 +9,7 @@ import Loader from '../../../components/Loader';
 import EmptyState from '../../../components/EmptyState';
 import ErrorAlert from '../../../components/ErrorAlert';
 import Button from '../../../components/Button';
+import AddToCalendar from '../../../components/AddToCalendar';
 import ParchmentCard from '../../../components/journal/ParchmentCard';
 import IncipitBand from '../../../components/atlas/IncipitBand';
 import TomeShelf from '../../../components/atlas/TomeShelf';
@@ -191,8 +192,19 @@ export default function Mounts() {
                   </div>
                   <div className="font-script text-tiny text-gold-leaf mt-1">mount</div>
                   {isOut && !isReady && (
-                    <div className="mt-1 font-script text-tiny text-sheikah-teal-deep flex items-center justify-center gap-1">
-                      <Hourglass size={10} aria-hidden="true" /> exploring · {remainingLabel}
+                    <div className="mt-1 space-y-1">
+                      <div className="font-script text-tiny text-sheikah-teal-deep flex items-center justify-center gap-1">
+                        <Hourglass size={10} aria-hidden="true" /> exploring · {remainingLabel}
+                      </div>
+                      <AddToCalendar
+                        event={{
+                          id: `expedition:${expedition.id}`,
+                          title: `Expedition return: ${mount.potion.name} ${mount.species.name}`,
+                          start: expedition.returns_at,
+                          description: 'Check on your returning mount in The Abby Project.',
+                          path: '/bestiary?tab=mounts',
+                        }}
+                      />
                     </div>
                   )}
                   {!isOut && cooldownDaysLeft !== null && (

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Chores from './Chores.jsx';
@@ -8,6 +8,12 @@ import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
 import { buildChore, buildParent, buildUser } from '../test/factories.js';
+import { buildCalendarFile, downloadCalendarFile } from '../utils/calendar';
+
+vi.mock('../utils/calendar', async (importOriginal) => ({
+  ...await importOriginal(),
+  downloadCalendarFile: vi.fn(),
+}));
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -29,6 +35,71 @@ function renderPage(user = buildUser(), handlers = [], route = '/quests?tab=duti
 }
 
 describe('Chores', () => {
+  it('creates Google and Apple reminders on the selected active duty date', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2020-12-29T16:00:00Z'));
+    try {
+      const user = userEvent.setup();
+      renderPage(buildUser(), [
+        http.get('*/api/chores/', ({ request }) => HttpResponse.json(
+          new URL(request.url).searchParams.get('pending') === 'true' ? [] : [
+            buildChore({ id: 7, title: 'Feed cat', week_schedule: 'alternating', schedule_start_date: '2020-12-21' }),
+          ],
+        )),
+        http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      ]);
+
+      await user.click(await screen.findByRole('button', { name: 'Add Duty reminder: Feed cat to calendar' }));
+      const dialog = await screen.findByRole('dialog', { name: 'Add to calendar' });
+      const date = within(dialog).getByLabelText('Reminder date');
+      expect(date).toHaveValue('2021-01-11');
+      expect(within(dialog).getByText(/choose one day for this duty reminder/i)).toBeInTheDocument();
+
+      fireEvent.change(date, { target: { value: '2021-01-13' } });
+      const google = new URL(within(dialog).getByRole('link', { name: /Google Calendar/ }).href);
+      expect(google.searchParams.get('text')).toBe('Duty reminder: Feed cat');
+      expect(google.searchParams.get('dates')).toBe('20210113/20210114');
+      expect(google.searchParams.has('recur')).toBe(false);
+
+      await user.click(within(dialog).getByRole('button', { name: /Apple Calendar/ }));
+      expect(downloadCalendarFile).toHaveBeenCalledTimes(1);
+      const exported = buildCalendarFile(downloadCalendarFile.mock.calls[0][0]);
+      expect(exported).toContain('SUMMARY:Duty reminder: Feed cat');
+      expect(exported).toContain('DTSTART;VALUE=DATE:20210113');
+      expect(exported).toContain('DTEND;VALUE=DATE:20210114');
+      expect(exported).not.toContain('RRULE');
+
+      fireEvent.change(date, { target: { value: '2021-01-04' } });
+      expect(within(dialog).getByText(/this duty is off that week/i)).toBeInTheDocument();
+      expect(within(dialog).getByRole('link', { name: /Google Calendar/ })).toHaveAttribute('aria-disabled', 'true');
+      expect(within(dialog).getByRole('link', { name: /Google Calendar/ })).not.toHaveAttribute('href');
+      expect(within(dialog).getByRole('button', { name: /Apple Calendar/ })).toBeDisabled();
+      await user.click(within(dialog).getByRole('button', { name: /Apple Calendar/ }));
+      expect(downloadCalendarFile).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('offers reminders only for active duties that have finished parent review', async () => {
+    renderPage(buildParent(), [
+      http.get('*/api/chores/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true' ? [] : [
+          buildChore({ id: 1, title: 'Daily dishes', is_active: true }),
+          buildChore({ id: 2, title: 'Retired duty', is_active: false }),
+          buildChore({ id: 3, title: 'Unreviewed proposal', pending_parent_review: true }),
+        ],
+      )),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+    ]);
+
+    expect(await screen.findByRole('button', { name: 'Add Duty reminder: Daily dishes to calendar' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /add .* to calendar/i })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Add Duty reminder: Retired duty to calendar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add Duty reminder: Unreviewed proposal to calendar' })).toBeNull();
+  });
+
   // The quick-actions FAB deep-links here with ?propose=1. The param was
   // never read, so the row just landed on the tab and the kid had to hunt
   // for the button again.

@@ -10,6 +10,8 @@ import ConfirmDialog from '../src/components/ConfirmDialog';
 import BottomSheet from '../src/components/BottomSheet';
 import IncipitBand from '../src/components/atlas/IncipitBand';
 import HeaderStatusPips from '../src/components/layout/HeaderStatusPips';
+import AddToCalendar from '../src/components/AddToCalendar';
+import OverviewTab from '../src/pages/project/OverviewTab';
 import { PulseContext } from '../src/providers/pulseContext';
 
 function StatusCueFixture() {
@@ -44,6 +46,18 @@ export default function Fixture() {
       </SelectField>
       <IconButton size="sm" aria-label="Small icon action">×</IconButton>
       <StatusCueFixture />
+      <AddToCalendar event={{
+        id: 'homework:calendar-fixture',
+        title: 'Homework due: A science assignment with a long descriptive title',
+        start: '2026-12-31',
+        path: '/quests?tab=study',
+      }} />
+      <section aria-label="Project calendar fixture">
+        <OverviewTab project={{
+          id: 42, title: 'Building a rocket', due_date: '2026-12-31',
+          bonus_amount: '10.00', materials_budget: '15.00', xp_reward: 20,
+        }} />
+      </section>
       <Button onClick={() => setDialog('confirm')}>Open confirmation</Button>
       <Button onClick={() => setDialog('sheet')}>Open sheet</Button>
       {dialog === 'confirm' && (

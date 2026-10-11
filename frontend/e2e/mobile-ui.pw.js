@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
+import { readFile } from 'node:fs/promises';
 
 let devServer;
 let origin;
@@ -68,6 +69,11 @@ for (const width of [320, 375, 768, 1280]) {
       expect(bounds.x).toBeGreaterThanOrEqual(0);
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
     }
+    const calendar = page.getByRole('button', { name: 'Add Project due: Building a rocket to calendar' });
+    const calendarBounds = await calendar.boundingBox();
+    expect(calendarBounds.height).toBeGreaterThanOrEqual(44);
+    expect(calendarBounds.x + calendarBounds.width).toBeLessThanOrEqual(width);
+    expect(await calendar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     const select = page.getByRole('combobox', { name: 'Family member' });
     await select.selectOption({ label: 'Everyone' });
     await expect(select).toHaveValue('Everyone');
@@ -129,4 +135,37 @@ test('status scroll cues refresh after values grow and follow scroll and keyboar
   await coins.focus();
   await expect(shortcuts.locator('[data-scroll-fade="left"]')).toBeVisible();
   await expect(shortcuts.locator('[data-scroll-fade="right"]')).toHaveCount(0);
+});
+
+test('calendar choices fit a phone and download a complete Apple calendar event', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto(`${origin}/e2e/mobile-ui-fixture.html?token=synthetic-do-not-export#private-fragment`);
+  const trigger = page.getByRole('button', { name: /add .*science assignment.*to calendar/i });
+  await trigger.click();
+  const dialog = page.getByRole('dialog');
+  const google = dialog.getByRole('link', { name: /Google Calendar/i });
+  const apple = dialog.getByRole('button', { name: /Apple Calendar/i });
+  await expect(google).toBeInViewport();
+  await expect(apple).toBeInViewport();
+  for (const choice of [google, apple]) {
+    const bounds = await choice.boundingBox();
+    expect(bounds.height).toBeGreaterThanOrEqual(44);
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(320);
+  }
+  const href = new URL(await google.getAttribute('href'));
+  expect(href.searchParams.get('dates')).toBe('20261231/20270101');
+  expect(href.searchParams.get('details')).toContain(`${origin}/quests?tab=study`);
+  const pendingDownload = page.waitForEvent('download');
+  await apple.click();
+  const download = await pendingDownload;
+  expect(download.suggestedFilename()).toMatch(/\.ics$/);
+  const content = await readFile(await download.path(), 'utf8');
+  expect(content).toContain('DTSTART;VALUE=DATE:20261231\r\n');
+  expect(content).toContain('DTEND;VALUE=DATE:20270101\r\n');
+  expect(content).toContain('END:VCALENDAR\r\n');
+  expect(content).not.toContain('synthetic-do-not-export');
+  expect(content).not.toContain('private-fragment');
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(trigger).toBeFocused();
 });
