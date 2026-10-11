@@ -58,4 +58,19 @@ describe('SourceStep', () => {
     await user.type(document.querySelector('input[type="url"]'), 'h');
     expect(setUrl).toHaveBeenCalled();
   });
+
+  it('labels the PDF picker and sends the selected file to the form', async () => {
+    const setFile = vi.fn();
+    const user = userEvent.setup();
+    const file = new File(['tutorial'], 'Bird feeder tutorial.pdf', { type: 'application/pdf' });
+    render(
+      <SourceStep
+        sourceTab="pdf" setSourceTab={vi.fn()}
+        url="" setUrl={vi.fn()} file={null} setFile={setFile}
+        onStart={vi.fn()}
+      />,
+    );
+    await user.upload(screen.getByLabelText('PDF Tutorial'), file);
+    expect(setFile).toHaveBeenCalledWith(file);
+  });
 });

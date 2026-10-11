@@ -8,12 +8,12 @@ export default function ExchangeHistory({ exchanges, isParent }) {
   return (
     <div className="space-y-2">
       {exchanges.map((ex) => (
-          <ParchmentCard key={ex.id} className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-sheikah-teal/20 flex items-center justify-center">
+          <ParchmentCard key={ex.id} className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-8 h-8 shrink-0 rounded-full bg-sheikah-teal/20 flex items-center justify-center">
                 <ArrowRightLeft size={14} className="text-sheikah-teal-deep" />
               </div>
-              <div>
+              <div className="min-w-0 break-words">
                 <div className="font-body text-body font-medium">
                   {formatCurrency(ex.dollar_amount)} → {ex.coin_amount} coins
                 </div>
@@ -23,7 +23,7 @@ export default function ExchangeHistory({ exchanges, isParent }) {
                 </div>
               </div>
             </div>
-            <span className={`text-micro px-2 py-0.5 rounded-full border uppercase ${STATUS_COLORS[ex.status] || STATUS_COLORS.pending}`}>
+            <span className={`shrink-0 text-micro px-2 py-0.5 rounded-full border uppercase ${STATUS_COLORS[ex.status] || STATUS_COLORS.pending}`}>
               {ex.status}
             </span>
           </ParchmentCard>

@@ -111,7 +111,7 @@ export default function CosmeticSigil({
       </div>
 
       <div
-        className={`text-body text-center font-bold leading-tight line-clamp-2 ${
+        className={`w-full break-words [overflow-wrap:anywhere] text-body text-center font-bold leading-tight line-clamp-2 ${
           owned ? 'text-ink-primary' : 'text-ink-whisper'
         }`}
       >
@@ -129,7 +129,7 @@ export default function CosmeticSigil({
       {!owned && (
         <div
           data-cosmetic-hint="true"
-          className="mt-0.5 text-caption font-body text-center leading-snug text-ink-whisper line-clamp-2 px-1"
+          className="mt-0.5 w-full break-words text-caption font-body text-center leading-snug text-ink-whisper line-clamp-2 px-1"
         >
           {cosmeticLockHint(item)}
         </div>

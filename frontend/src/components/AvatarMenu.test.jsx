@@ -41,6 +41,50 @@ describe('AvatarMenu', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
     await user.keyboard('{Escape}');
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(trigger).toHaveFocus();
+  });
+
+  it('supports arrow entry, wrapping, Home and End across the parent utility links', async () => {
+    const user = userEvent.setup();
+    renderMenu({ user: { username: 'dad', display_name: 'Dad', role: 'parent' } });
+    const trigger = screen.getByRole('button', { name: /profile menu/i });
+    await user.tab();
+    await user.keyboard('{ArrowDown}');
+    const menu = screen.getByRole('menu', { name: 'Profile' });
+    expect(trigger).toHaveAttribute('aria-controls', menu.id);
+    const sigil = screen.getByRole('menuitem', { name: /sigil/i });
+    const settings = screen.getByRole('menuitem', { name: /settings/i });
+    expect(sigil).toHaveFocus();
+    await user.keyboard('{ArrowUp}');
+    expect(settings).toHaveFocus();
+    await user.keyboard('{ArrowDown}');
+    expect(sigil).toHaveFocus();
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('menuitem', { name: /manage/i })).toHaveFocus();
+    await user.keyboard('{End}');
+    expect(settings).toHaveFocus();
+    await user.keyboard('{Home}');
+    expect(sigil).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(trigger).toHaveFocus();
+    await user.keyboard('{ArrowUp}');
+    expect(settings).toHaveFocus();
+  });
+
+  it('closes on Tab and continues to the next control outside the menu', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <AvatarMenu user={{ username: 'abby', display_name: 'Abby', role: 'child' }} />
+        <button type="button">Next action</button>
+      </MemoryRouter>,
+    );
+    const trigger = screen.getByRole('button', { name: /profile menu/i });
+    await user.click(trigger);
+    expect(screen.getByRole('menuitem', { name: /sigil/i })).toHaveFocus();
+    await user.tab();
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: 'Next action' })).toHaveFocus();
   });
 
   it('closes when clicking outside', async () => {

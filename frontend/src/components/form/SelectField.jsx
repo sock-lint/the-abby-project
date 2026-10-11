@@ -8,13 +8,13 @@ import {
 import useFieldIds from './useFieldIds';
 
 // "filter" variant: compact toolbar select with no fixed full-width sizing,
-// smaller padding, and the ``text-caption`` token. Closes the previous
+// smaller padding, and caption text on larger screens. Closes the previous
 // gap where pages (e.g. ``pages/Projects.jsx`` filter selects) had to drop
 // down to raw ``<select className={inputClass} ...>`` markup with manual
 // dimensional overrides.
 const FILTER_VARIANT_CLASS =
   'rounded-md border border-ink-page-shadow bg-ink-page-aged ' +
-  'px-2 py-1.5 text-caption text-ink-primary w-auto ' +
+  'min-h-11 max-w-full px-2 py-1.5 text-base sm:text-caption text-ink-primary w-auto ' +
   'focus:outline-none focus:ring-2 focus:ring-sheikah-teal/40';
 
 /**
@@ -38,7 +38,7 @@ const SelectField = forwardRef(function SelectField(
   const selectClass = variant === 'filter' ? FILTER_VARIANT_CLASS : inputClass;
 
   return (
-    <div className={className}>
+    <div className={`min-w-0 max-w-full ${className}`}>
       {label && <label htmlFor={id} className={formLabelClass}>{label}</label>}
       <select
         ref={ref}

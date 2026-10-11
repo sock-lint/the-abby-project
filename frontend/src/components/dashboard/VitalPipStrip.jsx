@@ -20,9 +20,9 @@ function VitalPip({ label, value, icon, tone = 'ink', onClick, ariaLabel }) {
       aria-label={ariaLabel || `${label}: ${value}`}
       className="min-w-0 flex flex-col items-center justify-center gap-1 rounded-2xl border border-ink-page-shadow bg-ink-page-aged min-h-[72px] px-2 py-2 hover:bg-ink-page-rune-glow transition-colors"
     >
-      <div className={`flex items-center gap-1 ${toneText}`}>
+      <div className={`flex min-w-0 max-w-full flex-col items-center gap-1 sm:flex-row ${toneText}`}>
         {icon}
-        <span className="font-rune text-base font-semibold tabular-nums">
+        <span className="max-w-full break-words [overflow-wrap:anywhere] font-rune text-body sm:text-base font-semibold tabular-nums">
           {value}
         </span>
       </div>

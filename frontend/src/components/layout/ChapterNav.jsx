@@ -176,7 +176,7 @@ export function ChapterBottomBar({ user }) {
   return (
     <nav
       aria-label="Main navigation"
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex gap-1 pt-2
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex min-[360px]:gap-1 pt-2
                  bg-ink-page-aged/95 backdrop-blur-sm border-t border-ink-page-shadow/60
                  pb-[calc(0.5rem+env(safe-area-inset-bottom))]
                  pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]"
@@ -209,7 +209,7 @@ export function ChapterBottomBar({ user }) {
               {/* Labels always render — iPhones are 375-393px CSS wide, and
                   the old min-[400px] gate left five unlabeled fantasy icons
                   on exactly the phones this app lives on. */}
-              <span className="font-body font-semibold text-tiny leading-none">
+              <span className="max-w-full truncate font-body font-semibold text-micro min-[360px]:text-tiny leading-none">
                 {shortLabel}
               </span>
             </>

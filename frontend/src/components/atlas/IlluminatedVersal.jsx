@@ -15,6 +15,7 @@ const SIZES = {
   md: { box: 'w-12 h-12', text: 'text-3xl' },
   lg: { box: 'w-16 h-16', text: 'text-4xl' },
   xl: { box: 'w-24 h-24', text: 'text-6xl' },
+  responsive: { box: 'w-12 h-12 sm:w-24 sm:h-24', text: 'text-3xl sm:text-6xl' },
 };
 
 // Map progress tier onto the rarity halo palette so mastery visually

@@ -149,7 +149,7 @@ describe('Companions tab', () => {
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     ]);
     await waitFor(() => expect(screen.getByText(/Drake/)).toBeInTheDocument());
-    const drake = screen.getByLabelText(/Fire Drake/);
+    const drake = screen.getByRole('img', { name: /Fire Drake/ });
     expect(drake).not.toHaveAttribute('data-dim');
     // The whisper copy is also suppressed for evolved pets.
     expect(screen.queryByText(/getting hungry/i)).toBeNull();
@@ -168,9 +168,9 @@ describe('Companions tab', () => {
     // The bored Fox sprite is dimmed; the happy Drake is not. The sprite
     // catalog is empty in tests so RpgSprite emits an emoji fallback span;
     // the data-dim attribute is the same regardless of which branch wins.
-    const fox = screen.getByLabelText(/Earth Fox/);
+    const fox = screen.getByRole('img', { name: /Earth Fox/ });
     expect(fox).toHaveAttribute('data-dim', 'bored');
-    const drake = screen.getByLabelText(/Fire Drake/);
+    const drake = screen.getByRole('img', { name: /Fire Drake/ });
     expect(drake).not.toHaveAttribute('data-dim');
   });
 
@@ -224,6 +224,28 @@ describe('Companions tab', () => {
     await user.click(setActive);
     await waitFor(() => expect(activate.calls).toHaveLength(1));
     expect(activate.calls[0].url).toMatch(/\/pets\/1\/activate\/$/);
+  });
+
+  it('opens and closes companion care from the keyboard without nesting action buttons', async () => {
+    const user = userEvent.setup();
+    renderPage([
+      http.get('*/api/pets/stable/', () =>
+        HttpResponse.json({ pets: [PETS[0]], mounts: [], total_possible: 48 }),
+      ),
+      http.get('*/api/inventory/', () => HttpResponse.json(FOOD_INVENTORY)),
+    ]);
+    const care = await screen.findByRole('button', { name: 'Care for Fire Drake' });
+    expect(care).toHaveAttribute('aria-expanded', 'false');
+    care.focus();
+    await user.keyboard('{Enter}');
+    expect(care).toHaveAttribute('aria-expanded', 'true');
+    const activate = screen.getByRole('button', { name: /set active/i });
+    const food = screen.getByTitle('Berries');
+    expect(care).not.toContainElement(activate);
+    expect(care).not.toContainElement(food);
+    await user.keyboard(' ');
+    expect(care).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: /set active/i })).toBeNull();
   });
 
   it('clicking a food chip POSTs to feed endpoint with the food item id', async () => {

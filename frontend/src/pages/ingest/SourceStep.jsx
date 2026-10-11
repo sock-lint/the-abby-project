@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { FileText, Link as LinkIcon } from 'lucide-react';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import TabButton from '../../components/TabButton';
@@ -12,6 +13,7 @@ export default function SourceStep({
   onStart,
   starting = false,
 }) {
+  const fileId = useId();
   const disabled = sourceTab === 'url' ? !url : !file;
 
   return (
@@ -36,17 +38,18 @@ export default function SourceStep({
         />
       ) : (
         <div>
-          <label className={formLabelClass}>PDF Tutorial</label>
+          <label htmlFor={fileId} className={formLabelClass}>PDF Tutorial</label>
           {/* intentional: raw <input type="file"> — the form primitives don't
               wrap file pickers, so the control keeps its file:* treatment.
               The colors are current tokens, not the legacy amber alias. */}
           <input
+            id={fileId}
             type="file"
             accept="application/pdf"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             className="block w-full text-body text-ink-whisper file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-sheikah-teal-deep file:text-ink-page-rune-glow file:font-semibold"
           />
-          {file && <p className="text-caption text-ink-whisper mt-1">{file.name}</p>}
+          {file && <p className="text-caption text-ink-whisper mt-1 break-words">{file.name}</p>}
         </div>
       )}
 

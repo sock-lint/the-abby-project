@@ -29,11 +29,11 @@ export default function BestiaryFolio({
 
   return (
     <ParchmentCard as="section" variant="plain" tone="default" aria-labelledby={headingId}>
-      <header className="flex items-start gap-4">
+      <header className="flex flex-col items-start gap-2 sm:flex-row sm:gap-4">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <span
             aria-hidden="true"
-            className="font-display italic text-2xl text-ink-secondary/70 leading-none tabular-nums pt-1"
+            className="shrink-0 font-display italic text-2xl text-ink-secondary/70 leading-none tabular-nums pt-1"
           >
             {chapter.rubric}
           </span>
@@ -46,16 +46,16 @@ export default function BestiaryFolio({
           <div className="min-w-0">
             <h2
               id={headingId}
-              className="font-display italic text-xl md:text-2xl text-ink-primary leading-tight truncate"
+              className="font-display italic text-xl md:text-2xl text-ink-primary leading-tight break-words"
             >
               {chapter.name}
             </h2>
-            <div className="font-script text-caption text-ink-whisper leading-snug truncate">
+            <div className="font-script text-caption text-ink-whisper leading-snug break-words">
               {chapter.kicker}
             </div>
           </div>
         </div>
-        <div className="shrink-0 text-right font-script text-caption text-ink-whisper pt-1">
+        <div className="shrink-0 font-script text-caption text-ink-whisper sm:pt-1 sm:text-right">
           <span className="tabular-nums">{species.length}</span> {species.length === 1 ? 'species' : 'species'}
         </div>
       </header>

@@ -28,8 +28,8 @@ export default function SectionHeader({
   className = '',
 }) {
   return (
-    <header className={`flex items-start gap-3 ${className}`}>
-      <div className="flex-1 min-w-0">
+    <header className={`flex flex-col sm:flex-row sm:items-start gap-3 ${className}`}>
+      <div className="w-full sm:w-auto flex-1 min-w-0">
         {kicker && (
           <div className="font-script text-sheikah-teal-deep text-caption">
             {kicker}
@@ -44,7 +44,7 @@ export default function SectionHeader({
               {chapterMark(index)}
             </span>
           )}
-          <Tag className="font-display text-lede md:text-xl text-ink-primary leading-tight">
+          <Tag className="font-display text-lede md:text-xl text-ink-primary leading-tight break-words min-w-0">
             {title}
           </Tag>
           {count != null && (
@@ -58,7 +58,7 @@ export default function SectionHeader({
         )}
       </div>
       {actions && (
-        <div className="flex items-center gap-2 shrink-0">{actions}</div>
+        <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">{actions}</div>
       )}
     </header>
   );

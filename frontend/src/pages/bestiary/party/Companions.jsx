@@ -121,7 +121,7 @@ export default function Companions() {
         progressPct={totalPossible ? (pets.length / totalPossible) * 100 : 0}
       />
 
-      <p className="font-script text-sm text-ink-whisper -mt-2 max-w-xl">
+      <p className="font-script text-body text-ink-whisper -mt-2 max-w-xl">
         feed companions to grow them — at full bloom they evolve into mounts you can ride
       </p>
 
@@ -159,18 +159,23 @@ export default function Companions() {
           No companions match this filter.
         </EmptyState>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {visiblePets.map((pet) => (
             <motion.div key={pet.id} whileHover={{ y: -2 }}>
               <ParchmentCard
-                className={`cursor-pointer transition-all ${
+                className={`transition-all ${
                   pet.is_active
                     ? `ring-2 ring-offset-2 ring-offset-ink-page ring-moss`
                     : ''
                 }`}
-                onClick={() => setSelectedPet(selectedPet?.id === pet.id ? null : pet)}
               >
-                <div className="text-center">
+                <button
+                  type="button"
+                  className="w-full rounded-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep"
+                  aria-label={`Care for ${pet.potion.name} ${pet.species.name}`}
+                  aria-expanded={selectedPet?.id === pet.id}
+                  onClick={() => setSelectedPet(selectedPet?.id === pet.id ? null : pet)}
+                >
                   <div className="flex items-center justify-center h-16 mb-1">
                     <div
                       className={`relative inline-flex items-center justify-center rounded-full p-1 bg-ink-page-aged/40 ${
@@ -193,7 +198,7 @@ export default function Companions() {
                       />
                     </div>
                   </div>
-                  <div className="font-body text-sm font-medium leading-tight">
+                  <div className="font-body text-body font-medium leading-tight break-words">
                     {pet.potion.name} {pet.species.name}
                   </div>
                   <div
@@ -231,7 +236,7 @@ export default function Companions() {
                       <Star size={10} /> active
                     </div>
                   )}
-                </div>
+                </button>
 
                 {selectedPet?.id === pet.id && (
                   <div className="mt-3 pt-3 border-t border-ink-page-shadow/70 space-y-2">
@@ -279,7 +284,7 @@ export default function Companions() {
                                 size={24}
                                 alt={f.item.name}
                               />
-                              <span className="flex-1 min-w-0 font-body text-caption text-ink-primary truncate">
+                              <span className="flex-1 min-w-0 font-body text-caption text-ink-primary break-words">
                                 {f.item.name}
                               </span>
                               <span className="shrink-0 font-rune text-tiny text-ink-whisper tabular-nums">

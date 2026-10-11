@@ -80,7 +80,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
               <div className="font-body text-body text-ink-secondary mt-1">
                 A little encouragement goes a long way. Review completed work and rewards below.
               </div>
-              <div className="mt-3 flex items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Button
                   size="sm"
                   onClick={() => {

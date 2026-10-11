@@ -105,7 +105,7 @@ export default function ParentDashboard() {
             {childrenLoading ? (
               <p className="font-body text-caption text-ink-secondary">Loading...</p>
             ) : children && children.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {children.map((child) => {
                   const kidWeek = weekByKid.find((w) => w.kid_id === child.id);
                   const name = child.display_name || child.username;
@@ -118,10 +118,10 @@ export default function ParentDashboard() {
                       type="button"
                       onClick={() => navigate('/manage')}
                       aria-label={`Manage ${name}`}
-                      className="text-left"
+                      className="min-w-0 text-left"
                     >
                       <ParchmentCard className="h-full space-y-1">
-                        <span className="font-display text-body text-ink-primary block">
+                        <span className="font-display text-body text-ink-primary block break-words [overflow-wrap:anywhere]">
                           {name}
                         </span>
                         {kidWeek && (

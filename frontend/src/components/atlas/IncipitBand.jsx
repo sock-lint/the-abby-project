@@ -15,10 +15,10 @@ import { tierForProgress } from './mastery.constants';
  * applies — omit to suppress the strand.
  *
  * Phone-aware by default: with no explicit `versalSize`, the versal renders
- * as a CSS-visibility pair — md-sized below the sm breakpoint, xl at sm+ —
+ * as a single responsive glyph — md-sized below the sm breakpoint, xl at sm+ —
  * so a 390px phone doesn't spend ~half its content row on ornament. An
  * explicitly-passed `versalSize` opts out and renders a single fixed-size
- * versal at every width (both renders stay aria-hidden via the primitive).
+ * versal at every width (the glyph stays aria-hidden via the primitive).
  */
 export default function IncipitBand({
   letter,
@@ -40,31 +40,12 @@ export default function IncipitBand({
       className={`overflow-hidden ${className}`}
     >
       <div className="flex items-center gap-3 sm:gap-5">
-        {versalSize ? (
-          <IlluminatedVersal
-            letter={letter}
-            size={versalSize}
-            tier={tier}
-            progressPct={safePct}
-          />
-        ) : (
-          <>
-            <IlluminatedVersal
-              letter={letter}
-              size="md"
-              tier={tier}
-              progressPct={safePct}
-              className="sm:hidden"
-            />
-            <IlluminatedVersal
-              letter={letter}
-              size="xl"
-              tier={tier}
-              progressPct={safePct}
-              className="hidden sm:inline-flex"
-            />
-          </>
-        )}
+        <IlluminatedVersal
+          letter={letter}
+          size={versalSize ?? 'responsive'}
+          tier={tier}
+          progressPct={safePct}
+        />
         <div className="flex-1 min-w-0">
           {kicker && (
             <div className="font-script text-sheikah-teal-deep text-base leading-snug">
@@ -75,7 +56,7 @@ export default function IncipitBand({
             {title}
           </h1>
           {meta && (
-            <div className="mt-1 inline-flex items-center gap-2 text-caption font-script text-ink-whisper">
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-caption font-script text-ink-whisper">
               {meta}
             </div>
           )}

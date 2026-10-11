@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, BellRing } from 'lucide-react';
@@ -29,6 +29,8 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [markAllError, setMarkAllError] = useState('');
   const ref = useRef(null);
+  const triggerRef = useRef(null);
+  const popoverId = useId();
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
 
@@ -128,7 +130,7 @@ export default function NotificationBell() {
             onClick={() => handleNotificationClick(n)}
             className={`block w-full min-h-11 text-left p-3 border-b border-ink-page-shadow/50 last:border-0 transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sheikah-teal ${
               !n.is_read ? 'bg-amber-primary/5' : ''
-            } ${clickable ? 'cursor-pointer hover:bg-ink-page-shadow/60/30' : ''}`}
+            } ${clickable ? 'cursor-pointer hover:bg-ink-page-shadow/30' : ''}`}
           >
             <span className="flex items-start gap-2">
               {!n.is_read && (
@@ -139,7 +141,7 @@ export default function NotificationBell() {
                 aria-hidden="true"
                 className={`mt-0.5 shrink-0 ${accentClass}`}
               />
-              <span className="min-w-0 flex-1">
+              <span className="min-w-0 flex-1 break-words">
                 <span className="block text-body font-medium">{n.title}</span>
                 {n.message && (
                   <span className="block text-caption text-ink-whisper mt-0.5">{n.message}</span>
@@ -156,19 +158,40 @@ export default function NotificationBell() {
   );
 
   return (
-    <div className="relative" ref={ref}>
+    <div
+      className="relative"
+      ref={ref}
+      onKeyDown={(event) => {
+        if (isDesktop && open && event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen(false);
+          triggerRef.current?.focus({ preventScroll: true });
+        }
+      }}
+      onBlur={(event) => {
+        if (isDesktop && open && event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+          setOpen(false);
+        }
+      }}
+    >
       <IconButton
+        ref={triggerRef}
         onClick={() => { if (!open) { refresh(); setMarkAllError(''); } setOpen(!open); }}
         variant="ghost"
         aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
+        aria-expanded={open}
+        aria-haspopup={!isDesktop ? 'dialog' : undefined}
+        aria-controls={isDesktop && open ? popoverId : undefined}
         className="relative hover:bg-ink-page-shadow/60"
       >
-        <Bell size={18} className="text-ink-whisper" />
+        <Bell size={18} aria-hidden="true" className="text-ink-whisper" />
         {unreadCount > 0 && (
           <motion.span
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-micro text-white flex items-center justify-center font-bold"
+            aria-hidden="true"
+            className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-ember-deep rounded-full text-micro text-ink-page flex items-center justify-center font-bold"
           >
             {unreadCount > 9 ? '9+' : unreadCount}
           </motion.span>
@@ -191,26 +214,30 @@ export default function NotificationBell() {
       <AnimatePresence>
         {isDesktop && open && (
           <motion.div
+            id={popoverId}
+            role="region"
+            aria-label="Notifications"
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
-            className="absolute right-0 top-full mt-2 w-80 max-h-96 bg-ink-page-aged border border-ink-page-shadow rounded-xl shadow-xl overflow-hidden z-50"
+            className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] max-h-[min(24rem,calc(100dvh-8rem))] flex flex-col bg-ink-page-aged border border-ink-page-shadow rounded-2xl shadow-xl overflow-hidden z-50"
           >
-            <div className="flex items-center justify-between p-3 border-b border-ink-page-shadow">
+            <div className="flex items-center justify-between gap-2 p-3 border-b border-ink-page-shadow shrink-0">
               <span className="font-display font-bold text-body">Notifications</span>
               {unreadCount > 0 && (
                 <button
+                  type="button"
                   onClick={handleMarkAllRead}
-                  className="text-caption text-sheikah-teal-deep hover:underline"
+                  className="min-h-11 px-2 rounded-xl text-caption text-sheikah-teal-deep hover:bg-sheikah-teal/10"
                 >
                   Mark all read
                 </button>
               )}
             </div>
             {markAllError && (
-              <div className="px-3 py-2 border-b border-ink-page-shadow">{markAllBanner}</div>
+              <div className="px-3 py-2 border-b border-ink-page-shadow shrink-0">{markAllBanner}</div>
             )}
-            {listBody}
+            <div className="min-h-0 overflow-y-auto overscroll-contain">{listBody}</div>
           </motion.div>
         )}
       </AnimatePresence>

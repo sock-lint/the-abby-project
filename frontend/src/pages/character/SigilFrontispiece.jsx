@@ -70,8 +70,9 @@ export default function SigilFrontispiece({ profile, onOpenTrophyPicker }) {
             {displayName}
           </h1>
           {titleText && (
-            <div className="mt-1 font-body font-semibold text-lede text-gold-leaf flex items-center justify-center md:justify-start gap-1">
-              <Crown size={14} className="text-gold-leaf" /> {titleText}
+            <div className="mt-1 font-body font-semibold text-lede text-gold-leaf flex items-start justify-center md:justify-start gap-1">
+              <Crown size={14} className="mt-1 shrink-0 text-gold-leaf" />
+              <span className="min-w-0 break-words [overflow-wrap:anywhere]">{titleText}</span>
             </div>
           )}
           <div className="mt-2 flex flex-wrap items-center justify-center md:justify-start gap-2">
