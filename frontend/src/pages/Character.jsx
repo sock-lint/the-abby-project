@@ -95,7 +95,7 @@ export default function Character() {
   const earnedBadges = useMemo(() => summary?.badges_earned || [], [summary]);
 
   // Hoist mergeSlotCosmetics: compute owned/total per chapter once so the
-  // shelf spines and the active folio share counts without re-walking the
+  // collection cards and the active chapter share counts without re-walking the
   // catalog four times. Memoized BEFORE the early-return guards so the hook
   // order stays stable across loading / loaded renders.
   const chapterEntriesBySlot = useMemo(() => {

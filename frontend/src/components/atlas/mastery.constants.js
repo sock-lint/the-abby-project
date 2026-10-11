@@ -1,10 +1,10 @@
-// Shared by Skills (TomeSpine, FolioSpread, ChapterRubric, SkillVerse,
-// IlluminatedVersal) and Badges (BadgeSigil, BadgeDetailSheet, CollectionFolio,
+// Shared by Skills (Wayfinder, SkillVerse, IlluminatedVersal) and
+// collections (TomeSpine, ChapterRubric, BadgeSigil, BadgeDetailSheet, CollectionFolio,
 // IncipitBand). Lives in a .js file because react-refresh/only-export-components
 // forbids non-component exports from .jsx.
 
-// Progress tier drives the gilt color on TomeSpine foot-bands, SkillVerse
-// level straps, and IlluminatedVersal fill. Tailwind class strings resolve
+// Progress tier drives collection progress bars, SkillVerse level labels,
+// and IlluminatedVersal fill. Tailwind class strings resolve
 // through cover tokens, not hex — so every journal cover (hyrule / vigil /
 // sunlit / snowquill / verdant / harvest) gets its own contrast-tuned shade
 // without branching here.

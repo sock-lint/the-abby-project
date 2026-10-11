@@ -119,9 +119,7 @@ function YearbookHistory({ targetUserId, isParent, childOptions, onSelectChild }
     }
   }, [targetUserId, isParent, summaryRequest])
 
-  // Sort chronologically so chapter 1 → N reads left-to-right on the shelf, with
-  // the current chapter on the right edge — same as flipping through a
-  // book's spines.
+  // Keep chapter chips in chronological order, oldest to newest.
   const view = state
 
   const sortedChapters = useMemo(
@@ -171,8 +169,8 @@ function YearbookHistory({ targetUserId, isParent, childOptions, onSelectChild }
     name: chapter.label || `Chapter ${idx + 1}`,
     icon: chapterMark(idx),
     chip: String(chapter.chapter_year),
-    // Years aren't a completion concept — they're a calendar — so we hand
-    // the spine a null progressPct. TomeSpine renders a thin hairline.
+    // Calendar chapters use compact chips without completion progress.
+    variant: 'vessel',
     progressPct: null,
     tier: chapter.is_current ? PROGRESS_TIER.rising : PROGRESS_TIER.nascent,
     ariaLabel: `${chapter.label || `Chapter ${idx + 1}`}, ${chapter.chapter_year}`,

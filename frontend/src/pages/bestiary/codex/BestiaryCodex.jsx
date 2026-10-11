@@ -14,11 +14,10 @@ import { groupSpeciesByChapter, totalRarityCounts } from './codex.constants';
 const STORAGE_KEY = 'bestiary:codex:active-chapter';
 
 /**
- * BestiaryCodex — illuminated codex of every authored species. The shelf
- * carries one tome per chapter (Mythic / Bonded / Hatched / Silhouettes);
- * the active chapter renders a BestiaryFolio with rubric, drop-cap, rarity
- * strand, and the existing SpeciesTile grid. Mirrors SigilCodex's structure
- * so the Atlas and Bestiary hubs speak the same vocabulary.
+ * BestiaryCodex — collection cards for every authored species, grouped by
+ * Mythic / Bonded / Hatched / Silhouettes. The selected collection renders
+ * a BestiaryFolio with rarity information and the existing SpeciesTile grid.
+ * Shared collection controls match the Badges and Lorebook navigation.
  */
 export default function BestiaryCodex() {
   const { data, loading } = useApi(getPetCodex);

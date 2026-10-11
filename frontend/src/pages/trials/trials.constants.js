@@ -16,9 +16,8 @@ export const STATUS_TONE = {
 };
 
 // Chapter definitions. `rubric` is the number the folio header renders;
-// `letter` is the IlluminatedVersal drop-cap. `tier` is the spine-tint hint
-// — `groupQuestsByChapter` still computes a progress-based tier per chapter
-// at call time so empty chapters fall back to `locked` correctly.
+// `letter` is the IlluminatedVersal drop-cap. `tier` retains the chapter's
+// tone metadata; status collection tabs use counts without completion bars.
 export const CHAPTERS = [
   {
     id: 'available',
@@ -54,9 +53,9 @@ export const CHAPTERS = [
   },
 ];
 
-// Kind filter vessels — orthogonal to status chapters. Matches the
-// Companions/Mounts shelf pattern: icon + label + match predicate, rendered
-// as a TomeShelf with variant="vessel" and ×N chips.
+// Kind filters are independent of status chapters. Matches the
+// Companions/Mounts pattern: icon + label + match predicate, rendered
+// as compact TomeShelf pills with variant="vessel" and ×N chips.
 export const KIND_FILTERS = [
   { key: 'all',        label: 'All',        icon: '🗺', match: () => true },
   { key: 'boss',       label: 'Boss',       icon: '🐲', match: (q) => kindOf(q) === 'boss' },
@@ -98,8 +97,7 @@ export function chapterIdForQuest(record, { activeQuestId, earnedBadgeIds, isQue
 }
 
 // Group quest sources into their four chapters. Returns the full ordered
-// chapter list (including empty chapters) so the shelf renders a complete
-// skeleton — empty chapters still draw a spine, matching BestiaryCodex.
+// chapter list (including empty chapters) so every status tab remains visible.
 export function groupQuestsByChapter({
   available = [],
   activeQuest = null,
@@ -130,7 +128,7 @@ export function groupQuestsByChapter({
 }
 
 // Counts per kind filter across a flat quest list — used to render the
-// `×N` chip on each vessel pill. Empty buckets stay in the map so callers
+// `×N` chip on each filter pill. Empty buckets stay in the map so callers
 // can render `×0` if they want (we hide them at render time).
 export function kindCounts(quests = []) {
   const out = {};

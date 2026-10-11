@@ -12,14 +12,12 @@ import {
 import { headingDisplay, headingScript } from '../constants/styles';
 import Button from '../components/Button';
 import { TextField, SelectField, TextAreaField } from '../components/form';
-import TomeShelf from '../components/atlas/TomeShelf';
-import FolioSpread from './achievements/FolioSpread';
 import IlluminatedVersal from '../components/atlas/IlluminatedVersal';
 import AccordionSection from '../components/dashboard/AccordionSection';
 import SectionHeader from '../components/SectionHeader';
-import { PROGRESS_TIER, tierForProgress } from '../components/atlas/mastery.constants';
-import { XP_THRESHOLDS } from './achievements/skillTree.constants';
-import { useState } from 'react';
+import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
+import SkillsShowcase from './design/SkillsShowcase';
+import CollectionsShowcase from './design/CollectionsShowcase';
 
 export default function DesignShowcase() {
   return (
@@ -35,7 +33,7 @@ export default function DesignShowcase() {
         <p className="font-body text-ink-secondary mt-2 max-w-prose">
           A visual QA page for our Meadow components. Navigate to{' '}
           <code className="font-rune text-sm">/__design</code> in dev to inspect
-          check typography, controls, collection tiles and progress states.
+          typography, controls, collection navigation and progress states.
         </p>
       </header>
 
@@ -318,9 +316,27 @@ export default function DesignShowcase() {
         />
       </ParchmentCard>
 
-      <DeckleDivider glyph="dragon-crest" label="Skills · Tome Shelf & Folio" />
+      <DeckleDivider glyph="dragon-crest" label="Skills · Wayfinder" />
 
       <SkillsShowcase />
+
+      <DeckleDivider glyph="compass-rose" label="Collection navigation" />
+
+      <CollectionsShowcase />
+
+      <DeckleDivider glyph="rune-orb" label="Shared progress states" />
+
+      <section aria-label="Shared progress states" className="space-y-4">
+        <h2 className="font-display text-2xl font-bold text-ink-primary">Progress markers</h2>
+        <p className="font-body text-body text-ink-secondary">Synthetic states for the shared progress primitive.</p>
+        <div className="flex items-center gap-6 flex-wrap">
+          <Labeled label="locked"><IlluminatedVersal letter="L" progressPct={0} tier={PROGRESS_TIER.locked} /></Labeled>
+          <Labeled label="nascent 10%"><IlluminatedVersal letter="N" progressPct={10} tier={PROGRESS_TIER.nascent} /></Labeled>
+          <Labeled label="rising 45%"><IlluminatedVersal letter="R" progressPct={45} tier={PROGRESS_TIER.rising} /></Labeled>
+          <Labeled label="cresting 75%"><IlluminatedVersal letter="C" progressPct={75} tier={PROGRESS_TIER.cresting} /></Labeled>
+          <Labeled label="gilded 100%"><IlluminatedVersal letter="G" progressPct={100} tier={PROGRESS_TIER.gilded} /></Labeled>
+        </div>
+      </section>
 
       <DeckleDivider glyph="dragon-crest" />
 
@@ -330,175 +346,6 @@ export default function DesignShowcase() {
     </div>
   );
 }
-
-const SHOWCASE_CATEGORIES = [
-  { id: 1, name: 'Woodworking', icon: '🪵' },
-  { id: 2, name: 'Cooking', icon: '🍳' },
-  { id: 3, name: 'Coding', icon: '💻' },
-  { id: 4, name: 'Sewing', icon: '🧵' },
-  { id: 5, name: 'Music', icon: '🎵' },
-  { id: 6, name: 'Art', icon: '🎨' },
-  { id: 7, name: 'Science', icon: '🔬' },
-];
-
-const SHOWCASE_SUMMARIES = {
-  1: { level: 4, total_xp: 1800 },
-  2: { level: 2, total_xp: 400 },
-  3: { level: 5, total_xp: 1700 },
-  4: { level: 1, total_xp: 120 },
-  5: { level: 3, total_xp: 680 },
-  6: { level: 0, total_xp: 40 },
-  7: { level: 6, total_xp: 2500 },
-};
-
-function buildShowcaseTree(id) {
-  const cat = SHOWCASE_CATEGORIES.find((c) => c.id === id) || SHOWCASE_CATEGORIES[0];
-  const summary = SHOWCASE_SUMMARIES[cat.id];
-  return {
-    category: cat,
-    summary,
-    subjects: [
-      {
-        id: 100 + cat.id,
-        name: 'Foundations',
-        icon: '📐',
-        summary: { level: Math.max(0, summary.level - 1), total_xp: Math.floor(summary.total_xp * 0.6) },
-        skills: [
-          {
-            id: 1000 + cat.id,
-            name: 'Measure & Mark',
-            icon: '📏',
-            level: 3,
-            xp_points: 780,
-            unlocked: true,
-            level_names: { 1: 'Novice', 2: 'Journeyman', 3: 'Adept', 4: 'Master', 5: 'Virtuoso', 6: 'Grand Master' },
-            prerequisites: [],
-          },
-          {
-            id: 1001 + cat.id,
-            name: 'Read a Plan',
-            icon: '📜',
-            level: 1,
-            xp_points: 220,
-            unlocked: true,
-            level_names: { 1: 'Novice', 2: 'Journeyman' },
-            prerequisites: [
-              { skill_id: 1000 + cat.id, skill_name: 'Measure & Mark', required_level: 2, met: true },
-            ],
-          },
-        ],
-      },
-      {
-        id: 200 + cat.id,
-        name: 'Techniques',
-        icon: '🔨',
-        summary: { level: summary.level, total_xp: Math.floor(summary.total_xp * 0.4) },
-        skills: [
-          {
-            id: 2000 + cat.id,
-            name: 'Dovetail Joint',
-            icon: '🔗',
-            level: 6,
-            xp_points: 2500,
-            unlocked: true,
-            level_names: { 6: 'Grand Master' },
-            prerequisites: [],
-          },
-          {
-            id: 2001 + cat.id,
-            name: 'Inlay Work',
-            icon: '✨',
-            level: 0,
-            xp_points: 0,
-            unlocked: false,
-            level_names: { 0: 'Locked' },
-            prerequisites: [
-              { skill_id: 2000 + cat.id, skill_name: 'Dovetail Joint', required_level: 4, met: true },
-              { skill_id: 9999, skill_name: 'Gilding (other category)', required_level: 3, met: false },
-            ],
-          },
-        ],
-      },
-    ],
-  };
-}
-
-function SkillsShowcase() {
-  const [active, setActive] = useState(1);
-  const [vesselActive, setVesselActive] = useState('potion');
-  return (
-    <section className="space-y-4">
-      <div>
-        <div className="font-script text-sheikah-teal-deep text-caption">
-          atlas · tome shelf opens onto the folio
-        </div>
-        <h2 className={headingDisplay + ' italic text-2xl'}>Skills</h2>
-      </div>
-
-      <div className="flex items-center gap-6 flex-wrap">
-        <Labeled label="locked">
-          <IlluminatedVersal letter="L" progressPct={0} tier={PROGRESS_TIER.locked} />
-        </Labeled>
-        <Labeled label="nascent 10%">
-          <IlluminatedVersal letter="N" progressPct={10} tier={PROGRESS_TIER.nascent} />
-        </Labeled>
-        <Labeled label="rising 45%">
-          <IlluminatedVersal letter="R" progressPct={45} tier={PROGRESS_TIER.rising} />
-        </Labeled>
-        <Labeled label="cresting 75%">
-          <IlluminatedVersal letter="C" progressPct={75} tier={PROGRESS_TIER.cresting} />
-        </Labeled>
-        <Labeled label="gilded 100%">
-          <IlluminatedVersal letter="G" progressPct={100} tier={PROGRESS_TIER.gilded} />
-        </Labeled>
-      </div>
-
-      <div>
-        <div className="font-script text-ink-whisper text-caption mb-1">codex variant · book spines</div>
-        <TomeShelf
-          items={SHOWCASE_CATEGORIES.map((cat) => {
-            const summary = SHOWCASE_SUMMARIES[cat.id];
-            const totalXp = summary?.total_xp ?? 0;
-            const shelfPct = Math.min(100, (totalXp / XP_THRESHOLDS[6]) * 100);
-            return {
-              id: cat.id,
-              name: cat.name,
-              icon: cat.icon,
-              chip: `L${summary?.level ?? 0}`,
-              progressPct: shelfPct,
-              tier: tierForProgress({ unlocked: true, progressPct: shelfPct, level: summary?.level ?? 0 }),
-            };
-          })}
-          activeId={active}
-          onSelect={setActive}
-          ariaLabel="Skill categories"
-        />
-      </div>
-
-      <div>
-        <div className="font-script text-ink-whisper text-caption mb-1">vessel variant · labeled drawers</div>
-        <TomeShelf
-          items={SHOWCASE_VESSELS}
-          activeId={vesselActive}
-          onSelect={setVesselActive}
-          ariaLabel="Satchel compartments"
-        />
-      </div>
-
-      <FolioSpread tree={buildShowcaseTree(active)} onSelectSkill={() => {}} />
-    </section>
-  );
-}
-
-const SHOWCASE_VESSELS = [
-  { id: 'egg',       name: 'Eggs',           icon: '🥚', chip: '×4',  variant: 'vessel', progressPct: null, tier: PROGRESS_TIER.nascent },
-  { id: 'potion',    name: 'Potions',        icon: '🧪', chip: '×42', variant: 'vessel', progressPct: null, tier: PROGRESS_TIER.nascent },
-  { id: 'food',      name: 'Provisions',     icon: '🍎', chip: '×12', variant: 'vessel', progressPct: null, tier: PROGRESS_TIER.nascent },
-  { id: 'frame',     name: 'Avatar Frames',  icon: '🖼', chip: '×3',  variant: 'vessel', progressPct: null, tier: PROGRESS_TIER.nascent },
-  { id: 'title',     name: 'Titles',         icon: '✒', chip: '×7',  variant: 'vessel', progressPct: null, tier: PROGRESS_TIER.nascent },
-  { id: 'scroll',    name: 'Quest Scrolls',  icon: '📜', chip: '×2',  variant: 'vessel', progressPct: null, tier: PROGRESS_TIER.nascent },
-  { id: 'pouch',     name: 'Coin Pouches',   icon: '💰', chip: '×5',  variant: 'vessel', progressPct: null, tier: PROGRESS_TIER.nascent },
-];
 
 function Labeled({ label, children }) {
   return (

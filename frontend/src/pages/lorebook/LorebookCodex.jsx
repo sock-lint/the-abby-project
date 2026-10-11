@@ -14,11 +14,9 @@ import TrialSheet from './trials/TrialSheet';
 const STORAGE_KEY = 'atlas:lorebook-codex:active-chapter';
 
 /**
- * LorebookCodex — incipit hero, then a TomeShelf of chapter spines opening
- * onto ONE LorebookFolio at a time. Same shelf+single-folio shape as its
- * Atlas siblings (SigilCodex on Badges, BestiaryCodex): a kid who learns
- * "pull a tome, read its folio" on one tab gets the same interaction here
- * instead of a single stacked scroll of every chapter.
+ * LorebookCodex — chapter cards with training counts opening one
+ * LorebookFolio at a time. Shared collection controls keep chapter selection
+ * consistent with Badges and Bestiary while retaining trial deep links.
  */
 export default function LorebookCodex({
   entries = [],
@@ -61,7 +59,7 @@ export default function LorebookCodex({
     const target = entries.find((entry) => entry.slug === trialSlug);
     if (target && target.unlocked && !target.trained) {
       setTrialEntry(target);
-      // Open the shelf on the chapter the deep-linked entry lives in, so
+      // Select the chapter the deep-linked entry lives in, so
       // closing the trial leaves the kid looking at the right folio.
       if (target.chapter) setOverride(target.chapter);
     }

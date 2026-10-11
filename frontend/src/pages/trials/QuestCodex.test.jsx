@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import QuestCodex from './QuestCodex.jsx';
 
 vi.mock('framer-motion', async () => {
@@ -63,6 +63,28 @@ describe('QuestCodex', () => {
     expect(await screen.findByText(/Active Boss/)).toBeInTheDocument();
     // The available row should NOT be visible when underway is active.
     expect(screen.queryByText(/Available Boss/)).toBeNull();
+  });
+
+  it('shows status counts without inventing completion progress from active or closed quests', () => {
+    render(
+      <QuestCodex
+        available={[]}
+        activeQuest={questOf(defBoss({ name: 'Ongoing Trial' }), 'active', {
+          current_progress: 25, progress_percent: 25,
+        })}
+        history={[
+          questOf(defCollection({ id: 9, name: 'Finished Trial' }), 'completed'),
+          questOf(defBoss({ id: 10, name: 'Expired Trial' }), 'expired', { id: 100 }),
+        ]}
+        earnedBadgeIds={new Set()}
+      />,
+    );
+
+    const underway = screen.getByRole('tab', { name: 'Underway, 1 trial' });
+    const closed = screen.getByRole('tab', { name: 'Closed, 2 trials' });
+    expect(underway).toHaveAttribute('aria-selected', 'true');
+    expect(within(underway).queryByRole('progressbar')).toBeNull();
+    expect(within(closed).queryByRole('progressbar')).toBeNull();
   });
 
   it('switches the active chapter on shelf tab click and reflects it on the folio body', async () => {

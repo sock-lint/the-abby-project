@@ -133,7 +133,7 @@ export default function Inventory() {
     [grouped],
   );
 
-  // Active spine — persisted across reloads, gracefully degrades when the
+  // Active compartment — persisted across reloads, gracefully degrades when the
   // remembered compartment becomes empty (e.g. the kid uses the last potion
   // or narrows their search past it).
   const [activeCompartmentId, setActiveCompartmentId] = useState(() => {
@@ -181,15 +181,10 @@ export default function Inventory() {
     name: compartment.label,
     icon: compartment.icon,
     chip: `×${grouped[compartment.id].length}`,
-    // Inventory is "how full is this drawer", not "how complete is the
-    // collection" — there's no upper bound per compartment, so we hand the
-    // spine a null progressPct. TomeSpine renders a thin hairline instead.
+    // Compartment quantities have no completion target.
     progressPct: null,
     tier: PROGRESS_TIER.nascent,
-    // Vessel variant — labeled apothecary drawer with horizontal text and
-    // a count-forward chip. Reads as "items in a jar" instead of the
-    // codex variant's "book of pages," which the Skills / Badges shelves
-    // use.
+    // Compact filter pills keep the compartment name and count visible.
     variant: 'vessel',
     ariaLabel: `${compartment.label}, ${grouped[compartment.id].length} item${grouped[compartment.id].length === 1 ? '' : 's'}`,
   }));
@@ -197,7 +192,7 @@ export default function Inventory() {
   return (
     // animate={false}: this is a Treasury hub tab and ChapterHub already
     // runs a per-tab entrance animation — PageShell here is for the shared
-    // spine width + rhythm, not a second fade stacked on the first.
+    // content width + rhythm, not a second fade stacked on the first.
     <PageShell rhythm="loose" animate={false} className="pb-32 md:pb-8">
       <header>
         <div className="font-script text-sheikah-teal-deep text-base">
