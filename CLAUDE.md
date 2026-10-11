@@ -370,8 +370,8 @@ owned by this chat without another approval request.
 Fetch the PR target and prune stale remote-tracking refs with
 `git fetch origin --prune`. Pruning does not delete live remote branches, and a
 missing remote ref does not prove a PR merged. Verify the exact PR's GitHub merge
-state and recorded
-head SHA. Require the local tip to equal or be a verified ancestor of that head;
+state and recorded head SHA. Require the local tip to equal or be a verified
+ancestor of that head;
 fetch the recorded head when needed to prove this relationship. Retain divergent
 tips and unmerged follow-up work. Check for other open PRs using the same branch.
 
@@ -388,8 +388,8 @@ Squash/rebase merges may fail ancestry checks despite the exact PR being merged.
 For that case, require the branch tip to equal or be a verified ancestor of the
 merged PR's recorded head, confirm no open PR or ongoing work uses it, and
 preserve the exact tip in a durable recovery ref (for example,
-`refs/abby/branch-archive/<unique-id>`) or a
-verified restorable worktree snapshot. Record the saved ref/snapshot and tip SHA.
+`refs/abby/branch-archive/<unique-id>`) or a verified restorable worktree snapshot.
+Record the saved ref/snapshot and tip SHA.
 Only then use `git update-ref -d refs/heads/<branch> <verified-tip>`: its expected
 old SHA prevents deletion if the branch moved during verification. If it fails,
 retain and investigate. Never bulk-force branch deletion or remove Codex archive
