@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Meadow
   m_EditorClassIdentifier: Assembly-CSharp::AbbyCamp.Presentation.CampPresentationDefinition
   WorldTitle: MEMORY MEADOW
-  PlayerAppearance: {fileID: 11400000, guid: e2d42608ba08a5d4a861448a5f5a388d, type: 2}
+  PlayerAppearance: {fileID: 0}
   CompanionAppearance: {fileID: 11400000, guid: ca0badea2f05eb8449115db698247512, type: 2}
   AlternateCompanionAppearance: {fileID: 11400000, guid: 9975ae4fd3bd1c945985b350a4192ac0, type: 2}
   MemoryBloom: {fileID: 21300000, guid: 7a297f1b57b4222479ae9caff4393c87, type: 3}

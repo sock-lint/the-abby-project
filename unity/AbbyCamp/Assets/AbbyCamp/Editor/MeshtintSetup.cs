@@ -6,7 +6,6 @@ using AbbyCamp.Presentation;
 using AbbyCamp.World;
 using UnityEditor;
 using UnityEditor.Animations;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace AbbyCamp.Editor
@@ -39,20 +38,20 @@ namespace AbbyCamp.Editor
                 AssetDatabase.CreateAsset(settings, PresentationPath);
             }
             // Palette/font/receipts stay shared. These definitions only replace appearance.
-            var chick = CreateCreature("Chick", "Idle", "Jump Forward In Place", .9f, 0f);
-            var fledgling = CreateCreature("Fledgling", "Idle", "Walk Forward In Place", 1.05f, 0f);
-            CreateCreature("Bird", "Fly Idle", "Fly Forward In Place", 1.3f, .3f);
+            var chick = CreateCreature("Chick", "Idle", "Jump Forward In Place", 1.8f, 0f);
+            var fledgling = CreateCreature("Fledgling", "Idle", "Walk Forward In Place", 1.9f, 0f);
+            CreateCreature("Bird", "Fly Idle", "Fly Forward In Place", 2f, .3f);
             settings.CompanionAppearance = chick;
             // Appearance preview demonstrates swaps; it is not an earned evolution.
             settings.AlternateCompanionAppearance = fledgling;
-            if (Directory.Exists(ArcherPath)) settings.PlayerAppearance = CreateArcher();
+            // A companion garden has no player avatar. Keep the purchased pack
+            // staged privately, without bundling it through this presentation.
+            settings.PlayerAppearance = null;
             EditorUtility.SetDirty(settings);
             AssetDatabase.SaveAssets();
             CampSceneBuilder.BuildScene(settings, ScenePath, DecorateForest);
-            SoftenWelcomeMat(settings);
-            EditorSceneManager.SaveScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene(), ScenePath);
             Validate();
-            Debug.Log("ABBY_MESHTINT_PREPARED: licensed companion, stage definitions, avatar, forest and shared portraits.");
+            Debug.Log("ABBY_MESHTINT_PREPARED: fixed licensed companion garden, stage definitions, forest and shared portraits.");
         }
 
         private static void ConfigureMaterialsAndTextures()
@@ -225,7 +224,7 @@ namespace AbbyCamp.Editor
         private static void DecorateForest()
         {
             ForestMaterials.Clear();
-            UnityEngine.Object.FindFirstObjectByType<CampPhoneCamera>().ConfigureFraming(6.7f, new Vector3(-.35f, 1.1f, .5f));
+            UnityEngine.Object.FindFirstObjectByType<CampPhoneCamera>().ConfigureFraming(4.6f, new Vector3(0f, .95f, 0f));
             var sun = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsSortMode.None).First(light => light.type == LightType.Directional);
             sun.intensity = .95f;
             sun.color = new Color(1f, .98f, .96f);
@@ -238,8 +237,8 @@ namespace AbbyCamp.Editor
             var forest = new GameObject("Purchased woodland backdrop").transform;
             forest.SetParent(scenery, false);
 
-            // The purchased ground is appearance only. The existing flat box and
-            // perimeter still own movement; no imported terrain physics is added.
+            // Ground and props are appearance only; no movement or imported
+            // terrain physics is needed in the companion garden.
             GameObject.Find("Soft meadow island").SetActive(false);
             GameObject.Find("Meadow edge").SetActive(false);
             PlaceFootprint("Grounds and Platforms/Ground 01 Soft Edge.prefab", Vector3.zero, 25f, 22f, -.015f, 0f, forest);
@@ -252,8 +251,8 @@ namespace AbbyCamp.Editor
                 PlaceFootprint("Steps/Stone Step 01.prefab", position, 1.1f, .8f, .035f, 18f + i * 11f, forest);
             }
 
-            // Tall silhouettes stay beyond the walkable north/west rim. The
-            // southeast foreground stays low for the following phone camera.
+            // Tall silhouettes frame the companion from behind, with low
+            // foliage in front so its eyes stay clear on a phone.
             var trees = new[] {
                 new Vector3(-10f, 0f, -5f), new Vector3(-10.3f, 0f, -1.8f), new Vector3(-10f, 0f, 1.5f),
                 new Vector3(-9.2f, 0f, 4.8f), new Vector3(-7.3f, 0f, 7.4f), new Vector3(-4.2f, 0f, 8.3f),
@@ -272,7 +271,7 @@ namespace AbbyCamp.Editor
             }
 
             // A broken garden gateway frames the bloom side, with small ruin
-            // fragments along the woodland rather than across the task route.
+            // fragments along the woodland beside the companion clearing.
             Place("Structures and Buildings/Arch Gate 01.prefab", new Vector3(3.8f, 0f, 6.2f), 3.3f, -18f, forest);
             Place("Structures and Buildings/Arch Gate 01.prefab", new Vector3(-5.2f, 0f, 5.9f), 2.7f, -18f, forest);
             Place("Structures and Buildings/Arch Gate Debris 01.prefab", new Vector3(6.9f, 0f, 5.4f), .7f, 35f, forest);
@@ -293,20 +292,11 @@ namespace AbbyCamp.Editor
                 if (i % 2 == 0)
                     Place("Nature/Mushroom " + (i % 4 == 0 ? "01" : "02") + ".prefab", pockets[i] + new Vector3(-.35f, 0f, .45f), .35f, i * 32f, forest);
             }
+            // Helpers normalize props in an unscaled frame first. Bring the
+            // complete backdrop closer without changing their proportions.
+            forest.localScale = Vector3.one * .55f;
             AssetDatabase.SaveAssets();
             ValidateForest();
-        }
-
-        private static void SoftenWelcomeMat(CampPresentationDefinition palette)
-        {
-            var welcome = GameObject.Find("Task board welcome mat");
-            if (welcome == null) throw new InvalidOperationException("The task board welcome mat is missing.");
-            welcome.transform.localScale = Vector3.Scale(welcome.transform.localScale, new Vector3(.65f, 1f, .65f));
-            var welcomeMaterial = ForestMaterial(welcome.GetComponent<Renderer>().sharedMaterial);
-            welcomeMaterial.SetColor("_BaseColor", Color.Lerp(palette.Grass, palette.Paper, .45f));
-            welcome.GetComponent<Renderer>().sharedMaterial = welcomeMaterial;
-            EditorUtility.SetDirty(welcomeMaterial);
-            AssetDatabase.SaveAssets();
         }
 
         private static Material ForestMaterial(Material source)
@@ -439,7 +429,7 @@ namespace AbbyCamp.Editor
             var forest = GameObject.Find("Purchased woodland backdrop");
             if (forest == null) throw new InvalidOperationException("The purchased woodland backdrop is missing; prepare the licensed meadow again.");
             if (forest.GetComponentsInChildren<Collider>(true).Length > 0 || forest.GetComponentsInChildren<Rigidbody>(true).Length > 0)
-                throw new InvalidOperationException("Purchased scenery must not replace the flat gameplay physics.");
+                throw new InvalidOperationException("Purchased garden scenery must not introduce physics or movement.");
             var renderers = forest.GetComponentsInChildren<Renderer>().Where(renderer => renderer.enabled).ToArray();
             long triangles = 0;
             foreach (var filter in forest.GetComponentsInChildren<MeshFilter>())
@@ -450,7 +440,7 @@ namespace AbbyCamp.Editor
             var shadowCasters = renderers.Count(renderer => renderer.shadowCastingMode != UnityEngine.Rendering.ShadowCastingMode.Off);
             if (renderers.Length > 100 || triangles > 150000 || shadowCasters > 25)
                 throw new InvalidOperationException($"Forest exceeds the phone scene budget: {renderers.Length} renderers, {triangles} triangles, {shadowCasters} shadow casters.");
-            Debug.Log($"ABBY_MESHTINT_FOREST: {forest.transform.childCount} purchased props, {renderers.Length} renderers, {triangles} triangles, {shadowCasters} shadow casters; flat gameplay physics preserved.");
+            Debug.Log($"ABBY_MESHTINT_FOREST: {forest.transform.childCount} purchased props, {renderers.Length} renderers, {triangles} triangles, {shadowCasters} shadow casters; fixed garden without imported physics.");
         }
 
         [MenuItem("Abby Camp/Licensed Cute Series/Validate meadow")]
