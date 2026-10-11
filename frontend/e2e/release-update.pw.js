@@ -88,16 +88,20 @@ test('production Django routes survive offline boots and replacement releases un
 
   expect(await page.evaluate(async () => (await fetch('/api/pwa-fixture/')).json())).toEqual({ synthetic: '/api/pwa-fixture/' });
   expect(await page.evaluate(async () => (await fetch('/api/chronicle/')).json())).toEqual({ synthetic: '/api/chronicle/' });
-  await expect.poll(async () => (await cacheUrls(page)).includes(`${origin}/api/pwa-fixture/`)).toBe(true);
-  expect((await cacheUrls(page)).some((url) => new URL(url).pathname.startsWith('/api/chronicle/'))).toBe(false);
-  // A stale pre-existing sensitive entry must never be exposed by the
-  // general API fallback, even when its bytes already exist in api-reads.
-  await page.evaluate(async () => {
+  expect((await cacheUrls(page)).some((url) => new URL(url).pathname.startsWith('/api/'))).toBe(false);
+  // Every API read is network-only, including routes outside the chronicle.
+  // Even responses left by an older worker must never become an offline
+  // fallback for another account sharing this browser profile.
+  const legacyApiPaths = ['/api/pwa-fixture/', '/api/chronicle/private-sentinel'];
+  await page.evaluate(async (paths) => {
     const cache = await caches.open('api-reads');
-    await cache.put('/api/chronicle/private-sentinel', new Response('{"private":"synthetic stale sentinel"}', {
-      headers: { 'Content-Type': 'application/json' },
-    }));
-  });
+    for (const path of paths) {
+      await cache.put(path, new Response('{"private":"synthetic stale sentinel"}', {
+        headers: { 'Content-Type': 'application/json' },
+      }));
+    }
+  }, legacyApiPaths);
+  for (const path of legacyApiPaths) expect(await cacheUrls(page)).toContain(`${origin}${path}`);
   const unityPaths = ['/play', '/play/', '/play/synthetic-deep-route'];
   for (const path of unityPaths) {
     const unity = await context.newPage();
@@ -111,8 +115,7 @@ test('production Django routes survive offline boots and replacement releases un
   await expectOfflineShell(page, origin, 'A');
   // Keep the exclusion's path boundary narrow: /playground is a SPA route.
   await expectOfflineShell(page, origin, 'A', '/playground');
-  expect(await page.evaluate(async () => (await fetch('/api/pwa-fixture/')).json())).toEqual({ synthetic: '/api/pwa-fixture/' });
-  for (const path of ['/api/chronicle/', '/api/chronicle/private-sentinel']) {
+  for (const path of ['/api/chronicle/', ...legacyApiPaths]) {
     expect(await page.evaluate(async (url) => {
       try { await fetch(url); return 'unexpected response'; } catch { return 'network failure'; }
     }, path)).toBe('network failure');
@@ -155,6 +158,11 @@ test('production Django routes survive offline boots and replacement releases un
   await page.getByRole('button', { name: 'Reload', exact: true }).click();
   await expect(page.locator('#release')).toHaveText('Release B');
   await expect(page.getByText('New version available.', { exact: true })).toHaveCount(0);
+  // Activating the replacement worker removes legacy private API caches,
+  // while its static shell and font precache remain available offline.
+  await expect.poll(() => page.evaluate(async () =>
+    (await caches.keys()).some((name) => /^api-reads(?:$|-)/.test(name)))).toBe(false);
+  expect((await cacheUrls(page)).some((url) => new URL(url).pathname.startsWith('/api/'))).toBe(false);
   await context.setOffline(true);
   await expectOfflineShell(page, origin, 'B');
 });
