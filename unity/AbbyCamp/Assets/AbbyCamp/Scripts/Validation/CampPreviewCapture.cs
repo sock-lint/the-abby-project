@@ -6,6 +6,7 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.UI;
 
 namespace AbbyCamp.Validation
 {
@@ -76,6 +77,7 @@ namespace AbbyCamp.Validation
                 // Let camera-space Canvas geometry/layout rebuild at the requested target resolution.
                 yield return null;
                 Canvas.ForceUpdateCanvases();
+                ValidateLabelGeometry();
                 var request = new UniversalRenderPipeline.SingleCameraRequest { destination = target };
                 if (!RenderPipeline.SupportsRenderRequest(camera, request))
                     throw new InvalidOperationException("The active pipeline does not support an offscreen single-camera render.");
@@ -99,6 +101,21 @@ namespace AbbyCamp.Validation
                 if (image != null) UnityEngine.Object.Destroy(image);
                 target.Release();
                 UnityEngine.Object.Destroy(target);
+            }
+        }
+
+        private static void ValidateLabelGeometry()
+        {
+            var names = new HashSet<string> { "CampTitle", "SheetTitle", "RewardStatus", "RewardBalance", "InboxStatus", "BestiaryStatus" };
+            foreach (var text in UnityEngine.Object.FindObjectsByType<Text>(FindObjectsSortMode.None))
+            {
+                if (!names.Contains(text.name) || !text.isActiveAndEnabled || string.IsNullOrEmpty(text.text)) continue;
+                // Unity 6 returns the renderer's borrowed mesh; its owner keeps it.
+                var mesh = text.canvasRenderer.GetMesh();
+                int vertices = mesh == null ? 0 : mesh.vertexCount;
+                Debug.Log($"ABBY_PLAY_CAPTURE_TEXT: {text.name}; rect={text.rectTransform.rect}, preferredHeight={text.preferredHeight}, generatedVertices={text.cachedTextGenerator.vertexCount}, renderedVertices={vertices}, culled={text.canvasRenderer.cull}.");
+                if (vertices == 0 || text.canvasRenderer.cull)
+                    throw new InvalidOperationException("Preview text has no visible glyph mesh: " + text.name);
             }
         }
 

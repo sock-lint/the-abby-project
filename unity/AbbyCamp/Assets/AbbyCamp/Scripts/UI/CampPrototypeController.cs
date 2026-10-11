@@ -787,6 +787,9 @@ namespace AbbyCamp.UI
             var text = Label(parent, value, size, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, color, style);
             text.name = name;
             text.supportRichText = false;
+            // Flow layout already sizes these paragraphs from preferredHeight.
+            // Fractional pixel rounding must not truncate a complete text line.
+            text.verticalOverflow = VerticalWrapMode.Overflow;
             return text;
         }
 
