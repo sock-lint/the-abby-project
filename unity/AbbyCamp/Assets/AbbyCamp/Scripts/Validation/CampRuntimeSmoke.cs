@@ -311,10 +311,10 @@ namespace AbbyCamp.Validation
             for (int frame = 0; frame < 2; frame++) yield return null;
             Canvas.ForceUpdateCanvases();
             CheckRenderedText("SheetTitle");
-            if (section == "Rewards" && !ui.IsDemo)
+            if (!ui.IsDemo)
             {
-                CheckFirstSheetRow("RewardStatus");
-                CheckFirstSheetRow("RewardBalance");
+                CheckFirstSheetRow(section == "Rewards" ? "RewardStatus" : section + "Status");
+                if (section == "Rewards") CheckFirstSheetRow("RewardBalance");
             }
             Check(!garden.InputEnabled, section + " modal suspends world input");
         }
