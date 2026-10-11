@@ -154,8 +154,8 @@ namespace AbbyCamp.Validation
                 Check(stable != null && stable.pets.Length == 1 && stable.mounts.Length == 1 && stable.pets[0].name == "Peep",
                     "The server returns the child's real owned pet and mount");
                 int primaryPet = stable.pets[0].id, primaryMount = stable.mounts[0].id;
-                Check(NamedText("CompanionName") == "Meadow friend" && HasText("Bird artwork preview") && NamedText("CoinsBalance").Contains(initial.balance.ToString()),
-                    "Home reports saved coins while honestly labeling the bird artwork preview");
+                Check(NamedText("CompanionName") == "Meadow friend" && HasText("Artwork preview") && NamedText("CoinsBalance").Contains(initial.balance.ToString()),
+                    "Home reports saved coins while honestly labeling the artwork preview");
                 yield return OpenSection(ui, garden, "Rewards");
                 yield return Capture("connected-rewards-portrait.png");
                 yield return CloseSection(ui, garden, "Rewards");
@@ -222,7 +222,7 @@ namespace AbbyCamp.Validation
                 var second = Account(before, api.CurrentUser.id);
                 Check(problem == null && coins.balance == second.balance && stable.pets.Length == 1 && stable.pets[0].name == "Sprout",
                     "Replacement session reads only its own balance and stable");
-                Check(NamedText("CompanionName") == "Meadow friend" && HasText("Bird artwork preview") && !HasText("Peep"),
+                Check(NamedText("CompanionName") == "Meadow friend" && HasText("Artwork preview") && !HasText("Peep"),
                     "Replacement home keeps preview labeling and clears the previous saved companion");
                 yield return OpenSection(ui, garden, "Bestiary");
                 Check(HasNamed("Pet_" + stable.pets[0].id) && NamedText("ActiveCompanion").Contains("Sprout")
@@ -258,6 +258,7 @@ namespace AbbyCamp.Validation
 
         private void CheckHomeTargets()
         {
+            CheckRenderedText("CampTitle");
             foreach (var name in HomeButtons)
             {
                 var button = FindButton(name);
@@ -303,6 +304,16 @@ namespace AbbyCamp.Validation
             Click(section + "Button");
             yield return WaitUntil(() => ui.IsModalOpen && !ui.IsBusy && !ui.IsSectionLoading && !ui.IsHomeLoading
                 && string.Equals(ui.ActiveSection, section, StringComparison.OrdinalIgnoreCase), 15f, section + " section finishes loading");
+            // A successful request can rebuild its sheet during this frame.
+            // Wait for the actual Canvas mesh and ScrollRect layout to settle.
+            for (int frame = 0; frame < 2; frame++) yield return null;
+            Canvas.ForceUpdateCanvases();
+            CheckRenderedText("SheetTitle");
+            if (section == "Rewards" && !ui.IsDemo)
+            {
+                CheckFirstSheetRow("RewardStatus");
+                CheckFirstSheetRow("RewardBalance");
+            }
             Check(!garden.InputEnabled, section + " modal suspends world input");
         }
 
@@ -385,8 +396,36 @@ namespace AbbyCamp.Validation
 
         private static string NamedText(string name)
         {
-            foreach (var text in FindObjectsByType<Text>(FindObjectsSortMode.None)) if (text.name == name) return text.text;
-            return "";
+            return FindText(name)?.text ?? "";
+        }
+
+        private static Text FindText(string name)
+        {
+            foreach (var text in FindObjectsByType<Text>(FindObjectsSortMode.None))
+                if (text.gameObject.activeInHierarchy && text.name == name) return text;
+            return null;
+        }
+
+        private void CheckRenderedText(string name)
+        {
+            var text = FindText(name);
+            Check(text != null && !string.IsNullOrWhiteSpace(text.text), "Visible text is present: " + name);
+            int vertices = text.cachedTextGenerator.vertexCount;
+            Debug.Log($"ABBY_PLAY_TEXT_LAYOUT: {name}; fontSize={text.fontSize}, rect={text.rectTransform.rect}, preferredHeight={text.preferredHeight}, vertices={vertices}.");
+            Check(vertices > 4, "Text has rendered glyph geometry: " + name);
+        }
+
+        private void CheckFirstSheetRow(string name)
+        {
+            CheckRenderedText(name);
+            var text = FindText(name);
+            var scroll = text.GetComponentInParent<ScrollRect>();
+            Check(scroll != null && scroll.viewport != null && scroll.content != null, "Sheet row has a scroll viewport: " + name);
+            var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(scroll.viewport, text.rectTransform);
+            var view = scroll.viewport.rect;
+            Debug.Log($"ABBY_PLAY_SHEET_LAYOUT: {name}; rowRect={text.rectTransform.rect}, rowBounds={bounds}, viewport={view}, content={scroll.content.rect}, contentPosition={scroll.content.anchoredPosition}, normalized={scroll.normalizedPosition}.");
+            Check(bounds.min.y >= view.yMin - .5f && bounds.max.y <= view.yMax + .5f,
+                "Initial sheet row is fully inside the visible viewport: " + name);
         }
 
         private static bool HasText(string value)
