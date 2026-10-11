@@ -137,4 +137,3 @@ class UnassignedProjectAccessTests(BaseFamilyAPITestCase):
         project = Project.objects.create(title="Child-authored draft", created_by=self.children[0])
         self.assertIn(project.pk, self.listed_project_ids())
         self.assertEqual(self.client.get(f"/api/projects/{project.pk}/").status_code, 200)
-

@@ -29,7 +29,7 @@ describe('App', () => {
     try {
       renderApp();
       expect(await screen.findByRole('alert')).toHaveTextContent(/could not stop notifications/i);
-      expect(screen.getByRole('button', { name: /enter/i })).toBeEnabled();
+      expect(screen.getByRole('button', { name: /^sign in$/i })).toBeEnabled();
       expect(replace).toHaveBeenCalledWith('another-account');
       expect(window.location.search).toBe('');
     } finally {

@@ -242,6 +242,26 @@ namespace AbbyCamp.Editor
             Reject(() => ApiContract.ParseNotificationPage("{\"count\":2,\"next\":null,\"results\":[" + notification + "," + notification + "]}"), "Duplicate inbox rows are rejected");
             Reject(() => ApiContract.ParseNotificationPage("{\"count\":0,\"next\":\"?page=2\",\"results\":[]}"), "An empty page cannot authorize a continuation loop");
             Check(AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", "/api/notifications/?page=2", out var next) && next == "https://abby.example.com/api/notifications/?page=2", "Inbox page URLs stay at the same-origin endpoint");
+            const string readNamespace = "0123456789abcdef0123456789abcdef";
+            Check(AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", "/api/notifications/?_abby_session=" + readNamespace + "&page=2", out next)
+                && next == "https://abby.example.com/api/notifications/?page=2",
+                "Django inbox continuation strips the inherited private read namespace");
+            Check(AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", "/api/notifications/?page=2&_abby_session=" + readNamespace, out next)
+                && next == "https://abby.example.com/api/notifications/?page=2",
+                "Inbox continuation accepts the namespace after its page number");
+            Check(AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", "/api/notifications/?_abby_session=" + readNamespace, out next)
+                && next == "https://abby.example.com/api/notifications/",
+                "Namespace-only inbox reads resolve to the first page");
+            Check(AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", "/api/notifications/?page=2&%5Fabby_session=" + readNamespace, out next)
+                && next == "https://abby.example.com/api/notifications/?page=2",
+                "URI-normalized private namespace keys are still stripped from inbox continuations");
+            Check(AbbyApiClient.TryResolveHabitPageUrl("https://abby.example.com", "/api/habits/?_abby_session=" + readNamespace + "&page=2", out var habitNext)
+                && habitNext == "https://abby.example.com/api/habits/?_abby_session=" + readNamespace + "&page=2",
+                "Habit continuation retains the inherited namespace for replacement by Send");
+            foreach (string unsafeQuery in new[] { "page=2&_abby_session=invalid", "page=2&_abby_session=" + readNamespace + "&token=x", "page=2&page=3&_abby_session=" + readNamespace,
+                "page=2&_abby_session=" + readNamespace + "&_abby_session=" + readNamespace, "page=2&%5Fabby_session_extra=" + readNamespace })
+                Check(!AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", "/api/notifications/?" + unsafeQuery, out _),
+                    "Private namespaces cannot weaken inbox query validation: " + unsafeQuery);
             foreach (string unsafePage in new[] { "https://other.example.com/api/notifications/?page=2", "http://abby.example.com/api/notifications/?page=2", "/api/auth/", "/api/notifications/?page=0", "/api/notifications/?page=501", "/api/notifications/?page=2&token=x", "/api/notifications/?page=2#secret", "https://user@abby.example.com/api/notifications/?page=2" })
                 Check(!AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", unsafePage, out _), "Unsafe inbox page rejected: " + unsafePage);
 

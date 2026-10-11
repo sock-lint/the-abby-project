@@ -22,7 +22,7 @@ describe('Login', () => {
   it('explains an account-switch cleanup failure while keeping sign-in available', () => {
     renderLogin({ sessionError: 'Could not stop notifications on this device. Reconnect and try again.' });
     expect(screen.getByRole('alert')).toHaveTextContent(/could not stop notifications/i);
-    expect(screen.getByRole('button', { name: /enter/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /^sign in$/i })).toBeEnabled();
   });
   it('renders the form fields', () => {
     server.use(

@@ -51,7 +51,7 @@ describe('private API cache retirement', () => {
     expect(routes.some(({ urlPattern }) => typeof urlPattern === 'function'
       ? urlPattern(input) : urlPattern.test(input.url.href))).toBe(false);
     expect(routes.map((route) => route.options.cacheName)).toEqual(['media-images', 'google-fonts']);
-    expect(workbox.globPatterns).toContain('**/*.{js,css,html,svg,png,woff2}');
+    expect(workbox.globPatterns).toContain('**/*.{js,css,html,svg,png,woff2,ttf}');
   });
 
   it('degrades when Cache Storage is unavailable or blocked', async () => {

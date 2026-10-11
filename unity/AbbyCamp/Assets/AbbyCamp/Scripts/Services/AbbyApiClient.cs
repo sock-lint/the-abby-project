@@ -504,8 +504,31 @@ namespace AbbyCamp.Services
         {
             if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return 0;
             if (uri.Query.Length == 0) return 1;
-            return uri.Query.StartsWith("?page=", StringComparison.Ordinal)
-                && int.TryParse(uri.Query.Substring(6), NumberStyles.None, CultureInfo.InvariantCulture, out var page) ? page : 0;
+            int page = 1;
+            bool hasPage = false;
+            bool hasReadNamespace = false;
+            foreach (var parameter in uri.Query.Substring(1).Split('&'))
+            {
+                int separator = parameter.IndexOf('=');
+                if (separator < 1) return 0;
+                string key = parameter.Substring(0, separator);
+                string value = parameter.Substring(separator + 1);
+                // Django pagination retains the private GET namespace. Accept
+                // only the generated noncredential key; the resolver strips it
+                // and Send applies this client's current session namespace.
+                if (key == "_abby_session")
+                {
+                    if (hasReadNamespace || !Guid.TryParseExact(value, "N", out _)) return 0;
+                    hasReadNamespace = true;
+                }
+                else
+                {
+                    if (key != "page" || hasPage
+                        || !int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out page)) return 0;
+                    hasPage = true;
+                }
+            }
+            return page;
         }
 
         /// <summary>Explicit, idempotent acknowledgement of a fetched notification.
