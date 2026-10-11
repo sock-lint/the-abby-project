@@ -15,11 +15,26 @@ import greenlightPayout from '../../../contracts/api/fixtures/greenlight-payout.
 import greenlightPreview from '../../../contracts/api/fixtures/greenlight-preview.json';
 import greenlightReconciled from '../../../contracts/api/fixtures/greenlight-reconcile.json';
 import greenlightFinal from '../../../contracts/api/fixtures/greenlight-overview-reconciled.json';
+import stableResponse from '../../../contracts/api/fixtures/pets-stable.json';
+import emptyStable from '../../../contracts/api/fixtures/pets-stable-empty.json';
+import inventoryResponse from '../../../contracts/api/fixtures/inventory-food.json';
+import emptyInventory from '../../../contracts/api/fixtures/inventory-empty.json';
+import confirmedFeed from '../../../contracts/api/fixtures/pet-feed.json';
+import neutralFeed from '../../../contracts/api/fixtures/pet-feed-neutral.json';
+import evolvedFeed from '../../../contracts/api/fixtures/pet-feed-evolved.json';
+import activatedPet from '../../../contracts/api/fixtures/pet-activate.json';
+import activatedMount from '../../../contracts/api/fixtures/mount-activate.json';
+import missingFood from '../../../contracts/api/fixtures/pet-feed-missing-food.json';
+import unavailableFood from '../../../contracts/api/fixtures/pet-feed-unavailable-food.json';
+import alreadyEvolved from '../../../contracts/api/fixtures/pet-feed-already-evolved.json';
+import foreignPet from '../../../contracts/api/fixtures/pet-not-owned.json';
+import foreignMount from '../../../contracts/api/fixtures/mount-not-owned.json';
 import { server } from '../test/server';
 import { normalizeList } from '../utils/api';
 import { api, getToken, setToken } from './client';
 import {
-  getGreenlightOverview, getHabits, getMe, logHabitTap, login,
+  activateMount, activatePet, feedPet, getGreenlightOverview, getHabits, getInventory,
+  getMe, getStable, logHabitTap, login,
   previewGreenlightCsv, reconcileGreenlightCsv, recordGreenlightPayout, saveGreenlightSnapshot,
 } from './index';
 
@@ -230,5 +245,114 @@ describe('shared Django response fixtures through the React API client', () => {
     expect(final.balance_snapshot).toEqual(greenlightSnapshot);
     expect(final.payouts).toHaveLength(2);
     expect(final.payouts.every((payout) => payout.reconciled)).toBe(true);
+  });
+
+  it('reads owned pets, mounts and the raw inventory array without losing nested care fields', async () => {
+    const authorizations = [];
+    setToken(loginResponse.token);
+    server.use(
+      http.get('*/api/pets/stable/', ({ request }) => {
+        authorizations.push(request.headers.get('authorization'));
+        return HttpResponse.json(stableResponse);
+      }),
+      http.get('*/api/inventory/', ({ request }) => {
+        authorizations.push(request.headers.get('authorization'));
+        return HttpResponse.json(inventoryResponse);
+      }),
+    );
+
+    const stable = await getStable();
+    const inventory = await getInventory();
+    expect(stable).toEqual(stableResponse);
+    expect(inventory).toEqual(inventoryResponse);
+    expect(stable.pets[0]).toMatchObject({
+      id: 51, name: 'Sprout {a} "friend"', growth_points: 20, is_active: true,
+      evolved_to_mount: false, happiness_level: 'happy', last_fed_at: null,
+      species: { id: 41, name: 'Fox', sprite_key: 'fox' },
+      potion: { id: 43, slug: 'fire', rarity: 'uncommon' },
+    });
+    expect(stable.pets.find((pet) => pet.id === 52)).toMatchObject({
+      happiness_level: 'stale', last_fed_at: '2026-10-01T12:00:00-07:00',
+    });
+    expect(stable.pets.find((pet) => pet.id === 53)).toMatchObject({
+      growth_points: 100, evolved_to_mount: true, is_fully_grown: true,
+    });
+    expect(stable.mounts[0]).toMatchObject({ id: 61, is_active: true, active_expedition: null });
+    const foods = normalizeList(inventory).filter((entry) => entry.item.item_type === 'food');
+    expect(foods.map((entry) => entry.item.id)).toEqual([71, 72, 74]);
+    expect(foods[0]).toMatchObject({
+      id: 81, quantity: 2, item: { id: 71, food_species_name: 'Fox' },
+      available_actions: [{ id: 'feed', label: 'Feed a companion', to: '/bestiary?tab=companions' }],
+    });
+    expect(foods[1].item.food_species_name).toBeNull();
+    expect(authorizations).toEqual([`Token ${loginResponse.token}`, `Token ${loginResponse.token}`]);
+  });
+
+  it('preserves empty collection totals and the empty inventory array', async () => {
+    server.use(
+      http.get('*/api/pets/stable/', () => HttpResponse.json(emptyStable)),
+      http.get('*/api/inventory/', () => HttpResponse.json(emptyInventory)),
+    );
+    expect(await getStable()).toEqual({ pets: [], mounts: [], total_pets: 0, total_mounts: 0, total_possible: 4 });
+    expect(normalizeList(await getInventory())).toEqual([]);
+  });
+
+  it.each([
+    ['preferred food', 51, 71, confirmedFeed],
+    ['neutral food', 51, 72, neutralFeed],
+    ['evolving food', 52, 74, evolvedFeed],
+  ])('sends the actual item definition ID for %s and preserves server-confirmed growth', async (_label, petId, foodId, response) => {
+    let submitted;
+    let authorization;
+    setToken(loginResponse.token);
+    server.use(http.post(`*/api/pets/${petId}/feed/`, async ({ request }) => {
+      submitted = await request.json();
+      authorization = request.headers.get('authorization');
+      return HttpResponse.json(response);
+    }));
+
+    const result = await feedPet(petId, foodId);
+    expect(submitted).toEqual({ food_item_id: foodId });
+    expect(authorization).toBe(`Token ${loginResponse.token}`);
+    expect(result).toEqual(response);
+    expect(result.new_growth).toBe(response.new_growth);
+    expect(result.evolved).toBe(response.evolved);
+    expect(result.mount_id).toBe(response.mount_id);
+  });
+
+  it('activates a pet and mount through their distinct endpoints with empty bodies', async () => {
+    const calls = [];
+    setToken(loginResponse.token);
+    server.use(
+      http.post('*/api/pets/52/activate/', async ({ request }) => {
+        calls.push({ body: await request.text(), authorization: request.headers.get('authorization') });
+        return HttpResponse.json(activatedPet);
+      }),
+      http.post('*/api/mounts/62/activate/', async ({ request }) => {
+        calls.push({ body: await request.text(), authorization: request.headers.get('authorization') });
+        return HttpResponse.json(activatedMount);
+      }),
+    );
+
+    expect(await activatePet(52)).toEqual(activatedPet);
+    expect(await activateMount(62)).toEqual(activatedMount);
+    expect(activatedPet).toMatchObject({ id: 52, is_active: true, growth_points: 90 });
+    expect(activatedMount).toMatchObject({ id: 62, is_active: true, active_expedition: null });
+    expect(calls).toEqual([
+      { body: '', authorization: `Token ${loginResponse.token}` },
+      { body: '', authorization: `Token ${loginResponse.token}` },
+    ]);
+  });
+
+  it.each([
+    ['missing food', '/api/pets/51/feed/', () => feedPet(51), missingFood],
+    ['unavailable food', '/api/pets/51/feed/', () => feedPet(51, 999), unavailableFood],
+    ['already evolved pet', '/api/pets/53/feed/', () => feedPet(53, 71), alreadyEvolved],
+    ['foreign pet feed', '/api/pets/81/feed/', () => feedPet(81, 71), foreignPet],
+    ['foreign pet activation', '/api/pets/81/activate/', () => activatePet(81), foreignPet],
+    ['foreign mount activation', '/api/mounts/81/activate/', () => activateMount(81), foreignMount],
+  ])('exposes %s rejection with the actual HTTP status and response', async (_label, path, action, response) => {
+    server.use(http.post(`*${path}`, () => HttpResponse.json(response, { status: 400 })));
+    await expect(action()).rejects.toMatchObject({ status: 400, message: response.error, response });
   });
 });

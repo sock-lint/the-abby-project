@@ -2,10 +2,12 @@
 // shared constants can be reused by kid and parent renderers without tripping
 // react-refresh/only-export-components.
 
+import { chapterMark } from '../../components/atlas/mastery.constants';
+
 export const LOREBOOK_CHAPTERS = [
   {
     id: 'daily_life',
-    rubric: '§I',
+    rubric: chapterMark(0),
     letter: 'D',
     name: 'Daily Life',
     kicker: 'duties, rituals, study, journal, creations',
@@ -13,7 +15,7 @@ export const LOREBOOK_CHAPTERS = [
   },
   {
     id: 'long_work',
-    rubric: '§II',
+    rubric: chapterMark(1),
     letter: 'L',
     name: 'Long Work',
     kicker: 'ventures, skill trees, seals, chapters',
@@ -21,7 +23,7 @@ export const LOREBOOK_CHAPTERS = [
   },
   {
     id: 'rpg_layer',
-    rubric: '§III',
+    rubric: chapterMark(2),
     letter: 'R',
     name: 'RPG Layer',
     kicker: 'quests, companions, treasure, flame',
@@ -29,7 +31,7 @@ export const LOREBOOK_CHAPTERS = [
   },
   {
     id: 'trade_coin',
-    rubric: '§IV',
+    rubric: chapterMark(3),
     letter: 'T',
     name: 'Trade & Coin',
     kicker: 'game coins and real ledgers',
@@ -37,7 +39,7 @@ export const LOREBOOK_CHAPTERS = [
   },
   {
     id: 'self_expression',
-    rubric: '§V',
+    rubric: chapterMark(4),
     letter: 'S',
     name: 'Self-Expression',
     kicker: 'covers, titles, frames, trophies',

@@ -102,6 +102,7 @@ namespace AbbyCamp.Editor
                     && camera.GetComponent<CampPhoneCamera>() != null
                     && camera.GetComponent<CampPhoneCamera>().Subject == companion.transform,
                     "The fixed garden camera must frame its companion.");
+                Require(camera.allowMSAA, "The garden camera must allow the render profile's edge smoothing.");
                 Require(gardenInput.Companion == companion && gardenInput.InputEnabled, "The garden input must target its companion.");
                 Require(FindSceneComponents<CharacterController>(scene, true).Length == 0
                     && !FindSceneComponents<Collider>(scene).Any(collider => collider.enabled),

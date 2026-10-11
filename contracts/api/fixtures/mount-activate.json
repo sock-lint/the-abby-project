@@ -1,0 +1,25 @@
+{
+  "id": 62,
+  "species": {
+    "id": 42,
+    "name": "Wolf",
+    "icon": "🐺",
+    "sprite_key": "wolf",
+    "description": "A synthetic trail companion.",
+    "food_preference": "meat"
+  },
+  "potion": {
+    "id": 44,
+    "slug": "ice",
+    "name": "Ice",
+    "sprite_key": "ice-potion",
+    "color_hex": "#91D9F2",
+    "rarity": "rare",
+    "description": "A cool synthetic variant."
+  },
+  "is_active": true,
+  "last_bred_at": "2026-10-08T12:00:00-07:00",
+  "active_expedition": null,
+  "created_at": "2026-10-10T12:00:00-07:00",
+  "updated_at": "2026-10-10T12:00:00-07:00"
+}

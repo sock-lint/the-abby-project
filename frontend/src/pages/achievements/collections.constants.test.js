@@ -15,7 +15,7 @@ describe('collections.constants', () => {
     it('ships seven chapters in rubric order', () => {
       expect(COLLECTIONS).toHaveLength(7);
       expect(COLLECTIONS.map((c) => c.rubric)).toEqual([
-        '§I', '§II', '§III', '§IV', '§V', '§VI', '§VII',
+        '1', '2', '3', '4', '5', '6', '7',
       ]);
     });
 
@@ -29,7 +29,7 @@ describe('collections.constants', () => {
 
     it('exports an id→collection lookup', () => {
       expect(COLLECTIONS_BY_ID.chronos.name).toBe('Chronos');
-      expect(COLLECTIONS_BY_ID.reliquary.rubric).toBe('§VII');
+      expect(COLLECTIONS_BY_ID.reliquary.rubric).toBe('7');
     });
   });
 

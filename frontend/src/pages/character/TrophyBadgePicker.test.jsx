@@ -47,6 +47,10 @@ describe('TrophyBadgePicker', () => {
     const byName = (n) => document.body.querySelector(`button[aria-label^="${n}"]`);
     expect(byName('First Project')).not.toBeNull();
     expect(byName('Night Owl')).not.toBeNull();
+    expect(document.body.querySelector('#trophy-chapter-chronos').parentElement
+      .querySelector('[data-chapter-marker="1"]')).toHaveTextContent('1');
+    expect(document.body.querySelector('#trophy-chapter-ventures').parentElement
+      .querySelector('[data-chapter-marker="2"]')).toHaveTextContent('2');
     // Unearned: Apprentice, Scholar shouldn't appear in the picker.
     expect(byName('Apprentice')).toBeNull();
     expect(byName('Scholar')).toBeNull();

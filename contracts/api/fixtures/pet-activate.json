@@ -1,0 +1,29 @@
+{
+  "id": 52,
+  "species": {
+    "id": 42,
+    "name": "Wolf",
+    "icon": "🐺",
+    "sprite_key": "wolf",
+    "description": "A synthetic trail companion.",
+    "food_preference": "meat"
+  },
+  "potion": {
+    "id": 43,
+    "slug": "fire",
+    "name": "Fire",
+    "sprite_key": "fire-potion",
+    "color_hex": "#E75A3A",
+    "rarity": "uncommon",
+    "description": "A warm synthetic variant."
+  },
+  "name": "",
+  "growth_points": 90,
+  "is_active": true,
+  "evolved_to_mount": false,
+  "is_fully_grown": false,
+  "happiness_level": "stale",
+  "last_fed_at": "2026-10-01T12:00:00-07:00",
+  "created_at": "2026-10-10T12:00:00-07:00",
+  "updated_at": "2026-10-10T12:00:00-07:00"
+}

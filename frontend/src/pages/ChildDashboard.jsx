@@ -28,7 +28,7 @@ import Button from '../components/Button';
 import ErrorAlert from '../components/ErrorAlert';
 import ScrollRail from '../components/ScrollRail';
 import Sparkline from '../components/Sparkline';
-import { CoinIcon } from '../components/icons/JournalIcons';
+import { CoinIcon, TreasuryIcon } from '../components/icons/JournalIcons';
 import { BookOpen, Sparkles, Flame, Target, X, Compass, Award } from 'lucide-react';
 import { RARITY_RING_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem, inkBleed } from '../motion/variants';
@@ -351,7 +351,7 @@ export default function ChildDashboard({ data, reload }) {
         index={0}
         title="Treasury"
         kicker="this week at a glance"
-        icon={<CoinIcon size={18} />}
+        icon={<TreasuryIcon size={18} />}
         tone="gold"
         defaultOpen
         peek={`${formatCurrency(current_balance)} · ${coin_balance ?? 0} coins · ${this_week?.hours_worked ?? 0}h`}

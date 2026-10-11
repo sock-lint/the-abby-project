@@ -80,7 +80,7 @@ namespace AbbyCamp.World
         }
 
         private bool IsTap(Vector2 position) => Time.unscaledTime - pointerStartedAt <= .75f
-            && (position - pointerStart).sqrMagnitude <= Mathf.Pow(Mathf.Clamp(Screen.width * .035f, 12f, 28f), 2f);
+            && (position - pointerStart).sqrMagnitude <= Mathf.Pow(AbbyCamp.UI.CampPhoneLayout.TapMovementThreshold(), 2f);
 
         private bool PointerHitsInterface(Vector2 position)
         {

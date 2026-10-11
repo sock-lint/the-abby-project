@@ -7,9 +7,9 @@
 // with it. Tier vocabulary matches PROGRESS_TIER from components/atlas — the
 // shelf spines tint themselves based on that.
 
-import { PROGRESS_TIER, RARITY_KEYS } from '../../../components/atlas/mastery.constants';
+import { chapterMark, PROGRESS_TIER, RARITY_KEYS } from '../../../components/atlas/mastery.constants';
 
-// Chapter definitions. `rubric` is the §-numeral the folio header renders;
+// Chapter definitions. `rubric` is the number the chapter marker renders;
 // `letter` is the IlluminatedVersal drop-cap. `tier` is the spine-tint hint
 // — `groupSpeciesByChapter` still computes a progress-based tier per chapter
 // at call time so empty chapters fall back to `locked` correctly.
@@ -18,7 +18,7 @@ export const CHAPTERS = [
     id: 'mythic',
     name: 'Bound in Lore',
     letter: 'M',
-    rubric: '§I',
+    rubric: chapterMark(0),
     kicker: 'every potion variant mounted — the rarest level of completion',
     tier: PROGRESS_TIER.gilded,
   },
@@ -26,7 +26,7 @@ export const CHAPTERS = [
     id: 'bonded',
     name: 'Bonded',
     letter: 'B',
-    rubric: '§II',
+    rubric: chapterMark(1),
     kicker: 'at least one mount evolved — the bond is forged',
     tier: PROGRESS_TIER.cresting,
   },
@@ -34,7 +34,7 @@ export const CHAPTERS = [
     id: 'hatched',
     name: 'Hatched',
     letter: 'H',
-    rubric: '§III',
+    rubric: chapterMark(2),
     kicker: 'a companion hatched but not yet evolved',
     tier: PROGRESS_TIER.rising,
   },
@@ -42,7 +42,7 @@ export const CHAPTERS = [
     id: 'silhouettes',
     name: 'Silhouettes',
     letter: 'S',
-    rubric: '§IV',
+    rubric: chapterMark(3),
     kicker: 'unseen creatures — hatch one to bring it into the light',
     tier: PROGRESS_TIER.locked,
   },

@@ -5,20 +5,23 @@ the views, serializers, authentication, pagination and game loop remain real.
 """
 import json
 import os
-from datetime import datetime, timezone as datetime_timezone
+from datetime import datetime, timedelta, timezone as datetime_timezone
 from pathlib import Path
 from unittest.mock import patch
 
 from django.conf import settings
 from django.core.cache import cache
+from django.core.management.color import no_style
+from django.db import connection
 from django.test import override_settings
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from apps.achievements.models import Skill, SkillCategory, SkillProgress
 from apps.habits.models import Habit, HabitLog, HabitSkillTag
+from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
 from apps.quests.models import DailyChallenge
-from apps.rpg.models import CharacterProfile
+from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
 from config.tests.factories import make_family
 
 
@@ -59,8 +62,8 @@ class SharedApiResponseFixtureTests(APITestCase):
             }, {"id": 8, "username": "fixture-sibling"}],
         )
         family, parent = household.family, household.parents[0]
-        self.child, sibling = household.children
-        outsider = make_family(
+        self.child, self.sibling = household.children
+        self.outsider = make_family(
             "Other Fixture Family", family_id=2,
             children=[{"id": 99, "username": "fixture-outsider"}],
         ).children[0]
@@ -80,10 +83,10 @@ class SharedApiResponseFixtureTests(APITestCase):
                 is_active=index != 4,
             )
         # Extra rows must not leak into this child's paginated tap surface.
-        for habit_id, owner, pending in ((91, sibling, False), (92, outsider, False), (93, self.child, True)):
+        for habit_id, owner, pending in ((91, self.sibling, False), (92, self.outsider, False), (93, self.child, True)):
             Habit.objects.create(
                 id=habit_id, name=f"Hidden ritual {habit_id}", user=owner,
-                created_by=parent if owner.family_id == family.id else outsider,
+                created_by=parent if owner.family_id == family.id else self.outsider,
                 pending_parent_review=pending,
             )
         self.auth_token = Token.objects.create(user=self.child, key="f" * 40)
@@ -107,6 +110,204 @@ class SharedApiResponseFixtureTests(APITestCase):
             f"API response drifted from {path.name}; review the contract and regenerate deliberately.",
         )
         return actual
+
+    def seed_companion_care(self):
+        """Synthetic ownership and typed food inputs; production services stay real."""
+        fox = PetSpecies.objects.create(
+            id=41, slug="fixture-fox", name="Fox", icon="🦊", sprite_key="fox",
+            description="A synthetic woodland friend.", food_preference="berries",
+        )
+        wolf = PetSpecies.objects.create(
+            id=42, slug="fixture-wolf", name="Wolf", icon="🐺", sprite_key="wolf",
+            description="A synthetic trail companion.", food_preference="meat",
+        )
+        fire = PotionType.objects.create(
+            id=43, slug="fire", name="Fire", sprite_key="fire-potion",
+            color_hex="#E75A3A", rarity="uncommon", description="A warm synthetic variant.",
+        )
+        ice = PotionType.objects.create(
+            id=44, slug="ice", name="Ice", sprite_key="ice-potion",
+            color_hex="#91D9F2", rarity="rare", description="A cool synthetic variant.",
+        )
+        fox.available_potions.add(fire, ice)
+        wolf.available_potions.add(fire, ice)
+        self.pet = UserPet.objects.create(
+            id=51, user=self.child, species=fox, potion=fire, name='Sprout {a} "friend"',
+            growth_points=20, is_active=True,
+        )
+        self.ready_pet = UserPet.objects.create(
+            id=52, user=self.child, species=wolf, potion=fire, growth_points=90,
+            last_fed_at=FIXED_NOW - timedelta(days=9),
+        )
+        self.evolved_pet = UserPet.objects.create(
+            id=53, user=self.child, species=fox, potion=ice, growth_points=100,
+            evolved_to_mount=True,
+        )
+        self.mount = UserMount.objects.create(
+            id=61, user=self.child, species=fox, potion=ice, is_active=True,
+        )
+        self.other_mount = UserMount.objects.create(
+            id=62, user=self.child, species=wolf, potion=ice,
+            last_bred_at=FIXED_NOW - timedelta(days=2),
+        )
+        self.preferred_food = ItemDefinition.objects.create(
+            id=71, slug="fixture-berry-bowl", name="Berry Bowl", icon="🫐",
+            sprite_key="berry-bowl", item_type="food", food_species=fox,
+            description="A synthetic favorite for foxes.",
+        )
+        self.neutral_food = ItemDefinition.objects.create(
+            id=72, slug="fixture-trail-mix", name="Trail Mix", icon="🥜",
+            item_type="food", description="A synthetic neutral snack.",
+        )
+        egg = ItemDefinition.objects.create(
+            id=73, slug="fixture-fox-egg", name="Synthetic Egg", icon="🥚",
+            sprite_key="big-egg", item_type="egg", pet_species=fox,
+        )
+        self.wolf_food = ItemDefinition.objects.create(
+            id=74, slug="fixture-wolf-meal", name="Wolf Meal", icon="🍖",
+            item_type="food", food_species=wolf,
+        )
+        for inventory_id, item, quantity in (
+            (81, self.preferred_food, 2), (82, self.neutral_food, 1), (83, egg, 1), (84, self.wolf_food, 1),
+        ):
+            UserInventory.objects.create(id=inventory_id, user=self.child, item=item, quantity=quantity)
+        for row_id, owner in ((81, self.sibling), (82, self.outsider)):
+            UserPet.objects.create(
+                id=row_id, user=owner, species=wolf, potion=ice, growth_points=10, is_active=True,
+            )
+            UserMount.objects.create(id=row_id, user=owner, species=fox, potion=fire, is_active=True)
+            UserInventory.objects.create(id=row_id + 10, user=owner, item=self.preferred_food, quantity=2)
+
+    def pin_next_mount_identity(self):
+        # Evolution creates its real mount through an auto field. Reset only
+        # this test table's sequence so PostgreSQL/full-suite ordering cannot
+        # change the raw response's generated ID; never replace the service.
+        with connection.cursor() as cursor:
+            if connection.vendor == "sqlite":
+                cursor.execute(
+                    "UPDATE sqlite_sequence SET seq = (SELECT MAX(id) FROM pets_usermount) "
+                    "WHERE name = 'pets_usermount'"
+                )
+            else:
+                for sql in connection.ops.sequence_reset_sql(no_style(), [UserMount]):
+                    cursor.execute(sql)
+
+    def test_stable_and_inventory_preserve_companion_ownership_and_nested_data(self):
+        self.seed_companion_care()
+        stable = self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-stable.json")
+        inventory = self.assert_response_fixture(self.client.get("/api/inventory/"), "inventory-food.json")
+        self.assertEqual({row["id"] for row in stable["pets"]}, {51, 52, 53})
+        self.assertEqual({row["id"] for row in stable["mounts"]}, {61, 62})
+        self.assertEqual((stable["total_pets"], stable["total_mounts"], stable["total_possible"]), (3, 2, 4))
+        self.assertEqual({row["id"] for row in inventory}, {81, 82, 83, 84})
+        foods = [row for row in inventory if row["item"]["item_type"] == "food"]
+        self.assertEqual({row["item"]["id"] for row in foods}, {71, 72, 74})
+        self.assertIsNone(next(row for row in foods if row["item"]["id"] == 72)["item"]["food_species_name"])
+        self.assertEqual(stable["pets"][0]["potion"]["slug"], "fire")
+        self.assertIsNone(stable["pets"][0]["last_fed_at"])
+        self.assertEqual(next(row for row in stable["pets"] if row["id"] == 52)["happiness_level"], "stale")
+
+    def test_empty_stable_and_inventory_keep_the_real_response_shapes(self):
+        self.seed_companion_care()
+        UserPet.objects.filter(user=self.child).delete()
+        UserMount.objects.filter(user=self.child).delete()
+        UserInventory.objects.filter(user=self.child).delete()
+        self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-stable-empty.json")
+        self.assert_response_fixture(self.client.get("/api/inventory/"), "inventory-empty.json")
+
+    def test_feed_consumes_one_food_and_returns_confirmed_growth(self):
+        self.seed_companion_care()
+        response = self.client.post("/api/pets/51/feed/", {"food_item_id": 71}, format="json")
+        body = self.assert_response_fixture(response, "pet-feed.json")
+        self.pet.refresh_from_db()
+        self.assertEqual(self.pet.growth_points, body["new_growth"])
+        self.assertEqual(self.pet.last_fed_at, FIXED_NOW)
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=self.preferred_food).quantity, 1)
+        self.assertFalse(self.pet.evolved_to_mount)
+        self.assertFalse(body["evolved"])
+        self.assertIsNone(body["mount_id"])
+        self.assertEqual(UserInventory.objects.get(user=self.sibling, item=self.preferred_food).quantity, 2)
+
+    def test_neutral_feed_depletes_food_without_evolving(self):
+        self.seed_companion_care()
+        response = self.client.post("/api/pets/51/feed/", {"food_item_id": 72}, format="json")
+        body = self.assert_response_fixture(response, "pet-feed-neutral.json")
+        self.pet.refresh_from_db()
+        self.assertEqual(self.pet.growth_points, body["new_growth"])
+        self.assertFalse(UserInventory.objects.filter(user=self.child, item=self.neutral_food).exists())
+
+    def test_feed_evolution_creates_the_confirmed_mount_and_retains_pet(self):
+        self.seed_companion_care()
+        self.pin_next_mount_identity()
+        response = self.client.post("/api/pets/52/feed/", {"food_item_id": 74}, format="json")
+        body = self.assert_response_fixture(response, "pet-feed-evolved.json")
+        self.ready_pet.refresh_from_db()
+        self.assertTrue(self.ready_pet.evolved_to_mount)
+        self.assertEqual(self.ready_pet.growth_points, 100)
+        self.assertEqual(self.ready_pet.last_fed_at, FIXED_NOW)
+        self.assertEqual(body["new_growth"], self.ready_pet.growth_points)
+        self.assertTrue(body["evolved"])
+        mount = UserMount.objects.get(pk=body["mount_id"], user=self.child)
+        self.assertEqual((mount.species_id, mount.potion_id), (self.ready_pet.species_id, self.ready_pet.potion_id))
+        self.assertFalse(mount.is_active)
+        self.assertFalse(UserInventory.objects.filter(user=self.child, item=self.wolf_food).exists())
+
+    def test_activating_pet_and_mount_exclusively_switches_confirmed_ownership(self):
+        self.seed_companion_care()
+        pet = self.assert_response_fixture(self.client.post("/api/pets/52/activate/"), "pet-activate.json")
+        mount = self.assert_response_fixture(self.client.post("/api/mounts/62/activate/"), "mount-activate.json")
+        self.assertEqual(pet["id"], self.ready_pet.pk)
+        self.assertTrue(pet["is_active"])
+        self.assertEqual(mount["id"], self.other_mount.pk)
+        self.assertTrue(mount["is_active"])
+        self.assertEqual(list(UserPet.objects.filter(user=self.child, is_active=True).values_list("pk", flat=True)), [52])
+        self.assertEqual(list(UserMount.objects.filter(user=self.child, is_active=True).values_list("pk", flat=True)), [62])
+
+    def test_rejected_feed_does_not_consume_food_or_change_growth(self):
+        self.seed_companion_care()
+        response = self.client.post("/api/pets/51/feed/", {}, format="json")
+        self.assert_response_fixture(response, "pet-feed-missing-food.json", status=400)
+        response = self.client.post("/api/pets/51/feed/", {"food_item_id": 999}, format="json")
+        self.assert_response_fixture(response, "pet-feed-unavailable-food.json", status=400)
+        response = self.client.post("/api/pets/53/feed/", {"food_item_id": 71}, format="json")
+        self.assert_response_fixture(response, "pet-feed-already-evolved.json", status=400)
+        self.pet.refresh_from_db()
+        self.assertEqual(self.pet.growth_points, 20)
+        self.assertIsNone(self.pet.last_fed_at)
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=self.preferred_food).quantity, 2)
+
+    def test_foreign_and_unknown_companions_cannot_be_fed_or_activated(self):
+        self.seed_companion_care()
+        for row_id in (81, 82, 999):
+            with self.subTest(row_id=row_id):
+                response = self.client.post(f"/api/pets/{row_id}/feed/", {"food_item_id": 71}, format="json")
+                self.assert_response_fixture(response, "pet-not-owned.json", status=400)
+                response = self.client.post(f"/api/pets/{row_id}/activate/")
+                self.assert_response_fixture(response, "pet-not-owned.json", status=400)
+                response = self.client.post(f"/api/mounts/{row_id}/activate/")
+                self.assert_response_fixture(response, "mount-not-owned.json", status=400)
+        self.pet.refresh_from_db()
+        self.mount.refresh_from_db()
+        self.assertTrue(self.pet.is_active)
+        self.assertTrue(self.mount.is_active)
+        self.assertEqual(self.pet.growth_points, 20)
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=self.preferred_food).quantity, 2)
+        for owner in (self.sibling, self.outsider):
+            self.assertEqual(UserPet.objects.get(user=owner).growth_points, 10)
+            self.assertTrue(UserPet.objects.get(user=owner).is_active)
+            self.assertTrue(UserMount.objects.get(user=owner).is_active)
+
+    def test_companion_care_requires_authentication(self):
+        self.seed_companion_care()
+        self.client.credentials()
+        for path, method, body in (
+            ("/api/pets/stable/", "get", None), ("/api/inventory/", "get", None),
+            ("/api/pets/51/feed/", "post", {"food_item_id": 71}),
+            ("/api/pets/51/activate/", "post", {}), ("/api/mounts/61/activate/", "post", {}),
+        ):
+            with self.subTest(path=path):
+                response = self.client.get(path) if method == "get" else self.client.post(path, body, format="json")
+                self.assertEqual(response.status_code, 401)
 
     def test_login_and_verified_identity(self):
         with patch("rest_framework.authtoken.models.Token.generate_key", return_value=SYNTHETIC_TOKEN):

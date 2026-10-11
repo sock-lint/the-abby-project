@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, DollarSign, Flame, Stamp, Coins } from 'lucide-react';
+import { Clock, DollarSign, Flame, Stamp } from 'lucide-react';
+import { CoinIcon } from '../icons/JournalIcons';
 import { getDashboard } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import { usePulse } from '../../providers/pulseContext';
@@ -120,7 +121,7 @@ export default function HeaderStatusPips({ user }) {
       });
       out.push({
         key: 'earnings',
-        // DollarSign, not Coins: this pip is money. Coins means the
+        // DollarSign, not CoinIcon: this pip is money. CoinIcon means the
         // coins currency everywhere else in the app and the two economies
         // are deliberately separate.
         icon: <DollarSign size={14} />,
@@ -140,7 +141,7 @@ export default function HeaderStatusPips({ user }) {
       });
       out.push({
         key: 'coins',
-        icon: <Coins size={14} />,
+        icon: <CoinIcon size={14} />,
         label: String(coins),
         tone: 'gold',
         ariaLabel: `${coins} coins`,

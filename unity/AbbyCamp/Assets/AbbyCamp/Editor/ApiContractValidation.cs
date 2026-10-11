@@ -104,6 +104,7 @@ namespace AbbyCamp.Editor
             Check(MeadowReceiptMemory.Observe("https://other.example.com", 7, nextMeadow, Read, Remember) == null, "Receipt presentation stays scoped to its server origin");
 
             ValidatePlayHomeContracts();
+            ValidateCompanionCareContracts();
             var gameObject = new GameObject("API validation client");
             try
             {
@@ -139,6 +140,18 @@ namespace AbbyCamp.Editor
                 coroutine = client.FetchNotifications(_ => completed = true, problem => rejection = problem, "https://outside.example.com/api/notifications/?page=2");
                 Check(!coroutine.MoveNext() && !completed && rejection != null,
                     "Unsafe inbox continuation is rejected before a request starts");
+                foreach (var action in new Func<Action<ApiError>, System.Collections.IEnumerator>[]
+                {
+                    fail => client.FeedPet(51, 71, _ => completed = true, fail),
+                    fail => client.ActivatePet(52, _ => completed = true, fail),
+                    fail => client.ActivateMount(62, _ => completed = true, fail),
+                })
+                {
+                    rejection = null;
+                    coroutine = action(problem => rejection = problem);
+                    Check(!coroutine.MoveNext() && !completed && rejection != null && rejection.RequiresLogin,
+                        "Logged-out creature care never issues a mutation");
+                }
                 client.ConfigureBaseUrl("https://abby.example.com", out _);
                 Check(!client.ConfigureBaseUrl("http://remote.example.com", out _) && client.BaseUrl == "https://abby.example.com", "Rejected configuration preserves valid origin");
             }
@@ -404,6 +417,92 @@ namespace AbbyCamp.Editor
             Check(AbbyApiClient.TryResolveNotificationDestination("https://outside.example.com/", "journal_reply", out destination) && destination == PlayDestination.Journal, "Unsafe links can only fall back to a known typed destination");
             foreach (string unsafeLink in new[] { "https://outside.example.com/", "//outside.example.com/", "/\\outside.example.com/", "/chronicle?tab=journal&token=secret", "/%2foutside.example.com/", "/bestiary#secret", "/unknown" })
                 Check(!AbbyApiClient.TryResolveNotificationDestination(unsafeLink, "unknown_type", out _), "Raw or unknown notification destinations are never followed: " + unsafeLink);
+        }
+
+        private static void ValidateCompanionCareContracts()
+        {
+            string stableJson = ReadFixture("pets-stable.json");
+            var stable = ApiContract.ParseStable(stableJson);
+            Check(stable.total_pets == 3 && stable.total_mounts == 2 && stable.ActiveCompanion.id == 51 && stable.ActiveMount.id == 61,
+                "Shared stable preserves authoritative creature counts and active IDs");
+            Check(stable.ActiveCompanion.name == "Sprout {a} \"friend\"" && stable.ActiveCompanion.last_fed_at == null,
+                "Shared companion preserves escaped names and absent feeding history");
+            Check(ApiContract.ParseStable(ReadFixture("pets-stable-empty.json")).pets.Length == 0,
+                "Shared empty collection never fabricates an owned creature");
+
+            string inventoryJson = ReadFixture("inventory-food.json");
+            var inventory = ApiContract.ParseInventoryPage(inventoryJson);
+            Check(inventory.results.Length == 4 && inventory.count == 4 && inventory.next == null,
+                "Shared bare inventory response preserves items without inventing pagination");
+            int foods = 0;
+            bool foundFavorite = false, foundNeutral = false, foundEgg = false;
+            foreach (var entry in inventory.results)
+            {
+                if (entry.item.item_type == "food") foods++;
+                if (entry.item.id == 71) foundFavorite = entry.quantity == 2 && entry.item.food_species_name == "Fox";
+                if (entry.item.id == 72) foundNeutral = entry.quantity == 1 && entry.item.food_species_name == null;
+                if (entry.item.id == 73) foundEgg = entry.item.item_type == "egg";
+            }
+            Check(foods == 3 && foundFavorite && foundNeutral && foundEgg,
+                "Shared food and nonfood inventory preserve type, quantity and nullable preference");
+            Check(ApiContract.ParseInventoryPage(ReadFixture("inventory-empty.json")).results.Length == 0,
+                "Shared empty food inventory remains valid");
+            var page = ApiContract.ParseInventoryPage("{\"count\":4,\"next\":null,\"results\":" + inventoryJson + "}");
+            Check(page.results.Length == 4 && page.count == 4 && page.next == null, "Inventory accepts a bounded DRF page shape");
+            string trimmedInventory = inventoryJson.Trim();
+            string inventoryRecords = trimmedInventory.Substring(1, trimmedInventory.Length - 2);
+            Reject(() => ApiContract.ParseInventoryPage("[" + inventoryRecords + "," + inventoryRecords + "]"), "Duplicate inventory rows cannot authorize extra feeds");
+            Reject(() => ApiContract.ParseInventoryPage(inventoryJson.Replace("\"quantity\": 2", "\"quantity\": -1")), "Negative food quantities are rejected");
+            Reject(() => ApiContract.ParseInventoryPage(inventoryJson.Replace("\"item_type\": \"food\"", "\"item_type\": null")), "Missing item types cannot become feed eligibility");
+            Reject(() => ApiContract.ParseInventoryPage("{\"count\":10001,\"next\":null,\"results\":[]}"), "Inventory count is bounded");
+            Reject(() => ApiContract.ParseInventoryPage("{\"count\":1,\"next\":\"?page=2\",\"results\":[]}"), "An empty inventory continuation is rejected");
+            Check(AbbyApiClient.TryResolveInventoryPageUrl("https://abby.example.com", "/api/inventory/?page=2", out var next)
+                && next == "https://abby.example.com/api/inventory/?page=2", "Food pages stay on the same-origin inventory endpoint");
+            Check(AbbyApiClient.TryResolveInventoryPageUrl("https://abby.example.com", "/api/inventory/?page=2&_abby_session=0123456789abcdef0123456789abcdef", out next)
+                && next == "https://abby.example.com/api/inventory/?page=2", "Food pagination strips the inherited private GET namespace");
+            foreach (string unsafePage in new[] { "https://outside.example.com/api/inventory/?page=2", "http://abby.example.com/api/inventory/?page=2", "/api/auth/", "/api/inventory/?page=0", "/api/inventory/?page=501", "/api/inventory/?page=2&token=x", "/api/inventory/?page=2#secret", "https://user@abby.example.com/api/inventory/?page=2", "/api/inventory/?page=2&page=3", "/api/inventory/?page=2&_abby_session=bad" })
+                Check(!AbbyApiClient.TryResolveInventoryPageUrl("https://abby.example.com", unsafePage, out _), "Unsafe food continuation rejected: " + unsafePage);
+
+            string feedJson = ReadFixture("pet-feed.json");
+            var feed = ApiContract.ParsePetFeed(feedJson, 20);
+            Check(feed.growth_added == 15 && feed.new_growth == 35 && !feed.evolved && feed.mount_id == 0,
+                "Shared confirmed feeding preserves growth without fabricating an evolved mount");
+            var neutral = ApiContract.ParsePetFeed(ReadFixture("pet-feed-neutral.json"), 20);
+            Check(neutral.growth_added == 5 && neutral.new_growth == 25, "Shared neutral feeding uses the server-confirmed outcome");
+            string evolvedJson = ReadFixture("pet-feed-evolved.json");
+            var evolved = ApiContract.ParsePetFeed(evolvedJson, 90);
+            Check(evolved.growth_added == 15 && evolved.new_growth == 100 && evolved.evolved && evolved.mount_id == 83,
+                "Shared evolution retains the clamped confirmed total and created mount ID");
+            Reject(() => ApiContract.ParsePetFeed(feedJson.Replace("\"evolved\": false", "\"evolved\": \"false\"")), "Feeding confirmation requires an explicit evolution boolean");
+            Reject(() => ApiContract.ParsePetFeed(feedJson.Replace("\"new_growth\": 35", "\"new_growth\": 101")), "Feeding cannot fabricate growth beyond evolution");
+            Reject(() => ApiContract.ParsePetFeed(feedJson.Replace("\"mount_id\": null", "\"mount_id\": 83")), "Unevolved feeding cannot create a mount ID");
+            Reject(() => ApiContract.ParsePetFeed(evolvedJson.Replace("\"mount_id\": 83", "\"mount_id\": null")), "Evolution must confirm the created mount");
+            Reject(() => ApiContract.ParsePetFeed(evolvedJson.Replace("\"new_growth\": 100", "\"new_growth\": 99")), "Evolution requires the threshold total");
+            Reject(() => ApiContract.ParsePetFeed(feedJson, 35), "An unchanged growth total cannot confirm feeding");
+
+            OwnedPetDto expectedPet = null;
+            OwnedMountDto expectedMount = null;
+            foreach (var pet in stable.pets) if (pet.id == 52) expectedPet = pet;
+            foreach (var mount in stable.mounts) if (mount.id == 62) expectedMount = mount;
+            string activatedPetJson = ReadFixture("pet-activate.json");
+            string activatedMountJson = ReadFixture("mount-activate.json");
+            Check(ApiContract.ParsePetActivation(activatedPetJson, expectedPet).is_active,
+                "Shared activation confirms the selected owned companion");
+            Check(ApiContract.ParseMountActivation(activatedMountJson, expectedMount).is_active,
+                "Shared activation confirms the selected owned mount");
+            Reject(() => ApiContract.ParsePetActivation(activatedPetJson, stable.ActiveCompanion), "Another pet's response cannot confirm selection");
+            Reject(() => ApiContract.ParseMountActivation(activatedMountJson, stable.ActiveMount), "Another mount's response cannot confirm selection");
+            Reject(() => ApiContract.ParsePetActivation(activatedPetJson.Replace("\"is_active\": true", "\"is_active\": false"), expectedPet), "Inactive pet state cannot confirm selection");
+            Reject(() => ApiContract.ParsePetActivation(activatedPetJson.Replace("\"evolved_to_mount\": false", "\"evolved_to_mount\": true"), expectedPet), "An evolved pet cannot become the active companion");
+            Reject(() => ApiContract.ParseMountActivation(activatedMountJson.Replace("\"is_active\": true", "\"is_active\": false"), expectedMount), "Inactive mount state cannot confirm selection");
+            const string expedition = "{\"id\":91,\"mount_id\":62,\"status\":\"active\",\"is_ready\":true,\"seconds_remaining\":-1}";
+            string exploringMount = activatedMountJson.Replace("\"active_expedition\": null", "\"active_expedition\": " + expedition);
+            Check(ApiContract.ParseOwnedMount(exploringMount).active_expedition.seconds_remaining == -1,
+                "A returned but unclaimed expedition remains active and keeps Django's negative countdown");
+            Reject(() => ApiContract.ParseMountActivation(exploringMount, expectedMount), "An exploring mount cannot confirm availability for selection");
+            Reject(() => ApiContract.ParseOwnedMount(exploringMount.Replace("\"mount_id\":62", "\"mount_id\":61")), "An expedition must belong to its mount");
+            foreach (string fixture in new[] { "pet-feed-missing-food.json", "pet-feed-unavailable-food.json", "pet-feed-already-evolved.json", "pet-not-owned.json", "mount-not-owned.json" })
+                Check(!ApiContract.HttpError(400, ReadFixture(fixture), true, false).OutcomeUnknown, "Shared care rejection is definite: " + fixture);
         }
 
         private static void Check(bool condition, string description)

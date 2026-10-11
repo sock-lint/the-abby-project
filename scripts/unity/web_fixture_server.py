@@ -16,12 +16,12 @@ import sys
 from tempfile import TemporaryDirectory
 import time
 from urllib.parse import unquote
-from wsgiref.simple_server import WSGIServer, make_server
+from wsgiref.simple_server import make_server
 
-from prototype_fixture_server import configure_django, fixture_wsgi, seed_fixture
+from prototype_fixture_server import DisposableFixtureServer, configure_django, fixture_wsgi, seed_fixture
 
 
-class PreviewServer(WSGIServer):
+class PreviewServer(DisposableFixtureServer):
     request_queue_size = 64
 
 
@@ -31,7 +31,7 @@ def web_application(web_root: Path, api, frontend_root: Path | None = None):
 
     def application(environ, start_response):
         path = environ.get("PATH_INFO", "/")
-        if path.startswith("/api/") or path == "/__fixture/play-state/":
+        if path.startswith("/api/") or path in ("/__fixture/play-state/", "/__fixture/delay-next-care/"):
             return api(environ, start_response)
         if path in ("/", "/play") and (frontend_root is None or path == "/play"):
             start_response("302 Found", [("Location", "/play/"), ("Cache-Control", "no-store")])
@@ -81,6 +81,7 @@ def main():
     parser.add_argument("--lifetime-seconds", type=float, default=1800)
     parser.add_argument("--fail-first-log", action="store_true")
     parser.add_argument("--fail-first-mark-read", action="store_true")
+    parser.add_argument("--fail-first-feed-after-commit", action="store_true", help="Commit one valid feed, then return HTTP503 instead of its acknowledgement.")
     args = parser.parse_args()
     if not (args.web_root / "index.html").is_file():
         parser.error("Build the Web target first; index.html is missing.")
@@ -103,8 +104,10 @@ def main():
             from django.core.wsgi import get_wsgi_application
 
             fixture["fail_first_mark_read"] = args.fail_first_mark_read
+            fixture["fail_first_feed_after_commit"] = args.fail_first_feed_after_commit
             api = fixture_wsgi(get_wsgi_application(), fail_first_log=args.fail_first_log,
-                               fail_first_mark_read=args.fail_first_mark_read)
+                               fail_first_mark_read=args.fail_first_mark_read,
+                               fail_first_feed_after_commit=args.fail_first_feed_after_commit)
             with make_server("127.0.0.1", args.port, web_application(args.web_root, api, args.frontend_root), server_class=PreviewServer) as server:
                 server.timeout = .25
                 fixture["url"] = f"http://127.0.0.1:{server.server_port}"

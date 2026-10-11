@@ -2,37 +2,39 @@
 // CosmeticSigil, TrophySlot, StreakGlyph. Kept in a .js file so the
 // non-component exports don't trip react-refresh/only-export-components.
 
+import { chapterMark } from '../../components/atlas/mastery.constants';
+
 /**
  * Four cosmetic chapters, one per slot. Letters are first-letter-of-slot
  * so the IlluminatedVersal drop-cap stays mnemonic (F for Frames, T for
- * Titles, B for Bindings/covers, P for Pet regalia). Rubric numerals
- * continue the §I–§IV codex convention from the Reliquary Codex.
+ * Titles, B for Bindings/covers, P for Pet regalia). Chapter numbers
+ * share the Meadow markers used by the badge collections.
  */
 export const COSMETIC_CHAPTERS = [
   {
     slot: 'active_frame',
-    rubric: '\u00a7I',
+    rubric: chapterMark(0),
     letter: 'F',
     name: 'Frames',
     kicker: 'A colorful frame for your initial',
   },
   {
     slot: 'active_title',
-    rubric: '\u00a7II',
+    rubric: chapterMark(1),
     letter: 'T',
     name: 'Titles',
     kicker: 'A title that tells your story',
   },
   {
     slot: 'active_theme',
-    rubric: '\u00a7III',
+    rubric: chapterMark(2),
     letter: 'B',
     name: 'Journal Covers',
     kicker: 'Choose the colors for your world',
   },
   {
     slot: 'active_pet_accessory',
-    rubric: '\u00a7IV',
+    rubric: chapterMark(3),
     letter: 'P',
     name: 'Pet Regalia',
     kicker: 'Little extras for your companion',
