@@ -320,7 +320,11 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         from django.db.models import Count, Q
 
-        qs = self.get_role_filtered_queryset(super().get_queryset())
+        qs = super().get_queryset()
+        if self.request.user.role == "parent":
+            qs = filter_projects_accessible_to(self.request.user, qs)
+        else:
+            qs = self.get_role_filtered_queryset(qs)
         if self.action == "list":
             # Annotate the four counts the list serializer used to compute
             # via per-row .count() / .filter().count() queries — those
