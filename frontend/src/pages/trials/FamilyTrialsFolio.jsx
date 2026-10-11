@@ -1,5 +1,6 @@
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import ChapterRubric from '../../components/atlas/ChapterRubric';
+import AddToCalendar from '../../components/AddToCalendar';
 import { formatDate } from '../../utils/format';
 
 /**
@@ -20,11 +21,11 @@ export default function FamilyTrialsFolio({ rows = [] }) {
       />
       <div className="space-y-2">
         {rows.map((row) => (
-          <div key={row.child_id} className="flex items-center gap-3">
+          <div key={row.child_id} className="flex flex-wrap items-center gap-3">
             <div className="font-script text-body text-ink-primary w-28 shrink-0 truncate">
               {row.child_name}
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 basis-36">
               <div className="flex justify-between items-baseline gap-2">
                 <span className="font-body text-body text-ink-secondary truncate">
                   {row.quest.definition.name}
@@ -40,8 +41,19 @@ export default function FamilyTrialsFolio({ rows = [] }) {
                 />
               </div>
             </div>
-            <div className="font-rune text-caption text-ink-whisper tabular-nums shrink-0 w-20 text-right">
-              ends {formatDate(row.quest.end_date)}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-rune text-caption text-ink-whisper tabular-nums">
+                ends {formatDate(row.quest.end_date)}
+              </span>
+              {row.quest.end_date && (
+                <AddToCalendar event={{
+                  id: `quest:${row.quest.id}`,
+                  title: `Quest deadline: ${row.quest.definition.name}`,
+                  start: row.quest.end_date,
+                  description: 'Quest deadline.',
+                  path: '/quests?tab=trials',
+                }} />
+              )}
             </div>
           </div>
         ))}

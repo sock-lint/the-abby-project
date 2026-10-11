@@ -22,6 +22,62 @@ function buildAssignment(over = {}) {
 }
 
 describe('AssignmentCard', () => {
+  it('exports the saved homework due date to Google without private assignment details', async () => {
+    const { user } = render(
+      <AssignmentCard assignment={buildAssignment({ description: 'Private class notes' })} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Add Homework due: Algebra ch. 4 to calendar' }));
+    const google = screen.getByRole('link', { name: 'Google Calendar' });
+    const event = new URL(google.href).searchParams;
+    expect(event.get('text')).toBe('Homework due: Algebra ch. 4');
+    expect(event.get('dates')).toBe('20260422/20260423');
+    expect(event.get('details')).toContain('/quests?tab=study');
+    expect(event.get('details')).not.toContain('Private class notes');
+    expect(screen.getByRole('button', { name: 'Apple Calendar (.ics)' })).toBeInTheDocument();
+    google.addEventListener('click', (e) => e.preventDefault());
+    await user.click(google);
+  });
+
+  it('omits calendar export when no due date is saved', () => {
+    render(<AssignmentCard assignment={buildAssignment({ due_date: null })} />);
+    expect(screen.queryByRole('button', { name: /add .* to calendar/i })).not.toBeInTheDocument();
+  });
+
+  it('downloads the saved homework date as an Apple Calendar file', async () => {
+    const NativeURL = URL;
+    const realSetTimeout = globalThis.setTimeout;
+    vi.stubGlobal('URL', class extends NativeURL {
+      static createObjectURL = vi.fn(() => 'blob:homework-calendar');
+      static revokeObjectURL = vi.fn();
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const timeout = vi.spyOn(globalThis, 'setTimeout').mockImplementation((callback, delay, ...args) => (
+      delay === 60000 ? 0 : realSetTimeout(callback, delay, ...args)
+    ));
+    try {
+      const { user } = render(<AssignmentCard assignment={buildAssignment()} />);
+      await user.click(screen.getByRole('button', { name: 'Add Homework due: Algebra ch. 4 to calendar' }));
+      await user.click(screen.getByRole('button', { name: 'Apple Calendar (.ics)' }));
+      expect(click).toHaveBeenCalledTimes(1);
+      expect(click.mock.instances[0].download).toBe('Homework-due-Algebra-ch-4.ics');
+      const blob = URL.createObjectURL.mock.calls[0][0];
+      const content = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsText(blob);
+      });
+      expect(blob.type).toBe('text/calendar;charset=utf-8');
+      expect(content).toContain('SUMMARY:Homework due: Algebra ch. 4');
+      expect(content).toContain('DTSTART;VALUE=DATE:20260422');
+      expect(content).toContain('DTEND;VALUE=DATE:20260423');
+      expect(content).toContain('/quests?tab=study');
+    } finally {
+      click.mockRestore();
+      timeout.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('fires onSubmit when the child clicks Submit on an un-submitted assignment', async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();

@@ -75,6 +75,8 @@ Examples: [`pages/achievements/skillTree.constants.js`](../pages/achievements/sk
 
 ### Accessibility roles
 
+`AddToCalendar` opens a shared `BottomSheet` with a [Google event template](https://developers.google.com/workspace/calendar/api/concepts/inviting-attendees-to-events) and an [Apple Calendar `.ics` import](https://support.apple.com/guide/calendar/import-or-export-calendars-icl1023/mac). It accepts a saved event via `event`, and optionally `dateEditable`, `dateHelp`, and `validateDate` for choosing a duty reminder day. Invalid or missing dates render no trigger. Keep the trigger outside navigation links/buttons. Exports follow [RFC 5545](https://www.rfc-editor.org/rfc/rfc5545) and never read browser credentials or the current page's query/fragment. Show one-time-copy behavior; later source changes do not update the calendar event.
+
 Shared primitives carry consistent ARIA roles. Match these when building new ones:
 
 | Primitive | Role | Why |

@@ -505,6 +505,16 @@ export default function SettingsPage() {
       {/* Google */}
       <ParchmentCard>
         <SectionHeader index={3} title="Google account" kicker="connect a calendar" className="mb-4" />
+        <p className="font-body text-body text-ink-secondary mb-3">
+          Use Add to calendar beside a saved deadline or scheduled return to open Google Calendar
+          or download an Apple Calendar (.ics) file. Duties let you choose a reminder date.
+          These are one-time copies; later date changes need to be updated in your calendar.
+          You can use them without connecting a Google account.
+        </p>
+        <p className="font-body text-caption text-ink-whisper mb-4">
+          On a Mac, open the downloaded file in Calendar or choose File → Import.
+          Events added to an iCloud calendar also appear on your other Apple devices.
+        </p>
         {googleError && <ErrorAlert message={googleError} className="mb-3" />}
         {googleMessage && (
           <div className="font-script text-body text-sheikah-teal-deep mb-3">{googleMessage}</div>

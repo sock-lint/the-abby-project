@@ -23,6 +23,28 @@ function renderPage(user = buildUser(), handlers = []) {
 }
 
 describe('Projects', () => {
+  it('exports only a dated saved venture and keeps its calendar control separate from navigation', async () => {
+    const user = userEvent.setup();
+    renderPage(buildUser(), [
+      http.get('*/api/projects/', () => HttpResponse.json([
+        buildProject({ id: 12, title: 'Birdhouse', due_date: '2026-09-03' }),
+        buildProject({ id: 13, title: 'Undated venture', due_date: null }),
+      ])),
+    ]);
+    const add = await screen.findByRole('button', { name: 'Add Project due: Birdhouse to calendar' });
+    expect(screen.queryByRole('button', { name: 'Add Project due: Undated venture to calendar' })).not.toBeInTheDocument();
+    expect(add.parentElement.closest('button')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open Birdhouse' })).toBeInTheDocument();
+    await user.click(add);
+    const google = screen.getByRole('link', { name: 'Google Calendar' });
+    const event = new URL(google.href).searchParams;
+    expect(event.get('text')).toBe('Project due: Birdhouse');
+    expect(event.get('dates')).toBe('20260903/20260904');
+    expect(event.get('details')).toContain('/quests/ventures/12');
+    google.addEventListener('click', (e) => e.preventDefault());
+    await user.click(google);
+  });
+
   it('renders the empty state when there are no ventures', async () => {
     renderPage(buildUser(), [
       http.get('*/api/projects/', () => HttpResponse.json([])),
