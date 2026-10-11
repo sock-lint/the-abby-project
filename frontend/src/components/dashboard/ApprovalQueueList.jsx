@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X, ClipboardCheck, BookOpen, Gift, Palette, Sparkles, Feather, CheckCheck } from 'lucide-react';
@@ -356,6 +356,28 @@ export default function ApprovalQueueList({ items = [], loading = false, onDone 
   const [pendingBulk, setPendingBulk] = useState(null); // { kidId, group } awaiting confirm
   const [rejectTarget, setRejectTarget] = useState(null);
   const [detailTarget, setDetailTarget] = useState(null);
+  const mounted = useRef(false);
+  const refreshTimers = useRef(new Set());
+
+  useEffect(() => {
+    mounted.current = true;
+    const timers = refreshTimers.current;
+    return () => {
+      mounted.current = false;
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
+    };
+  }, []);
+
+  const scheduleRefresh = (item) => {
+    if (!mounted.current) return;
+    // Each successful row keeps its animation delay and completion callback.
+    const timer = setTimeout(() => {
+      refreshTimers.current.delete(timer);
+      if (mounted.current) onDone && onDone(item);
+    }, 180);
+    refreshTimers.current.add(timer);
+  };
 
   const hide = (key) => {
     setHiddenIds((prev) => {
@@ -369,8 +391,9 @@ export default function ApprovalQueueList({ items = [], loading = false, onDone 
     const fn = approveFor(item.kind);
     if (!fn) return;
     await fn(item.id);
+    if (!mounted.current) return;
     hide(rowKey(item));
-    setTimeout(() => onDone && onDone(item), 180);
+    scheduleRefresh(item);
   };
 
   const handleRejectOne = async (item, notes) => {
@@ -381,9 +404,10 @@ export default function ApprovalQueueList({ items = [], loading = false, onDone 
     } else {
       await fn(item.id);
     }
+    if (!mounted.current) return;
     hide(rowKey(item));
     setRejectTarget(null);
-    setTimeout(() => onDone && onDone(item), 180);
+    scheduleRefresh(item);
   };
 
   const openProposalReview = (item) => {
@@ -413,6 +437,7 @@ export default function ApprovalQueueList({ items = [], loading = false, onDone 
         return it;
       }),
     );
+    if (!mounted.current) return;
 
     let failures = 0;
     results.forEach((res, idx) => {
