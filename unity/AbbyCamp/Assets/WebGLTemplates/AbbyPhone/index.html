@@ -40,11 +40,26 @@
         const error = document.getElementById('error');
         const retry = document.getElementById('retry');
         let failed = false;
+        let unityConfig = null;
+        let unityModule = null;
+
+        function renderPixelRatio() {
+          const ratio = window.devicePixelRatio;
+          // Keep high-density artwork sharp without the cost of an uncapped
+          // phone framebuffer. CSS dimensions and touch geometry stay fixed.
+          return typeof ratio === 'number' && Number.isFinite(ratio)
+            ? Math.min(2, Math.max(1, ratio)) : 1;
+        }
 
         function fitViewport() {
           // The visual viewport follows browser chrome and the phone keyboard.
           const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
           document.documentElement.style.setProperty('--viewport-height', `${height}px`);
+          const ratio = renderPixelRatio();
+          if (unityConfig) unityConfig.devicePixelRatio = ratio;
+          // The generated loader copies config into Module. Update the live
+          // value too when browser zoom, rotation or a display change resizes it.
+          if (unityModule) unityModule.devicePixelRatio = ratio;
         }
         fitViewport();
         window.addEventListener('resize', fitViewport);
@@ -84,14 +99,17 @@
           productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
           productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
           matchWebGLToCanvasSize: true,
-          // One render pixel per CSS pixel keeps touch targets predictable and
-          // avoids rendering several million unnecessary pixels on a phone.
-          devicePixelRatio: 1,
+          devicePixelRatio: renderPixelRatio(),
+          preRun: [(module) => {
+            unityModule = module;
+            fitViewport();
+          }],
           showBanner: (message, type) => {
             if (type === 'error') fail(message);
             else console.warn('Abby world:', message);
           }
         };
+        unityConfig = config;
 
         function loadPlay() {
           status.textContent = 'Loading Play...';
@@ -103,7 +121,9 @@
               createUnityInstance(canvas, config, (value) => {
                 progress.value = value;
                 status.textContent = value < 0.9 ? `Loading Play... ${Math.round(value * 100)}%` : 'Saying hello to your companion...';
-              }).then(() => {
+              }).then((instance) => {
+                unityModule = instance.Module;
+                fitViewport();
                 if (failed) return;
                 welcome.hidden = true;
                 canvas.focus();

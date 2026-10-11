@@ -4,6 +4,7 @@ using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 namespace AbbyCamp.Editor
 {
@@ -12,10 +13,38 @@ namespace AbbyCamp.Editor
         [MenuItem("Abby Camp/Validate all")]
         public static void ValidateAll()
         {
+            ValidateRenderingQuality();
             CampSceneBuilder.Validate();
             if (File.Exists(MeshtintSetup.ScenePath)) MeshtintSetup.Validate();
             ApiContractValidation.Run();
-            Debug.Log("ABBY_CAMP_VALIDATION_PASSED: scene, asset swap, and API contracts.");
+            Debug.Log("ABBY_CAMP_VALIDATION_PASSED: rendering quality, scene, asset swap, and API contracts.");
+        }
+
+        // URP owns MSAA, rather than the legacy QualitySettings.antiAliasing
+        // value. Keep these profiles sharp even when edited outside this menu.
+        internal static void ValidateRenderingQuality()
+        {
+            foreach (var qualityName in new[] { "Mobile", "PC" })
+            {
+                var assetPath = $"Assets/Settings/{qualityName}_RPAsset.asset";
+                var pipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(assetPath);
+                if (pipeline == null || !Mathf.Approximately(pipeline.renderScale, 1f)
+                    || pipeline.msaaSampleCount != 4)
+                    throw new InvalidOperationException($"{assetPath} requires full render scale and 4x MSAA.");
+
+                var qualityIndex = Array.IndexOf(QualitySettings.names, qualityName);
+                if (qualityIndex < 0 || QualitySettings.GetRenderPipelineAssetAt(qualityIndex) != pipeline)
+                    throw new InvalidOperationException($"The {qualityName} quality level must use {assetPath}.");
+
+                if (pipeline.rendererDataList.Length == 0)
+                    throw new InvalidOperationException($"{assetPath} has no renderer.");
+                foreach (var rendererData in pipeline.rendererDataList)
+                    if (!(rendererData is UniversalRendererData renderer)
+                        || (renderer.renderingMode != RenderingMode.Forward
+                            && renderer.renderingMode != RenderingMode.ForwardPlus))
+                        throw new InvalidOperationException($"{assetPath} requires an MSAA-compatible Forward or Forward+ renderer.");
+            }
+            Debug.Log("ABBY_CAMP_RENDER_QUALITY_OK: Mobile and PC use full render scale and 4x MSAA with Forward rendering.");
         }
 
         public static void PrepareAndValidate()
@@ -159,6 +188,7 @@ namespace AbbyCamp.Editor
 
         public void OnPreprocessBuild(BuildReport report)
         {
+            CampBuild.ValidateRenderingQuality();
             PlayerSettings.SplashScreen.show = false;
             PlayerSettings.SplashScreen.showUnityLogo = false;
             if (PlayerSettings.SplashScreen.show || PlayerSettings.SplashScreen.showUnityLogo)

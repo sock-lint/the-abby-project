@@ -16,7 +16,7 @@ const source = template.match(/<script>([\s\S]*?)<\/script>/)[1]
   .replace(/\{\{\{ JSON\.stringify\([A-Z_]+\) \}\}\}/g, '"Fixture Play"')
   .replace(/\{\{\{ [A-Z_]+ \}\}\}/g, 'fixture');
 
-function loadPage(protocol = 'https:') {
+function loadPage(protocol = 'https:', options = {}) {
   const elements = new Map();
   for (const [, id] of template.matchAll(/\bid="([^"]+)"/g)) {
     elements.set(id, {
@@ -32,8 +32,16 @@ function loadPage(protocol = 'https:') {
   let reloads = 0;
   const window = {
     location: { protocol, reload() { reloads += 1; } },
-    innerHeight: 852, addEventListener() {},
+    innerHeight: 852, devicePixelRatio: options.devicePixelRatio,
+    handlers: {},
+    addEventListener(name, handler) { this.handlers[name] = handler; },
   };
+  if (options.visualViewport) {
+    window.visualViewport = {
+      height: options.visualViewport.height, handlers: {},
+      addEventListener(name, handler) { this.handlers[name] = handler; },
+    };
+  }
   const document = {
     getElementById: id => elements.get(id),
     createElement: () => ({}),
@@ -43,10 +51,23 @@ function loadPage(protocol = 'https:') {
   vm.runInNewContext(source, {
     window, document, console: { error() {}, warn() {} },
     createUnityInstance(canvas, config, progress) {
-      return new Promise((resolve, reject) => instances.push({ canvas, config, progress, resolve, reject }));
+      // Match Unity's generated loader: config is copied by value into Module,
+      // then Emscripten calls preRun with Module before player initialization.
+      const Module = { ...config, canvas };
+      return new Promise((resolve, reject) => {
+        let started = false;
+        const start = () => {
+          if (started) return;
+          started = true;
+          for (const callback of Module.preRun || []) callback(Module);
+        };
+        instances.push({ canvas, config, Module, progress, start, reject,
+          resolve() { start(); resolve({ Module }); },
+        });
+      });
     },
   }, { filename: 'AbbyPhone/index.html' });
-  return { elements, scripts, instances, viewportStyles, reloads: () => reloads };
+  return { elements, scripts, instances, viewportStyles, window, reloads: () => reloads };
 }
 
 test('opening Play starts loading without another user gesture and focuses the ready canvas', async () => {
@@ -102,4 +123,78 @@ test('file URLs explain how to open Play without requesting a runtime', () => {
   assert.equal(page.scripts.length, 0);
   assert.equal(page.elements.get('error').hidden, false);
   assert.equal(page.elements.get('error-message').textContent, 'Open Play through The Abby Project.');
+});
+
+for (const [devicePixelRatio, expected] of [[1, 1], [1.25, 1.25], [2, 2], [3, 2]]) {
+  test(`DPR ${devicePixelRatio} renders at ${expected}x without changing the CSS viewport`, () => {
+    const page = loadPage('https:', { devicePixelRatio });
+    page.scripts[0].onload();
+    const runtime = page.instances[0];
+    assert.equal(runtime.config.matchWebGLToCanvasSize, true);
+    assert.equal(runtime.config.devicePixelRatio, expected);
+    runtime.start();
+    assert.equal(runtime.Module.devicePixelRatio, expected);
+    assert.equal(page.viewportStyles.get('--viewport-height'), '852px');
+    assert.equal(runtime.canvas, page.elements.get('unity-canvas'));
+  });
+}
+
+test('missing, invalid and low DPR values retain a bounded 1x framebuffer', () => {
+  for (const devicePixelRatio of [undefined, NaN, Infinity, -Infinity, 0, -1, 0.75, '2']) {
+    const page = loadPage('https:', { devicePixelRatio });
+    page.scripts[0].onload();
+    assert.equal(page.instances[0].config.devicePixelRatio, 1);
+  }
+});
+
+test('a DPR change before the loader download uses the latest display density', () => {
+  const page = loadPage('https:', { devicePixelRatio: 1 });
+  page.window.devicePixelRatio = 1.25;
+  page.window.handlers.resize();
+  page.scripts[0].onload();
+  assert.equal(page.instances[0].Module.devicePixelRatio, 1.25);
+});
+
+test('a DPR change during initialization reaches the copied live Module before startup', () => {
+  const page = loadPage('https:', { devicePixelRatio: 1 });
+  page.scripts[0].onload();
+  const runtime = page.instances[0];
+  page.window.devicePixelRatio = 3;
+  page.window.handlers.resize();
+  assert.equal(runtime.Module.devicePixelRatio, 1);
+  runtime.start();
+  assert.equal(runtime.Module.devicePixelRatio, 2);
+  assert.equal(page.instances.length, 1);
+});
+
+test('resizing the ready player follows fractional and capped DPR without reloading', async () => {
+  const page = loadPage('https:', { devicePixelRatio: 2 });
+  page.scripts[0].onload();
+  const runtime = page.instances[0];
+  runtime.resolve();
+  await Promise.resolve();
+  for (const [devicePixelRatio, expected] of [[1.25, 1.25], [3, 2], [1, 1]]) {
+    page.window.devicePixelRatio = devicePixelRatio;
+    page.window.handlers.resize();
+    assert.equal(runtime.Module.devicePixelRatio, expected);
+    assert.equal(page.viewportStyles.get('--viewport-height'), '852px');
+  }
+  assert.equal(page.instances.length, 1);
+  assert.equal(page.scripts.length, 1);
+  assert.equal(page.reloads(), 0);
+});
+
+test('visual viewport keyboard resizing keeps CSS height and capped live DPR in sync', () => {
+  const page = loadPage('https:', {
+    devicePixelRatio: 2, visualViewport: { height: 852 },
+  });
+  page.scripts[0].onload();
+  const runtime = page.instances[0];
+  runtime.start();
+  page.window.visualViewport.height = 440;
+  page.window.devicePixelRatio = 3;
+  page.window.visualViewport.handlers.resize();
+  assert.equal(page.viewportStyles.get('--viewport-height'), '440px');
+  assert.equal(runtime.Module.devicePixelRatio, 2);
+  assert.equal(page.reloads(), 0);
 });

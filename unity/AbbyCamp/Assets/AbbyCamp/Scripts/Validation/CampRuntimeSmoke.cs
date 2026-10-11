@@ -108,6 +108,8 @@ namespace AbbyCamp.Validation
             yield return Resize(393, 852);
             CheckHomeTargets();
             yield return Capture("play-home-portrait.png");
+            yield return CheckDensityInvariant(ui, garden, pet, camera, 393, 852, "portrait");
+            yield return CheckKeyboardTargets(ui, garden);
             var cameraPosition = camera.transform.position;
             var cameraRotation = camera.transform.rotation;
             var petPosition = pet.transform.position;
@@ -263,6 +265,7 @@ namespace AbbyCamp.Validation
             yield return Resize(852, 393);
             CheckHomeTargets();
             yield return Capture("play-home-landscape.png");
+            yield return CheckDensityInvariant(ui, garden, pet, camera, 852, 393, "landscape");
             yield return OpenSection(ui, garden, "Inbox");
             Check(!garden.TryTapCompanion(CompanionPoint(pet, camera)), "Landscape inbox blocks world touch");
             yield return Capture("play-inbox-landscape.png");
@@ -469,6 +472,97 @@ namespace AbbyCamp.Validation
             Canvas.ForceUpdateCanvases();
         }
 
+        private IEnumerator CheckDensityInvariant(CampPrototypeController ui, CampGardenInput garden,
+            CompanionFollower pet, Camera view, int width, int height, string orientation)
+        {
+            var buttons = new Dictionary<string, Rect>();
+            foreach (var name in HomeButtons) buttons.Add(name, LogicalScreenRect(FindButton(name)));
+            var title = FindText("CampTitle");
+            var titleRect = LogicalScreenRect(title);
+            int fontSize = title.fontSize;
+            var cameraPosition = view.transform.position;
+            var cameraRotation = view.transform.rotation;
+            var orthographicSize = view.orthographicSize;
+            var anchor = view.WorldToViewportPoint(pet.transform.position + Vector3.up);
+            float initialScale = title.GetComponentInParent<Canvas>().scaleFactor;
+
+            yield return Resize(width * 2, height * 2);
+            CheckHomeTargets();
+            Check(Mathf.Abs(title.GetComponentInParent<Canvas>().scaleFactor / initialScale - 2f) < .01f,
+                "Doubling the " + orientation + " framebuffer doubles UI pixel density");
+            foreach (var name in HomeButtons)
+                Check(RectMatches(buttons[name], LogicalScreenRect(FindButton(name))),
+                    "Higher density preserves the logical position and touch size of " + orientation + " " + name);
+            Check(title.fontSize == fontSize && RectMatches(titleRect, LogicalScreenRect(title)),
+                "Higher density preserves the " + orientation + " title's logical size");
+            CheckRenderedText("CampTitle");
+            Check(Vector3.Distance(view.transform.position, cameraPosition) < .01f
+                && Quaternion.Angle(view.transform.rotation, cameraRotation) < .1f
+                && Mathf.Abs(view.orthographicSize - orthographicSize) < .01f
+                && Vector3.Distance(view.WorldToViewportPoint(pet.transform.position + Vector3.up), anchor) < .001f,
+                "Higher density preserves " + orientation + " companion framing");
+            Check(garden.TryTapCompanion(CompanionPoint(pet, view)),
+                "Higher density retains the " + orientation + " companion touch hit");
+            for (int frame = 0; frame < 15; frame++) yield return null;
+            yield return Capture("play-home-" + orientation + "-2x.png");
+            yield return OpenSection(ui, garden, "Rewards");
+            Check(!garden.TryTapCompanion(CompanionPoint(pet, view)),
+                "Higher density keeps " + orientation + " modal controls ahead of companion touch");
+            yield return CloseSection(ui, garden, "Rewards");
+            yield return Resize(width, height);
+            foreach (var name in HomeButtons)
+                Check(RectMatches(buttons[name], LogicalScreenRect(FindButton(name))),
+                    "Returning to the original density preserves " + orientation + " " + name);
+        }
+
+        private IEnumerator CheckKeyboardTargets(CampPrototypeController ui, CampGardenInput garden)
+        {
+            Click("AccountButton");
+            yield return null;
+            Check(ui.IsModalOpen && !garden.InputEnabled, "Focused connection controls suspend companion input");
+            var input = FindInput("PasswordInput");
+            input.ActivateInputField();
+            yield return WaitUntil(() => input.isFocused, 3f, "Connection password field receives focus");
+            var canvas = input.GetComponentInParent<Canvas>();
+            float scale = canvas.scaleFactor;
+            var submitRect = LogicalScreenRect(FindButton("ConnectAccountButton"));
+            yield return Resize(393, 450);
+            Check(input.isFocused && Mathf.Abs(canvas.scaleFactor - scale) < .001f,
+                "A keyboard-sized viewport keeps the focused form's original touch scale");
+            var resizedSubmit = LogicalScreenRect(FindButton("ConnectAccountButton"));
+            Check(Vector2.Distance(resizedSubmit.size, submitRect.size) < .5f && resizedSubmit.height >= 43.5f,
+                "Keyboard resizing preserves the connection button's logical touch size");
+            var scroll = input.GetComponentInParent<ScrollRect>();
+            var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(scroll.viewport, input.transform);
+            var usable = scroll.viewport.rect;
+            Check(bounds.min.y >= usable.yMin - .5f && bounds.max.y <= usable.yMax + .5f,
+                "Keyboard resizing scrolls the focused password field fully into view");
+            input.DeactivateInputField();
+            yield return null;
+            Check(Mathf.Abs(canvas.scaleFactor - scale) < .001f,
+                "Blurring during keyboard dismissal retains the original touch scale");
+            yield return Resize(393, 852);
+            Click("CancelConnectionButton");
+            yield return null;
+            Check(!ui.IsModalOpen && garden.InputEnabled, "Dismissing the keyboard form restores companion input");
+            CheckHomeTargets();
+        }
+
+        private static Rect LogicalScreenRect(Component component)
+        {
+            if (component == null) throw new InvalidOperationException("Cannot measure a missing UI component.");
+            var corners = new Vector3[4];
+            ((RectTransform)component.transform).GetWorldCorners(corners);
+            var canvas = component.GetComponentInParent<Canvas>();
+            var view = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+            var min = RectTransformUtility.WorldToScreenPoint(view, corners[0]) / canvas.scaleFactor;
+            var max = RectTransformUtility.WorldToScreenPoint(view, corners[2]) / canvas.scaleFactor;
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
+        private static bool RectMatches(Rect expected, Rect actual) =>
+            Vector2.Distance(expected.position, actual.position) < .5f && Vector2.Distance(expected.size, actual.size) < .5f;
+
         private void CheckHomeTargets()
         {
             CheckRenderedText("CampTitle");
@@ -482,7 +576,8 @@ namespace AbbyCamp.Validation
                 var view = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
                 var min = RectTransformUtility.WorldToScreenPoint(view, corners[0]);
                 var max = RectTransformUtility.WorldToScreenPoint(view, corners[2]);
-                Check(max.x - min.x >= 43.5f && max.y - min.y >= 43.5f, "Home action has a 44px touch target: " + name);
+                Check((max.x - min.x) / canvas.scaleFactor >= 43.5f && (max.y - min.y) / canvas.scaleFactor >= 43.5f,
+                    "Home action has a 44-unit logical touch target: " + name);
                 Check(min.x >= -.5f && min.y >= -.5f && max.x <= Screen.width + .5f && max.y <= Screen.height + .5f, "Home action stays in the viewport: " + name);
             }
         }
