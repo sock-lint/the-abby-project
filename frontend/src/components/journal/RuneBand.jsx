@@ -1,4 +1,4 @@
-import runeOrbUrl from '../../assets/glyphs/rune-orb.svg';
+import { ClockFabIcon } from '../icons/JournalIcons';
 
 /**
  * RuneBand — shimmering sheikah-teal band displayed across the top of a page
@@ -36,10 +36,8 @@ export default function RuneBand({ projectTitle, elapsedLabel, onClick }) {
       />
 
       <div className="relative flex items-center gap-3">
-        <img
-          src={runeOrbUrl}
-          alt=""
-          aria-hidden="true"
+        <ClockFabIcon
+          size={24}
           className="w-6 h-6 text-sheikah-teal-deep animate-rune-pulse"
         />
         <div className="min-w-0 flex-1">

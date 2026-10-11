@@ -12,7 +12,7 @@ const frameChapter = COSMETIC_CHAPTERS_BY_SLOT.active_frame;
 
 describe('CosmeticChapter', () => {
   it('renders the rubric, drop-cap, name, kicker, and owned-count chip', () => {
-    renderWithProviders(
+    const { container } = renderWithProviders(
       <CosmeticChapter
         chapter={frameChapter}
         owned={[{ id: 1, name: 'Bronze Frame', rarity: 'common' }]}
@@ -26,7 +26,7 @@ describe('CosmeticChapter', () => {
       />,
     );
     expect(screen.getByRole('region', { name: frameChapter.name })).toBeInTheDocument();
-    expect(screen.getByText('\u00a7I')).toBeInTheDocument();
+    expect(container.querySelector('[data-chapter-marker="1"]')).toHaveTextContent('1');
     expect(screen.getByText('A colorful frame for your initial')).toBeInTheDocument();
     expect(screen.getByText(/1 of 2/)).toBeInTheDocument();
   });

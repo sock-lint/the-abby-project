@@ -23,7 +23,7 @@ describe('CHAPTERS', () => {
     expect(CHAPTERS.map((c) => c.id)).toEqual([
       'available', 'underway', 'closed', 'locked',
     ]);
-    expect(CHAPTERS.map((c) => c.rubric)).toEqual(['§I', '§II', '§III', '§IV']);
+    expect(CHAPTERS.map((c) => c.rubric)).toEqual(['1', '2', '3', '4']);
   });
 });
 

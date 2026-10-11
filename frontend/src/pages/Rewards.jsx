@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import useSearchParamState from '../hooks/useSearchParamState';
-import { Coins, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { CoinIcon } from '../components/icons/JournalIcons';
 import {
   approveExchange, approveRedemption, rejectExchange, rejectRedemption,
   deleteReward, getCoinBalance, getExchangeRate, getExchangeRequests,
@@ -234,7 +235,7 @@ export default function Rewards() {
               onClick={() => setShowCoinAdjust(true)}
               className="flex items-center gap-1"
             >
-              <Coins size={14} /> Adjust coins
+              <CoinIcon size={14} /> Adjust coins
             </Button>
             <Button
               size="sm"

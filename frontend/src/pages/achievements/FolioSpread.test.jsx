@@ -117,14 +117,14 @@ describe('FolioSpread', () => {
   });
 
   it('renders a chapter rubric + skills for every subject', () => {
-    renderWithProviders(<FolioSpread tree={buildTree()} onSelectSkill={() => {}} />);
+    const { container } = renderWithProviders(<FolioSpread tree={buildTree()} onSelectSkill={() => {}} />);
     expect(screen.getByText('Joinery')).toBeInTheDocument();
     expect(screen.getByText('Finishing')).toBeInTheDocument();
     expect(screen.getByText('Mortise and Tenon')).toBeInTheDocument();
     expect(screen.getByText('Dovetails')).toBeInTheDocument();
     expect(screen.getByText('Shellac')).toBeInTheDocument();
-    expect(screen.getByText('§I')).toBeInTheDocument();
-    expect(screen.getByText('§II')).toBeInTheDocument();
+    expect(container.querySelector('[data-chapter-marker="1"]')).toHaveTextContent('1');
+    expect(container.querySelector('[data-chapter-marker="2"]')).toHaveTextContent('2');
   });
 
   it('passes the clicked skill to onSelectSkill', async () => {

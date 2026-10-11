@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Map as MapIcon, Hourglass, Coins, Backpack } from 'lucide-react';
+import { Map as MapIcon, Hourglass, Backpack } from 'lucide-react';
+import { CoinIcon } from '../../../components/icons/JournalIcons';
 import BottomSheet from '../../../components/BottomSheet';
 import Button from '../../../components/Button';
 import ErrorAlert from '../../../components/ErrorAlert';
@@ -100,7 +101,7 @@ export default function ExpeditionLaunchSheet({ mount, onDismiss, onLaunched }) 
               </div>
               <div className="flex items-center gap-3 mt-2 font-script text-tiny text-ink-whisper">
                 <span className="inline-flex items-center gap-1">
-                  <Coins size={11} className="text-gold-leaf" aria-hidden="true" />
+                  <CoinIcon size={11} className="text-gold-leaf" aria-hidden="true" />
                   {tier.coins_label}
                 </span>
                 <span className="inline-flex items-center gap-1">

@@ -9,7 +9,7 @@ vi.mock('framer-motion', async () => {
 
 const chronos = {
   id: 'chronos',
-  rubric: '§I',
+  rubric: '1',
   letter: 'C',
   name: 'Chronos',
   kicker: 'the cadence of hours',
@@ -28,7 +28,7 @@ function defaultCounts() {
 
 describe('CollectionFolio', () => {
   it('renders rubric + letter + name in a labelled section', () => {
-    renderWithProviders(
+    const { container } = renderWithProviders(
       <CollectionFolio
         collection={chronos}
         badges={[]}
@@ -39,7 +39,7 @@ describe('CollectionFolio', () => {
       />,
     );
     expect(screen.getByRole('region', { name: 'Chronos' })).toBeInTheDocument();
-    expect(screen.getByText('§I')).toBeInTheDocument();
+    expect(container.querySelector('[data-chapter-marker="1"]')).toHaveTextContent('1');
     expect(screen.getByText(/the cadence of hours/)).toBeInTheDocument();
   });
 

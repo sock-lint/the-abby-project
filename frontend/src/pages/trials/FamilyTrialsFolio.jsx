@@ -5,7 +5,7 @@ import { formatDate } from '../../utils/format';
 
 /**
  * FamilyTrialsFolio — parent-only roll-up of every child's active trial.
- * Wrapped in a ChapterRubric header (§V on the manuscript) so it reads as
+ * Wrapped in a ChapterRubric header (chapter 5) so it reads as
  * its own section rather than a bare ParchmentCard, matching the
  * illuminated vocabulary used by the rest of the page.
  */

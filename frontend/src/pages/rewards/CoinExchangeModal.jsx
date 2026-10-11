@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRightLeft, Coins, DollarSign } from 'lucide-react';
+import { ArrowRightLeft, DollarSign } from 'lucide-react';
+import { CoinIcon } from '../../components/icons/JournalIcons';
 import { getBalance, requestExchange } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
@@ -121,7 +122,7 @@ export default function CoinExchangeModal({
             <DollarSign size={16} className="text-moss" />
             <span className="text-body">{formatCurrency(dollarAmount || 0)}</span>
             <ArrowRightLeft size={14} className="text-ink-whisper" />
-            <Coins size={16} className="text-sheikah-teal-deep" />
+            <CoinIcon size={16} className="text-sheikah-teal-deep" />
             <span className="text-body font-bold text-sheikah-teal-deep">{coins} coins</span>
           </motion.div>
         )}

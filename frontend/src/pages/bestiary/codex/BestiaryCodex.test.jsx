@@ -122,6 +122,8 @@ describe('BestiaryCodex', () => {
     const dragonTile = await screen.findByRole('button', { name: /^Dragon/i });
     expect(dragonTile).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Fox/i })).toBeNull();
+    expect(screen.getByRole('region', { name: 'Bonded' })
+      .querySelector('[data-chapter-marker="2"]')).toHaveTextContent('2');
 
     // Switch to the Hatched chapter — Fox visible, Dragon hidden.
     const user = userEvent.setup();
@@ -131,6 +133,8 @@ describe('BestiaryCodex', () => {
       expect(screen.getByRole('button', { name: /^Fox/i })).toBeInTheDocument();
     });
     expect(screen.queryByRole('button', { name: /^Dragon/i })).toBeNull();
+    expect(screen.getByRole('region', { name: 'Hatched' })
+      .querySelector('[data-chapter-marker="3"]')).toHaveTextContent('3');
 
     // Switch to Silhouettes — Wolf renders as the unknown silhouette button.
     const silhouettesSpine = screen.getByRole('tab', { name: /Silhouettes/ });

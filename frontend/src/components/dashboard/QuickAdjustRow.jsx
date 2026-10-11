@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { Wallet, CircleDollarSign } from 'lucide-react';
+import { CircleDollarSign } from 'lucide-react';
+import { CoinIcon } from '../icons/JournalIcons';
 
 function AdjustButton({ icon, label, onClick }) {
   return (
@@ -24,7 +25,7 @@ export default function QuickAdjustRow() {
   return (
     <div className="flex flex-wrap gap-2">
       <AdjustButton
-        icon={<Wallet size={16} />}
+        icon={<CoinIcon size={16} />}
         label="Adjust coins"
         onClick={() => navigate('/treasury?tab=bazaar&adjust=1')}
       />

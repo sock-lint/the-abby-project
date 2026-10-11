@@ -1,6 +1,7 @@
 import { useId, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import ParchmentCard from '../../components/journal/ParchmentCard';
+import ChapterMarker from '../../components/atlas/ChapterMarker';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
 import RarityStrand from '../../components/atlas/RarityStrand';
 import { tierForProgress } from '../../components/atlas/mastery.constants';
@@ -42,12 +43,7 @@ export default function CosmeticChapter({
     <ParchmentCard as="section" variant="plain" tone="default" aria-labelledby={headingId}>
       <header className="flex flex-col items-start gap-2 sm:flex-row sm:gap-4">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <span
-            aria-hidden="true"
-            className="shrink-0 font-body font-bold text-2xl text-ink-secondary leading-none tabular-nums pt-1"
-          >
-            {chapter.rubric}
-          </span>
+          <ChapterMarker>{chapter.rubric}</ChapterMarker>
           <IlluminatedVersal
             letter={chapter.letter}
             size="md"

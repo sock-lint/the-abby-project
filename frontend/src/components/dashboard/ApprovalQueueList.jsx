@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X, ClipboardCheck, BookOpen, Gift, Palette, Sparkles, Feather, CheckCheck, Coins } from 'lucide-react';
+import { Check, X, ClipboardCheck, BookOpen, Gift, Palette, Sparkles, Feather, CheckCheck } from 'lucide-react';
+import { CoinIcon } from '../icons/JournalIcons';
 import EmptyState from '../EmptyState';
 import ParchmentSkeleton from '../ParchmentSkeleton';
 import ParchmentCard from '../journal/ParchmentCard';
@@ -29,7 +30,7 @@ const KIND_LABELS = {
   creation: { label: 'creation', tone: 'gold', icon: Palette },
   chore_proposal: { label: 'duty proposal', tone: 'gold', icon: Sparkles },
   habit_proposal: { label: 'ritual proposal', tone: 'royal', icon: Feather },
-  exchange: { label: 'exchange', tone: 'ember', icon: Coins },
+  exchange: { label: 'exchange', tone: 'ember', icon: CoinIcon },
 };
 
 // Proposals need the parent to FILL IN rewards; we can't approve inline.

@@ -1,8 +1,10 @@
 // Reliquary Codex taxonomy — maps criterion_type (from apps/achievements/criteria.py)
-// into seven manuscript chapters that mirror how the backend already groups
+// into seven collection chapters that mirror how the backend already groups
 // badges by subsystem (time / projects / skills / economy / scholar / adventure /
 // completionism + meta). Kept in a .js file so non-component exports don't trip
 // react-refresh/only-export-components.
+
+import { chapterMark } from '../../components/atlas/mastery.constants';
 
 const RARITY_ORDER = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
 
@@ -11,7 +13,7 @@ export const RARITY_KEYS = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 export const COLLECTIONS = [
   {
     id: 'chronos',
-    rubric: '§I',
+    rubric: chapterMark(0),
     letter: 'C',
     name: 'Chronos',
     kicker: 'the cadence of hours',
@@ -26,7 +28,7 @@ export const COLLECTIONS = [
   },
   {
     id: 'ventures',
-    rubric: '§II',
+    rubric: chapterMark(1),
     letter: 'V',
     name: 'Ventures',
     kicker: 'the ledger of projects',
@@ -45,7 +47,7 @@ export const COLLECTIONS = [
   },
   {
     id: 'mastery',
-    rubric: '§III',
+    rubric: chapterMark(2),
     letter: 'M',
     name: 'Mastery',
     kicker: 'the branches of skill',
@@ -60,7 +62,7 @@ export const COLLECTIONS = [
   },
   {
     id: 'coffers',
-    rubric: '§IV',
+    rubric: chapterMark(3),
     letter: 'G',
     name: 'Coffers',
     kicker: 'the weight of coin',
@@ -74,7 +76,7 @@ export const COLLECTIONS = [
   },
   {
     id: 'scholar',
-    rubric: '§V',
+    rubric: chapterMark(4),
     letter: 'Q',
     name: 'Scholar',
     kicker: 'the quill and the hour',
@@ -87,7 +89,7 @@ export const COLLECTIONS = [
   },
   {
     id: 'adventure',
-    rubric: '§VI',
+    rubric: chapterMark(5),
     letter: 'A',
     name: 'Adventure',
     kicker: 'the wild and the wyrm',
@@ -109,7 +111,7 @@ export const COLLECTIONS = [
   },
   {
     id: 'reliquary',
-    rubric: '§VII',
+    rubric: chapterMark(6),
     letter: 'R',
     name: 'Reliquary',
     kicker: 'the case of rarities',

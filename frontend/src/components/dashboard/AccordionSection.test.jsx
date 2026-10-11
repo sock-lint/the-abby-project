@@ -32,22 +32,22 @@ describe('AccordionSection', () => {
     expect(screen.getByText(/body text/i)).toBeInTheDocument();
   });
 
-  it('renders an atlas chapter numeral when index is supplied', () => {
-    render(
+  it('renders a decorative numbered marker when index is supplied', () => {
+    const { container } = render(
       <AccordionSection index={2} title="Hoard" peek="one goal">
         <div>body text</div>
       </AccordionSection>,
     );
-    expect(screen.getByText('§III')).toBeInTheDocument();
+    expect(container.querySelector('[data-chapter-marker="3"]')).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('omits the chapter numeral when no index is supplied', () => {
-    render(
+  it('omits the chapter marker when no index is supplied', () => {
+    const { container } = render(
       <AccordionSection title="Hoard" peek="one goal">
         <div>body text</div>
       </AccordionSection>,
     );
-    expect(screen.queryByText(/^§/)).toBeNull();
+    expect(container.querySelector('[data-chapter-marker]')).toBeNull();
   });
 
   it('persists open state per-title via localStorage', async () => {
