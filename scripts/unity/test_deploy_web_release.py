@@ -1,6 +1,8 @@
 """Synthetic release/broker checks; no Docker, SSH or production access."""
 
 import hashlib
+from contextlib import redirect_stdout
+import errno
 from email.message import Message
 import gzip
 import io
@@ -9,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import tarfile
 import tempfile
+import subprocess
 import threading
 from types import SimpleNamespace
 import unittest
@@ -487,6 +490,90 @@ class PublicTests(unittest.TestCase):
             self.assertEqual(broker.args[-1], release.SSH_COMMAND)
             self.assertIn("StrictHostKeyChecking=yes", broker.args)
             self.assertIn("IdentitiesOnly=yes", broker.args)
+
+
+class ClientPhaseTests(unittest.TestCase):
+    def test_native_failure_identifies_phase_without_native_arguments(self):
+        secret = "fixture-private-detail"
+        errors = [OSError(errno.EIO, secret, secret), ValueError(secret), KeyError(secret),
+                  TypeError(secret), subprocess.TimeoutExpired([secret], 15, output=secret, stderr=secret),
+                  tarfile.TarError(secret), KeyboardInterrupt(secret)]
+        for error in errors:
+            with self.subTest(kind=type(error).__name__), redirect_stdout(io.StringIO()) as output:
+                with self.assertRaises(release.ReleaseError) as rejected:
+                    with release.client_phase("image archive creation"):
+                        raise error
+                message = str(rejected.exception)
+                self.assertIn("image archive creation", message)
+                self.assertIn(type(error).__name__, message)
+                if isinstance(error, OSError):
+                    self.assertIn(f"errno {errno.EIO}", message)
+                self.assertNotIn(secret, message + output.getvalue())
+                self.assertTrue(rejected.exception.__suppress_context__)
+
+    def test_existing_release_diagnostic_is_preserved(self):
+        error = release.ReleaseError("Release is superseded on main.")
+        with redirect_stdout(io.StringIO()), self.assertRaises(release.ReleaseError) as rejected:
+            with release.client_phase("current-main check and archive upload"):
+                raise error
+        self.assertIs(rejected.exception, error)
+
+    def test_native_hosting_and_upload_failures_abort_without_retry_or_activation(self):
+        manifest, raw, files = manifest_fixture()
+        for phase in ("hosting", "upload"):
+            with self.subTest(phase=phase), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "release.json").write_bytes(raw)
+                with tarfile.open(root / "web.tar.gz", "w:gz") as bundle:
+                    for name, data in {**files, "release.json": raw}.items():
+                        add_tar_file(bundle, "web/" + name, data)
+                request = request_fixture()
+                request["manifest_sha256"] = hashlib.sha256(raw).hexdigest()
+                image_archive(root / "fixture.tar.gz", request)
+                saved_image = gzip.decompress((root / "fixture.tar.gz").read_bytes())
+
+                def local_command(args, **kwargs):
+                    if args[:3] == ["docker", "image", "inspect"]:
+                        return (request["image_id"] + "\n").encode() if "--format" in args else None
+                    return b""
+
+                operations = []
+
+                def broker_request(payload, archive=None):
+                    operations.append(payload["op"])
+                    if payload["op"] == "upload":
+                        raise PermissionError(errno.EACCES, "fixture-private-detail", "/fixture-private-detail")
+                    return {"ok": True}
+
+                env = {"GITHUB_SHA": SOURCE, "GITHUB_REPOSITORY": release.REPOSITORY,
+                       "GITHUB_RUN_ID": "123", "GITHUB_RUN_ATTEMPT": "1", "GITHUB_REF": "refs/heads/main",
+                       "GITHUB_TOKEN": "fixture-token", "UNITY_WEB_SSH_TARGET": "fixture-host",
+                       "UNITY_WEB_SSH_KEY_PATH": "fixture-key", "UNITY_WEB_SSH_KNOWN_HOSTS_PATH": "fixture-hosts"}
+                process = SimpleNamespace(stdout=io.BytesIO(saved_image), wait=lambda timeout: 0)
+                hosting_error = OSError(errno.EIO, "fixture-private-detail") if phase == "hosting" else None
+                with patch.dict(release.os.environ, env, clear=True), patch.object(release, "command", side_effect=local_command) as commands, patch.object(release, "hosting_checks", side_effect=hosting_error), patch.object(release.subprocess, "Popen", return_value=process) as save, patch.object(release, "current_main", return_value=SOURCE) as main, patch.object(release, "BrokerClient") as broker, patch.object(release, "verify_public") as public, redirect_stdout(io.StringIO()):
+                    broker.return_value.request.side_effect = broker_request
+                    with self.assertRaises(release.ReleaseError) as rejected:
+                        release.client_main(root)
+                self.assertNotIn("fixture-private-detail", str(rejected.exception))
+                public.assert_not_called()
+                archive = root / (manifest["release_id"] + ".image.tar.gz")
+                scans = [call for call in commands.call_args_list if call.args[0][0] == "trivy"]
+                if phase == "hosting":
+                    self.assertIn("local HTTP hosting verification", str(rejected.exception))
+                    self.assertEqual(operations, ["inspect"])
+                    self.assertEqual(main.call_count, 1)
+                    self.assertEqual(scans, [])
+                    save.assert_not_called()
+                    self.assertFalse(archive.exists())
+                else:
+                    self.assertIn("current-main check and archive upload", str(rejected.exception))
+                    self.assertEqual(operations, ["inspect", "upload"])
+                    self.assertEqual(main.call_count, 2)
+                    self.assertEqual(len(scans), 1)
+                    save.assert_called_once()
+                    self.assertTrue(archive.is_file())
+                    release.validate_image_archive(archive, request, release.request_identity(request))
 
 
 class VerificationOnlyTests(unittest.TestCase):
