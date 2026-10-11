@@ -18,8 +18,8 @@ const STORAGE_KEY = 'trials:codex:active-chapter';
  *
  *   - Vessel shelf: kind filter (All / Boss / Collection / Co-op) with
  *     `×N` chips. Empty buckets hidden except All.
- *   - Codex shelf: status chapters (§I Available · §II Underway ·
- *     §III Closed · §IV Locked). All four spines render even when empty
+ *   - Codex shelf: status chapters (1 Available · 2 Underway ·
+ *     3 Closed · 4 Locked). All four spines render even when empty
  *     so the manuscript skeleton stays intact (matches Bestiary).
  *   - Folio body: TrialsFolio for the active chapter.
  *

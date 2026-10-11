@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { motion } from 'framer-motion';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import BadgeSigil from '../../components/atlas/BadgeSigil';
+import ChapterMarker from '../../components/atlas/ChapterMarker';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
 import RarityStrand from '../../components/atlas/RarityStrand';
 import { tierForProgress } from '../../components/atlas/mastery.constants';
@@ -30,12 +31,7 @@ export default function CollectionFolio({
     <ParchmentCard as="section" variant="plain" tone="default" aria-labelledby={headingId}>
       <header className="flex items-start gap-4">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <span
-            aria-hidden="true"
-            className="font-display italic text-2xl text-ink-secondary/70 leading-none tabular-nums pt-1"
-          >
-            {collection.rubric}
-          </span>
+          <ChapterMarker>{collection.rubric}</ChapterMarker>
           <IlluminatedVersal
             letter={collection.letter}
             size="md"

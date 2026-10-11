@@ -3,7 +3,7 @@
 // codexes speak the same vocabulary. Lives in a .js file (not .jsx) so the
 // react-refresh/only-export-components lint rule stays satisfied.
 
-import { PROGRESS_TIER } from '../../components/atlas/mastery.constants';
+import { chapterMark, PROGRESS_TIER } from '../../components/atlas/mastery.constants';
 
 // Status → tone for RuneBadge chips on tiles. Lifted from the old
 // pages/Trials.jsx:27-32 so the closed-chapter tiles keep the same
@@ -15,7 +15,7 @@ export const STATUS_TONE = {
   failed: 'ember',
 };
 
-// Chapter definitions. `rubric` is the §-numeral the folio header renders;
+// Chapter definitions. `rubric` is the number the folio header renders;
 // `letter` is the IlluminatedVersal drop-cap. `tier` is the spine-tint hint
 // — `groupQuestsByChapter` still computes a progress-based tier per chapter
 // at call time so empty chapters fall back to `locked` correctly.
@@ -24,7 +24,7 @@ export const CHAPTERS = [
     id: 'available',
     name: 'Available',
     letter: 'A',
-    rubric: '§I',
+    rubric: chapterMark(0),
     kicker: 'boards posting fresh trials',
     tier: PROGRESS_TIER.rising,
   },
@@ -32,7 +32,7 @@ export const CHAPTERS = [
     id: 'underway',
     name: 'Underway',
     letter: 'U',
-    rubric: '§II',
+    rubric: chapterMark(1),
     kicker: 'pressing forward — one at a time',
     tier: PROGRESS_TIER.cresting,
   },
@@ -40,7 +40,7 @@ export const CHAPTERS = [
     id: 'closed',
     name: 'Closed',
     letter: 'C',
-    rubric: '§III',
+    rubric: chapterMark(2),
     kicker: 'trials filed in the chronicle',
     tier: PROGRESS_TIER.gilded,
   },
@@ -48,7 +48,7 @@ export const CHAPTERS = [
     id: 'locked',
     name: 'Locked',
     letter: 'L',
-    rubric: '§IV',
+    rubric: chapterMark(3),
     kicker: 'badge-gated — earn the seal to unlock',
     tier: PROGRESS_TIER.locked,
   },

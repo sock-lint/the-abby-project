@@ -1,7 +1,8 @@
 import { useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
-import { Crown, Sparkles, Egg, Coins, Map as MapIcon } from 'lucide-react';
+import { Crown, Sparkles, Egg, Map as MapIcon } from 'lucide-react';
+import { CoinIcon } from '../../components/icons/JournalIcons';
 
 import Button from '../../components/Button';
 import RpgSprite from '../../components/rpg/RpgSprite';
@@ -533,7 +534,7 @@ function ExpeditionReturnSequence({ expedition, phase, reduced, titleId, onDismi
               <div className="flex flex-col items-start gap-1">
                 {coins > 0 && (
                   <span className="inline-flex items-center gap-1 font-script text-base text-gold-leaf">
-                    <Coins size={14} aria-hidden="true" /> +{coins}
+                    <CoinIcon size={14} aria-hidden="true" /> +{coins}
                   </span>
                 )}
                 {items.slice(0, 4).map((item, idx) => (

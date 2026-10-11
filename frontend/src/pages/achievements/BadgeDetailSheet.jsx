@@ -13,7 +13,7 @@ const TIER_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', '
 /**
  * BadgeDetailSheet — illuminated detail pane for a single sigil. Hero
  * glyph in an ornate ring, rarity ribbon, collection chip ("from the
- * reliquary of {name} · §N"), plain-English unlock hint, optional ladder
+ * reliquary of {name} · Chapter N"), plain-English unlock hint, optional ladder
  * of sibling badges (shared criterion_type, differing criterion_value),
  * XP bonus line, and a "sealed on {date}" or "not yet earned" footer.
  */
@@ -56,7 +56,7 @@ export default function BadgeDetailSheet({ entry, onClose, allBadges = [], earne
               data-collection-chip="true"
               className="mt-2 font-script text-caption text-sheikah-teal-deep"
             >
-              from the reliquary of {collection.name} · {collection.rubric}
+              from the reliquary of {collection.name} · Chapter {collection.rubric}
             </div>
           )}
 

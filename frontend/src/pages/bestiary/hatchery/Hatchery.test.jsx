@@ -53,17 +53,17 @@ describe('Hatchery', () => {
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
-  it('renders the Hatch + Breed sections under atlas chapter numerals (§I / §II)', async () => {
+  it('renders the Hatch + Breed sections with Meadow chapter markers', async () => {
     server.use(
       http.get('*/api/pets/stable/', () =>
         HttpResponse.json({ pets: [], mounts: [], total_possible: 48 }),
       ),
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     );
-    renderHatchery();
+    const { container } = renderHatchery();
     await waitFor(() => expect(screen.getByText('Hatch a New Pet')).toBeInTheDocument());
-    expect(screen.getByText('§I')).toBeInTheDocument();
-    expect(screen.getByText('§II')).toBeInTheDocument();
+    expect(container.querySelector('[data-chapter-marker="1"]')).toHaveTextContent('1');
+    expect(container.querySelector('[data-chapter-marker="2"]')).toHaveTextContent('2');
   });
 
   it('hatches a pet using the egg + potion picked from the satchel', async () => {

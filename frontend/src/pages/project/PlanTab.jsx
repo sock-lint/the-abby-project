@@ -4,7 +4,7 @@ import { Check, ChevronDown, DollarSign, Trash2 } from 'lucide-react';
 import EmptyState from '../../components/EmptyState';
 import IconButton from '../../components/IconButton';
 import ParchmentCard from '../../components/journal/ParchmentCard';
-import { chapterMark } from '../../components/atlas/mastery.constants';
+import ChapterMarker from '../../components/atlas/ChapterMarker';
 import DashedAddButton from './DashedAddButton';
 import { ResourcePill, StepCard } from './ProjectPlanItems';
 
@@ -67,7 +67,6 @@ export default function PlanTab({
         const total = childSteps.length;
         const collapsed = collapsedMilestones.has(ms.id);
         const allDone = total > 0 && done === total;
-        const numeral = chapterMark(idx);
         const isCompleting = pendingMilestoneId === ms.id;
         return (
           <motion.div key={ms.id} layout>
@@ -118,12 +117,7 @@ export default function PlanTab({
                   className="flex-1 min-w-0 text-left"
                 >
                   <div className="flex items-center gap-2">
-                    <span
-                      aria-hidden="true"
-                      className="font-display italic text-ember-deep text-body leading-none select-none shrink-0"
-                    >
-                      {numeral}
-                    </span>
+                    <ChapterMarker index={idx} />
                     <div
                       className={`font-display text-base text-ink-primary ${
                         ms.is_completed ? 'line-through' : ''

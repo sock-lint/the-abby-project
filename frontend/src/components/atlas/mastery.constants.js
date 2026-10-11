@@ -47,22 +47,22 @@ export const RARITY_HALO = {
 };
 
 export const CHAPTER_NUMERALS = [
-  '§I',
-  '§II',
-  '§III',
-  '§IV',
-  '§V',
-  '§VI',
-  '§VII',
-  '§VIII',
-  '§IX',
-  '§X',
-  '§XI',
-  '§XII',
+  '1',
+  '2',
+  '3',
+  '4',
+  '5',
+  '6',
+  '7',
+  '8',
+  '9',
+  '10',
+  '11',
+  '12',
 ];
 
 export function chapterMark(i) {
-  return CHAPTER_NUMERALS[i] ?? `§${i + 1}`;
+  return CHAPTER_NUMERALS[i] ?? String(i + 1);
 }
 
 export function countIlluminated(subjects) {

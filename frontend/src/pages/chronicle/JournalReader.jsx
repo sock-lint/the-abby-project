@@ -118,7 +118,7 @@ export default function JournalReader() {
   // Group journal entries by chapter year — preserves the year for the
   // shelf-of-tomes UX so kids can flip between Sophomore Year / Freshman
   // Year / Grade 8, mirroring how the Yearbook tab shows the same chapters.
-  // Sorted chronologically (oldest → newest) so §I → §N reads left-to-right.
+  // Sorted chronologically (oldest → newest) so chapter 1 → N reads left-to-right.
   const journalChapters = useMemo(() => {
     if (!chapters) return null;
     const buckets = chapters

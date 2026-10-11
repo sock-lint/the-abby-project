@@ -61,7 +61,7 @@ describe('PlanTab', () => {
     expect(circle).toHaveAttribute('aria-busy', 'true');
   });
 
-  it('prefixes each milestone title with an atlas chapter numeral (§I, §II, …)', () => {
+  it('prefixes each milestone title with a decorative Meadow chapter number', () => {
     renderPlan(buildProject({
       milestones: [
         { id: 1, title: 'Foundations', is_completed: false },
@@ -70,8 +70,8 @@ describe('PlanTab', () => {
       ],
       steps: [],
     }));
-    expect(screen.getByText('§I')).toBeInTheDocument();
-    expect(screen.getByText('§II')).toBeInTheDocument();
-    expect(screen.getByText('§III')).toBeInTheDocument();
+    expect(screen.getByText('1')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByText('2')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByText('3')).toHaveAttribute('aria-hidden', 'true');
   });
 });

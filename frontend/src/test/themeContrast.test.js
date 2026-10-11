@@ -71,6 +71,11 @@ describe('theme contrast (WCAG AA)', () => {
       for (const surface of SURFACES) {
         const bg = theme[surface];
 
+        it(`chapter marker on moss/15 over ${surface} ≥ ${AA_NORMAL}:1`, () => {
+          const markerSurface = tintedSurface(theme.tones.moss, bg, 0.15);
+          expect(contrastRatio(theme.tones.mossDeep, markerSurface)).toBeGreaterThanOrEqual(AA_NORMAL);
+        });
+
         for (const inkKey of INK_KEYS) {
           it(`${inkKey} on ${surface} ≥ ${AA_NORMAL}:1`, () => {
             const ratio = contrastRatio(theme[inkKey], bg);

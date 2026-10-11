@@ -1,12 +1,8 @@
-import { chapterMark } from './mastery.constants';
+import ChapterMarker from './ChapterMarker';
 
 /**
- * ChapterRubric — medieval "rubric" header for a section. A rubric in the
- * manuscript sense is the red (rubrum) headmark that names a section. Here
- * it's a left-dropped roman numeral in ember-deep, an optional glyph, the
- * title in a display serif, and a hair-rule that carries the eye into the
- * stanzas below. Deliberately not sticky — section lists are short enough
- * that a stable section break reads cleaner.
+ * ChapterRubric — a Meadow section heading with a numbered waypoint,
+ * optional icon and supporting progress. Kept in normal document flow.
  *
  * Accepts either direct props (`name` / `icon` / `summary`) for general
  * surfaces, or the legacy `subject` object shape used by Skills'
@@ -18,13 +14,8 @@ export default function ChapterRubric({ index, subject, name, icon, summary }) {
   const displaySummary = summary ?? subject?.summary;
   return (
     <header className="pt-4 pb-1">
-      <div className="flex flex-wrap items-baseline gap-2 sm:gap-3">
-        <span
-          aria-hidden="true"
-          className="font-display font-bold text-body text-sheikah-teal-deep leading-none select-none"
-        >
-          {chapterMark(index)}
-        </span>
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <ChapterMarker index={index} />
         {displayIcon && (
           <span aria-hidden="true" className="text-xl leading-none">
             {displayIcon}

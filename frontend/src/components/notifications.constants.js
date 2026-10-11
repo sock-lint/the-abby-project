@@ -1,9 +1,10 @@
 import {
-  Award, Star, ListChecks, BookOpen, Sparkles, Hammer, Coins, Gift,
+  Award, Star, ListChecks, BookOpen, Sparkles, Hammer, Gift,
   Cake, Flame, ScrollText, Palette, Footprints, Backpack, PawPrint,
   AlertTriangle, PackageCheck, BellRing, Hourglass, Trophy, Crown,
   Map as MapIcon, Box, Printer, CircleAlert, MessageCircle,
 } from 'lucide-react';
+import { CoinIcon } from './icons/JournalIcons';
 
 // Sensible default routes per notification type. Used as a fallback when
 // the backend ``link`` field is empty so a click always takes the user
@@ -48,13 +49,13 @@ export const NOTIFICATION_TYPE_META = {
   // Wages
   timecard_ready:          { icon: Hourglass,     accent: 'teal',   route: '/treasury?tab=wages' },
   timecard_approved:       { icon: Hourglass,     accent: 'moss',   route: '/treasury?tab=wages' },
-  payout_recorded:         { icon: Coins,         accent: 'gold',   route: '/treasury?tab=coffers' },
+  payout_recorded:         { icon: CoinIcon,      accent: 'gold',   route: '/treasury?tab=coffers' },
 
   // Rewards
   redemption_requested:    { icon: Gift,          accent: 'teal',   route: '/treasury?tab=bazaar' },
-  exchange_requested:      { icon: Coins,         accent: 'teal',   route: '/treasury?tab=bazaar' },
-  exchange_approved:       { icon: Coins,         accent: 'moss',   route: '/treasury?tab=bazaar' },
-  exchange_denied:         { icon: Coins,         accent: 'ember',  route: '/treasury?tab=bazaar' },
+  exchange_requested:      { icon: CoinIcon,      accent: 'teal',   route: '/treasury?tab=bazaar' },
+  exchange_approved:       { icon: CoinIcon,      accent: 'moss',   route: '/treasury?tab=bazaar' },
+  exchange_denied:         { icon: CoinIcon,      accent: 'ember',  route: '/treasury?tab=bazaar' },
   low_reward_stock:        { icon: AlertTriangle, accent: 'ember',  route: '/manage' },
   reward_restocked:        { icon: PackageCheck,  accent: 'moss',   route: '/treasury?tab=bazaar' },
 
@@ -70,7 +71,7 @@ export const NOTIFICATION_TYPE_META = {
   expedition_returned:     { icon: MapIcon,       accent: 'gold',   route: '/bestiary?tab=mounts' },
 
   // Milestones / goals / chronicle / creations
-  savings_goal_completed:  { icon: Coins,         accent: 'gold',   route: '/quests?tab=ventures' },
+  savings_goal_completed:  { icon: CoinIcon,      accent: 'gold',   route: '/quests?tab=ventures' },
   birthday:                { icon: Cake,          accent: 'gold',   route: '/chronicle?tab=yearbook' },
   chronicle_first_ever:    { icon: ScrollText,    accent: 'teal',   route: '/chronicle?tab=yearbook' },
   journal_reply:           { icon: MessageCircle, accent: 'teal',  route: '/chronicle?tab=journal' },

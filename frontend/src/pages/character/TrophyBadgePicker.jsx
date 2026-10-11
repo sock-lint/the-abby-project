@@ -1,6 +1,7 @@
 import BottomSheet from '../../components/BottomSheet';
 import EmptyState from '../../components/EmptyState';
 import BadgeSigil from '../../components/atlas/BadgeSigil';
+import ChapterMarker from '../../components/atlas/ChapterMarker';
 import { groupBadgesByCollection } from '../achievements/collections.constants';
 
 /**
@@ -48,13 +49,8 @@ export default function TrophyBadgePicker({
                   aria-labelledby={`trophy-chapter-${chapter.collection.id}`}
                   className="space-y-2"
                 >
-                  <div className="flex items-baseline gap-2">
-                    <span
-                      aria-hidden="true"
-                      className="font-display italic text-ink-secondary/70 text-caption tabular-nums"
-                    >
-                      {chapter.collection.rubric}
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <ChapterMarker>{chapter.collection.rubric}</ChapterMarker>
                     <h3
                       id={`trophy-chapter-${chapter.collection.id}`}
                       className="font-display italic text-body text-ink-primary leading-tight"

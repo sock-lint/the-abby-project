@@ -7,9 +7,9 @@ describe('ChapterRubric', () => {
 
   it('renders the chapter numeral for its 0-based index', () => {
     renderWithProviders(<ChapterRubric index={0} subject={subject} />);
-    expect(screen.getByText('§I')).toBeInTheDocument();
+    expect(screen.getByText('1')).toHaveAttribute('data-chapter-marker', '1');
     renderWithProviders(<ChapterRubric index={2} subject={subject} />);
-    expect(screen.getByText('§III')).toBeInTheDocument();
+    expect(screen.getByText('3')).toHaveAttribute('data-chapter-marker', '3');
   });
 
   it('renders the subject name and icon', () => {
@@ -33,7 +33,7 @@ describe('ChapterRubric', () => {
 
   it('accepts direct name/icon props for non-skill surfaces', () => {
     renderWithProviders(<ChapterRubric index={1} name="Hatch a New Pet" icon="🥚" />);
-    expect(screen.getByText('§II')).toBeInTheDocument();
+    expect(screen.getByText('2')).toHaveAttribute('data-chapter-marker', '2');
     expect(screen.getByText('Hatch a New Pet')).toBeInTheDocument();
     expect(screen.getByText('🥚')).toBeInTheDocument();
   });

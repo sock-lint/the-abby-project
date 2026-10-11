@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
-import { SlidersHorizontal, Settings, LogOut, History, BookOpen, House, Sparkles, PawPrint, Coins, Map, BookHeart } from 'lucide-react';
+import { SlidersHorizontal, Settings, LogOut, History, BookOpen, Sparkles } from 'lucide-react';
+import { TodayIcon, QuestsIcon, BestiaryIcon, TreasuryIcon, AtlasIcon, ChronicleIcon } from '../icons/JournalIcons';
 import AvatarMenu from '../AvatarMenu';
 import useParentPendingCounts from '../../hooks/useParentPendingCounts';
 
@@ -21,12 +22,12 @@ import useParentPendingCounts from '../../hooks/useParentPendingCounts';
  */
 
 const CHAPTERS = [
-  { to: '/',           icon: House,     label: 'Today',     shortLabel: 'Today' },
-  { to: '/quests',     icon: Sparkles,  label: 'Quests',    shortLabel: 'Quests' },
-  { to: '/bestiary',   icon: PawPrint,  label: 'Bestiary',  shortLabel: 'Bestiary' },
-  { to: '/treasury',   icon: Coins,     label: 'Treasury',  shortLabel: 'Treasury' },
-  { to: '/atlas',      icon: Map,       label: 'Atlas',     shortLabel: 'Atlas' },
-  { to: '/chronicle',  icon: BookHeart, label: 'Chronicle', shortLabel: 'Chronicle' },
+  { to: '/',           icon: TodayIcon,     label: 'Today',     shortLabel: 'Today' },
+  { to: '/quests',     icon: QuestsIcon,    label: 'Quests',    shortLabel: 'Quests' },
+  { to: '/bestiary',   icon: BestiaryIcon,  label: 'Bestiary',  shortLabel: 'Bestiary' },
+  { to: '/treasury',   icon: TreasuryIcon,  label: 'Treasury',  shortLabel: 'Treasury' },
+  { to: '/atlas',      icon: AtlasIcon,     label: 'Atlas',     shortLabel: 'Atlas' },
+  { to: '/chronicle',  icon: ChronicleIcon, label: 'Chronicle', shortLabel: 'Chronicle' },
 ];
 
 export function ChapterSidebar({ user, onLogout }) {
