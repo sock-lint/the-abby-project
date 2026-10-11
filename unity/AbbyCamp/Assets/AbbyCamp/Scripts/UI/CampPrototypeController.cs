@@ -233,7 +233,8 @@ namespace AbbyCamp.UI
             heading.fontSize = 18;
             heading.alignment = TextAnchor.MiddleCenter;
             heading.color = ink;
-            summary = Label(button.transform, "", 13, Vector2.zero, Vector2.zero, TextAnchor.MiddleCenter, ink);
+            summary = Label(button.transform, "", 12, Vector2.zero, Vector2.zero, TextAnchor.MiddleCenter, ink);
+            summary.verticalOverflow = VerticalWrapMode.Overflow;
             return button;
         }
 
@@ -685,7 +686,7 @@ namespace AbbyCamp.UI
                 Place(cards[i].GetComponent<RectTransform>(), new Vector2(12 + i * (buttonWidth + 8), -12), new Vector2(buttonWidth, 76));
                 var labels = cards[i].GetComponentsInChildren<Text>();
                 Place(labels[0].rectTransform, new Vector2(4, -10), new Vector2(buttonWidth - 8, 28));
-                Place(labels[1].rectTransform, new Vector2(4, -40), new Vector2(buttonWidth - 8, 32));
+                Place(labels[1].rectTransform, new Vector2(4, -40), new Vector2(buttonWidth - 8, 34));
                 labels[0].fontSize = actionWidth < 335 ? 16 : 18;
             }
             var shortcuts = new[] { journalButton, gradesButton, tasksButton };
