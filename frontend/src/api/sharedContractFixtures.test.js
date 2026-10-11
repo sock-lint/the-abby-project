@@ -5,6 +5,9 @@ import meResponse from '../../../contracts/api/fixtures/auth-me-child.json';
 import firstPage from '../../../contracts/api/fixtures/habits-page-1.json';
 import lastPage from '../../../contracts/api/fixtures/habits-page-2.json';
 import emptyPage from '../../../contracts/api/fixtures/habits-empty.json';
+import notificationsFirstPage from '../../../contracts/api/fixtures/notifications-page-1.json';
+import notificationsLastPage from '../../../contracts/api/fixtures/notifications-page-2.json';
+import notificationsEmptyPage from '../../../contracts/api/fixtures/notifications-empty.json';
 import confirmedTap from '../../../contracts/api/fixtures/habit-positive-tap.json';
 import tapWithoutEvent from '../../../contracts/api/fixtures/habit-positive-tap-no-event.json';
 import rejectedTap from '../../../contracts/api/fixtures/habit-positive-tap-limit.json';
@@ -34,7 +37,7 @@ import { normalizeList } from '../utils/api';
 import { api, getToken, setToken } from './client';
 import {
   activateMount, activatePet, feedPet, getGreenlightOverview, getHabits, getInventory,
-  getMe, getStable, logHabitTap, login,
+  getMe, getNotifications, getStable, logHabitTap, login,
   previewGreenlightCsv, reconcileGreenlightCsv, recordGreenlightPayout, saveGreenlightSnapshot,
 } from './index';
 
@@ -104,6 +107,63 @@ describe('shared Django response fixtures through the React API client', () => {
   it('normalizes an empty real pagination envelope', async () => {
     server.use(http.get('*/api/habits/', () => HttpResponse.json(emptyPage)));
     const page = await getHabits();
+    expect(page).toEqual({ count: 0, next: null, previous: null, results: [] });
+    expect(normalizeList(page)).toEqual([]);
+  });
+
+  it('follows relative notification pages with the current session without marking updates read', async () => {
+    const requests = [];
+    setToken(loginResponse.token);
+    server.use(http.all(/\/api\/notifications\//, ({ request }) => {
+      const url = new URL(request.url);
+      requests.push({ method: request.method, url, authorization: request.headers.get('authorization') });
+      return HttpResponse.json(url.searchParams.get('page') === '2'
+        ? notificationsLastPage : notificationsFirstPage);
+    }));
+
+    const page = await getNotifications();
+    expect(page).toEqual(notificationsFirstPage);
+    expect(page.count).toBe(21);
+    expect(page.next).toMatch(/^\/api\/notifications\/\?/);
+    expect(normalizeList(page)).toHaveLength(20);
+    expect(page.results[0]).toMatchObject({
+      id: 101, title: 'Fixture update 01', message: 'A synthetic saved update.',
+      notification_type: 'drop_received', is_read: false, link: '/inventory',
+    });
+    const continuationPath = page.next.replace(/^\/api/, '');
+    const final = await api.get(continuationPath);
+    expect(final).toEqual(notificationsLastPage);
+    expect(normalizeList(final)).toHaveLength(1);
+    expect(final.next).toBeNull();
+    expect(final.previous).toMatch(/^\/api\/notifications\/\?/);
+    expect([...normalizeList(page), ...normalizeList(final)].map((notification) => notification.id)).toEqual(
+      Array.from({ length: 21 }, (_, index) => index + 101),
+    );
+    expect([...normalizeList(page), ...normalizeList(final)].every((notification) => !notification.is_read)).toBe(true);
+
+    setToken('replacement-notification-session');
+    expect(await api.get(continuationPath)).toEqual(notificationsLastPage);
+    const inheritedNamespace = new URL(page.next, window.location.origin).searchParams.get('_abby_session');
+    const namespaces = requests.map(({ url }) => url.searchParams.get('_abby_session'));
+    expect(inheritedNamespace).toBe('0123456789abcdef0123456789abcdef');
+    expect(namespaces[0]).toBeTruthy();
+    expect(namespaces[1]).toBe(namespaces[0]);
+    expect(namespaces[2]).not.toBe(namespaces[0]);
+    for (const { url } of requests) {
+      expect(url.pathname).toBe('/api/notifications/');
+      expect(url.searchParams.getAll('_abby_session')).toHaveLength(1);
+      expect(url.searchParams.get('_abby_session')).not.toBe(inheritedNamespace);
+    }
+    expect(requests.map(({ method }) => method)).toEqual(['GET', 'GET', 'GET']);
+    expect(requests.map(({ url }) => url.searchParams.get('page'))).toEqual([null, '2', '2']);
+    expect(requests.map(({ authorization }) => authorization)).toEqual([
+      `Token ${loginResponse.token}`, `Token ${loginResponse.token}`, 'Token replacement-notification-session',
+    ]);
+  });
+
+  it('normalizes the empty notification pagination envelope', async () => {
+    server.use(http.get('*/api/notifications/', () => HttpResponse.json(notificationsEmptyPage)));
+    const page = await getNotifications();
     expect(page).toEqual({ count: 0, next: null, previous: null, results: [] });
     expect(normalizeList(page)).toEqual([]);
   });

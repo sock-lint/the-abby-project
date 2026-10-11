@@ -12,6 +12,9 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `habits-page-1.json` | `GET /api/habits/`, first 20 of 21 child-visible rituals |
 | `habits-page-2.json` | `GET /api/habits/?page=2`, final ritual and null `next` |
 | `habits-empty.json` | `GET /api/habits/`, no published rituals |
+| `notifications-page-1.json` | `GET /api/notifications/`, first 20 of 21 self-scoped unread updates; root-relative continuation with a synthetic GET namespace |
+| `notifications-page-2.json` | Final unread update, null `next` and a root-relative `previous` link |
+| `notifications-empty.json` | Same notification endpoint with no updates |
 | `habit-positive-tap.json` | `POST /api/habits/9/log/`, persisted `direction: 1` tap and real game event |
 | `habit-positive-tap-no-event.json` | Same tap with the optional game-loop result explicitly absent |
 | `habit-positive-tap-limit.json` | Same-day repeat rejected with HTTP 400; no second tap persists |
@@ -81,6 +84,12 @@ statement workflow, not a claim that every Greenlight export has these columns.
 `frontend/src/api/sharedContractFixtures.test.js` serves these same files with
 MSW and exercises the real React API wrappers, token handling, list normalization
 and HTTP error propagation, including feed/evolution and pet/mount activation.
+Notification page links are root-relative so an HTTP tunnel behind a public
+HTTPS site cannot change the client's destination origin. Producer checks cover
+HTTP, HTTPS and forwarded proxy headers, pagination in both directions, unchanged
+unread state, and rejection of sibling/foreign-family acknowledgement. React and
+Unity consume the same synthetic pages; Unity still rejects external, downgraded,
+credential-bearing or repeating continuations.
 Unity's `ApiContractValidation.Run` reads the files directly from this repository;
 run it from a complete checkout, not an isolated
 copy of `unity/AbbyCamp`.

@@ -393,6 +393,23 @@ namespace AbbyCamp.Editor
             foreach (string unsafePage in new[] { "https://other.example.com/api/notifications/?page=2", "http://abby.example.com/api/notifications/?page=2", "/api/auth/", "/api/notifications/?page=0", "/api/notifications/?page=501", "/api/notifications/?page=2&token=x", "/api/notifications/?page=2#secret", "https://user@abby.example.com/api/notifications/?page=2" })
                 Check(!AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", unsafePage, out _), "Unsafe inbox page rejected: " + unsafePage);
 
+            var sharedInbox = ApiContract.ParseNotificationPage(ReadFixture("notifications-page-1.json"));
+            var sharedInboxLast = ApiContract.ParseNotificationPage(ReadFixture("notifications-page-2.json"));
+            Check(sharedInbox.count == 21 && sharedInbox.results.Length == 20 && sharedInboxLast.results.Length == 1,
+                "Shared inbox fixtures preserve both real notification pages");
+            Check(sharedInbox.next.StartsWith("/api/notifications/", StringComparison.Ordinal)
+                && AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", sharedInbox.next, out next)
+                && next == "https://abby.example.com/api/notifications/?page=2",
+                "Relative Django continuations retain the browser's HTTPS origin across HTTP proxy hops");
+            for (int index = 0; index < sharedInbox.results.Length; index++)
+                Check(sharedInbox.results[index].id == 101 + index && !sharedInbox.results[index].is_read,
+                    "Reading a shared inbox page preserves each unread notification's identity");
+            Check(sharedInboxLast.results[0].id == 121 && !sharedInboxLast.results[0].is_read && sharedInboxLast.next == null,
+                "The final shared inbox page ends pagination without acknowledging updates");
+            var sharedInboxEmpty = ApiContract.ParseNotificationPage(ReadFixture("notifications-empty.json"));
+            Check(sharedInboxEmpty.count == 0 && sharedInboxEmpty.results.Length == 0 && sharedInboxEmpty.next == null,
+                "An empty shared inbox preserves the real pagination envelope");
+
             const string species = "{\"id\":1,\"name\":\"Fox\",\"icon\":\"fox\",\"sprite_key\":\"fox\",\"description\":\"Friendly\",\"food_preference\":\"fruit\"}";
             const string potion = "{\"id\":2,\"slug\":null,\"name\":\"Mint\",\"sprite_key\":\"mint\",\"color_hex\":\"#AABBCC\",\"rarity\":\"common\",\"description\":\"Soft green\"}";
             const string pet = "{\"id\":8,\"species\":" + species + ",\"potion\":" + potion + ",\"name\":\"Clover\",\"growth_points\":12,\"is_active\":true,\"evolved_to_mount\":false,\"is_fully_grown\":false,\"happiness_level\":\"happy\",\"last_fed_at\":null,\"created_at\":\"" + date + "\",\"updated_at\":\"" + date + "\"}";

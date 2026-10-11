@@ -1,0 +1,16 @@
+{
+  "count": 21,
+  "next": null,
+  "previous": "/api/notifications/?_abby_session=0123456789abcdef0123456789abcdef",
+  "results": [
+    {
+      "id": 121,
+      "title": "Fixture update 21",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:40:00-07:00",
+      "link": "/inventory"
+    }
+  ]
+}

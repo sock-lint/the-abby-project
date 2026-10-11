@@ -19,6 +19,7 @@ from rest_framework.test import APITestCase
 
 from apps.achievements.models import Skill, SkillCategory, SkillProgress
 from apps.habits.models import Habit, HabitLog, HabitSkillTag
+from apps.notifications.models import Notification, NotificationType
 from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
 from apps.quests.models import DailyChallenge
 from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
@@ -330,6 +331,58 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.assertEqual({row["id"] for row in first["results"] + second["results"]}, set(range(9, 30)))
         self.assertTrue(all(row["user"] == self.child.pk for row in first["results"] + second["results"]))
         self.assertFalse(any(row["pending_parent_review"] for row in first["results"] + second["results"]))
+
+    def test_notification_pages_stay_same_origin_across_proxy_hops(self):
+        for index in range(21):
+            notification = Notification.objects.create(
+                id=101 + index, user=self.child, title=f"Fixture update {index + 1:02d}",
+                message="A synthetic saved update.", notification_type=NotificationType.DROP_RECEIVED,
+                link="/inventory",
+            )
+            Notification.objects.filter(pk=notification.pk).update(
+                created_at=FIXED_NOW - timedelta(minutes=index),
+            )
+        for row_id, owner in ((201, self.sibling), (202, self.outsider)):
+            Notification.objects.create(
+                id=row_id, user=owner, title="Private update", notification_type=NotificationType.JOURNAL_REPLY,
+            )
+        namespace = "0123456789abcdef0123456789abcdef"
+        first_path = f"/api/notifications/?_abby_session={namespace}"
+        second_path = first_path + "&page=2"
+        # Cloudflare's HTTPS tunnel reaches Traefik over HTTP. Its untrusted
+        # forwarded protocol may be replaced by that hop's HTTP protocol.
+        for headers in ({}, {"secure": True}, {
+            "HTTP_HOST": "internal:8000", "HTTP_X_FORWARDED_HOST": "testserver",
+            "HTTP_X_FORWARDED_PROTO": "http",
+        }, {"HTTP_X_FORWARDED_PROTO": "https"}):
+            with self.subTest(headers=headers):
+                response = self.client.get(first_path, **headers)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json()["next"], second_path)
+                first = self.assert_response_fixture(response, "notifications-page-1.json")
+                second = self.assert_response_fixture(
+                    self.client.get(first["next"], **headers), "notifications-page-2.json",
+                )
+                self.assertEqual((first["count"], len(first["results"]), len(second["results"])), (21, 20, 1))
+                self.assertIsNone(first["previous"])
+                self.assertIsNone(second["next"])
+                self.assertEqual(second["previous"], first_path)
+                self.assertEqual(
+                    [row["id"] for row in first["results"] + second["results"]], list(range(101, 122)),
+                )
+                self.assert_response_fixture(
+                    self.client.get(second["previous"], **headers), "notifications-page-1.json",
+                )
+        self.assertEqual(Notification.objects.filter(user=self.child, is_read=False).count(), 21)
+        self.assertEqual(self.client.get("/api/notifications/unread_count/").json()["count"], 21)
+        for row_id in (201, 202):
+            self.assertEqual(self.client.post(f"/api/notifications/{row_id}/mark_read/").status_code, 404)
+            self.assertFalse(Notification.objects.get(pk=row_id).is_read)
+
+    def test_empty_notification_page_and_authentication(self):
+        self.assert_response_fixture(self.client.get("/api/notifications/"), "notifications-empty.json")
+        self.client.credentials()
+        self.assertEqual(self.client.get("/api/notifications/").status_code, 401)
 
     def test_empty_habits_still_use_pagination_envelope(self):
         Habit.objects.filter(user=self.child, pending_parent_review=False).delete()
