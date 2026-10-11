@@ -13,6 +13,7 @@ from typing import Iterable, Mapping
 def make_family(
     name: str = "Test Family",
     *,
+    family_id: int | None = None,
     parents: Iterable[Mapping] = (),
     children: Iterable[Mapping] = (),
 ):
@@ -23,13 +24,17 @@ def make_family(
     ``display_name``, ``hourly_rate``, ``date_of_birth`` etc.). The first
     parent (if any) is set as ``primary_parent``.
 
+    ``family_id`` pins the family identity for deterministic wire fixtures;
+    ordinary callers leave it unset to keep automatic primary keys. User
+    identities can likewise be pinned with ``id`` in the member dicts.
+
     Returns ``SimpleNamespace(family=Family, parents=[User], children=[User])``.
     """
     from django.contrib.auth import get_user_model
     from apps.families.models import Family
 
     User = get_user_model()
-    family = Family.objects.create(name=name)
+    family = Family.objects.create(id=family_id, name=name)
     parent_objs = []
     for p in parents:
         kwargs = {"password": "pw", "role": "parent", "family": family, **dict(p)}
