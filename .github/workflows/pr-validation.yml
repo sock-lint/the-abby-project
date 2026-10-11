@@ -101,15 +101,20 @@ jobs:
         env:
           TRUSTED_SOURCE: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
           UNITY_RUNNER_ENABLED: ${{ vars.UNITY_VALIDATION_RUNNER_ENABLED }}
+          UNITY_RUNNER_OS: ${{ vars.UNITY_VALIDATION_RUNNER_OS || 'Windows' }}
         run: |
           if [ "$TRUSTED_SOURCE" != 'true' ]; then
             echo '::error::Unity validation requires a branch in this repository. Review a fork PR, then validate its changes on a trusted repository branch. See docs/operations/pr-validation.md.'
             exit 1
           fi
           if [ "$UNITY_RUNNER_ENABLED" != 'true' ]; then
-            echo '::error::Provision and license the dedicated Windows Unity 6000.6.5f1 runner, then set repository variable UNITY_VALIDATION_RUNNER_ENABLED=true. See docs/operations/pr-validation.md. Unity validation has not run.'
+            echo '::error::Provision and license the dedicated Unity 6000.6.5f1 runner, then set repository variable UNITY_VALIDATION_RUNNER_ENABLED=true. See docs/operations/pr-validation.md. Unity validation has not run.'
             exit 1
           fi
+          case "$UNITY_RUNNER_OS" in
+            Windows|Linux) ;;
+            *) echo '::error::UNITY_VALIDATION_RUNNER_OS must be Windows or Linux. Unity validation has not run.'; exit 1 ;;
+          esac
 
   unity-editor:
     name: Unity scene and API checks
@@ -121,25 +126,35 @@ jobs:
           && vars.UNITY_VALIDATION_RUNNER_ENABLED == 'true'
           && (github.event_name != 'pull_request'
               || github.event.pull_request.head.repo.full_name == github.repository) }}
-    runs-on: [self-hosted, Windows, X64, unity-6000.6.5f1]
+    runs-on: [self-hosted, "${{ vars.UNITY_VALIDATION_RUNNER_OS || 'Windows' }}", X64, unity-6000.6.5f1]
     timeout-minutes: 30
-    defaults:
-      run:
-        shell: powershell
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Reject an unsupported Unity runner operating system
+        if: runner.os != 'Windows' && runner.os != 'Linux'
+        shell: bash
+        run: |
+          echo '::error::The Unity runner must actually run Windows or Linux; custom routing labels do not establish its operating system.'
+          exit 1
       - name: Validate saved scene, assets, and shared API contracts
+        if: runner.os == 'Windows'
+        shell: powershell
+        env:
+          UNITY_EDITOR_PATH: ${{ vars.UNITY_EDITOR_PATH }}
         run: |
           $ErrorActionPreference = 'Stop'
           $taskPinnedVersion = (Select-String -LiteralPath 'unity/AbbyCamp/ProjectSettings/ProjectVersion.txt' -Pattern '^m_EditorVersion: ').Line.Split(':')[1].Trim()
           if ($taskPinnedVersion -ne '6000.6.5f1') {
             throw 'Update the dedicated Unity runner, workflow labels, and setup documentation to match ProjectVersion.txt.'
           }
-          $taskUnityEditor = Join-Path $env:ProgramFiles 'Unity/Hub/Editor/6000.6.5f1/Editor/Unity.exe'
+          $taskUnityEditor = $env:UNITY_EDITOR_PATH
+          if ([string]::IsNullOrWhiteSpace($taskUnityEditor)) {
+            $taskUnityEditor = Join-Path $env:ProgramFiles 'Unity/Hub/Editor/6000.6.5f1/Editor/Unity.exe'
+          }
           if (-not (Test-Path -LiteralPath $taskUnityEditor)) {
-            throw 'Install Unity 6000.6.5f1 at the Unity Hub default location for the runner account.'
+            throw "Install Unity 6000.6.5f1 for the runner account or configure UNITY_EDITOR_PATH. Editor not found: $taskUnityEditor"
           }
           $taskInstalledVersion = (Get-Item -LiteralPath $taskUnityEditor).VersionInfo.ProductVersion
           if ($taskInstalledVersion -notmatch '^6000\.6\.5f1(?:_|$)') {
@@ -160,6 +175,12 @@ jobs:
               throw 'Unity validation changed the saved Camp.unity scene. Validation must use an isolated preview without saving source changes.'
             }
           }
+      - name: Validate saved scene, assets, and shared API contracts on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          UNITY_EDITOR_PATH: ${{ vars.UNITY_EDITOR_PATH }}
+        run: bash scripts/unity/Validate-Camp.sh
       - name: Upload Unity validation log
         if: always()
         uses: actions/upload-artifact@v4

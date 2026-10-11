@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using AbbyCamp.Data;
+using AbbyCamp.Presentation;
 using AbbyCamp.Services;
 using AbbyCamp.World;
 using UnityEngine;
@@ -9,89 +11,69 @@ using UnityEngine.UI;
 
 namespace AbbyCamp.UI
 {
-    /// <summary>Owns session/UI state; world objects and art never own account progression.</summary>
+    /// <summary>A fixed account home. Presentation never creates rewards or creature ownership.</summary>
     public sealed class CampPrototypeController : MonoBehaviour
     {
-        [SerializeField] private CampPlayerController player;
+        [SerializeField] private CampGardenInput gardenInput;
         [SerializeField] private CompanionFollower companion;
-        [SerializeField] private CampTaskBoard taskBoard;
-
-        private const string DemoPracticeKey = "AbbyCamp.Demo.PracticeCompleted";
-        private readonly Color ink = new Color(0.16f, 0.22f, 0.23f);
-        private readonly Color paper = new Color(0.96f, 0.94f, 0.86f);
-        private readonly Color teal = new Color(0.13f, 0.40f, 0.37f);
+        [SerializeField] private CampPresentationDefinition presentation;
+        private enum Section { None, Rewards, Inbox, Bestiary, Account, Connect }
+        private Section section;
         private AbbyApiClient api;
         private Font font;
-        private RectTransform canvas;
-        private RectTransform safeArea;
+        private Color ink = new Color(.286275f, .219608f, .309804f);
+        private Color paper = new Color(1f, .972549f, .933333f);
+        private Color teal = new Color(.458824f, .376471f, .658824f);
+        private RectTransform canvas, safeArea, headingPanel, controlsPanel, footerPanel, toastPanel;
         private CampPhoneLayout phoneLayout;
-        private RectTransform headingPanel;
-        private RectTransform controlsPanel;
-        private RectTransform footerPanel;
-        private Text titleLabel;
-        private Button patButton;
-        private Button swapButton;
-        private RectTransform modalSafeArea;
-        private RectTransform modalSheet;
-        private Text modalTitle;
-        private Text modalSubtitle;
-        private RectTransform modalFooter;
+        private Text titleLabel, modeLabel, coinsLabel, homeStatusLabel, companionNameLabel, companionHintLabel, toastLabel;
+        private Button rewardsButton, inboxButton, bestiaryButton, patButton, journalButton, gradesButton, tasksButton, todayButton, connectButton;
+        private Text rewardSummary, inboxSummary, bestiarySummary;
+        private RectTransform modalSafeArea, modalSheet, modalFooter;
+        private Text modalTitle, modalSubtitle;
         private ScrollRect modalScroll;
-        private GameObject lastFocusedInput;
+        private GameObject modal, lastFocusedInput;
         private bool revealFocusedInput;
-        private GameObject modal;
-        private Text modeLabel;
-        private Text progressLabel;
-        private Text promptLabel;
-        private Text toastLabel;
-        private Text sessionHint;
-        private Button boardButton;
-        private Button connectButton;
-        private HabitDto[] habits = Array.Empty<HabitDto>();
+        private CoinBalanceDto coins;
+        private DropDto[] drops;
+        private StableDto stable;
+        private NotificationPageDto notifications;
+        private UnreadCountDto unreadCount;
         private CharacterDto character;
-        private bool busy;
-        private bool boardOpen;
-        private bool outcomeUnknown;
-        private bool canResolveOutcome;
-        private bool demoComplete;
-        private int uncertainHabitId;
-        private int uncertainTapsBefore;
-        private float toastUntil;
-        private float patAvailableAt;
-        private float boardScrollPosition = 1f;
-        private string boardStatus = "";
-        private bool browserSessionDirty;
+        private MeadowDto meadow;
+        private string homeStatus = "", rewardStatus = "", inboxStatus = "", bestiaryStatus = "";
+        private bool busy, homeLoading, sectionLoading, markingRead, browserSessionDirty;
+        private int sessionEpoch, viewVersion;
+        private float nextHomeRefresh, toastUntil, patAvailableAt;
+        private string inboxPageUrl;
+        private readonly List<string> inboxHistory = new List<string>();
 
         public bool IsDemo => api == null || !api.IsAuthenticated;
         public bool IsModalOpen => modal != null;
-        public bool IsBusy => busy;
+        public bool IsBusy => busy || markingRead;
+        public bool IsHomeLoading => homeLoading || busy || browserSessionDirty;
+        public bool IsSectionLoading => sectionLoading;
+        public string ActiveSection => section.ToString();
 
-        public void Configure(CampPlayerController campPlayer, CompanionFollower pet, CampTaskBoard board)
+        public void Configure(CampGardenInput input, CompanionFollower pet, CampPresentationDefinition worldPresentation = null)
         {
-            player = campPlayer;
+            gardenInput = input;
             companion = pet;
-            taskBoard = board;
+            presentation = worldPresentation;
         }
 
         private void Start()
         {
-            if (player == null) player = FindFirstObjectByType<CampPlayerController>();
+            if (gardenInput == null) gardenInput = FindFirstObjectByType<CampGardenInput>();
             if (companion == null) companion = FindFirstObjectByType<CompanionFollower>();
-            if (taskBoard == null) taskBoard = FindFirstObjectByType<CampTaskBoard>();
             api = GetComponent<AbbyApiClient>();
             if (api == null) api = gameObject.AddComponent<AbbyApiClient>();
             api.BrowserSessionChanged += BrowserSessionChanged;
-            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            demoComplete = PlayerPrefs.GetInt(DemoPracticeKey, 0) == 1;
+            font = presentation != null && presentation.UiFont != null ? presentation.UiFont : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (presentation != null) { ink = presentation.Ink; paper = presentation.Paper; teal = presentation.Primary; }
             CreateInterface();
-            if (taskBoard != null) taskBoard.InteractionRequested += OpenTaskBoard;
-            if (player != null)
-            {
-                player.CompanionTapped += PatCompanion;
-                player.TaskBoardTapped += OpenTaskBoard;
-            }
+            if (gardenInput != null) gardenInput.CompanionTapped += PatCompanion;
             RefreshHud();
-            Toast("Tap the ground to explore, or open Tasks to try a ritual.", 7f);
 #if UNITY_WEBGL && !UNITY_EDITOR
             browserSessionDirty = true;
 #endif
@@ -100,480 +82,580 @@ namespace AbbyCamp.UI
         private void OnDestroy()
         {
             if (api != null) api.BrowserSessionChanged -= BrowserSessionChanged;
-            if (taskBoard != null) taskBoard.InteractionRequested -= OpenTaskBoard;
-            if (player != null)
-            {
-                player.CompanionTapped -= PatCompanion;
-                player.TaskBoardTapped -= OpenTaskBoard;
-            }
+            if (gardenInput != null) gardenInput.CompanionTapped -= PatCompanion;
             if (phoneLayout != null) phoneLayout.LayoutChanged -= LayoutInterface;
         }
 
         private void Update()
         {
             if (canvas == null) return;
-            if (browserSessionDirty && !busy)
+            if (browserSessionDirty && !busy && !api.SessionTransitionInFlight)
             {
                 browserSessionDirty = false;
                 StartCoroutine(ConnectBrowserSession());
             }
-            var inRange = taskBoard != null && taskBoard.IsInRange;
-            boardButton.interactable = !busy && !IsModalOpen;
-            patButton.interactable = !busy && !IsModalOpen && companion != null;
-            swapButton.interactable = !busy && !IsModalOpen && companion != null;
-            promptLabel.text = IsModalOpen ? "" : inRange
-                ? "Tap the board or open Tasks"
-                : "Tap to walk · Tap your companion to say hello";
-            if (!IsModalOpen && Input.GetKeyDown(KeyCode.K)) SwapCompanion();
-            if (IsModalOpen && Input.GetKeyDown(KeyCode.Escape) && !busy) CloseModal();
-            if (toastLabel != null && Time.unscaledTime > toastUntil) toastLabel.text = "";
+            if (!IsDemo && !homeLoading && !sectionLoading && !IsBusy && !IsModalOpen && Time.unscaledTime >= nextHomeRefresh)
+                StartCoroutine(RefreshHome());
+            foreach (var button in new[] { rewardsButton, inboxButton, bestiaryButton, patButton, journalButton, gradesButton, tasksButton, todayButton, connectButton })
+                button.interactable = !IsBusy && !IsModalOpen;
+            if (IsModalOpen && Input.GetKeyDown(KeyCode.Escape) && !IsBusy) CloseModal();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (!IsModalOpen && Input.GetKeyDown(KeyCode.K)) companion?.ToggleAppearance();
+#endif
+            if (Time.unscaledTime > toastUntil) toastPanel.gameObject.SetActive(false);
             KeepFocusedInputVisible();
+        }
+
+        private void OnApplicationFocus(bool focused) { if (focused) nextHomeRefresh = 0; }
+
+        private bool Current(int epoch) => epoch == sessionEpoch && !IsDemo;
+
+        private void ClearPresentation()
+        {
+            sessionEpoch++;
+            coins = null; drops = null; stable = null; notifications = null; unreadCount = null; character = null; meadow = null;
+            homeStatus = rewardStatus = inboxStatus = bestiaryStatus = "";
+            inboxPageUrl = null; inboxHistory.Clear();
+            busy = homeLoading = sectionLoading = markingRead = false;
+            nextHomeRefresh = 0;
+            if (toastPanel != null) toastPanel.gameObject.SetActive(false);
+            DismissModal();
+            RefreshHud();
         }
 
         private void BrowserSessionChanged()
         {
-            // Remove the previous account's presentation immediately, even
-            // while its aborted request is finishing. Reconnect after it ends.
-            habits = Array.Empty<HabitDto>();
-            character = null;
-            outcomeUnknown = false;
-            canResolveOutcome = false;
-            boardOpen = false;
-            boardStatus = "";
-            if (toastLabel != null) toastLabel.text = "";
-            toastUntil = 0;
-            DismissModal();
-            RefreshHud();
+            ClearPresentation();
             browserSessionDirty = true;
         }
 
         private IEnumerator ConnectBrowserSession()
         {
+            var epoch = sessionEpoch;
             busy = true;
             ApiError failure = null;
             yield return api.ResumeBrowserSession(_ => { }, error => failure = error);
+            if (epoch != sessionEpoch) yield break;
             busy = false;
             RefreshHud();
-            if (failure != null)
+            if (failure != null) { Toast(failure.Message, 7); yield break; }
+            yield return RefreshHome();
+        }
+
+        private IEnumerator RefreshHome()
+        {
+            if (IsDemo || homeLoading) yield break;
+            var epoch = sessionEpoch;
+            homeLoading = true;
+            nextHomeRefresh = Time.unscaledTime + 30;
+            homeStatus = "Updating your progress…";
+            RefreshHud();
+            ApiError failure = null;
+            CoinBalanceDto loadedCoins = null;
+            UnreadCountDto loadedUnread = null;
+            StableDto loadedStable = null;
+            CharacterDto loadedCharacter = null;
+            try
             {
-                Toast(failure.Message, 7f);
-                yield break;
+                yield return api.FetchCoins(value => loadedCoins = value, error => failure = error);
+                if (!Current(epoch)) yield break;
+                if (loadedCoins != null) coins = loadedCoins;
+                yield return api.FetchUnreadNotificationCount(value => loadedUnread = value, error => failure = error);
+                if (!Current(epoch)) yield break;
+                if (loadedUnread != null) unreadCount = loadedUnread;
+                yield return api.FetchStable(value => loadedStable = value, error => failure = error);
+                if (!Current(epoch)) yield break;
+                if (loadedStable != null) stable = loadedStable;
+                yield return api.FetchCharacter(value => loadedCharacter = value, error => failure = error);
+                if (!Current(epoch)) yield break;
+                if (loadedCharacter != null) character = loadedCharacter;
+                homeStatus = failure == null ? "" : "Refresh unavailable · Open a section to retry";
             }
-            // An aborted save from the previous account may have finished its
-            // failure callback while validation was queued. Its uncertainty
-            // cannot be carried into this account's task board.
-            outcomeUnknown = false;
-            canResolveOutcome = false;
-            uncertainHabitId = 0;
-            uncertainTapsBefore = 0;
-            boardStatus = "";
-            Toast("Your journal account is connected. Open Tasks to see your rituals.", 7f);
-            yield return LoadAccountState();
+            finally
+            {
+                if (epoch == sessionEpoch)
+                {
+                    homeLoading = false;
+                    if (IsDemo) ClearPresentation();
+                    else
+                    {
+                        RefreshHud();
+                        if (section == Section.Inbox && !sectionLoading && !markingRead) DrawActiveSection();
+                    }
+                }
+            }
         }
 
         private void CreateInterface()
         {
-            var go = new GameObject("CampInterface", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            var go = new GameObject("PlayInterface", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             go.transform.SetParent(transform, false);
             go.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
-            var scaler = go.GetComponent<CanvasScaler>();
             canvas = go.GetComponent<RectTransform>();
             safeArea = Box(canvas, "CampSafeArea", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
             safeArea.anchorMax = Vector2.one;
             phoneLayout = go.AddComponent<CampPhoneLayout>();
-            phoneLayout.Configure(go.GetComponent<Canvas>(), scaler, safeArea);
-            if (FindFirstObjectByType<EventSystem>() == null)
-                new GameObject("CampEventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-
-            headingPanel = Panel(safeArea, "CampHeading", Vector2.zero, new Vector2(0, 1), new Vector2(0, 1), Vector2.zero, paper);
-            titleLabel = Label(headingPanel, "YOUR WORLD", 24, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink, FontStyle.Bold);
-            titleLabel.resizeTextForBestFit = true;
-            titleLabel.resizeTextMinSize = 16;
-            titleLabel.resizeTextMaxSize = 24;
+            phoneLayout.Configure(go.GetComponent<Canvas>(), go.GetComponent<CanvasScaler>(), safeArea);
+            if (FindFirstObjectByType<EventSystem>() == null) new GameObject("CampEventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            headingPanel = Panel(safeArea, "PlayHeading", Vector2.zero, Vector2.up, Vector2.up, Vector2.zero, paper);
+            titleLabel = Label(headingPanel, "Play", 30, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink);
             titleLabel.name = "CampTitle";
-            progressLabel = Label(headingPanel, "", 16, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, teal);
-            progressLabel.resizeTextForBestFit = true;
-            progressLabel.resizeTextMinSize = 14;
-            progressLabel.resizeTextMaxSize = 16;
-            progressLabel.name = "AccountProgress";
-            modeLabel = Label(headingPanel, "", 15, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink, FontStyle.Bold);
-            modeLabel.name = "AccountMode";
-            connectButton = Button(headingPanel, "Connect your account", Vector2.zero, new Vector2(136, 48), OpenConnection);
-            connectButton.name = "AccountButton";
-            sessionHint = Label(headingPanel, "", 14, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink);
-            sessionHint.name = "SessionHint";
-
-            controlsPanel = Panel(safeArea, "CampActions", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, paper);
-            boardButton = Button(controlsPanel, "Tasks", Vector2.zero, new Vector2(100, 48), OpenTaskBoard);
-            boardButton.name = "TasksButton";
-            patButton = Button(controlsPanel, "Say hello", Vector2.zero, new Vector2(100, 48), PatCompanion);
-            patButton.name = "PatCompanionButton";
-            swapButton = Button(controlsPanel, "Change look", Vector2.zero, new Vector2(100, 48), SwapCompanion, true);
-            swapButton.name = "SwapCompanionButton";
-
-            footerPanel = Panel(safeArea, "InteractionHint", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, new Color(teal.r, teal.g, teal.b, 0.94f));
-            promptLabel = Label(footerPanel, "", 14, Vector2.zero, Vector2.zero, TextAnchor.MiddleCenter, paper, FontStyle.Bold);
-            promptLabel.name = "MovementHint";
-            toastLabel = Label(footerPanel, "", 15, Vector2.zero, Vector2.zero, TextAnchor.MiddleCenter, paper);
-            toastLabel.name = "CampMessage";
+            titleLabel.verticalOverflow = VerticalWrapMode.Overflow;
+            modeLabel = Label(headingPanel, "", 15, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink); modeLabel.name = "AccountMode";
+            coinsLabel = Label(headingPanel, "", 15, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink); coinsLabel.name = "CoinsBalance";
+            homeStatusLabel = Label(headingPanel, "", 13, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink); homeStatusLabel.name = "HomeStatus";
+            homeStatusLabel.verticalOverflow = VerticalWrapMode.Overflow;
+            connectButton = Button(headingPanel, "Connect", Vector2.zero, Vector2.zero, OpenConnection, true); connectButton.name = "AccountButton";
+            todayButton = Button(headingPanel, "Today", Vector2.zero, Vector2.zero, () => Navigate(PlayDestination.Today), true); todayButton.name = "TodayButton";
+            controlsPanel = Panel(safeArea, "PlayActions", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, paper);
+            rewardsButton = HomeCard("RewardsButton", "Rewards", out rewardSummary, OpenRewards);
+            inboxButton = HomeCard("InboxButton", "Inbox", out inboxSummary, OpenInbox); inboxSummary.name = "UnreadCount";
+            bestiaryButton = HomeCard("BestiaryButton", "Bestiary", out bestiarySummary, OpenBestiary);
+            journalButton = Button(controlsPanel, "Journal", Vector2.zero, Vector2.zero, () => Navigate(PlayDestination.Journal), true); journalButton.name = "JournalButton";
+            gradesButton = Button(controlsPanel, "Grades", Vector2.zero, Vector2.zero, () => Navigate(PlayDestination.Grades), true); gradesButton.name = "GradesButton";
+            tasksButton = Button(controlsPanel, "Tasks", Vector2.zero, Vector2.zero, () => Navigate(PlayDestination.Tasks), true); tasksButton.name = "TasksButton";
+            footerPanel = Panel(safeArea, "CompanionGreeting", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, paper);
+            companionNameLabel = Label(footerPanel, "Meadow friend", 20, Vector2.zero, Vector2.zero, TextAnchor.MiddleLeft, ink); companionNameLabel.name = "CompanionName";
+            companionHintLabel = Label(footerPanel, "Artwork preview", 13, Vector2.zero, Vector2.zero, TextAnchor.MiddleLeft, ink);
+            patButton = Button(footerPanel, "Say hello", Vector2.zero, Vector2.zero, PatCompanion); patButton.name = "PatCompanionButton";
+            toastPanel = Panel(safeArea, "PlayToast", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, paper);
+            toastLabel = Label(toastPanel, "", 14, Vector2.zero, Vector2.zero, TextAnchor.MiddleCenter, ink); toastLabel.name = "CampMessage";
+            toastPanel.gameObject.SetActive(false);
             phoneLayout.LayoutChanged += LayoutInterface;
             LayoutInterface();
         }
 
-        public void OpenTaskBoard()
+        private Button HomeCard(string name, string title, out Text summary, Action clicked)
         {
-            if (busy) return;
-            if (!boardOpen) boardScrollPosition = 1f;
-            boardOpen = true;
-            DrawTaskBoard();
-            if (!IsDemo) StartCoroutine(LoadAccountState());
+            var button = Button(controlsPanel, title, Vector2.zero, Vector2.zero, clicked, true);
+            button.name = name;
+            var heading = button.GetComponentInChildren<Text>();
+            heading.fontSize = 18;
+            heading.alignment = TextAnchor.MiddleCenter;
+            heading.color = ink;
+            summary = Label(button.transform, "", 13, Vector2.zero, Vector2.zero, TextAnchor.MiddleCenter, ink);
+            return button;
         }
 
-        private void DrawTaskBoard()
-        {
-            if (modalScroll != null && boardOpen) boardScrollPosition = modalScroll.verticalNormalizedPosition;
-            BeginModal("YOUR DAILY RITUALS", "Small things, done with care.");
-            var content = modalScroll.content;
-            FlowLabel(content, "RitualExplanation", IsDemo
-                ? "DEMO PRACTICE · This stays in your local camp."
-                : "Choose a ritual you have actually done. Your account records it immediately.",
-                16, ink);
-            var status = boardStatus;
-            if (busy) status = "Loading your progress…";
-            if (!string.IsNullOrEmpty(status))
-                FlowLabel(content, "RitualStatus", status, 15, outcomeUnknown ? new Color(0.57f, 0.25f, 0.13f) : teal);
-            if (IsDemo)
-            {
-                TaskRow(content, "DemoPracticeRitual", "Try your first camp ritual", demoComplete ? "Practice saved. Ready to connect your own rituals?" : "Practice logging one small thing you did today.",
-                    demoComplete ? "Practised" : "Practice ritual", !demoComplete && !busy, PracticeRitual);
-            }
-            else if (habits.Length == 0 && !busy)
-            {
-                FlowLabel(content, "NoRitualsMessage", "No published positive rituals yet.\nAdd one in the web app, then refresh here.", 18, ink);
-            }
-            else
-            {
-                foreach (var habit in habits)
-                {
-                    var selected = habit;
-                    bool capped = selected.DailyLimitReached;
-                    string allowance = $"{selected.taps_today} / {selected.max_taps_per_day} recorded today";
-                    TaskRow(content, "Ritual_" + selected.id, selected.name, allowance, capped ? "Done today" : "I did this", !busy && !outcomeUnknown && !capped,
-                        () => StartCoroutine(RecordRitual(selected)));
-                }
-            }
-            var refresh = FooterButton("RefreshRitualsButton", outcomeUnknown && canResolveOutcome ? "I checked ritual history" : "Refresh tasks", () =>
-            {
-                if (outcomeUnknown && canResolveOutcome) ResolveUncertainSave();
-                else StartCoroutine(LoadAccountState());
-            });
-            refresh.interactable = !busy && !IsDemo;
-            var close = FooterButton("CloseRitualsButton", "Back to camp", CloseModal);
-            close.interactable = !busy;
-            LayoutInterface();
-            Canvas.ForceUpdateCanvases();
-            modalScroll.verticalNormalizedPosition = boardScrollPosition;
-        }
-
-        private void TaskRow(RectTransform parent, string name, string title, string detail, string action, bool enabled, Action clicked)
-        {
-            var row = Panel(parent, name, Vector2.zero, new Vector2(0, 1), new Vector2(0, 1), Vector2.zero, new Color(1, 1, 1, 0.66f));
-            VerticalFlow(row, 12, 8);
-            FlowLabel(row, "RitualName", title, 18, ink, FontStyle.Bold);
-            FlowLabel(row, "RitualAllowance", detail, 15, teal);
-            var button = FlowButton(row, "RecordRitualButton", action, clicked);
-            button.interactable = enabled;
-        }
-
-        private void PracticeRitual()
-        {
-            if (demoComplete || busy || !IsDemo) return;
-            demoComplete = true;
-            PlayerPrefs.SetInt(DemoPracticeKey, 1);
-            PlayerPrefs.Save();
-            boardStatus = "Practice saved locally. Connect your account to record real rituals.";
-            CloseModal();
-            companion?.Celebrate();
-            RefreshHud();
-            Toast("Practice saved. Your companion is cheering you on!", 7f);
-        }
-
-        private IEnumerator RecordRitual(HabitDto habit)
-        {
-            if (busy || IsDemo || outcomeUnknown) yield break;
-            busy = true;
-            boardStatus = "Recording your ritual…";
-            DrawTaskBoard();
-            HabitTapDto receipt = null;
-            ApiError failure = null;
-            yield return api.LogPositiveHabit(habit, value => receipt = value, error => failure = error);
-            busy = false;
-            if (failure != null)
-            {
-                outcomeUnknown = failure.OutcomeUnknown;
-                canResolveOutcome = false;
-                uncertainHabitId = habit.id;
-                uncertainTapsBefore = habit.taps_today;
-                boardStatus = failure.Message;
-                if (outcomeUnknown)
-                    boardStatus += " Refresh tasks to check the result before recording anything else.";
-                if (failure.RequiresLogin) api.ClearSession();
-                RefreshHud();
-                if (boardOpen) DrawTaskBoard();
-                yield break;
-            }
-            if (receipt == null)
-            {
-                outcomeUnknown = true;
-                canResolveOutcome = false;
-                uncertainHabitId = habit.id;
-                uncertainTapsBefore = habit.taps_today;
-                boardStatus = "The response could not be confirmed. Refresh tasks before continuing.";
-                if (boardOpen) DrawTaskBoard();
-                yield break;
-            }
-            CloseModal();
-            companion?.Celebrate();
-            Toast($"Recorded: {habit.name}. Strength: {receipt.new_strength}.", 8f);
-            boardStatus = receipt.DescribeConfirmedOutcome(habit);
-            yield return LoadAccountState();
-        }
-
-        private IEnumerator LoadAccountState()
-        {
-            if (busy || IsDemo) yield break;
-            busy = true;
-            canResolveOutcome = false;
-            if (boardOpen) DrawTaskBoard();
-            ApiError failure = null;
-            HabitDto[] loadedHabits = null;
-            yield return api.FetchHabits(value => loadedHabits = value, error => failure = error);
-            if (failure == null && loadedHabits != null)
-            {
-                habits = loadedHabits;
-                if (outcomeUnknown)
-                {
-                    var checkedHabit = Array.Find(habits, item => item.id == uncertainHabitId);
-                    if (checkedHabit != null && checkedHabit.taps_today > uncertainTapsBefore)
-                    {
-                        outcomeUnknown = false;
-                        boardStatus = "Your ritual is recorded. Progress refreshed from your account.";
-                    }
-                    else
-                    {
-                        canResolveOutcome = true;
-                        boardStatus = "The earlier result is still uncertain. Check ritual history in the web app, then choose 'I checked ritual history' to continue.";
-                    }
-                }
-                else if (string.IsNullOrEmpty(boardStatus)) boardStatus = "Your progress is up to date.";
-                yield return api.FetchCharacter(value => character = value, error => failure = error);
-            }
-            busy = false;
-            if (failure != null)
-            {
-                boardStatus = failure.Message;
-                if (failure.RequiresLogin)
-                {
-                    api.ClearSession();
-                    habits = Array.Empty<HabitDto>();
-                    character = null;
-                }
-            }
-            RefreshHud();
-            if (boardOpen) DrawTaskBoard();
-        }
-
-        private void ResolveUncertainSave()
-        {
-            if (busy || IsDemo || !outcomeUnknown || !canResolveOutcome) return;
-            outcomeUnknown = false;
-            canResolveOutcome = false;
-            boardStatus = "Earlier result reviewed. Record only rituals that are missing from your history.";
-            if (boardOpen) DrawTaskBoard();
-        }
-
-        private void OpenConnection()
-        {
-            if (busy) return;
-            boardOpen = false;
-            if (!IsDemo)
-            {
-                api.ClearSession();
-                habits = Array.Empty<HabitDto>();
-                character = null;
-                outcomeUnknown = false;
-                canResolveOutcome = false;
-                boardStatus = "";
-                RefreshHud();
-                Toast("Signed out of this camp. You can keep exploring in demo mode.");
-                return;
-            }
-#if UNITY_WEBGL && !UNITY_EDITOR
-            BeginModal("BRING YOUR PROGRESS", "Use the same account as your journal.");
-            FlowLabel(modalScroll.content, "ConnectionMessage", "Sign in or switch accounts in your journal, then return here. Your world will connect to that account.", 16, ink);
-            FooterButton("OpenJournalButton", "Open journal", api.OpenJournal);
-            FlowButton(modalScroll.content, "ResumeJournalButton", "Connect journal account", () =>
-            {
-                CloseModal();
-                StartCoroutine(ConnectBrowserSession());
-            });
-            FooterButton("CancelConnectionButton", "Keep exploring", CloseModal);
-            LayoutInterface();
-#else
-            BeginModal("BRING YOUR PROGRESS", "Connect your existing Abby account.");
-            var content = modalScroll.content;
-            InputField server = null;
-#if !UNITY_WEBGL || UNITY_EDITOR
-            FlowLabel(content, "ServerAddressLabel", "Server address", 15, ink, FontStyle.Bold);
-            server = FlowInput(content, "ServerAddressInput", api.BaseUrl, "https://your-abby-app.example", false);
-            server.keyboardType = TouchScreenKeyboardType.URL;
-#endif
-            FlowLabel(content, "UsernameLabel", "Username", 15, ink, FontStyle.Bold);
-            var username = FlowInput(content, "UsernameInput", "", "Your child account", false);
-            FlowLabel(content, "PasswordLabel", "Password", 15, ink, FontStyle.Bold);
-            var password = FlowInput(content, "PasswordInput", "", "Password", true);
-            var message = FlowLabel(content, "ConnectionMessage", "Signing in here replaces other sessions for this account. Your password is never saved by the camp.", 15, ink);
-            Button submit = null;
-            Button cancel = null;
-            submit = FooterButton("ConnectAccountButton", "Connect", () =>
-            {
-                if (busy) return;
-                if (!api.ConfigureBaseUrl(server == null ? api.BaseUrl : server.text, out var error)) { message.text = error; return; }
-                if (string.IsNullOrWhiteSpace(username.text) || string.IsNullOrEmpty(password.text))
-                { message.text = "Enter your username and password."; return; }
-                StartCoroutine(Connect(username.text.Trim(), password.text, message, submit, cancel));
-                password.text = "";
-            });
-            cancel = FooterButton("CancelConnectionButton", "Keep exploring", CloseModal);
-            LayoutInterface();
-#endif
-        }
-
-        private IEnumerator Connect(string username, string password, Text message, Button submit, Button cancel)
-        {
-            busy = true;
-            submit.interactable = false;
-            cancel.interactable = false;
-            message.text = "Connecting…";
-            UserDto user = null;
-            ApiError failure = null;
-            yield return api.Login(username, password, value => user = value, error => failure = error);
-            busy = false;
-            if (failure != null)
-            {
-                message.text = failure.Message;
-                submit.interactable = true;
-                cancel.interactable = true;
-                RefreshHud();
-                yield break;
-            }
-            if (user == null || user.role != "child")
-            {
-                api.ClearSession();
-                message.text = "This camp uses a child account. Parent tools are available in the web app.";
-                submit.interactable = true;
-                cancel.interactable = true;
-                yield break;
-            }
-            outcomeUnknown = false;
-            canResolveOutcome = false;
-            boardStatus = "";
-            CloseModal();
-            RefreshHud();
-            Toast("Connected. Open Tasks to see your rituals.", 7f);
-            yield return LoadAccountState();
-        }
-
-        private void SwapCompanion()
-        {
-            if (busy || IsModalOpen || companion == null) return;
-            companion.ToggleAppearance();
-            Toast("A new look, with the same companion behavior and progress.", 5f);
-        }
-
-        /// <summary>A friendly local reaction. Petting never calls the API or awards progress.</summary>
         public void PatCompanion()
         {
-            if (busy || IsModalOpen || companion == null || Time.unscaledTime < patAvailableAt) return;
-            patAvailableAt = Time.unscaledTime + 0.8f;
+            if (IsBusy || IsModalOpen || companion == null || Time.unscaledTime < patAvailableAt) return;
+            patAvailableAt = Time.unscaledTime + .8f;
             companion.Celebrate();
-            Toast("Your companion is happy to see you!", 4f);
+            Toast("Your meadow friend is happy to see you!");
+        }
+
+        private void Navigate(PlayDestination destination)
+        {
+            if (!api.OpenDestination(destination)) Toast("Open this section in the web app.");
         }
 
         private void RefreshHud()
         {
             if (modeLabel == null) return;
-            modeLabel.text = IsDemo ? "DEMO CAMP" : "CONNECTED · " + api.CurrentUser.DisplayName;
-            sessionHint.text = IsDemo ? "Explore, say hello, or try a practice ritual."
-                : "Open Tasks to record a ritual you have done.";
-            connectButton.GetComponentInChildren<Text>().text = IsDemo ? "Connect your account" : "Sign out of camp";
-            connectButton.interactable = !busy;
-            progressLabel.text = IsDemo
-                ? (demoComplete ? "Practice saved" : "Try a ritual")
-                : character == null ? "Connected" : $"Level {character.level} · Streak {character.login_streak}";
+            modeLabel.text = IsDemo ? "Sign in to see your progress" : Shorten(api.CurrentUser.DisplayName, 34);
+            connectButton.GetComponentInChildren<Text>().text = IsDemo ? "Connect" : "Account";
+            coinsLabel.text = IsDemo ? "A little place for your companion" : coins == null ? "Loading coins…" : coins.balance.ToString("N0") + " coins" + (character == null ? "" : "  ·  Level " + character.level);
+            homeStatusLabel.text = homeStatus;
+            rewardSummary.text = IsDemo ? "Your progress" : coins == null ? "Loading…" : coins.balance.ToString("N0") + " coins";
+            inboxSummary.text = IsDemo ? "Your updates" : unreadCount == null ? "Loading…" : unreadCount.count + " unread";
+            bestiarySummary.text = IsDemo ? "Your creatures" : stable == null ? "Loading…" : stable.total_pets + " pets · " + stable.total_mounts + " mounts";
+            companionNameLabel.text = "Meadow friend";
+            // The bird is a scene preview. Never silently portray an unrelated
+            // saved species as this purchased model or invent owned progression.
+            companionHintLabel.text = "Artwork preview";
         }
 
-        private RectTransform BeginModal(string title, string subtitle)
+        public void OpenRewards() => OpenSection(Section.Rewards);
+        public void OpenInbox() => OpenSection(Section.Inbox);
+        public void OpenBestiary() => OpenSection(Section.Bestiary);
+
+        private void OpenSection(Section target)
+        {
+            if (IsBusy) return;
+            section = target;
+            viewVersion++;
+            sectionLoading = false;
+            DrawActiveSection(true);
+            if (!IsDemo) StartCoroutine(LoadSection(target));
+        }
+
+        private IEnumerator LoadSection(Section target)
+        {
+            if (IsDemo || sectionLoading) yield break;
+            var epoch = sessionEpoch;
+            var view = viewVersion;
+            sectionLoading = true;
+            SetSectionStatus(target, "Refreshing…");
+            DrawActiveSection();
+            ApiError failure = null;
+            bool Valid() => Current(epoch) && view == viewVersion && section == target;
+            try
+            {
+                if (target == Section.Rewards)
+                {
+                    CoinBalanceDto loadedCoins = null;
+                    DropDto[] loadedDrops = null;
+                    MeadowDto loadedMeadow = null;
+                    yield return api.FetchCoins(value => loadedCoins = value, error => failure = error);
+                    if (!Valid()) yield break;
+                    if (loadedCoins != null) coins = loadedCoins;
+                    yield return api.FetchRecentDrops(value => loadedDrops = value, error => failure = error);
+                    if (!Valid()) yield break;
+                    if (loadedDrops != null) drops = loadedDrops;
+                    yield return api.FetchMeadow(value => loadedMeadow = value, error => failure = error);
+                    if (!Valid()) yield break;
+                    if (loadedMeadow != null)
+                    {
+                        meadow = loadedMeadow;
+                        var unseen = MeadowReceiptMemory.Observe(api.BaseUrl, api.CurrentUser.id, meadow);
+                        if (unseen != null) { companion?.Celebrate(); Toast("A new memory bloom joined your rewards.", 7); }
+                    }
+                }
+                else if (target == Section.Inbox)
+                {
+                    NotificationPageDto loadedPage = null;
+                    UnreadCountDto loadedCount = null;
+                    yield return api.FetchNotifications(value => loadedPage = value, error => failure = error, inboxPageUrl);
+                    if (!Valid()) yield break;
+                    if (loadedPage != null) notifications = loadedPage;
+                    yield return api.FetchUnreadNotificationCount(value => loadedCount = value, error => failure = error);
+                    if (!Valid()) yield break;
+                    if (loadedCount != null) unreadCount = loadedCount;
+                }
+                else if (target == Section.Bestiary)
+                {
+                    StableDto loaded = null;
+                    yield return api.FetchStable(value => loaded = value, error => failure = error);
+                    if (!Valid()) yield break;
+                    if (loaded != null) stable = loaded;
+                }
+                if (Valid()) SetSectionStatus(target, failure == null ? "Up to date" : failure.Message + " Try Refresh.");
+            }
+            finally
+            {
+                if (epoch == sessionEpoch && view == viewVersion)
+                {
+                    sectionLoading = false;
+                    if (IsDemo) ClearPresentation();
+                    else { RefreshHud(); DrawActiveSection(); }
+                }
+            }
+        }
+
+        private void SetSectionStatus(Section target, string value)
+        {
+            if (target == Section.Rewards) rewardStatus = value;
+            else if (target == Section.Inbox) inboxStatus = value;
+            else if (target == Section.Bestiary) bestiaryStatus = value;
+        }
+
+        private void DrawActiveSection(bool resetScroll = false)
+        {
+            // ScrollRect can report zero for a short, top-aligned loading sheet.
+            // Preserve the top when data makes that sheet taller than its viewport.
+            var scroll = resetScroll || modalScroll == null
+                || modalScroll.content.rect.height <= modalScroll.viewport.rect.height + 1f
+                ? 1 : modalScroll.verticalNormalizedPosition;
+            switch (section)
+            {
+                case Section.Rewards: DrawRewards(); break;
+                case Section.Inbox: DrawInbox(); break;
+                case Section.Bestiary: DrawBestiary(); break;
+                default: return;
+            }
+            LayoutInterface();
+            Canvas.ForceUpdateCanvases();
+            modalScroll.StopMovement();
+            modalScroll.verticalNormalizedPosition = scroll;
+        }
+
+        private void DemoMessage(RectTransform content)
+        {
+            FlowLabel(content, "ConnectPrompt", "Connect your account to see your saved progress and creature collection.", 17, ink);
+            FlowButton(content, "SectionConnectButton", "Connect your account", OpenConnection);
+        }
+
+        private void SectionFooter(Section target)
+        {
+            FooterButton("Refresh" + target + "Button", "Refresh", () => StartCoroutine(LoadSection(target))).interactable = !IsDemo && !sectionLoading && !IsBusy;
+            FooterButton("Close" + target + "Button", "Close", CloseModal).interactable = !IsBusy;
+        }
+
+        private void DrawRewards()
+        {
+            BeginModal("Rewards", "Look at what you've earned.");
+            var content = modalScroll.content;
+            if (IsDemo) DemoMessage(content);
+            else
+            {
+                FlowLabel(content, "RewardStatus", rewardStatus, 14, ink);
+                FlowLabel(content, "RewardBalance", coins == null ? "Loading your balance…" : coins.balance.ToString("N0") + " coins", 26, ink);
+                FlowButton(content, "RewardShopButton", "Open reward shop", () => Navigate(PlayDestination.RewardShop));
+                FlowButton(content, "SatchelButton", "Open your items", () => Navigate(PlayDestination.Satchel));
+                FlowLabel(content, "CoinHistoryHeading", "Recent coin activity", 19, ink);
+                if (coins != null && coins.recent_transactions.Length == 0) FlowLabel(content, "EmptyCoinHistory", "Your earned coins will appear here.", 16, ink);
+                if (coins != null) foreach (var item in coins.recent_transactions)
+                {
+                    var row = Row(content, "Coin_" + item.id);
+                    FlowLabel(row, "CoinAmount", (item.amount > 0 ? "+" : "") + item.amount + " coins", 18, ink);
+                    FlowLabel(row, "CoinDescription", string.IsNullOrWhiteSpace(item.description) ? Humanize(item.reason) : item.description, 16, ink);
+                    FlowLabel(row, "CoinDate", Date(item.created_at), 13, ink);
+                }
+                FlowLabel(content, "DropHistoryHeading", "Recently earned items", 19, ink);
+                if (drops == null) FlowLabel(content, "LoadingDrops", "Loading your items…", 16, ink);
+                else if (drops.Length == 0) FlowLabel(content, "EmptyDrops", "New items will appear here as you earn them.", 16, ink);
+                else foreach (var item in drops)
+                {
+                    var row = Row(content, "Drop_" + item.id);
+                    FlowLabel(row, "DropName", item.item_name + (item.quantity > 1 ? " × " + item.quantity : ""), 18, ink);
+                    FlowLabel(row, "DropDetail", item.was_salvaged ? "Converted to coins · " + Date(item.created_at) : "Already added to your items · " + Date(item.created_at), 14, ink);
+                }
+                if (meadow != null)
+                {
+                    FlowLabel(content, "KeepsakeCount", meadow.keepsake_count + " memory blooms · " + meadow.journal_xp_awarded + " journal XP", 19, ink);
+                    foreach (var item in meadow.keepsakes)
+                    {
+                        var row = Row(content, "Keepsake_" + item.receipt_id);
+                        FlowLabel(row, "KeepsakeTitle", item.title, 17, ink);
+                        FlowLabel(row, "KeepsakeDate", Date(item.earned_at), 14, ink);
+                    }
+                }
+                FlowLabel(content, "RewardExplanation", "These rewards are already part of your account. Your journal words stay in your journal.", 14, ink);
+            }
+            SectionFooter(Section.Rewards);
+        }
+
+        private void DrawInbox()
+        {
+            BeginModal("Inbox", "Updates from your life and your creatures.");
+            var content = modalScroll.content;
+            if (IsDemo) DemoMessage(content);
+            else
+            {
+                FlowLabel(content, "InboxStatus", markingRead ? "Saving read status…" : inboxStatus, 14, ink);
+                FlowLabel(content, "InboxUnreadCount", unreadCount == null ? "Loading unread count…" : unreadCount.count + " unread updates", 20, ink);
+                if (notifications == null) FlowLabel(content, "LoadingInbox", "Loading your updates…", 16, ink);
+                else if (notifications.results.Length == 0) FlowLabel(content, "EmptyInbox", "You're all caught up. New updates will appear here.", 17, ink);
+                else foreach (var item in notifications.results)
+                {
+                    var row = Row(content, "Notification_" + item.id);
+                    FlowLabel(row, "NotificationTitle_" + item.id, (item.is_read ? "" : "New · ") + item.title, 18, ink);
+                    FlowLabel(row, "NotificationMessage_" + item.id, item.message, 16, ink);
+                    FlowLabel(row, "NotificationDate", Date(item.created_at) + (item.is_read ? " · Read" : " · Unread"), 13, ink);
+                    var hasDestination = AbbyApiClient.TryResolveNotificationDestination(item.link, item.notification_type, out _);
+                    FlowButton(row, "OpenNotification_" + item.id, hasDestination ? "Open related page" : "Open Today", () =>
+                    {
+                        if (!api.OpenNotificationDestination(item)) Navigate(PlayDestination.Today);
+                    }).interactable = !markingRead;
+                    var mark = FlowButton(row, "MarkRead_" + item.id, item.is_read ? "Read" : "Mark read", () => StartCoroutine(MarkRead(item.id)));
+                    mark.interactable = !item.is_read && !markingRead && !sectionLoading && !homeLoading;
+                }
+                if (inboxHistory.Count > 0) FlowButton(content, "PreviousInboxPageButton", "Previous page", () =>
+                {
+                    inboxPageUrl = inboxHistory[inboxHistory.Count - 1]; inboxHistory.RemoveAt(inboxHistory.Count - 1);
+                    notifications = null; DrawActiveSection(true); StartCoroutine(LoadSection(Section.Inbox));
+                }).interactable = !sectionLoading && !markingRead;
+                if (notifications != null && !string.IsNullOrEmpty(notifications.next)) FlowButton(content, "NextInboxPageButton", "Next page", () =>
+                {
+                    inboxHistory.Add(inboxPageUrl); inboxPageUrl = notifications.next;
+                    notifications = null; DrawActiveSection(true); StartCoroutine(LoadSection(Section.Inbox));
+                }).interactable = !sectionLoading && !markingRead;
+            }
+            SectionFooter(Section.Inbox);
+        }
+
+        private IEnumerator MarkRead(int id)
+        {
+            if (IsDemo || markingRead || sectionLoading || homeLoading) yield break;
+            var epoch = sessionEpoch;
+            var view = viewVersion;
+            markingRead = true;
+            DrawActiveSection();
+            ApiError failure = null;
+            NotificationDto saved = null;
+            try
+            {
+                yield return api.MarkNotificationRead(id, value => saved = value, error => failure = error);
+                if (!Current(epoch) || view != viewVersion) yield break;
+                if (saved != null)
+                {
+                    if (notifications != null) for (int i = 0; i < notifications.results.Length; i++) if (notifications.results[i].id == id) notifications.results[i] = saved;
+                    unreadCount = null;
+                    yield return api.FetchUnreadNotificationCount(value => unreadCount = value, error => failure = error);
+                    if (!Current(epoch) || view != viewVersion) yield break;
+                }
+                inboxStatus = failure == null ? "Read status saved" : saved != null
+                    ? "Read status saved. Refresh to update the unread count."
+                    : "Couldn't confirm the read status. Refresh or try Mark read again.";
+            }
+            finally
+            {
+                if (epoch == sessionEpoch && view == viewVersion)
+                {
+                    markingRead = false;
+                    if (IsDemo) ClearPresentation();
+                    else { RefreshHud(); DrawActiveSection(); }
+                }
+            }
+        }
+
+        private void DrawBestiary()
+        {
+            BeginModal("Bestiary", "Your saved creature collection.");
+            var content = modalScroll.content;
+            if (IsDemo) DemoMessage(content);
+            else
+            {
+                FlowLabel(content, "BestiaryStatus", bestiaryStatus, 14, ink);
+                if (stable == null) FlowLabel(content, "LoadingStable", "Opening your creatures…", 16, ink);
+                else
+                {
+                    FlowLabel(content, "StableCounts", stable.total_pets + " pets · " + stable.total_mounts + " mounts", 22, ink);
+                    FlowLabel(content, "ActiveCompanion", stable.ActiveCompanion == null ? "No active companion yet" : "Active companion: " + PetName(stable.ActiveCompanion), 18, ink);
+                    FlowLabel(content, "CompanionArtNote", "The companion in this scene is an artwork preview. Your saved creatures and their progress are listed below.", 14, ink);
+                    FlowLabel(content, "PetsHeading", "Companions", 19, ink);
+                    if (stable.pets.Length == 0) FlowLabel(content, "EmptyPets", "Your first companion is waiting to be discovered.", 16, ink);
+                    foreach (var pet in stable.pets)
+                    {
+                        var row = Row(content, "Pet_" + pet.id);
+                        FlowLabel(row, "PetName_" + pet.id, PetName(pet) + (pet.is_active ? " · Active" : ""), 18, ink);
+                        FlowLabel(row, "PetSpecies", pet.potion.name + " " + pet.species.name, 16, ink);
+                        FlowLabel(row, "PetGrowth", pet.evolved_to_mount ? "Evolved into a mount" : pet.is_fully_grown ? "Fully grown" : pet.growth_points + " growth", 14, ink);
+                        FlowLabel(row, "PetHappiness", Humanize(pet.happiness_level), 14, ink);
+                    }
+                    FlowLabel(content, "MountsHeading", "Mounts", 19, ink);
+                    if (stable.mounts.Length == 0) FlowLabel(content, "EmptyMounts", "Your mounts will appear here as your collection grows.", 16, ink);
+                    foreach (var mount in stable.mounts)
+                    {
+                        var row = Row(content, "Mount_" + mount.id);
+                        FlowLabel(row, "MountName", mount.potion.name + " " + mount.species.name + (mount.is_active ? " · Active" : ""), 18, ink);
+                    }
+                }
+                FlowButton(content, "CompanionsWebButton", "Care for companions", () => Navigate(PlayDestination.BestiaryCompanions));
+                FlowButton(content, "MountsWebButton", "Manage mounts", () => Navigate(PlayDestination.BestiaryMounts));
+                FlowButton(content, "HatcheryWebButton", "Open hatchery", () => Navigate(PlayDestination.BestiaryHatchery));
+                FlowButton(content, "SpeciesWebButton", "Discover species", () => Navigate(PlayDestination.BestiaryCodex));
+            }
+            SectionFooter(Section.Bestiary);
+        }
+
+        private void OpenConnection()
+        {
+            if (IsBusy) return;
+            section = IsDemo ? Section.Connect : Section.Account;
+            viewVersion++;
+            sectionLoading = false;
+            if (!IsDemo)
+            {
+                BeginModal("Your account", api.CurrentUser.DisplayName);
+#if UNITY_WEBGL && !UNITY_EDITOR
+                FlowLabel(modalScroll.content, "AccountExplanation", "Your journal and Play share this account and its saved progress.", 17, ink);
+#else
+                FlowLabel(modalScroll.content, "AccountExplanation", "Play shows this account's saved progress. Web shortcuts open your browser, which uses its own sign-in.", 17, ink);
+#endif
+                FlowButton(modalScroll.content, "RefreshHomeButton", "Refresh progress", () => { CloseModal(); StartCoroutine(RefreshHome()); });
+                FlowButton(modalScroll.content, "DisconnectButton", "Disconnect Play", () => { api.ClearSession(); ClearPresentation(); Toast("Play is disconnected. Your web account is still signed in."); });
+                FooterButton("CloseAccountButton", "Close", CloseModal);
+            }
+            else
+            {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                BeginModal("Connect your account", "The same account as your journal.");
+                FlowLabel(modalScroll.content, "ConnectionMessage", "Sign in on the web app, then return to Play.", 17, ink);
+                FlowButton(modalScroll.content, "OpenJournalButton", "Open Today and sign in", () => Navigate(PlayDestination.Today));
+                FlowButton(modalScroll.content, "ResumeJournalButton", "Connect signed-in account", () => { CloseModal(); browserSessionDirty = true; });
+                FooterButton("CancelConnectionButton", "Close", CloseModal);
+#else
+                BeginModal("Connect your account", "Your existing Abby account.");
+                FlowLabel(modalScroll.content, "ServerAddressLabel", "Server address", 15, ink);
+                var server = FlowInput(modalScroll.content, "ServerAddressInput", api.BaseUrl, "https://your-abby-app.example", false);
+                server.keyboardType = TouchScreenKeyboardType.URL;
+                FlowLabel(modalScroll.content, "UsernameLabel", "Username", 15, ink);
+                var username = FlowInput(modalScroll.content, "UsernameInput", "", "Your child account", false);
+                FlowLabel(modalScroll.content, "PasswordLabel", "Password", 15, ink);
+                var password = FlowInput(modalScroll.content, "PasswordInput", "", "Password", true);
+                var message = FlowLabel(modalScroll.content, "ConnectionMessage", "Your password is never saved in Play.", 15, ink);
+                Button submit = null;
+                Button cancel = null;
+                submit = FooterButton("ConnectAccountButton", "Connect", () =>
+                {
+                    if (busy) return;
+                    if (!api.ConfigureBaseUrl(server.text, out var error)) { message.text = error; return; }
+                    if (string.IsNullOrWhiteSpace(username.text) || string.IsNullOrEmpty(password.text)) { message.text = "Enter your username and password."; return; }
+                    StartCoroutine(Connect(username.text.Trim(), password.text, message, submit, cancel)); password.text = "";
+                });
+                cancel = FooterButton("CancelConnectionButton", "Close", CloseModal);
+#endif
+            }
+            LayoutInterface();
+        }
+
+        private IEnumerator Connect(string username, string password, Text message, Button submit, Button cancel)
+        {
+            var epoch = sessionEpoch;
+            busy = true; submit.interactable = cancel.interactable = false; message.text = "Connecting…";
+            UserDto user = null; ApiError failure = null;
+            yield return api.Login(username, password, value => user = value, error => failure = error);
+            if (epoch != sessionEpoch) yield break;
+            busy = false;
+            if (failure != null || user == null || user.role != "child")
+            {
+                if (user != null && user.role != "child") api.ClearSession();
+                message.text = failure == null ? "Play uses a child account. Parent tools are in the web app." : failure.Message;
+                submit.interactable = cancel.interactable = true; RefreshHud(); yield break;
+            }
+            toastPanel.gameObject.SetActive(false);
+            CloseModal(); RefreshHud(); yield return RefreshHome();
+        }
+
+        private static string PetName(OwnedPetDto pet) => string.IsNullOrWhiteSpace(pet.name) ? pet.species.name : pet.name;
+        private static string Shorten(string value, int length) => string.IsNullOrEmpty(value) || value.Length <= length ? value : value.Substring(0, length - 1) + "…";
+        private static string Humanize(string value) => string.IsNullOrWhiteSpace(value) ? "" : value.Replace('_', ' ');
+        private static string Date(string value) => DateTimeOffset.TryParse(value, out var date) ? date.LocalDateTime.ToString("d MMM yyyy") : "";
+
+        private RectTransform Row(RectTransform parent, string name)
+        {
+            var row = Panel(parent, name, Vector2.zero, Vector2.up, Vector2.up, Vector2.zero, new Color(teal.r, teal.g, teal.b, .08f));
+            VerticalFlow(row, 12, 6);
+            return row;
+        }
+
+        private void BeginModal(string title, string subtitle)
         {
             if (modal != null) { modal.SetActive(false); Destroy(modal); }
-            var backdrop = Panel(canvas, "ModalBackdrop", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, new Color(0.06f, 0.12f, 0.12f, 0.70f));
-            backdrop.anchorMin = Vector2.zero;
-            backdrop.anchorMax = Vector2.one;
-            backdrop.offsetMin = Vector2.zero;
-            backdrop.offsetMax = Vector2.zero;
+            var backdrop = Panel(canvas, "ModalBackdrop", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, new Color(ink.r, ink.g, ink.b, .7f));
+            backdrop.anchorMax = Vector2.one; backdrop.offsetMin = backdrop.offsetMax = Vector2.zero;
             modal = backdrop.gameObject;
             modalSafeArea = Box(backdrop, "ModalSafeArea", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
-            modalSheet = Panel(modalSafeArea, "CampSheet", Vector2.zero, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, paper);
-            modalTitle = Label(modalSheet, title, 23, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink, FontStyle.Bold);
-            modalTitle.name = "SheetTitle";
-            modalSubtitle = Label(modalSheet, subtitle, 16, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, teal);
-            modalSubtitle.name = "SheetSubtitle";
-            var viewport = Panel(modalSheet, "SheetViewport", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, new Color(0, 0, 0, 0.03f));
+            modalSheet = Panel(modalSafeArea, "CampSheet", Vector2.zero, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, paper);
+            modalTitle = Label(modalSheet, title, 25, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink); modalTitle.name = "SheetTitle";
+            modalTitle.verticalOverflow = VerticalWrapMode.Overflow;
+            modalSubtitle = Label(modalSheet, subtitle, 15, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, ink); modalSubtitle.name = "SheetSubtitle";
+            var viewport = Panel(modalSheet, "SheetViewport", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, new Color(0, 0, 0, .02f));
             viewport.anchorMax = Vector2.one;
-            viewport.offsetMin = new Vector2(16, 76);
-            viewport.offsetMax = new Vector2(-16, -94);
             viewport.gameObject.AddComponent<RectMask2D>();
-            var content = Box(viewport, "SheetContent", Vector2.zero, new Vector2(0, 1), new Vector2(0, 1), Vector2.zero);
-            content.anchorMax = Vector2.one;
-            content.anchorMin = new Vector2(0, 1);
+            var content = Box(viewport, "SheetContent", Vector2.zero, Vector2.up, Vector2.up, Vector2.zero);
+            content.anchorMax = Vector2.one; content.anchorMin = Vector2.up;
             VerticalFlow(content, 0, 12);
             content.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             modalScroll = viewport.gameObject.AddComponent<ScrollRect>();
-            modalScroll.horizontal = false;
-            modalScroll.viewport = viewport;
-            modalScroll.content = content;
-            modalScroll.movementType = ScrollRect.MovementType.Clamped;
-            modalScroll.scrollSensitivity = 24f;
+            modalScroll.horizontal = false; modalScroll.viewport = viewport; modalScroll.content = content;
+            modalScroll.movementType = ScrollRect.MovementType.Clamped; modalScroll.scrollSensitivity = 24;
             modalFooter = Box(modalSheet, "SheetActions", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
-            var footerLayout = modalFooter.gameObject.AddComponent<HorizontalLayoutGroup>();
-            footerLayout.spacing = 12;
-            footerLayout.childControlHeight = true;
-            footerLayout.childControlWidth = true;
-            footerLayout.childForceExpandWidth = true;
-            footerLayout.childForceExpandHeight = false;
-            player?.SetInputEnabled(false);
-            taskBoard?.SetInputEnabled(false);
-            LayoutInterface();
-            return modalSheet;
+            var layout = modalFooter.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 12; layout.childControlHeight = layout.childControlWidth = layout.childForceExpandWidth = true; layout.childForceExpandHeight = false;
+            gardenInput?.SetInputEnabled(false);
         }
 
-        private void CloseModal()
-        {
-            if (busy) return;
-            DismissModal();
-        }
+        private void CloseModal() { if (!IsBusy) DismissModal(); }
 
         private void DismissModal()
         {
-            if (modal != null) Destroy(modal);
-            modal = null;
-            modalSheet = null;
-            modalSafeArea = null;
-            modalScroll = null;
-            modalFooter = null;
-            boardOpen = false;
-            player?.SetInputEnabled(true);
-            taskBoard?.SetInputEnabled(true);
+            if (modal != null) { modal.SetActive(false); Destroy(modal); }
+            modal = null; modalSheet = null; modalSafeArea = null; modalScroll = null; modalFooter = null;
+            section = Section.None; viewVersion++; sectionLoading = false;
+            gardenInput?.SetInputEnabled(true);
         }
 
         private void LayoutInterface()
@@ -583,66 +665,60 @@ namespace AbbyCamp.UI
             var size = safeArea.rect.size;
             var landscape = phoneLayout.IsLandscape;
             var width = Mathf.Max(1, size.x - 24);
-            var headerHeight = landscape ? 86 : 132;
-            Place(headingPanel, new Vector2(12, -12), new Vector2(width, headerHeight));
-            Place(titleLabel.rectTransform, new Vector2(12, -10), new Vector2(width - 164, 30));
-            Place(progressLabel.rectTransform, new Vector2(12, -42), new Vector2(width - 164, 24));
-            Place(modeLabel.rectTransform, new Vector2(12, -68), new Vector2(width - 24, 24));
-            // In landscape, use one status line and give the actors room to breathe.
-            if (landscape)
-            {
-                Place(modeLabel.rectTransform, new Vector2(12, -60), new Vector2(width - 164, 22));
-                Place(progressLabel.rectTransform, new Vector2(12, -36), new Vector2(width - 164, 22));
-            }
-            Place(connectButton.GetComponent<RectTransform>(), new Vector2(width - 148, -12), new Vector2(136, 48));
-            ResizeButtonLabel(connectButton);
-            sessionHint.gameObject.SetActive(!landscape);
-            Place(sessionHint.rectTransform, new Vector2(12, -96), new Vector2(width - 24, 32));
-
-            var actionWidth = landscape ? Mathf.Min(width, 540) : width;
-            controlsPanel.anchorMin = controlsPanel.anchorMax = Vector2.zero;
-            controlsPanel.pivot = Vector2.zero;
-            controlsPanel.anchoredPosition = new Vector2((size.x - actionWidth) / 2, 12);
-            controlsPanel.sizeDelta = new Vector2(actionWidth, 64);
+            var headerWidth = landscape ? Mathf.Min(width, 430) : width;
+            Place(headingPanel, new Vector2(12, -12), new Vector2(headerWidth, 112));
+            Place(titleLabel.rectTransform, new Vector2(12, -8), new Vector2(headerWidth - 218, 38));
+            Place(connectButton.GetComponent<RectTransform>(), new Vector2(headerWidth - 196, -10), new Vector2(104, 44));
+            Place(todayButton.GetComponent<RectTransform>(), new Vector2(headerWidth - 84, -10), new Vector2(72, 44));
+            ResizeButtonLabel(connectButton); ResizeButtonLabel(todayButton);
+            Place(modeLabel.rectTransform, new Vector2(12, -50), new Vector2(headerWidth - 24, 20));
+            Place(coinsLabel.rectTransform, new Vector2(12, -73), new Vector2(headerWidth - 24, 23));
+            Place(homeStatusLabel.rectTransform, new Vector2(12, -95), new Vector2(headerWidth - 24, 16));
+            var actionWidth = landscape ? Mathf.Min(350, width * .45f) : width;
+            controlsPanel.anchorMin = controlsPanel.anchorMax = Vector2.zero; controlsPanel.pivot = Vector2.zero;
+            controlsPanel.anchoredPosition = new Vector2(landscape ? size.x - actionWidth - 12 : 12, 12);
+            controlsPanel.sizeDelta = new Vector2(actionWidth, 156);
             var buttonWidth = (actionWidth - 40) / 3;
-            var buttons = new[] { boardButton, patButton, swapButton };
-            for (int i = 0; i < buttons.Length; i++)
+            var cards = new[] { rewardsButton, inboxButton, bestiaryButton };
+            for (int i = 0; i < cards.Length; i++)
             {
-                Place(buttons[i].GetComponent<RectTransform>(), new Vector2(12 + i * (buttonWidth + 8), -8), new Vector2(buttonWidth, 48));
-                ResizeButtonLabel(buttons[i]);
+                Place(cards[i].GetComponent<RectTransform>(), new Vector2(12 + i * (buttonWidth + 8), -12), new Vector2(buttonWidth, 76));
+                var labels = cards[i].GetComponentsInChildren<Text>();
+                Place(labels[0].rectTransform, new Vector2(4, -10), new Vector2(buttonWidth - 8, 28));
+                Place(labels[1].rectTransform, new Vector2(4, -40), new Vector2(buttonWidth - 8, 32));
+                labels[0].fontSize = actionWidth < 335 ? 16 : 18;
             }
-            var footerWidth = landscape ? Mathf.Min(width, 640) : width;
-            var footerHeight = landscape ? 58 : 80;
-            footerPanel.anchorMin = footerPanel.anchorMax = Vector2.zero;
-            footerPanel.pivot = Vector2.zero;
-            footerPanel.anchoredPosition = new Vector2((size.x - footerWidth) / 2, 84);
-            footerPanel.sizeDelta = new Vector2(footerWidth, footerHeight);
-            Place(promptLabel.rectTransform, new Vector2(10, -4), new Vector2(footerWidth - 20, 22));
-            Place(toastLabel.rectTransform, new Vector2(10, -28), new Vector2(footerWidth - 20, footerHeight - 30));
-
+            var shortcuts = new[] { journalButton, gradesButton, tasksButton };
+            for (int i = 0; i < shortcuts.Length; i++)
+            {
+                Place(shortcuts[i].GetComponent<RectTransform>(), new Vector2(12 + i * (buttonWidth + 8), -96), new Vector2(buttonWidth, 48));
+                ResizeButtonLabel(shortcuts[i]);
+            }
+            var greetingWidth = landscape ? Mathf.Min(360, size.x - actionWidth - 36) : width;
+            footerPanel.anchorMin = footerPanel.anchorMax = Vector2.zero; footerPanel.pivot = Vector2.zero;
+            footerPanel.anchoredPosition = new Vector2(12, landscape ? 12 : 180); footerPanel.sizeDelta = new Vector2(greetingWidth, 68);
+            Place(companionNameLabel.rectTransform, new Vector2(12, -8), new Vector2(greetingWidth - 136, 27));
+            Place(companionHintLabel.rectTransform, new Vector2(12, -38), new Vector2(greetingWidth - 136, 24));
+            Place(patButton.GetComponent<RectTransform>(), new Vector2(greetingWidth - 120, -10), new Vector2(108, 48)); ResizeButtonLabel(patButton);
+            toastPanel.anchorMin = toastPanel.anchorMax = Vector2.zero; toastPanel.pivot = Vector2.zero;
+            var toastWidth = landscape ? greetingWidth : width;
+            toastPanel.anchoredPosition = new Vector2(12, landscape ? 88 : 260); toastPanel.sizeDelta = new Vector2(toastWidth, 52);
+            Place(toastLabel.rectTransform, new Vector2(10, -4), new Vector2(toastWidth - 20, 44));
             if (modalSheet == null || modalSafeArea == null) return;
-            modalSafeArea.anchorMin = safeArea.anchorMin;
-            modalSafeArea.anchorMax = safeArea.anchorMax;
-            modalSafeArea.offsetMin = modalSafeArea.offsetMax = Vector2.zero;
-            var compactSheet = size.y < 300;
-            var sheetSize = new Vector2(Mathf.Min(580, size.x - 24), Mathf.Min(760, size.y - (compactSheet ? 0 : 24)));
+            modalSafeArea.anchorMin = safeArea.anchorMin; modalSafeArea.anchorMax = safeArea.anchorMax; modalSafeArea.offsetMin = modalSafeArea.offsetMax = Vector2.zero;
+            var compact = size.y < 300;
+            var sheetSize = new Vector2(Mathf.Min(580, size.x - 24), Mathf.Min(760, size.y - (compact ? 0 : 24)));
             modalSheet.sizeDelta = sheetSize;
-            modalTitle.fontSize = compactSheet ? 20 : 23;
-            Place(modalTitle.rectTransform, new Vector2(16, compactSheet ? -8 : -16), new Vector2(sheetSize.x - 32, 32));
-            modalSubtitle.gameObject.SetActive(!compactSheet);
+            modalTitle.fontSize = compact ? 20 : 25;
+            Place(modalTitle.rectTransform, new Vector2(16, compact ? -8 : -16), new Vector2(sheetSize.x - 32, 32));
+            modalSubtitle.gameObject.SetActive(!compact);
             Place(modalSubtitle.rectTransform, new Vector2(16, -54), new Vector2(sheetSize.x - 32, 36));
-            modalScroll.viewport.offsetMin = new Vector2(16, compactSheet ? 64 : 76);
-            modalScroll.viewport.offsetMax = new Vector2(-16, compactSheet ? -44 : -94);
-            modalFooter.anchorMin = modalFooter.anchorMax = Vector2.zero;
-            modalFooter.pivot = Vector2.zero;
-            modalFooter.anchoredPosition = new Vector2(16, compactSheet ? 8 : 16);
-            modalFooter.sizeDelta = new Vector2(sheetSize.x - 32, 48);
+            modalScroll.viewport.offsetMin = new Vector2(16, compact ? 64 : 76); modalScroll.viewport.offsetMax = new Vector2(-16, compact ? -44 : -94);
+            modalFooter.anchorMin = modalFooter.anchorMax = Vector2.zero; modalFooter.pivot = Vector2.zero;
+            modalFooter.anchoredPosition = new Vector2(16, compact ? 8 : 16); modalFooter.sizeDelta = new Vector2(sheetSize.x - 32, 48);
             Canvas.ForceUpdateCanvases();
-            if (modalScroll != null)
-            {
-                LayoutRebuilder.ForceRebuildLayoutImmediate(modalScroll.content);
-                foreach (var button in modalSheet.GetComponentsInChildren<Button>()) ResizeButtonLabel(button);
-            }
+            LayoutRebuilder.ForceRebuildLayoutImmediate(modalScroll.content);
+            foreach (var button in modalSheet.GetComponentsInChildren<Button>()) ResizeButtonLabel(button);
         }
 
         private void KeepFocusedInputVisible()
@@ -671,8 +747,8 @@ namespace AbbyCamp.UI
         /// <summary>Read-only sizing diagnostics for device/viewport checks.</summary>
         public string DescribePhoneLayout()
         {
-            if (safeArea == null) return "Camp UI has not started.";
-            return $"Camp UI: screen={Screen.width}x{Screen.height}, safe={phoneLayout.UsableScreenRect}, logical={safeArea.rect.size}, minTarget=48, modal={(modalSheet == null ? Vector2.zero : modalSheet.rect.size)}";
+            if (safeArea == null) return "Play UI has not started.";
+            return $"Play UI: screen={Screen.width}x{Screen.height}, safe={phoneLayout.UsableScreenRect}, logical={safeArea.rect.size}, minTarget=48, modal={(modalSheet == null ? Vector2.zero : modalSheet.rect.size)}";
         }
 
         public void LogPhoneLayout() => Debug.Log(DescribePhoneLayout());
@@ -711,6 +787,9 @@ namespace AbbyCamp.UI
             var text = Label(parent, value, size, Vector2.zero, Vector2.zero, TextAnchor.UpperLeft, color, style);
             text.name = name;
             text.supportRichText = false;
+            // Flow layout already sizes these paragraphs from preferredHeight.
+            // Fractional pixel rounding must not truncate a complete text line.
+            text.verticalOverflow = VerticalWrapMode.Overflow;
             return text;
         }
 
@@ -747,6 +826,7 @@ namespace AbbyCamp.UI
         {
             if (toastLabel == null) return;
             toastLabel.text = message;
+            toastPanel.gameObject.SetActive(true);
             toastUntil = Time.unscaledTime + duration;
         }
 
@@ -766,7 +846,13 @@ namespace AbbyCamp.UI
         private RectTransform Panel(Transform parent, string name, Vector2 size, Vector2 anchor, Vector2 pivot, Vector2 position, Color color)
         {
             var rect = Box(parent, name, size, anchor, pivot, position);
-            rect.gameObject.AddComponent<Image>().color = color;
+            var image = rect.gameObject.AddComponent<Image>();
+            image.color = color;
+            if (name != "ModalBackdrop")
+            {
+                image.sprite = CampUiShapes.RoundedPanel;
+                image.type = Image.Type.Sliced;
+            }
             return rect;
         }
 
@@ -778,7 +864,9 @@ namespace AbbyCamp.UI
             text.text = value;
             text.supportRichText = false;
             text.fontSize = size;
-            text.fontStyle = style;
+            // The shared file is already the 600-weight static face. Asking
+            // Unity for Bold can synthesize thickness or select another face.
+            text.fontStyle = presentation != null && font == presentation.UiFont ? FontStyle.Normal : style;
             text.color = color;
             text.alignment = alignment;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -789,7 +877,7 @@ namespace AbbyCamp.UI
 
         private Button Button(Transform parent, string label, Vector2 position, Vector2 size, Action clicked, bool quiet = false)
         {
-            var rect = Panel(parent, label, size, new Vector2(0, 1), new Vector2(0, 1), position, quiet ? new Color(0.13f, 0.4f, 0.37f, 0.10f) : teal);
+            var rect = Panel(parent, label, size, new Vector2(0, 1), new Vector2(0, 1), position, quiet ? new Color(teal.r, teal.g, teal.b, .12f) : teal);
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = rect.GetComponent<Image>();
             var colors = button.colors;

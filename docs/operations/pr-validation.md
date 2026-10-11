@@ -8,7 +8,7 @@ reports three stable checks:
 | --- | --- | --- |
 | `Browser bridge` | The same-origin token bridge, account changes, and local sign-out through `scripts/unity/test_browser_session.cjs` | GitHub-hosted Ubuntu, Node 22 |
 | `API fixtures` | Real Django endpoint responses match [`shared JSON fixtures`](../../contracts/api/README.md), and React consumes those same responses | GitHub-hosted Ubuntu, Python 3.12 + Node 22, SQLite + test settings |
-| `Unity validation` | `CampBuild.ValidateAll` imports/compiles the project and checks the saved scene, assets, and API contracts with Unity 6000.6.5f1 | Dedicated Windows Unity runner, with a hosted readiness and result check |
+| `Unity validation` | `CampBuild.ValidateAll` imports/compiles the project and checks the saved scene, assets, and API contracts with Unity 6000.6.5f1 | Dedicated Linux or Windows Unity runner, with a hosted readiness and result check |
 
 There are no workflow path filters, so documentation-only or backend-only PRs
 still report the checks expected by branch protection. API checks therefore
@@ -19,46 +19,62 @@ test, build, scan, and deploy independently.
 
 ## Provision the Unity runner once
 
-The workflow source is ready, but the Unity check needs a licensed runner before
-it can run. GitHub's [Windows runner inventory](https://github.com/actions/runner-images/blob/main/images/windows/Windows2025-Readme.md)
-includes Visual Studio Unity tooling rather than an installed Unity Editor.
-A hosted installation also needs license activation, as described in
-[GameCI's activation guidance](https://game.ci/docs/github/activation/).
-This project uses its existing Windows batch script with a preinstalled editor
-and an activated license instead.
+The workflow source supports Linux and Windows, but source configuration does
+not establish that a runner has been provisioned, licensed, or tested in CI.
+Use a preinstalled editor and an activated license under the Actions service
+account. This validation job does not export a player or require Web Build
+Support.
 
-1. Provision a dedicated Windows x64 machine or VM for validation, with Git,
-   Windows PowerShell, and a current GitHub Actions runner. Keep it separate from
-   the `deploy-platform` runner, production credentials, and developer browser
-   profiles. Restrict the machine's account and network access to its CI needs,
-   following [GitHub's self-hosted runner security guidance](https://docs.github.com/en/actions/reference/security/secure-use#hardening-for-self-hosted-runners).
-2. Install Unity **6000.6.5f1** through Unity Hub at
-   `C:\Program Files\Unity\Hub\Editor\6000.6.5f1\Editor\Unity.exe`. Activate the
-   appropriate Unity license **as the Windows account that runs the Actions
-   service**; licensing a different interactive account does not establish that
-   the service can use it. This validation job does not export a Web player or
-   require Web Build Support.
-3. Register the runner for this repository with the labels `self-hosted`,
-   `Windows`, `X64`, and `unity-6000.6.5f1`. Only trusted repository contributors
-   should be able to send code to it. An organization runner group can restrict
-   repository access; see [GitHub's runner routing reference](https://docs.github.com/en/actions/reference/runners/self-hosted-runners).
-4. In a fresh checkout under the runner's account, run
-   `powershell -NoProfile -File scripts/unity/Build-Camp.ps1 -ValidateOnly`.
-   Confirm `unity/AbbyCamp/Logs/validate.log` contains
-   `ABBY_CAMP_VALIDATION_PASSED:` and no license/import/compile failure. Keep the
-   project closed in the interactive editor during batch validation.
-5. Once the runner is online and validated, set repository **Actions variable**
-   `UNITY_VALIDATION_RUNNER_ENABLED` to the exact value `true`. Run `PR validation`
-   manually to confirm all three checks pass. Then require `Browser bridge`,
-   `API fixtures`, and `Unity validation` in the `main` branch rules.
+1. Provision a dedicated x64 machine or VM with Git and a current GitHub Actions
+   runner. Linux requires Bash and `sha256sum`; Windows requires Windows
+   PowerShell. Keep it separate from the `deploy-platform` runner, production
+   accounts and credentials, and developer browser profiles. An additional
+   runner registration or label on a production host does not provide that
+   separation. Restrict its account and network access to CI needs, following
+   [GitHub's self-hosted runner security guidance](https://docs.github.com/en/actions/reference/security/secure-use#hardening-for-self-hosted-runners).
+2. Install Unity **6000.6.5f1** and activate the appropriate license **as the
+   account that runs the Actions service**. Verify batch validation under that
+   identity; activation as a different interactive user or Linux `root` does
+   not establish that the service can use the license. Unity Personal supports
+   [Hub sign-in](https://docs.unity.com/en-us/engine/6000.5/manual/get-started/install-and-upgrade/licenses-and-activation/license-activation-methods)
+   or the [official standalone Unity CLI](https://docs.unity.com/en-us/unity-cli/use-unity-cli)
+   flow below. Personal requires human browser sign-in; Unity service-account
+   authentication, Editor serial/password arguments, and manual `.alf`
+   activation do not support it. Do not put Unity account passwords, tokens,
+   or license files in repository variables, source, or logs.
+3. Register the runner for this repository with `self-hosted`, its operating
+   system label (`Linux` or `Windows`), `X64`, and `unity-6000.6.5f1`.
+   GitHub adds the first three labels by default; add the Unity version label.
+   Only trusted repository contributors should send code to it. An organization
+   runner group can restrict repository access; see
+   [GitHub's runner routing reference](https://docs.github.com/en/actions/reference/runners/self-hosted-runners).
+4. Choose the routing and installation path below. In a fresh checkout under
+   the runner's account, run the applicable local validation command. Confirm
+   `unity/AbbyCamp/Logs/validate.log` contains `ABBY_CAMP_VALIDATION_PASSED:`
+   and no license/import/compile failure. Keep the project closed in the
+   interactive editor during batch validation.
+5. Once the matching runner is online and validated, set repository **Actions
+   variable** `UNITY_VALIDATION_RUNNER_ENABLED` to the exact value `true`.
+   Run `PR validation` manually to confirm all three checks pass. Then require
+   `Browser bridge`, `API fixtures`, and `Unity validation` in the `main`
+   branch rules, preserving any existing protection requirements.
 
-Before the variable is set, the hosted readiness job reports an actionable
-failure and the Unity result check fails; the workflow does not queue a job for
-a nonexistent runner or claim Unity validation passed. Browser/API checks run
-independently and remain useful during provisioning. Setting the variable is an
-operator assertion that a matching online runner exists; if that runner later
-goes offline, GitHub will queue the editor job until a matching runner returns.
-Set the variable back to `false` when decommissioning it.
+Repository Actions variables select the runner; they contain configuration,
+never credentials:
+
+| Variable | Value |
+| --- | --- |
+| `UNITY_VALIDATION_RUNNER_OS` | `Linux` selects a Linux runner; `Windows` or an unset value preserves Windows routing |
+| `UNITY_EDITOR_PATH` | Optional absolute path to the pinned editor executable on the selected machine; an unset value uses the platform default below |
+| `UNITY_VALIDATION_RUNNER_ENABLED` | `true` only after provisioning, activation, and validation succeed |
+
+Before the enabled variable is set, the hosted readiness job reports an
+actionable failure and the Unity result check fails; the workflow does not queue
+a job for a nonexistent runner or claim Unity validation passed. Browser/API
+checks run independently and remain useful during provisioning. Setting the
+variable is an operator assertion that a matching online runner exists; if that
+runner later goes offline, GitHub will queue the editor job until a matching
+runner returns. Set the variable back to `false` when decommissioning it.
 
 Fork pull requests still receive hosted browser/API checks, but fail Unity
 readiness explicitly. Review those changes and apply them to a trusted branch
@@ -68,21 +84,101 @@ The repository flag and job-level guard are also checked before dispatching the
 self-hosted job. Repository workflow changes still require review; these guards
 are not a security boundary against trusted contributors changing the workflow.
 
+### Linux
+
+Use Ubuntu 22.04 or 24.04 on x64 with SSE2 support. Unity recommends at least
+8 GB RAM; allow additional disk space for project imports and the runner's
+checkout. See [Unity 6.6 system requirements](https://docs.unity3d.com/6000.6/Documentation/Manual/system-requirements.html).
+The [6000.6.5f1 release page](https://unity.com/releases/editor/whats-new/6000.6.5f1)
+provides the Linux editor archive. Install it so the default executable is
+`/opt/unity/6000.6.5f1/Editor/Unity`, or set `UNITY_EDITOR_PATH` for a custom
+installation. Ensure the service account can execute the editor and write its
+own home, cache, and checkout. Check missing libraries with `ldd` and verify
+the actual batch invocation before enabling CI.
+
+For Personal without Hub, install the standalone CLI under the Linux service
+account and put its `~/.local/bin` on `PATH`. The inspected version was
+`1.0.0-beta.13`; check `unity --version` and the installed command help. Run
+under that account, with its own home:
+
+```bash
+unity auth login
+# Complete the printed browser sign-in link before continuing.
+unity license activate --personal --accept-eula
+```
+
+The inspected beta.13 headless setup returned `NOT_SIGNED_IN` from the auth
+broker despite fresh OAuth sign-in. For that failure, retry using Unity's
+[documented direct-keyring fallback](https://docs.unity.com/en-us/unity-cli/unity-cli-reference),
+also described in the [beta.13 release notes](https://docs.unity.com/en-us/unity-cli/release-notes):
+
+```bash
+UNITY_NO_AUTH_BROKER=1 unity license activate --personal --accept-eula
+```
+
+Recheck this workaround when upgrading the CLI. If headless diagnostics report
+`keyutils`, the credential keyring is memory-backed. `unity auth status` alone
+does not prove Editor licensing or reboot persistence: verify actual batch
+validation under the Actions service account and again after a reboot before
+enabling CI.
+
+The dedicated VM is `unity-ci-01` (`192.168.4.183`, Proxmox VM 120), separate
+from the existing secret-bearing CI jobs on `192.168.4.150`. Its OS service
+account is `unity-ci`, with the default editor path above. The target runner
+name is `unity-ci-01-abby-unity-1`, with labels `self-hosted`, `Linux`, `X64`,
+and `unity-6000.6.5f1`. Confirm activation and a passing CI run using the steps
+above.
+
+Set `UNITY_VALIDATION_RUNNER_OS=Linux`. Run from the repository root:
+
+```bash
+bash ./scripts/unity/Validate-Camp.sh
+# For a custom installation:
+UNITY_EDITOR_PATH=/absolute/path/to/Editor/Unity bash ./scripts/unity/Validate-Camp.sh
+```
+
+The wrapper uses `-batchmode -nographics` for the scene/API checks. It does
+not perform rendering, simulated input, or light baking; those require separate
+runtime validation. [Unity's batch arguments](https://docs.unity3d.com/6000.6/Documentation/Manual/EditorCommandLineArguments.html)
+document these limitations.
+
+### Windows
+
+Install through Unity Hub at
+`C:\Program Files\Unity\Hub\Editor\6000.6.5f1\Editor\Unity.exe`, or set
+`UNITY_EDITOR_PATH` for a custom installation. Leave
+`UNITY_VALIDATION_RUNNER_OS` unset or set it to `Windows`.
+
+When registering the runner as a Windows service, use an elevated setup shell
+and explicitly choose the licensed CI account. The runner
+[defaults to Network Service](https://github.com/actions/runner/blob/main/src/Runner.Listener/Configuration/WindowsServiceControlManager.cs),
+which is not the interactive user whose Unity license was activated. See
+[GitHub's Windows service setup](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/configure-the-application?platform=windows).
+
+Run from the repository root under the service account:
+
+```powershell
+powershell -NoProfile -File scripts/unity/Build-Camp.ps1 -ValidateOnly
+# For a custom installation:
+./scripts/unity/Build-Camp.ps1 -UnityEditor 'C:\path\to\Unity.exe' -ValidateOnly
+```
+
 ## Diagnose a failed Unity check
 
 `Unity validation` passes only if both `Unity runner readiness` and
 `Unity scene and API checks` succeed. A missing license, unavailable editor,
 import/compile error, contract failure, or skipped editor job fails the aggregate.
 The editor job checks the executable version against the pinned project version,
-removes any stale validation log, runs `Build-Camp.ps1 -ValidateOnly` without
-rebuilding the saved scene, and requires the explicit completion marker. It also
-compares the saved `Camp.unity` SHA-256 before and after validation, including
+removes any stale validation log, runs `Validate-Camp.sh` on Linux or
+`Build-Camp.ps1 -ValidateOnly` on Windows without rebuilding the saved scene,
+and requires the explicit completion marker. It also compares the saved
+`Camp.unity` SHA-256 before and after validation, including
 failed runs; any source-scene mutation fails the check.
 
 Read the failed job and download `unity-validation-log` when present. If the
-editor version is deliberately upgraded, update `ProjectVersion.txt`, the build
-script's default path, the workflow's version/runner label, and this setup guide
-together, then provision and activate that version on the runner.
+editor version is deliberately upgraded, update `ProjectVersion.txt`, both
+validation scripts' default paths, the workflow's version/runner label, and this
+setup guide together, then provision and activate that version on the runner.
 
 To reproduce the hosted checks locally:
 

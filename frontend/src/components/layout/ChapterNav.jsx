@@ -1,14 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { SlidersHorizontal, Settings, LogOut, History, BookOpen } from 'lucide-react';
-import {
-  TodayIcon, QuestsIcon, BestiaryIcon, TreasuryIcon, AtlasIcon, ChronicleIcon,
-} from '../icons/JournalIcons';
+import { SlidersHorizontal, Settings, LogOut, History, BookOpen, House, Sparkles, PawPrint, Coins, Map, BookHeart } from 'lucide-react';
 import AvatarMenu from '../AvatarMenu';
 import useParentPendingCounts from '../../hooks/useParentPendingCounts';
 
 /**
  * ChapterNav — renders the six-chapter nav in two flavors:
- *   - desktop : left-side parchment rail with chapter icons + labels
+ *   - desktop : soft navigation rail with icons + labels
  *   - mobile  : bottom tab bar, six equal columns (same for both roles)
  *
  * The Clock is NOT a chapter — it lives in ClockFab (floating action).
@@ -24,12 +21,12 @@ import useParentPendingCounts from '../../hooks/useParentPendingCounts';
  */
 
 const CHAPTERS = [
-  { to: '/',           icon: TodayIcon,     label: 'Today',     shortLabel: 'Today' },
-  { to: '/quests',     icon: QuestsIcon,    label: 'Quests',    shortLabel: 'Quests' },
-  { to: '/bestiary',   icon: BestiaryIcon,  label: 'Bestiary',  shortLabel: 'Bestiary' },
-  { to: '/treasury',   icon: TreasuryIcon,  label: 'Treasury',  shortLabel: 'Treasury' },
-  { to: '/atlas',      icon: AtlasIcon,     label: 'Atlas',     shortLabel: 'Atlas' },
-  { to: '/chronicle',  icon: ChronicleIcon, label: 'Chronicle', shortLabel: 'Chronicle' },
+  { to: '/',           icon: House,     label: 'Today',     shortLabel: 'Today' },
+  { to: '/quests',     icon: Sparkles,  label: 'Quests',    shortLabel: 'Quests' },
+  { to: '/bestiary',   icon: PawPrint,  label: 'Bestiary',  shortLabel: 'Bestiary' },
+  { to: '/treasury',   icon: Coins,     label: 'Treasury',  shortLabel: 'Treasury' },
+  { to: '/atlas',      icon: Map,       label: 'Atlas',     shortLabel: 'Atlas' },
+  { to: '/chronicle',  icon: BookHeart, label: 'Chronicle', shortLabel: 'Chronicle' },
 ];
 
 export function ChapterSidebar({ user, onLogout }) {
@@ -38,60 +35,54 @@ export function ChapterSidebar({ user, onLogout }) {
   return (
     <aside
       className="w-60 shrink-0 fixed h-full z-30 max-lg:hidden flex flex-col
-                 bg-ink-page-aged/90 border-r border-ink-page-shadow
-                 shadow-[2px_0_0_var(--color-ink-page-rune-glow)_inset]"
+                 bg-ink-page-aged/90 border-r border-ink-page-shadow/60 font-body"
     >
-      {/* Book spine header */}
-      <div className="p-5 border-b border-ink-page-shadow relative">
-        <div className="font-script text-ink-whisper text-caption uppercase tracking-[0.2em]">
-          a codex of
+      <div className="p-5">
+        <div className="size-11 flex items-center justify-center rounded-2xl bg-sheikah-teal/15 text-sheikah-teal-deep mb-3" aria-hidden="true">
+          <Sparkles size={24} />
         </div>
-        <h1 className="font-display italic text-2xl leading-tight text-ink-primary">
-          Hyrule Field Notes
+        <h1 className="font-body font-bold text-lg leading-snug text-ink-primary">
+          The Abby Project
         </h1>
-        <div className="font-script text-sheikah-teal-deep text-body mt-1">
-          vol. I — {user?.display_name || user?.username || 'adventurer'}
+        <div className="font-body text-ink-secondary text-caption mt-1 truncate">
+          {user?.display_name || user?.username
+            ? `${user.display_name || user.username}’s little world`
+            : 'Your little world'}
         </div>
       </div>
 
       {/* Chapter list */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+      <nav aria-label="Main navigation" className="flex-1 overflow-y-auto px-3 pb-3 space-y-1.5">
         {CHAPTERS.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             end={to === '/'}
             className={({ isActive }) =>
-              `group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all relative
+              `group flex items-center gap-3 min-h-11 px-3 py-2.5 rounded-2xl border transition-colors relative
                ${isActive
-                 ? 'bg-sheikah-teal/15 text-ink-primary'
-                 : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
+                 ? 'bg-sheikah-teal/15 border-sheikah-teal/20 text-ink-primary'
+                 : 'border-transparent text-ink-secondary hover:text-ink-primary hover:bg-ink-page/80'
                }`
             }
           >
             {({ isActive }) => (
               <>
-                {isActive && (
-                  <span
-                    className="absolute left-0 top-1 bottom-1 w-0.5 rounded-r-full bg-sheikah-teal-deep"
-                    aria-hidden="true"
-                  />
-                )}
                 <span className="relative shrink-0">
                   <Icon
                     size={22}
-                    className={isActive ? 'text-sheikah-teal-deep animate-rune-pulse' : ''}
+                    className={isActive ? 'text-sheikah-teal-deep' : ''}
                   />
                   {to === '/' && pendingCount > 0 && (
                     <span
-                      className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-micro font-rune font-bold leading-none px-1"
+                      className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember-deep text-ink-page text-micro font-body font-bold leading-none px-1"
                       aria-label={`${pendingCount} pending`}
                     >
                       {pendingCount > 9 ? '9+' : pendingCount}
                     </span>
                   )}
                 </span>
-                <span className="font-display text-base tracking-wide">{label}</span>
+                <span className="font-body font-semibold text-body">{label}</span>
               </>
             )}
           </NavLink>
@@ -99,14 +90,14 @@ export function ChapterSidebar({ user, onLogout }) {
       </nav>
 
       {/* Utility + user footer */}
-      <div className="p-3 border-t border-ink-page-shadow bg-ink-page/40 space-y-1">
+      <div className="p-3 border-t border-ink-page-shadow/60 bg-ink-page/40 space-y-1">
         {isParent && (
           <NavLink
             to="/activity"
             className={({ isActive }) =>
-              `flex items-center gap-2 px-3 py-2 rounded-lg text-body font-body transition-colors ${
+              `flex items-center gap-2 min-h-11 px-3 py-2 rounded-2xl text-body font-body font-semibold transition-colors ${
                 isActive
-                  ? 'bg-sheikah-teal/10 text-ink-primary'
+                  ? 'bg-sheikah-teal/15 text-ink-primary [&>svg]:text-sheikah-teal-deep'
                   : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
               }`
             }
@@ -119,9 +110,9 @@ export function ChapterSidebar({ user, onLogout }) {
           <NavLink
             to="/manage"
             className={({ isActive }) =>
-              `flex items-center gap-2 px-3 py-2 rounded-lg text-body font-body transition-colors ${
+              `flex items-center gap-2 min-h-11 px-3 py-2 rounded-2xl text-body font-body font-semibold transition-colors ${
                 isActive
-                  ? 'bg-sheikah-teal/10 text-ink-primary'
+                  ? 'bg-sheikah-teal/15 text-ink-primary [&>svg]:text-sheikah-teal-deep'
                   : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
               }`
             }
@@ -134,9 +125,9 @@ export function ChapterSidebar({ user, onLogout }) {
           <NavLink
             to="/codex"
             className={({ isActive }) =>
-              `flex items-center gap-2 px-3 py-2 rounded-lg text-body font-body transition-colors ${
+              `flex items-center gap-2 min-h-11 px-3 py-2 rounded-2xl text-body font-body font-semibold transition-colors ${
                 isActive
-                  ? 'bg-sheikah-teal/10 text-ink-primary'
+                  ? 'bg-sheikah-teal/15 text-ink-primary [&>svg]:text-sheikah-teal-deep'
                   : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
               }`
             }
@@ -148,9 +139,9 @@ export function ChapterSidebar({ user, onLogout }) {
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `flex items-center gap-2 px-3 py-2 rounded-lg text-body font-body transition-colors ${
+            `flex items-center gap-2 min-h-11 px-3 py-2 rounded-2xl text-body font-body font-semibold transition-colors ${
               isActive
-                ? 'bg-sheikah-teal/10 text-ink-primary'
+                ? 'bg-sheikah-teal/15 text-ink-primary [&>svg]:text-sheikah-teal-deep'
                 : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/60'
             }`
           }
@@ -161,7 +152,7 @@ export function ChapterSidebar({ user, onLogout }) {
         <button
           onClick={onLogout}
           type="button"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-body w-full text-ink-whisper hover:text-ember-deep transition-colors"
+          className="flex items-center gap-2 min-h-11 px-3 py-2 rounded-2xl font-body font-semibold text-body w-full text-ink-secondary hover:bg-ember/10 hover:text-ember-deep transition-colors"
         >
           <LogOut size={16} /> Sign off
         </button>
@@ -184,11 +175,11 @@ export function ChapterBottomBar({ user }) {
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex justify-around
-                 bg-ink-page-aged/95 backdrop-blur-sm border-t border-ink-page-shadow
-                 pb-[env(safe-area-inset-bottom)]
-                 pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]
-                 shadow-[0_-2px_0_var(--color-ink-page-rune-glow)_inset]"
+      aria-label="Main navigation"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex gap-1 pt-2
+                 bg-ink-page-aged/95 backdrop-blur-sm border-t border-ink-page-shadow/60
+                 pb-[calc(0.5rem+env(safe-area-inset-bottom))]
+                 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]"
     >
       {chapters.map(({ to, icon: Icon, shortLabel }) => (
         <NavLink
@@ -197,18 +188,18 @@ export function ChapterBottomBar({ user }) {
           end={to === '/'}
           aria-label={shortLabel}
           className={({ isActive }) =>
-            `flex flex-col items-center justify-center gap-0.5 min-h-16 flex-1 transition-colors relative ${
-              isActive ? 'text-sheikah-teal-deep' : 'text-ink-secondary'
+            `flex flex-col items-center justify-center gap-1 min-h-14 min-w-0 flex-1 rounded-2xl border transition-colors relative ${
+              isActive ? 'bg-sheikah-teal/15 border-sheikah-teal/20 text-ink-primary' : 'border-transparent text-ink-secondary hover:bg-ink-page'
             }`
           }
         >
           {({ isActive }) => (
             <>
               <span className="relative">
-                <Icon size={20} className={isActive ? 'animate-rune-pulse' : ''} />
+                <Icon size={20} className={isActive ? 'text-sheikah-teal-deep' : ''} />
                 {to === '/' && pendingCount > 0 && (
                   <span
-                    className="absolute -top-1 -right-2 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember text-ink-page-rune-glow text-micro font-rune font-bold leading-none px-1"
+                    className="absolute -top-1 -right-2 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember-deep text-ink-page text-micro font-body font-bold leading-none px-1"
                     aria-label={`${pendingCount} pending`}
                   >
                     {pendingCount > 9 ? '9+' : pendingCount}
@@ -218,15 +209,9 @@ export function ChapterBottomBar({ user }) {
               {/* Labels always render — iPhones are 375-393px CSS wide, and
                   the old min-[400px] gate left five unlabeled fantasy icons
                   on exactly the phones this app lives on. */}
-              <span className="font-script text-micro leading-none">
+              <span className="font-body font-semibold text-tiny leading-none">
                 {shortLabel}
               </span>
-              {isActive && (
-                <span
-                  className="absolute top-0.5 h-0.5 w-10 rounded-full bg-sheikah-teal-deep"
-                  aria-hidden="true"
-                />
-              )}
             </>
           )}
         </NavLink>

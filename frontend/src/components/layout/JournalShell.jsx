@@ -18,7 +18,7 @@ import HeaderProgressBand from './HeaderProgressBand';
 import { useAuth } from '../../hooks/useApi';
 
 /**
- * JournalShell — the Hyrule Field Notes outer layout.
+ * JournalShell — the shared Meadow outer layout.
  *
  *   ┌──────────────┬────────────────────────────────────────┐
  *   │              │  [avatar]  [status pips]   [🔔 bell]   │
@@ -36,22 +36,22 @@ export default function JournalShell() {
   const outlet = useOutlet();
 
   return (
-    <div className="flex min-h-dvh relative">
+    <div className="flex min-h-dvh relative bg-ink-page text-ink-primary font-body">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-sheikah-teal-deep focus:text-ink-page focus:rounded-lg focus:font-display focus:text-sm"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-3 focus:bg-sheikah-teal-deep focus:text-ink-page focus:rounded-2xl focus:font-body focus:text-sm"
       >
         Skip to content
       </a>
       {/* Toasts sit in the thumb zone on phones — stacked ABOVE the FAB, not
           beside it — and return to the top-right corner at lg where the bottom
-          bar doesn't exist. The 9.5rem anchor clears the whole FAB zone (nav
+          bar doesn't exist. The 10rem anchor clears the whole FAB zone (nav
           + 6rem offset + ~3rem button), which the old 5.5rem/right-20 reserve
           did not once the FAB grows into a clocked-in timer pill; toasts were
           landing on top of the running timer and eating taps meant for it. */}
       <div
         className="fixed z-50 space-y-2 pointer-events-none
-                   bottom-[calc(env(safe-area-inset-bottom)+9.5rem)] left-4 right-4
+                   bottom-[calc(env(safe-area-inset-bottom)+10rem)] left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))]
                    lg:bottom-auto lg:left-auto lg:right-4 lg:top-[calc(env(safe-area-inset-top)+1rem)]
                    lg:w-80 lg:max-w-[calc(100vw-2rem)]"
         aria-live="polite"
@@ -80,7 +80,7 @@ export default function JournalShell() {
             page under it); the parchment backdrop still extends beneath.
             The left/right insets matter in landscape, where the notch eats
             ~47px on the sensor-housing side. */}
-        <div className="sticky top-0 z-30 bg-ink-page backdrop-blur-[2px] pt-[env(safe-area-inset-top)]">
+        <div className="sticky top-0 z-30 bg-ink-page/95 backdrop-blur-sm border-b border-ink-page-shadow/50 pt-[env(safe-area-inset-top)]">
           <header
             className="flex items-center gap-3 pt-3 lg:pt-4 pb-3 lg:pb-4
                        pl-[max(1rem,env(safe-area-inset-left))]
@@ -90,13 +90,13 @@ export default function JournalShell() {
                 truncate can fire — a long display name plus the family line
                 used to squeeze the status pips, and the coin count, off the
                 right edge at 360px. */}
-            <div className="lg:hidden min-w-0 max-w-[38vw]">
+            <div className="lg:hidden min-w-0 max-w-[34vw]">
               <AvatarMenu user={user} compact />
             </div>
             <div className="flex-1 min-w-0 flex justify-end lg:justify-center">
               <HeaderStatusPips user={user} />
             </div>
-            <div className="shrink-0">
+            <div className="shrink-0 rounded-2xl bg-ink-page-aged/80">
               <NotificationBell />
             </div>
           </header>
@@ -110,7 +110,7 @@ export default function JournalShell() {
           {offline && (
             <div
               role="status"
-              className="bg-ink-page-aged border-y border-ink-page-shadow px-4 lg:px-6 py-1.5 text-center font-body text-caption text-ink-secondary"
+              className="bg-ink-page-aged/80 border-t border-ink-page-shadow/50 px-4 lg:px-6 py-2 text-center font-body text-caption text-ink-secondary"
             >
               Offline — showing your last journal
             </div>

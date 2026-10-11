@@ -14,6 +14,7 @@ export default defineConfig(({ command }) => {
     tailwindcss(),
     VitePWA({
       base: '/',
+      scope: '/',
       registerType: 'prompt',
       injectRegister: false,
       filename: 'sw.js',
@@ -25,7 +26,7 @@ export default defineConfig(({ command }) => {
         name: 'The Abby Project',
         short_name: 'Abby',
         description:
-          'Track projects, chores, and homework — earn money, coins, and badges.',
+          'Keep your memories, grow your story, and share little adventures with your family.',
         start_url: '/',
         scope: '/',
         display: 'standalone',
@@ -36,8 +37,8 @@ export default defineConfig(({ command }) => {
         // Nothing in the layout needs portrait — JournalShell already has a
         // wide arrangement (sidebar at lg) that landscape viewports use.
         orientation: 'any',
-        background_color: '#f4ecd8',
-        theme_color: '#f4ecd8',
+        background_color: '#FFF8EE',
+        theme_color: '#FFF8EE',
         icons: [
           { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
@@ -50,11 +51,15 @@ export default defineConfig(({ command }) => {
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        // The worker has root scope, while Django serves bundled files at
-        // /static/. Precache the URLs used by index.html and lazy imports so
-        // offline loads work even without a warm browser HTTP cache.
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2,ttf}'],
+        // The worker and shell have root URLs, but bundled assets are served
+        // by WhiteNoise at /static/assets/. Cache the same URLs index.html
+        // requests so the previous release can still boot after a deploy.
         modifyURLPrefix: { 'assets/': '/static/assets/' },
+        dontCacheBustURLsMatching: /^\/static\/assets\//,
+        // Django serves named PWA root files, not generated workbox-*.js.
+        // Inline the runtime so /sw.js never imports the SPA HTML catch-all.
+        inlineWorkboxRuntime: true,
         // Web Push handlers live in their own root-served file rather than
         // switching this whole config to injectManifest — see push-sw.js for
         // why generateSW stays in charge.

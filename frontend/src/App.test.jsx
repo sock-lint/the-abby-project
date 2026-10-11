@@ -29,7 +29,7 @@ describe('App', () => {
     try {
       renderApp();
       expect(await screen.findByRole('alert')).toHaveTextContent(/could not stop notifications/i);
-      expect(screen.getByRole('button', { name: /enter/i })).toBeEnabled();
+      expect(screen.getByRole('button', { name: /^sign in$/i })).toBeEnabled();
       expect(replace).toHaveBeenCalledWith('another-account');
       expect(window.location.search).toBe('');
     } finally {
@@ -53,7 +53,7 @@ describe('App', () => {
     );
     renderApp();
     await waitFor(() =>
-      expect(screen.getByText(/hyrule field notes/i)).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: 'The Abby Project' })).toBeInTheDocument(),
     );
   });
 

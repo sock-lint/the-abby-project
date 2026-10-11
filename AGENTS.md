@@ -20,6 +20,48 @@ Read any more specific `AGENTS.md` and `CLAUDE.md` files along the path to the
 files you edit. A frontend feature may need backend subsystem guidance even
 when its implementation touches only React.
 
+## Worktree lifecycle
+
+These rules are mandatory for agents working in this repository. See
+[CLAUDE.md](CLAUDE.md#worktree-lifecycle) for verification and recovery details.
+
+- Before creating a worktree, inspect this chat's attached artifacts and reuse
+  a suitable active worktree. Create isolated checkouts through `create_worktree`
+  and attach them to their owning chat; attach every PR created or continued.
+- Record the PR URL, target branch, canonical checkout branch/path, and managed
+  worktree identity/root in the owning chat. Confirm the exact PR's merge on
+  GitHub before treating its work as merged.
+- After a confirmed merge, archive every eligible managed worktree owned by this chat
+  through `archive_worktree`. It saves a recoverable snapshot and removes the
+  checkout. Do not substitute raw filesystem deletion or forced Git removal.
+  Automatic cleanup after merge is an established user preference; do not ask
+  for redundant approval to archive an eligible managed worktree.
+- Before final handoff, audit owned worktrees and clean up eligible ones. Never
+  remove a primary, currently active, pinned, shared, or another chat's worktree.
+  Retain a PR-associated checkout whose PR identity is ambiguous or whose work
+  remains unmerged; preserve additional work and needed ignored assets first.
+  Record a concrete reason and next action for each retained checkout.
+- Archive an owned managed worktree used only for verification or exploration
+  once its purpose is complete, needed work is preserved, and no active follow-up
+  needs it. Record that completion as the cleanup reason; lack of a PR alone
+  must not leave a disposable checkout stranded.
+- If an open PR is the reason to retain a worktree, create or update a heartbeat
+  in its owning chat to watch that PR's merge and archive the eligible worktree
+  afterwards. Stay quiet while nothing changes, and stop/delete that monitor
+  after archival. A central chat cannot archive another chat's attachments;
+  monitoring and cleanup must run in the owning chat.
+- For an unmanaged worktree owned by this chat, the user's standing automatic
+  cleanup request for this repository is authorization: do not ask again. Remove
+  it only when clean, inactive, fully merged, and matched to a confirmed exact
+  GitHub PR. Use normal `git worktree remove` on its verified absolute path,
+  without `--force`. Retain unknown ownership or another chat's checkout with
+  a concrete reason. Managed Codex worktrees always use `archive_worktree`.
+- The final response must report archived worktrees and recoverable saved work,
+  or identify retained worktrees with their reasons and any active merge monitor.
+
+Repository instructions establish this workflow; they do not install a global
+Git hook or a repository-wide timer. Configure the owner-chat monitor when needed.
+
 ## Cross-client changes
 
 Django owns authorization, saved contributions, reward eligibility, XP,

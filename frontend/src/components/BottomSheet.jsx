@@ -16,7 +16,9 @@ import useModalFocus from './modal/useModalFocus';
 //   Mobile          — bottom-sheet slide (thumb-reach), sheikah-glyph drag
 //                     handle, one-shot teal halo across the top edge,
 //                     parchment texture carried through.
-export default function BottomSheet({ title, onClose, disabled, dirty, footer, children }) {
+// Optional surface presentation belongs on the portal itself; a caller's
+// wrapper cannot pass its CSS variables across the document.body boundary.
+export default function BottomSheet({ title, onClose, disabled, dirty, footer, children, surfaceClassName = '', surfaceStyle }) {
   const isDesktop = useIsDesktop();
   const titleId = useId();
   const sheetHistoryId = useId();
@@ -83,7 +85,8 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
             animate={{ scale: 1, opacity: 1, rotate: 0 }}
             exit={{ scale: 0.94, opacity: 0 }}
             transition={{ type: 'spring', damping: 22, stiffness: 260 }}
-            className={`${confirmingClose ? 'pointer-events-none' : 'pointer-events-auto'} relative w-full max-w-lg parchment-bg-aged border border-ink-page-shadow rounded-2xl modal-seal-ring max-h-[85dvh] overflow-y-auto overflow-x-hidden scrollbar-hide`}
+            className={`${confirmingClose ? 'pointer-events-none' : 'pointer-events-auto'} relative w-full max-w-lg parchment-bg-aged border border-ink-page-shadow rounded-2xl modal-seal-ring max-h-[85dvh] overflow-y-auto overflow-x-hidden scrollbar-hide ${surfaceClassName}`}
+            style={surfaceStyle}
           >
             <SealPulseRing rounded="rounded-2xl" />
             <div className="relative flex items-center justify-between px-5 pt-4 pb-2">
@@ -120,7 +123,7 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
           onDragEnd={(_e, info) => {
             if (info.offset.y > 100) safeClose();
           }}
-          className={`fixed bottom-0 left-0 right-0 parchment-bg-aged border-t border-ink-page-shadow rounded-t-2xl z-50 max-h-[90dvh] flex flex-col modal-seal-ring${confirmingClose ? ' pointer-events-none' : ''}`}
+          className={`fixed bottom-0 left-0 right-0 parchment-bg-aged border-t border-ink-page-shadow rounded-t-2xl z-50 max-h-[90dvh] flex flex-col modal-seal-ring${confirmingClose ? ' pointer-events-none' : ''} ${surfaceClassName}`}
           // The on-screen keyboard overlays a bottom-anchored fixed sheet
           // instead of shrinking it (dvh doesn't track the visual viewport),
           // hiding the field errors and the action row below the focused
@@ -128,8 +131,8 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
           // modal/useVisualViewportInset.js. Inline styles beat the
           // bottom-0 / max-h-[90dvh] classes above only while a keyboard is up.
           style={keyboardInset
-            ? { bottom: keyboardInset, maxHeight: `calc(90dvh - ${keyboardInset}px)` }
-            : undefined}
+            ? { ...surfaceStyle, bottom: keyboardInset, maxHeight: `calc(90dvh - ${keyboardInset}px)` }
+            : surfaceStyle}
         >
           {/* Top-edge teal halo — one-shot animation that radiates as the
               sheet settles, reinforcing the "paper slipped onto the journal"

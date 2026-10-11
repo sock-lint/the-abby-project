@@ -59,5 +59,7 @@ Web exports must be served over HTTP/HTTPS. Report separately whether source
 validation, an exported-player check, and actual phone testing ran. A source
 merge does not build or deploy Unity.
 
+Linux CI uses `bash scripts/unity/Validate-Camp.sh` from the repository root.
 See [../../docs/operations/pr-validation.md](../../docs/operations/pr-validation.md)
-for pull-request checks and the dedicated licensed Unity runner requirements.
+for pull-request checks, runner OS selection, and the dedicated licensed Linux
+or Windows Unity runner requirements.

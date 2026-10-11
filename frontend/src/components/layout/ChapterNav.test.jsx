@@ -48,14 +48,14 @@ describe('ChapterSidebar', () => {
     expect(onLogout).toHaveBeenCalled();
   });
 
-  it('renders vol. I with the user display name', () => {
+  it('personalizes the shared workspace with the user display name', () => {
     renderSidebar(buildUser({ display_name: 'Abby' }));
-    expect(screen.getByText(/vol\. I — Abby/i)).toBeInTheDocument();
+    expect(screen.getByText('Abby’s little world')).toBeInTheDocument();
   });
 
-  it('falls back to "adventurer" when no user fields', () => {
+  it('uses a welcoming workspace label when no user fields exist', () => {
     renderSidebar({});
-    expect(screen.getByText(/vol\. I — adventurer/i)).toBeInTheDocument();
+    expect(screen.getByText('Your little world')).toBeInTheDocument();
   });
 });
 

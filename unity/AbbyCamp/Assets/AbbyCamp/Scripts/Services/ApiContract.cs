@@ -48,6 +48,190 @@ namespace AbbyCamp.Services
             return JsonUtility.FromJson<CharacterDto>(json);
         }
 
+        public static CoinBalanceDto ParseCoins(string json, int userId)
+        {
+            if (userId < 1) throw new FormatException("A validated account is required for coin history.");
+            var fields = ReadObject(json);
+            int balance = RequireInteger(fields, "balance", int.MinValue);
+            var records = BoundedRecords(Require(fields, "recent_transactions"), 10);
+            var result = new CoinBalanceDto { balance = balance, recent_transactions = new CoinTransactionDto[records.Count] };
+            var ids = new HashSet<int>();
+            for (int index = 0; index < records.Count; index++)
+            {
+                var row = ReadObject(records[index]);
+                int id = RequireInteger(row, "id", 1);
+                if (!ids.Add(id) || RequireInteger(row, "user", 1) != userId)
+                    throw new FormatException("The coin history does not belong to this account.");
+                RequireInteger(row, "amount", int.MinValue);
+                BoundedString(row, "reason", 100, true);
+                BoundedString(row, "description", 400);
+                RequiredDate(row, "created_at");
+                result.recent_transactions[index] = JsonUtility.FromJson<CoinTransactionDto>(records[index]);
+            }
+            return result;
+        }
+
+        public static DropDto[] ParseRecentDrops(string json)
+        {
+            var records = BoundedRecords(json, 10);
+            var result = new DropDto[records.Count];
+            var ids = new HashSet<int>();
+            for (int index = 0; index < records.Count; index++)
+            {
+                var row = ReadObject(records[index]);
+                if (!ids.Add(RequireInteger(row, "id", 1))) throw new FormatException("The drop history contains duplicate records.");
+                RequireInteger(row, "item", 1);
+                RequireInteger(row, "quantity", 1);
+                RequireBoolean(row, "was_salvaged");
+                BoundedString(row, "item_name", 200, true);
+                BoundedString(row, "item_icon", 100);
+                BoundedString(row, "item_sprite_key", 100);
+                BoundedString(row, "item_rarity", 40, true);
+                BoundedString(row, "trigger_type", 100, true);
+                RequiredDate(row, "created_at");
+                result[index] = JsonUtility.FromJson<DropDto>(records[index]);
+            }
+            return result;
+        }
+
+        public static NotificationDto ParseNotification(string json)
+        {
+            var row = ReadObject(json);
+            RequireInteger(row, "id", 1);
+            RequireBoolean(row, "is_read");
+            BoundedString(row, "title", 400, true);
+            BoundedString(row, "message", 16384);
+            BoundedString(row, "notification_type", 100, true);
+            BoundedString(row, "link", 512);
+            RequiredDate(row, "created_at");
+            return JsonUtility.FromJson<NotificationDto>(json);
+        }
+
+        public static NotificationPageDto ParseNotificationPage(string json)
+        {
+            var fields = ReadObject(json);
+            int count = RequireInteger(fields, "count", 0);
+            var records = BoundedRecords(Require(fields, "results"), 20);
+            if (records.Count > count) throw new FormatException("The notification count is smaller than its page.");
+            var result = new NotificationPageDto { count = count, next = NullableString(fields, "next", 2048), results = new NotificationDto[records.Count] };
+            if (result.next != null && (result.next.Length == 0 || records.Count == 0))
+                throw new FormatException("The notification page has an invalid continuation.");
+            var ids = new HashSet<int>();
+            for (int index = 0; index < records.Count; index++)
+            {
+                result.results[index] = ParseNotification(records[index]);
+                if (!ids.Add(result.results[index].id)) throw new FormatException("The notification page contains duplicate records.");
+            }
+            return result;
+        }
+
+        public static UnreadCountDto ParseUnreadCount(string json)
+        {
+            return new UnreadCountDto { count = RequireInteger(ReadObject(json), "count", 0) };
+        }
+
+        public static StableDto ParseStable(string json)
+        {
+            var fields = ReadObject(json);
+            var pets = BoundedRecords(Require(fields, "pets"), 2048);
+            var mounts = BoundedRecords(Require(fields, "mounts"), 2048);
+            int totalPets = RequireInteger(fields, "total_pets", 0);
+            int totalMounts = RequireInteger(fields, "total_mounts", 0);
+            int possible = RequireInteger(fields, "total_possible", 0);
+            if (totalPets != pets.Count || totalMounts != mounts.Count)
+                throw new FormatException("The stable counts do not match its owned collection.");
+            var result = new StableDto { pets = new OwnedPetDto[pets.Count], mounts = new OwnedMountDto[mounts.Count], total_pets = totalPets, total_mounts = totalMounts, total_possible = possible };
+            var ids = new HashSet<int>();
+            for (int index = 0; index < pets.Count; index++)
+            {
+                var row = ReadObject(pets[index]);
+                if (!ids.Add(RequireInteger(row, "id", 1))) throw new FormatException("The stable contains duplicate pets.");
+                ValidateOwnedCreature(row);
+                int growth = RequireInteger(row, "growth_points", 0);
+                if (growth > 100) throw new FormatException("The companion growth is outside its supported range.");
+                RequireBoolean(row, "evolved_to_mount");
+                RequireBoolean(row, "is_fully_grown");
+                BoundedString(row, "name", 100);
+                string happiness = BoundedString(row, "happiness_level", 40, true);
+                if (happiness != "happy" && happiness != "bored" && happiness != "stale" && happiness != "away")
+                    throw new FormatException("The companion has an unknown happiness state.");
+                var pet = JsonUtility.FromJson<OwnedPetDto>(pets[index]);
+                pet.last_fed_at = NullableDate(row, "last_fed_at");
+                if (pet.is_fully_grown != (growth >= 100)) throw new FormatException("The companion growth flags are inconsistent.");
+                result.pets[index] = pet;
+            }
+            ids.Clear();
+            for (int index = 0; index < mounts.Count; index++)
+            {
+                var row = ReadObject(mounts[index]);
+                if (!ids.Add(RequireInteger(row, "id", 1))) throw new FormatException("The stable contains duplicate mounts.");
+                ValidateOwnedCreature(row);
+                var mount = JsonUtility.FromJson<OwnedMountDto>(mounts[index]);
+                mount.last_bred_at = NullableDate(row, "last_bred_at");
+                result.mounts[index] = mount;
+            }
+            return result;
+        }
+
+        private static void ValidateOwnedCreature(Dictionary<string, string> fields)
+        {
+            RequireBoolean(fields, "is_active");
+            RequiredDate(fields, "created_at");
+            RequiredDate(fields, "updated_at");
+            var species = ReadObject(Require(fields, "species"));
+            RequireInteger(species, "id", 1);
+            BoundedString(species, "name", 100, true);
+            BoundedString(species, "icon", 64);
+            BoundedString(species, "sprite_key", 100);
+            BoundedString(species, "description", 16384);
+            BoundedString(species, "food_preference", 100);
+            var potion = ReadObject(Require(fields, "potion"));
+            RequireInteger(potion, "id", 1);
+            NullableString(potion, "slug", 100);
+            BoundedString(potion, "name", 100, true);
+            BoundedString(potion, "sprite_key", 100);
+            BoundedString(potion, "description", 16384);
+            BoundedString(potion, "rarity", 40, true);
+            string color = BoundedString(potion, "color_hex", 7, true);
+            if (color.Length != 7 || color[0] != '#') throw new FormatException("The potion color is invalid.");
+            for (int index = 1; index < color.Length; index++)
+                if (!Uri.IsHexDigit(color[index])) throw new FormatException("The potion color is invalid.");
+        }
+
+        private static List<string> BoundedRecords(string json, int maximum)
+        {
+            var records = ReadArray(json);
+            if (records.Count > maximum) throw new FormatException("The server returned too many records.");
+            return records;
+        }
+
+        private static string BoundedString(Dictionary<string, string> fields, string name, int maximum, bool nonempty = false)
+        {
+            RequireString(fields, name);
+            string value = JsonUtility.FromJson<StringPayload>("{\"value\":" + Require(fields, name) + "}").value;
+            if (value == null || value.Length > maximum || (nonempty && string.IsNullOrWhiteSpace(value)))
+                throw new FormatException("The server returned an invalid '" + name + "'.");
+            return value;
+        }
+
+        private static string NullableString(Dictionary<string, string> fields, string name, int maximum)
+        {
+            return Require(fields, name) == "null" ? null : BoundedString(fields, name, maximum);
+        }
+
+        private static string RequiredDate(Dictionary<string, string> fields, string name)
+        {
+            string value = BoundedString(fields, name, 100, true);
+            if (!DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+                throw new FormatException("The server returned an invalid '" + name + "'.");
+            return value;
+        }
+
+        private static string NullableDate(Dictionary<string, string> fields, string name)
+        {
+            return Require(fields, name) == "null" ? null : RequiredDate(fields, name);
+        }
+
         public static HabitPageDto ParseHabitPage(string json)
         {
             var fields = ReadObject(json);
@@ -114,6 +298,34 @@ namespace AbbyCamp.Services
         private static bool IsMissingOrNull(Dictionary<string, string> fields, string name)
         {
             return !fields.TryGetValue(name, out var value) || value == "null";
+        }
+
+        public static MeadowDto ParseMeadow(string json)
+        {
+            var fields = ReadObject(json);
+            if (RequireInteger(fields, "schema_version", 1) != 1)
+                throw new FormatException("This meadow response needs a newer version of your world.");
+            int count = RequireInteger(fields, "keepsake_count", 0);
+            RequireInteger(fields, "journal_xp_awarded", 0);
+            var records = ReadArray(Require(fields, "keepsakes"));
+            if (records.Count > 30 || records.Count > count)
+                throw new FormatException("The meadow returned an invalid keepsake collection.");
+            var result = JsonUtility.FromJson<MeadowDto>(json);
+            result.keepsakes = new KeepsakeDto[records.Count];
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            for (var index = 0; index < records.Count; index++)
+            {
+                var itemFields = ReadObject(records[index]);
+                foreach (var key in new[] { "receipt_id", "type", "title", "earned_at" }) RequireString(itemFields, key);
+                var item = JsonUtility.FromJson<KeepsakeDto>(records[index]);
+                if (item.receipt_id == null || !item.receipt_id.StartsWith("journal:", StringComparison.Ordinal)
+                    || !int.TryParse(item.receipt_id.Substring(8), NumberStyles.None, CultureInfo.InvariantCulture, out var entryId) || entryId < 1
+                    || !ids.Add(item.receipt_id) || item.type != "memory_bloom" || item.title != "Memory bloom"
+                    || !DateTimeOffset.TryParse(item.earned_at, CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+                    throw new FormatException("The meadow returned an incomplete keepsake.");
+                result.keepsakes[index] = item;
+            }
+            return result;
         }
 
         public static ApiError HttpError(long status, string body, bool mutation, bool transportFailure)
@@ -207,6 +419,8 @@ namespace AbbyCamp.Services
 
         private static List<string> ReadArray(string json)
         {
+            if (string.IsNullOrWhiteSpace(json) || json.Length > 2 * 1024 * 1024)
+                throw new FormatException("The server returned an empty or oversized response.");
             var values = new List<string>();
             int index = 0;
             Eat(json, ref index, '[');

@@ -42,6 +42,8 @@ Thumbs.db
 # Node (for frontend)
 node_modules/
 frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
 
 # Docker
 docker-compose.override.yml
@@ -69,3 +71,13 @@ unity/**/*.sln
 unity/**/*.slnx
 unity/**/MemoryCaptures/
 unity/**/Recordings/
+
+# Purchased Meshtint source assets and their locally generated presentation.
+# Public checkouts keep the project-authored prototype; local builds can stage
+# the licensed packs with scripts/unity/stage_meshtint.py.
+/unity/AbbyCamp/Assets/ThirdParty/Meshtint/
+/unity/AbbyCamp/Assets/ThirdParty/Meshtint.meta
+/unity/AbbyCamp/Assets/AbbyCamp/Licensed/
+/unity/AbbyCamp/Assets/AbbyCamp/Licensed.meta
+/frontend/src/storybook/licensed/
+/shared/storybook/licensed/

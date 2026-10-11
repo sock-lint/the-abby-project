@@ -1,8 +1,50 @@
-# Abby Camp — first Unity prototype
+# The Abby Project — Play prototype
 
-A first Unity prototype connected to the existing Django app. The phone Web prototype demonstrates touch exploration, a following companion, direct task access, and confirmed-save reactions using ready-made Kenney art and animations. **The primary product target is Abby's iPhone on iOS; Android is the first available test device.** The camp theme is provisional, and the existing web app and backend continue to work independently.
+A Unity presentation layer connected to the existing Django app. The current public preview opens **Memory Meadow** with temporary art; the licensed preview uses the purchased Meshtint Cute Series companion and forest. Both open a fixed companion home with Rewards, Inbox and Bestiary. Walking, the explorer avatar and the task board have been removed. **The primary product target is Abby's iPhone on iOS; Android is the first available test device.**
+
+## Shared meadow slice
+
+Today opens `/play/` directly. The earlier child-only web page at `/meadow` remains available by its existing URL. It uses the existing private-by-default journal form and its interrupted-save reconciliation. A new eligible journal's confirmed reward receipt appears as a **Memory bloom** on both the web page and Play. Editing a journal, greeting the companion, refreshing, or reopening Play grants nothing. The read-only `/api/chronicle/meadow/` response contains receipt identifiers, dates and counts, never journal words or family replies. It shows the newest 30 blooms and all-time totals, projected from existing journal records; legacy entries without verified awards and administratively deleted entries are not retained as separate collectibles.
+
+Play reads the same authenticated child account, refreshes after browser resume and periodically, and clears the old collection on account changes. Its first visit displays existing blooms without replaying their celebrations. Later new receipts cause one local reaction per origin and child on this device; this acknowledgement is presentation only.
+
+`shared/storybook/presentation.json` and its exported artwork/font are canonical for both clients. Run `python scripts/storybook/sync_presentation.py` after editing them, or `--check` to detect drift. The authored `Assets/AbbyCamp/Presentation/Meadow.asset` holds appearances, palette and shared Nunito font. Rebuilding preserves its appearance references and the authored dragon definition. Replace that definition's portrait or model and animation mapping without changing the companion ID or journal receipt IDs. See [AssetNotes.md](AssetNotes.md) for provenance and replacement details.
+
+For a disposable same-origin React and Unity preview, build both clients and run:
+
+```powershell
+python scripts/unity/web_fixture_server.py --frontend-root frontend/dist --port 8089
+```
+
+This fixture seeds synthetic accounts and writing skills; it never reads `.env` or the project database. Sign in with the fixture credentials, keep a test memory at `/meadow`, then open `/play/` in the same browser. Physical phone performance, keyboard and lifecycle checks remain necessary.
+
+## Licensed Cute Series preview
+
+The purchased starter packs replace the temporary companion and forest scenery locally. The Archer remains staged for future uses; the home does not include an explorer. Run `python scripts/unity/stage_meshtint.py`, then
+`./scripts/unity/Build-Camp.ps1 -Target Web -PrepareLicensed`. Open the generated
+`Assets/AbbyCamp/Licensed/MemoryMeadow.unity` to preview the licensed scene in the
+editor. Normal builds select it when present; checkouts without paid sources
+retain the public prototype. Matching web portraits are staged by the same
+script. See [AssetNotes.md](AssetNotes.md) for source protection and exact
+animation mappings. These prepared growth forms do not yet add evolution rules.
 
 ## Product goal and next slice
+
+### Agreed web and Play responsibilities — 2026-10-10
+
+The two clients are one product from Abby's perspective. The web app owns recording and revisiting life: journal and grade entry, homework, projects, chores, memories and family participation. Play owns reward presentation, the child's notification inbox and creature interactions. Eventually Bestiary, pets, mounts, companions, hatching, feeding, evolution, breeding, creature accessories and expeditions belong in Play. Parent approvals, content authoring and family management stay in the web app.
+
+Play opens directly into a fixed companion scene with clearly labeled actions. Player walking, proximity gates and an explorer avatar are not requirements. The forest is a setting for reward reveals, updates and the companion; visiting or tapping it does not earn progress by itself. Journal, grades and other detailed forms remain web entry points for this slice.
+
+The backend remains the authority for rewards, ownership and notification state. Both surfaces use the same account, palette, typography and asset identities. Web navigation should open `/play/` as a real document navigation, without another launch page or engine branding. Play must provide a visible return to Today and route notification actions to the relevant web tab while preserving the existing authenticated session. Browser/system push delivery continues through the existing web service worker when Play is closed.
+
+The home shows confirmed coin balance and recent ledger/drop history, a global unread count and paginated inbox with explicit per-item acknowledgement, the account's real pets/mounts and active companion, and direct links to journal, grades and tasks. The scene's bird is clearly identified as an artwork preview: it is not assigned to an unrelated owned species. Hatching, feeding, equipping and expeditions remain linked to existing web screens until those interactions migrate. Memory blooms remain one supported reward source, not the main navigation loop.
+
+Migrate Bestiary one capability at a time. Keep existing web routes functional until Play supports their actions, accessible controls, loading/failure states and phone validation. Then move the child navigation and notification destinations together, including already-stored notification links. Retain parent access until an equivalent role-aware flow exists. Do not create two simultaneous automatic consumers of drop, growth or celebration queues: introduce durable event-specific reveal acknowledgement before handing those consumers to Play. Notification read state and reward reveal state have different purposes; marking the inbox read must not discard unseen rewards.
+
+The immediate handoff changes are direct Today-to-Play navigation, automatic branded loading and disabled Unity splash/logo. The walking scene is replaced; existing web Bestiary actions remain available during migration.
+
+### Recording and recognition
 
 The core loop is **record life → save a lasting memory → receive recognition → return for family interaction and reflection**. Abby should be able to add journals, school results, creations, photos, and milestones, and look back on them later in life. Parents should be able to participate through encouragement, shared prompts, memories, and rewards. Game progression is driven by these contributions; the visual theme remains open.
 
@@ -14,11 +56,11 @@ Journal and grade entries default to **Only you**. Abby can explicitly share an 
 
 ## iPhone direction
 
-The phone prototype has a responsive portrait/landscape layout, safe-area insets, scrollable sheets, keyboard-aware login, tap-to-walk, a following camera, and direct Tasks access from anywhere. Tap the companion or **Say hello** for a friendly local reaction with no reward or account mutation. Theme selection remains open pending Abby's preferences. Browser viewport checks help development; Android and iPhone hardware still need performance, keyboard, resume, and safe-area testing.
+The phone prototype has a responsive portrait/landscape layout, safe-area insets, scrollable sheets, keyboard-aware native login, a fixed camera, tap-only companion interaction and direct web entry points. Tap the companion or **Say hello** for a friendly local reaction with no reward or account mutation. Theme selection remains open pending Abby's preferences. Browser viewport checks help development; Android and iPhone hardware still need performance, keyboard, resume, and safe-area testing.
 
-There is no Mac available yet. The existing React home-screen web app handles capture and history; Unity exports a separate Web scene served at **/play/** on the same HTTPS origin. Its welcome screen loads Unity after an explicit tap, and offers a return link to the web app. Unity 6.6 supports [iOS Safari 15 and newer and Android Chrome](https://docs.unity.com/en-us/engine/6000.6/manual/platform-specific/webgl/intro/browsercompatibility); Web builds and native iOS builds are separate validation targets. Native packaging can follow when a Mac or cloud build route is available.
+There is no Mac available yet. The existing React home-screen web app handles capture and history; Unity exports a Web scene served at **/play/** on the same HTTPS origin. Opening Play automatically loads it behind the shared-brand progress screen and offers **Back to Today** while loading or after a failure. The Unity splash and logo are disabled in project settings and enforced by a build preprocessor for both scripted and Editor builds. Unity 6.6 supports [iOS Safari 15 and newer and Android Chrome](https://docs.unity.com/en-us/engine/6000.6/manual/platform-specific/webgl/intro/browsercompatibility); Web builds and native iOS builds are separate validation targets. Native packaging can follow when a Mac or cloud build route is available.
 
-The existing backend's skill, pet, quest, and milestone systems can drive long-term progression. Owned-pet integration, evolving scenery, furnishings, and world unlocks are not implemented in this Unity prototype. Presentation should read authoritative progress and preserve it when the theme or assets change.
+The existing backend's skill, pet, quest, and milestone systems can drive long-term progression. Read-only owned-pet integration is implemented. Creature-care actions, evolving scenery, furnishings and world unlocks remain later slices. Presentation should read authoritative progress and preserve it when the theme or assets change.
 
 iOS also needs remembered login, refresh after app resume, preserved reconciliation for interrupted saves, an accessible HTTPS backend, an iOS build profile, and validation on Abby's actual phone. Native local builds use macOS and Xcode; [Unity's build guide](https://docs.unity3d.com/6000.0/Documentation/Manual/iphone-BuildProcess.html) also describes the cloud build alternative.
 
@@ -36,38 +78,31 @@ After a local build, run `Builds/Windows/AbbyCamp.exe`. This development build s
 
 | Control | Action |
 | --- | --- |
-| Tap the ground | Walk to that spot; dragging a sheet does not move the character |
-| Tasks / tap the board | Open rituals directly, without walking to the board |
-| Tap the companion / Say hello | Friendly reaction, with no XP or save |
-| Change look | Switch dog and fox while preserving the gameplay root |
-| Back to camp | Close a sheet when no request is in progress |
+| Rewards | Confirmed balance, recent coin/item history and journal blooms; links to reward shop and items |
+| Inbox | Paginated updates; explicit Mark read on one item; Open related page keeps the same web session |
+| Bestiary | Real owned pets/mounts and active companion; care/hatch/species links to existing web screens |
+| Journal / Grades / Tasks / Today | Same-origin web tabs without another sign-in or credentials in URLs |
+| Tap companion / Say hello | Friendly local reaction, with no XP, coins, inventory or ownership change |
+| Account | Refresh progress or disconnect only Play |
+| Tap ground / arrow keys | No movement; the camera and companion anchor stay fixed |
 
-Keyboard arrows/WASD, E near the board, K, and Escape remain useful editor conveniences. Windows is a development harness, not a product target.
+Escape closes a sheet when no acknowledgement is in progress. K remains a development-only art-swap check. Windows is a development harness, not a product target. Without a child account the garden is a preview; no invented balances, inbox items or owned creatures are shown.
 
-Demo mode is usable without a server. Its one practice action is saved locally as a demo flag, never as coins, XP, inventory, or activity in a real account.
+## Account data and handoff
 
-## Connect real rituals
+Web builds validate the journal's existing `abby_auth_token` through `/api/auth/me/`, keep credentials in memory and never mint or rotate a token. Parent sessions remain in the web app. Native/editor login retains the existing password-login rotation and never stores passwords or tokens. **Account → Disconnect Play** clears only the local Play session; journal logout revokes the shared token. Account changes abort pending requests, clear all old account presentation and reconnect before accepting new data.
 
-1. Start the existing Django development server, or use the deployed app's HTTPS origin.
-2. For Web `/play/`, sign in to the journal on the same browser origin first. The world validates that existing account through `/api/auth/me/` and connects automatically for a child account. If sign-in is needed, **Connect your account → Open journal** returns to the journal. The editor/Windows harness retains explicit child-account login and an origin field (for example, `http://127.0.0.1:8000`, without `/api`).
-3. Open **Tasks**. It lists that child's active, approved positive/both habits, including disabled rows that reached their daily cap.
-4. Record a habit only after doing it. The client calls the existing `POST /api/habits/{id}/log/` once and celebrates only an acknowledged response. Refreshes read current habits and character level/streak from Django.
+The home refreshes coins, unread count, stable and character on connection, browser resume and every 30 seconds while no sheet is open. Sheets load their corresponding narrow APIs on demand. Recent rewards are earned history, not unclaimed awards. No `/api/pulse/`, growth `/seen/`, claim, bulk-read or pet-mutation request is made. The legacy client habit methods remain contract-tested but have no home UI caller.
 
-Web builds read the journal's `abby_auth_token` from same-origin browser storage, validate it with Django, and keep the camp's session in memory. They never ask for a password or mint a token. Reloading `/play/` reuses a valid journal session; the journal and world can remain connected together. Storage access failures, missing credentials, and parent accounts leave the world in demo mode. Tokens never enter navigation URLs or cross-window messages.
+Inbox GETs never change read state. **Mark read** acknowledges only that fetched notification ID and waits for a matching confirmed response before updating the row. If the result is uncertain, the user can refresh or explicitly retry the idempotent acknowledgement; the client never retries a POST automatically. Other unread rows remain unchanged. Pagination accepts only bounded same-origin notification page links. Notification destinations are mapped to typed internal routes (including legacy links); arbitrary URLs and credential-bearing links are never followed.
 
-Journal logout or account switching clears the world's old identity and tasks, aborts active requests, and validates the new session before real actions are enabled. Every request checks for a changed browser credential before sending and before accepting its response, including after browser resume. A rejected token is removed only if it still matches the credential used by that request. A failed validation does not retry automatically: use **Connect your account** to retry after restoring the connection. **Sign out of camp** disconnects only this world, keeping the journal session; choose **Connect** to reconnect. Journal logout continues to revoke the token on Django.
-
-Editor/Windows passwords and tokens stay in memory, and restarting that client requires explicit login. Django still rotates its single per-user token on every successful password login, invalidating previous sessions. Native sign-out continues to clear only local camp credentials.
-
-A lost or ambiguous save response disables further logging until the account is refreshed. If the refresh still cannot confirm the result, check ritual history in the web app, then choose **I checked ritual history** to resume. Record the ritual again only if it is missing from that history. Mutations never retry automatically; the backend does not yet provide idempotency keys.
-
-Habit XP is a configured pool, whose distribution and boosts remain server-owned. The UI displays confirmed strength; exact XP, coins, and drops need their own verified account reads before they appear in the camp. The camp's companion is currently a presentation prototype, independent of the owned-pet catalog. Feeding, hatching, inventory, parent approvals, and playable expeditions are later slices.
+Journal and grade shortcuts open their real Chronicle tabs. Tasks, reward shop, items and Bestiary care shortcuts reuse the current web actions. Web session credentials never enter navigation URLs. Native harness links open the corresponding web address but do not transfer its in-memory token to a browser.
 
 ## Replace art
 
 Gameplay components and `CampEntityIdentity` live on actor roots. A `VisualPresenter` instantiates only the appearance child from a `VisualDefinition`. Each definition holds its model, local scale/offset/rotation, animation controller, and intent mappings.
 
-The generated dog and fox definitions under `Assets/AbbyCamp/Generated` demonstrate replacing an appearance while preserving identity, position, following behavior, and game progress. Import replacement art into its own directory, create a definition, map Idle/Walk/Celebrate, and assign it. Colliders and movement stay on the root. Different rigs can use different animation controllers.
+The generated dog and fox definitions under `Assets/AbbyCamp/Generated` demonstrate replacing an appearance while preserving identity, the stationary anchor and game progress. Import replacement art into its own directory, create a definition, map Idle/Walk/Celebrate, and assign it. Tap interaction belongs to the root input router, independent of model names. Different rigs can use different animation controllers.
 
 Original third-party models are under `Assets/ThirdParty/Kenney`. Materials/controllers/definitions created for this project are under `Assets/AbbyCamp/Generated`. Sources and original CC0 licenses are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); exact clips and import guidance are in [AssetNotes.md](AssetNotes.md).
 
@@ -80,6 +115,7 @@ From the repository root in PowerShell:
 ./scripts/unity/Publish-Web.ps1 -BuildImage -SaveImage -ImageTag abby-unity-web:preview-1
 ./scripts/unity/Test-WebHosting.ps1 -ImageTag abby-unity-web:preview-1
 node --test scripts/unity/test_browser_session.cjs
+node --test scripts/unity/test_web_template.cjs
 ```
 
 The build script uses **6000.6.5f1** at Unity Hub's default Windows installation location. A custom installation path can be passed with `-UnityEditor`. Close this project in the editor before a batch build. Web output is in `Builds/Web` with a `Logs/build-web.log` log. Normal builds preserve the saved scene. Pass `-RebuildScene` only to regenerate the starting camp and replace its scene and generated presentation assets. `-ValidateOnly` performs scene/API checks without exporting; `-Target Windows` retains the desktop harness.
@@ -102,11 +138,13 @@ The opt-in development smoke is run by:
 ./scripts/unity/Test-Camp.ps1
 ```
 
-It uses real Django views against disposable SQLite, runs the built player, captures screenshots, verifies movement/following, swaps appearances, exercises the task-board UI, checks demo save restoration, signs in, logs exactly one real fixture habit, and verifies authorization/daily caps. A fixture-only HTTP 503 also checks that uncertain saves stay blocked through refresh until history acknowledgement, which sends no mutation. It preserves the original local demo flag. It never reads `.env` or uses the project's database. Python must have the repository's Django dependencies installed.
+It uses real Django views against disposable SQLite and seeded reward, inbox and creature data. The runtime checks fixed framing, direct taps, modal input exclusion, phone layouts, real account rows, pagination, explicit one-item acknowledgement including an injected failure, and switching to another family's child. Fixture-only snapshots verify that greeting and opening sections change no coin ledger, drop, inventory or skill XP. API fixture checks retain the legacy habit/cap and journal privacy contracts. It never reads `.env` or uses the project's database. Python must have the repository's Django dependencies installed.
 
 `Library`, build output, logs, screenshots, and user settings are ignored; source `.meta` files are retained. The package manifest/lock and project settings are included. Journal/grade reactions are currently implemented in React; connecting those saves to an owned Unity companion is a later slice. Real-phone lifecycle/performance and native iOS deployment need their own validation before Abby uses it day to day.
 
-## Phone Web verification — 2026-10-10
+## Earlier walking prototype verification — 2026-10-10
+
+The following historical checks describe the earlier walking preview, before the fixed Play home.
 
 The 6000.6.5f1 Web export passed scene/asset validation and 41 API contract checks. Browser checks covered 320×568 and 393×852 portrait views, 844×393 landscape, and a simulated keyboard-reduced viewport. The walkthrough verified practice persistence, ground movement and camera follow, direct Tasks access away from the board, companion greetings and appearance changes, credential preservation on rotation, sign-in, scrolling, and sign-out.
 
@@ -119,3 +157,24 @@ The handoff passed 25 Django auth/family tests, 12 JavaScript bridge tests, and 
 Browser checks against disposable loopback Django accounts confirmed automatic adoption, journal/world coexistence, local camp sign-out and reconnection, journal logout, stale-token rejection/clearing, parent-session preservation, and restoration after reloading `/play/`. Switching to another family's child while an earlier save response was delayed removed the old account's tasks and toast; the new account could save its own ritual without inheriting the old uncertainty. The fixture recorded exactly two explicitly requested habit saves, with no automatic retries. Its four password logins came only from the fixture's journal controls, including account changes; opening, reconnecting, and reloading the world added none.
 
 This validates the browser/IL2CPP bridge and live Django boundary. Physical iPhone/Android lifecycle testing remains outstanding. The source patch and local Web export do not update the deployed preview; deployment is a separate step.
+
+## Purchased Cute Series verification — 2026-10-10
+
+All four downloaded starter packs were staged privately, including their PSD
+textures, and prepared in Unity 6000.6.5f1. The licensed Web build passed scene,
+three-form animation/portrait, material-texture and 56 API contract checks.
+React's public fallback and licensed builds passed; 31 focused Meadow tests and
+five synthetic archive/import safety checks passed.
+
+A disposable Django/browser walkthrough at 393×852 and 844×393 verified supplied
+character/scenery textures, explorer movement and companion following, greeting,
+account adoption and keepsakes. One private synthetic journal earned 15 XP and
+one bloom on the web page and in Play. Greeting and movement sent no API writes
+and left that receipt count unchanged; Play's response did not expose journal
+text. The Archer's supplied animation imports report copied-avatar bone
+position/rotation warnings. The walkthrough showed movement without obvious
+clipping, but this does not establish compatibility for every modular outfit or
+animation. Physical Android/iPhone animation and performance checks remain open.
+
+The licensed files and original archive backups remain private/local. No deployed
+application is changed by staging assets or updating this source branch.

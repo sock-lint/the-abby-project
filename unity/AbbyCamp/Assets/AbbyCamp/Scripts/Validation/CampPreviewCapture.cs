@@ -6,6 +6,7 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.UI;
 
 namespace AbbyCamp.Validation
 {
@@ -39,13 +40,15 @@ namespace AbbyCamp.Validation
             }
         }
 
-        public static IEnumerator Capture(string path)
+        public static IEnumerator Capture(string path, int width = Width, int height = Height)
         {
+            if (width < 64 || height < 64 || width > 4096 || height > 4096)
+                throw new ArgumentOutOfRangeException(nameof(width), "Preview dimensions must be 64..4096 pixels.");
             var camera = UnityEngine.Camera.main;
             if (camera == null) throw new InvalidOperationException("Preview capture requires the camp camera.");
             if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
                 throw new InvalidOperationException("Preview capture requires an active graphics device.");
-            var target = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB)
+            var target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB)
             {
                 name = "Camp offscreen preview",
                 antiAliasing = 1,
@@ -61,7 +64,7 @@ namespace AbbyCamp.Validation
             try
             {
                 camera.targetTexture = target;
-                camera.aspect = (float)Width / Height;
+                camera.aspect = (float)width / height;
                 foreach (var canvas in UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None))
                 {
                     if (!canvas.isActiveAndEnabled || !canvas.isRootCanvas || canvas.renderMode != RenderMode.ScreenSpaceOverlay) continue;
@@ -74,15 +77,16 @@ namespace AbbyCamp.Validation
                 // Let camera-space Canvas geometry/layout rebuild at the requested target resolution.
                 yield return null;
                 Canvas.ForceUpdateCanvases();
+                ValidateLabelGeometry();
                 var request = new UniversalRenderPipeline.SingleCameraRequest { destination = target };
                 if (!RenderPipeline.SupportsRenderRequest(camera, request))
                     throw new InvalidOperationException("The active pipeline does not support an offscreen single-camera render.");
                 RenderPipeline.SubmitRenderRequest(camera, request);
                 RenderTexture.active = target;
-                image = new Texture2D(Width, Height, TextureFormat.RGBA32, false, false);
-                image.ReadPixels(new Rect(0, 0, Width, Height), 0, 0, false);
+                image = new Texture2D(width, height, TextureFormat.RGBA32, false, false);
+                image.ReadPixels(new Rect(0, 0, width, height), 0, 0, false);
                 image.Apply(false, false);
-                ValidatePixels(image.GetPixels32(), Path.GetFileName(path));
+                ValidatePixels(image.GetPixels32(), Path.GetFileName(path), width, height);
                 var absolutePath = Path.GetFullPath(path);
                 Directory.CreateDirectory(Path.GetDirectoryName(absolutePath));
                 File.WriteAllBytes(absolutePath, image.EncodeToPNG());
@@ -100,7 +104,22 @@ namespace AbbyCamp.Validation
             }
         }
 
-        private static void ValidatePixels(Color32[] pixels, string name)
+        private static void ValidateLabelGeometry()
+        {
+            var names = new HashSet<string> { "CampTitle", "SheetTitle", "RewardStatus", "RewardBalance", "InboxStatus", "BestiaryStatus" };
+            foreach (var text in UnityEngine.Object.FindObjectsByType<Text>(FindObjectsSortMode.None))
+            {
+                if (!names.Contains(text.name) || !text.isActiveAndEnabled || string.IsNullOrEmpty(text.text)) continue;
+                // Unity 6 returns the renderer's borrowed mesh; its owner keeps it.
+                var mesh = text.canvasRenderer.GetMesh();
+                int vertices = mesh == null ? 0 : mesh.vertexCount;
+                Debug.Log($"ABBY_PLAY_CAPTURE_TEXT: {text.name}; rect={text.rectTransform.rect}, preferredHeight={text.preferredHeight}, generatedVertices={text.cachedTextGenerator.vertexCount}, renderedVertices={vertices}, culled={text.canvasRenderer.cull}.");
+                if (vertices == 0 || text.canvasRenderer.cull)
+                    throw new InvalidOperationException("Preview text has no visible glyph mesh: " + text.name);
+            }
+        }
+
+        private static void ValidatePixels(Color32[] pixels, string name, int width, int height)
         {
             var colors = new HashSet<int>();
             var sampleCount = 0;
@@ -119,7 +138,7 @@ namespace AbbyCamp.Validation
             }
             if (brightCount < sampleCount / 50 || lightest - darkest < 25 || colors.Count < 24)
                 throw new InvalidOperationException($"Blank preview rejected: {name}; bright={brightCount}/{sampleCount}, range={lightest - darkest}, colors={colors.Count}.");
-            Debug.Log($"ABBY_CAMP_PREVIEW_OK: {name}; {Width}x{Height}, bright={brightCount}/{sampleCount}, range={lightest - darkest}, colors={colors.Count}.");
+            Debug.Log($"ABBY_CAMP_PREVIEW_OK: {name}; {width}x{height}, bright={brightCount}/{sampleCount}, range={lightest - darkest}, colors={colors.Count}.");
         }
     }
 }

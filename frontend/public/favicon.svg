@@ -1,26 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <radialGradient id="wax" cx="35%" cy="35%" r="70%">
-      <stop offset="0%" stop-color="#e08a5c" />
-      <stop offset="55%" stop-color="#a04a28" />
-      <stop offset="100%" stop-color="#5c2411" />
-    </radialGradient>
-  </defs>
-  <!-- Seal body -->
-  <circle cx="32" cy="32" r="30" fill="url(#wax)" />
-  <!-- Pressed inner ring -->
-  <circle cx="32" cy="32" r="25" fill="none" stroke="#3a1708" stroke-width="0.75" opacity="0.5" />
-  <!-- Monogram A (serif; dimensioned for 16px legibility down to ~a dark mark on the seal) -->
-  <g fill="#2d1f15" fill-opacity="0.92">
-    <!-- Left leg: outer-bottom, outer-top, inner-top (apex), inner-bottom -->
-    <polygon points="16,44 28,20 32,20 20,44" />
-    <!-- Right leg: inner-top (apex), outer-top, outer-bottom, inner-bottom -->
-    <polygon points="32,20 36,20 48,44 44,44" />
-    <!-- Crossbar (overlaps both legs for clean join) -->
-    <rect x="22" y="32" width="20" height="2.5" />
-    <!-- Left foot serif -->
-    <rect x="13" y="43.5" width="10" height="2.5" />
-    <!-- Right foot serif -->
-    <rect x="41" y="43.5" width="10" height="2.5" />
+  <rect width="64" height="64" rx="18" fill="#FFF8EE"/>
+  <path d="M32 39v16" stroke="#486B55" stroke-width="4" stroke-linecap="round"/>
+  <path d="M31 51c-8 0-12-4-12-9 7-1 12 3 12 9Z" fill="#A9CFA9"/>
+  <path d="M34 49c0-7 5-10 11-9 0 6-4 10-11 9Z" fill="#A9CFA9"/>
+  <g fill="#E5DCF6" stroke="#7560A8" stroke-width="1.5">
+    <ellipse cx="32" cy="15" rx="8" ry="10"/>
+    <ellipse cx="43" cy="22" rx="8" ry="10" transform="rotate(55 43 22)"/>
+    <ellipse cx="43" cy="35" rx="8" ry="10" transform="rotate(125 43 35)"/>
+    <ellipse cx="21" cy="35" rx="8" ry="10" transform="rotate(55 21 35)"/>
+    <ellipse cx="21" cy="22" rx="8" ry="10" transform="rotate(125 21 22)"/>
   </g>
+  <circle cx="32" cy="28" r="12" fill="#FFD892"/>
+  <g fill="#49384F">
+    <ellipse cx="27" cy="27" rx="2.8" ry="3.5"/>
+    <ellipse cx="37" cy="27" rx="2.8" ry="3.5"/>
+  </g>
+  <g fill="#FFF8EE">
+    <circle cx="26.2" cy="25.8" r="1"/>
+    <circle cx="36.2" cy="25.8" r="1"/>
+  </g>
+  <path d="M29 33q3 3 6 0" fill="none" stroke="#49384F" stroke-width="1.8" stroke-linecap="round"/>
 </svg>

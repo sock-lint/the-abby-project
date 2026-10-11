@@ -5,16 +5,9 @@ import useScrollFades from '../../hooks/useScrollFades';
  * TabList — shared role="tablist" strip used by ChapterHub, Manage, and
  * ProjectDetail. Each call site used to re-implement the same pattern (raw
  * <button role="tab"> with hand-rolled active/inactive class strings), so
- * styling fixes had to land in three places. Two visual variants cover the
- * audited surfaces:
- *
- *   - `bookmark` (ChapterHub) — bookmark-ribbon tab with a teal pip above the
- *     active label and a hairline border running along the bottom of the
- *     strip. Renders an optional 6-dot mobile indicator when the strip
- *     overflows AND `tabs.length > 4`.
- *   - `pill` (Manage, ProjectDetail) — solid pill in `bg-ink-page-aged` with
- *     the active tab filled in `bg-sheikah-teal-deep`. Pass `stretch` to give
- *     each tab `flex-1` (ProjectDetail) instead of `shrink-0` (Manage).
+ * styling fixes had to land in three places. Both retained variants now use
+ * soft rounded pills. Pass `stretch` to give each tab `flex-1` instead of
+ * `shrink-0`; overflowing strips can show a small mobile position indicator.
  *
  * Scroll-fade gradients are on by default for any tab strip that can
  * overflow — pass `scrollFades={false}` to suppress (e.g. for very short
@@ -56,11 +49,11 @@ export default function TabList({
   const isBookmark = variant === 'bookmark';
   const sizing = stretch ? 'flex-1' : 'shrink-0';
   const wrapClass = isBookmark
-    ? 'flex flex-nowrap gap-1.5 border-b border-ink-page-shadow pb-0 overflow-x-auto scrollbar-hide'
-    : 'flex flex-nowrap gap-1 bg-ink-page-aged rounded-lg p-1 border border-ink-page-shadow overflow-x-auto scrollbar-hide';
+    ? 'flex flex-nowrap gap-1.5 bg-ink-page-aged/70 rounded-2xl p-1.5 border border-ink-page-shadow/50 overflow-x-auto scrollbar-hide'
+    : 'flex flex-nowrap gap-1 bg-ink-page-aged/70 rounded-2xl p-1.5 border border-ink-page-shadow/50 overflow-x-auto scrollbar-hide';
 
-  const fadeFrom = isBookmark ? 'from-ink-page' : 'from-ink-page-aged';
-  const fadeTo = isBookmark ? 'from-ink-page' : 'from-ink-page-aged';
+  const fadeFrom = 'from-ink-page-aged';
+  const fadeTo = 'from-ink-page-aged';
 
   return (
     <div className={`relative ${className}`}>
@@ -86,31 +79,6 @@ export default function TabList({
         {tabs.map((tab) => {
           const active = tab.id === activeId;
           const Icon = tab.icon;
-          if (isBookmark) {
-            return (
-              <button
-                key={tab.id}
-                ref={setTabRef(tab.id)}
-                role="tab"
-                type="button"
-                aria-selected={active}
-                onClick={() => onSelect(tab.id)}
-                className={`relative ${sizing} whitespace-nowrap px-4 py-2 font-display text-body md:text-base tracking-wide transition-colors rounded-t-lg border border-transparent -mb-px
-                  ${active
-                    ? 'bg-ink-page-aged text-ink-primary border-ink-page-shadow border-b-ink-page-aged'
-                    : 'text-ink-secondary hover:text-ink-primary hover:bg-ink-page/40'
-                  }`}
-              >
-                {active && (
-                  <span
-                    className="absolute -top-1 left-1/2 -translate-x-1/2 w-6 h-1 rounded-b bg-sheikah-teal-deep"
-                    aria-hidden="true"
-                  />
-                )}
-                {tab.label}
-              </button>
-            );
-          }
           return (
             <button
               key={tab.id}
@@ -119,13 +87,13 @@ export default function TabList({
               type="button"
               aria-selected={active}
               onClick={() => onSelect(tab.id)}
-              className={`${sizing} py-2 px-3 rounded-md font-display text-body transition-colors flex items-center justify-center gap-2
+              className={`${sizing} min-h-11 py-2 px-4 rounded-full border font-body font-semibold text-body whitespace-nowrap transition-colors flex items-center justify-center gap-2
                 ${active
-                  ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
-                  : 'text-ink-secondary hover:text-ink-primary'
+                  ? 'bg-sheikah-teal/15 border-sheikah-teal/20 text-ink-primary'
+                  : 'border-transparent text-ink-secondary hover:text-ink-primary hover:bg-ink-page'
                 }`}
             >
-              {Icon && <Icon size={16} />}
+              {Icon && <Icon size={16} className={active ? 'text-sheikah-teal-deep' : ''} />}
               {tab.label}
             </button>
           );

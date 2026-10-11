@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
@@ -12,6 +13,7 @@ namespace AbbyCamp.Editor
         public static void ValidateAll()
         {
             CampSceneBuilder.Validate();
+            if (File.Exists(MeshtintSetup.ScenePath)) MeshtintSetup.Validate();
             ApiContractValidation.Run();
             Debug.Log("ABBY_CAMP_VALIDATION_PASSED: scene, asset swap, and API contracts.");
         }
@@ -20,6 +22,24 @@ namespace AbbyCamp.Editor
         {
             CampSceneBuilder.Build();
             ValidateAll();
+        }
+
+        public static void PrepareLicensedAndValidate()
+        {
+            MeshtintSetup.Prepare();
+            ValidateAll();
+        }
+
+        public static void PrepareLicensedAndBuildWeb()
+        {
+            MeshtintSetup.Prepare();
+            BuildWeb();
+        }
+
+        public static void PrepareLicensedAndBuildWindows()
+        {
+            MeshtintSetup.Prepare();
+            BuildWindows();
         }
 
         [MenuItem("Abby Camp/Build Windows prototype")]
@@ -39,7 +59,7 @@ namespace AbbyCamp.Editor
             Directory.CreateDirectory(Path.GetDirectoryName(output));
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
-                scenes = new[] { "Assets/AbbyCamp/Scenes/Camp.unity" },
+                scenes = new[] { SelectedScenePath },
                 locationPathName = output,
                 target = BuildTarget.StandaloneWindows64,
                 options = BuildOptions.Development
@@ -81,7 +101,7 @@ namespace AbbyCamp.Editor
             Directory.CreateDirectory(output);
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
-                scenes = new[] { CampSceneBuilder.ScenePath },
+                scenes = new[] { SelectedScenePath },
                 locationPathName = output,
                 target = BuildTarget.WebGL,
                 // Test the same release output that static hosting will serve.
@@ -119,12 +139,31 @@ namespace AbbyCamp.Editor
             return output;
         }
 
+        private static string SelectedScenePath => File.Exists(MeshtintSetup.ScenePath)
+            ? MeshtintSetup.ScenePath : CampSceneBuilder.ScenePath;
+
         private static bool IsInside(string path, string directory)
         {
             path = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             directory = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             return string.Equals(path, directory, StringComparison.OrdinalIgnoreCase)
                 || path.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    // Apply to scripted and Editor builds immediately before compilation.
+    // A changed build profile must not reintroduce engine branding in Play.
+    public sealed class CampBrandingBuildGuard : IPreprocessBuildWithReport
+    {
+        public int callbackOrder => int.MaxValue;
+
+        public void OnPreprocessBuild(BuildReport report)
+        {
+            PlayerSettings.SplashScreen.show = false;
+            PlayerSettings.SplashScreen.showUnityLogo = false;
+            if (PlayerSettings.SplashScreen.show || PlayerSettings.SplashScreen.showUnityLogo)
+                throw new BuildFailedException("Abby builds require the engine splash screen and logo to be disabled.");
+            Debug.Log($"ABBY_CAMP_BRANDING: engine splash={PlayerSettings.SplashScreen.show}, Unity logo={PlayerSettings.SplashScreen.showUnityLogo}; target={report.summary.platform}.");
         }
     }
 }

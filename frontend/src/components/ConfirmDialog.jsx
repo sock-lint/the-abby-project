@@ -74,17 +74,7 @@ export default function ConfirmDialog({
               <button
                 type="button"
                 onClick={onConfirm}
-                className="relative min-h-11 px-5 py-2 text-body font-semibold text-ink-page-rune-glow rounded-full transition-transform duration-150 hover:scale-[1.03] active:scale-95"
-                style={{
-                  background:
-                    'radial-gradient(circle at 30% 30%, #e88a5e 0%, #d97548 55%, #a04a28 100%)', // intentional: theme-invariant ember seal palette — must NOT bind to --color-ember (varies per cover)
-                  // ink-tone stops route through --color-modal-* tokens so Vigil and other covers can override;
-                  // the colored 0 3px 8px ember-tinted shadow stays literal — same theme-invariant wax-seal palette
-                  // as the gradient stops above.
-                  boxShadow:
-                    'inset 0 1px 2px rgba(255, 248, 224, 0.45), inset 0 -2px 4px var(--color-modal-shadow), 0 3px 8px rgba(160, 74, 40, 0.5)',
-                  textShadow: '0 1px 1px var(--color-modal-shadow-strong)',
-                }}
+                className="relative min-h-11 px-5 py-2 text-body font-semibold bg-ember-deep text-ink-page-rune-glow rounded-full transition-colors hover:bg-ember-deep/90"
               >
                 {confirmLabel}
               </button>

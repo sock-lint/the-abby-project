@@ -13,61 +13,102 @@ using UnityEngine.SceneManagement;
 
 namespace AbbyCamp.Editor
 {
-    /// <summary>Reproducible first camp. Rebuilding replaces the generated scene and its visual definitions.</summary>
+    /// <summary>Reproducible meadow. Rebuilding preserves authored presentation references.</summary>
     public static class CampSceneBuilder
     {
         public const string ScenePath = "Assets/AbbyCamp/Scenes/Camp.unity";
         private const string GeneratedPath = "Assets/AbbyCamp/Generated";
+        public const string PresentationPath = "Assets/AbbyCamp/Presentation/Meadow.asset";
+        private static CampPresentationDefinition presentation;
         private const string NaturePath = "Assets/ThirdParty/Kenney/NatureKit/Models/";
         private static Material grass, darkGrass, path, wood, darkWood, paper, turquoise, orange, stone, rewardSparkles;
 
         [MenuItem("Abby Camp/Create or rebuild camp")]
         public static void Build()
         {
+            BuildScene(null, ScenePath);
+        }
+
+        // Regenerate the public scene independently before preparing an older
+        // local licensed scene; ValidateAll can then validate both together.
+        public static void RebuildAndValidate()
+        {
+            Build();
+            Validate();
+        }
+
+        public static void BuildScene(CampPresentationDefinition authored, string scenePath, Action decorate = null)
+        {
             Directory.CreateDirectory("Assets/AbbyCamp/Scenes");
             Directory.CreateDirectory(GeneratedPath);
             AssetDatabase.Refresh();
-            ConfigureKenneyImports();
+            if (authored == null)
+            {
+                ConfigureKenneyImports();
+                ConfigureStorybookImports();
+            }
+            presentation = authored != null ? authored : LoadPresentation();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             MakeMaterials();
             BuildCameraAndLighting();
             BuildGround();
             BuildScenery();
-            var playerAppearance = CreateDefinition("camper-green", "Assets/ThirdParty/Kenney/BlockyCharacters/Models/character-f.fbx", 1.8f, "emote-yes", new Color(.29f, .68f, .5f));
-            var dogAppearance = CreateDefinition("companion-dog", "Assets/ThirdParty/Kenney/CubePets/Models/animal-dog.fbx", .8f, "dance", new Color(.9f, .61f, .32f));
-            var foxAppearance = CreateDefinition("companion-fox", "Assets/ThirdParty/Kenney/CubePets/Models/animal-fox.fbx", .8f, "dance", new Color(1f, .4f, .16f));
-            var player = BuildPlayer(playerAppearance);
-            var companion = BuildCompanion(player, dogAppearance, foxAppearance);
-            var board = BuildBoard(player);
+            decorate?.Invoke();
+            var companion = BuildCompanion(presentation.CompanionAppearance, presentation.AlternateCompanionAppearance);
+            var gardenInput = new GameObject("Companion garden input").AddComponent<CampGardenInput>();
+            gardenInput.Configure(companion);
+            Camera.main.GetComponent<CampPhoneCamera>().Configure(companion.transform);
             var session = new GameObject("CampSession").AddComponent<CampPrototypeController>();
-            session.Configure(player, companion, board);
+            session.Configure(gardenInput, companion, presentation);
             EditorSceneManager.MarkSceneDirty(scene);
-            EditorSceneManager.SaveScene(scene, ScenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+            EditorSceneManager.SaveScene(scene, scenePath);
+            if (scenePath == ScenePath)
+                EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             AssetDatabase.SaveAssets();
-            Debug.Log("ABBY_CAMP_BUILD_OK: saved " + ScenePath);
+            Debug.Log("ABBY_CAMP_BUILD_OK: saved " + scenePath);
         }
 
         [MenuItem("Abby Camp/Validate prototype")]
         public static void Validate()
         {
-            // Validate saved source in an isolated scene: appearance swaps must
-            // not modify a contributor's open scene or serialize new instance IDs.
-            var scene = EditorSceneManager.OpenPreviewScene(ScenePath);
+            ValidateScene(ScenePath, PresentationPath);
+        }
+
+        public static void ValidateScene(string scenePath, string presentationPath, Action<Scene> additionalValidation = null)
+        {
+            // Validate saved source in isolation: appearance swaps must not modify
+            // a contributor's open scene or serialize new instance IDs.
+            var scene = EditorSceneManager.OpenPreviewScene(scenePath);
             try
             {
-                var player = FindSceneComponent<CampPlayerController>(scene);
                 var companion = FindSceneComponent<CompanionFollower>(scene);
-                var board = FindSceneComponent<CampTaskBoard>(scene);
-                var camera = scene.GetRootGameObjects()
-                    .SelectMany(root => root.GetComponentsInChildren<Camera>())
-                    .FirstOrDefault(candidate => candidate.gameObject.activeInHierarchy && candidate.enabled && candidate.CompareTag("MainCamera"));
-                Require(player != null && companion != null && board != null, "Missing gameplay actors.");
+                var gardenInput = FindSceneComponent<CampGardenInput>(scene);
+                Require(companion != null && gardenInput != null, "Missing companion garden; regenerate this scene.");
+                Require(FindSceneComponents<CompanionFollower>(scene, true).Length == 1,
+                    "The garden must have one hero companion.");
+                Require(FindSceneComponents<CampPlayerController>(scene, true).Length == 0
+                    && FindSceneComponents<CampTaskBoard>(scene, true).Length == 0,
+                    "Play must not require a walking avatar or task-board proximity; regenerate this scene.");
                 Require(FindSceneComponent<CampPrototypeController>(scene) != null, "Missing session UI.");
-                Require(camera != null && camera.orthographic, "Missing fixed isometric camera.");
-                Require(player.GetComponent<CharacterController>() != null && companion.GetComponent<CharacterController>() != null, "Movement requires root controllers.");
-                Require(board.IsInRange, "Player must start in reach of task board.");
-                Require(player.Appearance != null && companion.Appearance != null, "Missing actor appearance presenters.");
+                var authored = AssetDatabase.LoadAssetAtPath<CampPresentationDefinition>(presentationPath);
+                Require(authored != null && companion.PrimaryAppearance == authored.CompanionAppearance
+                    && companion.Appearance != null && companion.Appearance.Definition == authored.CompanionAppearance,
+                    "Scene does not use its authored presentation references.");
+                Require(authored.UiFont != null, "The shared Nunito UI font is missing.");
+                ValidateSharedPalette(authored);
+                var camera = FindSceneComponents<Camera>(scene)
+                    .FirstOrDefault(candidate => candidate.enabled && candidate.CompareTag("MainCamera"));
+                Require(camera != null && camera.orthographic
+                    && camera.GetComponent<CampPhoneCamera>() != null
+                    && camera.GetComponent<CampPhoneCamera>().Subject == companion.transform,
+                    "The fixed garden camera must frame its companion.");
+                Require(gardenInput.Companion == companion && gardenInput.InputEnabled, "The garden input must target its companion.");
+                Require(FindSceneComponents<CharacterController>(scene, true).Length == 0
+                    && !FindSceneComponents<Collider>(scene).Any(collider => collider.enabled),
+                    "The fixed garden must not depend on movement or scenery physics.");
+                Require(companion.transform.position == companion.AnchorPosition
+                    && Quaternion.Angle(companion.transform.rotation, companion.AnchorRotation) < .001f,
+                    "The companion must remain on its fixed garden anchor.");
                 Require(companion.PrimaryAppearance != null && companion.SecondaryAppearance != null, "Companion needs two swappable appearances.");
                 var originalDefinition = companion.Appearance.Definition;
                 var beforePosition = companion.transform.position;
@@ -79,16 +120,18 @@ namespace AbbyCamp.Editor
                 companion.ApplyAppearance(companion.SecondaryAppearance);
                 Require(companion.Appearance.Definition == companion.SecondaryAppearance, "Appearance switch did not apply.");
                 Require(companion.transform.position == beforePosition && companion.transform.rotation == beforeRotation && companion.transform.localScale == beforeScale, "Appearance switch moved gameplay root.");
-                Require(identity.ContentId == originalId && companion.GetComponent<CharacterController>().enabled, "Appearance switch changed identity or movement.");
+                Require(identity.ContentId == originalId && gardenInput.Companion == companion,
+                    "Appearance switch changed companion identity or interaction.");
                 companion.ApplyAppearance(originalDefinition);
-                var appearances = new[] { player.Appearance.Definition, companion.PrimaryAppearance, companion.SecondaryAppearance };
+                var appearances = new[] { companion.PrimaryAppearance, companion.SecondaryAppearance };
                 foreach (var definition in appearances)
                 {
-                    Require(definition != null, "Missing actor appearance definition.");
-                    Require(definition.ModelPrefab != null, "Missing imported model for " + definition.AppearanceId);
-                    Require(definition.AnimatorController != null, "Missing animation mapping for " + definition.AppearanceId);
+                    Require(definition != null && (definition.ModelPrefab != null || definition.Portrait != null), "Missing model or portrait for an appearance.");
+                    // A static sprite/model is valid: VisualPresenter supplies local feedback.
+                    // An imported animation controller is optional, never a condition on identity.
                 }
-                Debug.Log("ABBY_CAMP_VALIDATE_OK: actors, interaction, models, animations, and two-model swap preserve gameplay identity and transforms.");
+                additionalValidation?.Invoke(scene);
+                Debug.Log("ABBY_CAMP_VALIDATE_OK: fixed companion garden, tap interaction, authored presentation, and appearance swap preserve identity and anchor.");
             }
             finally
             {
@@ -98,9 +141,99 @@ namespace AbbyCamp.Editor
 
         private static T FindSceneComponent<T>(Scene scene) where T : Component
         {
+            return FindSceneComponents<T>(scene).FirstOrDefault();
+        }
+
+        private static T[] FindSceneComponents<T>(Scene scene, bool includeInactive = false) where T : Component
+        {
             return scene.GetRootGameObjects()
-                .SelectMany(root => root.GetComponentsInChildren<T>())
-                .FirstOrDefault(component => component.gameObject.activeInHierarchy);
+                .SelectMany(root => root.GetComponentsInChildren<T>(includeInactive))
+                .Where(component => includeInactive || component.gameObject.activeInHierarchy)
+                .ToArray();
+        }
+
+        private static CampPresentationDefinition LoadPresentation()
+        {
+            Directory.CreateDirectory("Assets/AbbyCamp/Presentation");
+            var settings = AssetDatabase.LoadAssetAtPath<CampPresentationDefinition>(PresentationPath);
+            if (settings == null)
+            {
+                settings = ScriptableObject.CreateInstance<CampPresentationDefinition>();
+                AssetDatabase.CreateAsset(settings, PresentationPath);
+            }
+            // The fixed garden does not ship an unused avatar through its
+            // presentation. Keep authored companion references across builds.
+            settings.PlayerAppearance = null;
+            if (settings.CompanionAppearance == null)
+                settings.CompanionAppearance = CreateDragonDefinition(settings.Accent);
+            if (settings.AlternateCompanionAppearance == null)
+                settings.AlternateCompanionAppearance = CreateDefinition("companion-fox", "Assets/ThirdParty/Kenney/CubePets/Models/animal-fox.fbx", .8f, "dance", settings.Accent);
+            if (settings.MemoryBloom == null)
+                settings.MemoryBloom = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/AbbyCamp/Art/Shared/memory-bloom.png");
+            if (settings.UiFont == null)
+                settings.UiFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/AbbyCamp/Art/Shared/Nunito-SemiBold.ttf");
+            EditorUtility.SetDirty(settings);
+            return settings;
+        }
+
+        private static VisualDefinition CreateDragonDefinition(Color fallback)
+        {
+            const string location = "Assets/AbbyCamp/Presentation/meadow-dragon.asset";
+            var existing = AssetDatabase.LoadAssetAtPath<VisualDefinition>(location);
+            if (existing != null) return existing;
+            var definition = ScriptableObject.CreateInstance<VisualDefinition>();
+            definition.AppearanceId = "meadow-dragon";
+            definition.PlaceholderColor = fallback;
+            definition.Portrait = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/AbbyCamp/Art/Shared/dragon-idle.png");
+            definition.HappyPortrait = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/AbbyCamp/Art/Shared/dragon-happy.png");
+            definition.BlinkPortrait = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/AbbyCamp/Art/Shared/dragon-blink.png");
+            definition.PortraitHeight = 1.9f;
+            AssetDatabase.CreateAsset(definition, location);
+            return definition;
+        }
+
+        private static void ConfigureStorybookImports()
+        {
+            foreach (var filename in new[] { "dragon-idle.png", "dragon-happy.png", "dragon-blink.png", "memory-bloom.png" })
+            {
+                var importer = AssetImporter.GetAtPath("Assets/AbbyCamp/Art/Shared/" + filename) as TextureImporter;
+                if (importer == null) continue;
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.spritePixelsPerUnit = 100;
+                importer.alphaIsTransparency = true;
+                importer.mipmapEnabled = false;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.maxTextureSize = 1024;
+                importer.SaveAndReimport();
+            }
+        }
+
+        [Serializable] private sealed class SharedManifest { public int schema_version; public SharedPalette palette; }
+        [Serializable] private sealed class SharedPalette
+        {
+            public string paper, ink, primary, grass, accent, sky, gold;
+        }
+
+        private static void ValidateSharedPalette(CampPresentationDefinition settings)
+        {
+            var source = Resources.Load<TextAsset>("StorybookPresentation");
+            Require(source != null, "Shared storybook presentation manifest is missing.");
+            var manifest = JsonUtility.FromJson<SharedManifest>(source.text);
+            Require(manifest != null && manifest.schema_version == 1 && manifest.palette != null, "Unsupported shared presentation schema.");
+            void Match(Color actual, string expected, string label)
+            {
+                Require(ColorUtility.TryParseHtmlString(expected, out var canonical), "Missing shared " + label + " color.");
+                Require(Mathf.Abs(actual.r - canonical.r) < .00001f && Mathf.Abs(actual.g - canonical.g) < .00001f && Mathf.Abs(actual.b - canonical.b) < .00001f,
+                    "World " + label + " differs from the shared web presentation manifest.");
+            }
+            Match(settings.Paper, manifest.palette.paper, "paper");
+            Match(settings.Ink, manifest.palette.ink, "ink");
+            Match(settings.Primary, manifest.palette.primary, "primary");
+            Match(settings.Grass, manifest.palette.grass, "grass");
+            Match(settings.Accent, manifest.palette.accent, "accent");
+            Match(settings.Sky, manifest.palette.sky, "sky");
+            Match(settings.Path, manifest.palette.gold, "gold");
         }
 
         private static void Require(bool condition, string message)
@@ -110,16 +243,16 @@ namespace AbbyCamp.Editor
 
         private static void MakeMaterials()
         {
-            grass = MakeMaterial("Grass", new Color(.47f, .59f, .41f));
-            darkGrass = MakeMaterial("Raised meadow", new Color(.36f, .47f, .34f));
-            path = MakeMaterial("Sandstone path", new Color(.77f, .70f, .56f));
-            wood = MakeMaterial("Warm cedar", new Color(.51f, .34f, .22f));
-            darkWood = MakeMaterial("Deep cedar", new Color(.31f, .22f, .16f));
-            paper = MakeMaterial("Task paper", new Color(.95f, .91f, .76f));
-            turquoise = MakeMaterial("Camp teal", new Color(.16f, .49f, .46f));
-            orange = MakeMaterial("Camp gold", new Color(.89f, .62f, .29f));
-            stone = MakeMaterial("Slate stones", new Color(.48f, .53f, .50f));
-            rewardSparkles = MakeMaterial("Reward sparkles", new Color(1f, .9f, .55f));
+            grass = MakeMaterial("Grass", presentation.Grass);
+            darkGrass = MakeMaterial("Raised meadow", presentation.GrassEdge);
+            path = MakeMaterial("Sandstone path", presentation.Path);
+            wood = MakeMaterial("Warm cedar", new Color(.68f, .52f, .39f));
+            darkWood = MakeMaterial("Deep cedar", new Color(.48f, .38f, .32f));
+            paper = MakeMaterial("Task paper", presentation.Paper);
+            turquoise = MakeMaterial("Camp teal", presentation.Primary);
+            orange = MakeMaterial("Camp gold", presentation.Accent);
+            stone = MakeMaterial("Slate stones", new Color(.72f, .77f, .75f));
+            rewardSparkles = MakeMaterial("Reward sparkles", presentation.Path);
             var particleShader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
             if (particleShader != null) rewardSparkles.shader = particleShader;
             EditorUtility.SetDirty(rewardSparkles);
@@ -234,15 +367,15 @@ namespace AbbyCamp.Editor
         {
             var cameraObject = new GameObject("Main Camera");
             cameraObject.tag = "MainCamera";
-            cameraObject.transform.position = new Vector3(13.5f, 19f, -19f);
-            cameraObject.transform.LookAt(new Vector3(0f, 0f, 1f));
+            cameraObject.transform.rotation = Quaternion.Euler(18f, 0f, 0f);
             var camera = cameraObject.AddComponent<Camera>();
             camera.orthographic = true;
-            camera.orthographicSize = 10.6f;
+            camera.orthographicSize = 4f;
             camera.nearClipPlane = .1f;
             camera.farClipPlane = 100f;
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(.77f, .86f, .85f);
+            camera.backgroundColor = presentation.Sky;
+            cameraObject.AddComponent<CampPhoneCamera>();
             cameraObject.AddComponent<AudioListener>();
             var sun = new GameObject("Late afternoon sun").AddComponent<Light>();
             sun.type = LightType.Directional;
@@ -252,159 +385,76 @@ namespace AbbyCamp.Editor
             sun.shadows = LightShadows.Soft;
             sun.shadowStrength = .55f;
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(.50f, .57f, .55f);
-            RenderSettings.ambientIntensity = .8f;
+            RenderSettings.ambientLight = new Color(.76f, .78f, .75f);
+            RenderSettings.ambientIntensity = 1f;
             RenderSettings.fog = false;
         }
 
         private static void BuildGround()
         {
-            var environment = new GameObject("Camp environment").transform;
-            Shape("Meadow island", PrimitiveType.Cube, new Vector3(0f, -.3f, 0f), new Vector3(28f, .6f, 22f), grass, environment, true);
-            Shape("Island edge", PrimitiveType.Cube, new Vector3(0f, -.78f, 0f), new Vector3(27.9f, .36f, 21.9f), darkGrass, environment, false);
-            Disc("Camp clearing", new Vector3(.1f, .011f, .5f), 5.6f, path, environment);
-            for (var i = 0; i < 6; i++)
+            var environment = new GameObject("Meadow environment").transform;
+            Shape("Soft meadow island", PrimitiveType.Cylinder, new Vector3(0f, -.3f, 0f), new Vector3(21f, .3f, 17f), grass, environment, false);
+            Shape("Meadow edge", PrimitiveType.Cylinder, new Vector3(0f, -.62f, 0f), new Vector3(20.9f, .12f, 16.9f), darkGrass, environment, false);
+            Disc("Welcome clearing", new Vector3(-.7f, .011f, .7f), 3.8f, path, environment);
+            for (var i = 0; i < 5; i++)
             {
-                var t = i / 5f;
-                var position = Vector3.Lerp(new Vector3(1.5f, .022f, -7f), new Vector3(-3f, .022f, 2.5f), t);
-                Disc("Path stone " + (i + 1), position, .85f, path, environment);
+                var t = i / 4f;
+                Disc("Stepping stone " + (i + 1), Vector3.Lerp(new Vector3(1f, .022f, -5f), new Vector3(-3f, .022f, 2.5f), t), .58f, paper, environment);
             }
-            // Invisible perimeter keeps the character on the island without requiring replacement-art colliders.
-            Boundary("North boundary", new Vector3(0f, 1.5f, 10.1f), new Vector3(28f, 3f, .4f), environment);
-            Boundary("South boundary", new Vector3(0f, 1.5f, -10.1f), new Vector3(28f, 3f, .4f), environment);
-            Boundary("West boundary", new Vector3(-13.1f, 1.5f, 0f), new Vector3(.4f, 3f, 22f), environment);
-            Boundary("East boundary", new Vector3(13.1f, 1.5f, 0f), new Vector3(.4f, 3f, 22f), environment);
         }
 
         private static void BuildScenery()
         {
-            var scenery = new GameObject("Replaceable camp scenery").transform;
-            var treePositions = new[]
-            {
-                new Vector3(-10f, 0f, 6f), new Vector3(-8.6f, 0f, 8f), new Vector3(-6.6f, 0f, 7.6f),
-                new Vector3(8f, 0f, 7.8f), new Vector3(10f, 0f, 5.2f), new Vector3(11f, 0f, 7.4f),
-                new Vector3(-10.5f, 0f, -5.8f), new Vector3(-8.8f, 0f, -7.8f), new Vector3(10.4f, 0f, -6f)
-            };
+            var scenery = new GameObject("Replaceable meadow scenery").transform;
+            var treePositions = new[] { new Vector3(-3.2f, 0f, 3.8f), new Vector3(-1.4f, 0f, 5.5f), new Vector3(1.4f, 0f, 5.2f), new Vector3(3.2f, 0f, 2.4f), new Vector3(-3.5f, 0f, -.8f) };
             for (var i = 0; i < treePositions.Length; i++)
             {
-                var height = 2.8f + (i % 3) * .55f;
-                var tree = PlaceImported(i % 2 == 0 ? "tree_blocks.fbx" : "tree_pineSmallA.fbx", "Tree " + (i + 1), treePositions[i], height, i * 37f, scenery);
-                if (tree == null)
-                {
-                    Shape("Tree trunk", PrimitiveType.Cylinder, treePositions[i] + Vector3.up * .7f, new Vector3(.45f, .7f, .45f), wood, scenery, false);
-                    Shape("Tree canopy", PrimitiveType.Cube, treePositions[i] + Vector3.up * 2f, new Vector3(1.6f, 2f, 1.6f), darkGrass, scenery, false);
-                }
-                AddObstacle("Tree trunk collision", treePositions[i] + Vector3.up * .5f, new Vector3(.55f, 1f, .55f), scenery);
+                var p = treePositions[i];
+                Shape("Round tree trunk " + i, PrimitiveType.Cylinder, p + Vector3.up * .95f, new Vector3(.25f, .95f, .25f), wood, scenery, false);
+                Shape("Round tree crown " + i, PrimitiveType.Sphere, p + Vector3.up * 2.15f, new Vector3(2.3f, 2.3f, 2.3f), i % 2 == 0 ? darkGrass : turquoise, scenery, false);
+                Shape("Round tree tuft " + i, PrimitiveType.Sphere, p + new Vector3(.65f, 2.3f, .3f), new Vector3(1.45f, 1.65f, 1.45f), grass, scenery, false);
             }
-            for (var i = 0; i < 12; i++)
+            for (var i = 0; i < 16; i++)
             {
                 var angle = i * 2.399963f;
-                var position = new Vector3(Mathf.Cos(angle) * (8f + i % 3), 0f, Mathf.Sin(angle) * (6f + i % 2));
-                PlaceImported("rock_smallA.fbx", "Meadow rock " + (i + 1), position, .28f + (i % 3) * .12f, i * 71f, scenery);
-                PlaceImported("plant_bush.fbx", "Meadow bush " + (i + 1), position + new Vector3(.75f, 0f, .4f), .5f, i * 19f, scenery);
+                var p = new Vector3(Mathf.Cos(angle) * (5f + i % 2), .12f, Mathf.Sin(angle) * 4.8f);
+                Shape("Little meadow stone " + i, PrimitiveType.Sphere, p, new Vector3(.5f, .22f, .4f), stone, scenery, false);
+                Flower("Meadow flower " + i, p + new Vector3(.5f, -.12f, .35f), i % 2 == 0 ? orange : paper, scenery);
             }
-            for (var i = 0; i < 10; i++)
-                PlaceImported("flower_yellowA.fbx", "Wildflower " + (i + 1), new Vector3(-7.7f + i % 5 * .45f, 0f, -3.5f + i / 5 * .6f), .28f, i * 52f, scenery);
+            Flower("Memory bloom decoration", new Vector3(2.6f, 0f, 3.4f), orange, scenery, 1.8f);
+        }
 
-            var tent = PlaceImported("tent_smallOpen.fbx", "Camper tent", new Vector3(5.2f, 0f, 4.7f), 2.25f, 180f, scenery);
-            if (tent == null) Shape("Tent placeholder", PrimitiveType.Cube, new Vector3(5.2f, 1f, 4.7f), new Vector3(3f, 2f, 2.7f), turquoise, scenery, false);
-            AddObstacle("Tent collision", new Vector3(5.2f, .8f, 4.7f), new Vector3(2.6f, 1.6f, 2.5f), scenery);
-            Disc("Companion garden", new Vector3(5f, .02f, -.5f), 1.8f, darkGrass, scenery);
-            PlaceImported("log.fbx", "Resting log", new Vector3(4.3f, 0f, .7f), .5f, 90f, scenery);
-            Shape("Water bowl", PrimitiveType.Cylinder, new Vector3(5.7f, .08f, -.8f), new Vector3(.6f, .08f, .6f), turquoise, scenery, false);
-            Shape("Bowl water", PrimitiveType.Cylinder, new Vector3(5.7f, .163f, -.8f), new Vector3(.47f, .008f, .47f), paper, scenery, false);
-            PlaceImported("campfire_logs.fbx", "Evening campfire", new Vector3(1.6f, 0f, 3.2f), .5f, 25f, scenery);
-            for (var i = 0; i < 7; i++)
+        private static void Flower(string name, Vector3 ground, Material petals, Transform parent, float size = 1f)
+        {
+            Shape(name + " stem", PrimitiveType.Cylinder, ground + Vector3.up * .2f * size, new Vector3(.04f, .2f, .04f) * size, darkGrass, parent, false);
+            var centre = ground + Vector3.up * .4f * size;
+            for (var petal = 0; petal < 5; petal++)
             {
-                var angle = i / 7f * Mathf.PI * 2f;
-                Shape("Fire ring stone", PrimitiveType.Sphere, new Vector3(1.6f + Mathf.Cos(angle) * .73f, .1f, 3.2f + Mathf.Sin(angle) * .73f), new Vector3(.35f, .2f, .3f), stone, scenery, false);
+                var angle = petal * Mathf.PI * 2f / 5f;
+                Shape(name + " petal", PrimitiveType.Sphere, centre + new Vector3(Mathf.Cos(angle) * .12f, 0, Mathf.Sin(angle) * .12f) * size, new Vector3(.16f, .06f, .16f) * size, petals, parent, false);
             }
-            Shape("Camp lantern post", PrimitiveType.Cylinder, new Vector3(-.1f, .9f, 4.8f), new Vector3(.08f, .9f, .08f), darkWood, scenery, false);
-            Shape("Lantern", PrimitiveType.Cube, new Vector3(-.1f, 1.85f, 4.8f), new Vector3(.28f, .4f, .28f), orange, scenery, false);
-            Shape("Camp flagpole", PrimitiveType.Cylinder, new Vector3(7.5f, 1.75f, 1.6f), new Vector3(.085f, 1.75f, .085f), darkWood, scenery, false);
-            Shape("Camp pennant", PrimitiveType.Cube, new Vector3(7.93f, 3.1f, 1.6f), new Vector3(.9f, .52f, .045f), turquoise, scenery, false);
-            BuildGate(scenery);
+            Shape(name + " centre", PrimitiveType.Sphere, centre + Vector3.up * .02f * size, new Vector3(.11f, .075f, .11f) * size, path, parent, false);
         }
-
-        private static void BuildGate(Transform parent)
-        {
-            Shape("Trail gate left", PrimitiveType.Cube, new Vector3(-1.8f, 1.2f, 7.5f), new Vector3(.22f, 2.4f, .25f), wood, parent, false);
-            Shape("Trail gate right", PrimitiveType.Cube, new Vector3(1.8f, 1.2f, 7.5f), new Vector3(.22f, 2.4f, .25f), wood, parent, false);
-            Shape("Trail gate lintel", PrimitiveType.Cube, new Vector3(0f, 2.45f, 7.5f), new Vector3(4.1f, .36f, .36f), wood, parent, false);
-            Shape("Trail sign", PrimitiveType.Cube, new Vector3(0f, 2.47f, 7.24f), new Vector3(2.6f, .6f, .08f), turquoise, parent, false);
-            Label("EXPEDITION TRAIL", new Vector3(0f, 2.47f, 7.18f), .07f, new Color(.99f, .96f, .82f), parent);
-            // A preview landmark only: expeditions become interactive in a later slice.
-        }
-
-        private static CampPlayerController BuildPlayer(VisualDefinition definition)
-        {
-            var playerObject = new GameObject("Camper");
-            playerObject.transform.position = new Vector3(-3.5f, .08f, 1.3f);
-            playerObject.transform.rotation = Quaternion.Euler(0f, 20f, 0f);
-            playerObject.AddComponent<CampEntityIdentity>().Configure("player");
-            var motor = playerObject.AddComponent<CharacterController>();
-            motor.height = 1.7f;
-            motor.radius = .32f;
-            motor.center = new Vector3(0f, .85f, 0f);
-            motor.stepOffset = .25f;
-            motor.skinWidth = .04f;
-            playerObject.AddComponent<VisualPresenter>().SetVisual(definition);
-            playerObject.AddComponent<RewardReaction>().Configure(rewardSparkles);
-            return playerObject.AddComponent<CampPlayerController>();
-        }
-
-        private static CompanionFollower BuildCompanion(CampPlayerController player, VisualDefinition first, VisualDefinition second)
+        private static CompanionFollower BuildCompanion(VisualDefinition first, VisualDefinition second)
         {
             var companionObject = new GameObject("Companion");
-            companionObject.transform.position = new Vector3(-1.8f, .08f, -.1f);
-            companionObject.transform.rotation = Quaternion.Euler(0f, -20f, 0f);
+            companionObject.transform.position = Vector3.zero;
+            companionObject.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
             companionObject.AddComponent<CampEntityIdentity>().Configure("starter-companion");
-            var motor = companionObject.AddComponent<CharacterController>();
-            motor.height = .7f;
-            motor.radius = .24f;
-            motor.center = new Vector3(0f, .36f, 0f);
-            motor.stepOffset = .15f;
-            motor.skinWidth = .03f;
             companionObject.AddComponent<VisualPresenter>().SetVisual(first);
             companionObject.AddComponent<RewardReaction>().Configure(rewardSparkles);
             var companion = companionObject.AddComponent<CompanionFollower>();
-            companion.Configure(player.transform, first, second);
+            companion.Configure(first, second);
             return companion;
-        }
-
-        private static CampTaskBoard BuildBoard(CampPlayerController player)
-        {
-            var boardObject = new GameObject("Task Board");
-            boardObject.transform.position = new Vector3(-4.5f, 0f, 3.8f);
-            var parent = boardObject.transform;
-            Shape("Board left post", PrimitiveType.Cube, new Vector3(-5.8f, 1.2f, 3.8f), new Vector3(.2f, 2.4f, .2f), darkWood, parent, true);
-            Shape("Board right post", PrimitiveType.Cube, new Vector3(-3.2f, 1.2f, 3.8f), new Vector3(.2f, 2.4f, .2f), darkWood, parent, true);
-            Shape("Task board panel", PrimitiveType.Cube, new Vector3(-4.5f, 1.65f, 3.8f), new Vector3(2.9f, 1.55f, .2f), wood, parent, true);
-            Shape("Board header", PrimitiveType.Cube, new Vector3(-4.5f, 2.57f, 3.8f), new Vector3(3.2f, .45f, .3f), turquoise, parent, false);
-            Label("TASK BOARD", new Vector3(-4.5f, 2.57f, 3.625f), .095f, Color.white, parent);
-            for (var i = 0; i < 3; i++)
-            {
-                var x = -5.4f + i * .9f;
-                Shape("Habit card " + (i + 1), PrimitiveType.Cube, new Vector3(x, 1.7f, 3.675f), new Vector3(.65f, .85f, .035f), paper, parent, false);
-                Shape("Habit pin " + (i + 1), PrimitiveType.Sphere, new Vector3(x, 2.03f, 3.635f), Vector3.one * .09f, i == 1 ? turquoise : orange, parent, false);
-                for (var line = 0; line < 3; line++)
-                    Shape("Card line", PrimitiveType.Cube, new Vector3(x, 1.8f - line * .15f, 3.65f), new Vector3(.43f - line * .055f, .027f, .014f), wood, parent, false);
-            }
-            Disc("Task board welcome mat", new Vector3(-4.5f, .025f, 2.1f), 1.1f, paper, parent);
-            var board = boardObject.AddComponent<CampTaskBoard>();
-            board.Configure(player.transform);
-            return board;
         }
 
         private static VisualDefinition CreateDefinition(string id, string modelPath, float targetHeight, string celebrationClip, Color fallback)
         {
             var definitionPath = GeneratedPath + "/" + id + ".asset";
             var definition = AssetDatabase.LoadAssetAtPath<VisualDefinition>(definitionPath);
-            if (definition == null)
-            {
-                definition = ScriptableObject.CreateInstance<VisualDefinition>();
-                AssetDatabase.CreateAsset(definition, definitionPath);
-            }
+            if (definition != null) return definition;
+            definition = ScriptableObject.CreateInstance<VisualDefinition>();
+            AssetDatabase.CreateAsset(definition, definitionPath);
             definition.AppearanceId = id;
             definition.ModelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
             definition.PlaceholderColor = fallback;
@@ -515,32 +565,5 @@ namespace AbbyCamp.Editor
             Shape(name, PrimitiveType.Cylinder, position, new Vector3(radius * 2f, .012f, radius * 2f), material, parent, false);
         }
 
-        private static void Boundary(string name, Vector3 position, Vector3 scale, Transform parent)
-        {
-            AddObstacle(name, position, scale, parent);
-        }
-
-        private static void AddObstacle(string name, Vector3 position, Vector3 size, Transform parent)
-        {
-            var instance = new GameObject(name);
-            instance.transform.SetParent(parent, true);
-            instance.transform.position = position;
-            instance.AddComponent<BoxCollider>().size = size;
-        }
-
-        private static void Label(string text, Vector3 position, float characterSize, Color color, Transform parent)
-        {
-            var label = new GameObject(text).AddComponent<TextMesh>();
-            label.transform.SetParent(parent, true);
-            label.transform.position = position;
-            label.text = text;
-            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            label.fontSize = 48;
-            label.characterSize = characterSize;
-            label.anchor = TextAnchor.MiddleCenter;
-            label.alignment = TextAlignment.Center;
-            label.color = color;
-            label.GetComponent<MeshRenderer>().sharedMaterial = label.font.material;
-        }
     }
 }

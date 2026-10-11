@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using System.Runtime.InteropServices;
 using AbbyCamp.Data;
@@ -29,17 +30,20 @@ namespace AbbyCamp.Services
         private string observedBrowserToken;
         private readonly HashSet<UnityWebRequest> activeRequests = new HashSet<UnityWebRequest>();
         private readonly Dictionary<int, HabitDto> knownHabits = new Dictionary<int, HabitDto>();
+        private readonly HashSet<int> knownNotifications = new HashSet<int>();
 
         public string BaseUrl => baseUrl;
         public UserDto CurrentUser { get; private set; }
         public bool IsAuthenticated => !string.IsNullOrEmpty(token) && CurrentUser != null;
         public bool MutationInFlight { get; private set; }
+        public bool SessionTransitionInFlight => loginInFlight || MutationInFlight;
         public event Action BrowserSessionChanged;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")] private static extern string AbbySession_ReadToken();
         [DllImport("__Internal")] private static extern void AbbySession_ClearToken(string expectedToken);
         [DllImport("__Internal")] private static extern void AbbySession_OpenJournal();
+        [DllImport("__Internal")] private static extern int AbbySession_OpenDestination(string path);
 #endif
 
         [Serializable] private sealed class LoginBody
@@ -89,9 +93,134 @@ namespace AbbyCamp.Services
 
         public void OpenJournal()
         {
+            OpenDestination(PlayDestination.Journal);
+        }
+
+        public bool OpenDestination(PlayDestination destination)
+        {
+            string path = DestinationPath(destination);
+            if (path == null || !TryValidateBaseUrl(baseUrl, out var origin, out _)) return false;
 #if UNITY_WEBGL && !UNITY_EDITOR
-            AbbySession_OpenJournal();
+            return AbbySession_OpenDestination(path) == 1;
+#else
+            Application.OpenURL(origin + path);
+            return true;
 #endif
+        }
+
+        public bool OpenNotificationDestination(NotificationDto notification)
+        {
+            return notification != null && TryResolveNotificationDestination(notification.link, notification.notification_type, out var destination)
+                && OpenDestination(destination);
+        }
+
+        public static string DestinationPath(PlayDestination destination)
+        {
+            switch (destination)
+            {
+                case PlayDestination.Today: return "/";
+                case PlayDestination.Journal: return "/chronicle?tab=journal";
+                case PlayDestination.Grades: return "/chronicle?tab=grades";
+                case PlayDestination.Tasks: return "/quests";
+                case PlayDestination.RewardShop: return "/treasury?tab=bazaar";
+                case PlayDestination.Satchel: return "/treasury?tab=satchel";
+                case PlayDestination.Bestiary: return "/bestiary";
+                case PlayDestination.BestiaryHatchery: return "/bestiary?tab=hatchery";
+                case PlayDestination.BestiaryCompanions: return "/bestiary?tab=companions";
+                case PlayDestination.BestiaryMounts: return "/bestiary?tab=mounts";
+                case PlayDestination.BestiaryCodex: return "/bestiary?tab=codex";
+                case PlayDestination.TasksStudy: return "/quests?tab=study";
+                case PlayDestination.TasksDuties: return "/quests?tab=duties";
+                case PlayDestination.TasksRituals: return "/quests?tab=rituals";
+                case PlayDestination.TasksMovement: return "/quests?tab=movement";
+                case PlayDestination.TasksVentures: return "/quests?tab=ventures";
+                case PlayDestination.TasksForge: return "/quests?tab=forge";
+                case PlayDestination.TasksTrials: return "/quests?tab=trials";
+                case PlayDestination.Skills: return "/atlas?tab=skills";
+                case PlayDestination.Badges: return "/atlas?tab=badges";
+                case PlayDestination.Lorebook: return "/atlas?tab=lorebook";
+                case PlayDestination.Character: return "/sigil";
+                case PlayDestination.Yearbook: return "/chronicle?tab=yearbook";
+                case PlayDestination.Creations: return "/chronicle?tab=sketchbook";
+                case PlayDestination.Wages: return "/treasury?tab=wages";
+                case PlayDestination.Coffers: return "/treasury?tab=coffers";
+                case PlayDestination.Savings: return "/treasury?tab=hoards";
+                default: return null;
+            }
+        }
+
+        /// <summary>Only a known typed destination is returned. Raw URLs, query
+        /// strings and identifiers from notifications are never forwarded.</summary>
+        public static bool TryResolveNotificationDestination(string link, string notificationType, out PlayDestination destination)
+        {
+            if (TryResolveNotificationLink(link, out destination)) return true;
+            destination = PlayDestination.Today;
+            string type = notificationType ?? "";
+            switch (type)
+            {
+                case "journal_reply": case "chronicle_first_ever": destination = PlayDestination.Journal; return true;
+                case "birthday": destination = PlayDestination.Yearbook; return true;
+                case "drop_received": destination = PlayDestination.Satchel; return true;
+                case "pet_evolved": case "expedition_returned": destination = PlayDestination.BestiaryMounts; return true;
+                case "mount_bred": destination = PlayDestination.BestiaryHatchery; return true;
+                case "companion_growth": destination = PlayDestination.BestiaryCompanions; return true;
+                case "badge_earned": destination = PlayDestination.Badges; return true;
+                case "skill_unlocked": destination = PlayDestination.Skills; return true;
+                case "milestone_completed": destination = PlayDestination.TasksVentures; return true;
+                case "timecard_ready": case "timecard_approved": destination = PlayDestination.Wages; return true;
+                case "payout_recorded": destination = PlayDestination.Coffers; return true;
+                case "savings_goal_completed": destination = PlayDestination.Savings; return true;
+                case "quest_completed": case "comeback_suggested": destination = PlayDestination.TasksTrials; return true;
+                case "streak_milestone": case "streak_at_risk": case "perfect_day": case "daily_check_in": destination = PlayDestination.Today; return true;
+            }
+            if (type.StartsWith("redemption_", StringComparison.Ordinal) || type.StartsWith("exchange_", StringComparison.Ordinal)
+                || type == "low_reward_stock" || type == "reward_restocked") destination = PlayDestination.RewardShop;
+            else if (type.StartsWith("homework_", StringComparison.Ordinal)) destination = PlayDestination.TasksStudy;
+            else if (type.StartsWith("chore_", StringComparison.Ordinal)) destination = PlayDestination.TasksDuties;
+            else if (type.StartsWith("habit_", StringComparison.Ordinal)) destination = PlayDestination.TasksRituals;
+            else if (type.StartsWith("project_", StringComparison.Ordinal)) destination = PlayDestination.TasksVentures;
+            else if (type.StartsWith("print_", StringComparison.Ordinal)) destination = PlayDestination.TasksForge;
+            else if (type.StartsWith("creation_", StringComparison.Ordinal)) destination = PlayDestination.Creations;
+            else return false;
+            return true;
+        }
+
+        private static bool TryResolveNotificationLink(string link, out PlayDestination destination)
+        {
+            destination = PlayDestination.Today;
+            if (string.IsNullOrEmpty(link) || link.Length > 512 || link[0] != '/' || link.StartsWith("//", StringComparison.Ordinal)) return false;
+            foreach (char character in link)
+                if (char.IsWhiteSpace(character) || char.IsControl(character) || character == '\\' || character == '%' || character == '#') return false;
+            foreach (PlayDestination candidate in Enum.GetValues(typeof(PlayDestination)))
+                if (link == DestinationPath(candidate)) { destination = candidate; return true; }
+            switch (link)
+            {
+                case "/journal": destination = PlayDestination.Journal; return true;
+                case "/grades": destination = PlayDestination.Grades; return true;
+                case "/tasks": destination = PlayDestination.Tasks; return true;
+                case "/homework": destination = PlayDestination.TasksStudy; return true;
+                case "/chores": destination = PlayDestination.TasksDuties; return true;
+                case "/habits": destination = PlayDestination.TasksRituals; return true;
+                case "/movement": destination = PlayDestination.TasksMovement; return true;
+                case "/projects": destination = PlayDestination.TasksVentures; return true;
+                case "/trials": case "/quests/trials": destination = PlayDestination.TasksTrials; return true;
+                case "/rewards": destination = PlayDestination.RewardShop; return true;
+                case "/inventory": destination = PlayDestination.Satchel; return true;
+                case "/stable": destination = PlayDestination.BestiaryCompanions; return true;
+                case "/character": destination = PlayDestination.Character; return true;
+                case "/achievements": case "/atlas": destination = PlayDestination.Skills; return true;
+                case "/lorebook": destination = PlayDestination.Lorebook; return true;
+                case "/yearbook": case "/atlas?tab=yearbook": destination = PlayDestination.Yearbook; return true;
+                case "/portfolio": case "/sketchbook": case "/chronicle": case "/atlas?tab=sketchbook": destination = PlayDestination.Creations; return true;
+                case "/timecards": destination = PlayDestination.Wages; return true;
+                case "/payments": case "/treasury": destination = PlayDestination.Coffers; return true;
+            }
+            // Legacy project-detail links resolve to the existing task tab. An
+            // arbitrary path/query still cannot cross the bridge.
+            foreach (string prefix in new[] { "/projects/", "/quests/ventures/" })
+                if (link.StartsWith(prefix, StringComparison.Ordinal) && int.TryParse(link.Substring(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > 0)
+                { destination = PlayDestination.TasksVentures; return true; }
+            return false;
         }
 
         /// <summary>Web only: validate the journal's existing same-origin token
@@ -185,6 +314,7 @@ namespace AbbyCamp.Services
             token = null;
             CurrentUser = null;
             knownHabits.Clear();
+            knownNotifications.Clear();
             foreach (var request in activeRequests) request.Abort();
         }
 
@@ -281,6 +411,152 @@ namespace AbbyCamp.Services
                 catch (Exception exception) { failure?.Invoke(InvalidResponse(exception, false)); return; }
                 success?.Invoke(character);
             }, failure);
+        }
+
+        /// <summary>Read-only receipt metadata; no journal text, reward mint, or claim request.</summary>
+        public IEnumerator FetchMeadow(Action<MeadowDto> success, Action<ApiError> failure)
+        {
+            yield return Send("GET", baseUrl + "/api/chronicle/meadow/", null, true, false, json =>
+            {
+                MeadowDto meadow;
+                try { meadow = ApiContract.ParseMeadow(json); }
+                catch (Exception exception) { failure?.Invoke(InvalidResponse(exception, false)); return; }
+                success?.Invoke(meadow);
+            }, failure);
+        }
+
+        public IEnumerator FetchCoins(Action<CoinBalanceDto> success, Action<ApiError> failure)
+        {
+            int userId = CurrentUser != null ? CurrentUser.id : 0;
+            yield return FetchProjection("/api/coins/", json => ApiContract.ParseCoins(json, userId), success, failure);
+        }
+
+        public IEnumerator FetchRecentDrops(Action<DropDto[]> success, Action<ApiError> failure)
+        {
+            yield return FetchProjection("/api/drops/recent/", ApiContract.ParseRecentDrops, success, failure);
+        }
+
+        public IEnumerator FetchUnreadNotificationCount(Action<UnreadCountDto> success, Action<ApiError> failure)
+        {
+            yield return FetchProjection("/api/notifications/unread_count/", ApiContract.ParseUnreadCount, success, failure);
+        }
+
+        public IEnumerator FetchStable(Action<StableDto> success, Action<ApiError> failure)
+        {
+            yield return FetchProjection("/api/pets/stable/", ApiContract.ParseStable, success, failure);
+        }
+
+        private IEnumerator FetchProjection<T>(string path, Func<string, T> parse, Action<T> success, Action<ApiError> failure)
+        {
+            yield return Send("GET", baseUrl + path, null, true, false, json =>
+            {
+                T result;
+                try { result = parse(json); }
+                catch (Exception exception) { failure?.Invoke(InvalidResponse(exception, false)); return; }
+                success?.Invoke(result);
+            }, failure);
+        }
+
+        /// <summary>Fetch one bounded page on demand. Reading never marks an item
+        /// read. Only same-origin, forward page-number continuations are accepted.</summary>
+        public IEnumerator FetchNotifications(Action<NotificationPageDto> success, Action<ApiError> failure, string pageUrl = null)
+        {
+            string requested = pageUrl ?? baseUrl + "/api/notifications/";
+            if (!TryResolveNotificationPageUrl(baseUrl, requested, out var resolved))
+            {
+                failure?.Invoke(new ApiError("The notification page link was unsafe or invalid."));
+                yield break;
+            }
+            yield return Send("GET", resolved, null, true, false, json =>
+            {
+                NotificationPageDto page;
+                try
+                {
+                    page = ApiContract.ParseNotificationPage(json);
+                    if (page.next != null)
+                    {
+                        if (!TryResolveNotificationPageUrl(baseUrl, page.next, out var next) || NotificationPageNumber(next) <= NotificationPageNumber(resolved))
+                            throw new FormatException("The notification continuation was unsafe or repeating.");
+                        page.next = next;
+                    }
+                }
+                catch (Exception exception) { failure?.Invoke(InvalidResponse(exception, false)); return; }
+                foreach (var item in page.results) knownNotifications.Add(item.id);
+                success?.Invoke(page);
+            }, failure);
+        }
+
+        public static bool TryResolveNotificationPageUrl(string origin, string next, out string resolved)
+        {
+            resolved = null;
+            if (!TryValidateBaseUrl(origin, out var validatedOrigin, out _) || string.IsNullOrWhiteSpace(next)
+                || next.Length > 2048 || next.IndexOf('\\') >= 0 || !Uri.TryCreate(validatedOrigin + "/", UriKind.Absolute, out var baseUri)
+                || !Uri.TryCreate(baseUri, next, out var uri)) return false;
+            if (uri.Scheme != baseUri.Scheme || uri.IdnHost != baseUri.IdnHost || uri.Port != baseUri.Port
+                || !string.IsNullOrEmpty(uri.UserInfo) || !string.IsNullOrEmpty(uri.Fragment) || uri.AbsolutePath != "/api/notifications/") return false;
+            int page = NotificationPageNumber(uri.AbsoluteUri);
+            if (page < 1 || page > 500) return false;
+            resolved = validatedOrigin + "/api/notifications/" + (page == 1 ? "" : "?page=" + page);
+            return true;
+        }
+
+        private static int NotificationPageNumber(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return 0;
+            if (uri.Query.Length == 0) return 1;
+            int page = 1;
+            bool hasPage = false;
+            bool hasReadNamespace = false;
+            foreach (var parameter in uri.Query.Substring(1).Split('&'))
+            {
+                int separator = parameter.IndexOf('=');
+                if (separator < 1) return 0;
+                string key = parameter.Substring(0, separator);
+                string value = parameter.Substring(separator + 1);
+                // Django pagination retains the private GET namespace. Accept
+                // only the generated noncredential key; the resolver strips it
+                // and Send applies this client's current session namespace.
+                if (key == "_abby_session")
+                {
+                    if (hasReadNamespace || !Guid.TryParseExact(value, "N", out _)) return 0;
+                    hasReadNamespace = true;
+                }
+                else
+                {
+                    if (key != "page" || hasPage
+                        || !int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out page)) return 0;
+                    hasPage = true;
+                }
+            }
+            return page;
+        }
+
+        /// <summary>Explicit, idempotent acknowledgement of a fetched notification.
+        /// It never awards anything or consumes other notification/reveal queues.</summary>
+        public IEnumerator MarkNotificationRead(int id, Action<NotificationDto> success, Action<ApiError> failure)
+        {
+            SynchronizeBrowserSession();
+            if (!IsAuthenticated)
+            {
+                failure?.Invoke(new ApiError("Sign in before opening account notifications.", requiresLogin: true));
+                yield break;
+            }
+            if (id < 1 || !knownNotifications.Contains(id))
+            {
+                failure?.Invoke(new ApiError("Refresh the inbox before opening that notification."));
+                yield break;
+            }
+            yield return Send("POST", baseUrl + "/api/notifications/" + id + "/mark_read/", "{}", true, true, json =>
+            {
+                NotificationDto receipt;
+                try
+                {
+                    receipt = ApiContract.ParseNotification(json);
+                    if (receipt.id != id || !receipt.is_read) throw new FormatException("The server did not confirm this notification as read.");
+                }
+                catch (Exception exception) { failure?.Invoke(InvalidResponse(exception, false)); return; }
+                success?.Invoke(receipt);
+            }, failure, idempotentAcknowledgement: true);
         }
 
         /// <summary>Retrieves all DRF pages, validates each page URL before sending
@@ -387,7 +663,7 @@ namespace AbbyCamp.Services
         }
 
         private IEnumerator Send(string method, string url, string json, bool authenticated, bool mutation,
-            Action<string> success, Action<ApiError> failure, bool validatingSession = false)
+            Action<string> success, Action<ApiError> failure, bool validatingSession = false, bool idempotentAcknowledgement = false)
         {
             SynchronizeBrowserSession();
             bool validOrigin = TryValidateBaseUrl(baseUrl, out _, out var error);
@@ -403,7 +679,7 @@ namespace AbbyCamp.Services
             }
             if (mutation && MutationInFlight)
             {
-                failure?.Invoke(new ApiError("Wait for the current ritual to finish saving."));
+                failure?.Invoke(new ApiError("Wait for the current action to finish saving."));
                 yield break;
             }
             int version = sessionVersion;
@@ -440,16 +716,16 @@ namespace AbbyCamp.Services
                     SynchronizeBrowserSession();
                     if (version != sessionVersion)
                     {
-                        failure?.Invoke(new ApiError(mutation ?
+                        failure?.Invoke(new ApiError(mutation && !idempotentAcknowledgement ?
                             "The session ended while saving. The habit may have been saved; refresh its state before logging again." :
-                            "The session ended before the request completed.", outcomeUnknown: mutation, requiresLogin: true));
+                            "The session ended before the request completed.", outcomeUnknown: mutation && !idempotentAcknowledgement, requiresLogin: true));
                         yield break;
                     }
                     bool transportFailure = request.result == UnityWebRequest.Result.ConnectionError ||
                         request.result == UnityWebRequest.Result.DataProcessingError;
                     if (request.result != UnityWebRequest.Result.Success || request.responseCode < 200 || request.responseCode >= 300)
                     {
-                        var problem = ApiContract.HttpError(request.responseCode, request.downloadHandler.text, mutation, transportFailure);
+                        var problem = ApiContract.HttpError(request.responseCode, request.downloadHandler.text, mutation && !idempotentAcknowledgement, transportFailure);
                         if (problem.RequiresLogin)
                         {
 #if UNITY_WEBGL && !UNITY_EDITOR

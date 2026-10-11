@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using AbbyCamp.Data;
 using AbbyCamp.Services;
 using UnityEditor;
@@ -75,6 +76,31 @@ namespace AbbyCamp.Editor
             Check(!AbbyApiClient.TryResolveHabitPageUrl("https://abby.example.com", "http://abby.example.com/api/habits/?page=2", out _), "Pagination cannot downgrade HTTPS");
             Check(!AbbyApiClient.TryResolveHabitPageUrl("https://abby.example.com", "/api/auth/", out _), "Pagination restricted to habit endpoint");
 
+            const string bloom = "{\"receipt_id\":\"journal:123\",\"type\":\"memory_bloom\",\"title\":\"Memory bloom\",\"earned_at\":\"2026-10-10T12:34:56Z\"}";
+            const string meadowJson = "{\"schema_version\":1,\"keepsake_count\":1,\"journal_xp_awarded\":5,\"keepsakes\":[" + bloom + "]}";
+            var meadow = ApiContract.ParseMeadow(meadowJson);
+            Check(meadow.keepsake_count == 1 && meadow.keepsakes[0].receipt_id == "journal:123", "Read-only meadow receipt metadata");
+            var emptyMeadow = ApiContract.ParseMeadow("{\"schema_version\":1,\"keepsake_count\":0,\"journal_xp_awarded\":0,\"keepsakes\":[]}");
+            Check(emptyMeadow.keepsakes.Length == 0, "Empty collection remains a valid acknowledged read");
+            Reject(() => ApiContract.ParseMeadow(meadowJson.Replace("\"schema_version\":1", "\"schema_version\":2")), "Unknown meadow schema cannot be displayed as progress");
+            Reject(() => ApiContract.ParseMeadow(meadowJson.Replace("\"keepsake_count\":1", "\"keepsake_count\":0")), "Collection count cannot be smaller than its window");
+            Reject(() => ApiContract.ParseMeadow(meadowJson.Replace("journal:123", "journal:invalid")), "Keepsake requires stable journal receipt identity");
+            Reject(() => ApiContract.ParseMeadow(meadowJson.Replace("memory_bloom", "unverified_reward")), "Unknown reward type is not recognised as an earned bloom");
+            Reject(() => ApiContract.ParseMeadow(meadowJson.Replace("2026-10-10T12:34:56Z", "not-a-date")), "Keepsake requires an earned date");
+            Reject(() => ApiContract.ParseMeadow("{\"schema_version\":1,\"keepsake_count\":2,\"journal_xp_awarded\":10,\"keepsakes\":[" + bloom + "," + bloom + "]}"), "Duplicate keepsake receipts rejected");
+            var localMemory = new Dictionary<string, string>();
+            string Read(string key) => localMemory.TryGetValue(key, out var value) ? value : "";
+            void Remember(string key, string value) => localMemory[key] = value;
+            Check(MeadowReceiptMemory.Observe("https://abby.example.com", 7, meadow, Read, Remember) == null, "First visit baselines existing awarded history without replaying a celebration");
+            var nextMeadow = ApiContract.ParseMeadow(meadowJson.Replace("journal:123", "journal:124").Replace("12:34:56Z", "12:35:56Z"));
+            Check(MeadowReceiptMemory.Observe("https://abby.example.com", 7, nextMeadow, Read, Remember)?.receipt_id == "journal:124", "New acknowledged receipt celebrates locally");
+            Check(MeadowReceiptMemory.Observe("https://abby.example.com", 7, nextMeadow, Read, Remember) == null, "Refresh cannot replay receipt celebration");
+            Check(MeadowReceiptMemory.Observe("https://abby.example.com", 7, emptyMeadow, Read, Remember) == null
+                && MeadowReceiptMemory.Observe("https://abby.example.com", 7, meadow, Read, Remember) == null, "Deletion and older window items cannot replay historical celebrations");
+            Check(MeadowReceiptMemory.Observe("https://abby.example.com", 8, nextMeadow, Read, Remember) == null, "Receipt presentation baselines separately for another child");
+            Check(MeadowReceiptMemory.Observe("https://other.example.com", 7, nextMeadow, Read, Remember) == null, "Receipt presentation stays scoped to its server origin");
+
+            ValidatePlayHomeContracts();
             var gameObject = new GameObject("API validation client");
             try
             {
@@ -102,6 +128,14 @@ namespace AbbyCamp.Editor
                 coroutine = client.ResumeBrowserSession(_ => completed = true, problem => rejection = problem);
                 Check(!coroutine.MoveNext() && !completed && rejection != null && rejection.RequiresLogin && !client.IsAuthenticated,
                     "Missing browser credential cannot mint a token or authorize camp actions");
+                rejection = null;
+                coroutine = client.MarkNotificationRead(1, _ => completed = true, problem => rejection = problem);
+                Check(!coroutine.MoveNext() && !completed && rejection != null && rejection.RequiresLogin,
+                    "Logged-out notification acknowledgement never issues a request");
+                rejection = null;
+                coroutine = client.FetchNotifications(_ => completed = true, problem => rejection = problem, "https://outside.example.com/api/notifications/?page=2");
+                Check(!coroutine.MoveNext() && !completed && rejection != null,
+                    "Unsafe inbox continuation is rejected before a request starts");
                 client.ConfigureBaseUrl("https://abby.example.com", out _);
                 Check(!client.ConfigureBaseUrl("http://remote.example.com", out _) && client.BaseUrl == "https://abby.example.com", "Rejected configuration preserves valid origin");
             }
@@ -175,6 +209,86 @@ namespace AbbyCamp.Editor
             if (!File.Exists(path))
                 throw new FileNotFoundException("Shared API fixture missing. Validate Unity from a full repository checkout: " + name, path);
             return File.ReadAllText(path);
+        }
+
+        private static void ValidatePlayHomeContracts()
+        {
+            const string date = "2026-10-10T12:34:56Z";
+            const string transaction = "{\"id\":12,\"user\":7,\"amount\":-5,\"reason\":\"redemption\",\"description\":\"Reward shelf\",\"created_at\":\"" + date + "\"}";
+            const string coinsJson = "{\"balance\":120,\"breakdown\":{\"redemption\":-5},\"recent_transactions\":[" + transaction + "]}";
+            var coins = ApiContract.ParseCoins(coinsJson, 7);
+            Check(coins.balance == 120 && coins.recent_transactions[0].amount == -5, "Authoritative coin history retains signed spending amounts");
+            Check(ApiContract.ParseCoins("{\"balance\":0,\"recent_transactions\":[]}", 7).recent_transactions.Length == 0, "An empty coin ledger is valid");
+            Reject(() => ApiContract.ParseCoins(coinsJson, 8), "Another account's coin ledger is rejected");
+            Reject(() => ApiContract.ParseCoins(coinsJson.Replace("\"amount\":-5,", ""), 7), "Missing transaction amounts cannot default into rewards");
+            Reject(() => ApiContract.ParseCoins("{\"balance\":120,\"recent_transactions\":[" + transaction + "," + transaction + "]}", 7), "Duplicate ledger records are rejected");
+            const string drop = "{\"id\":4,\"item\":3,\"item_name\":\"Fox egg\",\"item_icon\":\"egg\",\"item_sprite_key\":\"fox-egg\",\"item_rarity\":\"rare\",\"trigger_type\":\"homework_approved\",\"quantity\":2,\"was_salvaged\":true,\"created_at\":\"" + date + "\"}";
+            var drops = ApiContract.ParseRecentDrops("[" + drop + "]");
+            Check(drops[0].id == 4 && drops[0].quantity == 2 && drops[0].was_salvaged, "Committed drops retain identity, quantity and salvage state");
+            Check(ApiContract.ParseRecentDrops("[]").Length == 0, "No drops is a valid history");
+            Reject(() => ApiContract.ParseRecentDrops("[" + drop + "," + drop + "]"), "Duplicate drop IDs cannot be announced twice");
+            Reject(() => ApiContract.ParseRecentDrops("[" + drop.Replace("\"was_salvaged\":true", "\"was_salvaged\":\"true\"") + "]"), "Salvage state requires an explicit boolean");
+            Reject(() => ApiContract.ParseRecentDrops("[" + drop.Replace("\"quantity\":2", "\"quantity\":0") + "]"), "Drop quantities must be positive");
+            Reject(() => ApiContract.ParseRecentDrops("[" + new string(' ', 2 * 1024 * 1024) + "]"), "Oversized bare-array responses are bounded");
+
+            const string notification = "{\"id\":20,\"title\":\"New drop\",\"message\":\"An egg is waiting\",\"notification_type\":\"drop_received\",\"is_read\":false,\"created_at\":\"" + date + "\",\"link\":\"/inventory\"}";
+            var page = ApiContract.ParseNotificationPage("{\"count\":21,\"next\":\"https://abby.example.com/api/notifications/?page=2\",\"results\":[" + notification + "]}");
+            Check(page.count == 21 && !page.results[0].is_read && page.next.EndsWith("page=2"), "Inbox parsing preserves unread state and pagination");
+            Check(ApiContract.ParseNotificationPage("{\"count\":0,\"next\":null,\"results\":[]}").next == null, "An empty inbox uses a true null continuation");
+            Check(ApiContract.ParseUnreadCount("{\"count\":35}").count == 35, "Global unread count is independent of the latest page");
+            Reject(() => ApiContract.ParseNotification(notification.Replace(",\"is_read\":false", "")), "Missing read state cannot silently acknowledge a notification");
+            Reject(() => ApiContract.ParseNotification(notification.Replace(date, "invalid")), "Notification dates are validated");
+            Reject(() => ApiContract.ParseUnreadCount("{\"count\":-1}"), "Unread counts cannot be negative");
+            Reject(() => ApiContract.ParseNotificationPage("{\"count\":2,\"next\":null,\"results\":[" + notification + "," + notification + "]}"), "Duplicate inbox rows are rejected");
+            Reject(() => ApiContract.ParseNotificationPage("{\"count\":0,\"next\":\"?page=2\",\"results\":[]}"), "An empty page cannot authorize a continuation loop");
+            Check(AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", "/api/notifications/?page=2", out var next) && next == "https://abby.example.com/api/notifications/?page=2", "Inbox page URLs stay at the same-origin endpoint");
+            const string readNamespace = "0123456789abcdef0123456789abcdef";
+            Check(AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", "/api/notifications/?_abby_session=" + readNamespace + "&page=2", out next)
+                && next == "https://abby.example.com/api/notifications/?page=2",
+                "Django inbox continuation strips the inherited private read namespace");
+            Check(AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", "/api/notifications/?page=2&_abby_session=" + readNamespace, out next)
+                && next == "https://abby.example.com/api/notifications/?page=2",
+                "Inbox continuation accepts the namespace after its page number");
+            Check(AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", "/api/notifications/?_abby_session=" + readNamespace, out next)
+                && next == "https://abby.example.com/api/notifications/",
+                "Namespace-only inbox reads resolve to the first page");
+            Check(AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", "/api/notifications/?page=2&%5Fabby_session=" + readNamespace, out next)
+                && next == "https://abby.example.com/api/notifications/?page=2",
+                "URI-normalized private namespace keys are still stripped from inbox continuations");
+            Check(AbbyApiClient.TryResolveHabitPageUrl("https://abby.example.com", "/api/habits/?_abby_session=" + readNamespace + "&page=2", out var habitNext)
+                && habitNext == "https://abby.example.com/api/habits/?_abby_session=" + readNamespace + "&page=2",
+                "Habit continuation retains the inherited namespace for replacement by Send");
+            foreach (string unsafeQuery in new[] { "page=2&_abby_session=invalid", "page=2&_abby_session=" + readNamespace + "&token=x", "page=2&page=3&_abby_session=" + readNamespace,
+                "page=2&_abby_session=" + readNamespace + "&_abby_session=" + readNamespace, "page=2&%5Fabby_session_extra=" + readNamespace })
+                Check(!AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", "/api/notifications/?" + unsafeQuery, out _),
+                    "Private namespaces cannot weaken inbox query validation: " + unsafeQuery);
+            foreach (string unsafePage in new[] { "https://other.example.com/api/notifications/?page=2", "http://abby.example.com/api/notifications/?page=2", "/api/auth/", "/api/notifications/?page=0", "/api/notifications/?page=501", "/api/notifications/?page=2&token=x", "/api/notifications/?page=2#secret", "https://user@abby.example.com/api/notifications/?page=2" })
+                Check(!AbbyApiClient.TryResolveNotificationPageUrl("https://abby.example.com", unsafePage, out _), "Unsafe inbox page rejected: " + unsafePage);
+
+            const string species = "{\"id\":1,\"name\":\"Fox\",\"icon\":\"fox\",\"sprite_key\":\"fox\",\"description\":\"Friendly\",\"food_preference\":\"fruit\"}";
+            const string potion = "{\"id\":2,\"slug\":null,\"name\":\"Mint\",\"sprite_key\":\"mint\",\"color_hex\":\"#AABBCC\",\"rarity\":\"common\",\"description\":\"Soft green\"}";
+            const string pet = "{\"id\":8,\"species\":" + species + ",\"potion\":" + potion + ",\"name\":\"Clover\",\"growth_points\":12,\"is_active\":true,\"evolved_to_mount\":false,\"is_fully_grown\":false,\"happiness_level\":\"happy\",\"last_fed_at\":null,\"created_at\":\"" + date + "\",\"updated_at\":\"" + date + "\"}";
+            const string mount = "{\"id\":5,\"species\":" + species + ",\"potion\":" + potion + ",\"is_active\":true,\"last_bred_at\":null,\"active_expedition\":null,\"created_at\":\"" + date + "\",\"updated_at\":\"" + date + "\"}";
+            const string stableJson = "{\"pets\":[" + pet + "],\"mounts\":[" + mount + "],\"total_pets\":1,\"total_mounts\":1,\"total_possible\":2}";
+            var stable = ApiContract.ParseStable(stableJson);
+            Check(stable.ActiveCompanion?.DisplayName == "Clover" && stable.ActiveMount?.DisplayName == "Mint Fox", "Stable reflects genuinely owned active creatures");
+            Check(stable.pets[0].last_fed_at == null && stable.mounts[0].last_bred_at == null, "Nullable care dates do not become fabricated timestamps");
+            Check(ApiContract.ParseStable("{\"pets\":[],\"mounts\":[],\"total_pets\":0,\"total_mounts\":0,\"total_possible\":0}").ActiveCompanion == null, "Empty ownership does not invent a starter companion");
+            Check(ApiContract.ParseStable(stableJson.Replace("\"evolved_to_mount\":false", "\"evolved_to_mount\":true")).ActiveCompanion == null, "Evolved pets do not masquerade as the active companion");
+            Reject(() => ApiContract.ParseStable(stableJson.Replace("\"total_pets\":1", "\"total_pets\":0")), "Stable ownership counts must agree with its arrays");
+            Reject(() => ApiContract.ParseStable(stableJson.Replace("\"growth_points\":12", "\"growth_points\":101")), "Out-of-range companion growth is rejected");
+            Reject(() => ApiContract.ParseStable(stableJson.Replace("\"is_fully_grown\":false", "\"is_fully_grown\":true")), "Growth status cannot be fabricated by missing or inconsistent state");
+            Reject(() => ApiContract.ParseStable(stableJson.Replace("\"color_hex\":\"#AABBCC\"", "\"color_hex\":\"invalid\"")), "Potion colors cannot be untrusted markup");
+            Reject(() => ApiContract.ParseStable(stableJson.Replace("\"species\":" + species, "\"species\":null")), "Owned creature species are required");
+
+            Check(AbbyApiClient.DestinationPath((PlayDestination)999) == null, "Unknown typed destinations cannot navigate");
+            Check(AbbyApiClient.TryResolveNotificationDestination("/inventory", "drop_received", out var destination) && destination == PlayDestination.Satchel, "Legacy inventory links resolve to Satchel");
+            Check(AbbyApiClient.TryResolveNotificationDestination("/projects/123", "project_approved", out destination) && destination == PlayDestination.TasksVentures, "Legacy project detail links resolve to its task tab");
+            Check(AbbyApiClient.TryResolveNotificationDestination("/chronicle?tab=grades", "journal_reply", out destination) && destination == PlayDestination.Grades, "Safe notification link retains the appropriate memoir tab");
+            Check(AbbyApiClient.TryResolveNotificationDestination("/unknown", "print_finished", out destination) && destination == PlayDestination.TasksForge, "Known notification types supply a typed fallback");
+            Check(AbbyApiClient.TryResolveNotificationDestination("https://outside.example.com/", "journal_reply", out destination) && destination == PlayDestination.Journal, "Unsafe links can only fall back to a known typed destination");
+            foreach (string unsafeLink in new[] { "https://outside.example.com/", "//outside.example.com/", "/\\outside.example.com/", "/chronicle?tab=journal&token=secret", "/%2foutside.example.com/", "/bestiary#secret", "/unknown" })
+                Check(!AbbyApiClient.TryResolveNotificationDestination(unsafeLink, "unknown_type", out _), "Raw or unknown notification destinations are never followed: " + unsafeLink);
         }
 
         private static void Check(bool condition, string description)

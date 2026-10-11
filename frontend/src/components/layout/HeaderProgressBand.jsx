@@ -3,17 +3,8 @@ import { getActiveQuest } from '../../api';
 import { useApi } from '../../hooks/useApi';
 
 /**
- * HeaderProgressBand — thin full-width band under the header.
- *  - Inert hairline (page divider) when no quest is active.
- *  - Sheikah-teal gradient scaled to quest progress when one is active, tap
- *    routes to the Trials page.
- *
- * When active the band is a real button, so it carries a real target: the
- * visual gradient stays a 4-6px hairline but the button is min-h-11 with
- * -my-2 pulling the extra height into the header's and the content well's
- * existing padding, so the layout doesn't move. The quest name + percent
- * render inline — they used to live in a `group-hover` tooltip, which no
- * touch device can ever show.
+ * HeaderProgressBand — a soft quest-progress card under the header.
+ * The quest name and percentage stay visible with a full mobile tap target.
  */
 export default function HeaderProgressBand() {
   const navigate = useNavigate();
@@ -29,35 +20,34 @@ export default function HeaderProgressBand() {
     return (
       <div
         aria-hidden="true"
-        className="w-full border-b border-ink-page-shadow/60"
+        className="w-full"
         style={{ height: 1 }}
       />
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => navigate('/trials')}
-      aria-label={`${title} · ${percent}% complete`}
-      title={`${title} · ${percent}%`}
-      className="relative block w-full min-h-11 -my-2 pt-2 text-left focus:outline-none"
-    >
-      <div className="relative w-full h-1 md:h-1.5 bg-ink-page-shadow/50">
-        <div
-          className="absolute inset-y-0 left-0 bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal animate-rune-pulse"
-          style={{ width: `${percent}%` }}
-        />
-      </div>
-      <span
-        className="flex items-center justify-between gap-2 pt-1
-                   pl-[max(1rem,env(safe-area-inset-left))]
-                   pr-[max(1rem,env(safe-area-inset-right))] lg:px-6
-                   font-rune text-tiny text-ink-secondary"
+    <div className="pb-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] lg:px-6">
+      <button
+        type="button"
+        onClick={() => navigate('/trials')}
+        aria-label={`${title} · ${percent}% complete`}
+        title={`${title} · ${percent}%`}
+        className="relative block w-full min-h-11 rounded-2xl border border-sheikah-teal/15 bg-ink-page-aged/80 px-3 py-2 text-left hover:bg-sheikah-teal/10 transition-colors"
       >
-        <span className="truncate">{title}</span>
-        <span className="tabular-nums shrink-0">{percent}%</span>
-      </span>
-    </button>
+        <div className="relative w-full h-1.5 rounded-full bg-sheikah-teal/10 overflow-hidden" aria-hidden="true">
+          <div
+            className="absolute inset-y-0 left-0 rounded-full bg-sheikah-teal-deep transition-[width]"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+        <span
+          className="flex items-center justify-between gap-2 pt-1.5 font-body font-semibold text-tiny text-ink-primary"
+        >
+          <span className="truncate">{title}</span>
+          <span className="tabular-nums shrink-0">{percent}%</span>
+        </span>
+      </button>
+    </div>
   );
 }

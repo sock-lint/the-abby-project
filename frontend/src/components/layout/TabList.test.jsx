@@ -45,11 +45,11 @@ describe('TabList', () => {
       />,
     );
     const active = screen.getByRole('tab', { name: 'Alpha' });
-    expect(active.className).toContain('bg-sheikah-teal-deep');
+    expect(active).toHaveClass('bg-sheikah-teal/15', 'text-ink-primary');
   });
 
-  it('applies the bookmark variant with the teal indicator on the active tab', () => {
-    const { container } = render(
+  it('keeps the bookmark variant compatible with the shared rounded active pill', () => {
+    render(
       <TabList
         tabs={tabs}
         activeId="b"
@@ -58,9 +58,7 @@ describe('TabList', () => {
         ariaLabel="Hub"
       />,
     );
-    // Active bookmark tab carries the bottom-aligned teal pip span.
-    const pip = container.querySelector('span.bg-sheikah-teal-deep');
-    expect(pip).not.toBeNull();
+    expect(screen.getByRole('tab', { name: 'Beta' })).toHaveClass('rounded-full', 'bg-sheikah-teal/15', 'text-ink-primary');
   });
 
   it('renders icons in pill variant when descriptor includes one', () => {

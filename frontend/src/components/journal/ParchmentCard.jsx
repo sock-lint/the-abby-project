@@ -1,19 +1,9 @@
 import { forwardRef } from 'react';
-import flourishCornerUrl from '../../assets/glyphs/flourish-corner.svg';
-import waxSealUrl from '../../assets/glyphs/wax-seal.svg';
+import { Flower2, Sparkles } from 'lucide-react';
 
 /**
- * ParchmentCard — the foundation panel of the Hyrule Field Notes system.
- *
- * Variants:
- *   - "plain"   : aged parchment rectangle with a hairline border
- *   - "deckle"  : torn-paper edges via SVG mask (no border; relies on tone)
- *   - "sealed"  : rune-corner flourishes + optional wax-seal in corner
- *
- * Tone:
- *   - "default" : ink-page-aged
- *   - "bright"  : lighter (ink-page-rune-glow) — for hero / spotlight
- *   - "deep"    : page-shadow — for nested, quieter panels
+ * Shared storybook panel. Legacy variant/decoration props remain compatible
+ * with existing pages; every surface now has rounded edges and soft accents.
  */
 const ParchmentCard = forwardRef(function ParchmentCard(
   {
@@ -36,12 +26,12 @@ const ParchmentCard = forwardRef(function ParchmentCard(
 
   const variantClasses = {
     plain: 'border border-ink-page-shadow rounded-xl',
-    deckle: 'deckle-edge rounded-none',
+    deckle: 'deckle-edge border border-ink-page-shadow rounded-xl',
     sealed: 'border border-ink-page-shadow rounded-xl',
   }[variant];
 
   const base =
-    'relative p-5 shadow-[0_1px_0_0_var(--color-ink-page-rune-glow)_inset,0_4px_14px_-8px_rgba(45,31,21,0.35)]';
+    'relative p-5 shadow-[0_8px_24px_-12px_var(--color-modal-shadow-strong)]';
 
   return (
     <Tag
@@ -59,51 +49,22 @@ const ParchmentCard = forwardRef(function ParchmentCard(
 function CornerFlourishes() {
   return (
     <>
-      <img
-        src={flourishCornerUrl}
-        alt=""
-        aria-hidden="true"
-        className="absolute top-1 left-1 w-8 h-8 text-ink-secondary opacity-50 pointer-events-none"
-        style={{ filter: 'sepia(1) saturate(0.6) brightness(0.6)' }}
-      />
-      <img
-        src={flourishCornerUrl}
-        alt=""
-        aria-hidden="true"
-        className="absolute top-1 right-1 w-8 h-8 opacity-50 pointer-events-none scale-x-[-1]"
-        style={{ filter: 'sepia(1) saturate(0.6) brightness(0.6)' }}
-      />
-      <img
-        src={flourishCornerUrl}
-        alt=""
-        aria-hidden="true"
-        className="absolute bottom-1 left-1 w-8 h-8 opacity-50 pointer-events-none scale-y-[-1]"
-        style={{ filter: 'sepia(1) saturate(0.6) brightness(0.6)' }}
-      />
-      <img
-        src={flourishCornerUrl}
-        alt=""
-        aria-hidden="true"
-        className="absolute bottom-1 right-1 w-8 h-8 opacity-50 pointer-events-none scale-x-[-1] scale-y-[-1]"
-        style={{ filter: 'sepia(1) saturate(0.6) brightness(0.6)' }}
-      />
+      {['top-2 left-2', 'top-2 right-2', 'bottom-2 left-2', 'bottom-2 right-2'].map((position) => (
+        <Sparkles key={position} aria-hidden="true" className={`absolute ${position} w-4 h-4 text-sheikah-teal opacity-20 pointer-events-none`} />
+      ))}
     </>
   );
 }
 
 function WaxSeal({ position = 'top-right' }) {
   const positions = {
-    'top-right': 'top-2 right-2',
-    'top-left': 'top-2 left-2',
-    'bottom-right': 'bottom-2 right-2',
-    'bottom-left': 'bottom-2 left-2',
+    'top-right': 'top-2 right-2', 'top-left': 'top-2 left-2',
+    'bottom-right': 'bottom-2 right-2', 'bottom-left': 'bottom-2 left-2',
   };
   return (
-    <img
-      src={waxSealUrl}
-      alt=""
+    <Flower2
       aria-hidden="true"
-      className={`absolute ${positions[position] || positions['top-right']} w-10 h-10 drop-shadow-md pointer-events-none`}
+      className={`absolute ${positions[position] || positions['top-right']} w-9 h-9 p-2 rounded-full bg-moss/10 text-moss pointer-events-none`}
     />
   );
 }

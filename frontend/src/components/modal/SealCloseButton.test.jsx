@@ -27,15 +27,15 @@ describe('SealCloseButton', () => {
     expect(screen.getByRole('button')).toBeDisabled();
   });
 
-  it('applies ember gradient by default', () => {
-    const { container } = render(<SealCloseButton onClick={() => {}} />);
-    // jsdom normalizes hex colors to rgb(). #e88a5e → rgb(232, 138, 94).
-    expect(container.querySelector('button').style.background).toContain('rgb(232, 138, 94)');
+  it('keeps a 44px touch target with a decorative icon', () => {
+    render(<SealCloseButton onClick={() => {}} />);
+    const button = screen.getByRole('button', { name: 'Close' });
+    expect(button).toHaveClass('min-h-11', 'min-w-11');
+    expect(button.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('applies teal gradient when variant=teal', () => {
-    const { container } = render(<SealCloseButton onClick={() => {}} variant="teal" />);
-    // #4dd0e1 → rgb(77, 208, 225).
-    expect(container.querySelector('button').style.background).toContain('rgb(77, 208, 225)');
+  it('keeps the same accessible control for the teal variant', () => {
+    render(<SealCloseButton onClick={() => {}} variant="teal" ariaLabel="Dismiss preview" />);
+    expect(screen.getByRole('button', { name: 'Dismiss preview' })).toHaveAttribute('type', 'button');
   });
 });

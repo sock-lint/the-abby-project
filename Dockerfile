@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # ─── Stage 1: build the React bundle ────────────────────────────────────────
 FROM node:20-alpine AS frontend-build
 
@@ -27,6 +28,22 @@ ENV SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
 ENV SENTRY_ORG=${SENTRY_ORG}
 ENV SENTRY_PROJECT=${SENTRY_PROJECT}
 
+# Only configuration/credentials travel through this secret. The private
+# artwork bundle is downloaded, verified and staged inside the build stage.
+ARG ABBY_MEADOW_ASSETS_SHA256=""
+ARG ABBY_MEADOW_ASSETS_REQUIRED="false"
+ARG COOLIFY_BUILD_SECRETS_HASH
+RUN --mount=type=secret,id=ABBY_MEADOW_ASSETS \
+    --mount=type=secret,id=ABBY_MEADOW_ASSETS_REQUIRED \
+    --mount=type=secret,id=AWS_S3_ENDPOINT_URL \
+    --mount=type=secret,id=AWS_STORAGE_BUCKET_NAME \
+    --mount=type=secret,id=AWS_S3_REGION_NAME \
+    --mount=type=secret,id=AWS_ACCESS_KEY_ID \
+    --mount=type=secret,id=AWS_SECRET_ACCESS_KEY \
+    node scripts/stage-licensed-art.mjs
+
+# Keep this RUN separate so Coolify can inject existing VITE/Sentry build
+# secrets when use_build_secrets is enabled for this application.
 RUN npm run build
 
 # ─── Stage 2: Django + gunicorn, with the built bundle baked in ─────────────

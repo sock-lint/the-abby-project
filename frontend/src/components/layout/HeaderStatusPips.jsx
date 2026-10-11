@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, DollarSign, Flame, Stamp } from 'lucide-react';
+import { Clock, DollarSign, Flame, Stamp, Coins } from 'lucide-react';
 import { getDashboard } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import { usePulse } from '../../providers/pulseContext';
 import useParentPendingCounts from '../../hooks/useParentPendingCounts';
-import { CoinIcon } from '../icons/JournalIcons';
 import { formatDuration } from '../../utils/format';
 
 function Pip({ icon, label, tone = 'ink', active = false, onClick, ariaLabel }) {
   const toneClasses = {
-    ink: 'text-ink-secondary bg-ink-page-aged border-ink-page-shadow hover:bg-ink-page-rune-glow',
-    ember: 'text-ember-deep bg-ember/10 border-ember/40 hover:bg-ember/20',
-    gold: 'text-gold-leaf bg-ink-page-aged border-gold-leaf/40 hover:bg-ink-page-rune-glow',
-    teal: 'text-sheikah-teal-deep bg-sheikah-teal/10 border-sheikah-teal/50 hover:bg-sheikah-teal/20',
-    moss: 'text-moss bg-moss/10 border-moss/40 hover:bg-moss/20',
+    ink: 'text-ink-secondary bg-ink-page-aged border-ink-page-shadow/60 hover:bg-ink-page',
+    ember: 'text-ember-deep bg-ember/10 border-ember/25 hover:bg-ember/15',
+    gold: 'text-gold-leaf bg-gold-leaf/10 border-gold-leaf/25 hover:bg-gold-leaf/15',
+    teal: 'text-sheikah-teal-deep bg-sheikah-teal/10 border-sheikah-teal/25 hover:bg-sheikah-teal/15',
+    moss: 'text-moss bg-moss/10 border-moss/25 hover:bg-moss/15',
   }[tone] || 'text-ink-secondary bg-ink-page-aged border-ink-page-shadow';
 
   // Bump the pip whenever its label changes. Comparing the previous label
@@ -42,10 +41,10 @@ function Pip({ icon, label, tone = 'ink', active = false, onClick, ariaLabel }) 
       type="button"
       onClick={onClick}
       aria-label={ariaLabel || label}
-      className={`inline-flex items-center gap-1.5 h-11 px-3 rounded-full border text-caption font-rune tabular-nums transition-all ${toneClasses} ${active ? 'animate-rune-pulse' : ''} ${bumped ? 'scale-110 ring-2 ring-sheikah-teal/40' : ''}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 min-w-11 h-11 px-3 rounded-2xl border text-caption font-body font-bold tabular-nums transition-colors ${toneClasses} ${active || bumped ? 'ring-2 ring-inset ring-sheikah-teal/25' : ''}`}
     >
       <span className="shrink-0 flex items-center">{icon}</span>
-      <span className="leading-none">{label}</span>
+      <span className="leading-none text-ink-primary">{label}</span>
     </button>
   );
 }
@@ -118,7 +117,7 @@ export default function HeaderStatusPips({ user }) {
       });
       out.push({
         key: 'earnings',
-        // DollarSign, not CoinIcon: this pip is money. CoinIcon means the
+        // DollarSign, not Coins: this pip is money. Coins means the
         // coins currency everywhere else in the app and the two economies
         // are deliberately separate.
         icon: <DollarSign size={14} />,
@@ -138,7 +137,7 @@ export default function HeaderStatusPips({ user }) {
       });
       out.push({
         key: 'coins',
-        icon: <CoinIcon size={14} />,
+        icon: <Coins size={14} />,
         label: String(coins),
         tone: 'gold',
         ariaLabel: `${coins} coins`,
