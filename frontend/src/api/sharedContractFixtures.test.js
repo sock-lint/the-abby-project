@@ -32,12 +32,18 @@ import unavailableFood from '../../../contracts/api/fixtures/pet-feed-unavailabl
 import alreadyEvolved from '../../../contracts/api/fixtures/pet-feed-already-evolved.json';
 import foreignPet from '../../../contracts/api/fixtures/pet-not-owned.json';
 import foreignMount from '../../../contracts/api/fixtures/mount-not-owned.json';
+import hatchingInventory from '../../../contracts/api/fixtures/inventory-hatching.json';
+import hatchedPet from '../../../contracts/api/fixtures/pet-hatch.json';
+import missingHatchIngredients from '../../../contracts/api/fixtures/pet-hatch-missing-ingredients.json';
+import unavailableHatchEgg from '../../../contracts/api/fixtures/pet-hatch-unavailable-egg.json';
+import unavailableHatchPotion from '../../../contracts/api/fixtures/pet-hatch-unavailable-potion.json';
+import duplicateHatch from '../../../contracts/api/fixtures/pet-hatch-duplicate.json';
 import { server } from '../test/server';
 import { normalizeList } from '../utils/api';
 import { api, getToken, setToken } from './client';
 import {
   activateMount, activatePet, feedPet, getGreenlightOverview, getHabits, getInventory,
-  getMe, getNotifications, getStable, logHabitTap, login,
+  getMe, getNotifications, getStable, hatchPet, logHabitTap, login,
   previewGreenlightCsv, reconcileGreenlightCsv, recordGreenlightPayout, saveGreenlightSnapshot,
 } from './index';
 
@@ -355,6 +361,66 @@ describe('shared Django response fixtures through the React API client', () => {
     );
     expect(await getStable()).toEqual({ pets: [], mounts: [], total_pets: 0, total_mounts: 0, total_possible: 4 });
     expect(normalizeList(await getInventory())).toEqual([]);
+  });
+
+  it('reads hatching ingredients with their item definition IDs, quantities and nullable typed names', async () => {
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json(hatchingInventory)));
+    const inventory = normalizeList(await getInventory());
+    expect(inventory).toEqual(hatchingInventory);
+    const eggs = inventory.filter((entry) => entry.item.item_type === 'egg');
+    const potions = inventory.filter((entry) => entry.item.item_type === 'potion');
+    expect(eggs).toHaveLength(1);
+    expect(eggs[0]).toMatchObject({
+      id: 83, quantity: 2,
+      item: { id: 73, pet_species_name: 'Fox', potion_type_name: null },
+    });
+    expect(potions.map((entry) => entry.item.id)).toEqual([76, 75]);
+    expect(potions.find((entry) => entry.item.id === 75)).toMatchObject({
+      id: 85, quantity: 1,
+      item: { id: 75, potion_type_name: 'Ice', pet_species_name: null },
+    });
+  });
+
+  it('hatches with actual egg and potion item IDs and preserves the complete HTTP 201 pet receipt', async () => {
+    const calls = [];
+    setToken(loginResponse.token);
+    server.use(http.post('*/api/pets/hatch/', async ({ request }) => {
+      calls.push({
+        body: await request.json(), authorization: request.headers.get('authorization'),
+        method: request.method, pathname: new URL(request.url).pathname,
+      });
+      return HttpResponse.json(hatchedPet, { status: 201 });
+    }));
+
+    const pet = await hatchPet(73, 75);
+    expect(pet).toEqual(hatchedPet);
+    expect(pet).toMatchObject({
+      id: 83, name: '', growth_points: 0, is_active: false,
+      evolved_to_mount: false, is_fully_grown: false, happiness_level: 'happy', last_fed_at: null,
+      species: { id: 41, name: 'Fox', sprite_key: 'fox' },
+      potion: { id: 44, name: 'Ice', slug: 'ice', sprite_key: 'ice-potion', rarity: 'rare' },
+    });
+    expect(calls).toEqual([{
+      body: { egg_item_id: 73, potion_item_id: 75 },
+      authorization: `Token ${loginResponse.token}`, method: 'POST', pathname: '/api/pets/hatch/',
+    }]);
+  });
+
+  it.each([
+    ['missing ingredients', undefined, undefined, {}, missingHatchIngredients],
+    ['unavailable egg', 999, 75, { egg_item_id: 999, potion_item_id: 75 }, unavailableHatchEgg],
+    ['unavailable potion', 73, 999, { egg_item_id: 73, potion_item_id: 999 }, unavailableHatchPotion],
+    ['duplicate combination', 73, 76, { egg_item_id: 73, potion_item_id: 76 }, duplicateHatch],
+  ])('preserves %s hatch rejection and does not replay the POST', async (_label, eggId, potionId, body, response) => {
+    const submitted = [];
+    server.use(http.post('*/api/pets/hatch/', async ({ request }) => {
+      submitted.push(await request.json());
+      return HttpResponse.json(response, { status: 400 });
+    }));
+    await expect(hatchPet(eggId, potionId)).rejects.toMatchObject({
+      status: 400, message: response.error, response,
+    });
+    expect(submitted).toEqual([body]);
   });
 
   it.each([

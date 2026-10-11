@@ -22,9 +22,11 @@ import signal
 from socketserver import ThreadingMixIn
 import sys
 from tempfile import TemporaryDirectory
+from threading import Event, Lock, Thread
 import time
 from types import SimpleNamespace
 from urllib.parse import urlsplit
+from urllib.request import Request, urlopen
 from wsgiref.simple_server import make_server, WSGIServer
 
 
@@ -254,6 +256,25 @@ def seed_play_account(user, actor, *, balance: int, species_name: str, pet_name:
             user=user, item=item, trigger_type="chore_complete", quantity=index + 1,
         )
         drops.append(drop.pk)
+    hatch_species = PetSpecies.objects.create(
+        name="Moonlit Owl" if care else "Dusk Owl", slug=f"{user.username}-hatch-owl", icon="*",
+        description="A hatchable creature from this disposable family's inventory.",
+    )
+    hatch_egg = ItemDefinition.objects.create(
+        name="Moonlit Egg" if care else "Dusk Egg", slug=f"{user.username}-hatch-egg", icon="*",
+        item_type=ItemDefinition.ItemType.EGG, pet_species=hatch_species,
+    )
+    UserInventory.objects.create(user=user, item=hatch_egg, quantity=3 if care else 1)
+    hatch_potion_ids = []
+    for index, variant in enumerate(("Dawn", "Twilight", "Starlight") if care else ("Dusk",)):
+        hatch_potion = PotionType.objects.create(name=f"{variant} Glow", slug=f"{user.username}-{variant.lower()}-glow")
+        hatch_species.available_potions.add(hatch_potion)
+        hatch_item = ItemDefinition.objects.create(
+            name=f"{variant} Potion", slug=f"{user.username}-{variant.lower()}-potion", icon="*",
+            item_type=ItemDefinition.ItemType.POTION, potion_type=hatch_potion,
+        )
+        UserInventory.objects.create(user=user, item=hatch_item, quantity=2 if care and index == 0 else 1)
+        hatch_potion_ids.append(hatch_item.pk)
     # Older read history exceeds the production-sized Inbox page; all three
     # actionable unread items remain newest on the first page.
     for index in range(22 if notification_count > 1 else 1):
@@ -279,6 +300,7 @@ def seed_play_account(user, actor, *, balance: int, species_name: str, pet_name:
         "food_item_ids": food_ids, "initial_growth": pet.growth_points,
         "second_pet_id": second_pet.pk if second_pet else None,
         "expedition_mount_id": expedition_mount.pk if expedition_mount else None,
+        "hatch_egg_item_id": hatch_egg.pk, "hatch_potion_item_ids": hatch_potion_ids,
     }
 
 
@@ -305,34 +327,65 @@ def play_state() -> dict:
             "notification_count": Notification.objects.filter(user=user).count(),
             "unread_ids": list(Notification.objects.filter(user=user, is_read=False).order_by("id").values_list("id", flat=True)),
             "pets": list(UserPet.objects.filter(user=user).order_by("id").values(
-                "id", "growth_points", "is_active", "evolved_to_mount",
+                "id", "growth_points", "is_active", "evolved_to_mount", "species_id", "potion_id",
             )),
             "mounts": list(UserMount.objects.filter(user=user).order_by("id").values("id", "is_active")),
             "food": list(UserInventory.objects.filter(
                 user=user, item__item_type="food",
             ).order_by("item_id").values("item_id", "quantity")),
+            "items": [{
+                "item_id": row["item_id"], "quantity": row["quantity"],
+                "item_type": row["item__item_type"], "name": row["item__name"],
+            } for row in UserInventory.objects.filter(user=user).order_by("item_id").values(
+                "item_id", "quantity", "item__item_type", "item__name",
+            )],
             "feed_requests": CARE_ACTIVITY.get(user.pk, {}).get("feed_requests", 0),
             "feed_commits": CARE_ACTIVITY.get(user.pk, {}).get("feed_commits", 0),
+            "hatch_requests": CARE_ACTIVITY.get(user.pk, {}).get("hatch_requests", 0),
+            "hatch_commits": CARE_ACTIVITY.get(user.pk, {}).get("hatch_commits", 0),
             "care_responses_pending": CARE_ACTIVITY.get(user.pk, {}).get("care_responses_pending", 0),
+            "care_hold_timeouts": CARE_ACTIVITY.get(user.pk, {}).get("care_hold_timeouts", 0),
         })
     return {"accounts": accounts}
 
 
 def fixture_wsgi(application, *, fail_first_log: bool = False, fail_first_mark_read: bool = False,
-                 fail_first_feed_after_commit: bool = False):
-    """Local instrumentation, including a lost acknowledgement after a real feed."""
+                 fail_first_feed_after_commit: bool = False, fail_first_hatch_after_commit: bool = False):
+    """Local instrumentation, including lost acknowledgements after real care saves."""
     failure_pending = fail_first_log
     read_failure_pending = fail_first_mark_read
     feed_failure_pending = fail_first_feed_after_commit
-    delay_next_care_seconds = 0.0
+    hatch_failure_pending = fail_first_hatch_after_commit
+    care_hold = None
+    hold_next_care = False
+    hold_lock = Lock()
 
     def wrapped(environ, start_response):
-        nonlocal failure_pending, read_failure_pending, feed_failure_pending, delay_next_care_seconds
-        if environ.get("REQUEST_METHOD") == "POST" and environ.get("PATH_INFO") == "/__fixture/delay-next-care/":
-            # Test control, exposed only by this disposable loopback server.
-            delay_next_care_seconds = 2.0
+        nonlocal failure_pending, read_failure_pending, feed_failure_pending, hatch_failure_pending, care_hold, hold_next_care
+        if environ.get("REQUEST_METHOD") == "POST" and environ.get("PATH_INFO") in (
+            "/__fixture/hold-next-care/", "/__fixture/delay-next-care/",
+        ):
+            # One bounded rendezvous, exposed only by the disposable loopback
+            # server. A slow client cannot miss a fixed two-second observation.
+            with hold_lock:
+                if care_hold is not None:
+                    body = b'{"error":"A care acknowledgement is already armed or held."}'
+                    start_response("409 Conflict", [("Content-Type", "application/json"), ("Content-Length", str(len(body)))])
+                    return [body]
+                care_hold = Event()
+                hold_next_care = True
             start_response("200 OK", [("Content-Type", "application/json"), ("Content-Length", "14")])
             return [b'{"armed":true}']
+        if environ.get("REQUEST_METHOD") == "POST" and environ.get("PATH_INFO") == "/__fixture/release-care/":
+            with hold_lock:
+                if care_hold is None or hold_next_care:
+                    body = b'{"error":"No committed care acknowledgement is held."}'
+                    start_response("409 Conflict", [("Content-Type", "application/json"), ("Content-Length", str(len(body)))])
+                    return [body]
+                care_hold.set()
+            body = b'{"released":true}'
+            start_response("200 OK", [("Content-Type", "application/json"), ("Content-Length", str(len(body)))])
+            return [body]
         if environ.get("REQUEST_METHOD") == "GET" and environ.get("PATH_INFO") == "/__fixture/play-state/":
             body = json.dumps(play_state()).encode()
             start_response("200 OK", [
@@ -363,7 +416,8 @@ def fixture_wsgi(application, *, fail_first_log: bool = False, fail_first_mark_r
             return [body]
         path = environ.get("PATH_INFO", "")
         feed = environ.get("REQUEST_METHOD") == "POST" and re.fullmatch(r"/api/pets/[0-9]+/feed/", path)
-        care = feed or (environ.get("REQUEST_METHOD") == "POST" and re.fullmatch(r"/api/(pets|mounts)/[0-9]+/activate/", path))
+        hatch = environ.get("REQUEST_METHOD") == "POST" and path == "/api/pets/hatch/"
+        care = feed or hatch or (environ.get("REQUEST_METHOD") == "POST" and re.fullmatch(r"/api/(pets|mounts)/[0-9]+/activate/", path))
         if care:
             from rest_framework.authtoken.models import Token
 
@@ -372,6 +426,8 @@ def fixture_wsgi(application, *, fail_first_log: bool = False, fail_first_mark_r
             activity = CARE_ACTIVITY.setdefault(user_id, {}) if user_id is not None else {}
             if feed:
                 activity["feed_requests"] = activity.get("feed_requests", 0) + 1
+            if hatch:
+                activity["hatch_requests"] = activity.get("hatch_requests", 0) + 1
             captured = []
 
             def capture_response(status, headers, _exc_info=None):
@@ -387,17 +443,36 @@ def fixture_wsgi(application, *, fail_first_log: bool = False, fail_first_mark_r
             committed = status.startswith("2")
             if feed and committed:
                 activity["feed_commits"] = activity.get("feed_commits", 0) + 1
-            if committed and delay_next_care_seconds:
-                delay = delay_next_care_seconds
-                delay_next_care_seconds = 0.0
+            if hatch and committed:
+                activity["hatch_commits"] = activity.get("hatch_commits", 0) + 1
+            held = None
+            if committed:
+                with hold_lock:
+                    if hold_next_care:
+                        held = care_hold
+                        hold_next_care = False
+            if held is not None:
                 activity["care_responses_pending"] = activity.get("care_responses_pending", 0) + 1
                 try:
-                    time.sleep(delay)
+                    released = held.wait(timeout=15)
+                    if not released:
+                        activity["care_hold_timeouts"] = activity.get("care_hold_timeouts", 0) + 1
+                        content = b'{"error":"The fixture care acknowledgement hold expired without release."}'
+                        status = "503 Service Unavailable"
+                        headers = [("Content-Type", "application/json"), ("Content-Length", str(len(content)))]
                 finally:
                     activity["care_responses_pending"] -= 1
+                    with hold_lock:
+                        if care_hold is held:
+                            care_hold = None
             if feed and committed and feed_failure_pending:
                 feed_failure_pending = False
                 content = json.dumps({"error": "The test server committed this feed but lost its acknowledgement. Refresh and check before feeding again."}).encode()
+                status = "503 Service Unavailable"
+                headers = [("Content-Type", "application/json"), ("Content-Length", str(len(content)))]
+            if hatch and committed and hatch_failure_pending:
+                hatch_failure_pending = False
+                content = json.dumps({"error": "The test server committed this hatch but lost its acknowledgement. Refresh and check before hatching again."}).encode()
                 status = "503 Service Unavailable"
                 headers = [("Content-Type", "application/json"), ("Content-Length", str(len(content)))]
             start_response(status, headers)
@@ -408,7 +483,7 @@ def fixture_wsgi(application, *, fail_first_log: bool = False, fail_first_mark_r
 
 
 def check_fixture(fixture: dict, *, fail_first_log: bool = False, fail_first_mark_read: bool = False,
-                  fail_first_feed_after_commit: bool = False) -> None:
+                  fail_first_feed_after_commit: bool = False, fail_first_hatch_after_commit: bool = False) -> None:
     """Exercise real view/serializer/award paths on the isolated database."""
     from apps.achievements.models import SkillProgress
     from django.core.wsgi import get_wsgi_application
@@ -419,7 +494,8 @@ def check_fixture(fixture: dict, *, fail_first_log: bool = False, fail_first_mar
     current_token = ""
     application = fixture_wsgi(get_wsgi_application(), fail_first_log=fail_first_log,
                                fail_first_mark_read=fail_first_mark_read,
-                               fail_first_feed_after_commit=fail_first_feed_after_commit)
+                               fail_first_feed_after_commit=fail_first_feed_after_commit,
+                               fail_first_hatch_after_commit=fail_first_hatch_after_commit)
 
     def login(username: str):
         nonlocal current_token
@@ -540,6 +616,107 @@ def check_fixture(fixture: dict, *, fail_first_log: bool = False, fail_first_mar
     foreign_pet_id = fixture["second_play"]["pet_id"]
     assert client.post(f"/api/pets/{foreign_pet_id}/feed/", {"food_item_id": food_id}, format="json").status_code == 400
     assert play_state()["accounts"][1] == before["accounts"][1], "Care cannot change another family's pet or inventory"
+    hatch_before = play_state()
+    egg_id = fixture["play"]["hatch_egg_item_id"]
+    potion_ids = fixture["play"]["hatch_potion_item_ids"]
+    hatch_body = {"egg_item_id": egg_id, "potion_item_id": potion_ids[0]}
+    hatched = post_request("/api/pets/hatch/", hatch_body)
+    assert hatched.status_code == (503 if fail_first_hatch_after_commit else 201), hatched.content
+    first_hatch = play_state()["accounts"][0]
+    assert first_hatch["hatch_requests"] == first_hatch["hatch_commits"] == 1
+    assert len(first_hatch["pets"]) == len(hatch_before["accounts"][0]["pets"]) + 1
+    assert next(row for row in first_hatch["items"] if row["item_id"] == egg_id)["quantity"] == 2
+    assert next(row for row in first_hatch["items"] if row["item_id"] == potion_ids[0])["quantity"] == 1
+    client.get("/api/pets/stable/")
+    client.get("/api/inventory/")
+    assert play_state()["accounts"][0] == first_hatch, "Refreshing an interrupted hatch never consumes another pair"
+    duplicate = post_request("/api/pets/hatch/", hatch_body)
+    assert duplicate.status_code == 400 and "already have" in duplicate.data["error"], duplicate.content
+    duplicate_state = play_state()["accounts"][0]
+    assert duplicate_state["hatch_requests"] == 2 and duplicate_state["hatch_commits"] == 1
+    assert duplicate_state["items"] == first_hatch["items"] and duplicate_state["pets"] == first_hatch["pets"]
+    foreign_before = play_state()
+    for foreign_body in (
+        {"egg_item_id": fixture["second_play"]["hatch_egg_item_id"], "potion_item_id": potion_ids[1]},
+        {"egg_item_id": egg_id, "potion_item_id": fixture["second_play"]["hatch_potion_item_ids"][0]},
+    ):
+        foreign = client.post("/api/pets/hatch/", foreign_body, format="json")
+        assert foreign.status_code == 400, foreign.content
+    assert play_state() == foreign_before, "Foreign-family eggs and potions cannot be consumed"
+    for potion_id in potion_ids[1:]:
+        if potion_id == potion_ids[-1]:
+            # Exercise the actual threaded HTTP server: a snapshot must expose
+            # the committed hatch while the original acknowledgement is held.
+            with make_server("127.0.0.1", 0, application, server_class=DisposableFixtureServer) as probe_server:
+                server_thread = Thread(target=probe_server.serve_forever, kwargs={"poll_interval": .05})
+                server_thread.start()
+                probe_origin = f"http://127.0.0.1:{probe_server.server_port}"
+                result, errors = [], []
+
+                def probe(path: str, data: dict | None = None):
+                    request = Request(probe_origin + path, data=json.dumps(data).encode() if data is not None else None,
+                                      headers={"Content-Type": "application/json", "Authorization": f"Token {current_token}"})
+                    with urlopen(request, timeout=10) as response:
+                        content = response.read()
+                        return SimpleNamespace(status_code=response.status, content=content, data=json.loads(content))
+
+                def request_held_hatch():
+                    try:
+                        result.append(probe("/api/pets/hatch/", {"egg_item_id": egg_id, "potion_item_id": potion_id}))
+                    except Exception as error:
+                        errors.append(error)
+
+                request_thread = Thread(target=request_held_hatch)
+                release_sent = False
+                try:
+                    assert probe("/__fixture/hold-next-care/", {}).data["armed"] is True
+                    request_thread.start()
+                    observation_deadline = time.monotonic() + 5
+                    held_state = None
+                    while time.monotonic() < observation_deadline:
+                        held_state = probe("/__fixture/play-state/").data["accounts"][0]
+                        if held_state["care_responses_pending"] == 1:
+                            break
+                    assert held_state["care_responses_pending"] == 1 and request_thread.is_alive(), "Snapshot GET must observe the held acknowledgement"
+                    assert held_state["hatch_requests"] == 4 and held_state["hatch_commits"] == 3
+                    assert held_state["care_hold_timeouts"] == 0 and len(held_state["pets"]) == len(hatch_before["accounts"][0]["pets"]) + 3
+                    assert probe("/__fixture/release-care/", {}).data["released"] is True
+                    release_sent = True
+                    request_thread.join(timeout=5)
+                    assert not request_thread.is_alive() and not errors and len(result) == 1, "Explicit release must drain the held hatch response"
+                    drained = probe("/__fixture/play-state/").data["accounts"][0]
+                    assert drained["care_responses_pending"] == 0 and drained["care_hold_timeouts"] == 0
+                    confirmed_hatch = result[0]
+                finally:
+                    try:
+                        if request_thread.is_alive() and not release_sent:
+                            try:
+                                probe("/__fixture/release-care/", {})
+                            except Exception:
+                                # An expired fixture hold will reject release;
+                                # preserve the original assertion and stop safely.
+                                pass
+                            request_thread.join(timeout=5)
+                    finally:
+                        probe_server.shutdown()
+                        server_thread.join(timeout=5)
+        else:
+            confirmed_hatch = post_request("/api/pets/hatch/", {"egg_item_id": egg_id, "potion_item_id": potion_id})
+        assert confirmed_hatch.status_code == 201, confirmed_hatch.content
+        assert confirmed_hatch.data["growth_points"] == 0 and not confirmed_hatch.data["is_active"]
+        assert not confirmed_hatch.data["evolved_to_mount"] and not confirmed_hatch.data["is_fully_grown"]
+    final_hatch = play_state()["accounts"][0]
+    assert final_hatch["hatch_requests"] == 4 and final_hatch["hatch_commits"] == 3
+    assert final_hatch["inventory_quantity"] == hatch_before["accounts"][0]["inventory_quantity"] - 6
+    assert all(row["item_id"] != egg_id and row["item_id"] not in potion_ids[1:] for row in final_hatch["items"])
+    exhausted = client.post("/api/pets/hatch/", {"egg_item_id": egg_id, "potion_item_id": potion_ids[0]}, format="json")
+    assert exhausted.status_code == 400, exhausted.content
+    assert play_state()["accounts"][0] == final_hatch, "An exhausted egg cannot create another pet"
+    assert (final_hatch["balance"], final_hatch["ledger_ids"], final_hatch["drop_ids"], final_hatch["skill_xp"]) == (
+        hatch_before["accounts"][0]["balance"], hatch_before["accounts"][0]["ledger_ids"],
+        hatch_before["accounts"][0]["drop_ids"], hatch_before["accounts"][0]["skill_xp"],
+    ), "Hatching consumes a pair and creates a pet without inventing XP, coins or drops"
+    assert play_state()["accounts"][1] == hatch_before["accounts"][1], "Hatching cannot change another family's creatures or items"
     first_page = client.get("/api/habits/").json()
     assert len(first_page["results"]) == 2 and first_page["next"]
     rows = collect_rows("/api/habits/")
@@ -597,7 +774,7 @@ def check_fixture(fixture: dict, *, fail_first_log: bool = False, fail_first_mar
     second_stable = client.get("/api/pets/stable/").json()
     assert [row["id"] for row in second_stable["pets"]] == [fixture["second_play"]["pet_id"]]
     assert fixture["play"]["pet_id"] not in {row["id"] for row in second_stable["pets"]}
-    sys.stdout.write("Fixture checks passed: auth, reward/stable/inbox ownership, view-only awards, explicit mark-read/failure, care consumption, committed feed acknowledgement loss, growth/evolution, active selection, pagination, scoped lists, caps, approval, skill XP, journal privacy, receipt replay, persistence.\n")
+    sys.stdout.write("Fixture checks passed: auth, reward/stable/inbox ownership, view-only awards, explicit mark-read/failure, care consumption, committed feed and hatch acknowledgement loss, growth/evolution, active selection, hatch pair consumption/duplicates/exhaustion/family scope, held acknowledgement with concurrent snapshot and explicit release, pagination, scoped lists, caps, approval, skill XP, journal privacy, receipt replay, persistence.\n")
 
 
 def main() -> int:
@@ -612,6 +789,7 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="Check fixtures through actual Django views and exit.")
     parser.add_argument("--fail-first-mark-read", action="store_true", help="Reject the first notification mark-read POST before Django.")
     parser.add_argument("--fail-first-feed-after-commit", action="store_true", help="Commit the first valid feed, then replace its acknowledgement with HTTP503.")
+    parser.add_argument("--fail-first-hatch-after-commit", action="store_true", help="Commit the first valid hatch, then replace its acknowledgement with HTTP503.")
     parser.add_argument("--lifetime-seconds", type=float, default=1800, help="Auto-stop after this many seconds.")
     args = parser.parse_args()
     if not 0 <= args.port <= 65535 or args.lifetime_seconds <= 0:
@@ -634,15 +812,18 @@ def main() -> int:
             fixture["fail_first_log"] = args.fail_first_log
             fixture["fail_first_mark_read"] = args.fail_first_mark_read
             fixture["fail_first_feed_after_commit"] = args.fail_first_feed_after_commit
+            fixture["fail_first_hatch_after_commit"] = args.fail_first_hatch_after_commit
             if args.check:
                 check_fixture(fixture, fail_first_log=args.fail_first_log, fail_first_mark_read=args.fail_first_mark_read,
-                              fail_first_feed_after_commit=args.fail_first_feed_after_commit)
+                              fail_first_feed_after_commit=args.fail_first_feed_after_commit,
+                              fail_first_hatch_after_commit=args.fail_first_hatch_after_commit)
                 return 0
             from django.core.wsgi import get_wsgi_application
 
             application = fixture_wsgi(get_wsgi_application(), fail_first_log=args.fail_first_log,
                                        fail_first_mark_read=args.fail_first_mark_read,
-                                       fail_first_feed_after_commit=args.fail_first_feed_after_commit)
+                                       fail_first_feed_after_commit=args.fail_first_feed_after_commit,
+                                       fail_first_hatch_after_commit=args.fail_first_hatch_after_commit)
             with make_server("127.0.0.1", args.port, application, server_class=DisposableFixtureServer) as server:
                 server.timeout = 0.25
                 fixture["url"] = f"http://127.0.0.1:{server.server_port}"

@@ -33,7 +33,8 @@ namespace AbbyCamp.Services
         private readonly HashSet<int> knownNotifications = new HashSet<int>();
         private readonly Dictionary<int, OwnedPetDto> knownPets = new Dictionary<int, OwnedPetDto>();
         private readonly Dictionary<int, OwnedMountDto> knownMounts = new Dictionary<int, OwnedMountDto>();
-        private readonly Dictionary<int, InventoryEntryDto> knownFood = new Dictionary<int, InventoryEntryDto>();
+        private readonly Dictionary<int, InventoryEntryDto> knownInventory = new Dictionary<int, InventoryEntryDto>();
+        private bool stableLoaded, inventoryLoaded;
         private int careVersion;
 
         public string BaseUrl => baseUrl;
@@ -59,6 +60,7 @@ namespace AbbyCamp.Services
 
         [Serializable] private sealed class TapBody { public int direction = 1; }
         [Serializable] private sealed class FeedBody { public int food_item_id; }
+        [Serializable] private sealed class HatchBody { public int egg_item_id; public int potion_item_id; }
 
         private void Awake()
         {
@@ -449,6 +451,7 @@ namespace AbbyCamp.Services
 
         public IEnumerator FetchStable(Action<StableDto> success, Action<ApiError> failure)
         {
+            stableLoaded = false;
             knownPets.Clear(); knownMounts.Clear();
             int version = careVersion;
             yield return FetchProjection("/api/pets/stable/", ApiContract.ParseStable, value =>
@@ -459,17 +462,29 @@ namespace AbbyCamp.Services
                 knownPets.Clear(); knownMounts.Clear();
                 foreach (var pet in value.pets) knownPets.Add(pet.id, pet);
                 foreach (var mount in value.mounts) knownMounts.Add(mount.id, mount);
+                stableLoaded = true;
                 success?.Invoke(value);
             }, failure);
         }
 
-        /// <summary>Reads this account's food, with no inventory mutation. Every
-        /// continuation is bounded and checked before credentials are sent.</summary>
         public IEnumerator FetchFoodInventory(Action<InventoryEntryDto[]> success, Action<ApiError> failure)
         {
-            knownFood.Clear();
+            yield return FetchCareInventory(entries =>
+            {
+                var food = new List<InventoryEntryDto>();
+                foreach (var entry in entries)
+                    if (entry.item.item_type == "food" && entry.quantity > 0) food.Add(entry);
+                success?.Invoke(food.ToArray());
+            }, failure);
+        }
+
+        /// <summary>Reads this account's complete inventory without mutation. Every
+        /// continuation is bounded and checked before credentials are sent.</summary>
+        public IEnumerator FetchCareInventory(Action<InventoryEntryDto[]> success, Action<ApiError> failure)
+        {
+            knownInventory.Clear(); inventoryLoaded = false;
             int version = careVersion;
-            var foods = new List<InventoryEntryDto>();
+            var entries = new List<InventoryEntryDto>();
             var ids = new HashSet<int>();
             var itemIds = new HashSet<int>();
             var visited = new HashSet<string>(StringComparer.Ordinal);
@@ -487,12 +502,12 @@ namespace AbbyCamp.Services
                 if (error != null) { failure?.Invoke(error); yield break; }
                 if (version != careVersion || !IsAuthenticated)
                 {
-                    failure?.Invoke(new ApiError("Refresh your food after the account or current action changes.", requiresLogin: !IsAuthenticated)); yield break;
+                    failure?.Invoke(new ApiError("Refresh your items after the account or current action changes.", requiresLogin: !IsAuthenticated)); yield break;
                 }
                 if (total < 0) total = page.count;
                 if (page.count != total || ids.Count + page.results.Length > total)
                 {
-                    failure?.Invoke(new ApiError("The inventory changed while loading. Refresh your food.")); yield break;
+                    failure?.Invoke(new ApiError("The inventory changed while loading. Refresh your items.")); yield break;
                 }
                 foreach (var entry in page.results)
                 {
@@ -500,7 +515,7 @@ namespace AbbyCamp.Services
                     {
                         failure?.Invoke(new ApiError("The inventory returned duplicate or too many items.")); yield break;
                     }
-                    if (entry.item.item_type == "food" && entry.quantity > 0) foods.Add(entry);
+                    entries.Add(entry);
                 }
                 next = page.next;
                 if (next != null)
@@ -512,10 +527,11 @@ namespace AbbyCamp.Services
                     next = continuation;
                 }
             }
-            if (ids.Count != total) { failure?.Invoke(new ApiError("The inventory response was incomplete. Refresh your food.")); yield break; }
-            knownFood.Clear();
-            foreach (var food in foods) knownFood.Add(food.item.id, food);
-            success?.Invoke(foods.ToArray());
+            if (ids.Count != total) { failure?.Invoke(new ApiError("The inventory response was incomplete. Refresh your items.")); yield break; }
+            knownInventory.Clear();
+            foreach (var entry in entries) knownInventory.Add(entry.item.id, entry);
+            inventoryLoaded = true;
+            success?.Invoke(entries.ToArray());
         }
 
         public static bool TryResolveInventoryPageUrl(string origin, string next, out string resolved)
@@ -544,7 +560,30 @@ namespace AbbyCamp.Services
         private void ClearCareEligibility()
         {
             careVersion++;
-            knownPets.Clear(); knownMounts.Clear(); knownFood.Clear();
+            knownPets.Clear(); knownMounts.Clear(); knownInventory.Clear();
+            stableLoaded = inventoryLoaded = false;
+        }
+
+        /// <summary>Consumes one owned egg and potion once. A malformed or lost
+        /// receipt remains uncertain; refresh and review rather than replaying.</summary>
+        public IEnumerator HatchPet(int eggItemId, int potionItemId, Action<OwnedPetDto> success, Action<ApiError> failure)
+        {
+            var error = CarePrecondition();
+            if (error != null) { failure?.Invoke(error); yield break; }
+            if (!stableLoaded || !inventoryLoaded || !knownInventory.TryGetValue(eggItemId, out var egg) || egg.quantity < 1 || egg.item.item_type != "egg"
+                || !knownInventory.TryGetValue(potionItemId, out var potion) || potion.quantity < 1 || potion.item.item_type != "potion")
+            {
+                failure?.Invoke(new ApiError("Refresh your creatures and items before hatching that companion.")); yield break;
+            }
+            var previousIds = new HashSet<int>(knownPets.Keys);
+            ClearCareEligibility();
+            yield return Send("POST", baseUrl + "/api/pets/hatch/", JsonUtility.ToJson(new HatchBody { egg_item_id = eggItemId, potion_item_id = potionItemId }), true, true, json =>
+            {
+                OwnedPetDto result;
+                try { result = ApiContract.ParsePetHatch(json, egg.item, potion.item, previousIds); }
+                catch (Exception exception) { failure?.Invoke(InvalidResponse(exception, true)); return; }
+                success?.Invoke(result);
+            }, failure);
         }
 
         /// <summary>Consumes exactly one fetched food item for a fetched,
@@ -555,7 +594,7 @@ namespace AbbyCamp.Services
             var error = CarePrecondition();
             if (error != null) { failure?.Invoke(error); yield break; }
             if (!knownPets.TryGetValue(petId, out var pet) || pet.evolved_to_mount || pet.is_fully_grown
-                || !knownFood.TryGetValue(foodItemId, out var food) || food.quantity < 1 || food.item.item_type != "food")
+                || !knownInventory.TryGetValue(foodItemId, out var food) || food.quantity < 1 || food.item.item_type != "food")
             {
                 failure?.Invoke(new ApiError("Refresh your creatures and food before feeding that companion.")); yield break;
             }

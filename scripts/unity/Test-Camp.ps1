@@ -18,7 +18,7 @@ $taskFixtureErr = Join-Path $taskLogDirectory 'fixture-stderr.log'
 $taskPlayerLog = Join-Path $taskLogDirectory 'runtime-smoke.log'
 $taskReport = Join-Path $taskOutput 'smoke-results.txt'
 if (Test-Path -LiteralPath $taskReport) { Remove-Item -LiteralPath $taskReport }
-$taskFixtureArguments = @(('"' + $taskFixtureScript + '"'), '--port', '0', '--ready-file', ('"' + $taskReadyFile + '"'), '--stop-file', ('"' + $taskStopFile + '"'), '--lifetime-seconds', '240', '--fail-first-mark-read', '--fail-first-feed-after-commit')
+$taskFixtureArguments = @(('"' + $taskFixtureScript + '"'), '--port', '0', '--ready-file', ('"' + $taskReadyFile + '"'), '--stop-file', ('"' + $taskStopFile + '"'), '--lifetime-seconds', '240', '--fail-first-mark-read', '--fail-first-feed-after-commit', '--fail-first-hatch-after-commit')
 $taskFixture = $null
 $taskPlayer = $null
 try {
@@ -33,9 +33,10 @@ try {
     $taskPlayerArguments = @('-screen-fullscreen', '0', '-screen-width', '393', '-screen-height', '852', '-force-d3d11', '-logFile', ('"' + $taskPlayerLog + '"'), '--abby-smoke', '--abby-smoke-output', ('"' + $taskOutput + '"'), '--abby-api-url', $taskFixtureInfo.url, '--abby-api-user', $taskFixtureInfo.username, '--abby-api-password', $taskFixtureInfo.password, '--abby-api-second-user', $taskFixtureInfo.second_username, '--abby-api-second-password', $taskFixtureInfo.second_password)
     if ($taskFixtureInfo.fail_first_mark_read) { $taskPlayerArguments += '--abby-smoke-failed-mark-read' }
     if ($taskFixtureInfo.fail_first_feed_after_commit) { $taskPlayerArguments += '--abby-smoke-ambiguous-feed' }
+    if ($taskFixtureInfo.fail_first_hatch_after_commit) { $taskPlayerArguments += '--abby-smoke-ambiguous-hatch' }
     Write-Host "Testing Play against disposable Django fixtures. Screenshots: $taskOutput"
     $taskPlayer = Start-Process -FilePath $taskExecutable -ArgumentList $taskPlayerArguments -WindowStyle Hidden -PassThru
-    $taskPlayerDeadline = [DateTime]::UtcNow.AddSeconds(120)
+    $taskPlayerDeadline = [DateTime]::UtcNow.AddSeconds(180)
     while (-not $taskPlayer.HasExited -and [DateTime]::UtcNow -lt $taskPlayerDeadline) { Start-Sleep -Milliseconds 250 }
     if (-not $taskPlayer.HasExited) { throw "Runtime smoke timed out. See $taskPlayerLog" }
     if (-not (Test-Path -LiteralPath $taskReport)) { throw "Player exited without a smoke report. See $taskPlayerLog" }

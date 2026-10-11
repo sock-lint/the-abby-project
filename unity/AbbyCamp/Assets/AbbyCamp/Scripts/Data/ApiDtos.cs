@@ -220,6 +220,8 @@ namespace AbbyCamp.Data
         public string sprite_key;
         public string item_type;
         public string food_species_name;
+        public string pet_species_name;
+        public string potion_type_name;
     }
 
     [Serializable]

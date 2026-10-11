@@ -24,22 +24,24 @@ namespace AbbyCamp.Validation
         };
         private readonly List<string> checks = new List<string>();
         private readonly List<string> runtimeErrors = new List<string>();
-        private bool failed, failFirstMarkRead, ambiguousFeed;
+        private bool failed, failFirstMarkRead, ambiguousFeed, ambiguousHatch;
         private string output, fixtureUrl, username, password, secondUsername, secondPassword;
 
         [Serializable] private sealed class FixtureState { public FixtureAccount[] accounts; }
         [Serializable] private sealed class FixtureAccount
         {
             public int user_id, balance, inventory_quantity, skill_xp, notification_count;
-            public int feed_requests, feed_commits, care_responses_pending;
+            public int feed_requests, feed_commits, hatch_requests, hatch_commits, care_responses_pending, care_hold_timeouts;
             public int[] ledger_ids, drop_ids, unread_ids;
             public FixturePet[] pets;
             public FixtureMount[] mounts;
             public FixtureFood[] food;
+            public FixtureItem[] items;
         }
-        [Serializable] private sealed class FixturePet { public int id, growth_points; public bool is_active, evolved_to_mount; }
+        [Serializable] private sealed class FixturePet { public int id, growth_points, species_id, potion_id; public bool is_active, evolved_to_mount; }
         [Serializable] private sealed class FixtureMount { public int id; public bool is_active; }
         [Serializable] private sealed class FixtureFood { public int item_id, quantity; }
+        [Serializable] private sealed class FixtureItem { public int item_id, quantity; public string item_type, name; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Bootstrap()
@@ -56,6 +58,7 @@ namespace AbbyCamp.Validation
             instance.secondPassword = Argument(args, "--abby-api-second-password");
             instance.failFirstMarkRead = Array.IndexOf(args, "--abby-smoke-failed-mark-read") >= 0;
             instance.ambiguousFeed = Array.IndexOf(args, "--abby-smoke-ambiguous-feed") >= 0;
+            instance.ambiguousHatch = Array.IndexOf(args, "--abby-smoke-ambiguous-hatch") >= 0;
             Directory.CreateDirectory(instance.output);
             Application.runInBackground = true;
         }
@@ -230,6 +233,7 @@ namespace AbbyCamp.Validation
                 Check(NamedRows("Notification_") == firstRows && NamedText("UnreadCount") == unreadLabel, "Previous page restores its rows and preserves unread count");
                 yield return CloseSection(ui, garden, "Inbox");
                 yield return ExerciseCare(ui, garden, api, primaryUser, primaryPet, primaryMount, value => before = value);
+                yield return ExerciseHatching(ui, garden, api, primaryUser, value => before = value);
                 Click("AccountButton");
                 yield return null;
                 Click("DisconnectButton");
@@ -363,10 +367,10 @@ namespace AbbyCamp.Validation
 
             Click("FeedPet_" + secondPetId);
             Click("Food_" + foodId);
-            using (var arm = UnityWebRequest.Post(fixtureUrl.TrimEnd('/') + "/__fixture/delay-next-care/", "{}", "application/json"))
+            using (var arm = UnityWebRequest.Post(fixtureUrl.TrimEnd('/') + "/__fixture/hold-next-care/", "{}", "application/json"))
             {
                 yield return arm.SendWebRequest();
-                Check(arm.result == UnityWebRequest.Result.Success, "Disposable fixture arms one delayed care acknowledgement");
+                Check(arm.result == UnityWebRequest.Result.Success, "Disposable fixture holds one care acknowledgement until explicit release");
             }
             Click("ConfirmFeedButton");
             float dispatchedDeadline = Time.realtimeSinceStartup + 10;
@@ -378,7 +382,10 @@ namespace AbbyCamp.Validation
             } while (Time.realtimeSinceStartup < dispatchedDeadline);
             var delayed = Account(snapshot, userId);
             Check(delayed.care_responses_pending == 1 && delayed.feed_requests == 3 && delayed.feed_commits == 3
-                && ui.IsBusy && ui.CareNeedsReview, "Account replacement starts after a real feed commits while its response is still pending");
+                && delayed.care_hold_timeouts == 0 && ui.IsBusy && ui.CareNeedsReview,
+                "Account replacement starts after a real feed commits while its response is still pending; observed pending="
+                + delayed.care_responses_pending + ", requests=" + delayed.feed_requests + ", commits=" + delayed.feed_commits
+                + ", hold timeouts=" + delayed.care_hold_timeouts + ", busy=" + ui.IsBusy);
             api.ClearSession();
             var clear = typeof(CampPrototypeController).GetMethod("ClearPresentation", BindingFlags.Instance | BindingFlags.NonPublic);
             Check(clear != null, "Native harness can reproduce the browser's presentation clearing on account change");
@@ -391,6 +398,10 @@ namespace AbbyCamp.Validation
             yield return OpenSection(ui, garden, "Bestiary");
             Check(NamedText("ActiveCompanion").Contains("Sprout") && !HasNamed("Pet_" + petId) && !HasNamed("Pet_" + secondPetId)
                 && !HasText("evolved into a mount!"), "Replacement collection excludes the previous care result");
+            yield return ReadFixtureState(value => snapshot = value);
+            Check(Account(snapshot, userId).care_responses_pending == 1 && Account(snapshot, userId).care_hold_timeouts == 0,
+                "The old care acknowledgement stays held until the replacement account is visibly loaded");
+            yield return ReleaseHeldCare();
             float responseDeadline = Time.realtimeSinceStartup + 10;
             do
             {
@@ -398,7 +409,7 @@ namespace AbbyCamp.Validation
                 if (Account(snapshot, userId).care_responses_pending == 0) break;
                 yield return null;
             } while (Time.realtimeSinceStartup < responseDeadline);
-            Check(Account(snapshot, userId).care_responses_pending == 0 && !ui.CareNeedsReview && !ui.IsBusy
+            Check(Account(snapshot, userId).care_responses_pending == 0 && Account(snapshot, userId).care_hold_timeouts == 0 && !ui.CareNeedsReview && !ui.IsBusy
                 && NamedText("ActiveCompanion").Contains("Sprout") && !HasText("Pip"),
                 "A delayed old-account response cannot overwrite new labels, controls or review state");
             CheckAwardsUnchanged(new FixtureState { accounts = new[] { otherBefore } }, snapshot,
@@ -422,6 +433,230 @@ namespace AbbyCamp.Validation
             CheckRewardLedgersUnchanged(before, final, "Care and account reconciliation preserve reward ledgers and XP");
             yield return CloseSection(ui, garden, "Bestiary");
             complete(snapshot);
+        }
+
+        private IEnumerator ExerciseHatching(CampPrototypeController ui, CampGardenInput garden, AbbyApiClient api,
+            int userId, Action<FixtureState> complete)
+        {
+            FixtureState snapshot = null;
+            yield return ReadFixtureState(value => snapshot = value);
+            var before = Account(snapshot, userId);
+            var otherBefore = Array.Find(snapshot.accounts, account => account.user_id != userId);
+            var egg = Array.Find(before.items, item => item.item_type == "egg");
+            var potions = Array.FindAll(before.items, item => item.item_type == "potion");
+            Check(egg != null && egg.quantity == 3 && potions.Length == 3 && potions[0].quantity == 2
+                && potions[1].quantity == 1 && potions[2].quantity == 1 && before.hatch_requests == 0 && before.hatch_commits == 0,
+                "Disposable hatching starts with one owned egg stack and three independent potion variants");
+            yield return OpenSection(ui, garden, "Bestiary");
+            yield return RevealButton("HatcheryButton");
+            Click("HatcheryButton");
+            yield return WaitUntil(() => ui.HatcheryOpen && !ui.IsBusy && !ui.IsSectionLoading, 5f, "Native hatchery opens without leaving Play");
+            Check(HasNamed("Egg_" + egg.item_id) && HasNamed("Potion_" + potions[0].item_id)
+                && HasNamed("Potion_" + potions[1].item_id) && HasNamed("Potion_" + potions[2].item_id)
+                && FindButton("ConfirmHatchButton") == null, "Hatchery shows owned supplies and requires two explicit choices");
+            yield return ReadFixtureState(value => snapshot = value);
+            CheckAwardsUnchanged(new FixtureState { accounts = new[] { before, otherBefore } }, snapshot,
+                "Opening the native hatchery consumes no items or rewards");
+            yield return SelectHatchPair(egg.item_id, potions[0].item_id);
+            yield return Capture("hatch-choice-portrait.png");
+            Click("ConfirmHatchButton");
+            Check(ui.IsBusy && ui.CareNeedsReview && FindButton("ConfirmHatchButton")?.interactable == false,
+                "Hatching persists its review marker and blocks duplicate taps before sending the pair");
+            Canvas.ForceUpdateCanvases();
+            CheckFirstSheetRow("BestiaryStatus", "Confirming from the bottom brings the saving status into the visible viewport");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "First hatch finishes");
+            yield return ReadFixtureState(value => snapshot = value);
+            var first = Account(snapshot, userId);
+            var firstPet = Array.Find(first.pets, item => Array.Find(before.pets, old => old.id == item.id) == null);
+            Check(first.hatch_requests == 1 && first.hatch_commits == 1 && first.pets.Length == before.pets.Length + 1
+                && firstPet != null && firstPet.growth_points == 0 && !firstPet.is_active && !firstPet.evolved_to_mount
+                && ItemQuantity(first, egg.item_id) == 2 && ItemQuantity(first, potions[0].item_id) == 1
+                && first.inventory_quantity == before.inventory_quantity - 2,
+                "One hatch consumes exactly one egg and one potion and creates one unevolved pet at zero growth");
+            CheckRewardLedgersUnchanged(before, first, "Hatching creates no XP, coins or drop rewards");
+            if (ambiguousHatch)
+            {
+                // The snapshot GET above lets the replacement sheet render.
+                // Check the visible status before scrolling to any review action.
+                Canvas.ForceUpdateCanvases();
+                CheckFirstSheetRow("BestiaryStatus", "An interrupted hatch brings its result and next-step status into the visible viewport");
+                Check(ui.CareNeedsReview && HasNamed("CareReviewMessage")
+                    && FindButton("AcknowledgeCareButton")?.interactable == false
+                    && FindButton("Egg_" + egg.item_id)?.interactable == false
+                    && !NamedText("BestiaryStatus").Contains("Hatch saved"),
+                    "Lost hatch acknowledgement blocks care and does not claim a confirmed reveal");
+                yield return Capture("hatch-interrupted-portrait.png");
+                yield return CloseSection(ui, garden, "Bestiary");
+                yield return OpenSection(ui, garden, "Bestiary");
+                Check(ui.CareNeedsReview && HasNamed("Pet_" + firstPet.id)
+                    && FindButton("FeedPet_" + firstPet.id)?.interactable == false,
+                    "Closing and reopening preserves hatch uncertainty while fresh collection reads show the created pet");
+                Click("HatcheryButton");
+                yield return null;
+                Click("RefreshCareButton");
+                yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Interrupted hatch collection and inventory refresh finish");
+                Check(ui.HatcheryOpen && ui.CareNeedsReview && FindButton("AcknowledgeCareButton")?.interactable == true
+                    && FindButton("Egg_" + egg.item_id)?.interactable == false && HasText("2 available") && HasText("1 available"),
+                    "Fresh hatch supplies remain blocked until the child explicitly checks the collection");
+                yield return ReadFixtureState(value => snapshot = value);
+                CheckHatchUnchanged(first, Account(snapshot, userId), "Reopening and refreshing uncertain hatching never posts another pair");
+                yield return RevealButton("AcknowledgeCareButton");
+                yield return Capture("hatch-refreshed-review-portrait.png");
+                Click("AcknowledgeCareButton"); yield return null;
+                Check(!ui.CareNeedsReview && FindButton("Egg_" + egg.item_id)?.interactable == true,
+                    "Explicit hatch review enables a new choice after both authoritative reads");
+            }
+            else
+                Check(!ui.CareNeedsReview && NamedText("BestiaryStatus").Contains("Hatch saved"),
+                    "Confirmed hatch acknowledges the created pet without leaving an interrupted-action marker");
+
+            yield return SelectHatchPair(egg.item_id, potions[0].item_id);
+            Click("ConfirmHatchButton");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Duplicate hatch is rejected");
+            yield return ReadFixtureState(value => snapshot = value);
+            var duplicate = Account(snapshot, userId);
+            Check(duplicate.hatch_requests == 2 && duplicate.hatch_commits == 1 && duplicate.pets.Length == first.pets.Length
+                && duplicate.inventory_quantity == first.inventory_quantity && ItemQuantity(duplicate, egg.item_id) == 2
+                && ItemQuantity(duplicate, potions[0].item_id) == 1 && !ui.CareNeedsReview
+                && NamedText("BestiaryStatus").Contains("already have") && FindButton("Egg_" + egg.item_id)?.interactable == false,
+                "A definite duplicate rejection consumes nothing and requires fresh supplies before another hatch");
+            Click("RefreshBestiaryButton");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Duplicate rejection refresh finishes");
+            yield return SelectHatchPair(egg.item_id, potions[1].item_id);
+            Click("ConfirmHatchButton");
+            Canvas.ForceUpdateCanvases();
+            CheckFirstSheetRow("BestiaryStatus", "A new hatch from the bottom keeps its saving status visible");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Second potion hatches a confirmed pet");
+            yield return ReadFixtureState(value => snapshot = value);
+            var confirmed = Account(snapshot, userId);
+            Check(confirmed.hatch_requests == 3 && confirmed.hatch_commits == 2 && confirmed.pets.Length == before.pets.Length + 2
+                && ItemQuantity(confirmed, egg.item_id) == 1 && ItemQuantity(confirmed, potions[1].item_id) == 0
+                && confirmed.inventory_quantity == before.inventory_quantity - 4 && !ui.CareNeedsReview
+                && NamedText("BestiaryStatus").Contains("Hatch saved") && HasText("Twilight Glow")
+                && FindButton("Potion_" + potions[1].item_id) == null,
+                "Confirmed hatching reveals the server's variant and removes an exhausted potion from choices");
+            Canvas.ForceUpdateCanvases();
+            CheckFirstSheetRow("BestiaryStatus", "A confirmed hatch brings the saved companion result into the visible viewport");
+            CheckRewardLedgersUnchanged(before, confirmed, "Confirmed hatching preserves reward and XP ledgers");
+            yield return Capture("hatch-confirmed-portrait.png");
+            yield return SelectHatchPair(egg.item_id, potions[2].item_id);
+            yield return Resize(852, 393);
+            yield return RevealButton("ConfirmHatchButton");
+            yield return Capture("hatch-choice-landscape.png");
+            yield return Resize(393, 852);
+            using (var arm = UnityWebRequest.Post(fixtureUrl.TrimEnd('/') + "/__fixture/hold-next-care/", "{}", "application/json"))
+            {
+                yield return arm.SendWebRequest();
+                Check(arm.result == UnityWebRequest.Result.Success, "Disposable fixture holds one hatch acknowledgement until explicit release");
+            }
+            Click("ConfirmHatchButton");
+            float dispatchedDeadline = Time.realtimeSinceStartup + 10;
+            do
+            {
+                yield return ReadFixtureState(value => snapshot = value);
+                if (Account(snapshot, userId).care_responses_pending > 0) break;
+                yield return null;
+            } while (Time.realtimeSinceStartup < dispatchedDeadline);
+            var delayed = Account(snapshot, userId);
+            Check(delayed.care_responses_pending == 1 && delayed.hatch_requests == 4 && delayed.hatch_commits == 3
+                && delayed.care_hold_timeouts == 0 && ui.IsBusy && ui.CareNeedsReview && ItemQuantity(delayed, egg.item_id) == 0,
+                "Account replacement begins after a hatch commits while its acknowledgement is still pending; observed pending="
+                + delayed.care_responses_pending + ", requests=" + delayed.hatch_requests + ", commits=" + delayed.hatch_commits
+                + ", hold timeouts=" + delayed.care_hold_timeouts + ", busy=" + ui.IsBusy);
+            api.ClearSession();
+            var clear = typeof(CampPrototypeController).GetMethod("ClearPresentation", BindingFlags.Instance | BindingFlags.NonPublic);
+            Check(clear != null, "Hatch harness can reproduce browser presentation clearing on account replacement");
+            clear.Invoke(ui, null); yield return null;
+            Check(ui.IsDemo && !ui.IsBusy && !ui.IsModalOpen && !ui.HatcheryOpen && !HasText("Moonlit Owl"),
+                "Account replacement clears prior hatch choices and confirmation labels");
+            yield return Connect(ui, garden, secondUsername, secondPassword);
+            Check(api.CurrentUser.id != userId && !ui.CareNeedsReview, "Another family inherits no hatch uncertainty");
+            yield return OpenSection(ui, garden, "Bestiary");
+            Click("HatcheryButton"); yield return null;
+            var otherEgg = Array.Find(otherBefore.items, item => item.item_type == "egg");
+            var otherPotion = Array.Find(otherBefore.items, item => item.item_type == "potion");
+            Check(ui.HatcheryOpen && FindButton("Egg_" + otherEgg.item_id)?.interactable == true
+                && FindButton("Potion_" + otherPotion.item_id)?.interactable == true
+                && !HasNamed("Egg_" + egg.item_id) && !HasNamed("Potion_" + potions[0].item_id)
+                && FindButton("ConfirmHatchButton") == null && !HasText("Moonlit Owl"),
+                "Replacement hatchery contains only its own family's items with no inherited selection");
+            yield return ReadFixtureState(value => snapshot = value);
+            Check(Account(snapshot, userId).care_responses_pending == 1 && Account(snapshot, userId).care_hold_timeouts == 0,
+                "The old hatch acknowledgement stays held until the replacement account and its own supplies are displayed");
+            yield return ReleaseHeldCare();
+            float responseDeadline = Time.realtimeSinceStartup + 10;
+            do
+            {
+                yield return ReadFixtureState(value => snapshot = value);
+                if (Account(snapshot, userId).care_responses_pending == 0) break;
+                yield return null;
+            } while (Time.realtimeSinceStartup < responseDeadline);
+            Check(Account(snapshot, userId).care_responses_pending == 0 && Account(snapshot, userId).care_hold_timeouts == 0 && !ui.IsBusy && !ui.CareNeedsReview
+                && ui.HatcheryOpen && !HasText("Starlight Glow") && FindButton("ConfirmHatchButton") == null,
+                "A delayed hatch result cannot overwrite replacement-account controls or display an old reveal");
+            CheckHatchUnchanged(otherBefore, Account(snapshot, api.CurrentUser.id), "Hatching never changes the replacement family's creatures or items");
+            yield return CloseSection(ui, garden, "Bestiary");
+            Click("AccountButton"); yield return null; Click("DisconnectButton"); yield return null;
+            yield return Connect(ui, garden, username, password);
+            Check(ui.CareNeedsReview, "Returning to the original account preserves its interrupted hatch marker");
+            yield return OpenSection(ui, garden, "Bestiary");
+            Click("HatcheryButton"); yield return null;
+            Check(ui.HatcheryOpen && HasNamed("HatchEmptyEggs") && !HasNamedPrefix("Egg_")
+                && FindButton("AcknowledgeCareButton")?.interactable == true && FindButton("ConfirmHatchButton") == null,
+                "Exhausted eggs are reported from refreshed inventory while interrupted hatching still requires review");
+            Click("RefreshCareButton");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Returning account hatch refresh finishes");
+            Click("AcknowledgeCareButton"); yield return null;
+            yield return ReadFixtureState(value => snapshot = value);
+            var final = Account(snapshot, userId);
+            Check(final.hatch_requests == 4 && final.hatch_commits == 3 && final.pets.Length == before.pets.Length + 3
+                && final.inventory_quantity == before.inventory_quantity - 6 && ItemQuantity(final, egg.item_id) == 0
+                && ItemQuantity(final, potions[0].item_id) == 1 && ItemQuantity(final, potions[1].item_id) == 0
+                && ItemQuantity(final, potions[2].item_id) == 0 && !ui.CareNeedsReview,
+                "Refresh and acknowledgement reconcile exactly three committed hatches without replaying any pair");
+            CheckRewardLedgersUnchanged(before, final, "Hatch reconciliation preserves XP, coins and all reward ledgers");
+            Check(final.feed_requests == before.feed_requests && final.feed_commits == before.feed_commits,
+                "Hatching never dispatches a feeding action");
+            Click("BackHatcheryButton"); yield return null;
+            Check(!ui.HatcheryOpen && HasNamed("Pet_" + firstPet.id) && NamedRowCount("Pet_") == final.pets.Length,
+                "Returning to creatures shows all server-confirmed hatch identities");
+            yield return Capture("hatch-final-collection-portrait.png");
+            yield return CloseSection(ui, garden, "Bestiary");
+            complete(snapshot);
+        }
+
+        private IEnumerator ReleaseHeldCare()
+        {
+            using (var release = UnityWebRequest.Post(fixtureUrl.TrimEnd('/') + "/__fixture/release-care/", "{}", "application/json"))
+            {
+                release.timeout = 10;
+                yield return release.SendWebRequest();
+                Check(release.result == UnityWebRequest.Result.Success, "The harness explicitly releases the old account's held care acknowledgement");
+            }
+        }
+
+        private IEnumerator SelectHatchPair(int eggId, int potionId)
+        {
+            yield return RevealButton("Egg_" + eggId);
+            Click("Egg_" + eggId);
+            yield return RevealButton("Potion_" + potionId);
+            Click("Potion_" + potionId);
+            yield return RevealButton("ConfirmHatchButton");
+            string label = FindButton("ConfirmHatchButton").GetComponentInChildren<Text>().text;
+            Check(label.Contains("1 egg") && label.Contains("1 potion"), "Hatch confirmation discloses consumption of one owned egg and one owned potion");
+        }
+
+        private static int ItemQuantity(FixtureAccount account, int id) => Array.Find(account.items, item => item.item_id == id)?.quantity ?? 0;
+
+        private void CheckHatchUnchanged(FixtureAccount before, FixtureAccount after, string label)
+        {
+            Check(before.hatch_requests == after.hatch_requests && before.hatch_commits == after.hatch_commits
+                && before.pets.Length == after.pets.Length && before.items.Length == after.items.Length, label);
+            foreach (var item in before.items) Check(ItemQuantity(after, item.item_id) == item.quantity, label + ": item " + item.item_id);
+            foreach (var pet in before.pets) Check(Pet(after, pet.id).species_id == pet.species_id && Pet(after, pet.id).potion_id == pet.potion_id
+                && Pet(after, pet.id).is_active == pet.is_active, label + ": identity " + pet.id);
+            CheckFeedUnchanged(before, after, label);
+            CheckRewardLedgersUnchanged(before, after, label);
         }
 
         private IEnumerator RevealButton(string name)
@@ -723,7 +958,7 @@ namespace AbbyCamp.Validation
             Check(vertices > 4, "Text has rendered glyph geometry: " + name);
         }
 
-        private void CheckFirstSheetRow(string name)
+        private void CheckFirstSheetRow(string name, string label = null)
         {
             CheckRenderedText(name);
             var text = FindText(name);
@@ -733,7 +968,7 @@ namespace AbbyCamp.Validation
             var view = scroll.viewport.rect;
             Debug.Log($"ABBY_PLAY_SHEET_LAYOUT: {name}; rowRect={text.rectTransform.rect}, rowBounds={bounds}, viewport={view}, content={scroll.content.rect}, contentPosition={scroll.content.anchoredPosition}, normalized={scroll.normalizedPosition}.");
             Check(bounds.min.y >= view.yMin - .5f && bounds.max.y <= view.yMax + .5f,
-                "Initial sheet row is fully inside the visible viewport: " + name);
+                label ?? "Initial sheet row is fully inside the visible viewport: " + name);
         }
 
         private static bool HasText(string value)

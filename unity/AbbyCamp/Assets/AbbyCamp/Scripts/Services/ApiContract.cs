@@ -240,6 +240,21 @@ namespace AbbyCamp.Services
             return result;
         }
 
+        public static OwnedPetDto ParsePetHatch(string json, InventoryItemDto egg, InventoryItemDto potion, ICollection<int> previousPetIds)
+        {
+            var result = ParseOwnedPet(json);
+            if (egg == null || egg.item_type != "egg" || potion == null || potion.item_type != "potion" || previousPetIds == null
+                || previousPetIds.Contains(result.id) || result.growth_points != 0 || result.is_active
+                || result.evolved_to_mount || result.is_fully_grown || result.last_fed_at != null)
+                throw new FormatException("The server did not confirm a newly hatched companion.");
+            // Typed display names are the identity information exposed by the
+            // inventory API. Legacy items can omit them; never infer catalog IDs.
+            if ((!string.IsNullOrEmpty(egg.pet_species_name) && egg.pet_species_name != result.species.name)
+                || (!string.IsNullOrEmpty(potion.potion_type_name) && potion.potion_type_name != result.potion.name))
+                throw new FormatException("The hatched companion does not match the selected egg and potion.");
+            return result;
+        }
+
         /// <summary>The current endpoint returns a bare array. Bounded DRF pages
         /// are also accepted so continuation URLs can be checked before use.</summary>
         public static InventoryPageDto ParseInventoryPage(string json)
@@ -280,6 +295,8 @@ namespace AbbyCamp.Services
                 NullableString(item, "food_species_name", 100);
                 var entry = JsonUtility.FromJson<InventoryEntryDto>(records[index]);
                 entry.item.food_species_name = NullableString(item, "food_species_name", 100);
+                entry.item.pet_species_name = NullableString(item, "pet_species_name", 100);
+                entry.item.potion_type_name = NullableString(item, "potion_type_name", 100);
                 result.results[index] = entry;
             }
             return result;

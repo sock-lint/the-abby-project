@@ -105,6 +105,7 @@ namespace AbbyCamp.Editor
 
             ValidatePlayHomeContracts();
             ValidateCompanionCareContracts();
+            ValidateHatchingContracts();
             var gameObject = new GameObject("API validation client");
             try
             {
@@ -145,6 +146,7 @@ namespace AbbyCamp.Editor
                     fail => client.FeedPet(51, 71, _ => completed = true, fail),
                     fail => client.ActivatePet(52, _ => completed = true, fail),
                     fail => client.ActivateMount(62, _ => completed = true, fail),
+                    fail => client.HatchPet(73, 75, _ => completed = true, fail),
                 })
                 {
                     rejection = null;
@@ -520,6 +522,50 @@ namespace AbbyCamp.Editor
             Reject(() => ApiContract.ParseOwnedMount(exploringMount.Replace("\"mount_id\":62", "\"mount_id\":61")), "An expedition must belong to its mount");
             foreach (string fixture in new[] { "pet-feed-missing-food.json", "pet-feed-unavailable-food.json", "pet-feed-already-evolved.json", "pet-not-owned.json", "mount-not-owned.json" })
                 Check(!ApiContract.HttpError(400, ReadFixture(fixture), true, false).OutcomeUnknown, "Shared care rejection is definite: " + fixture);
+        }
+
+        private static void ValidateHatchingContracts()
+        {
+            string inventoryJson = ReadFixture("inventory-hatching.json");
+            var inventory = ApiContract.ParseInventoryPage(inventoryJson);
+            var egg = Array.Find(inventory.results, entry => entry.item.id == 73);
+            var potion = Array.Find(inventory.results, entry => entry.item.id == 75);
+            Check(egg != null && egg.id == 83 && egg.quantity == 2 && egg.item.item_type == "egg" && egg.item.pet_species_name == "Fox",
+                "Hatching uses owned egg definition IDs, quantities and authoritative species names");
+            Check(potion != null && potion.id == 85 && potion.quantity == 1 && potion.item.item_type == "potion" && potion.item.potion_type_name == "Ice",
+                "Hatching uses owned potion definition IDs and authoritative potion names");
+            string hatchJson = ReadFixture("pet-hatch.json");
+            var previousIds = new HashSet<int>();
+            foreach (var pet in ApiContract.ParseStable(ReadFixture("pets-stable.json")).pets) previousIds.Add(pet.id);
+            var hatched = ApiContract.ParsePetHatch(hatchJson, egg.item, potion.item, previousIds);
+            Check(hatched.id == 83 && hatched.species.id == 41 && hatched.potion.id == 44 && hatched.growth_points == 0
+                && !hatched.is_active && !hatched.evolved_to_mount && !hatched.is_fully_grown && hatched.last_fed_at == null,
+                "Shared hatch response confirms a new inactive, unfed companion with zero growth");
+            Reject(() => ApiContract.ParsePetHatch(hatchJson, egg.item, potion.item, new HashSet<int> { 83 }),
+                "An existing pet receipt cannot confirm another hatching");
+            Reject(() => ApiContract.ParsePetHatch(hatchJson.Replace("\"growth_points\": 0", "\"growth_points\": 5"), egg.item, potion.item, previousIds),
+                "A grown creature cannot confirm a new hatch");
+            Reject(() => ApiContract.ParsePetHatch(hatchJson.Replace("\"is_active\": false", "\"is_active\": true"), egg.item, potion.item, previousIds),
+                "Hatching cannot silently choose the active companion");
+            Reject(() => ApiContract.ParsePetHatch(hatchJson.Replace("\"evolved_to_mount\": false", "\"evolved_to_mount\": true"), egg.item, potion.item, previousIds),
+                "An evolved creature cannot confirm a new hatch");
+            Reject(() => ApiContract.ParsePetHatch(hatchJson.Replace("\"last_fed_at\": null", "\"last_fed_at\": \"2026-10-10T12:00:00-07:00\""), egg.item, potion.item, previousIds),
+                "A previously fed creature cannot confirm a new hatch");
+            Reject(() => ApiContract.ParsePetHatch(hatchJson.Replace("\"name\": \"Fox\"", "\"name\": \"Other species\""), egg.item, potion.item, previousIds),
+                "The hatch receipt must match the typed egg species");
+            Reject(() => ApiContract.ParsePetHatch(hatchJson.Replace("\"name\": \"Ice\"", "\"name\": \"Other potion\""), egg.item, potion.item, previousIds),
+                "The hatch receipt must match the typed potion");
+            Reject(() => ApiContract.ParsePetHatch(hatchJson, potion.item, egg.item, previousIds),
+                "Swapped ingredient types cannot confirm hatching");
+            Reject(() => ApiContract.ParseInventoryPage(inventoryJson.Replace("\"pet_species_name\": \"Fox\"", "\"pet_species_name\": 41")),
+                "Typed ingredient names cannot become inferred catalog IDs");
+            Reject(() => ApiContract.ParseInventoryPage(inventoryJson.Replace("\"potion_type_name\": \"Ice\"", "\"potion_type_name\": true")),
+                "Typed potion names must be nullable strings");
+            Check(ApiContract.ParsePetHatch(hatchJson, new InventoryItemDto { item_type = "egg" }, new InventoryItemDto { item_type = "potion" }, previousIds).id == 83,
+                "Legacy ingredients without typed display names retain the server-confirmed hatch outcome");
+            foreach (string fixture in new[] { "pet-hatch-missing-ingredients.json", "pet-hatch-unavailable-egg.json", "pet-hatch-unavailable-potion.json", "pet-hatch-duplicate.json" })
+                Check(!ApiContract.HttpError(400, ReadFixture(fixture), true, false).OutcomeUnknown,
+                    "Shared hatch rejection is definite and never a successful reveal: " + fixture);
         }
 
         private static void Check(bool condition, string description)

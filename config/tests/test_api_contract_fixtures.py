@@ -193,6 +193,170 @@ class SharedApiResponseFixtureTests(APITestCase):
                 for sql in connection.ops.sequence_reset_sql(no_style(), [UserMount]):
                     cursor.execute(sql)
 
+    def seed_hatching(self):
+        fox = PetSpecies.objects.create(
+            id=41, slug="fox", name="Fox", icon="🦊", sprite_key="fox",
+            description="A synthetic fox for hatching checks.", food_preference="berries",
+        )
+        fire = PotionType.objects.create(
+            id=43, slug="fire", name="Fire", color_hex="#FF4500", rarity="uncommon",
+        )
+        ice = PotionType.objects.create(
+            id=44, slug="ice", name="Ice", sprite_key="ice-potion", color_hex="#00BBFF", rarity="rare",
+        )
+        fox.available_potions.add(fire, ice)
+        self.hatch_species = fox
+        self.hatch_potion = ice
+        self.existing_hatch_pet = UserPet.objects.create(
+            id=51, user=self.child, species=fox, potion=fire, is_active=True, growth_points=20,
+        )
+        self.hatch_egg = ItemDefinition.objects.create(
+            id=73, slug="fixture-fox-egg", name="Synthetic Egg", icon="🥚",
+            sprite_key="big-egg", item_type="egg", pet_species=fox,
+        )
+        self.hatch_potion_item = ItemDefinition.objects.create(
+            id=75, slug="fixture-ice-potion", name="Synthetic Ice Potion", icon="🧪",
+            sprite_key="ice-potion", item_type="potion", potion_type=ice, rarity="rare",
+        )
+        self.duplicate_hatch_potion = ItemDefinition.objects.create(
+            id=76, slug="fixture-fire-potion", name="Synthetic Fire Potion", icon="🧪",
+            item_type="potion", potion_type=fire, rarity="uncommon",
+        )
+        self.hatch_food = ItemDefinition.objects.create(
+            id=71, slug="fixture-berry-bowl", name="Berry Bowl", icon="🫐",
+            item_type="food", food_species=fox,
+        )
+        foreign_egg = ItemDefinition.objects.create(
+            id=77, slug="fixture-foreign-egg", name="Other Synthetic Egg", icon="🥚",
+            item_type="egg", pet_species=fox,
+        )
+        foreign_potion = ItemDefinition.objects.create(
+            id=78, slug="fixture-foreign-potion", name="Other Synthetic Potion", icon="🧪",
+            item_type="potion", potion_type=ice,
+        )
+        for row_id, item, quantity in (
+            (83, self.hatch_egg, 2), (85, self.hatch_potion_item, 1),
+            (86, self.duplicate_hatch_potion, 2), (81, self.hatch_food, 2),
+        ):
+            UserInventory.objects.create(id=row_id, user=self.child, item=item, quantity=quantity)
+        for row_id, owner in ((81, self.sibling), (82, self.outsider)):
+            # Another owner's identical combination must neither block this
+            # child nor make those owners' ingredients available to the child.
+            UserPet.objects.create(id=row_id, user=owner, species=fox, potion=ice)
+            for offset, item in enumerate((self.hatch_egg, self.hatch_potion_item, foreign_egg, foreign_potion)):
+                UserInventory.objects.create(id=row_id * 10 + offset, user=owner, item=item, quantity=3)
+
+    def pin_next_hatched_pet_identity(self):
+        # The real service creates this auto-field row. Reset the test table's
+        # sequence after explicit IDs, including on PostgreSQL/full-suite runs.
+        with connection.cursor() as cursor:
+            if connection.vendor == "sqlite":
+                cursor.execute(
+                    "UPDATE sqlite_sequence SET seq = (SELECT MAX(id) FROM pets_userpet) "
+                    "WHERE name = 'pets_userpet'"
+                )
+            else:
+                for sql in connection.ops.sequence_reset_sql(no_style(), [UserPet]):
+                    cursor.execute(sql)
+
+    def hatching_state(self):
+        return (
+            list(UserInventory.objects.order_by("pk").values_list("pk", "user_id", "item_id", "quantity", "updated_at")),
+            list(UserPet.objects.order_by("pk").values_list("pk", "user_id", "species_id", "potion_id", "growth_points", "is_active", "evolved_to_mount")),
+        )
+
+    def test_hatching_inventory_keeps_item_identity_and_typed_ingredients(self):
+        self.seed_hatching()
+        body = self.assert_response_fixture(self.client.get("/api/inventory/"), "inventory-hatching.json")
+        self.assertEqual({row["id"] for row in body}, {81, 83, 85, 86})
+        egg = next(row for row in body if row["item"]["id"] == 73)
+        potion = next(row for row in body if row["item"]["id"] == 75)
+        self.assertEqual((egg["id"], egg["quantity"], egg["item"]["pet_species_name"]), (83, 2, "Fox"))
+        self.assertEqual((potion["id"], potion["quantity"], potion["item"]["potion_type_name"]), (85, 1, "Ice"))
+        self.assertIsNone(egg["item"]["potion_type_name"])
+        self.assertIsNone(potion["item"]["pet_species_name"])
+
+    def test_hatch_consumes_exactly_one_pair_and_returns_a_new_inactive_pet(self):
+        from apps.chronicle.models import ChronicleEntry
+
+        self.seed_hatching()
+        self.pin_next_hatched_pet_identity()
+        foreign_inventory = list(UserInventory.objects.exclude(user=self.child).order_by("pk").values_list("pk", "quantity", "updated_at"))
+        response = self.client.post("/api/pets/hatch/", {
+            "egg_item_id": 73, "potion_item_id": 75, "user_id": self.outsider.pk,
+        }, format="json")
+        body = self.assert_response_fixture(response, "pet-hatch.json", status=201)
+        pet = UserPet.objects.get(pk=body["id"])
+        self.assertEqual((pet.user_id, pet.species_id, pet.potion_id), (self.child.pk, 41, 44))
+        self.assertEqual((pet.growth_points, pet.is_active, pet.evolved_to_mount), (0, False, False))
+        self.assertFalse(body["is_fully_grown"])
+        self.assertEqual(body["happiness_level"], "happy")
+        self.assertIsNone(pet.last_fed_at)
+        self.assertIsNone(body["last_fed_at"])
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=self.hatch_egg).quantity, 1)
+        self.assertFalse(UserInventory.objects.filter(user=self.child, item=self.hatch_potion_item).exists())
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=self.duplicate_hatch_potion).quantity, 2)
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=self.hatch_food).quantity, 2)
+        self.existing_hatch_pet.refresh_from_db()
+        self.assertTrue(self.existing_hatch_pet.is_active)
+        self.assertEqual(self.existing_hatch_pet.growth_points, 20)
+        self.assertEqual(UserPet.objects.filter(user=self.child).count(), 2)
+        self.assertFalse(UserMount.objects.filter(user=self.child).exists())
+        self.assertEqual(foreign_inventory, list(UserInventory.objects.exclude(user=self.child).order_by("pk").values_list("pk", "quantity", "updated_at")))
+        self.assertEqual(ChronicleEntry.objects.filter(user=self.child, event_slug="first_pet_hatched").count(), 1)
+        stable = self.client.get("/api/pets/stable/").json()
+        self.assertEqual(next(row for row in stable["pets"] if row["id"] == pet.pk), body)
+
+    def test_hatch_rejects_missing_unavailable_and_inventory_row_ids_without_writes(self):
+        self.seed_hatching()
+        before = self.hatching_state()
+        for submitted in ({}, {"egg_item_id": 73}, {"potion_item_id": 75}):
+            with self.subTest(submitted=submitted):
+                response = self.client.post("/api/pets/hatch/", submitted, format="json")
+                self.assert_response_fixture(response, "pet-hatch-missing-ingredients.json", status=400)
+        for egg_id in (77, 83, 999):
+            with self.subTest(egg_item_id=egg_id):
+                response = self.client.post("/api/pets/hatch/", {"egg_item_id": egg_id, "potion_item_id": 75}, format="json")
+                self.assert_response_fixture(response, "pet-hatch-unavailable-egg.json", status=400)
+        for potion_id in (78, 85, 999):
+            with self.subTest(potion_item_id=potion_id):
+                response = self.client.post("/api/pets/hatch/", {"egg_item_id": 73, "potion_item_id": potion_id}, format="json")
+                self.assert_response_fixture(response, "pet-hatch-unavailable-potion.json", status=400)
+        self.assertEqual(self.hatching_state(), before)
+
+    def test_hatch_duplicate_including_evolved_pet_preserves_all_ingredients(self):
+        self.seed_hatching()
+        for evolved in (False, True):
+            with self.subTest(evolved=evolved):
+                self.existing_hatch_pet.evolved_to_mount = evolved
+                self.existing_hatch_pet.growth_points = 100 if evolved else 20
+                self.existing_hatch_pet.save(update_fields=["evolved_to_mount", "growth_points"])
+                before = self.hatching_state()
+                response = self.client.post("/api/pets/hatch/", {"egg_item_id": 73, "potion_item_id": 76}, format="json")
+                self.assert_response_fixture(response, "pet-hatch-duplicate.json", status=400)
+                self.assertEqual(self.hatching_state(), before)
+
+    def test_hatch_rejects_owned_non_ingredient_types_without_writes(self):
+        self.seed_hatching()
+        before = self.hatching_state()
+        for submitted, expected in (
+            ({"egg_item_id": 71, "potion_item_id": 75}, "That item is not an egg"),
+            ({"egg_item_id": 73, "potion_item_id": 71}, "That item is not a potion"),
+        ):
+            with self.subTest(submitted=submitted):
+                response = self.client.post("/api/pets/hatch/", submitted, format="json")
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json(), {"error": expected})
+        self.assertEqual(self.hatching_state(), before)
+
+    def test_hatch_requires_authentication_without_changing_any_inventory(self):
+        self.seed_hatching()
+        before = self.hatching_state()
+        self.client.credentials()
+        response = self.client.post("/api/pets/hatch/", {"egg_item_id": 73, "potion_item_id": 75}, format="json")
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(self.hatching_state(), before)
+
     def test_stable_and_inventory_preserve_companion_ownership_and_nested_data(self):
         self.seed_companion_care()
         stable = self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-stable.json")
