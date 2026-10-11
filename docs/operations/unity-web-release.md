@@ -39,6 +39,14 @@ edge has returned 403 for Python's generic default identity. Requests still use
 `Cache-Control: no-cache` and identity encoding, reject redirects, and require all
 release identity and content checks above.
 
+The client logs fixed phase names for image build, local HTTP checks, vulnerability
+scan, archive creation/validation, upload, activation and public verification.
+Unexpected native failures report that phase, the exception class and an integer
+errno when available. Exception arguments, paths, remote responses and command
+output stay private. These diagnostics do not retry or bypass any release gate;
+use the failed phase to inspect the retained candidate before another release.
+This client-only diagnostic change does not require reinstalling the SSH broker.
+
 Tags are `abby-unity-web:ci-<full-source-sha>-<run-id>-<attempt>` and cannot be
 reused for different content. Host archives and previous images remain for
 recovery; image pruning is separate from Git branch/worktree cleanup.

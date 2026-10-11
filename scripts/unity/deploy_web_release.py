@@ -8,6 +8,7 @@ No private Unity sources, GitHub token, or Coolify credentials cross SSH.
 
 import argparse
 import base64
+from contextlib import contextmanager
 import gzip
 import hashlib
 import json
@@ -42,6 +43,26 @@ MAX_MANIFEST = 1024**2
 
 class ReleaseError(Exception):
     """A safe diagnostic; never includes a remote body or subprocess stderr."""
+
+
+@contextmanager
+def client_phase(name):
+    """Identify client failures without exposing native error arguments."""
+    print(f"Unity release phase: {name}.", flush=True)
+    try:
+        yield
+    except ReleaseError:
+        raise
+    except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired,
+            tarfile.TarError, KeyboardInterrupt) as error:
+        # Only literal phase names and Python's exception metadata reach CI.
+        # Never include filenames, subprocess arguments/output, or remote bodies.
+        code = getattr(error, "errno", None)
+        code = f", errno {code}" if type(code) is int else ""
+        raise ReleaseError(
+            f"Unity release failed during {name} ({type(error).__name__}{code}); "
+            "preserved artifacts remain available."
+        ) from None
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -735,6 +756,11 @@ def hosting_checks(tag, manifest_raw, manifest):
 
 
 def client_main(artifact_dir, verify_only=False):
+    with client_phase("client preparation or workspace cleanup"):
+        _client_main(artifact_dir, verify_only)
+
+
+def _client_main(artifact_dir, verify_only=False):
     identity_names = ["GITHUB_SHA", "GITHUB_REPOSITORY", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT"]
     ssh_names = ["UNITY_WEB_SSH_TARGET", "UNITY_WEB_SSH_KEY_PATH", "UNITY_WEB_SSH_KNOWN_HOSTS_PATH"]
     if os.environ.get("GITHUB_REPOSITORY") != REPOSITORY or any(not os.environ.get(name) for name in identity_names):
@@ -771,45 +797,53 @@ def client_main(artifact_dir, verify_only=False):
             build_args += ["--label", f"{key}={value}"]
         if command(["docker", "image", "inspect", tag], allow_failure=True) is not None:
             raise ReleaseError("Local immutable version tag already exists; use a new workflow attempt.")
-        command([*build_args, str(context)])
-        local_image_id = command(["docker", "image", "inspect", "--format", "{{.Id}}", tag]).decode().strip()
-        if not IMAGE_ID.fullmatch(local_image_id):
-            raise ReleaseError("Local Docker build did not return a valid image identity.")
-        hosting_checks(tag, raw, manifest)
-        command(["trivy", "image", "--severity", "HIGH,CRITICAL", "--ignore-unfixed", "--exit-code", "1", tag])
-        archive = artifact_dir / (manifest["release_id"] + ".image.tar.gz")
-        if archive.exists():
-            raise ReleaseError("Local versioned image archive already exists.")
-        with archive.open("xb") as output:
-            with gzip.GzipFile(fileobj=output, mode="wb", mtime=0) as compressed:
-                process = subprocess.Popen(["docker", "image", "save", tag], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-                try:
-                    shutil.copyfileobj(process.stdout, compressed)
-                finally:
-                    process.stdout.close()
-                if process.wait(timeout=300):
-                    raise ReleaseError("Saving the Unity image archive failed.")
-        proof = validate_image_archive(archive, request, tag)
-        if local_image_id not in proof["image_ids"]:
-            raise ReleaseError("Local Docker image identity is not proven by its exact archived runtime.")
+        with client_phase("image build"):
+            command([*build_args, str(context)])
+            local_image_id = command(["docker", "image", "inspect", "--format", "{{.Id}}", tag]).decode().strip()
+            if not IMAGE_ID.fullmatch(local_image_id):
+                raise ReleaseError("Local Docker build did not return a valid image identity.")
+        with client_phase("local HTTP hosting verification"):
+            hosting_checks(tag, raw, manifest)
+        with client_phase("vulnerability scan"):
+            command(["trivy", "image", "--severity", "HIGH,CRITICAL", "--ignore-unfixed", "--exit-code", "1", tag])
+        with client_phase("image archive creation"):
+            archive = artifact_dir / (manifest["release_id"] + ".image.tar.gz")
+            if archive.exists():
+                raise ReleaseError("Local versioned image archive already exists.")
+            with archive.open("xb") as output:
+                with gzip.GzipFile(fileobj=output, mode="wb", mtime=0) as compressed:
+                    process = subprocess.Popen(["docker", "image", "save", tag], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                    try:
+                        shutil.copyfileobj(process.stdout, compressed)
+                    finally:
+                        process.stdout.close()
+                    if process.wait(timeout=300):
+                        raise ReleaseError("Saving the Unity image archive failed.")
+        with client_phase("image archive validation"):
+            proof = validate_image_archive(archive, request, tag)
+            if local_image_id not in proof["image_ids"]:
+                raise ReleaseError("Local Docker image identity is not proven by its exact archived runtime.")
         request["image_id"] = proof["config_id"]
         if verify_only:
             print(f"Unity artifact {manifest['release_id']} passed local hosting, vulnerability scanning, and exact image archive checks; no production operation was requested.", flush=True)
             return
-        request.update(op="upload", archive_size=archive.stat().st_size, archive_sha256=file_hash(archive))
-        require_current(source, latest)
-        broker.request(request, archive)
+        with client_phase("current-main check and archive upload"):
+            request.update(op="upload", archive_size=archive.stat().st_size, archive_sha256=file_hash(archive))
+            require_current(source, latest)
+            broker.request(request, archive)
         request["op"] = "activate"
         request.pop("archive_size")
         request.pop("archive_sha256")
-        require_current(source, latest)
-        broker.request(request)
-        require_current(source, latest)
-        verify_public(raw, manifest)
-        with public_get(PUBLIC_ORIGIN + "/health") as response:
-            health = read_json(response.read(MAX_MANIFEST))
-            if not isinstance(health, dict) or health.get("status") != "ok" or health.get("db") != "up":
-                raise ReleaseError("Existing Abby app/database health did not pass after the Unity release.")
+        with client_phase("current-main check and activation"):
+            require_current(source, latest)
+            broker.request(request)
+        with client_phase("current-main check and public release verification"):
+            require_current(source, latest)
+            verify_public(raw, manifest)
+            with public_get(PUBLIC_ORIGIN + "/health") as response:
+                health = read_json(response.read(MAX_MANIFEST))
+                if not isinstance(health, dict) or health.get("status") != "ok" or health.get("db") != "up":
+                    raise ReleaseError("Existing Abby app/database health did not pass after the Unity release.")
         print(f"Unity release {manifest['release_id']} is healthy; public files match source {source}.", flush=True)
 
 
