@@ -1,6 +1,6 @@
 import { execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -26,6 +26,10 @@ export async function buildReleases() {
       const releaseDirectory = join(directory, label);
       const sourceDirectory = join(releaseDirectory, 'source');
       await mkdir(sourceDirectory, { recursive: true });
+      const publicFonts = join(releaseDirectory, 'shared', 'storybook', 'fonts');
+      await mkdir(publicFonts, { recursive: true });
+      await copyFile(join(frontendRoot, '..', 'shared', 'storybook', 'fonts', 'Nunito-Variable.ttf'),
+        join(publicFonts, 'Nunito-Variable.ttf'));
       const sourceImport = (file) => relative(sourceDirectory, join(frontendRoot, 'src', file)).replaceAll('\\', '/');
       await writeFile(join(sourceDirectory, 'index.html'), `<!doctype html><html><head><title>Synthetic PWA release ${label}</title></head><body><div id="root"></div><script type="module" src="/main.jsx"></script></body></html>`);
       await writeFile(join(sourceDirectory, 'main.jsx'), `
@@ -72,8 +76,9 @@ export async function buildReleases() {
 export async function startServer(release, port = 0) {
   // Pass only process-launch essentials. Never inherit application secrets,
   // production service URLs, or settings from a developer's environment.
+  // Windows Python resolves installed user packages through APPDATA.
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
-    /^(PATH|SYSTEMROOT|WINDIR|TEMP|TMP|HOME|USERPROFILE|VIRTUAL_ENV|PYTHONPATH|PYTHONHOME)$/i.test(key)));
+    /^(PATH|SYSTEMROOT|WINDIR|TEMP|TMP|HOME|USERPROFILE|APPDATA|VIRTUAL_ENV|PYTHONPATH|PYTHONHOME)$/i.test(key)));
   const child = spawn(process.env.PWA_PYTHON || 'python', [
     join(frontendRoot, 'e2e', 'serve_pwa.py'), release.directory, String(port),
   ], { env, stdio: ['ignore', 'pipe', 'pipe'] });

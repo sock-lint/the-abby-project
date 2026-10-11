@@ -53,6 +53,31 @@ async function expectOfflineShell(page, origin, label, path = '/synthetic/deep-r
   }
 }
 
+test('public information stays readable with the installed service worker', async ({ page }) => {
+  const origin = server.origin;
+  await page.goto(origin);
+  await expect.poll(() => page.evaluate(async () =>
+    (await navigator.serviceWorker.getRegistration('/'))?.active?.state)).toBe('activated');
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => navigator.serviceWorker.controller?.scriptURL)).toBe(`${origin}/sw.js`);
+
+  for (const [path, heading] of [
+    ['/about/', 'Keep your memories.'],
+    ['/privacy/', 'Privacy policy'],
+    ['/about?source=sign-in', 'Keep your memories.'],
+    ['/privacy/?source=sign-up', 'Privacy policy'],
+  ]) {
+    const response = await page.goto(`${origin}${path}`);
+    expect(response.fromServiceWorker()).toBe(false);
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(heading);
+    expect(await page.locator('script').count()).toBe(0);
+    expect(await page.evaluate(async () => {
+      await document.fonts.load('600 16px "Abby Nunito"');
+      return document.fonts.check('600 16px "Abby Nunito"');
+    })).toBe(true);
+  }
+});
+
 test('production Django routes survive offline boots and replacement releases until the update is accepted', async ({ page, context, request }) => {
   const origin = server.origin;
   for (const release of Object.values(fixtures.releases)) {

@@ -67,6 +67,8 @@ export default defineConfig(({ command }) => {
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [
           /^\/api\//,
+          // Product and privacy pages are rendered by Django without the SPA.
+          /^\/(?:about|privacy)(?:\/|\?|$)/,
           // The separately built Unity scene is served by its own /play host.
           // Installed PWAs must let this navigation reach that host.
           /^\/play(?:\/|$)/,
@@ -178,6 +180,18 @@ export default defineConfig(({ command }) => {
       port: 3000,
       allowedHosts: ['abby.bos.lol', '.sslip.io', 'localhost'],
       proxy: {
+        '/about': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+        },
+        '/privacy': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+        },
+        '/public/fonts': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+        },
         '/api': {
           target: 'http://localhost:8000',
           changeOrigin: true,

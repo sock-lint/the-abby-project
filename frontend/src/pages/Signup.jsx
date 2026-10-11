@@ -150,6 +150,10 @@ export default function Signup({ onSignup }) {
             </div>
           </ParchmentCard>
         )}
+        <nav aria-label="App information" className="mt-4 flex flex-wrap justify-center gap-3 font-body text-caption text-sheikah-teal-deep">
+          <a href="/about/" className="flex min-h-11 items-center hover:underline">About The Abby Project</a>
+          <a href="/privacy/" className="flex min-h-11 items-center hover:underline">Privacy policy</a>
+        </nav>
       </div>
     </div>
   );
