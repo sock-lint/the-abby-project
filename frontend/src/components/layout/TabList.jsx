@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useReducedMotion } from 'framer-motion';
 import useScrollFades from '../../hooks/useScrollFades';
 
 /**
@@ -27,6 +28,7 @@ export default function TabList({
 }) {
   const stripRef = useRef(null);
   const tabRefs = useRef(new Map());
+  const reducedMotion = useReducedMotion();
   const { showLeft, showRight, onScroll } = useScrollFades(stripRef);
   const fadesActive = scrollFades && (showLeft || showRight);
 
@@ -36,10 +38,31 @@ export default function TabList({
   useEffect(() => {
     if (activeId == null) return;
     const node = tabRefs.current.get(activeId);
-    if (node?.scrollIntoView) {
-      node.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    const strip = stripRef.current;
+    if (node && strip) {
+      const tab = node.getBoundingClientRect();
+      const rail = strip.getBoundingClientRect();
+      strip.scrollTo?.({
+        left: Math.max(0, strip.scrollLeft + tab.left - rail.left - (strip.clientWidth - tab.width) / 2),
+        behavior: reducedMotion ? 'auto' : 'smooth',
+      });
     }
-  }, [activeId]);
+  }, [activeId, reducedMotion]);
+
+  const focusId = tabs.some((tab) => tab.id === activeId) ? activeId : tabs[0]?.id;
+  const handleKeyDown = (event, id) => {
+    const index = tabs.findIndex((tab) => tab.id === id);
+    let next;
+    if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+    else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = tabs.length - 1;
+    else return;
+    event.preventDefault();
+    const nextId = tabs[next].id;
+    tabRefs.current.get(nextId)?.focus({ preventScroll: true });
+    onSelect(nextId);
+  };
 
   const setTabRef = (id) => (node) => {
     if (node) tabRefs.current.set(id, node);
@@ -73,6 +96,7 @@ export default function TabList({
         ref={stripRef}
         role="tablist"
         aria-label={ariaLabel}
+        aria-orientation="horizontal"
         onScroll={onScroll}
         className={wrapClass}
       >
@@ -86,6 +110,8 @@ export default function TabList({
               role="tab"
               type="button"
               aria-selected={active}
+              tabIndex={tab.id === focusId ? 0 : -1}
+              onKeyDown={(event) => handleKeyDown(event, tab.id)}
               onClick={() => onSelect(tab.id)}
               className={`${sizing} min-h-11 py-2 px-4 rounded-full border font-body font-semibold text-body whitespace-nowrap transition-colors flex items-center justify-center gap-2
                 ${active

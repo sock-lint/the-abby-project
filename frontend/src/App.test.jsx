@@ -71,7 +71,8 @@ describe('App', () => {
       ),
     );
     renderApp();
-    await waitFor(() => expect(screen.getByText(/today's entry/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument());
+    expect(document.title).toBe('Today — The Abby Project');
   });
 });
 
@@ -97,7 +98,7 @@ describe('App — unknown routes', () => {
 
     renderApp();
 
-    await waitFor(() => expect(screen.getByText(/today's entry/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument());
     expect(window.location.pathname).toBe('/');
   });
 });

@@ -3,19 +3,22 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import VitalPipStrip from './VitalPipStrip.jsx';
+import { SpriteCatalogContext } from '../../providers/spriteCatalog.context';
 
 function LocationProbe() {
   const loc = useLocation();
   return <div data-testid="loc">{loc.pathname}{loc.search}</div>;
 }
 
-function renderStrip(props = {}) {
+function renderStrip(props = {}, catalog = {}) {
   return render(
     <MemoryRouter initialEntries={['/dashboard']}>
-      <Routes>
-        <Route path="/dashboard" element={<><VitalPipStrip {...props} /><LocationProbe /></>} />
-        <Route path="*" element={<LocationProbe />} />
-      </Routes>
+      <SpriteCatalogContext.Provider value={{ getSpriteMeta: (key) => catalog[key] || null }}>
+        <Routes>
+          <Route path="/dashboard" element={<><VitalPipStrip {...props} /><LocationProbe /></>} />
+          <Route path="*" element={<LocationProbe />} />
+        </Routes>
+      </SpriteCatalogContext.Provider>
     </MemoryRouter>,
   );
 }
@@ -64,9 +67,37 @@ describe('VitalPipStrip', () => {
   it('pet pip navigates to /bestiary?tab=companions when a pet is active', async () => {
     const user = userEvent.setup();
     renderStrip({
-      activePet: { growth_points: 45, species: { name: 'Tortle', icon_url: null } },
+      activePet: { growth_points: 45, species: { name: 'Tortle', icon: '🐢', sprite_key: 'tortle' } },
     });
     await user.click(screen.getByRole('button', { name: /tortle growth/i }));
     expect(screen.getByTestId('loc')).toHaveTextContent('/bestiary?tab=companions');
+  });
+
+  it('renders an owned pet from the real species sprite key and potion fields', () => {
+    renderStrip({
+      activePet: {
+        growth_points: 45, evolved_to_mount: false, happiness_level: 'bored',
+        species: { name: 'Tortle', icon: '🐢', sprite_key: 'tortle' },
+        potion: { name: 'Fire', slug: 'fire' },
+      },
+    }, { tortle: { url: '/sprites/tortle.png', frames: 1 } });
+    const portrait = screen.getByRole('img', { name: 'Fire Tortle' });
+    expect(portrait).toHaveAttribute('src', '/sprites/tortle.png');
+    expect(portrait).toHaveAttribute('data-dim', 'bored');
+    expect(portrait.style.filter).toContain('hue-rotate');
+    expect(portrait.style.filter).toContain('grayscale');
+    expect(screen.getByText('45%')).toBeInTheDocument();
+  });
+
+  it('keeps evolved pets bright and shows the real species icon without catalog art', () => {
+    renderStrip({
+      activePet: {
+        growth_points: 100, evolved_to_mount: true, happiness_level: 'away',
+        species: { name: 'Tortle', icon: '🐢', sprite_key: 'tortle' },
+      },
+    });
+    const icon = screen.getByText('🐢');
+    expect(icon).not.toHaveAttribute('data-dim');
+    expect(screen.getByRole('button', { name: 'Tortle growth' })).toHaveTextContent('100%');
   });
 });

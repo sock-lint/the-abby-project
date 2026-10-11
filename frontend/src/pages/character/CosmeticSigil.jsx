@@ -9,10 +9,10 @@ import { cosmeticLockHint } from './character.constants';
  * CosmeticSigil — a single cosmetic tile inside a CosmeticChapter.
  *
  * Three states:
- *   • equipped  — RARITY_HALO + "equipped" gilt ribbon; click unequips.
- *   • owned     — clean parchment tile with rarity ring; click equips.
- *   • locked    — debossed intaglio (grayscale icon, inset shadow) + a
- *                  script unlock hint beneath the name. Not clickable.
+ *   • equipped  — RARITY_HALO + "equipped" label; click unequips.
+ *   • owned     — soft collection tile; click equips.
+ *   • locked    — dashed tile with a quiet icon and readable unlock hint.
+ *                  Not clickable.
  *
  * Theme-cover special case: when `slot === "active_theme"` the tile
  * hovers fire a transient `applyTheme(item.metadata.theme)` so the user
@@ -76,12 +76,12 @@ export default function CosmeticSigil({
     : `${item.name} · ${rarity} · click to equip`;
 
   const shellBase =
-    'relative w-full rounded-2xl p-3 flex flex-col items-center gap-1.5 min-h-[136px] transition-transform';
+    'relative w-full rounded-3xl p-3 flex flex-col items-center gap-2 min-h-[136px] transition-transform';
   const shellEarned = `bg-ink-page-rune-glow/95 border border-ink-page-shadow ${
     equipped ? RARITY_HALO[rarity] || RARITY_HALO.common : ''
   }`;
   const shellLocked =
-    'border border-dashed border-ink-whisper/30 bg-ink-page-aged/40 text-ink-whisper/60 shadow-[inset_0_2px_6px_-2px_rgba(45,31,21,0.25),inset_0_-1px_0_rgba(255,248,224,0.4)]';
+    'border border-dashed border-ink-page-shadow bg-ink-page/70 text-ink-whisper';
 
   const body = (
     <div
@@ -94,10 +94,10 @@ export default function CosmeticSigil({
       }`}
     >
       <div
-        className={`relative w-14 h-14 rounded-full flex items-center justify-center ${
+        className={`relative w-14 h-14 rounded-2xl flex items-center justify-center ${
           owned
-            ? 'bg-ink-page-aged shadow-[inset_0_1px_0_rgba(255,248,224,0.6),inset_0_-2px_4px_rgba(45,31,21,0.15)]'
-            : 'bg-ink-page-shadow/25 shadow-[inset_0_2px_4px_rgba(45,31,21,0.35),inset_0_-1px_0_rgba(255,248,224,0.25)]'
+            ? 'bg-ink-page-aged'
+            : 'bg-ink-page-shadow/20'
         }`}
       >
         <div className={owned ? '' : 'grayscale opacity-45'}>
@@ -111,28 +111,25 @@ export default function CosmeticSigil({
       </div>
 
       <div
-        className={`text-caption text-center font-medium leading-tight line-clamp-2 ${
-          owned ? 'text-ink-primary' : 'text-ink-whisper/75'
+        className={`text-body text-center font-bold leading-tight line-clamp-2 ${
+          owned ? 'text-ink-primary' : 'text-ink-whisper'
         }`}
       >
         {item.name}
       </div>
       <div
-        className={`text-micro font-rune uppercase tracking-wider ${
-          owned ? (RARITY_TEXT_COLORS[rarity] || 'text-ink-secondary') : 'text-ink-whisper/55'
+        className={`text-caption font-body ${
+          owned ? (RARITY_TEXT_COLORS[rarity] || 'text-ink-secondary') : 'text-ink-whisper'
         }`}
       >
         {rarity}
       </div>
 
-      {/* The unlock hint is the only thing telling a kid how to earn a locked
-          cosmetic, and locked tiles are most of this grid — so it reads at
-          text-tiny in full ink rather than 10px at 80% whisper, matching the
-          sibling BadgeSigil / LorebookTile surfaces. */}
+      {/* Keep future goals as readable as the adjacent badge collection. */}
       {!owned && (
         <div
           data-cosmetic-hint="true"
-          className="mt-0.5 text-tiny italic font-script text-center leading-snug text-ink-whisper line-clamp-2 px-1"
+          className="mt-0.5 text-caption font-body text-center leading-snug text-ink-whisper line-clamp-2 px-1"
         >
           {cosmeticLockHint(item)}
         </div>
@@ -141,7 +138,7 @@ export default function CosmeticSigil({
       {equipped && (
         <div
           data-cosmetic-equipped-ribbon="true"
-          className="mt-auto pt-1 text-micro font-rune uppercase tracking-wider text-gold-leaf"
+          className="mt-auto pt-1 text-caption font-body font-bold text-gold-leaf"
         >
           equipped
         </div>
@@ -172,7 +169,7 @@ export default function CosmeticSigil({
       disabled={busy}
       aria-label={accessibleName}
       aria-pressed={equipped}
-      className="w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal rounded-2xl disabled:opacity-70"
+      className="w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-3xl disabled:opacity-70"
     >
       {body}
     </button>

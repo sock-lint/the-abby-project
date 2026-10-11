@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
-import { motion, useDragControls } from 'framer-motion';
+import { motion, useDragControls, useReducedMotion } from 'framer-motion';
 import TabList from './TabList';
 import { inkBleed } from '../../motion/variants';
 import { STORAGE_KEYS } from '../../constants/storage';
@@ -23,6 +23,7 @@ const SWIPE_TAB_THRESHOLD_PX = 70;
 export default function ChapterHub({ title, kicker, tabs, defaultTabId }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { pathname } = useLocation();
+  const reducedMotion = useReducedMotion();
   const requestedTab = searchParams.get('tab');
 
   const storageKey = STORAGE_KEYS.CHAPTER_TAB_PREFIX + pathname;
@@ -61,8 +62,8 @@ export default function ChapterHub({ title, kicker, tabs, defaultTabId }) {
   );
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [activeTab.id]);
+    window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+  }, [activeTab.id, reducedMotion]);
 
   // Swipe between tabs. The mobile dot row under the strip already reads as a
   // pager, and the strip is not sticky — without this, switching tabs from

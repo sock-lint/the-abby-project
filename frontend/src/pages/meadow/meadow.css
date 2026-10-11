@@ -84,11 +84,13 @@
 .meadow-page .meadow-receipt p { font-size: var(--text-caption); }
 .meadow-page .meadow-dismiss { font-family: inherit; color: var(--meadow-ink); font-size: var(--text-caption); }
 .meadow-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; font-size: var(--text-caption); color: var(--meadow-muted); }
-.meadow-visit { display: flex; align-items: center; gap: 1rem; padding: 0.7rem 1.25rem; border-radius: 1.5rem; background: linear-gradient(100deg, var(--meadow-leaf), var(--meadow-paper)); box-shadow: 0 3px 0 color-mix(in srgb, var(--meadow-ink) 8%, transparent); }
+.meadow-visit { display: flex; align-items: center; gap: 1rem; padding: 0.7rem 1.25rem; border-radius: 1.5rem; border: 1px solid color-mix(in srgb, var(--meadow-grass) 65%, transparent); background: linear-gradient(100deg, var(--meadow-leaf), var(--meadow-paper)); color: var(--meadow-ink); font-family: var(--meadow-font); box-shadow: 0 3px 0 color-mix(in srgb, var(--meadow-ink) 8%, transparent); }
+.meadow-visit:focus-visible { outline: 3px solid var(--meadow-lilac); outline-offset: 3px; }
+.meadow-visit:hover { box-shadow: 0 4px 12px color-mix(in srgb, var(--meadow-ink) 12%, transparent); }
 .meadow-visit > img { width: 88px; height: 88px; object-fit: contain; flex-shrink: 0; }
 .meadow-visit > svg { flex-shrink: 0; color: var(--meadow-lilac); }
 .meadow-visit-copy { display: flex; flex: 1; flex-direction: column; gap: 0.3rem; font-size: var(--text-body); }
-.meadow-visit-title { font-size: var(--text-lede); }
+.meadow-visit-title { font-size: var(--text-lede); font-weight: 800; }
 
 .meadow-sheet.parchment-bg-aged { background-image: none; background-color: var(--meadow-paper); color: var(--meadow-ink); font-family: var(--meadow-font); box-shadow: 0 12px 32px color-mix(in srgb, var(--meadow-ink) 15%, transparent); }
 .meadow-sheet label { font-family: inherit; font-weight: 600; }

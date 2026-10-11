@@ -30,10 +30,10 @@ describe('TrophyBadgePicker', () => {
         onClose={() => {}}
       />,
     );
-    expect(getByRole('dialog', { name: /choose your hero seal/i })).toBeInTheDocument();
+    expect(getByRole('dialog', { name: /choose your trophy badge/i })).toBeInTheDocument();
   });
 
-  it('only renders earned sigils, grouped by their reliquary chapter', () => {
+  it('only renders earned badges, grouped by collection', () => {
     renderWithProviders(
       <TrophyBadgePicker
         allBadges={allBadges}
@@ -62,7 +62,7 @@ describe('TrophyBadgePicker', () => {
         onClose={() => {}}
       />,
     );
-    expect(getByText(/haven.{0,3}t earned any seals yet/i)).toBeInTheDocument();
+    expect(getByText(/haven.{0,3}t earned any badges yet/i)).toBeInTheDocument();
   });
 
   it('clicking a sigil fires onSelect with its id', async () => {

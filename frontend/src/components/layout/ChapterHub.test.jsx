@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { useReducedMotion } from 'framer-motion';
 import ChapterHub from './ChapterHub.jsx';
 
 // Capture the panel's drag handlers so the swipe gesture can be exercised —
@@ -30,6 +31,7 @@ vi.mock('framer-motion', async () => {
   const stubs = {};
   return {
     ...actual,
+    useReducedMotion: vi.fn(() => false),
     useDragControls: () => ({ start: vi.fn() }),
     motion: new Proxy({}, {
       get: (_t, tag) => {
@@ -39,6 +41,8 @@ vi.mock('framer-motion', async () => {
     }),
   };
 });
+
+beforeEach(() => { vi.mocked(useReducedMotion).mockReturnValue(false); });
 
 const tabs = [
   { id: 'a', label: 'Alpha', render: () => <div>content-a</div> },
@@ -95,6 +99,23 @@ describe('ChapterHub', () => {
     renderHub();
     await user.click(screen.getByRole('tab', { name: 'Beta' }));
     expect(screen.getByText('content-b')).toBeInTheDocument();
+  });
+
+  it.each([false, true])('honors reduced motion during keyboard tab changes (%s)', async (reduced) => {
+    vi.mocked(useReducedMotion).mockReturnValue(reduced);
+    const pageScroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    try {
+      const user = userEvent.setup();
+      renderHub();
+      pageScroll.mockClear();
+      screen.getByRole('tab', { name: 'Alpha' }).focus();
+      await user.keyboard('{ArrowRight}');
+      expect(screen.getByRole('tab', { name: 'Beta' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByText('content-b')).toBeVisible();
+      expect(pageScroll).toHaveBeenCalledWith({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
+    } finally {
+      pageScroll.mockRestore();
+    }
   });
 
   // Tab bodies used to be keyed by the active tab id, so every tap or swipe

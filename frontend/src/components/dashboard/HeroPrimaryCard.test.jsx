@@ -96,7 +96,7 @@ describe('HeroPrimaryCard — next-action variant', () => {
     renderWithProviders(
       <HeroPrimaryCard role="child" ctx={{ weekday: 'T', dateStr: 'Apr 16' }} />,
     );
-    expect(screen.getByText(/pick something/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /choose your next adventure/i })).toBeInTheDocument();
   });
 
   it('renders an IlluminatedVersal of the next-action title first letter', () => {
@@ -143,15 +143,15 @@ describe('HeroPrimaryCard — next-action variant', () => {
     renderWithProviders(
       <HeroPrimaryCard role="parent" ctx={{ pendingCount: 0, loading: true }} />,
     );
-    expect(screen.queryByText(/nothing needs your seal/i)).toBeNull();
-    expect(screen.getByText(/turning today's page/i)).toBeInTheDocument();
+    expect(screen.queryByText(/you're all caught up/i)).toBeNull();
+    expect(screen.getByRole('heading', { level: 2, name: /checking for updates/i })).toBeInTheDocument();
   });
 
   it('parent hero shows the all-clear once the queue has resolved empty', () => {
     renderWithProviders(
       <HeroPrimaryCard role="parent" ctx={{ pendingCount: 0, loading: false }} />,
     );
-    expect(screen.getByText(/nothing needs your seal/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /you're all caught up/i })).toBeInTheDocument();
   });
 
   it('clocked variant still wins over nextAction', () => {
@@ -172,5 +172,43 @@ describe('HeroPrimaryCard — next-action variant', () => {
     );
     expect(screen.getByText('Birdhouse')).toBeInTheDocument();
     expect(screen.queryByText('Math')).not.toBeInTheDocument();
+  });
+
+  it('keeps the complete next action title in a secondary heading on narrow screens', () => {
+    const title = 'Finish the science fair presentation about growing plants';
+    renderWithProviders(
+      <HeroPrimaryCard ctx={{ nextAction: { kind: 'homework', id: 42, title, subtitle: 'Due tomorrow' } }} />,
+    );
+    const heading = screen.getByRole('heading', { level: 2, name: title });
+    expect(heading).toHaveClass('break-words');
+    expect(heading).not.toHaveClass('truncate');
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+  });
+
+  it('gives active trial progress an accessible label and value', () => {
+    renderWithProviders(
+      <HeroPrimaryCard ctx={{ activeQuest: {
+        status: 'active', current_progress: 3, effective_target: 10,
+        progress_percent: 30, definition: { name: 'Dragon Slayer' },
+      } }} />,
+    );
+    expect(screen.getByRole('progressbar', { name: 'Dragon Slayer progress' })).toHaveAttribute('aria-valuenow', '30');
+  });
+
+  it('scrolls to approvals without animation when reduced motion is requested', async () => {
+    const scrollIntoView = vi.fn();
+    const queue = document.createElement('section');
+    queue.id = 'approval-queue';
+    queue.scrollIntoView = scrollIntoView;
+    document.body.append(queue);
+    const preference = vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true });
+    try {
+      const { user } = renderWithProviders(<HeroPrimaryCard role="parent" ctx={{ pendingCount: 2 }} />);
+      await user.click(screen.getByRole('button', { name: /review approvals/i }));
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
+    } finally {
+      preference.mockRestore();
+      queue.remove();
+    }
   });
 });

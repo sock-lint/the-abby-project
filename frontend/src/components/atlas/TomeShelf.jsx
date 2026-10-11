@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { useReducedMotion } from 'framer-motion';
 import TomeSpine from './TomeSpine';
 import useScrollFades from '../../hooks/useScrollFades';
 
@@ -6,8 +7,8 @@ import useScrollFades from '../../hooks/useScrollFades';
  * TomeShelf — horizontal snap-scroll rail of collection tabs.
  *
  * Contract: role="tablist", role="tab" per child, arrow-key nav with
- * wrap-around, scrollIntoView fires when activeId changes so the chosen
- * tile is centered even in a long catalog. Domain-agnostic — each `item`
+ * wrap-around, horizontal scrolling centers the selected tile without
+ * moving the page past its introduction. Domain-agnostic — each `item`
  * is a flat descriptor:
  * `{ id, name, icon, chip?, progressPct?, tier?, ariaLabel? }`.
  *
@@ -26,6 +27,7 @@ import useScrollFades from '../../hooks/useScrollFades';
 export default function TomeShelf({ items, activeId, onSelect, ariaLabel }) {
   const refs = useRef(new Map());
   const shelfRef = useRef(null);
+  const reducedMotion = useReducedMotion();
   const { showLeft, showRight, onScroll: onShelfScroll } = useScrollFades(shelfRef);
 
   const handleKey = useCallback(
@@ -44,11 +46,18 @@ export default function TomeShelf({ items, activeId, onSelect, ariaLabel }) {
   useEffect(() => {
     if (activeId == null) return;
     const node = refs.current.get(activeId);
-    if (node?.scrollIntoView) {
-      node.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-      node.focus?.({ preventScroll: true });
+    const shelf = shelfRef.current;
+    if (node && shelf) {
+      const tile = node.getBoundingClientRect();
+      const rail = shelf.getBoundingClientRect();
+      shelf.scrollTo?.({
+        left: Math.max(0, shelf.scrollLeft + tile.left - rail.left - (shelf.clientWidth - tile.width) / 2),
+        behavior: reducedMotion ? 'auto' : 'smooth',
+      });
+      // Keyboard selection follows focus; mounting a page never steals it.
+      if (shelf.contains(document.activeElement)) node.focus?.({ preventScroll: true });
     }
-  }, [activeId]);
+  }, [activeId, reducedMotion]);
 
   if (!items.length) return null;
 

@@ -70,7 +70,7 @@ describe('Character (/sigil)', () => {
       expect(screen.getByRole('heading', { name: 'Abby' })).toBeInTheDocument(),
     );
     expect(screen.getByText(/level 3/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /no hero seal/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /no trophy badge/i })).toBeInTheDocument();
   });
 
   it('renders a TomeShelf with four cosmetic chapter spines and opens only the active one', async () => {
@@ -236,11 +236,11 @@ describe('Character (/sigil)', () => {
     });
     renderPage();
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /no hero seal/i })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: /no trophy badge/i })).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole('button', { name: /no hero seal/i }));
+    await user.click(screen.getByRole('button', { name: /no trophy badge/i }));
     await waitFor(() =>
-      expect(screen.getByRole('dialog', { name: /choose your hero seal/i })).toBeInTheDocument(),
+      expect(screen.getByRole('dialog', { name: /choose your trophy badge/i })).toBeInTheDocument(),
     );
   });
 });

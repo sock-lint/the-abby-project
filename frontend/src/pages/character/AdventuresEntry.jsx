@@ -21,7 +21,7 @@ export default function AdventuresEntry() {
       <button
         type="button"
         onClick={() => navigate('/trials')}
-        className="w-full text-left flex items-start gap-3 p-1 focus:outline-none"
+        className="w-full rounded-2xl text-left flex items-start gap-3 p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep focus-visible:ring-offset-4 focus-visible:ring-offset-ink-page-aged"
         aria-label={
           isActive
             ? `Adventures — continue ${activeQuest.definition?.name || 'trial'}`
@@ -35,7 +35,7 @@ export default function AdventuresEntry() {
           <div className="font-script text-xs text-royal uppercase tracking-wider">
             Adventures
           </div>
-          <h2 className="font-display italic text-lg text-ink-primary leading-tight mt-0.5">
+          <h2 className="font-body font-bold text-lg text-ink-primary leading-tight mt-0.5">
             {isActive ? activeQuest.definition?.name || 'Active trial' : 'The Trials'}
           </h2>
           {isActive ? (
