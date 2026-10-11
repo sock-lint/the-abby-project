@@ -429,7 +429,8 @@ and `Unity validation`. Hosted bridge/API checks run independently. Unity invoke
 the existing scene/asset/API validation on a dedicated licensed Linux or Windows
 runner with the `unity-6000.6.5f1` label; `UNITY_VALIDATION_RUNNER_OS` selects the
 operating system. The hosted readiness/result checks fail explicitly
-when setup or validation is incomplete. See
+when setup or validation is incomplete. The required `Unity validation` aggregate
+also requires the hosted release packaging/deployment guard tests to pass. See
 [`docs/operations/pr-validation.md`](docs/operations/pr-validation.md) for the
 runner variable, setup, stable required-check names, and local reproduction.
 
@@ -439,6 +440,8 @@ Pipeline runs on `push` to `main` or manual dispatch. A hosted current-main guar
 3. **`build`** (needs 1+2) — multi-stage public validation Docker build → GHCR push (tag = 8-char SHA). Injects configured Sentry build args for source-map upload during Node stage. Job-specific registry credentials are removed after use.
 4. **`scan`** (needs 3) — Trivy image scan (CRITICAL + HIGH severity, `--exit-code 1`).
 5. **`deploy`** (needs 3+4) — verifies deployment guards, rechecks current main, and invokes the existing native Coolify application with a `read`/`deploy` token. It requires the finished deployment's exact SHA plus healthy public application/database state. Coolify rebuilds production with its preserved private inputs; the GHCR validation image is not the production image. The installed API resolves `HEAD` and cannot atomically pin the commit; the helper cancels active mismatches/superseded deployments when possible. Native Coolify webhooks remain outside Actions guards. Configure `COOLIFY_API_URL`, `COOLIFY_API_TOKEN`, and `COOLIFY_APPLICATION_UUID` as documented in [`docs/operations/platform-deployment.md`](docs/operations/platform-deployment.md).
+6. **`unity-web-build`** — exports a fresh licensed Web player on the isolated Linux Unity runner, preserving saved scenes and private asset GUIDs. It transfers only compiled files and a source/run/checksum manifest.
+7. **`unity-web-deploy`** (needs 5+6) — tests and scans a versioned nginx image on `deploy-platform`, then uses a restricted SSH broker to update the separate Unity Coolify service and verify its exact healthy image/public files. The deployment key is in the main-only `unity-production` environment. Setup, private inputs, recovery and supersession limits are documented in [`docs/operations/unity-web-release.md`](docs/operations/unity-web-release.md). Manual dispatch with `unity_build_only=true` skips both deployments and compiles the selected repository branch in a separate concurrency group.
 
 ## Key entry points
 - `manage.py`, `config/wsgi.py`, `config/urls.py`, `config/celery.py`, `config/settings.py`, `config/settings_test.py`.
