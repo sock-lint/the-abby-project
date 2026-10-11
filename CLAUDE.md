@@ -302,6 +302,62 @@ Per-subsystem game-design constants (drop rates, growth caps, rage shield steps)
 - **Lorebook lock-step**: when adding a new `TriggerType` (`apps/rpg/constants.py`), `Badge.CriteriaType` (`apps/achievements/models.py`), `PaymentLedger.EntryType` (`apps/payments/models.py`), `CoinLedger.Reason` (`apps/rewards/models.py`), or a new tunable Django setting referenced by an explainer, update [`content/lorebook/entries.yaml`](content/lorebook/entries.yaml) so the kid- and parent-facing Lorebook still describes how the system works. The parity test in [`apps/lorebook/tests/test_parity.py`](apps/lorebook/tests/test_parity.py) fails CI otherwise — its error message tells you which `LOREBOOK_*_COVERAGE` map to extend.
 - Frontend conventions live in [`frontend/CLAUDE.md`](frontend/CLAUDE.md) (form/button/card/type scale + interaction-test rule).
 
+## Worktree lifecycle
+
+The mandatory agent rules live in [AGENTS.md](AGENTS.md#worktree-lifecycle).
+Worktrees must have an owner and a cleanup outcome; a merged PR must not leave
+an eligible checkout stranded. The user's standing automatic-cleanup request
+for this repository authorizes eligible managed archival and unmanaged removal
+for worktrees owned by the current chat; do not ask for redundant approval.
+
+Use the chat's artifact inventory before creating a checkout. Prefer reusing
+an attached worktree; use `create_worktree` for a new managed checkout and
+`attach_worktree` if registration needs recovery. Attach created or continued
+PRs, and record their URLs, target branches, canonical checkout branches/paths, and
+managed artifact roots in the owning chat so cleanup can identify exact work.
+
+Verify the exact PR's `merged` state on GitHub. A deleted remote branch or local
+ancestry alone does not establish a merge, and squash/rebase merges need not
+leave the original PR commits as ancestors. Compare the checkout's commits and
+working tree with the PR's recorded head to detect additional work created
+after the reviewed change. Preserve that work first; do not discard it merely
+because the earlier PR merged.
+
+Use `archive_worktree` for eligible managed artifacts. It retains a recoverable
+Git snapshot of local changes, unpushed commits, and non-ignored untracked files
+before removing the checkout. Needed ignored assets must be saved separately
+and their recovery locations recorded before archival. Honor the tool's owner,
+primary/pinned/shared, submodule, and embedded-repository restrictions; an
+archive failure is a reason to retain and report the checkout, not to force
+delete it. Never remove a checkout that remains the active workspace.
+
+An owned managed checkout created for disposable verification or exploration
+may have no PR. Once its purpose is complete, needed work has been preserved,
+and no active follow-up needs it, archive it and record the completed purpose
+as the cleanup reason. An unknown PR identity blocks cleanup for ambiguous
+PR-associated work; the absence of a PR is not a retention reason for completed
+disposable work.
+
+Before final handoff, audit attached worktrees. Archive eligible merged managed
+work and completed disposable managed checkouts;
+for anything retained, record its root, PR/status, concrete retention reason,
+and next action. When waiting for a PR merge, set up or update a heartbeat in the
+owning chat that checks that exact PR, stays quiet without actionable change,
+archives the eligible checkout after merge, and stops/deletes itself after
+successful archival. The user's automatic-cleanup request authorizes this
+owner-chat follow-up; avoid duplicate monitors or repeated approval requests.
+These instructions do not create a global hook or timer, and a central monitor
+cannot clean up artifacts owned by unrelated chats.
+
+For an unmanaged checkout, verify ownership by this chat, its exact absolute
+path, a clean inactive working tree, the exact PR's confirmed GitHub merge, and
+that all work is merged before using normal `git worktree remove` without
+`--force`. The standing request already authorizes this repository's eligible
+cleanup. Unknown ownership or another chat's checkout must be retained with a
+concrete reason. Managed Codex worktrees always use `archive_worktree`, never
+this unmanaged removal path. Report what was archived and saved, or what
+remains and why, in the final response.
+
 ## Shared API response fixtures
 
 [`contracts/api/README.md`](contracts/api/README.md) documents the synthetic raw
