@@ -98,6 +98,17 @@ and the actual `GITHUB_RUN_ID`/`GITHUB_RUN_ATTEMPT`, then run
 `bash scripts/unity/Build-Web.sh`. Outputs are under `release-directory/package`
 and the editor log is `release-directory/build-web.log`.
 
+To check the actual downloaded compiled artifact before merge, provide its exact
+`GITHUB_SHA`, `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT` and `GITHUB_REPOSITORY`, then run:
+
+```bash
+python3 scripts/unity/deploy_web_release.py --artifact-dir /path/to/artifact --verify-only
+```
+
+This requires Docker and Trivy, exercises the real nginx hosting output and
+image archive, and exits before SSH or production access. It uses a new local
+immutable image tag, so use a clean Docker host or a fresh actual run/attempt.
+
 Inspect the public manifest's `source_commit` before investigating browser caches.
 An older installed React service worker may need to update and reload. CI hosting
 checks do not establish actual Android/iPhone performance, keyboard or resume behavior.

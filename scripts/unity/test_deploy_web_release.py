@@ -2,11 +2,13 @@
 
 import hashlib
 from email.message import Message
+import gzip
 import io
 import json
 from pathlib import Path
 import tarfile
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -282,6 +284,56 @@ class PublicTests(unittest.TestCase):
             self.assertEqual(broker.args[-1], release.SSH_COMMAND)
             self.assertIn("StrictHostKeyChecking=yes", broker.args)
             self.assertIn("IdentitiesOnly=yes", broker.args)
+
+
+class VerificationOnlyTests(unittest.TestCase):
+    def test_local_mode_builds_hosts_scans_and_saves_without_any_production_access(self):
+        manifest, raw, files = manifest_fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "release.json").write_bytes(raw)
+            with tarfile.open(root / "web.tar.gz", "w:gz") as bundle:
+                for name, data in {**files, "release.json": raw}.items():
+                    add_tar_file(bundle, "web/" + name, data)
+            request = request_fixture()
+            request["manifest_sha256"] = hashlib.sha256(raw).hexdigest()
+            image_archive(root / "fixture.tar.gz", request)
+            docker_save = gzip.decompress((root / "fixture.tar.gz").read_bytes())
+
+            def local_command(args, **kwargs):
+                if args[:3] == ["docker", "image", "inspect"]:
+                    return (request["image_id"] + "\n").encode() if "--format" in args else None
+                return b""
+
+            env = {"GITHUB_SHA": SOURCE, "GITHUB_REPOSITORY": release.REPOSITORY,
+                   "GITHUB_RUN_ID": "123", "GITHUB_RUN_ATTEMPT": "1"}
+            process = SimpleNamespace(stdout=io.BytesIO(docker_save), wait=lambda timeout: 0)
+            with patch.dict(release.os.environ, env, clear=True), patch.object(release, "command", side_effect=local_command) as commands, patch.object(release, "hosting_checks") as hosting, patch.object(release.subprocess, "Popen", return_value=process), patch.object(release, "current_main") as main, patch.object(release, "BrokerClient") as broker:
+                release.client_main(root, verify_only=True)
+            main.assert_not_called()
+            broker.assert_not_called()
+            hosting.assert_called_once()
+            args = [call.args[0] for call in commands.call_args_list]
+            self.assertTrue(any(call[:2] == ["docker", "build"] for call in args))
+            self.assertIn(["trivy", "image", "--severity", "HIGH,CRITICAL", "--ignore-unfixed", "--exit-code", "1", release.request_identity(request)], args)
+            archive = root / (manifest["release_id"] + ".image.tar.gz")
+            self.assertTrue(archive.is_file())
+            release.validate_image_archive(archive, request, release.request_identity(request))
+
+    def test_local_mode_still_requires_exact_identity_and_deploy_still_requires_main(self):
+        _, raw, _ = manifest_fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "release.json").write_bytes(raw)
+            env = {"GITHUB_SHA": "f" * 40, "GITHUB_REPOSITORY": release.REPOSITORY,
+                   "GITHUB_RUN_ID": "123", "GITHUB_RUN_ATTEMPT": "1"}
+            with patch.dict(release.os.environ, env, clear=True), patch.object(release, "current_main") as main, patch.object(release, "BrokerClient") as broker:
+                with self.assertRaises(release.ReleaseError):
+                    release.client_main(root, verify_only=True)
+                with self.assertRaises(release.ReleaseError):
+                    release.client_main(root)
+            main.assert_not_called()
+            broker.assert_not_called()
 
 
 if __name__ == "__main__":

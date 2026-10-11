@@ -581,9 +581,14 @@ def hosting_checks(tag, manifest_raw, manifest):
         command(["docker", "rm", "--force", container], allow_failure=True, timeout=30)
 
 
-def client_main(artifact_dir):
-    names = ["GITHUB_SHA", "GITHUB_REPOSITORY", "GITHUB_TOKEN", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "UNITY_WEB_SSH_TARGET", "UNITY_WEB_SSH_KEY_PATH", "UNITY_WEB_SSH_KNOWN_HOSTS_PATH"]
-    if os.environ.get("GITHUB_REF") != "refs/heads/main" or os.environ.get("GITHUB_REPOSITORY") != REPOSITORY or any(not os.environ.get(name) for name in names):
+def client_main(artifact_dir, verify_only=False):
+    identity_names = ["GITHUB_SHA", "GITHUB_REPOSITORY", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT"]
+    ssh_names = ["UNITY_WEB_SSH_TARGET", "UNITY_WEB_SSH_KEY_PATH", "UNITY_WEB_SSH_KNOWN_HOSTS_PATH"]
+    if os.environ.get("GITHUB_REPOSITORY") != REPOSITORY or any(not os.environ.get(name) for name in identity_names):
+        raise ReleaseError("Unity artifact verification requires its exact source, repository, and Actions run identity.")
+    if not verify_only and (os.environ.get("GITHUB_REF") != "refs/heads/main"
+                            or not os.environ.get("GITHUB_TOKEN")
+                            or any(not os.environ.get(name) for name in ssh_names)):
         raise ReleaseError("Unity release requires trusted main and the documented Actions/SSH configuration.")
     source, run_id, attempt = (os.environ[name] for name in ("GITHUB_SHA", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT"))
     if (artifact_dir / "release.json").stat().st_size > MAX_MANIFEST:
@@ -591,10 +596,11 @@ def client_main(artifact_dir):
     raw = (artifact_dir / "release.json").read_bytes()
     manifest = validate_manifest(raw, source, run_id, attempt)
     latest = lambda: current_main(os.environ["GITHUB_TOKEN"])
-    require_current(source, latest)
     request = {"op": "inspect", "source_commit": source, "run_id": run_id, "run_attempt": attempt, "release_id": manifest["release_id"]}
-    broker = BrokerClient(*(os.environ[name] for name in names[-3:]))
-    broker.request(request)
+    if not verify_only:
+        require_current(source, latest)
+        broker = BrokerClient(*(os.environ[name] for name in ssh_names))
+        broker.request(request)
     tag = request_identity(request)
     repository_root = Path(__file__).resolve().parents[2]
     with tempfile.TemporaryDirectory(prefix="abby-unity-release-") as temporary:
@@ -631,6 +637,9 @@ def client_main(artifact_dir):
                 if process.wait(timeout=300):
                     raise ReleaseError("Saving the Unity image archive failed.")
         validate_image_archive(archive, request, tag)
+        if verify_only:
+            print(f"Unity artifact {manifest['release_id']} passed local hosting, vulnerability scanning, and exact image archive checks; no production operation was requested.", flush=True)
+            return
         request.update(op="upload", archive_size=archive.stat().st_size, archive_sha256=file_hash(archive))
         require_current(source, latest)
         broker.request(request, archive)
@@ -652,11 +661,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--broker", action="store_true")
     parser.add_argument("--artifact-dir", type=Path)
+    parser.add_argument("--verify-only", action="store_true", help="Build, host-check, scan, and save an artifact locally without SSH or deployment.")
     args = parser.parse_args()
-    if args.broker and args.artifact_dir is None:
+    if args.broker and args.artifact_dir is None and not args.verify_only:
         broker_main()
     elif not args.broker and args.artifact_dir is not None:
-        client_main(args.artifact_dir.resolve())
+        client_main(args.artifact_dir.resolve(), verify_only=args.verify_only)
     else:
         raise ReleaseError("Choose --broker or --artifact-dir.")
 
