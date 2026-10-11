@@ -44,27 +44,59 @@ def add_tar_file(bundle, name, data):
     bundle.addfile(item, io.BytesIO(data))
 
 
-def image_archive(path, request, *, extra_index=False, duplicate=False, extra_tag=False, unsafe=False):
+def image_archive(path, request, *, extra_index=False, duplicate=False, extra_tag=False, unsafe=False,
+                  classic=False, nested_index=False, tampered_config=False, tampered_layer=False,
+                  bad_descriptor_size=False, bad_descriptor_hash=False, gzip_layer=False,
+                  wrong_diff_id=False, unknown_layer_type=False, malformed_rootfs=False, layer_data=None):
     tag = release.request_identity(request)
-    config_raw = json.dumps({"config": {"Labels": release.image_labels(request)}}).encode()
+    decoded_layer = layer_data or b"synthetic uncompressed layer tar"
+    diff_id = "sha256:" + hashlib.sha256(decoded_layer).hexdigest()
+    layer = gzip.compress(decoded_layer, mtime=0) if gzip_layer else decoded_layer
+    layer_id = hashlib.sha256(layer).hexdigest()
+    config_raw = json.dumps({"architecture": "amd64", "os": "linux", "config": {"Labels": release.image_labels(request)},
+                             "rootfs": [] if malformed_rootfs else {"type": "layers", "diff_ids": ["sha256:" + "f" * 64 if wrong_diff_id else diff_id]}}).encode()
     config_id = hashlib.sha256(config_raw).hexdigest()
     request["image_id"] = "sha256:" + config_id
-    config_name = f"blobs/sha256/{config_id}"
-    descriptor_raw = json.dumps({"config": {"digest": request["image_id"]}, "layers": []}).encode()
+    config_name = config_id + ".json" if classic else f"blobs/sha256/{config_id}"
+    layer_name = layer_id + "/layer.tar" if classic else "blobs/sha256/" + layer_id
+    descriptor_raw = json.dumps({"schemaVersion": 2, "mediaType": "application/vnd.oci.image.manifest.v1+json",
+                                  "config": {"digest": request["image_id"], "size": len(config_raw)},
+                                  "layers": [{"mediaType": "unknown/layer" if unknown_layer_type else "application/vnd.docker.image.rootfs.diff.tar.gzip" if gzip_layer else "application/vnd.oci.image.layer.v1.tar",
+                                              "digest": "sha256:" + layer_id, "size": len(layer)}]}).encode()
     descriptor_id = hashlib.sha256(descriptor_raw).hexdigest()
-    descriptor = {"digest": "sha256:" + descriptor_id,
+    descriptor = {"mediaType": "application/vnd.oci.image.manifest.v1+json", "digest": "sha256:" + descriptor_id, "size": len(descriptor_raw),
                   "annotations": {"io.containerd.image.name": tag, "org.opencontainers.image.ref.name": tag.split(":")[1]}}
+    root_raw = None
+    if nested_index:
+        runtime = {"mediaType": descriptor["mediaType"], "digest": descriptor["digest"], "size": descriptor["size"],
+                   "platform": {"architecture": "amd64", "os": "linux"}}
+        root_raw = json.dumps({"schemaVersion": 2, "mediaType": "application/vnd.oci.image.index.v1+json",
+                               "manifests": [runtime] * (2 if extra_index else 1)}).encode()
+        root_id = hashlib.sha256(root_raw).hexdigest()
+        descriptor.update(mediaType="application/vnd.oci.image.index.v1+json", digest="sha256:" + root_id, size=len(root_raw))
     if extra_tag:
         descriptor["annotations"]["io.containerd.image.name"] = "another:tag"
+    if bad_descriptor_size:
+        descriptor["size"] += 1
+    if bad_descriptor_hash:
+        descriptor_raw += b" "
     with tarfile.open(path, "w:gz") as bundle:
-        add_tar_file(bundle, "manifest.json", json.dumps([{"RepoTags": [tag], "Config": config_name}]).encode())
-        add_tar_file(bundle, config_name, config_raw)
-        add_tar_file(bundle, "blobs/sha256/" + descriptor_id, descriptor_raw)
-        add_tar_file(bundle, "index.json", json.dumps({"manifests": [descriptor] * (2 if extra_index else 1)}).encode())
+        add_tar_file(bundle, "manifest.json", json.dumps([{"RepoTags": [tag], "Config": config_name, "Layers": [layer_name]}]).encode())
+        add_tar_file(bundle, config_name, config_raw + (b" " if tampered_config else b""))
+        add_tar_file(bundle, layer_name, layer + (b"!" if tampered_layer else b""))
+        if not classic:
+            add_tar_file(bundle, "blobs/sha256/" + descriptor_id, descriptor_raw)
+            if root_raw:
+                add_tar_file(bundle, "blobs/sha256/" + root_id, root_raw)
+            add_tar_file(bundle, "index.json", json.dumps({"manifests": [descriptor] * (2 if extra_index and not nested_index else 1)}).encode())
         if duplicate:
             add_tar_file(bundle, "manifest.json", b"[]")
         if unsafe:
             add_tar_file(bundle, "../outside", b"x")
+
+
+def proof_fixture(request):
+    return {"config_id": request["image_id"], "image_ids": [request["image_id"]]}
 
 
 class ManifestTests(unittest.TestCase):
@@ -182,6 +214,85 @@ class BrokerTests(unittest.TestCase):
                     with self.assertRaises(release.ReleaseError):
                         release.validate_image_archive(archive, request, release.request_identity(request))
 
+    def test_classic_and_containerd_ids_are_proven_by_one_runtime_content_graph(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "image.tar.gz"
+            for options, expected_count in (({"classic": True}, 1), ({}, 2), ({"nested_index": True}, 3)):
+                with self.subTest(options=options):
+                    request = request_fixture()
+                    image_archive(archive, request, **options)
+                    proof = release.validate_image_archive(archive, request, release.request_identity(request))
+                    self.assertEqual(proof["config_id"], request["image_id"])
+                    self.assertEqual(len(proof["image_ids"]), expected_count)
+                    self.assertIn(request["image_id"], proof["image_ids"])
+                    for store_id in proof["image_ids"]:
+                        inspected = {"Id": store_id, "Config": {"Labels": release.image_labels(request)}}
+                        with patch.object(release, "docker_host", return_value=json.dumps(inspected).encode()):
+                            self.assertEqual(release.exact_image(request, release.request_identity(request), proof["image_ids"]), store_id)
+                    inspected["Id"] = "sha256:" + "f" * 64
+                    with patch.object(release, "docker_host", return_value=json.dumps(inspected).encode()):
+                        with self.assertRaises(release.ReleaseError):
+                            release.exact_image(request, release.request_identity(request), proof["image_ids"])
+
+    def test_tampered_config_descriptor_or_layer_and_extra_variant_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "image.tar.gz"
+            for options in ({"classic": True, "tampered_layer": True}, {"tampered_layer": True},
+                            {"tampered_config": True}, {"bad_descriptor_size": True},
+                            {"bad_descriptor_hash": True}, {"nested_index": True, "extra_index": True},
+                            {"wrong_diff_id": True}, {"gzip_layer": True, "wrong_diff_id": True},
+                            {"unknown_layer_type": True}, {"malformed_rootfs": True}):
+                with self.subTest(options=options):
+                    request = request_fixture()
+                    image_archive(archive, request, **options)
+                    with self.assertRaises(release.ReleaseError):
+                        release.validate_image_archive(archive, request, release.request_identity(request))
+
+    def test_gzip_layers_are_bound_to_decoded_diff_ids_and_expansion_limit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "image.tar.gz"
+            request = request_fixture()
+            image_archive(archive, request, gzip_layer=True, layer_data=b"x" * 8192)
+            proof = release.validate_image_archive(archive, request, release.request_identity(request))
+            self.assertEqual(proof["config_id"], request["image_id"])
+            with patch.object(release, "MAX_ARCHIVE", 1024):
+                with self.assertRaisesRegex(release.ReleaseError, "Decoded image layers exceed"):
+                    release.validate_image_archive(archive, request, release.request_identity(request))
+
+    def test_oversized_classic_config_or_archive_json_metadata_is_rejected_whole(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original, oversized = root / "image.tar.gz", root / "oversized.tar.gz"
+            request = request_fixture()
+            image_archive(original, request, classic=True)
+            with tarfile.open(original, "r:gz") as bundle:
+                members = {item.name: bundle.extractfile(item).read() for item in bundle if item.isfile()}
+            config_name = json.loads(members["manifest.json"])[0]["Config"]
+            for target in (config_name, "manifest.json", "index.json"):
+                with self.subTest(target=target):
+                    data = dict(members)
+                    data[target] = data.get(target, b"{}") + b" " * release.MAX_MANIFEST
+                    with tarfile.open(oversized, "w:gz") as bundle:
+                        for name, raw in data.items():
+                            add_tar_file(bundle, name, raw)
+                    with self.assertRaisesRegex(release.ReleaseError, "metadata exceeds its size limit"):
+                        release.validate_image_archive(oversized, request, release.request_identity(request))
+
+    def test_destination_image_record_is_bound_to_archive_and_exact_observed_id(self):
+        request = request_fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            archive = root / "image.tar.gz"
+            image_archive(archive, request, nested_index=True)
+            proof = release.validate_image_archive(archive, request, release.request_identity(request))
+            request["archive_sha256"] = release.file_hash(archive)
+            observed_id = next(value for value in proof["image_ids"] if value != request["image_id"])
+            release.record_image(root, request, proof, observed_id)
+            self.assertEqual(release.checked_image_record(root, request, proof, archive), observed_id)
+            archive.write_bytes(archive.read_bytes() + b"tampered")
+            with self.assertRaises(release.ReleaseError):
+                release.checked_image_record(root, request, proof, archive)
+
     def test_existing_tag_with_different_content_is_not_replaced(self):
         request = request_fixture()
         with patch.object(release, "docker_host", return_value=json.dumps({"Id": "sha256:" + "f" * 64}).encode()):
@@ -194,7 +305,7 @@ class BrokerTests(unittest.TestCase):
             root = Path(directory)
             (root / (request["release_id"] + ".tar.gz")).touch()
             heads = iter([SOURCE, "f" * 40])
-            with patch.object(release, "check_destination"), patch.object(release, "validate_image_archive"), patch.object(release, "exact_image", return_value=True), patch.object(release, "service_action") as action:
+            with patch.object(release, "check_destination"), patch.object(release, "validate_image_archive", return_value=proof_fixture(request)), patch.object(release, "exact_image", return_value=request["image_id"]), patch.object(release, "checked_image_record", return_value=request["image_id"]), patch.object(release, "service_action") as action:
                 with self.assertRaises(release.ReleaseError):
                     release.broker_operation(request, io.BytesIO(), root=root, latest=lambda: next(heads))
             action.assert_not_called()
@@ -204,7 +315,7 @@ class BrokerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / (request["release_id"] + ".tar.gz")).touch()
-            with patch.object(release, "check_destination"), patch.object(release, "validate_image_archive"), patch.object(release, "exact_image", return_value=True), patch.object(release, "service_action", return_value={"activity_id": 123}) as action, patch.object(release, "activity_status", return_value="finished"), patch.object(release, "healthy_image", side_effect=[False, True]) as healthy:
+            with patch.object(release, "check_destination"), patch.object(release, "validate_image_archive", return_value=proof_fixture(request)), patch.object(release, "exact_image", return_value=request["image_id"]), patch.object(release, "checked_image_record", return_value=request["image_id"]), patch.object(release, "service_action", return_value={"activity_id": 123}) as action, patch.object(release, "activity_status", return_value="finished"), patch.object(release, "healthy_image", side_effect=[False, True]) as healthy:
                 result = release.broker_operation(request, io.BytesIO(), root=root, latest=lambda: SOURCE, sleep=lambda _: None)
             action.assert_called_once_with("activate", release.request_identity(request))
             self.assertEqual(healthy.call_count, 2)
@@ -216,7 +327,7 @@ class BrokerTests(unittest.TestCase):
             root = Path(directory)
             (root / (request["release_id"] + ".tar.gz")).touch()
             heads = iter([SOURCE, SOURCE, "f" * 40])
-            with patch.object(release, "check_destination"), patch.object(release, "validate_image_archive"), patch.object(release, "exact_image", return_value=True), patch.object(release, "service_action", return_value={"activity_id": 123}), patch.object(release, "activity_status", side_effect=["queued", "in_progress", "finished"]) as status, patch.object(release, "healthy_image") as healthy:
+            with patch.object(release, "check_destination"), patch.object(release, "validate_image_archive", return_value=proof_fixture(request)), patch.object(release, "exact_image", return_value=request["image_id"]), patch.object(release, "checked_image_record", return_value=request["image_id"]), patch.object(release, "service_action", return_value={"activity_id": 123}), patch.object(release, "activity_status", side_effect=["queued", "in_progress", "finished"]) as status, patch.object(release, "healthy_image") as healthy:
                 with self.assertRaises(release.ReleaseError):
                     release.broker_operation(request, io.BytesIO(), root=root, latest=lambda: next(heads), sleep=lambda _: None)
             self.assertEqual(status.call_count, 3)
@@ -229,7 +340,7 @@ class BrokerTests(unittest.TestCase):
             root = Path(directory)
             (root / (request["release_id"] + ".tar.gz")).touch()
             (root / "activity-state.json").write_text(json.dumps({"activity_id": 99}))
-            with patch.object(release, "check_destination"), patch.object(release, "validate_image_archive"), patch.object(release, "exact_image", return_value=True), patch.object(release, "activity_status", return_value="cancelled"), patch.object(release, "service_action") as action:
+            with patch.object(release, "check_destination"), patch.object(release, "validate_image_archive", return_value=proof_fixture(request)), patch.object(release, "exact_image", return_value=request["image_id"]), patch.object(release, "checked_image_record", return_value=request["image_id"]), patch.object(release, "activity_status", return_value="cancelled"), patch.object(release, "service_action") as action:
                 with self.assertRaises(release.ReleaseError):
                     release.broker_operation(request, io.BytesIO(), root=root, latest=lambda: SOURCE)
             action.assert_not_called()

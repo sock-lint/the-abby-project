@@ -20,6 +20,7 @@ import sys
 import tarfile
 import tempfile
 import time
+import zlib
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
@@ -291,6 +292,69 @@ def image_labels(request):
             "io.abby.unity.manifest.sha256": request["manifest_sha256"]}
 
 
+def image_descriptor(bundle, descriptor, *, json_body=False):
+    """Prove an OCI graph edge against exact archived bytes, not labels alone."""
+    if not isinstance(descriptor, dict) or not IMAGE_ID.fullmatch(str(descriptor.get("digest", ""))):
+        raise ReleaseError("Image archive contains an invalid content descriptor.")
+    size = descriptor.get("size")
+    if type(size) is not int or not 0 < size <= 2 * MAX_ARCHIVE or json_body and size > MAX_MANIFEST:
+        raise ReleaseError("Image archive descriptor size is invalid.")
+    name = "blobs/sha256/" + descriptor["digest"].removeprefix("sha256:")
+    try:
+        member = bundle.getmember(name)
+    except KeyError:
+        raise ReleaseError("Image archive descriptor member is missing.") from None
+    if not member.isfile() or member.size != size:
+        raise ReleaseError("Image archive descriptor size differs from its member.")
+    hasher, parts = hashlib.sha256(), []
+    with bundle.extractfile(member) as stream:
+        for chunk in iter(lambda: stream.read(1024**2), b""):
+            hasher.update(chunk)
+            if json_body:
+                parts.append(chunk)
+    if "sha256:" + hasher.hexdigest() != descriptor["digest"]:
+        raise ReleaseError("Image archive descriptor checksum mismatch.")
+    return (read_json(b"".join(parts)) if json_body else None), name
+
+
+def archive_metadata(bundle, name):
+    try:
+        member = bundle.getmember(name)
+    except KeyError:
+        raise ReleaseError("Image archive metadata member is missing.") from None
+    if not member.isfile() or not 0 < member.size <= MAX_MANIFEST:
+        raise ReleaseError("Image archive metadata exceeds its size limit or is not a regular file.")
+    with bundle.extractfile(member) as stream:
+        raw = stream.read()
+    if len(raw) != member.size:
+        raise ReleaseError("Image archive metadata is incomplete.")
+    return raw
+
+
+def decoded_layer_checksum(bundle, name, media_type, expected, remaining):
+    raw_types = ("application/vnd.oci.image.layer.v1.tar", "application/vnd.docker.image.rootfs.diff.tar")
+    gzip_types = ("application/vnd.oci.image.layer.v1.tar+gzip", "application/vnd.docker.image.rootfs.diff.tar.gzip")
+    if media_type not in raw_types + gzip_types:
+        raise ReleaseError("OCI archive contains an unsupported runtime layer encoding.")
+    hasher, size = hashlib.sha256(), 0
+    with bundle.extractfile(name) as encoded:
+        decoded = gzip.GzipFile(fileobj=encoded) if media_type in gzip_types else encoded
+        try:
+            for chunk in iter(lambda: decoded.read(1024**2), b""):
+                size += len(chunk)
+                if size > remaining:
+                    raise ReleaseError("Decoded image layers exceed the expanded-size limit.")
+                hasher.update(chunk)
+        except (gzip.BadGzipFile, EOFError, zlib.error):
+            raise ReleaseError("OCI archive layer is not valid gzip data.") from None
+        finally:
+            if decoded is not encoded:
+                decoded.close()
+    if "sha256:" + hasher.hexdigest() != expected:
+        raise ReleaseError("Decoded OCI layer differs from its canonical rootfs checksum.")
+    return size
+
+
 def validate_image_archive(path, request, tag):
     with tarfile.open(path, "r:gz") as bundle:
         names, total = set(), 0
@@ -302,22 +366,34 @@ def validate_image_archive(path, request, tag):
             if not re.fullmatch(r"(?:manifest\.json|index\.json|oci-layout|repositories|blobs/?|blobs/sha256/?|blobs/sha256/[a-f0-9]{64}|[a-f0-9]{64}(?:\.json|/|/(?:VERSION|json|layer\.tar))?)", item.name):
                 raise ReleaseError("Image archive contains an unsupported or unsafe member path.")
             names.add(item.name)
-        manifest = read_json(bundle.extractfile("manifest.json").read(MAX_MANIFEST))
+        manifest = read_json(archive_metadata(bundle, "manifest.json"))
         if not isinstance(manifest, list) or len(manifest) != 1 or not isinstance(manifest[0], dict) or manifest[0].get("RepoTags") != [tag]:
             raise ReleaseError("Image archive must contain only this exact Unity version tag.")
         config_name = manifest[0].get("Config", "")
         if not re.fullmatch(r"(?:blobs/sha256/)?[a-f0-9]{64}(?:\.json)?", config_name):
             raise ReleaseError("Image archive configuration path is invalid.")
-        raw = bundle.extractfile(config_name).read(MAX_MANIFEST)
-        if "sha256:" + hashlib.sha256(raw).hexdigest() != request["image_id"]:
+        raw = archive_metadata(bundle, config_name)
+        config_id = "sha256:" + hashlib.sha256(raw).hexdigest()
+        if config_name.removesuffix(".json").split("/")[-1] != config_id.removeprefix("sha256:"):
+            raise ReleaseError("Image archive config path does not prove its checksum.")
+        if request.get("image_id") is not None and config_id != request["image_id"]:
             raise ReleaseError("Image archive config differs from the expected image ID.")
         config_data = read_json(raw)
         config = config_data.get("config", {}) if isinstance(config_data, dict) else None
         labels = config.get("Labels") if isinstance(config, dict) else None
         if not isinstance(labels, dict) or any(labels.get(key) != value for key, value in image_labels(request).items()):
             raise ReleaseError("Image archive release/source labels mismatch.")
+        if config_data.get("architecture") != "amd64" or config_data.get("os") != "linux":
+            raise ReleaseError("Unity image must contain exactly the Linux amd64 runtime.")
+        rootfs = config_data.get("rootfs")
+        diff_ids = rootfs.get("diff_ids") if isinstance(rootfs, dict) and rootfs.get("type") == "layers" else None
+        layers = manifest[0].get("Layers")
+        if (not isinstance(diff_ids, list) or not isinstance(layers, list) or len(diff_ids) != len(layers)
+                or len(layers) > 128 or any(not IMAGE_ID.fullmatch(str(value)) for value in diff_ids)):
+            raise ReleaseError("Unity image layer inventory differs from its canonical configuration.")
+        image_ids, reachable = {config_id}, {config_name}
         if "index.json" in names:
-            index = read_json(bundle.extractfile("index.json").read(MAX_MANIFEST))
+            index = read_json(archive_metadata(bundle, "index.json"))
             entries = index.get("manifests") if isinstance(index, dict) else None
             if not isinstance(entries, list) or len(entries) != 1 or not isinstance(entries[0], dict) or not IMAGE_ID.fullmatch(str(entries[0].get("digest", ""))):
                 raise ReleaseError("OCI archive index must identify only one Unity image.")
@@ -326,14 +402,57 @@ def validate_image_archive(path, request, tag):
             if (not isinstance(annotations, dict) or annotations.get("io.containerd.image.name", tag) not in (tag, full_tag)
                     or annotations.get("org.opencontainers.image.ref.name", tag.split(":", 1)[1]) not in (tag, tag.split(":", 1)[1])):
                 raise ReleaseError("OCI archive index refers to a different image tag.")
-            descriptor = entries[0]["digest"].removeprefix("sha256:")
-            descriptor_raw = bundle.extractfile("blobs/sha256/" + descriptor).read(MAX_MANIFEST)
-            if hashlib.sha256(descriptor_raw).hexdigest() != descriptor:
-                raise ReleaseError("OCI archive manifest descriptor checksum mismatch.")
-            descriptor_data = read_json(descriptor_raw)
-            config_descriptor = descriptor_data.get("config") if isinstance(descriptor_data, dict) else None
-            if not isinstance(config_descriptor, dict) or config_descriptor.get("digest") != request["image_id"]:
+            descriptor = entries[0]
+            descriptor_data, descriptor_name = image_descriptor(bundle, descriptor, json_body=True)
+            reachable.add(descriptor_name)
+            image_ids.add(descriptor["digest"])
+            index_types = ("application/vnd.oci.image.index.v1+json", "application/vnd.docker.distribution.manifest.list.v2+json")
+            runtime_types = ("application/vnd.oci.image.manifest.v1+json", "application/vnd.docker.distribution.manifest.v2+json")
+            if descriptor.get("mediaType") in index_types:
+                variants = descriptor_data.get("manifests") if isinstance(descriptor_data, dict) else None
+                if (not isinstance(variants, list) or len(variants) != 1 or not isinstance(variants[0], dict)
+                        or variants[0].get("platform") != {"architecture": "amd64", "os": "linux"}):
+                    raise ReleaseError("OCI archive must contain one Linux amd64 runtime; attestations and extra platforms are unsupported.")
+                descriptor = variants[0]
+                descriptor_data, descriptor_name = image_descriptor(bundle, descriptor, json_body=True)
+                reachable.add(descriptor_name)
+                image_ids.add(descriptor["digest"])
+            elif descriptor.get("platform") not in (None, {"architecture": "amd64", "os": "linux"}):
+                raise ReleaseError("OCI runtime platform differs from Linux amd64.")
+            if descriptor.get("mediaType") not in runtime_types or not isinstance(descriptor_data, dict) or descriptor_data.get("schemaVersion") != 2:
+                raise ReleaseError("OCI archive runtime manifest is invalid.")
+            config_descriptor = descriptor_data.get("config")
+            if not isinstance(config_descriptor, dict) or config_descriptor.get("digest") != config_id:
                 raise ReleaseError("OCI archive manifest config refers to a different image.")
+            _, config_blob = image_descriptor(bundle, config_descriptor, json_body=True)
+            if config_blob != config_name:
+                raise ReleaseError("OCI and Docker archive configurations differ.")
+            runtime_layers = descriptor_data.get("layers")
+            if not isinstance(runtime_layers, list) or len(runtime_layers) != len(layers):
+                raise ReleaseError("OCI and Docker archive layer inventories differ.")
+            decoded_size = 0
+            for descriptor, expected, diff_id in zip(runtime_layers, layers, diff_ids):
+                _, name = image_descriptor(bundle, descriptor)
+                if name != expected:
+                    raise ReleaseError("OCI and Docker archive layer references differ.")
+                decoded_size += decoded_layer_checksum(bundle, name, descriptor.get("mediaType"), diff_id,
+                                                        2 * MAX_ARCHIVE - decoded_size)
+                reachable.add(name)
+            if {name for name in names if name.startswith("blobs/sha256/") and not name.endswith("/")} != reachable:
+                raise ReleaseError("OCI archive contains content outside this one verified runtime.")
+        else:
+            # Classic Docker stores use the config digest as image/container ID.
+            # Its rootfs diff IDs bind every uncompressed layer tar in order.
+            for name, expected in zip(layers, diff_ids):
+                if name not in names or not bundle.getmember(name).isfile():
+                    raise ReleaseError("Classic Docker image layer is missing.")
+                hasher = hashlib.sha256()
+                with bundle.extractfile(name) as stream:
+                    for chunk in iter(lambda: stream.read(1024**2), b""):
+                        hasher.update(chunk)
+                if "sha256:" + hasher.hexdigest() != expected:
+                    raise ReleaseError("Classic Docker layer differs from its canonical rootfs checksum.")
+        return {"config_id": config_id, "image_ids": sorted(image_ids)}
 
 
 def receive_archive(stream, destination, size, checksum):
@@ -359,23 +478,23 @@ def receive_archive(stream, destination, size, checksum):
         temporary.unlink(missing_ok=True)
 
 
-def exact_image(request, tag):
+def exact_image(request, tag, image_ids=None):
     raw = docker_host("image", "inspect", "--format", "{{json .}}", tag, allow_failure=True)
     if raw is None:
         return False
     data = read_json(raw)
-    if data.get("Id") != request["image_id"] or any(data.get("Config", {}).get("Labels", {}).get(k) != v for k, v in image_labels(request).items()):
+    if data.get("Id") not in (image_ids or [request["image_id"]]) or any(data.get("Config", {}).get("Labels", {}).get(k) != v for k, v in image_labels(request).items()):
         raise ReleaseError("Version tag already names different content; refusing to replace it.")
-    return True
+    return data["Id"]
 
 
-def healthy_image(image_id):
+def healthy_image(image_ids):
     containers = docker_host("ps", "-q", "--filter", f"label=com.docker.compose.project={SERVICE_UUID}",
                              "--filter", "label=com.docker.compose.service=unity-web").decode().split()
     if len(containers) != 1 or not re.fullmatch(r"[a-f0-9]{12,64}", containers[0]):
         return False
     raw = docker_host("inspect", "--format", "{{.Image}} {{if .State.Health}}{{.State.Health.Status}}{{end}}", containers[0])
-    return raw.decode().strip() == f"{image_id} healthy"
+    return raw.decode().strip() in {f"{image_id} healthy" for image_id in image_ids}
 
 
 def activity_status(activity_id):
@@ -387,11 +506,33 @@ def activity_status(activity_id):
     return result["status"]
 
 
-def record_activity(root, request, activity_id):
-    state = {"activity_id": activity_id, "release_id": request["release_id"], "source_commit": request["source_commit"]}
+def record_activity(root, request, activity_id, destination_image_id):
+    state = {"activity_id": activity_id, "release_id": request["release_id"], "source_commit": request["source_commit"],
+             "config_id": request["image_id"], "destination_image_id": destination_image_id}
     temporary = root / "activity-state.tmp"
     temporary.write_text(json.dumps(state), encoding="utf-8")
     temporary.replace(root / "activity-state.json")
+
+
+def record_image(root, request, proof, destination_image_id):
+    data = {"source_commit": request["source_commit"], "release_id": request["release_id"],
+            "archive_sha256": request["archive_sha256"], "config_id": proof["config_id"],
+            "image_ids": proof["image_ids"], "destination_image_id": destination_image_id}
+    with (root / (request["release_id"] + ".image.json")).open("x", encoding="utf-8") as output:
+        json.dump(data, output)
+
+
+def checked_image_record(root, request, proof, archive):
+    path = root / (request["release_id"] + ".image.json")
+    if not path.is_file():
+        raise ReleaseError("Release lacks its broker-verified destination image record.")
+    data = read_json(path.read_bytes())
+    if (not isinstance(data, dict) or data.get("source_commit") != request["source_commit"]
+            or data.get("release_id") != request["release_id"] or data.get("config_id") != proof["config_id"]
+            or data.get("image_ids") != proof["image_ids"] or data.get("archive_sha256") != file_hash(archive)
+            or data.get("destination_image_id") not in proof["image_ids"]):
+        raise ReleaseError("Release destination record differs from its exact verified archive.")
+    return data["destination_image_id"]
 
 
 def broker_operation(request, stream, root=BROKER_ROOT, latest=current_main, clock=time.monotonic, sleep=time.sleep):
@@ -403,20 +544,25 @@ def broker_operation(request, stream, root=BROKER_ROOT, latest=current_main, clo
     archive = root / (request["release_id"] + ".tar.gz")
     if request["op"] == "upload":
         receive_archive(stream, archive, request["archive_size"], request["archive_sha256"])
-        validate_image_archive(archive, request, tag)
+        proof = validate_image_archive(archive, request, tag)
         require_current(request["source_commit"], latest)
-        if not exact_image(request, tag):
+        if not exact_image(request, tag, proof["image_ids"]):
             command(["pct", "push", LXC, str(archive), str(archive), "--perms", "0600"])
             require_current(request["source_commit"], latest)
             docker_host("image", "load", "--input", str(archive))
-        if not exact_image(request, tag):
+        destination_image_id = exact_image(request, tag, proof["image_ids"])
+        if not destination_image_id:
             raise ReleaseError("Loaded image did not prove the expected identity.")
-        return {"ok": True, "image_id": request["image_id"]}
+        record_image(root, request, proof, destination_image_id)
+        return {"ok": True, "image_id": request["image_id"], "destination_image_id": destination_image_id}
     if not archive.is_file():
         raise ReleaseError("This release has no broker-verified uploaded archive.")
-    validate_image_archive(archive, request, tag)
-    if not exact_image(request, tag):
+    proof = validate_image_archive(archive, request, tag)
+    destination_image_id = exact_image(request, tag, proof["image_ids"])
+    if not destination_image_id:
         raise ReleaseError("Release image is missing from the selected destination.")
+    if checked_image_record(root, request, proof, archive) != destination_image_id:
+        raise ReleaseError("Immutable destination version tag moved after its broker-verified load.")
     state_path = root / "activity-state.json"
     if state_path.exists():
         previous = read_json(state_path.read_bytes())
@@ -427,7 +573,7 @@ def broker_operation(request, stream, root=BROKER_ROOT, latest=current_main, clo
     activity_id = activity.get("activity_id")
     if type(activity_id) is not int or activity_id <= 0:
         raise ReleaseError("Coolify did not prove the requested Unity activity; inspect its queue.")
-    record_activity(root, request, activity_id)
+    record_activity(root, request, activity_id, destination_image_id)
     deadline = clock() + 600
     superseded = None
     while clock() < deadline:
@@ -452,8 +598,10 @@ def broker_operation(request, stream, root=BROKER_ROOT, latest=current_main, clo
     deadline = clock() + 120
     while clock() < deadline:
         require_current(request["source_commit"], latest)
-        if healthy_image(request["image_id"]):
-            return {"ok": True, "image_id": request["image_id"], "activity_id": activity_id}
+        if exact_image(request, tag, proof["image_ids"]) != destination_image_id:
+            raise ReleaseError("Unity destination tag moved after activation.")
+        if healthy_image(proof["image_ids"]):
+            return {"ok": True, "image_id": request["image_id"], "destination_image_id": destination_image_id, "activity_id": activity_id}
         sleep(10)
     raise ReleaseError("Exact Unity image did not become healthy; inspect the selected Coolify activity. Archives are retained.")
 
@@ -613,14 +761,14 @@ def client_main(artifact_dir, verify_only=False):
         hosting.mkdir(parents=True)
         shutil.copy(repository_root / "scripts/unity/hosting/nginx.conf", hosting)
         request["manifest_sha256"] = hashlib.sha256(raw).hexdigest()
-        build_args = ["docker", "build", "--pull", "--no-cache", "--file", str(context / "Dockerfile.unity-web"), "--tag", tag]
+        build_args = ["docker", "build", "--pull", "--no-cache", "--platform=linux/amd64", "--provenance=false", "--file", str(context / "Dockerfile.unity-web"), "--tag", tag]
         for key, value in image_labels(request).items():
             build_args += ["--label", f"{key}={value}"]
         if command(["docker", "image", "inspect", tag], allow_failure=True) is not None:
             raise ReleaseError("Local immutable version tag already exists; use a new workflow attempt.")
         command([*build_args, str(context)])
-        request["image_id"] = command(["docker", "image", "inspect", "--format", "{{.Id}}", tag]).decode().strip()
-        if not IMAGE_ID.fullmatch(request["image_id"]):
+        local_image_id = command(["docker", "image", "inspect", "--format", "{{.Id}}", tag]).decode().strip()
+        if not IMAGE_ID.fullmatch(local_image_id):
             raise ReleaseError("Local Docker build did not return a valid image identity.")
         hosting_checks(tag, raw, manifest)
         command(["trivy", "image", "--severity", "HIGH,CRITICAL", "--ignore-unfixed", "--exit-code", "1", tag])
@@ -636,7 +784,10 @@ def client_main(artifact_dir, verify_only=False):
                     process.stdout.close()
                 if process.wait(timeout=300):
                     raise ReleaseError("Saving the Unity image archive failed.")
-        validate_image_archive(archive, request, tag)
+        proof = validate_image_archive(archive, request, tag)
+        if local_image_id not in proof["image_ids"]:
+            raise ReleaseError("Local Docker image identity is not proven by its exact archived runtime.")
+        request["image_id"] = proof["config_id"]
         if verify_only:
             print(f"Unity artifact {manifest['release_id']} passed local hosting, vulnerability scanning, and exact image archive checks; no production operation was requested.", flush=True)
             return

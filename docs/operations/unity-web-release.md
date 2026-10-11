@@ -37,6 +37,10 @@ Tags are `abby-unity-web:ci-<full-source-sha>-<run-id>-<attempt>` and cannot be
 reused for different content. Host archives and previous images remain for
 recovery; image pruning is separate from Git branch/worktree cleanup.
 
+Archive validation proves the canonical image config digest and allowed classic
+or containerd descriptor identities for one Linux/amd64 runtime. Automatic
+BuildKit attestation is disabled; the exact release manifest remains embedded.
+
 ## Configured infrastructure
 
 | Role | Configuration |
@@ -94,7 +98,13 @@ python3 -m unittest discover -s scripts/unity -p 'test_*release.py'
 ```
 
 Use CI/CD manual dispatch **`unity_build_only=true`** to compile and package a
-selected repository branch. This skips both deployments, including on main.
+selected repository branch. `Verify Unity Web image without deployment` then
+downloads that exact compiled artifact on the deployment runner, builds the
+Docker image, checks its HTTP output, scans it with Trivy, and verifies the
+image archive. This skips both deployments, including on main, and uses no
+production environment or deployment credentials.
+Its cleanup removes only that run's matching labeled local image tag, without
+forcing removal or pruning; Docker retains any in-use image.
 Normal main pushes/default dispatches run the guarded production release.
 For local reproduction under the licensed account, set `UNITY_WEB_SOURCE_SHA`
 to exact HEAD, `UNITY_WEB_PRIVATE_ASSET_ROOT`, a fresh `UNITY_WEB_RELEASE_DIR`,

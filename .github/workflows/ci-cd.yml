@@ -273,6 +273,38 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  unity-web-verify:
+    name: Verify Unity Web image without deployment
+    needs: unity-web-build
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.unity_build_only }}
+    runs-on: [self-hosted, Linux, X64, deploy-platform]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: unity-web-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/abby-unity-verify-artifact-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Verify compiled artifact, HTTP hosting, scan, and image archive
+        run: |
+          python3 scripts/unity/deploy_web_release.py \
+            --artifact-dir "$RUNNER_TEMP/abby-unity-verify-artifact-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --verify-only
+      - name: Remove this job's disposable verification image
+        if: always()
+        run: |
+          set -euo pipefail
+          unity_release="$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          unity_image="abby-unity-web:ci-$unity_release"
+          if ! docker image inspect "$unity_image" >/dev/null 2>&1; then
+            exit 0
+          fi
+          unity_label="$(docker image inspect --format '{{ index .Config.Labels "io.abby.unity.release" }}' "$unity_image")"
+          test "$unity_label" = "$unity_release" || { echo '::error::Verification image ownership did not match; retained.'; exit 1; }
+          docker image rm --no-prune "$unity_image"
+
   unity-web-deploy:
     name: Deploy and verify Unity Web
     needs: [unity-web-build, deploy]
