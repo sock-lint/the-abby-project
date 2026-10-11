@@ -117,12 +117,11 @@ def configure_django(temporary_root: Path) -> None:
 
     django.setup()
     from django.core.management import call_command
-    from rest_framework.pagination import PageNumberPagination
-    from apps.notifications.views import NotificationViewSet
+    from apps.notifications.views import NotificationPagination, NotificationViewSet
 
     # Only this throwaway process overrides the Inbox to its production page
     # size. Keep habits at 2 so their aggregate-page API contract is exercised.
-    class PlayNotificationPagination(PageNumberPagination):
+    class PlayNotificationPagination(NotificationPagination):
         page_size = 20
 
     NotificationViewSet.pagination_class = PlayNotificationPagination

@@ -1,9 +1,12 @@
+from urllib.parse import urlsplit
+
 from django.conf import settings
 from django.db import transaction
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -36,8 +39,23 @@ def _lock_push_credential(request):
     return credential
 
 
+class NotificationPagination(PageNumberPagination):
+    """Keep inbox continuations on the client's origin across proxy hops."""
+
+    def get_paginated_response(self, data):
+        response = super().get_paginated_response(data)
+        # An HTTPS tunnel may reach Django over HTTP. Do not export that
+        # internal scheme/authority into a credential-bearing client request.
+        for key in ("next", "previous"):
+            link = response.data[key]
+            if link is not None:
+                response.data[key] = urlsplit(link)._replace(scheme="", netloc="").geturl()
+        return response
+
+
 class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer
+    pagination_class = NotificationPagination
     # Explicit even though it matches the project default — every other
     # viewset declares its own permission_classes, and queryset scoping
     # via ``request.user.notifications`` only works if there IS a user,

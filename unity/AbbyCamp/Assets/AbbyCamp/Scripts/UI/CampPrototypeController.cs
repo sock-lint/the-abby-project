@@ -452,7 +452,7 @@ namespace AbbyCamp.UI
             {
                 FlowLabel(content, "InboxStatus", markingRead ? "Saving read status…" : inboxStatus, 14, ink);
                 FlowLabel(content, "InboxUnreadCount", unreadCount == null ? "Loading unread count…" : unreadCount.count + " unread updates", 20, ink);
-                if (notifications == null) FlowLabel(content, "LoadingInbox", "Loading your updates…", 16, ink);
+                if (notifications == null) FlowLabel(content, "LoadingInbox", sectionLoading ? "Loading your updates…" : "Your updates couldn't load. Try Refresh.", 16, ink);
                 else if (notifications.results.Length == 0) FlowLabel(content, "EmptyInbox", "You're all caught up. New updates will appear here.", 17, ink);
                 else foreach (var item in notifications.results)
                 {

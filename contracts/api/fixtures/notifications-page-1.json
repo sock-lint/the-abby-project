@@ -1,0 +1,187 @@
+{
+  "count": 21,
+  "next": "/api/notifications/?_abby_session=0123456789abcdef0123456789abcdef&page=2",
+  "previous": null,
+  "results": [
+    {
+      "id": 101,
+      "title": "Fixture update 01",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T12:00:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 102,
+      "title": "Fixture update 02",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:59:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 103,
+      "title": "Fixture update 03",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:58:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 104,
+      "title": "Fixture update 04",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:57:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 105,
+      "title": "Fixture update 05",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:56:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 106,
+      "title": "Fixture update 06",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:55:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 107,
+      "title": "Fixture update 07",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:54:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 108,
+      "title": "Fixture update 08",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:53:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 109,
+      "title": "Fixture update 09",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:52:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 110,
+      "title": "Fixture update 10",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:51:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 111,
+      "title": "Fixture update 11",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:50:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 112,
+      "title": "Fixture update 12",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:49:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 113,
+      "title": "Fixture update 13",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:48:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 114,
+      "title": "Fixture update 14",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:47:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 115,
+      "title": "Fixture update 15",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:46:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 116,
+      "title": "Fixture update 16",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:45:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 117,
+      "title": "Fixture update 17",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:44:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 118,
+      "title": "Fixture update 18",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:43:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 119,
+      "title": "Fixture update 19",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:42:00-07:00",
+      "link": "/inventory"
+    },
+    {
+      "id": 120,
+      "title": "Fixture update 20",
+      "message": "A synthetic saved update.",
+      "notification_type": "drop_received",
+      "is_read": false,
+      "created_at": "2026-10-10T11:41:00-07:00",
+      "link": "/inventory"
+    }
+  ]
+}
