@@ -17,14 +17,14 @@ describe('SectionHeader', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders an atlas chapter numeral when index is supplied', () => {
-    render(<SectionHeader title="Hoard" index={2} />);
-    expect(screen.getByText('§III')).toBeInTheDocument();
+  it('renders a decorative numbered marker when index is supplied', () => {
+    const { container } = render(<SectionHeader title="Hoard" index={2} />);
+    expect(container.querySelector('[data-chapter-marker="3"]')).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('omits the chapter numeral when index is undefined', () => {
-    render(<SectionHeader title="Hoard" />);
-    expect(screen.queryByText(/^§/)).toBeNull();
+  it('omits the chapter marker when index is undefined', () => {
+    const { container } = render(<SectionHeader title="Hoard" />);
+    expect(container.querySelector('[data-chapter-marker]')).toBeNull();
   });
 
   it('renders kicker when supplied', () => {

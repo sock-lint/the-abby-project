@@ -1,16 +1,16 @@
 import RuneBadge from './journal/RuneBadge';
-import { chapterMark } from './atlas/mastery.constants';
+import ChapterMarker from './atlas/ChapterMarker';
 
 /**
  * SectionHeader — non-collapsible sibling of AccordionSection. Use when a
  * section should always be open but still wants the same journal vocabulary
- * (script kicker, atlas chapter numeral, display title, optional count badge,
+ * (kicker, rounded chapter marker, display title, optional count badge,
  * optional right-aligned actions slot).
  *
  * Props:
  *   title    : display title (required)
- *   index    : optional 0-based section index — renders an atlas chapter
- *              numeral (§I, §II, …) inline with the title
+ *   index    : optional 0-based section index — renders a numbered Meadow
+ *              marker inline with the title
  *   kicker   : caveat-script line above the title
  *   count    : optional numeric badge beside the title (RuneBadge tone="teal")
  *   actions  : ReactNode rendered right-aligned (buttons, links, filters)
@@ -35,14 +35,9 @@ export default function SectionHeader({
             {kicker}
           </div>
         )}
-        <div className="flex items-baseline gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           {index != null && (
-            <span
-              aria-hidden="true"
-              className="font-display italic text-ember-deep text-body md:text-lede leading-none select-none shrink-0"
-            >
-              {chapterMark(index)}
-            </span>
+            <ChapterMarker index={index} />
           )}
           <Tag className="font-display text-lede md:text-xl text-ink-primary leading-tight break-words min-w-0">
             {title}

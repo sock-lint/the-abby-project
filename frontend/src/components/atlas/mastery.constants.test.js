@@ -63,21 +63,21 @@ describe('RARITY_HALO', () => {
 });
 
 describe('CHAPTER_NUMERALS + chapterMark', () => {
-  it('exposes 12 roman chapter markers', () => {
+  it('exposes 12 numbered chapter markers', () => {
     expect(CHAPTER_NUMERALS).toHaveLength(12);
-    expect(CHAPTER_NUMERALS[0]).toBe('§I');
-    expect(CHAPTER_NUMERALS[11]).toBe('§XII');
+    expect(CHAPTER_NUMERALS[0]).toBe('1');
+    expect(CHAPTER_NUMERALS[11]).toBe('12');
   });
 
-  it('returns the roman numeral for in-range indices', () => {
-    expect(chapterMark(0)).toBe('§I');
-    expect(chapterMark(2)).toBe('§III');
-    expect(chapterMark(11)).toBe('§XII');
+  it('returns the number for in-range indices', () => {
+    expect(chapterMark(0)).toBe('1');
+    expect(chapterMark(2)).toBe('3');
+    expect(chapterMark(11)).toBe('12');
   });
 
   it('falls back to arabic for out-of-range indices', () => {
-    expect(chapterMark(12)).toBe('§13');
-    expect(chapterMark(20)).toBe('§21');
+    expect(chapterMark(12)).toBe('13');
+    expect(chapterMark(20)).toBe('21');
   });
 });
 

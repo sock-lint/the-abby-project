@@ -1,6 +1,7 @@
 import {
-  Stamp, Sparkles, Coins, Swords, Flame, Repeat, Clock, Settings2,
+  Stamp, Sparkles, Swords, Flame, Repeat, Clock, Settings2,
 } from 'lucide-react';
+import { CoinIcon } from '../../components/icons/JournalIcons';
 
 // Category → icon + accent color for <EventRow>. Flat map keeps the row
 // generic — no per-event-type switch statement. Add a key here when a new
@@ -20,7 +21,7 @@ export const CATEGORY_META = {
   },
   ledger: {
     label: 'Ledger',
-    icon: Coins,
+    icon: CoinIcon,
     accent: 'text-ember-deep',
     bg: 'bg-ember/10',
   },

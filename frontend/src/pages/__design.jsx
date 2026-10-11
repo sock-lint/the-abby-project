@@ -6,7 +6,7 @@ import PartyCard from '../components/journal/PartyCard';
 import RuneBand from '../components/journal/RuneBand';
 import DeckleDivider from '../components/journal/DeckleDivider';
 import {
-  TodayIcon, QuestsIcon, BestiaryIcon, TreasuryIcon, AtlasIcon,
+  TodayIcon, QuestsIcon, BestiaryIcon, TreasuryIcon, AtlasIcon, ChronicleIcon,
   ClockFabIcon, InkwellIcon, ScrollIcon, EggIcon, CoinIcon, DragonIcon,
 } from '../components/icons/JournalIcons';
 import { headingDisplay, headingScript } from '../constants/styles';
@@ -15,6 +15,8 @@ import { TextField, SelectField, TextAreaField } from '../components/form';
 import TomeShelf from '../components/atlas/TomeShelf';
 import FolioSpread from './achievements/FolioSpread';
 import IlluminatedVersal from '../components/atlas/IlluminatedVersal';
+import AccordionSection from '../components/dashboard/AccordionSection';
+import SectionHeader from '../components/SectionHeader';
 import { PROGRESS_TIER, tierForProgress } from '../components/atlas/mastery.constants';
 import { XP_THRESHOLDS } from './achievements/skillTree.constants';
 import { useState } from 'react';
@@ -256,6 +258,7 @@ export default function DesignShowcase() {
         <Labeled label="Bestiary"><BestiaryIcon size={32} /></Labeled>
         <Labeled label="Treasury"><TreasuryIcon size={32} /></Labeled>
         <Labeled label="Atlas"><AtlasIcon size={32} /></Labeled>
+        <Labeled label="Chronicle"><ChronicleIcon size={32} /></Labeled>
         <div className="w-px h-10 bg-ink-page-shadow" />
         <Labeled label="Clock">
           <span className="text-sheikah-teal-deep"><ClockFabIcon size={32} /></span>
@@ -265,6 +268,20 @@ export default function DesignShowcase() {
         <Labeled label="Egg"><EggIcon size={28} /></Labeled>
         <Labeled label="Coin"><CoinIcon size={28} /></Labeled>
         <Labeled label="Dragon"><DragonIcon size={28} /></Labeled>
+      </section>
+
+      <section className="space-y-4">
+        <SectionHeader title="Meadow markers" index={1} kicker="rounded chapter waypoints" />
+        <AccordionSection
+          title="Treasury"
+          index={0}
+          kicker="this week at a glance"
+          icon={<TreasuryIcon size={18} />}
+          tone="gold"
+          peek={<span className="inline-flex items-center gap-1"><CoinIcon size={14} />24 coins · $12.00 earned</span>}
+        >
+          <p className="font-body text-body text-ink-secondary">Shared symbols follow your Meadow cover.</p>
+        </AccordionSection>
       </section>
 
       <DeckleDivider glyph="sheikah-eye" label="Form primitives" />

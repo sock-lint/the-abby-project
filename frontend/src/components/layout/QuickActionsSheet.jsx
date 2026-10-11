@@ -1,6 +1,7 @@
 import { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Square, BookOpen, Box, Target, CircleDollarSign, UserCog, PenTool, Palette, Sparkles, Feather, Activity } from 'lucide-react';
+import { Play, Square, BookOpen, Box, Target, UserCog, PenTool, Palette, Sparkles, Feather, Activity } from 'lucide-react';
+import { CoinIcon } from '../icons/JournalIcons';
 import BottomSheet from '../BottomSheet';
 import {
   clockIn, clockOut, getProjects,
@@ -444,7 +445,7 @@ export default function QuickActionsSheet({
                 onClick={() => { onClose(); navigate('/quests?tab=study&new=1'); }}
               />
               <ActionRow
-                icon={<CircleDollarSign size={18} />}
+                icon={<CoinIcon size={18} />}
                 label="Adjust coins"
                 tone="gold"
                 onClick={() => { onClose(); navigate('/treasury?tab=bazaar&adjust=1'); }}

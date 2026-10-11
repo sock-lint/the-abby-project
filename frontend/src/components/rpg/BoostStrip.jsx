@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Zap, Coins, Gift, Sprout } from 'lucide-react';
+import { Zap, Gift, Sprout } from 'lucide-react';
+import { CoinIcon } from '../icons/JournalIcons';
 
 /**
  * BoostStrip — compact pill row showing every active consumable boost on
@@ -48,7 +49,7 @@ export default function BoostStrip({ profile, className = '' }) {
   if (coinRemaining && coinRemaining > 0) {
     chips.push({
       key: 'coin',
-      icon: <Coins size={12} aria-hidden="true" />,
+      icon: <CoinIcon size={12} aria-hidden="true" />,
       label: 'Coin boost',
       value: formatDuration(coinRemaining),
       tone: 'gold',

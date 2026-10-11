@@ -157,10 +157,10 @@ describe('SkillTreeView', () => {
       ),
     );
     const user = userEvent.setup();
-    render(<SkillTreeView categories={[{ id: 1, name: 'Math', icon: '🧮' }]} />);
+    const { container } = render(<SkillTreeView categories={[{ id: 1, name: 'Math', icon: '🧮' }]} />);
     await user.click(screen.getByRole('tab', { name: /Math/ }));
     await waitFor(() => expect(screen.getByText('Addition')).toBeInTheDocument());
     expect(screen.getByText('Arithmetic')).toBeInTheDocument();
-    expect(screen.getByText('§I')).toBeInTheDocument();
+    expect(container.querySelector('[data-chapter-marker="1"]')).toHaveTextContent('1');
   });
 });

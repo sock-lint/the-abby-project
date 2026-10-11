@@ -119,7 +119,7 @@ function YearbookHistory({ targetUserId, isParent, childOptions, onSelectChild }
     }
   }, [targetUserId, isParent, summaryRequest])
 
-  // Sort chronologically so §I → §N reads left-to-right on the shelf, with
+  // Sort chronologically so chapter 1 → N reads left-to-right on the shelf, with
   // the current chapter on the right edge — same as flipping through a
   // book's spines.
   const view = state

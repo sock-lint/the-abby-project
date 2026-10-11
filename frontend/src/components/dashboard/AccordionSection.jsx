@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import RuneBadge from '../journal/RuneBadge';
-import { chapterMark } from '../atlas/mastery.constants';
+import ChapterMarker from '../atlas/ChapterMarker';
 import { STORAGE_KEYS } from '../../constants/storage';
 
 function slugify(s) {
@@ -24,7 +24,6 @@ function readStored(title, fallback) {
 }
 
 // Tone palette mirrors RuneBadge — kicker text + icon chip pick up the tone.
-// Numeral keeps the gilt ember-deep accent for Atlas-vocabulary consistency.
 const TONE_KICKER = {
   teal: 'text-sheikah-teal-deep',
   moss: 'text-moss',
@@ -51,8 +50,8 @@ const TONE_ICON_CHIP = {
  *
  * Props:
  *   title      : display title (required)
- *   index      : optional 0-based section index — renders an atlas chapter
- *                numeral (§I, §II, …) inline with the title
+ *   index      : optional 0-based section index — renders a numbered Meadow
+ *                marker inline with the title
  *   icon       : optional ReactNode (lucide icon at size ~16) rendered in a
  *                tone-tinted chip left of the title
  *   tone       : "teal" | "moss" | "ember" | "royal" | "gold" | "ink" | "rose"
@@ -101,14 +100,9 @@ export default function AccordionSection({
           {kicker && (
             <div className={`font-script text-caption ${kickerClass}`}>{kicker}</div>
           )}
-          <div className="flex items-baseline gap-2">
+          <div className="flex items-center gap-2">
             {index != null && (
-              <span
-                aria-hidden="true"
-                className="font-display italic text-ember-deep text-base md:text-lg leading-none select-none shrink-0"
-              >
-                {chapterMark(index)}
-              </span>
+              <ChapterMarker index={index} />
             )}
             <h2 className="font-display text-lg md:text-xl text-ink-primary leading-tight truncate">
               {title}

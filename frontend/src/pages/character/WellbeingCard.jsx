@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Heart, Coins, Sparkles } from 'lucide-react';
+import { Heart, Sparkles } from 'lucide-react';
+import { CoinIcon } from '../../components/icons/JournalIcons';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import Button from '../../components/Button';
 import { TextField } from '../../components/form';
@@ -145,7 +146,7 @@ export default function WellbeingCard() {
           {!alreadyPaid && (
             <>
               {' '}· first save today earns +{reward}{' '}
-              <Coins size={10} className="inline text-gold-leaf" aria-hidden="true" />
+              <CoinIcon size={10} className="inline text-gold-leaf" aria-hidden="true" />
             </>
           )}
         </p>
@@ -186,7 +187,7 @@ export default function WellbeingCard() {
           className="absolute top-3 right-3 inline-flex items-center gap-1 font-script text-caption text-gold-leaf bg-ink-page-aged/90 rounded-full px-2.5 py-1 shadow-sm border border-gold-leaf/40"
         >
           <Sparkles size={11} aria-hidden="true" />
-          +{coinFlash} <Coins size={11} aria-hidden="true" />
+          +{coinFlash} <CoinIcon size={11} aria-hidden="true" />
         </div>
       )}
     </ParchmentCard>

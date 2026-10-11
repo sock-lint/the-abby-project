@@ -66,7 +66,7 @@ describe('BadgeDetailSheet', () => {
     renderWithProviders(<BadgeDetailSheet entry={earnedEntry} onClose={() => {}} />);
     const chip = screen.getByText(/from the reliquary of Ventures/);
     expect(chip).toBeInTheDocument();
-    expect(chip.textContent).toMatch(/§II/);
+    expect(chip).toHaveTextContent('Chapter 2');
   });
 
   it('shows a "to earn" unlock hint line for unearned badges', () => {
