@@ -15,6 +15,7 @@ namespace AbbyCamp.World
         private int framedHeight;
         private Rect framedSafeArea;
         private float framedAspect;
+        private float framedUiScale;
 
         public Transform Subject => subject;
 
@@ -43,7 +44,9 @@ namespace AbbyCamp.World
         {
             if (view == null || subject == null) return;
             if (Screen.width != framedWidth || Screen.height != framedHeight
-                || Screen.safeArea != framedSafeArea || Mathf.Abs(view.aspect - framedAspect) > .0001f)
+                || Screen.safeArea != framedSafeArea || Mathf.Abs(view.aspect - framedAspect) > .0001f
+                || !Mathf.Approximately(AbbyCamp.UI.CampPhoneLayout.GetUiScale(
+                    new Vector2Int(Screen.width, Screen.height)), framedUiScale))
                 RefreshFraming();
         }
 
@@ -56,15 +59,10 @@ namespace AbbyCamp.World
             var safe = Screen.safeArea;
             if (safe.width <= 0f || safe.height <= 0f) safe = new Rect(0f, 0f, width, height);
             bool portrait = height >= width;
-#if UNITY_WEBGL && !UNITY_EDITOR
-            const float uiScale = 1f;
-#else
-            float uiScale = Mathf.Min(width, height) / AbbyCamp.UI.CampPhoneLayout.ReferenceShortEdge;
-#endif
+            float uiScale = AbbyCamp.UI.CampPhoneLayout.GetUiScale(new Vector2Int(Screen.width, Screen.height));
             float bottom = (portrait ? 248f : 80f) * uiScale;
             float margin = 12f * uiScale;
-            // Match the home controls' logical width and the same native scale
-            // as CampPhoneLayout; the Web template renders at CSS scale one.
+            // Match the home controls' logical size at every render density.
             float right = portrait ? 0f : Mathf.Min(350f, (safe.width / uiScale - 24f) * .45f) * uiScale;
             var available = new Rect(safe.x + margin, safe.y + bottom,
                 Mathf.Max(80f * uiScale, safe.width - right - 2f * margin),
@@ -86,6 +84,7 @@ namespace AbbyCamp.World
             framedHeight = Screen.height;
             framedSafeArea = Screen.safeArea;
             framedAspect = view.aspect;
+            framedUiScale = uiScale;
         }
     }
 }

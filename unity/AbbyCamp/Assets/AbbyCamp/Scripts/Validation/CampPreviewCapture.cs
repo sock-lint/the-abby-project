@@ -48,10 +48,12 @@ namespace AbbyCamp.Validation
             if (camera == null) throw new InvalidOperationException("Preview capture requires the camp camera.");
             if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
                 throw new InvalidOperationException("Preview capture requires an active graphics device.");
+            var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+            int samples = pipeline == null ? Mathf.Max(1, QualitySettings.antiAliasing) : pipeline.msaaSampleCount;
             var target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB)
             {
                 name = "Camp offscreen preview",
-                antiAliasing = 1,
+                antiAliasing = samples,
                 useMipMap = false
             };
             target.Create();
@@ -96,6 +98,15 @@ namespace AbbyCamp.Validation
                 foreach (var state in canvases) state.Restore();
                 camera.targetTexture = originalTarget;
                 camera.aspect = originalAspect;
+                var phoneCamera = camera.GetComponent<AbbyCamp.World.CampPhoneCamera>();
+                if (phoneCamera != null)
+                {
+                    // A manual aspect assignment disables Unity's automatic
+                    // window resizing. Restore the fixed view's normal aspect
+                    // and framing before the next runtime observation.
+                    camera.ResetAspect();
+                    phoneCamera.RefreshFraming();
+                }
                 RenderTexture.active = originalActive;
                 Canvas.ForceUpdateCanvases();
                 if (image != null) UnityEngine.Object.Destroy(image);

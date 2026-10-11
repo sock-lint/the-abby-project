@@ -37,12 +37,15 @@ namespace AbbyCamp.UI
         private CoinBalanceDto coins;
         private DropDto[] drops;
         private StableDto stable;
+        private InventoryEntryDto[] foodInventory;
         private NotificationPageDto notifications;
         private UnreadCountDto unreadCount;
         private CharacterDto character;
         private MeadowDto meadow;
         private string homeStatus = "", rewardStatus = "", inboxStatus = "", bestiaryStatus = "";
         private bool busy, homeLoading, sectionLoading, markingRead, browserSessionDirty;
+        private bool careInFlight, careDataReady, careReviewLoaded;
+        private int selectedPetId, selectedFoodItemId;
         private int sessionEpoch, viewVersion;
         private float nextHomeRefresh, toastUntil, patAvailableAt;
         private string inboxPageUrl;
@@ -50,10 +53,15 @@ namespace AbbyCamp.UI
 
         public bool IsDemo => api == null || !api.IsAuthenticated;
         public bool IsModalOpen => modal != null;
-        public bool IsBusy => busy || markingRead;
+        public bool IsBusy => busy || markingRead || careInFlight;
         public bool IsHomeLoading => homeLoading || busy || browserSessionDirty;
         public bool IsSectionLoading => sectionLoading;
         public string ActiveSection => section.ToString();
+        // A credential-free, account-specific marker survives interrupted saves,
+        // browser reloads and returning to an earlier account. It never replays a POST.
+        private string CareReviewKey => IsDemo ? null : "abby:care:pending:" + Hash128.Compute(api.BaseUrl + "/" + api.CurrentUser.id);
+        public bool CareNeedsReview => !IsDemo && PlayerPrefs.HasKey(CareReviewKey);
+        private bool CanCare => !IsDemo && careDataReady && !CareNeedsReview && !IsBusy && !sectionLoading && !homeLoading;
 
         public void Configure(CampGardenInput input, CompanionFollower pet, CampPresentationDefinition worldPresentation = null)
         {
@@ -114,6 +122,8 @@ namespace AbbyCamp.UI
         {
             sessionEpoch++;
             coins = null; drops = null; stable = null; notifications = null; unreadCount = null; character = null; meadow = null;
+            foodInventory = null; selectedPetId = selectedFoodItemId = 0;
+            careInFlight = careDataReady = careReviewLoaded = false;
             homeStatus = rewardStatus = inboxStatus = bestiaryStatus = "";
             inboxPageUrl = null; inboxHistory.Clear();
             busy = homeLoading = sectionLoading = markingRead = false;
@@ -180,7 +190,7 @@ namespace AbbyCamp.UI
                     else
                     {
                         RefreshHud();
-                        if (section == Section.Inbox && !sectionLoading && !markingRead) DrawActiveSection();
+                        if ((section == Section.Inbox || section == Section.Bestiary) && !sectionLoading && !IsBusy) DrawActiveSection();
                     }
                 }
             }
@@ -269,7 +279,7 @@ namespace AbbyCamp.UI
 
         public void OpenRewards() => OpenSection(Section.Rewards);
         public void OpenInbox() => OpenSection(Section.Inbox);
-        public void OpenBestiary() => OpenSection(Section.Bestiary);
+        public void OpenBestiary() { selectedPetId = selectedFoodItemId = 0; OpenSection(Section.Bestiary); }
 
         private void OpenSection(Section target)
         {
@@ -283,10 +293,11 @@ namespace AbbyCamp.UI
 
         private IEnumerator LoadSection(Section target)
         {
-            if (IsDemo || sectionLoading) yield break;
+            if (IsDemo || sectionLoading || IsBusy) yield break;
             var epoch = sessionEpoch;
             var view = viewVersion;
             sectionLoading = true;
+            if (target == Section.Bestiary) { careDataReady = careReviewLoaded = false; }
             SetSectionStatus(target, "Refreshing…");
             DrawActiveSection();
             ApiError failure = null;
@@ -327,9 +338,14 @@ namespace AbbyCamp.UI
                 else if (target == Section.Bestiary)
                 {
                     StableDto loaded = null;
+                    InventoryEntryDto[] loadedFood = null;
                     yield return api.FetchStable(value => loaded = value, error => failure = error);
                     if (!Valid()) yield break;
                     if (loaded != null) stable = loaded;
+                    yield return api.FetchFoodInventory(value => loadedFood = value, error => failure = error);
+                    if (!Valid()) yield break;
+                    foodInventory = loadedFood;
+                    careDataReady = careReviewLoaded = failure == null && loaded != null && loadedFood != null;
                 }
                 if (Valid()) SetSectionStatus(target, failure == null ? "Up to date" : failure.Message + " Try Refresh.");
             }
@@ -503,12 +519,14 @@ namespace AbbyCamp.UI
 
         private void DrawBestiary()
         {
+            if (selectedPetId != 0) { DrawPetCare(); return; }
             BeginModal("Bestiary", "Your saved creature collection.");
             var content = modalScroll.content;
             if (IsDemo) DemoMessage(content);
             else
             {
                 FlowLabel(content, "BestiaryStatus", bestiaryStatus, 14, ink);
+                DrawCareReview(content);
                 if (stable == null) FlowLabel(content, "LoadingStable", "Opening your creatures…", 16, ink);
                 else
                 {
@@ -524,6 +542,15 @@ namespace AbbyCamp.UI
                         FlowLabel(row, "PetSpecies", pet.potion.name + " " + pet.species.name, 16, ink);
                         FlowLabel(row, "PetGrowth", pet.evolved_to_mount ? "Evolved into a mount" : pet.is_fully_grown ? "Fully grown" : pet.growth_points + " growth", 14, ink);
                         FlowLabel(row, "PetHappiness", Humanize(pet.happiness_level), 14, ink);
+                        if (!pet.evolved_to_mount)
+                        {
+                            FlowButton(row, "FeedPet_" + pet.id, "Feed " + PetName(pet), () =>
+                            {
+                                selectedPetId = pet.id; selectedFoodItemId = 0; DrawActiveSection(true);
+                            }).interactable = CanCare;
+                            if (!pet.is_active)
+                                FlowButton(row, "ActivePet_" + pet.id, "Choose as companion", () => StartCoroutine(SaveCare(pet.id, 0, false))).interactable = CanCare;
+                        }
                     }
                     FlowLabel(content, "MountsHeading", "Mounts", 19, ink);
                     if (stable.mounts.Length == 0) FlowLabel(content, "EmptyMounts", "Your mounts will appear here as your collection grows.", 16, ink);
@@ -531,14 +558,135 @@ namespace AbbyCamp.UI
                     {
                         var row = Row(content, "Mount_" + mount.id);
                         FlowLabel(row, "MountName", mount.potion.name + " " + mount.species.name + (mount.is_active ? " · Active" : ""), 18, ink);
+                        if (mount.active_expedition != null)
+                            FlowLabel(row, "MountExpedition", mount.active_expedition.is_ready ? "Returned · Claim in web Bestiary" : "Out exploring", 14, ink);
+                        if (!mount.is_active)
+                            FlowButton(row, "ActiveMount_" + mount.id, "Choose as mount", () => StartCoroutine(SaveCare(mount.id, 0, true))).interactable = CanCare && mount.active_expedition == null;
                     }
                 }
-                FlowButton(content, "CompanionsWebButton", "Care for companions", () => Navigate(PlayDestination.BestiaryCompanions));
-                FlowButton(content, "MountsWebButton", "Manage mounts", () => Navigate(PlayDestination.BestiaryMounts));
+                FlowButton(content, "CompanionsWebButton", "Open web companions", () => Navigate(PlayDestination.BestiaryCompanions)).interactable = !IsBusy;
+                FlowButton(content, "MountsWebButton", "Expeditions and breeding", () => Navigate(PlayDestination.BestiaryMounts)).interactable = !IsBusy;
                 FlowButton(content, "HatcheryWebButton", "Open hatchery", () => Navigate(PlayDestination.BestiaryHatchery));
                 FlowButton(content, "SpeciesWebButton", "Discover species", () => Navigate(PlayDestination.BestiaryCodex));
             }
             SectionFooter(Section.Bestiary);
+        }
+
+        private void DrawCareReview(RectTransform content)
+        {
+            if (!CareNeedsReview || careInFlight) return;
+            FlowLabel(content, "CareReviewMessage", "The last care action may have saved. Refresh and check your creatures and food before doing anything else. Play won't repeat it.", 16, ink);
+            if (careReviewLoaded && foodInventory != null)
+            {
+                FlowLabel(content, "CareReviewFoodHeading", "Food in the updated inventory", 18, ink);
+                if (foodInventory.Length == 0) FlowLabel(content, "CareReviewEmptyFood", "No food remaining", 16, ink);
+                foreach (var entry in foodInventory)
+                    FlowLabel(content, "CareReviewFood_" + entry.item.id, entry.item.name + " · " + entry.quantity + " available", 16, ink);
+            }
+            FlowButton(content, "RefreshCareButton", "Refresh creatures and food", () => StartCoroutine(LoadSection(Section.Bestiary))).interactable = !sectionLoading && !IsBusy;
+            FlowButton(content, "AcknowledgeCareButton", "I checked the updated collection", () =>
+            {
+                if (!careReviewLoaded || sectionLoading || IsBusy) return;
+                PlayerPrefs.DeleteKey(CareReviewKey); PlayerPrefs.Save();
+                bestiaryStatus = "Collection checked. Choose your next care action.";
+                DrawActiveSection();
+            }).interactable = careReviewLoaded && !sectionLoading && !IsBusy;
+        }
+
+        private OwnedPetDto SelectedPet()
+        {
+            if (stable?.pets != null) foreach (var pet in stable.pets) if (pet.id == selectedPetId) return pet;
+            return null;
+        }
+
+        private void DrawPetCare()
+        {
+            var pet = SelectedPet();
+            BeginModal("Companion care", pet == null ? "Refresh your collection." : PetName(pet));
+            var content = modalScroll.content;
+            FlowLabel(content, "BestiaryStatus", bestiaryStatus, 14, ink);
+            DrawCareReview(content);
+            if (pet != null)
+            {
+                FlowLabel(content, "CareGrowth", pet.evolved_to_mount ? "Evolved into a mount · See your collection" : pet.growth_points + " / 100 growth", 22, ink);
+                if (!pet.evolved_to_mount)
+                {
+                    FlowLabel(content, "CareExplanation", "Give one food from your inventory. Growth and evolution are saved to your account.", 16, ink);
+                    if (!string.IsNullOrWhiteSpace(pet.species.food_preference))
+                        FlowLabel(content, "FoodPreference", "Favorite food: " + pet.species.food_preference, 16, ink);
+                    if (foodInventory == null) FlowLabel(content, "LoadingFood", "Refresh to load your food.", 16, ink);
+                    else if (foodInventory.Length == 0) FlowLabel(content, "EmptyFood", "No food in your inventory yet. Food you earn will appear here.", 16, ink);
+                    else foreach (var entry in foodInventory)
+                    {
+                        var itemId = entry.item.id;
+                        var row = Row(content, "FoodRow_" + itemId);
+                        FlowLabel(row, "FoodName", entry.item.name + " · " + entry.quantity + " available", 18, ink);
+                        if (!string.IsNullOrWhiteSpace(entry.item.description)) FlowLabel(row, "FoodDescription", entry.item.description, 14, ink);
+                        FlowButton(row, "Food_" + itemId, selectedFoodItemId == itemId ? "Selected" : "Choose this food", () =>
+                        {
+                            selectedFoodItemId = itemId; DrawActiveSection();
+                        }).interactable = CanCare;
+                        if (selectedFoodItemId == itemId)
+                            FlowButton(row, "ConfirmFeedButton", "Give 1 " + entry.item.name, () => StartCoroutine(SaveCare(pet.id, itemId, false))).interactable = CanCare;
+                    }
+                }
+            }
+            FlowButton(content, "BackCareButton", "Back to creatures", () => { selectedPetId = selectedFoodItemId = 0; DrawActiveSection(true); }).interactable = !IsBusy;
+            SectionFooter(Section.Bestiary);
+        }
+
+        private IEnumerator SaveCare(int creatureId, int foodItemId, bool mount)
+        {
+            if (!CanCare || section != Section.Bestiary) yield break;
+            var epoch = sessionEpoch;
+            var view = viewVersion;
+            var reviewKey = CareReviewKey;
+            // Persist before dispatch: an abort or process exit cannot establish
+            // whether Django committed. Only a definite result removes this marker.
+            PlayerPrefs.SetInt(reviewKey, 1); PlayerPrefs.Save();
+            careInFlight = true; careReviewLoaded = careDataReady = false;
+            bestiaryStatus = foodItemId > 0 ? "Saving this feeding…" : "Saving your choice…";
+            DrawActiveSection();
+            ApiError failure = null;
+            PetFeedDto fed = null;
+            OwnedPetDto activePet = null;
+            OwnedMountDto activeMount = null;
+            try
+            {
+                if (foodItemId > 0) yield return api.FeedPet(creatureId, foodItemId, value => fed = value, error => failure = error);
+                else if (mount) yield return api.ActivateMount(creatureId, value => activeMount = value, error => failure = error);
+                else yield return api.ActivatePet(creatureId, value => activePet = value, error => failure = error);
+                if ((failure != null && !failure.OutcomeUnknown) || fed != null || activePet != null || activeMount != null)
+                { PlayerPrefs.DeleteKey(reviewKey); PlayerPrefs.Save(); }
+                if (!Current(epoch) || view != viewVersion) yield break;
+                selectedFoodItemId = 0;
+                if (failure == null && (fed != null || activePet != null || activeMount != null))
+                {
+                    string confirmed = fed != null ? fed.evolved
+                        ? "Feeding saved · Your companion evolved into a mount!"
+                        : "Feeding saved · " + fed.new_growth + " / 100 growth"
+                        : "Your active " + (mount ? "mount" : "companion") + " is saved.";
+                    companion?.Celebrate(); Toast(confirmed, 7);
+                    careInFlight = false;
+                    yield return LoadSection(Section.Bestiary);
+                    if (!Current(epoch) || view != viewVersion) yield break;
+                    bestiaryStatus = confirmed + (careDataReady ? "" : " · Refresh to load your updated collection.");
+                    nextHomeRefresh = 0;
+                }
+                else
+                    bestiaryStatus = failure != null && !failure.OutcomeUnknown
+                        ? failure.Message + " Refresh your collection before trying again."
+                        : "Couldn't confirm the care action. Refresh and check your collection.";
+            }
+            finally
+            {
+                if (epoch == sessionEpoch && view == viewVersion)
+                {
+                    careInFlight = false;
+                    if (IsDemo) ClearPresentation();
+                    else { RefreshHud(); DrawActiveSection(); }
+                }
+            }
         }
 
         private void OpenConnection()
