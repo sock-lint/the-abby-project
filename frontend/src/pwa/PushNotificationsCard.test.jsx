@@ -13,6 +13,7 @@ function installPushApis({ permission = 'default', existing = null, grant = 'gra
     toJSON: () => ({ endpoint: 'https://push.example/abc', keys: { p256dh: 'p', auth: 'a' } }),
     unsubscribe: vi.fn().mockResolvedValue(true),
   };
+  if (existing && !existing.toJSON) existing.toJSON = subscription.toJSON;
   Object.defineProperty(navigator, 'serviceWorker', {
     value: {
       ready: Promise.resolve({

@@ -23,6 +23,7 @@ describe('journal draft storage', () => {
   });
 
   it('does not persist an anonymous shared-device draft', () => {
+    localStorage.clear();
     expect(storeJournalDraft(null, draft())).toBe(false);
     expect(localStorage.length).toBe(0);
   });

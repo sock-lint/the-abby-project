@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ProjectNew from './ProjectNew.jsx';
 import { server } from '../test/server.js';
+import { spyHandler } from '../test/spy.js';
 
 function renderPage() {
   return render(
@@ -26,15 +27,21 @@ describe('ProjectNew', () => {
   });
 
   it('submits and navigates on success', async () => {
-    server.use(
-      http.post('*/api/projects/', () => HttpResponse.json({ id: 99 })),
-    );
+    const create = spyHandler('post', '*/api/projects/', { id: 99 });
+    server.use(create.handler);
     const user = userEvent.setup();
     renderPage();
     const inputs = screen.getAllByRole('textbox');
     await user.type(inputs[0], 'Bird Feeder');
     await user.click(screen.getByRole('button', { name: /create venture/i }));
-    // No assertion needed beyond no-throw — navigate is exercised.
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].url).toMatch(/\/api\/projects\/$/);
+    expect(create.calls[0].body).toEqual({
+      title: 'Bird Feeder', description: '', instructables_url: null, difficulty: 2,
+      category_id: null, bonus_amount: '0', materials_budget: '0', due_date: null,
+      payment_kind: 'required', assigned_to_id: null, hourly_rate_override: null,
+      parent_notes: '',
+    });
   });
 
   it('displays an error from the server', async () => {
@@ -73,5 +80,64 @@ describe('ProjectNew', () => {
     urlInput.blur();
     // Nothing displayed.
     expect(screen.queryByText(/loading preview/i)).toBeNull();
+  });
+
+  it('preserves a title typed while the tutorial preview is loading', async () => {
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    const previewStarted = vi.fn();
+    server.use(http.get('*/api/instructables/preview/', async () => {
+      previewStarted();
+      await gate;
+      return HttpResponse.json({ title: 'Tutorial title', author: 'Maker' });
+    }));
+    const user = userEvent.setup();
+    renderPage();
+    await user.type(screen.getByRole('textbox', { name: /instructables url/i }), 'https://www.instructables.com/feeder');
+    await user.click(screen.getByRole('textbox', { name: /^title$/i }));
+    await waitFor(() => expect(previewStarted).toHaveBeenCalledOnce());
+    await user.type(screen.getByRole('textbox', { name: /^title$/i }), 'My custom title');
+    release();
+    expect(await screen.findByText('Tutorial title')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /^title$/i })).toHaveValue('My custom title');
+  });
+
+  it('ignores a preview for an obsolete URL even when its response arrives last', async () => {
+    let releaseOld;
+    const oldGate = new Promise(resolve => { releaseOld = resolve; });
+    const oldStarted = vi.fn();
+    server.use(http.get('*/api/instructables/preview/', async ({ request }) => {
+      if (new URL(request.url).searchParams.get('url').endsWith('/old')) {
+        oldStarted();
+        await oldGate;
+        return HttpResponse.json({ title: 'Old tutorial', author: 'Old author' });
+      }
+      return HttpResponse.json({ title: 'Current tutorial', author: 'Current author' });
+    }));
+    const user = userEvent.setup();
+    renderPage();
+    const url = screen.getByRole('textbox', { name: /instructables url/i });
+    await user.type(url, 'https://www.instructables.com/old');
+    await user.tab();
+    await waitFor(() => expect(oldStarted).toHaveBeenCalledOnce());
+    await user.clear(url);
+    await user.type(url, 'https://www.instructables.com/current');
+    await user.tab();
+    expect(await screen.findByText('Current tutorial')).toBeInTheDocument();
+    // The transport has no abort option; finish the old response so this test
+    // exercises the obsolete-response guard rather than leaving it pending.
+    const oldFinished = new Promise(resolve => {
+      const onResponse = ({ request }) => {
+        if (new URL(request.url).searchParams.get('url')?.endsWith('/old')) {
+          server.events.removeListener('response:mocked', onResponse);
+          resolve();
+        }
+      };
+      server.events.on('response:mocked', onResponse);
+    });
+    await act(async () => { releaseOld(); await oldFinished; });
+    expect(screen.queryByText('Old tutorial')).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /^title$/i })).toHaveValue('Current tutorial');
+    expect(screen.getByText(/Current author/)).toBeInTheDocument();
   });
 });

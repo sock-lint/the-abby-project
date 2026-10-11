@@ -161,6 +161,7 @@ export default function Homework() {
       ...(dashboard?.today ?? []),
       ...(dashboard?.overdue ?? []),
       ...(dashboard?.upcoming ?? []),
+      ...(dashboard?.pending ?? []),
     ];
   const pendingSubs = dashboard?.pending_submissions ?? [];
   const versoStats = isParent
@@ -237,6 +238,12 @@ export default function Homework() {
 
             {dashboard?.overdue?.length > 0 && (
               <Section index={nextRubric()} title="Overdue" items={dashboard.overdue}>
+                {renderCard}
+              </Section>
+            )}
+
+            {dashboard?.pending?.length > 0 && (
+              <Section index={nextRubric()} title="Awaiting approval" items={dashboard.pending}>
                 {renderCard}
               </Section>
             )}

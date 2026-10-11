@@ -6,7 +6,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from config.viewsets import RoleFilteredQuerySetMixin, filter_queryset_by_role
+from config.viewsets import filter_queryset_by_role, filter_resources_under_accessible_projects
 
 from .models import ProjectPhoto
 from .serializers import ProjectPhotoSerializer
@@ -14,13 +14,12 @@ from .serializers import ProjectPhotoSerializer
 logger = logging.getLogger(__name__)
 
 
-class ProjectPhotoViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
+class ProjectPhotoViewSet(viewsets.ModelViewSet):
     serializer_class = ProjectPhotoSerializer
     queryset = ProjectPhoto.objects.select_related("project")
-    role_filter_field = "project__assigned_to"
 
     def get_queryset(self):
-        return self.get_role_filtered_queryset(super().get_queryset())
+        return filter_resources_under_accessible_projects(self.request.user, super().get_queryset())
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -40,10 +39,9 @@ class PortfolioView(APIView):
         user = request.user
 
         # Project photos (existing).
-        photos = filter_queryset_by_role(
+        photos = filter_resources_under_accessible_projects(
             user,
             ProjectPhoto.objects.select_related("project"),
-            role_filter_field="project__assigned_to",
         )
 
         grouped = {}
@@ -130,13 +128,30 @@ class ExportPortfolioView(APIView):
         import zipfile
         from django.http import HttpResponse
 
-        photos = filter_queryset_by_role(
+        photos = filter_resources_under_accessible_projects(
             request.user,
             ProjectPhoto.objects.select_related("project"),
-            role_filter_field="project__assigned_to",
         )
 
-        if not photos.exists():
+        from apps.homework.models import HomeworkProof, HomeworkSubmission
+        from apps.creations.models import Creation
+
+        hw_proofs = filter_queryset_by_role(
+            request.user,
+            HomeworkProof.objects.filter(
+                submission__status=HomeworkSubmission.Status.APPROVED,
+            ).select_related("submission__assignment"),
+            role_filter_field="submission__user",
+        )
+        creations = filter_queryset_by_role(
+            request.user,
+            Creation.objects.select_related("primary_skill", "primary_skill__category"),
+            role_filter_field="user",
+        )
+        photos = list(photos)
+        hw_proofs = list(hw_proofs)
+        creations = list(creations)
+        if not any(item.image for items in (photos, hw_proofs, creations) for item in items):
             return Response({"error": "No photos to export"}, status=404)
 
         buffer = io.BytesIO()
@@ -152,16 +167,6 @@ class ExportPortfolioView(APIView):
                         continue
 
             # Add homework proofs.
-            from apps.homework.models import HomeworkProof, HomeworkSubmission
-
-            hw_proofs = filter_queryset_by_role(
-                request.user,
-                HomeworkProof.objects.filter(
-                    submission__status=HomeworkSubmission.Status.APPROVED,
-                ).select_related("submission__assignment"),
-                role_filter_field="submission__user",
-            )
-
             for proof in hw_proofs:
                 if proof.image:
                     subject = proof.submission.assignment.get_subject_display()
@@ -173,15 +178,6 @@ class ExportPortfolioView(APIView):
                         logger.warning("Failed to add homework proof %s to export", proof.id, exc_info=True)
 
             # Add creations — grouped by primary skill category.
-            from apps.creations.models import Creation
-
-            creations = filter_queryset_by_role(
-                request.user,
-                Creation.objects.select_related(
-                    "primary_skill", "primary_skill__category",
-                ),
-                role_filter_field="user",
-            )
             for creation in creations:
                 if creation.image:
                     cat = (
@@ -199,6 +195,11 @@ class ExportPortfolioView(APIView):
                             creation.id, exc_info=True,
                         )
 
+        if not zf.namelist():
+            return Response(
+                {"error": "Couldn't read any images for export. Please try again."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
         buffer.seek(0)
         response = HttpResponse(buffer.getvalue(), content_type="application/zip")
         response["Content-Disposition"] = 'attachment; filename="portfolio.zip"'

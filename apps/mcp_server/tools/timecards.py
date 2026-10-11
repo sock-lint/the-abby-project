@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.core.exceptions import PermissionDenied
+
 from apps.projects.models import Project
 from apps.timecards.models import Timecard, TimeEntry
 from apps.timecards.services import ClockService, TimecardService
@@ -22,7 +24,7 @@ from config.viewsets import filter_projects_accessible_to
 from ..context import (
     get_current_user, get_in_family, require_parent, resolve_target_user,
 )
-from ..errors import MCPNotFoundError, safe_tool
+from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
 from ..schemas import (
     ApproveTimecardIn,
     ClockInIn,
@@ -143,11 +145,8 @@ def clock_out(params: ClockOutIn) -> dict[str, Any]:
 @safe_tool
 def void_time_entry(params: VoidTimeEntryIn) -> dict[str, Any]:
     """Void a completed TimeEntry (parent-only). Status flips to ``voided``."""
-    require_parent()
-    try:
-        entry = TimeEntry.objects.select_related("project", "user").get(pk=params.entry_id)
-    except TimeEntry.DoesNotExist:
-        raise MCPNotFoundError(f"TimeEntry {params.entry_id} not found.")
+    parent = require_parent()
+    entry = get_in_family(TimeEntry, params.entry_id, actor=parent)
     entry.status = "voided"
     entry.save(update_fields=["status", "updated_at"] if hasattr(entry, "updated_at") else ["status"])
     return time_entry_to_dict(entry)
@@ -176,10 +175,10 @@ def generate_timecard(params: GenerateTimecardIn) -> dict[str, Any]:
 def mark_timecard_paid(params: MarkTimecardPaidIn) -> dict[str, Any]:
     """Mark a timecard PAID and post a negative PaymentLedger payout (parent-only)."""
     parent = require_parent()
-    try:
-        timecard = Timecard.objects.select_related("user").get(pk=params.timecard_id)
-    except Timecard.DoesNotExist:
-        raise MCPNotFoundError(f"Timecard {params.timecard_id} not found.")
+    timecard = get_in_family(Timecard, params.timecard_id, actor=parent)
     amount = params.amount if params.amount is not None else timecard.total_earnings
-    updated = TimecardService.mark_paid(timecard, parent, amount)
+    try:
+        updated = TimecardService.mark_paid(timecard, parent, amount)
+    except PermissionDenied as exc:
+        raise MCPPermissionDenied(str(exc)) from exc
     return timecard_to_dict(updated)

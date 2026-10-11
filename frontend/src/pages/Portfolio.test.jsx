@@ -56,6 +56,70 @@ describe('Portfolio', () => {
     expect(screen.getByText(/download all/i)).toBeInTheDocument();
   });
 
+  it('downloads a homework-only ZIP with the current authorization header', async () => {
+    mockAuth(buildUser({ id: 1 }));
+    server.use(http.get('*/api/portfolio/', () => HttpResponse.json({
+      projects: [], homework: [{ subject: 'math', items: [{
+        id: 7, image: '/proof.jpg', assignment_title: 'Worksheet',
+        user_id: 1, submitted_at: '2026-04-11T00:00:00Z',
+      }] }],
+    })));
+    let authorization;
+    const download = spyHandler('get', '*/api/export/portfolio/', ({ request }) => {
+      authorization = request.headers.get('Authorization');
+      return new HttpResponse('zip bytes', { headers: { 'Content-Type': 'application/zip' } });
+    });
+    server.use(download.handler);
+    const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:portfolio');
+    const revokeUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    let downloaded;
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {
+      downloaded = { href: this.href, filename: this.download };
+    });
+    const { user } = renderWithProviders(<Portfolio />);
+    await user.click(await screen.findByRole('button', { name: 'Download all' }));
+    await waitFor(() => expect(download.calls).toHaveLength(1));
+    await waitFor(() => expect(revokeUrl).toHaveBeenCalledWith('blob:portfolio'));
+    expect(authorization).toBe('Token test-token');
+    expect(downloaded).toEqual({ href: 'blob:portfolio', filename: 'portfolio.zip' });
+    expect(createUrl.mock.calls[0][0].type).toBe('application/zip');
+    expect(createUrl.mock.calls[0][0].size).toBe(9);
+    expect(document.querySelector('a[download="portfolio.zip"]')).toBeNull();
+    click.mockRestore();
+    createUrl.mockRestore();
+    revokeUrl.mockRestore();
+  });
+
+  it('shows a failed export and allows retry without downloading an error body', async () => {
+    mockAuth(buildUser({ id: 1 }));
+    server.use(http.get('*/api/portfolio/', () => HttpResponse.json({
+      projects: [{ project_id: 1, project_title: 'Venture', photos: [{
+        id: 1, image: '/photo.jpg', user: 1, uploaded_at: '2026-04-10T00:00:00Z',
+      }] }], homework: [],
+    })));
+    const failed = spyHandler('get', '*/api/export/portfolio/',
+      HttpResponse.json({ error: 'Export failed' }, { status: 500 }));
+    server.use(failed.handler);
+    const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:retry');
+    const revokeUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const { user } = renderWithProviders(<Portfolio />);
+    await user.click(await screen.findByRole('button', { name: 'Download all' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/couldn't download/i));
+    expect(failed.calls).toHaveLength(1);
+    expect(createUrl).not.toHaveBeenCalled();
+    const retry = spyHandler('get', '*/api/export/portfolio/',
+      new HttpResponse('zip', { headers: { 'Content-Type': 'application/zip' } }));
+    server.use(retry.handler);
+    await user.click(screen.getByRole('button', { name: 'Download all' }));
+    await waitFor(() => expect(retry.calls).toHaveLength(1));
+    await waitFor(() => expect(click).toHaveBeenCalledOnce());
+    expect(screen.queryByRole('alert')).toBeNull();
+    click.mockRestore();
+    createUrl.mockRestore();
+    revokeUrl.mockRestore();
+  });
+
   it('filter pills switch the visible set', async () => {
     mockAuth(buildUser({ id: 1 }));
     server.use(

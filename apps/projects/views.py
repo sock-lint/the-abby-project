@@ -19,8 +19,6 @@ from config.viewsets import (
     get_child_or_404, child_not_found_response,
 )
 
-logger = logging.getLogger(__name__)
-
 from .models import (
     MaterialItem, Project, ProjectCollaborator,
     ProjectMilestone, ProjectResource, ProjectStep, ProjectTemplate, SavingsGoal,
@@ -35,6 +33,8 @@ from .serializers import (
     ProjectTemplateSerializer, SavingsGoalSerializer,
     UserSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class AuthView(APIView):
@@ -83,11 +83,30 @@ class AuthView(APIView):
                 {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
             )
         elif action == "logout":
+            endpoint = request.data.get("push_endpoint") or ""
+            if not isinstance(endpoint, str):
+                return Response(
+                    {"error": "push_endpoint must be a string."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             if request.user.is_authenticated and isinstance(request.auth, Token):
                 # Authentication may precede a concurrent password login's
-                # rotation. Delete only this request's credential, preserving
-                # the replacement. Clients sharing the logout credential end.
-                Token.objects.filter(user=request.user, key=request.auth.key).delete()
+                # rotation. Lock only this request's credential, preserving
+                # its replacement. Push endpoints take the same lock before
+                # binding, so an old handler cannot recreate this device after
+                # logout even when the browser already aborted its fetch.
+                with transaction.atomic():
+                    credential = Token.objects.select_for_update().filter(
+                        user=request.user, key=request.auth.key,
+                    ).first()
+                    if credential:
+                        from apps.notifications.models import PushSubscription
+
+                        if endpoint.strip():
+                            PushSubscription.objects.filter(
+                                user=request.user, endpoint=endpoint.strip(),
+                            ).delete()
+                        credential.delete()
             return Response({"ok": True})
         return Response(
             {"error": "Invalid action"}, status=status.HTTP_400_BAD_REQUEST
@@ -499,6 +518,7 @@ class ProjectStepViewSet(NestedProjectResourceMixin, viewsets.ModelViewSet):
     def reorder(self, request, project_pk=None):
         """Accepts ``[{id, order}, ...]``; renumbers all project steps atomically."""
         from django.db import transaction
+        project = self.get_project()
         items = request.data if isinstance(request.data, list) else request.data.get("items", [])
         if not isinstance(items, list):
             return Response(
@@ -507,7 +527,7 @@ class ProjectStepViewSet(NestedProjectResourceMixin, viewsets.ModelViewSet):
         with transaction.atomic():
             steps_by_id = {
                 s.id: s
-                for s in ProjectStep.objects.select_for_update().filter(project_id=project_pk)
+                for s in ProjectStep.objects.select_for_update().filter(project=project)
             }
             for idx, entry in enumerate(items):
                 step = steps_by_id.get(entry.get("id"))
@@ -515,7 +535,7 @@ class ProjectStepViewSet(NestedProjectResourceMixin, viewsets.ModelViewSet):
                     continue
                 step.order = entry.get("order", idx)
                 step.save(update_fields=["order", "updated_at"])
-        qs = ProjectStep.objects.filter(project_id=project_pk)
+        qs = self.get_queryset()
         return Response(ProjectStepSerializer(qs, many=True).data)
 
 

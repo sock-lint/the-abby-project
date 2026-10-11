@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../test/server.js';
@@ -198,7 +199,7 @@ describe('AuthProvider + useAuth', () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.offline).toBe(false);
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.CACHED_USER))).toEqual(user);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.CACHED_USER))).toEqual({ version: 2, token: 'test-session', user });
   });
 
   describe('offline boot hydration', () => {
@@ -206,7 +207,7 @@ describe('AuthProvider + useAuth', () => {
 
     it('hydrates from the cached user + flags offline when getMe network-errors and a token is present', async () => {
       localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, 'tok-123');
-      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify(cached));
+      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify({ version: 2, token: 'tok-123', user: cached }));
       // HttpResponse.error() = a fetch/network rejection — the thrown error
       // has no .status, unlike HTTP errors from api/client.js.
       server.use(http.get('*/api/auth/me/', () => HttpResponse.error()));
@@ -219,7 +220,7 @@ describe('AuthProvider + useAuth', () => {
 
     it('does NOT hydrate on an HTTP rejection — a .status error keeps the logged-out path', async () => {
       localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, 'tok-123');
-      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify(cached));
+      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify({ version: 2, token: 'tok-123', user: cached }));
       // 403 (not 401) so the api client's 401 self-heal reload stays out of
       // the picture; any err.status must skip the cache.
       server.use(
@@ -235,6 +236,7 @@ describe('AuthProvider + useAuth', () => {
     });
 
     it('does NOT hydrate without an auth token, even on a network error', async () => {
+      setToken(null);
       localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify(cached));
       server.use(http.get('*/api/auth/me/', () => HttpResponse.error()));
       const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
@@ -242,6 +244,122 @@ describe('AuthProvider + useAuth', () => {
       await waitFor(() => expect(result.current.loading).toBe(false));
       expect(result.current.user).toBeNull();
       expect(result.current.offline).toBe(false);
+    });
+
+    it.each([
+      ['legacy snapshot', cached],
+      ['another credential', { version: 2, token: 'account-a', user: cached }],
+    ])('rejects a %s when the new account is offline', async (_name, snapshot) => {
+      setToken('account-b');
+      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify(snapshot));
+      server.use(http.get('*/api/auth/me/', () => HttpResponse.error()));
+      const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.user).toBeNull();
+      expect(result.current.offline).toBe(false);
+      expect(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).toBeNull();
+    });
+
+    it('cannot revive an anonymous session from a successful stale /me/ response', async () => {
+      setToken(null);
+      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify({ version: 2, token: 'old-session', user: cached }));
+      const getMe = vi.spyOn(apiIndex, 'getMe').mockResolvedValue(cached);
+      try {
+        const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
+        const { result } = renderHook(() => useAuth(), { wrapper });
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(getMe).not.toHaveBeenCalled();
+        expect(result.current.user).toBeNull();
+        expect(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).toBeNull();
+      } finally { getMe.mockRestore(); }
+    });
+
+    it('purges legacy private API caches before fetching the current profile', async () => {
+      const deleted = [];
+      const previous = globalThis.caches;
+      vi.stubGlobal('caches', {
+        keys: vi.fn().mockResolvedValue(['api-reads', 'media-images']),
+        delete: vi.fn(async (name) => { deleted.push(name); return true; }),
+      });
+      const getMe = vi.spyOn(apiIndex, 'getMe').mockImplementation(async () => {
+        expect(deleted).toContain('api-reads');
+        return cached;
+      });
+      try {
+        const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
+        const { result } = renderHook(() => useAuth(), { wrapper });
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(deleted).toEqual(['api-reads']);
+      } finally { getMe.mockRestore(); vi.stubGlobal('caches', previous); }
+    });
+
+    it('clears the old parent identity before replacing it with an offline OAuth child token', async () => {
+      setToken('parent-session');
+      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify({ version: 2, token: 'parent-session', user: cached }));
+      window.history.pushState({}, '', '/?token=child-session');
+      server.use(http.get('*/api/auth/me/', ({ request }) => {
+        expect(request.headers.get('authorization')).toBe('Token child-session');
+        expect(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).toBeNull();
+        return HttpResponse.error();
+      }));
+      const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.user).toBeNull();
+      expect(result.current.offline).toBe(false);
+      expect(localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)).toBe('child-session');
+      expect(window.location.search).toBe('');
+    });
+
+    it('finishes OAuth boot with a visible cleanup error when the old push endpoint cannot stop', async () => {
+      setToken('oauth-push-account-a');
+      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify({ version: 2, token: 'oauth-push-account-a', user: cached }));
+      window.history.pushState({}, '', '/?token=oauth-push-account-b');
+      const originalWorker = navigator.serviceWorker;
+      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: {
+        getRegistration: vi.fn().mockResolvedValue({ pushManager: {
+          getSubscription: vi.fn().mockResolvedValue({ endpoint: 'https://push.example/old', unsubscribe: vi.fn().mockResolvedValue(false) }),
+        } }),
+      } });
+      server.use(http.post('*/api/push/unsubscribe/', () => HttpResponse.error()));
+      const getMe = vi.spyOn(apiIndex, 'getMe').mockResolvedValue(buildUser({ id: 2 }));
+      try {
+        const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
+        const { result } = renderHook(() => useAuth(), { wrapper });
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(result.current.sessionError).toMatch(/could not stop notifications/i);
+        expect(result.current.user).toBeNull();
+        expect(getMe).not.toHaveBeenCalled();
+        expect(localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)).toBe('oauth-push-account-a');
+        expect(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).toBeNull();
+      } finally {
+        getMe.mockRestore();
+        Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: originalWorker });
+      }
+    });
+
+    it('restores only the account actually signed in before an offline reload', async () => {
+      setToken('account-a');
+      server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser({ id: 1, role: 'parent' }))));
+      const accountB = buildUser({ id: 2, username: 'child-b', role: 'child', token: 'account-b' });
+      server.use(http.post('*/api/auth/', async ({ request }) => {
+        const body = await request.json();
+        if (body.action === 'logout') return HttpResponse.json({ ok: true });
+        expect(body).toEqual({ action: 'login', username: 'child-b', password: 'test-password' });
+        return HttpResponse.json(accountB);
+      }));
+      const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
+      const first = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(first.result.current.user?.id).toBe(1));
+      await act(async () => { await first.result.current.login('child-b', 'test-password'); });
+      expect(first.result.current.user).toEqual(accountB);
+      first.unmount();
+      server.use(http.get('*/api/auth/me/', () => HttpResponse.error()));
+      const next = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(next.result.current.loading).toBe(false));
+      expect(next.result.current.user).toEqual(accountB);
+      expect(next.result.current.offline).toBe(true);
     });
   });
 
@@ -309,7 +427,7 @@ describe('AuthProvider + useAuth', () => {
       });
 
       expect(result.current.user).toEqual(newerUser);
-      expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.CACHED_USER))).toEqual(newerUser);
+      expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).user).toEqual(newerUser);
       expect(localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)).toBe('new-session');
     });
   });
@@ -363,7 +481,7 @@ describe('AuthProvider + useAuth', () => {
         storageArea: localStorage,
       })));
 
-      expect(reloadSpy).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(reloadSpy).toHaveBeenCalledTimes(1));
       expect(localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)).toBe(newToken);
       expect(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).toBeNull();
     });
@@ -374,7 +492,7 @@ describe('AuthProvider + useAuth', () => {
       await waitFor(() => expect(result.current.loading).toBe(false));
       localStorage.clear();
       act(() => window.dispatchEvent(new StorageEvent('storage', { storageArea: localStorage })));
-      expect(reloadSpy).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(reloadSpy).toHaveBeenCalledTimes(1));
     });
 
     it('does not repopulate the old user cache from a delayed boot response', async () => {
@@ -444,5 +562,41 @@ describe('AuthProvider + useAuth', () => {
     expect(replaceState).toHaveBeenCalled();
     setToken(null);
     replaceState.mockRestore();
+  });
+
+  it('awaits one OAuth replacement during the real StrictMode effect replay', async () => {
+    setToken('strict-account-a');
+    window.history.pushState({}, '', '/?token=strict-account-b');
+    const originalWorker = navigator.serviceWorker;
+    let finish;
+    const removal = new Promise((resolve) => { finish = resolve; });
+    const unsubscribe = vi.fn().mockReturnValue(removal);
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: {
+      getRegistration: vi.fn().mockResolvedValue({ pushManager: {
+        getSubscription: vi.fn().mockResolvedValue({ endpoint: 'https://push.example/strict', unsubscribe }),
+      } }),
+    } });
+    const profiles = [];
+    server.use(
+      http.post('*/api/push/unsubscribe/', () => HttpResponse.json({ ok: true, removed: 1 })),
+      http.get('*/api/auth/me/', ({ request }) => {
+        profiles.push(request.headers.get('authorization'));
+        return HttpResponse.json(buildUser({ id: 22, role: 'child' }));
+      }),
+    );
+    try {
+      const wrapper = ({ children }) => <StrictMode><AuthProvider>{children}</AuthProvider></StrictMode>;
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(unsubscribe).toHaveBeenCalledOnce());
+      expect(profiles).toEqual([]);
+      await act(async () => { finish(true); });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.user?.id).toBe(22);
+      expect(result.current.user?.role).toBe('child');
+      expect(profiles).toEqual(['Token strict-account-b']);
+      expect(localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)).toBe('strict-account-b');
+    } finally {
+      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: originalWorker });
+    }
   });
 });

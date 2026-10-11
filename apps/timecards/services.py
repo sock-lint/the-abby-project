@@ -1,6 +1,8 @@
 import logging
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Sum
 from django.db.models.functions import TruncDate
 from django.utils import timezone
@@ -220,28 +222,52 @@ class ClockService:
 
 class TimecardService:
     @staticmethod
+    @transaction.atomic
     def generate_weekly_timecard(user, week_start):
-        """Generate a timecard for a given week."""
+        """Reconcile an open week without rewriting its ledger or settled totals."""
         from datetime import timedelta
-        week_end = week_start + timedelta(days=6)
+        from django.contrib.auth import get_user_model
+        from apps.payments.models import PaymentLedger
 
-        entries = TimeEntry.objects.filter(
+        # A user lock serializes even the first generation, before a weekly
+        # timecard exists. All timecard decisions take locks in this order.
+        user = get_user_model().objects.select_for_update().get(pk=user.pk)
+        week_end = week_start + timedelta(days=6)
+        timecard = Timecard.objects.select_for_update().filter(
+            user=user, week_start=week_start,
+        ).first()
+        if timecard and (
+            timecard.status in (Timecard.Status.APPROVED, Timecard.Status.PAID)
+            or PaymentLedger.objects.filter(
+                timecard=timecard, entry_type=PaymentLedger.EntryType.PAYOUT,
+            ).exists()
+        ):
+            return timecard
+
+        entries = list(TimeEntry.objects.filter(
             user=user, status="completed",
             clock_in__date__gte=week_start,
             clock_in__date__lte=week_end,
-        )
-
-        if not entries.exists():
+        ).select_related("project"))
+        if not entries and timecard is None:
             return None
 
         total_minutes = sum(e.duration_minutes for e in entries)
-        total_hours = Decimal(str(round(total_minutes / 60, 2)))
-
-        hourly_earnings = Decimal("0.00")
-        for entry in entries.select_related("project"):
-            rate = entry.project.hourly_rate_override or user.hourly_rate
-            hours = Decimal(str(round(entry.duration_minutes / 60, 2)))
-            hourly_earnings += hours * rate
+        cents = Decimal("0.01")
+        total_hours = (Decimal(total_minutes) / 60).quantize(cents, rounding=ROUND_HALF_UP)
+        expected_by_project = {}
+        entry_amounts = []
+        for entry in entries:
+            rate = entry.project.hourly_rate_override
+            if rate is None:
+                rate = user.hourly_rate
+            hours = (Decimal(entry.duration_minutes) / 60).quantize(cents, rounding=ROUND_HALF_UP)
+            amount = (hours * rate).quantize(cents, rounding=ROUND_HALF_UP)
+            entry_amounts.append((entry, hours, rate, amount))
+            expected_by_project[entry.project_id] = (
+                expected_by_project.get(entry.project_id, Decimal("0.00")) + amount
+            )
+        hourly_earnings = sum(expected_by_project.values(), Decimal("0.00"))
 
         bonus_earnings = Decimal("0.00")
         completed_projects = user.assigned_projects.filter(
@@ -252,23 +278,17 @@ class TimecardService:
         for project in completed_projects:
             bonus_earnings += project.bonus_amount
 
-        timecard, created = Timecard.objects.update_or_create(
-            user=user, week_start=week_start,
-            defaults={
-                "week_end": week_end,
-                "total_hours": total_hours,
-                "hourly_earnings": hourly_earnings,
-                "bonus_earnings": bonus_earnings,
-                "total_earnings": hourly_earnings + bonus_earnings,
-                "status": "pending",
-            },
-        )
-
+        created = timecard is None
         if created:
-            for entry in entries.select_related("project"):
-                rate = entry.project.hourly_rate_override or user.hourly_rate
-                hours = Decimal(str(round(entry.duration_minutes / 60, 2)))
-                amount = hours * rate
+            timecard = Timecard(user=user, week_start=week_start)
+        timecard.week_end = week_end
+        timecard.total_hours = total_hours
+        timecard.hourly_earnings = hourly_earnings
+        timecard.bonus_earnings = bonus_earnings
+        timecard.total_earnings = hourly_earnings + bonus_earnings
+        timecard.save()
+        if created:
+            for entry, hours, rate, amount in entry_amounts:
                 PaymentService.record_entry(
                     user,
                     amount,
@@ -277,10 +297,40 @@ class TimecardService:
                     project=entry.project,
                     timecard=timecard,
                 )
+        else:
+            # Reconcile legacy partial writes as well as edited/voided hours.
+            # Corrections stay append-only and retain their project attribution.
+            actual_by_project = {
+                row["project_id"]: row["amount"]
+                for row in PaymentLedger.objects.filter(
+                    user=user, timecard=timecard, entry_type=PaymentLedger.EntryType.HOURLY,
+                ).values("project_id").annotate(amount=Sum("amount"))
+            }
+            from apps.projects.models import Project
+            projects = Project.objects.in_bulk(
+                (expected_by_project.keys() | actual_by_project.keys()) - {None},
+            )
+            corrections = []
+            for project_id in expected_by_project.keys() | actual_by_project.keys():
+                delta = expected_by_project.get(project_id, Decimal("0.00")) - actual_by_project.get(
+                    project_id, Decimal("0.00"),
+                )
+                if delta:
+                    corrections.append((project_id, delta))
+            # Each ledger write checks savings goals. Reverse old credits
+            # before adding replacements so a temporary inflated balance
+            # cannot permanently unlock a goal or its rewards.
+            for project_id, delta in sorted(corrections, key=lambda correction: correction[1]):
+                PaymentService.record_entry(
+                    user, delta, PaymentLedger.EntryType.HOURLY,
+                    description=f"Hourly correction for week of {week_start}",
+                    project=projects.get(project_id), timecard=timecard,
+                )
 
         return timecard
 
     @staticmethod
+    @transaction.atomic
     def approve_timecard(timecard, parent_user, notes=""):
         """Approve a timecard and stamp audit fields atomically.
 
@@ -288,17 +338,29 @@ class TimecardService:
         ``ApprovalWorkflowModel`` (migration 0002).
         """
         from config.services import finalize_decision
+        from django.contrib.auth import get_user_model
+        from apps.payments.models import PaymentLedger
+
+        get_user_model().objects.select_for_update().get(pk=timecard.user_id)
+        locked = Timecard.objects.select_for_update().get(pk=timecard.pk)
+        if locked.status in (Timecard.Status.APPROVED, Timecard.Status.PAID) or (
+            PaymentLedger.objects.filter(
+                timecard=locked, entry_type=PaymentLedger.EntryType.PAYOUT,
+            ).exists()
+        ):
+            timecard.refresh_from_db()
+            return timecard
 
         finalize_decision(
-            timecard, Timecard.Status.APPROVED, parent_user, notes,
+            locked, Timecard.Status.APPROVED, parent_user, notes,
             activity_category="timecard",
             activity_event_type="timecard.approve",
-            activity_summary=f"Timecard approved: week of {timecard.week_start}",
-            activity_subject=timecard.user,
+            activity_summary=f"Timecard approved: week of {locked.week_start}",
+            activity_subject=locked.user,
             activity_extras={
-                "week_start": str(timecard.week_start),
-                "total_hours": str(getattr(timecard, "total_hours", "") or ""),
-                "total_amount": str(getattr(timecard, "total_amount", "") or ""),
+                "week_start": str(locked.week_start),
+                "total_hours": str(locked.total_hours),
+                "total_amount": str(locked.total_earnings),
             },
         )
 
@@ -307,26 +369,70 @@ class TimecardService:
         # and the BADGES_EARNED meta. Nothing else flips between week-end
         # and approval.
         BadgeService.evaluate_badges(
-            timecard.user,
+            locked.user,
             created_by=parent_user,
             scopes={"time", "badges"},
         )
 
+        timecard.refresh_from_db()
         return timecard
 
     @staticmethod
-    def mark_paid(timecard, parent_user, payout_amount):
-        """Mark a timecard as paid and create payout ledger entry."""
-        timecard.status = "paid"
-        timecard.save()
+    @transaction.atomic
+    def dispute_timecard(timecard):
+        from django.contrib.auth import get_user_model
+        from apps.payments.models import PaymentLedger
 
-        PaymentService.record_entry(
-            timecard.user,
-            -abs(payout_amount),
-            "payout",
-            description=f"Payout for week of {timecard.week_start}",
-            timecard=timecard,
-            created_by=parent_user,
-        )
+        get_user_model().objects.select_for_update().get(pk=timecard.user_id)
+        locked = Timecard.objects.select_for_update().get(pk=timecard.pk)
+        if locked.status == Timecard.Status.PAID or PaymentLedger.objects.filter(
+            timecard=locked, entry_type=PaymentLedger.EntryType.PAYOUT,
+        ).exists():
+            raise ValueError("Paid timecards cannot be reopened.")
+        locked.status = Timecard.Status.DISPUTED
+        locked.save(update_fields=["status", "updated_at"])
+        timecard.refresh_from_db()
+        return timecard
+
+    @staticmethod
+    @transaction.atomic
+    def mark_paid(timecard, parent_user, payout_amount):
+        """Commit one payout per timecard, including retries and stale callers."""
+        from apps.payments.models import PaymentLedger
+        from django.contrib.auth import get_user_model
+
+        if getattr(parent_user, "role", None) != "parent":
+            raise PermissionDenied("Only parents can pay timecards.")
+        try:
+            amount = Decimal(str(payout_amount))
+        except (InvalidOperation, TypeError, ValueError):
+            raise ValueError("Invalid payout amount.") from None
+        if not amount.is_finite() or amount <= 0 or amount > Decimal("999999.99"):
+            raise ValueError("Payout amount must be between $0.01 and $999,999.99.")
+        if amount != amount.quantize(Decimal("0.01")):
+            raise ValueError("Payout amount must have at most two decimal places.")
+
+        get_user_model().objects.select_for_update().get(pk=timecard.user_id)
+        locked = Timecard.objects.select_for_update().get(pk=timecard.pk)
+        if not parent_user.family_id or parent_user.family_id != locked.user.family_id:
+            raise PermissionDenied("You can only pay timecards in your family.")
+        # The ledger is authoritative even if a later dispute/regeneration
+        # changed the status, or this caller loaded the row before a payout.
+        if not PaymentLedger.objects.filter(
+            timecard=locked, entry_type=PaymentLedger.EntryType.PAYOUT,
+        ).exists():
+            PaymentService.record_entry(
+                locked.user,
+                -amount,
+                PaymentLedger.EntryType.PAYOUT,
+                description=f"Payout for week of {locked.week_start}",
+                timecard=locked,
+                created_by=parent_user,
+            )
+
+        if locked.status != Timecard.Status.PAID:
+            locked.status = Timecard.Status.PAID
+            locked.save(update_fields=["status", "updated_at"])
+        timecard.refresh_from_db()
 
         return timecard

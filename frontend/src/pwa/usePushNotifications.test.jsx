@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
 import { usePushNotifications, urlBase64ToUint8Array } from './usePushNotifications';
+import { setToken } from '../api/client';
 
 const REAL = {
   serviceWorker: navigator.serviceWorker,
@@ -25,8 +26,10 @@ function installPushApis({ permission = 'default', existing = null } = {}) {
     getSubscription: vi.fn().mockResolvedValue(existing),
     subscribe: vi.fn().mockResolvedValue(subscription),
   };
+  if (existing && !existing.toJSON) existing.toJSON = subscription.toJSON;
+  const registration = { pushManager };
   Object.defineProperty(navigator, 'serviceWorker', {
-    value: { ready: Promise.resolve({ pushManager }) },
+    value: { ready: Promise.resolve(registration), getRegistration: vi.fn().mockResolvedValue(registration) },
     configurable: true,
   });
   window.PushManager = function PushManagerStub() {};
@@ -99,6 +102,56 @@ describe('usePushNotifications', () => {
     await waitFor(() => expect(result.current.subscribed).toBe(true));
   });
 
+  it('verifies and rebinds an existing endpoint before reporting subscribed', async () => {
+    setToken('account-b');
+    let finish;
+    let started = false;
+    const ready = new Promise((resolve) => { finish = resolve; });
+    server.use(http.post('*/api/push/subscribe/', async ({ request }) => {
+      expect(request.headers.get('authorization')).toBe('Token account-b');
+      expect(await request.json()).toMatchObject({ endpoint: 'https://push.example/abc' });
+      started = true;
+      await ready;
+      return HttpResponse.json({ ok: true });
+    }));
+    installPushApis({ permission: 'granted', existing: { endpoint: 'https://push.example/abc' } });
+    const { result } = renderHook(() => usePushNotifications());
+    await waitFor(() => expect(started).toBe(true));
+    expect(result.current.subscribed).toBe(false);
+    await act(async () => { finish(); });
+    await waitFor(() => expect(result.current.subscribed).toBe(true));
+  });
+
+  it('does not claim ownership when rebind fails offline', async () => {
+    installPushApis({ permission: 'granted', existing: { endpoint: 'https://push.example/abc' } });
+    server.use(http.post('*/api/push/subscribe/', () => HttpResponse.error()));
+    const { result } = renderHook(() => usePushNotifications());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.subscribed).toBe(false);
+    expect(result.current.error).toMatch(/connection/i);
+  });
+
+  it('serializes a delayed old binding ahead of the current account rebind', async () => {
+    setToken('account-a');
+    installPushApis({ permission: 'granted', existing: { endpoint: 'https://push.example/abc' } });
+    let finishA;
+    const pendingA = new Promise((resolve) => { finishA = resolve; });
+    const owners = [];
+    server.use(http.post('*/api/push/subscribe/', async ({ request }) => {
+      const owner = request.headers.get('authorization');
+      owners.push(owner);
+      if (owner === 'Token account-a') await pendingA;
+      return HttpResponse.json({ ok: true });
+    }));
+    const { result } = renderHook(() => usePushNotifications());
+    await waitFor(() => expect(owners).toEqual(['Token account-a']));
+    act(() => setToken('account-b'));
+    expect(result.current.subscribed).toBe(false);
+    await act(async () => { finishA(); });
+    await waitFor(() => expect(result.current.subscribed).toBe(true));
+    expect(owners).toEqual(['Token account-a', 'Token account-b']);
+  });
+
   it('subscribing asks permission and POSTs the browser subscription', async () => {
     const spy = spyHandler('post', /\/api\/push\/subscribe\/$/, { ok: true });
     server.use(spy.handler);
@@ -133,7 +186,7 @@ describe('usePushNotifications', () => {
     expect(result.current.error).toMatch(/blocked/i);
   });
 
-  it('unsubscribing tells the server before dropping the local subscription', async () => {
+  it('unsubscribing removes only the current browser endpoint', async () => {
     const spy = spyHandler('post', /\/api\/push\/unsubscribe\/$/, { ok: true });
     server.use(spy.handler);
     const existing = {
@@ -150,5 +203,17 @@ describe('usePushNotifications', () => {
     expect(spy.calls[0].body).toEqual({ endpoint: 'https://push.example/abc' });
     expect(existing.unsubscribe).toHaveBeenCalled();
     expect(result.current.subscribed).toBe(false);
+  });
+
+  it('turning off still stops browser delivery when the unsubscribe API is offline', async () => {
+    const existing = { endpoint: 'https://push.example/abc', unsubscribe: vi.fn().mockResolvedValue(true) };
+    installPushApis({ permission: 'granted', existing });
+    server.use(http.post('*/api/push/unsubscribe/', () => HttpResponse.error()));
+    const { result } = renderHook(() => usePushNotifications());
+    await waitFor(() => expect(result.current.subscribed).toBe(true));
+    await act(async () => { await result.current.unsubscribe(); });
+    expect(existing.unsubscribe).toHaveBeenCalledOnce();
+    expect(result.current.subscribed).toBe(false);
+    expect(result.current.error).toBe('');
   });
 });

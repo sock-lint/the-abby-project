@@ -41,7 +41,7 @@ function isAndroidChrome() {
 /**
  * InstallCard — a Settings page card that handles PWA install across the
  * relevant cases:
- *   1. Already installed → render nothing
+ *   1. Standalone app window → render nothing
  *   2. Any browser with a captured beforeinstallprompt → button
  *   3. iOS/iPadOS Safari (which never fires beforeinstallprompt) → instructions
  *   4. Android Chrome without beforeinstallprompt → menu instructions
@@ -96,7 +96,7 @@ export default function InstallCard() {
 
       {!canInstall && !isIosSafari() && !isAndroidChrome() && (
         <p className="text-caption text-ink-whisper italic">
-          Your browser doesn&apos;t support installing this app yet — try Chrome or Edge on Android, or Safari on iOS.
+          Check your browser menu for an install option. If Abby is already installed, open it from your apps.
         </p>
       )}
     </ParchmentCard>

@@ -1,5 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
-import { getPushConfig, subscribeToPush, unsubscribeFromPush } from '../api';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { getPushConfig } from '../api';
+import { AUTH_CHANGED_EVENT, getToken } from '../api/client';
+import { bindPushSession, disconnectPushSession } from './pushSession';
+
+function watchSession(onChange) {
+  window.addEventListener(AUTH_CHANGED_EVENT, onChange);
+  window.addEventListener('storage', onChange);
+  return () => {
+    window.removeEventListener(AUTH_CHANGED_EVENT, onChange);
+    window.removeEventListener('storage', onChange);
+  };
+}
 
 /**
  * usePushNotifications — opt this browser in or out of Web Push.
@@ -16,6 +27,7 @@ import { getPushConfig, subscribeToPush, unsubscribeFromPush } from '../api';
  *     A 'denied' can only be undone in browser settings, never by us.
  */
 export function usePushNotifications() {
+  const token = useSyncExternalStore(watchSession, getToken, () => '');
   const supported = typeof window !== 'undefined'
     && 'serviceWorker' in navigator
     && 'PushManager' in window
@@ -33,8 +45,12 @@ export function usePushNotifications() {
 
   useEffect(() => {
     let cancelled = false;
+    setSubscribed(false);
+    setLoading(true);
+    setError('');
     const load = async () => {
       try {
+        if (!token) return;
         // Fetch the config even on a browser that can't subscribe: the card
         // needs to know the server offers push at all before it can explain
         // *why* this device can't use it (the iPhone "install it first" case).
@@ -46,18 +62,22 @@ export function usePushNotifications() {
         if (!supported) return;
         const registration = await navigator.serviceWorker.ready;
         const existing = await registration.pushManager.getSubscription();
-        if (!cancelled) setSubscribed(Boolean(existing));
-      } catch {
-        // Offline or unconfigured — the card renders its unavailable state.
+        if (existing && config?.enabled && !cancelled) {
+          const bound = await bindPushSession(existing, token);
+          if (!cancelled) setSubscribed(bound);
+        }
+      } catch (e) {
+        if (!cancelled) setError(e?.message || 'Could not verify notifications for this account.');
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
     load();
     return () => { cancelled = true; };
-  }, [supported]);
+  }, [supported, token]);
 
   const subscribe = useCallback(async () => {
+    if (!token || getToken() !== token) return false;
     setBusy(true);
     setError('');
     try {
@@ -74,45 +94,39 @@ export function usePushNotifications() {
       }
 
       const registration = await navigator.serviceWorker.ready;
+      if (getToken() !== token) return false;
       const subscription = await registration.pushManager.subscribe({
         // Chrome refuses silent push outright; every notification we send is
         // user-visible anyway.
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
-      await subscribeToPush(subscription.toJSON());
-      setSubscribed(true);
-      return true;
+      const bound = await bindPushSession(subscription, token);
+      if (getToken() === token) setSubscribed(bound);
+      return bound;
     } catch (e) {
       setError(e?.message || 'Could not turn on notifications.');
       return false;
     } finally {
       setBusy(false);
     }
-  }, [publicKey]);
+  }, [publicKey, token]);
 
   const unsubscribe = useCallback(async () => {
     setBusy(true);
     setError('');
     try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      if (subscription) {
-        // Tell the server first: if the local unsubscribe succeeded but the
-        // API call didn't, we'd keep pushing to a dead endpoint until the
-        // service 410s it.
-        await unsubscribeFromPush(subscription.endpoint);
-        await subscription.unsubscribe();
-      }
-      setSubscribed(false);
-      return true;
+      const removed = await disconnectPushSession(token);
+      if (!removed) throw new Error('Could not turn off notifications on this device. Try again.');
+      if (getToken() === token) setSubscribed(false);
+      return removed;
     } catch (e) {
       setError(e?.message || 'Could not turn off notifications.');
       return false;
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [token]);
 
   return {
     supported, enabled, subscribed, permission, busy, error, loading,

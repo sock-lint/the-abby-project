@@ -8,6 +8,7 @@ import { server } from '../test/server'
 import { buildUser, buildParent } from '../test/factories'
 import { spyHandler } from '../test/spy'
 import { useAuth } from '../hooks/useApi'
+import { STORAGE_KEYS } from '../constants/storage'
 import * as api from '../api'
 import Yearbook from './Yearbook'
 
@@ -44,7 +45,10 @@ function summaryFor(name, userId = 7) {
 
 function SwitchAccount({ nextUser }) {
   const { setUser } = useAuth()
-  return <button onClick={() => setUser(nextUser)}>Switch account</button>
+  return <button onClick={() => {
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, `yearbook-session-${nextUser.id}`)
+    setUser(nextUser)
+  }}>Switch account</button>
 }
 
 function parentHandlers() {
@@ -58,7 +62,8 @@ beforeEach(() => {
   // jsdom doesn't implement scrollIntoView — TomeShelf calls it whenever
   // activeId changes.
   Element.prototype.scrollIntoView = vi.fn()
-  try { window.localStorage.clear() } catch { /* ignore */ }
+  window.localStorage.clear()
+  window.localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, 'yearbook-test-session')
 })
 
 afterEach(() => vi.restoreAllMocks())
@@ -66,7 +71,11 @@ afterEach(() => vi.restoreAllMocks())
 describe('Yearbook page', () => {
   it('loads saved journal and grade memories for a child without a birthday', async () => {
     const child = buildUser({ role: 'child', date_of_birth: null })
-    const summarySpy = spyHandler('get', /\/api\/chronicle\/summary\/$/, summaryFor('Abby', child.id))
+    let authorization
+    const summarySpy = spyHandler('get', '*/api/chronicle/summary/', ({ request }) => {
+      authorization = request.headers.get('Authorization')
+      return summaryFor('Abby', child.id)
+    })
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(child)),
       summarySpy.handler,
@@ -76,7 +85,10 @@ describe('Yearbook page', () => {
     expect(screen.getByRole('button', { name: /Abby's grade/ })).toBeInTheDocument()
     expect(screen.queryByText(/set your date of birth/i)).not.toBeInTheDocument()
     expect(summarySpy.calls).toHaveLength(1)
-    expect(summarySpy.calls[0].url).not.toContain('user_id')
+    const summaryUrl = new URL(summarySpy.calls[0].url)
+    expect(summaryUrl.pathname).toBe('/api/chronicle/summary/')
+    expect(summaryUrl.searchParams.has('user_id')).toBe(false)
+    expect(authorization).toBe('Token yearbook-test-session')
   })
 
   it('renders a TomeShelf of chapter spines and opens the current chapter by default', async () => {
@@ -135,7 +147,7 @@ describe('Yearbook — parent add-memory interaction', () => {
   it('child selector defaults to first kid and scopes the summary fetch', async () => {
     const summarySpy = spyHandler(
       'get',
-      /\/api\/chronicle\/summary\/(\?user_id=\d+)?$/,
+      '*/api/chronicle/summary/',
       {
         chapters: [
           { chapter_year: 2025, grade: 9, label: 'Freshman Year', is_current: true, is_post_hs: false, stats: {}, entries: [] },
@@ -156,7 +168,7 @@ describe('Yearbook — parent add-memory interaction', () => {
     renderWithProviders(<Yearbook />)
     await waitFor(() => expect(summarySpy.calls.length).toBeGreaterThan(0))
     // Default-selected the first child in the list.
-    expect(summarySpy.calls[0].url).toMatch(/user_id=7/)
+    expect(new URL(summarySpy.calls[0].url).searchParams.get('user_id')).toBe('7')
     expect(await screen.findByRole('combobox', { name: /viewing/i })).toHaveValue('7')
   })
 
@@ -206,12 +218,12 @@ describe('Yearbook — parent add-memory interaction', () => {
   })
 
   it('retries the child-list request when loading the parent picker fails', async () => {
-    const childrenSpy = spyHandler('get', /\/api\/children\/$/, () =>
+    const childrenSpy = spyHandler('get', '*/api/children/', () =>
       childrenSpy.calls.length === 1
         ? HttpResponse.json({ detail: 'Child list unavailable' }, { status: 503 })
         : childOptions,
     )
-    const summarySpy = spyHandler('get', /\/api\/chronicle\/summary\/(\?user_id=\d+)?$/, summaryFor('Abby'))
+    const summarySpy = spyHandler('get', '*/api/chronicle/summary/', summaryFor('Abby'))
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
       childrenSpy.handler,
@@ -225,7 +237,7 @@ describe('Yearbook — parent add-memory interaction', () => {
 
     expect(await screen.findByRole('button', { name: /Abby's journal/ })).toBeInTheDocument()
     expect(childrenSpy.calls).toHaveLength(2)
-    expect(summarySpy.calls[0].url).toMatch(/user_id=7/)
+    expect(new URL(summarySpy.calls[0].url).searchParams.get('user_id')).toBe('7')
   })
 
   it('keeps parent actions hidden until the child picker request resolves', async () => {

@@ -61,6 +61,8 @@ function BudgetRow({ budget, onChanged }) {
   const [adjMinutes, setAdjMinutes] = useState('');
   const [adjNote, setAdjNote] = useState('');
   const [ledger, setLedger] = useState(null);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [ledgerError, setLedgerError] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -73,17 +75,25 @@ function BudgetRow({ budget, onChanged }) {
     return Number.isNaN(n) ? null : n;
   };
 
-  const togglePane = async (next) => {
+  const loadLedger = async () => {
+    if (ledgerLoading) return;
+    setLedgerLoading(true);
+    setLedgerError('');
+    try {
+      setLedger(normalizeList(await getPrintBudgetLedger(budget.id)));
+    } catch (err) {
+      setLedgerError(err?.message || 'Could not load the ledger.');
+    } finally {
+      setLedgerLoading(false);
+    }
+  };
+
+  const togglePane = (next) => {
     setError('');
     const target = pane === next ? null : next;
     setPane(target);
     if (target === 'ledger' && ledger === null) {
-      try {
-        setLedger(normalizeList(await getPrintBudgetLedger(budget.id)));
-      } catch (err) {
-        setError(err?.message || 'Could not load the ledger.');
-        setLedger([]);
-      }
+      loadLedger();
     }
   };
 
@@ -247,9 +257,11 @@ function BudgetRow({ budget, onChanged }) {
 
       {pane === 'ledger' && (
         <div className="border-t border-ink-page-shadow/40 pt-3">
-          {ledger === null ? (
+          {ledgerLoading ? (
             <div className="font-script text-caption text-ink-whisper">Loading…</div>
-          ) : ledger.length === 0 ? (
+          ) : ledgerError ? (
+            <ErrorAlert message={ledgerError} onRetry={loadLedger} />
+          ) : ledger === null ? null : ledger.length === 0 ? (
             <div className="font-script text-caption text-ink-whisper">
               Nothing debited yet.
             </div>

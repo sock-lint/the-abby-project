@@ -12,6 +12,7 @@ import logging
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -83,16 +84,52 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        job = self.get_object()
+        # Serializer.save() writes the instance's lifecycle fields as well
+        # as edited fields. Construct it only after locking a fresh snapshot
+        # so a stale PATCH cannot reopen a committed/discarded job.
+        job = get_object_or_404(self.get_queryset().select_for_update(), pk=job.pk)
+        if job.status != ProjectIngestionJob.Status.READY:
+            return Response(
+                {"error": f"This import cannot be edited while it is {job.status}."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        serializer = self.get_serializer(job, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         job = self.get_object()
+        job = self.get_queryset().select_for_update().get(pk=job.pk)
+        if job.status == ProjectIngestionJob.Status.COMMITTED:
+            return Response(
+                {"error": "This import has already created a project."},
+                status=status.HTTP_409_CONFLICT,
+            )
         job.status = ProjectIngestionJob.Status.DISCARDED
         job.save(update_fields=["status", "updated_at"])
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def commit(self, request, pk=None):
         """Create the real Project from the (possibly edited) staged result."""
         job = self.get_object()
+        # Re-read under the owner-scoped lock before checking status. A second
+        # tab or a retry after an interrupted response must reuse the project.
+        job = self.get_queryset().select_for_update().get(pk=job.pk)
+        if job.status == ProjectIngestionJob.Status.COMMITTED:
+            if job.project_id is None:
+                return Response(
+                    {"error": "The project created by this import has been deleted."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            return Response(ProjectDetailSerializer(job.project).data)
         if job.status != ProjectIngestionJob.Status.READY:
             return Response(
                 {"error": f"job is {job.status}, not ready"},
@@ -151,7 +188,9 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
                     order=m.get("order", i),
                 ))
 
-            materials = overrides.get("materials") or [m.to_dict() for m in staged.materials]
+            materials = overrides.get("materials")
+            if materials is None:
+                materials = [m.to_dict() for m in staged.materials]
             material_rows = []
             for m in materials:
                 raw_cost = m.get("estimated_cost")
@@ -171,7 +210,9 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
             # ``milestone_index`` (when present) is a 0-based index into the
             # milestones list above; out-of-range or missing values fall back
             # to a "loose" (unassigned) step rather than raising.
-            steps_input = overrides.get("steps") or [s.to_dict() for s in staged.steps]
+            steps_input = overrides.get("steps")
+            if steps_input is None:
+                steps_input = [s.to_dict() for s in staged.steps]
             created_steps = []
             for i, s in enumerate(steps_input):
                 ms_idx = s.get("milestone_index")
@@ -187,7 +228,9 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
                 ))
 
             # Resources — resolve optional step_index to the just-created step pk.
-            resources_input = overrides.get("resources") or [r.to_dict() for r in staged.resources]
+            resources_input = overrides.get("resources")
+            if resources_input is None:
+                resources_input = [r.to_dict() for r in staged.resources]
             for r_idx, res in enumerate(resources_input):
                 step_index = res.get("step_index")
                 step_fk = None

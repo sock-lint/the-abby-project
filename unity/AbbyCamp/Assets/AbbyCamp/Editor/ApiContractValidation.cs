@@ -104,6 +104,21 @@ namespace AbbyCamp.Editor
             try
             {
                 var client = gameObject.AddComponent<AbbyApiClient>();
+                string readUrl = client.BuildReadUrl("https://abby.example.com/api/auth/me/");
+                string readNamespace = new Uri(readUrl).Query.Substring("?_abby_session=".Length);
+                Check(Guid.TryParseExact(readNamespace, "N", out _), "Private reads use a random noncredential namespace");
+                Check(client.BuildReadUrl("https://abby.example.com/api/character/").EndsWith("?_abby_session=" + readNamespace),
+                    "Private reads share one namespace within a session");
+                string pageUrl = client.BuildReadUrl("https://abby.example.com/api/habits/?page=2&name=a%26b&_abby_session=old&%5Fabby_session=older&_abby_session");
+                Check(new Uri(pageUrl).Query == "?page=2&name=a%26b&_abby_session=" + readNamespace,
+                    "Pagination preserves filters and replaces all inherited session keys");
+                client.ClearSession();
+                string nextSessionUrl = client.BuildReadUrl("https://abby.example.com/api/auth/me/");
+                Check(nextSessionUrl != readUrl && Guid.TryParseExact(new Uri(nextSessionUrl).Query.Substring("?_abby_session=".Length), "N", out _),
+                    "Logout or account replacement rotates the read namespace");
+                var otherClient = gameObject.AddComponent<AbbyApiClient>();
+                Check(otherClient.BuildReadUrl("https://abby.example.com/api/auth/me/") != nextSessionUrl,
+                    "New clients cannot reuse a previous page's private read cache");
                 ApiError rejection = null;
                 bool completed = false;
                 var coroutine = client.LogPositiveHabit(null, _ => completed = true, problem => rejection = problem);

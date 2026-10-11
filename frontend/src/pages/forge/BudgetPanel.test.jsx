@@ -25,6 +25,46 @@ function buildBudget(over = {}) {
 }
 
 describe('BudgetPanel', () => {
+  it('keeps a failed ledger distinct from empty and retries after reopening', async () => {
+    let attempts = 0;
+    const ledger = spyHandler('get', /\/api\/print-budgets\/3\/ledger\/$/, () => {
+      attempts += 1;
+      return attempts === 1
+        ? HttpResponse.json({ detail: 'Ledger unavailable' }, { status: 503 })
+        : [{ id: 1, reason_display: 'Print completed', grams: '120.00', minutes: 240, created_at: '2026-08-20T12:00:00Z' }];
+    });
+    server.use(ledger.handler);
+    const { user } = renderWithProviders(<BudgetPanel budgets={[buildBudget()]} />);
+    await user.click(screen.getByRole('button', { name: 'Ledger' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ledger unavailable');
+    expect(screen.queryByText('Nothing debited yet.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Ledger' }));
+    await user.click(screen.getByRole('button', { name: 'Ledger' }));
+    expect(await screen.findByText('Print completed')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(ledger.calls).toHaveLength(2);
+    expect(new URL(ledger.calls[1].url).pathname).toBe('/api/print-budgets/3/ledger/');
+  });
+
+  it('allows an explicit retry and renders an empty ledger only after a successful read', async () => {
+    let attempts = 0;
+    const ledger = spyHandler('get', /\/api\/print-budgets\/3\/ledger\/$/, () => {
+      attempts += 1;
+      return attempts === 1 ? HttpResponse.json({ detail: 'Ledger unavailable' }, { status: 503 }) : [];
+    });
+    server.use(ledger.handler);
+    const { user } = renderWithProviders(<BudgetPanel budgets={[buildBudget()]} />);
+    await user.click(screen.getByRole('button', { name: 'Ledger' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ledger unavailable');
+    expect(screen.queryByText('Nothing debited yet.')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Nothing debited yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(ledger.calls).toHaveLength(2);
+  });
+
   it('renders used vs cap, and "No cap" for an uncapped dimension', () => {
     renderWithProviders(<BudgetPanel budgets={[buildBudget()]} />);
     expect(screen.getByText('Abby')).toBeInTheDocument();

@@ -1,3 +1,5 @@
+from django.db import transaction
+from django.shortcuts import get_object_or_404
 from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -178,6 +180,7 @@ class HomeworkSubmissionViewSet(
         return qs
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def withdraw(self, request, pk=None):
         """Owner withdraws a pending homework submission.
 
@@ -189,6 +192,11 @@ class HomeworkSubmissionViewSet(
         the submission is undone.
         """
         submission = self.get_object()
+        # Share approval's lock before checking state or removing any proof
+        # blobs; an older pending instance may already have been approved.
+        submission = get_object_or_404(
+            HomeworkSubmission.objects.select_for_update(), pk=submission.pk,
+        )
         if submission.user_id != request.user.id:
             return Response(
                 {"error": "Only the submitter can withdraw a homework submission."},
@@ -308,6 +316,10 @@ class HomeworkDashboardView(APIView):
                 ).data,
                 "overdue": HomeworkAssignmentSerializer(
                     [item["assignment"] for item in dashboard["overdue"]],
+                    many=True, context=ctx,
+                ).data,
+                "pending": HomeworkAssignmentSerializer(
+                    [item["assignment"] for item in dashboard["pending"]],
                     many=True, context=ctx,
                 ).data,
                 "stats": dashboard["stats"],

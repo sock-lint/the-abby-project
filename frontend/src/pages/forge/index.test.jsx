@@ -162,7 +162,10 @@ describe('Forge', () => {
     renderWithProviders(<Forge />);
 
     await waitFor(() => expect(urls.length).toBeGreaterThan(0));
-    expect(urls[0]).toMatch(/\/api\/print-jobs\/\?unlinked=true$/);
+    const jobsUrl = new URL(urls[0]);
+    expect(jobsUrl.pathname).toBe('/api/print-jobs/');
+    expect(jobsUrl.searchParams.get('unlinked')).toBe('true');
+    expect(jobsUrl.searchParams.get('_abby_session')).toBeTruthy();
   });
 
   it('asks the server for the open statuses so history cannot bury the queue', async () => {

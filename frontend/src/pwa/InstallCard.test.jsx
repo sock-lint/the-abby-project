@@ -76,7 +76,7 @@ describe('InstallCard', () => {
     setMaxTouchPoints(5);
     mockHook({ canInstall: false, install: vi.fn(), isStandalone: false });
     render(<InstallCard />);
-    expect(screen.queryByText(/your browser doesn/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/check your browser menu/i)).not.toBeInTheDocument();
     expect(screen.getByText(/share/i)).toBeInTheDocument();
     expect(screen.getByText(/add to home screen/i)).toBeInTheDocument();
   });
@@ -86,7 +86,7 @@ describe('InstallCard', () => {
     setMaxTouchPoints(0);
     mockHook({ canInstall: false, install: vi.fn(), isStandalone: false });
     render(<InstallCard />);
-    expect(screen.getByText(/your browser doesn/i)).toBeInTheDocument();
+    expect(screen.getByText(/check your browser menu/i)).toBeInTheDocument();
     expect(screen.queryByText(/add to home screen/i)).not.toBeInTheDocument();
   });
 
@@ -97,19 +97,28 @@ describe('InstallCard', () => {
     mockHook({ canInstall: false, install: vi.fn(), isStandalone: false });
     render(<InstallCard />);
     expect(screen.queryByRole('button', { name: /install app/i })).not.toBeInTheDocument();
-    expect(screen.queryByText(/your browser doesn/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/check your browser menu/i)).not.toBeInTheDocument();
     expect(screen.getByText(/tap the menu/i)).toBeInTheDocument();
     expect(screen.getByText(/add to home screen/i)).toBeInTheDocument();
   });
 
-  it('renders the generic unsupported fallback on desktop Firefox', () => {
+  it('renders generic menu guidance on desktop Firefox', () => {
     setUserAgent(
       'Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0',
     );
     mockHook({ canInstall: false, install: vi.fn(), isStandalone: false });
     render(<InstallCard />);
     expect(screen.queryByRole('button', { name: /install app/i })).not.toBeInTheDocument();
-    expect(screen.getByText(/your browser doesn/i)).toBeInTheDocument();
+    expect(screen.getByText(/check your browser menu/i)).toBeInTheDocument();
+  });
+
+  it('does not infer browser support or installed status from a missing desktop Chrome prompt', () => {
+    mockHook({ canInstall: false, install: vi.fn(), isStandalone: false });
+    render(<InstallCard />);
+    expect(screen.getByText(/check your browser menu/i)).toBeInTheDocument();
+    expect(screen.getByText(/if Abby is already installed, open it from your apps/i)).toBeInTheDocument();
+    expect(screen.queryByText(/doesn.t support/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /install app/i })).not.toBeInTheDocument();
   });
 
   it('does NOT show the Chrome menu card on Samsung Internet (Android)', () => {
@@ -119,6 +128,6 @@ describe('InstallCard', () => {
     mockHook({ canInstall: false, install: vi.fn(), isStandalone: false });
     render(<InstallCard />);
     expect(screen.queryByText(/tap the menu/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/your browser doesn/i)).toBeInTheDocument();
+    expect(screen.getByText(/check your browser menu/i)).toBeInTheDocument();
   });
 });

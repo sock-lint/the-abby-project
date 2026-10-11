@@ -1,25 +1,34 @@
-import { api, setToken, getToken, clearTokenIfCurrent, getBlob } from './client';
+import { api, getToken, clearTokenIfCurrent, getBlob } from './client';
+import { disconnectPushSession, replaceSessionToken } from '../pwa/pushSession';
 
 // Auth
 export const login = async (username, password) => {
-  const data = await api.post('/auth/', { action: 'login', username, password });
-  if (data && data.token) setToken(data.token);
+  const data = await api.post('/auth/', { action: 'login', username, password }, { token: '' });
+  if (data && data.token) await replaceSessionToken(data.token);
   return data;
 };
 export const signup = async ({ username, password, display_name, family_name }) => {
   const data = await api.post('/auth/signup/', {
     username, password, display_name, family_name,
-  });
-  if (data && data.token) setToken(data.token);
+  }, { token: '' });
+  if (data && data.token) await replaceSessionToken(data.token);
   return data;
 };
 export const logout = async () => {
   const token = getToken();
+  let endpoint;
+  const cleanupError = await disconnectPushSession(token, {
+    stopSession: true, onEndpoint: (value) => { endpoint = value; },
+  }).then(() => null, (error) => error);
+  let logoutError;
   try {
-    await api.post('/auth/', { action: 'logout' });
-  } finally {
-    clearTokenIfCurrent(token);
+    await api.post('/auth/', { action: 'logout', ...(endpoint ? { push_endpoint: endpoint } : {}) }, { token, selfHeal: false });
+  } catch (error) {
+    logoutError = error;
   }
+  clearTokenIfCurrent(token);
+  if (cleanupError) throw cleanupError;
+  if (logoutError) throw logoutError;
 };
 export const getMe = () => api.get('/auth/me/');
 export const updateMe = (data) => api.patch('/auth/me/', data);
@@ -199,6 +208,22 @@ export const getSkillProgress = () => api.get('/skill-progress/');
 export const getAchievementsSummary = () => api.get('/achievements/summary/');
 
 // Rewards / Coins
+// Approval queues must include every page; history fetches stay paginated.
+export const getAllApprovalPages = async (fetchFirstPage) => {
+  const rows = [];
+  const visited = new Set();
+  let page = await fetchFirstPage();
+  while (page) {
+    if (Array.isArray(page)) return [...rows, ...page];
+    rows.push(...(page.results || []));
+    if (!page.next) return rows;
+    if (visited.has(page.next)) throw new Error('Could not load all pending approvals. Try again.');
+    visited.add(page.next);
+    page = await fetchActivityUrl(page.next);
+  }
+  return rows;
+};
+
 export const getRewards = () => api.get('/rewards/');
 export const createReward = (formData) => api.upload('/rewards/', formData);
 export const updateReward = (id, formData) =>
@@ -206,6 +231,8 @@ export const updateReward = (id, formData) =>
 export const deleteReward = (id) => api.delete(`/rewards/${id}/`);
 export const redeemReward = (id) => api.post(`/rewards/${id}/redeem/`, {});
 export const getRedemptions = () => api.get('/redemptions/');
+export const getPendingRedemptions = () =>
+  getAllApprovalPages(() => api.get('/redemptions/?status=pending'));
 export const approveRedemption = (id, notes = '') =>
   api.post(`/redemptions/${id}/approve/`, { notes });
 export const rejectRedemption = (id, notes = '') =>
@@ -221,6 +248,8 @@ export const getExchangeRate = () => api.get('/coins/exchange/rate/');
 export const requestExchange = (dollar_amount) =>
   api.post('/coins/exchange/', { dollar_amount });
 export const getExchangeRequests = () => api.get('/coins/exchange/list/');
+export const getPendingExchangeRequests = () =>
+  getAllApprovalPages(() => api.get('/coins/exchange/list/?status=pending'));
 export const approveExchange = (id, notes = '') =>
   api.post(`/coins/exchange/${id}/approve/`, { notes });
 export const rejectExchange = (id, notes = '') =>
@@ -228,6 +257,7 @@ export const rejectExchange = (id, notes = '') =>
 
 // Portfolio
 export const getPortfolio = () => api.get('/portfolio/');
+export const downloadPortfolioZip = () => getBlob('/export/portfolio/');
 export const getPhotos = () => api.get('/photos/');
 export const uploadPhoto = (projectId, file, caption = '') => {
   const fd = new FormData();

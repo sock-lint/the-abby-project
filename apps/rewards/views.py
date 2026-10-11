@@ -217,7 +217,11 @@ class RewardRedemptionViewSet(
     approval_service = RewardService
 
     def get_queryset(self):
-        return self.get_role_filtered_queryset(super().get_queryset())
+        qs = self.get_role_filtered_queryset(super().get_queryset())
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs.order_by("-created_at", "-pk")
 
 
 class CoinBalanceView(APIView):
@@ -341,7 +345,11 @@ class ExchangeRequestViewSet(
     approval_service = ExchangeService
 
     def get_queryset(self):
-        return self.get_role_filtered_queryset(super().get_queryset())
+        qs = self.get_role_filtered_queryset(super().get_queryset())
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs.order_by("-created_at", "-pk")
 
     def handle_exception(self, exc):
         if isinstance(exc, InsufficientFundsError):

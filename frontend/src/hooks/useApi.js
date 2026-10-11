@@ -5,8 +5,10 @@ import {
 import {
   getMe, login as apiLogin, logout as apiLogout, signup as apiSignup,
 } from '../api';
-import { getToken, setToken, OFFLINE_MESSAGE } from '../api/client';
+import { AUTH_CHANGED_EVENT, getToken, OFFLINE_MESSAGE } from '../api/client';
 import { STORAGE_KEYS } from '../constants/storage';
+import { purgePrivateApiCaches } from '../pwa/privacy';
+import { disconnectPushSession, replaceSessionToken } from '../pwa/pushSession';
 
 // A fetch that never reaches the server rejects with browser-internal text —
 // "Failed to fetch" in Chrome, the even more cryptic "Load failed" in Safari —
@@ -125,19 +127,22 @@ const AuthContext = createContext(null);
 // Best-effort read/write of the last-known-good /auth/me/ payload. Both
 // swallow storage errors (private mode, quota, corrupt JSON) — the cache is
 // a convenience for the offline-hydrate path, never a hard dependency.
-function readCachedUser() {
+function readCachedUser(token) {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CACHED_USER);
-    return raw ? JSON.parse(raw) : null;
+    const cached = raw ? JSON.parse(raw) : null;
+    if (token && cached?.version === 2 && cached.token === token) return cached.user;
+    localStorage.removeItem(STORAGE_KEYS.CACHED_USER);
+    return null;
   } catch {
     return null;
   }
 }
 
-function writeCachedUser(u) {
+function writeCachedUser(u, token = getToken()) {
   try {
-    if (u) {
-      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify(u));
+    if (u && token) {
+      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify({ version: 2, token, user: u }));
     } else {
       localStorage.removeItem(STORAGE_KEYS.CACHED_USER);
     }
@@ -149,6 +154,8 @@ function writeCachedUser(u) {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [sessionError, setSessionError] = useState('');
+  const oauthSessionRef = useRef(null);
   // True only when the session was hydrated from the CACHED_USER snapshot
   // because boot-time getMe() failed with a network error. Cleared by any
   // successful live auth (boot fetch, login, signup) and by logout.
@@ -156,6 +163,11 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     // Another same-origin tab (including /play/) shares the credential.
+    const onSameTabChange = () => {
+      setUser(null);
+      setOffline(false);
+      Sentry.setUser(null);
+    };
     // Reload so rendered user/role and in-flight page data cannot stay on
     // the old account while new requests use the replacement credential.
     const onStorage = (event) => {
@@ -163,35 +175,71 @@ export function AuthProvider({ children }) {
       if (event.key !== null && event.key !== STORAGE_KEYS.AUTH_TOKEN) return;
       if (event.key !== null && event.oldValue === event.newValue) return;
       writeCachedUser(null);
-      window.location.reload();
+      setUser(null);
+      setOffline(false);
+      void purgePrivateApiCaches();
+      void disconnectPushSession(event.oldValue || '', { allowReplacement: true, stopSession: true })
+        .catch(() => false).finally(() => window.location.reload());
     };
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener(AUTH_CHANGED_EVENT, onSameTabChange);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(AUTH_CHANGED_EVENT, onSameTabChange);
+    };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     // Handle token from Google OAuth callback redirect
     const params = new URLSearchParams(window.location.search);
     const oauthToken = params.get('token');
     if (oauthToken) {
-      setToken(oauthToken);
+      writeCachedUser(null);
       // Clean the URL so the token isn't visible / bookmarkable
       window.history.replaceState({}, '', window.location.pathname);
+      // StrictMode replays this effect after the token is removed from the
+      // URL. Both passes must await the same asynchronous replacement.
+      if (!oauthSessionRef.current) oauthSessionRef.current = replaceSessionToken(oauthToken);
     }
 
-    const token = getToken();
-    getMe()
+    const boot = async () => {
+      if (oauthSessionRef.current) {
+        try {
+          await oauthSessionRef.current;
+        } catch (error) {
+          if (!cancelled) {
+            setSessionError(error.message);
+            setUser(null);
+            setOffline(false);
+            Sentry.setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
+      }
+      await purgePrivateApiCaches();
+      const token = getToken();
+      if (cancelled) return;
+      if (!token) {
+        writeCachedUser(null);
+        setUser(null);
+        Sentry.setUser(null);
+        setLoading(false);
+        return;
+      }
+      await getMe()
       .then((u) => {
         // A storage change or logout may have replaced this boot session
         // before /me/ finished. Do not cache the previous account again.
-        if (getToken() !== token) return;
+        if (cancelled || getToken() !== token) return;
         setUser(u);
         setOffline(false);
-        writeCachedUser(u);
+        writeCachedUser(u, token);
         Sentry.setUser(u ? { id: u.id, username: u.username, role: u.role } : null);
       })
       .catch((err) => {
-        if (getToken() !== token) return;
+        if (cancelled || getToken() !== token) return;
         // Distinguish "the server said no" from "we never reached the
         // server". api/client.js attaches ``.status`` to every HTTP error,
         // so a rejection WITHOUT one is a fetch/network failure — e.g. the
@@ -201,7 +249,7 @@ export function AuthProvider({ children }) {
         // Login form. HTTP rejections (401 invalid token, etc.) keep the
         // logged-out path.
         const cached = err?.status === undefined && getToken()
-          ? readCachedUser()
+          ? readCachedUser(token)
           : null;
         if (cached) {
           setUser(cached);
@@ -212,11 +260,15 @@ export function AuthProvider({ children }) {
           Sentry.setUser(null);
         }
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    };
+    void boot();
+    return () => { cancelled = true; };
   }, []);
 
   const login = useCallback(async (username, password) => {
     const u = await apiLogin(username, password);
+    setSessionError('');
     setUser(u);
     setOffline(false);
     writeCachedUser(u);
@@ -229,6 +281,7 @@ export function AuthProvider({ children }) {
     // family nested under user.family, so we drop the separate family
     // field on the floor and just hydrate user state.
     const data = await apiSignup(payload);
+    setSessionError('');
     const u = data?.user || null;
     setUser(u);
     setOffline(false);
@@ -241,6 +294,9 @@ export function AuthProvider({ children }) {
     const token = getToken();
     try {
       await apiLogout();
+    } catch (error) {
+      if (!getToken() || getToken() === token) setSessionError(error.message);
+      throw error;
     } finally {
       // Even if the logout POST fails (offline), drop all local session
       // state unless a newer sign-in replaced the session during the POST.
@@ -255,7 +311,7 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const value = { user, loading, offline, login, signup, logout, setUser };
+  const value = { user, loading, offline, sessionError, login, signup, logout, setUser };
   return createElement(AuthContext.Provider, { value }, children);
 }
 

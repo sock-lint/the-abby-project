@@ -4,7 +4,6 @@ from __future__ import annotations
 import io
 import zipfile
 from datetime import date, timedelta
-from decimal import Decimal
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
@@ -109,8 +108,7 @@ class PortfolioViewTests(_Fixture):
         )
         submission = HomeworkSubmission.objects.create(
             assignment=assignment, user=self.child, status="approved",
-            reward_amount_snapshot=Decimal("5"), coin_reward_snapshot=5,
-            timeliness="on_time", timeliness_multiplier=Decimal("1.0"),
+            timeliness="on_time",
         )
         HomeworkProof.objects.create(submission=submission, caption="proof")
 
@@ -131,8 +129,7 @@ class PortfolioViewTests(_Fixture):
         )
         submission = HomeworkSubmission.objects.create(
             assignment=assignment, user=self.child, status="rejected",
-            reward_amount_snapshot=Decimal("0"), coin_reward_snapshot=0,
-            timeliness="on_time", timeliness_multiplier=Decimal("1.0"),
+            timeliness="on_time",
         )
         HomeworkProof.objects.create(submission=submission, caption="rejected proof")
 
