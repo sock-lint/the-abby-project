@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="{% block description %}The Abby Project helps families organize everyday adventures and keep their memories.{% endblock %}">
+  <meta name="theme-color" content="#FFF8EE">
+  <title>{% block title %}The Abby Project{% endblock %}</title>
+  <style>
+    /* Nunito comes from the public bundled source in shared/storybook/fonts.
+       The default Meadow colors and token names mirror frontend/src/index.css;
+       these pages also render when no Vite bundle exists. */
+    @font-face {
+      font-family: "Abby Nunito";
+      src: url("{% url 'public-nunito-font' %}") format("truetype");
+      font-weight: 200 1000;
+      font-style: normal;
+      font-display: swap;
+    }
+    :root {
+      --color-ink-page: #FFF8EE; --color-ink-page-aged: #FBF6FF; --color-ink-page-shadow: #E5DCF6;
+      --color-ink-primary: #49384F; --color-ink-secondary: #726779;
+      --color-sheikah-teal: #685093; --color-moss: #486B55;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; color: var(--color-ink-primary); background: var(--color-ink-page);
+      font: 17px/1.65 "Abby Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+      background-image: radial-gradient(ellipse at top left, #E5DCF655, transparent 55%);
+    }
+    a { color: var(--color-sheikah-teal); text-underline-offset: 0.2em; }
+    a:hover { text-decoration-thickness: 2px; }
+    a:focus-visible { outline: 3px solid var(--color-sheikah-teal); outline-offset: 5px; border-radius: 3px; }
+    .skip { position: absolute; left: 1rem; top: -5rem; padding: 0.7rem; background: var(--color-ink-page); }
+    .skip:focus { top: 0.5rem; }
+    .wrap { width: min(100% - 2.5rem, 960px); margin-inline: auto; }
+    header { border-bottom: 1px solid var(--color-ink-page-shadow); }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 1.2rem; }
+    .brand { font-weight: 850; font-size: 1.15rem; color: var(--color-ink-primary); text-decoration: none; }
+    nav { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; font-size: 0.94rem; }
+    main { padding-block: 3.5rem 4rem; }
+    h1, h2, h3 { line-height: 1.2; letter-spacing: -0.025em; }
+    h1 { font-size: clamp(2.2rem, 6vw, 3.8rem); margin: 0.6rem 0 1.2rem; font-weight: 850; }
+    h2 { font-size: 1.5rem; margin-top: 0; font-weight: 800; }
+    h3 { font-size: 1.12rem; font-weight: 800; }
+    p { margin: 0 0 1rem; }
+    .eyebrow { color: var(--color-moss); font-size: 0.82rem; font-weight: 850; letter-spacing: 0.12em; text-transform: uppercase; }
+    .lede { font-size: 1.22rem; color: var(--color-ink-secondary); max-width: 720px; }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-block: 1.8rem 2.5rem; }
+    .button { display: inline-block; padding: 0.8rem 1.4rem; background: var(--color-sheikah-teal); border-radius: 1rem; color: white; text-decoration: none; font-weight: 800; }
+    .button:hover { background: #59437F; text-decoration: none; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-block: 2rem 3rem; }
+    .card { border: 1px solid var(--color-ink-page-shadow); border-radius: 1.5rem; padding: 1.6rem; background: var(--color-ink-page-aged); }
+    .card p:last-child, section p:last-child { margin-bottom: 0; }
+    .article { max-width: 760px; }
+    .article section { margin-top: 2.3rem; }
+    .article h1 { font-size: clamp(2.2rem, 6vw, 3rem); }
+    .date, .note { color: var(--color-ink-secondary); font-size: 0.95rem; }
+    ol, ul { padding-left: 1.5rem; margin-block: 0.8rem 1.2rem; }
+    li { padding-left: 0.2rem; margin-bottom: 0.55rem; }
+    code { font-size: 0.88em; overflow-wrap: anywhere; }
+    footer { border-top: 1px solid var(--color-ink-page-shadow); color: var(--color-ink-secondary); font-size: 0.94rem; padding-block: 1.5rem 2rem; }
+    .footerbar { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+    @media (max-width: 680px) {
+      .topbar { align-items: flex-start; flex-direction: column; }
+      main { padding-block: 2.4rem 3rem; }
+      .grid { grid-template-columns: 1fr; }
+      .card { padding: 1.35rem; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header>
+    <div class="wrap topbar">
+      <a class="brand" href="{% url 'public-about' %}">The Abby Project</a>
+      <nav aria-label="Main navigation">
+        <a href="{% url 'public-about' %}">About</a>
+        <a href="{% url 'public-privacy' %}">Privacy</a>
+        <a href="/">Sign in</a>
+      </nav>
+    </div>
+  </header>
+  <main id="main" class="wrap" tabindex="-1">{% block content %}{% endblock %}</main>
+  <footer>
+    <div class="wrap footerbar">
+      <span>The Abby Project · Keep your memories. Grow your story.</span>
+      <a href="{% url 'public-privacy' %}">Privacy policy</a>
+    </div>
+  </footer>
+</body>
+</html>

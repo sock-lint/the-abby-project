@@ -6,6 +6,7 @@ from django.contrib import admin
 from django.http import HttpResponse
 from django.urls import include, path, re_path
 from django.views.static import serve as static_serve
+from django.views.generic import RedirectView, TemplateView
 
 from config.oauth_views import (
     AbbyAuthorizationView,
@@ -53,6 +54,20 @@ def spa_view(request):
 
 
 urlpatterns = [
+    # Public product/privacy information must precede the SPA catch-all so
+    # reviewers and visitors can read it without JavaScript or an account.
+    path("about/", TemplateView.as_view(template_name="public/about.html"), name="public-about"),
+    path("privacy/", TemplateView.as_view(template_name="public/privacy.html"), name="public-privacy"),
+    # The SPA catch-all otherwise prevents APPEND_SLASH from redirecting these.
+    path("about", RedirectView.as_view(pattern_name="public-about", query_string=True)),
+    path("privacy", RedirectView.as_view(pattern_name="public-privacy", query_string=True)),
+    # Reuse the bundled Meadow font without depending on Vite's asset hashes.
+    path(
+        "public/fonts/Nunito-Variable.ttf",
+        static_serve,
+        {"path": "Nunito-Variable.ttf", "document_root": str(settings.BASE_DIR / "shared" / "storybook" / "fonts")},
+        name="public-nunito-font",
+    ),
     path("admin/", admin.site.urls),
     # Ingestion urls must come BEFORE projects/ so /api/projects/ingest/
     # matches the ingest router first — otherwise `ingest` is interpreted as

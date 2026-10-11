@@ -1,0 +1,40 @@
+{% extends "public/base.html" %}
+{% block title %}About · The Abby Project{% endblock %}
+{% block description %}A family app for projects, chores, homework, and private journaling, with optional Google sign-in and Calendar sync.{% endblock %}
+{% block content %}
+  <p class="eyebrow">Little everyday adventures</p>
+  <h1>Keep your memories.<br>Grow your story.</h1>
+  <p class="lede">The Abby Project helps families make room for learning, responsibilities, and creativity. Plan a project, finish a chore, celebrate a new skill, and keep a journal of the moments along the way.</p>
+  <div class="actions">
+    <a class="button" href="/">Sign in to Abby</a>
+    <a href="{% url 'public-privacy' %}">Read our privacy policy</a>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Make a little progress</h2>
+      <p>Break family projects into steps, track work sessions, and organize chores and homework.</p>
+    </section>
+    <section class="card">
+      <h2>Celebrate what grows</h2>
+      <p>Recognize effort with skills, badges, coins, and companions. Parents manage family accounts and approvals.</p>
+    </section>
+    <section class="card">
+      <h2>Keep the memories</h2>
+      <p>Capture journal entries and milestones. Personal journals are private by default; their author chooses whether to share them with parents.</p>
+    </section>
+  </div>
+
+  <section class="card article">
+    <p class="eyebrow">Optional Google connection</p>
+    <h2>A familiar sign-in, and dates where you need them</h2>
+    <p>You can use Abby with your family username and password. Connecting Google is optional and links a Google account to an existing Abby account; it does not create a new family or account.</p>
+    <ol>
+      <li>Sign in with your Abby username and password.</li>
+      <li>Open <strong>Settings → Google account → Connect Google account</strong> and review Google's consent screen.</li>
+      <li>After linking, you can use <strong>Sign in with Google</strong> for that Abby account.</li>
+    </ol>
+    <p>If you also turn on <strong>Enable calendar sync</strong> in Settings, Abby can create and update Google Calendar events for project deadlines, chore schedules, and completed work sessions. Sync is off by default.</p>
+    <p>The current Google connection requests Calendar event permission during linking and sign-in, even when sync is off. It uses your Google identity and email for the account link and stores encrypted authorization credentials to support sign-in and background sync. <a href="{% url 'public-privacy' %}#google">Read how Google data is used and how to disconnect.</a></p>
+  </section>
+{% endblock %}

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 from unittest.mock import MagicMock, patch
+from urllib.parse import parse_qs, urlsplit
 
 from django.test import TestCase, override_settings
 
@@ -158,6 +159,30 @@ class IsConfiguredTests(TestCase):
     @override_settings(GOOGLE_CLIENT_ID="cid", GOOGLE_CLIENT_SECRET="csec")
     def test_configured(self):
         self.assertTrue(GoogleAuthService.is_configured())
+
+
+class AuthorizationScopeTests(TestCase):
+    @override_settings(
+        GOOGLE_CLIENT_ID="synthetic-client.apps.googleusercontent.com",
+        GOOGLE_CLIENT_SECRET="synthetic-client-secret",
+        GOOGLE_REDIRECT_URI="https://abby.example.invalid/api/auth/google/callback/",
+    )
+    def test_authorization_requests_identity_and_only_owned_calendar_events(self):
+        # Flow constructs this URL locally; no real account or network is used.
+        authorization_url, _, _ = GoogleAuthService.get_authorization_url(
+            state="synthetic-oauth-state",
+        )
+        query = parse_qs(urlsplit(authorization_url).query)
+        scopes = set(query["scope"][0].split())
+
+        self.assertEqual(scopes, {
+            "openid",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile",
+            "https://www.googleapis.com/auth/calendar.events.owned",
+        })
+        self.assertNotIn("https://www.googleapis.com/auth/calendar.events", scopes)
+        self.assertEqual(query["state"], ["synthetic-oauth-state"])
 
 
 class LinkAccountTests(TestCase):

@@ -94,7 +94,7 @@ def send_daily_reminders_task():
     """
     from apps.chores.models import Chore, ChoreCompletion
     from apps.chores.services import ChoreService
-    from apps.projects.models import Project, User
+    from apps.projects.models import Project
     from apps.notifications.services import notify
     from apps.rewards.models import ExchangeRequest, RewardRedemption
     from apps.timecards.models import Timecard
@@ -134,10 +134,13 @@ def send_daily_reminders_task():
 
     # ── Chore reminders (for children) ───────────────────────────────
     from apps.families.queries import children_across_families
-    active_chores = Chore.objects.filter(is_active=True)
+    active_chores = Chore.objects.filter(is_active=True, pending_parent_review=False)
 
-    for _family, child in children_across_families():
-        for chore in active_chores:
+    for family, child in children_across_families():
+        # Shared duties belong to their explicit family, even when their
+        # creator or assignee later moves households. Scope before inspecting
+        # assignment so an unassigned duty never reaches a foreign child.
+        for chore in active_chores.filter(family=family):
             # Skip chores assigned to other children
             if chore.assigned_to_id and chore.assigned_to_id != child.id:
                 continue
