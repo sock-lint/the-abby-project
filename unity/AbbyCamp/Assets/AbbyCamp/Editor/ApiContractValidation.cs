@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Collections.Generic;
 using AbbyCamp.Data;
 using AbbyCamp.Services;
@@ -18,6 +19,7 @@ namespace AbbyCamp.Editor
         public static void Run()
         {
             checks = 0;
+            ValidateSharedResponses();
             var user = ApiContract.ParseLogin("{\"id\":7,\"username\":\"abby\",\"display_name\":\"Abby\",\"role\":\"child\",\"token\":\"0123456789012345678901234567890123456789\"}", out var token);
             Check(user.id == 7 && user.DisplayName == "Abby" && token.Length == 40, "Flat Django login response");
             Reject(() => ApiContract.ParseLogin("{\"id\":7,\"username\":\"abby\",\"role\":\"child\",\"token\":\"bad\"}", out _), "Missing/invalid token");
@@ -115,6 +117,74 @@ namespace AbbyCamp.Editor
             }
             finally { UnityEngine.Object.DestroyImmediate(gameObject); }
             Debug.Log("Abby Camp API contracts: " + checks + " checks passed.");
+        }
+
+        private static void ValidateSharedResponses()
+        {
+            // These are the same raw Django response bodies used by the backend
+            // drift checks and React API tests. Keep them outside Assets so the
+            // synthetic account/token data cannot ship in a player build.
+            var login = ApiContract.ParseLogin(ReadFixture("auth-login-child.json"), out var token);
+            Check(login.id == 7 && login.username == "fixture-child" && login.role == "child"
+                && login.DisplayName == "Fixture Child" && token == "0123456789012345678901234567890123456789",
+                "Shared Django login response preserves account identity and synthetic token");
+            Check(login.family != null && login.family.id == 1 && login.family.timezone == "America/Phoenix",
+                "Shared Django login includes the account's family");
+
+            var user = ApiContract.ParseUser(ReadFixture("auth-me-child.json"));
+            Check(user.id == login.id && user.username == login.username && user.role == login.role
+                && user.family != null && user.family.id == login.family.id,
+                "Shared browser session response matches the authenticated account");
+
+            var page = ApiContract.ParseHabitPage(ReadFixture("habits-page-1.json"));
+            Check(page.count == 21 && page.results.Length == 20
+                && page.next == "http://testserver/api/habits/?page=2",
+                "Shared Django habits response retains real pagination");
+            var habit = page.results[0];
+            Check(habit.id == 9 && habit.name == "Read {a} book \"today\"" && habit.strength == -2
+                && habit.taps_today == 0 && habit.IsEligibleForUser(user.id) && !habit.IsEligibleForUser(user.id + 1),
+                "Shared habit preserves escaped text, strength, and account eligibility");
+            Check(habit.skill_tags.Length == 1 && habit.skill_tags[0].skill == 2
+                && habit.skill_tags[0].skill_name == "Reading" && habit.skill_tags[0].xp_weight == 1,
+                "Shared habit skill tags survive Unity DTO parsing");
+            Check(!page.results[1].IsEligibleForUser(user.id) && page.results[2].IsEligibleForUser(user.id)
+                && !page.results[3].IsEligibleForUser(user.id),
+                "Shared negative, both-direction, and inactive habits preserve eligibility");
+
+            var lastPage = ApiContract.ParseHabitPage(ReadFixture("habits-page-2.json"));
+            Check(lastPage.count == page.count && lastPage.results.Length == 1
+                && lastPage.results[0].id == 29 && lastPage.next == null,
+                "Shared final habit page preserves the explicit null continuation");
+            var emptyPage = ApiContract.ParseHabitPage(ReadFixture("habits-empty.json"));
+            Check(emptyPage.count == 0 && emptyPage.results.Length == 0 && emptyPage.next == null,
+                "Shared empty habit response remains an empty final page");
+
+            var tap = ApiContract.ParseHabitTap(ReadFixture("habit-positive-tap.json"));
+            Check(tap.direction == 1 && tap.xp_reward == 5 && tap.new_strength == -1
+                && tap.DescribeConfirmedOutcome(habit) == "Ritual recorded. Strength: -1.",
+                "Shared committed tap confirms strength without inventing granted rewards");
+            Check(tap.game_event != null && tap.game_event.trigger_type == "habit_log"
+                && tap.game_event.streak != null && tap.game_event.streak.streak == 1
+                && tap.game_event.drops.Length == 0 && tap.game_event.quest == null
+                && tap.game_event.daily_challenge != null && tap.game_event.daily_challenge.progress == 1,
+                "Shared real game-loop response preserves nested events and null quest");
+
+            var noEvent = ApiContract.ParseHabitTap(ReadFixture("habit-positive-tap-no-event.json"));
+            Check(noEvent.direction == 1 && noEvent.new_strength == -1 && noEvent.game_event == null
+                && noEvent.DescribeConfirmedOutcome(habit) == "Ritual recorded. Strength: -1.",
+                "Shared committed tap remains confirmed without an optional game event");
+            var limit = ApiContract.HttpError(400, ReadFixture("habit-positive-tap-limit.json"), true, false);
+            Check(limit.StatusCode == 400 && !limit.OutcomeUnknown
+                && limit.Message == "Daily limit reached (1 taps/day).",
+                "Shared Django daily-limit response is a definite rejection");
+        }
+
+        private static string ReadFixture(string name)
+        {
+            var path = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "..", "contracts", "api", "fixtures", name));
+            if (!File.Exists(path))
+                throw new FileNotFoundException("Shared API fixture missing. Validate Unity from a full repository checkout: " + name, path);
+            return File.ReadAllText(path);
         }
 
         private static void Check(bool condition, string description)

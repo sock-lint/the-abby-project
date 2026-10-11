@@ -436,7 +436,11 @@ namespace AbbyCamp.Editor
 
         private static void ValidateForest()
         {
-            var forest = GameObject.Find("Purchased woodland backdrop");
+            ValidateForest(GameObject.Find("Purchased woodland backdrop"));
+        }
+
+        private static void ValidateForest(GameObject forest)
+        {
             if (forest == null) throw new InvalidOperationException("The purchased woodland backdrop is missing; prepare the licensed meadow again.");
             if (forest.GetComponentsInChildren<Collider>(true).Length > 0 || forest.GetComponentsInChildren<Rigidbody>(true).Length > 0)
                 throw new InvalidOperationException("Purchased scenery must not replace the flat gameplay physics.");
@@ -456,29 +460,39 @@ namespace AbbyCamp.Editor
         [MenuItem("Abby Camp/Licensed Cute Series/Validate meadow")]
         public static void Validate()
         {
-            CampSceneBuilder.ValidateScene(ScenePath, PresentationPath);
-            ValidateForest();
-            foreach (var name in new[] { "chick", "fledgling", "bird" })
+            CampSceneBuilder.ValidateScene(ScenePath, PresentationPath, scene =>
             {
-                var definition = AssetDatabase.LoadAssetAtPath<VisualDefinition>(GeneratedPath + "/" + name + ".asset");
-                if (definition == null || definition.ModelPrefab == null || definition.AnimatorController == null || definition.Portrait == null)
-                    throw new InvalidOperationException("Incomplete licensed companion: " + name);
-                if (definition.AnimatorController.animationClips.Length < 2)
-                    throw new InvalidOperationException("Missing idle/movement mapping: " + name);
-            }
-            var companion = UnityEngine.Object.FindAnyObjectByType<CompanionFollower>();
-            if (companion.GetComponent<CampEntityIdentity>().ContentId != "starter-companion")
-                throw new InvalidOperationException("Purchased art changed companion identity.");
-            foreach (var renderer in UnityEngine.Object.FindObjectsByType<Renderer>())
-                foreach (var material in renderer.sharedMaterials)
+                var forest = scene.GetRootGameObjects()
+                    .SelectMany(root => root.GetComponentsInChildren<Transform>())
+                    .FirstOrDefault(candidate => candidate.gameObject.activeInHierarchy
+                        && candidate.name == "Purchased woodland backdrop")?.gameObject;
+                ValidateForest(forest);
+                foreach (var name in new[] { "chick", "fledgling", "bird" })
                 {
-                    if (material == null || material.shader == null || !material.shader.isSupported)
-                        throw new InvalidOperationException("Missing/unsupported scene material on " + renderer.name);
-                    if (AssetDatabase.GetAssetPath(material).StartsWith(SourcePath, StringComparison.Ordinal)
-                        && (!material.HasProperty("_BaseMap") || material.GetTexture("_BaseMap") == null))
-                        throw new InvalidOperationException("Purchased scene material has no supplied texture: " + material.name);
+                    var definition = AssetDatabase.LoadAssetAtPath<VisualDefinition>(GeneratedPath + "/" + name + ".asset");
+                    if (definition == null || definition.ModelPrefab == null || definition.AnimatorController == null || definition.Portrait == null)
+                        throw new InvalidOperationException("Incomplete licensed companion: " + name);
+                    if (definition.AnimatorController.animationClips.Length < 2)
+                        throw new InvalidOperationException("Missing idle/movement mapping: " + name);
                 }
-            Debug.Log("ABBY_MESHTINT_VALIDATED: three animated stage definitions, portraits, unchanged companion identity, scene materials.");
+                var companion = scene.GetRootGameObjects()
+                    .SelectMany(root => root.GetComponentsInChildren<CompanionFollower>())
+                    .FirstOrDefault(candidate => candidate.gameObject.activeInHierarchy);
+                if (companion.GetComponent<CampEntityIdentity>().ContentId != "starter-companion")
+                    throw new InvalidOperationException("Purchased art changed companion identity.");
+                foreach (var renderer in scene.GetRootGameObjects()
+                    .SelectMany(root => root.GetComponentsInChildren<Renderer>())
+                    .Where(candidate => candidate.gameObject.activeInHierarchy))
+                    foreach (var material in renderer.sharedMaterials)
+                    {
+                        if (material == null || material.shader == null || !material.shader.isSupported)
+                            throw new InvalidOperationException("Missing/unsupported scene material on " + renderer.name);
+                        if (AssetDatabase.GetAssetPath(material).StartsWith(SourcePath, StringComparison.Ordinal)
+                            && (!material.HasProperty("_BaseMap") || material.GetTexture("_BaseMap") == null))
+                            throw new InvalidOperationException("Purchased scene material has no supplied texture: " + material.name);
+                    }
+                Debug.Log("ABBY_MESHTINT_VALIDATED: three animated stage definitions, portraits, unchanged companion identity, scene materials.");
+            });
         }
     }
 }
