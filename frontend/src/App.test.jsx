@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
 import App from './App.jsx';
 import { AuthProvider } from './hooks/useApi.js';
@@ -18,6 +18,15 @@ function renderApp() {
       <App />
     </AuthProvider>,
   );
+}
+
+// Auth, routing and dashboard rendering can exceed RTL's 1s default under coverage.
+const appReadyTimeout = 4000;
+
+async function expectTodayReady() {
+  expect(await screen.findByRole(
+    'heading', { level: 1, name: 'Today' }, { timeout: appReadyTimeout },
+  )).toBeInTheDocument();
 }
 
 describe('App', () => {
@@ -71,9 +80,9 @@ describe('App', () => {
       ),
     );
     renderApp();
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument());
+    await expectTodayReady();
     expect(document.title).toBe('Today — The Abby Project');
-  });
+  }, 10000);
 });
 
 describe('App — unknown routes', () => {
@@ -81,26 +90,31 @@ describe('App — unknown routes', () => {
     window.history.pushState({}, '', '/');
   });
 
-  it('sends a signed-in user on an unknown URL back to Today instead of a blank screen', async () => {
+  it.each([
+    { response: 'immediate', dashboardDelay: 0 },
+    { response: 'slower than one second', dashboardDelay: 1500 },
+  ])('sends a signed-in user on an unknown URL back to Today with $response dashboard data', async ({ dashboardDelay }) => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
-      http.get('*/api/dashboard/', () =>
-        HttpResponse.json({
+      http.get('*/api/dashboard/', async () => {
+        await delay(dashboardDelay);
+        return HttpResponse.json({
           active_timer: null, current_balance: 0, coin_balance: 0,
           this_week: { hours_worked: 0, earnings: 0 },
           active_projects: [], recent_badges: [], savings_goals: [], chores_today: [],
           pending_chore_approvals: 0,
           rpg: { login_streak: 0, longest_login_streak: 0, perfect_days_count: 0 },
-        }),
-      ),
+        });
+      }),
     );
     window.history.pushState({}, '', '/a-route-that-does-not-exist');
 
     renderApp();
 
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument());
+    await waitFor(() => expect(window.location.pathname).toBe('/'), { timeout: appReadyTimeout });
+    await expectTodayReady();
     expect(window.location.pathname).toBe('/');
-  });
+  }, 10000);
 });
 
 describe('App — birthday celebration boot', () => {
