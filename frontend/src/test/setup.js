@@ -26,6 +26,10 @@ vi.mock('@sentry/react', () => ({
 // --- Browser API polyfills ------------------------------------------------
 // jsdom omits these but app code relies on them via framer-motion, lucide,
 // and the image-downscale util.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = vi.fn();
+}
+
 if (!window.matchMedia) {
   window.matchMedia = vi.fn().mockImplementation((query) => ({
     matches: false,

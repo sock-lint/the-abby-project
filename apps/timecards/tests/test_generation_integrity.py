@@ -229,7 +229,7 @@ class GenerationConcurrencyTests(TransactionTestCase):
                 ready.wait(timeout=5)
                 return TimecardService.generate_weekly_timecard(child, monday).pk
             finally:
-                close_old_connections()
+                connection.close()
 
         with ThreadPoolExecutor(max_workers=2) as pool:
             ids = list(pool.map(lambda _: generate(), range(2)))

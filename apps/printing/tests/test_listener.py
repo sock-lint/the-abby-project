@@ -161,7 +161,8 @@ class ListenerSupervisorTests(_Fixture):
         self.assertTrue(PrinterLock(bare.serial, "someone-else").acquire())
 
     def test_sync_records_why_a_printer_could_not_be_dialled(self):
-        self.printer.transport = "carrier-pigeon"
+        # The unsupported choice must still fit the persisted transport field.
+        self.printer.transport = "pigeon"
         self.printer.save(update_fields=["transport"])
 
         supervisor = ListenerSupervisor(owner="this-process")
@@ -169,7 +170,7 @@ class ListenerSupervisorTests(_Fixture):
 
         self.assertEqual(supervisor.listeners, {})
         self.printer.refresh_from_db()
-        self.assertIn("carrier-pigeon", self.printer.last_error)
+        self.assertIn("pigeon", self.printer.last_error)
         # The lock is handed back so a healthier process can try.
         self.assertTrue(PrinterLock(self.printer.serial, "someone-else").acquire())
 

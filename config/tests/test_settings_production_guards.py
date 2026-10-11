@@ -33,11 +33,12 @@ def _import_settings_with_env(env: dict[str, str]) -> subprocess.CompletedProces
     )
     # Inherit only the platform-bootstrap vars (PATH on every OS, SystemRoot/
     # WINDIR/LOCALAPPDATA on Windows so Python's networking subsystem loads).
+    # Linux Actions Python also needs its own shared-library loader path.
     # We deliberately drop the developer's shell-set SECRET_KEY/DATABASE_URL
     # so the test sees a clean environment.
     _BOOTSTRAP_KEYS = (
         "PATH", "SystemRoot", "WINDIR", "LOCALAPPDATA", "TEMP", "TMP",
-        "PYTHONPATH", "HOME", "USERPROFILE",
+        "PYTHONPATH", "HOME", "USERPROFILE", "LD_LIBRARY_PATH",
     )
     clean_env = {k: os.environ[k] for k in _BOOTSTRAP_KEYS if k in os.environ}
     clean_env.update(env)
@@ -110,7 +111,7 @@ class EmailBackendDefaultTests(unittest.TestCase):
         )
         full_env = {k: os.environ[k] for k in (
             "PATH", "SystemRoot", "WINDIR", "LOCALAPPDATA", "TEMP", "TMP",
-            "PYTHONPATH", "HOME", "USERPROFILE",
+            "PYTHONPATH", "HOME", "USERPROFILE", "LD_LIBRARY_PATH",
         ) if k in os.environ}
         full_env["DJANGO_SETTINGS_MODULE"] = "config.settings"
         full_env.update(env)
