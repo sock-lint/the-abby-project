@@ -104,4 +104,25 @@ describe('SkillVerse', () => {
     await user.click(screen.getByRole('button'));
     expect(spy).toHaveBeenCalledWith(skill);
   });
+
+  it('opens a locked Wayfinder waypoint without changing its server state', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const skill = buildSkill({
+      name: 'Building & Construction', unlocked: false, level: 0, xp_points: 0,
+      prerequisites: [{ skill_id: 9, skill_name: 'Measuring & Marking', required_level: 2, met: true }],
+    });
+    renderWithProviders(<SkillVerse variant="wayfinder" skill={skill} onSelect={onSelect} />);
+    const waypoint = screen.getByRole('button', { name: /^Building & Construction, locked/ });
+    expect(waypoint).toHaveTextContent('Locked');
+    await user.click(waypoint);
+    expect(onSelect).toHaveBeenCalledWith(skill);
+    expect(skill.unlocked).toBe(false);
+  });
+
+  it('uses the actual level title for a Wayfinder waypoint', () => {
+    renderWithProviders(<SkillVerse variant="wayfinder" skill={buildSkill()} />);
+    expect(screen.getByRole('button', { name: /level 2 \(Journeyman\)/ })).toHaveTextContent('Level 2');
+    expect(screen.getByText('Journeyman')).toBeInTheDocument();
+  });
 });
