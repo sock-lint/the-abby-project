@@ -1,0 +1,23 @@
+{
+  "user_id": 7,
+  "owed_balance": "25.00",
+  "approved_payable": "20.00",
+  "pending_hourly": "5.00",
+  "balance_snapshot": {
+    "id": 1,
+    "user": 7,
+    "amount": "40.25",
+    "as_of": "2026-10-11T11:00:00-07:00",
+    "memo": "Checked in the Greenlight app",
+    "created_by": 6,
+    "created_at": "2026-10-11T12:00:00-07:00"
+  },
+  "approved_timecards": [
+    {
+      "id": 11,
+      "week_start": "2026-09-28",
+      "total_earnings": "12.50"
+    }
+  ],
+  "payouts": []
+}

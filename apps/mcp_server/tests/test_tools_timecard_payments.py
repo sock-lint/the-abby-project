@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.mcp_server.context import override_user
-from apps.mcp_server.errors import MCPNotFoundError, MCPPermissionDenied
+from apps.mcp_server.errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError
 from apps.mcp_server.schemas import MarkTimecardPaidIn, VoidTimeEntryIn
 from apps.mcp_server.tools.timecards import mark_timecard_paid, void_time_entry
 from apps.payments.models import PaymentLedger
@@ -42,11 +42,24 @@ class MCPTimecardPaymentTests(TestCase):
         self.assertFalse(PaymentLedger.objects.filter(timecard=self.card).exists())
 
     def test_own_parent_can_retry_without_duplicate_payout(self):
+        PaymentLedger.objects.create(
+            user=self.alpha.children[0], timecard=self.card, amount=Decimal("5.00"),
+            entry_type=PaymentLedger.EntryType.HOURLY,
+        )
         with override_user(self.alpha.parents[0]):
             for _ in range(2):
                 result = mark_timecard_paid(self.params)
                 self.assertEqual(result["status"], Timecard.Status.PAID)
-        self.assertEqual(PaymentLedger.objects.get(timecard=self.card).amount, Decimal("-5.00"))
+        self.assertEqual(PaymentLedger.objects.get(
+            timecard=self.card, entry_type=PaymentLedger.EntryType.PAYOUT,
+        ).amount, Decimal("-5.00"))
+
+    def test_unearned_card_payment_is_a_transport_validation_error(self):
+        with override_user(self.alpha.parents[0]), self.assertRaisesRegex(MCPValidationError, "approved amount available"):
+            mark_timecard_paid(self.params)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.status, Timecard.Status.APPROVED)
+        self.assertFalse(PaymentLedger.objects.filter(timecard=self.card).exists())
 
     def test_service_permission_error_is_handled_for_transport(self):
         with override_user(self.alpha.parents[0]):

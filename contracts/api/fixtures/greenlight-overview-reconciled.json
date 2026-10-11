@@ -1,0 +1,42 @@
+{
+  "user_id": 7,
+  "owed_balance": "5.00",
+  "approved_payable": "0.00",
+  "pending_hourly": "5.00",
+  "balance_snapshot": {
+    "id": 1,
+    "user": 7,
+    "amount": "40.25",
+    "as_of": "2026-10-11T11:00:00-07:00",
+    "memo": "Checked in the Greenlight app",
+    "created_by": 6,
+    "created_at": "2026-10-11T12:00:00-07:00"
+  },
+  "approved_timecards": [],
+  "payouts": [
+    {
+      "id": 26,
+      "amount": "7.50",
+      "transferred_on": "2026-10-11",
+      "reference": "fixture-chore-1",
+      "memo": "Approved chore payout",
+      "timecard": null,
+      "source": "statement",
+      "reconciled": true,
+      "created_by": 6,
+      "created_at": "2026-10-11T19:00:00+00:00"
+    },
+    {
+      "id": 25,
+      "amount": "12.50",
+      "transferred_on": "2026-10-11",
+      "reference": "fixture-week-1",
+      "memo": "Transferred after approval",
+      "timecard": 11,
+      "source": "manual",
+      "reconciled": true,
+      "created_by": 6,
+      "created_at": "2026-10-11T19:00:00+00:00"
+    }
+  ]
+}

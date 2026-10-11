@@ -449,9 +449,13 @@ class ListPaymentLedgerIn(_Base):
 
 
 class RecordPayoutIn(_Base):
-    user_id: int
-    amount: Decimal = Field(gt=Decimal("0"))
-    description: str = ""
+    user_id: int = Field(gt=0)
+    amount: Decimal = Field(gt=Decimal("0"), max_digits=8, decimal_places=2)
+    transferred_on: date
+    idempotency_key: str = Field(min_length=1, max_length=128)
+    reference: str = Field(default="", max_length=200)
+    description: str = Field(default="", max_length=1000)
+    timecard_id: Optional[int] = Field(default=None, gt=0)
 
 
 class AdjustPaymentIn(_Base):

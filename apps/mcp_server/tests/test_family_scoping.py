@@ -382,6 +382,7 @@ class MCPParentOnBehalfFamilyScopingTests(TestCase):
 
     def test_record_payout_cross_family_404(self):
         from decimal import Decimal
+        from django.utils import timezone
         from apps.mcp_server.schemas import RecordPayoutIn
         from apps.mcp_server.tools.payments import record_payout
 
@@ -390,6 +391,8 @@ class MCPParentOnBehalfFamilyScopingTests(TestCase):
                 record_payout(RecordPayoutIn(
                     user_id=self.kid_b.id,
                     amount=Decimal("5.00"),
+                    transferred_on=timezone.localdate(),
+                    idempotency_key="cross-family-payout",
                 ))
 
     def test_adjust_payment_cross_family_404(self):

@@ -1,0 +1,52 @@
+{
+  "rows": [
+    {
+      "row_number": 1,
+      "fingerprint": "8ac0cf5980dd019e882d8e30647115e6789dab10c153c91ab3aa14947b6efc41",
+      "transaction_type": "transfer",
+      "date": "2026-10-11",
+      "amount": "12.50",
+      "description": "Weekly project payout",
+      "reference": "fixture-week-1",
+      "eligible": true,
+      "error": null,
+      "duplicate": false,
+      "match_candidates": [
+        25
+      ]
+    },
+    {
+      "row_number": 2,
+      "fingerprint": "e994246ba0a336e50b5b9df8dfa1cc38bb2bd8db84f829481d28238993ba5228",
+      "transaction_type": "transfer",
+      "date": "2026-10-11",
+      "amount": "7.50",
+      "description": "Approved chore payout",
+      "reference": "fixture-chore-1",
+      "eligible": true,
+      "error": null,
+      "duplicate": false,
+      "match_candidates": []
+    },
+    {
+      "row_number": 3,
+      "fingerprint": null,
+      "transaction_type": "purchase",
+      "date": "2026-10-11",
+      "amount": "-3.00",
+      "description": "Bookshop purchase",
+      "reference": "fixture-purchase-1",
+      "eligible": false,
+      "error": null,
+      "duplicate": false,
+      "match_candidates": []
+    }
+  ],
+  "schema": [
+    "date",
+    "amount",
+    "description",
+    "reference",
+    "type"
+  ]
+}

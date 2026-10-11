@@ -121,8 +121,14 @@ class TimecardViewSetTests(_Fixture):
 
     def test_mark_paid(self):
         tc = self._make_timecard()
+        from apps.payments.models import PaymentLedger
+
+        PaymentLedger.objects.create(
+            user=self.child, timecard=tc, amount=Decimal("5.00"),
+            entry_type=PaymentLedger.EntryType.HOURLY,
+        )
+        TimecardService.approve_timecard(tc, self.parent)
         self.client.force_authenticate(self.parent)
-        # Numeric amount — PaymentService.record_payout does abs() without coercion.
         resp = self.client.post(
             f"/api/timecards/{tc.id}/mark-paid/",
             {"amount": 5}, format="json",

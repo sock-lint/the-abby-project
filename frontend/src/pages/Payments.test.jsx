@@ -65,7 +65,7 @@ describe('Payments', () => {
         }),
       ),
     ]);
-    await waitFor(() => expect(screen.getByText(/current balance/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/money still owed/i)).toBeInTheDocument());
     expect(screen.queryByRole('img', { name: /earnings per day/i })).toBeNull();
   });
 
@@ -115,9 +115,9 @@ describe('Payments', () => {
       }),
     ]);
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /adjust balance/i })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: /adjust money owed/i })).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole('button', { name: /adjust balance/i }));
+    await user.click(screen.getByRole('button', { name: /adjust money owed/i }));
 
     // Scope to the modal — the page also has a filter <select> rendering
     // "Abby" as an option, so global getByRole('option', ...) ambiguously
@@ -152,9 +152,9 @@ describe('Payments', () => {
       ),
     ]);
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /adjust balance/i })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: /adjust money owed/i })).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole('button', { name: /adjust balance/i }));
+    await user.click(screen.getByRole('button', { name: /adjust money owed/i }));
     const dialog = await screen.findByRole('dialog');
     await waitFor(() =>
       expect(within(dialog).getByRole('option', { name: 'Abby' })).toBeInTheDocument(),
@@ -172,8 +172,8 @@ describe('Payments', () => {
         HttpResponse.json({ balance: 0, breakdown: {}, recent_transactions: [] }),
       ),
     ]);
-    await waitFor(() => expect(screen.getByText(/adjust balance/i)).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /adjust balance/i }));
+    await waitFor(() => expect(screen.getByText(/adjust money owed/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /adjust money owed/i }));
     await user.click(screen.getByRole('button', { name: /cancel/i }));
     await waitFor(() => expect(screen.queryByRole('spinbutton')).toBeNull());
   });

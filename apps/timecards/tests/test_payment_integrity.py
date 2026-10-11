@@ -24,6 +24,10 @@ class TimecardPaymentIntegrityTests(TestCase):
             user=self.child, week_start=date(2026, 10, 5), week_end=date(2026, 10, 11),
             total_earnings=Decimal("5.00"), status=Timecard.Status.APPROVED,
         )
+        PaymentLedger.objects.create(
+            user=self.child, timecard=self.timecard,
+            amount=Decimal("5.00"), entry_type=PaymentLedger.EntryType.HOURLY,
+        )
         self.client = APIClient()
         self.client.force_authenticate(self.parent)
         self.url = f"/api/timecards/{self.timecard.pk}/mark-paid/"

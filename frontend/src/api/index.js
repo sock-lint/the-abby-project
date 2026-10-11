@@ -143,7 +143,8 @@ export const markTimecardPaid = (id, amount) =>
 export const downloadTimecardsCsv = () => getBlob('/export/timecards/');
 
 // Payments
-export const getBalance = () => api.get('/balance/');
+export const getBalance = ({ user_id } = {}) =>
+  api.get(`/balance/${user_id ? `?user_id=${encodeURIComponent(user_id)}` : ''}`);
 export const getPayments = () => api.get('/payments/');
 // Filtered ledger fetch — accepts { entry_type, start_date, end_date, user_id }.
 // entry_type may be a comma-joined string for multi-select; everything else is
@@ -179,10 +180,23 @@ export const buildPaymentLedgerExportUrl = (filters = {}) => {
 };
 export const downloadPaymentLedgerCsv = (filters = {}) =>
   getBlob(buildPaymentLedgerExportUrl(filters));
-export const recordPayout = (user_id, amount) =>
-  api.post('/payments/payout/', { user_id, amount });
+// Legacy URL accepts the same dated, keyed confirmation payload.
+export const recordPayout = (payload) => api.post('/payments/payout/', payload);
 export const adjustPayment = (user_id, amount, description = '') =>
   api.post('/payments/adjust/', { user_id, amount, description });
+
+// Greenlight records parent-confirmed transfers and statement reconciliation;
+// these endpoints do not initiate a transfer or retrieve a live bank balance.
+export const getGreenlightOverview = (user_id, signal) =>
+  api.get(`/payments/greenlight/overview/?user_id=${encodeURIComponent(user_id)}`, { signal });
+export const recordGreenlightPayout = (payload) =>
+  api.post('/payments/greenlight/payout/', payload);
+export const saveGreenlightSnapshot = (payload) =>
+  api.post('/payments/greenlight/snapshot/', payload);
+export const previewGreenlightCsv = (payload) =>
+  api.post('/payments/greenlight/preview/', payload);
+export const reconcileGreenlightCsv = (payload) =>
+  api.post('/payments/greenlight/reconcile/', payload);
 
 // RPG Codex — parent-only catalog of YAML-authored content
 export const getItemCatalog = () => api.get('/items/catalog/');
@@ -389,6 +403,7 @@ export const approveChoreProposal = (id, payload) =>
   api.post(`/chores/${id}/approve/`, payload);
 
 // Greenlight Import
+// Compatibility preview only; committing requires explicit reconciliation.
 export const importGreenlight = (user_id, csv_data) =>
   api.post('/greenlight/import/', { user_id, csv_data });
 

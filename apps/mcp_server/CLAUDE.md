@@ -29,6 +29,8 @@ MCP (Model Context Protocol) server with OAuth 2.1 + PKCE auth. The `/mcp/*` end
 
 Tools are grouped under `apps/mcp_server/tools/`. Parent-only tools must call `require_parent()` (or `require_staff_parent()` for global content). Tools that accept an optional `user_id` must run it through `resolve_target_user`. Tools that look up objects by pk must use `get_in_family`.
 
+`record_payout` confirms a transfer already completed in Greenlight; it never sends money. It requires `transferred_on` and a stable `idempotency_key` alongside child `user_id` and positive cent-precision `amount`. Retry with identical details and the same key. Optional `reference`, `description` (memo), and `timecard_id` use the same family-scoped, approved-payable, duplicate-safe service as the REST workflow. A timecard must be approved and paid in full. Payment balances describe money still owed, separately from externally observed Greenlight balance snapshots; see [payments guidance](/apps/payments/CLAUDE.md).
+
 Sprite authoring tools (see `apps/rpg/CLAUDE.md` for the full surface): `register_sprite`, `register_sprite_batch`, `list_sprites`, `get_sprite`, `delete_sprite`, `update_sprite_metadata`, `generate_sprite_sheet`, `propose_sprite_reroll`, `reroll_sprite`, `get_sprite_prompting_playbook`.
 
 ## Gotchas

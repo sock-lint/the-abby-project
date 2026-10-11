@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Text.RegularExpressions;
 using AbbyCamp.Data;
 using AbbyCamp.Services;
 using UnityEditor;
@@ -20,6 +22,7 @@ namespace AbbyCamp.Editor
         {
             checks = 0;
             ValidateSharedResponses();
+            ValidateGreenlightFixtures();
             var user = ApiContract.ParseLogin("{\"id\":7,\"username\":\"abby\",\"display_name\":\"Abby\",\"role\":\"child\",\"token\":\"0123456789012345678901234567890123456789\"}", out var token);
             Check(user.id == 7 && user.DisplayName == "Abby" && token.Length == 40, "Flat Django login response");
             Reject(() => ApiContract.ParseLogin("{\"id\":7,\"username\":\"abby\",\"role\":\"child\",\"token\":\"bad\"}", out _), "Missing/invalid token");
@@ -209,6 +212,118 @@ namespace AbbyCamp.Editor
             if (!File.Exists(path))
                 throw new FileNotFoundException("Shared API fixture missing. Validate Unity from a full repository checkout: " + name, path);
             return File.ReadAllText(path);
+        }
+
+        // Payment actions remain in the parent web app. These Editor-only
+        // projections validate the shared response contract without adding a
+        // second payout client or shipping synthetic banking data in a player.
+        [Serializable] private sealed class GreenlightSnapshotFixture
+        {
+            public int id;
+            public int user;
+            public string amount;
+            public string as_of;
+            public int created_by;
+        }
+
+        [Serializable] private sealed class GreenlightPayoutFixture
+        {
+            public int id;
+            public string amount;
+            public string transferred_on;
+            public string source;
+            public bool reconciled;
+        }
+
+        [Serializable] private sealed class GreenlightOverviewFixture
+        {
+            public int user_id;
+            public string owed_balance;
+            public string approved_payable;
+            public string pending_hourly;
+            public GreenlightSnapshotFixture balance_snapshot;
+            public GreenlightPayoutFixture[] payouts;
+        }
+
+        [Serializable] private sealed class GreenlightPayoutResponseFixture
+        {
+            public bool created;
+            public GreenlightPayoutFixture payout;
+        }
+
+        [Serializable] private sealed class GreenlightPreviewRowFixture
+        {
+            public string fingerprint;
+            public string amount;
+            public bool eligible;
+            public int[] match_candidates;
+        }
+
+        [Serializable] private sealed class GreenlightPreviewFixture
+        {
+            public GreenlightPreviewRowFixture[] rows;
+            public string[] schema;
+        }
+
+        [Serializable] private sealed class GreenlightReconcileFixture
+        {
+            public int recorded;
+            public int matched;
+            public int duplicates;
+        }
+
+        private static void ValidateGreenlightFixtures()
+        {
+            string missingJson = ReadFixture("greenlight-overview-no-snapshot.json");
+            var missing = JsonUtility.FromJson<GreenlightOverviewFixture>(missingJson);
+            Check(missing.user_id == 7 && missing.owed_balance == "25.00"
+                && missing.approved_payable == "20.00" && missing.pending_hourly == "5.00",
+                "Shared payout overview separates approved money from pending hourly earnings");
+            Check(Regex.IsMatch(missingJson, "\"balance_snapshot\"\\s*:\\s*null") && missing.payouts.Length == 0,
+                "An unknown Greenlight balance is explicit null, not a fabricated zero");
+            foreach (string field in new[] { "owed_balance", "approved_payable", "pending_hourly" })
+                Check(HasQuotedMoney(missingJson, field), "Shared payout amount retains exact decimal-string cents: " + field);
+
+            string snapshotJson = ReadFixture("greenlight-balance-snapshot.json");
+            var snapshot = JsonUtility.FromJson<GreenlightSnapshotFixture>(snapshotJson);
+            Check(snapshot.user == 7 && snapshot.created_by == 6 && snapshot.amount == "40.25"
+                && HasQuotedMoney(snapshotJson, "amount")
+                && DateTimeOffset.TryParse(snapshot.as_of, CultureInfo.InvariantCulture, DateTimeStyles.None, out var asOf)
+                && asOf.ToUniversalTime() == new DateTimeOffset(2026, 10, 11, 18, 0, 0, TimeSpan.Zero),
+                "Reported Greenlight balance retains a parent, exact amount and actual as-of timestamp");
+            var known = JsonUtility.FromJson<GreenlightOverviewFixture>(ReadFixture("greenlight-overview.json"));
+            Check(known.balance_snapshot != null && known.balance_snapshot.id == snapshot.id
+                && known.balance_snapshot.amount == snapshot.amount && known.owed_balance == missing.owed_balance,
+                "Recording Greenlight's reported balance does not change what the parent owes");
+
+            string payoutJson = ReadFixture("greenlight-payout.json");
+            var payout = JsonUtility.FromJson<GreenlightPayoutResponseFixture>(payoutJson);
+            Check(payout.created && payout.payout.amount == "12.50" && HasQuotedMoney(payoutJson, "amount")
+                && payout.payout.source == "manual" && !payout.payout.reconciled
+                && payout.payout.transferred_on == "2026-10-11",
+                "Parent-confirmed payout retains amount, transfer date and unreconciled manual source");
+            var preview = JsonUtility.FromJson<GreenlightPreviewFixture>(ReadFixture("greenlight-preview.json"));
+            Check(preview.schema.Length == 5 && preview.rows.Length == 3 && preview.rows[0].eligible
+                && preview.rows[0].match_candidates.Length == 1 && preview.rows[0].match_candidates[0] == payout.payout.id
+                && preview.rows[1].eligible && preview.rows[1].amount == "7.50"
+                && !preview.rows[2].eligible && preview.rows[2].amount == "-3.00",
+                "Statement preview can match a paid transfer without treating card spending as money owed");
+            Check(preview.rows[0].fingerprint.Length == 64 && preview.rows[1].fingerprint.Length == 64
+                && preview.rows[0].fingerprint != preview.rows[1].fingerprint,
+                "Statement transfers preserve stable distinct reconciliation identities");
+            var reconciled = JsonUtility.FromJson<GreenlightReconcileFixture>(ReadFixture("greenlight-reconcile.json"));
+            Check(reconciled.recorded == 1 && reconciled.matched == 1 && reconciled.duplicates == 0,
+                "Reconciliation records one new payout and matches the existing payout once");
+            var final = JsonUtility.FromJson<GreenlightOverviewFixture>(ReadFixture("greenlight-overview-reconciled.json"));
+            Check(final.owed_balance == "5.00" && final.approved_payable == "0.00" && final.pending_hourly == "5.00"
+                && final.balance_snapshot.amount == snapshot.amount && final.balance_snapshot.as_of == snapshot.as_of
+                && final.payouts.Length == 2 && final.payouts[0].reconciled && final.payouts[1].reconciled,
+                "Confirmed payouts reduce money owed while the separately reported Greenlight balance stays as-of its observation");
+        }
+
+        private static bool HasQuotedMoney(string json, string field)
+        {
+            return Regex.IsMatch(json, "\"" + Regex.Escape(field) + "\"\\s*:\\s*\"-?[0-9]+\\.[0-9]{2}\"");
         }
 
         private static void ValidatePlayHomeContracts()

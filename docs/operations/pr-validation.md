@@ -10,6 +10,10 @@ reports three stable checks:
 | `API fixtures` | Real Django endpoint responses match [`shared JSON fixtures`](../../contracts/api/README.md), and React consumes those same responses | GitHub-hosted Ubuntu, Python 3.12 + Node 22, SQLite + test settings |
 | `Unity validation` | `CampBuild.ValidateAll` imports/compiles the project and checks the saved scene, assets, and API contracts with Unity 6000.6.5f1 | Dedicated Linux or Windows Unity runner, with a hosted readiness and result check |
 
+The API fixtures job runs both the general response harness and the Greenlight
+payout/reconciliation harness, including an externally observed balance that
+remains unchanged by ledger payouts and statement matching.
+
 There are no workflow path filters, so documentation-only or backend-only PRs
 still report the checks expected by branch protection. API checks therefore
 catch server changes even when no Unity or fixture file changes. Each test job

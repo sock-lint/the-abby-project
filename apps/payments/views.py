@@ -3,6 +3,7 @@ import csv
 from datetime import date
 
 from django.http import HttpResponse
+from django.db.models import Sum
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -127,6 +128,26 @@ def _parse_iso_date(raw):
 
 class BalanceView(APIView):
     def get(self, request):
+        if request.user.role == "parent" and "user_id" not in request.query_params:
+            entries = PaymentLedger.objects.filter(
+                user__family_id=request.user.family_id, user__role="child",
+            ) if request.user.family_id else PaymentLedger.objects.none()
+            balance = entries.aggregate(total=Sum("amount"))["total"] or PaymentService.default_value
+            breakdown = {
+                row["entry_type"]: row["total"]
+                for row in entries.values("entry_type").annotate(total=Sum("amount"))
+            }
+            recent = entries.order_by("-created_at", "-id")[:10]
+            return Response({
+                "balance": float(balance),
+                "breakdown": {key: float(value) for key, value in breakdown.items()},
+                "recent_transactions": PaymentLedgerSerializer(recent, many=True).data,
+            })
+        if request.user.role == "parent":
+            from .serializers import GreenlightTargetSerializer
+
+            target = GreenlightTargetSerializer(data=request.query_params)
+            target.is_valid(raise_exception=True)
         target_user, err = resolve_target_user(request)
         if err:
             return err
@@ -146,17 +167,11 @@ class PayoutView(APIView):
     permission_classes = [IsParent]
 
     def post(self, request):
-        amount = request.data.get("amount")
-        child, err = resolve_target_user(request, source="data")
-        if err:
-            return err
-        if not amount:
-            return Response(
-                {"error": "user_id and amount required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        entry = PaymentService.record_payout(child, amount, request.user)
-        return Response(PaymentLedgerSerializer(entry).data, status=status.HTTP_201_CREATED)
+        # Legacy URL uses the same required confirmation metadata and retry
+        # safety. It cannot bypass the Greenlight workflow with amount alone.
+        from .greenlight_views import GreenlightPayoutView
+
+        return GreenlightPayoutView().post(request)
 
 
 class PaymentAdjustmentView(APIView):

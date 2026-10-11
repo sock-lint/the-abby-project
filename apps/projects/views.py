@@ -844,52 +844,11 @@ class SavingsGoalViewSet(viewsets.ModelViewSet):
 
 
 class GreenlightImportView(APIView):
-    """Import Greenlight CSV transaction data for reconciliation."""
+    """Compatibility route: preview only; reconciliation requires selection."""
 
     permission_classes = [IsParent]
 
     def post(self, request):
-        import csv
-        import io
-        from decimal import Decimal, InvalidOperation
-        from apps.payments.services import PaymentService
+        from apps.payments.greenlight_views import GreenlightPreviewView
 
-        csv_file = request.data.get("csv_data", "")
-        if not csv_file:
-            return Response({"error": "csv_data required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        child_id = request.data.get("user_id")
-        if not child_id:
-            return Response({"error": "user_id required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        child = get_child_or_404(child_id, requesting_user=request.user)
-        if child is None:
-            return child_not_found_response()
-
-        reader = csv.DictReader(io.StringIO(csv_file))
-        imported = 0
-        errors = []
-
-        for i, row in enumerate(reader):
-            try:
-                amount_str = row.get("Amount", row.get("amount", "")).replace("$", "").replace(",", "").strip()
-                if not amount_str:
-                    continue
-                amount = Decimal(amount_str)
-                description = row.get("Description", row.get("description", row.get("Memo", "")))
-
-                PaymentService.record_entry(
-                    child,
-                    -abs(amount),
-                    "payout",
-                    description=f"Greenlight import: {description}".strip(),
-                    created_by=request.user,
-                )
-                imported += 1
-            except (InvalidOperation, KeyError, ValueError) as e:
-                errors.append(f"Row {i + 1}: {str(e)}")
-
-        return Response({
-            "imported": imported,
-            "errors": errors,
-        })
+        return GreenlightPreviewView().post(request)

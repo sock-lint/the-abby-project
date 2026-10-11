@@ -421,6 +421,17 @@ class TimecardService:
         if not PaymentLedger.objects.filter(
             timecard=locked, entry_type=PaymentLedger.EntryType.PAYOUT,
         ).exists():
+            from apps.payments.greenlight import validate_payable
+            from rest_framework.exceptions import ValidationError
+
+            if locked.status not in (Timecard.Status.APPROVED, Timecard.Status.PAID):
+                raise ValueError("Approve the timecard before marking it paid.")
+            if amount != locked.total_earnings:
+                raise ValueError("A timecard payment must equal its full total.")
+            try:
+                validate_payable(locked.user, amount)
+            except ValidationError as exc:
+                raise ValueError(str(exc.detail["error"])) from None
             PaymentService.record_entry(
                 locked.user,
                 -amount,
