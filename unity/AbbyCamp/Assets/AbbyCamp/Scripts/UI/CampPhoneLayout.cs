@@ -1,4 +1,7 @@
 using System;
+#if UNITY_WEBGL && !UNITY_EDITOR
+using System.Runtime.InteropServices;
+#endif
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,8 +18,36 @@ namespace AbbyCamp.UI
         private RectTransform safeRoot;
         private Rect previousUsable;
         private Vector2Int previousScreen;
+        private Vector2Int previousLayoutScreen;
         private Vector2Int referenceScreen;
         private bool keyboardResize;
+        private float previousScale;
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [DllImport("__Internal")] private static extern double AbbyDisplay_GetPixelsPerCssPixel();
+#endif
+
+        // Read the actual canvas ratio, rather than the requested browser DPR:
+        // rounding and an in-progress resize can make those values differ.
+        public static float GetUiScale(Vector2Int referenceScreen)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            double scale = AbbyDisplay_GetPixelsPerCssPixel();
+            return scale > 0 && !double.IsNaN(scale) && !double.IsInfinity(scale) ? (float)scale : 1f;
+#else
+            return Mathf.Min(referenceScreen.x, referenceScreen.y) / ReferenceShortEdge;
+#endif
+        }
+
+        public static float TapMovementThreshold()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            float scale = GetUiScale(new Vector2Int(Screen.width, Screen.height));
+            return Mathf.Clamp(Screen.width / scale * .035f, 12f, 28f) * scale;
+#else
+            return Mathf.Clamp(Screen.width * .035f, 12f, 28f);
+#endif
+        }
 
         public event Action LayoutChanged;
         public Rect UsableScreenRect { get; private set; }
@@ -48,45 +79,53 @@ namespace AbbyCamp.UI
                 var bottom = Mathf.Max(usable.yMin, keyboard.yMax);
                 if (bottom < usable.yMax) usable.yMin = bottom;
             }
-            if (!force && screen == previousScreen && usable == previousUsable) return;
+            float observedScale = GetUiScale(referenceScreen == Vector2Int.zero ? screen : referenceScreen);
+            if (!force && screen == previousScreen && usable == previousUsable
+                && Mathf.Approximately(observedScale, previousScale)) return;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // Density changes are not rotations. Remember the full viewport in
+            // CSS units so a DPR change while typing preserves its orientation.
+            var layoutScreen = new Vector2Int(Mathf.RoundToInt(screen.x / observedScale),
+                Mathf.RoundToInt(screen.y / observedScale));
+#else
+            var layoutScreen = screen;
+#endif
             bool inputFocused = false;
             foreach (var input in uiCanvas.GetComponentsInChildren<InputField>())
                 if (input.isFocused) { inputFocused = true; break; }
             if (force || referenceScreen == Vector2Int.zero)
             {
-                referenceScreen = screen;
+                referenceScreen = layoutScreen;
                 keyboardResize = false;
             }
-            else if (screen.x != previousScreen.x)
+            else if (layoutScreen.x != previousLayoutScreen.x)
             {
                 // If rotated while typing, the browser may still report the
                 // keyboard-reduced height. The old width is the new full height.
                 referenceScreen = inputFocused || TouchScreenKeyboard.visible || keyboardResize
-                    ? new Vector2Int(screen.x, Mathf.Max(screen.y, referenceScreen.x))
-                    : screen;
-                keyboardResize = screen.y < referenceScreen.y;
+                    ? new Vector2Int(layoutScreen.x, Mathf.Max(layoutScreen.y, referenceScreen.x))
+                    : layoutScreen;
+                keyboardResize = layoutScreen.y < referenceScreen.y;
             }
             else if (inputFocused || TouchScreenKeyboard.visible)
             {
-                keyboardResize = screen.y < referenceScreen.y;
+                keyboardResize = layoutScreen.y < referenceScreen.y;
             }
-            else if (!keyboardResize || screen.y >= referenceScreen.y)
+            else if (!keyboardResize || layoutScreen.y >= referenceScreen.y)
             {
-                referenceScreen = screen;
+                referenceScreen = layoutScreen;
                 keyboardResize = false;
             }
             // Preserve the original touch scale while the browser keyboard reduces
             // visualViewport height, including its close animation after blur.
             previousScreen = screen;
+            previousLayoutScreen = layoutScreen;
             previousUsable = usable;
             UsableScreenRect = usable;
-#if UNITY_WEBGL && !UNITY_EDITOR
-            // The Web template renders at CSS pixel resolution. Keep 48-unit
-            // controls at 48 CSS pixels even on small phones/in landscape.
-            var scale = 1f;
-#else
-            var scale = Mathf.Min(referenceScreen.x, referenceScreen.y) / ReferenceShortEdge;
-#endif
+            // More render pixels improve clarity without changing CSS-sized
+            // controls, text, scrolling or the logical portrait/landscape layout.
+            float scale = GetUiScale(referenceScreen);
+            previousScale = scale;
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
             scaler.scaleFactor = scale;
             uiCanvas.scaleFactor = scale;

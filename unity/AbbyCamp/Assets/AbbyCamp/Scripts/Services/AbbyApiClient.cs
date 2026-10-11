@@ -31,6 +31,10 @@ namespace AbbyCamp.Services
         private readonly HashSet<UnityWebRequest> activeRequests = new HashSet<UnityWebRequest>();
         private readonly Dictionary<int, HabitDto> knownHabits = new Dictionary<int, HabitDto>();
         private readonly HashSet<int> knownNotifications = new HashSet<int>();
+        private readonly Dictionary<int, OwnedPetDto> knownPets = new Dictionary<int, OwnedPetDto>();
+        private readonly Dictionary<int, OwnedMountDto> knownMounts = new Dictionary<int, OwnedMountDto>();
+        private readonly Dictionary<int, InventoryEntryDto> knownFood = new Dictionary<int, InventoryEntryDto>();
+        private int careVersion;
 
         public string BaseUrl => baseUrl;
         public UserDto CurrentUser { get; private set; }
@@ -54,6 +58,7 @@ namespace AbbyCamp.Services
         }
 
         [Serializable] private sealed class TapBody { public int direction = 1; }
+        [Serializable] private sealed class FeedBody { public int food_item_id; }
 
         private void Awake()
         {
@@ -305,8 +310,8 @@ namespace AbbyCamp.Services
         }
 
         /// <summary>Clears the local session without revoking Django tokens in
-        /// other clients. Any active network requests are aborted. Aborting a tap
-        /// cannot undo a tap already committed by the server.</summary>
+        /// other clients. Any active network requests are aborted. Aborting an
+        /// action cannot undo a mutation already committed by the server.</summary>
         public void ClearSession()
         {
             sessionVersion++;
@@ -315,6 +320,7 @@ namespace AbbyCamp.Services
             CurrentUser = null;
             knownHabits.Clear();
             knownNotifications.Clear();
+            ClearCareEligibility();
             foreach (var request in activeRequests) request.Abort();
         }
 
@@ -443,7 +449,170 @@ namespace AbbyCamp.Services
 
         public IEnumerator FetchStable(Action<StableDto> success, Action<ApiError> failure)
         {
-            yield return FetchProjection("/api/pets/stable/", ApiContract.ParseStable, success, failure);
+            knownPets.Clear(); knownMounts.Clear();
+            int version = careVersion;
+            yield return FetchProjection("/api/pets/stable/", ApiContract.ParseStable, value =>
+            {
+                if (version != careVersion) { failure?.Invoke(new ApiError("Refresh your creatures after the current action.")); return; }
+                // Home and an opened sheet can read at the same time. Each
+                // accepted response replaces the complete ownership snapshot.
+                knownPets.Clear(); knownMounts.Clear();
+                foreach (var pet in value.pets) knownPets.Add(pet.id, pet);
+                foreach (var mount in value.mounts) knownMounts.Add(mount.id, mount);
+                success?.Invoke(value);
+            }, failure);
+        }
+
+        /// <summary>Reads this account's food, with no inventory mutation. Every
+        /// continuation is bounded and checked before credentials are sent.</summary>
+        public IEnumerator FetchFoodInventory(Action<InventoryEntryDto[]> success, Action<ApiError> failure)
+        {
+            knownFood.Clear();
+            int version = careVersion;
+            var foods = new List<InventoryEntryDto>();
+            var ids = new HashSet<int>();
+            var itemIds = new HashSet<int>();
+            var visited = new HashSet<string>(StringComparer.Ordinal);
+            int total = -1;
+            string next = baseUrl + "/api/inventory/";
+            while (next != null)
+            {
+                if (!TryResolveInventoryPageUrl(baseUrl, next, out var url) || !visited.Add(url) || visited.Count > 500)
+                {
+                    failure?.Invoke(new ApiError("The inventory page link was unsafe or repeating.")); yield break;
+                }
+                InventoryPageDto page = null;
+                ApiError error = null;
+                yield return FetchProjection(url.Substring(baseUrl.Length), ApiContract.ParseInventoryPage, value => page = value, problem => error = problem);
+                if (error != null) { failure?.Invoke(error); yield break; }
+                if (version != careVersion || !IsAuthenticated)
+                {
+                    failure?.Invoke(new ApiError("Refresh your food after the account or current action changes.", requiresLogin: !IsAuthenticated)); yield break;
+                }
+                if (total < 0) total = page.count;
+                if (page.count != total || ids.Count + page.results.Length > total)
+                {
+                    failure?.Invoke(new ApiError("The inventory changed while loading. Refresh your food.")); yield break;
+                }
+                foreach (var entry in page.results)
+                {
+                    if (!ids.Add(entry.id) || !itemIds.Add(entry.item.id) || ids.Count > 10000)
+                    {
+                        failure?.Invoke(new ApiError("The inventory returned duplicate or too many items.")); yield break;
+                    }
+                    if (entry.item.item_type == "food" && entry.quantity > 0) foods.Add(entry);
+                }
+                next = page.next;
+                if (next != null)
+                {
+                    if (!TryResolveInventoryPageUrl(baseUrl, next, out var continuation) || NotificationPageNumber(continuation) <= NotificationPageNumber(url))
+                    {
+                        failure?.Invoke(new ApiError("The inventory continuation was unsafe or repeating.")); yield break;
+                    }
+                    next = continuation;
+                }
+            }
+            if (ids.Count != total) { failure?.Invoke(new ApiError("The inventory response was incomplete. Refresh your food.")); yield break; }
+            knownFood.Clear();
+            foreach (var food in foods) knownFood.Add(food.item.id, food);
+            success?.Invoke(foods.ToArray());
+        }
+
+        public static bool TryResolveInventoryPageUrl(string origin, string next, out string resolved)
+        {
+            resolved = null;
+            if (!TryValidateBaseUrl(origin, out var validatedOrigin, out _) || string.IsNullOrWhiteSpace(next)
+                || next.Length > 2048 || next.IndexOf('\\') >= 0 || !Uri.TryCreate(validatedOrigin + "/", UriKind.Absolute, out var baseUri)
+                || !Uri.TryCreate(baseUri, next, out var uri)) return false;
+            if (uri.Scheme != baseUri.Scheme || uri.IdnHost != baseUri.IdnHost || uri.Port != baseUri.Port
+                || !string.IsNullOrEmpty(uri.UserInfo) || !string.IsNullOrEmpty(uri.Fragment) || uri.AbsolutePath != "/api/inventory/") return false;
+            int page = NotificationPageNumber(uri.AbsoluteUri);
+            if (page < 1 || page > 500) return false;
+            resolved = validatedOrigin + "/api/inventory/" + (page == 1 ? "" : "?page=" + page);
+            return true;
+        }
+
+        private ApiError CarePrecondition()
+        {
+            SynchronizeBrowserSession();
+            if (!IsAuthenticated) return new ApiError("Sign in before caring for your creatures.", requiresLogin: true);
+            if (CurrentUser.role != "child") return new ApiError("Play uses a child account. Parent tools are in the web app.");
+            if (MutationInFlight) return new ApiError("Wait for the current action to finish saving.");
+            return null;
+        }
+
+        private void ClearCareEligibility()
+        {
+            careVersion++;
+            knownPets.Clear(); knownMounts.Clear(); knownFood.Clear();
+        }
+
+        /// <summary>Consumes exactly one fetched food item for a fetched,
+        /// unevolved pet. Refresh and review an uncertain result before another
+        /// explicit action; this client never automatically replays a POST.</summary>
+        public IEnumerator FeedPet(int petId, int foodItemId, Action<PetFeedDto> success, Action<ApiError> failure)
+        {
+            var error = CarePrecondition();
+            if (error != null) { failure?.Invoke(error); yield break; }
+            if (!knownPets.TryGetValue(petId, out var pet) || pet.evolved_to_mount || pet.is_fully_grown
+                || !knownFood.TryGetValue(foodItemId, out var food) || food.quantity < 1 || food.item.item_type != "food")
+            {
+                failure?.Invoke(new ApiError("Refresh your creatures and food before feeding that companion.")); yield break;
+            }
+            int previousGrowth = pet.growth_points;
+            ClearCareEligibility();
+            yield return Send("POST", baseUrl + "/api/pets/" + petId + "/feed/", JsonUtility.ToJson(new FeedBody { food_item_id = foodItemId }), true, true, json =>
+            {
+                PetFeedDto result;
+                try
+                {
+                    result = ApiContract.ParsePetFeed(json, previousGrowth);
+                }
+                catch (Exception exception) { failure?.Invoke(InvalidResponse(exception, true)); return; }
+                success?.Invoke(result);
+            }, failure);
+        }
+
+        public IEnumerator ActivatePet(int petId, Action<OwnedPetDto> success, Action<ApiError> failure)
+        {
+            var error = CarePrecondition();
+            if (error != null) { failure?.Invoke(error); yield break; }
+            if (!knownPets.TryGetValue(petId, out var pet) || pet.evolved_to_mount || pet.is_active)
+            {
+                failure?.Invoke(new ApiError("Refresh your creatures before choosing that companion.")); yield break;
+            }
+            ClearCareEligibility();
+            yield return Send("POST", baseUrl + "/api/pets/" + petId + "/activate/", "{}", true, true, json =>
+            {
+                OwnedPetDto result;
+                try
+                {
+                    result = ApiContract.ParsePetActivation(json, pet);
+                }
+                catch (Exception exception) { failure?.Invoke(InvalidResponse(exception, true)); return; }
+                success?.Invoke(result);
+            }, failure);
+        }
+
+        public IEnumerator ActivateMount(int mountId, Action<OwnedMountDto> success, Action<ApiError> failure)
+        {
+            var error = CarePrecondition();
+            if (error != null) { failure?.Invoke(error); yield break; }
+            if (!knownMounts.TryGetValue(mountId, out var mount) || mount.is_active || mount.active_expedition != null)
+            {
+                failure?.Invoke(new ApiError("Refresh your creatures before choosing an available mount.")); yield break;
+            }
+            ClearCareEligibility();
+            yield return Send("POST", baseUrl + "/api/mounts/" + mountId + "/activate/", "{}", true, true, json =>
+            {
+                OwnedMountDto result;
+                try
+                {
+                    result = ApiContract.ParseMountActivation(json, mount);
+                }
+                catch (Exception exception) { failure?.Invoke(InvalidResponse(exception, true)); return; }
+                success?.Invoke(result);
+            }, failure);
         }
 
         private IEnumerator FetchProjection<T>(string path, Func<string, T> parse, Action<T> success, Action<ApiError> failure)
@@ -717,7 +886,7 @@ namespace AbbyCamp.Services
                     if (version != sessionVersion)
                     {
                         failure?.Invoke(new ApiError(mutation && !idempotentAcknowledgement ?
-                            "The session ended while saving. The habit may have been saved; refresh its state before logging again." :
+                            "The session ended while saving. The action may have been saved; refresh and review its state before trying again." :
                             "The session ended before the request completed.", outcomeUnknown: mutation && !idempotentAcknowledgement, requiresLogin: true));
                         yield break;
                     }
@@ -752,7 +921,7 @@ namespace AbbyCamp.Services
         private static ApiError InvalidResponse(Exception exception, bool mutation)
         {
             string message = exception is FormatException ? exception.Message : "The server returned an unreadable response.";
-            if (mutation) message += " The habit may have been saved. Refresh its state before logging it again.";
+            if (mutation) message += " The action may have been saved. Refresh and review its state before trying again.";
             return new ApiError(message, outcomeUnknown: mutation);
         }
     }

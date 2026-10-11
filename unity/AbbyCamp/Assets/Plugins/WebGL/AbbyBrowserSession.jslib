@@ -1,6 +1,17 @@
 // Same-origin handoff from the journal's existing browser session. This bridge
 // never stores credentials or treats the cached user as proof of authentication.
 mergeInto(LibraryManager.library, {
+  AbbyDisplay_GetPixelsPerCssPixel: function () {
+    try {
+      var canvas = Module['canvas'];
+      var width = canvas.getBoundingClientRect().width;
+      var scale = canvas.width / width;
+      return width > 0 && isFinite(scale) && scale > 0 ? scale : 1;
+    } catch (_) {
+      return 1;
+    }
+  },
+
   AbbySession_ReadToken__deps: ['$lengthBytesUTF8', '$stringToUTF8', 'malloc'],
   AbbySession_ReadToken: function () {
     var token = '';
