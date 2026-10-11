@@ -5,9 +5,13 @@
 // that must run BETWEEN tests is registered via beforeEach / afterEach.
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
 import { server } from './server.js';
+
+// Coverage on the shared CI host can delay MSW responses and React rendering
+// beyond RTL's one-second default. Wait for the actual condition, with a bound.
+configure({ asyncUtilTimeout: 4000 });
 
 // --- Sentry stub ----------------------------------------------------------
 // The real @sentry/react imports `@sentry/browser`, which in turn needs

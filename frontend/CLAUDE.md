@@ -175,6 +175,7 @@ warm HTTP responses can mask missing service-worker precache routes.
   - `factories.js` — `buildUser` / `buildParent` / `buildProject` / `buildBadge` / `buildChore` / `buildNotification` builders. Use these instead of inlining fixture objects.
   - `themeContrast.test.js` — WCAG AA gate for every journal cover (see "Journal covers" above). Pure-data; uses [`src/utils/contrast.js`](src/utils/contrast.js). Any palette edit that drops a tone below 4.5:1 / 3:1 breaks the frontend-test job.
 - **Coverage gate:** thresholds in `vitest.config.js` are 65/55/55/65 (lines/branches/functions/statements). Excluded from coverage: `main.jsx`, `themes.js`, `pages/__design.jsx`, `components/icons/JournalIcons.jsx`, the framer-motion-only journal primitives (`StreakFlame`, `DeckleDivider`, `PageTurnTransition`), `assets/**`, `motion/**`, and the `test/` scaffolding itself.
+- **Async test budgets:** `setup.js` gives RTL `findBy*` / `waitFor` conditions 4 seconds; `vitest.config.js` gives complete tests 15 seconds. These apply locally and in CI so multi-step UI/API flows tolerate shared-runner coverage load. Wait for observable state rather than sleeping before assertions; delayed MSW responses in ParentDashboard and Meadow pin both budgets. Keep explicit shorter timeouts when they are part of a test's behavior, and do not add retries to hide failures.
 - **Animations:** stub `AnimatePresence` per file when its exit animation would block synchronous unmount assertions:
   ```js
   vi.mock('framer-motion', async () => {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { useLocation } from 'react-router-dom';
 import { act, renderWithProviders, screen, waitFor } from '../../test/render';
 import { buildParent, buildUser } from '../../test/factories';
@@ -51,13 +51,20 @@ describe('Memory Meadow', () => {
     expect(request.calls).toHaveLength(0);
   });
 
-  it('saves a private journal through the existing form and celebrates only its confirmed new server receipt', async () => {
+  it.each([
+    { response: 'immediate', collectionDelay: 0 },
+    // Initial load + confirmed refresh exceed the old five-second test deadline.
+    { response: 'delayed collection reads', collectionDelay: 2750 },
+  ])('saves a private journal and celebrates only its confirmed new server receipt with $response', async ({ collectionDelay }) => {
     let saved = false;
     const post = spyHandler('post', '*/api/chronicle/journal/', () => {
       saved = true;
       return { id: 42, is_private: true, reward_receipt: { status: 'awarded', xp_awarded: 20 } };
     });
-    server.use(post.handler, http.get('*/api/chronicle/meadow/', () => HttpResponse.json(saved ? collected() : emptyMeadow())));
+    server.use(post.handler, http.get('*/api/chronicle/meadow/', async () => {
+      await delay(collectionDelay);
+      return HttpResponse.json(saved ? collected() : emptyMeadow());
+    }));
     const { user } = renderWithProviders(<Meadow />);
     await screen.findByText(/your first memory bloom/i);
     await openCapture(user);

@@ -19,6 +19,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.js'],
+    // Multi-step UI/API flows need more than Vitest's five-second default on
+    // the shared coverage runner. Individual RTL waits remain bounded to 4s.
+    testTimeout: 15000,
     // index.css imports Tailwind 4 via @plugin syntax that vitest can't parse;
     // disabling CSS processing in tests has no observable effect on behavior.
     css: false,
