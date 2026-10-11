@@ -214,6 +214,57 @@ export const createSubject = (data) => api.post('/subjects/', data);
 export const updateSubject = (id, data) => api.patch(`/subjects/${id}/`, data);
 export const deleteSubject = (id) => api.delete(`/subjects/${id}/`);
 export const getSkills = () => api.get('/skills/');
+// The Wayfinder needs the whole taxonomy, including entries beyond DRF's
+// first page. Keep the single-page helpers above unchanged for their callers.
+async function getCatalogList(path) {
+  const entries = [];
+  const visited = new Set();
+  let pagePath = path;
+
+  while (pagePath) {
+    const pageUrl = new URL(`/api${pagePath}`, window.location.origin);
+    pageUrl.searchParams.delete('_abby_session');
+    pageUrl.searchParams.sort();
+    const pageKey = `${pageUrl.pathname}${pageUrl.search}`;
+    if (visited.has(pageKey)) throw new Error('Repeated skill catalog page.');
+    visited.add(pageKey);
+
+    const page = await api.get(pagePath);
+    if (Array.isArray(page)) return [...entries, ...page];
+    if (!page || !Array.isArray(page.results)
+      || (page.next !== null && (typeof page.next !== 'string' || !page.next.trim()))) {
+      throw new Error('Unexpected skill catalog response.');
+    }
+    entries.push(...page.results);
+    if (page.next === null) return entries;
+
+    let nextUrl;
+    try {
+      nextUrl = new URL(page.next, pageUrl);
+    } catch {
+      throw new Error('Unexpected skill catalog pagination link.');
+    }
+    if (!['http:', 'https:'].includes(nextUrl.protocol)
+      || nextUrl.pathname !== `/api${path}`
+      || nextUrl.username || nextUrl.password || nextUrl.hash) {
+      throw new Error('Unexpected skill catalog pagination link.');
+    }
+    // A proxy may advertise a different origin. Follow only this endpoint on
+    // our configured API; the client supplies a fresh private-read namespace.
+    nextUrl.searchParams.delete('_abby_session');
+    pagePath = `${path}${nextUrl.search}`;
+  }
+
+  return entries;
+}
+
+export const getSkillCatalog = async () => {
+  const [subjects, skills] = await Promise.all([
+    getCatalogList('/subjects/'),
+    getCatalogList('/skills/'),
+  ]);
+  return { subjects, skills };
+};
 export const createSkill = (data) => api.post('/skills/', data);
 export const updateSkill = (id, data) => api.patch(`/skills/${id}/`, data);
 export const deleteSkill = (id) => api.delete(`/skills/${id}/`);

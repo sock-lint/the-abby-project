@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion';
-import { Lock } from 'lucide-react';
+import { ChevronRight, Lock } from 'lucide-react';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
 import PrereqChain from './PrereqChain';
 import { tierForProgress } from '../../components/atlas/mastery.constants';
@@ -12,8 +12,9 @@ import { XP_THRESHOLDS } from './skillTree.constants';
  * line of manuscript text rather than a form row. Stagger animates on
  * mount (cap at 8 so large subjects don't swamp the thread).
  */
-export default function SkillVerse({ skill, index = 0, onSelect }) {
+export default function SkillVerse({ skill, index = 0, onSelect, variant = 'folio' }) {
   const reduceMotion = useReducedMotion();
+  const waypoint = variant === 'wayfinder';
   const nextThreshold = XP_THRESHOLDS[skill.level + 1] ?? XP_THRESHOLDS[6];
   const currentThreshold = XP_THRESHOLDS[skill.level] ?? 0;
   const span = Math.max(1, nextThreshold - currentThreshold);
@@ -50,38 +51,44 @@ export default function SkillVerse({ skill, index = 0, onSelect }) {
       aria-label={ariaLabel}
       data-skill-verse="true"
       data-locked={skill.unlocked ? 'false' : 'true'}
-      className={`group w-full relative text-left flex items-center gap-3 px-3 py-2.5 rounded-lg border border-ink-page-shadow bg-ink-page-aged shadow-[0_1px_0_0_var(--color-ink-page-rune-glow)_inset,0_2px_6px_-5px_rgba(45,31,21,0.3)] cursor-pointer transition-colors hover:bg-ink-page-rune-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-leaf/60 ${
-        skill.unlocked ? '' : 'opacity-75'
+      className={`group w-full relative text-left flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-gold-leaf/60 ${
+        waypoint ? 'wayfinder-skill-node min-h-11 hover:bg-ink-page-aged' : 'border border-ink-page-shadow bg-ink-page-aged shadow-[0_1px_0_0_var(--color-ink-page-rune-glow)_inset,0_2px_6px_-5px_rgba(45,31,21,0.3)] hover:bg-ink-page-rune-glow focus-visible:outline-none'
+      } ${
+        skill.unlocked || waypoint ? '' : 'opacity-75'
       } ${recentlyGilded ? 'animate-gilded-glint' : ''}`}
     >
-      <IlluminatedVersal
+      {waypoint ? (
+        <span aria-hidden="true" className="flex size-11 shrink-0 items-center justify-center rounded-full border border-ink-page-shadow bg-ink-page-rune-glow text-2xl">
+          {skill.icon || skill.name?.[0] || '✦'}
+        </span>
+      ) : <IlluminatedVersal
         letter={skill.name?.[0] || '✦'}
         progressPct={progressPct}
         tier={tier}
         size="md"
-      />
+      />}
 
       <span className="flex-1 min-w-0">
         <span className="flex items-center gap-1.5">
-          <span className="font-display italic font-semibold text-body md:text-lede text-ink-primary truncate">
+          <span className={`font-display font-semibold text-body md:text-lede text-ink-primary ${waypoint ? 'min-w-0 break-words' : 'italic truncate'}`}>
             {skill.name}
           </span>
           {!skill.unlocked && (
             <Lock size={13} className="text-ink-whisper shrink-0" aria-hidden="true" />
           )}
-          {skill.icon && (
+          {skill.icon && !waypoint && (
             <span aria-hidden="true" className="text-sm leading-none opacity-70 shrink-0">
               {skill.icon}
             </span>
           )}
         </span>
-        <span className="flex items-center gap-2 mt-0.5">
-          <span className="font-script text-caption text-ink-whisper truncate">
+        <span className={`flex items-center gap-2 mt-0.5 ${waypoint ? 'flex-wrap' : ''}`}>
+          <span className={`font-script text-caption text-ink-whisper ${waypoint ? 'min-w-0 break-words' : 'truncate'}`}>
             {skill.unlocked
-              ? levelName || `Level ${skill.level}`
-              : 'locked — forge prerequisites first'}
+              ? levelName || (waypoint && skill.level === 0 ? (skill.xp_points > 0 ? 'Getting started' : 'Not started') : `Level ${skill.level}`)
+              : waypoint ? 'Prerequisites required' : 'locked — forge prerequisites first'}
           </span>
-          {skill.prerequisites?.length > 0 && (
+          {skill.prerequisites?.length > 0 && !waypoint && (
             <PrereqChain prerequisites={skill.prerequisites} />
           )}
         </span>
@@ -91,11 +98,11 @@ export default function SkillVerse({ skill, index = 0, onSelect }) {
           whose length encodes progress to next level. */}
       <span className="shrink-0 flex flex-col items-end gap-1 min-w-[52px]">
         <span
-          className={`font-display italic font-bold leading-none text-lede ${
+          className={`font-display font-bold leading-none ${waypoint ? 'text-caption' : 'italic text-lede'} ${
             maxed ? 'text-gold-leaf' : tier.chip
           }`}
         >
-          L{skill.level}
+          {waypoint ? (skill.unlocked ? `Level ${skill.level}` : 'Locked') : `L${skill.level}`}
         </span>
         {skill.unlocked && !maxed && (
           <span
@@ -118,6 +125,7 @@ export default function SkillVerse({ skill, index = 0, onSelect }) {
           </span>
         )}
       </span>
+      {waypoint && <ChevronRight size={16} aria-hidden="true" className="shrink-0 text-ink-whisper" />}
     </motion.button>
   );
 }
