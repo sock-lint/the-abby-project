@@ -25,6 +25,27 @@ function buildRequest(over = {}) {
 }
 
 describe('PrintRequestCard', () => {
+  it('exports the needed-by date without the print reason or parent notes', async () => {
+    const { user } = renderWithProviders(
+      <PrintRequestCard request={buildRequest({ parent_notes: 'Private print instructions' })} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Add Print needed: Articulated Dragon to calendar' }));
+    const google = screen.getByRole('link', { name: 'Google Calendar' });
+    const event = new URL(google.href).searchParams;
+    expect(event.get('text')).toBe('Print needed: Articulated Dragon');
+    expect(event.get('dates')).toBe('20260904/20260905');
+    expect(event.get('details')).toContain('/quests?tab=forge');
+    expect(event.get('details')).not.toMatch(/Nana|Private print instructions/);
+    expect(screen.getByRole('button', { name: 'Apple Calendar (.ics)' })).toBeInTheDocument();
+    google.addEventListener('click', (e) => e.preventDefault());
+    await user.click(google);
+  });
+
+  it('omits calendar export when no needed-by date is saved', () => {
+    renderWithProviders(<PrintRequestCard request={buildRequest({ needed_by: null })} />);
+    expect(screen.queryByRole('button', { name: /add .* to calendar/i })).not.toBeInTheDocument();
+  });
+
   it('renders a pending request with its colour, needed-by and reason', () => {
     renderWithProviders(<PrintRequestCard request={buildRequest()} />);
     expect(screen.getByText('Articulated Dragon')).toBeInTheDocument();

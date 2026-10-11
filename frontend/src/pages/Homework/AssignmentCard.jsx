@@ -6,6 +6,7 @@ import StatusBadge from '../../components/StatusBadge';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import Button from '../../components/Button';
 import IconButton from '../../components/IconButton';
+import AddToCalendar from '../../components/AddToCalendar';
 import { formatDate } from '../../utils/format';
 
 export default function AssignmentCard({
@@ -29,8 +30,19 @@ export default function AssignmentCard({
           {sub && <StatusBadge status={sub.status} />}
         </div>
       </div>
-      <div className="font-script text-body text-ink-whisper">
-        due {formatDate(a.due_date)}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-script text-body text-ink-whisper">
+          due {formatDate(a.due_date)}
+        </span>
+        {a.due_date && (
+          <AddToCalendar event={{
+            id: `homework:${a.id}`,
+            title: `Homework due: ${a.title}`,
+            start: a.due_date,
+            description: 'Homework assignment due date.',
+            path: '/quests?tab=study',
+          }} />
+        )}
       </div>
       <div className="flex gap-2 flex-wrap items-center">
         {!sub && (

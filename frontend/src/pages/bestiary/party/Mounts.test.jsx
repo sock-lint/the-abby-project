@@ -188,6 +188,24 @@ describe('Mounts tab', () => {
     expect(screen.getByRole('tab', { name: /Out exploring \(1\)/ })).toBeInTheDocument();
   });
 
+  it('exports the server-confirmed expedition return time to Google Calendar', async () => {
+    const user = userEvent.setup();
+    renderPage([
+      http.get('*/api/pets/stable/', () => HttpResponse.json({
+        pets: [], total_possible: 48,
+        mounts: [{ ...MOUNTS[0], active_expedition: {
+          id: 21, status: 'active', is_ready: false, seconds_remaining: 1800,
+          returns_at: '2026-10-11T15:30:00-07:00',
+        } }],
+      })),
+    ]);
+    await user.click(await screen.findByRole('button', { name: /add .*expedition return.*to calendar/i }));
+    const url = new URL(screen.getByRole('link', { name: /Google Calendar/i }).href);
+    expect(url.searchParams.get('text')).toBe('Expedition return: Sky Griffon');
+    expect(url.searchParams.get('dates')).toBe('20261011T223000Z/20261011T230000Z');
+    expect(url.searchParams.get('details')).toContain('/bestiary?tab=mounts');
+  });
+
   it('Claim loot button POSTs to the claim endpoint when the expedition is ready', async () => {
     const user = userEvent.setup();
     const mountReady = {

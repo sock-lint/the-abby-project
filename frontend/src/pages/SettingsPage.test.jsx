@@ -37,6 +37,8 @@ describe('SettingsPage', () => {
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /connect google/i })).toBeInTheDocument(),
     );
+    expect(screen.getByText(/Apple Calendar \(\.ics\)/)).toHaveTextContent('one-time copies');
+    expect(screen.getByText(/On a Mac/)).toHaveTextContent('File → Import');
   });
 
   it('shows Unlink + Calendar sync when linked', async () => {

@@ -33,8 +33,10 @@ import { normalizeList } from '../utils/api';
 import Button from '../components/Button';
 import IconButton from '../components/IconButton';
 import ModalActions from '../components/ModalActions';
+import AddToCalendar from '../components/AddToCalendar';
 import { TextField, SelectField, TextAreaField, CheckboxField } from '../components/form';
 import QuestFolio from './quests/QuestFolio';
+import { choreReminderEvent, validateChoreReminderDate } from './choresCalendar';
 
 const RECURRENCE_LABELS = { daily: 'Daily', weekly: 'Weekly', one_time: 'One-time' };
 const WEEK_SCHEDULE_LABELS = { every_week: 'Every week', alternating: 'Alternating weeks' };
@@ -517,104 +519,117 @@ export default function Chores() {
               const isDone = !isParent && (chore.today_status === 'approved' || chore.today_status === 'pending');
               const isAvailable = !isParent && chore.is_available;
               const isRejected = !isParent && chore.today_status === 'rejected';
+              const calendarEvent = choreReminderEvent(chore);
               return (
                 <ParchmentCard
                   key={chore.id}
-                  className={`flex items-center gap-3 ${isDone ? 'opacity-60' : ''}`}
+                  className={`space-y-2 ${isDone ? 'opacity-60' : ''}`}
                 >
-                  <div className="text-2xl shrink-0 w-10 text-center">{chore.icon || '📋'}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-body text-body font-medium text-ink-primary flex items-center gap-2">
-                      {chore.title}
-                      {isParent && !chore.is_active && (
-                        <RuneBadge tone="ink" size="sm">inactive</RuneBadge>
-                      )}
-                    </div>
-                    {chore.description && (
-                      <div className="font-body text-caption text-ink-secondary line-clamp-1">
-                        {chore.description}
-                      </div>
-                    )}
-                    {/* Up to five chips ($, coins, recurrence, alt. weeks,
-                        assignee) in a text column the parent view squeezes to
-                        ~130px at 360px — wraps like its Study and Forge
-                        siblings instead of painting past the card edge. */}
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 font-script text-caption text-ink-whisper">
-                      <span className="flex items-center gap-0.5">
-                        <DollarSign size={10} />{chore.reward_amount}
-                      </span>
-                      <span className="flex items-center gap-0.5">
-                        <CoinIcon size={10} />{chore.coin_reward}
-                      </span>
-                      <span className="flex items-center gap-0.5">
-                        <RefreshCw size={10} />{RECURRENCE_LABELS[chore.recurrence]}
-                      </span>
-                      {chore.week_schedule === 'alternating' && (
-                        <span className="flex items-center gap-0.5 text-royal">
-                          <CalendarDays size={10} />alt. weeks
-                        </span>
-                      )}
-                      {isParent && chore.assigned_to_name && (
-                        <span>{chore.assigned_to_name}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="shrink-0">
-                    {isParent ? (
-                      <div className="flex gap-1">
-                        <IconButton
-                          variant="secondary"
-                          onClick={() => openEdit(chore)}
-                          aria-label="Edit duty"
-                          className="min-w-[44px] min-h-[44px]"
-                        >
-                          <Pencil size={16} />
-                        </IconButton>
-                        <IconButton
-                          variant="danger"
-                          onClick={() => setDeleteConfirm(chore.id)}
-                          aria-label="Delete duty"
-                          className="min-w-[44px] min-h-[44px]"
-                        >
-                          <Trash2 size={16} />
-                        </IconButton>
-                      </div>
-                    ) : isDone ? (
-                      <div className="flex items-center gap-2">
-                        <RuneBadge tone={STATUS_TONE[chore.today_status] || 'ink'} size="sm">
-                          {chore.today_status}
-                        </RuneBadge>
-                        {chore.today_status === 'pending' && chore.today_completion_id && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleWithdraw(chore.today_completion_id)}
-                            aria-label="Withdraw this duty submission"
-                            title="Withdraw — pulls it out of the queue so you can re-do it"
-                            className="font-script text-tiny hover:text-ember-deep underline-offset-2 hover:underline"
-                          >
-                            ↩ withdraw
-                          </Button>
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl shrink-0 w-10 text-center">{chore.icon || '📋'}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-body text-body font-medium text-ink-primary flex items-center gap-2">
+                        {chore.title}
+                        {isParent && !chore.is_active && (
+                          <RuneBadge tone="ink" size="sm">inactive</RuneBadge>
                         )}
                       </div>
-                    ) : isRejected ? (
-                      <Button
-                        size="sm"
-                        onClick={() => handleComplete(chore.id)}
-                        className="flex items-center gap-1 text-caption"
-                      >
-                        <RefreshCw size={12} /> Retry
-                      </Button>
-                    ) : isAvailable ? (
-                      <Button
-                        size="sm"
-                        onClick={() => handleComplete(chore.id)}
-                        className="flex items-center gap-1 text-caption"
-                      >
-                        <Check size={14} /> Done
-                      </Button>
-                    ) : null}
+                      {chore.description && (
+                        <div className="font-body text-caption text-ink-secondary line-clamp-1">
+                          {chore.description}
+                        </div>
+                      )}
+                      {/* Up to five chips ($, coins, recurrence, alt. weeks,
+                          assignee) in a text column the parent view squeezes to
+                          ~130px at 360px — wraps like its Study and Forge
+                          siblings instead of painting past the card edge. */}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 font-script text-caption text-ink-whisper">
+                        <span className="flex items-center gap-0.5">
+                          <DollarSign size={10} />{chore.reward_amount}
+                        </span>
+                        <span className="flex items-center gap-0.5">
+                          <CoinIcon size={10} />{chore.coin_reward}
+                        </span>
+                        <span className="flex items-center gap-0.5">
+                          <RefreshCw size={10} />{RECURRENCE_LABELS[chore.recurrence]}
+                        </span>
+                        {chore.week_schedule === 'alternating' && (
+                          <span className="flex items-center gap-0.5 text-royal">
+                            <CalendarDays size={10} />alt. weeks
+                          </span>
+                        )}
+                        {isParent && chore.assigned_to_name && (
+                          <span>{chore.assigned_to_name}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      {isParent ? (
+                        <div className="flex gap-1">
+                          <IconButton
+                            variant="secondary"
+                            onClick={() => openEdit(chore)}
+                            aria-label="Edit duty"
+                            className="min-w-[44px] min-h-[44px]"
+                          >
+                            <Pencil size={16} />
+                          </IconButton>
+                          <IconButton
+                            variant="danger"
+                            onClick={() => setDeleteConfirm(chore.id)}
+                            aria-label="Delete duty"
+                            className="min-w-[44px] min-h-[44px]"
+                          >
+                            <Trash2 size={16} />
+                          </IconButton>
+                        </div>
+                      ) : isDone ? (
+                        <div className="flex items-center gap-2">
+                          <RuneBadge tone={STATUS_TONE[chore.today_status] || 'ink'} size="sm">
+                            {chore.today_status}
+                          </RuneBadge>
+                          {chore.today_status === 'pending' && chore.today_completion_id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleWithdraw(chore.today_completion_id)}
+                              aria-label="Withdraw this duty submission"
+                              title="Withdraw — pulls it out of the queue so you can re-do it"
+                              className="font-script text-tiny hover:text-ember-deep underline-offset-2 hover:underline"
+                            >
+                              ↩ withdraw
+                            </Button>
+                          )}
+                        </div>
+                      ) : isRejected ? (
+                        <Button
+                          size="sm"
+                          onClick={() => handleComplete(chore.id)}
+                          className="flex items-center gap-1 text-caption"
+                        >
+                          <RefreshCw size={12} /> Retry
+                        </Button>
+                      ) : isAvailable ? (
+                        <Button
+                          size="sm"
+                          onClick={() => handleComplete(chore.id)}
+                          className="flex items-center gap-1 text-caption"
+                        >
+                          <Check size={14} /> Done
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
+                  {calendarEvent && (
+                    <div className="flex justify-end">
+                      <AddToCalendar
+                        event={calendarEvent}
+                        dateEditable
+                        dateHelp="Choose one day for this duty reminder. Repeat reminders can be set in your calendar."
+                        validateDate={(date) => validateChoreReminderDate(chore, date)}
+                      />
+                    </div>
+                  )}
                 </ParchmentCard>
               );
             })}
