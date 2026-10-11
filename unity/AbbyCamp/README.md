@@ -142,6 +142,14 @@ It uses real Django views against disposable SQLite and seeded reward, inbox and
 
 `Library`, build output, logs, screenshots, and user settings are ignored; source `.meta` files are retained. The package manifest/lock and project settings are included. Journal/grade reactions are currently implemented in React; connecting those saves to an owned Unity companion is a later slice. Real-phone lifecycle/performance and native iOS deployment need their own validation before Abby uses it day to day.
 
+## Fixed Play home verification — 2026-10-10
+
+Unity 6000.6.5f1 validated the public and licensed fixed scenes and 108 API contracts. The Windows development harness passed 224 runtime checks with nine rendered captures, including fixed companion framing, tap/modal exclusion, readable sheet headings, phone targets, real reward/creature rows, 20/5 notification pages, read failure/retry, account replacement and reward invariance. The browser session and loader suites passed 20 checks; the shared presentation check verified 17 files.
+
+The disposable browser walkthrough verified automatic shared sign-in, Journal/Grades/Tasks routes, explicit one-item read acknowledgement and account replacement while an earlier read response was delayed. Opening sheets, paging and greeting the companion left rewards and progression unchanged. Browser viewport checks cover 320×568 and 393×852 portrait and 844×393 landscape; they do not establish physical Android/iPhone performance, touch or lifecycle behavior. The purchased forest and fixed bird are presentation previews; Bestiary lists authoritative owned creatures without assigning that artwork to every saved species. Care, hatching and mount actions still open their existing web screens.
+
+These checks and local exports do not deploy `/play/`; Unity must be rebuilt and its web image published after the source is integrated.
+
 ## Earlier walking prototype verification — 2026-10-10
 
 The following historical checks describe the earlier walking preview, before the fixed Play home.
