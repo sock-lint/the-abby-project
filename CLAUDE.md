@@ -343,9 +343,10 @@ work and completed disposable managed checkouts;
 for anything retained, record its root, PR/status, concrete retention reason,
 and next action. When waiting for a PR merge, set up or update a heartbeat in the
 owning chat that checks that exact PR, stays quiet without actionable change,
-archives the eligible checkout after merge, and stops/deletes itself after
-successful archival. The user's automatic-cleanup request authorizes this
-owner-chat follow-up; avoid duplicate monitors or repeated approval requests.
+archives the eligible checkout after merge, cleans up its eligible task branch
+as described below, and stops/deletes itself after both cleanup steps. The user's
+automatic-cleanup request authorizes this owner-chat follow-up; avoid duplicate
+monitors or repeated approval requests.
 These instructions do not create a global hook or timer, and a central monitor
 cannot clean up artifacts owned by unrelated chats.
 
@@ -357,6 +358,55 @@ cleanup. Unknown ownership or another chat's checkout must be retained with a
 concrete reason. Managed Codex worktrees always use `archive_worktree`, never
 this unmanaged removal path. Report what was archived and saved, or what
 remains and why, in the final response.
+
+## Branch lifecycle
+
+Apply the mandatory [agent branch rules](AGENTS.md#branch-lifecycle) alongside
+worktree cleanup. Record the branch's owner, exact PR URL, repository, head SHA,
+and target branch. Do not reuse a merged task branch for follow-up work. The
+standing cleanup request authorizes deletion of verified eligible branches
+owned by this chat without another approval request.
+
+Fetch the PR target and prune stale remote-tracking refs with
+`git fetch origin --prune`. Pruning does not delete live remote branches, and a
+missing remote ref does not prove a PR merged. Verify the exact PR's GitHub merge
+state and recorded
+head SHA. Require the local tip to equal or be a verified ancestor of that head;
+fetch the recorded head when needed to prove this relationship. Retain divergent
+tips and unmerged follow-up work. Check for other open PRs using the same branch.
+
+Archive/remove its eligible owned worktrees before deleting a local branch.
+Inspect `git worktree list --porcelain` and active chat ownership immediately
+before deletion. Retain default and protected branches, PR target branches,
+checked-out branches in any worktree, shared branches, branches in active use,
+and branches whose owner or PR identity is unknown. Report the branch, retention
+reason, and next action instead of guessing from its name or age.
+
+When the verified tip is an ancestor of the fetched PR target, use normal
+`git branch -d <branch>`. A refusal is a reason to recheck, not to run `-D`.
+Squash/rebase merges may fail ancestry checks despite the exact PR being merged.
+For that case, require the branch tip to equal or be a verified ancestor of the
+merged PR's recorded head, confirm no open PR or ongoing work uses it, and
+preserve the exact tip in a durable recovery ref (for example,
+`refs/abby/branch-archive/<unique-id>`) or a
+verified restorable worktree snapshot. Record the saved ref/snapshot and tip SHA.
+Only then use `git update-ref -d refs/heads/<branch> <verified-tip>`: its expected
+old SHA prevents deletion if the branch moved during verification. If it fails,
+retain and investigate. Never bulk-force branch deletion or remove Codex archive
+refs, recovery refs, or other references needed to restore archived worktrees.
+
+GitHub's repository setting `delete_branch_on_merge` handles remote PR head
+branches, not local refs; keep it enabled. This repository-wide setting does not
+inspect local ownership or follow-up work. Use disposable PR head branches, and
+protect long-lived/shared branches through GitHub branch protection or rules.
+Do not substitute broad remote branch deletion based on age, ancestry, or a
+missing local checkout.
+Owner-chat merge monitors must perform local branch cleanup after worktree
+archival before stopping. Keep recurring owner audits quiet without actionable
+change, and report deleted branches with recovery locations or retained branches
+with reasons at final handoff. Repository documentation alone does not install
+a local branch-cleanup timer. Exclude backup branches and archive/recovery refs
+from automatic cleanup candidates.
 
 ## Shared API response fixtures
 

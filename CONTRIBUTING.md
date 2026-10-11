@@ -89,6 +89,13 @@ pre-commit run --all-files
   [verification and recovery details](./CLAUDE.md#worktree-lifecycle) cover
   preservation of additional work and owner-chat merge monitors. Repository
   documentation does not install an automatic cleanup hook.
+- Follow the [branch lifecycle rules](./AGENTS.md#branch-lifecycle): after a
+  verified PR merge, clean up eligible owned worktrees and inactive task branches.
+  GitHub's automatic merged-head deletion handles remote branches; owner-chat
+  monitors handle local cleanup. Preserve active, protected, shared, checked-out,
+  or unknown-owner branches and additional work. See the
+  [branch verification and recovery details](./CLAUDE.md#branch-lifecycle) for
+  squash/rebase merges; never bulk-force deletion.
 - Branch off `main`; keep PRs focused. Large refactors should land behind
   a short description of the migration path in the PR body.
 - Update [`CLAUDE.md`](./CLAUDE.md) when you change anything a future

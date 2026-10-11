@@ -47,9 +47,10 @@ These rules are mandatory for agents working in this repository. See
   must not leave a disposable checkout stranded.
 - If an open PR is the reason to retain a worktree, create or update a heartbeat
   in its owning chat to watch that PR's merge and archive the eligible worktree
-  afterwards. Stay quiet while nothing changes, and stop/delete that monitor
-  after archival. A central chat cannot archive another chat's attachments;
-  monitoring and cleanup must run in the owning chat.
+  afterwards, then clean up its eligible task branch. Stay quiet while nothing
+  changes, and stop/delete that monitor after both cleanup steps. A central chat
+  cannot archive another chat's attachments; monitoring and cleanup must run in
+  the owning chat.
 - For an unmanaged worktree owned by this chat, the user's standing automatic
   cleanup request for this repository is authorization: do not ask again. Remove
   it only when clean, inactive, fully merged, and matched to a confirmed exact
@@ -61,6 +62,33 @@ These rules are mandatory for agents working in this repository. See
 
 Repository instructions establish this workflow; they do not install a global
 Git hook or a repository-wide timer. Configure the owner-chat monitor when needed.
+
+## Branch lifecycle
+
+Follow [CLAUDE.md](CLAUDE.md#branch-lifecycle) for verification and recovery.
+The user's standing cleanup request authorizes eligible task-branch cleanup;
+do not ask for redundant approval.
+
+- Give each task branch an owner and exact PR identity. Use a new branch for
+  follow-up work after merge so a completed branch can be removed safely.
+- After a confirmed GitHub merge, archive/remove eligible owned worktrees first,
+  then delete their inactive local task branches. Check every Git worktree and
+  active chat before deletion; never remove default, protected, checked-out,
+  shared, active, or unknown-owner branches, or branches used by an open PR.
+- Retain branches with extra unmerged commits or a tip that is neither equal to
+  nor an ancestor of the merged PR's verified head. Record the reason and next
+  action; remote branch disappearance is not merge evidence. Fetch with pruning
+  to remove stale remote-tracking refs without deleting live remote branches.
+- Prefer normal `git branch -d` after verifying target ancestry. Squash/rebase
+  cleanup requires exact PR-head verification and a durable recovery ref or
+  verified archived snapshot before compare-and-swap deletion of that one local
+  branch ref. Never use blanket force deletion or delete archived snapshot refs.
+- Keep GitHub's automatic deletion of merged PR head branches enabled for this
+  repository. It acts repository-wide without inspecting local work; PR heads
+  must be disposable, and long-lived/shared branches need GitHub protection.
+  Owner-chat merge monitors handle local branches after worktree cleanup and
+  account for deleted/retained branches at final handoff. Exclude backup branches
+  and archive/recovery refs from automatic cleanup candidates.
 
 ## Cross-client changes
 
