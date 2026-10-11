@@ -275,26 +275,36 @@ class MountedMcpAuthenticatedHandshakeTests(TransactionTestCase):
         _, self.auth_header = make_oauth_token(self.user, resource="")
 
     def test_authenticated_initialize_does_not_500(self) -> None:
+        from asgiref.sync import sync_to_async
+        from django.db import connections
+
+        async def close_worker_connections() -> None:
+            await sync_to_async(connections.close_all, thread_sensitive=True)()
+
         app = build_mounted_mcp_app()
         with TestClient(app) as client:
-            response = client.post(
-                "/mcp",
-                json={
-                    "jsonrpc": "2.0",
-                    "method": "initialize",
-                    "id": 1,
-                    "params": {
-                        "protocolVersion": "2024-11-05",
-                        "capabilities": {},
-                        "clientInfo": {"name": "abby-test", "version": "0"},
+            try:
+                response = client.post(
+                    "/mcp",
+                    json={
+                        "jsonrpc": "2.0",
+                        "method": "initialize",
+                        "id": 1,
+                        "params": {
+                            "protocolVersion": "2024-11-05",
+                            "capabilities": {},
+                            "clientInfo": {"name": "abby-test", "version": "0"},
+                        },
                     },
-                },
-                headers={
-                    "Authorization": self.auth_header,
-                    "Accept": "application/json, text/event-stream",
-                    "Content-Type": "application/json",
-                },
-            )
+                    headers={
+                        "Authorization": self.auth_header,
+                        "Accept": "application/json, text/event-stream",
+                        "Content-Type": "application/json",
+                    },
+                )
+            finally:
+                # Clean up in the request portal before its worker context ends.
+                client.portal.call(close_worker_connections)
         self.assertNotEqual(
             response.status_code,
             500,
