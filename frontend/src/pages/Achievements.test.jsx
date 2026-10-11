@@ -21,23 +21,38 @@ function renderPage({ user = buildUser(), handlers = [] } = {}) {
 }
 
 describe('Achievements (Skills page)', () => {
-  it('renders an error block when summary fetch fails', async () => {
+  it('retries the categories request when it fails', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
     renderPage({
       handlers: [
-        http.get('*/api/achievements/summary/', () =>
-          HttpResponse.json({ error: 'x' }, { status: 500 }),
-        ),
+        http.get('*/api/categories/', () => {
+          attempts += 1;
+          return attempts === 1
+            ? HttpResponse.json({ error: 'Categories unavailable' }, { status: 500 })
+            : HttpResponse.json([]);
+        }),
       ],
     });
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument(),
     );
+    expect(screen.getByRole('alert')).toHaveTextContent('Categories unavailable');
+    expect(screen.queryByText('No skill categories yet')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    expect(await screen.findByText('No skill categories yet')).toBeInTheDocument();
+    expect(attempts).toBe(2);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('renders the Skills header and skill tree for a child', async () => {
+  it('loads the skill tree without requesting the achievements summary', async () => {
+    const summaryRequest = vi.fn(() => new HttpResponse('<!doctype html><title>Abby</title>', {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+    }));
     renderPage({
       handlers: [
-        http.get('*/api/achievements/summary/', () => HttpResponse.json({ badges_earned: [] })),
+        http.get('*/api/achievements/summary/', summaryRequest),
         http.get('*/api/categories/', () =>
           HttpResponse.json([{ id: 1, name: 'Woodworking', icon: '🪵' }]),
         ),
@@ -46,8 +61,12 @@ describe('Achievements (Skills page)', () => {
         http.get('*/api/skills/tree/1/', () =>
           HttpResponse.json({
             category: { id: 1, name: 'Woodworking', icon: '🪵' },
-            summary: { level: 0, total_xp: 0 },
-            subjects: [],
+            summary: { level: 1, total_xp: 50 },
+            subjects: [{
+              id: 10,
+              name: 'Joinery',
+              skills: [{ id: 100, name: 'Dovetail', level: 1, xp_points: 50, unlocked: true }],
+            }],
           }),
         ),
       ],
@@ -59,13 +78,15 @@ describe('Achievements (Skills page)', () => {
     expect(screen.queryByRole('tab', { name: 'Manage' })).toBeNull();
     // Category pennant renders as a tab.
     expect(screen.getByRole('tab', { name: /Woodworking/ })).toBeInTheDocument();
+    expect(await screen.findByText('Dovetail')).toBeInTheDocument();
+    expect(summaryRequest).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('opens the first tome on mount and filters skills inside the loaded folio', async () => {
     const user = userEvent.setup();
     renderPage({
       handlers: [
-        http.get('*/api/achievements/summary/', () => HttpResponse.json({ badges_earned: [] })),
         http.get('*/api/categories/', () =>
           HttpResponse.json([{ id: 1, name: 'Woodworking', icon: '🪵' }]),
         ),
@@ -103,7 +124,6 @@ describe('Achievements (Skills page)', () => {
     renderPage({
       user: buildParent(),
       handlers: [
-        http.get('*/api/achievements/summary/', () => HttpResponse.json({ badges_earned: [] })),
         http.get('*/api/categories/', () => HttpResponse.json([])),
       ],
     });
