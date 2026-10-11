@@ -650,7 +650,12 @@ class BrokerClient:
 
 def public_get(url):
     try:
-        response = build_opener(NoRedirect()).open(Request(url, headers={"Cache-Control": "no-cache", "Accept-Encoding": "identity"}), timeout=120)
+        request = Request(url, headers={
+            "User-Agent": "abby-unity-release-verification/1.0",
+            "Cache-Control": "no-cache",
+            "Accept-Encoding": "identity",
+        })
+        response = build_opener(NoRedirect()).open(request, timeout=120)
         return response
     except (HTTPError, URLError, TimeoutError):
         raise ReleaseError("Public Unity release verification request failed; check routing and caches.") from None

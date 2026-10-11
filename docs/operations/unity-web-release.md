@@ -33,6 +33,12 @@ after the React/Django deployment succeeds. PR validation does not deploy.
    non-HTML file hashes, matching HTML runtime URLs and healthy application/database
    state. Cloudflare may modify HTML, so its byte hash is not compared publicly.
 
+Public verification requests identify themselves as
+`abby-unity-release-verification/1.0`. Keep this descriptive User-Agent: the public
+edge has returned 403 for Python's generic default identity. Requests still use
+`Cache-Control: no-cache` and identity encoding, reject redirects, and require all
+release identity and content checks above.
+
 Tags are `abby-unity-web:ci-<full-source-sha>-<run-id>-<attempt>` and cannot be
 reused for different content. Host archives and previous images remain for
 recovery; image pruning is separate from Git branch/worktree cleanup.

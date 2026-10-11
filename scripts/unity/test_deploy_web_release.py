@@ -5,12 +5,16 @@ from email.message import Message
 import gzip
 import io
 import json
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import tarfile
 import tempfile
+import threading
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+from urllib.error import HTTPError
+from urllib.request import urlopen
 
 import deploy_web_release as release
 
@@ -350,6 +354,94 @@ class BrokerTests(unittest.TestCase):
             self.assertEqual(release.current_main(), SOURCE)
         self.assertIn("ls-remote", command.call_args.args[0])
         self.assertIn("credential.helper=", command.call_args.args[0])
+
+
+class PublicGetTests(unittest.TestCase):
+    def setUp(self):
+        self.requests = []
+        requests = self.requests
+
+        class Edge(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append((self.path, dict(self.headers)))
+                if self.path.startswith("/redirect") and not self.path.startswith("/redirect-target"):
+                    status = 302
+                    body = b"synthetic edge diagnostic: fixture-private-detail"
+                    location = "/redirect-target?token=fixture-private-detail"
+                elif (self.path.startswith("/forbidden")
+                      or self.headers.get("User-Agent") != "abby-unity-release-verification/1.0"):
+                    status = 403
+                    body = b"synthetic edge diagnostic: fixture-private-detail"
+                    location = None
+                else:
+                    status = 200
+                    body = b'{"synthetic_release": true}'
+                    location = None
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                if location:
+                    self.send_header("Location", location)
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_):
+                pass
+
+        self.edge = ThreadingHTTPServer(("127.0.0.1", 0), Edge)
+        self.thread = threading.Thread(target=self.edge.serve_forever, daemon=True)
+        self.thread.start()
+        self.origin = f"http://127.0.0.1:{self.edge.server_port}"
+
+    def tearDown(self):
+        self.edge.shutdown()
+        self.edge.server_close()
+        self.thread.join(timeout=5)
+        self.assertFalse(self.thread.is_alive())
+
+    def test_descriptive_verifier_identity_passes_an_edge_that_rejects_generic_python(self):
+        url = self.origin + "/release.json"
+        with self.assertRaises(HTTPError) as generic:
+            urlopen(url, timeout=5)
+        self.assertEqual(generic.exception.code, 403)
+        generic.exception.close()
+        self.assertTrue(self.requests[0][1]["User-Agent"].startswith("Python-urllib/"))
+
+        with release.public_get(url) as response:
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.read(), b'{"synthetic_release": true}')
+        self.assertEqual(len(self.requests), 2)
+        headers = self.requests[1][1]
+        self.assertEqual(headers["User-Agent"], "abby-unity-release-verification/1.0")
+        self.assertEqual(headers["Cache-Control"], "no-cache")
+        self.assertEqual(headers["Accept-Encoding"], "identity")
+        self.assertNotIn("Authorization", headers)
+        self.assertNotIn("Cookie", headers)
+
+    def test_public_get_does_not_follow_an_edge_redirect(self):
+        with self.assertRaises(release.ReleaseError) as rejected:
+            release.public_get(self.origin + "/redirect?token=fixture-private-detail")
+        self.assertEqual([path for path, _ in self.requests], ["/redirect?token=fixture-private-detail"])
+        self.assertEqual(str(rejected.exception),
+                         "Public Unity release verification request failed; check routing and caches.")
+        self.assertNotIn("fixture-private-detail", str(rejected.exception))
+        self.assertTrue(rejected.exception.__suppress_context__)
+        self.assertIsInstance(rejected.exception.__context__, HTTPError)
+        self.assertEqual(rejected.exception.__context__.code, 302)
+        rejected.exception.__context__.close()
+
+    def test_public_get_redacts_forbidden_edge_url_and_body(self):
+        with self.assertRaises(release.ReleaseError) as rejected:
+            release.public_get(self.origin + "/forbidden?token=fixture-private-detail")
+        self.assertEqual(len(self.requests), 1)
+        self.assertEqual(str(rejected.exception),
+                         "Public Unity release verification request failed; check routing and caches.")
+        self.assertNotIn(self.origin, str(rejected.exception))
+        self.assertNotIn("fixture-private-detail", str(rejected.exception))
+        self.assertTrue(rejected.exception.__suppress_context__)
+        self.assertIsInstance(rejected.exception.__context__, HTTPError)
+        self.assertEqual(rejected.exception.__context__.code, 403)
+        rejected.exception.__context__.close()
 
 
 class PublicTests(unittest.TestCase):
