@@ -63,6 +63,7 @@ function loadBridge(initial = {}, options = {}) {
   const library = {};
   const context = vm.createContext({
     window,
+    Module: { canvas: options.canvas },
     LibraryManager: { library },
     mergeInto: Object.assign,
     lengthBytesUTF8: (value) => Buffer.byteLength(value, 'utf8'),
@@ -103,6 +104,44 @@ test('bridge uses the frontend token and cached-user keys', () => {
   assert.equal(bridge.readToken(), firstToken);
   bridge.clearToken(firstToken);
   assert.deepEqual(bridge.removed, [keys.AUTH_TOKEN, keys.CACHED_USER]);
+});
+
+test('display bridge converts framebuffer pixels into CSS units using the actual canvas', () => {
+  const canvas = { width: 786, getBoundingClientRect: () => ({ width: 393 }) };
+  const bridge = loadBridge({}, { canvas });
+  assert.equal(bridge.library.AbbyDisplay_GetPixelsPerCssPixel(), 2);
+  canvas.width = 491;
+  assert.equal(bridge.library.AbbyDisplay_GetPixelsPerCssPixel(), 491 / 393);
+  canvas.width = 393;
+  assert.equal(bridge.library.AbbyDisplay_GetPixelsPerCssPixel(), 1);
+  assert.deepEqual(bridge.allocations, []);
+  assert.deepEqual(bridge.removed, []);
+  bridge.checkNoGlobals();
+});
+
+test('display bridge follows resized CSS geometry even before the framebuffer catches up', () => {
+  let cssWidth = 393;
+  const canvas = { width: 786, getBoundingClientRect: () => ({ width: cssWidth }) };
+  const bridge = loadBridge({}, { canvas });
+  cssWidth = 844;
+  assert.equal(bridge.library.AbbyDisplay_GetPixelsPerCssPixel(), 786 / 844);
+  canvas.width = 1688;
+  assert.equal(bridge.library.AbbyDisplay_GetPixelsPerCssPixel(), 2);
+  bridge.checkNoGlobals();
+});
+
+test('a hidden, unavailable or invalid canvas falls back to a usable display scale', () => {
+  for (const canvas of [undefined,
+    { width: 786, getBoundingClientRect: () => ({ width: 0 }) },
+    { width: 0, getBoundingClientRect: () => ({ width: 393 }) },
+    { width: NaN, getBoundingClientRect: () => ({ width: 393 }) },
+    { width: Infinity, getBoundingClientRect: () => ({ width: 393 }) },
+    { width: 786, getBoundingClientRect: () => { throw new Error('Unavailable'); } },
+  ]) {
+    const bridge = loadBridge({}, { canvas });
+    assert.equal(bridge.library.AbbyDisplay_GetPixelsPerCssPixel(), 1);
+    assert.deepEqual(bridge.removed, []);
+  }
 });
 
 test('missing token returns an allocated, null-terminated empty string', () => {
