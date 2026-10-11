@@ -35,11 +35,13 @@ Support.
 2. Install Unity **6000.6.5f1** and activate the appropriate license **as the
    account that runs the Actions service**. Verify batch validation under that
    identity; activation as a different interactive user or Linux `root` does
-   not establish that the service can use the license. For Unity Personal,
-   [Unity's documented activation method is Hub sign-in](https://docs.unity.com/en-us/engine/6000.5/manual/get-started/install-and-upgrade/licenses-and-activation/license-activation-methods);
-   the Editor's serial/password and manual activation procedures do not support
-   Personal. Do not put Unity account passwords, tokens, or license files in
-   repository variables, source, or logs.
+   not establish that the service can use the license. Unity Personal supports
+   [Hub sign-in](https://docs.unity.com/en-us/engine/6000.5/manual/get-started/install-and-upgrade/licenses-and-activation/license-activation-methods)
+   or the [official standalone Unity CLI](https://docs.unity.com/en-us/unity-cli/use-unity-cli)
+   flow below. Personal requires human browser sign-in; Unity service-account
+   authentication, Editor serial/password arguments, and manual `.alf`
+   activation do not support it. Do not put Unity account passwords, tokens,
+   or license files in repository variables, source, or logs.
 3. Register the runner for this repository with `self-hosted`, its operating
    system label (`Linux` or `Windows`), `X64`, and `unity-6000.6.5f1`.
    GitHub adds the first three labels by default; add the Unity version label.
@@ -93,6 +95,39 @@ provides the Linux editor archive. Install it so the default executable is
 installation. Ensure the service account can execute the editor and write its
 own home, cache, and checkout. Check missing libraries with `ldd` and verify
 the actual batch invocation before enabling CI.
+
+For Personal without Hub, install the standalone CLI under the Linux service
+account and put its `~/.local/bin` on `PATH`. The inspected version was
+`1.0.0-beta.13`; check `unity --version` and the installed command help. Run
+under that account, with its own home:
+
+```bash
+unity auth login
+# Complete the printed browser sign-in link before continuing.
+unity license activate --personal --accept-eula
+```
+
+The inspected beta.13 headless setup returned `NOT_SIGNED_IN` from the auth
+broker despite fresh OAuth sign-in. For that failure, retry using Unity's
+[documented direct-keyring fallback](https://docs.unity.com/en-us/unity-cli/unity-cli-reference),
+also described in the [beta.13 release notes](https://docs.unity.com/en-us/unity-cli/release-notes):
+
+```bash
+UNITY_NO_AUTH_BROKER=1 unity license activate --personal --accept-eula
+```
+
+Recheck this workaround when upgrading the CLI. If headless diagnostics report
+`keyutils`, the credential keyring is memory-backed. `unity auth status` alone
+does not prove Editor licensing or reboot persistence: verify actual batch
+validation under the Actions service account and again after a reboot before
+enabling CI.
+
+The dedicated VM is `unity-ci-01` (`192.168.4.183`, Proxmox VM 120), separate
+from the existing secret-bearing CI jobs on `192.168.4.150`. Its OS service
+account is `unity-ci`, with the default editor path above. The target runner
+name is `unity-ci-01-abby-unity-1`, with labels `self-hosted`, `Linux`, `X64`,
+and `unity-6000.6.5f1`. Confirm activation and a passing CI run using the steps
+above.
 
 Set `UNITY_VALIDATION_RUNNER_OS=Linux`. Run from the repository root:
 
