@@ -77,6 +77,160 @@ namespace AbbyCamp.Data
         public string last_active_date;
     }
 
+    // Fixed internal destinations. Neither notification content nor API
+    // pagination links can supply an arbitrary browser navigation target.
+    public enum PlayDestination
+    {
+        Today, Journal, Grades, Tasks, RewardShop, Satchel,
+        Bestiary, BestiaryHatchery, BestiaryCompanions, BestiaryMounts, BestiaryCodex,
+        TasksStudy, TasksDuties, TasksRituals, TasksMovement, TasksVentures, TasksForge, TasksTrials,
+        Skills, Badges, Lorebook, Character, Yearbook, Creations, Wages, Coffers, Savings
+    }
+
+    [Serializable]
+    public sealed class CoinBalanceDto
+    {
+        public int balance;
+        public CoinTransactionDto[] recent_transactions;
+    }
+
+    [Serializable]
+    public sealed class CoinTransactionDto
+    {
+        public int id;
+        public int user;
+        public int amount;
+        public string reason;
+        public string description;
+        public string created_at;
+    }
+
+    [Serializable]
+    public sealed class DropDto
+    {
+        public int id;
+        public int item;
+        public string item_name;
+        public string item_icon;
+        public string item_sprite_key;
+        public string item_rarity;
+        public string trigger_type;
+        public int quantity;
+        public bool was_salvaged;
+        public string created_at;
+    }
+
+    [Serializable]
+    public sealed class NotificationDto
+    {
+        public int id;
+        public string title;
+        public string message;
+        public string notification_type;
+        public bool is_read;
+        public string created_at;
+        public string link;
+    }
+
+    [Serializable]
+    public sealed class NotificationPageDto
+    {
+        public int count;
+        public string next;
+        public NotificationDto[] results;
+    }
+
+    [Serializable]
+    public sealed class UnreadCountDto { public int count; }
+
+    [Serializable]
+    public sealed class SpeciesDto
+    {
+        public int id;
+        public string name;
+        public string icon;
+        public string sprite_key;
+        public string description;
+        public string food_preference;
+    }
+
+    [Serializable]
+    public sealed class PotionDto
+    {
+        public int id;
+        public string slug;
+        public string name;
+        public string sprite_key;
+        public string color_hex;
+        public string rarity;
+        public string description;
+    }
+
+    [Serializable]
+    public sealed class OwnedPetDto
+    {
+        public int id;
+        public SpeciesDto species;
+        public PotionDto potion;
+        public string name;
+        public int growth_points;
+        public bool is_active;
+        public bool evolved_to_mount;
+        public bool is_fully_grown;
+        public string happiness_level;
+        public string last_fed_at;
+        public string created_at;
+        public string updated_at;
+
+        public string DisplayName => string.IsNullOrWhiteSpace(name) ? potion.name + " " + species.name : name;
+    }
+
+    [Serializable]
+    public sealed class OwnedMountDto
+    {
+        public int id;
+        public SpeciesDto species;
+        public PotionDto potion;
+        public bool is_active;
+        public string last_bred_at;
+        public string created_at;
+        public string updated_at;
+
+        public string DisplayName => potion.name + " " + species.name;
+    }
+
+    [Serializable]
+    public sealed class StableDto
+    {
+        public OwnedPetDto[] pets;
+        public OwnedMountDto[] mounts;
+        public int total_pets;
+        public int total_mounts;
+        public int total_possible;
+
+        public OwnedPetDto ActiveCompanion
+        {
+            get
+            {
+                if (pets != null)
+                    foreach (var pet in pets)
+                        if (pet.is_active && !pet.evolved_to_mount) return pet;
+                return null;
+            }
+        }
+
+        public OwnedMountDto ActiveMount
+        {
+            get
+            {
+                if (mounts != null)
+                    foreach (var mount in mounts)
+                        if (mount.is_active) return mount;
+                return null;
+            }
+        }
+    }
+
     [Serializable]
     public sealed class HabitTapDto
     {

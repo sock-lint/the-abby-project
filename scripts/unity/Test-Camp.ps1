@@ -18,7 +18,7 @@ $taskFixtureErr = Join-Path $taskLogDirectory 'fixture-stderr.log'
 $taskPlayerLog = Join-Path $taskLogDirectory 'runtime-smoke.log'
 $taskReport = Join-Path $taskOutput 'smoke-results.txt'
 if (Test-Path -LiteralPath $taskReport) { Remove-Item -LiteralPath $taskReport }
-$taskFixtureArguments = @(('"' + $taskFixtureScript + '"'), '--port', '0', '--ready-file', ('"' + $taskReadyFile + '"'), '--stop-file', ('"' + $taskStopFile + '"'), '--lifetime-seconds', '240', '--fail-first-log')
+$taskFixtureArguments = @(('"' + $taskFixtureScript + '"'), '--port', '0', '--ready-file', ('"' + $taskReadyFile + '"'), '--stop-file', ('"' + $taskStopFile + '"'), '--lifetime-seconds', '240', '--fail-first-mark-read')
 $taskFixture = $null
 $taskPlayer = $null
 try {
@@ -30,9 +30,9 @@ try {
     }
     if (-not (Test-Path -LiteralPath $taskReadyFile)) { throw "Fixture server did not become ready. See $taskFixtureErr" }
     $taskFixtureInfo = Get-Content -LiteralPath $taskReadyFile -Raw | ConvertFrom-Json
-    $taskPlayerArguments = @('-screen-fullscreen', '0', '-screen-width', '1600', '-screen-height', '900', '-force-d3d11', '-logFile', ('"' + $taskPlayerLog + '"'), '--abby-smoke', '--abby-smoke-output', ('"' + $taskOutput + '"'), '--abby-api-url', $taskFixtureInfo.url, '--abby-api-user', $taskFixtureInfo.username, '--abby-api-password', $taskFixtureInfo.password)
-    if ($taskFixtureInfo.fail_first_log) { $taskPlayerArguments += '--abby-smoke-failed-save' }
-    Write-Host "Testing the camp against disposable Django fixtures. Screenshots: $taskOutput"
+    $taskPlayerArguments = @('-screen-fullscreen', '0', '-screen-width', '393', '-screen-height', '852', '-force-d3d11', '-logFile', ('"' + $taskPlayerLog + '"'), '--abby-smoke', '--abby-smoke-output', ('"' + $taskOutput + '"'), '--abby-api-url', $taskFixtureInfo.url, '--abby-api-user', $taskFixtureInfo.username, '--abby-api-password', $taskFixtureInfo.password, '--abby-api-second-user', $taskFixtureInfo.second_username, '--abby-api-second-password', $taskFixtureInfo.second_password)
+    if ($taskFixtureInfo.fail_first_mark_read) { $taskPlayerArguments += '--abby-smoke-failed-mark-read' }
+    Write-Host "Testing Play against disposable Django fixtures. Screenshots: $taskOutput"
     $taskPlayer = Start-Process -FilePath $taskExecutable -ArgumentList $taskPlayerArguments -WindowStyle Hidden -PassThru
     $taskPlayerDeadline = [DateTime]::UtcNow.AddSeconds(90)
     while (-not $taskPlayer.HasExited -and [DateTime]::UtcNow -lt $taskPlayerDeadline) { Start-Sleep -Milliseconds 250 }

@@ -33,6 +33,32 @@ mergeInto(LibraryManager.library, {
   },
 
   AbbySession_OpenJournal: function () {
-    window.location.assign('/');
+    window.location.assign('/chronicle?tab=journal');
+  },
+
+  AbbySession_OpenDestination__deps: ['$UTF8ToString'],
+  AbbySession_OpenDestination: function (pathPtr) {
+    // Defense at the browser boundary as well as Unity's typed navigation.
+    // These exact root-relative routes carry no tokens or arbitrary URLs.
+    var allowed = [
+      '/', '/chronicle?tab=journal', '/chronicle?tab=grades', '/quests',
+      '/treasury?tab=bazaar', '/treasury?tab=satchel', '/bestiary',
+      '/bestiary?tab=hatchery', '/bestiary?tab=companions',
+      '/bestiary?tab=mounts', '/bestiary?tab=codex',
+      '/quests?tab=study', '/quests?tab=duties', '/quests?tab=rituals',
+      '/quests?tab=movement', '/quests?tab=ventures', '/quests?tab=forge',
+      '/quests?tab=trials', '/atlas?tab=skills', '/atlas?tab=badges',
+      '/atlas?tab=lorebook', '/sigil', '/chronicle?tab=yearbook',
+      '/chronicle?tab=sketchbook', '/treasury?tab=wages',
+      '/treasury?tab=coffers', '/treasury?tab=hoards'
+    ];
+    try {
+      var target = pathPtr ? UTF8ToString(pathPtr) : '';
+      if (allowed.indexOf(target) < 0) return 0;
+      window.location.assign(target);
+      return 1;
+    } catch (_) {
+      return 0;
+    }
   }
 });
