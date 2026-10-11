@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ApprovalQueueList from './ApprovalQueueList.jsx';
+import * as api from '../../api';
 import { server } from '../../test/server.js';
 import { spyHandler } from '../../test/spy.js';
 
@@ -131,6 +132,112 @@ describe('ApprovalQueueList', () => {
     );
     // The row stays visible on error.
     expect(screen.getByText('Dishes')).toBeInTheDocument();
+  });
+
+  describe('completion refresh lifecycle', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+    });
+
+    async function decide(action) {
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: new RegExp(`${action} dishes`, 'i') }));
+      });
+      if (action === 'reject') {
+        const sheet = screen.getByRole('dialog', { name: /reject "dishes"/i });
+        await act(async () => {
+          fireEvent.click(within(sheet).getByRole('button', { name: /^reject$/i }));
+        });
+      }
+    }
+
+    it.each(['approve', 'reject'])('cancels the pending %s refresh when the queue unmounts', async (action) => {
+      // Endpoint/payload contracts are tested above; these controlled promises
+      // isolate the lifecycle between a confirmed decision and its refresh.
+      const decision = vi.spyOn(api, `${action}ChoreCompletion`).mockResolvedValue({ ok: true });
+      const onDone = vi.fn();
+      const view = renderList([chore], onDone);
+
+      await decide(action);
+
+      expect(decision).toHaveBeenCalledOnce();
+      expect(screen.queryByText('Dishes')).not.toBeInTheDocument();
+      expect(onDone).not.toHaveBeenCalled();
+      view.unmount();
+      await act(async () => { await vi.advanceTimersByTimeAsync(180); });
+
+      expect(onDone).not.toHaveBeenCalled();
+    });
+
+    it.each(['approve', 'reject'])('does not schedule a refresh when %s resolves after unmount', async (action) => {
+      let resolveDecision;
+      const pending = new Promise((resolve) => { resolveDecision = resolve; });
+      const decision = vi.spyOn(api, `${action}ChoreCompletion`).mockReturnValue(pending);
+      const onDone = vi.fn();
+      const view = renderList([chore], onDone);
+
+      await decide(action);
+      expect(decision).toHaveBeenCalledOnce();
+      view.unmount();
+      const schedule = vi.spyOn(globalThis, 'setTimeout');
+      await act(async () => { resolveDecision({ ok: true }); await pending; });
+
+      expect(schedule).not.toHaveBeenCalledWith(expect.any(Function), 180);
+      await act(async () => { await vi.advanceTimersByTimeAsync(180); });
+      expect(onDone).not.toHaveBeenCalled();
+    });
+
+    it('refreshes a successful rejection after its animation delay while mounted', async () => {
+      vi.spyOn(api, 'rejectChoreCompletion').mockResolvedValue({ ok: true });
+      const onDone = vi.fn();
+      renderList([chore], onDone);
+
+      await decide('reject');
+      await act(async () => { await vi.advanceTimersByTimeAsync(179); });
+      expect(onDone).not.toHaveBeenCalled();
+      await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+
+      expect(onDone).toHaveBeenCalledExactlyOnceWith(chore);
+    });
+
+    it('keeps both overlapping approvals and their animation delay while mounted', async () => {
+      vi.spyOn(api, 'approveChoreCompletion').mockResolvedValue({ ok: true });
+      vi.spyOn(api, 'approveHomeworkSubmission').mockResolvedValue({ ok: true });
+      const onDone = vi.fn();
+      renderList([chore, homework], onDone);
+
+      await decide('approve');
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /approve math p\.14/i }));
+      });
+      await act(async () => { await vi.advanceTimersByTimeAsync(179); });
+      expect(onDone).not.toHaveBeenCalled();
+      await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+
+      expect(onDone.mock.calls).toEqual([[chore], [homework]]);
+    });
+
+    it('does not refresh when a bulk approval resolves after unmount', async () => {
+      let resolveDecision;
+      const pending = new Promise((resolve) => { resolveDecision = resolve; });
+      vi.spyOn(api, 'approveChoreCompletion').mockReturnValue(pending);
+      vi.spyOn(api, 'approveHomeworkSubmission').mockReturnValue(pending);
+      const onDone = vi.fn();
+      const view = renderList([chore, homework], onDone);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /approve all 2 from abby/i }));
+      });
+      view.unmount();
+      await act(async () => { resolveDecision({ ok: true }); await pending; });
+
+      expect(onDone).not.toHaveBeenCalled();
+    });
   });
 
   it('shows "Approve all (N)" per kid when ≥ 2 approvable rows are pending', () => {
