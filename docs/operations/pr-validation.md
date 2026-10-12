@@ -12,12 +12,27 @@ Forks run on hosted infrastructure without production credentials.
 | Required check | Validation | Runner |
 | --- | --- | --- |
 | `Frontend validation` | Lint, full coverage gate, web build and native staging build | GitHub-hosted Ubuntu, Node 22 |
+| `Backend validation` | Migrations and the full Django suite, including PostgreSQL transaction/locking checks | GitHub-hosted Ubuntu, Python 3.12, PostgreSQL 16, Redis 7 |
 | `API fixtures` | Real Django responses against synthetic fixtures and React consumption | GitHub-hosted Ubuntu, Python 3.12, Node 22 |
 
-Keep strict `main` protection and these two required checks. Replace the retired
+Keep strict `main` protection and these three required checks. Add
+`Backend validation` to the existing required checks after its first successful
+PR run, before enabling the [autonomous improvement loop](improvement-loop.md).
+Replace the retired
 `Browser bridge` and `Unity validation` requirements; preserve unrelated
 protection and merged-branch deletion settings. Workflow changes alone do not
 edit repository protection.
+
+The backend gate uses the same disposable PostgreSQL 16 and Redis 7 services
+as post-merge CI/CD, with synthetic credentials and no production secrets.
+PostgreSQL data lives on a bounded 1 GiB tmpfs. Migrations and the complete
+suite run with the main settings so database constraints, row locks and real
+Redis integration are checked before merge. Reproduce with isolated test
+services, `SECRET_KEY`, `DATABASE_URL`, `REDIS_URL` and `CELERY_BROKER_URL`, then
+run `python manage.py migrate --noinput` and
+`python manage.py test --noinput --verbosity=2`. Never point these commands at
+the production database. SQLite fixture checks remain useful contract checks;
+they do not satisfy this backend gate.
 
 From `frontend/`, reproduce with `npm ci`, `npm run lint`,
 `npm run test:coverage -- --maxWorkers=4` and `npm run build`. Set shell variables
