@@ -409,6 +409,11 @@ def play_state() -> dict:
     accounts = []
     for username in (USERNAME, SECOND_USERNAME):
         user = User.objects.get(username=username)
+        # Response counters are published only after Django finishes its real
+        # transaction. Sample them first: pending=1 then guarantees the rows
+        # below were read after that commit. A concurrent newer save can make
+        # this snapshot conservative, but never falsely signal committed rows.
+        activity = dict(CARE_ACTIVITY.get(user.pk, {}))
         accounts.append({
             "user_id": user.pk,
             "balance": CoinService.get_balance(user),
@@ -440,18 +445,18 @@ def play_state() -> dict:
             } for row in UserInventory.objects.filter(user=user).order_by("item_id").values(
                 "item_id", "quantity", "item__item_type", "item__name",
             )],
-            "feed_requests": CARE_ACTIVITY.get(user.pk, {}).get("feed_requests", 0),
-            "feed_commits": CARE_ACTIVITY.get(user.pk, {}).get("feed_commits", 0),
-            "hatch_requests": CARE_ACTIVITY.get(user.pk, {}).get("hatch_requests", 0),
-            "hatch_commits": CARE_ACTIVITY.get(user.pk, {}).get("hatch_commits", 0),
-            "breed_requests": CARE_ACTIVITY.get(user.pk, {}).get("breed_requests", 0),
-            "breed_commits": CARE_ACTIVITY.get(user.pk, {}).get("breed_commits", 0),
-            "expedition_start_requests": CARE_ACTIVITY.get(user.pk, {}).get("expedition_start_requests", 0),
-            "expedition_start_commits": CARE_ACTIVITY.get(user.pk, {}).get("expedition_start_commits", 0),
-            "expedition_claim_requests": CARE_ACTIVITY.get(user.pk, {}).get("expedition_claim_requests", 0),
-            "expedition_claim_commits": CARE_ACTIVITY.get(user.pk, {}).get("expedition_claim_commits", 0),
-            "care_responses_pending": CARE_ACTIVITY.get(user.pk, {}).get("care_responses_pending", 0),
-            "care_hold_timeouts": CARE_ACTIVITY.get(user.pk, {}).get("care_hold_timeouts", 0),
+            "feed_requests": activity.get("feed_requests", 0),
+            "feed_commits": activity.get("feed_commits", 0),
+            "hatch_requests": activity.get("hatch_requests", 0),
+            "hatch_commits": activity.get("hatch_commits", 0),
+            "breed_requests": activity.get("breed_requests", 0),
+            "breed_commits": activity.get("breed_commits", 0),
+            "expedition_start_requests": activity.get("expedition_start_requests", 0),
+            "expedition_start_commits": activity.get("expedition_start_commits", 0),
+            "expedition_claim_requests": activity.get("expedition_claim_requests", 0),
+            "expedition_claim_commits": activity.get("expedition_claim_commits", 0),
+            "care_responses_pending": activity.get("care_responses_pending", 0),
+            "care_hold_timeouts": activity.get("care_hold_timeouts", 0),
         })
     return {"accounts": accounts}
 
@@ -1006,6 +1011,95 @@ def check_fixture(fixture: dict, *, fail_first_log: bool = False, fail_first_mar
     assert final_expeditions["accounts"][0]["balance"] == first_claim_account["balance"] + 35
     assert final_expeditions["accounts"][0]["inventory_quantity"] == first_claim_account["inventory_quantity"] + 2
     assert final_expeditions["accounts"][1] == expedition_before["accounts"][1], "Expeditions preserve the other family's creatures, rewards and history"
+
+    # Deterministically overlap a snapshot's old expedition rows with a real
+    # new commit. Counter metadata must stay conservative for that first GET;
+    # a later pending=1 snapshot must include the committed SQL row.
+    from django.db.models.query import QuerySet
+    from apps.rpg.models import UserInventory
+
+    trail_id = fixture["play"]["held_mount_id"]
+    activity_before = dict(CARE_ACTIVITY[fixture["user_id"]])
+    rows_read, continue_snapshot = Event(), Event()
+    gated_once = False
+    original_iter = QuerySet.__iter__
+
+    def pause_after_expedition_rows(queryset):
+        nonlocal gated_once
+        if not gated_once and queryset.model is UserInventory and "item__name" in queryset.query.values_select:
+            gated_once = True
+            rows_read.set()
+            assert continue_snapshot.wait(timeout=5), "Release the overlapping fixture snapshot"
+        return original_iter(queryset)
+
+    with make_server("127.0.0.1", 0, application, server_class=DisposableFixtureServer) as barrier_server:
+        barrier_thread = Thread(target=barrier_server.serve_forever, daemon=True)
+        barrier_thread.start()
+        barrier_origin = f"http://127.0.0.1:{barrier_server.server_port}"
+
+        def barrier_probe(path, data=None):
+            request = Request(barrier_origin + path, data=json.dumps(data).encode() if data is not None else None,
+                              headers={"Content-Type": "application/json", "Authorization": f"Token {current_token}"},
+                              method="POST" if data is not None else "GET")
+            with urlopen(request, timeout=20) as response:
+                return SimpleNamespace(status_code=response.status, data=json.loads(response.read()))
+
+        snapshots, starts, barrier_errors = [], [], []
+
+        def read_overlapping_snapshot():
+            try:
+                snapshots.append(barrier_probe("/__fixture/play-state/").data)
+            except Exception as exc:
+                barrier_errors.append(exc)
+
+        def start_held_expedition():
+            try:
+                starts.append(barrier_probe(f"/api/mounts/{trail_id}/expedition/", {"tier": "long"}))
+            except Exception as exc:
+                barrier_errors.append(exc)
+
+        snapshot_thread = Thread(target=read_overlapping_snapshot)
+        start_thread = Thread(target=start_held_expedition)
+        barrier_released = False
+        try:
+            assert barrier_probe("/__fixture/hold-next-care/", {}).data["armed"] is True
+            with patch.object(QuerySet, "__iter__", pause_after_expedition_rows):
+                snapshot_thread.start()
+                assert rows_read.wait(timeout=5), "The first snapshot reaches its old-row boundary"
+                start_thread.start()
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline and CARE_ACTIVITY[fixture["user_id"]].get("care_responses_pending", 0) != 1:
+                    time.sleep(.01)
+                assert CARE_ACTIVITY[fixture["user_id"]].get("care_responses_pending", 0) == 1
+                continue_snapshot.set()
+                snapshot_thread.join(timeout=5)
+            assert not snapshot_thread.is_alive() and not barrier_errors and len(snapshots) == 1
+            first_snapshot = snapshots[0]["accounts"][0]
+            assert first_snapshot["care_responses_pending"] == 0
+            assert first_snapshot["expedition_start_commits"] == activity_before["expedition_start_commits"]
+            assert not any(row["mount_id"] == trail_id and row["status"] == "active" for row in first_snapshot["expeditions"])
+            fresh_snapshot = barrier_probe("/__fixture/play-state/").data["accounts"][0]
+            assert fresh_snapshot["care_responses_pending"] == 1 and fresh_snapshot["care_hold_timeouts"] == 0
+            assert fresh_snapshot["expedition_start_commits"] == activity_before["expedition_start_commits"] + 1
+            assert any(row["mount_id"] == trail_id and row["status"] == "active" for row in fresh_snapshot["expeditions"])
+            assert barrier_probe("/__fixture/release-care/", {}).data["released"] is True
+            barrier_released = True
+            start_thread.join(timeout=5)
+            assert not start_thread.is_alive() and not barrier_errors and len(starts) == 1 and starts[0].status_code == 201
+            assert barrier_probe("/__fixture/play-state/").data["accounts"][0]["care_hold_timeouts"] == 0
+        finally:
+            continue_snapshot.set()
+            if start_thread.is_alive() and not barrier_released:
+                try:
+                    barrier_probe("/__fixture/release-care/", {})
+                except Exception:
+                    pass
+            if start_thread.ident is not None:
+                start_thread.join(timeout=20)
+            if snapshot_thread.ident is not None:
+                snapshot_thread.join(timeout=5)
+            barrier_server.shutdown()
+            barrier_thread.join(timeout=5)
 
     def check_breed_grant(before_state, after_state, parent_ids, potion_item_id):
         previous, current = before_state["accounts"][0], after_state["accounts"][0]

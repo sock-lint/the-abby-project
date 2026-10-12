@@ -400,9 +400,12 @@ namespace AbbyCamp.UI
             if (!IsDemo) StartCoroutine(LoadSection(target));
         }
 
-        private IEnumerator LoadSection(Section target)
+        private IEnumerator LoadSection(Section target, bool allowCareRefresh = false)
         {
-            if (IsDemo || sectionLoading || IsBusy) yield break;
+            // A confirmed care save owns the busy flag through its final reads.
+            // Only that save may refresh internally; ordinary input stays locked
+            // until its outer coroutine completes and releases careInFlight.
+            if (IsDemo || sectionLoading || busy || markingRead || (careInFlight && !allowCareRefresh)) yield break;
             var epoch = sessionEpoch;
             var view = viewVersion;
             sectionLoading = true;
@@ -846,8 +849,7 @@ namespace AbbyCamp.UI
                     breedReceipt = saved;
                     const string confirmed = "Breeding saved · Your egg and potion are in your items.";
                     companion?.Celebrate(); Toast(confirmed, 7);
-                    careInFlight = false;
-                    yield return LoadSection(Section.Bestiary);
+                    yield return LoadSection(Section.Bestiary, allowCareRefresh: true);
                     if (!Current(epoch) || view != viewVersion) yield break;
                     bestiaryStatus = confirmed + (careDataReady ? "" : " · Refresh to load your updated collection.");
                     nextHomeRefresh = 0;
@@ -1037,8 +1039,7 @@ namespace AbbyCamp.UI
                         ? "Expedition claimed · Your finds are saved." : "This expedition was already claimed.";
                     if (claimed != null && claimed.freshly_claimed) companion?.Celebrate();
                     Toast(confirmed, 7);
-                    careInFlight = false;
-                    yield return LoadSection(Section.Bestiary);
+                    yield return LoadSection(Section.Bestiary, allowCareRefresh: true);
                     if (!Current(epoch) || view != viewVersion) yield break;
                     bestiaryStatus = confirmed + (careDataReady ? "" : " · Refresh to load your updated collection.");
                     nextHomeRefresh = 0;
@@ -1230,8 +1231,7 @@ namespace AbbyCamp.UI
                         : "Feeding saved · " + fed.new_growth + " / 100 growth"
                         : "Your active " + (mount ? "mount" : "companion") + " is saved.";
                     companion?.Celebrate(); Toast(confirmed, 7);
-                    careInFlight = false;
-                    yield return LoadSection(Section.Bestiary);
+                    yield return LoadSection(Section.Bestiary, allowCareRefresh: true);
                     if (!Current(epoch) || view != viewVersion) yield break;
                     bestiaryStatus = confirmed + (careDataReady ? "" : " · Refresh to load your updated collection.");
                     nextHomeRefresh = 0;

@@ -1178,13 +1178,17 @@ namespace AbbyCamp.Validation
                 yield return null;
             } while (Time.realtimeSinceStartup < observationDeadline);
             var committed = Account(snapshot, userId);
+            int expectedCommits = (claiming ? before.expedition_claim_commits : before.expedition_start_commits) + 1;
+            int actualCommits = claiming ? committed.expedition_claim_commits : committed.expedition_start_commits;
+            int matchingRows = Array.FindAll(committed.expeditions, row => claiming
+                ? row.id == claimId && row.status == "claimed"
+                : row.mount_id == startMountId && row.status == "active").Length;
             Check(committed.care_responses_pending == 1 && committed.care_hold_timeouts == 0 && ui.IsBusy && ui.CareNeedsReview
-                && (claiming ? committed.expedition_claim_commits == before.expedition_claim_commits + 1
-                    && Array.Find(committed.expeditions, row => row.id == claimId && row.status == "claimed") != null
-                    : committed.expedition_start_commits == before.expedition_start_commits + 1
-                    && Array.Find(committed.expeditions, row => row.mount_id == startMountId && row.status == "active") != null),
+                && actualCommits == expectedCommits && matchingRows > 0,
                 "Account replacement observes a real committed expedition " + (claiming ? "claim" : "start")
-                + " before acknowledgement; pending=" + committed.care_responses_pending + ", timeouts=" + committed.care_hold_timeouts);
+                + " before acknowledgement; pending=" + committed.care_responses_pending + ", timeouts=" + committed.care_hold_timeouts
+                + ", commits=" + actualCommits + ", expected=" + expectedCommits + ", matchingRows=" + matchingRows
+                + ", totalRows=" + committed.expeditions.Length + ", busy=" + ui.IsBusy + ", review=" + ui.CareNeedsReview);
             api.ClearSession();
             var clear = typeof(CampPrototypeController).GetMethod("ClearPresentation", BindingFlags.Instance | BindingFlags.NonPublic);
             Check(clear != null, "Expedition harness can reproduce browser presentation clearing");
