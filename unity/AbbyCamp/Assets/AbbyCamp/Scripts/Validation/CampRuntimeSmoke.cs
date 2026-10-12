@@ -24,7 +24,7 @@ namespace AbbyCamp.Validation
         };
         private readonly List<string> checks = new List<string>();
         private readonly List<string> runtimeErrors = new List<string>();
-        private bool failed, failFirstMarkRead, ambiguousFeed, ambiguousHatch;
+        private bool failed, failFirstMarkRead, ambiguousFeed, ambiguousHatch, ambiguousExpeditionStart, ambiguousExpeditionClaim;
         private string output, fixtureUrl, username, password, secondUsername, secondPassword;
 
         [Serializable] private sealed class FixtureState { public FixtureAccount[] accounts; }
@@ -32,16 +32,28 @@ namespace AbbyCamp.Validation
         {
             public int user_id, balance, inventory_quantity, skill_xp, notification_count;
             public int feed_requests, feed_commits, hatch_requests, hatch_commits, care_responses_pending, care_hold_timeouts;
+            public int expedition_start_requests, expedition_start_commits, expedition_claim_requests, expedition_claim_commits;
             public int[] ledger_ids, drop_ids, unread_ids;
+            public FixtureLedger[] ledger;
             public FixturePet[] pets;
             public FixtureMount[] mounts;
             public FixtureFood[] food;
             public FixtureItem[] items;
+            public FixtureExpedition[] expeditions;
         }
         [Serializable] private sealed class FixturePet { public int id, growth_points, species_id, potion_id; public bool is_active, evolved_to_mount; }
-        [Serializable] private sealed class FixtureMount { public int id; public bool is_active; }
+        [Serializable] private sealed class FixtureMount { public int id; public bool is_active; public string potion_name; }
         [Serializable] private sealed class FixtureFood { public int item_id, quantity; }
         [Serializable] private sealed class FixtureItem { public int item_id, quantity; public string item_type, name; }
+        [Serializable] private sealed class FixtureLedger { public int id, amount; public string reason; }
+        [Serializable] private sealed class FixtureExpedition
+        {
+            public int id, mount_id; public bool is_ready;
+            public string tier, status, started_at, returns_at, claimed_at;
+            public FixtureLoot loot;
+        }
+        [Serializable] private sealed class FixtureLoot { public int coins; public FixtureLootItem[] items; }
+        [Serializable] private sealed class FixtureLootItem { public int item_id, quantity; public string name, rarity, item_type, icon, sprite_key; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Bootstrap()
@@ -59,6 +71,8 @@ namespace AbbyCamp.Validation
             instance.failFirstMarkRead = Array.IndexOf(args, "--abby-smoke-failed-mark-read") >= 0;
             instance.ambiguousFeed = Array.IndexOf(args, "--abby-smoke-ambiguous-feed") >= 0;
             instance.ambiguousHatch = Array.IndexOf(args, "--abby-smoke-ambiguous-hatch") >= 0;
+            instance.ambiguousExpeditionStart = Array.IndexOf(args, "--abby-smoke-ambiguous-expedition-start") >= 0;
+            instance.ambiguousExpeditionClaim = Array.IndexOf(args, "--abby-smoke-ambiguous-expedition-claim") >= 0;
             Directory.CreateDirectory(instance.output);
             Application.runInBackground = true;
         }
@@ -165,7 +179,7 @@ namespace AbbyCamp.Validation
                 yield return api.FetchStable(value => stable = value, error => problem = error);
                 Check(problem == null && coins != null && coins.balance == initial.balance && drops != null && drops.Length == initial.drop_ids.Length,
                     "Connected home reads persisted coins and drop history");
-                Check(stable != null && stable.pets.Length == 2 && stable.mounts.Length == 2 && stable.pets[0].name == "Peep",
+                Check(stable != null && stable.pets.Length == 2 && stable.mounts.Length == initial.mounts.Length && stable.pets[0].name == "Peep",
                     "The server returns the child's real companions and mounts");
                 int stableReplies = 0, foodReplies = 0;
                 ApiError simultaneousReadError = null;
@@ -234,6 +248,7 @@ namespace AbbyCamp.Validation
                 yield return CloseSection(ui, garden, "Inbox");
                 yield return ExerciseCare(ui, garden, api, primaryUser, primaryPet, primaryMount, value => before = value);
                 yield return ExerciseHatching(ui, garden, api, primaryUser, value => before = value);
+                yield return ExerciseExpeditions(ui, garden, api, primaryUser, primaryMount, value => before = value);
                 Click("AccountButton");
                 yield return null;
                 Click("DisconnectButton");
@@ -623,6 +638,328 @@ namespace AbbyCamp.Validation
             yield return Capture("hatch-final-collection-portrait.png");
             yield return CloseSection(ui, garden, "Bestiary");
             complete(snapshot);
+        }
+
+        private IEnumerator ExerciseExpeditions(CampPrototypeController ui, CampGardenInput garden, AbbyApiClient api,
+            int userId, int freeMountId, Action<FixtureState> complete)
+        {
+            FixtureState snapshot = null;
+            yield return ReadFixtureState(value => snapshot = value);
+            var before = Account(snapshot, userId);
+            var otherBefore = Array.Find(snapshot.accounts, account => account.user_id != userId);
+            var ready = Array.Find(before.expeditions, row => row.status == "active" && row.is_ready);
+            var cooldown = Array.Find(before.expeditions, row => row.status == "claimed");
+            var heldMount = Array.Find(before.mounts, row => row.potion_name == "Peep Trail");
+            Check(ready != null && ready.loot.coins == 35 && ready.loot.items.Length == 1 && ready.loot.items[0].quantity == 2
+                && cooldown != null && heldMount != null && before.expedition_start_requests == 0 && before.expedition_claim_requests == 0,
+                "Disposable expeditions contain free, active, ready and claimed-today mounts with locked payout history");
+            yield return OpenSection(ui, garden, "Bestiary");
+            yield return RevealButton("ExpeditionsButton");
+            Click("ExpeditionsButton"); yield return null;
+            Check(ui.ExpeditionsOpen && HasNamed("ViewExpedition_" + ready.id) && HasNamed("ExpeditionMount_" + freeMountId),
+                "Mount expeditions open natively with owned free mounts and existing trips");
+            yield return ReadFixtureState(value => snapshot = value);
+            CheckExpeditionReadUnchanged(before, Account(snapshot, userId), "Opening expeditions starts and claims nothing");
+            ApiError problem = null;
+            yield return api.StartExpedition(otherBefore.mounts[0].id, "short", _ => { }, error => problem = error);
+            Check(problem != null && !problem.OutcomeUnknown, "A foreign mount never passes client ownership eligibility");
+            problem = null;
+            yield return api.StartExpedition(freeMountId, "marathon", _ => { }, error => problem = error);
+            Check(problem != null && !problem.OutcomeUnknown, "An unsupported expedition tier never dispatches");
+            yield return PlanExpedition(ui, freeMountId, "short", "2");
+            yield return Capture("expedition-start-choice-portrait.png");
+            Click("ConfirmExpeditionStartButton");
+            Check(ui.IsBusy && ui.CareNeedsReview, "Expedition start persists its marker before dispatch and blocks duplicate taps");
+            Canvas.ForceUpdateCanvases();
+            CheckFirstSheetRow("BestiaryStatus", "Starting from a scrolled plan brings saving feedback into view");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "First expedition start finishes");
+            yield return ReadFixtureState(value => snapshot = value);
+            var started = Account(snapshot, userId);
+            var trip = Array.Find(started.expeditions, row => row.mount_id == freeMountId && row.status == "active");
+            Check(trip != null && trip.tier == "short" && !trip.is_ready && started.expedition_start_requests == 1
+                && started.expedition_start_commits == 1 && started.expeditions.Length == before.expeditions.Length + 1,
+                "One explicit two-hour choice creates exactly one server-owned expedition");
+            CheckExpeditionRewardsUnchanged(before, started, "Starting a trip pays no coins, items, drops or XP");
+            if (ambiguousExpeditionStart)
+            {
+                Check(ui.CareNeedsReview && HasNamed("CareReviewMessage") && FindButton("AcknowledgeCareButton")?.interactable == false,
+                    "A lost start response keeps every creature action blocked until complete refresh and review");
+                Canvas.ForceUpdateCanvases();
+                CheckFirstSheetRow("BestiaryStatus", "An interrupted start keeps its next-step feedback visible");
+                yield return Capture("expedition-start-interrupted-portrait.png");
+                Click("RefreshCareButton");
+                yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Uncertain start collection, items, history and coins refresh finish");
+                Check(ui.CareNeedsReview && FindButton("AcknowledgeCareButton")?.interactable == true,
+                    "Four complete server reads make expedition review available without replaying start");
+                yield return ReadFixtureState(value => snapshot = value);
+                CheckExpeditionReadUnchanged(started, Account(snapshot, userId), "Refreshing an uncertain start never sends the mount again");
+                yield return RevealButton("AcknowledgeCareButton"); Click("AcknowledgeCareButton"); yield return null;
+                Check(!ui.CareNeedsReview, "Explicit expedition review clears only the local uncertainty marker");
+            }
+            yield return ExpeditionOverview(ui);
+            Click("ViewExpedition_" + trip.id); yield return null;
+            Check(!api.CanClaimExpedition(trip.id) && FindButton("ConfirmExpeditionClaimButton")?.interactable == false
+                && !string.IsNullOrWhiteSpace(NamedText("ExpeditionCountdown")) && !string.IsNullOrWhiteSpace(NamedText("ExpeditionReturnsAt")),
+                "An active future trip shows a server countdown and return time while claiming stays disabled");
+            problem = null;
+            yield return api.ClaimExpedition(trip.id, _ => { }, error => problem = error);
+            Check(problem != null && !problem.OutcomeUnknown, "A too-early claim cannot dispatch from a fetched future trip");
+            Click("RefreshBestiaryButton");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Expedition countdown refresh finishes");
+            yield return ReadFixtureState(value => snapshot = value);
+            CheckExpeditionReadUnchanged(started, Account(snapshot, userId), "Countdown refresh changes no expedition or reward state");
+            yield return ExpeditionOverview(ui);
+            yield return PlanExpedition(ui, cooldown.mount_id, "short", "2");
+            Click("ConfirmExpeditionStartButton");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Server daily-rest rejection finishes");
+            yield return ReadFixtureState(value => snapshot = value);
+            var rested = Account(snapshot, userId);
+            Check(rested.expedition_start_requests == 2 && rested.expedition_start_commits == 1 && !ui.CareNeedsReview
+                && NamedText("BestiaryStatus").Contains("already been out today"),
+                "The server rejects a claimed-today mount without inferring the child's local date");
+            CheckExpeditionRewardsUnchanged(started, rested, "A daily-rest rejection pays and consumes nothing");
+            Click("RefreshBestiaryButton");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Rejected expedition eligibility refresh finishes");
+            yield return ExpeditionOverview(ui);
+            Click("ViewExpedition_" + trip.id); yield return null;
+            yield return FinishFixtureExpedition(trip.id);
+            Check(!api.CanClaimExpedition(trip.id) && FindButton("ConfirmExpeditionClaimButton")?.interactable == false,
+                "A changed server return time cannot enable claim before an explicit accepted server refresh");
+            Click("RefreshBestiaryButton");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Ready expedition refresh finishes");
+            yield return RevealButton("ConfirmExpeditionClaimButton");
+            Click("ConfirmExpeditionClaimButton");
+            Check(ui.IsBusy && ui.CareNeedsReview, "Claim persists its marker before dispatch and blocks another payout tap");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "First expedition claim finishes");
+            yield return ReadFixtureState(value => snapshot = value);
+            var paid = Account(snapshot, userId);
+            Check(paid.expedition_claim_requests == 1 && paid.expedition_claim_commits == 1,
+                "One explicit ready claim records exactly one materialization");
+            CheckExpeditionPayout(rested, paid, trip, "The first claim pays only its locked coins and item slots");
+            if (ambiguousExpeditionClaim)
+            {
+                Check(ui.CareNeedsReview && FindButton("AcknowledgeCareButton")?.interactable == false,
+                    "A lost claim acknowledgement preserves uncertainty after the real payout");
+                Canvas.ForceUpdateCanvases();
+                CheckFirstSheetRow("BestiaryStatus", "An interrupted claim keeps review feedback visible");
+                yield return Capture("expedition-claim-interrupted-portrait.png");
+                Click("RefreshCareButton");
+                yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Uncertain claim balances, inventory and history refresh finish");
+                Check(FindButton("AcknowledgeCareButton")?.interactable == true && !api.CanClaimExpedition(trip.id),
+                    "Refreshed claimed history and balances enable review while the paid trip stays unclaimable");
+                yield return ReadFixtureState(value => snapshot = value);
+                CheckExpeditionReadUnchanged(paid, Account(snapshot, userId), "Uncertain claim refresh never repeats the payout");
+                yield return RevealButton("AcknowledgeCareButton"); Click("AcknowledgeCareButton"); yield return null;
+            }
+            problem = null;
+            yield return api.ClaimExpedition(trip.id, _ => { }, error => problem = error);
+            Check(problem != null && !problem.OutcomeUnknown && FindButton("ConfirmExpeditionClaimButton")?.interactable != true,
+                "A claimed trip cannot expose a second enabled claim or dispatch another payout");
+            yield return ExpeditionOverview(ui);
+            Click("ViewExpedition_" + ready.id); yield return null;
+            yield return Resize(852, 393);
+            yield return RevealButton("ConfirmExpeditionClaimButton");
+            yield return Capture("expedition-ready-claim-landscape.png");
+            yield return Resize(393, 852);
+            Click("ConfirmExpeditionClaimButton");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Seeded ready trip confirms its claim");
+            yield return ReadFixtureState(value => snapshot = value);
+            var confirmed = Account(snapshot, userId);
+            Check(confirmed.expedition_claim_requests == 2 && confirmed.expedition_claim_commits == 2 && !ui.CareNeedsReview,
+                "A distinct ready trip confirms one new payout without retaining an uncertainty marker");
+            CheckExpeditionPayout(paid, confirmed, ready, "Confirmed standard return materializes exactly 35 coins and two keepsakes");
+            Canvas.ForceUpdateCanvases();
+            CheckFirstSheetRow("BestiaryStatus", "A confirmed claim brings its saved receipt into the visible viewport");
+            yield return Capture("expedition-claim-confirmed-portrait.png");
+            yield return ExpeditionOverview(ui);
+            yield return PlanExpedition(ui, heldMount.id, "long", "8");
+            yield return HeldExpeditionAccountReplacement(ui, garden, api, userId, heldMount.id, 0, value => snapshot = value);
+            var heldStart = Account(snapshot, userId);
+            var heldTrip = Array.Find(heldStart.expeditions, row => row.mount_id == heldMount.id && row.status == "active");
+            Check(heldTrip != null && heldTrip.tier == "long" && heldStart.expedition_start_requests == 3
+                && heldStart.expedition_start_commits == 2, "Held eight-hour start preserves the exact explicit tier and one saved trip");
+            yield return FinishFixtureExpedition(heldTrip.id);
+            Click("RefreshBestiaryButton");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Held trip's ready state refresh finishes");
+            yield return ExpeditionOverview(ui); Click("ViewExpedition_" + heldTrip.id); yield return null;
+            yield return RevealButton("ConfirmExpeditionClaimButton");
+            yield return HeldExpeditionAccountReplacement(ui, garden, api, userId, 0, heldTrip.id, value => snapshot = value);
+            var final = Account(snapshot, userId);
+            CheckExpeditionPayout(heldStart, final, heldTrip, "A held claim reconciles its single committed payout after account replacement");
+            Check(final.expedition_start_requests == 3 && final.expedition_start_commits == 2
+                && final.expedition_claim_requests == 3 && final.expedition_claim_commits == 3 && final.care_hold_timeouts == 0,
+                "Expedition review and account replacement never replay a start or claim");
+            CheckExpeditionReadUnchanged(otherBefore, Account(snapshot, otherBefore.user_id), "All expedition actions preserve the other family's entire history and rewards");
+            Click("BackExpeditionCollectionButton"); yield return null;
+            Check(!ui.ExpeditionsOpen, "Expeditions return to the native creature collection");
+            yield return CloseSection(ui, garden, "Bestiary");
+            complete(snapshot);
+        }
+
+        private IEnumerator ExpeditionOverview(CampPrototypeController ui)
+        {
+            if (FindButton("BackExpeditionsButton") != null) Click("BackExpeditionsButton");
+            yield return null;
+            Check(ui.ExpeditionsOpen, "Trip details return to the native expedition overview");
+        }
+
+        private IEnumerator PlanExpedition(CampPrototypeController ui, int mountId, string tier, string hours)
+        {
+            yield return RevealButton("ExpeditionMount_" + mountId);
+            Click("ExpeditionMount_" + mountId); yield return null;
+            Check(ui.ExpeditionsOpen && FindButton("ConfirmExpeditionStartButton") == null
+                && FindButton("ExpeditionTier_short") != null && FindButton("ExpeditionTier_standard") != null && FindButton("ExpeditionTier_long") != null,
+                "An owned free mount requires an explicit choice among all three expedition tiers");
+            yield return RevealButton("ExpeditionTier_" + tier); Click("ExpeditionTier_" + tier);
+            yield return RevealButton("ConfirmExpeditionStartButton");
+            Check(FindButton("ConfirmExpeditionStartButton").GetComponentInChildren<Text>().text.Contains(hours),
+                "The start confirmation discloses the selected expedition duration");
+        }
+
+        private IEnumerator FinishFixtureExpedition(int expeditionId)
+        {
+            using (var finish = UnityWebRequest.Post(fixtureUrl.TrimEnd('/') + "/__fixture/finish-expedition/" + expeditionId + "/", "{}", "application/json"))
+            {
+                finish.timeout = 10;
+                yield return finish.SendWebRequest();
+                Check(finish.result == UnityWebRequest.Result.Success, "Disposable fixture advances only a designated active expedition's return time");
+            }
+        }
+
+        private IEnumerator HeldExpeditionAccountReplacement(CampPrototypeController ui, CampGardenInput garden, AbbyApiClient api,
+            int userId, int startMountId, int claimId, Action<FixtureState> complete)
+        {
+            FixtureState snapshot = null;
+            yield return ReadFixtureState(value => snapshot = value);
+            var before = Account(snapshot, userId);
+            var otherBefore = Array.Find(snapshot.accounts, account => account.user_id != userId);
+            bool claiming = claimId > 0;
+            using (var arm = UnityWebRequest.Post(fixtureUrl.TrimEnd('/') + "/__fixture/hold-next-care/", "{}", "application/json"))
+            {
+                arm.timeout = 10;
+                yield return arm.SendWebRequest();
+                Check(arm.result == UnityWebRequest.Result.Success, "Fixture arms an expedition acknowledgement rendezvous");
+            }
+            Click(claiming ? "ConfirmExpeditionClaimButton" : "ConfirmExpeditionStartButton");
+            float observationDeadline = Time.realtimeSinceStartup + 10;
+            do
+            {
+                yield return ReadFixtureState(value => snapshot = value);
+                if (Account(snapshot, userId).care_responses_pending == 1) break;
+                yield return null;
+            } while (Time.realtimeSinceStartup < observationDeadline);
+            var committed = Account(snapshot, userId);
+            Check(committed.care_responses_pending == 1 && committed.care_hold_timeouts == 0 && ui.IsBusy && ui.CareNeedsReview
+                && (claiming ? committed.expedition_claim_commits == before.expedition_claim_commits + 1
+                    && Array.Find(committed.expeditions, row => row.id == claimId && row.status == "claimed") != null
+                    : committed.expedition_start_commits == before.expedition_start_commits + 1
+                    && Array.Find(committed.expeditions, row => row.mount_id == startMountId && row.status == "active") != null),
+                "Account replacement observes a real committed expedition " + (claiming ? "claim" : "start")
+                + " before acknowledgement; pending=" + committed.care_responses_pending + ", timeouts=" + committed.care_hold_timeouts);
+            api.ClearSession();
+            var clear = typeof(CampPrototypeController).GetMethod("ClearPresentation", BindingFlags.Instance | BindingFlags.NonPublic);
+            Check(clear != null, "Expedition harness can reproduce browser presentation clearing");
+            clear.Invoke(ui, null); yield return null;
+            Check(ui.IsDemo && !ui.IsBusy && !ui.IsModalOpen && !ui.ExpeditionsOpen,
+                "Account replacement clears expedition choices, details and pending controls");
+            yield return Connect(ui, garden, secondUsername, secondPassword);
+            yield return OpenSection(ui, garden, "Bestiary"); Click("ExpeditionsButton"); yield return null;
+            var otherReady = Array.Find(otherBefore.expeditions, row => row.status == "active" && row.is_ready);
+            Check(ui.ExpeditionsOpen && !ui.CareNeedsReview && HasNamed("ViewExpedition_" + otherReady.id),
+                "Replacement account displays only its own expedition history without inherited uncertainty");
+            foreach (var row in committed.expeditions)
+                Check(!HasNamed("ViewExpedition_" + row.id), "Previous account expedition is absent: " + row.id);
+            Click("ViewExpedition_" + otherReady.id); yield return null;
+            yield return ReadFixtureState(value => snapshot = value);
+            Check(Account(snapshot, userId).care_responses_pending == 1 && Account(snapshot, userId).care_hold_timeouts == 0
+                && HasNamed("ExpeditionStatus_" + otherReady.id),
+                "Old expedition acknowledgement remains held until replacement-account details are displayed");
+            yield return ReleaseHeldCare();
+            float releaseDeadline = Time.realtimeSinceStartup + 10;
+            do
+            {
+                yield return ReadFixtureState(value => snapshot = value);
+                if (Account(snapshot, userId).care_responses_pending == 0) break;
+                yield return null;
+            } while (Time.realtimeSinceStartup < releaseDeadline);
+            Check(Account(snapshot, userId).care_responses_pending == 0 && Account(snapshot, userId).care_hold_timeouts == 0
+                && !ui.IsBusy && !ui.CareNeedsReview && HasNamed("ExpeditionStatus_" + otherReady.id),
+                "Late old-account expedition receipt cannot replace the new account's details or review controls");
+            CheckExpeditionReadUnchanged(otherBefore, Account(snapshot, otherBefore.user_id), "Held expedition actions never reach the replacement family");
+            yield return CloseSection(ui, garden, "Bestiary");
+            Click("AccountButton"); yield return null; Click("DisconnectButton"); yield return null;
+            yield return Connect(ui, garden, username, password);
+            Check(ui.CareNeedsReview, "Returning to the original account preserves its interrupted expedition marker");
+            yield return OpenSection(ui, garden, "Bestiary"); Click("ExpeditionsButton"); yield return null;
+            Check(FindButton("AcknowledgeCareButton")?.interactable == true,
+                "Complete original-account expedition, inventory, collection and balance reads enable explicit review");
+            Click("RefreshCareButton");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Returning account expedition review refresh finishes");
+            yield return RevealButton("AcknowledgeCareButton"); Click("AcknowledgeCareButton"); yield return null;
+            yield return ReadFixtureState(value => snapshot = value);
+            var after = Account(snapshot, userId);
+            CheckExpeditionReadUnchanged(committed, after, "Held expedition refresh and acknowledgement replay neither start nor payout");
+            Check(!ui.CareNeedsReview && after.care_hold_timeouts == 0, "Explicit original-account review clears the marker with no hold expiration");
+            yield return Capture(claiming ? "expedition-held-claim-reviewed.png" : "expedition-held-start-reviewed.png");
+            complete(snapshot);
+        }
+
+        private void CheckExpeditionRewardsUnchanged(FixtureAccount before, FixtureAccount after, string label)
+        {
+            Check(before.inventory_quantity == after.inventory_quantity && before.items.Length == after.items.Length, label);
+            foreach (var item in before.items) Check(ItemQuantity(after, item.item_id) == item.quantity, label + ": item " + item.item_id);
+            CheckRewardLedgersUnchanged(before, after, label);
+        }
+
+        private void CheckExpeditionReadUnchanged(FixtureAccount before, FixtureAccount after, string label)
+        {
+            Check(before.expedition_start_requests == after.expedition_start_requests && before.expedition_start_commits == after.expedition_start_commits
+                && before.expedition_claim_requests == after.expedition_claim_requests && before.expedition_claim_commits == after.expedition_claim_commits
+                && before.expeditions.Length == after.expeditions.Length, label);
+            foreach (var row in before.expeditions)
+            {
+                var current = Array.Find(after.expeditions, item => item.id == row.id);
+                Check(current != null && current.mount_id == row.mount_id && current.status == row.status && current.tier == row.tier
+                    && current.started_at == row.started_at && current.returns_at == row.returns_at && current.claimed_at == row.claimed_at
+                    && current.loot.coins == row.loot.coins && current.loot.items.Length == row.loot.items.Length, label + ": trip " + row.id);
+                for (int index = 0; index < row.loot.items.Length; index++)
+                {
+                    var slot = row.loot.items[index];
+                    var saved = current.loot.items[index];
+                    Check(saved.item_id == slot.item_id && saved.quantity == slot.quantity && saved.name == slot.name
+                        && saved.rarity == slot.rarity && saved.item_type == slot.item_type && saved.sprite_key == slot.sprite_key,
+                        label + ": locked slot " + row.id + "/" + index);
+                }
+            }
+            Check(before.mounts.Length == after.mounts.Length, label + ": mount collection count");
+            foreach (var mount in before.mounts)
+            {
+                var current = Array.Find(after.mounts, row => row.id == mount.id);
+                Check(current != null && current.is_active == mount.is_active && current.potion_name == mount.potion_name,
+                    label + ": mount " + mount.id);
+            }
+            CheckExpeditionRewardsUnchanged(before, after, label);
+            CheckHatchUnchanged(before, after, label);
+        }
+
+        private void CheckExpeditionPayout(FixtureAccount before, FixtureAccount after, FixtureExpedition trip, string label)
+        {
+            int quantity = 0;
+            var itemTotals = new Dictionary<int, int>();
+            foreach (var slot in trip.loot.items)
+            {
+                quantity += slot.quantity;
+                if (!itemTotals.ContainsKey(slot.item_id)) itemTotals.Add(slot.item_id, 0);
+                itemTotals[slot.item_id] += slot.quantity;
+            }
+            Check(after.balance == before.balance + trip.loot.coins && after.inventory_quantity == before.inventory_quantity + quantity
+                && after.ledger.Length == before.ledger.Length + 1 && after.ledger[after.ledger.Length - 1].reason == "expedition"
+                && after.ledger[after.ledger.Length - 1].amount == trip.loot.coins && after.skill_xp == before.skill_xp
+                && EqualIds(after.drop_ids, before.drop_ids), label);
+            foreach (var item in itemTotals) Check(ItemQuantity(after, item.Key) == ItemQuantity(before, item.Key) + item.Value,
+                label + ": locked item " + item.Key);
+            var saved = Array.Find(after.expeditions, row => row.id == trip.id);
+            Check(saved != null && saved.status == "claimed" && !string.IsNullOrEmpty(saved.claimed_at), label + ": claimed history is persisted");
         }
 
         private IEnumerator ReleaseHeldCare()

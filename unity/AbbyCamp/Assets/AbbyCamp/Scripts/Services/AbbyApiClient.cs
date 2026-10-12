@@ -34,7 +34,9 @@ namespace AbbyCamp.Services
         private readonly Dictionary<int, OwnedPetDto> knownPets = new Dictionary<int, OwnedPetDto>();
         private readonly Dictionary<int, OwnedMountDto> knownMounts = new Dictionary<int, OwnedMountDto>();
         private readonly Dictionary<int, InventoryEntryDto> knownInventory = new Dictionary<int, InventoryEntryDto>();
-        private bool stableLoaded, inventoryLoaded;
+        private readonly Dictionary<int, ExpeditionDto> knownExpeditions = new Dictionary<int, ExpeditionDto>();
+        private readonly HashSet<int> readyExpeditions = new HashSet<int>();
+        private bool stableLoaded, inventoryLoaded, expeditionsLoaded;
         private int careVersion;
 
         public string BaseUrl => baseUrl;
@@ -61,6 +63,7 @@ namespace AbbyCamp.Services
         [Serializable] private sealed class TapBody { public int direction = 1; }
         [Serializable] private sealed class FeedBody { public int food_item_id; }
         [Serializable] private sealed class HatchBody { public int egg_item_id; public int potion_item_id; }
+        [Serializable] private sealed class ExpeditionStartBody { public string tier; }
 
         private void Awake()
         {
@@ -560,8 +563,8 @@ namespace AbbyCamp.Services
         private void ClearCareEligibility()
         {
             careVersion++;
-            knownPets.Clear(); knownMounts.Clear(); knownInventory.Clear();
-            stableLoaded = inventoryLoaded = false;
+            knownPets.Clear(); knownMounts.Clear(); knownInventory.Clear(); knownExpeditions.Clear(); readyExpeditions.Clear();
+            stableLoaded = inventoryLoaded = expeditionsLoaded = false;
         }
 
         /// <summary>Consumes one owned egg and potion once. A malformed or lost
@@ -649,6 +652,89 @@ namespace AbbyCamp.Services
                 {
                     result = ApiContract.ParseMountActivation(json, mount);
                 }
+                catch (Exception exception) { failure?.Invoke(InvalidResponse(exception, true)); return; }
+                success?.Invoke(result);
+            }, failure);
+        }
+
+        /// <summary>Reads the complete, self-scoped expedition history. Ready
+        /// eligibility comes only from this accepted server snapshot.</summary>
+        public IEnumerator FetchExpeditions(Action<ExpeditionDto[]> success, Action<ApiError> failure)
+        {
+            SynchronizeBrowserSession();
+            if (!IsAuthenticated) { failure?.Invoke(new ApiError("Sign in before opening your expeditions.", requiresLogin: true)); yield break; }
+            knownExpeditions.Clear(); readyExpeditions.Clear(); expeditionsLoaded = false;
+            int version = careVersion;
+            yield return FetchProjection("/api/expeditions/", ApiContract.ParseExpeditions, value =>
+            {
+                if (version != careVersion) { failure?.Invoke(new ApiError("Refresh expeditions after the current action.")); return; }
+                knownExpeditions.Clear();
+                readyExpeditions.Clear();
+                foreach (var expedition in value)
+                {
+                    knownExpeditions.Add(expedition.id, expedition);
+                    if (expedition.CanClaim) readyExpeditions.Add(expedition.id);
+                }
+                expeditionsLoaded = true;
+                success?.Invoke(value);
+            }, failure);
+        }
+
+        public bool CanStartExpedition(int mountId, string tier)
+        {
+            if (!IsAuthenticated || CurrentUser.role != "child" || MutationInFlight || !stableLoaded || !expeditionsLoaded
+                || !ApiContract.IsExpeditionTier(tier) || !knownMounts.TryGetValue(mountId, out var mount) || mount.active_expedition != null)
+                return false;
+            foreach (var expedition in knownExpeditions.Values)
+                if (expedition.mount_id == mountId && expedition.status == "active") return false;
+            return true;
+        }
+
+        public bool CanClaimExpedition(int expeditionId)
+        {
+            return IsAuthenticated && CurrentUser.role == "child" && !MutationInFlight && stableLoaded && expeditionsLoaded
+                && readyExpeditions.Contains(expeditionId) && knownExpeditions.TryGetValue(expeditionId, out var expedition) && expedition.CanClaim
+                && knownMounts.TryGetValue(expedition.mount_id, out var mount)
+                && mount.active_expedition != null && mount.active_expedition.id == expeditionId;
+        }
+
+        public IEnumerator StartExpedition(int mountId, string tier, Action<ExpeditionDto> success, Action<ApiError> failure)
+        {
+            var error = CarePrecondition();
+            if (error != null) { failure?.Invoke(error); yield break; }
+            if (!CanStartExpedition(mountId, tier))
+            {
+                failure?.Invoke(new ApiError("Refresh your creatures and expeditions before sending that mount on a supported expedition.")); yield break;
+            }
+            var mount = knownMounts[mountId];
+            var previousIds = new HashSet<int>(knownExpeditions.Keys);
+            ClearCareEligibility();
+            yield return Send("POST", baseUrl + "/api/mounts/" + mountId + "/expedition/",
+                JsonUtility.ToJson(new ExpeditionStartBody { tier = tier }), true, true, json =>
+            {
+                ExpeditionDto result;
+                try { result = ApiContract.ParseExpeditionStart(json, mount, tier, previousIds); }
+                catch (Exception exception) { failure?.Invoke(InvalidResponse(exception, true)); return; }
+                success?.Invoke(result);
+            }, failure);
+        }
+
+        public IEnumerator ClaimExpedition(int expeditionId, Action<ExpeditionClaimDto> success, Action<ApiError> failure)
+        {
+            var error = CarePrecondition();
+            if (error != null) { failure?.Invoke(error); yield break; }
+            if (!CanClaimExpedition(expeditionId))
+            {
+                failure?.Invoke(new ApiError("Refresh your creatures and expeditions before claiming a returned expedition.")); yield break;
+            }
+            var expedition = knownExpeditions[expeditionId];
+            ClearCareEligibility();
+            // Explicit claims are never replayed, even though Django returns a
+            // harmless zero-award receipt if another client already claimed it.
+            yield return Send("POST", baseUrl + "/api/expeditions/" + expeditionId + "/claim/", "{}", true, true, json =>
+            {
+                ExpeditionClaimDto result;
+                try { result = ApiContract.ParseExpeditionClaim(json, expedition); }
                 catch (Exception exception) { failure?.Invoke(InvalidResponse(exception, true)); return; }
                 success?.Invoke(result);
             }, failure);

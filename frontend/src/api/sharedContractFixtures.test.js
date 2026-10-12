@@ -39,13 +39,36 @@ import missingHatchIngredients from '../../../contracts/api/fixtures/pet-hatch-m
 import unavailableHatchEgg from '../../../contracts/api/fixtures/pet-hatch-unavailable-egg.json';
 import unavailableHatchPotion from '../../../contracts/api/fixtures/pet-hatch-unavailable-potion.json';
 import duplicateHatch from '../../../contracts/api/fixtures/pet-hatch-duplicate.json';
+import shortExpedition from '../../../contracts/api/fixtures/expedition-start-short.json';
+import standardExpedition from '../../../contracts/api/fixtures/expedition-start-standard.json';
+import longExpedition from '../../../contracts/api/fixtures/expedition-start-long.json';
+import allExpeditions from '../../../contracts/api/fixtures/expeditions.json';
+import readyExpeditions from '../../../contracts/api/fixtures/expeditions-ready.json';
+import emptyExpeditions from '../../../contracts/api/fixtures/expeditions-empty.json';
+import claimedExpeditionHistory from '../../../contracts/api/fixtures/expeditions-claimed.json';
+import expiredExpeditionHistory from '../../../contracts/api/fixtures/expeditions-expired.json';
+import readyClaimExpedition from '../../../contracts/api/fixtures/expeditions-ready-claim.json';
+import readySalvageExpedition from '../../../contracts/api/fixtures/expeditions-ready-salvage.json';
+import expeditionStable from '../../../contracts/api/fixtures/pets-stable-expeditions.json';
+import claimedExpedition from '../../../contracts/api/fixtures/expedition-claim.json';
+import repeatedExpeditionClaim from '../../../contracts/api/fixtures/expedition-claim-repeat.json';
+import boostedExpeditionClaim from '../../../contracts/api/fixtures/expedition-claim-boosted.json';
+import salvageExpeditionClaim from '../../../contracts/api/fixtures/expedition-claim-salvage.json';
+import archivedItemExpeditionClaim from '../../../contracts/api/fixtures/expedition-claim-archived-item.json';
+import invalidExpeditionTier from '../../../contracts/api/fixtures/expedition-invalid-tier.json';
+import foreignExpeditionMount from '../../../contracts/api/fixtures/expedition-mount-not-owned.json';
+import foreignExpedition from '../../../contracts/api/fixtures/expedition-not-owned.json';
+import earlyExpeditionClaim from '../../../contracts/api/fixtures/expedition-early-claim.json';
+import activeExpedition from '../../../contracts/api/fixtures/expedition-already-active.json';
+import dailyExpeditionLimit from '../../../contracts/api/fixtures/expedition-daily-limit.json';
+import expiredExpedition from '../../../contracts/api/fixtures/expedition-expired.json';
 import { server } from '../test/server';
 import { normalizeList } from '../utils/api';
 import { api, getToken, setToken } from './client';
 import {
-  activateMount, activatePet, feedPet, getGreenlightOverview, getHabits, getInventory,
-  getMe, getNotifications, getStable, hatchPet, logHabitTap, login,
-  previewGreenlightCsv, reconcileGreenlightCsv, recordGreenlightPayout, saveGreenlightSnapshot,
+  activateMount, activatePet, claimExpedition, feedPet, getGreenlightOverview, getHabits, getInventory,
+  getMe, getNotifications, getStable, hatchPet, listExpeditions, logHabitTap, login,
+  previewGreenlightCsv, reconcileGreenlightCsv, recordGreenlightPayout, saveGreenlightSnapshot, startExpedition,
 } from './index';
 
 // These are the raw response files checked against Django views and loaded
@@ -452,6 +475,121 @@ describe('shared Django response fixtures through the React API client', () => {
     expect(result.new_growth).toBe(response.new_growth);
     expect(result.evolved).toBe(response.evolved);
     expect(result.mount_id).toBe(response.mount_id);
+  });
+
+  it.each([
+    ['short', 61, shortExpedition, 15, 1],
+    ['standard', 62, standardExpedition, 35, 2],
+    ['long', 63, longExpedition, 75, 3],
+  ])('starts a %s expedition with the owned mount ID and preserves locked planned loot', async (tier, mountId, response, plannedCoins, slots) => {
+    const calls = [];
+    setToken(loginResponse.token);
+    server.use(http.post(`*/api/mounts/${mountId}/expedition/`, async ({ request }) => {
+      calls.push({
+        body: await request.json(), authorization: request.headers.get('authorization'),
+        method: request.method, pathname: new URL(request.url).pathname,
+      });
+      return HttpResponse.json(response, { status: 201 });
+    }));
+
+    const expedition = await startExpedition(mountId, tier);
+    expect(expedition).toEqual(response);
+    expect(expedition).toMatchObject({ mount_id: mountId, tier, status: 'active', is_ready: false, claimed_at: null });
+    expect(expedition.seconds_remaining).toBeGreaterThan(0);
+    expect(expedition.loot.coins).toBe(plannedCoins);
+    expect(expedition.loot.items).toHaveLength(slots);
+    expect(expedition.loot.items.map((slot) => slot.item_id)).toEqual(Array(slots).fill(71));
+    expect(expedition).not.toHaveProperty('coins_awarded');
+    expect(calls).toEqual([{
+      body: { tier }, authorization: `Token ${loginResponse.token}`,
+      method: 'POST', pathname: `/api/mounts/${mountId}/expedition/`,
+    }]);
+  });
+
+  it.each([
+    ['all expeditions', false, allExpeditions],
+    ['ready expeditions', true, readyExpeditions],
+    ['ready claim context', true, readyClaimExpedition],
+    ['ready salvage context', true, readySalvageExpedition],
+    ['claimed history', false, claimedExpeditionHistory],
+    ['expired history', false, expiredExpeditionHistory],
+    ['empty collection', false, emptyExpeditions],
+  ])('reads %s through the raw expeditions envelope without claiming', async (_label, readyOnly, response) => {
+    const calls = [];
+    setToken(loginResponse.token);
+    server.use(http.all('*/api/expeditions/', ({ request }) => {
+      const url = new URL(request.url);
+      calls.push({ method: request.method, ready: url.searchParams.get('ready'), authorization: request.headers.get('authorization') });
+      return HttpResponse.json(response);
+    }));
+    expect(await listExpeditions(readyOnly)).toEqual(response);
+    expect(calls).toEqual([{
+      method: 'GET', ready: readyOnly ? 'true' : null, authorization: `Token ${loginResponse.token}`,
+    }]);
+    expect(response.expeditions.every((row) => row.mount_id >= 61 && row.mount_id <= 63)).toBe(true);
+    if (readyOnly) {
+      expect(response.expeditions.every((row) => row.status === 'active' && row.is_ready && row.seconds_remaining <= 0)).toBe(true);
+    }
+  });
+
+  it('preserves stable mount expedition summaries with the same identities as the full list', async () => {
+    server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(expeditionStable)));
+    const stable = await getStable();
+    expect(stable).toEqual(expeditionStable);
+    expect(stable.mounts.map((mount) => mount.active_expedition.id).sort()).toEqual([103, 104, 105]);
+    for (const mount of stable.mounts) {
+      expect(mount.active_expedition).toEqual(allExpeditions.expeditions.find((row) => row.mount_id === mount.id));
+    }
+  });
+
+  it.each([
+    ['fresh claim', claimedExpedition, true, 15],
+    ['repeat claim', repeatedExpeditionClaim, false, 0],
+    ['boosted claim', boostedExpeditionClaim, true, 30],
+    ['duplicate cosmetic salvage', salvageExpeditionClaim, true, 15],
+    ['archived planned item', archivedItemExpeditionClaim, true, 15],
+  ])('claims %s with an empty POST and preserves actual coins separately from planned item slots', async (_label, response, freshlyClaimed, actualCoins) => {
+    const calls = [];
+    setToken(loginResponse.token);
+    server.use(http.post('*/api/expeditions/103/claim/', async ({ request }) => {
+      calls.push({
+        body: await request.text(), authorization: request.headers.get('authorization'),
+        method: request.method, pathname: new URL(request.url).pathname,
+      });
+      return HttpResponse.json(response);
+    }));
+    const result = await claimExpedition(103);
+    expect(result).toEqual(response);
+    expect(result).toMatchObject({
+      expedition_id: 103, tier: 'short', freshly_claimed: freshlyClaimed, coins_awarded: actualCoins,
+      mount: { id: 61, species_name: 'Fox', species_slug: 'fixture-fox', potion_name: 'Ice', potion_slug: 'ice' },
+    });
+    expect(calls).toEqual([{
+      body: '', authorization: `Token ${loginResponse.token}`, method: 'POST', pathname: '/api/expeditions/103/claim/',
+    }]);
+    if (!freshlyClaimed) expect(result.items).toEqual(claimedExpedition.items);
+    if (result.items[0].salvaged_to_coins) {
+      expect(result.items[0].salvaged_to_coins).toBe(20);
+      expect(result.coins_awarded).toBe(15);
+    }
+  });
+
+  it.each([
+    ['invalid tier', '/api/mounts/61/expedition/', () => startExpedition(61, 'marathon'), 400, invalidExpeditionTier],
+    ['foreign mount', '/api/mounts/81/expedition/', () => startExpedition(81, 'short'), 404, foreignExpeditionMount],
+    ['foreign expedition', '/api/expeditions/101/claim/', () => claimExpedition(101), 404, foreignExpedition],
+    ['early claim', '/api/expeditions/103/claim/', () => claimExpedition(103), 400, earlyExpeditionClaim],
+    ['already active mount', '/api/mounts/61/expedition/', () => startExpedition(61, 'short'), 400, activeExpedition],
+    ['daily limit', '/api/mounts/61/expedition/', () => startExpedition(61, 'short'), 400, dailyExpeditionLimit],
+    ['expired expedition', '/api/expeditions/103/claim/', () => claimExpedition(103), 400, expiredExpedition],
+  ])('exposes %s expedition rejection with its actual HTTP status and never replays the POST', async (_label, path, action, status, response) => {
+    let calls = 0;
+    server.use(http.post(`*${path}`, () => {
+      calls += 1;
+      return HttpResponse.json(response, { status });
+    }));
+    await expect(action()).rejects.toMatchObject({ status, message: response.error, response });
+    expect(calls).toBe(1);
   });
 
   it('activates a pet and mount through their distinct endpoints with empty bodies', async () => {

@@ -18,6 +18,11 @@ legacy species gaps and optional purchases. The Chick catalog is separate
 from the fixed scene's artwork preview; an owned-collection-to-3D binding
 remains a later presentation slice.
 
+The licensed companion and woodland art come from **Meshtint Studio's
+[Cute Series collection](https://www.meshtint.com/collections/cute-series)**.
+Keep this publisher source with the pack, import and private purchase records
+below; the public Kenney prototype is a separate fallback.
+
 The starter selection is Chick / Fledgling / Bird Evolution, Forest Ruins 1.2,
 Icons for Monsters Ultimate Pack 01 v2, and Female Archer Pack 01. Bird01/02/03
 are the matching transparent portraits for the three model forms. The public

@@ -2,7 +2,18 @@
 
 The prototype contains a small selection of unmodified Kenney models and textures. Each pack's original `License.txt` is retained beside its assets under `Assets/ThirdParty/Kenney`. These license files identify the assets as Creative Commons Zero (CC0), permit personal, educational, and commercial use, and make attribution optional. See [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 
-Downloaded from the creator's official website on 2026-10-09. No purchased assets or third-party mirrors are included. The temporary Meadow dragon and memory bloom are project-authored artwork; their SVG sources live in `shared/storybook/art` at the repository root.
+The public Kenney files were downloaded from the creator's official website on 2026-10-09; no third-party mirrors are used. The temporary Meadow dragon and memory bloom are project-authored artwork; their SVG sources live in `shared/storybook/art` at the repository root.
+
+## Meshtint Studio Cute Series
+
+The licensed Play build's 3D companion and woodland scenery come from
+[Meshtint Studio's Cute Series collection](https://www.meshtint.com/collections/cute-series).
+Our starter selection is Chick / Fledgling / Bird Evolution, Forest Ruins 1.2,
+Icons for Monsters Ultimate Pack 01 v2, and Female Archer Pack 01.
+[AssetNotes.md](AssetNotes.md#purchased-cute-series-layer) records the source
+packs, staging, animation mappings and publisher license reference. Purchased
+source archives and generated licensed Unity assets stay outside public Git;
+retain purchase and license records with the private archive backups.
 
 ## Nunito font
 
