@@ -33,7 +33,6 @@ import { BookOpen, Sparkles, Flame, Target, X, Compass, Award } from 'lucide-rea
 import { RARITY_RING_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem, inkBleed } from '../motion/variants';
 import { formatWeekdayDate, mapProjectTone } from './_dashboardShared';
-import MeadowVisitCard from './meadow/MeadowVisitCard';
 import RpgSprite from '../components/rpg/RpgSprite';
 
 const VISIBLE_LOG_CAP = 5;
@@ -174,8 +173,6 @@ export default function ChildDashboard({ data, reload }) {
         title="Today"
         kicker={`${weekday} · ${dateStr}`}
       />
-
-      <MeadowVisitCard />
 
       {actionError && (
         // Audit M8: surface fast-action errors. Auto-dismissable so a

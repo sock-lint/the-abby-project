@@ -23,8 +23,8 @@ The 2026-05 audit lifted two layout primitives out of the per-page copy-paste pa
 
 ## Memory Meadow (first shared storybook slice)
 
-`/meadow` is a lazy-loaded child-only page under `JournalShell`, reached from
-the `MeadowVisitCard` on child Today. Existing journal/archive and parent
+`/meadow` is a lazy-loaded child-only page under `JournalShell`. Child Today
+has no Play promotion card. Existing journal/archive and parent
 pages keep their current behavior. The page opens the React pet collection. Profile, Pets and Meadow share optional
 R3F presentation with server-confirmed identities and working DOM/2D fallback.
 Legacy `/play/` bookmarks redirect to React Pets; Unity is retired.
