@@ -49,11 +49,9 @@ describe('HomeworkSubmitSheet', () => {
     );
 
     const file = new File(['x'], 'proof.jpg', { type: 'image/jpeg' });
-    // The file input is hidden behind a camera icon but still queryable.
-    const fileInput = document.body.querySelector('input[type="file"]');
-    await user.upload(fileInput, file);
+    await user.upload(inSheet().getByLabelText(/add proof photos/i), file);
 
-    const notes = inSheet().getByPlaceholderText(/notes/i);
+    const notes = inSheet().getByRole('textbox', { name: /notes/i });
     await user.type(notes, 'done!');
 
     const btn = inSheet().getByRole('button', { name: /submit for review/i });
@@ -65,6 +63,37 @@ describe('HomeworkSubmitSheet', () => {
     expect(onSubmitted).toHaveBeenCalled();
   });
 
+  it('exposes the proof-photo input to keyboard and assistive tech', async () => {
+    const user = userEvent.setup();
+    render(<HomeworkSubmitSheet assignment={assignment} onClose={vi.fn()} onSubmitted={vi.fn()} />);
+
+    const input = inSheet().getByLabelText(/add proof photos/i);
+    expect(input).toHaveAttribute('type', 'file');
+    // display:none (Tailwind `hidden`) removes the input from the tab order.
+    expect(input).not.toHaveClass('hidden');
+    expect(input).toHaveClass('sr-only');
+
+    // The visible heading names the same control.
+    expect(inSheet().getByText(/proof photos \(required\)/i)).toHaveAttribute('for', input.id);
+
+    // Reachable by Tab, not just programmatically focusable.
+    for (let i = 0; i < 10 && document.activeElement !== input; i += 1) {
+      await user.tab();
+    }
+    expect(input).toHaveFocus();
+  });
+
+  it('shows a focus ring on the picker tile when its input is focused', () => {
+    render(<HomeworkSubmitSheet assignment={assignment} onClose={vi.fn()} onSubmitted={vi.fn()} />);
+    const tile = inSheet().getByLabelText(/add proof photos/i).closest('label');
+    expect(tile).toHaveClass('focus-within:ring-2');
+  });
+
+  it('labels the notes field', () => {
+    render(<HomeworkSubmitSheet assignment={assignment} onClose={vi.fn()} onSubmitted={vi.fn()} />);
+    expect(inSheet().getByRole('textbox', { name: 'Notes (optional)' })).toBeInTheDocument();
+  });
+
   // The remove badge on a 64px thumbnail was a ~17px target — a kid
   // correcting a mis-picked photo mostly missed it.
   it('removes a proof photo through a 44px-floor remove control', async () => {
@@ -72,7 +101,7 @@ describe('HomeworkSubmitSheet', () => {
     render(<HomeworkSubmitSheet assignment={assignment} onClose={vi.fn()} onSubmitted={vi.fn()} />);
 
     const file = new File(['x'], 'proof.jpg', { type: 'image/jpeg' });
-    await user.upload(document.body.querySelector('input[type="file"]'), file);
+    await user.upload(inSheet().getByLabelText(/add proof photos/i), file);
 
     const remove = await inSheet().findByRole('button', { name: /remove photo/i });
     expect(remove.className).toContain('min-h-11');
@@ -100,8 +129,7 @@ describe('HomeworkSubmitSheet', () => {
     );
 
     const file = new File(['x'], 'proof.jpg', { type: 'image/jpeg' });
-    const fileInput = document.body.querySelector('input[type="file"]');
-    await user.upload(fileInput, file);
+    await user.upload(inSheet().getByLabelText(/add proof photos/i), file);
 
     const btn = inSheet().getByRole('button', { name: /submit for review/i });
     await waitFor(() => expect(btn).not.toBeDisabled());
