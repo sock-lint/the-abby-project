@@ -22,9 +22,10 @@ This fixture seeds synthetic accounts and writing skills; it never reads `.env` 
 
 The [content/asset coverage guide](../../content/rpg/unity-assets.md) records
 owned packs and the matching Chick, egg and Birdseed RPG content. Licensed
-React builds can use the matching Chick/Bird collection portraits. The Unity
-home remains a preview until active owned creatures are explicitly bound to
-their prepared 3D definitions.
+React builds use matching Chick/Bird collection portraits. Licensed Unity
+shows Chick for an owned selected Base Chick and Bird after confirmed evolution
+or selection of its mount. Other species, variants or missing models retain a
+clearly labeled preview.
 
 The purchased starter packs replace the temporary companion and forest scenery locally. The Archer remains staged for future uses; the home does not include an explorer. Run `python scripts/unity/stage_meshtint.py`, then
 `./scripts/unity/Build-Camp.ps1 -Target Web -PrepareLicensed`. Open the generated
@@ -35,6 +36,36 @@ script. See [AssetNotes.md](AssetNotes.md) for source protection and exact
 animation mappings. These prepared growth forms do not yet add evolution rules.
 
 ## Product goal and next slice
+
+### Owned creature presentation — 2026-10-11
+
+Licensed presentation explicitly maps server `species.sprite_key=cute-chick`
+and `potion.slug=base` to Chick, and the confirmed evolved pet or mount to Bird.
+Choose a companion or mount in Bestiary; the acknowledged `/activate/` result
+changes the appearance child while preserving the fixed actor root. The two
+server active flags remain independent, so the last explicitly acknowledged
+presentation choice is stored by origin and child and rechecked against active
+ownership after reload. An already-active eligible row can be chosen again to
+switch between pet and mount presentation. Evolved pets and exploring mounts
+remain ineligible for selection.
+
+A confirmed feed of the displayed Chick changes it to Bird when Django returns
+evolution. The retained active pet and its evolved flag preserve that form
+after fresh reads without activating the newly created mount. Growth alone
+does not unlock Bird. Missing models, other species and unsupported variants
+retain a labeled preview. Account changes reset the model binding immediately;
+delayed old responses cannot change the replacement account. Normal refreshes
+reuse the current model, and the development K key cannot override owned art.
+
+Run `Build-Camp.ps1 -PrepareLicensed` once to prepare the new private binding
+references before using or exporting an existing licensed scene. Public
+checkouts contain no paid binding references. For disposable model/evolution
+verification, run `Test-Camp.ps1 -OwnedCreatureArt`; its fixture uses Base Chick
+alongside deliberately unsupported legacy variants and another family's data.
+The web fixture accepts `--owned-chick-art` for the same coverage. Neither test
+loads the project database. React uses the matching private portraits across
+Today, Companions, Mounts, species detail, Manage and creature ceremonies;
+evolved pet rows use the confirmed mount portrait with the usual fallback.
 
 ### Agreed web and Play responsibilities — 2026-10-10
 

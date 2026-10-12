@@ -4,6 +4,17 @@ import userEvent from '@testing-library/user-event';
 
 import { renderWithProviders } from '../../test/render';
 import PetCeremonyModal from './PetCeremonyModal';
+import presentation from '../../storybook/presentation.json';
+import { getLicensedRpgSprite, resolveLicensedRpgSprite } from '../../storybook/licensedRpgSprites';
+
+vi.mock('../../storybook/licensedRpgSprites', async () => {
+  const actual = await vi.importActual('../../storybook/licensedRpgSprites');
+  return { ...actual, getLicensedRpgSprite: vi.fn(() => null) };
+});
+
+beforeEach(() => {
+  getLicensedRpgSprite.mockReset().mockReturnValue(null);
+});
 
 const pet = {
   id: 1,
@@ -201,5 +212,140 @@ describe('PetCeremonyModal — phased sequence', () => {
     expect(screen.getByText(/\+42/)).toBeInTheDocument();
     expect(screen.getByText('Training Snack')).toBeInTheDocument();
     expect(screen.getByText(/salvaged \+25c/i)).toBeInTheDocument();
+  });
+});
+
+describe('PetCeremonyModal — licensed Chick portraits', () => {
+  const chickPet = {
+    id: 20,
+    species: { name: 'Chick', sprite_key: 'cute-chick', icon: '🐥' },
+    potion: { name: 'Base', slug: 'base' },
+  };
+  const chickPortrait = '/assets/synthetic-chick.png';
+  const birdPortrait = '/assets/synthetic-bird.png';
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const manifest = {
+      schema_version: presentation.schema_version,
+      companion: {
+        id: presentation.companion.id,
+        art_key: 'chick',
+        temporary: false,
+        portrait: 'chick.png',
+      },
+    };
+    const art = (name) => ({ 'chick.png': chickPortrait, 'bird.png': birdPortrait })[name];
+    getLicensedRpgSprite.mockImplementation((key) => resolveLicensedRpgSprite(key, manifest, art));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('hatches a Chick portrait after the egg without showing the evolved Bird', async () => {
+    renderWithProviders(
+      <PetCeremonyModal mode="hatch" pet={chickPet} onDismiss={() => {}} />,
+      { withAuth: false },
+    );
+    expect(screen.getByRole('img', { name: 'egg' })).toHaveTextContent('🥚');
+    expect(screen.queryByRole('img', { name: 'Chick' })).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1300);
+    });
+    expect(screen.queryByRole('img', { name: 'egg' })).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Chick' })).toHaveAttribute('src', chickPortrait);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1300);
+    });
+    expect(screen.getByRole('img', { name: 'Chick' })).toHaveAttribute('src', chickPortrait);
+    expect(document.querySelector(`img[src="${birdPortrait}"]`)).toBeNull();
+  });
+
+  it('swaps the Chick base portrait for the Bird mount after confirmed evolution', async () => {
+    renderWithProviders(
+      <PetCeremonyModal
+        mode="evolve"
+        species={chickPet.species}
+        potion={chickPet.potion}
+        onDismiss={() => {}}
+      />,
+      { withAuth: false },
+    );
+    expect(screen.getByRole('img', { name: 'Chick' })).toHaveAttribute('src', chickPortrait);
+    expect(document.querySelector(`img[src="${birdPortrait}"]`)).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1700);
+    });
+    expect(screen.getByRole('img', { name: 'Chick' })).toHaveAttribute('src', birdPortrait);
+    expect(document.querySelector(`img[src="${chickPortrait}"]`)).toBeNull();
+    expect(screen.getByText(/is ready to ride/i)).toBeInTheDocument();
+  });
+
+  it('shows the Chick parent as a Bird mount while keeping the other parent on its own species', async () => {
+    renderWithProviders(
+      <PetCeremonyModal
+        mode="breed"
+        parents={[chickPet, breedParents[0]]}
+        result={{
+          ...breedResult,
+          egg_item_name: 'Chick Egg',
+          potion_item_name: 'Base Potion',
+          picked_species: 'Chick',
+          picked_species_slug: 'cute-chick',
+          picked_potion: 'Base',
+          picked_potion_slug: 'base',
+        }}
+        onDismiss={() => {}}
+      />,
+      { withAuth: false },
+    );
+    expect(screen.getByRole('img', { name: 'Chick' })).toHaveAttribute('src', birdPortrait);
+    expect(screen.getByRole('img', { name: 'Wolf' })).toHaveTextContent('🐺');
+    expect(document.querySelector(`img[src="${chickPortrait}"]`)).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2600);
+    });
+    expect(screen.queryByRole('img', { name: 'Chick' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Wolf' })).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Chick Egg' })).toHaveTextContent('🥚');
+    expect(screen.getByRole('img', { name: 'Base Potion' })).toHaveTextContent('🧪');
+    expect(document.querySelector(`img[src="${birdPortrait}"]`)).toBeNull();
+  });
+
+  it('keeps the returning Chick on its Bird mount portrait through the loot reveal', async () => {
+    renderWithProviders(
+      <PetCeremonyModal
+        mode="expedition_return"
+        expedition={{
+          coins_awarded: 15,
+          tier: 'short',
+          items: [],
+          mount: {
+            id: 20,
+            species_name: 'Chick',
+            species_sprite_key: 'cute-chick',
+            species_icon: '🐥',
+            potion_name: 'Base',
+            potion_slug: 'base',
+          },
+        }}
+        onDismiss={() => {}}
+      />,
+      { withAuth: false },
+    );
+    expect(screen.getByRole('img', { name: 'Chick' })).toHaveAttribute('src', birdPortrait);
+    expect(screen.queryByText('+15')).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2400);
+    });
+    expect(screen.getByRole('img', { name: 'Chick' })).toHaveAttribute('src', birdPortrait);
+    expect(screen.getByText('+15')).toBeInTheDocument();
+    expect(document.querySelector(`img[src="${chickPortrait}"]`)).toBeNull();
   });
 });

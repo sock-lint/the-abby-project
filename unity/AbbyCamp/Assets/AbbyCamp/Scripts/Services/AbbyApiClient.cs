@@ -619,7 +619,9 @@ namespace AbbyCamp.Services
         {
             var error = CarePrecondition();
             if (error != null) { failure?.Invoke(error); yield break; }
-            if (!knownPets.TryGetValue(petId, out var pet) || pet.evolved_to_mount || pet.is_active)
+            // Pet and mount active flags are independent. An explicit
+            // idempotent selection can restore which owned row is displayed.
+            if (!knownPets.TryGetValue(petId, out var pet) || pet.evolved_to_mount)
             {
                 failure?.Invoke(new ApiError("Refresh your creatures before choosing that companion.")); yield break;
             }
@@ -640,7 +642,7 @@ namespace AbbyCamp.Services
         {
             var error = CarePrecondition();
             if (error != null) { failure?.Invoke(error); yield break; }
-            if (!knownMounts.TryGetValue(mountId, out var mount) || mount.is_active || mount.active_expedition != null)
+            if (!knownMounts.TryGetValue(mountId, out var mount) || mount.active_expedition != null)
             {
                 failure?.Invoke(new ApiError("Refresh your creatures before choosing an available mount.")); yield break;
             }

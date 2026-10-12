@@ -140,7 +140,7 @@ def configure_django(temporary_root: Path) -> None:
     call_command("migrate", run_syncdb=True, verbosity=0, interactive=False)
 
 
-def seed_fixture() -> dict:
+def seed_fixture(*, owned_creature_art: bool = False) -> dict:
     from apps.accounts.models import User
     from apps.achievements.models import Skill, SkillCategory, SkillProgress
     from apps.families.models import Family
@@ -192,6 +192,7 @@ def seed_fixture() -> dict:
     play = seed_play_account(
         child, parent, balance=120, species_name="Meadow Bird", pet_name="Peep",
         item_names=("Memory Ribbon", "Sunny Seed"), notification_count=3, care=True,
+        owned_creature_art=owned_creature_art,
     )
     second_play = seed_play_account(
         other_child, other_child, balance=7, species_name="Dusk Fox", pet_name="Sprout",
@@ -212,7 +213,8 @@ def seed_fixture() -> dict:
 
 
 def seed_play_account(user, actor, *, balance: int, species_name: str, pet_name: str,
-                      item_names: tuple[str, ...], notification_count: int, care: bool = False) -> dict:
+                      item_names: tuple[str, ...], notification_count: int, care: bool = False,
+                      owned_creature_art: bool = False) -> dict:
     """Real owned rows and ledger history; nothing relies on UI demo ownership."""
     from django.utils.text import slugify
     from django.utils import timezone
@@ -233,10 +235,15 @@ def seed_play_account(user, actor, *, balance: int, species_name: str, pet_name:
     # check-in today so its first-activity bonus is separate from expedition loot.
     CharacterProfile.objects.filter(user=user).update(last_active_date=timezone.localdate(), login_streak=1)
     species = PetSpecies.objects.create(
-        name=species_name, slug=slugify(species_name), icon="*",
+        name="Chick" if owned_creature_art else species_name,
+        slug="chick" if owned_creature_art else slugify(species_name),
+        sprite_key="cute-chick" if owned_creature_art else "", icon="*",
         description="A creature owned only inside the disposable Play fixture.",
     )
-    potion = PotionType.objects.create(name=f"{pet_name} Cloud", slug=f"{user.username}-cloud")
+    potion = PotionType.objects.create(
+        name="Base" if owned_creature_art else f"{pet_name} Cloud",
+        slug="base" if owned_creature_art else f"{user.username}-cloud",
+    )
     mount_potion = PotionType.objects.create(name=f"{pet_name} Sun", slug=f"{user.username}-sun")
     species.available_potions.add(potion, mount_potion)
     pet = UserPet.objects.create(
@@ -340,7 +347,7 @@ def seed_play_account(user, actor, *, balance: int, species_name: str, pet_name:
         notifications.append(row.pk)
     return {
         "balance": balance, "pet_id": pet.pk, "pet_name": pet_name,
-        "mount_id": mount.pk, "species_name": species_name,
+        "mount_id": mount.pk, "species_name": species.name,
         "drop_ids": drops, "notification_ids": notifications,
         "mark_read_id": notifications[-1], "unread_count": notification_count,
         "food_item_ids": food_ids, "initial_growth": pet.growth_points,
@@ -658,6 +665,11 @@ def check_fixture(fixture: dict, *, fail_first_log: bool = False, fail_first_mar
     drops = client.get("/api/drops/recent/").json()
     assert {row["id"] for row in drops} == set(fixture["play"]["drop_ids"])
     stable = client.get("/api/pets/stable/").json()
+    if fixture.get("owned_creature_art"):
+        owned_chick = next(row for row in stable["pets"] if row["id"] == fixture["play"]["pet_id"])
+        assert owned_chick["species"]["sprite_key"] == "cute-chick"
+        assert owned_chick["potion"]["slug"] == "base"
+        assert owned_chick["is_active"] and not owned_chick["evolved_to_mount"]
     assert {row["id"] for row in stable["pets"]} == {fixture["play"]["pet_id"], fixture["play"]["second_pet_id"]}
     assert {row["id"] for row in stable["mounts"]} == {
         fixture["play"][key] for key in ("mount_id", "expedition_mount_id", "ready_mount_id", "cooldown_mount_id", "held_mount_id")
@@ -959,6 +971,7 @@ def main() -> int:
         help="Return one fixture HTTP503 before Django receives the first habit-log POST.",
     )
     parser.add_argument("--check", action="store_true", help="Check fixtures through actual Django views and exit.")
+    parser.add_argument("--owned-chick-art", action="store_true", help="Use an owned Base Chick to verify model and evolved Bird presentation.")
     parser.add_argument("--fail-first-mark-read", action="store_true", help="Reject the first notification mark-read POST before Django.")
     parser.add_argument("--fail-first-feed-after-commit", action="store_true", help="Commit the first valid feed, then replace its acknowledgement with HTTP503.")
     parser.add_argument("--fail-first-hatch-after-commit", action="store_true", help="Commit the first valid hatch, then replace its acknowledgement with HTTP503.")
@@ -984,7 +997,8 @@ def main() -> int:
     with TemporaryDirectory(prefix="abby-unity-fixture-") as temporary:
         try:
             configure_django(Path(temporary))
-            fixture = seed_fixture()
+            fixture = seed_fixture(owned_creature_art=args.owned_chick_art)
+            fixture["owned_creature_art"] = args.owned_chick_art
             fixture["fail_first_log"] = args.fail_first_log
             fixture["fail_first_mark_read"] = args.fail_first_mark_read
             fixture["fail_first_feed_after_commit"] = args.fail_first_feed_after_commit

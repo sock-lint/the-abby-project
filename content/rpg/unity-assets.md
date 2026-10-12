@@ -13,7 +13,7 @@ the ignored `Assets/AbbyCamp/Licensed/import-report.json` when run.
 
 | Pack | Available art | Current use |
 | --- | --- | --- |
-| [Chick / Fledgling / Bird Evolution](https://www.meshtint.com/products/chick-fledgling-bird-evolution-pack-cute-series) | Three rigged models with supplied textures and animations | Prepared Unity appearances `cute-chick`, `cute-fledgling`, `cute-bird`; the fixed home remains an artwork preview |
+| [Chick / Fledgling / Bird Evolution](https://www.meshtint.com/products/chick-fledgling-bird-evolution-pack-cute-series) | Three rigged models with supplied textures and animations | Selected owned Base Chick uses `cute-chick`; confirmed evolution or its selected mount uses `cute-bird`; Fledgling remains a development preview |
 | Forest Ruins 1.2 | Ground, trees, grass, mushrooms, rocks, steps and ruin props | Licensed fixed woodland home; already sufficient for the current setting |
 | Icons for Monsters Ultimate Pack 01 v2 | Creature portraits, including matching transparent Bird01/02/03 images | Private `chick.png`, `fledgling.png`, `bird.png` exports shared by the licensed web/Unity pipeline; other icons are not proof of owned models |
 | Female Archer Pack 01 | Modular humanoid sources, clothing and animation sources | Staged for later uses; no explorer in the fixed home and no fitted creature accessories |
@@ -34,19 +34,29 @@ ingredients or chooses an active companion automatically.
 
 | Catalog identity | Presentation | Progression/acquisition |
 | --- | --- | --- |
-| Species `chick`, sprite `cute-chick` | Chick portrait in licensed React builds; chick emoji otherwise | Ordinary saved pet, starting at zero growth |
+| Species `chick`, sprite `cute-chick` | Selected Chick model in licensed Unity; Chick portrait in licensed React builds; public web fallback otherwise | Ordinary saved pet, starting at zero growth |
 | Egg `chick-egg` | Existing generic `big-egg` sprite/egg icon | Common egg, coin value 3; existing egg-drop macros include it |
 | Food `food-birdseed` | Birdseed label and grain icon | Common food, coin value 1; preferred-food FK points to `chick`, giving the existing +15 feed growth |
-| Evolved `chick` mount, sprite `cute-chick-mount` | Bird portrait in licensed React builds; normal fallback otherwise | Existing server evolution at 100 growth creates the mount; no new reward or growth rules |
+| Evolved `chick` mount, sprite `cute-chick-mount` | Bird model in licensed Unity and Bird portrait in licensed React builds; normal fallback otherwise | Existing server evolution at 100 growth creates the mount; no new reward or growth rules |
 | Prepared Fledgling appearance | Matching model and portrait retained privately | Development appearance only; no intermediate server unlock is authored |
 
 Web portraits resolve only the explicit Chick catalog keys and use the
 matching staged manifest. Public builds retain runtime-sprite/emoji fallback.
-The Unity scene still uses its preview identity; selecting an owned Chick does
-not yet switch the home to that pet's 3D model. Binding active pet/mount identity,
-growth and confirmed selection to the three prepared definitions is the next
-Unity presentation slice. It must clear old artwork on account changes and
-preserve uncertain-action reconciliation.
+Unity binds only exact `cute-chick` + `base` server identities to the prepared
+Chick/Bird models. An acknowledged selection changes the appearance child,
+retaining the stationary actor root and tap target. Confirmed evolution changes
+the displayed Chick to Bird without automatically activating its new mount.
+The retained active evolved pet keeps that appearance after fresh collection
+reads. Explicit pet/mount presentation preference is stored by origin and child,
+then checked against that row's saved active state after reload. Account changes
+clear the old binding immediately; late replies cannot restore it. Unknown
+species, unprepared potion variants and missing models show an explicit preview.
+
+React's shared `petSpriteKeys` helper uses confirmed `evolved_to_mount` state,
+not growth alone, to choose Bird for evolved pets on Today and Companions.
+Mounts, species detail, Manage galleries and hatch/evolve/breed/expedition
+ceremonies already use the corresponding pet or mount key. Greetings, art
+replacement and preference restoration never award XP or consume ingredients.
 
 ## Existing species and remaining coverage
 
@@ -76,7 +86,7 @@ or progression unlocks.
 ## Optional purchases
 
 No purchase is necessary to complete the Chick catalog and current fixed home.
-Prioritize binding the owned family to confirmed account state first. Prices
+The owned family now has an explicit binding to confirmed account state. Prices
 below are the publisher's listed USD prices checked on 2026-10-11.
 
 | Priority | Product | Listed price | Reason to add it |
@@ -123,7 +133,7 @@ GUIDs across replacements. New API fields require the shared fixture and
 backend/React/Unity checks described in
 [`contracts/api/README.md`](../../contracts/api/README.md).
 
-## Validation — 2026-10-11
+## Catalog validation — 2026-10-11
 
 138 Django pet/loader/catalog/Lorebook/shared-response tests passed with Django
 5.2.18 and disposable in-memory SQLite. The complete React suite passed 2,805

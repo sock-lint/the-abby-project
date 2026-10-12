@@ -6,6 +6,8 @@ using System.Text.RegularExpressions;
 using System.Reflection;
 using AbbyCamp.Data;
 using AbbyCamp.Services;
+using AbbyCamp.Presentation;
+using AbbyCamp.World;
 using UnityEditor;
 using UnityEngine;
 
@@ -106,6 +108,7 @@ namespace AbbyCamp.Editor
 
             ValidatePlayHomeContracts();
             ValidateCompanionCareContracts();
+            ValidateOwnedCreaturePresentation();
             ValidateHatchingContracts();
             ValidateExpeditionContracts();
             var gameObject = new GameObject("API validation client");
@@ -444,6 +447,84 @@ namespace AbbyCamp.Editor
             Check(AbbyApiClient.TryResolveNotificationDestination("https://outside.example.com/", "journal_reply", out destination) && destination == PlayDestination.Journal, "Unsafe links can only fall back to a known typed destination");
             foreach (string unsafeLink in new[] { "https://outside.example.com/", "//outside.example.com/", "/\\outside.example.com/", "/chronicle?tab=journal&token=secret", "/%2foutside.example.com/", "/bestiary#secret", "/unknown" })
                 Check(!AbbyApiClient.TryResolveNotificationDestination(unsafeLink, "unknown_type", out _), "Raw or unknown notification destinations are never followed: " + unsafeLink);
+        }
+
+        private static void ValidateOwnedCreaturePresentation()
+        {
+            var species = new SpeciesDto { id = 71, name = "Chick", sprite_key = "cute-chick" };
+            var potion = new PotionDto { id = 72, slug = "base", name = "Base" };
+            var pet = new OwnedPetDto { id = 73, species = species, potion = potion, name = "Peep", is_active = true, growth_points = 75 };
+            var mount = new OwnedMountDto { id = 74, species = species, potion = potion, is_active = true };
+            var stable = new StableDto { pets = new[] { pet }, mounts = new[] { mount } };
+            var selected = OwnedCompanionResolver.Resolve(stable);
+            Check(selected.Kind == OwnedCompanionKind.Pet && selected.CreatureId == pet.id && !selected.IsEvolved,
+                "Owned presentation defaults to the saved active companion without activating a mount");
+            Check(OwnedCompanionResolver.Resolve(stable, OwnedCompanionKind.Mount, mount.id).CreatureId == mount.id,
+                "An acknowledged active mount choice takes precedence over an independent active pet flag");
+            Check(OwnedCompanionResolver.Resolve(stable, OwnedCompanionKind.Mount, 999).CreatureId == pet.id,
+                "A stale or foreign presentation preference cannot invent an owned mount");
+            mount.is_active = false;
+            Check(OwnedCompanionResolver.Resolve(stable, OwnedCompanionKind.Mount, mount.id).CreatureId == pet.id,
+                "A preference loses precedence when its saved row is no longer active");
+            pet.growth_points = 100;
+            Check(!OwnedCompanionResolver.Resolve(stable).IsEvolved,
+                "Full growth alone cannot invent confirmed evolution");
+            pet.evolved_to_mount = true;
+            Check(OwnedCompanionResolver.Resolve(stable).IsEvolved && OwnedCompanionResolver.Resolve(stable).CreatureId == pet.id,
+                "The retained active evolved pet displays its grown form without selecting a mount");
+            Check(selected.WithConfirmedFeed(pet.id, new PetFeedDto { new_growth = 100, evolved = true, mount_id = mount.id }).IsEvolved,
+                "A confirmed feed receipt can immediately present evolution of the displayed companion");
+            Check(!selected.WithConfirmedFeed(999, new PetFeedDto { new_growth = 100, evolved = true, mount_id = mount.id }).IsEvolved,
+                "Another pet's feed receipt cannot change the displayed companion");
+            Check(OwnedCompanionResolver.Resolve(null).Kind == OwnedCompanionKind.None
+                && OwnedCompanionResolver.Resolve(new StableDto { pets = Array.Empty<OwnedPetDto>(), mounts = Array.Empty<OwnedMountDto>() }).Kind == OwnedCompanionKind.None,
+                "Cleared and empty account collections carry no creature presentation ownership");
+
+            var world = ScriptableObject.CreateInstance<CampPresentationDefinition>();
+            var chick = ScriptableObject.CreateInstance<VisualDefinition>();
+            var bird = ScriptableObject.CreateInstance<VisualDefinition>();
+            var chickModel = new GameObject("Synthetic Chick model");
+            var birdModel = new GameObject("Synthetic Bird model");
+            var actor = new GameObject("Synthetic owned companion");
+            try
+            {
+                chick.ModelPrefab = chickModel; bird.ModelPrefab = birdModel;
+                world.OwnedCreatureAppearances = new[] { new OwnedCreatureVisualBinding
+                    { SpeciesSpriteKey = "cute-chick", PotionSlug = "base", Companion = chick, Evolved = bird } };
+                Check(world.TryResolveOwnedAppearance("cute-chick", "base", false, out var resolved) && resolved == chick,
+                    "The explicitly bound Base Chick resolves to its own model");
+                Check(world.TryResolveOwnedAppearance("cute-chick", "base", true, out resolved) && resolved == bird,
+                    "The explicitly bound evolved Chick resolves to Bird");
+                Check(!world.TryResolveOwnedAppearance("wolf", "base", false, out _)
+                    && !world.TryResolveOwnedAppearance("cute-chick", "fire", false, out _),
+                    "Unrelated species and unprepared potion variants cannot inherit Chick artwork");
+                bird.ModelPrefab = null;
+                Check(!world.TryResolveOwnedAppearance("cute-chick", "base", true, out _),
+                    "Missing licensed models remain an explicit preview instead of claimed owned artwork");
+                bird.ModelPrefab = birdModel;
+                var follower = actor.AddComponent<CompanionFollower>();
+                follower.Configure(chick, bird);
+                follower.SetOwnedAppearance(chick);
+                var modelId = actor.transform.Find("Appearance").gameObject.GetEntityId();
+                follower.SetOwnedAppearance(chick);
+                follower.ToggleAppearance();
+                Check(follower.HasOwnedAppearance && follower.Appearance.Definition == chick
+                    && actor.transform.Find("Appearance").gameObject.GetEntityId() == modelId,
+                    "HUD refreshes and the development swap key preserve the selected model instance");
+                follower.SetOwnedAppearance(bird);
+                Check(follower.Appearance.Definition == bird && follower.HasOwnedAppearance,
+                    "Confirmed model replacement retains the stationary actor root");
+                follower.ClearOwnedAppearance(true);
+                Check(!follower.HasOwnedAppearance && follower.Appearance.Definition == chick,
+                    "Account clearing immediately restores preview presentation without owned binding");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(actor);
+                UnityEngine.Object.DestroyImmediate(chickModel); UnityEngine.Object.DestroyImmediate(birdModel);
+                UnityEngine.Object.DestroyImmediate(chick); UnityEngine.Object.DestroyImmediate(bird);
+                UnityEngine.Object.DestroyImmediate(world);
+            }
         }
 
         private static void ValidateCompanionCareContracts()
