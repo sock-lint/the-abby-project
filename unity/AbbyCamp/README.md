@@ -114,7 +114,7 @@ Both rendering profiles use full scene resolution and 4× MSAA. The Web player f
 
 There is no Mac available yet. The existing React home-screen web app handles capture and history; Unity exports a Web scene served at **/play/** on the same HTTPS origin. Opening Play automatically loads it behind the shared-brand progress screen and offers **Back to Today** while loading or after a failure. The Unity splash and logo are disabled in project settings and enforced by a build preprocessor for both scripted and Editor builds. Unity 6.6 supports [iOS Safari 15 and newer and Android Chrome](https://docs.unity.com/en-us/engine/6000.6/manual/platform-specific/webgl/intro/browsercompatibility); Web builds and native iOS builds are separate validation targets. Native packaging can follow when a Mac or cloud build route is available.
 
-The existing backend's skill, pet, quest, and milestone systems can drive long-term progression. Play supports native hatching, feeding, active companion/mount selection and mount expeditions from the account's owned collection. Native breeding, evolving scenery, furnishings and world unlocks remain later slices. Presentation should read authoritative progress and preserve it when the theme or assets change.
+The existing backend's skill, pet, quest, and milestone systems can drive long-term progression. Play supports native hatching, feeding, active companion/mount selection, mount expeditions and breeding from the account's owned collection. Evolving scenery, furnishings and world unlocks remain later slices. Presentation should read authoritative progress and preserve it when the theme or assets change.
 
 iOS also needs remembered login, refresh after app resume, preserved reconciliation for interrupted saves, an accessible HTTPS backend, an iOS build profile, and validation on Abby's actual phone. Native local builds use macOS and Xcode; [Unity's build guide](https://docs.unity3d.com/6000.0/Documentation/Manual/iphone-BuildProcess.html) also describes the cloud build alternative.
 
@@ -134,7 +134,7 @@ After a local build, run `Builds/Windows/AbbyCamp.exe`. This development build s
 | --- | --- |
 | Rewards | Confirmed balance, recent coin/item history and journal blooms; links to reward shop and items |
 | Inbox | Paginated updates; explicit Mark read on one item; Open related page keeps the same web session |
-| Bestiary | Real owned pets/mounts; hatch, feed, choose an active companion/mount, and start or claim mount expeditions; web links for breeding and species |
+| Bestiary | Real owned pets/mounts; hatch, feed, choose an active companion/mount, start or claim mount expeditions, and breed two mounts; web links for species |
 | Journal / Grades / Tasks / Today | Same-origin web tabs without another sign-in or credentials in URLs |
 | Tap companion / Say hello | Friendly local reaction, with no XP, coins, inventory or ownership change |
 | Account | Refresh progress or disconnect only Play |
@@ -215,6 +215,8 @@ For expedition reconciliation walkthroughs, both fixture servers accept `--fail-
 ## Native breeding verification — 2026-10-11
 
 Unity 6000.6.5f1 validated the saved scene, rendering, appearance swaps and 369 API checks. The final Windows player passed 1,719 runtime checks with 34 rendered captures and no runtime errors. It verified explicit distinct-parent choices, unchanged phone targets, server cooldown gates, exact normal egg/potion grants, interrupted pairing review without replay, and a real committed Cosmic pairing during account replacement. Returning to the original account required fresh reads and explicit review; both parents' saved rest stamps and all items remained intact. All care, hatching and expedition checks also passed, with zero hold timeouts and unchanged other-family, XP and drop state. Counts include polling snapshots.
+
+The exported Web player passed a disposable same-origin walkthrough at 393×852 portrait and 844×393 landscape. A saved pairing with an interrupted acknowledgement kept the review marker across reload; four fresh reads and explicit review replayed no request. A second confirmed pairing displayed the actual Cosmic egg/potion result and refreshed quantities. Immediate and final database snapshots verified exactly two requests and two commits, two eggs and two potions, matching parent rest stamps, unchanged coins, XP, drops, existing care/expeditions and the other family. Browser logs contained no runtime errors; fixed footer and action targets retained their existing size.
 
 Confirmed creature actions now retain the save lock through all four refresh reads and their outer coroutine's completion. This prevents a previous save from unlocking a newer action. The disposable fixture samples its response counters before business rows; a deterministic threaded regression verifies that a snapshot begun before a commit cannot falsely report its later commit marker. The harness reserves login capacity before response holds to honor the existing ten-per-minute production throttle. No production throttle, request deadline or mutation retry policy was relaxed.
 
