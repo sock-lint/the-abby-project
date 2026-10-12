@@ -124,14 +124,14 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
   };
 
   const title = isApprove
-    ? 'Approve ritual proposal'
+    ? 'Approve habit proposal'
     : isEdit
-      ? 'Edit Ritual'
-      : isParent ? 'New Ritual' : 'Propose a Ritual';
+      ? 'Edit habit'
+      : isParent ? 'New habit' : 'Propose a habit';
   const submitLabel = isApprove
     ? 'Approve & publish'
-    : isEdit ? 'Update ritual'
-    : isParent ? 'Create ritual' : 'Send to parent';
+    : isEdit ? 'Update habit'
+    : isParent ? 'Create habit' : 'Send to parent';
 
   return (
     <BottomSheet title={title} onClose={onClose} disabled={saving}>
@@ -140,7 +140,7 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
         {isApprove && habit?.created_by_name && (
           <div className="rounded-md border border-gold-leaf/40 bg-gold-leaf/10 px-3 py-2 font-script text-body text-ink-primary">
             Proposed by <span className="font-body font-medium">{habit.created_by_name}</span>
-            {' — set XP + skill tags below and publish to their ritual list.'}
+            {' — set XP + skill tags below and publish to their habit list.'}
           </div>
         )}
         {!canSetRewards && !isApprove && (
@@ -152,8 +152,8 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <TextField label="Icon" value={form.icon} onChange={onField('icon')} placeholder="⚡" />
           <SelectField label="Type" value={form.habit_type} onChange={onField('habit_type')}>
-            <option value="positive">Virtue (+)</option>
-            <option value="negative">Vice (−)</option>
+            <option value="positive">Build a habit (+)</option>
+            <option value="negative">Reduce a habit (−)</option>
             <option value="both">Both</option>
           </SelectField>
         </div>
@@ -347,12 +347,12 @@ export default function Habits() {
   // never punished).
   const versoProgressPct = Math.max(0, Math.min(100, Math.round(avgStrength * 10)));
   const versoStats = [
-    { value: habits.length, label: 'rituals' },
+    { value: habits.length, label: 'habits' },
     { value: avgStrength.toFixed(1), label: 'avg strength' },
   ];
   const versoProgressLabel = habits.length > 0
-    ? `${habits.length} ritual${habits.length === 1 ? '' : 's'} in practice`
-    : 'an empty page · ready to be inked';
+    ? `${habits.length} habit${habits.length === 1 ? '' : 's'} in practice`
+    : '0 habits added';
 
   let rubricIndex = 0;
   const nextRubric = () => rubricIndex++;
@@ -360,10 +360,10 @@ export default function Habits() {
   return (
     <div className="space-y-6">
       <QuestFolio
-        letter="R"
-        title="Rituals"
-        kicker="virtues & vices"
-        meta="tap a virtue to strengthen it · missed days drift it back"
+        letter="H"
+        title="Habits"
+        kicker="Build everyday habits"
+        meta="Log your habits each day. Habit strength moves toward zero on missed days."
         stats={versoStats}
         progressPct={versoProgressPct}
         progressLabel={versoProgressLabel}
@@ -376,7 +376,7 @@ export default function Habits() {
             onClick={openCreate}
             className="flex items-center gap-1.5"
           >
-            <Plus size={16} /> {isParent ? 'New ritual' : 'Propose a ritual'}
+            <Plus size={16} /> {isParent ? 'New habit' : 'Propose a habit'}
           </Button>
         </div>
 
@@ -384,7 +384,7 @@ export default function Habits() {
           <section>
             <ChapterRubric
               index={nextRubric()}
-              name={isParent ? 'Ritual proposals awaiting review' : 'Your proposals'}
+              name={isParent ? 'Habit proposals awaiting review' : 'Your proposals'}
             />
             <div className="space-y-2">
               {proposals.map((p) => (
@@ -429,7 +429,7 @@ export default function Habits() {
         <section>
           <ChapterRubric
             index={nextRubric()}
-            name="Active rituals"
+            name="Active habits"
             icon={<ScrollIcon size={18} className="text-sheikah-teal-deep" />}
           />
           {habits.length > 0 && (
@@ -437,18 +437,18 @@ export default function Habits() {
               <CatalogSearch
                 value={search}
                 onChange={setSearch}
-                placeholder="Search rituals…"
-                ariaLabel="Filter rituals"
+                placeholder="Search habits…"
+                ariaLabel="Filter habits"
               />
             </div>
           )}
           {habits.length === 0 ? (
             <EmptyState icon={<ScrollIcon size={32} />}>
-              No rituals recorded yet. Inscribe a virtue to begin practicing.
+              No habits yet. Add or propose a habit to get started.
             </EmptyState>
           ) : filteredHabits.length === 0 ? (
             <EmptyState icon={<ScrollIcon size={32} />}>
-              No rituals match &ldquo;{search.trim()}&rdquo;.
+              No habits match &ldquo;{search.trim()}&rdquo;.
             </EmptyState>
           ) : (
             <motion.div layout className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -502,7 +502,7 @@ export default function Habits() {
                             title={atCap ? `Daily limit reached (${habit.max_taps_per_day}/day)` : undefined}
                             className="flex items-center gap-1"
                           >
-                            <ThumbsUp size={14} /> {atCap ? 'done' : 'virtue'}
+                            <ThumbsUp size={14} /> {atCap ? 'done' : 'Log progress'}
                           </Button>
                         );
                       })()}
@@ -514,7 +514,7 @@ export default function Habits() {
                           disabled={tapping === `${habit.id}--1`}
                           className="flex items-center gap-1"
                         >
-                          <ThumbsDown size={14} /> vice
+                          <ThumbsDown size={14} /> Log setback
                         </Button>
                       )}
                     </div>
@@ -522,13 +522,13 @@ export default function Habits() {
                       <div className="flex gap-1">
                         <IconButton
                           onClick={() => openEdit(habit)}
-                          aria-label="Edit ritual"
+                          aria-label="Edit habit"
                         >
                           <Pencil size={16} />
                         </IconButton>
                         <IconButton
                           onClick={() => setConfirmDelete(habit)}
-                          aria-label="Delete ritual"
+                          aria-label="Delete habit"
                           className="hover:text-ember-deep"
                         >
                           <Trash2 size={16} />
@@ -559,7 +559,7 @@ export default function Habits() {
 
       {confirmDelete && (
         <ConfirmDialog
-          title="Delete ritual"
+          title="Delete habit"
           message={`Are you sure you want to delete "${confirmDelete.name}"?`}
           onConfirm={handleDelete}
           onCancel={() => setConfirmDelete(null)}

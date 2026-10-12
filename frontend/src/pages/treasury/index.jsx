@@ -14,16 +14,16 @@ import Inventory from '../Inventory';
 export default function TreasuryHub() {
   return (
     <ChapterHub
-      title="Treasury"
-      kicker="Chapter IV · Coin, Wage, Market & Satchel"
+      title="Rewards"
+      kicker="Track earnings, spend coins, and set savings goals"
       glyph="wax-seal"
       defaultTabId="coffers"
       tabs={[
-        { id: 'coffers', label: 'Coffers', render: () => <Payments /> },
-        { id: 'wages',   label: 'Wages',   render: () => <Timecards /> },
-        { id: 'bazaar',  label: 'Bazaar',  render: () => <Rewards /> },
-        { id: 'satchel', label: 'Satchel', render: () => <Inventory /> },
-        { id: 'hoards',  label: 'Hoards',  render: () => <HoardsTab /> },
+        { id: 'coffers', label: 'Payments', render: () => <Payments /> },
+        { id: 'wages',   label: 'Timecards', render: () => <Timecards /> },
+        { id: 'bazaar',  label: 'Shop', render: () => <Rewards /> },
+        { id: 'satchel', label: 'Inventory', render: () => <Inventory /> },
+        { id: 'hoards',  label: 'Savings goals', render: () => <HoardsTab /> },
       ]}
     />
   );

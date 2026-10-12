@@ -133,7 +133,7 @@ describe('DailyChallengeCard', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/\+10 coins · \+20 xp — inked\./i),
+        screen.getByText(/\+10 coins · \+20 xp earned\./i),
       ).toBeInTheDocument(),
     );
     const status = screen.getByRole('status');

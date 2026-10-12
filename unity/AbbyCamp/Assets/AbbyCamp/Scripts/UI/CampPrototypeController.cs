@@ -260,7 +260,7 @@ namespace AbbyCamp.UI
             controlsPanel = Panel(safeArea, "PlayActions", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, paper);
             rewardsButton = HomeCard("RewardsButton", "Rewards", out rewardSummary, OpenRewards);
             inboxButton = HomeCard("InboxButton", "Inbox", out inboxSummary, OpenInbox); inboxSummary.name = "UnreadCount";
-            bestiaryButton = HomeCard("BestiaryButton", "Bestiary", out bestiarySummary, OpenBestiary);
+            bestiaryButton = HomeCard("BestiaryButton", "Pets", out bestiarySummary, OpenBestiary);
             journalButton = Button(controlsPanel, "Journal", Vector2.zero, Vector2.zero, () => Navigate(PlayDestination.Journal), true); journalButton.name = "JournalButton";
             gradesButton = Button(controlsPanel, "Grades", Vector2.zero, Vector2.zero, () => Navigate(PlayDestination.Grades), true); gradesButton.name = "GradesButton";
             tasksButton = Button(controlsPanel, "Tasks", Vector2.zero, Vector2.zero, () => Navigate(PlayDestination.Tasks), true); tasksButton.name = "TasksButton";
@@ -310,7 +310,7 @@ namespace AbbyCamp.UI
             homeStatusLabel.text = homeStatus;
             rewardSummary.text = IsDemo ? "Your progress" : coins == null ? "Loading…" : coins.balance.ToString("N0") + " coins";
             inboxSummary.text = IsDemo ? "Your updates" : unreadCount == null ? "Loading…" : unreadCount.count + " unread";
-            bestiarySummary.text = IsDemo ? "Your creatures" : stable == null ? "Loading…" : stable.total_pets + " pets · " + stable.total_mounts + " mounts";
+            bestiarySummary.text = IsDemo ? "Your pets" : stable == null ? "Loading…" : stable.total_pets + " pets · " + stable.total_mounts + " mounts";
             RefreshCompanionPresentation();
         }
 
@@ -527,7 +527,7 @@ namespace AbbyCamp.UI
                 FlowLabel(content, "RewardStatus", rewardStatus, 14, ink);
                 FlowLabel(content, "RewardBalance", coins == null ? "Loading your balance…" : coins.balance.ToString("N0") + " coins", 26, ink);
                 FlowButton(content, "RewardShopButton", "Open reward shop", () => Navigate(PlayDestination.RewardShop));
-                FlowButton(content, "SatchelButton", "Open your items", () => Navigate(PlayDestination.Satchel));
+                FlowButton(content, "SatchelButton", "Open inventory", () => Navigate(PlayDestination.Satchel));
                 FlowLabel(content, "CoinHistoryHeading", "Recent coin activity", 19, ink);
                 if (coins != null && coins.recent_transactions.Length == 0) FlowLabel(content, "EmptyCoinHistory", "Your earned coins will appear here.", 16, ink);
                 if (coins != null) foreach (var item in coins.recent_transactions)
@@ -563,7 +563,7 @@ namespace AbbyCamp.UI
 
         private void DrawInbox()
         {
-            BeginModal("Inbox", "Updates from your life and your creatures.");
+            BeginModal("Inbox", "Task, reward, and pet updates.");
             var content = modalScroll.content;
             if (IsDemo) DemoMessage(content);
             else
@@ -641,7 +641,7 @@ namespace AbbyCamp.UI
             if (expeditionsOpen) { DrawExpeditions(); return; }
             if (hatcheryOpen) { DrawHatchery(); return; }
             if (selectedPetId != 0) { DrawPetCare(); return; }
-            BeginModal("Bestiary", "Your saved creature collection.");
+            BeginModal("Pets", "Your companions and mounts.");
             var content = modalScroll.content;
             if (IsDemo) DemoMessage(content);
             else
@@ -687,14 +687,14 @@ namespace AbbyCamp.UI
                             FlowButton(row, "ActiveMount_" + mount.id, "Choose as mount", () => StartCoroutine(SaveCare(mount.id, 0, true))).interactable = CanCare && mount.active_expedition == null;
                     }
                 }
-                FlowButton(content, "CompanionsWebButton", "Open web companions", () => Navigate(PlayDestination.BestiaryCompanions)).interactable = !IsBusy;
-                FlowButton(content, "MountsWebButton", "Open web mounts and breeding", () => Navigate(PlayDestination.BestiaryMounts)).interactable = !IsBusy;
+                FlowButton(content, "CompanionsWebButton", "View companions", () => Navigate(PlayDestination.BestiaryCompanions)).interactable = !IsBusy;
+                FlowButton(content, "MountsWebButton", "View mounts and breeding", () => Navigate(PlayDestination.BestiaryMounts)).interactable = !IsBusy;
                 FlowButton(content, "HatcheryButton", "Hatch a companion", () =>
                 {
                     hatcheryOpen = true; expeditionsOpen = false; selectedPetId = selectedFoodItemId = selectedEggItemId = selectedPotionItemId = 0;
                     DrawActiveSection(true);
                 }).interactable = !IsBusy && !sectionLoading;
-                FlowButton(content, "HatcheryWebButton", "Open web hatchery", () => Navigate(PlayDestination.BestiaryHatchery)).interactable = !IsBusy;
+                FlowButton(content, "HatcheryWebButton", "Open hatching", () => Navigate(PlayDestination.BestiaryHatchery)).interactable = !IsBusy;
                 FlowButton(content, "SpeciesWebButton", "Discover species", () => Navigate(PlayDestination.BestiaryCodex));
             }
             SectionFooter(Section.Bestiary);
@@ -753,7 +753,7 @@ namespace AbbyCamp.UI
                     FlowLabel(row, "ExpeditionMountName_" + owned.id, owned.potion.name + " " + owned.species.name + (owned.is_active ? " · Active" : ""), 18, ink);
                     DrawMountExpedition(row, owned);
                 }
-                FlowButton(content, "BackExpeditionCollectionButton", "Back to creatures", () =>
+                FlowButton(content, "BackExpeditionCollectionButton", "Back to pets", () =>
                 {
                     expeditionsOpen = false; selectedExpeditionMountId = selectedExpeditionId = 0;
                     selectedExpeditionTier = null; expeditionClaim = null; DrawActiveSection(true);
@@ -908,7 +908,7 @@ namespace AbbyCamp.UI
                 foreach (var trip in expeditions)
                     FlowLabel(content, "ReviewExpedition_" + trip.id, trip.potion_name + " " + trip.species_name + " · " + Humanize(trip.status) + " · " + ReturnTime(trip.returns_at), 16, ink);
             }
-            FlowButton(content, "RefreshCareButton", "Refresh creatures and items", () => StartCoroutine(LoadSection(Section.Bestiary))).interactable = !sectionLoading && !IsBusy;
+            FlowButton(content, "RefreshCareButton", "Refresh pets and inventory", () => StartCoroutine(LoadSection(Section.Bestiary))).interactable = !sectionLoading && !IsBusy;
             FlowButton(content, "AcknowledgeCareButton", "I checked the updated collection", () =>
             {
                 if (!careReviewLoaded || sectionLoading || IsBusy) return;
@@ -956,7 +956,7 @@ namespace AbbyCamp.UI
                         StartCoroutine(SaveCare(0, 0, false, egg.item.id, potion.item.id))).interactable = CanCare;
                 }
             }
-            FlowButton(content, "BackHatcheryButton", "Back to creatures", () =>
+            FlowButton(content, "BackHatcheryButton", "Back to pets", () =>
             {
                 hatcheryOpen = false; selectedEggItemId = selectedPotionItemId = 0; DrawActiveSection(true);
             }).interactable = !IsBusy;
@@ -1015,7 +1015,7 @@ namespace AbbyCamp.UI
                     }
                 }
             }
-            FlowButton(content, "BackCareButton", "Back to creatures", () => { selectedPetId = selectedFoodItemId = 0; DrawActiveSection(true); }).interactable = !IsBusy;
+            FlowButton(content, "BackCareButton", "Back to pets", () => { selectedPetId = selectedFoodItemId = 0; DrawActiveSection(true); }).interactable = !IsBusy;
             SectionFooter(Section.Bestiary);
         }
 

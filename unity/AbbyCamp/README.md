@@ -37,11 +37,16 @@ animation mappings. These prepared growth forms do not yet add evolution rules.
 
 ## Product goal and next slice
 
+Use the web app's [plain-language UI vocabulary](../../frontend/CLAUDE.md#ui-language-october-2026).
+Play displays **Pets** for the companion and mount collection. Internal
+`Bestiary` section, button and destination identifiers remain unchanged for
+navigation and validation compatibility.
+
 ### Owned creature presentation — 2026-10-11
 
 Licensed presentation explicitly maps server `species.sprite_key=cute-chick`
 and `potion.slug=base` to Chick, and the confirmed evolved pet or mount to Bird.
-Choose a companion or mount in Bestiary; the acknowledged `/activate/` result
+Choose a companion or mount in Pets; the acknowledged `/activate/` result
 changes the appearance child while preserving the fixed actor root. The two
 server active flags remain independent, so the last explicitly acknowledged
 presentation choice is stored by origin and child and rechecked against active

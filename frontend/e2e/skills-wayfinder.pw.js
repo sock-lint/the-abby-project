@@ -168,7 +168,7 @@ async function expectGeometry(page, width) {
 }
 
 async function returnToOverview(page) {
-  await page.getByRole('navigation', { name: 'Skill atlas breadcrumb' }).getByRole('button', { name: 'All skills', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Skill navigation' }).getByRole('button', { name: 'All skills', exact: true }).click();
   await expectDestination(page, 'Your skills');
 }
 

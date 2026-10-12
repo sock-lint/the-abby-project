@@ -121,7 +121,7 @@ export default function JournalReader() {
     const buckets = chapters
       .map((c) => ({
         chapter_year: c.chapter_year,
-        label: c.label || `Chapter ${c.chapter_year}`,
+        label: c.label || `Year ${c.chapter_year}`,
         is_current: !!c.is_current,
         entries: (c.entries ?? [])
           .filter((e) => e.kind === 'journal' && (!isParent || e.is_private === false))
@@ -213,7 +213,7 @@ export default function JournalReader() {
   return (
     <div className="space-y-4">
       <p className="font-script text-sm text-ink-whisper text-center max-w-xl mx-auto">
-        a continuous record of your days · written in your own hand
+        Keep your daily thoughts and memories in one place.
       </p>
 
       {isParent && (children?.length ?? 0) > 0 && (
@@ -312,7 +312,7 @@ function JournalBody({
           items={shelfItems}
           activeId={activeChapterId}
           onSelect={onSelectChapter}
-          ariaLabel="Journal chapters"
+          ariaLabel="Journal years"
         />
       )}
       {activeChapter && (

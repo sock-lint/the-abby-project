@@ -67,7 +67,7 @@ export default function Signup({ onSignup }) {
   return (
     <div className="min-h-dvh flex items-center justify-center p-4 parchment-bg">
       <div className="w-full max-w-sm">
-        <StorybookWelcome kicker="Make room for your family" description="Little moments, shared adventures, and a story to keep." />
+        <StorybookWelcome kicker="Make room for your family" description="Keep track of everyday tasks, achievements, and family memories." />
 
         {disabled ? (
           <ParchmentCard flourish>

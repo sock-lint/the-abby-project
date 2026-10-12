@@ -97,7 +97,7 @@ export default function Mounts() {
       <IncipitBand
         letter="M"
         title="Mounts"
-        kicker="· your party · mounts you can ride ·"
+        kicker="Your evolved companions"
         meta={
           <>
             <span className="tabular-nums">{mounts.length} of {totalPossible}</span>
@@ -108,7 +108,7 @@ export default function Mounts() {
       />
 
       <p className="font-script text-body text-ink-whisper -mt-2 max-w-xl">
-        companions that bloomed past growth 100 evolve into mounts · pair two on the Hatchery tab to breed a hybrid egg
+        Companions evolve into mounts at 100 growth. Pair two on the Hatching tab to breed a hybrid egg.
       </p>
 
       <ErrorAlert message={error || stableError} />
@@ -233,7 +233,7 @@ export default function Mounts() {
                       disabled={working || isOut}
                       className="mt-2 w-full !bg-gold-leaf/20 !text-ember-deep !border-gold-leaf/60 hover:!bg-gold-leaf/30 disabled:cursor-not-allowed"
                     >
-                      {working ? 'Saddling…' : 'Saddle up'}
+                      {working ? 'Setting…' : 'Set active'}
                     </Button>
                   )}
                   {isReady ? (
@@ -243,9 +243,9 @@ export default function Mounts() {
                       onClick={() => handleClaim(expedition.id)}
                       disabled={working}
                       className="mt-1 w-full !bg-gold-leaf/30 !text-ember-deep !border-gold-leaf/80 hover:!bg-gold-leaf/40 disabled:cursor-not-allowed animate-gilded-glint"
-                      aria-label={`Claim expedition loot for ${mount.species.name}`}
+                      aria-label={`Claim expedition rewards for ${mount.species.name}`}
                     >
-                      {working ? 'Claiming…' : 'Claim loot →'}
+                      {working ? 'Claiming…' : 'Claim rewards'}
                     </Button>
                   ) : !isOut ? (
                     <Button

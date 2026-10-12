@@ -16,7 +16,7 @@ function renderSidebar(user, onLogout = vi.fn()) {
 describe('ChapterSidebar', () => {
   it('renders the six chapter links for any user', () => {
     renderSidebar(buildUser());
-    for (const label of ['Today', 'Quests', 'Bestiary', 'Treasury', 'Atlas', 'Chronicle']) {
+    for (const label of ['Today', 'Tasks', 'Pets', 'Rewards', 'Progress', 'Memories']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
@@ -66,7 +66,7 @@ describe('ChapterBottomBar', () => {
         <ChapterBottomBar />
       </MemoryRouter>,
     );
-    for (const label of ['Today', 'Quests', 'Bestiary', 'Treasury', 'Atlas', 'Chronicle']) {
+    for (const label of ['Today', 'Tasks', 'Pets', 'Rewards', 'Progress', 'Memories']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
@@ -77,7 +77,7 @@ describe('ChapterBottomBar', () => {
         <ChapterBottomBar user={buildParent({ display_name: 'Dad' })} />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Chronicle')).toBeInTheDocument();
+    expect(screen.getByText('Memories')).toBeInTheDocument();
     // Manage is now reached via the AvatarMenu in the mobile header, not the
     // bottom bar — the old swap dropped Chronicle, which was wrong.
     expect(screen.queryByText('Manage')).toBeNull();

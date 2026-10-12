@@ -345,7 +345,7 @@ export default function SettingsPage() {
             {user.family.name}
           </div>
           <div className="font-script text-ink-whisper text-caption mt-1">
-            chapter scoped to this household
+            Accounts and family activity belong to this household.
           </div>
         </ParchmentCard>
       )}
@@ -417,7 +417,7 @@ export default function SettingsPage() {
                     }}
                   >
                     <Check size={10} strokeWidth={2.5} />
-                    reading
+                    selected
                   </span>
                 )}
                 <div className={`flex items-baseline gap-2 ${active ? 'pr-20' : ''}`}>
@@ -433,13 +433,13 @@ export default function SettingsPage() {
                   className="font-body text-caption mt-1.5 leading-snug"
                   style={{ color: theme.inkSecondary }}
                 >
-                  Ink the day&apos;s deeds here.
+                  Keep track of your day.
                 </div>
                 <div
                   className="font-script text-caption mt-0.5"
                   style={{ color: theme.inkWhisper }}
                 >
-                  — 6 chapters opened
+                  Your progress, all in one place
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
                   <span
@@ -480,9 +480,9 @@ export default function SettingsPage() {
           })}
         </div>
         <div className="mt-3 font-script text-caption text-ink-whisper">
-          {ownedCount} of {Object.keys(themes).length} covers bound —{' '}
+          {ownedCount} of {Object.keys(themes).length} covers owned —{' '}
           <Link to="/sigil" className="underline decoration-dotted hover:text-sheikah-teal-deep">
-            find more on your Frontispiece →
+            View your profile collections →
           </Link>
         </div>
       </ParchmentCard>
@@ -587,8 +587,8 @@ export default function SettingsPage() {
       <ParchmentCard>
         <SectionHeader index={5} title="About The Abby Project" className="mb-2" />
         <p className="font-body text-body text-ink-secondary">
-          Chronicle ventures, duties, rituals, and study. Ink hours, earn XP, unlock
-          skills, collect coins, and grow the party.
+          Track projects, chores, habits, and homework. Log time, build skills,
+          earn coins, and care for your pets.
         </p>
       </ParchmentCard>
 
@@ -600,7 +600,7 @@ export default function SettingsPage() {
           onClick={onLogout}
           className="flex items-center justify-center gap-2 w-full"
         >
-          <LogOut size={16} /> Sign off
+          <LogOut size={16} /> Sign out
         </Button>
       </ParchmentCard>
     </PageShell>

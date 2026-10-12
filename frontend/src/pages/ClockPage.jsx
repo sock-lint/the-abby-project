@@ -83,7 +83,7 @@ export default function ClockPage() {
   const handleClockIn = async () => {
     setError('');
     if (clockBusy || !statusReady || !projectsReady) return;
-    if (!effectiveProject) { setError('Select a venture first'); return; }
+    if (!effectiveProject) { setError('Select a project first'); return; }
     setClockBusy(true);
     try {
       await clockIn(parseInt(effectiveProject));
@@ -140,13 +140,13 @@ export default function ClockPage() {
     <PageShell width="narrow" rhythm="loose">
       <header className="text-center">
         <div className="font-script text-sheikah-teal-deep text-base">
-          the expedition log
+          Track your project work
         </div>
         <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          Clock
+          Time tracking
         </h1>
         <div className="font-script text-body text-ink-whisper mt-1">
-          each hour at a venture inks coins, XP, and weekly wages
+          Log project time to earn coins, XP, and weekly pay.
         </div>
       </header>
 
@@ -155,7 +155,7 @@ export default function ClockPage() {
         onRetry={reloadStatus}
       />
       <ErrorAlert
-        message={projectsError ? `Couldn't load ventures. ${projectsError}` : null}
+        message={projectsError ? `Couldn't load projects. ${projectsError}` : null}
         onRetry={reloadProjects}
       />
 
@@ -175,7 +175,7 @@ export default function ClockPage() {
               {isClocked ? (
                 <motion.div key="active" initial={{ scale: 0.85 }} animate={{ scale: 1 }}>
                   <div className="font-script text-sheikah-teal-deep text-body uppercase tracking-widest mb-1">
-                    now inking
+                    Clocked in
                   </div>
                   <div className="font-display text-lg text-ink-primary mb-3">
                     {status.project_title}
@@ -188,7 +188,7 @@ export default function ClockPage() {
                       label="Session notes"
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Scribble what you did…"
+                      placeholder="Describe what you worked on…"
                       inputMode="text"
                       rows={3}
                     />
@@ -206,8 +206,8 @@ export default function ClockPage() {
                   </motion.button>
                   <div className="font-script text-body text-ink-whisper mt-3">
                     {clockBusy
-                      ? 'closing the entry…'
-                      : 'tap to close the entry · the hour rolls into your weekly wages'}
+                      ? 'Clocking out…'
+                      : 'Clock out to save this session to your weekly timecard.'}
                   </div>
                 </motion.div>
               ) : (
@@ -218,12 +218,12 @@ export default function ClockPage() {
                   </div>
                   <div className="mb-4">
                     <SelectField
-                      label="Venture"
+                      label="Project"
                       value={effectiveProject}
                       onChange={(e) => setSelectedProject(e.target.value)}
                       disabled={!projectsReady}
                     >
-                      <option value="">Select a venture…</option>
+                      <option value="">Select a project…</option>
                       {activeProjects.map((p) => (
                         <option key={p.id} value={p.id}>{p.title}</option>
                       ))}
@@ -242,8 +242,8 @@ export default function ClockPage() {
                   </motion.button>
                   <div className="font-script text-body text-ink-whisper mt-3">
                     {clockBusy
-                      ? 'opening the entry…'
-                      : 'tap to begin inking · earns coins and XP per hour'}
+                      ? 'Clocking in…'
+                      : 'Clock in to start tracking your work.'}
                   </div>
                 </motion.div>
               )}
@@ -314,7 +314,7 @@ export default function ClockPage() {
           while the entries request was still in flight. */}
       {!loadingEntries && !entriesError && entries.length === 0 && (
         <EmptyState icon={<ClockFabIcon size={36} />}>
-          No entries yet — clock in to begin the log. Each hour earns coin, XP, and a weekly wage.
+          No time entries yet. Choose a project and clock in to start tracking your work.
         </EmptyState>
       )}
 
@@ -330,9 +330,9 @@ export default function ClockPage() {
 
       {confirmingClockOut && (
         <ConfirmDialog
-          title={`Close this entry at ${formatTime(elapsed)}?`}
-          message="The hour rolls into your weekly wages. You can't undo a clock-out — only a parent can void the entry afterward."
-          confirmLabel="Close entry"
+          title={`Clock out after ${formatTime(elapsed)}?`}
+          message="This saves your session to your weekly timecard. Only a parent can void the entry afterward."
+          confirmLabel="Clock out"
           onConfirm={confirmClockOut}
           onCancel={() => setConfirmingClockOut(false)}
         />

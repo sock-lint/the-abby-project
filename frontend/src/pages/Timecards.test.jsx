@@ -31,7 +31,7 @@ function renderPage(user = buildUser(), extra = []) {
 describe('Timecards', () => {
   it('renders empty state when no timecards', async () => {
     renderPage(buildUser(), [http.get('*/api/timecards/', () => HttpResponse.json([]))]);
-    await waitFor(() => expect(screen.getByText(/no weeks logged yet/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/no timecards yet/i)).toBeInTheDocument());
   });
 
   it('renders a list of timecards and expands on click', async () => {
@@ -140,9 +140,9 @@ describe('Timecards', () => {
       }),
     ]);
     await waitFor(() =>
-      expect(screen.getByText(/couldn't load your wages/i)).toBeInTheDocument(),
+      expect(screen.getByText(/couldn't load your timecards/i)).toBeInTheDocument(),
     );
-    expect(screen.queryByText(/no weeks logged yet/i)).toBeNull();
+    expect(screen.queryByText(/no timecards yet/i)).toBeNull();
 
     await user.click(screen.getByRole('button', { name: /try again/i }));
     await waitFor(() => expect(screen.getByText('5h')).toBeInTheDocument());

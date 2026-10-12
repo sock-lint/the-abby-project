@@ -2,6 +2,11 @@
 
 Page-level architecture: the Quests hub, the Atlas hub, the Sigil Frontispiece, the Yearbook, the role-split Dashboard, and the page primitives that unify how every page renders.
 
+**Current UI names:** Tasks, Pets, Rewards, Progress, Memories and Profile.
+Use the [UI language table](../../CLAUDE.md#ui-language-october-2026) for tab,
+action and help wording. Historical names in the architecture below describe
+stable routes and component identifiers, not the labels to show users.
+
 ## Page primitives (added 2026-05, commit `2b240fc`)
 
 The 2026-05 audit lifted two layout primitives out of the per-page copy-paste pattern:

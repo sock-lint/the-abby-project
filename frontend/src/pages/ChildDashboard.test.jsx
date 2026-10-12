@@ -140,7 +140,7 @@ describe('ChildDashboard', () => {
         HttpResponse.json([{ id: 1, item_name: 'Coin', item_icon: '🪙', item_sprite_key: 'coin', item_rarity: 'common', was_salvaged: false }]),
       ),
     ]);
-    await waitFor(() => expect(screen.getByText(/recent loot/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/recent items/i)).toBeInTheDocument());
     // Savings peek renders the first goal title even while collapsed.
     expect(screen.getByText(/bike/i)).toBeInTheDocument();
     // Pet growth % visible in the vital pip.
@@ -176,7 +176,7 @@ describe('ChildDashboard', () => {
       }])),
     ], { 'sky-potion': { url: '/sprites/sky-potion.png', frames: 1 } });
 
-    const card = await screen.findByRole('button', { name: 'Sky potion — open satchel' });
+    const card = await screen.findByRole('button', { name: 'Sky potion — open inventory' });
     expect(screen.getByRole('img', { name: 'Sky potion' })).toHaveAttribute('src', '/sprites/sky-potion.png');
     expect(card).toHaveClass('ring-royal/60');
     expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
@@ -193,7 +193,7 @@ describe('ChildDashboard', () => {
         next_actions: [], recent_badges: [{ badge__id: 9, badge__name: 'Kind helper', badge__icon: '🏅' }],
       })),
     ]);
-    await user.click(await screen.findByRole('button', { name: /recent accolades/i }));
+    await user.click(await screen.findByRole('button', { name: /recent badges/i }));
     await user.click(await screen.findByRole('button', { name: 'Kind helper — view earned badges' }));
     expect(screen.getByTestId('location')).toHaveTextContent('/atlas?tab=badges');
   });
@@ -231,8 +231,8 @@ describe('ChildDashboard', () => {
     expect(screen.getByRole('button', { name: /submit math workbook/i })).toBeInTheDocument();
     // Quest log shows both items grouped by section. Section labels and the
     // per-row kind tags both render the same string, so use getAllByText.
-    expect(screen.getAllByText(/study/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/duty/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/homework/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/chores/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Clean Room')).toBeInTheDocument();
   });
 

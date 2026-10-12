@@ -28,7 +28,7 @@ describe('collections.constants', () => {
     });
 
     it('exports an id→collection lookup', () => {
-      expect(COLLECTIONS_BY_ID.chronos.name).toBe('Chronos');
+      expect(COLLECTIONS_BY_ID.chronos.name).toBe('Time');
       expect(COLLECTIONS_BY_ID.reliquary.rubric).toBe('7');
     });
   });
@@ -65,7 +65,7 @@ describe('collections.constants', () => {
     it('returns the full collection object', () => {
       const c = collectionForBadge({ criterion_type: 'quest_completed' });
       expect(c.id).toBe('adventure');
-      expect(c.name).toBe('Adventure');
+      expect(c.name).toBe('Activities');
     });
   });
 
@@ -159,7 +159,7 @@ describe('collections.constants', () => {
       [{ criterion_type: 'category_projects', criterion_value: 5 }, 'Complete 5 projects in one category'],
       [{ criterion_type: 'category_projects' }, 'Complete a category of projects'],
       [{ criterion_type: 'materials_under_budget' }, 'Finish a project under the materials budget'],
-      [{ criterion_type: 'perfect_timecard' }, 'Ship a perfect weekly timecard'],
+      [{ criterion_type: 'perfect_timecard' }, 'Complete a perfect weekly timecard'],
       [{ criterion_type: 'photos_uploaded', criterion_value: 10 }, 'Upload 10 project photos'],
       [{ criterion_type: 'photos_uploaded' }, 'Upload project photos'],
       [{ criterion_type: 'bounty_completed', criterion_value: 3 }, 'Claim 3 bounties'],
@@ -189,13 +189,13 @@ describe('collections.constants', () => {
       [{ criterion_type: 'total_coins_earned' }, 'Earn coins'],
       [{ criterion_type: 'coins_spent_lifetime', criterion_value: 100 }, 'Spend 100 coins lifetime'],
       [{ criterion_type: 'coins_spent_lifetime' }, 'Spend coins at the shop'],
-      [{ criterion_type: 'savings_goal_completed', criterion_value: 3 }, 'Fill 3 savings goals'],
+      [{ criterion_type: 'savings_goal_completed', criterion_value: 3 }, 'Complete 3 savings goals'],
       [{ criterion_type: 'savings_goal_completed' }, 'Complete a savings goal'],
       [{ criterion_type: 'reward_redeemed', criterion_value: 5 }, 'Redeem 5 rewards'],
       [{ criterion_type: 'reward_redeemed' }, 'Redeem a reward'],
       // Scholar
       [{ criterion_type: 'homework_planned_ahead', criterion_value: 5 }, 'Plan 5 assignments ahead of the due date'],
-      [{ criterion_type: 'homework_planned_ahead' }, 'Plan study ahead'],
+      [{ criterion_type: 'homework_planned_ahead' }, 'Plan homework ahead'],
       [{ criterion_type: 'homework_on_time_count', criterion_value: 10 }, 'Submit 10 assignments on time'],
       [{ criterion_type: 'homework_on_time_count' }, 'Submit assignments on time'],
       [{ criterion_type: 'journal_entries_written', criterion_value: 10 }, 'Write 10 journal entries'],
@@ -208,19 +208,19 @@ describe('collections.constants', () => {
       [{ criterion_type: 'perfect_days_count', criterion_value: 10 }, 'Log 10 perfect days'],
       [{ criterion_type: 'perfect_days_count' }, 'Log a perfect day'],
       [{ criterion_type: 'streak_freeze_used' }, 'Use a streak freeze'],
-      [{ criterion_type: 'habit_max_strength' }, 'Max out a ritual\u2019s strength'],
-      [{ criterion_type: 'habit_count_at_strength', criterion_value: 5 }, 'Hold 5 rituals at full strength'],
-      [{ criterion_type: 'habit_count_at_strength' }, 'Stack strong rituals'],
-      [{ criterion_type: 'habit_taps_lifetime', criterion_value: 500 }, 'Tap rituals 500 times lifetime'],
-      [{ criterion_type: 'habit_taps_lifetime' }, 'Tap rituals'],
-      [{ criterion_type: 'chore_completions', criterion_value: 25 }, 'Complete 25 duties'],
-      [{ criterion_type: 'chore_completions' }, 'Complete duties'],
-      [{ criterion_type: 'quest_completed', criterion_value: 5 }, 'Finish 5 quests'],
-      [{ criterion_type: 'quest_completed' }, 'Finish a quest'],
-      [{ criterion_type: 'boss_quests_completed', criterion_value: 3 }, 'Down 3 boss quests'],
-      [{ criterion_type: 'boss_quests_completed' }, 'Down a boss quest'],
-      [{ criterion_type: 'collection_quests_completed', criterion_value: 3 }, 'Complete 3 collection quests'],
-      [{ criterion_type: 'collection_quests_completed' }, 'Complete a collection quest'],
+      [{ criterion_type: 'habit_max_strength' }, 'Reach full strength in a habit'],
+      [{ criterion_type: 'habit_count_at_strength', criterion_value: 5 }, 'Keep 5 habits at full strength'],
+      [{ criterion_type: 'habit_count_at_strength' }, 'Keep habits at full strength'],
+      [{ criterion_type: 'habit_taps_lifetime', criterion_value: 500 }, 'Log habits 500 times in total'],
+      [{ criterion_type: 'habit_taps_lifetime' }, 'Log habits'],
+      [{ criterion_type: 'chore_completions', criterion_value: 25 }, 'Complete 25 chores'],
+      [{ criterion_type: 'chore_completions' }, 'Complete chores'],
+      [{ criterion_type: 'quest_completed', criterion_value: 5 }, 'Finish 5 challenges'],
+      [{ criterion_type: 'quest_completed' }, 'Finish a challenge'],
+      [{ criterion_type: 'boss_quests_completed', criterion_value: 3 }, 'Complete 3 boss challenges'],
+      [{ criterion_type: 'boss_quests_completed' }, 'Complete a boss challenge'],
+      [{ criterion_type: 'collection_quests_completed', criterion_value: 3 }, 'Complete 3 collection challenges'],
+      [{ criterion_type: 'collection_quests_completed' }, 'Complete a collection challenge'],
       [{ criterion_type: 'pets_hatched', criterion_value: 3 }, 'Hatch 3 pets'],
       [{ criterion_type: 'pets_hatched' }, 'Hatch a pet'],
       [{ criterion_type: 'pet_species_owned', criterion_value: 5 }, 'Own 5 pet species'],
@@ -235,8 +235,8 @@ describe('collections.constants', () => {
       [{ criterion_type: 'full_potion_shelf' }, 'Own every potion variant'],
       [{ criterion_type: 'consumable_variety', criterion_value: 10 }, 'Own 10 different consumables'],
       [{ criterion_type: 'consumable_variety' }, 'Stock varied consumables'],
-      [{ criterion_type: 'chronicle_milestones_logged', criterion_value: 5 }, 'Log 5 chronicle milestones'],
-      [{ criterion_type: 'chronicle_milestones_logged' }, 'Log chronicle milestones'],
+      [{ criterion_type: 'chronicle_milestones_logged', criterion_value: 5 }, 'Log 5 milestones'],
+      [{ criterion_type: 'chronicle_milestones_logged' }, 'Log milestones'],
       [{ criterion_type: 'grade_reached', criterion_value: 9 }, 'Reach grade 9'],
       [{ criterion_type: 'grade_reached' }, 'Advance through grades'],
       [{ criterion_type: 'birthdays_logged', criterion_value: 3 }, 'Celebrate 3 birthdays'],

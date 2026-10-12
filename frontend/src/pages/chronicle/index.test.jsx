@@ -30,11 +30,11 @@ describe('ChronicleHub', () => {
     );
     renderHub();
     // Hub no longer renders an h1; check the tablist aria-label instead.
-    const tablist = await screen.findByRole('tablist', { name: /chronicle sections/i });
-    expect(tablist).toHaveTextContent(/sketchbook/i);
+    const tablist = await screen.findByRole('tablist', { name: /memories sections/i });
+    expect(tablist).toHaveTextContent(/gallery/i);
     expect(tablist).toHaveTextContent(/journal/i);
     expect(tablist).toHaveTextContent(/grades/i);
-    expect(tablist).toHaveTextContent(/yearbook/i);
+    expect(tablist).toHaveTextContent(/timeline/i);
   });
 
   it('switches tabs when clicked', async () => {

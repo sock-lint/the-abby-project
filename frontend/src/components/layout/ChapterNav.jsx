@@ -23,11 +23,11 @@ import useParentPendingCounts from '../../hooks/useParentPendingCounts';
 
 const CHAPTERS = [
   { to: '/',           icon: TodayIcon,     label: 'Today',     shortLabel: 'Today' },
-  { to: '/quests',     icon: QuestsIcon,    label: 'Quests',    shortLabel: 'Quests' },
-  { to: '/bestiary',   icon: BestiaryIcon,  label: 'Bestiary',  shortLabel: 'Bestiary' },
-  { to: '/treasury',   icon: TreasuryIcon,  label: 'Treasury',  shortLabel: 'Treasury' },
-  { to: '/atlas',      icon: AtlasIcon,     label: 'Atlas',     shortLabel: 'Atlas' },
-  { to: '/chronicle',  icon: ChronicleIcon, label: 'Chronicle', shortLabel: 'Chronicle' },
+  { to: '/quests',     icon: QuestsIcon,    label: 'Tasks',    shortLabel: 'Tasks' },
+  { to: '/bestiary',   icon: BestiaryIcon,  label: 'Pets',  shortLabel: 'Pets' },
+  { to: '/treasury',   icon: TreasuryIcon,  label: 'Rewards',  shortLabel: 'Rewards' },
+  { to: '/atlas',      icon: AtlasIcon,     label: 'Progress',     shortLabel: 'Progress' },
+  { to: '/chronicle',  icon: ChronicleIcon, label: 'Memories', shortLabel: 'Memories' },
 ];
 
 export function ChapterSidebar({ user, onLogout }) {

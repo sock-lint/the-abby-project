@@ -86,7 +86,7 @@ export default function Manage() {
     <PageShell rhythm="loose">
       <header>
         <div className="font-script text-sheikah-teal-deep text-base">
-          stewardship · the keeper's ledger
+          Family, accounts, and project templates
         </div>
         <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
           Manage

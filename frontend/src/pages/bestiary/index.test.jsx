@@ -35,11 +35,11 @@ describe('BestiaryHub', () => {
     );
     // Hub no longer renders an h1; check the tablist aria-label instead.
     await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /bestiary sections/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /pets sections/i })).toBeInTheDocument(),
     );
   });
 
-  it('exposes Companions, Mounts, Codex, and Hatchery tabs', async () => {
+  it('exposes Companions, Mounts, Collection, and Hatching tabs', async () => {
     stubAll();
     render(
       <MemoryRouter>
@@ -50,8 +50,8 @@ describe('BestiaryHub', () => {
     );
     await screen.findByRole('tab', { name: 'Companions' });
     expect(screen.getByRole('tab', { name: 'Mounts' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Codex' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Hatchery' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Collection' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Hatching' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Party' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Satchel' })).toBeNull();
   });

@@ -259,7 +259,7 @@ export default function Portfolio() {
       link.click();
       link.remove();
     } catch (err) {
-      setExportError(`Couldn't download your sketchbook: ${err?.message || 'Download failed'}`);
+      setExportError(`Couldn't download your gallery: ${err?.message || 'Download failed'}`);
     } finally {
       if (url) URL.revokeObjectURL(url);
       exportInFlight.current = false;
@@ -280,16 +280,16 @@ export default function Portfolio() {
       <header className="flex items-start justify-between gap-2 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
-            the sketchbook · pressed between pages
+            Photos, videos, and creations
           </div>
           {/* Below md the Chronicle hub's tab strip already names this page —
               the stacked h1 + explainer ate ~100px above the fold on phones.
               Same treatment as the Skills tab (pages/Achievements.jsx). */}
           <h1 className="hidden md:block font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-            Sketchbook
+            Gallery
           </h1>
           <div className="hidden md:block font-script text-body text-ink-whisper mt-1 max-w-xl">
-            every photo from your ventures, study proofs, and creations · tap a tile to leaf through
+            Browse project photos, homework uploads, and creations. Select an item to view it.
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -299,7 +299,7 @@ export default function Portfolio() {
               size="sm"
               onClick={handleExport}
               disabled={exporting}
-              aria-label={exporting ? 'Downloading sketchbook' : 'Download all'}
+              aria-label={exporting ? 'Downloading gallery' : 'Download all'}
               className="flex items-center gap-1.5 font-script text-sm text-sheikah-teal-deep hover:text-sheikah-teal transition-colors px-2 min-h-10"
             >
               <Download size={16} /> <span className="hidden sm:inline">{exporting ? 'downloading…' : 'download all'}</span>
@@ -310,7 +310,7 @@ export default function Portfolio() {
             onClick={() => setUploadOpen(true)}
             className="flex items-center gap-1.5 min-h-10"
           >
-            <Plus size={16} /> Affix photo
+            <Plus size={16} /> Add photo
           </Button>
         </div>
       </header>
@@ -318,7 +318,7 @@ export default function Portfolio() {
       {hasContent && (
         <div className="space-y-2">
           <TomeShelf
-            ariaLabel="Filter Sketchbook"
+            ariaLabel="Filter gallery"
             activeId={filter}
             onSelect={setFilter}
             items={FILTERS
@@ -372,7 +372,7 @@ export default function Portfolio() {
           </div>
           {filter === 'creations' && (
             <p className="font-script text-tiny text-ink-whisper text-center">
-              creations log what you made — first two of the day earn XP; submit for a bonus seal
+              Log what you made. Your first two creations each day earn XP. Submit one for a parent to review for bonus XP.
             </p>
           )}
         </div>
@@ -380,7 +380,7 @@ export default function Portfolio() {
 
       {!hasContent ? (
         <EmptyState icon={<Image size={32} />}>
-          No pages yet — affix your first progress photo and it'll appear here.
+          No photos yet. Add your first progress photo to see it here.
         </EmptyState>
       ) : filteredItems.length === 0 ? (
         <EmptyState icon={<Image size={32} />}>
@@ -453,8 +453,8 @@ export default function Portfolio() {
 
       {pendingDelete && (
         <ConfirmDialog
-          title="Remove from Sketchbook?"
-          message="This pulls the page out for good — it can't be restored."
+          title="Remove from Gallery?"
+          message="This permanently removes the item. It cannot be restored."
           confirmLabel="Remove"
           onConfirm={confirmDelete}
           onCancel={() => setPendingDelete(null)}
@@ -672,7 +672,7 @@ function Lightbox({ viewer, onClose, onPrev, onNext }) {
         </div>
         <div className="flex justify-center">
           <ShareButton
-            title="From my sketchbook"
+            title="From my gallery"
             text={`"${current.caption || current.groupLabel}" — made in The Abby Project!`}
             className="!text-white/80 hover:!text-white"
           />
@@ -739,7 +739,7 @@ function UploadSheet({ projects, onClose, onUploaded }) {
           onChange={(e) => setProjectId(e.target.value)}
           disabled={uploading}
         >
-          <option value="">Select a venture…</option>
+          <option value="">Select a project…</option>
           {projects.map((p) => (
             <option key={p.id} value={p.id}>
               {p.title}

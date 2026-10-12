@@ -124,7 +124,7 @@ describe('Mounts tab', () => {
     });
   });
 
-  it('Saddle up POSTs to mount activate endpoint', async () => {
+  it('Set active POSTs to mount activate endpoint', async () => {
     const user = userEvent.setup();
     const activate = spyHandler('post', /\/api\/mounts\/\d+\/activate\/$/, { ok: true });
     renderPage([
@@ -134,7 +134,7 @@ describe('Mounts tab', () => {
       activate.handler,
     ]);
     await waitFor(() => expect(screen.getByText(/Wolf/)).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /saddle up/i }));
+    await user.click(screen.getByRole('button', { name: /set active/i }));
     await waitFor(() => expect(activate.calls).toHaveLength(1));
     expect(activate.calls[0].url).toMatch(/\/mounts\/10\/activate\/$/);
   });
@@ -155,7 +155,7 @@ describe('Mounts tab', () => {
     await waitFor(() => expect(screen.getByText(/Wolf/)).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /Send Wolf on an expedition/i }));
     // Sheet appears and offers three tier choices.
-    const shortTierBtn = await screen.findByRole('button', { name: /short stroll/i });
+    const shortTierBtn = await screen.findByRole('button', { name: /short expedition/i });
     await user.click(shortTierBtn);
     await waitFor(() => expect(start.calls).toHaveLength(1));
     expect(start.calls[0].url).toMatch(/\/mounts\/10\/expedition\/$/);
@@ -206,7 +206,7 @@ describe('Mounts tab', () => {
     expect(url.searchParams.get('details')).toContain('/bestiary?tab=mounts');
   });
 
-  it('Claim loot button POSTs to the claim endpoint when the expedition is ready', async () => {
+  it('Claim rewards button POSTs to the claim endpoint when the expedition is ready', async () => {
     const user = userEvent.setup();
     const mountReady = {
       ...MOUNTS[0],
@@ -238,7 +238,7 @@ describe('Mounts tab', () => {
       claim.handler,
     ]);
     await waitFor(() => expect(screen.getByText(/Griffon/)).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /claim expedition loot/i }));
+    await user.click(screen.getByRole('button', { name: /claim expedition rewards/i }));
     await waitFor(() => expect(claim.calls).toHaveLength(1));
     expect(claim.calls[0].url).toMatch(/\/expeditions\/33\/claim\/$/);
     // Lock the request body contract — claim takes no body today,

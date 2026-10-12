@@ -148,7 +148,7 @@ class SavingsGoalService:
             )
             notify(
                 user,
-                title="Hoard complete!",
+                title="Savings goal reached!",
                 message=f"You reached your goal: {goal.title}.{coins_txt}",
                 notification_type=NotificationType.SAVINGS_GOAL_COMPLETED,
                 link="/treasury?tab=hoards",

@@ -58,7 +58,7 @@ export default function RarityStrand({ counts, compact = false, className = '' }
   return (
     <div
       role="img"
-      aria-label={`${grandEarned} of ${grandTotal} sealed — ${label}`}
+      aria-label={`${grandEarned} of ${grandTotal} collected — ${label}`}
       className={`relative w-full ${height} flex overflow-hidden rounded-full bg-ink-page-shadow/25 ${className}`}
     >
       {segments.map((s) => {

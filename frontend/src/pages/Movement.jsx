@@ -105,8 +105,8 @@ export default function Movement() {
   const dailyTarget = 3;
   const versoProgressPct = Math.min(100, (todays.length / dailyTarget) * 100);
   const versoProgressLabel = todays.length === 0
-    ? 'first 3 each day fire bonus XP'
-    : `${Math.min(todays.length, dailyTarget)} of ${dailyTarget} bonus slots used`;
+    ? 'Your first 3 sessions each day can earn XP'
+    : `${Math.min(todays.length, dailyTarget)} of ${dailyTarget} rewarded sessions logged`;
 
   let rubricIndex = 0;
   const nextRubric = () => rubricIndex++;
@@ -116,8 +116,8 @@ export default function Movement() {
       <QuestFolio
         letter="M"
         title="Movement"
-        kicker="sessions, practices, runs"
-        meta="duration × intensity feeds your Physical skills"
+        kicker="Track your physical activity"
+        meta="Session length and intensity determine your skill XP."
         stats={[
           { value: todays.length, label: 'today' },
           { value: sessions.length, label: 'all-time' },
@@ -146,7 +146,7 @@ export default function Movement() {
           <ChapterRubric index={nextRubric()} name="Today" />
           {todays.length === 0 ? (
             <EmptyState icon={<Activity size={28} />}>
-              Nothing logged yet today. Tap “Log” after a workout, practice, or run.
+              No activity logged today. Add a session after a workout, practice, or run.
             </EmptyState>
           ) : (
             <div className="space-y-2">

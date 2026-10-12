@@ -39,18 +39,17 @@ const typeIcons = {
 };
 
 // Display labels only — the keys stay the backend ``entry_type`` values.
-// Kid-facing wording follows the nav: chores are Duties, projects are
-// Ventures. Sentence case matches the rest of the app's headings.
+// Display names match the project and chore pages.
 const typeLabels = {
   hourly: 'Hourly',
-  project_bonus: 'Venture bonus',
-  bounty_payout: 'Bounty',
+  project_bonus: 'Project bonus',
+  bounty_payout: 'Optional project reward',
   milestone_bonus: 'Milestone bonus',
   materials_reimbursement: 'Reimbursement',
   payout: 'Payout',
   adjustment: 'Adjustment',
   coin_exchange: 'Coin exchange',
-  chore_reward: 'Duty reward',
+  chore_reward: 'Chore reward',
 };
 
 function PaymentAdjustModal({ onClose, onSaved }) {
@@ -327,7 +326,7 @@ function PaymentsView() {
   if (error || !data) {
     return (
       <PageShell rhythm="tight" animate={false}>
-        <ErrorAlert message={error || 'Could not load the coffers.'} />
+        <ErrorAlert message={error || 'Could not load payments.'} />
         <Button variant="secondary" size="sm" onClick={reload}>
           Try again
         </Button>
@@ -349,10 +348,10 @@ function PaymentsView() {
       <header className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
-            the coffers · every coin accounted for
+            Track earnings and payouts
           </div>
           <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-            Coffers
+            Payments
           </h1>
         </div>
         {isParent && (
@@ -606,7 +605,7 @@ function PaymentsView() {
 
       {!breakdown && !entriesToRender.length && (
         <EmptyState icon={<DollarSign size={32} />}>
-          Nothing inked yet — complete some quests to see entries here.
+          No payment entries yet. Earn money from project work to see entries here.
         </EmptyState>
       )}
       {hasFilter && entriesToRender.length === 0 && !filterLoading && (

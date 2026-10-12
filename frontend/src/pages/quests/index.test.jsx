@@ -13,7 +13,7 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('QuestsHub', () => {
-  it('renders the quests hub default ventures tab', async () => {
+  it('renders the Tasks hub with Homework selected by default', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/projects/', () => HttpResponse.json([])),
@@ -27,12 +27,12 @@ describe('QuestsHub', () => {
     );
     // Hub no longer renders an h1; check the tablist aria-label instead.
     await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /quests sections/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /tasks sections/i })).toBeInTheDocument(),
     );
-    expect(screen.getAllByText(/ventures/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/projects/i).length).toBeGreaterThan(0);
   });
 
-  it('exposes seven tabs (Study · Duties · Rituals · Movement · Ventures · Forge · Trials)', async () => {
+  it('exposes seven tabs (Homework · Chores · Habits · Movement · Projects · 3D Printing · Challenges)', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/projects/', () => HttpResponse.json([])),
@@ -44,15 +44,15 @@ describe('QuestsHub', () => {
         </AuthProvider>
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByRole('tab', { name: /ventures/i })).toBeInTheDocument());
-    expect(screen.getByRole('tab', { name: /duties/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /study/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /rituals/i })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('tab', { name: /projects/i })).toBeInTheDocument());
+    expect(screen.getByRole('tab', { name: /chores/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /homework/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /habits/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /movement/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /trials/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /challenges/i })).toBeInTheDocument();
     // The Forge slug is the binding contract for the seven print_* notification
     // types, which all deep-link to /quests?tab=forge.
-    expect(screen.getByRole('tab', { name: /forge/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /3d printing/i })).toBeInTheDocument();
     expect(screen.getAllByRole('tab')).toHaveLength(7);
   });
 });

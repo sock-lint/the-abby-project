@@ -28,16 +28,16 @@ import { RARITY_PILL_COLORS, RARITY_RING_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem } from '../motion/variants';
 
 const TYPE_COMPARTMENTS = [
-  { id: 'egg', label: 'Eggs', kicker: 'dormant companions', glyph: 'dragon-crest', icon: '🥚' },
-  { id: 'potion', label: 'Potions', kicker: 'elemental vials', glyph: 'rune-orb', icon: '🧪' },
-  { id: 'food', label: 'Provisions', kicker: 'pet food & snacks', glyph: 'flourish-corner', icon: '🍎' },
-  { id: 'cosmetic_frame', label: 'Avatar Frames', kicker: 'sigil borders', glyph: 'compass-rose', icon: '🖼' },
-  { id: 'cosmetic_title', label: 'Titles', kicker: 'hard-won honorifics', glyph: 'sheikah-eye', icon: '✒' },
-  { id: 'cosmetic_theme', label: 'Journal Covers', kicker: 'aesthetic runes', glyph: 'flourish-corner', icon: '📔' },
-  { id: 'cosmetic_pet_accessory', label: 'Pet Accessories', kicker: 'saddles & adornments', glyph: 'dragon-crest', icon: '🎀' },
-  { id: 'quest_scroll', label: 'Quest Scrolls', kicker: 'future adventures', glyph: 'sheikah-eye', icon: '📜' },
-  { id: 'coin_pouch', label: 'Coin Pouches', kicker: 'fortune tucked away', glyph: 'wax-seal', icon: '💰' },
-  { id: 'consumable', label: 'Consumables', kicker: 'one-use charms', glyph: 'wax-seal', icon: '✨' },
+  { id: 'egg', label: 'Eggs', kicker: 'Eggs to hatch into pets', glyph: 'dragon-crest', icon: '🥚' },
+  { id: 'potion', label: 'Potions', kicker: 'Choose a variant when hatching', glyph: 'rune-orb', icon: '🧪' },
+  { id: 'food', label: 'Pet Food', kicker: 'pet food & snacks', glyph: 'flourish-corner', icon: '🍎' },
+  { id: 'cosmetic_frame', label: 'Avatar Frames', kicker: 'Frames for your profile', glyph: 'compass-rose', icon: '🖼' },
+  { id: 'cosmetic_title', label: 'Titles', kicker: 'Titles for your profile', glyph: 'sheikah-eye', icon: '✒' },
+  { id: 'cosmetic_theme', label: 'Journal Covers', kicker: 'Colors for your app', glyph: 'flourish-corner', icon: '📔' },
+  { id: 'cosmetic_pet_accessory', label: 'Pet Accessories', kicker: 'Accessories for your pets', glyph: 'dragon-crest', icon: '🎀' },
+  { id: 'quest_scroll', label: 'Quest Scrolls', kicker: 'Start a challenge', glyph: 'sheikah-eye', icon: '📜' },
+  { id: 'coin_pouch', label: 'Coin Pouches', kicker: 'Open to collect coins', glyph: 'wax-seal', icon: '💰' },
+  { id: 'consumable', label: 'Single-use Items', kicker: 'Use an item for its effect', glyph: 'wax-seal', icon: '✨' },
 ];
 
 const ACTIVE_COMPARTMENT_KEY = 'atlas:satchel:active-compartment';
@@ -164,7 +164,7 @@ export default function Inventory() {
   if (error) {
     return (
       <div className="space-y-3">
-        <ErrorAlert message={error || 'Could not load the satchel.'} />
+        <ErrorAlert message={error || 'Could not load inventory.'} />
         <Button variant="secondary" size="sm" onClick={reload}>
           Try again
         </Button>
@@ -196,15 +196,15 @@ export default function Inventory() {
     <PageShell rhythm="loose" animate={false} className="pb-32 md:pb-8">
       <header>
         <div className="font-script text-sheikah-teal-deep text-base">
-          the satchel · all that's been gathered
+          Your collected items
         </div>
         {/* Below md the Treasury hub's tab strip already names this page —
             the stacked h1 + explainer ate ~100px above the fold on phones. */}
         <h1 className="hidden md:block font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          The Satchel
+          Inventory
         </h1>
         <div className="hidden md:block font-script text-body text-ink-whisper mt-1 max-w-xl">
-          drops fall from clocked work, duties, study, and quests · the ringed colour is rarity, common to legendary
+          Find item drops through project work, chores, homework, and challenges. Each item shows its rarity.
         </div>
         <BoostStrip profile={profile} className="mt-3" />
       </header>
@@ -232,7 +232,7 @@ export default function Inventory() {
         <CatalogSearch
           value={filter}
           onChange={setFilter}
-          placeholder="Search the satchel…"
+          placeholder="Search inventory…"
           ariaLabel="Filter inventory items"
         />
       )}
@@ -249,9 +249,9 @@ export default function Inventory() {
             {/* Same vocabulary as the Hatchery's equivalent empty state —
                 a kid bouncing between Bestiary and Treasury was reading two
                 different names for one earning loop. */}
-            <div>No items yet. Drops fall from clocked work, duties, study, and quests.</div>
+            <div>No items yet. Find item drops through project work, chores, homework, and challenges.</div>
             <div className="font-script text-body text-ink-whisper mt-2 not-italic">
-              eggs hatch pets, potions tint them, food feeds them, cosmetics dress your sigil, consumables fire one effect
+              Hatch eggs with potions, feed your pets, personalize your profile, and use items for boosts and other effects.
             </div>
           </EmptyState>
         )
@@ -261,7 +261,7 @@ export default function Inventory() {
             items={shelfItems}
             activeId={activeCompartment?.id}
             onSelect={setActiveCompartmentId}
-            ariaLabel="Satchel compartments"
+            ariaLabel="Inventory categories"
           />
           {activeCompartment && (
             <section>
@@ -421,7 +421,7 @@ function effectMessage(effect) {
     feast_platter: 'Your pets shared the feast.',
     mystery_box: 'A surprise item was added to your Satchel.',
     lucky_dip: 'A cosmetic prize was drawn.',
-    quest_reroll: 'A new trial has started.',
+    quest_reroll: 'A new challenge has started.',
     skill_tonic: 'One of your skills gained XP.',
     food_basket: 'Food was added to your Satchel.',
   };

@@ -38,7 +38,7 @@ export default function ExpeditionToastStack({ inline = false }) {
                 navigate('/bestiary?tab=mounts');
               }
             }}
-            aria-label={`${expedition.species_name} returned — claim loot on Mounts`}
+            aria-label={`${expedition.species_name} returned — claim rewards on Mounts`}
           >
             <MapIcon size={18} className="text-gold-leaf shrink-0" aria-hidden="true" />
             <RpgSprite

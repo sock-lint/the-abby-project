@@ -29,7 +29,7 @@ export default function OverviewTab({ project, isParent }) {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatTile
-          label={project.payment_kind === 'bounty' ? 'Bounty' : 'Bonus'}
+          label={project.payment_kind === 'bounty' ? 'Cash reward' : 'Bonus'}
           value={`$${project.bonus_amount}`}
           tone={project.payment_kind === 'bounty' ? 'royal' : 'moss'}
         />
@@ -67,10 +67,10 @@ export default function OverviewTab({ project, isParent }) {
       {!project.assigned_to && project.payment_kind === 'bounty' && (
         <ParchmentCard className="border-royal/50 bg-royal/5">
           <div className="font-script text-sm text-royal font-semibold uppercase tracking-wider">
-            open bounty
+            Available to claim
           </div>
           <div className="font-body text-sm text-ink-secondary mt-1">
-            This bounty is posted on the board for any adventurer to claim.
+            Any child in your family can claim this optional project.
           </div>
         </ParchmentCard>
       )}
@@ -78,7 +78,7 @@ export default function OverviewTab({ project, isParent }) {
       {isParent && project.parent_notes && (
         <ParchmentCard className="border-sheikah-teal/50 bg-sheikah-teal/5">
           <div className="font-script text-xs text-sheikah-teal-deep mb-1 uppercase tracking-wider">
-            keeper's notes
+            Parent notes
           </div>
           <p className="font-body text-sm text-ink-primary">{project.parent_notes}</p>
         </ParchmentCard>

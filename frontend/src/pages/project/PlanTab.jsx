@@ -56,7 +56,7 @@ export default function PlanTab({
 
       {milestones.length === 0 && (project.steps || []).length === 0 && (
         <EmptyState className="py-8">
-          No plan yet — add a milestone or a step to break this venture down.
+          No plan yet. Add milestones and steps to organize this project.
         </EmptyState>
       )}
 

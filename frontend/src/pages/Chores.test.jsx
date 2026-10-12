@@ -35,7 +35,7 @@ function renderPage(user = buildUser(), handlers = [], route = '/quests?tab=duti
 }
 
 describe('Chores', () => {
-  it('creates Google and Apple reminders on the selected active duty date', async () => {
+  it('creates Google and Apple reminders on the selected active chore date', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2020-12-29T16:00:00Z'));
     try {
@@ -49,28 +49,28 @@ describe('Chores', () => {
         http.get('*/api/chore-completions/', () => HttpResponse.json([])),
       ]);
 
-      await user.click(await screen.findByRole('button', { name: 'Add Duty reminder: Feed cat to calendar' }));
+      await user.click(await screen.findByRole('button', { name: 'Add Chore reminder: Feed cat to calendar' }));
       const dialog = await screen.findByRole('dialog', { name: 'Add to calendar' });
       const date = within(dialog).getByLabelText('Reminder date');
       expect(date).toHaveValue('2021-01-11');
-      expect(within(dialog).getByText(/choose one day for this duty reminder/i)).toBeInTheDocument();
+      expect(within(dialog).getByText(/choose one day for this chore reminder/i)).toBeInTheDocument();
 
       fireEvent.change(date, { target: { value: '2021-01-13' } });
       const google = new URL(within(dialog).getByRole('link', { name: /Google Calendar/ }).href);
-      expect(google.searchParams.get('text')).toBe('Duty reminder: Feed cat');
+      expect(google.searchParams.get('text')).toBe('Chore reminder: Feed cat');
       expect(google.searchParams.get('dates')).toBe('20210113/20210114');
       expect(google.searchParams.has('recur')).toBe(false);
 
       await user.click(within(dialog).getByRole('button', { name: /Apple Calendar/ }));
       expect(downloadCalendarFile).toHaveBeenCalledTimes(1);
       const exported = buildCalendarFile(downloadCalendarFile.mock.calls[0][0]);
-      expect(exported).toContain('SUMMARY:Duty reminder: Feed cat');
+      expect(exported).toContain('SUMMARY:Chore reminder: Feed cat');
       expect(exported).toContain('DTSTART;VALUE=DATE:20210113');
       expect(exported).toContain('DTEND;VALUE=DATE:20210114');
       expect(exported).not.toContain('RRULE');
 
       fireEvent.change(date, { target: { value: '2021-01-04' } });
-      expect(within(dialog).getByText(/this duty is off that week/i)).toBeInTheDocument();
+      expect(within(dialog).getByText(/this chore is off that week/i)).toBeInTheDocument();
       expect(within(dialog).getByRole('link', { name: /Google Calendar/ })).toHaveAttribute('aria-disabled', 'true');
       expect(within(dialog).getByRole('link', { name: /Google Calendar/ })).not.toHaveAttribute('href');
       expect(within(dialog).getByRole('button', { name: /Apple Calendar/ })).toBeDisabled();
@@ -81,12 +81,12 @@ describe('Chores', () => {
     }
   });
 
-  it('offers reminders only for active duties that have finished parent review', async () => {
+  it('offers reminders only for active chores that have finished parent review', async () => {
     renderPage(buildParent(), [
       http.get('*/api/chores/', ({ request }) => HttpResponse.json(
         new URL(request.url).searchParams.get('pending') === 'true' ? [] : [
           buildChore({ id: 1, title: 'Daily dishes', is_active: true }),
-          buildChore({ id: 2, title: 'Retired duty', is_active: false }),
+          buildChore({ id: 2, title: 'Retired chore', is_active: false }),
           buildChore({ id: 3, title: 'Unreviewed proposal', pending_parent_review: true }),
         ],
       )),
@@ -94,10 +94,10 @@ describe('Chores', () => {
       http.get('*/api/children/', () => HttpResponse.json([])),
     ]);
 
-    expect(await screen.findByRole('button', { name: 'Add Duty reminder: Daily dishes to calendar' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Add Chore reminder: Daily dishes to calendar' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /add .* to calendar/i })).toHaveLength(1);
-    expect(screen.queryByRole('button', { name: 'Add Duty reminder: Retired duty to calendar' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Add Duty reminder: Unreviewed proposal to calendar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add Chore reminder: Retired chore to calendar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add Chore reminder: Unreviewed proposal to calendar' })).toBeNull();
   });
 
   // The quick-actions FAB deep-links here with ?propose=1. The param was
@@ -123,7 +123,7 @@ describe('Chores', () => {
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
-      expect(screen.getByText(/no duties available today/i)).toBeInTheDocument(),
+      expect(screen.getByText(/no chores available today/i)).toBeInTheDocument(),
     );
   });
 
@@ -134,7 +134,7 @@ describe('Chores', () => {
       http.get('*/api/children/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
-      expect(screen.getByText(/no duties inscribed yet/i)).toBeInTheDocument(),
+      expect(screen.getByText(/no chores yet/i)).toBeInTheDocument(),
     );
   });
 
@@ -152,7 +152,7 @@ describe('Chores', () => {
     await waitFor(() => expect(screen.getByText('Dishes')).toBeInTheDocument());
   });
 
-  it('parent can open the new-duty form modal', async () => {
+  it('parent can open the new-chore form modal', async () => {
     const user = userEvent.setup();
     renderPage(buildParent(), [
       http.get('*/api/chores/', () => HttpResponse.json([])),
@@ -161,13 +161,13 @@ describe('Chores', () => {
       http.get('*/api/skills/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /new duty/i })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: /new chore/i })).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole('button', { name: /new duty/i }));
+    await user.click(screen.getByRole('button', { name: /new chore/i }));
     expect(await screen.findByRole('button', { name: /^create$/i })).toBeInTheDocument();
   });
 
-  it('new-duty form includes SkillTagEditor with skills from /skills/', async () => {
+  it('new-chore form includes SkillTagEditor with skills from /skills/', async () => {
     const user = userEvent.setup();
     renderPage(buildParent(), [
       http.get('*/api/chores/', () => HttpResponse.json([])),
@@ -178,9 +178,9 @@ describe('Chores', () => {
       ])),
     ]);
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /new duty/i })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: /new chore/i })).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole('button', { name: /new duty/i }));
+    await user.click(screen.getByRole('button', { name: /new chore/i }));
     // Empty-state copy comes from SkillTagEditor — prove the component is mounted.
     expect(
       await screen.findByText(/no skills tagged/i, {}, { timeout: 2000 }),
@@ -199,7 +199,7 @@ describe('Chores', () => {
       http.get('*/api/children/', () => HttpResponse.json([])),
       http.get('*/api/skills/', () => HttpResponse.json([])),
     ]);
-    await user.click(await screen.findByRole('button', { name: /new duty/i }));
+    await user.click(await screen.findByRole('button', { name: /new chore/i }));
 
     const active = await screen.findByLabelText('Active');
     expect(active).toHaveAttribute('type', 'checkbox');
@@ -208,7 +208,7 @@ describe('Chores', () => {
     expect(active).not.toBeChecked();
   });
 
-  it('saving a new duty posts skill_tags alongside the chore', async () => {
+  it('saving a new chore posts skill_tags alongside the chore', async () => {
     const user = userEvent.setup();
     const create = spyHandler('post', /\/api\/chores\/$/, { id: 1, title: 'Dishes' });
     renderPage(buildParent(), [
@@ -222,9 +222,9 @@ describe('Chores', () => {
     ]);
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /new duty/i })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: /new chore/i })).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole('button', { name: /new duty/i }));
+    await user.click(screen.getByRole('button', { name: /new chore/i }));
     await screen.findByText(/no skills tagged/i);
 
     await user.type(screen.getByLabelText('Title'), 'Dishes');
@@ -248,7 +248,7 @@ describe('Chores', () => {
       http.get('*/api/children/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
-      expect(screen.getByText(/awaiting your seal/i)).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: /awaiting approval/i })).toBeInTheDocument(),
     );
   });
 
@@ -295,7 +295,7 @@ describe('Chores', () => {
     expect(vibrate).toHaveBeenCalled();
   });
 
-  it('locks the duty sheet closed while a create is in flight', async () => {
+  it('locks the chore sheet closed while a create is in flight', async () => {
     const user = userEvent.setup();
     renderPage(buildParent(), [
       http.get('*/api/chores/', () => HttpResponse.json([])),
@@ -304,15 +304,15 @@ describe('Chores', () => {
       // Never resolves — holds the form in its saving state.
       http.post('*/api/chores/', () => new Promise(() => {})),
     ]);
-    await user.click(await screen.findByRole('button', { name: /new duty/i }));
-    const dialog = await screen.findByRole('dialog', { name: /new duty/i });
+    await user.click(await screen.findByRole('button', { name: /new chore/i }));
+    const dialog = await screen.findByRole('dialog', { name: /new chore/i });
     await user.type(within(dialog).getByRole('textbox', { name: /title/i }), 'Sweep');
     await user.click(within(dialog).getByRole('button', { name: /^create$/i }));
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /^close$/i })).toBeDisabled(),
     );
-    expect(screen.getByRole('dialog', { name: /new duty/i })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: /new chore/i })).toBeInTheDocument();
   });
 
   it('parent approving a pending completion posts to /chore-completions/{id}/approve/', async () => {
@@ -336,16 +336,16 @@ describe('Chores', () => {
     expect(approve.calls[0].url).toMatch(/\/chore-completions\/22\/approve\/$/);
   });
 
-  it('child sees "Propose a duty" button and form hides reward fields', async () => {
+  it('child sees "Propose a chore" button and form hides reward fields', async () => {
     const user = userEvent.setup();
     renderPage(buildUser(), [
       http.get('*/api/chores/', () => HttpResponse.json([])),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
     ]);
-    const btn = await screen.findByRole('button', { name: /propose a duty/i });
+    const btn = await screen.findByRole('button', { name: /propose a chore/i });
     await user.click(btn);
     // Dialog header should mention "Propose" for children.
-    await screen.findByRole('dialog', { name: /propose a duty/i });
+    await screen.findByRole('dialog', { name: /propose a chore/i });
     // Notice to the child: parent sets rewards.
     expect(
       screen.getByText(/your parent will set the rewards/i),
@@ -365,8 +365,8 @@ describe('Chores', () => {
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
       create.handler,
     ]);
-    await user.click(await screen.findByRole('button', { name: /propose a duty/i }));
-    await screen.findByRole('dialog', { name: /propose a duty/i });
+    await user.click(await screen.findByRole('button', { name: /propose a chore/i }));
+    await screen.findByRole('dialog', { name: /propose a chore/i });
     await user.type(screen.getByLabelText('Title'), 'Feed cat');
     await user.click(screen.getByRole('button', { name: /send to parent/i }));
 
@@ -414,7 +414,7 @@ describe('Chores', () => {
 
     const review = await screen.findByRole('button', { name: /review & publish/i });
     await user.click(review);
-    const dialog = await screen.findByRole('dialog', { name: /approve duty proposal/i });
+    const dialog = await screen.findByRole('dialog', { name: /approve chore proposal/i });
     // The banner lives inside the modal; the row also mentions "proposed by",
     // so scope the assertion to the dialog.
     expect(within(dialog).getByText(/proposed by/i)).toBeInTheDocument();
@@ -449,7 +449,7 @@ describe('Chores', () => {
     expect(reject.calls[0].url).toMatch(/\/chore-completions\/22\/reject\/$/);
   });
 
-  it('child clicking ↩ withdraw on a pending duty posts to /chore-completions/{id}/withdraw/', async () => {
+  it('child clicking ↩ withdraw on a pending chore posts to /chore-completions/{id}/withdraw/', async () => {
     const user = userEvent.setup();
     const withdraw = spyHandler(
       'post',
@@ -473,7 +473,7 @@ describe('Chores', () => {
     ]);
 
     const button = await screen.findByRole(
-      'button', { name: /withdraw this duty submission/i },
+      'button', { name: /withdraw this chore submission/i },
     );
     await user.click(button);
 
@@ -481,7 +481,7 @@ describe('Chores', () => {
     expect(withdraw.calls[0].url).toMatch(/\/chore-completions\/71\/withdraw\/$/);
   });
 
-  it('filters duties via the search input and shows a no-match empty state', async () => {
+  it('filters chores via the search input and shows a no-match empty state', async () => {
     const user = userEvent.setup();
     renderPage(buildUser(), [
       http.get('*/api/chores/', ({ request }) => {
@@ -498,7 +498,7 @@ describe('Chores', () => {
     ]);
     await waitFor(() => expect(screen.getByText('Wash dishes')).toBeInTheDocument());
 
-    const search = screen.getByRole('searchbox', { name: /filter duties/i });
+    const search = screen.getByRole('searchbox', { name: /filter chores/i });
     await user.type(search, 'cat');
 
     expect(screen.queryByText('Wash dishes')).not.toBeInTheDocument();
@@ -506,6 +506,6 @@ describe('Chores', () => {
 
     await user.clear(search);
     await user.type(search, 'zzzz');
-    expect(screen.getByText(/no duties match/i)).toBeInTheDocument();
+    expect(screen.getByText(/no chores match/i)).toBeInTheDocument();
   });
 });

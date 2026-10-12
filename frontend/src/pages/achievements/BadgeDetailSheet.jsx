@@ -56,7 +56,7 @@ export default function BadgeDetailSheet({ entry, onClose, allBadges = [], earne
               data-collection-chip="true"
               className="mt-2 font-script text-caption text-sheikah-teal-deep"
             >
-              from the reliquary of {collection.name} · Chapter {collection.rubric}
+              {collection.name} collection
             </div>
           )}
 
@@ -88,7 +88,7 @@ export default function BadgeDetailSheet({ entry, onClose, allBadges = [], earne
         {badge.xp_bonus > 0 && (
           <div className="flex items-center justify-center gap-2 rounded-xl border border-sheikah-teal/30 bg-sheikah-teal/5 px-3 py-2">
             <span className="font-rune text-caption uppercase tracking-wider text-sheikah-teal-deep">
-              bonus ink
+              Bonus XP
             </span>
             <span className="font-display text-lede font-bold text-sheikah-teal-deep">
               +{badge.xp_bonus} XP
@@ -100,7 +100,7 @@ export default function BadgeDetailSheet({ entry, onClose, allBadges = [], earne
           {earned ? (
             <>
               <div className={`font-script text-lede ${RARITY_TEXT_COLORS[rarity] || 'text-ink-primary'}`}>
-                {`sealed ${formatSealDate(earnedAt)}`}
+                {`Earned ${formatSealDate(earnedAt)}`}
               </div>
               <div className="flex justify-center mt-2">
                 <ShareButton
@@ -127,10 +127,10 @@ function LadderStrip({ badge, ladder, earnedIds }) {
     <div data-ladder="true" className="space-y-2">
       <div className="flex items-center gap-2">
         <span className="font-rune uppercase tracking-wider text-micro text-ink-whisper">
-          tier ladder
+          Badge levels
         </span>
         <span className="font-script text-caption text-ink-whisper/80">
-          rung {currentIndex + 1} of {ladder.length}
+          Level {currentIndex + 1} of {ladder.length}
         </span>
       </div>
       <ol className="flex flex-wrap gap-2 list-none p-0 m-0">

@@ -65,7 +65,7 @@ export default function ProjectDetail() {
   // a kid their project is gone and offering no way back.
   if (loadError) return (
     <div className="space-y-4">
-      <BackLink to="/quests?tab=ventures">Back to Ventures</BackLink>
+      <BackLink to="/quests?tab=ventures">Back to Projects</BackLink>
       <ErrorAlert message={loadError} />
       <Button variant="primary" onClick={reload}>
         Try again
@@ -74,9 +74,9 @@ export default function ProjectDetail() {
   );
   if (!project) return (
     <div className="space-y-4">
-      <BackLink to="/quests?tab=ventures">Back to Ventures</BackLink>
+      <BackLink to="/quests?tab=ventures">Back to Projects</BackLink>
       <EmptyState>
-        This venture is not inscribed in the journal — it may have been deleted, or the link points to a different family&apos;s page.
+        This project is unavailable. It may have been deleted or belong to another family.
       </EmptyState>
     </div>
   );
@@ -198,7 +198,7 @@ export default function ProjectDetail() {
 
   return (
     <div className="space-y-6">
-      <BackLink to="/quests?tab=ventures">Back to Ventures</BackLink>
+      <BackLink to="/quests?tab=ventures">Back to Projects</BackLink>
 
       <ProjectHeader
         project={project}

@@ -26,7 +26,7 @@ export default function ScribeTrial({ entry, onReady }) {
           onChange={(event) => setText(event.target.value)}
           rows={4}
           maxLength={140}
-          placeholder={trial.placeholder || 'Inscribe a few words…'}
+          placeholder={trial.placeholder || 'Write a few words…'}
           disabled={committed}
           className="w-full rounded-lg border border-ink-page-shadow bg-ink-page-aged/60 px-3 py-2 text-base font-script text-ink-primary placeholder:text-ink-whisper/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal/60 disabled:opacity-70"
         />

@@ -149,12 +149,12 @@ class UserInventorySerializer(serializers.ModelSerializer):
             }],
             ItemDefinition.ItemType.EGG: [{
                 "id": "hatch",
-                "label": "Hatch in Hatchery",
+                "label": "Hatch a companion",
                 "to": "/bestiary?tab=hatchery",
             }],
             ItemDefinition.ItemType.POTION: [{
                 "id": "hatch",
-                "label": "Hatch in Hatchery",
+                "label": "Hatch a companion",
                 "to": "/bestiary?tab=hatchery",
             }],
             ItemDefinition.ItemType.FOOD: [{
@@ -164,7 +164,7 @@ class UserInventorySerializer(serializers.ModelSerializer):
             }],
             ItemDefinition.ItemType.QUEST_SCROLL: [{
                 "id": "start_quest",
-                "label": "Start trial",
+                "label": "Start challenge",
                 "to": f"/trials?scroll_item={item_id}",
             }],
         }
@@ -176,7 +176,7 @@ class UserInventorySerializer(serializers.ModelSerializer):
         ):
             return [{
                 "id": "equip",
-                "label": "Equip in Sigil",
+                "label": "Equip in Profile",
                 "to": "/sigil",
             }]
         return action_map.get(item_type, [])

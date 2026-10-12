@@ -121,7 +121,7 @@ export default function RareDropReveal({ drop, onDismiss }) {
             </p>
           ) : (
             <p className="mt-1 font-script text-body text-ink-whisper">
-              added to your satchel.
+              added to your inventory.
             </p>
           )}
           <div className="mt-6">

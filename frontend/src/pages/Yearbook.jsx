@@ -60,7 +60,7 @@ function AccountYearbook({ user, isParent }) {
     return (
       <EmptyState>
         <p className="font-semibold mb-1">No children yet</p>
-        <p>Create a child account on the Manage page to start a yearbook.</p>
+        <p>Create a child account on the Manage page to start their timeline.</p>
       </EmptyState>
     )
   }
@@ -80,7 +80,7 @@ function AccountYearbook({ user, isParent }) {
 function YearbookLoadError({ error, onRetry }) {
   return (
     <div className="space-y-3 max-w-xl mx-auto">
-      <ErrorAlert message={error?.message || 'Could not load the yearbook.'} />
+      <ErrorAlert message={error?.message || 'Could not load the timeline.'} />
       <Button variant="secondary" size="sm" onClick={onRetry}>
         Try again
       </Button>
@@ -166,14 +166,14 @@ function YearbookHistory({ targetUserId, isParent, childOptions, onSelectChild }
 
   const shelfItems = sortedChapters.map((chapter, idx) => ({
     id: String(chapter.chapter_year),
-    name: chapter.label || `Chapter ${idx + 1}`,
+    name: chapter.label || `Year ${chapter.chapter_year}`,
     icon: chapterMark(idx),
     chip: String(chapter.chapter_year),
     // Calendar chapters use compact chips without completion progress.
     variant: 'vessel',
     progressPct: null,
     tier: chapter.is_current ? PROGRESS_TIER.rising : PROGRESS_TIER.nascent,
-    ariaLabel: `${chapter.label || `Chapter ${idx + 1}`}, ${chapter.chapter_year}`,
+    ariaLabel: `${chapter.label || `Year ${chapter.chapter_year}`}, ${chapter.chapter_year}`,
   }))
 
   const activeChapter =
@@ -187,10 +187,10 @@ function YearbookHistory({ targetUserId, isParent, childOptions, onSelectChild }
           Same treatment as the Skills tab (pages/Achievements.jsx). */}
       <header className="hidden md:block text-center max-w-xl mx-auto">
         <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          The Yearbook
+          Timeline
         </h1>
         <p className="font-script text-body text-ink-whisper mt-1">
-          a lifelong journal of chapters, milestones, and daily entries · birthdays and graduations land here too
+          Browse memories, milestones, birthdays, and graduations by year.
         </p>
       </header>
       {isParent && (
@@ -226,7 +226,7 @@ function YearbookHistory({ targetUserId, isParent, childOptions, onSelectChild }
               items={shelfItems}
               activeId={activeChapterId}
               onSelect={setActiveChapterId}
-              ariaLabel="Yearbook chapters"
+              ariaLabel="Timeline years"
             />
           )}
           {activeChapter && (
