@@ -95,12 +95,17 @@ class DriveIngestionTests(BaseFamilyAPITestCase):
 
     @patch("apps.google_integration.drive.requests.get")
     @patch("apps.ingestion.pipeline.run_ingestion")
-    def test_worker_retry_reads_saved_copy_without_drive_token_or_another_download(self, pipeline, google_get):
+    @patch("apps.ingestion.tasks.run_ingestion_job.delay")
+    def test_worker_retry_reads_saved_copy_without_drive_token_or_another_download(self, enqueue, pipeline, google_get):
         google_get.side_effect = self.google_responses()
         pipeline.return_value = IngestionResult(source_type="pdf", title="Science worksheet")
         response = self.client.post(self.url, self.selection, format="json")
         self.assertEqual(response.status_code, 201)
         job = ProjectIngestionJob.objects.get(pk=response.json()["id"])
+        self.assertEqual(job.status, "pending")
+        enqueue.assert_called_once_with(str(job.pk))
+        run_ingestion_job(str(job.pk))
+        job.refresh_from_db()
         self.assertEqual(job.status, "ready")
         pipeline.assert_called_once()
         call = pipeline.call_args.kwargs
@@ -122,12 +127,17 @@ class DriveIngestionTests(BaseFamilyAPITestCase):
 
     @override_settings(LLM_BACKEND="none")
     @patch("apps.google_integration.drive.requests.get")
-    def test_real_pdf_pipeline_stages_selection_until_parent_commits(self, google_get):
+    @patch("apps.ingestion.tasks.run_ingestion_job.delay")
+    def test_real_pdf_pipeline_stages_selection_until_parent_commits(self, enqueue, google_get):
         self.pdf_bytes = worksheet_pdf()
         google_get.side_effect = self.google_responses()
         response = self.client.post(self.url, self.selection, format="json")
         self.assertEqual(response.status_code, 201)
         job = ProjectIngestionJob.objects.get(pk=response.json()["id"])
+        self.assertEqual(job.status, "pending")
+        enqueue.assert_called_once_with(str(job.pk))
+        run_ingestion_job(str(job.pk))
+        job.refresh_from_db()
         self.assertEqual(job.status, "ready", job.error)
         self.assertEqual(job.result_json["title"], "Science worksheet")
         self.assertEqual(job.result_json["steps"][0]["title"], "Read the instructions")
