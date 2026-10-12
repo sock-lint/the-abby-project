@@ -435,7 +435,7 @@ permission or PostgreSQL transaction checks.
 
 ## CI/CD pipeline (`.github/workflows/ci-cd.yml`)
 
-Separate [`pr-validation.yml`](.github/workflows/pr-validation.yml) checks every PR to `main` and merge-queue request. Required checks are `Frontend validation` (lint, coverage, web/native staging builds) and `API fixtures` (real Django responses plus React consumption). No licensed editor or Unity runner is required. See [`docs/operations/pr-validation.md`](docs/operations/pr-validation.md).
+Separate [`pr-validation.yml`](.github/workflows/pr-validation.yml) checks every PR to `main` and merge-queue request. Required checks are `Frontend validation` (lint, coverage, web/native staging builds), `Backend validation` (migrations and the full Django suite on PostgreSQL 16/Redis 7), and `API fixtures` (real Django responses plus React consumption). No licensed editor or Unity runner is required. See [`docs/operations/pr-validation.md`](docs/operations/pr-validation.md).
 
 Pipeline runs on `push` to `main` or manual dispatch. A hosted current-main guard skips superseded commits and non-main dispatches; per-ref concurrency supersedes older Actions runs. The remaining jobs use the self-hosted `deploy-platform` runner:
 1. **`frontend-test`** — `npm ci` → `npm run lint` → `npm run test:coverage -- --maxWorkers=4` (the full coverage gate)

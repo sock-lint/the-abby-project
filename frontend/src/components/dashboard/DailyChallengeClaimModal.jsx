@@ -22,8 +22,7 @@ function usePrefersReducedMotion() {
 
 /**
  * DailyChallengeClaimModal — one-shot reveal after the child claims their
- * "Today's Rite" reward. Replaces the prior silent inline RuneBadge so the
- * daily ritual feels like a felt moment.
+ * daily challenge reward.
  *
  * Presentational — DailyChallengeCard owns the claim API call and only
  * mounts this modal when the server actually awarded coins/XP this session
@@ -62,7 +61,7 @@ export default function DailyChallengeClaimModal({ claim, challengeLabel, onDism
           id={titleId}
           className="mt-3 font-serif text-2xl text-ink-primary"
         >
-          Rite complete
+          Daily challenge complete
         </h2>
         {challengeLabel && (
           <p className="mt-1 font-script text-body text-ink-whisper">
@@ -73,11 +72,11 @@ export default function DailyChallengeClaimModal({ claim, challengeLabel, onDism
           +{coins} coins · +{xp} XP
         </p>
         <p className="mt-2 font-script text-caption text-ink-whisper">
-          a fresh rite opens at the next dawn.
+          A new challenge arrives tomorrow.
         </p>
         <div className="mt-6">
           <Button variant="primary" onClick={onDismiss}>
-            Turn the page →
+            Done
           </Button>
         </div>
       </motion.div>

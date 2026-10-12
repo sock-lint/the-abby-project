@@ -23,14 +23,16 @@ Replace the retired
 protection and merged-branch deletion settings. Workflow changes alone do not
 edit repository protection.
 
-The backend gate uses disposable PostgreSQL 16 and Redis 7 services with
-synthetic credentials and no production secrets. Migrations and the complete
+The backend gate uses the same disposable PostgreSQL 16 and Redis 7 services
+as post-merge CI/CD, with synthetic credentials and no production secrets.
+PostgreSQL data lives on a bounded 1 GiB tmpfs. Migrations and the complete
 suite run with the main settings so database constraints, row locks and real
 Redis integration are checked before merge. Reproduce with isolated test
 services, `SECRET_KEY`, `DATABASE_URL`, `REDIS_URL` and `CELERY_BROKER_URL`, then
 run `python manage.py migrate --noinput` and
-`python manage.py test --noinput --verbosity=2`. SQLite fixture checks do not
-satisfy this backend gate.
+`python manage.py test --noinput --verbosity=2`. Never point these commands at
+the production database. SQLite fixture checks remain useful contract checks;
+they do not satisfy this backend gate.
 
 From `frontend/`, reproduce with `npm ci`, `npm run lint`,
 `npm run test:coverage -- --maxWorkers=4` and `npm run build`. Set shell variables

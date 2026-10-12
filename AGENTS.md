@@ -63,6 +63,11 @@ These rules are mandatory for agents working in this repository. See
 Repository instructions establish this workflow; they do not install a global
 Git hook or a repository-wide timer. Configure the owner-chat monitor when needed.
 
+Unattended Abby station sessions use station-owned worktrees and their task/PR
+records because the station has no Codex app artifact service. Follow the
+[station lifecycle](docs/operations/improvement-loop.md#station-checkouts) for
+those checkouts. Codex app chats continue to use the managed lifecycle above.
+
 ## Branch lifecycle
 
 Follow [CLAUDE.md](CLAUDE.md#branch-lifecycle) for verification and recovery.

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import DailyChallengeCard from './DailyChallengeCard.jsx';
 import { AuthProvider } from '../../hooks/useApi.js';
 import { server } from '../../test/server.js';
@@ -18,7 +18,7 @@ function buildChallenge(over = {}) {
   return {
     id: 11,
     challenge_type: 'chores',
-    challenge_type_display: 'Complete 2 chores',
+    challenge_type_display: 'Finish N chores today',
     target_value: 2,
     current_progress: 0,
     progress_percent: 0,
@@ -31,7 +31,12 @@ function buildChallenge(over = {}) {
   };
 }
 
-function renderCard(user, handlers = []) {
+function TaskDestination() {
+  const { pathname, search } = useLocation();
+  return <p>Task destination: {pathname}{search}</p>;
+}
+
+function renderCard(user, handlers = [], refreshKey) {
   server.use(
     http.get('*/api/auth/me/', () => HttpResponse.json(user)),
     ...handlers,
@@ -39,7 +44,10 @@ function renderCard(user, handlers = []) {
   return render(
     <MemoryRouter>
       <AuthProvider>
-        <DailyChallengeCard />
+        <Routes>
+          <Route path="/" element={<DailyChallengeCard refreshKey={refreshKey} />} />
+          <Route path="*" element={<TaskDestination />} />
+        </Routes>
       </AuthProvider>
     </MemoryRouter>,
   );
@@ -51,29 +59,30 @@ describe('DailyChallengeCard', () => {
     const { container } = renderCard(buildParent(), [get.handler]);
     // Wait for AuthProvider to settle so any would-be fetch has a chance.
     await waitFor(() => expect(container.textContent).not.toMatch(/loading/i));
-    expect(container.textContent).not.toMatch(/today's rite/i);
+    expect(screen.queryByRole('heading', { name: 'Daily challenge' })).not.toBeInTheDocument();
     expect(get.calls).toHaveLength(0);
   });
 
-  it('renders the compact single row (count + countdown + bar) when in progress', async () => {
+  it('shows the goal, bonus reward, approval timing and progress while in progress', async () => {
     renderCard(buildUser(), [
       http.get('*/api/challenges/daily/', () =>
         HttpResponse.json(buildChallenge({ current_progress: 1, target_value: 2 })),
       ),
     ]);
 
-    await screen.findByText(/today's rite/i);
-    // One fused meta line: "1 / 2 · resets in Nh Nm".
-    expect(screen.getByText(/1 \/ 2 · resets in/i)).toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Daily challenge' });
+    expect(screen.getByText('Complete 2 chores today')).toBeInTheDocument();
+    expect(screen.getByText('Progress counts after parent approval.')).toBeInTheDocument();
+    expect(screen.getByText('Complete the goal, then claim +10 coins and +20 XP.')).toBeInTheDocument();
+    expect(screen.getByText('1 / 2 complete')).toBeInTheDocument();
+    expect(screen.getByText(/resets in/i)).toBeInTheDocument();
     const bar = screen.getByRole('progressbar');
     expect(bar).toHaveAttribute('aria-valuenow', '1');
     expect(bar).toHaveAttribute('aria-valuemax', '2');
-    expect(bar).toHaveAttribute('aria-label', 'Complete 2 chores progress');
-    // The full-card flourish (kicker, tutorial line, reward preview, claim
-    // button) stays out of the compact everyday row.
-    expect(screen.queryByText(/a small deed before the day turns/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/a fresh micro-quest each dawn/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/reward waiting/i)).not.toBeInTheDocument();
+    expect(bar).toHaveAttribute('aria-label', 'Complete 2 chores today progress');
+    // The claim action appears only after the goal is complete.
+    expect(screen.queryByText('Ready to claim')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View chores →' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /claim/i })).not.toBeInTheDocument();
   });
 
@@ -99,9 +108,85 @@ describe('DailyChallengeCard', () => {
     expect(button).toBeEnabled();
     // Ready-to-claim keeps the FULL celebration card — kicker, challenge
     // line, and count all present (not the compact everyday row).
-    expect(screen.getByText(/a small deed before the day turns/i)).toBeInTheDocument();
+    expect(screen.getByText('Ready to claim')).toBeInTheDocument();
     expect(screen.getByText(/complete 2 chores/i)).toBeInTheDocument();
     expect(screen.getByText('2 / 2')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['clock_hour', 1, 'Clock 1 hour on a project today', 'View projects', 'ventures'],
+    ['chores', 1, 'Complete 1 chore today', 'View chores', 'duties'],
+    ['habits', 2, 'Log 2 positive habit taps today', 'View habits', 'rituals'],
+    ['homework', 1, 'Complete 1 homework assignment today', 'View homework', 'study'],
+    ['milestone', 1, 'Complete 1 project milestone today', 'View projects', 'ventures'],
+  ])('explains the %s goal and opens its task tab', async (type, target, goal, action, tab) => {
+    const user = userEvent.setup();
+    renderCard(buildUser(), [
+      http.get('*/api/challenges/daily/', () => HttpResponse.json(buildChallenge({
+        challenge_type: type,
+        target_value: target,
+        challenge_type_display: 'Template with N tasks',
+      }))),
+    ]);
+
+    await screen.findByText(goal);
+    await user.click(screen.getByRole('button', { name: `${action} →` }));
+    expect(screen.getByText(`Task destination: /quests?tab=${tab}`)).toBeInTheDocument();
+  });
+
+  it('refreshes challenge progress when the dashboard reloads after an action', async () => {
+    let progress = 0;
+    const { rerender } = renderCard(buildUser(), [
+      http.get('*/api/challenges/daily/', () => HttpResponse.json(buildChallenge({
+        current_progress: progress,
+      }))),
+    ], 0);
+    await screen.findByText('0 / 2 complete');
+
+    progress = 1;
+    rerender(
+      <MemoryRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<DailyChallengeCard refreshKey={1} />} />
+            <Route path="*" element={<TaskDestination />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    await screen.findByText('1 / 2 complete');
+  });
+
+  it('keeps a previous day claim from hiding a refreshed challenge reward', async () => {
+    const user = userEvent.setup();
+    let challenge = buildChallenge({ current_progress: 2, is_complete: true });
+    const claim = spyHandler('post', /\/api\/challenges\/daily\/claim\/$/, {
+      already_claimed: false, coins: 10, xp: 20,
+    });
+    const { rerender } = renderCard(buildUser(), [
+      http.get('*/api/challenges/daily/', () => HttpResponse.json(challenge)),
+      claim.handler,
+    ], 0);
+    await user.click(await screen.findByRole('button', { name: 'Claim 10 coins and 20 XP' }));
+    await screen.findByText('+10 coins · +20 XP earned.');
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+
+    challenge = buildChallenge({
+      id: 12, date: '2026-04-25', current_progress: 2, is_complete: true,
+      coin_reward: 15, xp_reward: 25,
+    });
+    rerender(
+      <MemoryRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<DailyChallengeCard refreshKey={1} />} />
+            <Route path="*" element={<TaskDestination />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('button', { name: 'Claim 15 coins and 25 XP' })).toBeEnabled();
+    expect(screen.queryByText('+10 coins · +20 XP earned.')).not.toBeInTheDocument();
   });
 
   it('clicking Claim POSTs to /challenges/daily/claim/ and shows the inked readout', async () => {
@@ -130,6 +215,7 @@ describe('DailyChallengeCard', () => {
 
     await waitFor(() => expect(claim.calls).toHaveLength(1));
     expect(claim.calls[0].url).toMatch(/\/challenges\/daily\/claim\/$/);
+    expect(claim.calls[0].body).toBeNull();
 
     await waitFor(() =>
       expect(
@@ -156,13 +242,14 @@ describe('DailyChallengeCard', () => {
       ),
     ]);
 
-    await screen.findByText(/today's rite/i);
+    await screen.findByRole('heading', { name: 'Daily challenge' });
     expect(
-      screen.getByText(/already claimed — a new rite opens at midnight/i),
+      screen.getByText('Reward claimed · A new challenge arrives tomorrow.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /claim/i })).not.toBeInTheDocument();
     // Prior-session claims collapse back to the compact row too.
-    expect(screen.queryByText(/a small deed before the day turns/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Ready to claim')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'View chores →' })).not.toBeInTheDocument();
   });
 
   it('renders nothing when the backend returns an empty payload', async () => {
@@ -171,7 +258,7 @@ describe('DailyChallengeCard', () => {
     ]);
     // Give the fetch a tick to resolve.
     await waitFor(() => expect(container.textContent).not.toMatch(/loading/i));
-    expect(container.textContent).not.toMatch(/today's rite/i);
+    expect(screen.queryByRole('heading', { name: 'Daily challenge' })).not.toBeInTheDocument();
   });
 
   it('surfaces a 400 claim error inline and leaves the button enabled', async () => {

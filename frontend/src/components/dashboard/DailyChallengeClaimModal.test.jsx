@@ -19,16 +19,16 @@ describe('DailyChallengeClaimModal', () => {
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     expect(screen.getByText(/clock 1 hour/i)).toBeInTheDocument();
     expect(screen.getByText(/\+10 coins · \+25 XP/)).toBeInTheDocument();
-    expect(screen.getByText(/rite complete/i)).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog', { name: 'Daily challenge complete' })).toBeInTheDocument();
   });
 
-  it('calls onDismiss when Turn the page clicked', async () => {
+  it('calls onDismiss when Done is clicked', async () => {
     const onDismiss = vi.fn();
     const user = userEvent.setup();
     renderWithProviders(
       <DailyChallengeClaimModal claim={claim} onDismiss={onDismiss} />,
     );
-    await user.click(screen.getByRole('button', { name: /turn the page/i }));
+    await user.click(screen.getByRole('button', { name: 'Done' }));
     expect(onDismiss).toHaveBeenCalled();
   });
 });
