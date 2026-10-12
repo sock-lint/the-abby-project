@@ -17,6 +17,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.google_integration.drive import GoogleDriveSelectionSerializer, GoogleDriveService
 from apps.projects.models import (
     MaterialItem, ProjectMilestone, ProjectResource, ProjectStep,
 )
@@ -70,6 +71,26 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
             source_file=source_file,
         )
 
+        return self._start_job(job)
+
+    @action(detail=False, methods=["post"], url_path="google-drive")
+    def google_drive(self, request):
+        """Copy a selected Drive PDF before starting the ordinary staging flow."""
+        selection = GoogleDriveSelectionSerializer(data=request.data)
+        selection.is_valid(raise_exception=True)
+        GoogleDriveService.require_configured()
+        resource, copied_file = GoogleDriveService.download_pdf(**selection.validated_data)
+        with copied_file:
+            job = ProjectIngestionJob.objects.create(
+                created_by=request.user,
+                source_type=ProjectIngestionJob.SourceType.PDF,
+                source_url=resource["url"],
+                source_file=copied_file,
+            )
+        return self._start_job(job)
+
+    @staticmethod
+    def _start_job(job):
         # Enqueue via Celery; fall back to inline execution if the broker
         # is unavailable (e.g. local dev without a worker running).
         from .tasks import run_ingestion_job

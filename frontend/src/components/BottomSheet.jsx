@@ -18,7 +18,7 @@ import useModalFocus from './modal/useModalFocus';
 //                     parchment texture carried through.
 // Optional surface presentation belongs on the portal itself; a caller's
 // wrapper cannot pass its CSS variables across the document.body boundary.
-export default function BottomSheet({ title, onClose, disabled, dirty, footer, children, surfaceClassName = '', surfaceStyle }) {
+export default function BottomSheet({ title, onClose, disabled, dirty, footer, children, surfaceClassName = '', surfaceStyle, focusSuspended = false }) {
   const isDesktop = useIsDesktop();
   const titleId = useId();
   const sheetHistoryId = useId();
@@ -55,7 +55,7 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
     onClose?.();
   }, [disabled, confirmingClose, dirty, onClose]);
 
-  useModalFocus({ dialogRef, onEscape: safeClose, surfaceKey: isDesktop });
+  useModalFocus({ dialogRef, onEscape: safeClose, surfaceKey: isDesktop, suspended: focusSuspended });
 
   // The popstate listener below is registered once, so it needs a live
   // handle on safeClose (whose identity changes with `dirty`).

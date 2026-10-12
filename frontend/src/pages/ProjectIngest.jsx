@@ -7,6 +7,7 @@ import {
   getCategories,
   getIngestJob,
   startIngest,
+  startGoogleDriveIngest,
   updateIngestJob,
 } from '../api';
 import { useApi } from '../hooks/useApi';
@@ -180,8 +181,8 @@ function IngestForm({ userId }) {
     return () => clearTimeout(timer);
   }, [phase, draft, committing, discarding, pendingCommit, saveStaging, isCurrentSession]);
 
-  const startJob = async () => {
-    if (inFlight.current || jobId) return;
+  const startJob = async (driveSelection = null) => {
+    if (inFlight.current || jobId || !isCurrentSession()) return;
     inFlight.current = true;
     setError('');
     setStarting(true);
@@ -192,7 +193,9 @@ function IngestForm({ userId }) {
             source_type: url.includes('instructables.com') ? 'instructables' : 'url',
             source_url: url,
           };
-      const job = await startIngest(payload);
+      const job = driveSelection
+        ? await startGoogleDriveIngest(driveSelection)
+        : await startIngest(payload);
       if (!isCurrentSession()) {
         // Leaving the page during upload must not orphan the job whose ID
         // arrives later. Keep it only if this session still owns the response
@@ -437,7 +440,8 @@ function IngestForm({ userId }) {
           sourceTab={sourceTab} setSourceTab={setSourceTab}
           url={url} setUrl={setUrl}
           file={file} setFile={setFile}
-          onStart={startJob}
+          onStart={() => startJob()}
+          onStartFromDrive={startJob}
           starting={starting}
         />
       )}

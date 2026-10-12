@@ -114,6 +114,7 @@ export const startIngest = ({ source_type, source_url, source_file }) => {
   }
   return api.post('/projects/ingest/', { source_type, source_url });
 };
+export const startGoogleDriveIngest = (data) => api.post('/projects/ingest/google-drive/', data);
 export const getIngestJob = (id) => api.get(`/projects/ingest/${id}/`);
 export const updateIngestJob = (id, data) =>
   api.patch(`/projects/ingest/${id}/`, data);
@@ -459,6 +460,8 @@ export const importGreenlight = (user_id, csv_data) =>
   api.post('/greenlight/import/', { user_id, csv_data });
 
 // Google OAuth
+export const getGoogleDriveConfig = () => api.get('/auth/google/drive/config/');
+export const resolveGoogleDriveFile = (data) => api.post('/auth/google/drive/file/', data);
 export const getGoogleAuthUrl = (forUserId) => {
   const qs = forUserId ? `?for_user=${forUserId}` : '';
   return api.get(`/auth/google/${qs}`);

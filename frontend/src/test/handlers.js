@@ -34,6 +34,12 @@ export const handlers = [
   http.get('*/api/auth/google/calendar/', () => HttpResponse.json({ sync_enabled: false })),
   http.patch('*/api/auth/google/calendar/', ok),
   http.post('*/api/auth/google/calendar/sync/', ok),
+  http.get('*/api/auth/google/drive/config/', () => HttpResponse.json({ configured: false, client_id: '', api_key: '', app_id: '' })),
+  http.post('*/api/auth/google/drive/file/', () => HttpResponse.json({
+    id: 'synthetic-drive-file', title: 'School project.pdf',
+    url: 'https://drive.google.com/file/d/synthetic-drive-file/view',
+    mime_type: 'application/pdf', resource_type: 'doc',
+  })),
 
   // Dashboard / Balance
   http.get('*/api/dashboard/', () =>
@@ -53,6 +59,7 @@ export const handlers = [
   http.post(/\/api\/projects\/\d+\/(activate|submit|approve|request-changes)\/$/, ok),
 
   // Ingest
+  http.post('*/api/projects/ingest/google-drive/', () => HttpResponse.json({ id: 'synthetic-drive-job', status: 'pending', result_json: {} })),
   http.post('*/api/projects/ingest/', ok),
   http.get(/\/api\/projects\/ingest\/[^/]+\/$/, () =>
     HttpResponse.json({ status: 'pending', result_json: {} }),

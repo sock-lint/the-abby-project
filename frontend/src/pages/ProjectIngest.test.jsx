@@ -11,6 +11,14 @@ import { spyHandler } from '../test/spy.js';
 import { DEFAULT_OVERRIDES, ingestDraftKey, readIngestDraft, storeIngestDraft } from './ingest/ingestDraft';
 import { STORAGE_KEYS } from '../constants/storage';
 
+vi.mock('../components/GoogleDrivePickerButton', () => ({
+  default: ({ onPick, children, disabled, pdfOnly }) => (
+    <button type="button" disabled={disabled} data-pdf-only={pdfOnly} onClick={() => onPick({
+      file_id: 'school-pdf-1', access_token: 'synthetic-drive-token', resource_key: 'synthetic-resource-key',
+    })}>{children || 'Choose from Google Drive'}</button>
+  ),
+}));
+
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
   return { ...a, AnimatePresence: ({ children }) => children };
@@ -39,6 +47,39 @@ function keepDraft(changes = {}, userId = 99) {
 }
 
 describe('ProjectIngest', () => {
+  it('starts a selected Drive PDF through the normal review flow without saving its token', async () => {
+    const start = spyHandler('post', '*/api/projects/ingest/google-drive/', readyJob);
+    const ordinaryStart = spyHandler('post', '*/api/projects/ingest/', {});
+    const commit = spyHandler('post', '*/api/projects/ingest/job-3/commit/', {});
+    server.use(start.handler, ordinaryStart.handler, commit.handler,
+      http.get('*/api/projects/ingest/job-3/', () => HttpResponse.json(readyJob)));
+    const { user } = renderPage();
+    await user.click(await screen.findByRole('button', { name: /^pdf$/i }));
+    const drive = screen.getByRole('button', { name: /import pdf from google drive/i });
+    expect(drive).toHaveAttribute('data-pdf-only', 'true');
+    await user.click(drive);
+    await screen.findByRole('button', { name: /create venture/i });
+    expect(start.calls).toHaveLength(1);
+    expect(start.calls[0].body).toEqual({ file_id: 'school-pdf-1', access_token: 'synthetic-drive-token', resource_key: 'synthetic-resource-key' });
+    expect(ordinaryStart.calls).toHaveLength(0);
+    expect(commit.calls).toHaveLength(0);
+    expect(readIngestDraft(99).jobId).toBe('job-3');
+    expect(localStorage.getItem(ingestDraftKey(99))).not.toContain('synthetic-drive-token');
+    expect(document.body.textContent).not.toContain('synthetic-drive-token');
+  });
+
+  it('keeps the PDF source form usable when Google denies file access', async () => {
+    const start = spyHandler('post', '*/api/projects/ingest/google-drive/',
+      HttpResponse.json({ error: 'Google Drive could not open this file. Choose it again and allow access.' }, { status: 400 }));
+    server.use(start.handler);
+    const { user } = renderPage();
+    await user.click(await screen.findByRole('button', { name: /^pdf$/i }));
+    await user.click(screen.getByRole('button', { name: /import pdf from google drive/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Google Drive could not open this file');
+    expect(start.calls).toHaveLength(1);
+    expect(screen.getByLabelText('PDF Tutorial')).toBeInTheDocument();
+    expect(readIngestDraft(99)).toBeNull();
+  });
   it('renders the source step with URL/PDF tabs', async () => {
     renderPage();
     await waitFor(() =>
