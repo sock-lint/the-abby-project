@@ -24,6 +24,7 @@ namespace AbbyCamp.Validation
         };
         private readonly List<string> checks = new List<string>();
         private readonly List<string> runtimeErrors = new List<string>();
+        private readonly Queue<float> loginAttemptTimes = new Queue<float>();
         private bool failed, failFirstMarkRead, ambiguousFeed, ambiguousHatch, ambiguousExpeditionStart, ambiguousExpeditionClaim, ambiguousBreed, ownedCreatureArt;
         private string output, fixtureUrl, username, password, secondUsername, secondPassword;
 
@@ -1003,6 +1004,9 @@ namespace AbbyCamp.Validation
         private IEnumerator HeldBreedAccountReplacement(CampPrototypeController ui, CampGardenInput garden, AbbyApiClient api,
             int userId, int firstId, int secondId, Action<FixtureState> complete)
         {
+            // Keep both account switches within the real login quota. Any wait
+            // belongs before the committed response's bounded 15-second hold.
+            yield return WaitForLoginQuota(2);
             FixtureState snapshot = null;
             yield return ReadFixtureState(value => snapshot = value);
             var otherBefore = Array.Find(snapshot.accounts, row => row.user_id != userId);
@@ -1532,15 +1536,34 @@ namespace AbbyCamp.Validation
 
         private IEnumerator Connect(CampPrototypeController ui, CampGardenInput garden, string account, string secret)
         {
+            yield return WaitForLoginQuota(1);
             Click("AccountButton");
             yield return null;
             Check(ui.IsModalOpen && !garden.InputEnabled, "Connection form blocks world touch");
             FindInput("ServerAddressInput").text = fixtureUrl;
             FindInput("UsernameInput").text = account;
             FindInput("PasswordInput").text = secret;
+            loginAttemptTimes.Enqueue(Time.realtimeSinceStartup);
             Click("ConnectAccountButton");
             yield return WaitUntil(() => !ui.IsBusy && !ui.IsHomeLoading && !ui.IsModalOpen && !ui.IsDemo, 25f, "Connection and private home reads finish");
             yield return null;
+        }
+
+        private IEnumerator WaitForLoginQuota(int slots)
+        {
+            const int limit = 10;
+            const float window = 60.5f;
+            if (slots < 1 || slots > limit) throw new ArgumentOutOfRangeException(nameof(slots));
+            while (true)
+            {
+                float now = Time.realtimeSinceStartup;
+                while (loginAttemptTimes.Count > 0 && now - loginAttemptTimes.Peek() >= window)
+                    loginAttemptTimes.Dequeue();
+                if (loginAttemptTimes.Count + slots <= limit) break;
+                yield return null;
+            }
+            Check(loginAttemptTimes.Count + slots <= limit,
+                "The harness reserves " + slots + " login attempt(s) within the unchanged ten-per-minute production throttle");
         }
 
         private IEnumerator ReadFixtureState(Action<FixtureState> success)
