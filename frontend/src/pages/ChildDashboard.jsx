@@ -27,10 +27,11 @@ import ProgressBar from '../components/ProgressBar';
 import Button from '../components/Button';
 import ErrorAlert from '../components/ErrorAlert';
 import ScrollRail from '../components/ScrollRail';
+import SectionHeader from '../components/SectionHeader';
 import Sparkline from '../components/Sparkline';
 import { CoinIcon, TreasuryIcon } from '../components/icons/JournalIcons';
 import { BookOpen, Sparkles, Flame, Target, X, Compass, Award } from 'lucide-react';
-import { RARITY_RING_COLORS } from '../constants/colors';
+import { RARITY_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem, inkBleed } from '../motion/variants';
 import { formatWeekdayDate, mapProjectTone } from './_dashboardShared';
 import MeadowVisitCard from './meadow/MeadowVisitCard';
@@ -221,7 +222,7 @@ export default function ChildDashboard({ data, reload }) {
         }}
       />
 
-      <DailyChallengeCard />
+      <DailyChallengeCard refreshKey={data} />
 
       {totalLogCount === 0 && !active_projects?.length && !savings_goals?.length && !recent_badges?.length && (
         <ParchmentCard tone="bright">
@@ -319,31 +320,42 @@ export default function ChildDashboard({ data, reload }) {
       )}
 
       {recentDrops?.length > 0 && (
-        <section>
-          <div className="mb-2">
-            <div className="font-script text-sheikah-teal-deep text-body">Items found in the last two days</div>
-            <h2 className="font-display text-xl md:text-2xl text-ink-primary leading-tight">Recent items</h2>
-          </div>
-          <ScrollRail>
+        <section aria-label="Recent items">
+          <SectionHeader
+            title="Recent items"
+            kicker="Items earned through your activity"
+            className="mb-3"
+          />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {recentDrops.map((d) => (
               <motion.button
                 key={d.id}
                 type="button"
                 whileHover={{ y: -2 }}
                 onClick={() => navigate('/treasury?tab=satchel')}
-                aria-label={`${d.item_name}${d.was_salvaged ? ' (salvaged)' : ''} — open inventory`}
-                className={`shrink-0 w-28 p-3 rounded-2xl bg-ink-page-aged border border-ink-page-shadow text-center ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[d.item_rarity] || 'ring-transparent'}`}
+                aria-label={`${d.item_name}${d.quantity > 1 ? ` × ${d.quantity}` : ''}${d.was_salvaged ? ' (converted to coins)' : ''} — open inventory`}
+                className={`min-w-0 p-3 rounded-2xl border text-center hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal transition-[filter] ${RARITY_COLORS[d.item_rarity] || 'bg-ink-page-aged border-ink-page-shadow'}`}
               >
                 <div className="flex h-10 items-center justify-center mb-2">
                   <RpgSprite spriteKey={d.item_sprite_key} icon={d.item_icon || '📦'} size={40} alt={d.item_name} />
                 </div>
-                <div className="font-body text-caption font-semibold break-words leading-snug">{d.item_name}</div>
+                <div className="font-body text-body font-semibold text-ink-primary break-words leading-snug">
+                  {d.item_name}{d.quantity > 1 && <span> × {d.quantity}</span>}
+                </div>
                 {d.was_salvaged && (
-                  <div className="font-script text-micro text-gold-leaf mt-0.5">salvaged</div>
+                  <div className="font-body text-caption text-ink-secondary mt-1">Converted to coins</div>
                 )}
               </motion.button>
             ))}
-          </ScrollRail>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/treasury?tab=satchel')}
+            className="mt-2 -ml-3 text-sheikah-teal-deep!"
+          >
+            View inventory →
+          </Button>
         </section>
       )}
 

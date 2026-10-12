@@ -1,15 +1,35 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Hourglass } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { claimDailyChallenge, getDailyChallenge } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import { useRole } from '../../hooks/useRole';
 import { inkBleed } from '../../motion/variants';
 import Button from '../Button';
 import ParchmentCard from '../journal/ParchmentCard';
-import QuillProgress from '../QuillProgress';
+import ProgressBar from '../ProgressBar';
 import RuneBadge from '../journal/RuneBadge';
 import DailyChallengeClaimModal from './DailyChallengeClaimModal';
+
+const CHALLENGE_LINKS = {
+  clock_hour: { path: '/quests?tab=ventures', label: 'View projects' },
+  chores: { path: '/quests?tab=duties', label: 'View chores' },
+  habits: { path: '/quests?tab=rituals', label: 'View habits' },
+  homework: { path: '/quests?tab=study', label: 'View homework' },
+  milestone: { path: '/quests?tab=ventures', label: 'View projects' },
+};
+
+function challengeGoal(type, target, display) {
+  switch (type) {
+    case 'clock_hour': return `Clock ${target} ${target === 1 ? 'hour' : 'hours'} on a project today`;
+    case 'chores': return `Complete ${target} ${target === 1 ? 'chore' : 'chores'} today`;
+    case 'habits': return `Log ${target} positive habit ${target === 1 ? 'tap' : 'taps'} today`;
+    case 'homework': return `Complete ${target} homework ${target === 1 ? 'assignment' : 'assignments'} today`;
+    case 'milestone': return `Complete ${target} project ${target === 1 ? 'milestone' : 'milestones'} today`;
+    default: return display?.replace(/\bN\b/g, String(target)) || "Complete today's task";
+  }
+}
 
 function timeUntilMidnight(now = new Date()) {
   const next = new Date(now);
@@ -24,13 +44,11 @@ function timeUntilMidnight(now = new Date()) {
 }
 
 /**
- * DailyChallengeCard — "Today's Rite" card for the child dashboard.
+ * DailyChallengeCard — daily bonus challenge for the child dashboard.
  *
  * Self-fetches today's DailyChallenge and renders one of:
- *   - in-progress / already-claimed (prior session): COMPACT single row —
- *     icon + "Today's Rite · 1 / 2 · resets in 5h" + thin progress bar.
- *     These are the everyday states; the full flourish card here pushed
- *     the child's quest log a whole screen down on phones.
+ *   - in-progress / already-claimed (prior session): compact goal, progress,
+ *     reward preview and task navigation, so the counter has clear meaning.
  *   - ready-to-claim: FULL celebration card — gold ring + Claim button
  *   - claimed (this session): FULL card with the inked success readout
  *
@@ -38,14 +56,15 @@ function timeUntilMidnight(now = new Date()) {
  * whoever calls GET /api/challenges/daily/, so the role gate MUST short-
  * circuit the fetch rather than filter the render.
  */
-export default function DailyChallengeCard() {
+export default function DailyChallengeCard({ refreshKey }) {
   const { isChild } = useRole();
+  const navigate = useNavigate();
 
   const fetchChallenge = useCallback(
     () => (isChild ? getDailyChallenge() : Promise.resolve(null)),
     [isChild],
   );
-  const { data, reload } = useApi(fetchChallenge, [isChild]);
+  const { data, reload } = useApi(fetchChallenge, [isChild, refreshKey]);
 
   const [pending, setPending] = useState(false);
   const [claimed, setClaimed] = useState(null);
@@ -64,6 +83,7 @@ export default function DailyChallengeCard() {
   if (!isChild || !data?.id) return null;
 
   const {
+    challenge_type,
     challenge_type_display,
     current_progress = 0,
     target_value = 1,
@@ -72,10 +92,19 @@ export default function DailyChallengeCard() {
     is_complete = false,
   } = data;
 
-  const sessionClaimed = claimed && !claimed.already_claimed;
+  const goal = challengeGoal(challenge_type, target_value, challenge_type_display);
+  const taskLink = CHALLENGE_LINKS[challenge_type];
+  const progressHelp = challenge_type === 'chores' || challenge_type === 'homework'
+    ? 'Progress counts after parent approval.'
+    : challenge_type === 'clock_hour'
+      ? 'Counts when you clock out after at least an hour in one session.'
+      : null;
+
+  const activeClaim = claimed?.challengeId === data.id ? claimed : null;
+  const sessionClaimed = activeClaim && !activeClaim.already_claimed;
   const priorClaim =
     (is_complete && coin_reward === 0 && xp_reward === 0) ||
-    (claimed && claimed.already_claimed);
+    (activeClaim && activeClaim.already_claimed);
   const readyToClaim = is_complete && !sessionClaimed && !priorClaim;
   // Compact = nothing to celebrate right now (in progress, or claimed in a
   // prior session). The full card is reserved for the two reveal moments.
@@ -86,12 +115,12 @@ export default function DailyChallengeCard() {
     setClaimError('');
     try {
       const res = await claimDailyChallenge();
-      setClaimed(res);
+      setClaimed({ ...res, challengeId: data.id });
       // Trigger the reveal modal only when the server actually awarded
       // something this session — replays-after-midnight come back with
       // already_claimed=true and no celebration is owed.
       if (res && !res.already_claimed) {
-        setShowClaimModal(res);
+        setShowClaimModal({ ...res, challengeId: data.id });
       }
       reload();
     } catch (err) {
@@ -103,38 +132,57 @@ export default function DailyChallengeCard() {
 
   return (
     <motion.div variants={inkBleed} initial="initial" animate="animate">
-      {showClaimModal && (
+      {showClaimModal?.challengeId === data.id && (
         <DailyChallengeClaimModal
           claim={showClaimModal}
-          challengeLabel={challenge_type_display}
+          challengeLabel={goal}
           onDismiss={() => setShowClaimModal(null)}
         />
       )}
       {compact ? (
         <ParchmentCard tone="bright" className="!p-3">
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
             <Hourglass
               size={14}
               aria-hidden="true"
               className="shrink-0 text-sheikah-teal-deep"
             />
-            <h2 className="min-w-0 font-display italic text-body text-ink-primary leading-tight">
-              Today&apos;s Rite
-              <span className="font-script text-caption text-ink-whisper tabular-nums">
-                {' · '}
-                {priorClaim
-                  ? 'already claimed — a new rite opens at midnight'
-                  : `${current_progress} / ${target_value} · resets in ${resetIn}`}
-              </span>
+            <h2 className="min-w-0 font-display text-body text-ink-primary leading-tight">
+              Daily challenge
             </h2>
+            <span className="font-body text-caption text-ink-secondary tabular-nums ml-auto">
+              Resets in {resetIn}
+            </span>
           </div>
-          <div className="mt-1.5">
-            <QuillProgress
+          <p className="mt-2 font-body text-body font-semibold text-ink-primary">{goal}</p>
+          {!priorClaim && progressHelp && (
+            <p className="mt-1 font-body text-caption text-ink-secondary">{progressHelp}</p>
+          )}
+          <p className="mt-1 font-body text-caption text-ink-secondary">
+            {priorClaim
+              ? 'Reward claimed · A new challenge arrives tomorrow.'
+              : `Complete the goal, then claim +${coin_reward} coins and +${xp_reward} XP.`}
+          </p>
+          <div className="mt-2">
+            <ProgressBar
               value={current_progress}
               max={target_value}
-              aria-label={`${challenge_type_display || 'Daily rite'} progress`}
+              aria-label={`${goal} progress`}
             />
+            <div className="mt-1 font-body text-caption text-ink-secondary tabular-nums">
+              {current_progress} / {target_value} complete
+            </div>
           </div>
+          {!priorClaim && taskLink && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-1 -ml-3"
+              onClick={() => navigate(taskLink.path)}
+            >
+              {taskLink.label} →
+            </Button>
+          )}
         </ParchmentCard>
       ) : (
         <ParchmentCard
@@ -148,33 +196,31 @@ export default function DailyChallengeCard() {
         >
           <div className="flex items-start justify-between gap-2">
             <div className="font-script text-sheikah-teal-deep text-caption uppercase tracking-wider">
-              a small deed before the day turns
+              {sessionClaimed ? 'Reward earned' : 'Ready to claim'}
             </div>
             <RuneBadge tone="ink" size="sm">
               <span className="inline-flex items-center gap-1">
                 <Hourglass size={10} aria-hidden="true" />
-                <span>resets in {resetIn}</span>
+                <span>Resets in {resetIn}</span>
               </span>
             </RuneBadge>
           </div>
-          <h2 className="font-display italic text-2xl text-ink-primary leading-tight mt-0.5">
-            Today&apos;s Rite
+          <h2 className="font-display text-2xl text-ink-primary leading-tight mt-0.5">
+            Daily challenge
           </h2>
 
-          {challenge_type_display && (
-            <div className="font-body text-body text-ink-secondary mt-1">
-              {challenge_type_display}
-            </div>
-          )}
-          <div className="font-script text-tiny text-ink-whisper mt-1">
-            a fresh micro-quest each dawn — claim its coin once the bar fills
+          <div className="font-body text-body text-ink-secondary mt-1">
+            {goal}
+          </div>
+          <div className="font-body text-caption text-ink-secondary mt-1">
+            Complete the goal, then claim your bonus coins and XP.
           </div>
 
           <div className="mt-3">
-            <QuillProgress
+            <ProgressBar
               value={current_progress}
               max={target_value}
-              aria-label={`${challenge_type_display || 'Daily rite'} progress`}
+              aria-label={`${goal} progress`}
             />
             <div className="mt-1 font-script text-caption text-ink-whisper tabular-nums">
               {current_progress} / {target_value}
@@ -188,7 +234,7 @@ export default function DailyChallengeCard() {
               className="mt-3 flex items-center gap-2"
             >
               <RuneBadge tone="gold">
-                +{claimed.coins} coins · +{claimed.xp} XP earned.
+                +{activeClaim.coins} coins · +{activeClaim.xp} XP earned.
               </RuneBadge>
             </div>
           ) : (

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import Dashboard from './Dashboard.jsx';
@@ -178,10 +178,36 @@ describe('ChildDashboard', () => {
 
     const card = await screen.findByRole('button', { name: 'Sky potion — open inventory' });
     expect(screen.getByRole('img', { name: 'Sky potion' })).toHaveAttribute('src', '/sprites/sky-potion.png');
-    expect(card).toHaveClass('ring-royal/60');
+    expect(card).toHaveClass('border-royal/40', 'bg-royal/10');
+    expect(screen.getByText('Items earned through your activity')).toBeInTheDocument();
+    expect(screen.queryByText(/items found in the last two days/i)).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     await user.click(card);
+    expect(screen.getByTestId('location')).toHaveTextContent('/treasury?tab=satchel');
+  });
+
+  it('shows dropped quantities and explains duplicates converted to coins', async () => {
+    const user = userEvent.setup();
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/dashboard/', () => HttpResponse.json({ next_actions: [] })),
+      http.get('*/api/drops/recent/', () => HttpResponse.json([
+        {
+          id: 18, item: 25, item_name: 'Oats', item_icon: '🌾', item_rarity: 'common',
+          quantity: 3, was_salvaged: false, created_at: '2026-09-10T12:00:00Z',
+        },
+        {
+          id: 19, item: 26, item_name: 'Moon frame', item_icon: '🌙', item_rarity: 'rare',
+          quantity: 1, was_salvaged: true, created_at: '2026-09-09T12:00:00Z',
+        },
+      ])),
+    ]);
+
+    const items = await screen.findByRole('region', { name: 'Recent items' });
+    expect(within(items).getByRole('button', { name: 'Oats × 3 — open inventory' })).toHaveTextContent('Oats × 3');
+    expect(within(items).getByRole('button', { name: 'Moon frame (converted to coins) — open inventory' })).toHaveTextContent('Converted to coins');
+    await user.click(within(items).getByRole('button', { name: /view inventory/i }));
     expect(screen.getByTestId('location')).toHaveTextContent('/treasury?tab=satchel');
   });
 
