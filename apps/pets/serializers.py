@@ -11,7 +11,7 @@ from .services import MOUNT_BREEDING_COOLDOWN_DAYS
 class PetSpeciesSerializer(serializers.ModelSerializer):
     class Meta:
         model = PetSpecies
-        fields = ["id", "name", "icon", "sprite_key", "description", "food_preference"]
+        fields = ["id", "slug", "name", "icon", "sprite_key", "description", "food_preference"]
         read_only_fields = fields
 
 

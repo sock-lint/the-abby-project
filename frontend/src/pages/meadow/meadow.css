@@ -1,8 +1,7 @@
 /* Shared colors and bundled Nunito now continue throughout the web shell.
    The scene keeps its own companion presentation across every cover. */
 
-.meadow-page,
-.meadow-visit {
+.meadow-page {
   color: var(--meadow-ink);
   font-family: var(--meadow-font);
 }
@@ -16,8 +15,7 @@
 
 .meadow-page h1,
 .meadow-page h2,
-.meadow-page h3,
-.meadow-visit-title {
+.meadow-page h3 {
   font-family: var(--meadow-font);
   font-weight: 700;
   letter-spacing: -0.035em;
@@ -33,8 +31,7 @@
 .meadow-back { grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; width: fit-content; font-size: var(--text-body); }
 .meadow-text-link { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; font-size: var(--text-body); color: var(--meadow-lilac); font-weight: 700; }
 .meadow-page a:focus-visible,
-.meadow-page button:focus-visible,
-.meadow-visit:focus-visible { outline: 3px solid var(--meadow-lilac); outline-offset: 4px; }
+.meadow-page button:focus-visible { outline: 3px solid var(--meadow-lilac); outline-offset: 4px; }
 
 .meadow-scene { position: relative; overflow: hidden; isolation: isolate; border-radius: 1.5rem; background: linear-gradient(180deg, var(--meadow-sky), var(--meadow-paper) 65%, var(--meadow-leaf)); min-height: 430px; }
 .meadow-scene-top { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 1rem; }
@@ -60,8 +57,7 @@
 .meadow-page .meadow-button:disabled { opacity: 0.65; }
 .meadow-capture { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 1rem; padding: 1.5rem; background: var(--meadow-lavender); border-radius: 1.5rem; }
 .meadow-page .meadow-privacy { margin-top: 0.8rem; color: var(--meadow-ink); font-size: var(--text-caption); }
-.meadow-capture .meadow-eyebrow,
-.meadow-visit .meadow-eyebrow { color: var(--meadow-ink); }
+.meadow-capture .meadow-eyebrow { color: var(--meadow-ink); }
 .meadow-error { grid-column: 1 / -1; }
 .meadow-collection { padding: 0.5rem 0; }
 .meadow-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; }
@@ -84,13 +80,6 @@
 .meadow-page .meadow-receipt p { font-size: var(--text-caption); }
 .meadow-page .meadow-dismiss { font-family: inherit; color: var(--meadow-ink); font-size: var(--text-caption); }
 .meadow-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; font-size: var(--text-caption); color: var(--meadow-muted); }
-.meadow-visit { display: flex; align-items: center; gap: 1rem; padding: 0.7rem 1.25rem; border-radius: 1.5rem; border: 1px solid color-mix(in srgb, var(--meadow-grass) 65%, transparent); background: linear-gradient(100deg, var(--meadow-leaf), var(--meadow-paper)); color: var(--meadow-ink); font-family: var(--meadow-font); box-shadow: 0 3px 0 color-mix(in srgb, var(--meadow-ink) 8%, transparent); }
-.meadow-visit:focus-visible { outline: 3px solid var(--meadow-lilac); outline-offset: 3px; }
-.meadow-visit:hover { box-shadow: 0 4px 12px color-mix(in srgb, var(--meadow-ink) 12%, transparent); }
-.meadow-visit > img { width: 88px; height: 88px; object-fit: contain; flex-shrink: 0; }
-.meadow-visit > svg { flex-shrink: 0; color: var(--meadow-lilac); }
-.meadow-visit-copy { display: flex; flex: 1; flex-direction: column; gap: 0.3rem; font-size: var(--text-body); }
-.meadow-visit-title { font-size: var(--text-lede); font-weight: 800; }
 
 .meadow-sheet.parchment-bg-aged { background-image: none; background-color: var(--meadow-paper); color: var(--meadow-ink); font-family: var(--meadow-font); box-shadow: 0 12px 32px color-mix(in srgb, var(--meadow-ink) 15%, transparent); }
 .meadow-sheet label { font-family: inherit; font-weight: 600; }
@@ -112,11 +101,6 @@
   .meadow-capture { grid-template-columns: 1fr; padding: 1.1rem; }
   .meadow-keepsakes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .meadow-keepsake { flex-direction: column; text-align: center; padding: 1rem 0.5rem; gap: 0.5rem; }
-  .meadow-visit { gap: 0.75rem; padding: 0.6rem 0.85rem; }
-  .meadow-visit > img { width: 64px; height: 72px; }
-  .meadow-visit-copy { font-size: var(--text-caption); }
-  .meadow-visit .meadow-eyebrow { font-size: var(--text-tiny); }
-  .meadow-visit > svg { width: 18px; }
 }
 
 @media (prefers-reduced-motion: no-preference) {

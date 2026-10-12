@@ -3,16 +3,19 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
 import { VitePWA } from 'vite-plugin-pwa'
+import { nativeBuildConfig } from './scripts/native-build-config.mjs'
 
 // In production builds, assets live under Django's STATIC_URL (/static/) so
 // the built index.html can be served as-is from the SPA catch-all view and
 // still resolve its bundled JS/CSS through WhiteNoise. In dev the Vite server
 // serves from / and proxies /api to the Django dev server on :8000.
-export default defineConfig(({ command }) => {
+export default defineConfig(({ command, mode }) => {
+  const native = mode === 'native' ? nativeBuildConfig(process.env) : null
   const plugins = [
     react(),
     tailwindcss(),
     VitePWA({
+      disable: Boolean(native),
       base: '/',
       scope: '/',
       registerType: 'prompt',
@@ -69,9 +72,6 @@ export default defineConfig(({ command }) => {
           /^\/api\//,
           // Product and privacy pages are rendered by Django without the SPA.
           /^\/(?:about|privacy)(?:\/|\?|$)/,
-          // The separately built Unity scene is served by its own /play host.
-          // Installed PWAs must let this navigation reach that host.
-          /^\/play(?:\/|$)/,
           /^\/admin\//,
           /^\/static\//,
           /^\/media\//,
@@ -129,7 +129,7 @@ export default defineConfig(({ command }) => {
 
   // Upload source maps to self-hosted Sentry during production builds.
   // Requires SENTRY_AUTH_TOKEN — gracefully skipped in local dev.
-  if (command === 'build' && process.env.SENTRY_AUTH_TOKEN) {
+  if (!native && command === 'build' && process.env.SENTRY_AUTH_TOKEN) {
     plugins.push(
       sentryVitePlugin({
         url: 'https://logs.neato.digital',
@@ -148,9 +148,22 @@ export default defineConfig(({ command }) => {
   }
 
   return {
-    base: command === 'build' ? '/static/' : '/',
+    base: native?.base ?? (command === 'build' ? '/static/' : '/'),
+    define: native?.define,
+    envDir: native ? false : undefined,
     plugins,
+    // The scene is intentionally lazy, but discovering its dependencies only
+    // on the first click can make Vite reload and discard unfinished forms.
+    optimizeDeps: {
+      include: [
+        '@react-three/fiber',
+        'three',
+        'three/addons/loaders/GLTFLoader.js',
+        'three/addons/utils/SkeletonUtils.js',
+      ],
+    },
     build: {
+      outDir: native?.outDir ?? 'dist',
       sourcemap: 'hidden',
       rollupOptions: {
         output: {
@@ -179,6 +192,13 @@ export default defineConfig(({ command }) => {
       host: '0.0.0.0',
       port: 3000,
       allowedHosts: ['abby.bos.lol', '.sslip.io', 'localhost'],
+      watch: {
+        ignored: [
+          '**/android/**', '**/ios/**', '**/dist-native/**',
+          '**/test-results/**', '**/playwright-report/**',
+          '**/test-results-*/**',
+        ],
+      },
       proxy: {
         '/about': {
           target: 'http://localhost:8000',

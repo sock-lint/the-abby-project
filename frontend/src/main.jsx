@@ -4,13 +4,14 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './hooks/useApi'
+import { isNativeRuntime } from './platform/runtime'
 
 // Chrome fires beforeinstallprompt very early after page load — often before
 // React has mounted InstallPromptProvider and its useEffect has run. Capture
 // it at module-load time and stash it on window so the provider can pick it
 // up on mount. Without this, the event is dropped and the Install card
 // falls through to the "browser doesn't support" message on Chrome Android.
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && !isNativeRuntime()) {
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault()
     window.__deferredInstallPrompt = event

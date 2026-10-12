@@ -30,6 +30,38 @@ async function expectTodayReady() {
 }
 
 describe('App', () => {
+  it.each([
+    ['/play/old-scene?legacy=1', '/bestiary'],
+    ['/pets', '/bestiary'],
+    ['/profile', '/sigil'],
+  ])('keeps the %s bookmark inside the React app', async (path, destination) => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())));
+    window.history.replaceState({}, '', path);
+    try {
+      renderApp();
+      await waitFor(() => expect(window.location.pathname).toBe(destination));
+      expect(window.location.search).toBe('');
+    } finally {
+      window.history.replaceState({}, '', '/');
+    }
+  });
+
+  it('drops retired Play credentials before authentication can replace the current account', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())));
+    const replace = vi.spyOn(pushSession, 'replaceSessionToken');
+    window.history.replaceState({}, '', '/play/?token=synthetic-obsolete-token');
+    try {
+      renderApp();
+      await waitFor(() => expect(window.location.pathname).toBe('/bestiary'));
+      expect(window.location.search).toBe('');
+      expect(replace).not.toHaveBeenCalled();
+      expect(localStorage.getItem('abby_auth_token')).toBe('test-session');
+    } finally {
+      replace.mockRestore();
+      window.history.replaceState({}, '', '/');
+    }
+  });
+
   it('shows the sign-in page and cleanup error when an OAuth switch cannot stop old notifications', async () => {
     const replace = vi.spyOn(pushSession, 'replaceSessionToken').mockRejectedValue(
       new Error('Could not stop notifications on this device. Reconnect and try again.'),

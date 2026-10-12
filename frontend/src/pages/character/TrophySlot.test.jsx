@@ -36,4 +36,14 @@ describe('TrophySlot', () => {
     const slot = container.querySelector('[data-trophy-slot="true"]');
     expect(slot?.getAttribute('data-filled')).toBe('true');
   });
+
+  it('keeps earned trophy identity and the picker action in its compact layout', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    renderWithProviders(<TrophySlot compact badge={{ id: 1, name: 'First Project', icon: '⭐', rarity: 'common' }} onOpen={onOpen} />);
+    expect(screen.getByText('First Project')).toBeInTheDocument();
+    expect(screen.getByText('Your trophy badge')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Trophy badge: First Project/i }));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
 });

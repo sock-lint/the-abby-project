@@ -3,6 +3,7 @@ import { registerSW } from 'virtual:pwa-register';
 
 import { STORAGE_KEYS } from '../constants/storage';
 import { PwaStatusContext } from './pwaStatus.context';
+import { isNativeRuntime } from '../platform/runtime';
 
 // Safety-net delay: if `controllerchange` hasn't fired by then, force the
 // reload anyway. iOS Safari PWAs and some Android browsers don't reliably
@@ -57,7 +58,7 @@ export function PwaStatusProvider({ children }) {
     // MODE === 'test' (with import.meta.env.DEV also true) — but we DO want
     // registerSW to be called so the test mock can capture the callbacks.
     // In production, MODE === 'production' and registration proceeds.
-    if (import.meta.env.MODE === 'development') return undefined;
+    if (isNativeRuntime() || import.meta.env.MODE === 'development') return undefined;
     updateSWRef.current = registerSW({
       onNeedRefresh: () => {
         if (recentlyAttemptedReload()) {
@@ -72,6 +73,7 @@ export function PwaStatusProvider({ children }) {
   }, []);
 
   const applyUpdate = useCallback(() => {
+    if (isNativeRuntime()) return;
     // Hide the banner instantly so the user sees a response to their click
     // even if the SW handshake or page reload takes a beat. Also stamp a
     // timestamp so the post-reload mount can swallow a re-firing

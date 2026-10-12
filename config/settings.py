@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import dj_database_url
+from corsheaders.defaults import default_headers
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -580,6 +581,10 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
     "CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000"
 ).split(",")
 CORS_ALLOW_CREDENTIALS = True
+
+# The public sprite catalog revalidates its ETag from packaged WebViews.
+# Origins still come from CORS_ALLOWED_ORIGINS; this adds no origin access.
+CORS_ALLOW_HEADERS = (*default_headers, "if-none-match")
 
 # Cache (Redis)
 

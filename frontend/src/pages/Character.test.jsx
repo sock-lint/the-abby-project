@@ -8,6 +8,8 @@ import { renderWithProviders } from '../test/render.jsx';
 import { buildUser } from '../test/factories.js';
 import { setToken } from '../api/client.js';
 
+vi.mock('../components/avatar/AvatarPreview', () => ({ default: () => <div role="img" aria-label="Your Archer avatar" /> }));
+
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
   return { ...a, AnimatePresence: ({ children }) => children };
@@ -51,6 +53,28 @@ function renderPage() {
 }
 
 describe('Character (/sigil)', () => {
+  it('keeps profile focused on avatar customization and links to pets separately', async () => {
+    stubRoutes({ profile: { display_name: 'Abby', level: 2 } });
+    const stableSpy = vi.fn(() => HttpResponse.json({ pets: [], mounts: [] }));
+    server.use(http.get('*/api/pets/stable/', stableSpy));
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Your look' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Edit account & settings' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('link', { name: 'My pets' })).toHaveAttribute('href', '/bestiary');
+    expect(screen.getByRole('button', { name: 'Customize avatar' })).toBeInTheDocument();
+    expect(stableSpy).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Show 3D view' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Say hello' })).toBeNull();
+  });
+
+  it('keeps parent pet navigation and does not show child wellbeing controls', async () => {
+    stubRoutes({ profile: { display_name: 'Parent', level: 2 }, user: buildUser({ role: 'parent' }) });
+    renderPage();
+    expect(await screen.findByRole('link', { name: 'My pets' })).toHaveAttribute('href', '/bestiary');
+    expect(screen.queryByRole('link', { name: 'View companion home' })).toBeNull();
+    expect(screen.queryByText('How are you feeling?')).toBeNull();
+  });
+
   it('renders the frontispiece with display name, level chip, and trophy slot', async () => {
     stubRoutes({
       profile: {

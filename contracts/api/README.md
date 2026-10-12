@@ -1,12 +1,16 @@
 # Shared API response fixtures
 
 `fixtures/*.json` contains raw Django response bodies shared by the React tests
-and Unity Editor API validation. Keep the files here rather than copying sample
+and retained Unity reference checks. Unity is retired and is not an active release
+gate. Keep the files here rather than copying sample
 payloads into each client. No production credentials or user data belong here.
 The login token and all identities are synthetic and exist only in the test DB.
 
 | Fixture | Endpoint / scenario |
 | --- | --- |
+| `character-avatar-default.json` | `GET /api/character/`; existing account with no saved Archer appearance receives the complete default options |
+| `character-avatar-saved.json` | `POST /api/character/avatar/`; confirmed self-scoped appearance save returns the full character, also returned on later reads and retries |
+| `character-avatar-invalid.json` | Avatar save rejected with HTTP 400 for an unsupported outfit, without writes |
 | `google-drive-config.json` | `GET /api/auth/google/drive/config/`; public Picker configuration with synthetic keys |
 | `google-drive-file.json` | `POST /api/auth/google/drive/file/`; verified metadata for a parent-selected school PDF, without credentials |
 | `auth-login-child.json` | `POST /api/auth/`, successful password login; flat user plus token |
@@ -98,6 +102,13 @@ owner's state. Evolution uses the real service and a test-table sequence reset
 to keep the newly generated mount ID deterministic on PostgreSQL/SQLite and
 test-suite ordering. Inventory is an unpaginated array; its inventory-entry IDs
 are distinct from the item-definition IDs submitted to the feed endpoint.
+
+Owned pet and mount responses include the read-only nested `species.slug`,
+alongside species ID and sprite key, for exact companion appearance bindings.
+Hatch/activation responses and stable/mount reads carry the same saved identity
+through evolution; a sprite filename never substitutes for species identity.
+Legacy species without an authored slug return explicit `null` and keep their
+existing 2D presentation.
 
 Hatching also submits item-definition IDs, using `egg_item_id` and
 `potion_item_id`. The real service consumes exactly one of each owned ingredient,
@@ -212,7 +223,7 @@ copy of `unity/AbbyCamp`.
 From the repository root, with the normal backend test environment configured:
 
 ```sh
-python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures
 ```
 
 For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
@@ -220,30 +231,30 @@ For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
 From `frontend/`:
 
 ```sh
-npm run test:run -- src/api/sharedContractFixtures.test.js
+npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js
 ```
 
-Run Unity with `-executeMethod AbbyCamp.Editor.ApiContractValidation.Run`, or use
+For retired-reference checks only, run Unity with `-executeMethod AbbyCamp.Editor.ApiContractValidation.Run`, or use
 **Abby Camp → Validate API Contracts** in the Editor. See the Unity README for
 the pinned editor and batch-mode commands.
 
 ## Update an intentional API change
 
-Review the server and both client consumers first. Regenerate only through the
+Review the server and affected React consumers first. Regenerate only through the
 backend suite so sample payloads cannot drift into invented shapes. In PowerShell,
 after configuring the test environment:
 
 ```powershell
 $env:UPDATE_API_CONTRACT_FIXTURES = '1'
 try {
-    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures
+    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures
 } finally {
     Remove-Item Env:UPDATE_API_CONTRACT_FIXTURES
 }
 ```
 
-Review the JSON diff and adapt the React and Unity consumers/tests as needed.
-Then rerun all three checks with regeneration disabled. CI compares snapshots
+Review the JSON diff and adapt the React consumers/tests as needed.
+Then rerun backend and React checks with regeneration disabled. CI compares snapshots
 and refuses regeneration. An unexpected added, removed, renamed or retyped field
 fails the backend comparison even if a client silently ignores it.
 
@@ -251,3 +262,29 @@ Unity currently leaves payment actions in the parent web app. Its Editor-only
 Greenlight fixture checks still verify decimal-string amounts, explicit unknown
 balance, the external observation timestamp, and reconciliation outcomes. These
 checks do not add a runtime banking client or include fixtures in player builds.
+
+## Saved Archer appearance
+
+`config/tests/test_avatar_api_contract_fixtures.py` produces the avatar fixtures
+through the real authenticated character endpoints. `avatar_preferences` contains
+`hair_style` (`hair-01` through `hair-04`), `hair_color` (`light` or `dark`),
+`skin_tone` (`fair` or `tan`), and `outfit` (`aqua`, `nature`, `fire`, or `dark`).
+Default options are `hair-01`, `dark`, `fair`, and `nature`. Reads normalize older
+empty or malformed stored options without writing to the profile.
+
+`POST /api/character/avatar/` accepts exactly `{avatar_preferences: {...}}`.
+Each save replaces the full appearance: omitted options reset to defaults, and
+an empty preference object resets all four options. Unknown body/option fields,
+invalid types/values, and query parameters are rejected. The endpoint only changes
+the authenticated account's preferences and timestamp; it cannot target another
+account, equip or grant inventory, change a trophy, or award XP/Coins. Repeating
+the same normalized appearance changes nothing, including the saved timestamp.
+The response is the complete character body, and later character reads retain
+the confirmed appearance. These choices identify prepared pack art independently
+from gameplay ownership or earned cosmetic slots.
+
+Run the producer and permission/state tests with a disposable test database:
+
+```sh
+python manage.py test --settings=config.settings_test apps.rpg.tests.test_avatar config.tests.test_avatar_api_contract_fixtures
+```

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { Crown, Map as MapIcon, Hourglass } from 'lucide-react';
 import {
   getStable, activateMount, claimExpedition,
@@ -20,6 +21,7 @@ import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { RARITY_HALO, PROGRESS_TIER } from '../../../components/atlas/mastery.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 import ExpeditionLaunchSheet from './ExpeditionLaunchSheet';
+import CompanionPreview from '../../../components/companion/CompanionPreview';
 import {
   MOUNT_FILTERS,
   compareByRarityThenName,
@@ -40,6 +42,8 @@ export default function Mounts() {
   const [working, setWorking] = useState(false);
   const [launchMount, setLaunchMount] = useState(null);
   const [claimedExpedition, setClaimedExpedition] = useState(null);
+  const [previewId, setPreviewId] = useState(null);
+  const [searchParams] = useSearchParams();
 
   const mounts = useMemo(() => stableData?.mounts || [], [stableData]);
   const totalPossible = stableData?.total_possible || 0;
@@ -56,6 +60,13 @@ export default function Mounts() {
     const f = MOUNT_FILTERS.find((x) => x.key === filter) || MOUNT_FILTERS[0];
     return [...mounts.filter(f.match)].sort(compareByRarityThenName);
   }, [mounts, filter]);
+  const requestedId = Number(searchParams.get('mount'));
+  const homeMount = mounts.find((mount) => mount.id === previewId)
+    || mounts.find((mount) => mount.id === requestedId) || mounts.find((mount) => mount.is_active) || mounts[0];
+  const homeExpedition = homeMount?.active_expedition?.status === 'active' ? homeMount.active_expedition : null;
+  const companionName = homeMount?.species.id != null && homeMount?.potion.id != null
+    ? stableData?.pets?.find((pet) => pet.species.id === homeMount.species.id && pet.potion.id === homeMount.potion.id)?.name?.trim() : null;
+  const homeCreature = companionName ? { ...homeMount, name: companionName } : homeMount;
 
   if (loading) return <Loader />;
 
@@ -94,6 +105,21 @@ export default function Mounts() {
 
   return (
     <div className="space-y-6">
+      {homeMount && <CompanionPreview
+        variant="primary"
+        kind="mount"
+        creature={homeCreature}
+        kicker="Ready for a little adventure"
+        summary={homeExpedition ? homeExpedition.is_ready ? 'Your companion is back. See what they found.' : `Out exploring · ${formatExpeditionRemaining(homeExpedition.seconds_remaining)}` : 'Choose an expedition, then come back to discover what your companion found.'}
+        onInteract={homeExpedition ? homeExpedition.is_ready ? () => { if (!working) handleClaim(homeExpedition.id); } : undefined : () => setLaunchMount(homeMount)}
+        interactionLabel={homeExpedition?.is_ready ? `Collect finds from ${companionName || homeMount.species.name}` : `Explore with ${companionName || homeMount.species.name}`}
+      >
+        <div className="companion-preview-actions">
+          {homeExpedition?.is_ready ? <Button disabled={working} onClick={() => handleClaim(homeExpedition.id)}>{working ? 'Collecting…' : 'Collect your finds'}</Button>
+            : !homeExpedition ? <Button disabled={working} onClick={() => setLaunchMount(homeMount)}>Choose an expedition</Button>
+              : <Button variant="secondary" disabled={working} onClick={reload}>Check their return</Button>}
+        </div>
+      </CompanionPreview>}
       <IncipitBand
         letter="M"
         title="Mounts"
@@ -145,7 +171,7 @@ export default function Mounts() {
           No mounts match this filter.
         </EmptyState>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div role="list" aria-label="Your mounts" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {visibleMounts.map((mount) => {
             const cooldownDaysLeft = daysUntilReady(mount.last_bred_at);
             const expedition = mount.active_expedition;
@@ -155,7 +181,7 @@ export default function Mounts() {
               ? formatExpeditionRemaining(expedition.seconds_remaining)
               : null;
             return (
-              <motion.div key={mount.id} whileHover={{ y: -2 }}>
+              <motion.div key={mount.id} role="listitem" whileHover={{ y: -2 }}>
                 <ParchmentCard
                   className={`text-center transition-all ${
                     mount.is_active
@@ -174,6 +200,7 @@ export default function Mounts() {
                         fallbackSpriteKey={mount.species.sprite_key}
                         icon={mount.species.icon}
                         size={64}
+                        className="rounded-full"
                         alt={`${mount.potion.name} ${mount.species.name}`}
                         potionSlug={mount.potion.slug}
                         dim={isOut && !isReady ? 'stale' : null}
@@ -191,6 +218,7 @@ export default function Mounts() {
                     {mount.potion.rarity}
                   </div>
                   <div className="font-script text-tiny text-gold-leaf mt-1">mount</div>
+                  <Button size="sm" variant="ghost" className="mt-1 w-full" onClick={() => setPreviewId(mount.id)} aria-label={`Visit ${mount.potion.name} ${mount.species.name}`}>Spend time together</Button>
                   {isOut && !isReady && (
                     <div className="mt-1 space-y-1">
                       <div className="font-script text-tiny text-sheikah-teal-deep flex items-center justify-center gap-1">

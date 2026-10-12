@@ -1,5 +1,8 @@
 # Unity Web through Coolify
 
+**Retired October 12, 2026.** Unity is no longer an active client or release target. These historical instructions are retained for recovery only; see the [retirement record](operations/unity-retirement.md).
+
+
 Unity source and the existing React/Django deployment have separate builds. The main CI/CD pipeline exports the licensed Unity player and deploys the separate `/play/` service after platform deployment succeeds; see [Unity Web releases](operations/unity-web-release.md). PR validation checks source and does not deploy. The manual commands below remain available for administrator releases and rollback. Local exports, packaging contexts, logs, and screenshots stay ignored and are not committed.
 
 ## Shared sign-in release — 2026-10-10

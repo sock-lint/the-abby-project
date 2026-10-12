@@ -2,6 +2,15 @@
 
 A family-focused Django + React app for managing kids' projects, chores, and homework with real-money allowance tracking, a non-monetary Coins economy with a reward shop, a skill tree with badges, AI-powered project ingestion from Instructables/PDFs, and an MCP server for Claude tool use.
 
+React remains the complete application. The profile and pet experience uses
+optional React Three Fiber presentation, with ordinary accessible controls and
+2D fallbacks. Capacitor packages the same UI for development on iOS/Android;
+production native sessions, integrations and device acceptance follow the
+[R3F and Capacitor roadmap](docs/superpowers/plans/2026-10-12-r3f-capacitor.md).
+Unity is retired as an active client; its sources and purchased originals remain
+references. See the [owned asset boundary](content/rpg/react-three-fiber-assets.md)
+and [retirement record](docs/operations/unity-retirement.md).
+
 ## Tech Stack
 
 | Layer | Technology |

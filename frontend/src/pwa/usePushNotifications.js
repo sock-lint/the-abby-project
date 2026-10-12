@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { getPushConfig } from '../api';
 import { AUTH_CHANGED_EVENT, getToken } from '../api/client';
 import { bindPushSession, disconnectPushSession } from './pushSession';
+import { isNativeRuntime } from '../platform/runtime';
 
 function watchSession(onChange) {
   window.addEventListener(AUTH_CHANGED_EVENT, onChange);
@@ -28,7 +29,8 @@ function watchSession(onChange) {
  */
 export function usePushNotifications() {
   const token = useSyncExternalStore(watchSession, getToken, () => '');
-  const supported = typeof window !== 'undefined'
+  const native = isNativeRuntime();
+  const supported = !native && typeof window !== 'undefined'
     && 'serviceWorker' in navigator
     && 'PushManager' in window
     && 'Notification' in window;
@@ -50,7 +52,7 @@ export function usePushNotifications() {
     setError('');
     const load = async () => {
       try {
-        if (!token) return;
+        if (native || !token) return;
         // Fetch the config even on a browser that can't subscribe: the card
         // needs to know the server offers push at all before it can explain
         // *why* this device can't use it (the iPhone "install it first" case).
@@ -74,9 +76,10 @@ export function usePushNotifications() {
     };
     load();
     return () => { cancelled = true; };
-  }, [supported, token]);
+  }, [native, supported, token]);
 
   const subscribe = useCallback(async () => {
+    if (isNativeRuntime() || !supported) return false;
     if (!token || getToken() !== token) return false;
     setBusy(true);
     setError('');
@@ -110,9 +113,10 @@ export function usePushNotifications() {
     } finally {
       setBusy(false);
     }
-  }, [publicKey, token]);
+  }, [publicKey, supported, token]);
 
   const unsubscribe = useCallback(async () => {
+    if (isNativeRuntime()) return false;
     setBusy(true);
     setError('');
     try {

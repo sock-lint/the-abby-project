@@ -1,5 +1,8 @@
 # Unity Web releases
 
+**Retired October 12, 2026.** Unity is no longer an active client or release target. These historical instructions are retained for recovery only; see the [retirement record](unity-retirement.md).
+
+
 Unity source must be compiled into a Web player before `/play/` changes. The
 [main CI/CD workflow](../../.github/workflows/ci-cd.yml) exports it on the licensed
 Unity runner and deploys the existing separate Coolify `abby-unity-web` service

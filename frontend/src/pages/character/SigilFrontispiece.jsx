@@ -1,28 +1,22 @@
-import { Crown } from 'lucide-react';
+import { Crown, Flame, Star, Award } from 'lucide-react';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import RuneBadge from '../../components/journal/RuneBadge';
 import BoostStrip from '../../components/rpg/BoostStrip';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
 import { tierForProgress } from '../../components/atlas/mastery.constants';
-import StreakGlyph from './StreakGlyph';
 import TrophySlot from './TrophySlot';
 
 /**
- * SigilFrontispiece — the profile hero at `/sigil`. A soft identity panel
- * brings together the initial, equipped frame and title, level, and earned
- * trophy. The single-column layout centers the identity on phones.
- *
- * Below the hero row, three StreakGlyph pips visualise the RPG vitals
- * (current streak, perfect days, best streak). The active streak flame
- * animates; the other two are static awards.
+ * Compact identity, equipped title/frame and earned trophy. Stats summarize
+ * confirmed activity without pushing customization below a large hero.
  */
-export default function SigilFrontispiece({ profile, onOpenTrophyPicker }) {
+export default function SigilFrontispiece({ profile, onOpenTrophyPicker, children }) {
   const displayName = profile.display_name || profile.username || '\u2014';
   const initial = (displayName[0] || '?').toUpperCase();
   const level = profile.level ?? 1;
-  const levelProgress = profile.xp_in_level && profile.xp_needed_for_level
-    ? (profile.xp_in_level / profile.xp_needed_for_level) * 100
-    : Math.max(0, Math.min(100, level * 10));
+  const levelProgress = profile.xp_needed_for_level > 0
+    ? Math.max(0, Math.min(100, ((profile.xp_in_level ?? 0) / profile.xp_needed_for_level) * 100))
+    : 0;
   const tier = tierForProgress({
     unlocked: true,
     progressPct: levelProgress,
@@ -36,15 +30,13 @@ export default function SigilFrontispiece({ profile, onOpenTrophyPicker }) {
 
   return (
     <ParchmentCard
-      variant="sealed"
+      variant="plain"
       tone="bright"
-      flourish
-      seal="bottom-right"
       className="overflow-hidden"
     >
-      <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto] items-center gap-4 md:gap-6 md:pr-4">
+      <div className="flex items-center gap-3">
         <div
-          className="relative inline-flex justify-self-center md:justify-self-start"
+          className="relative inline-flex shrink-0"
           style={
             frameColor
               ? {
@@ -56,52 +48,58 @@ export default function SigilFrontispiece({ profile, onOpenTrophyPicker }) {
         >
           <IlluminatedVersal
             letter={initial}
-            size="xl"
+            size="md"
             tier={tier}
             progressPct={levelProgress}
           />
         </div>
 
-        <div className="min-w-0 text-center md:text-left">
+        <div className="min-w-0 flex-1">
           <div className="font-body font-semibold text-sheikah-teal-deep text-caption leading-snug mb-1">
             Your profile
           </div>
-          <h1 className="font-body font-bold text-3xl md:text-4xl text-ink-primary leading-tight break-words">
+          <h1 className="font-body font-bold text-2xl text-ink-primary leading-tight break-words">
             {displayName}
           </h1>
           {titleText && (
-            <div className="mt-1 font-body font-semibold text-lede text-gold-leaf flex items-start justify-center md:justify-start gap-1">
+            <div className="mt-1 font-body font-semibold text-body text-gold-leaf flex items-start gap-1">
               <Crown size={14} className="mt-1 shrink-0 text-gold-leaf" />
               <span className="min-w-0 break-words [overflow-wrap:anywhere]">{titleText}</span>
             </div>
           )}
-          <div className="mt-2 flex flex-wrap items-center justify-center md:justify-start gap-2">
-            <RuneBadge tone="teal" size="md">level {level}</RuneBadge>
-            <span className="font-body text-caption text-ink-secondary tabular-nums">
-              {Math.round(levelProgress)}% toward the next level
-            </span>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <RuneBadge tone="teal" size="sm">level {level}</RuneBadge>
+            {profile.xp_needed_for_level > 0 && (
+              <span className="font-body text-caption text-ink-secondary tabular-nums">
+                {Math.round(levelProgress)}% toward the next level
+              </span>
+            )}
           </div>
         </div>
+      </div>
 
-        <div className="flex justify-center md:justify-end">
-          <TrophySlot
-            badge={profile.active_trophy_badge}
-            onOpen={onOpenTrophyPicker}
-          />
+      {children}
+
+      <div className="mt-4">
+        <TrophySlot badge={profile.active_trophy_badge} onOpen={onOpenTrophyPicker} compact />
+      </div>
+
+      <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-ink-page-shadow pt-3 font-body">
+        <div>
+          <dt className="flex items-center gap-1 text-caption text-ink-secondary"><Flame size={13} aria-hidden="true" /> Streak</dt>
+          <dd className="mt-1 text-body font-bold text-ink-primary tabular-nums">{profile.login_streak ?? 0} days</dd>
         </div>
-      </div>
+        <div>
+          <dt className="flex items-center gap-1 text-caption text-ink-secondary"><Star size={13} aria-hidden="true" /> Perfect days</dt>
+          <dd className="mt-1 text-body font-bold text-ink-primary tabular-nums">{profile.perfect_days_count ?? 0}</dd>
+        </div>
+        <div>
+          <dt className="flex items-center gap-1 text-caption text-ink-secondary"><Award size={13} aria-hidden="true" /> Best streak</dt>
+          <dd className="mt-1 text-body font-bold text-ink-primary tabular-nums">{profile.longest_login_streak ?? 0} days</dd>
+        </div>
+      </dl>
 
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        <StreakGlyph
-          kind="streak"
-          value={profile.login_streak ?? 0}
-          longestStreak={profile.longest_login_streak ?? 0}
-        />
-        <StreakGlyph kind="perfect" value={profile.perfect_days_count ?? 0} />
-        <StreakGlyph kind="best" value={profile.longest_login_streak ?? 0} />
-      </div>
-
-      <BoostStrip profile={profile} className="mt-4 justify-center md:justify-start" />
+      <BoostStrip profile={profile} className="mt-3" />
     </ParchmentCard>
   );
 }

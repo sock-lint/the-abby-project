@@ -16,31 +16,18 @@ concurrency:
   group: pr-validation-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
-# An explicit bash shell enables -eo pipefail on hosted runners, so tee cannot
-# mask a failing browser, Django, or Vitest command. Unity overrides this below.
 defaults:
   run:
     shell: bash
 
 jobs:
-  unity-release-guards:
-    name: Unity release guards
+  frontend-validation:
+    name: Frontend validation
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Test packaging, source identity, and restricted deployment
-        run: python -m unittest discover -s scripts/unity -p 'test_*release.py'
-
-  browser-bridge:
-    name: Browser bridge
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,18 +35,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Test browser session bridge
-        run: |
-          mkdir -p artifacts
-          node --test scripts/unity/test_browser_session.cjs 2>&1 | tee artifacts/browser-bridge.log
-      - name: Upload browser bridge results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: browser-bridge-results
-          path: artifacts/browser-bridge.log
-          if-no-files-found: warn
-          retention-days: 7
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run test:native-config
+      - run: npm run lint
+      - run: npm run test:coverage -- --maxWorkers=4
+      - run: npm run build
+      - name: Verify the local native staging bundle
+        env:
+          ABBY_NATIVE_ENVIRONMENT: staging
+          ABBY_NATIVE_API_ORIGIN: https://staging.example.invalid
+        run: npm run build:native
 
   api-fixtures:
     name: API fixtures
@@ -88,13 +75,13 @@ jobs:
       - name: Compare Django responses with shared fixtures
         run: |
           mkdir -p artifacts
-          python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures --verbosity=2 2>&1 | tee artifacts/backend-api-fixtures.log
+          python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures --verbosity=2 2>&1 | tee artifacts/backend-api-fixtures.log
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
       - name: Test React consumption of shared fixtures
         working-directory: frontend
-        run: npm run test:run -- src/api/sharedContractFixtures.test.js 2>&1 | tee ../artifacts/frontend-api-fixtures.log
+        run: npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js 2>&1 | tee ../artifacts/frontend-api-fixtures.log
       - name: Upload API fixture results
         if: always()
         uses: actions/upload-artifact@v4
@@ -103,123 +90,3 @@ jobs:
           path: artifacts/*-api-fixtures.log
           if-no-files-found: warn
           retention-days: 7
-
-  unity-readiness:
-    name: Unity runner readiness
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      # Check readiness on a hosted runner before queuing the licensed editor.
-      # Fork code must never be sent to this machine or the deployment runner.
-      - name: Require a trusted source and a configured Unity runner
-        env:
-          TRUSTED_SOURCE: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-          UNITY_RUNNER_ENABLED: ${{ vars.UNITY_VALIDATION_RUNNER_ENABLED }}
-          UNITY_RUNNER_OS: ${{ vars.UNITY_VALIDATION_RUNNER_OS || 'Windows' }}
-        run: |
-          if [ "$TRUSTED_SOURCE" != 'true' ]; then
-            echo '::error::Unity validation requires a branch in this repository. Review a fork PR, then validate its changes on a trusted repository branch. See docs/operations/pr-validation.md.'
-            exit 1
-          fi
-          if [ "$UNITY_RUNNER_ENABLED" != 'true' ]; then
-            echo '::error::Provision and license the dedicated Unity 6000.6.5f1 runner, then set repository variable UNITY_VALIDATION_RUNNER_ENABLED=true. See docs/operations/pr-validation.md. Unity validation has not run.'
-            exit 1
-          fi
-          case "$UNITY_RUNNER_OS" in
-            Windows|Linux) ;;
-            *) echo '::error::UNITY_VALIDATION_RUNNER_OS must be Windows or Linux. Unity validation has not run.'; exit 1 ;;
-          esac
-
-  unity-editor:
-    name: Unity scene and API checks
-    needs: unity-readiness
-    # Defense in depth: neither fork PRs nor an unconfigured runner can queue
-    # this job, even if readiness is later changed.
-    if: >-
-      ${{ needs.unity-readiness.result == 'success'
-          && vars.UNITY_VALIDATION_RUNNER_ENABLED == 'true'
-          && (github.event_name != 'pull_request'
-              || github.event.pull_request.head.repo.full_name == github.repository) }}
-    runs-on: [self-hosted, "${{ vars.UNITY_VALIDATION_RUNNER_OS || 'Windows' }}", X64, unity-6000.6.5f1]
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Reject an unsupported Unity runner operating system
-        if: runner.os != 'Windows' && runner.os != 'Linux'
-        shell: bash
-        run: |
-          echo '::error::The Unity runner must actually run Windows or Linux; custom routing labels do not establish its operating system.'
-          exit 1
-      - name: Validate saved scene, assets, and shared API contracts
-        if: runner.os == 'Windows'
-        shell: powershell
-        env:
-          UNITY_EDITOR_PATH: ${{ vars.UNITY_EDITOR_PATH }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $taskPinnedVersion = (Select-String -LiteralPath 'unity/AbbyCamp/ProjectSettings/ProjectVersion.txt' -Pattern '^m_EditorVersion: ').Line.Split(':')[1].Trim()
-          if ($taskPinnedVersion -ne '6000.6.5f1') {
-            throw 'Update the dedicated Unity runner, workflow labels, and setup documentation to match ProjectVersion.txt.'
-          }
-          $taskUnityEditor = $env:UNITY_EDITOR_PATH
-          if ([string]::IsNullOrWhiteSpace($taskUnityEditor)) {
-            $taskUnityEditor = Join-Path $env:ProgramFiles 'Unity/Hub/Editor/6000.6.5f1/Editor/Unity.exe'
-          }
-          if (-not (Test-Path -LiteralPath $taskUnityEditor)) {
-            throw "Install Unity 6000.6.5f1 for the runner account or configure UNITY_EDITOR_PATH. Editor not found: $taskUnityEditor"
-          }
-          $taskInstalledVersion = (Get-Item -LiteralPath $taskUnityEditor).VersionInfo.ProductVersion
-          if ($taskInstalledVersion -notmatch '^6000\.6\.5f1(?:_|$)') {
-            throw "Unity executable version does not match ProjectVersion.txt: $taskInstalledVersion"
-          }
-          $taskValidationLog = 'unity/AbbyCamp/Logs/validate.log'
-          if (Test-Path -LiteralPath $taskValidationLog) { Remove-Item -LiteralPath $taskValidationLog }
-          $taskSavedScene = 'unity/AbbyCamp/Assets/AbbyCamp/Scenes/Camp.unity'
-          $taskSavedSceneHash = (Get-FileHash -LiteralPath $taskSavedScene -Algorithm SHA256).Hash
-          try {
-            & ./scripts/unity/Build-Camp.ps1 -UnityEditor $taskUnityEditor -ValidateOnly
-            if (-not (Select-String -LiteralPath $taskValidationLog -SimpleMatch 'ABBY_CAMP_VALIDATION_PASSED:')) {
-              throw 'Unity did not report completed scene, asset, and API validation. Check validate.log for import, compile, or license errors.'
-            }
-          } finally {
-            $taskSceneHashAfterValidation = (Get-FileHash -LiteralPath $taskSavedScene -Algorithm SHA256).Hash
-            if ($taskSceneHashAfterValidation -ne $taskSavedSceneHash) {
-              throw 'Unity validation changed the saved Camp.unity scene. Validation must use an isolated preview without saving source changes.'
-            }
-          }
-      - name: Validate saved scene, assets, and shared API contracts on Linux
-        if: runner.os == 'Linux'
-        shell: bash
-        env:
-          UNITY_EDITOR_PATH: ${{ vars.UNITY_EDITOR_PATH }}
-        run: bash scripts/unity/Validate-Camp.sh
-      - name: Upload Unity validation log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: unity-validation-log
-          path: unity/AbbyCamp/Logs/validate.log
-          if-no-files-found: warn
-          retention-days: 7
-
-  unity-validation:
-    name: Unity validation
-    needs: [unity-readiness, unity-editor, unity-release-guards]
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      # Use this stable aggregate check in branch protection. A skipped editor
-      # job, failed prerequisite, or license error can never make it pass.
-      - name: Require completed Unity validation
-        env:
-          READINESS_RESULT: ${{ needs.unity-readiness.result }}
-          EDITOR_RESULT: ${{ needs.unity-editor.result }}
-          RELEASE_GUARDS_RESULT: ${{ needs.unity-release-guards.result }}
-        run: |
-          if [ "$READINESS_RESULT" != 'success' ] || [ "$EDITOR_RESULT" != 'success' ] || [ "$RELEASE_GUARDS_RESULT" != 'success' ]; then
-            echo "::error::Unity validation did not pass (runner readiness: $READINESS_RESULT; editor validation: $EDITOR_RESULT; release guards: $RELEASE_GUARDS_RESULT). See the job logs and docs/operations/pr-validation.md."
-            exit 1
-          fi

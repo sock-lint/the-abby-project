@@ -17,6 +17,54 @@ npm run test:run                 # one-shot run (CI-style)
 npm run test:coverage            # run + coverage report (gated in CI)
 ```
 
+## Native development prototype (October 2026)
+
+React remains the full application UI. The lazy companion presentation uses
+React Three Fiber 9 with React 19 and Three.js; Capacitor 8 packages the web
+renderer, not React Native. The Android and iOS shells are development projects
+identified as `digital.neato.abby.prototype` / **Abby Prototype**. They do not
+establish mobile parity or signed-release readiness.
+
+From `frontend/`, build and copy local assets with an explicit isolated staging
+backend. PowerShell example (replace the reserved example origin):
+
+```powershell
+$env:ABBY_NATIVE_ENVIRONMENT = 'staging'
+$env:ABBY_NATIVE_API_ORIGIN = 'https://staging.abby.example'
+npm run native:sync
+npm run native:android  # Android Studio, SDK 36 and supported JDK required
+npm run native:ios      # Run on macOS with Xcode for signing/device installation
+```
+
+`npm run build:native` builds only `dist-native/`; the existing `npm run build`
+continues producing Django's `/static/` web build in `dist/`. Native mode reads
+the two explicit shell variables above, rejects missing/credential-bearing/
+non-HTTPS origins and the known production host, and skips web `.env` files.
+It binds `VITE_API_URL` to that origin for API calls, pagination and the public
+sprite catalog. Staging isolation and synthetic accounts must be verified on
+the selected server; a hostname/configuration check does not verify its data.
+
+The Capacitor configuration has no `server.url`; built assets are copied into
+the app. Native boot disables service-worker generation/registration, browser
+install/update prompts and Web Push initialization/teardown. Existing web PWA
+privacy-cache purges, shared browser sessions and worker checks remain active.
+Allow only the selected local WebView origins in staging Django/media CORS
+(Capacitor defaults: `capacitor://localhost` on iOS, `https://localhost` on
+Android); validate API and model/media requests separately.
+
+Use isolated synthetic staging identities: this prototype still uses the
+legacy rotating DRF token and browser-style credential storage. Independent
+secure device sessions, native push, OAuth/system-browser return transactions,
+durable drafts, file/share/download adapters, back/deep links, signing and full
+workflow acceptance remain gated follow-up work. Do not distribute this shell
+as a production mobile application or use production credentials.
+
+Validation: `npm run test:native-config`, affected colocated Vitest checks,
+`npm run lint`, `npm run test:run` or the coverage gate, both web/native builds,
+and `npx cap sync`. Real iPhone/Android installs, keyboard/safe-area behavior,
+capture/save recovery and graphics/performance measurements remain required;
+generated projects and desktop viewport checks do not satisfy those gates.
+
 ## Source layout
 ```
 frontend/src/
@@ -82,7 +130,7 @@ frontend/src/
 ## Auth wiring
 
 - Token stored in `localStorage` key `abby_auth_token`, sent as `Authorization: Token <key>`.
-- **Shared browser session:** the same-origin Unity `/play/` client may reuse this token. Delayed 401s and logout responses clear only the token they used, preserving a newer sign-in. `AuthProvider` reloads on an external tab's auth-token change or localStorage clear, keeping the rendered user/role aligned with the credential. It also drops the cached user snapshot so offline boot cannot hydrate the previous account.
+- **Shared browser session:** tabs on the same origin share the browser token; Unity is retired and no longer consumes it. Delayed 401s and logout responses clear only the token they used, preserving a newer sign-in. `AuthProvider` reloads on an external tab's auth-token change or localStorage clear, keeping the rendered user/role aligned with the credential. It also drops the cached user snapshot so offline boot cannot hydrate the previous account.
 - **Offline identity:** `AuthProvider` stores the last verified user in a versioned `{ token, user }` envelope bound to the exact credential that fetched it. It restores that identity only after a network failure with the matching token. Legacy snapshots and mismatched credentials are rejected; anonymous boots never accept a cached `/auth/me/` success. Login, signup and OAuth replacement clear the old snapshot before installing the new credential. `sessionError` carries OAuth/logout push-cleanup failures to the Login page.
 - **Private API responses:** API reads are network-only; the generated worker has no `/api/` runtime cache route. `public/privacy-sw.js` deletes legacy `api-reads` caches on activation and `pwa/privacy.js` also purges them at boot/session changes. Until a prompted worker upgrade activates, `api/client.js` adds a random noncredential `_abby_session` query key to GETs and blob downloads. The key rotates with the credential and page lifetime and replaces an echoed pagination key, so an old URL-only worker cannot match another account's response. Static assets, images and fonts retain their offline caches.
 - **401 self-heal in the fetch wrapper** ([api/client.js](src/api/client.js)): when any API call returns 401 AND the request carried an `Authorization` header AND its token is still the stored credential, the client clears `abby_auth_token` and calls `window.location.reload()`. `AuthProvider`'s boot flow then lands on the Login page with no stale token in localStorage. This is the recovery path for users whose stored tokens go invalid (e.g., after a Coolify redeploy we haven't pinned down yet) — without it, non-technical users had to manually purge all site data to escape "Invalid token" loops. The **"only if Authorization was sent"** guard is load-bearing: it prevents boot-time `getMe()` 401s (no header → no reload) from entering an infinite reload loop, and lets the Login page surface "Invalid credentials" without self-reloading. Tests live in the `401 self-heal` describe block of [api/client.test.js](src/api/client.test.js).
@@ -117,7 +165,7 @@ and user-authored content. Route names, saved keys, API fields, enum values and
 component identifiers remain compatible; older architectural sections below
 use some of these historical names.
 
-The October 2026 Meadow refresh shares bundled Nunito, cream/lavender/mint surfaces, rounded controls and collection tiles across the web app and Play. All legacy font aliases resolve to Nunito. React uses the variable font's real 200–1000 weight range for body copy, labels and headings; Unity retains the shared weight-600 export. Both come from `shared/storybook/fonts`, with runtime copies maintained by `scripts/storybook/sync_presentation.py`. The bundled React `.ttf` is precached for offline typography.
+The October 2026 Meadow refresh shares bundled Nunito, cream/lavender/mint surfaces, rounded controls and collection tiles across React and the companion presentation. All legacy font aliases resolve to Nunito. React uses the variable font's real 200–1000 weight range for body copy, labels and headings; The retired Unity reference retains the shared weight-600 export. Both come from `shared/storybook/fonts`, with runtime copies maintained by `scripts/storybook/sync_presentation.py`. The bundled React `.ttf` is precached for offline typography.
 
 The replaceable Meadow presentation also supplies the welcome screen. Its licensed chick is a generic artwork preview, not evidence of an account's owned species or growth. Today and Bestiary render actual server-confirmed companions through their species `sprite_key`. `cute-chick` and `cute-chick-mount` use privately staged chick/bird portraits when the matching licensed Chick overlay is present; missing or failed portraits recover through the runtime catalog and labelled icon. Other species retain their own runtime artwork. Saved cover keys and cosmetic ownership stay unchanged: `hyrule`/`vigil`/`sunlit`/`snowquill`/`verdant`/`harvest` now display as Memory/Twilight/Honey/Cloud/Clover/Peach Meadow. Baseline art/palette data remains in `shared/storybook/presentation.json`; `themes.js` adds semantic shades for readable UI.
 

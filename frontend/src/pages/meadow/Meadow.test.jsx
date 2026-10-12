@@ -39,7 +39,7 @@ describe('Memory Meadow', () => {
     expect(await screen.findByText('1 bloom')).toBeInTheDocument();
     expect(screen.getByText('Memory bloom')).toBeInTheDocument();
     expect(screen.queryByText(/a secret which/i)).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /explore in play/i })).toHaveAttribute('href', '/play/');
+    expect(screen.getByRole('link', { name: /visit your pets/i })).toHaveAttribute('href', '/bestiary');
     expect(screen.getByRole('link', { name: /my journal/i })).toHaveAttribute('href', '/chronicle?tab=journal');
   });
 
@@ -213,11 +213,14 @@ describe('Memory Meadow', () => {
   it('saying hello changes the companion response without making a reward request', async () => {
     const get = spyHandler('get', '*/api/chronicle/meadow/', emptyMeadow());
     const post = spyHandler('post', '*/api/chronicle/journal/', {});
-    server.use(get.handler, post.handler);
+    server.use(get.handler, post.handler, http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [{
+      id: 8, species: { name: 'Fox', sprite_key: 'fox', icon: '🦊' }, potion: { name: 'Base', slug: 'base' },
+      is_active: true, growth_points: 15,
+    }], mounts: [] })));
     const { user } = renderWithProviders(<Meadow />);
     await screen.findByText('0 blooms');
     await user.click(screen.getByRole('button', { name: 'Say hello' }));
-    expect(screen.getByText(/i.m happy you.re here/i)).toBeInTheDocument();
+    expect(screen.getByText(/hello, base fox/i)).toBeInTheDocument();
     expect(get.calls).toHaveLength(1);
     expect(post.calls).toHaveLength(0);
   });
