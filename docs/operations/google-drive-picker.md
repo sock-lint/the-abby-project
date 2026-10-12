@@ -1,6 +1,6 @@
 # Google Drive file picker
 
-Parents can choose Drive files in **Add Resource** on a venture or its step.
+Parents can choose Drive files in **Add Resource** on a project or its step.
 Django verifies the selected file and fills the resource title, type, and link.
 The parent can edit these fields before choosing **Add Resource**. A resource
 link retains Google's sharing permissions; Abby does not make the file public
@@ -8,7 +8,7 @@ or grant family members access to it.
 
 In **Auto-fill from Source → PDF**, **Import PDF from Google Drive** copies a
 selected PDF into the existing import workflow. The parent reviews its plan
-before creating a venture. School worksheets use this same venture review flow;
+before creating a project. School worksheets use this same project review flow;
 this version does not create homework assignments automatically. PDF text may
 be sent to the configured AI import provider, as disclosed before selection and
 in `/privacy/#drive`. Files must be genuine, downloadable PDFs of at most 25 MB.
@@ -95,5 +95,5 @@ actual resource/import POST routes and bodies. Run frontend lint, tests, and
 build plus the Google/ingestion/project backend suites with test settings.
 Live verification requires configured Cloud credentials: select a PDF, cancel
 and retry, attach to a project/step, open with an authorized Google account, and
-import into a draft without creating a venture until confirmed. School-managed
+import into a draft without creating a project until confirmed. School-managed
 accounts may need the institution to approve Abby's selected-file access.

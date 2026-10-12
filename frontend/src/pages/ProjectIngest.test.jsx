@@ -58,7 +58,7 @@ describe('ProjectIngest', () => {
     const drive = screen.getByRole('button', { name: /import pdf from google drive/i });
     expect(drive).toHaveAttribute('data-pdf-only', 'true');
     await user.click(drive);
-    await screen.findByRole('button', { name: /create venture/i });
+    await screen.findByRole('button', { name: /create project/i });
     expect(start.calls).toHaveLength(1);
     expect(start.calls[0].body).toEqual({ file_id: 'school-pdf-1', access_token: 'synthetic-drive-token', resource_key: 'synthetic-resource-key' });
     expect(ordinaryStart.calls).toHaveLength(0);

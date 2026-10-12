@@ -58,7 +58,7 @@ export default function SourceStep({
                 Import PDF from Google Drive
               </GoogleDrivePickerButton>
               <p className="text-caption text-ink-whisper">
-                Select a school PDF or project guide to import a copy and review it before creating a venture. Up to 25 MB.
+                Select a school PDF or project guide to import a copy and review it before creating a project. Up to 25 MB.
                 {' '}If AI import is enabled, PDF text is sent to the app's AI provider to suggest a plan.
                 {' '}<a className="underline" href="/privacy/#drive" target="_blank" rel="noopener noreferrer">Privacy details</a>.
               </p>
