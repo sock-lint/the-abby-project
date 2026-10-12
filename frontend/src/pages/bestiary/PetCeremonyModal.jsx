@@ -208,7 +208,7 @@ function HatchSequence({ pet, phase, reduced, titleId, onDismiss }) {
       >
         {headline}
       </h2>
-      <p className="mt-1 font-script text-sm text-ink-whisper">has joined your party.</p>
+      <p className="mt-1 font-script text-sm text-ink-whisper">has joined your companions.</p>
       <div className="mt-6">
         <Button variant="primary" onClick={onDismiss}>
           Continue →
@@ -339,7 +339,7 @@ function BreedSequence({ parents, result, phase, reduced, titleId, onDismiss }) 
       <div className="flex items-center justify-center gap-2 text-sheikah-teal-deep">
         <Egg size={18} className="text-gold-leaf" aria-hidden="true" />
         <div className="font-script text-base">
-          {chromatic ? 'a chromatic blessing' : 'a hybrid is conceived'}
+          {chromatic ? 'A rare Cosmic potion!' : 'A new hybrid egg!'}
         </div>
       </div>
       <div className="relative mt-4 flex items-center justify-center" style={{ minHeight: 140 }}>
@@ -434,7 +434,7 @@ function BreedSequence({ parents, result, phase, reduced, titleId, onDismiss }) 
       </h2>
       <p className="mt-1 font-script text-sm text-ink-whisper">
         {chromatic
-          ? `with a Cosmic potion · the stars favored this pairing`
+          ? `With a Cosmic potion from this pairing`
           : `paired with ${potionItemName}`}
       </p>
       {result?.cooldown_days != null && (
@@ -542,7 +542,7 @@ function ExpeditionReturnSequence({ expedition, phase, reduced, titleId, onDismi
                     <span aria-hidden="true">{item.icon || '🎁'}</span>
                     <span>{item.name}</span>
                     {item.salvaged_to_coins ? (
-                      <span className="text-gold-leaf">· salvaged +{item.salvaged_to_coins}c</span>
+                      <span className="text-gold-leaf">· duplicate exchanged for {item.salvaged_to_coins} coins</span>
                     ) : item.quantity > 1 ? (
                       <span className="text-ink-whisper">×{item.quantity}</span>
                     ) : null}
@@ -561,11 +561,11 @@ function ExpeditionReturnSequence({ expedition, phase, reduced, titleId, onDismi
         {speciesName ? `${speciesName} is back` : 'Your mount returned'}
       </h2>
       <p className="mt-1 font-script text-sm text-ink-whisper">
-        {tier ? `from a ${tier} expedition` : 'with stories and a satchel of finds'}
+        {tier ? `from a ${tier} expedition` : 'with coins and items from the expedition'}
       </p>
       <div className="mt-6">
         <Button variant="primary" onClick={onDismiss}>
-          Take the loot →
+          Continue
         </Button>
       </div>
     </>

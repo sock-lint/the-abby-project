@@ -90,7 +90,7 @@ describe('FolioSpread', () => {
     renderWithProviders(<FolioSpread tree={buildTree()} onSelectSkill={() => {}} />);
     // All 3 have xp_points > 0 → "3 of 3 illuminated" (once on the full
     // plate, once on the compact phone header).
-    expect(screen.getAllByText(/3 of 3 illuminated/i)).toHaveLength(2);
+    expect(screen.getAllByText(/3 of 3 skills started/i)).toHaveLength(2);
   });
 
   it('condenses the verso into a compact header below md, keeping the full plate at md+', () => {
@@ -108,8 +108,8 @@ describe('FolioSpread', () => {
     // the illuminated count under a thin progress bar.
     expect(compact.querySelector('[data-versal="true"]')).not.toBeNull();
     expect(compact).toHaveTextContent('Woodworking');
-    expect(compact).toHaveTextContent(/L4 rank · 2,?850 total xp/);
-    expect(compact).toHaveTextContent('3 of 3 illuminated');
+    expect(compact).toHaveTextContent(/Level 4 · 2,?850 total XP/);
+    expect(compact).toHaveTextContent('3 of 3 skills started');
     expect(compact.querySelector('[role="progressbar"]')).not.toBeNull();
     // The medallion ornament stays on the full plate only.
     expect(compact.querySelector('[data-folio-medallion="true"]')).toBeNull();
@@ -150,6 +150,6 @@ describe('FolioSpread', () => {
         onSelectSkill={() => {}}
       />,
     );
-    expect(screen.getByText(/still blank/i)).toBeInTheDocument();
+    expect(screen.getByText(/no skills in this category yet/i)).toBeInTheDocument();
   });
 });

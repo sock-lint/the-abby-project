@@ -99,8 +99,8 @@ export default function ParentDashboard() {
 
           <AccordionSection
             index={0}
-            title="Family Snapshot"
-            kicker="your adventurers at a glance"
+            title="Family overview"
+            kicker="Your family at a glance"
           >
             {childrenLoading ? (
               <p className="font-body text-caption text-ink-secondary">Loading...</p>
@@ -139,14 +139,12 @@ export default function ParentDashboard() {
             )}
 
             <div className="flex flex-wrap gap-2 mt-4">
-              {/* Labels match the tabs these land on (Study / Duties) and the
-                  queue's own row labels — "homework" and "chore" are the old
-                  vocabulary. */}
+              {/* Labels match the Homework and Chores tabs. */}
               <Button variant="secondary" size="sm" onClick={() => navigate('/quests?tab=study')}>
-                Assign study
+                Assign homework
               </Button>
               <Button variant="secondary" size="sm" onClick={() => navigate('/quests?tab=duties')}>
-                New duty
+                New chore
               </Button>
               <Button variant="secondary" size="sm" onClick={() => navigate('/manage')}>
                 Manage family

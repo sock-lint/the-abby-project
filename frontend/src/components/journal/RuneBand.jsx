@@ -45,7 +45,7 @@ export default function RuneBand({ projectTitle, elapsedLabel, onClick }) {
             Now inking
           </div>
           <div className="font-display text-body truncate text-ink-primary">
-            {projectTitle || 'Unclaimed venture'}
+            {projectTitle || 'No project selected'}
           </div>
         </div>
         <div className="flex-shrink-0 font-rune text-base font-bold text-ink-primary">

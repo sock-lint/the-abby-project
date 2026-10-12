@@ -153,8 +153,8 @@ export default function SkillTreeView({ categories = [] }) {
   const currentName = skill?.name || subject?.name || activeCategory?.name || 'Your skills';
   return (
     <ParchmentCard tone="bright" ref={surfaceRef} className="skill-wayfinder scroll-mt-24 space-y-4">
-      <div className="flex items-center gap-2 text-caption font-medium text-sheikah-teal-deep"><Compass size={17} aria-hidden="true" /> Wayfinder</div>
-      <nav aria-label="Skill atlas breadcrumb" className="wayfinder-breadcrumb">
+      <div className="flex items-center gap-2 text-caption font-medium text-sheikah-teal-deep"><Compass size={17} aria-hidden="true" /> Skill explorer</div>
+      <nav aria-label="Skill navigation" className="wayfinder-breadcrumb">
         <ol className="flex items-center flex-wrap gap-1 min-w-0">
           {breadcrumb.map((entry, index) => <li key={index} className="flex items-center gap-1 min-w-0">
             {index > 0 && <ChevronRight size={13} aria-hidden="true" className="shrink-0 text-ink-whisper" />}
@@ -209,7 +209,7 @@ export default function SkillTreeView({ categories = [] }) {
           <span className="text-caption text-ink-whisper">Category → Subject → Skill</span>
         </div>
       </>}
-      <p role="status" aria-live="polite" className="sr-only">{treeLoading ? 'Loading skill branch' : `${currentName}, ${path.view === 'overview' ? 'category atlas' : path.view}`}</p>
+      <p role="status" aria-live="polite" className="sr-only">{treeLoading ? 'Loading skills' : `${currentName}, ${path.view === 'overview' ? 'skill categories' : path.view}`}</p>
     </ParchmentCard>
   );
 }

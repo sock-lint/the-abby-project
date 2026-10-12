@@ -50,13 +50,13 @@ function buildRequest(over = {}) {
   };
 }
 
-describe('Forge', () => {
+describe('3D Printing', () => {
   it('shows the child an empty queue and a way in', async () => {
     stubMe(buildUser({ id: 1 }));
     stubRequests([]);
     renderWithProviders(<Forge />);
 
-    expect(await screen.findByText(/Nothing in the queue/i)).toBeInTheDocument();
+    expect(await screen.findByText(/No print requests yet/i)).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /ask for a print/i }),
     ).toBeInTheDocument();
@@ -102,7 +102,7 @@ describe('Forge', () => {
     );
     const { unmount } = renderWithProviders(<Forge />);
 
-    expect(await screen.findByText('Awaiting your decision')).toBeInTheDocument();
+    expect(await screen.findByText('Awaiting approval')).toBeInTheDocument();
     expect(screen.getByText('Monthly budgets')).toBeInTheDocument();
     expect(screen.getByText('Printers')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Decide' })).toBeInTheDocument();
@@ -114,9 +114,9 @@ describe('Forge', () => {
     stubMe(buildUser({ id: 1 }));
     stubRequests([buildRequest()]);
     renderWithProviders(<Forge />);
-    expect(await screen.findByText('In the queue')).toBeInTheDocument();
+    expect(await screen.findByText('Print requests')).toBeInTheDocument();
     expect(screen.queryByText('Monthly budgets')).not.toBeInTheDocument();
-    expect(screen.queryByText('Awaiting your decision')).not.toBeInTheDocument();
+    expect(screen.queryByText('Awaiting approval')).not.toBeInTheDocument();
   });
 
   it('opens the approval sheet when a parent taps Decide', async () => {
@@ -212,8 +212,8 @@ describe('Forge', () => {
     stubMe(buildUser({ id: 1 }));
     stubRequests([buildRequest({ status: 'approved' })]);
     const { unmount } = renderWithProviders(<Forge />);
-    expect(await screen.findByText('In the queue')).toBeInTheDocument();
-    expect(screen.queryByText('On the bed')).not.toBeInTheDocument();
+    expect(await screen.findByText('Print requests')).toBeInTheDocument();
+    expect(screen.queryByText('Printing now')).not.toBeInTheDocument();
     unmount();
 
     stubMe(buildUser({ id: 1 }));
@@ -226,6 +226,6 @@ describe('Forge', () => {
       },
     })]);
     renderWithProviders(<Forge />);
-    expect(await screen.findByText('On the bed')).toBeInTheDocument();
+    expect(await screen.findByText('Printing now')).toBeInTheDocument();
   });
 });

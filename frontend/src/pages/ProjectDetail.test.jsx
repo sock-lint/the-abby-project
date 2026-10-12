@@ -39,7 +39,7 @@ describe('ProjectDetail', () => {
     expect(screen.getAllByText(/overview|plan|materials/i).length).toBeGreaterThan(0);
   });
 
-  it('shows "not inscribed" when project is null', async () => {
+  it('shows "project is unavailable" when project is null', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get(/\/api\/projects\/42\/$/, () =>
@@ -55,7 +55,7 @@ describe('ProjectDetail', () => {
         </AuthProvider>
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByText(/not inscribed/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/project is unavailable/i)).toBeInTheDocument());
   });
 
   it('offers a retry on a failed fetch rather than the "may have been deleted" copy', async () => {
@@ -81,7 +81,7 @@ describe('ProjectDetail', () => {
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/gateway timeout/i);
-    expect(screen.queryByText(/not inscribed/i)).toBeNull();
+    expect(screen.queryByText(/project is unavailable/i)).toBeNull();
 
     await user.click(screen.getByRole('button', { name: /try again/i }));
     expect(await screen.findByText('TestPrj')).toBeInTheDocument();

@@ -5,7 +5,7 @@ import RpgSprite from '../../components/rpg/RpgSprite';
 import RuneBadge from '../../components/journal/RuneBadge';
 import AddToCalendar from '../../components/AddToCalendar';
 import { formatDate } from '../../utils/format';
-import { STATUS_TONE } from './trials.constants';
+import { QUEST_KIND_LABEL, STATUS_TONE } from './trials.constants';
 
 /**
  * ActiveQuestFolio — wraps the current Quest in the QuestFolio verso/recto
@@ -40,14 +40,14 @@ export default function ActiveQuestFolio({ quest }) {
       <QuestFolio
         letter={initial}
         title={def.name}
-        kicker="· trial under way ·"
+        kicker="Active challenge"
         meta={(
           <span className="inline-flex items-center gap-1.5">
             <RuneBadge tone={STATUS_TONE[quest.status] || 'teal'} size="sm">
               {quest.status}
             </RuneBadge>
             <RuneBadge tone="royal" size="sm">
-              {def.quest_type_display ?? def.quest_type}
+              {QUEST_KIND_LABEL[def.quest_type] ?? def.quest_type_display ?? def.quest_type}
             </RuneBadge>
             {coop && <RuneBadge tone="moss" size="sm">co-op</RuneBadge>}
           </span>
@@ -87,9 +87,9 @@ function RectoBody({ quest }) {
           </span>
           <AddToCalendar event={{
             id: `quest:${quest.id}`,
-            title: `Quest deadline: ${def.name}`,
+            title: `Challenge deadline: ${def.name}`,
             start: quest.end_date,
-            description: 'Quest deadline.',
+            description: 'Challenge deadline.',
             path: '/quests?tab=trials',
           }} />
         </div>
@@ -101,7 +101,7 @@ function RectoBody({ quest }) {
 
       {quest.rage_shield > 0 && (
         <div className="flex items-center gap-2 font-script text-body text-ember-deep bg-ember/10 rounded-lg p-2 border border-ember/40">
-          <Shield size={14} aria-hidden="true" /> Boss raged! +{quest.rage_shield} shield
+          <Shield size={14} aria-hidden="true" /> Boss shield: +{quest.rage_shield} shield
         </div>
       )}
 
@@ -136,7 +136,7 @@ function RectoBody({ quest }) {
 function PartyTable({ quest }) {
   return (
     <div>
-      <div className="font-script text-body text-ink-primary mb-1">Party</div>
+      <div className="font-script text-body text-ink-primary mb-1">Participants</div>
       <div className="space-y-1">
         {quest.participants.map((p) => {
           const pct = quest.current_progress > 0

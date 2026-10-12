@@ -244,7 +244,7 @@ describe('ParentDashboard', () => {
     await waitFor(() => expect(screen.getByText('Trash')).toBeInTheDocument());
   });
 
-  it('makes the whole Family Snapshot tile a single tap target', async () => {
+  it('makes the whole Family overview tile a single tap target', async () => {
     const user = userEvent.setup();
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
@@ -259,7 +259,7 @@ describe('ParentDashboard', () => {
       ),
     ]);
 
-    await user.click(await screen.findByRole('button', { name: /family snapshot/i }));
+    await user.click(await screen.findByRole('button', { name: /family overview/i }));
     const tile = await screen.findByRole('button', { name: /manage abby/i });
     // The card is INSIDE the button (the Next Up pattern) — previously the
     // button sat inside the card, leaving its 20px padded ring inert.

@@ -18,7 +18,7 @@ const defBoss = (overrides = {}) => ({
 const defCollection = (overrides = {}) => ({
   id: 2, name: 'Berry Hunt', description: 'gather berries',
   icon: '🍓', sprite_key: '', quest_type: 'collection',
-  quest_type_display: 'Collection Quest', target_value: 10,
+  quest_type_display: 'Collection Challenge', target_value: 10,
   duration_days: 5, coin_reward: 20, xp_reward: 40, required_badge: null,
   ...overrides,
 });
@@ -34,7 +34,7 @@ beforeEach(() => {
 });
 
 describe('QuestCodex', () => {
-  it('renders the available chapter by default and lists its quests', async () => {
+  it('renders the available chapter by default and lists its challenges', async () => {
     render(
       <QuestCodex
         available={[defBoss({ id: 1, name: 'Available Boss' })]}
@@ -46,12 +46,12 @@ describe('QuestCodex', () => {
     expect(await screen.findByText(/Available Boss/)).toBeInTheDocument();
     // Codex shelf shows all four chapter spines.
     expect(screen.getByRole('tab', { name: /Available/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Underway/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Closed/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /In progress/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /History/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Locked/ })).toBeInTheDocument();
   });
 
-  it('prefers the underway chapter when an active quest exists', async () => {
+  it('prefers the underway chapter when an active challenge exists', async () => {
     render(
       <QuestCodex
         available={[defBoss({ id: 1, name: 'Available Boss' })]}
@@ -65,23 +65,23 @@ describe('QuestCodex', () => {
     expect(screen.queryByText(/Available Boss/)).toBeNull();
   });
 
-  it('shows status counts without inventing completion progress from active or closed quests', () => {
+  it('shows status counts without inventing completion progress from active or closed challenges', () => {
     render(
       <QuestCodex
         available={[]}
-        activeQuest={questOf(defBoss({ name: 'Ongoing Trial' }), 'active', {
+        activeQuest={questOf(defBoss({ name: 'Ongoing Challenge' }), 'active', {
           current_progress: 25, progress_percent: 25,
         })}
         history={[
-          questOf(defCollection({ id: 9, name: 'Finished Trial' }), 'completed'),
-          questOf(defBoss({ id: 10, name: 'Expired Trial' }), 'expired', { id: 100 }),
+          questOf(defCollection({ id: 9, name: 'Finished Challenge' }), 'completed'),
+          questOf(defBoss({ id: 10, name: 'Expired Challenge' }), 'expired', { id: 100 }),
         ]}
         earnedBadgeIds={new Set()}
       />,
     );
 
-    const underway = screen.getByRole('tab', { name: 'Underway, 1 trial' });
-    const closed = screen.getByRole('tab', { name: 'Closed, 2 trials' });
+    const underway = screen.getByRole('tab', { name: 'In progress, 1 challenge' });
+    const closed = screen.getByRole('tab', { name: 'History, 2 challenges' });
     expect(underway).toHaveAttribute('aria-selected', 'true');
     expect(within(underway).queryByRole('progressbar')).toBeNull();
     expect(within(closed).queryByRole('progressbar')).toBeNull();
@@ -99,7 +99,7 @@ describe('QuestCodex', () => {
     expect(await screen.findByText(/Available Boss/)).toBeInTheDocument();
 
     const user = userEvent.setup();
-    const closedSpine = screen.getByRole('tab', { name: /Closed/ });
+    const closedSpine = screen.getByRole('tab', { name: /History/ });
     await user.click(closedSpine);
 
     await waitFor(() => {
@@ -118,7 +118,7 @@ describe('QuestCodex', () => {
     const { unmount } = render(<QuestCodex {...props} />);
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('tab', { name: /Closed/ }));
+    await user.click(screen.getByRole('tab', { name: /History/ }));
     await waitFor(() => {
       expect(screen.getByText(/Old Collection/)).toBeInTheDocument();
     });
@@ -131,9 +131,9 @@ describe('QuestCodex', () => {
     expect(screen.queryByText(/Available Boss/)).toBeNull();
   });
 
-  it('routes locked quests into their own chapter and renders the unlock hint', async () => {
+  it('routes locked challenges into their own chapter and renders the unlock hint', async () => {
     const locked = defBoss({
-      id: 1, name: 'Hidden Trial',
+      id: 1, name: 'Hidden Challenge',
       required_badge: 42, required_badge_name: 'Iron Will',
     });
     render(
@@ -146,8 +146,8 @@ describe('QuestCodex', () => {
     );
     const user = userEvent.setup();
     await user.click(screen.getByRole('tab', { name: /Locked/ }));
-    expect(await screen.findByText(/Hidden Trial/)).toBeInTheDocument();
-    expect(screen.getByText(/Iron Will seal to unlock/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Hidden Challenge/)).toBeInTheDocument();
+    expect(screen.getByText(/Iron Will badge to unlock/i)).toBeInTheDocument();
   });
 
   it('shows the vessel filter shelf when the chapter holds 2+ kinds and filters tiles by kind', async () => {
@@ -188,13 +188,13 @@ describe('QuestCodex', () => {
       />,
     );
     const user = userEvent.setup();
-    const beginBtn = await screen.findByRole('button', { name: /^Begin$/ });
+    const beginBtn = await screen.findByRole('button', { name: /^Start challenge$/ });
     await user.click(beginBtn);
     expect(onBegin).toHaveBeenCalledTimes(1);
     expect(onBegin.mock.calls[0][0]).toMatchObject({ id: 7, name: 'Slay Beast' });
   });
 
-  it('hides the Begin button on available tiles when an active quest already exists', async () => {
+  it('hides the Begin button on available tiles when an active challenge already exists', async () => {
     render(
       <QuestCodex
         available={[defBoss({ id: 7, name: 'Slay Beast' })]}
@@ -209,6 +209,6 @@ describe('QuestCodex', () => {
     await waitFor(() => {
       expect(screen.getByText(/Slay Beast/)).toBeInTheDocument();
     });
-    expect(screen.queryByRole('button', { name: /^Begin$/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Start challenge$/ })).toBeNull();
   });
 });

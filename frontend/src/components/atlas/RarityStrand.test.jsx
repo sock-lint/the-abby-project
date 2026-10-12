@@ -19,7 +19,7 @@ describe('RarityStrand', () => {
     expect(label).toMatch(/rare/);
     expect(label).toMatch(/epic/);
     expect(label).toMatch(/legendary/);
-    expect(label).toMatch(/4 of 7 sealed/);
+    expect(label).toMatch(/4 of 7 collected/);
   });
 
   it('renders an empty-state strand when no badges exist', () => {

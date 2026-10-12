@@ -1,6 +1,6 @@
 # apps/chores/
 
-Recurring household tasks with a submit-then-approve workflow. User-facing label is "Duties"; frontend page `/chores` redirects to `/quests?tab=duties`.
+Recurring household tasks with a submit-then-approve workflow. User-facing label is "Chores" under Tasks; frontend page `/chores` redirects to the stable `/quests?tab=duties` route.
 
 ## Models
 - `Chore` — family-scoped task definition. `recurrence` (daily / weekly / one_time), `reward_amount` (money), `coin_reward`, `xp_reward` (pool split across `ChoreSkillTag` rows). `assigned_to` nullable FK — null means available to all children.

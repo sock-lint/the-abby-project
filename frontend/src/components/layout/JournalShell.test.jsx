@@ -105,7 +105,7 @@ describe('JournalShell', () => {
       await act(async () => { resolveChronicle(); });
       await screen.findByText('A memory to revisit');
       expect(window.location.pathname + window.location.search).toBe('/chronicle?tab=journal');
-      expect(screen.getAllByRole('tablist', { name: 'Chronicle sections' })).toHaveLength(1);
+      expect(screen.getAllByRole('tablist', { name: 'Memories sections' })).toHaveLength(1);
       expect(screen.getAllByRole('heading', { name: 'Our afternoon' })).toHaveLength(1);
       expect(document.querySelectorAll('#journal-entry-23-title')).toHaveLength(1);
       expect(screen.getAllByRole('button', { name: 'Family responses' })).toHaveLength(1);

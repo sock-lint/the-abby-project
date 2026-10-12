@@ -22,12 +22,12 @@ function buildQuest(overrides = {}) {
 }
 
 describe('ActiveQuestFolio calendar export', () => {
-  it('exports the exact quest deadline as a timed calendar event', async () => {
+  it('exports the exact challenge deadline as a timed calendar event', async () => {
     const { user } = renderWithProviders(<ActiveQuestFolio quest={buildQuest()} />);
-    await user.click(screen.getByRole('button', { name: 'Add Quest deadline: Dragon Slayer to calendar' }));
+    await user.click(screen.getByRole('button', { name: 'Add Challenge deadline: Dragon Slayer to calendar' }));
     const google = screen.getByRole('link', { name: 'Google Calendar' });
     const event = new URL(google.href).searchParams;
-    expect(event.get('text')).toBe('Quest deadline: Dragon Slayer');
+    expect(event.get('text')).toBe('Challenge deadline: Dragon Slayer');
     expect(event.get('dates')).toBe('20260905T060000Z/20260905T063000Z');
     expect(event.get('details')).toContain('/quests?tab=trials');
     expect(event.get('details')).not.toContain('Private challenge details');
@@ -36,16 +36,16 @@ describe('ActiveQuestFolio calendar export', () => {
     await user.click(google);
   });
 
-  it('omits calendar export without a saved quest deadline', () => {
+  it('omits calendar export without a saved challenge deadline', () => {
     renderWithProviders(<ActiveQuestFolio quest={buildQuest({ end_date: null })} />);
     expect(screen.queryByRole('button', { name: /add .* to calendar/i })).not.toBeInTheDocument();
   });
 
-  it('downloads an Apple Calendar event at the exact timed quest deadline', async () => {
+  it('downloads an Apple Calendar event at the exact timed challenge deadline', async () => {
     const NativeURL = URL;
     const realSetTimeout = globalThis.setTimeout;
     vi.stubGlobal('URL', class extends NativeURL {
-      static createObjectURL = vi.fn(() => 'blob:quest-calendar');
+      static createObjectURL = vi.fn(() => 'blob:challenge-calendar');
       static revokeObjectURL = vi.fn();
     });
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
@@ -54,17 +54,17 @@ describe('ActiveQuestFolio calendar export', () => {
     ));
     try {
       const { user } = renderWithProviders(<ActiveQuestFolio quest={buildQuest()} />);
-      await user.click(screen.getByRole('button', { name: 'Add Quest deadline: Dragon Slayer to calendar' }));
+      await user.click(screen.getByRole('button', { name: 'Add Challenge deadline: Dragon Slayer to calendar' }));
       await user.click(screen.getByRole('button', { name: 'Apple Calendar (.ics)' }));
       expect(click).toHaveBeenCalledTimes(1);
-      expect(click.mock.instances[0].download).toBe('Quest-deadline-Dragon-Slayer.ics');
+      expect(click.mock.instances[0].download).toBe('Challenge-deadline-Dragon-Slayer.ics');
       const blob = URL.createObjectURL.mock.calls[0][0];
       const content = await new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
         reader.readAsText(blob);
       });
-      expect(content).toContain('SUMMARY:Quest deadline: Dragon Slayer');
+      expect(content).toContain('SUMMARY:Challenge deadline: Dragon Slayer');
       expect(content).toContain('DTSTART:20260905T060000Z');
       expect(content).toContain('DTEND:20260905T063000Z');
       expect(content).not.toContain('Private challenge details');

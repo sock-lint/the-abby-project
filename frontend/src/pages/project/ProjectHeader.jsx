@@ -71,7 +71,7 @@ export default function ProjectHeader({
           />
           <div className="min-w-0 flex-1">
             <div className="font-script text-sheikah-teal-deep text-body">
-              venture
+              project
             </div>
             <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
               {project.title}
@@ -79,7 +79,7 @@ export default function ProjectHeader({
             <div className="flex items-center gap-2 mt-2 text-body flex-wrap">
               <StatusBadge status={project.status} />
               {project.payment_kind === 'bounty' && (
-                <RuneBadge tone="royal" size="sm">bounty</RuneBadge>
+                <RuneBadge tone="royal" size="sm">optional project</RuneBadge>
               )}
               {project.category && (
                 <span className="font-script text-ink-whisper">
@@ -93,7 +93,7 @@ export default function ProjectHeader({
         <div className="flex gap-2 flex-wrap">
           {isParent && (project.status === 'draft' || project.status === 'active') && (
             <Button size="sm" onClick={() => onAction('activate')}>
-              Activate venture
+              Start project
             </Button>
           )}
           {isAssigned && project.status === 'in_progress' && (

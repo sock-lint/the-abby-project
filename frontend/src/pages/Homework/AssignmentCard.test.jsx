@@ -160,13 +160,13 @@ describe('AssignmentCard', () => {
             />
           )}
         />
-        <Route path="/quests/ventures/:id" element={<div>venture plan page</div>} />
+        <Route path="/quests/ventures/:id" element={<div>project plan page</div>} />
       </Routes>,
     );
     await user.click(screen.getByRole('link', { name: /view plan/i }));
     // A raw <a href> would attempt a document navigation and never render the
     // routed element; a <Link> resolves it in place.
-    expect(await screen.findByText('venture plan page')).toBeInTheDocument();
+    expect(await screen.findByText('project plan page')).toBeInTheDocument();
   });
 
   it('fires onPlan and disables while planning=true', async () => {

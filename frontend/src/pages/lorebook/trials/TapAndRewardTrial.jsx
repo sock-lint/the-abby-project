@@ -69,7 +69,7 @@ export default function TapAndRewardTrial({ entry, onReady }) {
       {/* Secondary "skip" affordance — kid can always finish without tapping. */}
       {!tapped && (
         <Button variant="ghost" size="sm" onClick={handleTap}>
-          I get it — let me ink the page
+          I understand
         </Button>
       )}
     </div>

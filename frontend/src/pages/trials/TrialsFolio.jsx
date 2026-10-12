@@ -17,7 +17,7 @@ import QuestTile from './QuestTile';
 export default function TrialsFolio({
   chapter,
   quests = [],
-  emptyMessage = 'no trials filed in this chapter yet',
+  emptyMessage = 'No challenges in this group yet.',
   hasActiveQuest = false,
   onBegin,
   onSelect,
@@ -56,7 +56,7 @@ export default function TrialsFolio({
         </div>
         <div className="shrink-0 text-right font-script text-caption text-ink-whisper pt-1">
           <span className="tabular-nums">{quests.length}</span>{' '}
-          {quests.length === 1 ? 'trial' : 'trials'}
+          {quests.length === 1 ? 'challenge' : 'challenges'}
         </div>
       </header>
 

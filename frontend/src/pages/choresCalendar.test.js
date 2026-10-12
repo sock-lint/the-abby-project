@@ -31,8 +31,8 @@ describe('duty reminder dates', () => {
   it('uses the Phoenix calendar day near UTC midnight and includes only saved duty details', () => {
     const event = choreReminderEvent({ id: 9, title: 'Feed cat', description: 'After dinner' }, new Date('2026-10-12T02:00:00Z'));
     expect(event).toEqual({
-      id: 'chore:9', title: 'Duty reminder: Feed cat', start: '2026-10-11',
-      description: 'A one-day reminder for this duty.', path: '/quests?tab=duties',
+      id: 'chore:9', title: 'Chore reminder: Feed cat', start: '2026-10-11',
+      description: 'A one-day reminder for this chore.', path: '/quests?tab=duties',
     });
   });
 

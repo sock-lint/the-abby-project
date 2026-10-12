@@ -36,7 +36,7 @@ export default function TrophyBadgePicker({
         {grandEarned === 0 ? (
           <EmptyState>
             You haven’t earned any badges yet. Keep exploring projects and
-            quests to earn your first.
+            challenges to earn your first.
           </EmptyState>
         ) : (
           <div className="space-y-4">

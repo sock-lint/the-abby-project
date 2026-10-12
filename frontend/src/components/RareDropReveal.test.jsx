@@ -21,7 +21,7 @@ describe('RareDropReveal', () => {
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     expect(screen.getByText(/legendary drop/i)).toBeInTheDocument();
     expect(screen.getByText(/cosmic phoenix egg/i)).toBeInTheDocument();
-    expect(screen.getByText(/added to your satchel/i)).toBeInTheDocument();
+    expect(screen.getByText(/added to your inventory/i)).toBeInTheDocument();
   });
 
   it('shows salvage copy when drop is a duplicate cosmetic', () => {

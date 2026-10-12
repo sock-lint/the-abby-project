@@ -102,7 +102,7 @@ export default function SkillDetailSheet({ skill, onClose }) {
         )}
         {skill.unlocked && maxed && (
           <div className="text-center font-script text-gold-leaf text-lede">
-            ★ mastery sealed · no higher rank awaits
+            Maximum level reached
           </div>
         )}
 
@@ -149,7 +149,7 @@ export default function SkillDetailSheet({ skill, onClose }) {
         {skill.prerequisites?.length > 0 && (
           <div className="rounded-xl border border-ink-page-shadow bg-ink-page-aged/60 p-3">
             <div className="text-caption font-rune uppercase tracking-wider text-ink-whisper mb-2">
-              rune bindings
+              Required skills
             </div>
             <ul className="space-y-1.5">
               {skill.prerequisites.map((p) => (
@@ -166,7 +166,7 @@ export default function SkillDetailSheet({ skill, onClose }) {
 
         {!skill.unlocked && (
           <div className="text-center text-caption italic text-ink-whisper">
-            this skill is locked — forge its bindings first
+            Complete the required skills to unlock this skill.
           </div>
         )}
       </div>

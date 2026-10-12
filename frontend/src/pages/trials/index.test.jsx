@@ -36,22 +36,22 @@ function renderTrials(initialEntries = ['/quests?tab=trials']) {
 beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
   try { window.localStorage.clear(); } catch { /* ignore */ }
-  setToken('trials-test-session');
+  setToken('challenges-test-session');
 });
 
-describe('Trials (illuminated codex)', () => {
+describe('Challenges (illuminated codex)', () => {
   it('renders the IncipitBand hero with the script kicker', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
     );
     renderTrials();
-    expect(await screen.findByRole('heading', { level: 1, name: /^Trials$/ }))
+    expect(await screen.findByRole('heading', { level: 1, name: /^Challenges$/ }))
       .toBeInTheDocument();
-    expect(screen.getByText(/boss campaigns & collection hunts/i))
+    expect(screen.getByText(/Complete tasks to make progress/i))
       .toBeInTheDocument();
   });
 
-  it('lists available quests and starts one when Begin is tapped', async () => {
+  it('lists available challenges and starts one when Begin is tapped', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/quests/available/', () =>
@@ -63,7 +63,7 @@ describe('Trials (illuminated codex)', () => {
 
     renderTrials();
 
-    const beginBtn = await screen.findByRole('button', { name: /^Begin$/ });
+    const beginBtn = await screen.findByRole('button', { name: /^Start challenge$/ });
     const user = userEvent.setup();
     await user.click(beginBtn);
 
@@ -83,7 +83,7 @@ describe('Trials (illuminated codex)', () => {
 
     renderTrials(['/quests?tab=trials&scroll=42']);
 
-    const beginBtn = await screen.findByRole('button', { name: /^Begin$/ });
+    const beginBtn = await screen.findByRole('button', { name: /^Start challenge$/ });
     const user = userEvent.setup();
     await user.click(beginBtn);
 
@@ -94,38 +94,38 @@ describe('Trials (illuminated codex)', () => {
     });
   });
 
-  it('shows the parent Issue Challenge button when role=parent + has children', async () => {
+  it('shows the parent Create challenge button when role=parent + has children', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
       http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
     );
     renderTrials();
     expect(
-      await screen.findByRole('button', { name: /Issue Challenge/i }),
+      await screen.findByRole('button', { name: /Create challenge/i }),
     ).toBeInTheDocument();
   });
 
-  it('hides Issue Challenge for child users', async () => {
+  it('hides Create challenge for child users', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
     );
     renderTrials();
     // Wait for the page to settle, then assert button is absent.
     expect(
-      await screen.findByRole('heading', { level: 1, name: /^Trials$/ }),
+      await screen.findByRole('heading', { level: 1, name: /^Challenges$/ }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /Issue Challenge/i }),
+      screen.queryByRole('button', { name: /Create challenge/i }),
     ).toBeNull();
   });
 
-  it('routes a badge-gated available quest into the Locked chapter', async () => {
+  it('routes a badge-gated available challenge into the Locked chapter', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/quests/available/', () =>
         HttpResponse.json([
           defBoss({
-            id: 1, name: 'Hidden Trial',
+            id: 1, name: 'Hidden Challenge',
             required_badge: 42, required_badge_name: 'Iron Will',
           }),
         ]),
@@ -136,7 +136,7 @@ describe('Trials (illuminated codex)', () => {
     const user = userEvent.setup();
     const lockedSpine = await screen.findByRole('tab', { name: /Locked/ });
     await user.click(lockedSpine);
-    expect(await screen.findByText(/Hidden Trial/)).toBeInTheDocument();
-    expect(screen.getByText(/Iron Will seal to unlock/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Hidden Challenge/)).toBeInTheDocument();
+    expect(screen.getByText(/Iron Will badge to unlock/i)).toBeInTheDocument();
   });
 });

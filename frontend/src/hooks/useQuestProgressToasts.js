@@ -54,7 +54,7 @@ export function useQuestProgressToasts() {
     const prior = lastProgressRef.current ?? progress;
     const delta = progress - prior;
     if (delta > 0) {
-      const name = quest.definition?.name || 'Quest';
+      const name = quest.definition?.name || 'Challenge';
       const percent = Math.min(100, Math.round(quest.progress_percent || 0));
       // eslint-disable-next-line react-hooks/set-state-in-effect -- deriving toasts from each new heartbeat is exactly the external-subscription case
       setToasts((prev) => [...prev, { id: `${id}-${progress}`, name, delta, percent }]);

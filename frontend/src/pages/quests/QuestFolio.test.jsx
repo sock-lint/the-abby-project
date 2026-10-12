@@ -15,8 +15,8 @@ describe('QuestFolio', () => {
     render(
       <QuestFolio
         letter="V"
-        title="Ventures"
-        kicker="the big adventures"
+        title="Projects"
+        kicker="Plan and complete your projects"
         stats={[
           { value: 3, label: 'in progress' },
           { value: 5, label: 'done' },
@@ -28,8 +28,8 @@ describe('QuestFolio', () => {
     );
     // Title renders twice: once on the full md+ plate, once in the
     // compact phone header (jsdom renders both responsive variants).
-    expect(screen.getAllByText('Ventures')).toHaveLength(2);
-    expect(screen.getByText(/the big adventures/i)).toBeInTheDocument();
+    expect(screen.getAllByText('Projects')).toHaveLength(2);
+    expect(screen.getByText(/Plan and complete your projects/i)).toBeInTheDocument();
     // Each stat value renders twice for the same reason the title does — the
     // full plate's numeral and the compact row's. The compact row used to
     // inline them into one string; they are their own nodes now so the
@@ -46,25 +46,25 @@ describe('QuestFolio', () => {
     // ornament. Tier now rides PROGRESS_TIER's own channels — one of them
     // being the kicker, rendered as a RuneBadge in the matching tone.
     const { container, rerender } = render(
-      <QuestFolio letter="V" title="Ventures" kicker="the big adventures" progressPct={0}>
+      <QuestFolio letter="V" title="Projects" kicker="Plan and complete your projects" progressPct={0}>
         x
       </QuestFolio>,
     );
     expect(container.querySelector('[data-folio-headband="true"]')).toBeNull();
 
-    const chipOf = () => screen.getByText('the big adventures');
+    const chipOf = () => screen.getByText('Plan and complete your projects');
     // locked -> ink, cresting -> ember, gilded -> gold.
     expect(chipOf().className).toMatch(/ink-page-shadow|ink-secondary/);
 
     rerender(
-      <QuestFolio letter="V" title="Ventures" kicker="the big adventures" progressPct={70}>
+      <QuestFolio letter="V" title="Projects" kicker="Plan and complete your projects" progressPct={70}>
         x
       </QuestFolio>,
     );
     expect(chipOf().className).toMatch(/ember/);
 
     rerender(
-      <QuestFolio letter="V" title="Ventures" kicker="the big adventures" progressPct={100}>
+      <QuestFolio letter="V" title="Projects" kicker="Plan and complete your projects" progressPct={100}>
         x
       </QuestFolio>,
     );
@@ -73,7 +73,7 @@ describe('QuestFolio', () => {
 
   it('renders consumer children on the recto', () => {
     const { container } = render(
-      <QuestFolio letter="D" title="Duties" progressPct={0}>
+      <QuestFolio letter="D" title="Chores" progressPct={0}>
         <div data-testid="recto-content">working list</div>
       </QuestFolio>,
     );
@@ -104,11 +104,11 @@ describe('QuestFolio', () => {
 
   it('renders a progressbar with the correct aria-valuenow when progressPct > 0', () => {
     render(
-      <QuestFolio letter="S" title="Study" progressPct={42}>x</QuestFolio>,
+      <QuestFolio letter="S" title="Homework" progressPct={42}>x</QuestFolio>,
     );
     // One bar on the full md+ plate, one in the compact phone header —
     // CSS shows exactly one per breakpoint but jsdom renders both.
-    const bars = screen.getAllByRole('progressbar', { name: /study progress/i });
+    const bars = screen.getAllByRole('progressbar', { name: /homework progress/i });
     expect(bars).toHaveLength(2);
     bars.forEach((bar) => {
       expect(bar).toHaveAttribute('aria-valuenow', '42');
@@ -121,14 +121,14 @@ describe('QuestFolio', () => {
     const { container } = render(
       <QuestFolio
         letter="D"
-        title="Duties"
-        kicker="the daily keep"
+        title="Chores"
+        kicker="Help around the house"
         stats={[
           { value: 12, label: 'done' },
           { value: 3, label: 'waiting' },
         ]}
         progressPct={80}
-        progressLabel="12 of 15 sealed"
+        progressLabel="12 of 15 completed"
       >
         x
       </QuestFolio>,
@@ -146,23 +146,23 @@ describe('QuestFolio', () => {
     expect(compact).toHaveAttribute('data-progress', '80');
     // Small versal + title + inlined stats caption + progress label.
     expect(compact.querySelector('[data-versal="true"]')).not.toBeNull();
-    expect(compact).toHaveTextContent('Duties');
+    expect(compact).toHaveTextContent('Chores');
     expect(compact).toHaveTextContent('12 done · 3 waiting');
-    expect(compact).toHaveTextContent('12 of 15 sealed');
+    expect(compact).toHaveTextContent('12 of 15 completed');
     // The compact progress bar carries real progressbar semantics.
     const bar = compact.querySelector('[role="progressbar"]');
     expect(bar).not.toBeNull();
     expect(bar).toHaveAttribute('aria-valuenow', '80');
     // The ornament stays out of the compact row: kicker + medallion live
     // only on the full plate.
-    expect(compact.textContent).not.toContain('the daily keep');
+    expect(compact.textContent).not.toContain('Help around the house');
     expect(compact.querySelector('[data-folio-medallion="true"]')).toBeNull();
     expect(full.querySelector('[data-folio-medallion="true"]')).not.toBeNull();
   });
 
   it('omits RarityStrand when rarityCounts is not provided', () => {
     const { container } = render(
-      <QuestFolio letter="R" title="Rituals" progressPct={20}>x</QuestFolio>,
+      <QuestFolio letter="R" title="Habits" progressPct={20}>x</QuestFolio>,
     );
     expect(container.querySelector('[data-rarity]')).toBeNull();
   });
@@ -171,7 +171,7 @@ describe('QuestFolio', () => {
     const { container } = render(
       <QuestFolio
         letter="V"
-        title="Ventures"
+        title="Projects"
         progressPct={50}
         rarityCounts={{
           common: { earned: 1, total: 2 },
@@ -208,7 +208,7 @@ describe('QuestFolio', () => {
     // Letter prop took precedence; the primitive uppercases its first char.
     expect(versal.textContent).toContain('A');
 
-    rerender(<QuestFolio title="Ventures" progressPct={0}>x</QuestFolio>);
-    expect(container.querySelector('[data-versal="true"]').textContent).toContain('V');
+    rerender(<QuestFolio title="Projects" progressPct={0}>x</QuestFolio>);
+    expect(container.querySelector('[data-versal="true"]').textContent).toContain('P');
   });
 });

@@ -24,15 +24,15 @@ export default function LorebookTile({ entry, onSelect }) {
     mode = null;
   } else if (!trained) {
     shell = encounteredShell;
-    runeLabel = 'untrained';
-    kicker = 'tap to begin training';
-    stateText = `${entry.title} · ready to train`;
+    runeLabel = 'ready to practice';
+    kicker = 'Tap to practice';
+    stateText = `${entry.title} · ready to practice`;
     mode = 'trial';
   } else {
     shell = trainedShell;
-    runeLabel = 'inked';
+    runeLabel = 'completed';
     kicker = entry.summary;
-    stateText = `${entry.title} · inked`;
+    stateText = `${entry.title} · completed`;
     mode = 'detail';
   }
 
@@ -48,14 +48,14 @@ export default function LorebookTile({ entry, onSelect }) {
           aria-hidden="true"
           className="absolute top-1.5 right-1.5 inline-flex items-center rounded-full bg-sheikah-teal-deep px-2 py-0.5 text-micro font-rune uppercase tracking-wider text-ink-page"
         >
-          train
+          practice
         </span>
       )}
       {unlocked && trained && (
         <span
           aria-hidden="true"
           className="absolute top-1.5 right-1.5 text-base leading-none"
-          title="Inked"
+          title="Completed"
         >
           🪶
         </span>

@@ -32,7 +32,7 @@ describe('Portfolio', () => {
       http.get('*/api/portfolio/', () => HttpResponse.json({ projects: [], homework: [] })),
     );
     renderWithProviders(<Portfolio />);
-    await waitFor(() => expect(screen.getByText(/no pages yet/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/no photos yet/i)).toBeInTheDocument());
   });
 
   it('renders project photos and download link', async () => {
@@ -230,7 +230,7 @@ describe('Portfolio', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert').textContent).toMatch(/server exploded/i),
     );
-    expect(screen.queryByText(/no pages yet/i)).toBeNull();
+    expect(screen.queryByText(/no photos yet/i)).toBeNull();
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
@@ -255,7 +255,7 @@ describe('Portfolio', () => {
     await user.click(screen.getByRole('button', { name: /Delete doomed/ }));
     // ConfirmDialog appears
     await waitFor(() =>
-      expect(screen.getByRole('alertdialog', { name: /remove from sketchbook/i })).toBeInTheDocument(),
+      expect(screen.getByRole('alertdialog', { name: /remove from gallery/i })).toBeInTheDocument(),
     );
     await user.click(screen.getByRole('button', { name: /^Remove$/ }));
     await waitFor(() => expect(spy.calls).toHaveLength(1));
@@ -428,8 +428,8 @@ describe('Portfolio', () => {
     );
     window.URL.createObjectURL = vi.fn(() => 'blob:preview');
     const { user } = renderWithProviders(<Portfolio />);
-    await waitFor(() => expect(screen.getByText(/affix photo/i)).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /affix photo/i }));
+    await waitFor(() => expect(screen.getByText(/add photo/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /add photo/i }));
     await user.click(screen.getByRole('button', { name: /upload photo/i }));
     expect(screen.getByRole('button', { name: /upload photo/i })).toBeDisabled();
   });
@@ -449,8 +449,8 @@ describe('Portfolio', () => {
     window.URL.createObjectURL = vi.fn(() => 'blob:preview');
 
     const { user } = renderWithProviders(<Portfolio />);
-    await waitFor(() => expect(screen.getByText(/affix photo/i)).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /affix photo/i }));
+    await waitFor(() => expect(screen.getByText(/add photo/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /add photo/i }));
 
     await user.selectOptions(screen.getByLabelText(/^project$/i), '7');
     await user.upload(
@@ -472,8 +472,8 @@ describe('Portfolio', () => {
       http.get('*/api/projects/', () => HttpResponse.json([])),
     );
     const { user } = renderWithProviders(<Portfolio />);
-    await waitFor(() => expect(screen.getByText(/affix photo/i)).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /affix photo/i }));
+    await waitFor(() => expect(screen.getByText(/add photo/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /add photo/i }));
     expect(screen.getByRole('button', { name: /^cancel$/i })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /^cancel$/i }));
     await waitFor(() =>
@@ -493,8 +493,8 @@ describe('Portfolio', () => {
       ),
     );
     const { user } = renderWithProviders(<Portfolio />);
-    await waitFor(() => expect(screen.getByText(/affix photo/i)).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /affix photo/i }));
+    await waitFor(() => expect(screen.getByText(/add photo/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /add photo/i }));
 
     const input = document.querySelector('input[type="file"]');
     expect(input).toHaveAttribute('accept', 'image/*');

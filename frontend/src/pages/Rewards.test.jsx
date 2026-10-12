@@ -30,7 +30,7 @@ function renderPage(user = buildUser(), handlers = []) {
 
 describe('Rewards', () => {
   it.each([
-    ['/api/redemptions/', '/api/redemptions/21/approve/', 'Redemption history', 'redemptions'],
+    ['/api/redemptions/', '/api/redemptions/21/approve/', 'Reward request history', 'reward requests'],
     ['/api/coins/exchange/list/', '/api/coins/exchange/21/approve/', 'Exchange history', 'exchanges'],
   ])('allows approval on the second pending page of %s while keeping history separate', async (path, approvePath, historyTitle, noun) => {
     const user = userEvent.setup();
@@ -88,7 +88,7 @@ describe('Rewards', () => {
       return { count: 2, next: 'http://localhost/api/redemptions/?status=pending&page=2', results: [row] };
     });
     renderPage(buildParent(), [reads.handler]);
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load pending redemptions. Temporary queue failure");
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load pending reward requests. Temporary queue failure");
     expect(screen.queryByRole('button', { name: /^approve$/i })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(screen.getAllByRole('button', { name: /^approve$/i })).toHaveLength(2));
@@ -161,12 +161,12 @@ describe('Rewards', () => {
     ];
   }
 
-  it('child confirming Barter posts to /rewards/{id}/redeem/', async () => {
+  it('child confirming a reward request posts to /rewards/{id}/redeem/', async () => {
     const user = userEvent.setup();
     const redeem = spyHandler('post', /\/api\/rewards\/\d+\/redeem\/$/, { ok: true });
     renderPage(buildUser(), redeemHandlers(redeem));
 
-    await user.click(await screen.findByRole('button', { name: /barter/i }));
+    await user.click(await screen.findByRole('button', { name: /request reward/i }));
 
     // Coins are held on request with no kid-side undo, so the spend goes
     // through a confirm step showing the balance it will leave behind.
@@ -174,21 +174,21 @@ describe('Rewards', () => {
     expect(within(sheet).getByText('120 → 70')).toBeInTheDocument();
     expect(redeem.calls).toHaveLength(0);
 
-    await user.click(within(sheet).getByRole('button', { name: /yes, barter it/i }));
+    await user.click(within(sheet).getByRole('button', { name: /request reward/i }));
 
     await waitFor(() => expect(redeem.calls).toHaveLength(1));
     expect(redeem.calls[0].url).toMatch(/\/rewards\/13\/redeem\/$/);
     expect(redeem.calls[0].body).toEqual({});
   });
 
-  it('backing out of the Barter confirm spends nothing', async () => {
+  it('backing out of the reward request confirm spends nothing', async () => {
     const user = userEvent.setup();
     const redeem = spyHandler('post', /\/api\/rewards\/\d+\/redeem\/$/, { ok: true });
     renderPage(buildUser(), redeemHandlers(redeem));
 
-    await user.click(await screen.findByRole('button', { name: /barter/i }));
+    await user.click(await screen.findByRole('button', { name: /request reward/i }));
     const sheet = await screen.findByRole('dialog', { name: /ice cream/i });
-    await user.click(within(sheet).getByRole('button', { name: /not yet/i }));
+    await user.click(within(sheet).getByRole('button', { name: /cancel/i }));
 
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: /ice cream/i })).not.toBeInTheDocument(),
@@ -218,7 +218,7 @@ describe('Rewards', () => {
     expect(approve.calls[0].body).toEqual({ notes: '' });
   });
 
-  it('insufficient-coins disables Barter and labels the button "Not enough coin"', async () => {
+  it('insufficient-coins disables requesting a reward and labels the button "Not enough coins"', async () => {
     // First-line signal: when balance < cost the button is disabled outright.
     // The "need N more" toast in Rewards.jsx is defense-in-depth for stale
     // balances, but the standard render path leans on the disabled button so
@@ -349,9 +349,9 @@ describe('Rewards', () => {
     ]);
 
     await waitFor(() =>
-      expect(screen.getByText(/couldn't load the bazaar/i)).toBeInTheDocument(),
+      expect(screen.getByText(/couldn't load the reward shop/i)).toBeInTheDocument(),
     );
-    expect(screen.queryByText(/ask a parent to add some/i)).toBeNull();
+    expect(screen.queryByText(/ask a parent to add one/i)).toBeNull();
   });
 
   it('parent approving an exchange posts to /coins/exchange/{id}/approve/', async () => {

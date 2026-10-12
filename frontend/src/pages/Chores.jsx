@@ -126,10 +126,10 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
 
   const showSchedule = form.recurrence !== 'one_time';
   const title = isApprove
-    ? 'Approve duty proposal'
+    ? 'Approve chore proposal'
     : isEdit
-      ? 'Edit Duty'
-      : isParent ? 'New Duty' : 'Propose a Duty';
+      ? 'Edit chore'
+      : isParent ? 'New chore' : 'Propose a chore';
   const submitLabel = isApprove ? 'Approve & publish'
     : isEdit ? 'Update'
     : isParent ? 'Create' : 'Send to parent';
@@ -141,7 +141,7 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
         {isApprove && chore?.created_by_name && (
           <div className="rounded-md border border-gold-leaf/40 bg-gold-leaf/10 px-3 py-2 font-script text-body text-ink-primary">
             Proposed by <span className="font-body font-medium">{chore.created_by_name}</span>
-            {' — set rewards below and publish to your duty list.'}
+            {' — set rewards below and publish to your chore list.'}
           </div>
         )}
         {!canSetRewards && !isApprove && (
@@ -359,18 +359,18 @@ export default function Chores() {
   const progressPct = chores.length > 0 ? Math.round((doneCount / chores.length) * 100) : 0;
   const versoStats = isParent
     ? [
-      { value: pendingCompletions.length, label: 'awaiting seal' },
-      { value: chores.length, label: 'in keep' },
+      { value: pendingCompletions.length, label: 'awaiting approval' },
+      { value: chores.length, label: 'chores' },
     ]
     : [
       { value: doneCount, label: 'done today' },
-      { value: chores.length, label: 'in keep' },
+      { value: chores.length, label: 'chores' },
     ];
   const versoProgressLabel = isParent
-    ? `${chores.length} duties inscribed`
+    ? `${chores.length} chores added`
     : (chores.length > 0
       ? `${doneCount} of ${chores.length} done today`
-      : 'the keep is quiet');
+      : 'No chores today');
 
   // Track which rubric numeral comes next so empty sections don't burn
   // a §I that would otherwise look like a missing chapter.
@@ -380,9 +380,9 @@ export default function Chores() {
   return (
     <div className="space-y-6">
       <QuestFolio
-        letter="D"
-        title="Duties"
-        kicker="the daily keep"
+        letter="C"
+        title="Chores"
+        kicker="Help around the house"
         stats={versoStats}
         progressPct={progressPct}
         progressLabel={versoProgressLabel}
@@ -397,14 +397,14 @@ export default function Chores() {
             onClick={openCreate}
             className="flex items-center gap-1"
           >
-            <Plus size={14} /> {isParent ? 'New duty' : 'Propose a duty'}
+            <Plus size={14} /> {isParent ? 'New chore' : 'Propose a chore'}
           </Button>
         </div>
 
         {/* Parent: pending approvals */}
         {isParent && pendingCompletions.length > 0 && (
           <section>
-            <ChapterRubric index={nextRubric()} name="Awaiting your seal" />
+            <ChapterRubric index={nextRubric()} name="Awaiting approval" />
             <ApprovalQueue
               items={pendingCompletions}
               onApprove={handleApprove}
@@ -443,7 +443,7 @@ export default function Chores() {
           <section>
             <ChapterRubric
               index={nextRubric()}
-              name={isParent ? 'Duty proposals awaiting review' : 'Your proposals'}
+              name={isParent ? 'Chore proposals awaiting review' : 'Your proposals'}
               icon={<ScrollIcon size={18} className="text-gold-leaf" />}
             />
             <div className="space-y-2">
@@ -490,7 +490,7 @@ export default function Chores() {
         <section>
           <ChapterRubric
             index={nextRubric()}
-            name={isParent ? 'All duties' : "Today's duties"}
+            name={isParent ? 'All chores' : "Today's chores"}
             icon={<ScrollIcon size={18} className="text-sheikah-teal-deep" />}
           />
           {chores.length > 0 && (
@@ -498,20 +498,20 @@ export default function Chores() {
               <CatalogSearch
                 value={search}
                 onChange={setSearch}
-                placeholder="Search duties…"
-                ariaLabel="Filter duties"
+                placeholder="Search chores…"
+                ariaLabel="Filter chores"
               />
             </div>
           )}
           {chores.length === 0 ? (
             <EmptyState icon={<ScrollIcon size={32} />}>
               {isParent
-                ? 'No duties inscribed yet. Add one to begin the keep.'
-                : 'No duties available today.'}
+                ? 'No chores yet. Add one to get started.'
+                : 'No chores available today.'}
             </EmptyState>
           ) : filteredChores.length === 0 ? (
             <EmptyState icon={<ScrollIcon size={32} />}>
-              No duties match &ldquo;{search.trim()}&rdquo;.
+              No chores match &ldquo;{search.trim()}&rdquo;.
             </EmptyState>
           ) : (
             <div className="space-y-2">
@@ -569,7 +569,7 @@ export default function Chores() {
                           <IconButton
                             variant="secondary"
                             onClick={() => openEdit(chore)}
-                            aria-label="Edit duty"
+                            aria-label="Edit chore"
                             className="min-w-[44px] min-h-[44px]"
                           >
                             <Pencil size={16} />
@@ -577,7 +577,7 @@ export default function Chores() {
                           <IconButton
                             variant="danger"
                             onClick={() => setDeleteConfirm(chore.id)}
-                            aria-label="Delete duty"
+                            aria-label="Delete chore"
                             className="min-w-[44px] min-h-[44px]"
                           >
                             <Trash2 size={16} />
@@ -593,7 +593,7 @@ export default function Chores() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleWithdraw(chore.today_completion_id)}
-                              aria-label="Withdraw this duty submission"
+                              aria-label="Withdraw this chore submission"
                               title="Withdraw — pulls it out of the queue so you can re-do it"
                               className="font-script text-tiny hover:text-ember-deep underline-offset-2 hover:underline"
                             >
@@ -625,7 +625,7 @@ export default function Chores() {
                       <AddToCalendar
                         event={calendarEvent}
                         dateEditable
-                        dateHelp="Choose one day for this duty reminder. Repeat reminders can be set in your calendar."
+                        dateHelp="Choose one day for this chore reminder. Repeat reminders can be set in your calendar."
                         validateDate={(date) => validateChoreReminderDate(chore, date)}
                       />
                     </div>
@@ -679,8 +679,8 @@ export default function Chores() {
 
       {deleteConfirm && (
         <ConfirmDialog
-          title="Delete duty?"
-          message="This will also remove all completion history for this duty."
+          title="Delete chore?"
+          message="This will also remove all completion history for this chore."
           onConfirm={() => handleDelete(deleteConfirm)}
           onCancel={() => setDeleteConfirm(null)}
         />

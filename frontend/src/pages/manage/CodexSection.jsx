@@ -26,10 +26,10 @@ import SpriteDetailSheet from './SpriteDetailSheet';
 
 const SECTIONS = [
   { id: 'items',      label: 'Items',      kicker: 'pet eggs, potions, cosmetics, scrolls', icon: '📦' },
-  { id: 'creatures',  label: 'Creatures',  kicker: 'pet species & their hatching potions',  icon: '🐾' },
+  { id: 'creatures',  label: 'Pet species',  kicker: 'pet species & their hatching potions',  icon: '🐾' },
   { id: 'mounts',     label: 'Mounts',     kicker: 'evolved forms of every species',        icon: '👑' },
-  { id: 'adventures', label: 'Adventures', kicker: 'authored quest catalog',                icon: '⚔️' },
-  { id: 'sprites',    label: 'Sprites',    kicker: 'every Ceph-hosted sprite asset',        icon: '✨' },
+  { id: 'adventures', label: 'Challenges', kicker: 'Available challenges',                icon: '⚔️' },
+  { id: 'sprites',    label: 'Sprites',    kicker: 'Character and item artwork',        icon: '✨' },
 ];
 const SECTION_IDS = new Set(SECTIONS.map((s) => s.id));
 const ACTIVE_SECTION_KEY = 'manage:codex:active-section';
@@ -42,7 +42,7 @@ const ITEM_TYPE_LABELS = {
   food: 'Pet Food',
   cosmetic_frame: 'Avatar Frames',
   cosmetic_title: 'Titles',
-  cosmetic_theme: 'Dashboard Themes',
+  cosmetic_theme: 'App themes',
   cosmetic_pet_accessory: 'Pet Accessories',
   quest_scroll: 'Quest Scrolls',
   coin_pouch: 'Coin Pouches',

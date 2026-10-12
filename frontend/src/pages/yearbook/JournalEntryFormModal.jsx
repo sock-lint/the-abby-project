@@ -178,7 +178,7 @@ function JournalEntryForm({
       // the entry is locked. Present it as a read-only fact.
       if (err?.status === 403) {
         changeForm({ pending: null });
-        setError("That entry is locked now — it's part of your chronicle.");
+        setError("This entry can no longer be edited. You can still change its sharing setting.");
       } else if (err?.status === 409 && err?.response?.existing) {
         // Raced against an earlier POST (rare — Quick Actions pre-checks).
         // Flip the modal into edit mode with the existing entry so the
@@ -246,7 +246,7 @@ function JournalEntryForm({
           </div>
           <div role="status" aria-live="polite" className="space-y-2">
             <p className="font-display text-lede text-ink-primary">
-              {awarded ? 'One more memory to grow with!' : 'Your words are safely in your Yearbook.'}
+              {awarded ? 'One more memory to grow with!' : 'Your words are saved in your journal.'}
             </p>
             {awarded && <p className="font-semibold text-body text-sheikah-teal-deep">+{receipt.xp_awarded} XP earned</p>}
             {mode === 'create' && receipt?.status === 'unavailable' && (
@@ -275,7 +275,7 @@ function JournalEntryForm({
           <p className="font-script text-xs px-3 py-2 rounded-lg border border-gold-leaf/40 bg-gold-leaf/10 text-ink-secondary flex items-start gap-2">
             <Lock size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
             <span>
-              This entry is part of your chronicle now — the words stay as you wrote them.
+              This entry can no longer be edited. You can still change its sharing setting.
             </span>
           </p>
         )}

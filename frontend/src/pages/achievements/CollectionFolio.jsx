@@ -51,7 +51,7 @@ export default function CollectionFolio({
           </div>
         </div>
         <div className="shrink-0 text-right font-script text-caption text-ink-whisper pt-1">
-          <span className="tabular-nums">{earned} of {total}</span> sealed
+          <span className="tabular-nums">{earned} of {total}</span> earned
         </div>
       </header>
 
@@ -66,7 +66,7 @@ export default function CollectionFolio({
 
       {badges.length === 0 ? (
         <p className="mt-4 font-script italic text-caption text-ink-whisper/80">
-          no seals yet in this chapter
+          No badges in this collection yet.
         </p>
       ) : (
         <ul className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 list-none p-0 m-0">

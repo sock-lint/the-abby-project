@@ -33,14 +33,14 @@ export default function AtlasHub() {
   return (
     <>
       <ChapterHub
-        title="Atlas"
-        kicker="Chapter V · The Cartographer's Folio"
+        title="Progress"
+        kicker="Your skills and achievements"
         glyph="compass-rose"
         defaultTabId="skills"
         tabs={[
           { id: 'skills',   label: 'Skills',   render: () => <Achievements /> },
           { id: 'badges',   label: 'Badges',   render: () => <Badges /> },
-          { id: 'lorebook', label: 'Lorebook', render: () => <Lorebook /> },
+          { id: 'lorebook', label: 'Guide', render: () => <Lorebook /> },
         ]}
       />
       <div className="max-w-6xl mx-auto mt-4 text-right">
@@ -48,7 +48,7 @@ export default function AtlasHub() {
           to="/bestiary"
           className="inline-flex items-center gap-1.5 font-script text-caption text-ink-whisper hover:text-sheikah-teal-deep transition-colors"
         >
-          Pets, Mounts & Hatchery <ArrowRight size={14} />
+          Pets, Mounts & Hatching <ArrowRight size={14} />
         </Link>
       </div>
     </>

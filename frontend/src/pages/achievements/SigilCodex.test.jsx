@@ -18,7 +18,7 @@ beforeEach(() => {
 describe('SigilCodex', () => {
   it('renders the empty-state when no badges have been forged', () => {
     renderWithProviders(<SigilCodex allBadges={[]} earnedBadges={[]} onSelect={() => {}} />);
-    expect(screen.getByText(/no badges have been forged yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/no badges available yet/i)).toBeInTheDocument();
   });
 
   it('renders an incipit + a shelf with one spine per chapter', () => {
@@ -31,10 +31,10 @@ describe('SigilCodex', () => {
     );
 
     // Heading "Sigil Case" from the incipit band
-    expect(screen.getByRole('heading', { name: 'Sigil Case' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Badges' })).toBeInTheDocument();
 
     // Shelf is a tablist with one tab per chapter
-    const shelf = screen.getByRole('tablist', { name: /sigil reliquary chapters/i });
+    const shelf = screen.getByRole('tablist', { name: /badge collections/i });
     expect(shelf).toBeInTheDocument();
     for (const c of COLLECTIONS) {
       expect(screen.getByRole('tab', { name: new RegExp(c.name, 'i') })).toBeInTheDocument();
@@ -55,13 +55,13 @@ describe('SigilCodex', () => {
     );
 
     // No earned sigils → default lands on Chronos (first chapter overall).
-    expect(screen.getByRole('region', { name: 'Chronos' })).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Ventures' })).toBeNull();
+    expect(screen.getByRole('region', { name: 'Time' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Projects' })).toBeNull();
 
     // Switching the spine swaps which folio renders.
-    await user.click(screen.getByRole('tab', { name: /Ventures/i }));
-    expect(screen.getByRole('region', { name: 'Ventures' })).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Chronos' })).toBeNull();
+    await user.click(screen.getByRole('tab', { name: /Projects/i }));
+    expect(screen.getByRole('region', { name: 'Projects' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Time' })).toBeNull();
   });
 
   it('defaults to the first chapter that has any earned sigil', () => {
@@ -78,8 +78,8 @@ describe('SigilCodex', () => {
     );
     // 'first_project' is in §II Ventures, so the codex should land on
     // Ventures (the first chapter with any earned sigil), not Chronos.
-    expect(screen.getByRole('region', { name: 'Ventures' })).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Chronos' })).toBeNull();
+    expect(screen.getByRole('region', { name: 'Projects' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Time' })).toBeNull();
   });
 
   it('forwards onSelect with the sigil payload when a badge is clicked', async () => {
@@ -120,7 +120,7 @@ describe('SigilCodex', () => {
     renderWithProviders(
       <SigilCodex allBadges={allBadges} earnedBadges={[]} onSelect={() => {}} />,
     );
-    await user.click(screen.getByRole('tab', { name: /Adventure/i }));
+    await user.click(screen.getByRole('tab', { name: /Activities/i }));
     expect(window.localStorage.getItem('atlas:sigil-codex:active-chapter')).toBe('adventure');
   });
 });
