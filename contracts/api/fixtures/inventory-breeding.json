@@ -1,0 +1,142 @@
+[
+  {
+    "id": 83,
+    "item": {
+      "id": 73,
+      "name": "Synthetic Egg",
+      "description": "",
+      "icon": "🥚",
+      "sprite_key": "big-egg",
+      "item_type": "egg",
+      "type_display": "Pet Egg",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {},
+      "pet_species_name": "Fox",
+      "potion_type_name": null,
+      "food_species_name": null
+    },
+    "quantity": 2,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": [
+      {
+        "id": "hatch",
+        "label": "Hatch in Hatchery",
+        "to": "/bestiary?tab=hatchery"
+      }
+    ]
+  },
+  {
+    "id": 81,
+    "item": {
+      "id": 71,
+      "name": "Berry Bowl",
+      "description": "A synthetic favorite for foxes.",
+      "icon": "🫐",
+      "sprite_key": "berry-bowl",
+      "item_type": "food",
+      "type_display": "Pet Food",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {},
+      "pet_species_name": null,
+      "potion_type_name": null,
+      "food_species_name": "Fox"
+    },
+    "quantity": 2,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": [
+      {
+        "id": "feed",
+        "label": "Feed a companion",
+        "to": "/bestiary?tab=companions"
+      }
+    ]
+  },
+  {
+    "id": 82,
+    "item": {
+      "id": 72,
+      "name": "Trail Mix",
+      "description": "A synthetic neutral snack.",
+      "icon": "🥜",
+      "sprite_key": "",
+      "item_type": "food",
+      "type_display": "Pet Food",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {},
+      "pet_species_name": null,
+      "potion_type_name": null,
+      "food_species_name": null
+    },
+    "quantity": 1,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": [
+      {
+        "id": "feed",
+        "label": "Feed a companion",
+        "to": "/bestiary?tab=companions"
+      }
+    ]
+  },
+  {
+    "id": 84,
+    "item": {
+      "id": 74,
+      "name": "Wolf Meal",
+      "description": "",
+      "icon": "🍖",
+      "sprite_key": "",
+      "item_type": "food",
+      "type_display": "Pet Food",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {},
+      "pet_species_name": null,
+      "potion_type_name": null,
+      "food_species_name": "Wolf"
+    },
+    "quantity": 1,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": [
+      {
+        "id": "feed",
+        "label": "Feed a companion",
+        "to": "/bestiary?tab=companions"
+      }
+    ]
+  },
+  {
+    "id": 85,
+    "item": {
+      "id": 77,
+      "name": "Synthetic Ice Potion",
+      "description": "",
+      "icon": "🧪",
+      "sprite_key": "ice-potion",
+      "item_type": "potion",
+      "type_display": "Hatching Potion",
+      "rarity": "rare",
+      "rarity_display": "Rare",
+      "coin_value": 0,
+      "metadata": {},
+      "pet_species_name": null,
+      "potion_type_name": "Ice",
+      "food_species_name": null
+    },
+    "quantity": 4,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": [
+      {
+        "id": "hatch",
+        "label": "Hatch in Hatchery",
+        "to": "/bestiary?tab=hatchery"
+      }
+    ]
+  }
+]

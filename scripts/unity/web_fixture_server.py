@@ -36,6 +36,7 @@ def web_application(web_root: Path, api, frontend_root: Path | None = None):
         if path.startswith("/api/") or path.startswith("/__fixture/finish-expedition/") or path in (
             "/__fixture/play-state/", "/__fixture/hold-next-care/",
             "/__fixture/delay-next-care/", "/__fixture/release-care/",
+            "/__fixture/next-breed-roll/",
         ):
             return api(environ, start_response)
         if path in ("/", "/play") and (frontend_root is None or path == "/play"):
@@ -89,6 +90,7 @@ def main():
     parser.add_argument("--owned-chick-art", action="store_true", help="Seed the owned Base Chick used by model/evolution checks.")
     parser.add_argument("--fail-first-feed-after-commit", action="store_true", help="Commit one valid feed, then return HTTP503 instead of its acknowledgement.")
     parser.add_argument("--fail-first-hatch-after-commit", action="store_true", help="Commit one valid hatch, then return HTTP503 instead of its acknowledgement.")
+    parser.add_argument("--fail-first-breed-after-commit", action="store_true", help="Commit one valid pairing, then return HTTP503 instead of its acknowledgement.")
     parser.add_argument("--fail-first-expedition-start-after-commit", "--fail-first-start-after-commit", dest="fail_first_start_after_commit",
                         action="store_true", help="Commit one expedition start, then return HTTP503 instead of its acknowledgement.")
     parser.add_argument("--fail-first-expedition-claim-after-commit", "--fail-first-claim-after-commit", dest="fail_first_claim_after_commit",
@@ -120,12 +122,14 @@ def main():
             fixture["fail_first_hatch_after_commit"] = args.fail_first_hatch_after_commit
             fixture["fail_first_start_after_commit"] = args.fail_first_start_after_commit
             fixture["fail_first_claim_after_commit"] = args.fail_first_claim_after_commit
+            fixture["fail_first_breed_after_commit"] = args.fail_first_breed_after_commit
             api = fixture_wsgi(get_wsgi_application(), fail_first_log=args.fail_first_log,
                                fail_first_mark_read=args.fail_first_mark_read,
                                fail_first_feed_after_commit=args.fail_first_feed_after_commit,
                                fail_first_hatch_after_commit=args.fail_first_hatch_after_commit,
                                fail_first_start_after_commit=args.fail_first_start_after_commit,
-                               fail_first_claim_after_commit=args.fail_first_claim_after_commit)
+                               fail_first_claim_after_commit=args.fail_first_claim_after_commit,
+                               fail_first_breed_after_commit=args.fail_first_breed_after_commit)
             with make_server("127.0.0.1", args.port, web_application(args.web_root, api, args.frontend_root), server_class=PreviewServer) as server:
                 server.timeout = .25
                 fixture["url"] = f"http://127.0.0.1:{server.server_port}"

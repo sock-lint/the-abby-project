@@ -184,6 +184,10 @@ namespace AbbyCamp.Services
             ValidateOwnedCreature(row);
             var mount = JsonUtility.FromJson<OwnedMountDto>(json);
             mount.last_bred_at = NullableDate(row, "last_bred_at");
+            RequireBoolean(row, "can_breed");
+            int cooldown = RequireInteger(row, "breeding_cooldown_seconds", 0);
+            if (mount.can_breed != (cooldown == 0) || (mount.last_bred_at == null && cooldown != 0))
+                throw new FormatException("The mount's breeding readiness is inconsistent with its saved cooldown.");
             string expeditionJson = Require(row, "active_expedition");
             mount.active_expedition = null;
             if (expeditionJson != "null")
@@ -391,6 +395,45 @@ namespace AbbyCamp.Services
                 || (!string.IsNullOrEmpty(potion.potion_type_name) && potion.potion_type_name != result.potion.name))
                 throw new FormatException("The hatched companion does not match the selected egg and potion.");
             return result;
+        }
+
+        public static MountBreedDto ParseMountBreed(string json, OwnedMountDto parentA, OwnedMountDto parentB)
+        {
+            if (parentA == null || parentB == null || parentA.id < 1 || parentB.id < 1 || parentA.id == parentB.id
+                || parentA.species == null || parentB.species == null || parentA.potion == null || parentB.potion == null
+                || !parentA.can_breed || !parentB.can_breed
+                || parentA.breeding_cooldown_seconds != 0 || parentB.breeding_cooldown_seconds != 0)
+                throw new FormatException("The breeding receipt needs two distinct, server-ready owned parents.");
+            var fields = ReadObject(json);
+            int eggId = RequireInteger(fields, "egg_item_id", 1);
+            int potionId = RequireInteger(fields, "potion_item_id", 1);
+            if (eggId == potionId) throw new FormatException("The egg and potion must be different saved items.");
+            foreach (string kind in new[] { "egg", "potion" })
+            {
+                BoundedString(fields, kind + "_item_name", 200, true);
+                BoundedString(fields, kind + "_item_icon", 100);
+                BoundedString(fields, kind + "_item_sprite_key", 100);
+            }
+            string speciesName = BoundedString(fields, "picked_species", 100, true);
+            NullableString(fields, "picked_species_slug", 100);
+            string potionName = BoundedString(fields, "picked_potion", 100, true);
+            string potionSlug = NullableString(fields, "picked_potion_slug", 100);
+            RequireBoolean(fields, "chromatic");
+            RequireInteger(fields, "cooldown_days", 1);
+            bool chromatic = Require(fields, "chromatic") == "true";
+            if ((speciesName != parentA.species.name && speciesName != parentB.species.name)
+                || (chromatic && potionSlug != "cosmic"))
+                throw new FormatException("The breeding receipt does not confirm a selected parent species or its chromatic result.");
+            // The server may choose a registered compatible fallback potion for
+            // older parents. Do not require its result to be a parental potion.
+            // When a known unique potion identity is reused, its name and slug
+            // must still describe that same type; legacy null slugs stay valid.
+            foreach (var parent in new[] { parentA, parentB })
+                if (!string.IsNullOrEmpty(parent.potion.slug)
+                    && (potionName == parent.potion.name || potionSlug == parent.potion.slug)
+                    && (potionName != parent.potion.name || potionSlug != parent.potion.slug))
+                    throw new FormatException("The breeding receipt contains a mismatched known potion identity.");
+            return JsonUtility.FromJson<MountBreedDto>(json);
         }
 
         /// <summary>The current endpoint returns a bare array. Bounded DRF pages

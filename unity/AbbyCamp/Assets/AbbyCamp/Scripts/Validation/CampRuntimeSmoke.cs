@@ -24,7 +24,7 @@ namespace AbbyCamp.Validation
         };
         private readonly List<string> checks = new List<string>();
         private readonly List<string> runtimeErrors = new List<string>();
-        private bool failed, failFirstMarkRead, ambiguousFeed, ambiguousHatch, ambiguousExpeditionStart, ambiguousExpeditionClaim, ownedCreatureArt;
+        private bool failed, failFirstMarkRead, ambiguousFeed, ambiguousHatch, ambiguousExpeditionStart, ambiguousExpeditionClaim, ambiguousBreed, ownedCreatureArt;
         private string output, fixtureUrl, username, password, secondUsername, secondPassword;
 
         [Serializable] private sealed class FixtureState { public FixtureAccount[] accounts; }
@@ -33,6 +33,7 @@ namespace AbbyCamp.Validation
             public int user_id, balance, inventory_quantity, skill_xp, notification_count;
             public int feed_requests, feed_commits, hatch_requests, hatch_commits, care_responses_pending, care_hold_timeouts;
             public int expedition_start_requests, expedition_start_commits, expedition_claim_requests, expedition_claim_commits;
+            public int breed_requests, breed_commits;
             public int[] ledger_ids, drop_ids, unread_ids;
             public FixtureLedger[] ledger;
             public FixturePet[] pets;
@@ -42,7 +43,7 @@ namespace AbbyCamp.Validation
             public FixtureExpedition[] expeditions;
         }
         [Serializable] private sealed class FixturePet { public int id, growth_points, species_id, potion_id; public bool is_active, evolved_to_mount; }
-        [Serializable] private sealed class FixtureMount { public int id; public bool is_active; public string potion_name; }
+        [Serializable] private sealed class FixtureMount { public int id; public bool is_active; public string potion_name, last_bred_at; }
         [Serializable] private sealed class FixtureFood { public int item_id, quantity; }
         [Serializable] private sealed class FixtureItem { public int item_id, quantity; public string item_type, name; }
         [Serializable] private sealed class FixtureLedger { public int id, amount; public string reason; }
@@ -73,6 +74,7 @@ namespace AbbyCamp.Validation
             instance.ambiguousHatch = Array.IndexOf(args, "--abby-smoke-ambiguous-hatch") >= 0;
             instance.ambiguousExpeditionStart = Array.IndexOf(args, "--abby-smoke-ambiguous-expedition-start") >= 0;
             instance.ambiguousExpeditionClaim = Array.IndexOf(args, "--abby-smoke-ambiguous-expedition-claim") >= 0;
+            instance.ambiguousBreed = Array.IndexOf(args, "--abby-smoke-ambiguous-breed") >= 0;
             instance.ownedCreatureArt = Array.IndexOf(args, "--abby-smoke-owned-creature-art") >= 0;
             Directory.CreateDirectory(instance.output);
             Application.runInBackground = true;
@@ -260,6 +262,7 @@ namespace AbbyCamp.Validation
                 yield return ExerciseCare(ui, garden, api, primaryUser, primaryPet, primaryMount, value => before = value);
                 yield return ExerciseHatching(ui, garden, api, primaryUser, value => before = value);
                 yield return ExerciseExpeditions(ui, garden, api, primaryUser, primaryMount, value => before = value);
+                yield return ExerciseBreeding(ui, garden, api, primaryUser, primaryMount, value => before = value);
                 if (ownedCreatureArt)
                 {
                     yield return OpenSection(ui, garden, "Bestiary");
@@ -858,6 +861,264 @@ namespace AbbyCamp.Validation
             Check(!ui.ExpeditionsOpen, "Expeditions return to the native creature collection");
             yield return CloseSection(ui, garden, "Bestiary");
             complete(snapshot);
+        }
+
+        private IEnumerator ExerciseBreeding(CampPrototypeController ui, CampGardenInput garden, AbbyApiClient api,
+            int userId, int sunId, Action<FixtureState> complete)
+        {
+            FixtureState snapshot = null;
+            yield return ReadFixtureState(value => snapshot = value);
+            var before = Account(snapshot, userId);
+            var otherBefore = Array.Find(snapshot.accounts, row => row.user_id != userId);
+            var tide = Array.Find(before.mounts, row => row.potion_name == "Peep Tide");
+            var brook = Array.Find(before.mounts, row => row.potion_name == "Peep Brook");
+            var fern = Array.Find(before.mounts, row => row.potion_name == "Peep Fern");
+            var clover = Array.Find(before.mounts, row => row.potion_name == "Peep Clover");
+            var moss = Array.Find(before.mounts, row => row.potion_name == "Peep Moss");
+            Check(tide != null && brook != null && fern != null && clover != null && moss != null
+                && before.breed_requests == 0 && before.breed_commits == 0,
+                "The fixture preserves expedition mounts and supplies three independent breeding pairs");
+            yield return OpenSection(ui, garden, "Bestiary");
+            yield return RevealButton("BreedingButton"); Click("BreedingButton"); yield return null;
+            Check(ui.BreedingOpen && FindButton("BreedMountA_" + sunId)?.interactable == true
+                && FindButton("ConfirmBreedButton") == null, "Native breeding requires explicit first and second parent choices");
+            yield return ReadFixtureState(value => snapshot = value);
+            CheckBreedReadUnchanged(before, Account(snapshot, userId), "Opening the breeding collection grants and consumes nothing");
+            ApiError problem = null;
+            yield return api.BreedMounts(sunId, sunId, _ => { }, error => problem = error);
+            Check(problem != null && !problem.OutcomeUnknown && !api.CanBreedMounts(sunId, sunId),
+                "A same-parent pair is rejected locally without dispatch");
+            problem = null;
+            yield return api.BreedMounts(sunId, otherBefore.mounts[0].id, _ => { }, error => problem = error);
+            Check(problem != null && !problem.OutcomeUnknown && !api.CanBreedMounts(sunId, otherBefore.mounts[0].id),
+                "A foreign mount cannot enter a known owned breeding pair");
+            yield return SelectBreedPair(ui, sunId, tide.id);
+            yield return ReadFixtureState(value => snapshot = value);
+            CheckBreedReadUnchanged(before, Account(snapshot, userId), "Selecting two parents sends no breeding POST");
+            yield return Capture("breed-selected-pair-portrait.png");
+            Click("ConfirmBreedButton");
+            Check(ui.IsBusy && ui.CareNeedsReview && FindButton("ConfirmBreedButton")?.interactable == false,
+                "Breeding stores its review marker before dispatch and prevents duplicate confirmation");
+            Canvas.ForceUpdateCanvases();
+            CheckFirstSheetRow("BestiaryStatus", "Breeding saving feedback is visible after confirmation from the sheet bottom");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "First breeding acknowledgement and refresh finish");
+            yield return ReadFixtureState(value => snapshot = value);
+            var first = Account(snapshot, userId);
+            CheckBreedGrant(before, first, sunId, tide.id, false, "A normal pairing grants one real egg and one real potion exactly once");
+            Canvas.ForceUpdateCanvases();
+            CheckFirstSheetRow("BestiaryStatus", "Breeding terminal feedback remains visible without scrolling");
+            if (ambiguousBreed)
+            {
+                Check(ui.CareNeedsReview && !HasNamed("BreedReceipt") && HasNamed("CareReviewMessage")
+                    && FindButton("AcknowledgeCareButton")?.interactable == false,
+                    "A committed pairing followed by HTTP503 is uncertain and cannot celebrate or immediately acknowledge");
+                yield return Capture("breed-interrupted-portrait.png");
+                yield return CloseSection(ui, garden, "Bestiary");
+                yield return OpenSection(ui, garden, "Bestiary"); Click("BreedingButton"); yield return null;
+                Check(ui.CareNeedsReview && !HasNamed("BreedReceipt") && HasNamed("ReviewMount_" + sunId)
+                    && HasNamed("ReviewMount_" + tide.id) && FindButton("BreedMountA_" + sunId)?.interactable == false,
+                    "Reopening preserves uncertainty and shows both saved parent cooldowns without inferring a receipt");
+                Click("RefreshCareButton");
+                yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Breeding collection, inventory, expedition and balance review finishes");
+                Check(FindButton("AcknowledgeCareButton")?.interactable == true,
+                    "Four complete authoritative reads enable explicit breeding review");
+                yield return ReadFixtureState(value => snapshot = value);
+                CheckBreedReadUnchanged(first, Account(snapshot, userId), "Closing, reopening and refreshing an uncertain pairing never breeds again");
+                yield return RevealButton("AcknowledgeCareButton"); Click("AcknowledgeCareButton"); yield return null;
+                Check(!ui.CareNeedsReview && !HasNamed("BreedReceipt"), "Explicit review clears only the local pairing marker");
+                yield return Capture("breed-reviewed-portrait.png");
+            }
+            else Check(!ui.CareNeedsReview && HasNamed("BreedReceipt") && !HasNamed("BreedChromatic"),
+                "A confirmed normal pairing presents its actual saved egg and potion");
+            Check(!api.CanBreedMounts(sunId, tide.id), "Accepted cooldown flags prevent another pairing of the same parents");
+            problem = null;
+            yield return api.BreedMounts(sunId, tide.id, _ => { }, error => problem = error);
+            Check(problem != null && !problem.OutcomeUnknown, "Cooled-down parents cannot dispatch another breeding action");
+            yield return ResetBreedSelection(ui);
+            Check(FindButton("BreedMountA_" + sunId)?.interactable == false
+                && FindButton("BreedMountA_" + tide.id)?.interactable == false,
+                "Refreshed server cooldowns disable both prior parents in the collection");
+            yield return SelectBreedPair(ui, brook.id, fern.id);
+            yield return Resize(852, 393);
+            yield return RevealButton("ConfirmBreedButton");
+            yield return Capture("breed-confirm-landscape.png");
+            yield return Resize(393, 852);
+            Click("ConfirmBreedButton");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "A second independent pairing confirms and refreshes its inventory");
+            yield return ReadFixtureState(value => snapshot = value);
+            var confirmed = Account(snapshot, userId);
+            CheckBreedGrant(first, confirmed, brook.id, fern.id, false, "The confirmed second pairing grants one more egg and potion without rewards");
+            Check(!ui.CareNeedsReview && HasNamed("BreedReceipt") && HasNamed("BreedEggSaved") && HasNamed("BreedPotionSaved")
+                && HasNamed("BreedCooldown") && !HasNamed("BreedChromatic"), "The normal receipt names actual inventory grants and parent rest");
+            Canvas.ForceUpdateCanvases(); CheckFirstSheetRow("BestiaryStatus");
+            foreach (var item in confirmed.items)
+                if (ItemQuantity(confirmed, item.item_id) == ItemQuantity(first, item.item_id) + 1)
+                    Check(HasNamed("BreedInventory_" + item.item_id), "Receipt displays refreshed inventory quantity for granted item " + item.item_id);
+            yield return Capture("breed-confirmed-portrait.png");
+            yield return ResetBreedSelection(ui);
+            yield return SelectBreedPair(ui, clover.id, moss.id);
+            yield return SetNextBreedRoll(true);
+            yield return HeldBreedAccountReplacement(ui, garden, api, userId, clover.id, moss.id, value => snapshot = value);
+            var final = Account(snapshot, userId);
+            CheckBreedGrant(confirmed, final, clover.id, moss.id, true,
+                "A held chromatic pairing reconciles one Cosmic potion and one egg after account replacement");
+            Check(final.breed_requests == 3 && final.breed_commits == 3 && final.care_hold_timeouts == 0,
+                "Breeding review and account replacement never replay a pairing or expire the response hold");
+            CheckBreedReadUnchanged(otherBefore, Account(snapshot, otherBefore.user_id), "Every pairing preserves the other family's entire creature and reward state");
+            Click("BackBreedingButton"); yield return null;
+            Check(!ui.BreedingOpen, "Breeding returns to the native creature collection");
+            yield return CloseSection(ui, garden, "Bestiary"); complete(snapshot);
+        }
+
+        private IEnumerator SelectBreedPair(CampPrototypeController ui, int firstId, int secondId)
+        {
+            yield return RevealButton("BreedMountA_" + firstId); Click("BreedMountA_" + firstId); yield return null;
+            Check(ui.BreedingOpen && FindButton("BreedMountB_" + firstId) == null && FindButton("ConfirmBreedButton") == null,
+                "Second-parent choices exclude the first mount and require a distinct explicit choice");
+            yield return RevealButton("BreedMountB_" + secondId); Click("BreedMountB_" + secondId); yield return null;
+            yield return RevealButton("ConfirmBreedButton");
+            Check(HasNamed("BreedSelectedMountA") && HasNamed("BreedSelectedMountB") && HasNamed("BreedSelectedPair")
+                && FindButton("ChangeBreedMountAButton")?.interactable == true && FindButton("ChangeBreedMountBButton")?.interactable == true,
+                "Pair confirmation shows both selected parents and allows changing either before saving");
+        }
+
+        private IEnumerator ResetBreedSelection(CampPrototypeController ui)
+        {
+            Click("BackBreedingButton"); yield return null;
+            yield return RevealButton("BreedingButton"); Click("BreedingButton"); yield return null;
+            Check(ui.BreedingOpen && !HasNamed("BreedReceipt") && FindButton("ConfirmBreedButton") == null,
+                "A fresh breeding view clears the prior receipt and requires new explicit parent choices");
+        }
+
+        private IEnumerator SetNextBreedRoll(bool chromatic)
+        {
+            using (var roll = UnityWebRequest.Post(fixtureUrl.TrimEnd('/') + "/__fixture/next-breed-roll/",
+                chromatic ? "{\"chromatic\":true}" : "{\"chromatic\":false}", "application/json"))
+            {
+                roll.timeout = 10; yield return roll.SendWebRequest();
+                Check(roll.result == UnityWebRequest.Result.Success, "Disposable fixture scopes its next real breeding roll to designated parents");
+            }
+        }
+
+        private IEnumerator HeldBreedAccountReplacement(CampPrototypeController ui, CampGardenInput garden, AbbyApiClient api,
+            int userId, int firstId, int secondId, Action<FixtureState> complete)
+        {
+            FixtureState snapshot = null;
+            yield return ReadFixtureState(value => snapshot = value);
+            var otherBefore = Array.Find(snapshot.accounts, row => row.user_id != userId);
+            using (var arm = UnityWebRequest.Post(fixtureUrl.TrimEnd('/') + "/__fixture/hold-next-care/", "{}", "application/json"))
+            {
+                arm.timeout = 10; yield return arm.SendWebRequest();
+                Check(arm.result == UnityWebRequest.Result.Success, "Fixture arms a breeding acknowledgement rendezvous");
+            }
+            Click("ConfirmBreedButton");
+            float deadline = Time.realtimeSinceStartup + 10;
+            do
+            {
+                yield return ReadFixtureState(value => snapshot = value);
+                if (Account(snapshot, userId).care_responses_pending == 1) break;
+                yield return null;
+            } while (Time.realtimeSinceStartup < deadline);
+            var committed = Account(snapshot, userId);
+            Check(committed.breed_commits == 3 && committed.care_responses_pending == 1 && committed.care_hold_timeouts == 0
+                && ui.IsBusy && ui.CareNeedsReview && !string.IsNullOrEmpty(Array.Find(committed.mounts, row => row.id == firstId).last_bred_at)
+                && Array.Find(committed.mounts, row => row.id == firstId).last_bred_at == Array.Find(committed.mounts, row => row.id == secondId).last_bred_at,
+                "Account replacement observes both parent cooldowns and the real Cosmic grant before acknowledgement");
+            api.ClearSession();
+            var clear = typeof(CampPrototypeController).GetMethod("ClearPresentation", BindingFlags.Instance | BindingFlags.NonPublic);
+            Check(clear != null, "Breeding harness can reproduce browser presentation clearing");
+            clear.Invoke(ui, null); yield return null;
+            Check(ui.IsDemo && !ui.IsBusy && !ui.IsModalOpen && !ui.BreedingOpen && !HasNamed("BreedReceipt"),
+                "Replacing the account clears the old pairing, receipt and controls");
+            yield return Connect(ui, garden, secondUsername, secondPassword);
+            yield return OpenSection(ui, garden, "Bestiary"); Click("BreedingButton"); yield return null;
+            Check(ui.BreedingOpen && !ui.CareNeedsReview && FindButton("BreedMountA_" + otherBefore.mounts[0].id)?.interactable == true,
+                "Replacement account presents only its own available breeding parents");
+            foreach (var mount in committed.mounts) Check(FindButton("BreedMountA_" + mount.id) == null, "Old-account parent is absent: " + mount.id);
+            yield return ReadFixtureState(value => snapshot = value);
+            Check(Account(snapshot, userId).care_responses_pending == 1 && Account(snapshot, userId).care_hold_timeouts == 0,
+                "The old breeding response stays held until replacement-account choices are visible");
+            yield return ReleaseHeldCare();
+            deadline = Time.realtimeSinceStartup + 10;
+            do
+            {
+                yield return ReadFixtureState(value => snapshot = value);
+                if (Account(snapshot, userId).care_responses_pending == 0) break;
+                yield return null;
+            } while (Time.realtimeSinceStartup < deadline);
+            Check(Account(snapshot, userId).care_responses_pending == 0 && Account(snapshot, userId).care_hold_timeouts == 0
+                && ui.BreedingOpen && !ui.IsBusy && !ui.CareNeedsReview && !HasNamed("BreedReceipt") && !HasNamed("BreedChromatic"),
+                "A late old-account chromatic receipt cannot populate or celebrate in the replacement session");
+            CheckBreedReadUnchanged(otherBefore, Account(snapshot, otherBefore.user_id), "Held breeding never changes the replacement family's state");
+            yield return CloseSection(ui, garden, "Bestiary"); Click("AccountButton"); yield return null;
+            Click("DisconnectButton"); yield return null; yield return Connect(ui, garden, username, password);
+            Check(ui.CareNeedsReview, "Returning to the original account retains its interrupted breeding marker");
+            yield return OpenSection(ui, garden, "Bestiary"); Click("BreedingButton"); yield return null;
+            Check(!HasNamed("BreedReceipt") && !HasNamed("BreedChromatic") && HasNamed("ReviewMount_" + firstId)
+                && HasNamed("ReviewMount_" + secondId), "Original-account history exposes parent rest and items without inventing a confirmed receipt");
+            Click("RefreshCareButton");
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Returning-account breeding review completes four saved-state reads");
+            yield return RevealButton("AcknowledgeCareButton"); Click("AcknowledgeCareButton"); yield return null;
+            yield return ReadFixtureState(value => snapshot = value);
+            CheckBreedReadUnchanged(committed, Account(snapshot, userId), "Held breeding refresh and acknowledgement never create another pair");
+            Check(!ui.CareNeedsReview, "Explicit original-account review clears its breeding marker");
+            yield return Capture("breed-held-chromatic-reviewed.png"); complete(snapshot);
+        }
+
+        private void CheckBreedGrant(FixtureAccount before, FixtureAccount after, int firstId, int secondId, bool chromatic, string label)
+        {
+            Check(after.breed_requests == before.breed_requests + 1 && after.breed_commits == before.breed_commits + 1
+                && after.inventory_quantity == before.inventory_quantity + 2, label);
+            var changed = new List<FixtureItem>();
+            foreach (var item in after.items)
+            {
+                int delta = item.quantity - ItemQuantity(before, item.item_id);
+                Check(delta == 0 || delta == 1, label + ": grant quantity " + item.item_id);
+                if (delta == 1) changed.Add(item);
+            }
+            Check(changed.Count == 2 && changed.Find(item => item.item_type == "egg") != null
+                && changed.Find(item => item.item_type == "potion") != null, label + ": exactly one egg and potion");
+            Check(changed.Find(item => item.item_type == "potion").name.Contains("Cosmic") == chromatic,
+                label + ": chromatic status matches the real potion grant");
+            var first = Array.Find(after.mounts, row => row.id == firstId);
+            var second = Array.Find(after.mounts, row => row.id == secondId);
+            Check(first != null && second != null && !string.IsNullOrEmpty(first.last_bred_at) && first.last_bred_at == second.last_bred_at,
+                label + ": both parents receive the same saved cooldown stamp");
+            foreach (var mount in before.mounts)
+                if (mount.id != firstId && mount.id != secondId)
+                    Check(Array.Find(after.mounts, row => row.id == mount.id).last_bred_at == mount.last_bred_at,
+                        label + ": other parent cooldown unchanged " + mount.id);
+            CheckBreedOtherStateUnchanged(before, after, label);
+        }
+
+        private void CheckBreedReadUnchanged(FixtureAccount before, FixtureAccount after, string label)
+        {
+            Check(before.breed_requests == after.breed_requests && before.breed_commits == after.breed_commits
+                && before.inventory_quantity == after.inventory_quantity && before.items.Length == after.items.Length
+                && before.notification_count == after.notification_count && EqualIds(before.unread_ids, after.unread_ids), label);
+            foreach (var item in before.items) Check(ItemQuantity(after, item.item_id) == item.quantity, label + ": item " + item.item_id);
+            foreach (var mount in before.mounts) Check(Array.Find(after.mounts, row => row.id == mount.id).last_bred_at == mount.last_bred_at,
+                label + ": cooldown " + mount.id);
+            CheckBreedOtherStateUnchanged(before, after, label);
+        }
+
+        private void CheckBreedOtherStateUnchanged(FixtureAccount before, FixtureAccount after, string label)
+        {
+            CheckRewardLedgersUnchanged(before, after, label + ": coins, XP and drops");
+            Check(before.feed_requests == after.feed_requests && before.feed_commits == after.feed_commits
+                && before.hatch_requests == after.hatch_requests && before.hatch_commits == after.hatch_commits
+                && before.expedition_start_requests == after.expedition_start_requests && before.expedition_start_commits == after.expedition_start_commits
+                && before.expedition_claim_requests == after.expedition_claim_requests && before.expedition_claim_commits == after.expedition_claim_commits
+                && before.pets.Length == after.pets.Length && before.mounts.Length == after.mounts.Length
+                && JsonUtility.ToJson(new FixtureAccount { pets = before.pets, expeditions = before.expeditions })
+                    == JsonUtility.ToJson(new FixtureAccount { pets = after.pets, expeditions = after.expeditions }),
+                label + ": prior care, pets and expedition history");
+            foreach (var mount in before.mounts)
+            {
+                var saved = Array.Find(after.mounts, row => row.id == mount.id);
+                Check(saved != null && saved.is_active == mount.is_active && saved.potion_name == mount.potion_name,
+                    label + ": mount identity and selection " + mount.id);
+            }
         }
 
         private IEnumerator ExpeditionOverview(CampPrototypeController ui)

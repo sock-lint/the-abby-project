@@ -193,11 +193,32 @@ namespace AbbyCamp.Data
         public PotionDto potion;
         public bool is_active;
         public string last_bred_at;
+        public bool can_breed;
+        public int breeding_cooldown_seconds;
         public MountExpeditionDto active_expedition;
         public string created_at;
         public string updated_at;
 
         public string DisplayName => potion.name + " " + species.name;
+    }
+
+    [Serializable]
+    public sealed class MountBreedDto
+    {
+        public int egg_item_id;
+        public string egg_item_name;
+        public string egg_item_icon;
+        public string egg_item_sprite_key;
+        public int potion_item_id;
+        public string potion_item_name;
+        public string potion_item_icon;
+        public string potion_item_sprite_key;
+        public string picked_species;
+        public string picked_species_slug;
+        public string picked_potion;
+        public string picked_potion_slug;
+        public bool chromatic;
+        public int cooldown_days;
     }
 
     [Serializable]
