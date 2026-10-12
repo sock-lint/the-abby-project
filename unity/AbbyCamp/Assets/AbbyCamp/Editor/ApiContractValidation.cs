@@ -112,6 +112,7 @@ namespace AbbyCamp.Editor
             ValidateHatchingContracts();
             ValidateExpeditionContracts();
             ValidateBreedingContracts();
+            ValidateCareRefreshLock();
             var gameObject = new GameObject("API validation client");
             try
             {
@@ -932,6 +933,55 @@ namespace AbbyCamp.Editor
                     "Account replacement clears every owned breeding identity and readiness snapshot");
             }
             finally { UnityEngine.Object.DestroyImmediate(gameObject); }
+        }
+
+        private static void ValidateCareRefreshLock()
+        {
+            var gameObject = new GameObject("Care refresh ownership validation");
+            System.Collections.IEnumerator heldRefresh = null;
+            try
+            {
+                var client = gameObject.AddComponent<AbbyApiClient>();
+                var controller = gameObject.AddComponent<AbbyCamp.UI.CampPrototypeController>();
+                const BindingFlags privateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(AbbyApiClient).GetField("token", privateInstance).SetValue(client, "0123456789012345678901234567890123456789");
+                typeof(AbbyApiClient).GetField("<CurrentUser>k__BackingField", privateInstance).SetValue(client, new UserDto { id = 7, role = "child" });
+                var controllerType = typeof(AbbyCamp.UI.CampPrototypeController);
+                void Set(string field, object value) => controllerType.GetField(field, privateInstance).SetValue(controller, value);
+                Set("api", client); Set("careInFlight", true);
+                var sectionType = controllerType.GetNestedType("Section", BindingFlags.NonPublic);
+                var bestiary = Enum.Parse(sectionType, "Bestiary");
+                var loader = controllerType.GetMethod("LoadSection", privateInstance);
+                System.Collections.IEnumerator Load(bool internalRefresh) => (System.Collections.IEnumerator)loader.Invoke(controller, new object[] { bestiary, internalRefresh });
+
+                Check(!Load(false).MoveNext() && !controller.IsSectionLoading && controller.IsBusy,
+                    "Ordinary collection refresh cannot enter or release an active care save");
+                // Leave the visible section closed so presentation remains inert.
+                // Advance the real loader to its first nested read without
+                // advancing that request or opening any network connection.
+                heldRefresh = Load(true);
+                Check(heldRefresh.MoveNext() && heldRefresh.Current is System.Collections.IEnumerator
+                    && controller.IsSectionLoading && controller.IsBusy,
+                    "A save's internal collection refresh starts while that save retains its busy ownership");
+                // Disposing exercises the loader's actual finally. Inner
+                // teardown must never release its outer save's ownership.
+                (heldRefresh as IDisposable)?.Dispose(); heldRefresh = null;
+                Check(!controller.IsSectionLoading && controller.IsBusy,
+                    "Nested refresh teardown clears loading without unlocking the outer care action");
+                Check(!Load(false).MoveNext() && !controller.IsSectionLoading,
+                    "After nested teardown the still-owned care save blocks the next ordinary refresh");
+                Set("busy", true);
+                Check(!Load(true).MoveNext() && !controller.IsSectionLoading,
+                    "The internal care exception cannot bypass an independent connection busy gate");
+                Set("busy", false); Set("markingRead", true);
+                Check(!Load(true).MoveNext() && !controller.IsSectionLoading,
+                    "The internal care exception cannot bypass an inbox acknowledgement busy gate");
+            }
+            finally
+            {
+                (heldRefresh as IDisposable)?.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
         }
 
         private static void Check(bool condition, string description)
