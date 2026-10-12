@@ -21,22 +21,21 @@ export default function EconomyDiagram({ entries = [] }) {
     <ParchmentCard variant="sealed" tone="bright" flourish seal="top-right" className="overflow-hidden">
       <div className="pr-10">
         <div className="font-script text-sheikah-teal-deep text-base">
-          parent map · which action pays what
+          Rewards by activity
         </div>
         <h2 className="font-display italic text-2xl md:text-3xl text-ink-primary leading-tight">
-          Economy Diagram
+          How rewards work
         </h2>
         <p className="mt-1 text-sm text-ink-secondary max-w-3xl">
-          Money, Coins, XP, drops, quests, and streaks are separate channels.
-          This table makes the “why doesn&apos;t homework pay coins?” answer
-          visible at a glance.
+          See which activities earn money, coins, XP, or item drops,
+          and which count toward challenges and streaks.
         </p>
       </div>
 
       <div className="mt-4 overflow-x-auto">
         <table className="min-w-[760px] w-full border-collapse text-sm">
           <caption className="sr-only">
-            Lorebook economy diagram showing which mechanics award each reward channel.
+            Guide to the rewards and progress earned by each activity.
           </caption>
           <thead>
             <tr className="border-b border-ink-page-shadow">

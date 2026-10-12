@@ -53,7 +53,7 @@ export default function SigilCodex({ allBadges = [], earnedBadges = [], onSelect
   };
 
   if (!allBadges.length) {
-    return <EmptyState>No badges have been forged yet.</EmptyState>;
+    return <EmptyState>No badges available yet.</EmptyState>;
   }
 
   const earnedIdSet = new Set(earnedBadges.map((ub) => ub?.badge?.id).filter((x) => x != null));
@@ -71,7 +71,7 @@ export default function SigilCodex({ allBadges = [], earnedBadges = [], onSelect
       chip: `${chapter.earned}/${chapter.total}`,
       progressPct: pct,
       tier: tierForProgress({ unlocked: true, progressPct: pct, level: 0 }),
-      ariaLabel: `${chapter.collection.name}, ${chapter.earned} of ${chapter.total} sealed`,
+      ariaLabel: `${chapter.collection.name}, ${chapter.earned} of ${chapter.total} earned`,
     };
   });
 
@@ -80,13 +80,13 @@ export default function SigilCodex({ allBadges = [], earnedBadges = [], onSelect
   return (
     <div className="space-y-5">
       <IncipitBand
-        letter="S"
-        title="Sigil Case"
-        kicker="· the reliquary of seals ·"
+        letter="B"
+        title="Badges"
+        kicker="Celebrate what you have achieved"
         meta={
           <>
             <span className="tabular-nums">{totalEarned} of {total}</span>
-            <span>sealed</span>
+            <span>earned</span>
           </>
         }
         progressPct={progressPct}
@@ -97,7 +97,7 @@ export default function SigilCodex({ allBadges = [], earnedBadges = [], onSelect
         items={shelfItems}
         activeId={activeChapterId}
         onSelect={setActiveChapterId}
-        ariaLabel="Sigil reliquary chapters"
+        ariaLabel="Badge collections"
       />
 
       {activeChapter && (

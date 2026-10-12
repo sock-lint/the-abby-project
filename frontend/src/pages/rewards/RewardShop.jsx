@@ -25,8 +25,8 @@ export default function RewardShop({
     return (
       <EmptyState icon={<Gift size={28} />}>
         {isParent
-          ? 'No rewards yet — head to Manage to add some.'
-          : 'No rewards yet — ask a parent to add some.'}
+          ? 'No rewards yet. Choose New reward to add one.'
+          : 'No rewards yet. Ask a parent to add one.'}
       </EmptyState>
     );
   }

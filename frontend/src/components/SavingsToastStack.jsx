@@ -28,7 +28,7 @@ function Toast({ toast, onDismiss }) {
       <span className="text-xl shrink-0" aria-hidden="true">{toast.icon}</span>
       <div className="flex-1 min-w-0">
         <div className="text-caption font-semibold text-white">
-          Hoard complete!
+          Savings goal reached!
         </div>
         <div className="text-micro text-white/90 truncate">
           {toast.title} · +{toast.coin_bonus} coins

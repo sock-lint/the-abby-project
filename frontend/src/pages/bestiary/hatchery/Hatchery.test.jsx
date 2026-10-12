@@ -61,7 +61,7 @@ describe('Hatchery', () => {
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     );
     const { container } = renderHatchery();
-    await waitFor(() => expect(screen.getByText('Hatch a New Pet')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Hatch a new pet')).toBeInTheDocument());
     expect(container.querySelector('[data-chapter-marker="1"]')).toHaveTextContent('1');
     expect(container.querySelector('[data-chapter-marker="2"]')).toHaveTextContent('2');
   });
@@ -89,7 +89,7 @@ describe('Hatchery', () => {
 
     await user.selectOptions(await screen.findByRole('combobox', { name: /^egg$/i }), '11');
     await user.selectOptions(screen.getByRole('combobox', { name: /^potion$/i }), '22');
-    await user.click(screen.getByRole('button', { name: /perform the ritual/i }));
+    await user.click(screen.getByRole('button', { name: /hatch pet/i }));
 
     await waitFor(() => expect(hatch.calls).toHaveLength(1));
     expect(hatch.calls[0].body).toEqual({ egg_item_id: '11', potion_item_id: '22' });
@@ -130,7 +130,7 @@ describe('Hatchery', () => {
 
     await user.selectOptions(firstPicker, '9');
     await user.selectOptions(screen.getByRole('combobox', { name: /second mount/i }), '10');
-    await user.click(screen.getByRole('button', { name: /breed the pair/i }));
+    await user.click(screen.getByRole('button', { name: /breed mounts/i }));
 
     await waitFor(() => expect(breed.calls).toHaveLength(1));
     expect(breed.calls[0].body).toEqual({ mount_a_id: '9', mount_b_id: '10' });
@@ -175,7 +175,7 @@ describe('Hatchery', () => {
 
     await user.selectOptions(await screen.findByRole('combobox', { name: /first mount/i }), '9');
     await user.selectOptions(screen.getByRole('combobox', { name: /second mount/i }), '10');
-    await user.click(screen.getByRole('button', { name: /breed the pair/i }));
+    await user.click(screen.getByRole('button', { name: /breed mounts/i }));
 
     // The celebration modal mounts and renders the result egg headline +
     // the "hybrid is conceived" kicker (non-chromatic path).
@@ -183,6 +183,6 @@ describe('Hatchery', () => {
       expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     });
     expect(screen.getByText(/wolf egg/i)).toBeInTheDocument();
-    expect(screen.getByText(/a hybrid is conceived/i)).toBeInTheDocument();
+    expect(screen.getByText(/a new hybrid egg/i)).toBeInTheDocument();
   });
 });

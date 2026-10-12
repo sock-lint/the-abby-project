@@ -12,7 +12,7 @@ describe('RuneBand', () => {
 
   it('renders fallback title when omitted', () => {
     render(<RuneBand elapsedLabel="00:00" />);
-    expect(screen.getByText(/unclaimed venture/i)).toBeInTheDocument();
+    expect(screen.getByText(/no project selected/i)).toBeInTheDocument();
   });
 
   it('renders as a button when onClick is provided', async () => {

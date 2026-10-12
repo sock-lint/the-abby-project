@@ -24,15 +24,15 @@ export default function BestiaryHub() {
   return (
     <>
       <ChapterHub
-        title="Bestiary"
-        kicker="Chapter III · Creatures, Codex & Hatchery"
+        title="Pets"
+        kicker="Care for companions and grow your collection"
         glyph="dragon-crest"
         defaultTabId="companions"
         tabs={[
           { id: 'companions', label: 'Companions', render: () => <Companions /> },
           { id: 'mounts',     label: 'Mounts',     render: () => <Mounts /> },
-          { id: 'codex',      label: 'Codex',      render: () => <BestiaryCodex /> },
-          { id: 'hatchery',   label: 'Hatchery',   render: () => <Hatchery /> },
+          { id: 'codex',      label: 'Collection', render: () => <BestiaryCodex /> },
+          { id: 'hatchery',   label: 'Hatching',   render: () => <Hatchery /> },
         ]}
       />
       <div className="max-w-6xl mx-auto mt-4 text-right">
@@ -40,7 +40,7 @@ export default function BestiaryHub() {
           to="/atlas"
           className="inline-flex items-center gap-1.5 font-script text-caption text-ink-whisper hover:text-sheikah-teal-deep transition-colors"
         >
-          Skills, Badges & Lorebook <ArrowRight size={14} />
+          Skills, badges & help <ArrowRight size={14} />
         </Link>
       </div>
     </>

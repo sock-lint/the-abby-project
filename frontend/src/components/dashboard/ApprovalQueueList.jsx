@@ -24,12 +24,12 @@ import {
 } from '../../api';
 
 const KIND_LABELS = {
-  chore: { label: 'duty', tone: 'moss', icon: ClipboardCheck },
-  homework: { label: 'study', tone: 'royal', icon: BookOpen },
+  chore: { label: 'chore', tone: 'moss', icon: ClipboardCheck },
+  homework: { label: 'homework', tone: 'royal', icon: BookOpen },
   redemption: { label: 'reward', tone: 'gold', icon: Gift },
   creation: { label: 'creation', tone: 'gold', icon: Palette },
-  chore_proposal: { label: 'duty proposal', tone: 'gold', icon: Sparkles },
-  habit_proposal: { label: 'ritual proposal', tone: 'royal', icon: Feather },
+  chore_proposal: { label: 'chore proposal', tone: 'gold', icon: Sparkles },
+  habit_proposal: { label: 'habit proposal', tone: 'royal', icon: Feather },
   exchange: { label: 'exchange', tone: 'ember', icon: CoinIcon },
 };
 
@@ -573,7 +573,7 @@ export default function ApprovalQueueList({ items = [], loading = false, onDone 
       {pendingBulk && (
         <ConfirmDialog
           title={`Approve ${pendingBulk.items.length} for ${pendingBulk.kidName}?`}
-          message={`This will mark every pending duty, study, and reward in ${pendingBulk.kidName}'s queue as approved.`}
+          message={`This will mark every pending item in ${pendingBulk.kidName}'s queue as approved.`}
           confirmLabel="Approve all"
           onCancel={() => setPendingBulk(null)}
           onConfirm={() => {

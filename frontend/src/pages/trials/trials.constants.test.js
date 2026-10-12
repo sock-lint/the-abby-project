@@ -51,12 +51,12 @@ describe('chapterIdForQuest', () => {
       .toBe('locked');
   });
 
-  it('treats an active Quest row as underway', () => {
+  it('treats an active Challenge row as underway', () => {
     const q = questOf(defBoss(), 'active');
     expect(chapterIdForQuest(q, { isQuest: true })).toBe('underway');
   });
 
-  it('treats a non-active Quest row (completed/expired/failed) as closed', () => {
+  it('treats a non-active Challenge row (completed/expired/failed) as closed', () => {
     expect(chapterIdForQuest(questOf(defBoss(), 'completed'), { isQuest: true }))
       .toBe('closed');
     expect(chapterIdForQuest(questOf(defBoss(), 'expired'), { isQuest: true }))
@@ -90,7 +90,7 @@ describe('groupQuestsByChapter', () => {
     expect(byId.locked.quests.map((q) => q.id)).toEqual([2]);
   });
 
-  it('places the active quest in underway and history in closed', () => {
+  it('places the active challenge in underway and history in closed', () => {
     const active = questOf(defBoss(), 'active');
     const completed = { id: 50, status: 'completed', definition: defBoss({ id: 1 }), participants: [] };
     const expired = { id: 51, status: 'expired', definition: defCollection({ id: 2 }), participants: [] };
@@ -115,12 +115,12 @@ describe('KIND_FILTERS', () => {
     expect(boss.match(defCollection())).toBe(false);
   });
 
-  it('matches by nested definition.quest_type on a Quest row', () => {
+  it('matches by nested definition.quest_type on a Challenge row', () => {
     const boss = KIND_FILTERS.find((f) => f.key === 'boss');
     expect(boss.match(questOf(defBoss(), 'completed'))).toBe(true);
   });
 
-  it('coop matches Quest rows with >1 participant', () => {
+  it('coop matches Challenge rows with >1 participant', () => {
     const coop = KIND_FILTERS.find((f) => f.key === 'coop');
     expect(coop.match(questOf(defBoss(), 'active', [{ id: 1 }, { id: 2 }]))).toBe(true);
     expect(coop.match(questOf(defBoss(), 'active', [{ id: 1 }]))).toBe(false);
@@ -161,7 +161,7 @@ describe('overallProgress', () => {
     expect(r).toEqual({ triumphs: 1, total: 2, progressPct: 50 });
   });
 
-  it('includes the active quest in the denominator', () => {
+  it('includes the active challenge in the denominator', () => {
     const r = overallProgress({
       history: [{ id: 1, status: 'completed' }, { id: 2, status: 'completed' }],
       activeQuest: { id: 99, status: 'active' },

@@ -1,6 +1,6 @@
 # apps/habits/
 
-Micro-behaviors distinct from chores — no parent approval, no dollar rewards, **no coin rewards**. User-facing label is "Rituals"; frontend page `/habits` redirects to `/quests?tab=rituals`.
+Micro-behaviors distinct from chores — no parent approval, no dollar rewards, **no coin rewards**. User-facing label is "Habits" under Tasks; frontend page `/habits` redirects to the stable `/quests?tab=rituals` route.
 
 ## Models
 - `Habit` — `habit_type` (positive / negative / both), `max_taps_per_day` (default 1, caps positive taps per local day; negative taps uncapped), `strength` (integer, decays toward 0 daily), `xp_reward` (pool split across `HabitSkillTag` rows). `pending_parent_review` gates tapping. Table preserved as `rpg_habit` (state-only migration).

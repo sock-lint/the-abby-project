@@ -53,7 +53,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
     <ParchmentCard
       tone="bright"
       as="section"
-      aria-label={`${category?.name} folio`}
+      aria-label={`${category?.name} skills`}
       className="!p-0 overflow-hidden"
     >
       <div className="relative grid grid-cols-1 md:grid-cols-[220px_1fr] lg:grid-cols-[260px_1fr]">
@@ -100,7 +100,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
                 {category?.name}
               </h2>
               <div className="text-caption font-body text-ink-whisper mt-0.5">
-                L{level} rank · {totalXp.toLocaleString()} total xp
+                Level {level} · {totalXp.toLocaleString()} total XP
               </div>
               <div className="mt-1.5">
                 <div
@@ -117,7 +117,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
                   />
                 </div>
                 <div className="font-script text-caption text-ink-whisper truncate mt-0.5">
-                  {illuminated} of {total} illuminated
+                  {illuminated} of {total} skills started
                 </div>
               </div>
             </div>
@@ -129,7 +129,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
             className="hidden w-full md:flex flex-col items-center text-center gap-3"
           >
           <RuneBadge tone={TIER_BADGE_TONE[tierKey] ?? 'ink'} variant="outlined">
-            the codex of mastery
+            Skill progress
           </RuneBadge>
           {/* Soft letter tile shared with the quest summaries. */}
           <span
@@ -150,7 +150,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
           </span>
           <div className="space-y-0.5">
             <div className="font-script text-sheikah-teal-deep text-caption leading-none">
-              the atlas
+              Skills
             </div>
             <h2
               data-folio-title="true"
@@ -174,7 +174,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
                 L{level}
               </div>
               <div className="text-caption font-body text-ink-whisper mt-0.5">
-                rank
+                level
               </div>
             </div>
             <div className="h-8 w-px bg-ink-page-shadow/40" aria-hidden="true" />
@@ -183,7 +183,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
                 {totalXp.toLocaleString()}
               </div>
               <div className="text-caption font-body text-ink-whisper mt-0.5">
-                total xp
+                total XP
               </div>
             </div>
           </div>
@@ -203,10 +203,10 @@ export default function FolioSpread({ tree, onSelectSkill }) {
             </div>
             <div className="flex items-center justify-between text-caption text-ink-whisper mt-1.5">
               <span className="font-script">
-                {illuminated} of {total} illuminated
+                {illuminated} of {total} skills started
               </span>
               <span className="font-rune text-micro uppercase tracking-wider">
-                {maxed ? 'mastery sealed' : `${toNext.toLocaleString()} to L${level + 1}`}
+                {maxed ? 'Maximum level reached' : `${toNext.toLocaleString()} to L${level + 1}`}
               </span>
             </div>
           </div>
@@ -217,7 +217,7 @@ export default function FolioSpread({ tree, onSelectSkill }) {
         <div className="px-4 md:px-6 py-5 md:py-6 space-y-5">
           {subjects.length === 0 ? (
             <div className="font-script text-ink-whisper text-center py-8">
-              This chapter is still blank — skills will ink in as the atlas grows.
+              No skills in this category yet.
             </div>
           ) : (
             subjects.map((subject, i) => {

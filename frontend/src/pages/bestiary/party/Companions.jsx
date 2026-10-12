@@ -112,7 +112,7 @@ export default function Companions() {
       <IncipitBand
         letter="C"
         title="Companions"
-        kicker="· your party · companions you've raised ·"
+        kicker="The pets you've hatched"
         meta={
           <>
             <span className="tabular-nums">{pets.length} of {totalPossible}</span>
@@ -123,7 +123,7 @@ export default function Companions() {
       />
 
       <p className="font-script text-body text-ink-whisper -mt-2 max-w-xl">
-        feed companions to grow them — at full bloom they evolve into mounts you can ride
+        Feed companions to help them grow. At 100 growth, they evolve into mounts you can ride.
       </p>
 
       {/* Covers the partial case too: stable loaded but the satchel fetch
@@ -153,7 +153,7 @@ export default function Companions() {
 
       {pets.length === 0 ? (
         <EmptyState icon={<EggIcon size={36} />}>
-          No companions yet. Find eggs and potions in drops, then cast the ritual.
+          No companions yet. Collect an egg and a potion, then combine them on the Hatching tab.
         </EmptyState>
       ) : visiblePets.length === 0 ? (
         <EmptyState icon={<EggIcon size={28} />}>
@@ -256,7 +256,7 @@ export default function Companions() {
                     )}
                     {!pet.evolved_to_mount && pet.species.slug === 'companion' && (
                       <div className="font-script text-tiny text-ink-whisper italic">
-                        grows on its own — every daily check-in adds a little
+                        Grows a little with each daily check-in.
                       </div>
                     )}
                     {!pet.evolved_to_mount && foods.length > 0 && (

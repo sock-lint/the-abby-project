@@ -53,7 +53,7 @@ describe('ClockPage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('keeps clock-in disabled while ventures failed to load and retries them', async () => {
+  it('keeps clock-in disabled while projects failed to load and retries them', async () => {
     const user = userEvent.setup();
     let projectCalls = 0;
     const clock = spyHandler('post', '*/api/clock/', { ok: true });
@@ -62,22 +62,22 @@ describe('ClockPage', () => {
       http.get('*/api/projects/', () => {
         projectCalls += 1;
         return projectCalls === 1
-          ? HttpResponse.json({ error: 'Ventures unavailable' }, { status: 503 })
+          ? HttpResponse.json({ error: 'Projects unavailable' }, { status: 503 })
           : HttpResponse.json([buildProject({ id: 7, title: 'Alpha', status: 'active' })]);
       }),
       http.get('*/api/time-entries/', () => HttpResponse.json([])),
       clock.handler,
     ]);
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(/couldn't load ventures/i);
+    expect(alert).toHaveTextContent(/couldn't load projects/i);
     const play = screen.getByRole('button', { name: 'Clock in' });
     expect(play).toBeDisabled();
-    expect(screen.getByRole('combobox', { name: 'Venture' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Project' })).toBeDisabled();
     await user.click(play);
     expect(clock.calls).toHaveLength(0);
     await user.click(within(alert).getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(play).toBeEnabled());
-    expect(screen.getByRole('combobox', { name: 'Venture' })).toBeEnabled();
+    expect(screen.getByRole('combobox', { name: 'Project' })).toBeEnabled();
     expect(screen.getByRole('option', { name: 'Alpha' })).toBeInTheDocument();
   });
 
@@ -96,7 +96,7 @@ describe('ClockPage', () => {
     ]);
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(/couldn't load recent entries/i);
-    expect(screen.queryByText(/no entries yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no time entries yet/i)).not.toBeInTheDocument();
     await user.click(within(alert).getByRole('button', { name: 'Try again' }));
     expect(await screen.findByText('Past')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
@@ -135,7 +135,7 @@ describe('ClockPage', () => {
       http.get('*/api/time-entries/', () => HttpResponse.json([])),
     ]);
     await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
-    expect(screen.getByText(/no entries yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/no time entries yet/i)).toBeInTheDocument();
   });
 
   it('requires a project selection before clocking in', async () => {
@@ -145,11 +145,11 @@ describe('ClockPage', () => {
       http.get('*/api/projects/', () => HttpResponse.json([])),
       http.get('*/api/time-entries/', () => HttpResponse.json([])),
     ]);
-    await waitFor(() => expect(screen.getByText('Clock')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Time tracking')).toBeInTheDocument());
     const btn = screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-play'));
     await user.click(btn);
     await waitFor(() =>
-      expect(screen.getAllByText(/select a venture/i).length).toBeGreaterThanOrEqual(2),
+      expect(screen.getAllByText(/select a project/i).length).toBeGreaterThanOrEqual(2),
     );
   });
 
@@ -167,8 +167,8 @@ describe('ClockPage', () => {
       http.get('*/api/time-entries/', () => HttpResponse.json([])),
       http.post('*/api/clock/', () => HttpResponse.json({ ok: true })),
     ]);
-    await waitFor(() => expect(screen.getByText(/now inking/i)).toBeInTheDocument());
-    await user.type(screen.getByPlaceholderText(/scribble what you did/i), 'Great stuff');
+    await waitFor(() => expect(screen.getByText(/clocked in/i)).toBeInTheDocument());
+    await user.type(screen.getByPlaceholderText(/describe what you worked on/i), 'Great stuff');
     const stop = screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-square'));
     await user.click(stop);
     // Just asserting no throw
@@ -247,8 +247,8 @@ describe('ClockPage', () => {
       http.get('*/api/time-entries/', () => HttpResponse.json([])),
       clock.handler,
     ]);
-    await waitFor(() => expect(screen.getByText(/now inking/i)).toBeInTheDocument());
-    await user.type(screen.getByPlaceholderText(/scribble what you did/i), 'Great stuff');
+    await waitFor(() => expect(screen.getByText(/clocked in/i)).toBeInTheDocument());
+    await user.type(screen.getByPlaceholderText(/describe what you worked on/i), 'Great stuff');
     const stop = screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-square'));
     await user.click(stop);
 
@@ -272,13 +272,14 @@ describe('ClockPage', () => {
       http.get('*/api/time-entries/', () => HttpResponse.json([])),
       clock.handler,
     ]);
-    await waitFor(() => expect(screen.getByText(/now inking/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/clocked in/i)).toBeInTheDocument());
     const stop = screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-square'));
     await user.click(stop);
     // The clock-out should NOT have fired yet — the confirm dialog gates it.
     expect(clock.calls).toHaveLength(0);
     // Confirming closes the entry.
-    await user.click(await screen.findByRole('button', { name: /close entry/i }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: /^clock out$/i }));
     await waitFor(() => expect(clock.calls).toHaveLength(1));
     expect(clock.calls[0].body).toEqual({ action: 'out', notes: '' });
   });
@@ -298,12 +299,12 @@ describe('ClockPage', () => {
       http.get('*/api/time-entries/', () => HttpResponse.json([])),
       clock.handler,
     ]);
-    await waitFor(() => expect(screen.getByText(/now inking/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/clocked in/i)).toBeInTheDocument());
     const stop = screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-square'));
     await user.click(stop);
     await user.click(await screen.findByRole('button', { name: /cancel/i }));
     expect(clock.calls).toHaveLength(0);
-    expect(screen.queryByRole('button', { name: /close entry/i })).toBeNull();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
   it('does not paint the idle Play seal while the clock status is still loading', async () => {
@@ -323,14 +324,14 @@ describe('ClockPage', () => {
       http.get('*/api/projects/', () => HttpResponse.json([])),
       http.get('*/api/time-entries/', () => HttpResponse.json([])),
     ]);
-    await waitFor(() => expect(screen.getByText('Clock')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Time tracking')).toBeInTheDocument());
     expect(screen.queryByText('00:00:00')).toBeNull();
     expect(
       screen.queryAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-play')),
     ).toBeUndefined();
 
     releaseStatus();
-    await waitFor(() => expect(screen.getByText(/now inking/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/clocked in/i)).toBeInTheDocument());
   });
 
   it('holds the entries empty state until the entries fetch resolves', async () => {
@@ -346,12 +347,12 @@ describe('ClockPage', () => {
         ]);
       }),
     ]);
-    await waitFor(() => expect(screen.getByText('Clock')).toBeInTheDocument());
-    expect(screen.queryByText(/no entries yet/i)).toBeNull();
+    await waitFor(() => expect(screen.getByText('Time tracking')).toBeInTheDocument());
+    expect(screen.queryByText(/no time entries yet/i)).toBeNull();
 
     releaseEntries();
     await waitFor(() => expect(screen.getByText('Past')).toBeInTheDocument());
-    expect(screen.queryByText(/no entries yet/i)).toBeNull();
+    expect(screen.queryByText(/no time entries yet/i)).toBeNull();
   });
 
   it('double-tapping the Play seal only posts one clock-in', async () => {

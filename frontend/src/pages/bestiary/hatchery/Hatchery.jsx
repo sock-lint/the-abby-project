@@ -135,8 +135,8 @@ export default function Hatchery() {
       )}
       <IncipitBand
         letter="H"
-        title="Hatchery"
-        kicker="· the hatchery · ritual casting & stable husbandry ·"
+        title="Hatching"
+        kicker="Hatch companions and breed mounts"
         meta={
           mounts.length >= 2 ? (
             <>
@@ -149,25 +149,25 @@ export default function Hatchery() {
       />
 
       <p className="font-script text-sm text-ink-whisper -mt-2 max-w-xl">
-        pair an egg + potion to summon a companion · pair two mounts to inherit a hybrid egg & potion
+        Combine an egg and a potion to hatch a companion. Breed two mounts to get a hybrid egg and potion.
       </p>
 
       {/* Covers the partial case too — stable loaded, satchel didn't. */}
       <ErrorAlert message={error || fetchError} />
 
       <ParchmentCard flourish>
-        <ChapterRubric index={0} name="Hatch a New Pet" icon="✨" />
+        <ChapterRubric index={0} name="Hatch a new pet" icon="✨" />
         <p className="font-script text-sm text-ink-whisper mb-3">
-          pair an egg with a potion to summon a new companion · the potion tints its colour
+          Choose an egg and a potion. The potion determines your new companion's color.
         </p>
 
         {cantHatch ? (
           <EmptyState icon={<EggIcon size={28} />}>
             {eggs.length === 0 && potions.length === 0
-              ? 'No eggs or potions in your Satchel yet — drops fall from clocked work, duties, study, and quests.'
+              ? 'No eggs or potions in your inventory yet. You can earn them from project work, chores, homework, and challenges.'
               : eggs.length === 0
-                ? 'No eggs yet — drops from quests + project completions are the most reliable source.'
-                : 'No potions yet — drops + breeding rewards are the main sources.'}
+                ? 'No eggs yet. You can earn them from challenges, project completions, and breeding mounts.'
+                : 'No potions yet. You can earn them from item drops and breeding mounts.'}
           </EmptyState>
         ) : (
           <>
@@ -204,25 +204,25 @@ export default function Hatchery() {
               disabled={!hatchEgg || !hatchPotion || working}
               className="w-full mt-3"
             >
-              {working ? 'Hatching…' : 'Perform the ritual'}
+              {working ? 'Hatching…' : 'Hatch pet'}
             </Button>
           </>
         )}
 
         {hatchSuccess && (
           <div role="status" className="mt-3 font-body text-body text-moss">
-            ✨ A {hatchSuccess.potionName} {hatchSuccess.speciesName} has joined your party.
+            ✨ You hatched a {hatchSuccess.potionName} {hatchSuccess.speciesName}!
           </div>
         )}
       </ParchmentCard>
 
       <ParchmentCard flourish>
-        <ChapterRubric index={1} name="Breed Two Mounts" icon="👑" />
+        <ChapterRubric index={1} name="Breed two mounts" icon="👑" />
         <p className="font-script text-sm text-ink-whisper">
-          yields a hybrid egg + potion pair · each mount rests {BREEDING_COOLDOWN_DAYS} days between pairings
+          Get a hybrid egg and potion. Each mount needs {BREEDING_COOLDOWN_DAYS} days between pairings.
         </p>
         <div className="font-script text-tiny text-gold-leaf mt-1">
-          ✨ A {CHROMATIC_UPGRADE_RATE} chance of a Cosmic potion when the chosen species supports it.
+          ✨ Each pairing has a {CHROMATIC_UPGRADE_RATE} chance of a Cosmic potion when the chosen species supports it.
         </div>
 
         {mounts.length < 2 ? (
@@ -291,7 +291,7 @@ export default function Hatchery() {
               disabled={!breedA || !breedB || breedA === breedB || working}
               className="w-full"
             >
-              {working ? 'Breeding…' : 'Breed the pair'}
+              {working ? 'Breeding…' : 'Breed mounts'}
             </Button>
           </div>
         )}

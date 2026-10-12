@@ -48,7 +48,7 @@ export default function Badges() {
   if (error || !summary) {
     return (
       <PageShell rhythm="tight" animate={false}>
-        <ErrorAlert message={error || 'Could not load the sigil case.'} />
+        <ErrorAlert message={error || 'Could not load badges.'} />
         <Button variant="primary" onClick={reload}>
           Try again
         </Button>
@@ -65,7 +65,7 @@ export default function Badges() {
         <CatalogSearch
           value={filter}
           onChange={setFilter}
-          placeholder="Search the reliquary…"
+          placeholder="Search badges…"
           ariaLabel="Filter badges"
         />
       )}

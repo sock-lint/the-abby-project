@@ -87,13 +87,13 @@ describe('Payments', () => {
     expect(screen.getByText(/paid out/i)).toBeInTheDocument();
   });
 
-  it('shows empty rune badge when nothing is inked', async () => {
+  it('shows empty rune badge when no payment entries exist', async () => {
     renderPage(buildUser(), [
       http.get('*/api/balance/', () =>
         HttpResponse.json({ balance: 0, breakdown: null, recent_transactions: [] }),
       ),
     ]);
-    await waitFor(() => expect(screen.getByText(/nothing inked yet/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/no payment entries yet/i)).toBeInTheDocument());
   });
 
   it('adjust modal lists children by name and submits the chosen id', async () => {
@@ -185,7 +185,7 @@ describe('Payments', () => {
       ),
     ]);
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: /coffers/i })).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: /payments/i })).toBeInTheDocument(),
     );
     expect(screen.queryByRole('button', { name: /export csv/i })).toBeNull();
   });

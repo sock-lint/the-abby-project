@@ -90,11 +90,38 @@ frontend/src/
 
 ## Design system (`components/README.md` is the canonical doc)
 
+### UI language (October 2026)
+
+Use warm, straightforward language that fits the Meadow presentation. Name the
+feature or action directly in navigation, headings, buttons, help, errors,
+notifications and accessible labels. Use sentence case. Avoid manuscript or
+adventure metaphors for everyday tasks and status (for example, use “Save”,
+“Earned” and “Request reward” instead of “Inscribe”, “Sealed” and “Barter”).
+
+| Current display name | Legacy display name / stable route |
+| --- | --- |
+| Tasks | Quests / `/quests` |
+| Homework, Chores, Habits, Projects, 3D Printing, Challenges | Study, Duties, Rituals, Ventures, Forge, Trials (existing tab IDs) |
+| Pets | Bestiary / `/bestiary` |
+| Rewards | Treasury / `/treasury` |
+| Payments, Timecards, Shop, Inventory, Savings goals | Coffers, Wages, Bazaar, Satchel, Hoards (existing tab IDs) |
+| Progress | Atlas / `/atlas` |
+| Guide | Lorebook (existing `lorebook` tab ID) |
+| Memories | Chronicle / `/chronicle` |
+| Gallery, Journal, Grades, Timeline | Existing memory tab IDs, including `sketchbook` and `yearbook` |
+| Profile | Sigil / `/sigil` |
+
+Keep Meadow place names and meaningful game concepts such as companions,
+mounts, eggs, potions, XP, coins and boss challenges. Preserve catalog names
+and user-authored content. Route names, saved keys, API fields, enum values and
+component identifiers remain compatible; older architectural sections below
+use some of these historical names.
+
 The October 2026 Meadow refresh shares bundled Nunito, cream/lavender/mint surfaces, rounded controls and collection tiles across the web app and Play. All legacy font aliases resolve to Nunito. React uses the variable font's real 200–1000 weight range for body copy, labels and headings; Unity retains the shared weight-600 export. Both come from `shared/storybook/fonts`, with runtime copies maintained by `scripts/storybook/sync_presentation.py`. The bundled React `.ttf` is precached for offline typography.
 
 The replaceable Meadow presentation also supplies the welcome screen. Its licensed chick is a generic artwork preview, not evidence of an account's owned species or growth. Today and Bestiary render actual server-confirmed companions through their species `sprite_key`. `cute-chick` and `cute-chick-mount` use privately staged chick/bird portraits when the matching licensed Chick overlay is present; missing or failed portraits recover through the runtime catalog and labelled icon. Other species retain their own runtime artwork. Saved cover keys and cosmetic ownership stay unchanged: `hyrule`/`vigil`/`sunlit`/`snowquill`/`verdant`/`harvest` now display as Memory/Twilight/Honey/Cloud/Clover/Peach Meadow. Baseline art/palette data remains in `shared/storybook/presentation.json`; `themes.js` adds semantic shades for readable UI.
 
-`RpgSprite` defaults to smooth image scaling; use `rendering="pixelated"` explicitly for artwork that needs crisp pixel edges. Missing or failed portraits try `fallbackSpriteKey` before a labelled icon. Failures belong to the image URL, so a fresh catalog URL can recover. `JournalIcons` keeps its named exports with rounded Meadow SVG drawings, readable current-color outlines and soft cover-token fills. Use its shared chapter icons in navigation and `CoinIcon` for progression currency; real money keeps its dollar icon. `ChapterMarker` replaces manuscript section marks with decorative rounded number badges; `chapterMark` returns one-based Arabic labels for headings, chapter taxonomies and shelf medallions. Shared `TabList` uses one tab stop, Left/Right arrows with wrapping, Home/End, automatic selection and reduced-motion-aware active-tab scrolling.
+`RpgSprite` defaults to smooth image scaling; use `rendering="pixelated"` explicitly for artwork that needs crisp pixel edges. Today and Companions use `petSpriteKeys` for retained pet rows, selecting the evolved portrait only from server-confirmed `evolved_to_mount`, never growth alone. Missing or failed portraits try `fallbackSpriteKey` before a labelled icon. Failures belong to the image URL, so a fresh catalog URL can recover. `JournalIcons` keeps its named exports with rounded Meadow SVG drawings, readable current-color outlines and soft cover-token fills. Use its shared chapter icons in navigation and `CoinIcon` for progression currency; real money keeps its dollar icon. `ChapterMarker` replaces manuscript section marks with decorative rounded number badges; `chapterMark` returns one-based Arabic labels for headings, chapter taxonomies and shelf medallions. Shared `TabList` uses one tab stop, Left/Right arrows with wrapping, Home/End, automatic selection and reduced-motion-aware active-tab scrolling.
 
 - **Import recovery:** `ProjectIngest` keeps the active job, edited plan, and overrides in a user-scoped device draft (`pages/ingest/ingestDraft.js`) and debounces staged-plan saves to the server. Connection failures resume the existing job. An interrupted creation checks that job and safely retries its idempotent commit; confirmed creation/discard clears the local draft.
 

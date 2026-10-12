@@ -43,8 +43,8 @@ export function nextChoreReminderDate(chore, today = appToday(new Date())) {
 
 export function validateChoreReminderDate(chore, value) {
   const date = parseDate(value);
-  if (!date) return 'Choose a valid day for this duty reminder.';
-  if (!activeOnDate(chore, date)) return 'This duty is off that week. Choose a day in an on-week.';
+  if (!date) return 'Choose a valid day for this chore reminder.';
+  if (!activeOnDate(chore, date)) return 'This chore is off that week. Choose a day in an on-week.';
   return '';
 }
 
@@ -54,9 +54,9 @@ export function choreReminderEvent(chore, now = new Date()) {
   if (!start) return null;
   return {
     id: `chore:${chore.id}`,
-    title: `Duty reminder: ${chore.title}`,
+    title: `Chore reminder: ${chore.title}`,
     start,
-    description: 'A one-day reminder for this duty.',
+    description: 'A one-day reminder for this chore.',
     path: '/quests?tab=duties',
   };
 }

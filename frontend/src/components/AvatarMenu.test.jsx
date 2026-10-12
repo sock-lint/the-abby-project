@@ -52,7 +52,7 @@ describe('AvatarMenu', () => {
     await user.keyboard('{ArrowDown}');
     const menu = screen.getByRole('menu', { name: 'Profile' });
     expect(trigger).toHaveAttribute('aria-controls', menu.id);
-    const sigil = screen.getByRole('menuitem', { name: /sigil/i });
+    const sigil = screen.getByRole('menuitem', { name: /profile/i });
     const settings = screen.getByRole('menuitem', { name: /settings/i });
     expect(sigil).toHaveFocus();
     await user.keyboard('{ArrowUp}');
@@ -81,7 +81,7 @@ describe('AvatarMenu', () => {
     );
     const trigger = screen.getByRole('button', { name: /profile menu/i });
     await user.click(trigger);
-    expect(screen.getByRole('menuitem', { name: /sigil/i })).toHaveFocus();
+    expect(screen.getByRole('menuitem', { name: /profile/i })).toHaveFocus();
     await user.tab();
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('button', { name: 'Next action' })).toHaveFocus();
@@ -97,20 +97,20 @@ describe('AvatarMenu', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('renders a Sigil menu link pointing to /sigil', async () => {
+  it('renders a Profile menu link pointing to /sigil', async () => {
     const user = userEvent.setup();
     renderMenu();
     await user.click(screen.getByRole('button', { name: /profile menu/i }));
-    const link = screen.getByRole('menuitem', { name: /sigil/i });
+    const link = screen.getByRole('menuitem', { name: /profile/i });
     expect(link.getAttribute('href')).toBe('/sigil');
   });
 
-  it('clicking the Sigil link closes the menu', async () => {
+  it('clicking the Profile link closes the menu', async () => {
     const user = userEvent.setup();
     renderMenu();
     const trigger = screen.getByRole('button', { name: /profile menu/i });
     await user.click(trigger);
-    const link = screen.getByRole('menuitem', { name: /sigil/i });
+    const link = screen.getByRole('menuitem', { name: /profile/i });
     await user.click(link);
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
   });
@@ -145,12 +145,12 @@ describe('AvatarMenu', () => {
     expect(screen.getByRole('menu').className).toContain('bottom-full');
   });
 
-  it('falls back to "adventurer" and "traveler" in the header when user fields are missing', async () => {
+  it('falls back to "member" and "family member" in the header when user fields are missing', async () => {
     const user = userEvent.setup();
     renderMenu({ user: {} });
     await user.click(screen.getByRole('button', { name: /profile menu/i }));
-    expect(screen.getByText('adventurer')).toBeInTheDocument();
-    expect(screen.getByText('traveler')).toBeInTheDocument();
+    expect(screen.getByText('member')).toBeInTheDocument();
+    expect(screen.getByText('family member')).toBeInTheDocument();
   });
 
   it('renders Manage / Activity / Content Catalog menu items for parents', async () => {

@@ -19,7 +19,7 @@ export default function WayfinderSkillDetail({ skill, resolvePrerequisite = () =
   return <div className="space-y-4">
     <WayfinderHeading title={skill.name} icon={skill.icon || skill.name?.[0]}
       description={skill.description} meta={`Level ${level}${levelName ? ` · ${levelName}` : ''} · ${xp.toLocaleString()} XP`} />
-    {skill.unlocked ? (maxed ? <p className="font-medium text-body text-gold-leaf">Mastery sealed</p> : <div className="space-y-2">
+    {skill.unlocked ? (maxed ? <p className="font-medium text-body text-gold-leaf">Maximum level reached</p> : <div className="space-y-2">
       <div className="flex flex-wrap justify-between gap-2 text-caption text-ink-whisper">
         <span>{Math.max(0, next - xp).toLocaleString()} XP to Level {level + 1}</span><span>{Math.round(pct)}% toward next level</span>
       </div>

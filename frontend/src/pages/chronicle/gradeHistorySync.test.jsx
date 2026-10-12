@@ -81,7 +81,7 @@ describe('retained Chronicle grade histories', () => {
   it('refreshes a previously visited Yearbook after a Grades correction and preserves confirmation until Done', async () => {
     const { user, reads, writes } = mountHistory();
     await screen.findByRole('article', { name: 'Math' });
-    await visit(user, 'Yearbook');
+    await visit(user, 'Timeline');
     await screen.findByRole('button', { name: /Math · Fractions quiz/ });
     await visit(user, 'Grades');
     await user.click(screen.getByRole('button', { name: 'Correct grade or sharing' }));
@@ -94,7 +94,7 @@ describe('retained Chronicle grade histories', () => {
     expect(reads.yearbook).toBe(1);
     await user.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(reads.yearbook).toBe(2));
-    await visit(user, 'Yearbook');
+    await visit(user, 'Timeline');
     const row = await screen.findByRole('button', { name: /Math · Fractions quiz/ });
     expect(row).toHaveTextContent('Shared with family');
     expect(row).toHaveTextContent('9 / 10 points');
@@ -111,7 +111,7 @@ describe('retained Chronicle grade histories', () => {
     await screen.findByRole('button', { name: /Math · Fractions quiz/ });
     await visit(user, 'Grades');
     await screen.findByRole('article', { name: 'Math' });
-    await visit(user, 'Yearbook');
+    await visit(user, 'Timeline');
     await user.click(screen.getByRole('button', { name: /Math · Fractions quiz/ }));
     await user.click(screen.getByRole('button', { name: 'Correct grade or sharing' }));
     const form = screen.getByRole('dialog', { name: 'Correct grade' });
@@ -149,7 +149,7 @@ describe('retained Chronicle grade histories', () => {
     expect(reads.yearbook).toBe(1);
     await user.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(reads.yearbook).toBe(2));
-    await visit(user, 'Yearbook');
+    await visit(user, 'Timeline');
     const row = await screen.findByRole('button', { name: /Science · Lab report/ });
     expect(row).toHaveTextContent('Only you');
     expect(row).toHaveTextContent('0%');

@@ -29,7 +29,7 @@ export default function Achievements() {
   if (error || !categoriesData) {
     return (
       <PageShell rhythm="tight" animate={false}>
-        <ErrorAlert message={error || 'Could not load the atlas.'} />
+        <ErrorAlert message={error || 'Could not load skills.'} />
         <Button variant="primary" onClick={reloadCategories}>
           Try again
         </Button>
@@ -44,7 +44,7 @@ export default function Achievements() {
       <header className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
-            the atlas · mastery charted in rune
+            Track your skill progress
           </div>
           {/* Below md the Atlas hub's tab strip already names this page —
               the stacked h1 + explainer ate ~100px above the fold on phones. */}
@@ -52,13 +52,13 @@ export default function Achievements() {
             Skills
           </h1>
           <div className="hidden md:block font-script text-body text-ink-whisper mt-1 max-w-xl">
-            skills grow from clocked ventures, approved duties, study, rituals, quests, and journal entries
+            Build skills through project work, approved chores and homework, habits, challenges, and journal entries.
           </div>
         </div>
         {isParent && (
           <div
             role="tablist"
-            aria-label="Achievements mode"
+            aria-label="Skills mode"
             className="flex gap-1 border border-ink-page-shadow rounded-lg p-1 bg-ink-page-aged"
           >
             <TopTabButton active={topTab === 'view'} onClick={() => setTopTab('view')}>

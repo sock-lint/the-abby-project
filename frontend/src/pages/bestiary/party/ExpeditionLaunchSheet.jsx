@@ -12,27 +12,27 @@ import { startExpedition } from '../../../api';
 const TIERS = [
   {
     key: 'short',
-    label: 'Short stroll',
+    label: 'Short expedition',
     duration_label: '2 hours',
-    coins_label: '~15c',
+    coins_label: '~15 coins',
     items_label: '1 item',
-    flavor: 'a quick scout — back before lunch.',
+    flavor: 'A short trip with mostly common finds.',
   },
   {
     key: 'standard',
-    label: 'Standard quest',
+    label: 'Standard expedition',
     duration_label: '4 hours',
-    coins_label: '~35c',
+    coins_label: '~35 coins',
     items_label: '2 items',
-    flavor: 'a proper outing — afternoon adventure.',
+    flavor: 'A longer trip with two items to collect.',
   },
   {
     key: 'long',
-    label: 'Long voyage',
+    label: 'Long expedition',
     duration_label: '8 hours',
-    coins_label: '~75c',
+    coins_label: '~75 coins',
     items_label: '3 items',
-    flavor: 'an overnight expedition — better odds for rare finds.',
+    flavor: 'The longest trip, with better chances of rare finds.',
   },
 ];
 
@@ -73,9 +73,9 @@ export default function ExpeditionLaunchSheet({ mount, onDismiss, onLaunched }) 
         <p className="font-script text-body text-ink-whisper flex items-start gap-2">
           <MapIcon size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>
-            Pick a length. Loot is rolled the moment your mount leaves —
-            you'll get the same finds whenever you tap claim. One expedition
-            per mount per day.
+            Choose a duration. Your rewards are saved when the expedition
+            starts, so you can collect them any time after it ends. Each mount
+            can start one expedition per day.
           </span>
         </p>
         <ErrorAlert message={error} />

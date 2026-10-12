@@ -18,11 +18,11 @@ describe('RouteAnnouncer', () => {
 
   it('updates the branded title and live announcement after navigation', async () => {
     const { user } = renderWithProviders(
-      <><RouteAnnouncer /><Link to="/quests">Explore quests</Link></>,
+      <><RouteAnnouncer /><Link to="/quests">View tasks</Link></>,
       { withAuth: false },
     );
-    await user.click(screen.getByRole('link', { name: 'Explore quests' }));
-    expect(document.title).toBe('Quests — The Abby Project');
-    expect(screen.getByRole('status')).toHaveTextContent('Navigated to Quests');
+    await user.click(screen.getByRole('link', { name: 'View tasks' }));
+    expect(document.title).toBe('Tasks — The Abby Project');
+    expect(screen.getByRole('status')).toHaveTextContent('Navigated to Tasks');
   });
 });

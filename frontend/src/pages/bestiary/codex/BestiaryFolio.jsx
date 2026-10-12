@@ -67,7 +67,7 @@ export default function BestiaryFolio({
 
       {species.length === 0 ? (
         <p className="mt-4 font-script italic text-caption text-ink-whisper/80">
-          no creatures filed in this chapter yet
+          No pet species in this group yet.
         </p>
       ) : (
         <motion.div

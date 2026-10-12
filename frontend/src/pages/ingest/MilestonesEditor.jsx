@@ -19,7 +19,7 @@ export default function MilestonesEditor({ milestones, onAdd, onUpdate, onRemove
         </Button>
       </div>
       <p className="text-caption text-ink-whisper">
-        Optional payment goals — chapters of the project. Each one can hold a $ bonus and group its own steps below.
+        Group steps into milestones. Each milestone can include an optional cash bonus.
       </p>
       {milestones.map((m, i) => (
         <div key={i} className="bg-ink-page border border-ink-page-shadow rounded-lg p-3 space-y-2">

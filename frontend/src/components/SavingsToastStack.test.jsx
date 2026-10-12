@@ -39,7 +39,7 @@ describe('SavingsToastStack', () => {
     beat(emptyPulse({ savings_goals: [goal()] }));
 
     await waitFor(() =>
-      expect(screen.getByText(/Hoard complete/i)).toBeInTheDocument(),
+      expect(screen.getByText(/Savings goal reached/i)).toBeInTheDocument(),
     );
     expect(screen.getByText(/Bike · \+200 coins/)).toBeInTheDocument();
   });
@@ -49,7 +49,7 @@ describe('SavingsToastStack', () => {
       pulse: emptyPulse({ savings_goals: [goal()] }),
     });
     await new Promise((r) => setTimeout(r, 50));
-    expect(screen.queryByText(/Hoard complete/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Savings goal reached/i)).not.toBeInTheDocument();
   });
 
   it('dismiss button removes the toast', async () => {

@@ -81,11 +81,8 @@ export default function ProjectNew() {
 
   return (
     <PageShell width="narrow" rhythm="loose">
-      <BackLink to="/quests?tab=ventures">Back to Ventures</BackLink>
-      {/* "Venture" is the journal's word for a project everywhere else — the
-          nav tab, the routes, the card grid. The page the "New venture"
-          button opens says the same thing. */}
-      <h1 className="font-display text-2xl font-bold">New venture</h1>
+      <BackLink to="/quests?tab=ventures">Back to Projects</BackLink>
+      <h1 className="font-display text-2xl font-bold">New project</h1>
 
       <Button
         variant="secondary"
@@ -142,7 +139,7 @@ export default function ProjectNew() {
           {/* Assignment */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SelectField label="Assign To" value={form.assigned_to_id} onChange={set('assigned_to_id')}>
-              <option value="">{form.payment_kind === 'bounty' ? 'Unassigned (open bounty)' : 'Select a child...'}</option>
+              <option value="">{form.payment_kind === 'bounty' ? 'Unassigned (available to claim)' : 'Select a child...'}</option>
               {children.map((c) => (
                 <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
               ))}
@@ -166,15 +163,15 @@ export default function ProjectNew() {
             value={form.payment_kind}
             onChange={set('payment_kind')}
             helpText={form.payment_kind === 'bounty'
-              ? 'Completing this project pays out the bonus as a bounty.'
+              ? 'Completing this optional project earns the cash reward.'
               : 'Counts toward normal allowance; bonus is a standard project bonus.'}
           >
             <option value="required">Required (part of allowance)</option>
-            <option value="bounty">Bounty (up for grabs, cash reward)</option>
+            <option value="bounty">Optional project (optional, cash reward)</option>
           </SelectField>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <TextField
-              label={form.payment_kind === 'bounty' ? 'Bounty ($)' : 'Bonus ($)'}
+              label={form.payment_kind === 'bounty' ? 'Cash reward ($)' : 'Bonus ($)'}
               value={form.bonus_amount}
               onChange={set('bonus_amount')}
               type="number"
@@ -203,7 +200,7 @@ export default function ProjectNew() {
           />
 
           <Button type="submit" className="w-full" loading={saving}>
-            {saving ? <span>Inscribing…</span> : 'Create venture'}
+            {saving ? <span>Creating…</span> : 'Create project'}
           </Button>
         </ParchmentCard>
       </form>

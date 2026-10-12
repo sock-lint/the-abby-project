@@ -60,7 +60,7 @@ export default function RewardCard({
       )}
       {reward.fulfillment_kind && reward.fulfillment_kind !== 'real_world' && (
         <div className="mt-2 rounded-full border border-sheikah-teal/40 bg-sheikah-teal-deep/10 px-2 py-1 text-center font-script text-tiny text-sheikah-teal-deep">
-          Adds {reward.item_definition_detail?.name || 'an item'} to Satchel
+          Adds {reward.item_definition_detail?.name || 'an item'} to inventory
           {reward.fulfillment_kind === 'both' ? ' + parent follow-up' : ''}
         </div>
       )}
@@ -90,7 +90,7 @@ export default function RewardCard({
             onClick={() => onRedeem(reward)}
             className="flex-1 min-w-0 min-h-11 bg-sheikah-teal-deep hover:bg-sheikah-teal disabled:opacity-40 disabled:cursor-not-allowed text-ink-page-rune-glow text-caption font-body font-semibold leading-tight py-1.5 px-1 rounded-lg border border-sheikah-teal-deep/60 transition-colors"
           >
-            {pending ? 'Bartering…' : outOfStock ? 'Out of stock' : affordable ? 'Barter' : 'Not enough coin'}
+            {pending ? 'Requesting…' : outOfStock ? 'Out of stock' : affordable ? 'Request reward' : 'Not enough coins'}
           </button>
           {onToggleWishlist && (
             <button

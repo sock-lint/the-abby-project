@@ -64,7 +64,7 @@ export default function SpeciesDetailSheet({ species, onClose }) {
           </h3>
           {eligible.length === 0 ? (
             <div className="font-script text-sm text-ink-whisper">
-              no eligible potions for this species yet
+              No potions are available for this species yet.
             </div>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -125,13 +125,13 @@ export default function SpeciesDetailSheet({ species, onClose }) {
             How to hatch
           </h3>
           <p className="font-script text-sm text-ink-whisper">
-            pair a {species.name} egg with{' '}
+            Combine a {species.name} egg with{' '}
             {eligible.length === 0
               ? 'any potion'
               : eligible.length === 1
                 ? `the ${eligible[0].name} potion`
                 : `one of: ${eligible.map((p) => p.name).join(', ')}`}{' '}
-            in the Hatchery
+            on the Hatching tab.
           </p>
         </section>
       </div>

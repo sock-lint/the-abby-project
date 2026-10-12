@@ -51,6 +51,8 @@ reads. Explicit pet/mount presentation preference is stored by origin and child,
 then checked against that row's saved active state after reload. Account changes
 clear the old binding immediately; late replies cannot restore it. Unknown
 species, unprepared potion variants and missing models show an explicit preview.
+Older prepared licensed profiles receive their existing Chick/Bird references
+in the transient build scene, preserving private art and saved-scene bytes.
 
 React's shared `petSpriteKeys` helper uses confirmed `evolved_to_mount` state,
 not growth alone, to choose Bird for evolved pets on Today and Companions.
@@ -133,14 +135,20 @@ GUIDs across replacements. New API fields require the shared fixture and
 backend/React/Unity checks described in
 [`contracts/api/README.md`](../../contracts/api/README.md).
 
-## Catalog validation — 2026-10-11
+## Validation — 2026-10-11
 
-138 Django pet/loader/catalog/Lorebook/shared-response tests passed with Django
-5.2.18 and disposable in-memory SQLite. The complete React suite passed 2,805
+147 Django pet/loader/catalog/Lorebook/shared-response tests passed with Django
+5.2.18 and disposable in-memory SQLite. The complete React suite passed 2,847
 tests; lint passed with six existing warnings. Public and privately staged
 licensed production builds passed, with matching Chick/Bird portraits in the
 licensed bundle. Unity 6000.6.5f1 validation passed rendering, saved-scene,
-appearance-swap and 243 API checks, including the restricted collection fixture.
-Paid sources and generated import files remain ignored. No player export,
-physical-phone check, live catalog load or deployment was performed for this
-update.
+appearance-swap and 308 API/presentation checks, including the restricted
+collection fixture. Windows and Web players exported successfully. The
+1,300-check Windows harness passed care, evolution, hatching, expeditions,
+ambiguous saves and account switching, including an older private profile with
+injected build bindings and unchanged private-input/saved-scene hashes.
+An isolated same-origin browser check confirmed Chick → Bird through two saved
+feeds, matching React art, and Unity mount choice after reload in portrait and
+landscape. Browser bridge/template and release packaging guards also passed.
+Paid sources and generated import files remain ignored. Physical-phone
+testing, live catalog loading and deployment were not performed in this checkout.

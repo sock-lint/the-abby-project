@@ -23,16 +23,16 @@ function renderPage(user = buildUser(), handlers = []) {
 }
 
 describe('Projects', () => {
-  it('exports only a dated saved venture and keeps its calendar control separate from navigation', async () => {
+  it('exports only a dated saved project and keeps its calendar control separate from navigation', async () => {
     const user = userEvent.setup();
     renderPage(buildUser(), [
       http.get('*/api/projects/', () => HttpResponse.json([
         buildProject({ id: 12, title: 'Birdhouse', due_date: '2026-09-03' }),
-        buildProject({ id: 13, title: 'Undated venture', due_date: null }),
+        buildProject({ id: 13, title: 'Undated project', due_date: null }),
       ])),
     ]);
     const add = await screen.findByRole('button', { name: 'Add Project due: Birdhouse to calendar' });
-    expect(screen.queryByRole('button', { name: 'Add Project due: Undated venture to calendar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add Project due: Undated project to calendar' })).not.toBeInTheDocument();
     expect(add.parentElement.closest('button')).toBeNull();
     expect(screen.getByRole('button', { name: 'Open Birdhouse' })).toBeInTheDocument();
     await user.click(add);
@@ -45,12 +45,12 @@ describe('Projects', () => {
     await user.click(google);
   });
 
-  it('renders the empty state when there are no ventures', async () => {
+  it('renders the empty state when there are no projects', async () => {
     renderPage(buildUser(), [
       http.get('*/api/projects/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
-      expect(screen.getByText(/no ventures yet/i)).toBeInTheDocument(),
+      expect(screen.getByText(/no projects yet/i)).toBeInTheDocument(),
     );
   });
 
@@ -67,18 +67,18 @@ describe('Projects', () => {
     ]);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/server exploded/i);
-    // "No ventures yet" would read as data loss on a flaky phone connection.
-    expect(screen.queryByText(/no ventures yet/i)).toBeNull();
+    // "No projects yet" would read as data loss on a flaky phone connection.
+    expect(screen.queryByText(/no projects yet/i)).toBeNull();
 
     await user.click(screen.getByRole('button', { name: /try again/i }));
     expect(await screen.findByText('Birdhouse')).toBeInTheDocument();
   });
 
-  it('shows "New venture" only for parents', async () => {
+  it('shows "New project" only for parents', async () => {
     renderPage(buildParent(), [
       http.get('*/api/projects/', () => HttpResponse.json([])),
     ]);
-    await waitFor(() => expect(screen.getByText(/new venture/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/new project/i)).toBeInTheDocument());
   });
 
   it('renders a list of projects with metadata', async () => {
@@ -92,7 +92,7 @@ describe('Projects', () => {
     ]);
     await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
     expect(screen.getByText('Beta')).toBeInTheDocument();
-    expect(screen.getByText(/open bounty/i)).toBeInTheDocument();
+    expect(screen.getByText(/available to claim/i)).toBeInTheDocument();
     expect(screen.getByText(/assigned to abby/i)).toBeInTheDocument();
   });
 
@@ -167,7 +167,7 @@ describe('Projects', () => {
     expect(screen.getByText(/because/i)).toBeInTheDocument();
   });
 
-  it('filters ventures by title via the search input', async () => {
+  it('filters projects by title via the search input', async () => {
     const user = userEvent.setup();
     renderPage(buildUser(), [
       http.get('*/api/projects/', () =>
@@ -179,19 +179,19 @@ describe('Projects', () => {
     ]);
     await waitFor(() => expect(screen.getByText('Birdhouse')).toBeInTheDocument());
 
-    const search = screen.getByRole('searchbox', { name: /filter ventures/i });
+    const search = screen.getByRole('searchbox', { name: /filter projects/i });
     await user.type(search, 'volcano');
 
     expect(screen.queryByText('Birdhouse')).not.toBeInTheDocument();
     expect(screen.getByText('Volcano')).toBeInTheDocument();
   });
 
-  it('hides the search input when there are no ventures', async () => {
+  it('hides the search input when there are no projects', async () => {
     renderPage(buildUser(), [
       http.get('*/api/projects/', () => HttpResponse.json([])),
     ]);
-    await waitFor(() => expect(screen.getByText(/no ventures yet/i)).toBeInTheDocument());
-    expect(screen.queryByRole('searchbox', { name: /filter ventures/i })).toBeNull();
+    await waitFor(() => expect(screen.getByText(/no projects yet/i)).toBeInTheDocument());
+    expect(screen.queryByRole('searchbox', { name: /filter projects/i })).toBeNull();
   });
 
   it('renders the QuestFolio verso with title + tier + progress', async () => {
@@ -209,13 +209,13 @@ describe('Projects', () => {
     // 1 of 2 completed → 50% progress → rising tier (≥ 25, < 60).
     expect(verso).toHaveAttribute('data-tier', 'rising');
     expect(verso).toHaveAttribute('data-progress', '50');
-    // The verso renders the chapter title "Ventures".
-    expect(verso.textContent).toMatch(/Ventures/);
+    // The verso renders the chapter title "Projects".
+    expect(verso.textContent).toMatch(/Projects/);
     // RarityStrand paints per-rarity segments based on difficulty distribution.
     expect(container.querySelector('[data-rarity]')).not.toBeNull();
   });
 
-  it('groups ventures by status into ChapterRubric sections', async () => {
+  it('groups projects by status into ChapterRubric sections', async () => {
     renderPage(buildUser(), [
       http.get('*/api/projects/', () =>
         HttpResponse.json([

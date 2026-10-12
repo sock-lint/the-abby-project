@@ -188,7 +188,7 @@ export default function DailyChallengeCard() {
               className="mt-3 flex items-center gap-2"
             >
               <RuneBadge tone="gold">
-                +{claimed.coins} coins · +{claimed.xp} XP — inked.
+                +{claimed.coins} coins · +{claimed.xp} XP earned.
               </RuneBadge>
             </div>
           ) : (

@@ -37,11 +37,16 @@ animation mappings. These prepared growth forms do not yet add evolution rules.
 
 ## Product goal and next slice
 
+Use the web app's [plain-language UI vocabulary](../../frontend/CLAUDE.md#ui-language-october-2026).
+Play displays **Pets** for the companion and mount collection. Internal
+`Bestiary` section, button and destination identifiers remain unchanged for
+navigation and validation compatibility.
+
 ### Owned creature presentation — 2026-10-11
 
 Licensed presentation explicitly maps server `species.sprite_key=cute-chick`
 and `potion.slug=base` to Chick, and the confirmed evolved pet or mount to Bird.
-Choose a companion or mount in Bestiary; the acknowledged `/activate/` result
+Choose a companion or mount in Pets; the acknowledged `/activate/` result
 changes the appearance child while preserving the fixed actor root. The two
 server active flags remain independent, so the last explicitly acknowledged
 presentation choice is stored by origin and child and rechecked against active
@@ -57,15 +62,25 @@ retain a labeled preview. Account changes reset the model binding immediately;
 delayed old responses cannot change the replacement account. Normal refreshes
 reuse the current model, and the development K key cannot override owned art.
 
-Run `Build-Camp.ps1 -PrepareLicensed` once to prepare the new private binding
-references before using or exporting an existing licensed scene. Public
-checkouts contain no paid binding references. For disposable model/evolution
+Newly prepared profiles store these explicit bindings. Older prepared licensed
+profiles use their existing Chick/Bird definitions through a build-only scene
+adapter; normal exports never rewrite private assets or saved scenes. Use
+`Build-Camp.ps1 -PrepareLicensed` when intentionally preparing the editor scene.
+Public checkouts contain no paid binding references. For disposable model/evolution
 verification, run `Test-Camp.ps1 -OwnedCreatureArt`; its fixture uses Base Chick
 alongside deliberately unsupported legacy variants and another family's data.
 The web fixture accepts `--owned-chick-art` for the same coverage. Neither test
 loads the project database. React uses the matching private portraits across
 Today, Companions, Mounts, species detail, Manage and creature ceremonies;
 evolved pet rows use the confirmed mount portrait with the usual fallback.
+
+Validation passed with Unity 6000.6.5f1: source checks, Windows and Web exports,
+and the 1,300-check Windows care/hatch/expedition/account-switch harness. The
+same harness passed an export from an older profile with build-injected models;
+all private input and saved-scene hashes stayed unchanged. An isolated browser
+check verified shared sign-in, two confirmed feeds through evolution, React
+Bird art and persistent Unity mount selection at 393×852 and 844×393. These are
+exported-player and browser checks; physical phone testing remains outstanding.
 
 ### Agreed web and Play responsibilities — 2026-10-10
 

@@ -168,10 +168,10 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                 you are
               </div>
               <div className="font-display italic text-base text-ink-primary leading-tight truncate">
-                {user?.display_name || user?.username || 'adventurer'}
+                {user?.display_name || user?.username || 'member'}
               </div>
               <div className="font-script text-sheikah-teal-deep text-caption capitalize leading-tight mt-0.5">
-                {user?.role || 'traveler'}
+                {user?.role || 'family member'}
               </div>
               {user?.family?.name && (
                 <div className="font-script text-ink-whisper text-tiny leading-tight mt-0.5 truncate">
@@ -197,7 +197,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                 <DragonIcon size={20} className="text-sheikah-teal-deep shrink-0" />
                 <span className="min-w-0">
                   <span className="block font-display text-base tracking-wide leading-tight">
-                    Sigil
+                    Profile
                   </span>
                   <span className="block font-script text-ink-whisper text-caption leading-tight">
                     who you are
@@ -271,7 +271,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                         Content Catalog
                       </span>
                       <span className="block font-script text-ink-whisper text-caption leading-tight">
-                        items, creatures, adventures, sprites
+                        items, pets, challenges, artwork
                       </span>
                     </span>
                   </NavLink>
@@ -296,7 +296,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                     Settings
                   </span>
                   <span className="block font-script text-ink-whisper text-caption leading-tight">
-                    theme, account, sign-off
+                    appearance and account
                   </span>
                 </span>
               </NavLink>

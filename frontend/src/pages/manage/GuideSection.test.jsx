@@ -84,12 +84,12 @@ function mockLorebook() {
 }
 
 describe('GuideSection', () => {
-  it('renders the parent economy diagram from lorebook data', async () => {
+  it('renders the parent rewards by activity from lorebook data', async () => {
     mockLorebook();
     renderWithProviders(<GuideSection />, { withAuth: 'parent' });
 
-    await screen.findByRole('heading', { name: /economy diagram/i });
-    expect(screen.getByText(/why doesn't homework pay coins/i)).toBeInTheDocument();
+    await screen.findByRole('heading', { name: /how rewards work/i });
+    expect(screen.getByText(/see which activities earn money/i)).toBeInTheDocument();
 
     const studyRow = screen.getByRole('row', { name: /study/i });
     const cells = withinRow(studyRow);
@@ -102,7 +102,7 @@ describe('GuideSection', () => {
     const user = userEvent.setup();
     renderWithProviders(<GuideSection />, { withAuth: 'parent' });
 
-    await user.click(await screen.findByRole('button', { name: /study · inked/i }));
+    await user.click(await screen.findByRole('button', { name: /study · completed/i }));
 
     await screen.findByRole('dialog', { name: /study/i });
     expect(screen.getByText(/homework pays no money and no coins/i)).toBeInTheDocument();

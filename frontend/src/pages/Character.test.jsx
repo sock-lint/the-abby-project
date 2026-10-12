@@ -90,7 +90,7 @@ describe('Character (/sigil)', () => {
     });
     renderPage();
     await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /cosmetic chapters/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /profile collections/i })).toBeInTheDocument(),
     );
     expect(screen.getAllByRole('tab')).toHaveLength(4);
 
@@ -157,7 +157,7 @@ describe('Character (/sigil)', () => {
     renderPage();
 
     await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /cosmetic chapters/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /profile collections/i })).toBeInTheDocument(),
     );
     await user.click(screen.getByRole('tab', { name: /Journal Covers/i }));
     const tile = await screen.findByRole('button', { name: /Vigil Cover.*click to equip/i });
@@ -203,7 +203,7 @@ describe('Character (/sigil)', () => {
     // Default chapter is Frames; switch to Titles so the Adept cosmetic
     // becomes visible (and equip-clickable).
     await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /cosmetic chapters/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /profile collections/i })).toBeInTheDocument(),
     );
     await user.click(screen.getByRole('tab', { name: /Titles/i }));
     await waitFor(() => expect(screen.getByText('Adept')).toBeInTheDocument());

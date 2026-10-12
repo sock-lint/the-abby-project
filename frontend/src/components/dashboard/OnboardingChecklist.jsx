@@ -9,9 +9,9 @@ const STORAGE_KEY = 'onboarding-dismissed';
 
 const STEPS = [
   { key: 'child', label: 'Add a child to your family', route: '/manage', check: (d) => (d._parent_extras?.children_count || 0) > 0 },
-  { key: 'chore', label: 'Create a duty', route: '/quests?tab=duties', check: (d) => d._parent_extras?.has_chores },
-  { key: 'reward', label: 'Set up a reward in the bazaar', route: '/treasury?tab=bazaar', check: (d) => d._parent_extras?.has_rewards },
-  { key: 'project', label: 'Start a venture', route: '/quests?tab=ventures', check: (d) => (d.active_projects?.length || 0) > 0 },
+  { key: 'chore', label: 'Create a chore', route: '/quests?tab=duties', check: (d) => d._parent_extras?.has_chores },
+  { key: 'reward', label: 'Add a reward to the shop', route: '/treasury?tab=bazaar', check: (d) => d._parent_extras?.has_rewards },
+  { key: 'project', label: 'Start a project', route: '/quests?tab=ventures', check: (d) => (d.active_projects?.length || 0) > 0 },
 ];
 
 export default function OnboardingChecklist({ data }) {

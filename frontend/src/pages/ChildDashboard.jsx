@@ -43,7 +43,7 @@ const VISIBLE_LOG_CAP = 5;
 const ICON_MAP = { BookOpen, Sparkles, Flame };
 
 // Map NextAction.kind to the kind-tag label shown in the QuestLogEntry.
-const KIND_LABEL = { homework: 'Study', chore: 'Duty', habit: 'Ritual' };
+const KIND_LABEL = { homework: 'Homework', chore: 'Chore', habit: 'Habit' };
 
 /**
  * Group the next_actions feed into the three quest-log sections. The
@@ -103,7 +103,7 @@ export default function ChildDashboard({ data, reload }) {
             next.delete(`chore-${id}`);
             return next;
           });
-          handleActionError(err, 'Mark duty done');
+          handleActionError(err, 'Mark chore done');
         });
     },
     [reload, handleActionError],
@@ -120,7 +120,7 @@ export default function ChildDashboard({ data, reload }) {
             next.delete(`habit-${id}`);
             return next;
           });
-          handleActionError(err, 'Tap ritual');
+          handleActionError(err, 'Log habit');
         });
     },
     [reload, handleActionError],
@@ -141,9 +141,9 @@ export default function ChildDashboard({ data, reload }) {
 
   const { study, duty, ritual } = buildQuestLogFromActions(next_actions);
   const sections = [
-    { key: 'study', label: 'Study', tone: 'royal', actions: study },
-    { key: 'duty', label: 'Duty', tone: 'moss', actions: duty },
-    { key: 'ritual', label: 'Ritual', tone: 'gold', actions: ritual },
+    { key: 'study', label: 'Homework', tone: 'royal', actions: study },
+    { key: 'duty', label: 'Chores', tone: 'moss', actions: duty },
+    { key: 'ritual', label: 'Habits', tone: 'gold', actions: ritual },
   ].filter((s) => s.actions.length > 0);
 
   const totalLogCount = study.length + duty.length + ritual.length;
@@ -172,7 +172,7 @@ export default function ChildDashboard({ data, reload }) {
     <PageShell variants={inkBleed}>
       <PageHeader
         title="Today"
-        kicker={`${weekday} · ${dateStr} · a little progress, a little magic`}
+        kicker={`${weekday} · ${dateStr}`}
       />
 
       <MeadowVisitCard />
@@ -230,21 +230,21 @@ export default function ChildDashboard({ data, reload }) {
               <Compass size={28} />
             </div>
             <h2 className="font-body font-bold text-2xl text-ink-primary">
-              Your adventure begins here
+              Welcome to your day
             </h2>
             <p className="font-script text-ink-secondary text-body max-w-md mx-auto">
-              Once your parent sets up duties, study, or ventures, they&apos;ll
+              Once your parent adds chores, homework, or projects, they&apos;ll
               appear right here for you to tackle.
             </p>
             <div className="flex flex-wrap justify-center gap-3 pt-2">
               <Button variant="secondary" size="sm" onClick={() => navigate('/quests')}>
-                Explore quests
+                View tasks
               </Button>
               <Button variant="secondary" size="sm" onClick={() => navigate('/bestiary')}>
-                Visit bestiary
+                View pets
               </Button>
               <Button variant="secondary" size="sm" onClick={() => navigate('/treasury?tab=bazaar')}>
-                Browse the bazaar
+                Browse rewards
               </Button>
             </div>
           </div>
@@ -321,8 +321,8 @@ export default function ChildDashboard({ data, reload }) {
       {recentDrops?.length > 0 && (
         <section>
           <div className="mb-2">
-            <div className="font-script text-sheikah-teal-deep text-body">drops from the last two days</div>
-            <h2 className="font-display text-xl md:text-2xl text-ink-primary leading-tight">Recent Loot</h2>
+            <div className="font-script text-sheikah-teal-deep text-body">Items found in the last two days</div>
+            <h2 className="font-display text-xl md:text-2xl text-ink-primary leading-tight">Recent items</h2>
           </div>
           <ScrollRail>
             {recentDrops.map((d) => (
@@ -331,7 +331,7 @@ export default function ChildDashboard({ data, reload }) {
                 type="button"
                 whileHover={{ y: -2 }}
                 onClick={() => navigate('/treasury?tab=satchel')}
-                aria-label={`${d.item_name}${d.was_salvaged ? ' (salvaged)' : ''} — open satchel`}
+                aria-label={`${d.item_name}${d.was_salvaged ? ' (salvaged)' : ''} — open inventory`}
                 className={`shrink-0 w-28 p-3 rounded-2xl bg-ink-page-aged border border-ink-page-shadow text-center ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[d.item_rarity] || 'ring-transparent'}`}
               >
                 <div className="flex h-10 items-center justify-center mb-2">
@@ -349,7 +349,7 @@ export default function ChildDashboard({ data, reload }) {
 
       <AccordionSection
         index={0}
-        title="Treasury"
+        title="Rewards & earnings"
         kicker="this week at a glance"
         icon={<TreasuryIcon size={18} />}
         tone="gold"
@@ -361,7 +361,7 @@ export default function ChildDashboard({ data, reload }) {
             variants={staggerItem}
             type="button"
             onClick={() => navigate('/treasury?tab=coffers')}
-            aria-label={`Money owed ${formatCurrency(current_balance)} — open coffers`}
+            aria-label={`Money owed ${formatCurrency(current_balance)} — open payments`}
             className="text-left rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 hover:bg-ink-page-rune-glow transition-colors"
           >
             <div className="font-script text-caption uppercase tracking-wider text-moss">Money owed</div>
@@ -371,7 +371,7 @@ export default function ChildDashboard({ data, reload }) {
             variants={staggerItem}
             type="button"
             onClick={() => navigate('/treasury?tab=bazaar')}
-            aria-label={`${coin_balance ?? 0} coins — open the bazaar`}
+            aria-label={`${coin_balance ?? 0} coins — open reward shop`}
             className="text-left rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 hover:bg-ink-page-rune-glow transition-colors"
           >
             <div className="flex items-center gap-1 font-script text-caption uppercase tracking-wider text-gold-leaf">
@@ -383,7 +383,7 @@ export default function ChildDashboard({ data, reload }) {
             variants={staggerItem}
             type="button"
             onClick={() => navigate('/treasury?tab=wages')}
-            aria-label={`${this_week?.hours_worked ?? 0} hours clocked this week — open wages`}
+            aria-label={`${this_week?.hours_worked ?? 0} hours clocked this week — open timecards`}
             className="text-left rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 hover:bg-ink-page-rune-glow transition-colors"
           >
             <div className="font-script text-caption uppercase tracking-wider text-sheikah-teal-deep">Hours this week</div>
@@ -413,7 +413,7 @@ export default function ChildDashboard({ data, reload }) {
           </div>
         )}
         <div className="font-script text-caption text-ink-whisper mt-3 leading-relaxed">
-          money owed: earned money still owed by your parent · coins: earned across all your work, spent in the bazaar · hours and earnings: this week's clocked time
+          money owed: earned money still owed by your parent · coins: earned across all your work, spent in the reward shop · hours and earnings: this week's clocked time
         </div>
       </AccordionSection>
 
@@ -421,7 +421,7 @@ export default function ChildDashboard({ data, reload }) {
         <AccordionSection
           index={1}
           title="Next Up"
-          kicker="ventures under way"
+          kicker="Projects in progress"
           icon={<Compass size={18} />}
           tone="teal"
           count={active_projects.length}
@@ -470,8 +470,8 @@ export default function ChildDashboard({ data, reload }) {
       {savings_goals?.length > 0 && (
         <AccordionSection
           index={2}
-          title="Hoard"
-          kicker="treasure chests in progress"
+          title="Savings goals"
+          kicker="Track what you are saving for"
           icon={<Target size={18} />}
           tone="moss"
           count={savings_goals.length}
@@ -513,7 +513,7 @@ export default function ChildDashboard({ data, reload }) {
             onClick={() => navigate('/treasury?tab=hoards')}
             className="mt-3 -ml-3 font-script text-caption text-sheikah-teal-deep! hover:underline"
           >
-            View all in Treasury →
+            View all savings goals →
           </Button>
         </AccordionSection>
       )}
@@ -521,7 +521,7 @@ export default function ChildDashboard({ data, reload }) {
       {recent_badges?.length > 0 && (
         <AccordionSection
           index={3}
-          title="Recent Accolades"
+          title="Recent badges"
           kicker="badges earned"
           icon={<Award size={18} />}
           tone="ember"

@@ -24,7 +24,7 @@ import { overallProgress } from './trials.constants';
  *   - ActiveQuestFolio (verso/recto) for the in-progress quest
  *   - FamilyTrialsFolio with ChapterRubric for the parent roll-up
  *   - QuestCodex — vessel kind shelf + codex chapter shelf + folio body
- *   - IssueChallengeForm (parent-only) for custom campaigns
+ *   - IssueChallengeForm (parent-only) for Custom challenges
  *
  * The page lives at /quests?tab=trials (added as the 6th tab of the
  * Quests hub) and is reachable via /trials (which redirects, preserving
@@ -108,13 +108,13 @@ export default function Trials() {
           CSS-hidden below md in that case (desktop keeps both). */}
       <div className={activeQuest ? 'hidden md:block' : ''}>
         <IncipitBand
-          letter="T"
-          title="Trials"
-          kicker="· boss campaigns & collection hunts ·"
+          letter="C"
+          title="Challenges"
+          kicker="Complete tasks to make progress"
           meta={(
             <>
               <span className="tabular-nums">{progress.triumphs} of {progress.total}</span>
-              <span>triumphed</span>
+              <span>completed</span>
             </>
           )}
           progressPct={progress.progressPct}
@@ -122,7 +122,7 @@ export default function Trials() {
       </div>
 
       <p className="font-script text-sm text-ink-whisper -mt-2 max-w-xl">
-        boss trials take damage from your work and study · collection trials count items earned · only one active at a time
+        Complete eligible tasks to damage a boss or make collection progress. You can have one active challenge at a time.
       </p>
 
       <ErrorAlert message={error} />
