@@ -20,7 +20,7 @@ function OwnedCompanion() {
           : <CompanionPreview creature={active?.creature} kind={active?.kind}>
             <nav className="companion-feature-links" aria-label="Companion actions">
               <Link to="/bestiary?tab=companions">Care & choose pets</Link>
-              <Link to="/bestiary?tab=hatchery">Hatch & breed</Link>
+              <Link to="/bestiary?tab=hatchery">Hatch a pet</Link>
               <Link to="/bestiary?tab=mounts">Grown pets & expeditions</Link>
               <Link to="/treasury?tab=satchel">Inventory</Link>
             </nav>
