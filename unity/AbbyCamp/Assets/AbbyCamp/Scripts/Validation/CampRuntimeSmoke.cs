@@ -1571,8 +1571,12 @@ namespace AbbyCamp.Validation
             using (var request = UnityWebRequest.Get(fixtureUrl.TrimEnd('/') + "/__fixture/play-state/"))
             {
                 request.timeout = 15;
+                float started = Time.realtimeSinceStartup;
                 yield return request.SendWebRequest();
-                Check(request.result == UnityWebRequest.Result.Success, "Disposable fixture snapshot read succeeds");
+                string outcome = "result=" + request.result + ", status=" + request.responseCode
+                    + ", elapsed=" + (Time.realtimeSinceStartup - started).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + "s";
+                if (request.result != UnityWebRequest.Result.Success) Debug.Log("ABBY_CAMP_FIXTURE_READ_FAILED: " + outcome);
+                Check(request.result == UnityWebRequest.Result.Success, "Disposable fixture snapshot read succeeds: " + outcome);
                 var state = JsonUtility.FromJson<FixtureState>(request.downloadHandler.text);
                 Check(state?.accounts?.Length == 2, "Fixture exposes both throwaway account snapshots");
                 success(state);
