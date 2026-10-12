@@ -25,14 +25,14 @@ const DEFAULT_CHALLENGE = {
 
 // Trigger options that make sense for parent-authored quests. Mirrors
 // apps.rpg.constants.TriggerType but trims to the ones that produce
-// readable damage/collection contributions on a custom campaign.
+// readable damage/collection contributions on a Custom challenge.
 const TRIGGER_OPTIONS = [
-  ['chore_complete', 'Duty completed'],
+  ['chore_complete', 'Chore completed'],
   ['homework_complete', 'Homework approved'],
   ['homework_created', 'Homework planned ahead'],
-  ['habit_log', 'Ritual tap'],
-  ['clock_out', 'Clock-out hour'],
-  ['milestone_complete', 'Milestone hit'],
+  ['habit_log', 'Habit logged'],
+  ['clock_out', 'Tracked work hour'],
+  ['milestone_complete', 'Milestone completed'],
   ['project_complete', 'Project complete'],
   ['journal_entry', 'Journal entry'],
   ['creation_logged', 'Creation logged'],
@@ -40,7 +40,7 @@ const TRIGGER_OPTIONS = [
 ];
 
 /**
- * IssueChallengeForm — parent-only "Issue a Challenge" toggle button plus
+ * IssueChallengeForm — parent-only "Create a challenge" toggle button plus
  * the collapsible form modal. Extracted verbatim from the old
  * pages/Trials.jsx:202–429 with no visual changes — `components/README.md`
  * explicitly flags forms as "do not over-decorate."
@@ -129,7 +129,7 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
           onClick={() => setShow(!show)}
           className="flex items-center gap-1.5"
         >
-          <Sword size={14} /> Issue Challenge
+          <Sword size={14} /> Create challenge
         </Button>
       </div>
 
@@ -138,11 +138,11 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
           <div className="flex items-start justify-between mb-3">
             <div>
               <div className="font-script text-caption text-ink-whisper uppercase tracking-widest">
-                custom campaign
+                Custom challenge
               </div>
-              <h3 className="font-display text-lg text-ink-primary">Issue a Challenge</h3>
+              <h3 className="font-display text-lg text-ink-primary">Create a challenge</h3>
               <div className="text-tiny text-ink-whisper mt-1">
-                Authors a one-off quest and auto-assigns it to the chosen child.
+                Create a challenge for a child or a group in your family.
               </div>
             </div>
             <IconButton
@@ -184,7 +184,7 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
                   })}
                 </div>
                 <div className="text-tiny text-ink-whisper mt-1">
-                  Pick at least 2 — damage / collection pools across them.
+                  Choose at least 2 children. Their progress counts toward one shared target.
                 </div>
               </div>
             ) : (
@@ -223,7 +223,7 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
               min="1"
               value={challenge.target_value}
               onChange={(e) => setChallenge({ ...challenge, target_value: e.target.value })}
-              helpText={challenge.quest_type === 'boss' ? 'HP to deal' : 'Items to collect'}
+              helpText={challenge.quest_type === 'boss' ? 'Damage needed to defeat the boss' : 'Collection target'}
             />
             <TextField
               id="challenge-days"
@@ -265,7 +265,7 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
           <CheckboxField
             id="challenge-coop"
             className="mt-3"
-            label="Co-op campaign (multiple kids on one shared quest)"
+            label="Shared challenge (multiple children working together)"
             checked={challenge.is_coop}
             onChange={(e) =>
               setChallenge({
@@ -279,12 +279,12 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
 
           <details className="mt-3">
             <summary className="cursor-pointer font-display italic text-body text-ink-secondary">
-              Advanced — narrow which actions count
+              Choose which actions count
             </summary>
             <div className="mt-2 space-y-2">
               <div className="font-script text-caption text-ink-whisper">
                 Leave all unchecked to count every action. Checking some
-                limits damage / collection to those triggers.
+                limits challenge progress to those actions.
               </div>
               {/* intentional: same sr-only chip strip as the co-op picker
                   above — the pill is the control, so CheckboxField does not
@@ -321,12 +321,12 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
 
           <details className="mt-3">
             <summary className="cursor-pointer font-display italic text-body text-ink-secondary">
-              Skill XP fanout (optional)
+              Skills that earn XP (optional)
             </summary>
             <div className="mt-2 space-y-2">
               <div className="font-script text-caption text-ink-whisper">
-                Without tags the XP reward goes to no skill in particular.
-                Tag 1-3 skills so kids see XP land where they earned it.
+                Choose skills to receive the XP reward.
+                Select 1–3 skills to match the challenge.
               </div>
               <SkillTagEditor
                 skills={skills}
@@ -345,7 +345,7 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
             }
             className="w-full mt-3"
           >
-            {issuing ? 'Issuing…' : 'Issue the challenge'}
+            {issuing ? 'Creating…' : 'Assign challenge'}
           </Button>
         </ParchmentCard>
       )}

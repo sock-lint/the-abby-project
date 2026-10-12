@@ -77,14 +77,14 @@ describe('Badges page', () => {
       ],
     });
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Sigil Case' })).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: 'Badges' })).toBeInTheDocument(),
     );
     // Incipit shows the overall sealed count; Ventures chapter shows its own.
     // Both render "1 of 2", so match the multiple.
     const sealedCounts = screen.getAllByText(/1 of 2/);
     expect(sealedCounts.length).toBeGreaterThanOrEqual(2);
     // Both chapter regions present
-    expect(screen.getByRole('region', { name: 'Ventures' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Projects' })).toBeInTheDocument();
     // Both sigils rendered
     expect(screen.getByText('Perfect Joinery')).toBeInTheDocument();
     expect(screen.getByText('First Stitch')).toBeInTheDocument();
@@ -142,7 +142,7 @@ describe('Badges page', () => {
       ],
     });
     await waitFor(() =>
-      expect(screen.getByText(/no badges have been forged yet/i)).toBeInTheDocument(),
+      expect(screen.getByText(/no badges available yet/i)).toBeInTheDocument(),
     );
   });
 
@@ -170,9 +170,9 @@ describe('Badges page', () => {
     // No earned sigils, so the codex defaults to Chronos — switch to
     // Ventures first to make the badges queryable.
     await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /sigil reliquary chapters/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /badge collections/i })).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole('tab', { name: /Ventures/i }));
+    await user.click(screen.getByRole('tab', { name: /Projects/i }));
     await waitFor(() => expect(screen.getByText('First Stitch')).toBeInTheDocument());
 
     const search = screen.getByRole('searchbox', { name: /filter badges/i });

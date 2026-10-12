@@ -49,7 +49,7 @@ describe('BadgeDetailSheet', () => {
 
   it('shows the earned date when earned', () => {
     renderWithProviders(<BadgeDetailSheet entry={earnedEntry} onClose={() => {}} />);
-    expect(screen.getByText(/^sealed\s+/i)).toBeInTheDocument();
+    expect(screen.getByText(/^earned\s+/i)).toBeInTheDocument();
   });
 
   it('shows a "not yet earned" line when unearned', () => {
@@ -64,9 +64,9 @@ describe('BadgeDetailSheet', () => {
 
   it('shows a collection chip naming the reliquary chapter', () => {
     renderWithProviders(<BadgeDetailSheet entry={earnedEntry} onClose={() => {}} />);
-    const chip = screen.getByText(/from the reliquary of Ventures/);
+    const chip = screen.getByText(/Projects collection/);
     expect(chip).toBeInTheDocument();
-    expect(chip).toHaveTextContent('Chapter 2');
+    expect(chip).toHaveTextContent('Projects collection');
   });
 
   it('shows a "to earn" unlock hint line for unearned badges', () => {

@@ -64,7 +64,7 @@ export default function SigilFrontispiece({ profile, onOpenTrophyPicker }) {
 
         <div className="min-w-0 text-center md:text-left">
           <div className="font-body font-semibold text-sheikah-teal-deep text-caption leading-snug mb-1">
-            Make this little world your own
+            Your profile
           </div>
           <h1 className="font-body font-bold text-3xl md:text-4xl text-ink-primary leading-tight break-words">
             {displayName}

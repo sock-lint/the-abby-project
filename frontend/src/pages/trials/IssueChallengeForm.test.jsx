@@ -32,13 +32,13 @@ function renderForm(props = {}) {
 describe('IssueChallengeForm', () => {
   it('hides itself entirely when no children are passed', () => {
     renderForm({ children: [] });
-    expect(screen.queryByRole('button', { name: /Issue Challenge/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Create challenge/i })).toBeNull();
   });
 
   it('toggles the form open and shows the assign-to / type selects', async () => {
     renderForm();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: /Issue Challenge/i }));
+    await user.click(screen.getByRole('button', { name: /Create challenge/i }));
     expect(screen.getByRole('combobox', { name: /Assign to/i })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: /^Type$/i })).toBeInTheDocument();
   });
@@ -46,9 +46,9 @@ describe('IssueChallengeForm', () => {
   it('toggling Co-op swaps the single-child select for a multi-child picker', async () => {
     renderForm();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: /Issue Challenge/i }));
+    await user.click(screen.getByRole('button', { name: /Create challenge/i }));
     expect(screen.getByRole('combobox', { name: /Assign to/i })).toBeInTheDocument();
-    await user.click(screen.getByLabelText(/Co-op campaign/i));
+    await user.click(screen.getByLabelText(/Shared challenge/i));
     expect(screen.queryByRole('combobox', { name: /Assign to/i })).toBeNull();
     expect(screen.getByText(/Co-op participants/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Abby/i)).toBeInTheDocument();
@@ -68,19 +68,19 @@ describe('IssueChallengeForm', () => {
     renderForm({ onIssued });
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole('button', { name: /Issue Challenge/i }));
+    await user.click(screen.getByRole('button', { name: /Create challenge/i }));
     await user.type(screen.getByLabelText(/^Title$/i), 'Tag-team week');
     await user.type(
       screen.getByLabelText(/Description/i),
       'Both kids attack the same boss',
     );
-    await user.click(screen.getByLabelText(/Co-op campaign/i));
+    await user.click(screen.getByLabelText(/Shared challenge/i));
     await user.click(screen.getByLabelText(/Abby/i));
     await user.click(screen.getByLabelText(/Beck/i));
     await user.click(
       screen.getByLabelText(/Only count homework submitted on time/i),
     );
-    await user.click(screen.getByRole('button', { name: /Issue the challenge/i }));
+    await user.click(screen.getByRole('button', { name: /^Assign challenge$/i }));
 
     await waitFor(() => expect(createCalls).toHaveLength(1));
     const body = createCalls[0];

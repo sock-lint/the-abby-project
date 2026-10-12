@@ -21,7 +21,7 @@ describe('RewardShop', () => {
       />,
     );
     expect(screen.getByText('Ice Cream')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /barter/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /request reward/i })).toBeInTheDocument();
   });
 
   it('shows disabled state when not enough coins', () => {
@@ -63,7 +63,7 @@ describe('RewardShop', () => {
         onDelete={vi.fn()}
       />,
     );
-    expect(screen.getByText(/ask a parent to add some/i)).toBeInTheDocument();
+    expect(screen.getByText(/ask a parent to add one/i)).toBeInTheDocument();
   });
 
   it('renders an empty state with a parent CTA when no rewards exist', () => {
@@ -77,7 +77,7 @@ describe('RewardShop', () => {
         onDelete={vi.fn()}
       />,
     );
-    expect(screen.getByText(/head to manage to add some/i)).toBeInTheDocument();
+    expect(screen.getByText(/choose new reward to add one/i)).toBeInTheDocument();
   });
 
   it('a zero-match search shows the filtered empty state, not "no rewards yet"', async () => {
@@ -95,7 +95,7 @@ describe('RewardShop', () => {
         onDelete={vi.fn()}
       />,
     );
-    expect(screen.queryByText(/ask a parent to add some/i)).toBeNull();
+    expect(screen.queryByText(/ask a parent to add one/i)).toBeNull();
     expect(screen.getByText(/no matches for/i)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /clear filter/i }));
     expect(onClearFilter).toHaveBeenCalled();
@@ -114,7 +114,7 @@ describe('RewardShop', () => {
         onDelete={vi.fn()}
       />,
     );
-    expect(screen.getByText(/ask a parent to add some/i)).toBeInTheDocument();
+    expect(screen.getByText(/ask a parent to add one/i)).toBeInTheDocument();
   });
 
   it('parent can edit/delete', async () => {

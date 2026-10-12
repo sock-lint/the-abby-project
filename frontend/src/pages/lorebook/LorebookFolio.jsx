@@ -46,7 +46,7 @@ export default function LorebookFolio({
         </div>
         <div className="shrink-0 text-right font-script text-caption text-ink-whisper pt-1 leading-snug">
           <div>
-            <span className="tabular-nums">{trained} of {total}</span> inked
+            <span className="tabular-nums">{trained} of {total}</span> completed
           </div>
           <div className="text-micro text-ink-whisper/70">
             <span className="tabular-nums">{unlocked} of {total}</span> discovered

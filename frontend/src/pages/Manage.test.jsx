@@ -92,7 +92,7 @@ describe('Manage', () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(await screen.findByRole('tab', { name: /guide/i }));
-    expect(await screen.findByRole('heading', { name: /economy diagram/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /how rewards work/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /study/i })).toBeInTheDocument();
   });
 

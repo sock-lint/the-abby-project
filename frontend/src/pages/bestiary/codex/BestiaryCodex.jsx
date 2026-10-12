@@ -65,7 +65,7 @@ export default function BestiaryCodex() {
   if (species.length === 0) {
     return (
       <EmptyState icon={<DragonIcon size={36} />}>
-        The codex is empty — no species have been authored yet.
+        No pet species are available yet.
       </EmptyState>
     );
   }
@@ -98,9 +98,9 @@ export default function BestiaryCodex() {
   return (
     <div className="space-y-5">
       <IncipitBand
-        letter="B"
-        title="Codex"
-        kicker="· the codex of every creature ·"
+        letter="C"
+        title="Collection"
+        kicker="Discover pet species and collect their variants"
         meta={
           <>
             <span className="tabular-nums">{discoveredSpecies} of {totalSpecies}</span>
@@ -112,14 +112,14 @@ export default function BestiaryCodex() {
       />
 
       <p className="font-script text-sm text-ink-whisper -mt-2 max-w-xl">
-        tap a tile for lore and the full evolution row · undiscovered species stay silhouetted until you hatch one
+        Select a pet to learn about it and see its mount variants. Hatch a companion to discover its species.
       </p>
 
       <TomeShelf
         items={shelfItems}
         activeId={activeChapterId}
         onSelect={setActiveChapterId}
-        ariaLabel="Bestiary codex chapters"
+        ariaLabel="Pet collection groups"
       />
 
       {activeChapter && (

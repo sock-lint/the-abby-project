@@ -36,7 +36,7 @@ const STATUS_OPTIONS = [
 const TYPE_OPTIONS = [
   { value: '', label: 'All types' },
   { value: 'required', label: 'Required' },
-  { value: 'bounty', label: 'Bounty' },
+  { value: 'bounty', label: 'Optional project' },
 ];
 
 // Order matters: chapters in the recto read in-progress → in-review →
@@ -129,8 +129,8 @@ export default function Projects() {
 
   if (loading) return <Loader />;
 
-  // A dropped fetch used to fall straight through to "No ventures yet",
-  // which reads as "my ventures are gone" rather than "the network blinked"
+  // A dropped fetch used to fall straight through to "No projects yet",
+  // which reads as "my projects are gone" rather than "the network blinked"
   // — and an installed PWA has no reload button to escape it with.
   if (error) {
     return (
@@ -172,7 +172,7 @@ export default function Projects() {
             </h3>
             <div className="shrink-0 flex items-center gap-1 flex-wrap justify-end">
               {p.payment_kind === 'bounty' && (
-                <RuneBadge tone="royal" size="sm">bounty</RuneBadge>
+                <RuneBadge tone="royal" size="sm">optional project</RuneBadge>
               )}
               <StatusBadge status={p.status} />
             </div>
@@ -205,7 +205,7 @@ export default function Projects() {
             </div>
           )}
           {!p.assigned_to && p.payment_kind === 'bounty' && (
-            <div className="font-script text-caption text-royal">open bounty</div>
+            <div className="font-script text-caption text-royal">available to claim</div>
           )}
         </motion.button>
         {p.due_date && (
@@ -229,9 +229,9 @@ export default function Projects() {
   return (
     <div className="space-y-6">
       <QuestFolio
-        letter="V"
-        title="Ventures"
-        kicker="the big adventures"
+        letter="P"
+        title="Projects"
+        kicker="Plan and complete your projects"
         stats={[
           { value: inProgressCount, label: 'in progress' },
           { value: completedCount, label: 'done' },
@@ -239,8 +239,8 @@ export default function Projects() {
         progressPct={progressPct}
         progressLabel={
           totalCount > 0
-            ? `${completedCount} of ${totalCount} ventures complete`
-            : 'no ventures inscribed yet'
+            ? `${completedCount} of ${totalCount} projects complete`
+            : '0 projects completed'
         }
         rarityCounts={totalCount > 0 ? rarityCounts : undefined}
       >
@@ -253,7 +253,7 @@ export default function Projects() {
               onClick={() => navigate('/quests/ventures/new')}
               className="flex items-center gap-2"
             >
-              <Plus size={16} /> New venture
+              <Plus size={16} /> New project
             </Button>
           </div>
         )}
@@ -263,8 +263,8 @@ export default function Projects() {
           <CatalogSearch
             value={search}
             onChange={setSearch}
-            placeholder="Search ventures…"
-            ariaLabel="Filter ventures"
+            placeholder="Search projects…"
+            ariaLabel="Filter projects"
           />
         )}
         <div className="flex flex-wrap gap-2 items-center">
@@ -322,8 +322,8 @@ export default function Projects() {
         {projects.length === 0 ? (
           <EmptyState icon={<InkwellIcon size={32} />}>
             {allProjects.length === 0
-              ? `No ventures yet. ${isParent ? 'Inscribe one to get started!' : 'Ask a parent to inscribe one!'}`
-              : 'No ventures match your filters.'}
+              ? `No projects yet. ${isParent ? 'Add one to get started.' : 'Ask a parent to add one.'}`
+              : 'No projects match your filters.'}
           </EmptyState>
         ) : (
           STATUS_RUBRICS.map((rubric, idx) => {
@@ -347,17 +347,17 @@ export default function Projects() {
       </QuestFolio>
 
       {/* AI Suggestions — outside the folio so they read as a separate
-          aside, the way "whispered suggestions" already does. */}
+          aside, the way "Suggested projects" already does. */}
       {suggestions?.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-3">
             <Sparkles size={18} className="text-gold-leaf" />
             <div>
               <div className="font-script text-xs text-ink-whisper uppercase tracking-wider">
-                whispered suggestions
+                Suggested projects
               </div>
               <h2 className="font-display text-xl text-ink-primary leading-tight">
-                Next ventures to consider
+                Projects to try next
               </h2>
             </div>
           </div>

@@ -86,7 +86,7 @@ function GoalCard({ goal, onDelete }) {
             aria-label={`${goal.title} progress`}
           />
           <p className="mt-2 font-script text-caption text-ink-whisper">
-            fill the coffer to claim{' '}
+            Reach your goal to earn{' '}
             <span className="text-gold-leaf font-semibold">
               +{coinBonusFor(target)} coins
             </span>
@@ -130,7 +130,7 @@ function CompletedHoardSeal({ goal }) {
         {goal.title}
       </div>
       <div className="text-micro font-script italic text-center text-ink-whisper/80 leading-snug">
-        sealed {completed}
+        Completed {completed}
       </div>
       <div className="mt-auto pt-1 text-micro font-rune uppercase tracking-wider text-gold-leaf">
         +{bonus} coins · {formatCurrency(goal.target_amount)}
@@ -151,7 +151,7 @@ function CreateGoalSheet({ onClose, onCreated }) {
     setError('');
     const numericTarget = Number(target);
     if (!title.trim()) {
-      setError('Give your hoard a name.');
+      setError('Give your savings goal a name.');
       return;
     }
     if (!Number.isFinite(numericTarget) || numericTarget <= 0) {
@@ -168,14 +168,14 @@ function CreateGoalSheet({ onClose, onCreated }) {
       onCreated();
       onClose();
     } catch (err) {
-      setError(err?.message || 'Could not create hoard.');
+      setError(err?.message || 'Could not create savings goal.');
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <BottomSheet title="Start a new hoard" onClose={onClose} disabled={busy}>
+    <BottomSheet title="New savings goal" onClose={onClose} disabled={busy}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField
           label="What are you saving for?"
@@ -254,11 +254,11 @@ export default function HoardsTab() {
 
     let meta;
     if (a.length === 0 && c.length === 0) {
-      meta = 'begin a new ledger';
+      meta = 'Create your first goal';
     } else if (a.length === 0) {
-      meta = `all hoards filled · ${c.length} sealed`;
+      meta = `${c.length} ${c.length === 1 ? 'goal' : 'goals'} completed`;
     } else {
-      meta = `${a.length} active · ${Math.round(pct)}% across the lot`;
+      meta = `${a.length} active ${a.length === 1 ? 'goal' : 'goals'} · ${Math.round(pct)}% average progress`;
     }
 
     return { active: a, completed: c, overallPercent: pct, metaLabel: meta };
@@ -270,7 +270,7 @@ export default function HoardsTab() {
   if (error) {
     return (
       <ErrorAlert
-        message={`Couldn't load your hoards. ${error}`}
+        message={`Couldn't load your savings goals. ${error}`}
         onRetry={reload}
       />
     );
@@ -294,9 +294,9 @@ export default function HoardsTab() {
   return (
     <div className="space-y-6">
       <IncipitBand
-        letter="H"
-        title="Hoards"
-        kicker="· goals for money still owed ·"
+        letter="S"
+        title="Savings goals"
+        kicker="Goals for earned money still owed to you"
         meta={metaLabel}
         progressPct={overallPercent}
         versalSize="xl"
@@ -310,9 +310,9 @@ export default function HoardsTab() {
           variant="primary"
           size="sm"
           onClick={() => setSheetOpen(true)}
-          aria-label="Start a new hoard"
+          aria-label="New savings goal"
         >
-          <Plus size={16} /> New hoard
+          <Plus size={16} /> New goal
         </Button>
       </div>
 
@@ -325,11 +325,11 @@ export default function HoardsTab() {
           className="text-center py-10"
         >
           <p className="font-script text-lede text-ink-secondary">
-            no hoards yet
+            No savings goals yet.
           </p>
           <p className="mt-2 font-body text-body text-ink-whisper max-w-md mx-auto">
-            set a goal and begin to fill it — every dollar still owed to you
-            counts toward your goal.
+            Set a goal for something you want. Every dollar still owed to you
+            counts toward it.
           </p>
         </ParchmentCard>
       )}
@@ -337,7 +337,7 @@ export default function HoardsTab() {
       {active.length > 0 && (
         <section aria-labelledby="hoards-active-rubric">
           <div id="hoards-active-rubric">
-            <ChapterRubric index={0} name="Active pursuits" />
+            <ChapterRubric index={0} name="Active goals" />
           </div>
           <div className="mt-3 grid md:grid-cols-2 lg:grid-cols-3 gap-3">
             {active.map((goal) => (
@@ -354,7 +354,7 @@ export default function HoardsTab() {
       {completed.length > 0 && (
         <section aria-labelledby="hoards-completed-rubric">
           <div id="hoards-completed-rubric">
-            <ChapterRubric index={1} name="Filled coffers" />
+            <ChapterRubric index={1} name="Completed goals" />
           </div>
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {completed.map((goal) => (
@@ -373,7 +373,7 @@ export default function HoardsTab() {
       {pendingDelete && (
         <ConfirmDialog
           title={`Remove "${pendingDelete.title}"?`}
-          message="This removes the goal from your hoard list. Your balance stays put."
+          message="This removes the savings goal. Your balance stays the same."
           confirmLabel="Remove"
           onConfirm={handleDeleteConfirm}
           onCancel={() => setPendingDelete(null)}

@@ -72,7 +72,7 @@ export default function AssignmentCard({
             size="sm"
             onClick={onPlan}
             disabled={planning}
-            title="turn this assignment into a planned venture with steps and materials"
+            title="turn this assignment into a planned project with steps and materials"
             className="flex items-center gap-1"
           >
             <Sparkles size={14} /> {planning ? 'Planning…' : 'Plan it out'}

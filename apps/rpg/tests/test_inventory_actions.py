@@ -120,6 +120,7 @@ class AvailableActionsByItemTypeTests(TestCase):
         actions = self._actions_for(item)
         self.assertEqual(len(actions), 1)
         self.assertEqual(actions[0]["id"], "hatch")
+        self.assertEqual(actions[0]["label"], "Hatch a companion")
         self.assertEqual(actions[0]["to"], "/bestiary?tab=hatchery")
 
     def test_potion_routes_to_hatchery(self):
@@ -127,6 +128,7 @@ class AvailableActionsByItemTypeTests(TestCase):
         actions = self._actions_for(item)
         self.assertEqual(len(actions), 1)
         self.assertEqual(actions[0]["id"], "hatch")
+        self.assertEqual(actions[0]["label"], "Hatch a companion")
         self.assertEqual(actions[0]["to"], "/bestiary?tab=hatchery")
 
     def test_food_routes_to_companions(self):
@@ -141,6 +143,7 @@ class AvailableActionsByItemTypeTests(TestCase):
         actions = self._actions_for(item)
         self.assertEqual(len(actions), 1)
         self.assertEqual(actions[0]["id"], "start_quest")
+        self.assertEqual(actions[0]["label"], "Start challenge")
         self.assertEqual(actions[0]["to"], f"/trials?scroll_item={item.pk}")
 
     def test_each_cosmetic_slot_routes_to_sigil_for_equip(self):
@@ -158,6 +161,7 @@ class AvailableActionsByItemTypeTests(TestCase):
                 actions = self._actions_for(item)
                 self.assertEqual(len(actions), 1)
                 self.assertEqual(actions[0]["id"], "equip")
+                self.assertEqual(actions[0]["label"], "Equip in Profile")
                 self.assertEqual(actions[0]["to"], "/sigil")
 
 

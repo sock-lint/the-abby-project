@@ -142,7 +142,7 @@ describe('JournalReader — child view', () => {
 
     // The shelf renders with one tab per chapter, default-active = current.
     await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /journal chapters/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /journal years/i })).toBeInTheDocument(),
     );
     expect(screen.getAllByRole('tab')).toHaveLength(2);
     expect(screen.getByText('This-year')).toBeInTheDocument();

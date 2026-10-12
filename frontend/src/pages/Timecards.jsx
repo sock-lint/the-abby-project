@@ -122,10 +122,10 @@ export default function Timecards() {
       <header className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
-            the wages · every week sealed & stamped, rolled up from your daily clock-ins
+            Weekly hours and earnings from your clocked time
           </div>
           <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-            Wages
+            Timecards
           </h1>
         </div>
         <Button
@@ -146,10 +146,10 @@ export default function Timecards() {
           loss, as far as a kid on spotty wifi could tell — with no way back
           short of force-quitting the installed app. */}
       {loadError ? (
-        <ErrorAlert message={`Couldn't load your wages. ${loadError}`} onRetry={reload} />
+        <ErrorAlert message={`Couldn't load your timecards. ${loadError}`} onRetry={reload} />
       ) : timecards.length === 0 ? (
         <EmptyState icon={<ScrollIcon size={36} />}>
-          No weeks logged yet. Clock in on a venture to begin inking the ledger.
+          No timecards yet. Clock in on a project to start tracking your hours.
         </EmptyState>
       ) : (
         <div className="space-y-3">
@@ -243,7 +243,7 @@ export default function Timecards() {
                           </div>
                         </div>
                         <div className="font-script text-tiny text-ink-whisper text-center -mt-1 mb-2">
-                          hourly comes from clocked time · bonuses are completion and milestone payouts
+                          Hourly earnings come from clocked time. Bonuses come from project and milestone completions.
                         </div>
                         {detail.entries?.map((e) => (
                           <div

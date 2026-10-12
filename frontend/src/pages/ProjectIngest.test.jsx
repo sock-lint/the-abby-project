@@ -21,8 +21,8 @@ function renderPage(parent = buildParent()) {
   return renderWithProviders(
     <Routes>
       <Route path="/quests/ventures/ingest" element={<ProjectIngest />} />
-      <Route path="/quests/ventures/:id" element={<p>Created venture</p>} />
-      <Route path="/quests" element={<p>Ventures list</p>} />
+      <Route path="/quests/ventures/:id" element={<p>Created project</p>} />
+      <Route path="/quests" element={<p>Projects list</p>} />
     </Routes>,
     { route: '/quests/ventures/ingest' },
   );
@@ -122,7 +122,7 @@ describe('ProjectIngest', () => {
     expect(start.calls).toHaveLength(0);
   });
 
-  it('autosaves edited staging data while keeping venture creation explicit', async () => {
+  it('autosaves edited staging data while keeping project creation explicit', async () => {
     keepDraft();
     const save = spyHandler('patch', '*/api/projects/ingest/job-3/', {});
     const commit = spyHandler('post', '*/api/projects/ingest/job-3/commit/', { id: 44 });
@@ -138,14 +138,14 @@ describe('ProjectIngest', () => {
     expect(commit.calls).toHaveLength(0);
   });
 
-  it('creates the venture with saved overrides and clears its device draft', async () => {
+  it('creates the project with saved overrides and clears its device draft', async () => {
     keepDraft({ overrides: { ...DEFAULT_OVERRIDES, materials_budget: '25', difficulty: 4 } });
     const save = spyHandler('patch', '*/api/projects/ingest/job-3/', {});
     const commit = spyHandler('post', '*/api/projects/ingest/job-3/commit/', { id: 44 });
     server.use(http.get('*/api/projects/ingest/job-3/', () => HttpResponse.json(readyJob)), save.handler, commit.handler);
     const { user } = renderPage();
-    await user.click(await screen.findByRole('button', { name: /create venture/i }));
-    expect(await screen.findByText('Created venture')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /create project/i }));
+    expect(await screen.findByText('Created project')).toBeInTheDocument();
     expect(save.calls).toHaveLength(1);
     expect(save.calls[0].body).toEqual({ result_json: plan });
     expect(commit.calls).toHaveLength(1);
@@ -154,7 +154,7 @@ describe('ProjectIngest', () => {
     expect(readIngestDraft(99)).toBeNull();
   });
 
-  it('opens the existing venture when a creation staging save conflicts with another tab’s commit', async () => {
+  it('opens the existing project when a creation staging save conflicts with another tab’s commit', async () => {
     keepDraft();
     let committed = false;
     const save = spyHandler('patch', '*/api/projects/ingest/job-3/', () => {
@@ -166,8 +166,8 @@ describe('ProjectIngest', () => {
     const commit = spyHandler('post', '*/api/projects/ingest/job-3/commit/', {});
     server.use(checks.handler, save.handler, commit.handler);
     const { user } = renderPage();
-    await user.click(await screen.findByRole('button', { name: /create venture/i }));
-    expect(await screen.findByText('Created venture')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /create project/i }));
+    expect(await screen.findByText('Created project')).toBeInTheDocument();
     expect(save.calls).toHaveLength(1);
     expect(save.calls[0].body).toEqual({ result_json: plan });
     expect(save.calls[0].url).toMatch(/\/api\/projects\/ingest\/job-3\/$/);
@@ -177,7 +177,7 @@ describe('ProjectIngest', () => {
   });
 
   it.each([
-    ['removed venture', { ...readyJob, status: 'committed', project: null }],
+    ['removed project', { ...readyJob, status: 'committed', project: null }],
     ['discarded import', { ...readyJob, status: 'discarded' }],
   ])('reloads a conflicting creation before offering a fresh start for a %s', async (_label, terminalJob) => {
     keepDraft();
@@ -189,7 +189,7 @@ describe('ProjectIngest', () => {
     const checks = spyHandler('get', '*/api/projects/ingest/job-3/', () => terminal ? terminalJob : readyJob);
     server.use(checks.handler, commit.handler);
     const { user } = renderPage();
-    await user.click(await screen.findByRole('button', { name: /create venture/i }));
+    await user.click(await screen.findByRole('button', { name: /create project/i }));
     const forget = await screen.findByRole('button', { name: /forget this import/i });
     expect(checks.calls).toHaveLength(3);
     expect(commit.calls).toHaveLength(1);
@@ -210,11 +210,11 @@ describe('ProjectIngest', () => {
       ? { ...readyJob, status: 'committed', project: 44 } : readyJob);
     server.use(checks.handler, commit.handler);
     const { user } = renderPage();
-    await user.click(await screen.findByRole('button', { name: /create venture/i }));
+    await user.click(await screen.findByRole('button', { name: /create project/i }));
     expect(await screen.findByRole('button', { name: /check creation/i })).toBeInTheDocument();
     expect(readIngestDraft(99).pendingCommit).toBe(true);
     await user.click(screen.getByRole('button', { name: /check creation/i }));
-    expect(await screen.findByText('Created venture')).toBeInTheDocument();
+    expect(await screen.findByText('Created project')).toBeInTheDocument();
     expect(commit.calls).toHaveLength(1);
     expect(checks.calls).toHaveLength(3);
     expect(readIngestDraft(99)).toBeNull();
@@ -227,7 +227,7 @@ describe('ProjectIngest', () => {
     server.use(http.get('*/api/projects/ingest/job-3/', () => HttpResponse.json(readyJob)), save.handler, commit.handler);
     const { user } = renderPage();
     await user.click(await screen.findByRole('button', { name: /check creation/i }));
-    expect(await screen.findByText('Created venture')).toBeInTheDocument();
+    expect(await screen.findByText('Created project')).toBeInTheDocument();
     expect(save.calls).toHaveLength(0);
     expect(commit.calls).toHaveLength(1);
     expect(commit.calls[0].body).toEqual({ ...plan, category_id: null, difficulty: 2, bonus_amount: '12', materials_budget: '0', due_date: null });
@@ -239,7 +239,7 @@ describe('ProjectIngest', () => {
     server.use(http.get('*/api/projects/ingest/job-3/', () => HttpResponse.json(readyJob)), discard.handler);
     const { user } = renderPage();
     await user.click(await screen.findByRole('button', { name: /^discard$/i }));
-    expect(await screen.findByText('Ventures list')).toBeInTheDocument();
+    expect(await screen.findByText('Projects list')).toBeInTheDocument();
     expect(discard.calls).toHaveLength(1);
     expect(discard.calls[0].url).toMatch(/\/api\/projects\/ingest\/job-3\/$/);
     expect(discard.calls[0].body).toBeNull();
@@ -258,7 +258,7 @@ describe('ProjectIngest', () => {
 
   it.each([
     ['a removed job', HttpResponse.json({ detail: 'Not found.' }, { status: 404 })],
-    ['a removed venture', { ...readyJob, status: 'committed', project: null }],
+    ['a removed project', { ...readyJob, status: 'committed', project: null }],
     ['a discarded job', { ...readyJob, status: 'discarded' }],
   ])('offers a fresh start for %s without trying to delete or recreate it', async (_label, response) => {
     keepDraft({ pendingCommit: true });
@@ -293,7 +293,7 @@ describe('ProjectIngest', () => {
     const commit = spyHandler('post', '*/api/projects/ingest/job-3/commit/', {});
     server.use(checks.handler, commit.handler);
     const { user } = renderPage();
-    await user.click(await screen.findByRole('button', { name: /create venture/i }));
+    await user.click(await screen.findByRole('button', { name: /create project/i }));
     await user.click(await screen.findByRole('button', { name: /forget this import/i }));
     expect(screen.getByRole('button', { name: /parse source/i })).toBeInTheDocument();
     expect(readIngestDraft(99)).toBeNull();
@@ -339,11 +339,11 @@ describe('ProjectIngest', () => {
     await user.click(await screen.findByRole('button', { name: /^discard$/i }));
     expect(await screen.findByText('Try later')).toBeInTheDocument();
     expect(readIngestDraft(99).draft).toEqual(plan);
-    expect(screen.getByRole('button', { name: /create venture/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /create project/i })).toBeEnabled();
     expect(discard.calls).toHaveLength(1);
   });
 
-  it('opens an already-created venture if another tab commits before discard', async () => {
+  it('opens an already-created project if another tab commits before discard', async () => {
     keepDraft();
     let committed = false;
     const discard = spyHandler('delete', '*/api/projects/ingest/job-3/', () => {
@@ -357,7 +357,7 @@ describe('ProjectIngest', () => {
     );
     const { user } = renderPage();
     await user.click(await screen.findByRole('button', { name: /^discard$/i }));
-    expect(await screen.findByText('Created venture')).toBeInTheDocument();
+    expect(await screen.findByText('Created project')).toBeInTheDocument();
     expect(discard.calls).toHaveLength(1);
     expect(readIngestDraft(99)).toBeNull();
   });
@@ -375,8 +375,8 @@ describe('ProjectIngest', () => {
     await user.type(await screen.findByRole('textbox', { name: /tutorial url/i }), 'https://example.com/tutorial');
     await user.click(screen.getByRole('button', { name: /parse source/i }));
     await waitFor(() => expect(starts).toHaveBeenCalledOnce());
-    await user.click(screen.getByRole('link', { name: /back to ventures/i }));
-    expect(screen.getByText('Ventures list')).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: /back to projects/i }));
+    expect(screen.getByText('Projects list')).toBeInTheDocument();
     if (changedSession) localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, 'different-session');
     const responseFinished = new Promise(resolve => {
       const onResponse = ({ request }) => {
@@ -414,14 +414,14 @@ describe('ProjectIngest', () => {
       commit.handler,
     );
     const { user } = renderPage();
-    await user.click(await screen.findByRole('button', { name: /create venture/i }));
+    await user.click(await screen.findByRole('button', { name: /create project/i }));
     await waitFor(() => expect(saveStarted).toHaveBeenCalledOnce());
     const title = screen.getByRole('textbox', { name: /^title$/i });
     expect(title).toBeDisabled();
     expect(screen.getByRole('button', { name: /^discard$/i })).toBeDisabled();
     await user.type(title, 'This must not be lost');
     release();
-    expect(await screen.findByText('Created venture')).toBeInTheDocument();
+    expect(await screen.findByText('Created project')).toBeInTheDocument();
     expect(staged).toEqual({ result_json: plan });
     expect(commit.calls[0].body.title).toBe(plan.title);
   });

@@ -110,7 +110,7 @@ describe('Companions tab', () => {
     expect(screen.getByRole('tab', { name: /All \(3\)/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Active \(1\)/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Hungry \(2\)/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Ready to evolve \(1\)/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Almost grown \(1\)/ })).toBeInTheDocument();
   });
 
   it('wraps each pet sprite with a rarity-keyed atlas halo', async () => {
@@ -191,7 +191,7 @@ describe('Companions tab', () => {
     });
   });
 
-  it('Ready to evolve filter shows only pets with growth ≥ 90', async () => {
+  it('Almost grown filter shows only pets with growth ≥ 90', async () => {
     const user = userEvent.setup();
     renderPage([
       http.get('*/api/pets/stable/', () =>
@@ -200,7 +200,7 @@ describe('Companions tab', () => {
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     ]);
     await waitFor(() => expect(screen.getByText(/Drake/)).toBeInTheDocument());
-    await user.click(screen.getByRole('tab', { name: /Ready to evolve/ }));
+    await user.click(screen.getByRole('tab', { name: /Almost grown/ }));
     await waitFor(() => {
       expect(screen.getByText(/Drake/)).toBeInTheDocument();
       expect(screen.queryByText(/Fox/)).toBeNull();

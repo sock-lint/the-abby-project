@@ -40,7 +40,7 @@ describe('PetCeremonyModal', () => {
     );
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     expect(screen.getByText(/cosmic phoenix/i)).toBeInTheDocument();
-    expect(screen.getByText(/has joined your party/i)).toBeInTheDocument();
+    expect(screen.getByText(/has joined your companions/i)).toBeInTheDocument();
   });
 
   it('renders evolve headline (mode=evolve)', () => {
@@ -69,7 +69,7 @@ describe('PetCeremonyModal', () => {
     expect(screen.getByText(/wolf egg/i)).toBeInTheDocument();
     expect(screen.getByText(/paired with fire potion/i)).toBeInTheDocument();
     expect(screen.getByText(/parents resting for 7 days/i)).toBeInTheDocument();
-    expect(screen.getByText(/a hybrid is conceived/i)).toBeInTheDocument();
+    expect(screen.getByText(/a new hybrid egg/i)).toBeInTheDocument();
   });
 
   it('shows chromatic kicker on chromatic breed', () => {
@@ -81,8 +81,8 @@ describe('PetCeremonyModal', () => {
         onDismiss={() => {}}
       />,
     );
-    expect(screen.getByText(/a chromatic blessing/i)).toBeInTheDocument();
-    expect(screen.getByText(/the stars favored this pairing/i)).toBeInTheDocument();
+    expect(screen.getByText(/a rare cosmic potion/i)).toBeInTheDocument();
+    expect(screen.getByText(/with a cosmic potion from this pairing/i)).toBeInTheDocument();
   });
 
   it('renders the expedition_return shell with mount headline + dismiss CTA', () => {
@@ -106,7 +106,7 @@ describe('PetCeremonyModal', () => {
     expect(screen.getByText(/your mount has returned/i)).toBeInTheDocument();
     expect(screen.getByText(/Griffon is back/i)).toBeInTheDocument();
     expect(screen.getByText(/from a standard expedition/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /take the loot/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^continue$/i })).toBeInTheDocument();
   });
 
   it('calls onDismiss when Continue is clicked', async () => {
@@ -200,6 +200,6 @@ describe('PetCeremonyModal — phased sequence', () => {
     });
     expect(screen.getByText(/\+42/)).toBeInTheDocument();
     expect(screen.getByText('Training Snack')).toBeInTheDocument();
-    expect(screen.getByText(/salvaged \+25c/i)).toBeInTheDocument();
+    expect(screen.getByText(/duplicate exchanged for 25 coins/i)).toBeInTheDocument();
   });
 });

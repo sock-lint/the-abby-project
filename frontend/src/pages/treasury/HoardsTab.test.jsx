@@ -33,8 +33,8 @@ describe('HoardsTab', () => {
 
     // Hero IncipitBand renders the "Hoards" title and a meta line summarising
     // active vs completed.
-    expect(screen.getByRole('heading', { name: 'Hoards' })).toBeInTheDocument();
-    expect(screen.getByText(/1 active · 40% across the lot/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Savings goals' })).toBeInTheDocument();
+    expect(screen.getByText(/1 active goal · 40% average progress/)).toBeInTheDocument();
 
     // Active stanza details — current/target amounts + coin bonus copy.
     expect(screen.getByText('$20.00')).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe('HoardsTab', () => {
     expect(stanzaVersal.getAttribute('data-progress')).toBe('40');
 
     // §I rubric for the active section.
-    expect(screen.getByRole('heading', { name: 'Active pursuits' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Active goals' })).toBeInTheDocument();
   });
 
   it('renders completed hoards as legendary wax seals under the Filled coffers rubric', async () => {
@@ -68,7 +68,7 @@ describe('HoardsTab', () => {
     );
     const { container } = renderWithProviders(<HoardsTab />);
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Filled coffers' })).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: 'Completed goals' })).toBeInTheDocument(),
     );
     expect(screen.getByText('Headphones')).toBeInTheDocument();
 
@@ -76,10 +76,10 @@ describe('HoardsTab', () => {
     // active goals).
     const seals = container.querySelectorAll('[data-hoard-seal="true"]');
     expect(seals.length).toBe(1);
-    expect(screen.queryByRole('heading', { name: 'Active pursuits' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Active goals' })).not.toBeInTheDocument();
 
     // Meta line flips to the "all filled" phrasing.
-    expect(screen.getByText(/all hoards filled · 1 sealed/)).toBeInTheDocument();
+    expect(screen.getByText(/1 goal completed/)).toBeInTheDocument();
   });
 
   it('shows the script empty state when there are no hoards at all', async () => {
@@ -88,10 +88,10 @@ describe('HoardsTab', () => {
     );
     renderWithProviders(<HoardsTab />);
     await waitFor(() =>
-      expect(screen.getByText(/no hoards yet/i)).toBeInTheDocument(),
+      expect(screen.getByText(/no savings goals yet/i)).toBeInTheDocument(),
     );
     expect(
-      screen.getByText(/set a goal and begin to fill it/i),
+      screen.getByText(/set a goal for something you want/i),
     ).toBeInTheDocument();
   });
 
@@ -105,11 +105,11 @@ describe('HoardsTab', () => {
     const { user } = renderWithProviders(<HoardsTab />);
 
     await waitFor(() =>
-      expect(screen.getByText(/no hoards yet/i)).toBeInTheDocument(),
+      expect(screen.getByText(/no savings goals yet/i)).toBeInTheDocument(),
     );
 
     await user.click(
-      screen.getByRole('button', { name: /start a new hoard/i }),
+      screen.getByRole('button', { name: /new savings goal/i }),
     );
 
     const titleField = await screen.findByLabelText(/What are you saving for/i);
@@ -142,7 +142,7 @@ describe('HoardsTab', () => {
     const { user } = renderWithProviders(<HoardsTab />);
 
     await waitFor(() =>
-      expect(screen.getByText(/couldn't load your hoards/i)).toBeInTheDocument(),
+      expect(screen.getByText(/couldn't load your savings goals/i)).toBeInTheDocument(),
     );
     expect(screen.getByRole('alert')).toBeInTheDocument();
 
@@ -156,14 +156,14 @@ describe('HoardsTab', () => {
     );
     const { user } = renderWithProviders(<HoardsTab />);
     await waitFor(() =>
-      expect(screen.getByText(/no hoards yet/i)).toBeInTheDocument(),
+      expect(screen.getByText(/no savings goals yet/i)).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole('button', { name: /start a new hoard/i }));
+    await user.click(screen.getByRole('button', { name: /new savings goal/i }));
     await screen.findByLabelText(/What are you saving for/i);
 
     await user.click(screen.getByRole('button', { name: /Start saving/i }));
 
-    expect(await screen.findByText(/give your hoard a name/i)).toBeInTheDocument();
+    expect(await screen.findByText(/give your savings goal a name/i)).toBeInTheDocument();
   });
 
   it('deletes a goal after confirm', async () => {

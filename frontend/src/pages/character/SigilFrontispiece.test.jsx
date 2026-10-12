@@ -19,7 +19,7 @@ describe('SigilFrontispiece', () => {
       />,
     );
     expect(screen.getByRole('heading', { level: 1, name: 'Abby' })).toBeInTheDocument();
-    expect(screen.getByText('Make this little world your own')).toBeInTheDocument();
+    expect(screen.getByText('Your profile')).toBeInTheDocument();
   });
 
   it('renders all three vital pips', () => {

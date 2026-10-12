@@ -40,7 +40,7 @@ describe('AtlasHub', () => {
     // Hub no longer renders an h1 — the active tab page (Skills) owns the
     // page heading. The hub's identity is carried by its tablist aria-label.
     await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /atlas sections/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /progress sections/i })).toBeInTheDocument(),
     );
     expect(screen.getAllByText(/skills/i).length).toBeGreaterThan(0);
   });
@@ -54,11 +54,11 @@ describe('AtlasHub', () => {
     // Hub no longer renders an h1 — the active tab page (Skills) owns the
     // page heading. The hub's identity is carried by its tablist aria-label.
     await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /atlas sections/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /progress sections/i })).toBeInTheDocument(),
     );
     const tablist = screen.getByRole('tablist');
-    expect(tablist).not.toHaveTextContent(/sketchbook/i);
-    expect(tablist).not.toHaveTextContent(/yearbook/i);
+    expect(tablist).not.toHaveTextContent(/gallery/i);
+    expect(tablist).not.toHaveTextContent(/timeline/i);
   });
 
   it('redirects /atlas?tab=sketchbook to /chronicle?tab=sketchbook', async () => {

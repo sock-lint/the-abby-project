@@ -68,7 +68,7 @@ describe('Lorebook tile state machine', () => {
     renderWithProviders(<Lorebook />);
 
     expect(
-      await screen.findByRole('button', { name: /study · ready to train/i }),
+      await screen.findByRole('button', { name: /study · ready to practice/i }),
     ).toBeInTheDocument();
   });
 
@@ -80,7 +80,7 @@ describe('Lorebook tile state machine', () => {
     renderWithProviders(<Lorebook />);
 
     expect(
-      await screen.findByRole('button', { name: /study · inked/i }),
+      await screen.findByRole('button', { name: /study · completed/i }),
     ).toBeInTheDocument();
   });
 });
@@ -94,10 +94,10 @@ describe('Lorebook trial flow', () => {
     const { user } = renderWithProviders(<Lorebook />);
 
     await user.click(
-      await screen.findByRole('button', { name: /study · ready to train/i }),
+      await screen.findByRole('button', { name: /study · ready to practice/i }),
     );
     expect(
-      await screen.findByRole('dialog', { name: /trial · study/i }),
+      await screen.findByRole('dialog', { name: /practice · study/i }),
     ).toBeInTheDocument();
   });
 
@@ -116,12 +116,12 @@ describe('Lorebook trial flow', () => {
     const { user } = renderWithProviders(<Lorebook />);
 
     await user.click(
-      await screen.findByRole('button', { name: /study · ready to train/i }),
+      await screen.findByRole('button', { name: /study · ready to practice/i }),
     );
 
     // Run the trial: tap_and_reward exposes either the target button or the
     // "I get it" ghost button. Either readies the page.
-    const ghost = await screen.findByRole('button', { name: /i get it/i });
+    const ghost = await screen.findByRole('button', { name: /i understand/i });
     await user.click(ghost);
 
     // Now Ink the page should be enabled.
@@ -130,7 +130,7 @@ describe('Lorebook trial flow', () => {
         HttpResponse.json(buildResponse([trainedEntry])),
       ),
     );
-    const ink = screen.getByRole('button', { name: /ink the page/i });
+    const ink = screen.getByRole('button', { name: /complete topic/i });
     await user.click(ink);
 
     await waitFor(() => expect(patchSpy.calls).toHaveLength(1));
@@ -147,7 +147,7 @@ describe('Lorebook trial flow', () => {
     renderWithProviders(<Lorebook />, { route: '/atlas?trial=study' });
 
     expect(
-      await screen.findByRole('dialog', { name: /trial · study/i }),
+      await screen.findByRole('dialog', { name: /practice · study/i }),
     ).toBeInTheDocument();
   });
 });
@@ -165,19 +165,19 @@ describe('Lorebook chapter shelf', () => {
 
     // Defaults to the first populated chapter — only its entries render.
     expect(
-      await screen.findByRole('button', { name: /study · ready to train/i }),
+      await screen.findByRole('button', { name: /study · ready to practice/i }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /quests · ready to train/i }),
+      screen.queryByRole('button', { name: /quests · ready to practice/i }),
     ).toBeNull();
 
-    await user.click(screen.getByRole('tab', { name: /RPG Layer/i }));
+    await user.click(screen.getByRole('tab', { name: /Challenges & Pets/i }));
 
     expect(
-      await screen.findByRole('button', { name: /quests · ready to train/i }),
+      await screen.findByRole('button', { name: /quests · ready to practice/i }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /study · ready to train/i }),
+      screen.queryByRole('button', { name: /study · ready to practice/i }),
     ).toBeNull();
   });
 
@@ -191,7 +191,7 @@ describe('Lorebook chapter shelf', () => {
     );
     const { user } = renderWithProviders(<Lorebook />);
 
-    await user.click(await screen.findByRole('tab', { name: /RPG Layer/i }));
+    await user.click(await screen.findByRole('tab', { name: /Challenges & Pets/i }));
     await waitFor(() =>
       expect(window.localStorage.getItem('atlas:lorebook-codex:active-chapter'))
         .toBe('rpg_layer'),
@@ -213,7 +213,7 @@ describe('Lorebook detail view (kept for trained entries)', () => {
     );
     const { user } = renderWithProviders(<Lorebook />);
 
-    await user.click(await screen.findByRole('button', { name: /study · inked/i }));
+    await user.click(await screen.findByRole('button', { name: /study · completed/i }));
     await waitFor(() =>
       expect(screen.getByRole('dialog', { name: /study/i })).toBeInTheDocument(),
     );

@@ -26,7 +26,7 @@ describe('SettingsPage', () => {
     renderPage([
       http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
     ]);
-    await waitFor(() => expect(screen.getByText(/profile/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Profile' })).toBeInTheDocument());
     expect(screen.getByText(/username/i)).toBeInTheDocument();
   });
 
@@ -128,8 +128,8 @@ describe('SettingsPage', () => {
     await u.click(vigil);
     expect(vigil).toHaveAttribute('aria-pressed', 'true');
     expect(hyrule).toHaveAttribute('aria-pressed', 'false');
-    expect(vigil.textContent).toMatch(/reading/i);
-    expect(hyrule.textContent).not.toMatch(/reading/i);
+    expect(vigil.textContent).toMatch(/selected/i);
+    expect(hyrule.textContent).not.toMatch(/selected/i);
   });
 
   it('renders all 6 covers — owned as buttons, un-owned as locked intaglios', async () => {
@@ -162,9 +162,9 @@ describe('SettingsPage', () => {
     }
 
     // Whisper line summarizes earn progress + links to the Frontispiece.
-    expect(screen.getByText(/1 of 6 covers bound/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 6 covers owned/i)).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: /find more on your Frontispiece/i }),
+      screen.getByRole('link', { name: /view your profile collections/i }),
     ).toBeInTheDocument();
   });
 
@@ -187,7 +187,7 @@ describe('SettingsPage', () => {
     // No "Pick X cover" buttons exist — all 6 covers are locked.
     expect(screen.queryAllByRole('button', { name: /Pick .* cover/i })).toHaveLength(0);
     expect(spy.calls).toHaveLength(0);
-    expect(screen.getByText(/0 of 6 covers bound/i)).toBeInTheDocument();
+    expect(screen.getByText(/0 of 6 covers owned/i)).toBeInTheDocument();
   });
 
   it('signs off on click', async () => {
@@ -200,8 +200,8 @@ describe('SettingsPage', () => {
       http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
       http.post('*/api/auth/', () => { logoutSpy(); return HttpResponse.json({}); }),
     ]);
-    await waitFor(() => expect(screen.getByText(/profile/i)).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /sign off/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Profile' })).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /sign out/i }));
     await waitFor(() => expect(logoutSpy).toHaveBeenCalled());
   });
 
@@ -214,7 +214,7 @@ describe('SettingsPage', () => {
       spy.handler,
     );
     renderWithProviders(<SettingsPage />);
-    await waitFor(() => expect(screen.getByText(/profile/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Profile' })).toBeInTheDocument());
 
     const file = new File([new Uint8Array([137, 80, 78, 71])], 'me.png', { type: 'image/png' });
     // Target the hidden <input type="file"> sibling of the Upload avatar button.

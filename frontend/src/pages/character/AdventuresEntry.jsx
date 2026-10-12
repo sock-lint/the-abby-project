@@ -24,8 +24,8 @@ export default function AdventuresEntry() {
         className="w-full rounded-2xl text-left flex items-start gap-3 p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep focus-visible:ring-offset-4 focus-visible:ring-offset-ink-page-aged"
         aria-label={
           isActive
-            ? `Adventures — continue ${activeQuest.definition?.name || 'trial'}`
-            : 'Adventures — open the Trials page'
+            ? `Challenges — continue ${activeQuest.definition?.name || 'challenge'}`
+            : 'Challenges — open the Challenges page'
         }
       >
         <span className="text-sheikah-teal-deep mt-1 shrink-0" aria-hidden="true">
@@ -33,10 +33,10 @@ export default function AdventuresEntry() {
         </span>
         <div className="flex-1 min-w-0">
           <div className="font-script text-xs text-royal uppercase tracking-wider">
-            Adventures
+            Challenges
           </div>
           <h2 className="font-body font-bold text-lg text-ink-primary leading-tight mt-0.5">
-            {isActive ? activeQuest.definition?.name || 'Active trial' : 'The Trials'}
+            {isActive ? activeQuest.definition?.name || 'Active challenge' : 'Challenges'}
           </h2>
           {isActive ? (
             <>
@@ -54,11 +54,11 @@ export default function AdventuresEntry() {
             </>
           ) : (
             <p className="font-body text-caption text-ink-secondary mt-1">
-              Boss and collection quests live here — spend a scroll to begin.
+              Use a Quest Scroll to start a boss or collection challenge.
             </p>
           )}
           <div className="font-script text-sm text-sheikah-teal-deep mt-2">
-            {isActive ? 'Continue →' : 'Enter the Trials →'}
+            {isActive ? 'Continue →' : 'View challenges →'}
           </div>
         </div>
       </button>

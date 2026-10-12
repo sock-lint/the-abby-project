@@ -11,7 +11,7 @@ const chronos = {
   id: 'chronos',
   rubric: '1',
   letter: 'C',
-  name: 'Chronos',
+  name: 'Time',
   kicker: 'the cadence of hours',
   criteria: ['hours_worked'],
 };
@@ -38,7 +38,7 @@ describe('CollectionFolio', () => {
         onSelect={() => {}}
       />,
     );
-    expect(screen.getByRole('region', { name: 'Chronos' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Time' })).toBeInTheDocument();
     expect(container.querySelector('[data-chapter-marker="1"]')).toHaveTextContent('1');
     expect(screen.getByText(/the cadence of hours/)).toBeInTheDocument();
   });
@@ -54,7 +54,7 @@ describe('CollectionFolio', () => {
         onSelect={() => {}}
       />,
     );
-    expect(screen.getByText(/no seals yet in this chapter/i)).toBeInTheDocument();
+    expect(screen.getByText(/no badges in this collection yet/i)).toBeInTheDocument();
   });
 
   it('renders each badge and forwards onSelect when a sigil is clicked', async () => {

@@ -1,25 +1,25 @@
 entries:
   - slug: duties
-    title: Duties
+    title: Chores
     icon: "🧹"
-    audience_title: "The household charge"
+    audience_title: "Household tasks"
     chapter: daily_life
     summary: "Recurring chores with parent approval and clear rewards."
     kid_voice: |
-      Duties are the household quests that keep the field notes tidy: dishes,
-      laundry, pets, rooms, and all the little acts of stewardship that make a
-      home work.
+      Chores help everyone take care of the home, from washing dishes and
+      doing laundry to caring for pets. Submit a completed chore for a parent
+      to review.
     mechanics:
-      - "A child submits a duty; a parent approves or rejects the completion."
-      - "Approved duties can pay money, Coins, XP through skill tags, streak credit, drops, and quest progress."
-      - "Daily and weekly duties use one active completion per day/week; rejected completions do not block a retry."
+      - "A child submits a completed chore; a parent approves or rejects it."
+      - "Approved chores can pay money, Coins, XP through skill tags, streak credit, drops, and challenge progress."
+      - "Daily and weekly chores use one active completion per day/week; rejected completions do not block a retry."
       - "Alternating-week schedules support shared custody without pre-generating task instances."
     parent_knobs:
       settings: []
       powers_badges:
         - chore_completions
       content_sources:
-        - "Parents author each duty's reward_amount, coin_reward, xp_reward, recurrence, schedule, and skill tags."
+        - "Parents set each chore's reward_amount, coin_reward, xp_reward, recurrence, schedule, and skill tags."
     economy:
       money: true
       coins: true
@@ -35,19 +35,20 @@ entries:
       reward_icon: "🪙"
 
   - slug: rituals
-    title: Rituals
+    title: Habits
     icon: "🌿"
-    audience_title: "The small repeated spell"
+    audience_title: "Everyday practice"
     chapter: daily_life
     summary: "Habits are quick taps for practice, not paid work."
     kid_voice: |
-      Rituals are tiny promises you keep with yourself. One good tap strengthens
-      the thread; a slip can be recorded honestly without turning it into a debt.
+      Habits help you practice something regularly. Log a positive action to
+      build strength. You can also record a setback without losing money
+      or coins.
     mechanics:
-      - "Positive habit taps grant XP through habit skill tags, streak credit, drops, and quest progress."
-      - "Rituals never pay money or Coins directly."
+      - "Positive habit taps grant XP through habit skill tags, streak credit, drops, and challenge progress."
+      - "Habits never pay money or Coins directly."
       - "Positive taps are capped per local day by max_taps_per_day; negative taps stay uncapped."
-      - "Untapped rituals gently decay toward zero strength overnight instead of creating punishments."
+      - "Habit strength moves toward zero overnight when a habit is not logged."
     parent_knobs:
       settings: []
       powers_badges:
@@ -65,25 +66,24 @@ entries:
       streak_credit: true
     trial_template: tap_and_reward
     trial:
-      prompt: "Tap to log your reading ritual."
-      payoff: "+5 XP · the strength thread tightens"
+      prompt: "Tap to log your reading habit."
+      payoff: "+5 XP · habit strength increases"
       target_icon: "📖"
       reward_icon: "🌿"
 
   - slug: study
-    title: Study
+    title: Homework
     icon: "📚"
-    audience_title: "The scholar's desk"
+    audience_title: "School assignments"
     chapter: daily_life
-    summary: "Homework is school duty: XP and progress, not coins."
+    summary: "Track school assignments and earn skill XP when approved."
     kid_voice: |
-      Study pages are for learning what the world is asking of you. They earn
-      mastery and momentum because practice matters, but homework is not a job
-      for hire.
+      Add your school assignments, plan the steps, and submit your finished
+      work. Approved homework earns skill XP. It does not pay money or coins.
     mechanics:
       - "Homework pays no money and no Coins."
-      - "Approved submissions award XP through homework skill tags and can count for drops, streak credit, and quest progress."
-      - "Timeliness labels are recorded on submission; early/on-time work can satisfy on_time quest filters and badge criteria."
+      - "Approved submissions award XP through homework skill tags and can count for drops, streak credit, and challenge progress."
+      - "Timeliness labels are recorded on submission; early/on-time work can satisfy on_time challenge filters and badge criteria."
       - "The first homework create per child per local day can count for game-loop progress; create-delete-create cannot farm it."
       - "Children can self-plan AI breakdowns only when the due date is far enough out; parents can always plan."
     parent_knobs:
@@ -116,17 +116,18 @@ entries:
   - slug: journal
     title: Journal
     icon: "🪶"
-    audience_title: "The private quill"
+    audience_title: "Your daily journal"
     chapter: daily_life
     summary: "One private reflection per day, with writing XP."
     kid_voice: |
-      The journal is your own page in the yearbook. Write what mattered today:
-      a victory, a worry, a funny moment, or one sentence that says you were here.
+      Write what mattered today: something you did, a worry, a funny moment,
+      or anything you want to remember. Keep it private or choose to share
+      it with your family.
     mechanics:
       - "Each child may write one journal entry per local day; the database enforces one-per-day."
-      - "Creating the entry grants 15 XP split toward Creative Writing and Vocabulary, and counts for streaks, drops, and quests."
-      - "Children can edit the same local-day entry; after midnight it locks into the Chronicle."
-      - "Journal entries are marked private in parent views but remain visible to parents with a privacy chip."
+      - "The first saved entry can earn writing XP from a 15 XP pool split toward Creative Writing and Vocabulary, and counts for streaks, drops, and challenges. The save confirmation shows any verified XP award."
+      - "Children can edit entry text on the day it was written. After midnight, the text is read-only, but its sharing setting can still be changed."
+      - "New journal entries default to Only you. Parents can read only entries the child shares with the family."
     parent_knobs:
       settings: []
       powers_badges:
@@ -143,7 +144,7 @@ entries:
       streak_credit: true
     trial_template: scribe
     trial:
-      prompt: "Inscribe what mattered today."
+      prompt: "Write what mattered today."
       payoff: "+15 XP across Creative Writing & Vocabulary"
       placeholder: "Today I…"
       min_length: 8
@@ -151,15 +152,16 @@ entries:
   - slug: creations
     title: Creations
     icon: "🎨"
-    audience_title: "The maker's proof"
+    audience_title: "Things you made"
     chapter: daily_life
     summary: "Photos of things made, with a two-per-day XP gate."
     kid_voice: |
-      Creations are for saying, “I made this.” A photo, a caption, maybe a bit
-      of sound — enough to keep the spark where future-you can find it.
+      Save things you make with a photo, a caption, or an audio recording.
+      Choose the creative skills you used, and submit a creation for a
+      parent to review for bonus XP.
     mechanics:
-      - "The first 2 Creations per child per local day grant the 10 XP baseline pool, drop chance, streak credit, and quest progress."
-      - "The 3rd and later Creations still appear in Sketchbook and Yearbook but do not grant baseline XP that day."
+      - "The first 2 Creations per child per local day grant the 10 XP baseline pool, drop chance, streak credit, and challenge progress."
+      - "The 3rd and later Creations still appear in Gallery and Timeline but do not grant baseline XP that day."
       - "The daily counter survives deletion, so create-delete-create cannot re-arm the XP window."
       - "A child can submit a Creation for parent bonus; approval grants a separate bonus XP pool, defaulting to 15 XP."
       - "Baseline XP goes to child-picked creative skills; parent bonus XP can use parent-authored bonus tags."
@@ -181,23 +183,24 @@ entries:
     trial_template: tap_and_reward
     trial:
       prompt: "Tap to log the doodle you just made."
-      payoff: "+10 XP · a new Sketchbook page"
+      payoff: "+10 XP · a new Gallery item"
       target_icon: "🖼️"
       reward_icon: "🎨"
 
   - slug: ventures
-    title: Ventures
+    title: Projects
     icon: "🛠️"
-    audience_title: "The long work"
+    audience_title: "Project work"
     chapter: long_work
-    summary: "Projects, clock time, milestones, bounties, and materials."
+    summary: "Projects, clock time, milestones, optional cash rewards, and materials."
     kid_voice: |
-      Ventures are big quests: building, repairing, cooking, coding, learning,
-      and proving that a plan can become a real thing under your hands.
+      Projects help you plan and track things you want to build, repair,
+      cook, code, or learn. Follow the steps, log your work time, and
+      complete milestones along the way.
     mechanics:
       - "Clocking out distributes 10 XP per hour across project skill tags and awards Coins per tracked hour."
-      - "Projects can be required allowance work or bounty work; completion posts the matching payment ledger entry."
-      - "Milestones are parent-controlled bonus chapters; completing one can pay milestone money and fixed skill XP."
+      - "Projects can be required allowance work or optional projects with a cash reward; completion posts the matching payment ledger entry."
+      - "Milestones are parent-set checkpoints; completing one can pay milestone money and fixed skill XP."
       - "Steps are instructional tasks only — checking them off never pays money, Coins, or XP by itself."
       - "Quiet hours, max-entry length, auto-clock-out, and one-active-entry constraints protect time tracking."
     parent_knobs:
@@ -214,7 +217,7 @@ entries:
         - perfect_timecard
       content_sources:
         - "Project and milestone skill tags author XP distribution."
-        - "Project payment_kind controls required allowance vs bounty payout."
+        - "Project payment_kind controls required allowance work vs optional cash rewards."
     economy:
       money: true
       coins: true
@@ -224,21 +227,22 @@ entries:
       streak_credit: true
     trial_template: observe
     trial:
-      prompt: "Watch the venture light up as the work clocks in."
+      prompt: "Watch project progress update as you log work."
       payoff: "+10 XP/hr distributed across the project's skill tags"
       caption: "Hours in. Milestones close. Coins arrive at clock-out."
 
   - slug: skills
     title: Skills
     icon: "🌳"
-    audience_title: "The atlas of mastery"
+    audience_title: "Your skill progress"
     chapter: long_work
     summary: "XP flows into a Category → Subject → Skill tree."
     kid_voice: |
-      Skills are the map of what you are becoming. Each bit of practice inks a
-      branch a little brighter until the old hard thing becomes familiar ground.
+      Skills show what you are learning. Practice earns XP in the skills
+      linked to each activity. Gain levels and meet requirements to unlock
+      more skills.
     mechanics:
-      - "Skill XP comes from tagged projects, milestones, homework, duties, rituals, quests, journal entries, and creations."
+      - "Skill XP comes from tagged projects, milestones, homework, chores, habits, challenges, journal entries, and creations."
       - "Weighted tags split a pool proportionally; homework/milestone tags use fixed XP amounts."
       - "Level thresholds are shared across skills and unlock richer mastery visuals."
       - "Locked skills can require prerequisites before they count toward some mastery badges."
@@ -262,23 +266,23 @@ entries:
       streak_credit: false
     trial_template: observe
     trial:
-      prompt: "Watch XP flow into the Woodworking versal — one drop, one branch."
-      payoff: "Versal gilds at the next threshold"
+      prompt: "Watch Woodworking progress increase as XP is earned."
+      payoff: "Gain a level at the next XP threshold"
       caption: "Tagged practice fills the right skill. Levels are shared across the tree."
 
   - slug: badges
     title: Badges
     icon: "🏅"
-    audience_title: "The sigil case"
+    audience_title: "Your achievements"
     chapter: long_work
     summary: "Milestone recognitions that can award XP and Coins."
     kid_voice: |
-      Badges are wax seals on the page: proof that a hard pattern became part
-      of your story.
+      Badges recognize your achievements, from a first project to a lasting
+      habit. Select a badge to see what you need to do to earn it.
     mechanics:
-      - "Badge criteria are evaluated across time, projects, skills, economy, homework, creations, RPG progress, and Chronicle milestones."
+      - "Badge criteria are evaluated across time, projects, skills, economy, homework, creations, RPG progress, and saved milestones."
       - "Earning a badge can grant an XP bonus and rarity-scaled Coins."
-      - "Some quest-completion badges opt out of extra Coins when the quest already paid its reward."
+      - "Some challenge-completion badges opt out of extra Coins when the challenge already paid its reward."
       - "The badge catalog is view-only for children and parent-managed from the Skills admin surface."
     parent_knobs:
       settings:
@@ -298,21 +302,21 @@ entries:
       streak_credit: false
     trial_template: observe
     trial:
-      prompt: "Watch the wax seal stamp the criterion you just met."
-      payoff: "Sigil + rarity-scaled coins"
-      caption: "Earning a badge is the page bound permanently into your reliquary."
+      prompt: "Watch a badge appear after its requirement is met."
+      payoff: "Badge + coins based on rarity"
+      caption: "Earned badges stay in your collection."
 
   - slug: chronicle
-    title: Chronicle
+    title: Memories
     icon: "📜"
-    audience_title: "The yearbook spine"
+    audience_title: "Your memory timeline"
     chapter: long_work
-    summary: "A lifelong timeline of chapters, birthdays, milestones, and memories."
+    summary: "A timeline of birthdays, milestones, journal entries, and memories."
     kid_voice: |
-      The Chronicle keeps the pages that prove you grew: birthdays, chapter
-      starts, firsts, milestones, recaps, memories, journals, and creations.
+      Memories brings together your journal, photos, grades, and timeline.
+      Browse milestones, birthdays, and things you made, organized by year.
     mechanics:
-      - "Chapter years start in August and continue after high school with age-based labels."
+      - "Timeline years start in August and continue after high school with age-based labels."
       - "Birthday checks grant Coins based on age and can show a celebration modal."
       - "Journal and Creation entries flow into the same timeline with their own privacy/visibility rules."
       - "Parent-authored manual memories never replace child-authored journal pages."
@@ -336,26 +340,26 @@ entries:
       streak_credit: false
     trial_template: observe
     trial:
-      prompt: "Watch the chapter timeline scroll from birth to today."
-      payoff: "A page is added; nothing on the spine is ever erased."
-      caption: "Birthdays, chapter starts, firsts, milestones, recaps, journals, creations."
+      prompt: "Browse the timeline from earlier years to today."
+      payoff: "New memories appear on the timeline."
+      caption: "Birthdays, year starts, firsts, milestones, recaps, journals, and creations."
 
   - slug: quests
-    title: Quests
+    title: Challenges
     icon: "⚔️"
-    audience_title: "The trial board"
+    audience_title: "Boss and collection challenges"
     chapter: rpg_layer
-    summary: "Boss and collection adventures that progress from everyday actions."
+    summary: "Boss and collection challenges that progress through everyday activities."
     kid_voice: |
-      Quests turn ordinary work into an adventure. Every duty, hour, habit, or
-      finished assignment can become a strike against a boss or one more piece
-      gathered for a collection.
+      Challenges give you a goal to work toward through everyday activities.
+      Complete matching chores, project work, habits, or homework to damage
+      a boss or add to a collection.
     mechanics:
-      - "A user has one active regular quest at a time."
-      - "Boss quests use trigger damage; collection quests count matching trigger events."
-      - "Trigger filters can restrict quests to certain triggers, projects, chores, skill categories, or on-time homework."
+      - "A user has one active regular challenge at a time."
+      - "Boss challenges use trigger damage; collection challenges count matching trigger events."
+      - "Trigger filters can restrict challenges to certain triggers, projects, chores, skill categories, or on-time homework."
       - "Boss rage adds extra shield on idle days and decays when the child returns to activity."
-      - "Quest completion can award Coins, XP through quest skill tags, and item rewards."
+      - "Completing a challenge can award Coins, XP through challenge skill tags, and item rewards."
     parent_knobs:
       settings: []
       powers_badges:
@@ -363,7 +367,7 @@ entries:
         - boss_quests_completed
         - collection_quests_completed
       content_sources:
-        - "Quest definitions and reward items are YAML-authored in content/rpg/initial/quests.yaml and packs."
+        - "Challenge definitions and reward items are YAML-authored in content/rpg/initial/quests.yaml and packs."
     economy:
       money: false
       coins: true
@@ -373,12 +377,12 @@ entries:
       streak_credit: false
     trial_template: choice
     trial:
-      prompt: "Pick the trial that calls you."
-      payoff: "Quest begins · progress tracks every action"
+      prompt: "Choose a challenge to try."
+      payoff: "Challenge begins · progress tracks matching activities"
       choices:
         - label: "Boss · Dragon"
           icon: "🐉"
-          outcome: "HP ticks down with every duty, hour, and habit."
+          outcome: "HP ticks down with each matching chore, hour of work, and habit."
         - label: "Collection · Pebbles"
           icon: "🪨"
           outcome: "Each find adds one to the count."
@@ -386,16 +390,16 @@ entries:
   - slug: pets
     title: Pets
     icon: "🐾"
-    audience_title: "The stable hatchery"
+    audience_title: "Hatching and caring for pets"
     chapter: rpg_layer
     summary: "Egg + potion companions that grow through care."
     kid_voice: |
-      Pets are companions found along the road. Hatch one with an egg and a
-      potion, feed it, and watch it grow beside your work.
+      Hatch a pet with an egg and a potion. Feed it to help it grow, and
+      choose an active pet to keep you company.
     mechanics:
       - "Hatching consumes one egg item and one potion item and creates a unique species/potion pet."
       - "Feeding consumes food; preferred food grants more growth than neutral food."
-      - "At 100 growth the pet evolves into a mount while the original pet remains in the stable."
+      - "At 100 growth the pet evolves into a mount while the original pet remains in your collection."
       - "Happiness is a gentle visual nudge based on last feeding; it never removes rewards or progress."
       - "Direct growth consumables are capped per pet per local day, while tonic-boosted feeding is limited by food items."
     parent_knobs:
@@ -415,29 +419,29 @@ entries:
       streak_credit: false
     trial_template: sequence
     trial:
-      prompt: "Hatch, feed, evolve — care begets a mount."
+      prompt: "Hatch a pet, feed it, and help it grow into a mount."
       payoff: "Egg → Pet → Mount"
       steps:
         - "Combine an egg and a potion to hatch a unique pet."
         - "Feed preferred food to climb growth fastest."
-        - "At growth 100 the pet evolves; the original stays in the stable."
+        - "At growth 100 the pet evolves; the original stays in your collection."
 
   - slug: mounts
     title: Mounts
     icon: "🐉"
-    audience_title: "The grown companion"
+    audience_title: "Pet evolution"
     chapter: rpg_layer
     summary: "Fully grown pets evolve, ride, and breed on cooldown."
     kid_voice: |
-      A mount is a companion that stayed with you long enough to grow into its
-      next chapter.
+      A pet creates a matching mount when it reaches full growth. You can
+      choose a mount to ride, breed mounts, or send one on an expedition.
     mechanics:
       - "A pet automatically creates a matching mount when it reaches 100 growth."
       - "Only one mount can be active for a user at a time."
       - "Breeding combines two owned mounts to create a hybrid egg + potion pair, then stamps cooldowns on both parents."
       - "A tiny chromatic upgrade chance can turn a breeding potion Cosmic."
       - "Mount sprites follow the species sprite key plus '-mount', with a base-species fallback."
-      - "A mount can be sent on an Expedition (2h, 4h, or 8h) once per local day. Loot is rolled when the mount leaves and stored on the row, so the payout is the same whenever you claim. Returning mounts pay coins (with Lucky Coin doubling) and a small handful of items, and route streak / quest credit through the same game-loop trigger as everything else."
+      - "A mount can be sent on an Expedition (2h, 4h, or 8h) once per local day. Loot is rolled when the mount leaves and stored on the row, so the payout is the same whenever you claim. Returning mounts pay coins (with Lucky Coin doubling) and a small handful of items, and route streak / challenge credit through the same game-loop trigger as everything else."
     parent_knobs:
       settings: []
       powers_badges:
@@ -454,18 +458,19 @@ entries:
     trial_template: observe
     trial:
       prompt: "Watch a fully-grown pet rise into its mount form."
-      payoff: "The stable gains a rideable companion."
+      payoff: "A mount joins your collection."
       caption: "Mounts ride and breed on cooldown; the original pet stays."
 
   - slug: drops
     title: Drops
     icon: "🎁"
-    audience_title: "The found treasure"
+    audience_title: "Items you can collect"
     chapter: rpg_layer
     summary: "Random items rolled from everyday progress."
     kid_voice: |
-      Sometimes the road leaves a little treasure behind: an egg, a potion, a
-      food, a scroll, a pouch, or a bit of style for your character.
+      Some activities give you a chance to find an item, such as an egg,
+      a potion, pet food, a quest scroll, a coin pouch, or a cosmetic for
+      your profile. Find collected items in Inventory.
     mechanics:
       - "Drop chance depends on trigger type, with streaks and drop boosts adding to the odds."
       - "Eligible drop-table rows are weighted and can require a minimum level."
@@ -493,17 +498,18 @@ entries:
   - slug: streaks
     title: Streaks
     icon: "🔥"
-    audience_title: "The returning flame"
+    audience_title: "Daily activity streaks"
     chapter: rpg_layer
     summary: "Daily engagement that rewards return without punishing absence harshly."
     kid_voice: |
-      A streak is the little flame that says you came back. If it dims, the
-      treasure you already earned stays yours.
+      A streak counts consecutive days with a qualifying activity. Missing
+      a day can reset the streak, but you keep the coins, XP, and items
+      you already earned.
     mechanics:
       - "The first qualifying activity of a local day records activity and awards streak-scaled daily check-in Coins."
       - "Missing a day can reset the visible streak and multiplier, but it never destroys earned Coins, XP, items, badges, pets, or memories."
       - "A streak freeze consumable can protect one missed day when its expiry covers the first missed day."
-      - "Perfect Day is separate: a nightly task awards bonus Coins when a child was active and completed every daily duty."
+      - "Perfect Day is separate: a nightly task awards bonus Coins when a child was active and completed every scheduled daily chore, with at least one daily chore scheduled."
     parent_knobs:
       settings: []
       powers_badges:
@@ -511,7 +517,7 @@ entries:
         - perfect_days_count
         - streak_freeze_used
       content_sources:
-        - "Game-loop triggers from work, duties, study, rituals, journal, and creations feed the streak service."
+        - "Game-loop triggers from work, chores, homework, habits, journal, and creations feed the streak service."
     economy:
       money: false
       coins: true
@@ -521,20 +527,20 @@ entries:
       streak_credit: true
     trial_template: tap_and_reward
     trial:
-      prompt: "Tap each rune to mark seven days in a row."
-      payoff: "Flame brightens · check-in coins climb"
+      prompt: "Tap to mark a day of activity."
+      payoff: "Longer streaks increase daily check-in coins"
       target_icon: "🔥"
       reward_icon: "🪙"
 
   - slug: coins
     title: Coins
     icon: "🪙"
-    audience_title: "The adventurer's purse"
+    audience_title: "Earning and spending coins"
     chapter: trade_coin
     summary: "A non-money progression currency for rewards and boosts."
     kid_voice: |
-      Coins are game treasure, not dollars. Spend them in the reward shop, save
-      them for bigger wishes, or earn them from good momentum.
+      Earn coins through activities and spend them in the Reward Shop.
+      Coins are separate from your real money balance.
     mechanics:
       - "Coins are tracked in an append-only CoinLedger separate from real money."
       - "Coins can come from tracked time, project/milestone bonuses, badges, chores, exchanges, drops/salvage, birthdays, and parent adjustments."
@@ -575,15 +581,16 @@ entries:
   - slug: money
     title: Money
     icon: "💵"
-    audience_title: "The real ledger"
+    audience_title: "Earnings and payments"
     chapter: trade_coin
     summary: "Real allowance-style earnings tracked apart from Coins."
     kid_voice: |
-      Money is the real-world ledger: hours, bounties, chores, payouts, and the
-      choices you make with what you earned.
+      Track the real money you earn from work, projects, and chores.
+      Parents record payments and adjustments, and you can follow
+      your savings goals.
     mechanics:
       - "Money lives in PaymentLedger, separate from CoinLedger."
-      - "Hourly work, project bonuses, bounties, milestone bonuses, chore rewards, reimbursements, payouts, adjustments, and coin exchanges have distinct entry types."
+      - "Hourly work, project bonuses, optional project rewards, milestone bonuses, chore rewards, reimbursements, payouts, adjustments, and coin exchanges have distinct entry types."
       - "Exchange approval debits money and credits Coins atomically; money is not held at request time."
       - "Parents can record payouts and adjustments; timecards preserve weekly audit history."
     parent_knobs:
@@ -614,20 +621,18 @@ entries:
   - slug: cosmetics
     title: Cosmetics
     icon: "👑"
-    audience_title: "The frontispiece wardrobe"
+    audience_title: "Personalize your profile"
     chapter: self_expression
     summary: "Owned style items for frames, titles, covers, pets, and trophies."
     kid_voice: |
-      Cosmetics change how your field notes look: a title, a frame, a journal
-      cover, a companion flourish, or the badge you choose as your hero seal.
-      Journal covers are unified — every cover lives in the cosmetic catalog
-      and the Settings picker only shows the ones you've earned. Hyrule comes
-      with the journal at signup; the other five drop from the same loot pool
-      as frames and titles.
+      Choose a title, a profile frame, app colors, or a pet accessory. You
+      can also display an earned badge as your trophy. Memory Meadow is
+      the starter cover; other covers can arrive as item drops. Settings
+      shows the covers you own and the ones you can still collect.
     mechanics:
       - "Cosmetics are owned in inventory and equipped without being consumed."
       - "Only one item per cosmetic slot can be active at a time."
-      - "Equipping a journal cover from Settings OR the Frontispiece routes through the same equip endpoint — both surfaces stay in lockstep."
+      - "Equipping a journal cover from Settings or Profile routes through the same equip endpoint — both surfaces stay in lockstep."
       - "The trophy badge slot only accepts badges the user has earned."
       - "Duplicate cosmetic drops salvage to Coins."
       - "Locked cosmetics can still appear in the catalog as goals, but they are not clickable until owned."
@@ -647,7 +652,7 @@ entries:
       streak_credit: false
     trial_template: choice
     trial:
-      prompt: "Pick a frame for your sigil."
+      prompt: "Choose a frame for your profile."
       payoff: "Frame equipped · the look is yours."
       choices:
         - label: "Bookworm"

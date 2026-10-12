@@ -67,7 +67,7 @@ describe('SkillVerse', () => {
         onSelect={() => {}}
       />,
     );
-    expect(screen.getByText(/locked — forge prerequisites first/i)).toBeInTheDocument();
+    expect(screen.getByText(/complete the required skills to unlock/i)).toBeInTheDocument();
     expect(screen.getByRole('button')).toHaveAttribute('data-locked', 'true');
   });
 
@@ -92,7 +92,7 @@ describe('SkillVerse', () => {
     const { container } = renderWithProviders(
       <SkillVerse skill={buildSkill({ level: 6, xp_points: 3000 })} index={0} onSelect={() => {}} />,
     );
-    expect(screen.getByText(/mastery/i)).toBeInTheDocument();
+    expect(screen.getByText(/max level/i)).toBeInTheDocument();
     expect(container.querySelector('[data-level-strap="true"]')).toBeNull();
   });
 

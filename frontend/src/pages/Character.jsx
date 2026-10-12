@@ -120,7 +120,7 @@ export default function Character() {
   if (loadError) {
     return (
       <div className="space-y-3 max-w-xl mx-auto">
-        <ErrorAlert message={loadError || 'Could not load your sigil.'} />
+        <ErrorAlert message={loadError || 'Could not load your profile.'} />
         <Button
           variant="secondary"
           size="sm"
@@ -137,7 +137,7 @@ export default function Character() {
       </div>
     );
   }
-  if (!profile) return <EmptyState>Unable to load sigil.</EmptyState>;
+  if (!profile) return <EmptyState>Unable to load profile.</EmptyState>;
 
   const refresh = () => {
     reloadProfile();
@@ -274,7 +274,7 @@ export default function Character() {
         items={shelfItems}
         activeId={activeChapter.slot}
         onSelect={setActiveChapterSlot}
-        ariaLabel="Cosmetic chapters"
+        ariaLabel="Profile collections"
       />
 
       <CosmeticChapter

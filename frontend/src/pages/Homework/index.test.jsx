@@ -93,7 +93,7 @@ describe('Homework', () => {
     ]);
     await waitFor(() =>
       expect(
-        screen.getAllByText((t) => /homework|study/i.test(t)).length,
+        screen.getAllByText((t) => /homework|homework/i.test(t)).length,
       ).toBeGreaterThan(0),
     );
   });
@@ -107,14 +107,14 @@ describe('Homework', () => {
       http.get('*/api/homework/dashboard/', () => {
         calls += 1;
         if (calls === 1) {
-          return HttpResponse.json({ detail: 'Study is offline.' }, { status: 500 });
+          return HttpResponse.json({ detail: 'Homework is offline.' }, { status: 500 });
         }
         return HttpResponse.json({ today: [], upcoming: [], overdue: [], stats: {} });
       }),
     ]);
 
     const retry = await screen.findByRole('button', { name: /try again/i });
-    expect(screen.getByRole('alert')).toHaveTextContent(/study is offline/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/homework is offline/i);
 
     await user.click(retry);
 

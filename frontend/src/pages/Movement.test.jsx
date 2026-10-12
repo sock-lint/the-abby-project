@@ -33,7 +33,7 @@ describe('Movement page', () => {
     );
     stubMe(buildUser());
     renderWithProviders(<Movement />);
-    expect(await screen.findByText(/Nothing logged yet today/i)).toBeInTheDocument();
+    expect(await screen.findByText(/No activity logged today/i)).toBeInTheDocument();
   });
 
   it('lists today’s sessions in the Today section', async () => {

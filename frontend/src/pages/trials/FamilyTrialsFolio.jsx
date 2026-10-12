@@ -16,7 +16,7 @@ export default function FamilyTrialsFolio({ rows = [] }) {
     <ParchmentCard tone="default" className="space-y-3">
       <ChapterRubric
         index={4}
-        name="Family Trials"
+        name="Family Challenges"
         summary={null}
       />
       <div className="space-y-2">
@@ -48,9 +48,9 @@ export default function FamilyTrialsFolio({ rows = [] }) {
               {row.quest.end_date && (
                 <AddToCalendar event={{
                   id: `quest:${row.quest.id}`,
-                  title: `Quest deadline: ${row.quest.definition.name}`,
+                  title: `Challenge deadline: ${row.quest.definition.name}`,
                   start: row.quest.end_date,
-                  description: 'Quest deadline.',
+                  description: 'Challenge deadline.',
                   path: '/quests?tab=trials',
                 }} />
               )}

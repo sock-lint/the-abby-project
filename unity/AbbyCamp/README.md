@@ -30,6 +30,11 @@ animation mappings. These prepared growth forms do not yet add evolution rules.
 
 ## Product goal and next slice
 
+Use the web app's [plain-language UI vocabulary](../../frontend/CLAUDE.md#ui-language-october-2026).
+Play displays **Pets** for the companion and mount collection. Internal
+`Bestiary` section, button and destination identifiers remain unchanged for
+navigation and validation compatibility.
+
 ### Agreed web and Play responsibilities — 2026-10-10
 
 The two clients are one product from Abby's perspective. The web app owns recording and revisiting life: journal and grade entry, homework, projects, chores, memories and family participation. Play owns reward presentation, the child's notification inbox and creature interactions. Eventually Bestiary, pets, mounts, companions, hatching, feeding, evolution, breeding, creature accessories and expeditions belong in Play. Parent approvals, content authoring and family management stay in the web app.

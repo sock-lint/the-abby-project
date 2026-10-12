@@ -12,7 +12,7 @@ export default function Lorebook() {
   if (error || !data) {
     return (
       <div className="space-y-3">
-        <ErrorAlert message={error || 'Could not load your Lorebook.'} />
+        <ErrorAlert message={error || 'Could not load the guide.'} />
         <Button variant="primary" onClick={reload}>
           Try again
         </Button>

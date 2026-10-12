@@ -57,7 +57,7 @@ describe('QuestTile', () => {
       />,
     );
 
-    await user.click(await screen.findByRole('button', { name: /^Begin$/ }));
+    await user.click(await screen.findByRole('button', { name: /^Start challenge$/ }));
     expect(onBegin).toHaveBeenCalledTimes(1);
     expect(onSelect).not.toHaveBeenCalled();
   });

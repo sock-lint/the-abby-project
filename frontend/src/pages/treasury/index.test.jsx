@@ -31,7 +31,7 @@ describe('TreasuryHub', () => {
     // owns the page heading. The hub's identity is carried by its tablist
     // aria-label.
     await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /treasury sections/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /rewards sections/i })).toBeInTheDocument(),
     );
   });
 });

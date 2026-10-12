@@ -14,15 +14,15 @@ import GradesPage from '../grades/GradesPage';
 export default function ChronicleHub() {
   return (
     <ChapterHub
-      title="Chronicle"
-      kicker="Chapter VI · The Memoir of Days"
+      title="Memories"
+      kicker="Your journal, photos, and milestones"
       glyph="compass-rose"
       defaultTabId="sketchbook"
       tabs={[
-        { id: 'sketchbook', label: 'Sketchbook', render: () => <Portfolio /> },
+        { id: 'sketchbook', label: 'Gallery', render: () => <Portfolio /> },
         { id: 'journal',    label: 'Journal',    render: () => <JournalReader /> },
         { id: 'grades',     label: 'Grades',     render: () => <GradesPage /> },
-        { id: 'yearbook',   label: 'Yearbook',   render: () => <Yearbook /> },
+        { id: 'yearbook',   label: 'Timeline',   render: () => <Yearbook /> },
       ]}
     />
   );

@@ -109,7 +109,7 @@ export default function LorebookCodex({
           chip: `${chapter.trained}/${chapter.total}`,
           progressPct: pct,
           tier: tierForProgress({ unlocked: true, progressPct: pct, level: 0 }),
-          ariaLabel: `${chapter.chapter.name}, ${chapter.trained} of ${chapter.total} inked`,
+          ariaLabel: `${chapter.chapter.name}, ${chapter.trained} of ${chapter.total} completed`,
         };
       }),
     [grouped],
@@ -119,7 +119,7 @@ export default function LorebookCodex({
     grouped.find((c) => c.chapter.id === activeChapterId) ?? grouped[0];
 
   if (!entries.length) {
-    return <EmptyState>The Lorebook has not been inked yet.</EmptyState>;
+    return <EmptyState>No guide topics available yet.</EmptyState>;
   }
 
   return (
@@ -132,7 +132,7 @@ export default function LorebookCodex({
         items={shelfItems}
         activeId={activeChapterId}
         onSelect={selectChapter}
-        ariaLabel="Lorebook chapters"
+        ariaLabel="Guide topics"
       />
 
       {activeChapter && (

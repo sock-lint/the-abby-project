@@ -166,7 +166,7 @@ export default function Homework() {
   const pendingSubs = dashboard?.pending_submissions ?? [];
   const versoStats = isParent
     ? [
-      { value: pendingSubs.length, label: 'awaiting seal' },
+      { value: pendingSubs.length, label: 'awaiting approval' },
       { value: allAssignments.length, label: 'active' },
     ]
     : [
@@ -179,7 +179,7 @@ export default function Homework() {
     : Number(stats.completion_rate || 0);
   const versoProgressLabel = isParent
     ? (pendingSubs.length === 0
-      ? 'queue is clear'
+      ? 'No submissions awaiting approval'
       : `${pendingSubs.length} submission${pendingSubs.length === 1 ? '' : 's'} pending`)
     : `${stats.total_approved ?? 0} approved this year`;
   const versoRarityCounts = allAssignments.length > 0
@@ -196,9 +196,9 @@ export default function Homework() {
   return (
     <div className="space-y-6">
       <QuestFolio
-        letter="S"
-        title="Study"
-        kicker="the scholar's corner"
+        letter="H"
+        title="Homework"
+        kicker="Track assignments and due dates"
         meta="submit each assignment with a proof photo"
         stats={versoStats}
         progressPct={versoProgressPct}
@@ -281,7 +281,7 @@ export default function Homework() {
               )}
             </Section>
             <section>
-              <ChapterRubric index={nextRubric()} name="Awaiting your seal" />
+              <ChapterRubric index={nextRubric()} name="Awaiting approval" />
               <ApprovalQueue
                 items={dashboard?.pending_submissions}
                 emptyText="No pending submissions."
