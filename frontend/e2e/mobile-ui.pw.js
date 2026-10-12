@@ -143,6 +143,11 @@ test('calendar choices fit a phone and download a complete Apple calendar event'
   const trigger = page.getByRole('button', { name: /add .*science assignment.*to calendar/i });
   await trigger.click();
   const dialog = page.getByRole('dialog');
+  // Visibility does not wait for the sheet's translateY spring to finish.
+  // Measuring during that transform can report a 44px target as 43.999969px
+  // through coordinate subtraction. Measure the settled layout so the strict
+  // 44px requirement still catches genuinely undersized controls.
+  await expect(dialog).toHaveCSS('transform', 'none');
   const google = dialog.getByRole('link', { name: /Google Calendar/i });
   const apple = dialog.getByRole('button', { name: /Apple Calendar/i });
   await expect(google).toBeInViewport();

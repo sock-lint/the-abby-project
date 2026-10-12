@@ -74,8 +74,11 @@ disposable SQLite, with its two PostgreSQL-specific tests skipped there.
 All 52 avatar/shared-fixture checks, including both concurrency tests, passed
 against disposable local PostgreSQL 16; its test container/database were removed.
 Local browser checks verified automatic pet/Archer rendering and avatar
-customization saving through Django and surviving a reload. Full-app browser
-scenarios were updated for this layout; that Playwright suite was not rerun.
+customization saving through Django and surviving a reload. The full browser
+suite passed all 34 checks with private assets, including the updated profile/
+pet scenarios, production-routed offline boot and release replacement. Calendar
+geometry waits for the sheet's entrance transform to settle before measuring
+the strict 44px touch-target requirement.
 
 Initial prototype validation below remains historical conversion/PWA evidence:
 
