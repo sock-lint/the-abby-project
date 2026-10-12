@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import * as Sentry from '@sentry/react';
 import { Camera, Send, X } from 'lucide-react';
 import BottomSheet from './BottomSheet';
@@ -23,6 +23,7 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const proofInputId = useId();
 
   if (!assignment) return null;
 
@@ -57,9 +58,9 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
     }
   };
 
-  // formLabelClass used directly for the photo-picker grid label below — that
-  // field isn't a single <input>, so it can't use the form-primitive
-  // label/htmlFor wiring; the className stays in lockstep via the constant.
+  // formLabelClass used directly for the photo-picker grid label below — the
+  // picker isn't a form-primitive field, so the label/htmlFor wiring is done by
+  // hand (proofInputId); the className stays in lockstep via the constant.
 
   return (
     <BottomSheet
@@ -94,7 +95,7 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
         </div>
 
         <div>
-          <label className={formLabelClass}>Proof photos (required)</label>
+          <label htmlFor={proofInputId} className={formLabelClass}>Proof photos (required)</label>
           <div className="flex gap-2 flex-wrap">
             {images.map((img, i) => (
               <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-ink-page-shadow">
@@ -119,12 +120,16 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
                 </button>
               </div>
             ))}
-            <label className="w-16 h-16 rounded-lg border-2 border-dashed border-ink-page-shadow hover:border-sheikah-teal/60 flex items-center justify-center cursor-pointer transition-colors">
-              <Camera size={20} className="text-ink-secondary" />
+            <label className="w-16 h-16 rounded-lg border-2 border-dashed border-ink-page-shadow hover:border-sheikah-teal/60 flex items-center justify-center cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-sheikah-teal-deep focus-within:ring-offset-2 focus-within:ring-offset-ink-page">
+              <Camera size={20} className="text-ink-secondary" aria-hidden="true" />
               {/* intentional: file picker label/input pattern — design-system
-                  primitives don't yet wrap multi-file native pickers. */}
+                  primitives don't yet wrap multi-file native pickers. The
+                  input is sr-only, not display:none, so it stays in the tab
+                  order; the tile's focus-within ring is its focus indicator. */}
               <input
-                type="file" accept="image/*" multiple className="hidden"
+                id={proofInputId}
+                type="file" accept="image/*" multiple className="sr-only"
+                aria-label="Add proof photos (required)"
                 onChange={(e) => setImages([...images, ...Array.from(e.target.files)])}
               />
             </label>
@@ -132,6 +137,7 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
         </div>
 
         <TextAreaField
+          label="Notes (optional)"
           placeholder="Notes (optional)" value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={2}
