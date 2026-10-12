@@ -50,6 +50,8 @@ import expiredExpeditionHistory from '../../../contracts/api/fixtures/expedition
 import readyClaimExpedition from '../../../contracts/api/fixtures/expeditions-ready-claim.json';
 import readySalvageExpedition from '../../../contracts/api/fixtures/expeditions-ready-salvage.json';
 import expeditionStable from '../../../contracts/api/fixtures/pets-stable-expeditions.json';
+import restedExpeditionStable from '../../../contracts/api/fixtures/pets-stable-expedition-rested.json';
+import nextDayExpeditionStable from '../../../contracts/api/fixtures/pets-stable-expedition-next-day.json';
 import claimedExpedition from '../../../contracts/api/fixtures/expedition-claim.json';
 import repeatedExpeditionClaim from '../../../contracts/api/fixtures/expedition-claim-repeat.json';
 import boostedExpeditionClaim from '../../../contracts/api/fixtures/expedition-claim-boosted.json';
@@ -556,7 +558,17 @@ describe('shared Django response fixtures through the React API client', () => {
     expect(stable.mounts.map((mount) => mount.active_expedition.id).sort()).toEqual([103, 104, 105]);
     for (const mount of stable.mounts) {
       expect(mount.active_expedition).toEqual(allExpeditions.expeditions.find((row) => row.mount_id === mount.id));
+      expect(mount.expedition_available).toBe(false);
+      expect(mount.expedition_available_at).toBeNull();
     }
+  });
+
+  it('keeps the server daily expedition rest separate from unclaimed trips and opens it the next day', async () => {
+    server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(restedExpeditionStable)));
+    const rested = (await getStable()).mounts.find((mount) => mount.id === 61);
+    expect(rested).toMatchObject({ active_expedition: null, expedition_available: false, expedition_available_at: '2026-10-11T00:00:00-07:00' });
+    server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(nextDayExpeditionStable)));
+    expect((await getStable()).mounts.find((mount) => mount.id === 61)).toMatchObject({ active_expedition: null, expedition_available: true, expedition_available_at: null });
   });
 
   it.each([

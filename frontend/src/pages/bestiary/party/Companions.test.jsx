@@ -73,7 +73,7 @@ function renderPage(handlers = []) {
 function collection() { return within(screen.getByRole('list', { name: 'Your companions' })); }
 
 describe('Companions tab', () => {
-  it('opens real care from the waiting companion even when the collection filter excludes it', async () => {
+  it('opens real care from the feed action even when the collection filter excludes it', async () => {
     const user = userEvent.setup();
     const feed = spyHandler('post', /\/api\/pets\/1\/feed\/$/, { new_growth: 100, growth_added: 5, evolved: false });
     renderPage([
@@ -81,11 +81,11 @@ describe('Companions tab', () => {
       http.get('*/api/inventory/', () => HttpResponse.json(FOOD_INVENTORY)),
       feed.handler,
     ]);
-    await screen.findByRole('button', { name: 'Spend time with Drake' });
+    await screen.findByRole('button', { name: 'Feed your companion' });
     expect(screen.queryByRole('button', { name: 'Show 3D view' })).toBeNull();
     await user.click(screen.getByRole('tab', { name: /Hungry/ }));
     expect(collection().queryByText(/Drake/)).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Spend time with Drake' }));
+    await user.click(screen.getByRole('button', { name: 'Feed your companion' }));
     const care = await screen.findByRole('dialog', { name: 'Care for Fire Drake' });
     expect(feed.calls).toHaveLength(0);
     await user.click(within(care).getByRole('button', { name: /Berries/ }));

@@ -30,3 +30,7 @@
 .companion-stage-interaction:focus-visible { outline: 3px solid var(--color-sheikah-teal-deep); outline-offset: -5px; }
 .companion-interaction-hint { padding: .4rem .8rem; border-radius: 999px; color: var(--color-ink-primary); background: color-mix(in srgb, var(--color-ink-page) 92%, transparent); font-size: var(--text-caption); font-weight: 700; }
 .companion-stage-interaction:hover .companion-interaction-hint { background: var(--color-ink-page); }
+.companion-play-area { padding: 1rem .25rem .25rem; }
+.companion-play-controls { display: flex; flex-wrap: wrap; gap: .5rem; }
+.companion-play-controls button { flex: 1 1 auto; }
+.companion-play-response { margin-top: .65rem; min-height: 1.5em; color: var(--color-ink-secondary); font-size: var(--text-caption); }

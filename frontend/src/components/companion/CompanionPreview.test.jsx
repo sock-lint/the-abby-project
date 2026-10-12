@@ -9,9 +9,9 @@ vi.mock('../../companion/appearance', async () => {
   const manifest = {
     schema_version: 1,
     bindings: [{ species_slug: 'chick', species_sprite_key: 'cute-chick', potion_slug: 'base', pet: 'chick', evolved: 'bird', mount: 'bird' }],
-    models: { chick: { file: 'chick.glb' }, bird: { file: 'bird.glb' } },
+    models: { chick: { file: 'chick.glb', interaction_clips: { play: { file: 'hop.glb', clip: 'Hop' }, left: { file: 'turn.glb', clip: 'Left' }, right: { file: 'turn.glb', clip: 'Right' } } }, bird: { file: 'bird.glb', interaction_clips: { play: { file: 'fly.glb', clip: 'Fly' } } } },
   };
-  const urls = { './licensed/chick.glb': '/test-chick.glb', './licensed/bird.glb': '/test-bird.glb' };
+  const urls = { './licensed/chick.glb': '/test-chick.glb', './licensed/bird.glb': '/test-bird.glb', './licensed/hop.glb': '/test-hop.glb', './licensed/fly.glb': '/test-fly.glb', './licensed/turn.glb': '/test-turn.glb' };
   return { ...actual, resolveAppearance: (creature, kind) => actual.resolveAppearance(creature, kind, manifest, urls) };
 });
 vi.mock('../../companion/modelLoader', () => ({ resetModels: vi.fn() }));
@@ -113,15 +113,15 @@ describe('Primary companion home', () => {
     expect(screen.getByText('Base Chick · 99/100 growth')).toBeInTheDocument();
     expect(screen.getByText('One more favorite snack to evolve.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Show 3D view' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Say hello' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Say hello' })).toBeEnabled();
     await screen.findByTestId('optional-scene');
     expect(scene.props.appearance.key).toBe('chick');
     expect(scene.props.animate).toBe(true);
     expect(screen.getByRole('button', { name: 'Choose food' })).toBeEnabled();
     act(() => scene.props.onReady());
     expect(screen.queryByText('A little company while you grow.')).toBeNull();
-    expect(screen.queryByRole('status')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Care for Peep' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Take a little break with Peep.');
+    await user.click(screen.getByRole('button', { name: 'Say hello to Peep' }));
     expect(openCare).toHaveBeenCalledTimes(1);
     expect(scene.props.greeting).toBe(0);
   });
@@ -168,7 +168,7 @@ describe('Primary companion home', () => {
     render(<CompanionPreview variant="primary" creature={{ ...pet, name: 'Juniper', species: { name: 'Fox', sprite_key: 'fox', icon: '🦊' } }} onInteract={vi.fn()} />);
     expect(screen.getByRole('heading', { name: 'Juniper' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Juniper, your companion' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Care for Juniper' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Say hello to Juniper' })).toBeEnabled();
     expect(screen.queryByText('View')).toBeNull();
     expect(scene.props).toBeNull();
   });
@@ -176,9 +176,33 @@ describe('Primary companion home', () => {
   it('honors the kill switch for primary scenes and still permits care', () => {
     vi.stubEnv('VITE_COMPANION_3D', 'false');
     render(<CompanionPreview variant="primary" creature={pet} onInteract={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Care for Base Chick' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Say hello to Base Chick' })).toBeEnabled();
     expect(screen.getByRole('img', { name: 'Base Chick, your companion' })).toBeInTheDocument();
     expect(screen.queryByText('View')).toBeNull();
     expect(scene.props).toBeNull();
+  });
+
+  it('makes greetings and supplied play local, repeats on tap and resets on identity change', async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const view = render(<CompanionPreview variant="primary" creature={{ ...pet, name: 'Peep' }} />);
+    await screen.findByTestId('optional-scene');
+    act(() => scene.props.onReady());
+    await user.click(screen.getByRole('button', { name: 'Say hello to Peep' }));
+    expect(scene.props.interaction).toMatchObject({ action: 'hello', id: 1 });
+    expect(screen.getByRole('status')).toHaveTextContent('Peep is happy to see you.');
+    await user.click(screen.getByRole('button', { name: 'Hop together' }));
+    expect(scene.props.interaction).toMatchObject({ action: 'play', id: 2 });
+    await user.click(screen.getByRole('button', { name: 'Look around' }));
+    expect(scene.props.interaction.action).toBe('left');
+    await user.click(screen.getByRole('button', { name: 'Look around' }));
+    expect(scene.props.interaction.action).toBe('right');
+    expect(fetchSpy.mock.calls.filter(([, options]) => options?.method && options.method !== 'GET')).toHaveLength(0);
+    view.rerender(<CompanionPreview variant="primary" creature={{ ...pet, id: 2, name: 'Pip', evolved_to_mount: true }} />);
+    await waitFor(() => expect(scene.props.interaction).toBeNull());
+    expect(screen.getByRole('button', { name: 'Fly together' })).toBeDisabled();
+    act(() => scene.props.onReady());
+    expect(screen.getByRole('button', { name: 'Fly together' })).toBeEnabled();
+    fetchSpy.mockRestore();
   });
 });

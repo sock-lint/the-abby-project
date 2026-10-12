@@ -91,11 +91,11 @@ def normalize(objects, name, target_height=None, footprint=None, position=(0, 0,
     return container
 
 
-def export(path, animations):
+def export(path, animations, animation_mode="ACTIONS"):
     bpy.context.view_layer.update()
     bpy.ops.export_scene.gltf(
         filepath=str(path), export_format="GLB", export_yup=True,
-        export_animations=animations, export_animation_mode="ACTIONS",
+        export_animations=animations, export_animation_mode=animation_mode,
         export_nla_strips=True, export_anim_single_armature=True,
         export_force_sampling=True, export_anim_slide_to_zero=True,
         export_skins=True, export_materials="EXPORT", export_image_format="AUTO",
@@ -129,10 +129,64 @@ def creature(key, entry, source, output, textures):
     track.strips.new(idle.name, int(idle.frame_range[0]), idle)
     track.mute = True
     set_materials(objects, {entry["form"]: material(entry["form"], textures)}, entry["form"])
-    normalize(objects, "Prepared " + entry["form"], target_height=entry["height"])
+    container = normalize(objects, "Prepared " + entry["form"], target_height=entry["height"])
+    bpy.context.view_layer.update()
+    normalization = container.matrix_world.copy()
     report = {"frames": int(idle.frame_range[1] - idle.frame_range[0] + 1), "bones": len(armature.data.bones), "source_clip_unchanged": True, "root_motion": False}
     export(output / (key + ".glb"), True)
-    return {entry["idle"]: report}
+    reports = {entry["idle"]: report}
+    for interaction, clip in entry.get("interactions", {}).items():
+        reports[clip] = interaction_take(key, interaction, clip, entry, folder, output, textures, normalization)
+    return reports
+
+
+def interaction_take(key, interaction, clip, entry, folder, output, textures, normalization):
+    """Keep each publisher take's complete rig and skin, including its bind pose.
+
+    Jump/flight takes have different supplied rest bones. Copying their actions
+    onto the idle rig deforms the jaw/legs. Export the original matching mesh and
+    rig instead, under the idle's static normalization so artwork never changes
+    size between actions. Bird turns include an animated non-armature root;
+    matching NLA track names preserve it in the same glTF animation.
+    """
+    reset()
+    objects = import_fbx(folder / (entry["form"] + "@" + clip + ".FBX"))
+    armature = next(obj for obj in objects if obj.type == "ARMATURE")
+    supplied = armature.animation_data.action
+    start, end = supplied.frame_range
+    root_motion = []
+    for obj in objects:
+        action = obj.animation_data.action if obj.animation_data else None
+        if not action:
+            continue
+        if obj != armature:
+            for curve in action.fcurves:
+                values = [point.co.y for point in curve.keyframe_points]
+                if values and max(values) - min(values) > 0.001:
+                    # This accepted set contains turns, never translating takes.
+                    if curve.data_path != "rotation_euler" or interaction not in ("left", "right"):
+                        raise ValueError("Interaction has unreviewed root motion")
+                    root_motion.append({"object": obj.name, "channel": curve.data_path, "axis": curve.array_index})
+        track = obj.animation_data.nla_tracks.new()
+        track.name = clip
+        track.strips.new(action.name, int(action.frame_range[0]), action)
+        obj.animation_data.action = None
+    container = bpy.data.objects.new("Prepared " + entry["form"], None)
+    bpy.context.collection.objects.link(container)
+    for obj in objects:
+        if obj.parent not in objects:
+            matrix = obj.matrix_world.copy()
+            obj.parent = container
+            obj.matrix_world = matrix
+    container.matrix_world = normalization
+    bpy.context.scene.frame_set(int(start))
+    set_materials(objects, {entry["form"]: material(entry["form"], textures)}, entry["form"])
+    export(output / f"{key}-{interaction}.glb", True, animation_mode="NLA_TRACKS")
+    return {
+        "frames": int(end - start + 1), "bones": len(armature.data.bones),
+        "source_clip_unchanged": True, "separate_supplied_rig": True,
+        "normalization_matches_idle": True, "root_motion": root_motion,
+    }
 
 
 def woodland(source, output, textures, colors):

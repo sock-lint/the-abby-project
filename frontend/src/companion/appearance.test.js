@@ -30,4 +30,17 @@ describe('Owned companion appearance bindings', () => {
     expect(activeCompanion({ pets: [chick, { ...chick, id: 8, is_active: true }] })?.creature.id).toBe(8);
     expect(activeCompanion({ pets: [], mounts: [{ ...chick, is_active: true }] })?.kind).toBe('mount');
   });
+
+  it('exposes only known interactions with both a staged model and named supplied clip', () => {
+    const source = structuredClone(manifest);
+    source.models.chick.interaction_clips = {
+      play: { file: 'hop.glb', clip: 'Jump Forward In Place' },
+      left: { file: 'absent.glb', clip: 'Turn Left' },
+      right: { file: 'hop.glb' },
+      fight: { file: 'hop.glb', clip: 'Attack' },
+    };
+    expect(resolveAppearance(chick, 'pet', source, { ...urls, './licensed/hop.glb': '/hop.glb' }).interactions).toEqual({
+      play: { url: '/hop.glb', clip: 'Jump Forward In Place' },
+    });
+  });
 });

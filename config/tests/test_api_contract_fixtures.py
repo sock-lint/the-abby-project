@@ -513,6 +513,13 @@ class SharedApiResponseFixtureTests(APITestCase):
             self.assert_response_fixture(self.client.get("/api/expeditions/?ready=true"), "expeditions-empty.json")
             daily = self.client.post("/api/mounts/61/expedition/", {"tier": "short"}, format="json")
             self.assert_response_fixture(daily, "expedition-daily-limit.json", status=400)
+            rested = self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-stable-expedition-rested.json")
+            rested_mount = next(mount for mount in rested["mounts"] if mount["id"] == 61)
+            self.assertFalse(rested_mount["expedition_available"])
+            self.assertEqual(rested_mount["expedition_available_at"], "2026-10-11T00:00:00-07:00")
+            with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(days=1)):
+                tomorrow = self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-stable-expedition-next-day.json")
+            self.assertTrue(next(mount for mount in tomorrow["mounts"] if mount["id"] == 61)["expedition_available"])
             self.assertEqual((self.expedition_reward_state(), self.expedition_rows_state()), after_claim)
         self.assertEqual(foreign_inventory, list(UserInventory.objects.exclude(user=self.child).order_by("pk").values_list("pk", "quantity", "updated_at")))
 

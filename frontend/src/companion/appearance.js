@@ -24,6 +24,11 @@ export function resolveAppearance(creature, kind = 'pet', source = manifest, url
     url,
     idleClip: model.idle_clip || null,
     rotationY: model.rotation_y || 0,
+    interactions: Object.fromEntries(['play', 'left', 'right'].flatMap((action) => {
+      const take = model.interaction_clips?.[action];
+      const takeUrl = take?.file && urls[`./licensed/${take.file}`];
+      return takeUrl && take.clip ? [[action, { url: takeUrl, clip: take.clip }]] : [];
+    })),
     woodland: woodland?.file && urls[`./licensed/${woodland.file}`]
       ? { url: urls[`./licensed/${woodland.file}`], scale: woodland.scale || 1 }
       : null,

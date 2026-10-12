@@ -44,6 +44,20 @@ class RuntimeExportSafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "reviewed clips"):
             prepare.verify_export(self.path, ["Idle"])
 
+    def test_additional_unreviewed_take_cannot_hide_beside_accepted_clip(self):
+        self.document["animations"].append({
+            "name": "Die", "channels": [{"sampler": 0}], "samplers": [{"input": 0}],
+        })
+        self.write()
+        with self.assertRaisesRegex(ValueError, "reviewed clips"):
+            prepare.verify_export(self.path, ["Idle"])
+
+    def test_take_with_empty_animation_channels_is_rejected(self):
+        self.document["animations"][0]["channels"] = []
+        self.write()
+        with self.assertRaisesRegex(ValueError, "Empty animation"):
+            prepare.verify_export(self.path, ["Idle"])
+
     def test_lost_skin_weights_are_rejected(self):
         del self.document["meshes"][0]["primitives"][0]["attributes"]["WEIGHTS_0"]
         self.write()

@@ -5,6 +5,7 @@ import BottomSheet from '../../../components/BottomSheet';
 import Button from '../../../components/Button';
 import ErrorAlert from '../../../components/ErrorAlert';
 import { startExpedition } from '../../../api';
+import usePetMutationGuard from './usePetMutationGuard';
 
 // Tier metadata mirrors apps/pets/expeditions.py::TIER_CONFIG so the UI
 // reads truthful copy without an extra round-trip. If the backend table
@@ -46,20 +47,25 @@ const TIERS = [
 export default function ExpeditionLaunchSheet({ mount, onDismiss, onLaunched }) {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
+  const beginMutation = usePetMutationGuard();
 
   if (!mount) return null;
 
   const handleLaunch = async (tier) => {
+    const request = beginMutation();
+    if (!request) return;
     setError('');
     setWorking(true);
     try {
       const expedition = await startExpedition(mount.id, tier);
+      if (!request.isCurrent()) return;
       onLaunched?.(expedition);
       onDismiss?.();
     } catch (e) {
-      setError(e.message || 'Could not start expedition.');
+      if (request.isCurrent()) setError(e.message || 'Could not start expedition.');
     } finally {
-      setWorking(false);
+      if (request.isCurrent()) setWorking(false);
+      request.finish();
     }
   };
 

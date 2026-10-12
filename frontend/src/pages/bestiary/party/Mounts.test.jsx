@@ -62,7 +62,7 @@ describe('Mounts tab', () => {
       http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [MOUNTS[0]], total_possible: 48 })),
       start.handler,
     ]);
-    await user.click(await screen.findByRole('button', { name: 'Explore with Griffon' }));
+    await user.click(await screen.findByRole('button', { name: 'Choose an expedition' }));
     expect(start.calls).toHaveLength(0);
     await user.click(await screen.findByRole('button', { name: /Short expedition/ }));
     await waitFor(() => expect(start.calls).toHaveLength(1));
