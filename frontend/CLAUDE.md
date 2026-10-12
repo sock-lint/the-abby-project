@@ -171,6 +171,21 @@ The replaceable Meadow presentation also supplies the welcome screen. Its licens
 
 `RpgSprite` defaults to smooth image scaling; use `rendering="pixelated"` explicitly for artwork that needs crisp pixel edges. Today and Companions use `petSpriteKeys` for retained pet rows, selecting the evolved portrait only from server-confirmed `evolved_to_mount`, never growth alone. Missing or failed portraits try `fallbackSpriteKey` before a labelled icon. Failures belong to the image URL, so a fresh catalog URL can recover. `JournalIcons` keeps its named exports with rounded Meadow SVG drawings, readable current-color outlines and soft cover-token fills. Use its shared chapter icons in navigation and `CoinIcon` for progression currency; real money keeps its dollar icon. `ChapterMarker` replaces manuscript section marks with decorative rounded number badges; `chapterMark` returns one-based Arabic labels for headings, chapter taxonomies and shelf medallions. Shared `TabList` uses one tab stop, Left/Right arrows with wrapping, Home/End, automatic selection and reduced-motion-aware active-tab scrolling.
 
+**Supported offers and saved collections:** use Django's read-only
+`catalog_available` fields through `utils/catalogAvailability.js`; React does
+not infer acquisition eligibility from an icon or model filename. New pet
+offers are Base Chick, with Bird only after confirmed evolution. Companions
+and Grown pets keep earlier unsupported rows in Saved collection with their
+existing care, activation and expedition controls. Unknown identities never
+receive the Chick/Bird model. Collection counts use supported rows and the
+server's supported `total_possible`; saved ownership counts remain intact.
+Profile offers Frames, Titles and Covers, while saved accessories are keepsakes
+with removal of a previous selection allowed. Inventory retains unavailable
+items but omits their blocked action. Shop, challenge and badge surfaces respect
+availability without presenting unreachable unlocks. See the
+[asset boundary](../content/rpg/react-three-fiber-assets.md) and
+[shared contract checks](../contracts/api/README.md) before extending offers.
+
 - **Import recovery:** `ProjectIngest` keeps the active job, edited plan, and overrides in a user-scoped device draft (`pages/ingest/ingestDraft.js`) and debounces staged-plan saves to the server. Connection failures resume the existing job. An interrupted creation checks that job and safely retries its idempotent commit; confirmed creation/discard clears the local draft.
 - **Drive selection:** `GoogleDrivePickerButton` preloads GIS/Picker before enabling its popup action, requests only `drive.file`, and keeps the token in the current interaction. `AddResourceModal` verifies metadata through Django before filling its explicit-save form; `SourceStep` starts the existing PDF review flow. `BottomSheet.focusSuspended` temporarily yields keyboard/focus ownership to Google's external dialog while dismissal stays disabled. See `docs/operations/google-drive-picker.md` for runtime setup.
 

@@ -1,0 +1,46 @@
+{
+  "species": [
+    {
+      "id": 42,
+      "slug": "chick",
+      "name": "Chick",
+      "icon": "C",
+      "sprite_key": "cute-chick",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": true,
+      "owned_pet_ids": [
+        61
+      ],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true
+    }
+  ],
+  "potions": [
+    {
+      "id": 41,
+      "slug": "base",
+      "name": "Base",
+      "sprite_key": "",
+      "color_hex": "#8B7355",
+      "rarity": "common",
+      "description": "",
+      "catalog_available": true
+    }
+  ],
+  "totals": {
+    "species": 1,
+    "discovered_species": 1,
+    "mounts_possible": 1,
+    "mounts_owned": 0
+  }
+}

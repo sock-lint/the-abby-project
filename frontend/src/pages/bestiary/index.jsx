@@ -33,7 +33,7 @@ export default function BestiaryHub() {
         defaultTabId="companions"
         tabs={[
           { id: 'companions', label: 'Companions', render: () => <Companions /> },
-          { id: 'mounts',     label: 'Mounts',     render: () => <Mounts /> },
+          { id: 'mounts',     label: 'Grown pets', render: () => <Mounts /> },
           { id: 'codex',      label: 'Collection', render: () => <BestiaryCodex /> },
           { id: 'hatchery',   label: 'Hatching',   render: () => <Hatchery /> },
         ]}

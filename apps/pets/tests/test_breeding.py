@@ -12,18 +12,19 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 
-CACHE_OVERRIDE = {
-    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
-}
-
 from apps.pets.models import PetSpecies, PotionType, UserMount
 from apps.pets.services import MOUNT_BREEDING_COOLDOWN_DAYS, PetService
 from apps.projects.models import User
 from apps.rpg.models import ItemDefinition, UserInventory
 
 
+CACHE_OVERRIDE = {
+    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+}
+
+
 def _make_species(slug, name=None):
-    return PetSpecies.objects.create(slug=slug, name=name or slug.title())
+    return PetSpecies.objects.create(slug=slug, sprite_key=slug, name=name or slug.title())
 
 
 def _make_potion(slug, name=None, rarity="common"):
@@ -50,7 +51,11 @@ def _make_potion_item(potion):
     )
 
 
-@override_settings(CACHES=CACHE_OVERRIDE, CELERY_TASK_ALWAYS_EAGER=True)
+@override_settings(CACHES=CACHE_OVERRIDE, CELERY_TASK_ALWAYS_EAGER=True, RPG_ASSET_SUPPORT_POLICY={
+    "schema_version": 1,
+    "pets": [{"species_slug": slug, "sprite_key": slug, "potion_slugs": ["base", "fire", "cosmic"]} for slug in ("wolf", "fox")],
+    "potion_slugs": ["base", "fire", "cosmic"],
+})
 class BreedMountsTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(

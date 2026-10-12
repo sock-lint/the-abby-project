@@ -50,6 +50,60 @@ Appearance loading and greetings award nothing. Account changes clear old
 bindings, and stale responses cannot restore the prior account's presentation.
 Saved ownership is independent of model filenames and availability.
 
+## Active acquisition policy
+
+[`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
+is the positive registry for new offers and acquisition. Its production pet
+allowlist is the exact `chick` / `cute-chick` / `base` combination above. The
+Base potion and matching Chick egg support this path. Fire, Ice, Shadow,
+Golden and Cosmic potions have no accepted bird appearances and are not new
+acquisition goals. Archer outfit palettes are separate avatar choices; they
+do not establish a potion variant or fitted creature outfit.
+
+`apps/rpg/catalog_support.py` applies this art gate without deleting saved
+catalog, inventory or collection rows. Existing service rules still decide
+permissions, authored potion compatibility, consumption and rewards. Generic
+domain tests can declare an explicit scoped synthetic policy; production
+defaults stay strict. Collection badge availability is checked against actual
+achievable capacity, including already-owned legacy pet/potion progress.
+Impossible goals remain unavailable without lowering their criteria or
+payouts; independent badge and consumable collections remain valid.
+
+DOM titles, initial frames, app-color covers, badges, food, coins and utility
+items do not need a new 3D model. Keep their actual DOM behavior. Forest props
+are scenery rather than new inventory furnishings. Capture, tasks, family
+workflows and administration remain ordinary React screens.
+
+### Owned sources versus accepted runtime capabilities
+
+The October 12 source inventory distinguishes missing art from unprepared art:
+
+| Art | Source evidence | Active capability |
+| --- | --- | --- |
+| Chick / Bird | Prepared private models and matching Bird01/Bird03 portraits | Exact Base Chick pet and confirmed evolved/mount forms |
+| Fledgling | Owned source FBX and staged Bird02 portrait | Preview only; no active GLB or intermediate earned stage |
+| Bat, Bee, Flower, Ghost, Mushroom, Spider | Owned icon pack 01 contains forms 01–03 for each | Unprepared 2D portraits; no matching owned 3D models or current species bindings |
+| Egg00–Egg03 | Four owned generic egg portraits | Unprepared inventory presentation, not distinct creature ownership |
+| Archer alternative bodies, head/hat hair, crown, hood, mask, bows, quivers | Owned FBX modules in Female Archer Pack 01 | Unprepared; no current saved avatar choices, weapon behavior or creature fittings |
+| Archer Brown/Orange/Grey hair materials | Owned source material choices | Unprepared palettes; saved choices currently remain Light/Dark |
+| Kenney Fox/Dog | Retained CC0 models with original licenses | Available reference sources, not accepted R3F catalog or evolution bindings |
+| Other seeded species and potion variants | Legacy catalog/sprites are not matching Meshtint model ownership | Outside new acquisition offers; never inherit the ordinary Chick/Bird model |
+
+The private icon pack contains 28 distinct portraits, each with transparent
+and background versions. Portrait ownership does not supply a creature model.
+The older Shikashi 2D sheet is also present in private sources; its inventory
+icons do not supply attachable geometry. Runtime-generated sprite records are
+not evidence that a matching model is owned or prepared.
+
+No fitted accessories for the current bird are prepared or recorded. All
+15 initial `cosmetic_pet_accessory` entries, plus the school backpack charm
+and birthday party horn, remain outside active offers/equipping. Ring,
+necklace and bead icons are inventory images, and the Archer's Crown Eve
+is a human module, not a fitted bird crown. Their saved rows can be retained
+with an unavailable explanation without promising that equip changes the
+3D companion. Extra models, species bindings or fittings need deliberate
+acceptance before expanding this registry.
+
 ## Private conversion pipeline
 
 The source audit found the recorded staged Meshtint FBX/PSD assets in the local

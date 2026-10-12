@@ -11,6 +11,12 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `character-avatar-default.json` | `GET /api/character/`; existing account with no saved Archer appearance receives the complete default options |
 | `character-avatar-saved.json` | `POST /api/character/avatar/`; confirmed self-scoped appearance save returns the full character, also returned on later reads and retries |
 | `character-avatar-invalid.json` | Avatar save rejected with HTTP 400 for an unsupported outfit, without writes |
+| `pets-supported-catalog.json` | `GET /api/pets/codex/`; production policy advertises only Base Chick |
+| `pets-preserved-collection.json` | `GET /api/pets/stable/`; supported Chick and earlier Cat ownership coexist, with availability flags and no breeding pair |
+| `cosmetics-supported-catalog.json` | `GET /api/cosmetics/catalog/`; available Frames/Titles/Covers slots, retained empty accessory slot |
+| `items-preserved-inventory.json` | `GET /api/inventory/`; unavailable saved egg/accessory entries remain owned without blocked actions |
+| `pet-hatch-unavailable.json` | Unsupported saved egg rejected with HTTP 400 without consuming either ingredient |
+| `cosmetic-equip-unavailable.json` | Owned saved accessory equip rejected with HTTP 400 without changing ownership or selection |
 | `google-drive-config.json` | `GET /api/auth/google/drive/config/`; public Picker configuration with synthetic keys |
 | `google-drive-file.json` | `POST /api/auth/google/drive/file/`; verified metadata for a parent-selected school PDF, without credentials |
 | `auth-login-child.json` | `POST /api/auth/`, successful password login; flat user plus token |
@@ -122,10 +128,10 @@ change the owner; unauthenticated requests are rejected. Typed inventory fields
 `pet_species_name` and `potion_type_name` are display names or explicit null;
 they do not expose catalog IDs or declare potion compatibility. The server
 remains authoritative for ingredient eligibility. Nonempty species compatibility
-lists are enforced before either ingredient is consumed; legacy empty lists
-remain unrestricted. Stable `total_possible` sums those supported combinations
-and uses all current potions for a legacy empty list. It does not multiply every
-species by every potion when some combinations cannot hatch.
+lists are enforced before either ingredient is consumed; a legacy empty list
+means unrestricted authored compatibility within the approved asset policy.
+Stable `total_possible` sums approved compatible pairs. It does not count every
+authored species/potion combination or saved legacy row as a new offer.
 
 Expeditions remain self-scoped to the authenticated account, including siblings
 within one family. Start submits only `tier`; claim uses the expedition ID in the
@@ -158,13 +164,15 @@ IDs are pinned with a test-table sequence reset for PostgreSQL and SQLite.
 
 Every mount response now includes read-only `can_breed` and
 `breeding_cooldown_seconds`. The latter is a nonnegative integer rounded up from
-the remaining server cooldown; `can_breed` is exactly true when those seconds
-are zero. Both fields use one server clock snapshot so a deadline passing during
+the remaining server cooldown; `can_breed` is exactly true when the mount is
+supported, those seconds are zero and the owner has another distinct supported
+cooldown-ready mount.
+Both fields use one server clock snapshot so a deadline passing during
 serialization cannot produce conflicting values. An active expedition does not
 change the existing breeding rule. A client must refresh eligibility rather
 than authorize a breed from its own countdown.
 
-Breeding submits distinct owned `mount_a_id` and `mount_b_id` values. The service
+Breeding submits distinct supported owned `mount_a_id` and `mount_b_id` values. The service
 adds one registered egg and one potion to the authenticated account's inventory,
 preserves both mounts, and stamps both parent cooldowns together. It consumes no
 food, eggs, potions or parents and grants no coins, XP or bonus drops. Compatible
@@ -176,6 +184,27 @@ Producer checks compare the actual inventory changes, both cooldowns, unchanged
 progression and other-family state, and rejection one microsecond before the
 exact cooldown boundary. A later inventory/stable read confirms the new pair
 and fresh cooldowns without repeating the non-idempotent POST.
+
+The broader hatch/breeding scenarios in `test_api_contract_fixtures.py` use an
+explicit scoped synthetic asset policy to exercise generic engine mechanics,
+including compatibility fallbacks and Cosmic upgrades. They do not advertise
+those identities as production art. `test_catalog_api_contract_fixtures.py`
+uses the unchanged production default: exact `chick` / `cute-chick` / `base`,
+Chick before evolution and Bird only after confirmed evolution. It seeds both
+supported and unavailable saved rows, compares real catalog/stable/inventory
+responses, and verifies rejected hatch/equip requests consume nothing.
+`frontend/src/api/catalogContractFixtures.test.js` consumes the same bodies
+through the real API wrappers and preserves rejection status/details.
+
+Read-only `catalog_available` on species, potions, owned pets/mounts and items
+describes new catalog eligibility. Stable ownership/totals retain saved legacy
+rows, while supported progress uses `total_possible`; `breeding_available`
+requires two supported ready parents and is false for the production single
+Base Chick pair. Saved pet feeding/activation/evolution and mount expeditions
+remain available. Cosmetic catalogs retain all slot keys with an empty
+`active_pet_accessory` list; inventory retains earlier accessories without
+equip actions. A previous accessory selection can still be removed. Flags
+never prove a reward happened or authorize a mutation locally.
 
 `config/tests/test_greenlight_api_contract_fixtures.py` sends the payout,
 snapshot, preview and reconciliation requests through their real views with a
@@ -223,7 +252,7 @@ copy of `unity/AbbyCamp`.
 From the repository root, with the normal backend test environment configured:
 
 ```sh
-python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures
 ```
 
 For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
@@ -231,7 +260,7 @@ For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
 From `frontend/`:
 
 ```sh
-npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js
+npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/catalogContractFixtures.test.js
 ```
 
 For retired-reference checks only, run Unity with `-executeMethod AbbyCamp.Editor.ApiContractValidation.Run`, or use
@@ -247,7 +276,7 @@ after configuring the test environment:
 ```powershell
 $env:UPDATE_API_CONTRACT_FIXTURES = '1'
 try {
-    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures
+    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures
 } finally {
     Remove-Item Env:UPDATE_API_CONTRACT_FIXTURES
 }

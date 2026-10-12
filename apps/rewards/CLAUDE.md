@@ -2,6 +2,25 @@
 
 Non-monetary Coins economy + parent-approved reward shop + money→coins exchange. Parallel to `apps/payments/` (money ledger).
 
+## Available offers and earlier promises (October 2026)
+
+`availability.py::reward_is_available` allows real-world rewards and requires
+an available `item_definition` for digital-item or combined fulfillment.
+It delegates item eligibility to the shared supported-art catalog in
+`apps/rpg/catalog_support.py`. Child shop lists and similar-reward suggestions
+exclude unavailable offers; parent lists retain the rows with read-only
+`catalog_available` so they can retire them. Publishing an active unsupported
+digital offer is rejected; deactivating an earlier offer is allowed.
+
+`request_redemption` checks eligibility before holding Coins or decrementing
+stock. A direct request cannot bypass an omitted offer. Pending redemptions
+created earlier still fulfill their promised item exactly once through the
+existing approval path, even if new acquisition is now unavailable. Denial
+still refunds the frozen cost and restores stock. Do not rewrite old promises,
+delete saved inventory or substitute compensating Coins because art support
+changed. `tests/test_digital_fulfillment.py` and
+`apps/rpg/tests/test_catalog_consumers.py` cover these boundaries.
+
 ## Models
 - `CoinLedger` — append-only ledger of Coin transactions. 12 reasons: `hourly`, `project_bonus`, `bounty_bonus`, `milestone_bonus`, `badge_bonus`, `redemption`, `refund`, `adjustment`, `chore_reward`, `exchange`, `daily_challenge`, `expedition`. Positive = earned, negative = spent/refunded.
 - `Reward` — family-scoped shop items. Rarity tiers (common→legendary), optional stock, `requires_parent_approval`, `order`. **Digital fulfillment**: `fulfillment_kind` (`real_world` / `digital_item` / `both`) + `item_definition` FK to `rpg.ItemDefinition` — approval auto-credits the item to `UserInventory` via `_maybe_credit_digital_item`. Per-family unique constraint on `(family, name)`.

@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from config.permissions import IsParent
 from config.viewsets import get_child_or_404, child_not_found_response
 
-from .models import DailyChallenge, QuestDefinition, Quest, QuestParticipant
+from .models import QuestDefinition, Quest
 from .serializers import (
     DailyChallengeSerializer,
     QuestSerializer,
@@ -33,7 +33,7 @@ class AvailableQuestsView(APIView):
 
     def get(self, request):
         system_quests = QuestDefinition.objects.filter(is_system=True)
-        return Response(QuestDefinitionSerializer(system_quests, many=True).data)
+        return Response(QuestDefinitionSerializer(system_quests, many=True, context={"request": request}).data)
 
 
 class StartQuestView(APIView):

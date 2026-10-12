@@ -5,7 +5,7 @@
 import { chapterMark } from '../../components/atlas/mastery.constants';
 
 /**
- * Four cosmetic chapters, one per slot. Letters are first-letter-of-slot
+ * Supported profile cosmetic chapters. Letters are first-letter-of-slot
  * so the IlluminatedVersal drop-cap stays mnemonic (F for Frames, T for
  * Titles, B for Bindings/covers, P for Pet regalia). Chapter numbers
  * share the Meadow markers used by the badge collections.
@@ -31,13 +31,6 @@ export const COSMETIC_CHAPTERS = [
     letter: 'C',
     name: 'Journal Covers',
     kicker: 'Choose your app colors',
-  },
-  {
-    slot: 'active_pet_accessory',
-    rubric: chapterMark(3),
-    letter: 'P',
-    name: 'Pet Accessories',
-    kicker: 'Little extras for your companion',
   },
 ];
 

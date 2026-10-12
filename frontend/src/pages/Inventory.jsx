@@ -24,6 +24,7 @@ import PageShell from '../components/layout/PageShell';
 import TomeShelf from '../components/atlas/TomeShelf';
 import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
 import { normalizeList } from '../utils/api';
+import { availableInventoryActions, isCatalogAvailable } from '../utils/catalogAvailability';
 import { RARITY_PILL_COLORS, RARITY_RING_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem } from '../motion/variants';
 
@@ -34,10 +35,10 @@ const TYPE_COMPARTMENTS = [
   { id: 'cosmetic_frame', label: 'Avatar Frames', kicker: 'Frames for your profile', glyph: 'compass-rose', icon: '🖼' },
   { id: 'cosmetic_title', label: 'Titles', kicker: 'Titles for your profile', glyph: 'sheikah-eye', icon: '✒' },
   { id: 'cosmetic_theme', label: 'Journal Covers', kicker: 'Colors for your app', glyph: 'flourish-corner', icon: '📔' },
-  { id: 'cosmetic_pet_accessory', label: 'Pet Accessories', kicker: 'Accessories for your pets', glyph: 'dragon-crest', icon: '🎀' },
   { id: 'quest_scroll', label: 'Quest Scrolls', kicker: 'Start a challenge', glyph: 'sheikah-eye', icon: '📜' },
   { id: 'coin_pouch', label: 'Coin Pouches', kicker: 'Open to collect coins', glyph: 'wax-seal', icon: '💰' },
   { id: 'consumable', label: 'Single-use Items', kicker: 'Use an item for its effect', glyph: 'wax-seal', icon: '✨' },
+  { id: 'saved', label: 'Saved collection', kicker: 'Items from your earlier collection', glyph: 'dragon-crest', icon: '🎒' },
 ];
 
 const ACTIVE_COMPARTMENT_KEY = 'atlas:satchel:active-compartment';
@@ -121,7 +122,7 @@ export default function Inventory() {
   const grouped = useMemo(() => {
     const out = {};
     for (const entry of filteredItems) {
-      const type = entry.item.item_type;
+      const type = !isCatalogAvailable(entry.item) || entry.item.item_type === 'cosmetic_pet_accessory' ? 'saved' : entry.item.item_type;
       if (!out[type]) out[type] = [];
       out[type].push(entry);
     }
@@ -309,7 +310,8 @@ export default function Inventory() {
                         {entry.item.rarity_display}
                       </span>
                     </div>
-                    {(entry.available_actions || []).map((action) => {
+                    {(!isCatalogAvailable(entry.item) || entry.item.item_type === 'cosmetic_pet_accessory') && <p className="mt-2 font-body text-caption text-ink-secondary">Kept in your saved collection.</p>}
+                    {(entry.item.item_type === 'cosmetic_pet_accessory' ? [] : availableInventoryActions(entry)).map((action) => {
                       const effect = entry.item.metadata?.effect;
                       const isStackable =
                         action.id === 'use'

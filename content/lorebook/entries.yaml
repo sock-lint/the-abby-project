@@ -284,6 +284,7 @@ entries:
       - "Earning a badge can grant an XP bonus and rarity-scaled Coins."
       - "Some challenge-completion badges opt out of extra Coins when the challenge already paid its reward."
       - "The badge catalog is view-only for children and parent-managed from the Skills admin surface."
+      - "Collection goals are shown only when their original requirement can still be reached with available items and your saved progress. Earned badges stay yours; requirements and payouts are not lowered."
     parent_knobs:
       settings:
         - key: COINS_PER_BADGE_RARITY
@@ -394,11 +395,14 @@ entries:
     chapter: rpg_layer
     summary: "Egg + potion companions that grow through care."
     kid_voice: |
-      Hatch a pet with an egg and a potion. Feed it to help it grow, and
-      choose an active pet to keep you company.
+      Hatch a Chick with a Chick egg and a Base potion. Feed it to help
+      it grow into a Bird, and choose an active pet to keep you company.
+      Earlier pets stay in Saved collection, where you can still care for them.
     mechanics:
       - "Hatching consumes one egg item and one potion item and creates a unique species/potion pet."
-      - "The potion must match the species' supported variants; an unsupported pairing consumes neither ingredient."
+      - "New hatching supports Chick with a Base potion. An unavailable species or potion pairing consumes neither ingredient."
+      - "The 3D Chick becomes Bird only after confirmed evolution; Fledgling is preview art, not an earned stage."
+      - "Earlier saved pets can still be fed, activated and evolved; another species is never displayed as Chick or Bird."
       - "Feeding consumes food; preferred food grants more growth than neutral food."
       - "At 100 growth the pet evolves into a mount while the original pet remains in your collection."
       - "Happiness is a gentle visual nudge based on last feeding; it never removes rewards or progress."
@@ -410,7 +414,7 @@ entries:
         - pet_species_owned
         - full_potion_shelf
       content_sources:
-        - "Pet species and potion types are YAML-authored; item definitions reference them by typed foreign keys."
+        - "Pet species and potion types are YAML-authored with typed item references; the supported-art registry separately limits new acquisition."
     economy:
       money: false
       coins: false
@@ -423,7 +427,7 @@ entries:
       prompt: "Hatch a pet, feed it, and help it grow into a mount."
       payoff: "Egg → Pet → Mount"
       steps:
-        - "Combine an egg and a potion to hatch a unique pet."
+        - "Combine a Chick egg and Base potion to hatch Chick."
         - "Feed preferred food to climb growth fastest."
         - "At growth 100 the pet evolves; the original stays in your collection."
 
@@ -432,15 +436,15 @@ entries:
     icon: "🐉"
     audience_title: "Pet evolution"
     chapter: rpg_layer
-    summary: "Fully grown pets evolve, ride, and breed on cooldown."
+    summary: "Grown pets can be active companions and go on expeditions."
     kid_voice: |
       A pet creates a matching mount when it reaches full growth. You can
-      choose a mount to ride, breed mounts, or send one on an expedition.
+      choose your grown pet to keep you company or send it on an expedition.
+      Earlier grown pets stay available in Saved collection.
     mechanics:
       - "A pet automatically creates a matching mount when it reaches 100 growth."
       - "Only one mount can be active for a user at a time."
-      - "Breeding combines two owned mounts to create a hybrid egg + potion pair, then stamps cooldowns on both parents."
-      - "Breeding returns a compatible species/potion pair; a tiny chromatic upgrade chance can turn the potion Cosmic when the species supports it."
+      - "Breeding requires two distinct available grown pets and available output ingredients. The current Base Chick collection provides no breeding pair, so breeding is unavailable."
       - "Mount sprites follow the species sprite key plus '-mount', with a base-species fallback."
       - "A mount can be sent on an Expedition (2h, 4h, or 8h) once per local day. Loot is rolled when the mount leaves and stored on the row, so the payout is the same whenever you claim. Returning mounts pay coins (with Lucky Coin doubling) and a small handful of items, and route streak / challenge credit through the same game-loop trigger as everything else."
     parent_knobs:
@@ -448,7 +452,7 @@ entries:
       powers_badges:
         - mounts_evolved
       content_sources:
-        - "Mount behavior is service-driven; mount art is runtime-authored in the sprite catalog."
+        - "Mount behavior is service-driven. Base Chick evolves to the owned Bird appearance; saved legacy mounts retain their own 2D presentation and expedition controls."
     economy:
       money: false
       coins: true
@@ -460,7 +464,7 @@ entries:
     trial:
       prompt: "Watch a fully-grown pet rise into its mount form."
       payoff: "A mount joins your collection."
-      caption: "Mounts ride and breed on cooldown; the original pet stays."
+      caption: "A grown pet can go exploring; the original pet stays."
 
   - slug: drops
     title: Drops
@@ -475,6 +479,7 @@ entries:
     mechanics:
       - "Drop chance depends on trigger type, with streaks and drop boosts adding to the odds."
       - "Eligible drop-table rows are weighted and can require a minimum level."
+      - "New drops, mystery boxes and lucky dips draw from available items, excluding unprepared pet species, potion variants and pet accessories. An empty mystery pool consumes nothing."
       - "Duplicate cosmetics automatically salvage to Coins instead of stacking useless copies."
       - "Some triggers are daily-capped at their source so drops cannot be farmed by delete/recreate loops."
     parent_knobs:
@@ -624,19 +629,21 @@ entries:
     icon: "👑"
     audience_title: "Personalize your profile"
     chapter: self_expression
-    summary: "Owned style items for frames, titles, covers, pets, and trophies."
+    summary: "Owned frames, titles and covers, plus earned badge trophies."
     kid_voice: |
-      Choose a title, a profile frame, app colors, or a pet accessory. You
-      can also display an earned badge as your trophy. Memory Meadow is
+      Choose a title, a profile frame or app colors. You can also display
+      an earned badge as your trophy. Memory Meadow is
       the starter cover; other covers can arrive as item drops. Settings
       shows the covers you own and the ones you can still collect.
     mechanics:
       - "Cosmetics are owned in inventory and equipped without being consumed."
       - "Only one item per cosmetic slot can be active at a time."
+      - "Frames, Titles and Covers remain available. Earlier pet accessories stay in Saved collection, but cannot be newly collected or equipped; a previous selection can be removed."
+      - "Profile's basic Archer hair, skin and outfit choices are saved appearance preferences, independent from earned cosmetics and rewards."
       - "Equipping a journal cover from Settings or Profile routes through the same equip endpoint — both surfaces stay in lockstep."
       - "The trophy badge slot only accepts badges the user has earned."
       - "Duplicate cosmetic drops salvage to Coins."
-      - "Locked cosmetics can still appear in the catalog as goals, but they are not clickable until owned."
+      - "Available locked cosmetics can appear as goals, but are not clickable until owned. Unreachable collection badges are omitted unless already earned."
     parent_knobs:
       settings: []
       powers_badges:

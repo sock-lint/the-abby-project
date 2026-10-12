@@ -48,7 +48,7 @@ export default function AtlasHub() {
           to="/bestiary"
           className="inline-flex items-center gap-1.5 font-script text-caption text-ink-whisper hover:text-sheikah-teal-deep transition-colors"
         >
-          Pets, Mounts & Hatching <ArrowRight size={14} />
+          Pets & Hatching <ArrowRight size={14} />
         </Link>
       </div>
     </>

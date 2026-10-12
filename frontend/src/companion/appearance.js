@@ -1,3 +1,5 @@
+import { isCatalogAvailable } from '../utils/catalogAvailability';
+
 // Owned identities come from Django; these files provide appearance only.
 // Optional globs let public validation builds work without private paid art.
 const manifests = import.meta.glob('./licensed/manifest.json', { eager: true, import: 'default' });
@@ -30,6 +32,18 @@ export function resolveAppearance(creature, kind = 'pet', source = manifest, url
 
 export function creatureLabel(creature) {
   return [creature?.potion?.name, creature?.species?.name].filter(Boolean).join(' ');
+}
+
+export function preferredCompanion(stable) {
+  const supportedPets = (stable?.pets || []).filter(isCatalogAvailable);
+  const supportedMounts = (stable?.mounts || []).filter(isCatalogAvailable);
+  const preferred = supportedPets.find((entry) => entry.is_active);
+  if (preferred) return { creature: preferred, kind: 'pet' };
+  const preferredMount = supportedMounts.find((entry) => entry.is_active);
+  if (preferredMount) return { creature: preferredMount, kind: 'mount' };
+  if (supportedPets[0]) return { creature: supportedPets[0], kind: 'pet' };
+  if (supportedMounts[0]) return { creature: supportedMounts[0], kind: 'mount' };
+  return activeCompanion(stable);
 }
 
 export function activeCompanion(stable) {

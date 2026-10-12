@@ -8,6 +8,7 @@ import {
   groupQuestsByChapter,
   kindCounts,
 } from './trials.constants';
+import { isCatalogAvailable } from '../../utils/catalogAvailability';
 
 const STORAGE_KEY = 'trials:codex:active-chapter';
 
@@ -44,7 +45,7 @@ export default function QuestCodex({
 
   const grouped = useMemo(
     () => groupQuestsByChapter({
-      available,
+      available: (available || []).filter(isCatalogAvailable),
       activeQuest,
       history,
       earnedBadgeIds,

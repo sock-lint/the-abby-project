@@ -380,7 +380,7 @@ describe('shared Django response fixtures through the React API client', () => {
       growth_points: 100, evolved_to_mount: true, is_fully_grown: true,
     });
     expect(stable.mounts[0]).toMatchObject({
-      id: 61, is_active: true, active_expedition: null, can_breed: true, breeding_cooldown_seconds: 0,
+      id: 61, is_active: true, active_expedition: null, can_breed: false, breeding_cooldown_seconds: 0,
     });
     expect(stable.mounts.find((mount) => mount.id === 62)).toMatchObject({
       can_breed: false, breeding_cooldown_seconds: 432000,
@@ -400,7 +400,7 @@ describe('shared Django response fixtures through the React API client', () => {
       http.get('*/api/pets/stable/', () => HttpResponse.json(emptyStable)),
       http.get('*/api/inventory/', () => HttpResponse.json(emptyInventory)),
     );
-    expect(await getStable()).toEqual({ pets: [], mounts: [], total_pets: 0, total_mounts: 0, total_possible: 4 });
+    expect(await getStable()).toEqual({ pets: [], mounts: [], total_pets: 0, total_mounts: 0, total_possible: 4, breeding_available: false });
     expect(normalizeList(await getInventory())).toEqual([]);
   });
 
@@ -408,7 +408,7 @@ describe('shared Django response fixtures through the React API client', () => {
     server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(restrictedEmptyStable)));
     const stable = await getStable();
     expect(stable).toEqual(restrictedEmptyStable);
-    expect(stable).toEqual({ pets: [], mounts: [], total_pets: 0, total_mounts: 0, total_possible: 3 });
+    expect(stable).toEqual({ pets: [], mounts: [], total_pets: 0, total_mounts: 0, total_possible: 3, breeding_available: false });
   });
 
   it('reads hatching ingredients with their item definition IDs, quantities and nullable typed names', async () => {

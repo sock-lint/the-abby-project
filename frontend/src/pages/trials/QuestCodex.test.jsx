@@ -34,6 +34,15 @@ beforeEach(() => {
 });
 
 describe('QuestCodex', () => {
+  it('removes unavailable new challenges while retaining their existing active history', async () => {
+    const user = userEvent.setup();
+    const unsupported = defBoss({ name: 'Earlier challenge', catalog_available: false });
+    render(<QuestCodex available={[unsupported]} activeQuest={null} history={[questOf(unsupported)]} earnedBadgeIds={new Set()} />);
+    expect(await screen.findByText('Earlier challenge')).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: /Available/ }));
+    expect(screen.queryByText('Earlier challenge')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Start challenge' })).toBeNull();
+  });
   it('renders the available chapter by default and lists its challenges', async () => {
     render(
       <QuestCodex

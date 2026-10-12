@@ -12,6 +12,17 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('RewardFormModal', () => {
+  it('does not offer unavailable catalog items for a new digital reward', async () => {
+    const user = userEvent.setup();
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([
+      { id: 1, name: 'Birdseed', item_type: 'food', catalog_available: true },
+      { id: 2, name: 'Party Hat', item_type: 'cosmetic_pet_accessory', catalog_available: false },
+    ])));
+    render(<RewardFormModal onClose={vi.fn()} onSaved={vi.fn()} />);
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Fulfillment' }), 'digital_item');
+    expect(await screen.findByRole('option', { name: /Birdseed/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Party Hat/ })).toBeNull();
+  });
   it.each([0, 7])('clears existing stock %s to unlimited with an explicit empty multipart field', async (stock) => {
     const user = userEvent.setup();
     const onSaved = vi.fn();

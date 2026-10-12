@@ -38,7 +38,7 @@ class ForceDropTests(TestCase):
             slug="dev-test-egg",
             name="Test Egg",
             icon="🥚",
-            item_type=ItemDefinition.ItemType.EGG,
+            item_type=ItemDefinition.ItemType.FOOD,
             rarity=ItemDefinition.Rarity.LEGENDARY,
             coin_value=50,
         )

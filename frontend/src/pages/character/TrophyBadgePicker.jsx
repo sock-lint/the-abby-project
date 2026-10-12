@@ -20,7 +20,10 @@ export default function TrophyBadgePicker({
   onSelect,
   onClose,
 }) {
-  const grouped = groupBadgesByCollection(allBadges, earnedBadges);
+  const badgeMap = new Map(allBadges.map((badge) => [badge.id, badge]));
+  for (const { badge } of earnedBadges) if (badge) badgeMap.set(badge.id, { ...badgeMap.get(badge.id), ...badge });
+  const completeBadges = [...badgeMap.values()];
+  const grouped = groupBadgesByCollection(completeBadges, earnedBadges);
   const grandEarned = earnedBadges.length;
 
   return (

@@ -26,10 +26,21 @@ The 2026-05 audit lifted two layout primitives out of the per-page copy-paste pa
 `/meadow` is a lazy-loaded child-only page under `JournalShell`. Child Today
 has no Play promotion card. Existing journal/archive and parent
 pages keep their current behavior. The page opens the React pet collection.
-Pets opens its exact owned 3D companion automatically, with direct care and
+Pets opens its exact supported owned 3D companion automatically, with direct care and
 expedition interaction, View settings and working DOM/2D fallback. Profile
 centers the owned Archer avatar and its saved basic customization.
 Legacy `/play/` bookmarks redirect to React Pets; Unity is retired.
+
+Pets keeps the existing `companions`, `mounts`, `codex` and `hatchery` tab IDs.
+The Collection and Hatching tabs advertise only Base Chick; its grown form is
+Bird after server-confirmed evolution. `OwnedPetGrid` and `OwnedMountGrid`
+also render earlier unsupported rows under Saved collection in their respective
+tabs, retaining feeding/evolution, activation, expedition launch/history/claim
+and recovery controls. `catalog_available: false` describes new catalog
+eligibility, not permission to erase or disable saved care. Breeding controls
+require server-confirmed supported partners; the single Base Chick pair does
+not provide two distinct supported mounts. Missing models keep DOM/2D controls
+available, without substituting a bird for another saved species.
 
 `pages/meadow/meadow.constants.js` adapts generated
 `src/storybook/presentation.json` and bundled, hashed image/font URLs. The
@@ -218,7 +229,7 @@ View-only illuminated codex that groups badges into seven criterion-family chapt
 - [`BadgeDetailSheet`](/frontend/src/pages/achievements/BadgeDetailSheet.jsx) accepts `allBadges` + `earnedIds` so it can render (a) a `"from the reliquary of {chapter} · §N"` script chip, (b) a "to earn" / "you earned this by" unlock card with the plain-English hint, and (c) a ladder strip of Tier I/II/III rungs when 2+ badges share a criterion_type (current rung highlighted; earned siblings styled moss; later rungs dashed + muted). Pass-through from `Badges.jsx` via `useMemo`'d `earnedIds` Set.
 - **Hint-vs-description dedupe**: the detail sheet suppresses the hint card when `unlockHint(badge)` falls back to `badge.description`, so the same prose doesn't render twice (description already sits under the rarity ribbon). Sigil tiles are unaffected — they never show the description, so the hint always renders on unearned tiles.
 - **Accessibility**: every folio exposes `role=region` via `<section aria-labelledby>`; `RarityStrand` carries `role="img"` with a descriptive aria-label ("4 of 21 sealed — 2 of 7 common, 1 of 6 uncommon, …"). All gilt / flourish / glint effects sit inside the existing `@media (prefers-reduced-motion: reduce)` rules in [`index.css`](/frontend/src/index.css).
-- No backend changes — reads `/api/achievements/summary/` + `/api/badges/` exactly as the old flat grid did. The retired `BadgeSigilGrid.jsx` is gone; `SigilCodex` is the only consumer in the tree.
+- Reads `/api/achievements/summary/` + `/api/badges/`. The backend omits unearned collectible goals that exceed achievable supported capacity, including relevant saved legacy progress; earned badges remain visible and selectable as trophies. Use `catalog_available` when combining responses. The retired `BadgeSigilGrid.jsx` is gone; `SigilCodex` is the only consumer in the tree.
 
 ### Sketchbook page ([`pages/Portfolio.jsx`](/frontend/src/pages/Portfolio.jsx))
 
@@ -235,7 +246,7 @@ The inside-cover plate of the journal — personal author-portrait rather than a
 
 - [`SigilFrontispiece.jsx`](/frontend/src/pages/character/SigilFrontispiece.jsx) — compact identity/name/level header, always-visible Archer avatar through `AvatarCustomizer`, compact trophy and real streak statistics. Avatar preview changes use the four supplied hairstyles, two hair colors, two skin tones and four outfit palettes; explicit Save persists through `POST /api/character/avatar/`. Private model/texture absence or renderer failure leaves customization and all existing profile controls usable.
 - [`TrophySlot.jsx`](/frontend/src/pages/character/TrophySlot.jsx) + [`TrophyBadgePicker.jsx`](/frontend/src/pages/character/TrophyBadgePicker.jsx) — empty slot is a debossed intaglio ("choose from your reliquary"); filled slot wears full `RARITY_HALO`. Picker is a `BottomSheet` that passes earned badges through `groupBadgesByCollection` — clicking a seal sets the trophy; clicking the current trophy clears it (null payload).
-- Four [`CosmeticChapter.jsx`](/frontend/src/pages/character/CosmeticChapter.jsx) folios mirror `CollectionFolio`: rubric numeral + drop-cap + rarity strand + sigil grid. Each tile is a [`CosmeticSigil.jsx`](/frontend/src/pages/character/CosmeticSigil.jsx) in one of three states — **equipped** (halo + "equipped" gilt ribbon), **owned** (clean rarity-ringed tile), or **locked** (debossed intaglio + script unlock hint derived from `item.description` or a rarity-flavored fallback). Locked tiles render as `role="img"` with "not yet owned" in the aria-label — not clickable, so they don't accept focus or trigger equip.
+- Three [`CosmeticChapter.jsx`](/frontend/src/pages/character/CosmeticChapter.jsx) folios offer Frames, Titles and Covers through the existing DOM presentation. Each [`CosmeticSigil.jsx`](/frontend/src/pages/character/CosmeticSigil.jsx) is equipped, owned or locked; locked supported offers remain noninteractive until owned. Counts exclude unavailable items. [`SavedCosmetics.jsx`](/frontend/src/pages/character/SavedCosmetics.jsx) keeps earlier accessories and unavailable items under Saved collection, with a button to remove a previous active selection. New accessories and accessory equip are unavailable; saved avatar preferences remain independent from earned cosmetics.
 - **Live theme preview**: hovering a cosmetic in the Journal Covers chapter calls `applyTheme(metadata.theme)` transiently so the whole page skin previews in real time. `mouseleave` / `blur` restores the user's current theme. Guarded by `matchMedia('(prefers-reduced-motion: reduce)')` — reduced-motion users never see the flash.
 - Per-area shared logic lives in [`character.constants.js`](/frontend/src/pages/character/character.constants.js) — `COSMETIC_CHAPTERS` (slot → rubric/letter/name/kicker), `STREAK_TIERS` + `streakTier(days)` (flame sizing ladder aligned with backend milestone thresholds 1/7/30/100), `mergeSlotCosmetics(slot, owned, catalog, activeId)` (dedupe + sort: equipped → owned → locked, each sub-sorted by rarity then name), `slotRarityCounts` (feeds the strand), `cosmeticLockHint` (description-or-rarity-flavored fallback).
 - [`Character.jsx`](/frontend/src/pages/Character.jsx) is a thin orchestrator: parallel fetches via `useApi` for `getCharacterProfile` + `getCosmetics` + `getCosmeticCatalog` + `getBadges` + `getAchievementsSummary`, with `useMemo`'d `allBadges`/`earnedBadges` passed to the picker. Equip/unequip + trophy-set all optimistically mutate via `refresh()` without a full page reload.

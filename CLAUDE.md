@@ -217,6 +217,7 @@ frontend/            → frontend/CLAUDE.md (design system / testing / PWA)
 - **Co-parent / child management**: parents add, edit, reset-password, deactivate, reactivate, and hard-delete other accounts in their family via `ChildViewSet` and `ParentViewSet`. Both share `_UserManagementActionsMixin` for the three action endpoints; both honor `assert_safe_to_remove` family-integrity guards. Reset rotates the target's `Token` rows (matching the login-rotation invariant); self-target is allowed but does **not** rotate the requester's own token. Deactivate sets `is_active=False` AND drops tokens; reactivate flips the bit. Hard-delete cascades through every `User` FK. Family-integrity guards live in [`apps/families/services.py`](apps/families/services.py): `assert_safe_to_remove` refuses self-removal and refuses to leave the family with zero active parents; `promote_next_primary_parent` auto-rotates `Family.primary_parent` to the next-oldest active parent on departure.
 - Frontend stores token in `localStorage` key `abby_auth_token`, sends `Authorization: Token <key>`. See [`frontend/CLAUDE.md`](frontend/CLAUDE.md) for the 401 self-heal and error-shape conventions.
 - **3D presentation:** Pets opens its exact owned companion in lazy R3F automatically, with accessible care/expedition controls and purchased-icon fallback. Profile shows the owned Archer avatar with server-saved appearance choices; Meadow retains its optional companion presentation. Keep DOM mutations and fallback functional if models/WebGL fail. Presentation awards nothing. The owned-art boundary is [`content/rpg/react-three-fiber-assets.md`](content/rpg/react-three-fiber-assets.md).
+- **Supported-art catalog:** [`shared/catalog/asset-support.json`](shared/catalog/asset-support.json) and `apps/rpg/catalog_support.py` govern new acquisition independently from authored YAML and saved ownership. The production pet pair is exact `chick` / `cute-chick` / `base`: Chick before evolution, Bird after confirmed evolution; Fledgling is preview art only. Existing pets, mounts and inventory remain readable, with legacy pet care/activation/evolution and mount expeditions available in Saved collection. New pet accessories and accessory equip are unavailable; an existing selection can be removed. DOM Frames, Titles and Covers remain supported. Drops, mystery pools, quest item rewards and digital shop offers use the same policy; unreachable collection goals are omitted without changing badge criteria or payouts. Scoped synthetic policy overrides test the generic engine, not production asset coverage.
 - **Unity retirement:** the owner authorized immediate active-client retirement on October 12, 2026 because no one is using the app. Unity source and private originals are retained for reference; Unity validation/release jobs are removed. `/play/` redirects to React Pets without forwarding query parameters. See [`docs/operations/unity-retirement.md`](docs/operations/unity-retirement.md). Do not reintroduce a licensed Unity build dependency for application work.
 - The child-only `/meadow` page uses shared `shared/storybook` presentation and `/api/chronicle/meadow/`, a read-only projection of confirmed journal receipts without private body content or extra awards. Receipt/content identity stays independent from appearance filenames. Presentation sync still maintains historical Unity reference copies.
 - **Native development:** Capacitor uses local bundles and an explicit staging HTTPS origin. Legacy DRF login still rotates the token, so use isolated synthetic accounts until independent device sessions exist. Native packaging does not establish full workflow/platform parity. See [`docs/superpowers/plans/2026-10-12-r3f-capacitor.md`](docs/superpowers/plans/2026-10-12-r3f-capacitor.md) and `frontend/CLAUDE.md` for commands.
@@ -420,16 +421,17 @@ from automatic cleanup candidates.
 
 ## Shared API response fixtures
 
-[`contracts/api/README.md`](contracts/api/README.md) documents the synthetic raw
-responses shared by Django, React, and Unity. Initial coverage is login, verified
-identity, paginated habits, confirmed positive taps (with and without the optional
-game event), and daily-limit rejection. `config.tests.test_api_contract_fixtures`
-compares real rendered endpoint responses under fixed inputs with the checked-in
-JSON; `frontend/src/api/sharedContractFixtures.test.js` exercises the React API
-wrappers with the same bodies. Unity's Editor-only `ApiContractValidation` reads
-the canonical files from a full repository checkout during `-ValidateOnly` and
-builds. Keep fixture updates and affected producer/consumer checks together;
-regeneration is an explicit local operation described in the fixture guide.
+[`contracts/api/README.md`](contracts/api/README.md) documents synthetic raw
+responses produced by Django and consumed by React, with retired Unity checks
+retained as reference. Coverage includes auth, paginated lists, companion
+mutations, expeditions/breeding mechanics, Greenlight, saved avatar choices and
+the production supported-art catalog. `config.tests.test_catalog_api_contract_fixtures`
+and `frontend/src/api/catalogContractFixtures.test.js` check supported offers,
+preserved ownership and no-consumption rejections under the production policy.
+Generic breeding fixtures explicitly use a scoped synthetic policy. Keep fixture
+updates and affected producer/consumer checks together; regeneration is an
+explicit local operation described in the fixture guide. Fixtures do not replace
+permission or PostgreSQL transaction checks.
 
 ## CI/CD pipeline (`.github/workflows/ci-cd.yml`)
 

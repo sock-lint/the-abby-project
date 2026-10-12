@@ -229,9 +229,9 @@ class GrantHatchIngredientsTests(TestCase):
         from apps.rpg.models import ItemDefinition
 
         self.species = PetSpecies.objects.create(
-            slug="fox", name="Fox", icon="🦊",
+            slug="chick", name="Chick", icon="C", sprite_key="cute-chick",
         )
-        self.potion = PotionType.objects.create(slug="ember", name="Ember")
+        self.potion = PotionType.objects.create(slug="base", name="Base")
         ItemDefinition.objects.create(
             slug="egg-fox", name="Fox Egg", icon="🥚",
             item_type=ItemDefinition.ItemType.EGG,
@@ -248,7 +248,7 @@ class GrantHatchIngredientsTests(TestCase):
         from apps.rpg.models import UserInventory
 
         result = grant_hatch_ingredients(
-            self.child, species_slug="fox", potion_slug="ember",
+            self.child, species_slug="chick", potion_slug="base",
         )
         self.assertEqual(result["egg"]["slug"], "egg-fox")
         self.assertEqual(result["potion"]["slug"], "potion-ember")
@@ -274,7 +274,7 @@ class GrantHatchIngredientsTests(TestCase):
         self.species.available_potions.set([other])
         with self.assertRaises(OperationError):
             grant_hatch_ingredients(
-                self.child, species_slug="fox", potion_slug="ember",
+                self.child, species_slug="chick", potion_slug="base",
             )
 
 

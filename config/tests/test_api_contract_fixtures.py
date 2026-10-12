@@ -33,6 +33,20 @@ SYNTHETIC_TOKEN = "0123456789012345678901234567890123456789"
 
 
 @override_settings(
+    # These wire-contract scenarios exercise a deliberately synthetic future
+    # catalog. Production asset eligibility is covered separately by
+    # test_catalog_api_contract_fixtures with the unchanged shipped registry.
+    RPG_ASSET_SUPPORT_POLICY={
+        "schema_version": 1,
+        "pets": [
+            {"species_slug": "fixture-fox", "sprite_key": "fox", "potion_slugs": ["base", "fire", "ice", "cosmic"]},
+            {"species_slug": "fixture-wolf", "sprite_key": "wolf", "potion_slugs": ["base", "fire", "ice", "cosmic"]},
+            {"species_slug": "fox", "sprite_key": "fox", "potion_slugs": ["fire", "ice"]},
+        ],
+        "potion_slugs": ["base", "fire", "ice", "cosmic"],
+        "disabled_item_types": ["cosmetic_pet_accessory"],
+        "features": {},
+    },
     ALLOWED_HOSTS=["testserver"],
     TIME_ZONE="America/Phoenix",
     USE_TZ=True,

@@ -49,7 +49,7 @@ export default function SpeciesTile({ species, totalPotions, onSelect }) {
       type="button"
       whileHover={{ y: -2 }}
       onClick={() => onSelect(species)}
-      aria-label={`${species.name} — ${owned} of ${totalPotions} mounts collected`}
+      aria-label={`${species.name} — ${owned} of ${totalPotions} grown pets collected`}
       className="block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-2xl"
     >
       <ParchmentCard className="text-center cursor-pointer transition-all">
@@ -80,7 +80,7 @@ function PotionStrand({ owned, total }) {
     <div
       className="mt-2 flex justify-center gap-0.5"
       role="img"
-      aria-label={`${owned} of ${total} mount variants collected`}
+      aria-label={`${owned} of ${total} grown variants collected`}
     >
       {pips.map((filled, i) => (
         <span

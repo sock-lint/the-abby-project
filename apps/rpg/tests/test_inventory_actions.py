@@ -116,7 +116,9 @@ class AvailableActionsByItemTypeTests(TestCase):
         self.assertEqual(actions[0]["endpoint"], f"/api/inventory/{item.pk}/open/")
 
     def test_egg_routes_to_hatchery(self):
-        item = self._entry_for(ItemDefinition.ItemType.EGG)
+        from apps.pets.models import PetSpecies
+        species = PetSpecies.objects.create(slug="chick", sprite_key="cute-chick", name="Chick", icon="C")
+        item = self._entry_for(ItemDefinition.ItemType.EGG, pet_species=species)
         actions = self._actions_for(item)
         self.assertEqual(len(actions), 1)
         self.assertEqual(actions[0]["id"], "hatch")
@@ -124,7 +126,9 @@ class AvailableActionsByItemTypeTests(TestCase):
         self.assertEqual(actions[0]["to"], "/bestiary?tab=hatchery")
 
     def test_potion_routes_to_hatchery(self):
-        item = self._entry_for(ItemDefinition.ItemType.POTION)
+        from apps.pets.models import PotionType
+        potion = PotionType.objects.create(slug="base", name="Base")
+        item = self._entry_for(ItemDefinition.ItemType.POTION, potion_type=potion)
         actions = self._actions_for(item)
         self.assertEqual(len(actions), 1)
         self.assertEqual(actions[0]["id"], "hatch")
@@ -147,14 +151,13 @@ class AvailableActionsByItemTypeTests(TestCase):
         self.assertEqual(actions[0]["to"], f"/trials?scroll_item={item.pk}")
 
     def test_each_cosmetic_slot_routes_to_sigil_for_equip(self):
-        # All four cosmetic slots share the same equip action — the slot
+        # Supported DOM cosmetic slots share the same equip action — the slot
         # itself is dispatched server-side by ``CosmeticService.equip`` based
         # on the item's ``item_type``.
         for slot in (
             ItemDefinition.ItemType.COSMETIC_FRAME,
             ItemDefinition.ItemType.COSMETIC_TITLE,
             ItemDefinition.ItemType.COSMETIC_THEME,
-            ItemDefinition.ItemType.COSMETIC_PET_ACCESSORY,
         ):
             with self.subTest(slot=slot):
                 item = self._entry_for(slot)
@@ -163,6 +166,13 @@ class AvailableActionsByItemTypeTests(TestCase):
                 self.assertEqual(actions[0]["id"], "equip")
                 self.assertEqual(actions[0]["label"], "Equip in Profile")
                 self.assertEqual(actions[0]["to"], "/sigil")
+
+    def test_unavailable_saved_ingredients_and_accessories_do_not_advertise_new_actions(self):
+        for item_type in (ItemDefinition.ItemType.EGG, ItemDefinition.ItemType.POTION, ItemDefinition.ItemType.COSMETIC_PET_ACCESSORY):
+            with self.subTest(item_type=item_type):
+                item = self._entry_for(item_type)
+                self.assertEqual(self._actions_for(item), [])
+                self.assertTrue(UserInventory.objects.filter(user=self.user, item=item).exists())
 
 
 class UseConsumableViewTests(TestCase):

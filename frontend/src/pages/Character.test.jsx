@@ -53,6 +53,20 @@ function renderPage() {
 }
 
 describe('Character (/sigil)', () => {
+  it('keeps earlier accessories in a saved collection without an equip claim and allows clearing a previous selection', async () => {
+    const user = userEvent.setup();
+    const hat = { id: 90, name: 'Party Hat', icon: '🎩', rarity: 'common', catalog_available: false };
+    const remove = vi.fn(() => HttpResponse.json({ ok: true }));
+    stubRoutes({ profile: { display_name: 'Abby', level: 1, active_pet_accessory: hat }, cosmetics: { active_pet_accessory: [hat] }, catalog: { active_pet_accessory: [hat] } });
+    server.use(http.post('*/api/character/unequip/', remove));
+    renderPage();
+    expect(await screen.findByRole('region', { name: 'Saved collection' })).toBeInTheDocument();
+    expect(screen.getByText('Party Hat')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Pet Accessories/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Party Hat.*equip/ })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Remove previous selection' }));
+    await waitFor(() => expect(remove).toHaveBeenCalled());
+  });
   it('keeps profile focused on avatar customization and links to pets separately', async () => {
     stubRoutes({ profile: { display_name: 'Abby', level: 2 } });
     const stableSpy = vi.fn(() => HttpResponse.json({ pets: [], mounts: [] }));
@@ -97,7 +111,7 @@ describe('Character (/sigil)', () => {
     expect(screen.getByRole('button', { name: /no trophy badge/i })).toBeInTheDocument();
   });
 
-  it('renders a TomeShelf with four cosmetic chapter spines and opens only the active one', async () => {
+  it('renders a TomeShelf with three supported cosmetic collections and opens only the active one', async () => {
     const user = userEvent.setup();
     stubRoutes({
       profile: {
@@ -116,7 +130,7 @@ describe('Character (/sigil)', () => {
     await waitFor(() =>
       expect(screen.getByRole('tablist', { name: /profile collections/i })).toBeInTheDocument(),
     );
-    expect(screen.getAllByRole('tab')).toHaveLength(4);
+    expect(screen.getAllByRole('tab')).toHaveLength(3);
 
     // Frames is the first chapter, so its folio opens by default.
     expect(screen.getByRole('region', { name: 'Frames' })).toBeInTheDocument();
@@ -188,7 +202,7 @@ describe('Character (/sigil)', () => {
     await user.click(tile);
     // The toast only fires after the equip round-trip resolves.
     await waitFor(() =>
-      expect(screen.getByText(/now wearing vigil cover/i)).toBeInTheDocument(),
+      expect(screen.getByText(/vigil cover selected/i)).toBeInTheDocument(),
     );
 
     applyTheme.mockClear();

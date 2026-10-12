@@ -19,7 +19,7 @@ export const CHAPTERS = [
     name: 'Complete',
     letter: 'C',
     rubric: chapterMark(0),
-    kicker: 'Every available potion variant evolved into a mount',
+    kicker: 'Every available variant fully grown',
     tier: PROGRESS_TIER.gilded,
   },
   {
@@ -27,7 +27,7 @@ export const CHAPTERS = [
     name: 'Evolved',
     letter: 'E',
     rubric: chapterMark(1),
-    kicker: 'At least one companion evolved into a mount',
+    kicker: 'At least one companion fully grown',
     tier: PROGRESS_TIER.cresting,
   },
   {

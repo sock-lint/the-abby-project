@@ -60,11 +60,18 @@ class SkillProgressSerializer(serializers.ModelSerializer):
 
 
 class BadgeSerializer(serializers.ModelSerializer):
+    catalog_available = serializers.SerializerMethodField()
+
+    def get_catalog_available(self, obj):
+        from .availability import badge_goal_is_available
+        request = self.context.get("request")
+        return badge_goal_is_available(obj, getattr(request, "user", None))
+
     class Meta:
         model = Badge
         fields = [
             "id", "name", "description", "icon", "subject", "criteria_type",
-            "criteria_value", "xp_bonus", "rarity",
+            "criteria_value", "xp_bonus", "rarity", "catalog_available",
         ]
 
 

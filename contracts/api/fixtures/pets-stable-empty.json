@@ -3,5 +3,6 @@
   "mounts": [],
   "total_pets": 0,
   "total_mounts": 0,
-  "total_possible": 4
+  "total_possible": 4,
+  "breeding_available": false
 }

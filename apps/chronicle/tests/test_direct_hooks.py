@@ -96,32 +96,34 @@ class PetServiceHookTests(TestCase):
             username="kid", password="pw", role=User.Role.CHILD,
         )
 
-        # Species and potion — matched via metadata name lookup (legacy path).
+        # Use the approved Chick/Base catalog identity and real typed links.
         self.species = PetSpecies.objects.create(
-            name="Testfox", icon="\U0001f98a", food_preference="berries",
+            slug="chick", name="Chick", sprite_key="cute-chick",
+            icon="\U0001f424", food_preference="birdseed",
         )
         self.potion_type = PotionType.objects.create(
-            name="Gold", color_hex="#FFD700",
+            slug="base", name="Base", color_hex="#8B7355",
         )
+        self.species.available_potions.add(self.potion_type)
 
-        # Items — use the metadata-based legacy path so no typed FK migration needed.
         self.egg_item = ItemDefinition.objects.create(
-            name="Testfox Egg", icon="\U0001f95a",
+            slug="egg-chick", name="Chick Egg", icon="\U0001f95a",
             item_type=ItemDefinition.ItemType.EGG,
             rarity="common",
-            metadata={"species": "testfox"},
+            pet_species=self.species,
         )
         self.potion_item = ItemDefinition.objects.create(
-            name="Gold Potion", icon="\U0001f9ea",
+            slug="potion-base", name="Base Potion", icon="\U0001f9ea",
             item_type=ItemDefinition.ItemType.POTION,
             rarity="common",
-            metadata={"variant": "gold"},
+            potion_type=self.potion_type,
         )
         self.food_item = ItemDefinition.objects.create(
-            name="Berries", icon="\U0001fad0",
+            slug="food-birdseed", name="Birdseed", icon="\U0001f33e",
             item_type=ItemDefinition.ItemType.FOOD,
             rarity="common",
-            metadata={"food_type": "berries"},
+            food_species=self.species,
+            metadata={"food_type": "birdseed"},
         )
 
         # Seed inventory.
@@ -132,7 +134,9 @@ class PetServiceHookTests(TestCase):
     def test_hatching_first_pet_emits_first_pet_hatched(self):
         from apps.pets.services import PetService
 
-        PetService.hatch_pet(self.user, self.egg_item.id, self.potion_item.id)
+        pet = PetService.hatch_pet(self.user, self.egg_item.id, self.potion_item.id)
+        self.assertEqual(pet.species_id, self.species.pk)
+        self.assertEqual(pet.potion_id, self.potion_type.pk)
 
         self.assertTrue(
             ChronicleEntry.objects.filter(
@@ -158,7 +162,11 @@ class PetServiceHookTests(TestCase):
             defaults={"quantity": 1},
         )
 
-        PetService.feed_pet(self.user, pet.id, self.food_item.id)
+        result = PetService.feed_pet(self.user, pet.id, self.food_item.id)
+        self.assertTrue(result["evolved"])
+        pet.refresh_from_db()
+        self.assertEqual(pet.growth_points, 100)
+        self.assertTrue(pet.evolved_to_mount)
 
         self.assertTrue(
             ChronicleEntry.objects.filter(

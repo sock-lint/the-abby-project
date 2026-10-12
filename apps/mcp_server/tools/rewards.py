@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from apps.rewards.availability import reward_is_available
 from apps.rewards.models import CoinLedger, Reward, RewardRedemption
 from apps.rewards.services import CoinService, RewardService
 
@@ -154,6 +155,16 @@ def _resolve_item_definition(slug: str | None):
         )
 
 
+def _validate_reward_publication(reward: Reward) -> None:
+    """Validate the proposed row before saving, using the shared shop policy."""
+    if reward.fulfillment_kind != Reward.FulfillmentKind.REAL_WORLD and reward.item_definition_id is None:
+        raise MCPValidationError(
+            "fulfillment_kind requires item_definition_slug for non-real_world rewards.",
+        )
+    if reward.is_active and not reward_is_available(reward):
+        raise MCPValidationError("This item is not currently available for new rewards.")
+
+
 @tool()
 @safe_tool
 def create_reward(params: CreateRewardIn) -> dict[str, Any]:
@@ -168,18 +179,13 @@ def create_reward(params: CreateRewardIn) -> dict[str, Any]:
     """
     parent = require_parent()
     item_def = _resolve_item_definition(params.item_definition_slug)
-    if params.fulfillment_kind != "real_world" and item_def is None:
-        raise MCPValidationError(
-            "fulfillment_kind requires item_definition_slug for non-real_world "
-            "rewards.",
-        )
     family = getattr(parent, "family", None)
     if family is None:
         raise MCPValidationError("Calling parent has no family attached.")
     # Audit C8: name uniqueness is per-family — Reward is per-family content.
     if Reward.objects.filter(name=params.name, family=family).exists():
         raise MCPValidationError(f"A reward named {params.name!r} already exists.")
-    reward = Reward.objects.create(
+    reward = Reward(
         name=params.name,
         description=params.description,
         icon=params.icon,
@@ -193,6 +199,8 @@ def create_reward(params: CreateRewardIn) -> dict[str, Any]:
         item_definition=item_def,
         family=family,
     )
+    _validate_reward_publication(reward)
+    reward.save()
     return reward_to_dict(reward)
 
 
@@ -235,6 +243,7 @@ def update_reward(params: UpdateRewardIn) -> dict[str, Any]:
         reward.item_definition = _resolve_item_definition(
             params.item_definition_slug,
         )
+    _validate_reward_publication(reward)
     reward.save()
     return reward_to_dict(reward)
 

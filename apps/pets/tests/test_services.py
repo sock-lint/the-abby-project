@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from apps.pets.models import PetSpecies, PotionType, UserPet, UserMount
 from apps.pets.services import PetService
@@ -6,13 +6,20 @@ from apps.projects.models import User
 from apps.rpg.models import ItemDefinition, UserInventory
 
 
+# Deliberately approved synthetic art keeps these lifecycle tests independent
+# from the stricter production catalog, covered by test_asset_supported_catalog.
+@override_settings(RPG_ASSET_SUPPORT_POLICY={
+    "schema_version": 1,
+    "pets": [{"species_slug": "wolf", "sprite_key": "wolf", "potion_slugs": ["fire"]}],
+    "potion_slugs": ["fire"],
+})
 class PetServiceTestBase(TestCase):
     """Shared setup for PetService tests."""
 
     def setUp(self):
         self.child = User.objects.create_user(username="petchild", password="test", role="child")
-        self.species = PetSpecies.objects.create(name="Wolf", icon="\U0001f43a", food_preference="meat")
-        self.potion_type = PotionType.objects.create(name="Fire", color_hex="#FF4500", rarity="uncommon")
+        self.species = PetSpecies.objects.create(slug="wolf", sprite_key="wolf", name="Wolf", icon="\U0001f43a", food_preference="meat")
+        self.potion_type = PotionType.objects.create(slug="fire", name="Fire", color_hex="#FF4500", rarity="uncommon")
 
         # Item definitions
         self.egg_item = ItemDefinition.objects.create(

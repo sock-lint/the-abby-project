@@ -69,7 +69,7 @@ export default function PartyCard({
           </div>
           {mount && !compact ? (
             <div className="font-script text-caption text-ink-whisper mt-0.5">
-              riding: {mount.species_name}
+              Grown pet: {mount.species_name}
             </div>
           ) : null}
 

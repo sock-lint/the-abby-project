@@ -2,6 +2,22 @@
 
 Boss + collection quests with time-boxed end dates, badge gating, rage shield, co-op support, and a separate daily-challenge micro-quest slot. Quest progress is driven by `GameLoopService.on_task_completed` — never call quest services directly from feature flows.
 
+## Supported rewards and reachable prerequisites (October 2026)
+
+Quest definition reads filter `reward_items` through
+`apps/rpg/catalog_support.py`, and completion applies the same filter before
+new inventory grants or egg salvage. Unavailable eggs, potion variants and
+pet accessories are skipped without replacement Coins; the definition's
+ordinary XP/coin payout and completion progress are unchanged. Definitions,
+active quests and saved ownership are retained.
+
+Read-only `catalog_available` reports whether the required badge is still a
+reachable goal, or was already earned by the account. React omits unavailable
+new unlocks while retaining active/history rows. The start service still
+requires the actual earned badge; availability does not grant it or relax its
+criteria. Broader reward mechanics remain testable with scoped synthetic asset
+bindings. See `apps/rpg/tests/test_catalog_consumers.py`.
+
 ## Models
 - `QuestDefinition` (boss/collection, `trigger_filter` JSON, `required_badge` gating, `xp_reward`/`coin_reward`/`QuestRewardItem`).
 - `Quest` (active quest row per user — `status`, `current_progress`, `rage_shield`, `end_date`).

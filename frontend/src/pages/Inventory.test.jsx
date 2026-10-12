@@ -27,6 +27,18 @@ function renderInventory() {
 }
 
 describe('Inventory', () => {
+  it('keeps unsupported eggs and accessories as stored items without hatch or equip actions', async () => {
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json([
+      { id: 1, quantity: 2, item: { id: 1, name: 'Earlier Egg', item_type: 'egg', rarity: 'common', icon: '🥚', catalog_available: false }, available_actions: [{ id: 'hatch', label: 'Hatch', to: '/bestiary?tab=hatchery' }] },
+      { id: 2, quantity: 1, item: { id: 2, name: 'Party Hat', item_type: 'cosmetic_pet_accessory', rarity: 'common', icon: '🎩', catalog_available: false }, available_actions: [{ id: 'equip', label: 'Equip', to: '/sigil' }] },
+    ])));
+    renderInventory();
+    expect(await screen.findByRole('heading', { name: 'Saved collection' })).toBeInTheDocument();
+    expect(screen.getByText('Earlier Egg')).toBeInTheDocument();
+    expect(screen.getByText('Party Hat')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Hatch' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Equip' })).toBeNull();
+  });
   it('renders empty state when satchel is empty', async () => {
     server.use(http.get('*/api/inventory/', () => HttpResponse.json([])));
     renderInventory();

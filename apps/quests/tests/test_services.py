@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.projects.models import User
-from apps.quests.models import QuestDefinition, Quest, QuestParticipant
+from apps.quests.models import QuestDefinition, QuestParticipant
 from apps.quests.services import QuestService
 
 
@@ -111,7 +111,7 @@ class QuestEggSalvageTest(TestCase):
             username="hatcher", password="test", role="child",
         )
         self.species = PetSpecies.objects.create(
-            slug="wolf", name="Wolf", icon="🐺",
+            slug="chick", name="Chick", icon="C", sprite_key="cute-chick",
         )
         self.potion = PotionType.objects.create(slug="base", name="Base")
 

@@ -3,13 +3,22 @@ from io import StringIO
 from unittest.mock import patch
 
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
 from apps.pets.services import PetService
 from apps.rpg.models import DropTable, ItemDefinition, UserInventory
 from config.tests.factories import make_family
+
+
+SYNTHETIC_BREEDING_ART = {
+    "schema_version": 1,
+    "pets": [
+        {"species_slug": "chick", "sprite_key": "cute-chick", "potion_slugs": ["base", "fire", "cosmic"]},
+        {"species_slug": "wolf", "sprite_key": "wolf", "potion_slugs": ["fire"]},
+    ], "potion_slugs": ["base", "fire", "cosmic"],
+}
 
 
 class CuteChickCatalogTests(TestCase):
@@ -43,14 +52,14 @@ class CuteChickCatalogTests(TestCase):
         self.assertTrue(DropTable.objects.filter(item=self.egg, trigger_type="chore_complete").exists())
         self.assertTrue(DropTable.objects.filter(item=self.birdseed, trigger_type="chore_complete").exists())
 
-    def test_stable_total_counts_authored_compatible_variants(self):
+    def test_stable_total_counts_only_art_supported_authored_variants(self):
         self.assertEqual(PetSpecies.objects.count(), 18)
-        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 94)
+        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 1)
 
-    def test_stable_total_includes_unrestricted_legacy_species(self):
+    def test_unprepared_legacy_species_does_not_expand_available_completion_total(self):
         PetSpecies.objects.create(slug="legacy-bird", name="Legacy Bird", icon="🐦")
 
-        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 100)
+        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 1)
         self.assertEqual(self.chick.available_potions.count(), 1)
 
     def test_reload_keeps_existing_pet_mount_and_inventory(self):
@@ -193,7 +202,9 @@ class CuteChickCatalogTests(TestCase):
         )
         # Select Chick, then the final potion candidate. An unfiltered
         # parental list would choose Fire and produce an unsupported pair.
-        with patch("apps.pets.services.random.random", return_value=roll), patch(
+        # These tests cover future authored compatibility using deliberately
+        # approved synthetic art; the production registry remains Chick/Base.
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=SYNTHETIC_BREEDING_ART), patch("apps.pets.services.random.random", return_value=roll), patch(
             "apps.pets.services.random.choice",
             side_effect=lambda options: self.chick if isinstance(options[0], PetSpecies) else options[-1],
         ):
@@ -225,7 +236,8 @@ class CuteChickCatalogTests(TestCase):
         self.assertFalse(UserInventory.objects.filter(user=self.child).exists())
         self.assertFalse(UserMount.objects.filter(user=self.child, last_bred_at__isnull=False).exists())
 
-    def test_empty_legacy_compatibility_allows_chromatic_breed_and_hatch(self):
+    @override_settings(RPG_ASSET_SUPPORT_POLICY=SYNTHETIC_BREEDING_ART)
+    def test_empty_compatibility_allows_an_explicitly_supported_chromatic_breed_and_hatch(self):
         self.chick.available_potions.clear()
         cosmic = PotionType.objects.get(slug="cosmic")
 

@@ -12,12 +12,25 @@ Forks run on hosted infrastructure without production credentials.
 | Required check | Validation | Runner |
 | --- | --- | --- |
 | `Frontend validation` | Lint, full coverage gate, web build and native staging build | GitHub-hosted Ubuntu, Node 22 |
+| `Backend validation` | Migrations and the full Django suite, including PostgreSQL transaction/locking checks | GitHub-hosted Ubuntu, Python 3.12, PostgreSQL 16, Redis 7 |
 | `API fixtures` | Real Django responses against synthetic fixtures and React consumption | GitHub-hosted Ubuntu, Python 3.12, Node 22 |
 
-Keep strict `main` protection and these two required checks. Replace the retired
+Keep strict `main` protection and these three required checks. Add
+`Backend validation` to the existing required checks after its first successful
+PR run, before enabling the [autonomous improvement loop](improvement-loop.md).
+Replace the retired
 `Browser bridge` and `Unity validation` requirements; preserve unrelated
 protection and merged-branch deletion settings. Workflow changes alone do not
 edit repository protection.
+
+The backend gate uses disposable PostgreSQL 16 and Redis 7 services with
+synthetic credentials and no production secrets. Migrations and the complete
+suite run with the main settings so database constraints, row locks and real
+Redis integration are checked before merge. Reproduce with isolated test
+services, `SECRET_KEY`, `DATABASE_URL`, `REDIS_URL` and `CELERY_BROKER_URL`, then
+run `python manage.py migrate --noinput` and
+`python manage.py test --noinput --verbosity=2`. SQLite fixture checks do not
+satisfy this backend gate.
 
 From `frontend/`, reproduce with `npm ci`, `npm run lint`,
 `npm run test:coverage -- --maxWorkers=4` and `npm run build`. Set shell variables
@@ -31,8 +44,29 @@ For contracts, set `SECRET_KEY` to a synthetic test-only value and
 `DATABASE_URL=sqlite:///:memory:`, then run:
 
 ```powershell
-python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures
 ```
+
+From `frontend/`, run the matching consumers:
+
+```powershell
+npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/catalogContractFixtures.test.js
+```
+
+The catalog producer/consumer pair uses production asset support and checks
+available offers separately from retained saved ownership. Broader breeding
+fixtures use an explicit scoped synthetic policy for engine mechanics. For
+catalog changes, also run:
+
+```powershell
+python manage.py test --settings=config.settings_test apps.rpg.tests.test_catalog_support apps.rpg.tests.test_asset_supported_acquisition apps.rpg.tests.test_catalog_consumers apps.pets.tests.test_asset_supported_catalog
+```
+
+Run `apps.pets.tests.test_catalog_concurrency` with `config.settings_test` and a
+disposable PostgreSQL database for competing hatch/final-feed transactions;
+SQLite skips these row-lock checks. React Saved collection coverage lives in
+`src/pages/bestiary/party/SavedPetCollections.test.jsx` and the affected Profile,
+Inventory, Hatching and reward/challenge tests within the full coverage gate.
 
 Fixtures do not replace permission, family-scoping or transaction tests. Add
 affected endpoint tests, React interactions and PostgreSQL concurrency checks

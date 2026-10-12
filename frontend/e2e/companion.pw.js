@@ -10,6 +10,7 @@ let origin;
 const privateArt = existsSync(fileURLToPath(new URL('../src/companion/licensed/manifest.json', import.meta.url)));
 const user = { id: 901, username: 'prototype-child', role: 'child', first_name: 'Prototype child', theme: 'hyrule' };
 const chick = {
+  catalog_available: true,
   id: 902, name: 'Peep', species: { id: 941, name: 'Chick', slug: 'chick', sprite_key: 'cute-chick', icon: '🐥', food_preference: 'Birdseed' },
   potion: { id: 942, name: 'Base', slug: 'base', rarity: 'common' },
   is_active: true, growth_points: 85, evolved_to_mount: false, happiness_level: 'happy',
@@ -95,7 +96,7 @@ async function fixture(page, pet = chick, { mounts = [] } = {}) {
       '/api/character/': character,
       '/api/cosmetics/': {}, '/api/cosmetics/catalog/': {},
       '/api/achievements/summary/': { badges_earned: [] },
-      '/api/pets/stable/': { pets: [ownedPet], mounts: ownedMounts, total_possible: 94 },
+      '/api/pets/stable/': { pets: [ownedPet], mounts: ownedMounts, total_possible: 1, breeding_available: false },
       '/api/inventory/': inventory,
       '/api/sprites/catalog/': {},
       '/api/push/config/': { enabled: false, public_key: '' },
@@ -160,12 +161,14 @@ test('the pet home opens real care controls at phone width and feeds only on exp
 });
 
 test('an unsupported earned species keeps its own identity and 2D view', async ({ page }) => {
-  const mutations = await fixture(page, { ...chick, name: 'Juniper', species: { name: 'Fox', slug: 'fox', sprite_key: 'fox', icon: '🦊' } });
+  const mutations = await fixture(page, { ...chick, catalog_available: false, name: 'Juniper', species: { name: 'Fox', slug: 'fox', sprite_key: 'fox', icon: '🦊', catalog_available: false } });
   await page.goto(`${origin}/bestiary`);
-  await expect(page.getByRole('heading', { name: 'Juniper', exact: true })).toBeVisible();
+  const saved = page.getByRole('region', { name: 'Saved collection' });
+  await expect(saved).toBeVisible();
   await expect(page.getByRole('button', { name: 'Show 3D view' })).toHaveCount(0);
-  await expect(page.getByRole('img', { name: 'Juniper, your companion' })).toBeVisible();
-  await page.getByRole('button', { name: 'Spend time with Juniper' }).click();
+  await expect(page.locator('.companion-preview')).toHaveCount(0);
+  await expect(saved.getByRole('img', { name: 'Base Fox' })).toBeVisible();
+  await saved.getByRole('button', { name: 'Care for Base Fox' }).click();
   await expect(page.getByRole('dialog', { name: 'Care for Juniper' })).toBeVisible();
   expect(mutations).toEqual([]);
 });
@@ -224,7 +227,7 @@ test('a broken model request leaves pet care available and can retry without awa
 });
 
 test('owned mounts open their expedition choices without starting a run on entry', async ({ page }) => {
-  const mount = { id: 905, species: chick.species, potion: chick.potion, is_active: true, can_breed: true, breeding_cooldown_seconds: 0, last_bred_at: null, active_expedition: null };
+  const mount = { id: 905, species: chick.species, potion: chick.potion, catalog_available: true, is_active: true, can_breed: false, breeding_cooldown_seconds: 0, last_bred_at: null, active_expedition: null };
   const mutations = await fixture(page, { ...chick, evolved_to_mount: true, growth_points: 100 }, { mounts: [mount] });
   await page.goto(`${origin}/bestiary?tab=mounts`);
   await expect(page.getByRole('button', { name: 'Show 3D view' })).toHaveCount(0);

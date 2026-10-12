@@ -5,7 +5,7 @@ from django.test import TestCase
 
 from apps.projects.models import User
 from apps.rewards.models import CoinLedger, Reward, RewardRedemption
-from apps.rewards.services import CoinService, RewardService
+from apps.rewards.services import CoinService, RewardService, RewardUnavailableError
 from apps.rpg.models import ItemDefinition, UserInventory
 
 
@@ -99,16 +99,16 @@ class DigitalItemFulfillmentTests(TestCase):
         inv = UserInventory.objects.get(user=self.child, item=self.item)
         self.assertEqual(inv.quantity, 2)
 
-    def test_digital_item_without_fk_is_noop_not_error(self) -> None:
+    def test_new_digital_item_without_fk_is_rejected_before_charging(self) -> None:
         reward = self._make_reward(
             fulfillment_kind=Reward.FulfillmentKind.DIGITAL_ITEM,
             item=None,  # mis-configured — LLM forgot to link
         )
-        redemption = RewardService.request_redemption(self.child, reward)
-        # Should not raise
-        RewardService.approve(redemption, self.parent)
-        redemption.refresh_from_db()
-        self.assertEqual(redemption.status, RewardRedemption.Status.FULFILLED)
+        before = CoinService.get_balance(self.child)
+        with self.assertRaises(RewardUnavailableError):
+            RewardService.request_redemption(self.child, reward)
+        self.assertEqual(CoinService.get_balance(self.child), before)
+        self.assertFalse(RewardRedemption.objects.filter(user=self.child).exists())
 
 
 class LoaderRewardItemLinkTests(TestCase):

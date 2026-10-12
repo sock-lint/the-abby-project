@@ -34,6 +34,8 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
+from .catalog_support import available_items, item_is_available
+
 from apps.rpg.constants import TriggerType
 from apps.rpg.models import CharacterProfile
 
@@ -347,12 +349,12 @@ class DropService:
         user_level = profile.level if profile else 0
 
         # Get eligible drop table entries
-        entries = DropTable.objects.filter(
+        entries = [entry for entry in DropTable.objects.filter(
             trigger_type=trigger_type,
             min_level__lte=user_level,
-        ).select_related("item")
+        ).select_related("item", "item__pet_species", "item__potion_type") if item_is_available(entry.item)]
 
-        if not entries.exists():
+        if not entries:
             return []
 
         # Weighted random selection
@@ -973,7 +975,7 @@ class ConsumableService:
             # uncommon non-cosmetic items. Simpler than trying to re-roll a
             # previous drop; "open the box and see what you got" reads well.
             from apps.rpg.models import ItemDefinition, UserInventory
-            eligible = list(
+            eligible = available_items(
                 ItemDefinition.objects.filter(
                     rarity__in=meta.get("rarities", ["common", "uncommon"]),
                 ).exclude(
@@ -1003,7 +1005,7 @@ class ConsumableService:
             from apps.rewards.models import CoinLedger
             from apps.rewards.services import CoinService
             from apps.rpg.models import ItemDefinition, UserInventory
-            eligible = list(
+            eligible = available_items(
                 ItemDefinition.objects.filter(
                     rarity__in=meta.get("rarities", ["uncommon", "rare", "epic"]),
                     item_type__startswith="cosmetic_",
@@ -1102,7 +1104,7 @@ class ConsumableService:
             # kids who want to build up a feeding stockpile.
             from apps.rpg.models import ItemDefinition, UserInventory
             count = int(meta.get("count", 2))
-            foods = list(ItemDefinition.objects.filter(
+            foods = available_items(ItemDefinition.objects.filter(
                 item_type=ItemDefinition.ItemType.FOOD,
             ))
             if not foods:
@@ -1233,6 +1235,8 @@ class CosmeticService:
         # Must own the item
         if not UserInventory.objects.filter(user=user, item=item, quantity__gte=1).exists():
             raise ValueError("You don't own that item")
+        if not item_is_available(item):
+            raise ValueError("This saved cosmetic is unavailable to equip with the current artwork.")
 
         # For theme cosmetics, resolve metadata.theme to a real palette
         # BEFORE writing anything — refuse to equip a theme cosmetic whose
@@ -1298,6 +1302,10 @@ class CosmeticService:
             )
             return None
 
+        if not item_is_available(cover):
+            logger.warning("Starter cover %r is unavailable in the supported catalog.", slug)
+            return None
+
         inventory, _ = UserInventory.objects.get_or_create(
             user=user, item=cover,
             defaults={"quantity": 1},
@@ -1339,7 +1347,7 @@ class CosmeticService:
         runs the rows are gone entirely; this filter is the immediate
         UI fix between code deploy and cleanup execution.
         """
-        from apps.rpg.models import ItemDefinition, UserInventory
+        from apps.rpg.models import UserInventory
 
         cosmetic_types = list(CosmeticService.COSMETIC_SLOT_MAP.keys())
         entries = UserInventory.objects.filter(

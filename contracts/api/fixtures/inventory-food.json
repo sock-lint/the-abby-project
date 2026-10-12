@@ -15,7 +15,8 @@
       "metadata": {},
       "pet_species_name": "Fox",
       "potion_type_name": null,
-      "food_species_name": null
+      "food_species_name": null,
+      "catalog_available": true
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",
@@ -43,7 +44,8 @@
       "metadata": {},
       "pet_species_name": null,
       "potion_type_name": null,
-      "food_species_name": "Fox"
+      "food_species_name": "Fox",
+      "catalog_available": true
     },
     "quantity": 2,
     "updated_at": "2026-10-10T12:00:00-07:00",
@@ -71,7 +73,8 @@
       "metadata": {},
       "pet_species_name": null,
       "potion_type_name": null,
-      "food_species_name": null
+      "food_species_name": null,
+      "catalog_available": true
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",
@@ -99,7 +102,8 @@
       "metadata": {},
       "pet_species_name": null,
       "potion_type_name": null,
-      "food_species_name": "Wolf"
+      "food_species_name": "Wolf",
+      "catalog_available": true
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",

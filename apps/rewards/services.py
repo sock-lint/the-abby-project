@@ -121,6 +121,10 @@ class RewardService:
     @staticmethod
     @transaction.atomic
     def request_redemption(user, reward):
+        from .availability import reward_is_available
+
+        if not reward_is_available(reward):
+            raise RewardUnavailableError("This reward is not currently available.")
         if not reward.is_active:
             raise RewardUnavailableError("Reward is not active.")
         if reward.stock is not None and reward.stock <= 0:

@@ -21,6 +21,25 @@ function renderHatchery() {
 }
 
 describe('Hatchery', () => {
+  it('offers only approved ingredients and explains unavailable breeding without suggesting a hybrid', async () => {
+    server.use(
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [{ id: 1, can_breed: false }, { id: 2, can_breed: false }], total_possible: 1, breeding_available: false })),
+      http.get('*/api/inventory/', () => HttpResponse.json([
+        { id: 1, quantity: 1, item: { id: 11, name: 'Chick Egg', item_type: 'egg', catalog_available: true } },
+        { id: 2, quantity: 1, item: { id: 12, name: 'Base Potion', item_type: 'potion', catalog_available: true } },
+        { id: 3, quantity: 1, item: { id: 13, name: 'Earlier Wolf Egg', item_type: 'egg', catalog_available: false } },
+        { id: 4, quantity: 1, item: { id: 14, name: 'Fire Potion', item_type: 'potion', catalog_available: false } },
+      ])),
+    );
+    renderHatchery();
+    expect(await screen.findByRole('combobox', { name: 'Egg' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Chick Egg/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Earlier Wolf Egg/ })).toBeNull();
+    expect(screen.queryByRole('option', { name: /Fire Potion/ })).toBeNull();
+    expect(screen.getByText(/Breeding is not available with the current pet collection/)).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /grown pet/ })).toBeNull();
+    expect(screen.queryByText(/hybrid/i)).toBeNull();
+  });
   it('renders an empty state when there are no eggs or potions', async () => {
     server.use(
       http.get('*/api/pets/stable/', () =>
@@ -123,14 +142,14 @@ describe('Hatchery', () => {
     renderHatchery();
     const user = userEvent.setup();
 
-    const firstPicker = await screen.findByRole('combobox', { name: /first mount/i });
+    const firstPicker = await screen.findByRole('combobox', { name: /first grown pet/i });
     const restingOption = Array.from(firstPicker.options).find((o) => /lion/i.test(o.textContent || ''));
     expect(restingOption?.disabled).toBe(true);
     expect(restingOption?.textContent).toMatch(/resting \d+d/);
 
     await user.selectOptions(firstPicker, '9');
-    await user.selectOptions(screen.getByRole('combobox', { name: /second mount/i }), '10');
-    await user.click(screen.getByRole('button', { name: /breed mounts/i }));
+    await user.selectOptions(screen.getByRole('combobox', { name: /second grown pet/i }), '10');
+    await user.click(screen.getByRole('button', { name: /breed pets/i }));
 
     await waitFor(() => expect(breed.calls).toHaveLength(1));
     expect(breed.calls[0].body).toEqual({ mount_a_id: '9', mount_b_id: '10' });
@@ -173,9 +192,9 @@ describe('Hatchery', () => {
     renderHatchery();
     const user = userEvent.setup();
 
-    await user.selectOptions(await screen.findByRole('combobox', { name: /first mount/i }), '9');
-    await user.selectOptions(screen.getByRole('combobox', { name: /second mount/i }), '10');
-    await user.click(screen.getByRole('button', { name: /breed mounts/i }));
+    await user.selectOptions(await screen.findByRole('combobox', { name: /first grown pet/i }), '9');
+    await user.selectOptions(screen.getByRole('combobox', { name: /second grown pet/i }), '10');
+    await user.click(screen.getByRole('button', { name: /breed pets/i }));
 
     // The celebration modal mounts and renders the result egg headline +
     // the "hybrid is conceived" kicker (non-chromatic path).
@@ -183,6 +202,6 @@ describe('Hatchery', () => {
       expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     });
     expect(screen.getByText(/wolf egg/i)).toBeInTheDocument();
-    expect(screen.getByText(/a new hybrid egg/i)).toBeInTheDocument();
+    expect(screen.getByText(/a new egg/i)).toBeInTheDocument();
   });
 });

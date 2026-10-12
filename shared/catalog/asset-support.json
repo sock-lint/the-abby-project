@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "policy_id": "owned-r3f-baseline-2026-10-12",
+  "pets": [
+    {
+      "species_slug": "chick",
+      "sprite_key": "cute-chick",
+      "potion_slugs": ["base"],
+      "stages": {"pet": "chick", "evolved": "bird", "mount": "bird"},
+      "source": "meshtint-bird-family"
+    }
+  ],
+  "potion_slugs": ["base"],
+  "disabled_item_types": ["cosmetic_pet_accessory"],
+  "avatar": {
+    "source": "meshtint-female-archer-01",
+    "hair_style": ["hair-01", "hair-02", "hair-03", "hair-04"],
+    "hair_color": ["light", "dark"],
+    "skin_tone": ["fair", "tan"],
+    "outfit": ["aqua", "nature", "fire", "dark"],
+    "capabilities": {"static_pose": true, "animation": false, "weapons": false, "fitted_creature_clothing": false}
+  },
+  "sources": [
+    {
+      "id": "meshtint-bird-family",
+      "publisher": "Meshtint Studio",
+      "pack": "Chick / Fledgling / Bird Evolution",
+      "prepared_models": ["chick", "bird"],
+      "accepted_clips": {"chick": ["Idle"], "bird": ["Fly Idle"]},
+      "owned_unprepared_forms": ["Fledgling"],
+      "prepared_potion_variants": ["base"]
+    },
+    {
+      "id": "meshtint-monster-icons-01",
+      "publisher": "Meshtint Studio",
+      "pack": "Icons for Monsters Ultimate Pack 01 v2",
+      "prepared_portraits": {"cute-chick": "Bird01", "cute-chick-mount": "Bird03"},
+      "prepared_preview_portraits": {"fledgling": "Bird02"},
+      "owned_unprepared_portrait_families": ["Bat", "Bee", "Flower", "Ghost", "Mushroom", "Spider"],
+      "owned_unprepared_portraits": ["Egg00", "Egg01", "Egg02", "Egg03"],
+      "supplies_models": false
+    },
+    {
+      "id": "meshtint-forest-ruins",
+      "publisher": "Meshtint Studio",
+      "pack": "Forest Ruins 1.2",
+      "prepared_meshes": ["Ground 01 Soft Edge", "Tree 02", "Rock 01", "Mushroom 01", "Ancient Pillar 01"],
+      "capabilities": {"fixed_scenery": true, "furnishing_ownership": false}
+    },
+    {
+      "id": "meshtint-female-archer-01",
+      "publisher": "Meshtint Studio",
+      "pack": "Female Archer Pack 01",
+      "prepared_models": ["archer"],
+      "accepted_clips": [],
+      "owned_unprepared_modules": ["Female Archer 02", "Female Archer 03", "Female Hair For Hat", "Female Head 01", "Crown Eve", "Hood Mystical", "Mask Undercover", "Arrow", "Bow Greenhorn", "Bow Myth", "Bow Vines", "Quiver Angel", "Quiver Rook", "Quiver Tale"],
+      "owned_unprepared_materials": ["Hair Brown", "Hair Orange", "Hair Grey"],
+      "supplies_creature_accessories": false
+    }
+  ],
+  "provenance_document": "content/rpg/react-three-fiber-assets.md",
+  "license_url": "https://www.meshtint.com/pages/terms-of-use-license",
+  "runtime_delivery_review": "private_evaluation"
+}

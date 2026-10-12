@@ -6,6 +6,7 @@ import RpgSprite from '../../../components/rpg/RpgSprite';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
 import { mountLabel, mountSpriteKey } from './bestiary.constants';
+import { isCatalogAvailable } from '../../../utils/catalogAvailability';
 
 /**
  * BottomSheet detail view for a single species. Shows lore, food
@@ -15,7 +16,7 @@ import { mountLabel, mountSpriteKey } from './bestiary.constants';
 export default function SpeciesDetailSheet({ species, onClose }) {
   if (!species) return null;
   const ownedPotionIds = new Set(species.owned_mount_potion_ids || []);
-  const eligible = species.available_potions || [];
+  const eligible = (species.available_potions || []).filter(isCatalogAvailable);
   const discovered = !!species.discovered;
 
   return (
@@ -44,7 +45,7 @@ export default function SpeciesDetailSheet({ species, onClose }) {
             )}
             <div className="font-script text-tiny text-ink-whisper mt-2">
               {discovered
-                ? `${ownedPotionIds.size} of ${eligible.length} mount variants collected`
+                ? `${eligible.filter((potion) => ownedPotionIds.has(potion.id)).length} of ${eligible.length} grown variants collected`
                 : 'undiscovered — hatch one to reveal'}
             </div>
           </div>
@@ -60,11 +61,11 @@ export default function SpeciesDetailSheet({ species, onClose }) {
 
         <section aria-labelledby="evolution-heading">
           <h3 id="evolution-heading" className="font-display text-base text-ink-primary mb-2">
-            Evolution variants
+            Grown forms
           </h3>
           {eligible.length === 0 ? (
             <div className="font-script text-sm text-ink-whisper">
-              No potions are available for this species yet.
+              Hatching is not available for this pet.
             </div>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -120,7 +121,7 @@ export default function SpeciesDetailSheet({ species, onClose }) {
           )}
         </section>
 
-        <section aria-labelledby="hatch-hints-heading">
+        {eligible.length > 0 && isCatalogAvailable(species) && <section aria-labelledby="hatch-hints-heading">
           <h3 id="hatch-hints-heading" className="font-display text-base text-ink-primary mb-1">
             How to hatch
           </h3>
@@ -133,7 +134,7 @@ export default function SpeciesDetailSheet({ species, onClose }) {
                 : `one of: ${eligible.map((p) => p.name).join(', ')}`}{' '}
             on the Hatching tab.
           </p>
-        </section>
+        </section>}
       </div>
     </BottomSheet>
   );

@@ -11,19 +11,18 @@ import {
 
 describe('character.constants', () => {
   describe('COSMETIC_CHAPTERS', () => {
-    it('ships exactly four chapters in order', () => {
-      expect(COSMETIC_CHAPTERS).toHaveLength(4);
+    it('ships exactly three supported chapters in order', () => {
+      expect(COSMETIC_CHAPTERS).toHaveLength(3);
       expect(COSMETIC_CHAPTERS.map((c) => c.slot)).toEqual([
         'active_frame',
         'active_title',
         'active_theme',
-        'active_pet_accessory',
       ]);
     });
 
     it('exports a slot \u2192 chapter lookup', () => {
       expect(COSMETIC_CHAPTERS_BY_SLOT.active_frame.name).toBe('Frames');
-      expect(COSMETIC_CHAPTERS_BY_SLOT.active_pet_accessory.rubric).toBe('4');
+      expect(COSMETIC_CHAPTERS_BY_SLOT.active_pet_accessory).toBeUndefined();
     });
   });
 
