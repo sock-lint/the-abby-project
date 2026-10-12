@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import TomeShelf from '../../components/atlas/TomeShelf';
-import { tierForProgress, PROGRESS_TIER } from '../../components/atlas/mastery.constants';
+import { PROGRESS_TIER } from '../../components/atlas/mastery.constants';
 import TrialsFolio from './TrialsFolio';
 import {
   CHAPTERS,
@@ -12,15 +12,13 @@ import {
 const STORAGE_KEY = 'trials:codex:active-chapter';
 
 /**
- * QuestCodex — vessel filter shelf + codex chapter shelf + active-chapter
- * folio. Mirrors BestiaryCodex's shape so the two hubs speak the same
- * vocabulary.
+ * QuestCodex — kind filters + status collection tabs + active-chapter
+ * content. Status buckets show counts, not quest completion progress.
  *
- *   - Vessel shelf: kind filter (All / Boss / Collection / Co-op) with
+ *   - Kind filters: All / Boss / Collection / Co-op with
  *     `×N` chips. Empty buckets hidden except All.
- *   - Codex shelf: status chapters (1 Available · 2 Underway ·
- *     3 Closed · 4 Locked). All four spines render even when empty
- *     so the manuscript skeleton stays intact (matches Bestiary).
+ *   - Status tabs: 1 Available · 2 Underway · 3 Closed · 4 Locked.
+ *     All four tabs render even when empty so the destinations stay clear.
  *   - Folio body: TrialsFolio for the active chapter.
  *
  * localStorage key `trials:codex:active-chapter` persists the chapter
@@ -81,32 +79,23 @@ export default function QuestCodex({
     return (activeBucket?.quests ?? []).filter(filter.match);
   }, [activeBucket, kindFilter]);
 
-  // Kind counts derive from the active chapter so a vessel chip reads
+  // Kind counts derive from the active chapter so a filter chip reads
   // "boss ×N in this chapter," matching how Companions/Mounts count.
   const kCounts = useMemo(
     () => kindCounts(activeBucket?.quests ?? []),
     [activeBucket],
   );
 
-  const chapterShelf = grouped.map(({ chapter, count }) => {
-    const pct = chapter.id === 'underway' ? (count ? 100 : 0)
-      : chapter.id === 'closed' ? (count ? Math.min(100, count * 10) : 0)
-      : null;
-    const tier = tierForProgress({
-      unlocked: count > 0,
-      progressPct: pct ?? 0,
-      level: 0,
-    });
-    return {
-      id: chapter.id,
-      name: chapter.name,
-      icon: chapter.letter,
-      chip: `${count}`,
-      progressPct: pct,
-      tier,
-      ariaLabel: `${chapter.name}, ${count} ${count === 1 ? 'trial' : 'trials'}`,
-    };
-  });
+  const chapterShelf = grouped.map(({ chapter, count }) => ({
+    id: chapter.id,
+    name: chapter.name,
+    icon: chapter.letter,
+    chip: `${count}`,
+    // A status bucket has no completion target; progress belongs to each quest.
+    progressPct: null,
+    tier: count > 0 ? PROGRESS_TIER.nascent : PROGRESS_TIER.locked,
+    ariaLabel: `${chapter.name}, ${count} ${count === 1 ? 'trial' : 'trials'}`,
+  }));
 
   const visibleKindFilters = KIND_FILTERS.filter(
     ({ key }) => key === 'all' || kCounts[key] > 0,

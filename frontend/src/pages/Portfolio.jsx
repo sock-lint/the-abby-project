@@ -322,9 +322,9 @@ export default function Portfolio() {
             activeId={filter}
             onSelect={setFilter}
             items={FILTERS
-              // Drop empty drawers except "All" (which always shows when
+              // Drop empty filters except "All" (which always shows when
               // there is any content at all). Matches Inventory's pattern of
-              // hiding empty compartments — keeps the shelf scannable.
+              // hiding empty compartments — keeps the filters scannable.
               .filter(({ key }) => key === 'all' || counts[key] > 0)
               .map(({ key, label, icon }) => ({
                 id: key,

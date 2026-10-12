@@ -176,6 +176,7 @@ export function ChapterBottomBar({ user }) {
 
   return (
     <nav
+      data-journal-bottom-nav="true"
       aria-label="Main navigation"
       className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex min-[360px]:gap-1 pt-2
                  bg-ink-page-aged/95 backdrop-blur-sm border-t border-ink-page-shadow/60

@@ -115,10 +115,7 @@ export default function JournalReader() {
     };
   }, [targetUserId, isParent, reloadKey]);
 
-  // Group journal entries by chapter year — preserves the year for the
-  // shelf-of-tomes UX so kids can flip between Sophomore Year / Freshman
-  // Year / Grade 8, mirroring how the Yearbook tab shows the same chapters.
-  // Sorted chronologically (oldest → newest) so chapter 1 → N reads left-to-right.
+  // Group journal entries into the same chronological chapter chips as Yearbook.
   const journalChapters = useMemo(() => {
     if (!chapters) return null;
     const buckets = chapters
@@ -184,8 +181,8 @@ export default function JournalReader() {
       name: chapter.label,
       icon: chapterMark(idx),
       chip: `×${chapter.entries.length}`,
-      // A chapter year isn't a "completion" concept, so the foot band stays
-      // a thin hairline. Tier just colors the band (rising for current).
+      // Calendar chapters use compact chips without completion progress.
+      variant: 'vessel',
       progressPct: null,
       tier: chapter.is_current ? PROGRESS_TIER.rising : PROGRESS_TIER.nascent,
       ariaLabel: `${chapter.label}, ${chapter.entries.length} journal entr${chapter.entries.length === 1 ? 'y' : 'ies'}`,

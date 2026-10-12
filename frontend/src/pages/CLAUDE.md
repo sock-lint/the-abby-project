@@ -71,7 +71,7 @@ The hub itself lives at [`pages/quests/index.jsx`](/frontend/src/pages/quests/in
 ### Shared folio shell
 
 [`pages/quests/QuestFolio.jsx`](/frontend/src/pages/quests/QuestFolio.jsx) is the verso/recto shell shared by Ventures, Duties, Study, Rituals, Movement. Modeled on the former Skills layout at `pages/achievements/FolioSpread.jsx` but parameterized so a tab can fill in its own letter / title / stats / progress without dragging the skill-tree XP math along.
-- **Verso** (left, ~220-260px desktop · top banner mobile): cloth headband tied to tier (`tierForProgress`), brass-rimmed `IlluminatedVersal` drop-cap, script kicker, display-serif title with foil-glint, stats row, progress bar, optional `RarityStrand`.
+- **Verso** (left, ~220-260px desktop · top banner mobile): `IlluminatedVersal` initial, kicker, Nunito title, stats row, progress bar and optional `RarityStrand`. Tier is expressed through progress and labels.
 - **Recto** (right): consumer-supplied children — the working list grouped under `ChapterRubric` numerals (§I, §II, …).
 
 No new tier ladders, halo colors, or keyframes — composition against the existing Atlas cohort.
@@ -177,6 +177,12 @@ budget panel, the unlinked-jobs panel and printer config.
 
 ## Atlas hub ([`pages/atlas/index.jsx`](/frontend/src/pages/atlas/index.jsx))
 
+### Shared collection navigation
+
+The October 2026 collection refresh replaces book spines and labeled drawers with the shared Meadow picker in `components/atlas/TomeShelf.jsx` and `TomeSpine.jsx`. Their existing descriptor API remains compatible. Default collection cards wrap in a responsive grid with readable titles, counts, optional saved progress and a current-selection marker. All-`vessel` filters use compact wrapping pills on phones and desktop, with one keyboard-navigable tablist.
+
+This updates Badges, Lorebook, Bestiary Codex, Character cosmetics, Trials status chapters, Yearbook, journal chapter selection and the admin Codex. Inventory, Sketchbook, Companion/Mount filters and Trials kinds use the compact variant. Earned/trained/owned proportions come from existing server data; quantities, quest status counts and years do not imply completion. Skills keeps the separate Wayfinder hierarchy. The `/__design` page demonstrates both patterns with local synthetic data and no account data required.
+
 Three top-level `ChapterHub` tabs — **Skills** ([`pages/Achievements.jsx`](/frontend/src/pages/Achievements.jsx)), **Badges** ([`pages/Badges.jsx`](/frontend/src/pages/Badges.jsx)), **Sketchbook** ([`pages/Portfolio.jsx`](/frontend/src/pages/Portfolio.jsx)). Skills and Badges are siblings, not sub-tabs. Badge admin (create/edit/delete) lives under Skills → Manage because [`ManagePanel`](/frontend/src/pages/achievements/ManagePanel.jsx) is a single cross-cutting admin surface for categories/subjects/skills/badges — don't duplicate it on the Badges tab.
 
 A fourth tab — **Yearbook** — sits inside the Atlas hub: lifelong chronological chapter timeline with `ChapterCard` variants (current/past/future), `TimelineEntry` with kind-iconed rows, `EntryDetailSheet` (BottomSheet), and `ManualEntryFormModal` for the parent-only add-memory flow.
@@ -197,7 +203,7 @@ Parent View|Manage toggle in the header routes to [`ManagePanel`](/frontend/src/
 
 View-only illuminated codex that groups badges into seven criterion-family chapters (Chronos · Ventures · Mastery · Coffers · Scholar · Adventure · Reliquary), mirroring how [`apps/achievements/criteria.py`](/apps/achievements/criteria.py) already buckets criterion types by subsystem.
 
-- [`SigilCodex`](/frontend/src/pages/achievements/SigilCodex.jsx) orchestrates — an [`IncipitBand`](/frontend/src/components/atlas/IncipitBand.jsx) hero above seven [`CollectionFolio`](/frontend/src/pages/achievements/CollectionFolio.jsx) sections.
+- [`SigilCodex`](/frontend/src/pages/achievements/SigilCodex.jsx) orchestrates — an [`IncipitBand`](/frontend/src/components/atlas/IncipitBand.jsx) hero, seven shared collection cards showing earned/total counts, and the selected [`CollectionFolio`](/frontend/src/pages/achievements/CollectionFolio.jsx). Chapter selection and remembered defaults remain page-owned.
 - [`collections.constants.js`](/frontend/src/pages/achievements/collections.constants.js) owns the taxonomy: `COLLECTIONS` array (id/rubric/letter/name/kicker/criteria), `collectionForCriterion` (falls back to `reliquary` for unknowns so new backend criteria never render as "undefined"), `groupBadgesByCollection`, `rarityCounts`, `unlockHint` (plain-English template for every known criterion_type; falls back to `badge.description` for unknowns), `ladderSiblings` (same-criterion_type progressions for the detail sheet).
 - Each folio is a `<section aria-labelledby>` with a rubric numeral (§I–§VII), an `IlluminatedVersal` drop-cap whose gilt fills with chapter progress, a slim [`RarityStrand`](/frontend/src/components/atlas/RarityStrand.jsx) (5-segment distribution band sized by per-rarity totals, inner fill by earned/total), and the 2/3/4/5-col sigil grid. Empty chapters still render the header + "no seals yet in this chapter" whisper so the codex skeleton reads consistently for fresh users.
 - [`BadgeSigil`](/frontend/src/components/atlas/BadgeSigil.jsx): earned sigils keep `RARITY_HALO` + foil sheen + `animate-gilded-glint` for recents (≤ 7d via `isRecentlyEarned`) and now show a `+{xp_bonus} XP` gilt ledge. Unearned sigils render as **debossed intaglios** — pressed ring with inset shadow, grayscaled icon, and a single-line font-script `unlockHint(badge)` line beneath the name. `aria-label` still ends in `· not yet earned`.
@@ -312,7 +318,7 @@ pages/
   Login, Signup
 ```
 
-Page-level `*Card` / `*Verse` / `*Sigil` / `*Spine` components (AssignmentCard, CatalogCard, SkillVerse, TomeSpine, BadgeSigil, RewardCard, CoinBalanceCard, ProjectOverridesCard, StepCard) live as sibling files in their owning subfolder. Promote to `components/cards/` only when reused twice.
+Page-level `*Card` / `*Verse` / `*Sigil` components (AssignmentCard, CatalogCard, SkillVerse, RewardCard, CoinBalanceCard, ProjectOverridesCard, StepCard) live as sibling files in their owning subfolder. Promote to `components/cards/` only when reused twice.
 
 ## Key entry points
 - `Dashboard.jsx` — role router.

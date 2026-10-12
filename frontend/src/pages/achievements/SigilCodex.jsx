@@ -10,10 +10,9 @@ const STORAGE_KEY = 'atlas:sigil-codex:active-chapter';
 
 /**
  * SigilCodex — top-level layout for the Sigil Case (Atlas → Badges). A
- * single-row incipit hero above a TomeShelf of seven reliquary chapters,
- * each grouped by criterion family. Picking a spine opens that chapter's
- * CollectionFolio below; the shelf+single-folio shape matches the Skills
- * page so badges and skills speak the same books-on-a-shelf vocabulary.
+ * hero above seven collection cards grouped by criterion family. Selecting
+ * a card opens its CollectionFolio below, preserving earned counts and
+ * rarity information while keeping every collection title visible.
  */
 export default function SigilCodex({ allBadges = [], earnedBadges = [], onSelect }) {
   const grouped = useMemo(
@@ -32,7 +31,7 @@ export default function SigilCodex({ allBadges = [], earnedBadges = [], onSelect
     }
   });
 
-  // Effective active chapter — derived during render so the active spine
+  // Effective active chapter — derived during render so the active card
   // self-heals when the data shape changes (e.g. a parent edits the badge
   // set and the previously-active chapter no longer exists). Priority:
   // (1) user override that still exists, (2) first chapter with any

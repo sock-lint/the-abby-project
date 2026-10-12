@@ -80,7 +80,7 @@ export default function JournalShell() {
             page under it); the parchment backdrop still extends beneath.
             The left/right insets matter in landscape, where the notch eats
             ~47px on the sensor-housing side. */}
-        <div className="sticky top-0 z-30 bg-ink-page/95 backdrop-blur-sm border-b border-ink-page-shadow/50 pt-[env(safe-area-inset-top)]">
+        <div data-journal-sticky-header="true" className="sticky top-0 z-30 bg-ink-page/95 backdrop-blur-sm border-b border-ink-page-shadow/50 pt-[env(safe-area-inset-top)]">
           <header
             className="flex items-center gap-3 pt-3 lg:pt-4 pb-3 lg:pb-4
                        pl-[max(1rem,env(safe-area-inset-left))]
