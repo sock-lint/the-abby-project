@@ -82,6 +82,36 @@ class ClockOutTests(_Fixture):
         with self.assertRaisesRegex(ValueError, "No active"):
             ClockService.clock_out(self.child)
 
+    @patch("apps.rpg.services.DropService.process_drops", return_value=[])
+    def test_clock_out_advances_daily_hour_challenge(self, _mock_drops):
+        from apps.quests.models import DailyChallenge
+
+        challenge = DailyChallenge.objects.create(
+            user=self.child,
+            date=timezone.localdate(),
+            challenge_type=DailyChallenge.ChallengeType.CLOCK_HOUR,
+            target_value=1,
+        )
+
+        # Exercise the real game-loop context from clock-out, including the
+        # per-session whole-hour rule: short sessions do not accumulate.
+        for minutes, expected_progress in ((30, 0), (30, 0), (90, 1)):
+            with self.subTest(minutes=minutes, expected_progress=expected_progress):
+                TimeEntry.objects.create(
+                    user=self.child,
+                    project=self.project,
+                    clock_in=timezone.now() - timedelta(minutes=minutes),
+                    status="active",
+                )
+                closed = ClockService.clock_out(self.child)
+
+                self.assertEqual(closed.duration_minutes, minutes)
+                challenge.refresh_from_db()
+                self.assertEqual(challenge.current_progress, expected_progress)
+
+        self.assertTrue(challenge.is_complete)
+        self.assertIsNotNone(challenge.completed_at)
+
 
 class AutoClockOutTests(_Fixture):
     def test_auto_clocks_out_stale_entries(self):

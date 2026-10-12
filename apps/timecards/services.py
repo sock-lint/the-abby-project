@@ -184,7 +184,11 @@ class ClockService:
             from apps.rpg.services import safe_game_loop_call
             safe_game_loop_call(
                 user, TriggerType.CLOCK_OUT,
-                {"project_id": entry.project_id, "hours": hours},
+                {
+                    "project_id": entry.project_id,
+                    "hours": hours,
+                    "duration_minutes": entry.duration_minutes,
+                },
             )
 
         return entry
