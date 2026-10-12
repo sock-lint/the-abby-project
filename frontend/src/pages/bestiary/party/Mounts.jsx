@@ -178,6 +178,7 @@ export default function Mounts() {
                         fallbackSpriteKey={mount.species.sprite_key}
                         icon={mount.species.icon}
                         size={64}
+                        className="rounded-full"
                         alt={`${mount.potion.name} ${mount.species.name}`}
                         potionSlug={mount.potion.slug}
                         dim={isOut && !isReady ? 'stale' : null}

@@ -190,6 +190,7 @@ export default function Companions() {
                         {...petSpriteKeys(pet)}
                         icon={pet.species.icon}
                         size={56}
+                        className="rounded-full"
                         alt={`${pet.potion.name} ${pet.species.name}`}
                         potionSlug={pet.potion.slug}
                         dim={
