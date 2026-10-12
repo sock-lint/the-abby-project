@@ -6,8 +6,13 @@ import CompanionPreview from './CompanionPreview';
 const scene = vi.hoisted(() => ({ props: null, crash: false }));
 vi.mock('../../companion/appearance', async () => {
   const actual = await vi.importActual('../../companion/appearance');
-  return { ...actual, resolveAppearance: (creature) => creature?.species?.sprite_key === 'cute-chick' && creature.potion?.slug === 'base'
-    ? { key: 'chick', url: '/test-chick.glb' } : null };
+  const manifest = {
+    schema_version: 1,
+    bindings: [{ species_slug: 'chick', species_sprite_key: 'cute-chick', potion_slug: 'base', pet: 'chick', evolved: 'bird', mount: 'bird' }],
+    models: { chick: { file: 'chick.glb' }, bird: { file: 'bird.glb' } },
+  };
+  const urls = { './licensed/chick.glb': '/test-chick.glb', './licensed/bird.glb': '/test-bird.glb' };
+  return { ...actual, resolveAppearance: (creature, kind) => actual.resolveAppearance(creature, kind, manifest, urls) };
 });
 vi.mock('../../companion/modelLoader', () => ({ resetModels: vi.fn() }));
 vi.mock('../../companion/CompanionScene', () => ({ default: (props) => {
@@ -16,7 +21,7 @@ vi.mock('../../companion/CompanionScene', () => ({ default: (props) => {
   return <div data-testid="optional-scene" />;
 } }));
 
-const pet = { id: 1, species: { name: 'Chick', sprite_key: 'cute-chick', icon: '🐤' }, potion: { name: 'Base', slug: 'base' }, growth_points: 99, evolved_to_mount: false };
+const pet = { id: 1, species: { name: 'Chick', slug: 'chick', sprite_key: 'cute-chick', icon: '🐤' }, potion: { name: 'Base', slug: 'base' }, growth_points: 99, evolved_to_mount: false };
 beforeEach(() => { scene.props = null; scene.crash = false; vi.unstubAllEnvs(); });
 
 describe('Optional companion preview', () => {
@@ -87,5 +92,12 @@ describe('Optional companion preview', () => {
     expect(screen.queryByRole('button', { name: 'Show 3D view' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Say hello' })).toBeEnabled();
     expect(screen.getByRole('img', { name: 'Base Chick' })).toBeInTheDocument();
+  });
+
+  it('requires the stable response species identity before offering a 3D appearance', () => {
+    render(<CompanionPreview creature={{ ...pet, species: { ...pet.species, slug: undefined } }} />);
+    expect(screen.queryByRole('button', { name: 'Show 3D view' })).toBeNull();
+    expect(screen.getByRole('img', { name: 'Base Chick' })).toBeInTheDocument();
+    expect(scene.props).toBeNull();
   });
 });

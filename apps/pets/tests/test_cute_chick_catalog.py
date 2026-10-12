@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from django.core.management import call_command
 from django.test import TestCase
+from rest_framework.test import APIClient
 
 from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
 from apps.pets.services import PetService
@@ -90,6 +91,61 @@ class CuteChickCatalogTests(TestCase):
         egg_inventory.refresh_from_db()
         potion_inventory.refresh_from_db()
         self.assertEqual((egg_inventory.quantity, potion_inventory.quantity), (1, 1))
+
+    def test_owned_chick_endpoints_preserve_exact_identity_through_evolution(self):
+        """Real API bodies must carry the identity required by owned 3D bindings."""
+        self.give(self.egg)
+        self.give(self.base_potion)
+        self.give(self.birdseed)
+        client = APIClient()
+        client.force_authenticate(self.child)
+
+        def assert_chick_identity(body):
+            self.assertEqual(body["species"]["id"], self.chick.pk)
+            self.assertEqual(body["species"]["slug"], "chick")
+            self.assertEqual(body["species"]["sprite_key"], "cute-chick")
+            self.assertEqual(body["potion"]["slug"], "base")
+
+        hatch = client.post("/api/pets/hatch/", {
+            "egg_item_id": self.egg.pk,
+            "potion_item_id": self.base_potion.pk,
+        }, format="json")
+        self.assertEqual(hatch.status_code, 201)
+        assert_chick_identity(hatch.json())
+        pet_id = hatch.json()["id"]
+        activate = client.post(f"/api/pets/{pet_id}/activate/")
+        self.assertEqual(activate.status_code, 200)
+        assert_chick_identity(activate.json())
+
+        stable = client.get("/api/pets/stable/")
+        self.assertEqual(stable.status_code, 200)
+        before = stable.json()["pets"][0]
+        assert_chick_identity(before)
+        self.assertTrue(before["is_active"])
+        self.assertFalse(before["evolved_to_mount"])
+        UserPet.objects.filter(pk=pet_id).update(growth_points=85)
+
+        feed = client.post(f"/api/pets/{pet_id}/feed/", {
+            "food_item_id": self.birdseed.pk,
+        }, format="json")
+        self.assertEqual(feed.status_code, 200)
+        self.assertTrue(feed.json()["evolved"])
+        after = client.get("/api/pets/stable/")
+        self.assertEqual(after.status_code, 200)
+        evolved = after.json()["pets"][0]
+        assert_chick_identity(evolved)
+        self.assertEqual(evolved["id"], pet_id)
+        self.assertTrue(evolved["evolved_to_mount"])
+        mount = after.json()["mounts"][0]
+        assert_chick_identity(mount)
+        self.assertEqual(mount["id"], feed.json()["mount_id"])
+
+        mounts = client.get("/api/mounts/")
+        self.assertEqual(mounts.status_code, 200)
+        assert_chick_identity(mounts.json()[0])
+        activate_mount = client.post(f"/api/mounts/{mount['id']}/activate/")
+        self.assertEqual(activate_mount.status_code, 200)
+        assert_chick_identity(activate_mount.json())
 
     def test_unsupported_potion_leaves_both_ingredients_intact(self):
         egg_inventory = self.give(self.egg, quantity=2)

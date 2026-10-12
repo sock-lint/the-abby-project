@@ -2,6 +2,7 @@
   "id": 83,
   "species": {
     "id": 41,
+    "slug": "fox",
     "name": "Fox",
     "icon": "🦊",
     "sprite_key": "fox",

@@ -99,6 +99,13 @@ to keep the newly generated mount ID deterministic on PostgreSQL/SQLite and
 test-suite ordering. Inventory is an unpaginated array; its inventory-entry IDs
 are distinct from the item-definition IDs submitted to the feed endpoint.
 
+Owned pet and mount responses include the read-only nested `species.slug`,
+alongside species ID and sprite key, for exact companion appearance bindings.
+Hatch/activation responses and stable/mount reads carry the same saved identity
+through evolution; a sprite filename never substitutes for species identity.
+Legacy species without an authored slug return explicit `null` and keep their
+existing 2D presentation.
+
 Hatching also submits item-definition IDs, using `egg_item_id` and
 `potion_item_id`. The real service consumes exactly one of each owned ingredient,
 deletes a depleted inventory row, and returns a full new pet at zero growth that
