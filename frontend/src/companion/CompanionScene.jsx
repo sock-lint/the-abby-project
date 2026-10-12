@@ -1,25 +1,11 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { AnimationMixer } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import presentation from '../storybook/presentation.json';
 import { prepareModel } from './prepareModel';
-
-function useMotionAllowed() {
-  const [allowed, setAllowed] = useState(() => !document.hidden && !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setAllowed(!document.hidden && !media.matches);
-    document.addEventListener('visibilitychange', update);
-    media.addEventListener('change', update);
-    return () => {
-      document.removeEventListener('visibilitychange', update);
-      media.removeEventListener('change', update);
-    };
-  }, []);
-  return allowed;
-}
+import useSceneMotionAllowed from './useSceneMotionAllowed';
 
 function Creature({ appearance, greeting, animate, motionAllowed, onReady }) {
   const gltf = useLoader(GLTFLoader, appearance.url);
@@ -80,9 +66,11 @@ function ContextGuard({ onUnavailable }) {
 }
 
 export default function CompanionScene({ appearance, greeting, animate, onReady, onUnavailable }) {
-  const motionAllowed = useMotionAllowed();
+  const sceneRef = useRef(null);
+  const motionAllowed = useSceneMotionAllowed(sceneRef);
   return (
-    <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ position: [4, 2.8, 5], fov: 35 }} gl={{ antialias: true, alpha: false, powerPreference: 'low-power' }}
+    <div ref={sceneRef} className="h-full w-full">
+      <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ position: [4, 2.8, 5], fov: 35 }} gl={{ antialias: true, alpha: false, powerPreference: 'low-power' }}
       onCreated={({ camera }) => { camera.lookAt(0, 0.85, 0); }}
       fallback={<span>3D display is unavailable on this device.</span>}>
       <color attach="background" args={[presentation.palette.sky]} />
@@ -93,6 +81,7 @@ export default function CompanionScene({ appearance, greeting, animate, onReady,
         {appearance.woodland && <Woodland appearance={appearance.woodland} />}
         <Creature appearance={appearance} greeting={greeting} animate={animate} motionAllowed={motionAllowed} onReady={onReady} />
       </Suspense>
-    </Canvas>
+      </Canvas>
+    </div>
   );
 }

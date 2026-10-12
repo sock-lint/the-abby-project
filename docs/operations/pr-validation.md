@@ -31,7 +31,7 @@ For contracts, set `SECRET_KEY` to a synthetic test-only value and
 `DATABASE_URL=sqlite:///:memory:`, then run:
 
 ```powershell
-python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures
 ```
 
 Fixtures do not replace permission, family-scoping or transaction tests. Add

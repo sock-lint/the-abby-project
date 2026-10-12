@@ -8,6 +8,8 @@ import { renderWithProviders } from '../test/render.jsx';
 import { buildUser } from '../test/factories.js';
 import { setToken } from '../api/client.js';
 
+vi.mock('../components/avatar/AvatarPreview', () => ({ default: () => <div role="img" aria-label="Your Archer avatar" /> }));
+
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
   return { ...a, AnimatePresence: ({ children }) => children };
@@ -51,19 +53,26 @@ function renderPage() {
 }
 
 describe('Character (/sigil)', () => {
-  it('shows the owned active companion and links the complete profile and pet workflows', async () => {
+  it('keeps profile focused on avatar customization and links to pets separately', async () => {
     stubRoutes({ profile: { display_name: 'Abby', level: 2 } });
-    server.use(http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [{
-      id: 9, species: { name: 'Fox', sprite_key: 'fox', icon: '🦊' }, potion: { name: 'Base', slug: 'base' }, is_active: true, growth_points: 35,
-    }], mounts: [] })));
+    const stableSpy = vi.fn(() => HttpResponse.json({ pets: [], mounts: [] }));
+    server.use(http.get('*/api/pets/stable/', stableSpy));
     renderPage();
-    expect(await screen.findByRole('img', { name: 'Base Fox' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Your look' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Edit account & settings' })).toHaveAttribute('href', '/settings');
-    expect(screen.getByRole('link', { name: 'Care & choose pets' })).toHaveAttribute('href', '/bestiary?tab=companions');
-    expect(screen.getByRole('link', { name: 'Hatch & breed' })).toHaveAttribute('href', '/bestiary?tab=hatchery');
-    expect(screen.getByRole('link', { name: 'Mounts & expeditions' })).toHaveAttribute('href', '/bestiary?tab=mounts');
-    expect(screen.getByRole('link', { name: 'Inventory' })).toHaveAttribute('href', '/treasury?tab=satchel');
+    expect(screen.getByRole('link', { name: 'My pets' })).toHaveAttribute('href', '/bestiary');
+    expect(screen.getByRole('button', { name: 'Customize avatar' })).toBeInTheDocument();
+    expect(stableSpy).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Show 3D view' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Say hello' })).toBeNull();
+  });
+
+  it('keeps parent pet navigation and does not show child wellbeing controls', async () => {
+    stubRoutes({ profile: { display_name: 'Parent', level: 2 }, user: buildUser({ role: 'parent' }) });
+    renderPage();
+    expect(await screen.findByRole('link', { name: 'My pets' })).toHaveAttribute('href', '/bestiary');
+    expect(screen.queryByRole('link', { name: 'View companion home' })).toBeNull();
+    expect(screen.queryByText('How are you feeling?')).toBeNull();
   });
 
   it('renders the frontispiece with display name, level chip, and trophy slot', async () => {

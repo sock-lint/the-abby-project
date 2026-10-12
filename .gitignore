@@ -85,4 +85,5 @@ unity/**/Recordings/
 
 # Private R3F exports and conversion scratch data from purchased sources.
 /frontend/src/companion/licensed/
+/frontend/src/avatar/licensed/
 /scripts/r3f/private/

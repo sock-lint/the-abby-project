@@ -25,8 +25,10 @@ The 2026-05 audit lifted two layout primitives out of the per-page copy-paste pa
 
 `/meadow` is a lazy-loaded child-only page under `JournalShell`. Child Today
 has no Play promotion card. Existing journal/archive and parent
-pages keep their current behavior. The page opens the React pet collection. Profile, Pets and Meadow share optional
-R3F presentation with server-confirmed identities and working DOM/2D fallback.
+pages keep their current behavior. The page opens the React pet collection.
+Pets opens its exact owned 3D companion automatically, with direct care and
+expedition interaction, View settings and working DOM/2D fallback. Profile
+centers the owned Archer avatar and its saved basic customization.
 Legacy `/play/` bookmarks redirect to React Pets; Unity is retired.
 
 `pages/meadow/meadow.constants.js` adapts generated
@@ -231,7 +233,7 @@ Flattens the `/api/portfolio/` response (`{projects, homework}`) into one unifie
 
 The inside-cover plate of the journal — personal author-portrait rather than a dashboard. Architecture in [`pages/character/`](/frontend/src/pages/character/):
 
-- [`SigilFrontispiece.jsx`](/frontend/src/pages/character/SigilFrontispiece.jsx) — hero incipit with an oversized `IlluminatedVersal` of the user's initial (gilt fills with level %), display-name in italic serif, active title as a script chip, the **Trophy Seal** on the recto, and three `StreakGlyph` vital pips beneath (current streak with animated `StreakFlame`, perfect days, best streak).
+- [`SigilFrontispiece.jsx`](/frontend/src/pages/character/SigilFrontispiece.jsx) — compact identity/name/level header, always-visible Archer avatar through `AvatarCustomizer`, compact trophy and real streak statistics. Avatar preview changes use the four supplied hairstyles, two hair colors, two skin tones and four outfit palettes; explicit Save persists through `POST /api/character/avatar/`. Private model/texture absence or renderer failure leaves customization and all existing profile controls usable.
 - [`TrophySlot.jsx`](/frontend/src/pages/character/TrophySlot.jsx) + [`TrophyBadgePicker.jsx`](/frontend/src/pages/character/TrophyBadgePicker.jsx) — empty slot is a debossed intaglio ("choose from your reliquary"); filled slot wears full `RARITY_HALO`. Picker is a `BottomSheet` that passes earned badges through `groupBadgesByCollection` — clicking a seal sets the trophy; clicking the current trophy clears it (null payload).
 - Four [`CosmeticChapter.jsx`](/frontend/src/pages/character/CosmeticChapter.jsx) folios mirror `CollectionFolio`: rubric numeral + drop-cap + rarity strand + sigil grid. Each tile is a [`CosmeticSigil.jsx`](/frontend/src/pages/character/CosmeticSigil.jsx) in one of three states — **equipped** (halo + "equipped" gilt ribbon), **owned** (clean rarity-ringed tile), or **locked** (debossed intaglio + script unlock hint derived from `item.description` or a rarity-flavored fallback). Locked tiles render as `role="img"` with "not yet owned" in the aria-label — not clickable, so they don't accept focus or trigger equip.
 - **Live theme preview**: hovering a cosmetic in the Journal Covers chapter calls `applyTheme(metadata.theme)` transiently so the whole page skin previews in real time. `mouseleave` / `blur` restores the user's current theme. Guarded by `matchMedia('(prefers-reduced-motion: reduce)')` — reduced-motion users never see the flash.

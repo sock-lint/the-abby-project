@@ -1,0 +1,31 @@
+{
+  "id": 301,
+  "username": "fixture-avatar-child",
+  "display_name": "Fixture Avatar Child",
+  "level": 0,
+  "login_streak": 0,
+  "longest_login_streak": 0,
+  "last_active_date": null,
+  "perfect_days_count": 0,
+  "streak_freeze_expires_at": null,
+  "xp_boost_expires_at": null,
+  "coin_boost_expires_at": null,
+  "drop_boost_expires_at": null,
+  "xp_boost_seconds_remaining": null,
+  "coin_boost_seconds_remaining": null,
+  "drop_boost_seconds_remaining": null,
+  "pet_growth_boost_remaining": 0,
+  "active_frame": null,
+  "active_title": null,
+  "active_theme": null,
+  "active_pet_accessory": null,
+  "active_trophy_badge": null,
+  "avatar_preferences": {
+    "hair_style": "hair-04",
+    "hair_color": "light",
+    "skin_tone": "tan",
+    "outfit": "fire"
+  },
+  "created_at": "2026-10-10T12:00:00-07:00",
+  "updated_at": "2026-10-10T12:00:00-07:00"
+}

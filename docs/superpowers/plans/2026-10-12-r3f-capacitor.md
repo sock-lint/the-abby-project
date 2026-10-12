@@ -228,7 +228,11 @@ Retain uncertainty/reconciliation and exact identities/variants. Insufficient
 
 Ceremonies use available clips, overlays, reviewed effects and camera changes.
 Do not require eating/breeding/hatching animation, fitted outfits or riding.
-Archer is optional until required clips are verified. Stable source/event IDs,
+The owner accepted the owned Archer for Profile on October 12, using supplied
+modular hairstyles and outfit/skin palettes with saved basic customization.
+Its reviewed static pose needs no animation; unverified clips remain excluded.
+Pets opens the owned woodland automatically and retains direct DOM care and
+expedition controls. Stable source/event IDs,
 read-only listing, idempotent acknowledgement and short-lived presenter claims
 coordinate automatic reveals and recover from crashes. Keep inbox reads
 separate. Adapt existing growth/drop/celebration consumers without inventing

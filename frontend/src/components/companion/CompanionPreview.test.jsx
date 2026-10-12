@@ -101,3 +101,84 @@ describe('Optional companion preview', () => {
     expect(scene.props).toBeNull();
   });
 });
+
+describe('Primary companion home', () => {
+  it('opens the exact owned 3D companion with idle motion and a direct accessible care action', async () => {
+    const user = userEvent.setup();
+    const openCare = vi.fn();
+    render(<CompanionPreview variant="primary" creature={{ ...pet, name: 'Peep' }} kicker="Your little world" summary="One more favorite snack to evolve." onInteract={openCare}>
+      <button>Choose food</button>
+    </CompanionPreview>);
+    expect(screen.getByRole('heading', { name: 'Peep' })).toBeInTheDocument();
+    expect(screen.getByText('Base Chick · 99/100 growth')).toBeInTheDocument();
+    expect(screen.getByText('One more favorite snack to evolve.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show 3D view' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Say hello' })).toBeNull();
+    await screen.findByTestId('optional-scene');
+    expect(scene.props.appearance.key).toBe('chick');
+    expect(scene.props.animate).toBe(true);
+    expect(screen.getByRole('button', { name: 'Choose food' })).toBeEnabled();
+    act(() => scene.props.onReady());
+    expect(screen.queryByText('A little company while you grow.')).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Care for Peep' }));
+    expect(openCare).toHaveBeenCalledTimes(1);
+    expect(scene.props.greeting).toBe(0);
+  });
+
+  it('keeps display and motion preferences in a discreet View setting', async () => {
+    const user = userEvent.setup();
+    render(<CompanionPreview variant="primary" creature={pet} />);
+    await screen.findByTestId('optional-scene');
+    await user.click(screen.getByText('View'));
+    expect(screen.getByRole('button', { name: '3D woodland' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('checkbox', { name: 'Animate companion' })).toBeChecked();
+    await user.click(screen.getByRole('checkbox', { name: 'Animate companion' }));
+    expect(scene.props.animate).toBe(false);
+    await user.click(screen.getByRole('button', { name: '2D portrait' }));
+    expect(screen.getByRole('img', { name: 'Base Chick, your companion' })).toBeInTheDocument();
+    expect(screen.queryByTestId('optional-scene')).toBeNull();
+    expect(screen.getByRole('button', { name: '2D portrait' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: '3D woodland' }));
+    await screen.findByTestId('optional-scene');
+    expect(scene.props.animate).toBe(false);
+  });
+
+  it('recovers a failed primary scene without blocking care and can retry the actual owned appearance', async () => {
+    const user = userEvent.setup();
+    const openCare = vi.fn();
+    render(<CompanionPreview variant="primary" creature={{ ...pet, name: 'Peep', evolved_to_mount: true }} onInteract={openCare} interactionLabel="Explore with Peep">
+      <button>Send on an expedition</button>
+    </CompanionPreview>);
+    await screen.findByTestId('optional-scene');
+    expect(scene.props.appearance.key).toBe('bird');
+    act(() => scene.props.onUnavailable());
+    expect(screen.getByRole('img', { name: 'Peep, your companion' })).toBeInTheDocument();
+    expect(screen.getByText(/3d view could not load/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send on an expedition' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Explore with Peep' }));
+    expect(openCare).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByText('View'));
+    await user.click(screen.getByRole('button', { name: 'Retry 3D woodland' }));
+    await screen.findByTestId('optional-scene');
+    expect(scene.props.appearance.key).toBe('bird');
+  });
+
+  it('uses the purchased icon and usable actions for an unsupported species without substituting another creature', () => {
+    render(<CompanionPreview variant="primary" creature={{ ...pet, name: 'Juniper', species: { name: 'Fox', sprite_key: 'fox', icon: '🦊' } }} onInteract={vi.fn()} />);
+    expect(screen.getByRole('heading', { name: 'Juniper' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Juniper, your companion' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Care for Juniper' })).toBeEnabled();
+    expect(screen.queryByText('View')).toBeNull();
+    expect(scene.props).toBeNull();
+  });
+
+  it('honors the kill switch for primary scenes and still permits care', () => {
+    vi.stubEnv('VITE_COMPANION_3D', 'false');
+    render(<CompanionPreview variant="primary" creature={pet} onInteract={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Care for Base Chick' })).toBeEnabled();
+    expect(screen.getByRole('img', { name: 'Base Chick, your companion' })).toBeInTheDocument();
+    expect(screen.queryByText('View')).toBeNull();
+    expect(scene.props).toBeNull();
+  });
+});

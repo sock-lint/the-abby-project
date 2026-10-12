@@ -535,6 +535,7 @@ export const listPendingCreations = () => api.get('/creations/pending/');
 
 // RPG
 export const getCharacterProfile = () => api.get('/character/');
+export const saveAvatarPreferences = (avatar_preferences) => api.post('/character/avatar/', { avatar_preferences });
 export const getStreaks = () => api.get('/streaks/');
 export const getHabits = () => api.get('/habits/');
 export const getHabitHistory = (days = 14) =>

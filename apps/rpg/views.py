@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import permissions, status
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny
@@ -8,6 +9,7 @@ from config.permissions import IsParent
 
 from .models import CharacterProfile, ItemDefinition, UserInventory, DropLog
 from .serializers import (
+    AvatarPreferencesUpdateSerializer,
     CharacterProfileSerializer,
     ItemDefinitionSerializer,
     UserInventorySerializer,
@@ -22,6 +24,36 @@ class CharacterView(APIView):
         profile, _created = CharacterProfile.objects.get_or_create(user=request.user)
         serializer = CharacterProfileSerializer(profile)
         return Response(serializer.data)
+
+
+class AvatarPreferencesView(APIView):
+    """Save the authenticated account's Archer appearance, without rewards.
+
+    POST ``{avatar_preferences: {...}}`` replaces all four saved choices.
+    Omitted options reset to their defaults; an empty object resets all options.
+    Account targeting and additional fields are deliberately unsupported.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if request.query_params:
+            return Response(
+                {"error": "Avatar appearance does not accept query parameters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = AvatarPreferencesUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        preferences = serializer.validated_data["avatar_preferences"]
+        with transaction.atomic():
+            profile, _created = CharacterProfile.objects.select_for_update().get_or_create(
+                user=request.user,
+            )
+            if profile.avatar_preferences != preferences:
+                profile.avatar_preferences = preferences
+                profile.save(update_fields=["avatar_preferences", "updated_at"])
+            data = CharacterProfileSerializer(profile).data
+        return Response(data)
 
 
 class StreakView(APIView):

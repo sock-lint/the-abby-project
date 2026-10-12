@@ -18,7 +18,7 @@ dependency of the new companion renderer.
 | Chick / Fledgling / Bird Evolution | Rigged bird family, supplied diffuse textures and animation takes | Chick and confirmed Bird are the account bindings; Fledgling remains an explicitly labeled asset preview |
 | Forest Ruins 1.2 | Ground, woodland plants, rocks, mushrooms, steps and ruins | A small fixed setting; props do not imply furnishing ownership or new unlocks |
 | Icons for Monsters Ultimate Pack 01 v2 | Matching Chick/Fledgling/Bird portraits | Portraits remain the existing private build overlay; an icon is not proof of an owned 3D model |
-| Female Archer Pack 01 | Recorded modular humanoid and animation sources | Optional future guide/preview only; excluded from the baseline and not fitted creature clothing |
+| Female Archer Pack 01 | Profile avatar with four supplied hairstyles, hair colors and outfit/skin palettes | Owner accepted basic saved avatar customization on October 12; static pose only, no fitted creature clothing or unverified clips |
 
 The [publisher's bird-family listing](https://www.meshtint.com/products/chick-fledgling-bird-evolution-pack-cute-series)
 describes rigged models with FBX sources and supplied takes. Conversion of the
@@ -172,3 +172,17 @@ Each optional activity names its exact existing mesh/clip/texture dependencies,
 local versus saved behavior, any explicitly approved server reward rule,
 accessible equivalent and device budget. Missing art stays on 2D presentation
 or the activity is deferred. The owner is not required to make new models.
+
+## Accepted Profile avatar
+
+The owner chose the owned Archer as the current Profile avatar on October 12,
+with Pets remaining the place for pet interaction. `prepare_archer.py` exports
+the supplied body, head, face and four hair modules to private
+`frontend/src/avatar/licensed/`; runtime choices use the supplied Fair/Tan skin,
+Aqua/Nature/Fire/Dark outfit, Light/Dark hair and matching eyebrow textures.
+The static GLB retains supplied UVs and the 40-bone body rig. All four hairstyles
+and eight outfit/skin combinations passed GLB reimport/render checks. Original
+source hashes remained unchanged. The supplied Idle bind matrices differ from
+this body rig and remain unaccepted; no retargeting or new animation was added.
+Saved appearance is separate from inventory, rewards, pet ownership and earned
+cosmetics. The same private-license/public-delivery and real-phone gates apply.
