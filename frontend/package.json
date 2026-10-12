@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:native": "vite build --mode native",
+    "native:sync": "npm run build:native && cap sync",
+    "native:android": "cap open android",
+    "native:ios": "cap open ios",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
@@ -13,19 +17,26 @@
     "test:coverage": "vitest run --coverage",
     "test:pwa": "playwright test",
     "test:licensed-art": "node --test scripts/stage-licensed-art.check.mjs",
+    "test:native-config": "node --test scripts/native-build-config.check.mjs",
     "generate-pwa-icons": "pwa-assets-generator --preset minimal-2023 public/favicon.svg"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3",
+    "@react-three/fiber": "^9.8.1",
     "@sentry/react": "^10.48.0",
     "@testing-library/dom": "^10.4.1",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router-dom": "^7.14.0"
+    "react-router-dom": "^7.14.0",
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1149.0",
+    "@capacitor/cli": "^8.5.3",
     "@eslint/js": "^9.39.4",
     "@playwright/test": "^1.64.0",
     "@sentry/vite-plugin": "^3.2.0",

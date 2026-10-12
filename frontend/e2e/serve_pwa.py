@@ -1,7 +1,7 @@
 """Disposable production-static server for the browser PWA release test.
 
 Use the real Django URL configuration, production WhiteNoise middleware and
-collectstatic storage. Only the API/Unity responses are synthetic; no database,
+collectstatic storage. Only the API responses are synthetic; no database,
 credentials, uploads, or user fixtures are read. Each process loads one release
 at import time, matching replacement of the production Django container.
 """
@@ -51,11 +51,6 @@ def main():
             body = json.dumps({"synthetic": path}).encode()
             start_response("200 OK", [("Content-Type", "application/json"), ("Cache-Control", "no-cache")])
             return [body]
-        # Production's reverse proxy serves the separately built Unity host
-        # before Django. Both exact /play and /play/ must bypass the SPA SW.
-        if path == "/play" or path.startswith("/play/"):
-            start_response("200 OK", [("Content-Type", "text/html")])
-            return [b"<!doctype html><title>Synthetic Unity host</title><h1>Synthetic Unity host</h1>"]
         if path == "/__pwa_fixture_health__":
             start_response("200 OK", [("Content-Type", "text/plain")])
             return [b"synthetic fixture ready"]

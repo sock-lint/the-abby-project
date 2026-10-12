@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Abby Prototype</string>
+    <string name="title_activity_main">Abby Prototype</string>
+    <string name="package_name">digital.neato.abby.prototype</string>
+    <string name="custom_url_scheme">digital.neato.abby.prototype</string>
+</resources>

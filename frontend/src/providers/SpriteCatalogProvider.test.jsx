@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { renderHook, waitFor } from '@testing-library/react';
 import { SpriteCatalogProvider } from './SpriteCatalogProvider';
@@ -18,6 +18,7 @@ const fakeCatalog = {
 };
 
 describe('SpriteCatalogProvider', () => {
+  afterEach(() => vi.unstubAllEnvs());
   beforeEach(() => {
     localStorage.clear();
     // Remove any sprite-keyframes tag left over from a previous test so each
@@ -40,6 +41,19 @@ describe('SpriteCatalogProvider', () => {
     expect(meta).toEqual({
       url: 'https://s.example/flame.png', frames: 4, fps: 6, w: 16, h: 16, layout: 'horizontal',
     });
+  });
+
+  it('uses the staging backend for cached local sprite URLs in a native bundle', async () => {
+    vi.stubEnv('VITE_NATIVE_BUILD', 'true');
+    vi.stubEnv('VITE_API_URL', 'https://staging.abby.example');
+    const cached = { etag: 'local', sprites: { chick: { url: '/media/chick.png', frames: 1 } } };
+    localStorage.setItem('spriteCatalog', JSON.stringify(cached));
+    localStorage.setItem('spriteCatalogEtag', 'local');
+    server.use(http.get('https://staging.abby.example/api/sprites/catalog/', () => new HttpResponse(null, { status: 304 })));
+    const { result } = renderHook(() => useSpriteCatalog(), { wrapper: wrap });
+    await waitFor(() => expect(result.current.getSpriteUrl('chick')).toBe('https://staging.abby.example/media/chick.png'));
+    expect(result.current.getSpriteMeta('chick')).toEqual({ url: 'https://staging.abby.example/media/chick.png', frames: 1 });
+    expect(JSON.parse(localStorage.getItem('spriteCatalog'))).toEqual(cached);
   });
 
   it('persists catalog to localStorage for warm mounts', async () => {

@@ -193,7 +193,13 @@ export function AuthProvider({ children }) {
     let cancelled = false;
     // Handle token from Google OAuth callback redirect
     const params = new URLSearchParams(window.location.search);
-    const oauthToken = params.get('token');
+    // An offline PWA navigation can reach retired Play bookmarks without
+    // Django's redirect. Drop their old parameters before any OAuth exchange.
+    const retiredPlay = /^\/play(?:\/|$)/.test(window.location.pathname);
+    if (retiredPlay && (window.location.search || window.location.hash)) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    const oauthToken = retiredPlay ? null : params.get('token');
     if (oauthToken) {
       writeCachedUser(null);
       // Clean the URL so the token isn't visible / bookmarkable

@@ -36,6 +36,8 @@ export default function BestiaryHub() {
         ]}
       />
       <div className="max-w-6xl mx-auto mt-4 text-right">
+        <Link to="/sigil" className="inline-flex items-center min-h-11 mr-6 font-semibold text-caption text-sheikah-teal-deep">My profile <ArrowRight size={14} aria-hidden="true" /></Link>
+        <Link to="/treasury?tab=satchel" className="inline-flex items-center min-h-11 mr-6 font-semibold text-caption text-sheikah-teal-deep">Inventory <ArrowRight size={14} aria-hidden="true" /></Link>
         <Link
           to="/atlas"
           className="inline-flex items-center gap-1.5 font-script text-caption text-ink-whisper hover:text-sheikah-teal-deep transition-colors"

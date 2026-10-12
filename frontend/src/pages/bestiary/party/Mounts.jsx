@@ -20,6 +20,7 @@ import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { RARITY_HALO, PROGRESS_TIER } from '../../../components/atlas/mastery.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 import ExpeditionLaunchSheet from './ExpeditionLaunchSheet';
+import CompanionPreview from '../../../components/companion/CompanionPreview';
 import {
   MOUNT_FILTERS,
   compareByRarityThenName,
@@ -40,6 +41,7 @@ export default function Mounts() {
   const [working, setWorking] = useState(false);
   const [launchMount, setLaunchMount] = useState(null);
   const [claimedExpedition, setClaimedExpedition] = useState(null);
+  const [previewId, setPreviewId] = useState(null);
 
   const mounts = useMemo(() => stableData?.mounts || [], [stableData]);
   const totalPossible = stableData?.total_possible || 0;
@@ -112,6 +114,8 @@ export default function Mounts() {
       </p>
 
       <ErrorAlert message={error || stableError} />
+
+      {previewId && <CompanionPreview kind="mount" creature={mounts.find((mount) => mount.id === previewId)} />}
 
       {mounts.length > 0 && (
         <TomeShelf
@@ -191,6 +195,7 @@ export default function Mounts() {
                     {mount.potion.rarity}
                   </div>
                   <div className="font-script text-tiny text-gold-leaf mt-1">mount</div>
+                  <Button size="sm" variant="ghost" className="mt-1 w-full" onClick={() => setPreviewId(mount.id)} aria-label={`Preview ${mount.potion.name} ${mount.species.name}`}>Preview companion</Button>
                   {isOut && !isReady && (
                     <div className="mt-1 space-y-1">
                       <div className="font-script text-tiny text-sheikah-teal-deep flex items-center justify-center gap-1">

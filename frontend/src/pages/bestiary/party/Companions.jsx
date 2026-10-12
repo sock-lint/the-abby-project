@@ -18,6 +18,7 @@ import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { RARITY_HALO, PROGRESS_TIER } from '../../../components/atlas/mastery.constants';
 import { COMPANION_FILTERS, HAPPINESS_WHISPER, compareByRarityThenName } from './party.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
+import CompanionPreview from '../../../components/companion/CompanionPreview';
 
 /**
  * Companions — owned, unevolved pets. Lifted from the old Stable.jsx
@@ -129,6 +130,8 @@ export default function Companions() {
       {/* Covers the partial case too: stable loaded but the satchel fetch
           failed, which would otherwise just hide the feed chips. */}
       <ErrorAlert message={error || fetchError} />
+
+      {selectedPet && <CompanionPreview creature={pets.find((pet) => pet.id === selectedPet.id)} />}
 
       {pets.length > 0 && (
         <TomeShelf
@@ -296,6 +299,7 @@ export default function Companions() {
                         </div>
                       </div>
                     )}
+                    {!pet.evolved_to_mount && foods.length === 0 && !inventoryError && <p className="text-caption text-ink-secondary">No food in your inventory yet. Food you collect will appear here.</p>}
                   </div>
                 )}
               </ParchmentCard>

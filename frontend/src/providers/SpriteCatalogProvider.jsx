@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchSpriteCatalog } from '../api';
 import { STORAGE_KEYS } from '../constants/storage';
 import { SpriteCatalogContext } from './spriteCatalog.context';
+import { backendMediaUrl } from '../api/urls';
 
 const STORAGE_KEY = STORAGE_KEYS.SPRITE_CATALOG;
 const ETAG_KEY = STORAGE_KEYS.SPRITE_CATALOG_ETAG;
@@ -78,8 +79,11 @@ export function SpriteCatalogProvider({ children }) {
   }, [catalog]);
 
   const value = useMemo(() => ({
-    getSpriteUrl: (slug) => (catalog?.sprites?.[slug]?.url ?? null),
-    getSpriteMeta: (slug) => (catalog?.sprites?.[slug] ?? null),
+    getSpriteUrl: (slug) => backendMediaUrl(catalog?.sprites?.[slug]?.url ?? null),
+    getSpriteMeta: (slug) => {
+      const meta = catalog?.sprites?.[slug];
+      return meta ? { ...meta, url: backendMediaUrl(meta.url) } : null;
+    },
     refetchCatalog,
   }), [catalog, refetchCatalog]);
 

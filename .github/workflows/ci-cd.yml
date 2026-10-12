@@ -4,11 +4,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      unity_build_only:
-        description: Build and validate a Unity release on this branch without deployment
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -16,7 +11,7 @@ permissions:
 # A newer main commit supersedes pending/running validation for an older one.
 # The deploy helper also checks main before queuing and while polling Coolify.
 concurrency:
-  group: ${{ inputs.unity_build_only && 'unity-build-only' || 'production' }}-${{ github.repository }}-${{ github.ref }}
+  group: production-${{ github.repository }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -34,11 +29,6 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            if (context.eventName === 'workflow_dispatch' && String(context.payload.inputs?.unity_build_only) === 'true') {
-              core.setOutput('current', 'false');
-              core.notice('Build-only validation does not deploy either client.');
-              return;
-            }
             if (context.ref !== 'refs/heads/main') {
               core.setOutput('current', 'false');
               core.notice('Production deployment only runs from main.');
@@ -224,126 +214,3 @@ jobs:
           COOLIFY_APPLICATION_UUID: ${{ vars.COOLIFY_APPLICATION_UUID }}
           COOLIFY_HEALTH_URL: https://abby.bos.lol/health
         run: python scripts/operations/deploy_coolify.py
-
-  unity-web-build:
-    name: Build licensed Unity Web player
-    needs: current-main
-    if: >-
-      ${{ needs.current-main.outputs.current == 'true'
-          || (github.event_name == 'workflow_dispatch' && inputs.unity_build_only) }}
-    runs-on: [self-hosted, Linux, X64, unity-6000.6.5f1]
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Require configured release inputs
-        env:
-          RELEASE_ENABLED: ${{ vars.UNITY_WEB_RELEASE_ENABLED }}
-          PRIVATE_ASSET_ROOT: ${{ vars.UNITY_WEB_PRIVATE_ASSET_ROOT }}
-        run: |
-          test "$RELEASE_ENABLED" = true || { echo '::error::Unity Web release runner is not configured. See docs/operations/unity-web-release.md.'; exit 1; }
-          test -n "$PRIVATE_ASSET_ROOT" || { echo '::error::UNITY_WEB_PRIVATE_ASSET_ROOT is required.'; exit 1; }
-      - name: Test release packaging and deployment guards
-        run: python3 -m unittest discover -s scripts/unity -p 'test_*release.py'
-      - name: Export a fresh licensed player without rebuilding scenes
-        env:
-          UNITY_EDITOR_PATH: ${{ vars.UNITY_EDITOR_PATH }}
-          UNITY_WEB_PRIVATE_ASSET_ROOT: ${{ vars.UNITY_WEB_PRIVATE_ASSET_ROOT }}
-          UNITY_WEB_SOURCE_SHA: ${{ github.sha }}
-        run: |
-          export UNITY_WEB_RELEASE_DIR="$RUNNER_TEMP/abby-unity-web-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          echo "UNITY_WEB_RELEASE_DIR=$UNITY_WEB_RELEASE_DIR" >> "$GITHUB_ENV"
-          bash scripts/unity/Build-Web.sh
-      - name: Transfer only the compiled player and release manifest
-        uses: actions/upload-artifact@v4
-        with:
-          name: unity-web-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            ${{ env.UNITY_WEB_RELEASE_DIR }}/package/web.tar.gz
-            ${{ env.UNITY_WEB_RELEASE_DIR }}/package/release.json
-          if-no-files-found: error
-          retention-days: 1
-      - name: Upload editor build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: unity-web-build-log
-          path: ${{ env.UNITY_WEB_RELEASE_DIR }}/build-web.log
-          if-no-files-found: warn
-          retention-days: 7
-
-  unity-web-verify:
-    name: Verify Unity Web image without deployment
-    needs: unity-web-build
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.unity_build_only }}
-    runs-on: [self-hosted, Linux, X64, deploy-platform]
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@v4
-        with:
-          name: unity-web-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/abby-unity-verify-artifact-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: Verify compiled artifact, HTTP hosting, scan, and image archive
-        run: |
-          python3 scripts/unity/deploy_web_release.py \
-            --artifact-dir "$RUNNER_TEMP/abby-unity-verify-artifact-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
-            --verify-only
-      - name: Remove this job's disposable verification image
-        if: always()
-        run: |
-          set -euo pipefail
-          unity_release="$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          unity_image="abby-unity-web:ci-$unity_release"
-          if ! docker image inspect "$unity_image" >/dev/null 2>&1; then
-            exit 0
-          fi
-          unity_label="$(docker image inspect --format '{{ index .Config.Labels "io.abby.unity.release" }}' "$unity_image")"
-          test "$unity_label" = "$unity_release" || { echo '::error::Verification image ownership did not match; retained.'; exit 1; }
-          docker image rm --no-prune "$unity_image"
-
-  unity-web-deploy:
-    name: Deploy and verify Unity Web
-    needs: [unity-web-build, deploy]
-    if: ${{ !inputs.unity_build_only }}
-    environment:
-      name: unity-production
-      url: https://abby.bos.lol/play/
-    runs-on: [self-hosted, Linux, X64, deploy-platform]
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@v4
-        with:
-          name: unity-web-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/abby-unity-artifact-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: Create this job's restricted SSH credential
-        env:
-          UNITY_SSH_KEY: ${{ secrets.UNITY_WEB_DEPLOY_SSH_KEY }}
-          UNITY_KNOWN_HOSTS: ${{ vars.UNITY_WEB_SSH_KNOWN_HOSTS }}
-        run: |
-          test -n "$UNITY_SSH_KEY" && test -n "$UNITY_KNOWN_HOSTS"
-          umask 077
-          unity_ssh_dir="$RUNNER_TEMP/abby-unity-ssh-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          mkdir "$unity_ssh_dir"
-          printf '%s\n' "$UNITY_SSH_KEY" > "$unity_ssh_dir/key"
-          printf '%s\n' "$UNITY_KNOWN_HOSTS" > "$unity_ssh_dir/known_hosts"
-          echo "UNITY_WEB_SSH_KEY_PATH=$unity_ssh_dir/key" >> "$GITHUB_ENV"
-          echo "UNITY_WEB_SSH_KNOWN_HOSTS_PATH=$unity_ssh_dir/known_hosts" >> "$GITHUB_ENV"
-      - name: Validate, scan, deploy current main, and verify public release
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          UNITY_WEB_SSH_TARGET: ${{ vars.UNITY_WEB_SSH_TARGET }}
-        run: |
-          python3 scripts/unity/deploy_web_release.py \
-            --artifact-dir "$RUNNER_TEMP/abby-unity-artifact-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-      - name: Remove this job's SSH credential
-        if: always() && env.UNITY_WEB_SSH_KEY_PATH != ''
-        run: |
-          rm -f "$UNITY_WEB_SSH_KEY_PATH" "$UNITY_WEB_SSH_KNOWN_HOSTS_PATH"
-          rmdir "$(dirname "$UNITY_WEB_SSH_KEY_PATH")"

@@ -2,8 +2,8 @@ import * as Sentry from '@sentry/react';
 
 import { STORAGE_KEYS } from '../constants/storage';
 import { purgePrivateApiCaches } from '../pwa/privacy';
+import { apiUrl } from './urls';
 
-const BASE = `${import.meta.env.VITE_API_URL || ''}/api`;
 export const AUTH_CHANGED_EVENT = 'abby:auth-changed';
 let readToken;
 let readNamespace;
@@ -16,7 +16,7 @@ function privateReadUrl(path, token) {
     readToken = token;
     readNamespace = crypto.randomUUID();
   }
-  const url = new URL(`${BASE}${path}`, window.location.origin);
+  const url = new URL(apiUrl(path), window.location.origin);
   url.searchParams.set('_abby_session', readNamespace);
   return url.href;
 }
@@ -99,7 +99,7 @@ async function request(path, options = {}) {
   const { token: explicitToken, selfHeal = true, ...fetchOptions } = options;
   const token = explicitToken ?? getToken();
   const url = !options.method || options.method === 'GET'
-    ? privateReadUrl(path, token) : `${BASE}${path}`;
+    ? privateReadUrl(path, token) : apiUrl(path);
   const authHeader = token ? { Authorization: `Token ${token}` } : {};
   const config = {
     // Never serve API responses from the HTTP cache. If an upstream proxy

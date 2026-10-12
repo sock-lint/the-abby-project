@@ -25,8 +25,9 @@ The 2026-05 audit lifted two layout primitives out of the per-page copy-paste pa
 
 `/meadow` is a lazy-loaded child-only page under `JournalShell`, reached from
 the `MeadowVisitCard` on child Today. Existing journal/archive and parent
-pages keep their current behavior. The page links directly to same-origin
-`/play/` so the shared browser sign-in continues into Unity.
+pages keep their current behavior. The page opens the React pet collection. Profile, Pets and Meadow share optional
+R3F presentation with server-confirmed identities and working DOM/2D fallback.
+Legacy `/play/` bookmarks redirect to React Pets; Unity is retired.
 
 `pages/meadow/meadow.constants.js` adapts generated
 `src/storybook/presentation.json` and bundled, hashed image/font URLs. The

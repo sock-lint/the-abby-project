@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import {
   getCharacterProfile,
   getCosmetics,
@@ -25,6 +26,7 @@ import CosmeticChapter from './character/CosmeticChapter';
 import TrophyBadgePicker from './character/TrophyBadgePicker';
 import AdventuresEntry from './character/AdventuresEntry';
 import WellbeingCard from './character/WellbeingCard';
+import CompanionPanel from '../components/companion/CompanionPanel';
 import {
   COSMETIC_CHAPTERS,
   mergeSlotCosmetics,
@@ -261,6 +263,13 @@ export default function Character() {
         profile={profile}
         onOpenTrophyPicker={() => setPickerOpen(true)}
       />
+
+      <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-body font-semibold text-sheikah-teal-deep">
+        <Link className="inline-flex min-h-11 items-center underline underline-offset-4" to="/settings">Edit account & settings</Link>
+        <Link className="inline-flex min-h-11 items-center underline underline-offset-4" to="/bestiary">My pets</Link>
+      </div>
+
+      <CompanionPanel />
 
       {user?.role === 'child' && <WellbeingCard />}
 

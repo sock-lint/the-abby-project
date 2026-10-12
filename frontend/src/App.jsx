@@ -204,6 +204,10 @@ export default function App() {
               {/* Chapter I — Today */}
               <Route path="/" element={<Dashboard />} />
               <Route path="/meadow" element={<Meadow />} />
+              {/* Retired Unity bookmarks stay within the complete React app. */}
+              <Route path="/play/*" element={<Navigate to="/bestiary" replace />} />
+              <Route path="/pets" element={<Navigate to="/bestiary" replace />} />
+              <Route path="/profile" element={<Navigate to="/sigil" replace />} />
 
               {/* Chapter II — Quests (+ deep-link sub-routes for Projects) */}
               <Route path="/quests" element={<QuestsHub />} />

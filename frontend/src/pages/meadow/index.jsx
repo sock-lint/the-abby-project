@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Link } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, BookOpen, Flower2, Heart, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Flower2, Sparkles } from 'lucide-react';
 import { getMeadow, getTodayJournal } from '../../api';
 import { getToken } from '../../api/client';
 import { useApi } from '../../hooks/useApi';
@@ -8,8 +8,9 @@ import { useRole } from '../../hooks/useRole';
 import PageShell from '../../components/layout/PageShell';
 import Button from '../../components/Button';
 import ErrorAlert from '../../components/ErrorAlert';
+import CompanionPanel from '../../components/companion/CompanionPanel';
 import JournalEntryFormModal from '../yearbook/JournalEntryFormModal';
-import { MEADOW_ART, MEADOW_COMPANION, MEADOW_TOKENS, MEADOW_SHEET_TOKENS, keepsakeDate } from './meadow.constants';
+import { MEADOW_ART, MEADOW_TOKENS, MEADOW_SHEET_TOKENS, keepsakeDate } from './meadow.constants';
 import './meadow.css';
 
 export default function Meadow() {
@@ -24,7 +25,6 @@ function ChildMeadow() {
   const { data, loading, error, reload } = useApi(getMeadow);
   const { data: today, loading: todayLoading, error: todayError, reload: reloadToday } = useApi(getTodayJournal);
   const [journal, setJournal] = useState(null);
-  const [hello, setHello] = useState(false);
   const [newKeepsake, setNewKeepsake] = useState(null);
   const [collectionError, setCollectionError] = useState('');
   const mounted = useRef(true);
@@ -70,36 +70,25 @@ function ChildMeadow() {
         <Link to="/chronicle?tab=journal" className="meadow-text-link"><BookOpen size={18} aria-hidden="true" /> My journal</Link>
       </header>
 
-      <section className={`meadow-scene ${newKeepsake ? 'meadow-celebrating' : ''}`} aria-label={`${MEADOW_COMPANION.name}’s meadow`}>
-        <div className="meadow-hill meadow-hill-back" aria-hidden="true" />
-        <div className="meadow-hill meadow-hill-front" aria-hidden="true" />
-        <div className="meadow-cloud meadow-cloud-one" aria-hidden="true" />
-        <div className="meadow-cloud meadow-cloud-two" aria-hidden="true" />
+      <section className={newKeepsake ? 'meadow-celebrating' : ''} aria-label="Your companion’s meadow">
         <div className="meadow-scene-top">
           <span className="meadow-scene-label"><Flower2 size={16} aria-hidden="true" /> A small beginning</span>
-          <a href="/play/" className="meadow-button meadow-button-light">Explore in Play <ArrowRight size={17} aria-hidden="true" /></a>
+          <Link to="/bestiary" className="meadow-button meadow-button-light">Visit your pets <ArrowRight size={17} aria-hidden="true" /></Link>
         </div>
-        <div className="meadow-companion">
-          <div className="meadow-speech" role="status" aria-live="polite">
-            {newKeepsake ? 'A new memory bloom! This one is yours to keep.' : hello ? 'I’m happy you’re here. What little moment will we remember?' : 'Hello, you. Let’s keep a little piece of today.'}
-          </div>
-          <img className="meadow-companion-art" src={newKeepsake || hello ? MEADOW_COMPANION.happyPortrait : MEADOW_COMPANION.portrait} alt={MEADOW_COMPANION.name} width="360" height="360" />
+        <CompanionPanel />
+        <div className="mt-4">
           <div className="meadow-companion-actions">
             <Button variant="primary" className="meadow-button meadow-button-primary" disabled={todayLoading || Boolean(todayError)} onClick={() => setJournal(today?.id ? { mode: 'edit', entry: today } : { mode: 'create' })}>
               <BookOpen size={18} aria-hidden="true" /> {todayLoading ? 'Checking today…' : today?.id ? 'Add to today’s entry' : 'Keep a memory'}
             </Button>
-            <Button variant="secondary" className="meadow-button meadow-button-light meadow-hello" onClick={() => setHello((current) => !current)}>
-              <Heart size={17} aria-hidden="true" /> Say hello
-            </Button>
           </div>
         </div>
-        <div className="meadow-scene-caption"><span>{MEADOW_COMPANION.name}</span><span>Your meadow companion</span></div>
       </section>
 
       {newKeepsake && (
         <div className="meadow-receipt" role="status" aria-live="polite">
           <Sparkles size={24} aria-hidden="true" />
-          <div><strong>A memory bloom joined your collection</strong><p>Your journal entry is saved. You can find this keepsake in Play, too.</p></div>
+          <div><strong>A memory bloom joined your collection</strong><p>Your journal entry is saved. Your keepsake is here whenever you visit.</p></div>
           <Button variant="ghost" className="meadow-dismiss" onClick={() => setNewKeepsake(null)} aria-label="Dismiss keepsake celebration">Got it</Button>
         </div>
       )}
@@ -140,7 +129,7 @@ function ChildMeadow() {
         <p className="meadow-collection-note">Bloom labels keep your journal words private. Rewriting an entry does not create another bloom.</p>
       </section>
 
-      <footer className="meadow-footer"><span>Small moments. A story that stays yours.</span><a href="/play/" className="meadow-text-link">Visit your world <ArrowRight size={17} aria-hidden="true" /></a></footer>
+      <footer className="meadow-footer"><span>Small moments. A story that stays yours.</span><Link to="/sigil" className="meadow-text-link">Visit your profile <ArrowRight size={17} aria-hidden="true" /></Link></footer>
       {journal && <JournalEntryFormModal {...journal} onSaved={onJournalSaved} onClose={() => setJournal(null)} surfaceClassName="meadow-sheet" surfaceStyle={MEADOW_SHEET_TOKENS} />}
     </PageShell>
   );

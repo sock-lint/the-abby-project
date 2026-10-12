@@ -59,6 +59,9 @@ def spa_view(request):
 
 
 urlpatterns = [
+    # Unity is retired. Legacy bookmarks return to the React pet collection;
+    # discard old query parameters instead of forwarding obsolete credentials.
+    re_path(r"^play(?:/.*)?$", RedirectView.as_view(url="/bestiary", query_string=False)),
     # Public product/privacy information must precede the SPA catch-all so
     # reviewers and visitors can read it without JavaScript or an account.
     path("about/", TemplateView.as_view(template_name="public/about.html"), name="public-about"),

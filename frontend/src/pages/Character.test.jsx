@@ -51,6 +51,21 @@ function renderPage() {
 }
 
 describe('Character (/sigil)', () => {
+  it('shows the owned active companion and links the complete profile and pet workflows', async () => {
+    stubRoutes({ profile: { display_name: 'Abby', level: 2 } });
+    server.use(http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [{
+      id: 9, species: { name: 'Fox', sprite_key: 'fox', icon: '🦊' }, potion: { name: 'Base', slug: 'base' }, is_active: true, growth_points: 35,
+    }], mounts: [] })));
+    renderPage();
+    expect(await screen.findByRole('img', { name: 'Base Fox' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Edit account & settings' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('link', { name: 'Care & choose pets' })).toHaveAttribute('href', '/bestiary?tab=companions');
+    expect(screen.getByRole('link', { name: 'Hatch & breed' })).toHaveAttribute('href', '/bestiary?tab=hatchery');
+    expect(screen.getByRole('link', { name: 'Mounts & expeditions' })).toHaveAttribute('href', '/bestiary?tab=mounts');
+    expect(screen.getByRole('link', { name: 'Inventory' })).toHaveAttribute('href', '/treasury?tab=satchel');
+    expect(screen.queryByRole('button', { name: 'Show 3D view' })).toBeNull();
+  });
+
   it('renders the frontispiece with display name, level chip, and trophy slot', async () => {
     stubRoutes({
       profile: {
