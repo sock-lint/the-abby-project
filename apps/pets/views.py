@@ -165,6 +165,9 @@ class PetCodexView(APIView):
         potions_qs = PotionType.objects.order_by("rarity", "name")
         total_species = len(entries)
         total_potions = potions_qs.count()
+        # available_potions was prefetched for every entry. Honor authored
+        # restrictions while preserving unrestricted legacy species.
+        mounts_possible = sum(species.available_potions.count() or total_potions for species in entries)
 
         return Response({
             "species": PetCodexEntrySerializer(entries, many=True).data,
@@ -172,7 +175,7 @@ class PetCodexView(APIView):
             "totals": {
                 "species": total_species,
                 "discovered_species": discovered_count,
-                "mounts_possible": total_species * total_potions,
+                "mounts_possible": mounts_possible,
                 "mounts_owned": len(owned_mounts),
             },
         })

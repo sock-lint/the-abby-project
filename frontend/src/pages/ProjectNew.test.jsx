@@ -19,8 +19,8 @@ describe('ProjectNew', () => {
   it('renders the form with required fields', () => {
     renderPage();
     // The journal calls these "ventures" everywhere else — the page the
-    // "New venture" button opens says the same word.
-    expect(screen.getByRole('heading', { name: /new venture/i })).toBeInTheDocument();
+    // "New project" button opens says the same word.
+    expect(screen.getByRole('heading', { name: /new project/i })).toBeInTheDocument();
     // Labels in ProjectNew aren't `htmlFor`-associated; rely on text + role.
     expect(screen.getAllByText(/title/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/category/i).length).toBeGreaterThan(0);
@@ -33,7 +33,7 @@ describe('ProjectNew', () => {
     renderPage();
     const inputs = screen.getAllByRole('textbox');
     await user.type(inputs[0], 'Bird Feeder');
-    await user.click(screen.getByRole('button', { name: /create venture/i }));
+    await user.click(screen.getByRole('button', { name: /create project/i }));
     await waitFor(() => expect(create.calls).toHaveLength(1));
     expect(create.calls[0].url).toMatch(/\/api\/projects\/$/);
     expect(create.calls[0].body).toEqual({
@@ -54,7 +54,7 @@ describe('ProjectNew', () => {
     renderPage();
     const inputs = screen.getAllByRole('textbox');
     await user.type(inputs[0], 'x');
-    await user.click(screen.getByRole('button', { name: /create venture/i }));
+    await user.click(screen.getByRole('button', { name: /create project/i }));
     expect(await screen.findByText(/bad title/i)).toBeInTheDocument();
   });
 

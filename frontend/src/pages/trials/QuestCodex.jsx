@@ -94,7 +94,7 @@ export default function QuestCodex({
     // A status bucket has no completion target; progress belongs to each quest.
     progressPct: null,
     tier: count > 0 ? PROGRESS_TIER.nascent : PROGRESS_TIER.locked,
-    ariaLabel: `${chapter.name}, ${count} ${count === 1 ? 'trial' : 'trials'}`,
+    ariaLabel: `${chapter.name}, ${count} ${count === 1 ? 'challenge' : 'challenges'}`,
   }));
 
   const visibleKindFilters = KIND_FILTERS.filter(
@@ -105,12 +105,12 @@ export default function QuestCodex({
     && visibleKindFilters.length > 1;
 
   const emptyMessage = activeBucket?.chapter.id === 'available'
-    ? 'no trials posted on the board right now'
+    ? 'No challenges available right now.'
     : activeBucket?.chapter.id === 'underway'
-      ? 'no trial under way — choose one from Available to begin'
+      ? 'No active challenge. Choose one from Available to get started.'
       : activeBucket?.chapter.id === 'closed'
-        ? 'no trials in the chronicle yet'
-        : 'no badge-gated trials waiting on a seal';
+        ? 'No completed or ended challenges yet.'
+        : 'No locked challenges.';
 
   // When the filter narrows the chapter to zero rows, distinguish that
   // from "this chapter is empty" — different shape of guidance.
@@ -120,7 +120,7 @@ export default function QuestCodex({
     <div className="space-y-4">
       {showKindShelf && (
         <TomeShelf
-          ariaLabel="Filter trials by kind"
+          ariaLabel="Filter challenges by kind"
           activeId={kindFilter}
           onSelect={setKindFilter}
           items={visibleKindFilters.map(({ key, label, icon }) => ({
@@ -140,7 +140,7 @@ export default function QuestCodex({
         items={chapterShelf}
         activeId={activeChapterId}
         onSelect={setActiveChapterId}
-        ariaLabel="Trials chapters"
+        ariaLabel="Challenge status"
       />
 
       {activeBucket && (
@@ -148,7 +148,7 @@ export default function QuestCodex({
           chapter={activeBucket.chapter}
           quests={filterEmpty ? [] : filtered}
           emptyMessage={filterEmpty
-            ? `no ${kindFilter} trials in ${activeBucket.chapter.name.toLowerCase()} — clear the filter to see the rest`
+            ? `no ${kindFilter} challenges in ${activeBucket.chapter.name.toLowerCase()} — clear the filter to see the rest`
             : emptyMessage}
           hasActiveQuest={!!activeQuest}
           onBegin={onBegin}

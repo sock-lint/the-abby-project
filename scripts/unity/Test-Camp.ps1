@@ -1,5 +1,6 @@
 param(
-    [string]$Python = (Get-Command python).Source
+    [string]$Python = (Get-Command python).Source,
+    [switch]$OwnedCreatureArt
 )
 $ErrorActionPreference = 'Stop'
 $taskRepository = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
@@ -18,8 +19,9 @@ $taskFixtureErr = Join-Path $taskLogDirectory 'fixture-stderr.log'
 $taskPlayerLog = Join-Path $taskLogDirectory 'runtime-smoke.log'
 $taskReport = Join-Path $taskOutput 'smoke-results.txt'
 if (Test-Path -LiteralPath $taskReport) { Remove-Item -LiteralPath $taskReport }
-$taskFixtureArguments = @(('"' + $taskFixtureScript + '"'), '--port', '0', '--ready-file', ('"' + $taskReadyFile + '"'), '--stop-file', ('"' + $taskStopFile + '"'), '--lifetime-seconds', '240', '--fail-first-mark-read', '--fail-first-feed-after-commit', '--fail-first-hatch-after-commit', '--fail-first-expedition-start-after-commit', '--fail-first-expedition-claim-after-commit')
+$taskFixtureArguments = @(('"' + $taskFixtureScript + '"'), '--port', '0', '--ready-file', ('"' + $taskReadyFile + '"'), '--stop-file', ('"' + $taskStopFile + '"'), '--lifetime-seconds', '240', '--fail-first-mark-read', '--fail-first-feed-after-commit', '--fail-first-hatch-after-commit', '--fail-first-expedition-start-after-commit', '--fail-first-expedition-claim-after-commit', '--fail-first-breed-after-commit')
 $taskFixture = $null
+if ($OwnedCreatureArt) { $taskFixtureArguments += '--owned-chick-art' }
 $taskPlayer = $null
 try {
     $taskFixture = Start-Process -FilePath $Python -ArgumentList $taskFixtureArguments -WindowStyle Hidden -RedirectStandardOutput $taskFixtureOut -RedirectStandardError $taskFixtureErr -PassThru
@@ -36,6 +38,8 @@ try {
     if ($taskFixtureInfo.fail_first_hatch_after_commit) { $taskPlayerArguments += '--abby-smoke-ambiguous-hatch' }
     if ($taskFixtureInfo.fail_first_start_after_commit) { $taskPlayerArguments += '--abby-smoke-ambiguous-expedition-start' }
     if ($taskFixtureInfo.fail_first_claim_after_commit) { $taskPlayerArguments += '--abby-smoke-ambiguous-expedition-claim' }
+    if ($taskFixtureInfo.fail_first_breed_after_commit) { $taskPlayerArguments += '--abby-smoke-ambiguous-breed' }
+    if ($taskFixtureInfo.owned_creature_art) { $taskPlayerArguments += '--abby-smoke-owned-creature-art' }
     Write-Host "Testing Play against disposable Django fixtures. Screenshots: $taskOutput"
     $taskPlayer = Start-Process -FilePath $taskExecutable -ArgumentList $taskPlayerArguments -WindowStyle Hidden -PassThru
     $taskPlayerDeadline = [DateTime]::UtcNow.AddSeconds(180)

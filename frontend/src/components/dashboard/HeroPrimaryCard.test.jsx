@@ -96,7 +96,7 @@ describe('HeroPrimaryCard — next-action variant', () => {
     renderWithProviders(
       <HeroPrimaryCard role="child" ctx={{ weekday: 'T', dateStr: 'Apr 16' }} />,
     );
-    expect(screen.getByRole('heading', { level: 2, name: /choose your next adventure/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /choose what you want to work on next/i })).toBeInTheDocument();
   });
 
   it('renders an IlluminatedVersal of the next-action title first letter', () => {
@@ -132,10 +132,10 @@ describe('HeroPrimaryCard — next-action variant', () => {
         }}
       />,
     );
-    expect(screen.getByText(/active trial/i)).toBeInTheDocument();
+    expect(screen.getByText(/active challenge/i)).toBeInTheDocument();
     // "View quest →" sent a kid looking for the Quests hub; the link lands on
     // the Trials tab, so the label has to say trial.
-    expect(screen.getByRole('button', { name: /view trial/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /view challenge/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /view quest/i })).toBeNull();
   });
 
@@ -185,7 +185,7 @@ describe('HeroPrimaryCard — next-action variant', () => {
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
   });
 
-  it('gives active trial progress an accessible label and value', () => {
+  it('gives active challenge progress an accessible label and value', () => {
     renderWithProviders(
       <HeroPrimaryCard ctx={{ activeQuest: {
         status: 'active', current_progress: 3, effective_target: 10,

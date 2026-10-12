@@ -6,6 +6,8 @@ using System.Text.RegularExpressions;
 using System.Reflection;
 using AbbyCamp.Data;
 using AbbyCamp.Services;
+using AbbyCamp.Presentation;
+using AbbyCamp.World;
 using UnityEditor;
 using UnityEngine;
 
@@ -106,8 +108,11 @@ namespace AbbyCamp.Editor
 
             ValidatePlayHomeContracts();
             ValidateCompanionCareContracts();
+            ValidateOwnedCreaturePresentation();
             ValidateHatchingContracts();
             ValidateExpeditionContracts();
+            ValidateBreedingContracts();
+            ValidateCareRefreshLock();
             var gameObject = new GameObject("API validation client");
             try
             {
@@ -149,6 +154,7 @@ namespace AbbyCamp.Editor
                     fail => client.ActivatePet(52, _ => completed = true, fail),
                     fail => client.ActivateMount(62, _ => completed = true, fail),
                     fail => client.HatchPet(73, 75, _ => completed = true, fail),
+                    fail => client.BreedMounts(61, 62, _ => completed = true, fail),
                     fail => client.StartExpedition(61, "short", _ => completed = true, fail),
                     fail => client.ClaimExpedition(103, _ => completed = true, fail),
                 })
@@ -423,7 +429,7 @@ namespace AbbyCamp.Editor
             const string species = "{\"id\":1,\"name\":\"Fox\",\"icon\":\"fox\",\"sprite_key\":\"fox\",\"description\":\"Friendly\",\"food_preference\":\"fruit\"}";
             const string potion = "{\"id\":2,\"slug\":null,\"name\":\"Mint\",\"sprite_key\":\"mint\",\"color_hex\":\"#AABBCC\",\"rarity\":\"common\",\"description\":\"Soft green\"}";
             const string pet = "{\"id\":8,\"species\":" + species + ",\"potion\":" + potion + ",\"name\":\"Clover\",\"growth_points\":12,\"is_active\":true,\"evolved_to_mount\":false,\"is_fully_grown\":false,\"happiness_level\":\"happy\",\"last_fed_at\":null,\"created_at\":\"" + date + "\",\"updated_at\":\"" + date + "\"}";
-            const string mount = "{\"id\":5,\"species\":" + species + ",\"potion\":" + potion + ",\"is_active\":true,\"last_bred_at\":null,\"active_expedition\":null,\"created_at\":\"" + date + "\",\"updated_at\":\"" + date + "\"}";
+            const string mount = "{\"id\":5,\"species\":" + species + ",\"potion\":" + potion + ",\"is_active\":true,\"last_bred_at\":null,\"can_breed\":true,\"breeding_cooldown_seconds\":0,\"active_expedition\":null,\"created_at\":\"" + date + "\",\"updated_at\":\"" + date + "\"}";
             const string stableJson = "{\"pets\":[" + pet + "],\"mounts\":[" + mount + "],\"total_pets\":1,\"total_mounts\":1,\"total_possible\":2}";
             var stable = ApiContract.ParseStable(stableJson);
             Check(stable.ActiveCompanion?.DisplayName == "Clover" && stable.ActiveMount?.DisplayName == "Mint Fox", "Stable reflects genuinely owned active creatures");
@@ -446,6 +452,84 @@ namespace AbbyCamp.Editor
                 Check(!AbbyApiClient.TryResolveNotificationDestination(unsafeLink, "unknown_type", out _), "Raw or unknown notification destinations are never followed: " + unsafeLink);
         }
 
+        private static void ValidateOwnedCreaturePresentation()
+        {
+            var species = new SpeciesDto { id = 71, name = "Chick", sprite_key = "cute-chick" };
+            var potion = new PotionDto { id = 72, slug = "base", name = "Base" };
+            var pet = new OwnedPetDto { id = 73, species = species, potion = potion, name = "Peep", is_active = true, growth_points = 75 };
+            var mount = new OwnedMountDto { id = 74, species = species, potion = potion, is_active = true };
+            var stable = new StableDto { pets = new[] { pet }, mounts = new[] { mount } };
+            var selected = OwnedCompanionResolver.Resolve(stable);
+            Check(selected.Kind == OwnedCompanionKind.Pet && selected.CreatureId == pet.id && !selected.IsEvolved,
+                "Owned presentation defaults to the saved active companion without activating a mount");
+            Check(OwnedCompanionResolver.Resolve(stable, OwnedCompanionKind.Mount, mount.id).CreatureId == mount.id,
+                "An acknowledged active mount choice takes precedence over an independent active pet flag");
+            Check(OwnedCompanionResolver.Resolve(stable, OwnedCompanionKind.Mount, 999).CreatureId == pet.id,
+                "A stale or foreign presentation preference cannot invent an owned mount");
+            mount.is_active = false;
+            Check(OwnedCompanionResolver.Resolve(stable, OwnedCompanionKind.Mount, mount.id).CreatureId == pet.id,
+                "A preference loses precedence when its saved row is no longer active");
+            pet.growth_points = 100;
+            Check(!OwnedCompanionResolver.Resolve(stable).IsEvolved,
+                "Full growth alone cannot invent confirmed evolution");
+            pet.evolved_to_mount = true;
+            Check(OwnedCompanionResolver.Resolve(stable).IsEvolved && OwnedCompanionResolver.Resolve(stable).CreatureId == pet.id,
+                "The retained active evolved pet displays its grown form without selecting a mount");
+            Check(selected.WithConfirmedFeed(pet.id, new PetFeedDto { new_growth = 100, evolved = true, mount_id = mount.id }).IsEvolved,
+                "A confirmed feed receipt can immediately present evolution of the displayed companion");
+            Check(!selected.WithConfirmedFeed(999, new PetFeedDto { new_growth = 100, evolved = true, mount_id = mount.id }).IsEvolved,
+                "Another pet's feed receipt cannot change the displayed companion");
+            Check(OwnedCompanionResolver.Resolve(null).Kind == OwnedCompanionKind.None
+                && OwnedCompanionResolver.Resolve(new StableDto { pets = Array.Empty<OwnedPetDto>(), mounts = Array.Empty<OwnedMountDto>() }).Kind == OwnedCompanionKind.None,
+                "Cleared and empty account collections carry no creature presentation ownership");
+
+            var world = ScriptableObject.CreateInstance<CampPresentationDefinition>();
+            var chick = ScriptableObject.CreateInstance<VisualDefinition>();
+            var bird = ScriptableObject.CreateInstance<VisualDefinition>();
+            var chickModel = new GameObject("Synthetic Chick model");
+            var birdModel = new GameObject("Synthetic Bird model");
+            var actor = new GameObject("Synthetic owned companion");
+            try
+            {
+                chick.ModelPrefab = chickModel; bird.ModelPrefab = birdModel;
+                world.OwnedCreatureAppearances = new[] { new OwnedCreatureVisualBinding
+                    { SpeciesSpriteKey = "cute-chick", PotionSlug = "base", Companion = chick, Evolved = bird } };
+                Check(world.TryResolveOwnedAppearance("cute-chick", "base", false, out var resolved) && resolved == chick,
+                    "The explicitly bound Base Chick resolves to its own model");
+                Check(world.TryResolveOwnedAppearance("cute-chick", "base", true, out resolved) && resolved == bird,
+                    "The explicitly bound evolved Chick resolves to Bird");
+                Check(!world.TryResolveOwnedAppearance("wolf", "base", false, out _)
+                    && !world.TryResolveOwnedAppearance("cute-chick", "fire", false, out _),
+                    "Unrelated species and unprepared potion variants cannot inherit Chick artwork");
+                bird.ModelPrefab = null;
+                Check(!world.TryResolveOwnedAppearance("cute-chick", "base", true, out _),
+                    "Missing licensed models remain an explicit preview instead of claimed owned artwork");
+                bird.ModelPrefab = birdModel;
+                var follower = actor.AddComponent<CompanionFollower>();
+                follower.Configure(chick, bird);
+                follower.SetOwnedAppearance(chick);
+                var modelId = actor.transform.Find("Appearance").gameObject.GetEntityId();
+                follower.SetOwnedAppearance(chick);
+                follower.ToggleAppearance();
+                Check(follower.HasOwnedAppearance && follower.Appearance.Definition == chick
+                    && actor.transform.Find("Appearance").gameObject.GetEntityId() == modelId,
+                    "HUD refreshes and the development swap key preserve the selected model instance");
+                follower.SetOwnedAppearance(bird);
+                Check(follower.Appearance.Definition == bird && follower.HasOwnedAppearance,
+                    "Confirmed model replacement retains the stationary actor root");
+                follower.ClearOwnedAppearance(true);
+                Check(!follower.HasOwnedAppearance && follower.Appearance.Definition == chick,
+                    "Account clearing immediately restores preview presentation without owned binding");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(actor);
+                UnityEngine.Object.DestroyImmediate(chickModel); UnityEngine.Object.DestroyImmediate(birdModel);
+                UnityEngine.Object.DestroyImmediate(chick); UnityEngine.Object.DestroyImmediate(bird);
+                UnityEngine.Object.DestroyImmediate(world);
+            }
+        }
+
         private static void ValidateCompanionCareContracts()
         {
             string stableJson = ReadFixture("pets-stable.json");
@@ -456,6 +540,10 @@ namespace AbbyCamp.Editor
                 "Shared companion preserves escaped names and absent feeding history");
             Check(ApiContract.ParseStable(ReadFixture("pets-stable-empty.json")).pets.Length == 0,
                 "Shared empty collection never fabricates an owned creature");
+            var restrictedStable = ApiContract.ParseStable(ReadFixture("pets-stable-restricted-empty.json"));
+            Check(restrictedStable.total_possible == 3 && restrictedStable.pets.Length == 0
+                && restrictedStable.mounts.Length == 0 && restrictedStable.ActiveCompanion == null,
+                "Shared collection total counts compatible variants without inventing ownership");
 
             string inventoryJson = ReadFixture("inventory-food.json");
             var inventory = ApiContract.ParseInventoryPage(inventoryJson);
@@ -705,6 +793,195 @@ namespace AbbyCamp.Editor
                     "Account replacement clears every expedition identity and readiness cache");
             }
             finally { UnityEngine.Object.DestroyImmediate(gameObject); }
+        }
+
+        private static void ValidateBreedingContracts()
+        {
+            string stableJson = ReadFixture("pets-stable-breeding.json");
+            var stable = ApiContract.ParseStable(stableJson);
+            var parentA = Array.Find(stable.mounts, mount => mount.id == 61);
+            var parentB = Array.Find(stable.mounts, mount => mount.id == 62);
+            var resting = Array.Find(stable.mounts, mount => mount.id == 63);
+            Check(parentA.can_breed && parentA.breeding_cooldown_seconds == 0 && parentA.active_expedition != null
+                && parentB.can_breed && parentB.breeding_cooldown_seconds == 0,
+                "Shared stable reports server-ready parents, including an exploring parent and an elapsed cooldown");
+            Check(!resting.can_breed && resting.breeding_cooldown_seconds == 432000,
+                "Shared stable preserves the authoritative remaining breeding cooldown");
+            var after = ApiContract.ParseStable(ReadFixture("pets-stable-breeding-after.json"));
+            Check(!Array.Find(after.mounts, mount => mount.id == 61).can_breed
+                && Array.Find(after.mounts, mount => mount.id == 61).breeding_cooldown_seconds == 604800
+                && !Array.Find(after.mounts, mount => mount.id == 62).can_breed,
+                "A fresh post-breeding stable reports both parents' saved cooldowns");
+            Reject(() => ApiContract.ParseStable(stableJson.Replace("\"can_breed\":", "\"omitted_can_breed\":")),
+                "Missing breeding readiness cannot default to an eligible mount");
+            Reject(() => ApiContract.ParseStable(stableJson.Replace("\"breeding_cooldown_seconds\":", "\"omitted_cooldown\":")),
+                "A missing cooldown cannot masquerade as completed rest");
+            Reject(() => ApiContract.ParseStable(stableJson.Replace("\"can_breed\": true", "\"can_breed\": \"true\"")),
+                "Breeding readiness must be a JSON boolean");
+            Reject(() => ApiContract.ParseStable(stableJson.Replace("\"breeding_cooldown_seconds\": 0", "\"breeding_cooldown_seconds\": -1")),
+                "Negative breeding cooldowns are rejected");
+            Reject(() => ApiContract.ParseStable(stableJson.Replace("\"breeding_cooldown_seconds\": 0", "\"breeding_cooldown_seconds\": 0.5")),
+                "Fractional seconds cannot silently round into breeding readiness");
+            Reject(() => ApiContract.ParseStable(stableJson.Replace("\"can_breed\": false", "\"can_breed\": true")),
+                "Positive remaining rest cannot be marked ready by an inconsistent response");
+
+            string normalJson = ReadFixture("mount-breed.json");
+            var normal = ApiContract.ParseMountBreed(normalJson, parentA, parentB);
+            Check(normal.egg_item_id == 73 && normal.potion_item_id == 77 && normal.picked_species == "Fox"
+                && normal.picked_species_slug == "fixture-fox" && normal.picked_potion == "Ice"
+                && normal.picked_potion_slug == "ice" && !normal.chromatic && normal.cooldown_days == 7,
+                "The real normal breeding receipt confirms the saved egg and potion definitions and chosen types");
+            Check(!string.IsNullOrWhiteSpace(normal.egg_item_name) && normal.egg_item_icon != null && normal.egg_item_sprite_key != null
+                && !string.IsNullOrWhiteSpace(normal.potion_item_name) && normal.potion_item_icon != null && normal.potion_item_sprite_key != null,
+                "A complete breeding receipt preserves both result items' display metadata");
+            var chromatic = ApiContract.ParseMountBreed(ReadFixture("mount-breed-chromatic.json"), parentA, parentB);
+            Check(chromatic.chromatic && chromatic.picked_potion_slug == "cosmic" && chromatic.potion_item_id == 78,
+                "The server's chromatic result confirms its saved Cosmic potion");
+            var fallback = ApiContract.ParseMountBreed(ReadFixture("mount-breed-fallback.json"), parentA, parentB);
+            Check(!fallback.chromatic && fallback.picked_potion == "Base" && fallback.potion_item_id == 79
+                && fallback.picked_potion != parentA.potion.name && fallback.picked_potion != parentB.potion.name,
+                "A server-selected compatible fallback need not be either parent's potion");
+            foreach (string field in new[] { "egg_item_id", "egg_item_name", "egg_item_icon", "egg_item_sprite_key",
+                "potion_item_id", "potion_item_name", "potion_item_icon", "potion_item_sprite_key", "picked_species",
+                "picked_species_slug", "picked_potion", "picked_potion_slug", "chromatic", "cooldown_days" })
+                Reject(() => ApiContract.ParseMountBreed(normalJson.Replace("\"" + field + "\":", "\"omitted_" + field + "\":"), parentA, parentB),
+                    "A partial success cannot acknowledge breeding when this field is absent: " + field);
+            string Changed(Action<MountBreedDto> change)
+            {
+                var receipt = JsonUtility.FromJson<MountBreedDto>(normalJson);
+                change(receipt);
+                return JsonUtility.ToJson(receipt);
+            }
+            Reject(() => ApiContract.ParseMountBreed(Changed(receipt => receipt.egg_item_id = 0), parentA, parentB),
+                "Breeding must confirm a real saved egg item ID");
+            Reject(() => ApiContract.ParseMountBreed(Changed(receipt => receipt.potion_item_id = receipt.egg_item_id), parentA, parentB),
+                "An egg cannot also be the breeding potion definition");
+            Reject(() => ApiContract.ParseMountBreed(Changed(receipt => receipt.cooldown_days = 0), parentA, parentB),
+                "A missing or invalid saved cooldown cannot confirm breeding");
+            Reject(() => ApiContract.ParseMountBreed(Changed(receipt => receipt.picked_species = "Unrelated creature"), parentA, parentB),
+                "A breeding receipt must select one of the captured parents' unique species names");
+            Reject(() => ApiContract.ParseMountBreed(Changed(receipt => receipt.picked_potion_slug = "unrelated"), parentA, parentB),
+                "A known parental potion name cannot silently acquire an unrelated slug");
+            Reject(() => ApiContract.ParseMountBreed(Changed(receipt => receipt.chromatic = true), parentA, parentB),
+                "The chromatic flag cannot turn an ordinary parental potion into Cosmic");
+            Reject(() => ApiContract.ParseMountBreed(normalJson.Replace("\"chromatic\": false", "\"chromatic\": \"false\""), parentA, parentB),
+                "A string chromatic flag cannot acknowledge a saved breeding");
+            Reject(() => ApiContract.ParseMountBreed(normalJson, parentA, parentA),
+                "A breeding receipt needs two distinct captured parent identities");
+            Reject(() => ApiContract.ParseMountBreed(normalJson, parentA, resting),
+                "A captured cooldown mount cannot authorize a breeding acknowledgement");
+            var legacyA = JsonUtility.FromJson<OwnedMountDto>(JsonUtility.ToJson(parentA));
+            var legacyB = JsonUtility.FromJson<OwnedMountDto>(JsonUtility.ToJson(parentB));
+            legacyA.potion.slug = legacyB.potion.slug = null;
+            string legacyJson = normalJson.Replace("\"picked_species_slug\": \"fixture-fox\"", "\"picked_species_slug\": null")
+                .Replace("\"picked_potion_slug\": \"ice\"", "\"picked_potion_slug\": null");
+            Check(ApiContract.ParseMountBreed(legacyJson, legacyA, legacyB).egg_item_id == 73,
+                "Legacy nullable catalog slugs do not invent a type or reject a complete saved result");
+            foreach (string fixture in new[] { "mount-breed-missing-mounts.json", "mount-breed-same-mount.json", "mount-breed-invalid-ids.json",
+                "mount-breed-not-owned.json", "mount-breed-cooldown.json", "mount-breed-repeat-cooldown.json" })
+                Check(!ApiContract.HttpError(400, ReadFixture(fixture), true, false).OutcomeUnknown,
+                    "A real breeding rejection is definite and grants no fabricated result: " + fixture);
+
+            var gameObject = new GameObject("Breeding eligibility validation");
+            try
+            {
+                var client = gameObject.AddComponent<AbbyApiClient>();
+                void Set(string field, object value) => typeof(AbbyApiClient).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(client, value);
+                Set("token", "0123456789012345678901234567890123456789");
+                Set("<CurrentUser>k__BackingField", new UserDto { id = 7, role = "child" });
+                Set("stableLoaded", true);
+                var mounts = (Dictionary<int, OwnedMountDto>)typeof(AbbyApiClient).GetField("knownMounts", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(client);
+                var readyIds = (HashSet<int>)typeof(AbbyApiClient).GetField("breedableMounts", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(client);
+                foreach (var mount in stable.mounts) mounts.Add(mount.id, mount);
+                readyIds.Add(parentA.id); readyIds.Add(parentB.id);
+                Check(client.IsBreedableMount(parentA.id) && client.CanBreedMounts(parentA.id, parentB.id),
+                    "Only accepted ready owned parents authorize an explicit breeding, including an away parent");
+                parentB.active_expedition = new MountExpeditionDto { id = 104, mount_id = parentB.id, status = "active" };
+                Check(client.CanBreedMounts(parentA.id, parentB.id),
+                    "Even two away parents retain breeding eligibility under the existing server behavior");
+                Check(!client.CanBreedMounts(parentA.id, parentA.id) && !client.CanBreedMounts(parentA.id, 999)
+                    && !client.CanBreedMounts(0, parentB.id) && !client.IsBreedableMount(resting.id),
+                    "Same, absent, foreign and resting parent selections cannot issue breeding");
+                resting.can_breed = true; resting.breeding_cooldown_seconds = 0;
+                Check(!client.CanBreedMounts(parentA.id, resting.id),
+                    "Changing a displayed countdown or DTO cannot replace captured server readiness");
+                Set("stableLoaded", false);
+                Check(!client.IsBreedableMount(parentA.id), "An incomplete or failed stable read disables breeding");
+                Set("stableLoaded", true);
+                Set("<CurrentUser>k__BackingField", new UserDto { id = 7, role = "parent" });
+                Check(!client.CanBreedMounts(parentA.id, parentB.id), "Parent sessions cannot use native child breeding");
+                Set("<CurrentUser>k__BackingField", new UserDto { id = 7, role = "child" });
+                Set("<MutationInFlight>k__BackingField", true);
+                Check(!client.CanBreedMounts(parentA.id, parentB.id), "The shared care mutation lock blocks another breeding");
+                Set("<MutationInFlight>k__BackingField", false);
+                ApiError rejection = null;
+                bool completed = false;
+                var coroutine = client.BreedMounts(parentA.id, parentA.id, _ => completed = true, error => rejection = error);
+                Check(!coroutine.MoveNext() && !completed && rejection != null && !rejection.OutcomeUnknown,
+                    "An ineligible pair is rejected before request dispatch");
+                rejection = null;
+                coroutine = client.BreedMounts(parentA.id, 999, _ => completed = true, error => rejection = error);
+                Check(!coroutine.MoveNext() && !completed && rejection != null && !rejection.OutcomeUnknown,
+                    "An unfetched parent cannot send a breeding request");
+                coroutine = client.BreedMounts(parentA.id, parentB.id, _ => completed = true, error => rejection = error);
+                Check(coroutine.MoveNext() && !completed && mounts.Count == 0 && readyIds.Count == 0 && !client.IsBreedableMount(parentA.id),
+                    "Preparing one explicit breeding invalidates all previous care and breeding eligibility before sending");
+                (coroutine as IDisposable)?.Dispose();
+                mounts.Add(parentA.id, parentA); readyIds.Add(parentA.id); Set("stableLoaded", true);
+                client.ClearSession();
+                Check(mounts.Count == 0 && readyIds.Count == 0 && !client.IsBreedableMount(parentA.id),
+                    "Account replacement clears every owned breeding identity and readiness snapshot");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(gameObject); }
+        }
+
+        private static void ValidateCareRefreshLock()
+        {
+            var gameObject = new GameObject("Care refresh ownership validation");
+            System.Collections.IEnumerator heldRefresh = null;
+            try
+            {
+                var client = gameObject.AddComponent<AbbyApiClient>();
+                var controller = gameObject.AddComponent<AbbyCamp.UI.CampPrototypeController>();
+                const BindingFlags privateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(AbbyApiClient).GetField("token", privateInstance).SetValue(client, "0123456789012345678901234567890123456789");
+                typeof(AbbyApiClient).GetField("<CurrentUser>k__BackingField", privateInstance).SetValue(client, new UserDto { id = 7, role = "child" });
+                var controllerType = typeof(AbbyCamp.UI.CampPrototypeController);
+                void Set(string field, object value) => controllerType.GetField(field, privateInstance).SetValue(controller, value);
+                Set("api", client); Set("careInFlight", true);
+                var sectionType = controllerType.GetNestedType("Section", BindingFlags.NonPublic);
+                var bestiary = Enum.Parse(sectionType, "Bestiary");
+                var loader = controllerType.GetMethod("LoadSection", privateInstance);
+                System.Collections.IEnumerator Load(bool internalRefresh) => (System.Collections.IEnumerator)loader.Invoke(controller, new object[] { bestiary, internalRefresh });
+
+                Check(!Load(false).MoveNext() && !controller.IsSectionLoading && controller.IsBusy,
+                    "Ordinary collection refresh cannot enter or release an active care save");
+                // Leave the visible section closed so presentation remains inert.
+                // Advance the real loader to its first nested read without
+                // advancing that request or opening any network connection.
+                heldRefresh = Load(true);
+                Check(heldRefresh.MoveNext() && heldRefresh.Current is System.Collections.IEnumerator
+                    && controller.IsSectionLoading && controller.IsBusy,
+                    "A save's internal collection refresh starts while that save retains its busy ownership");
+                // Disposing exercises the loader's actual finally. Inner
+                // teardown must never release its outer save's ownership.
+                (heldRefresh as IDisposable)?.Dispose(); heldRefresh = null;
+                Check(!controller.IsSectionLoading && controller.IsBusy,
+                    "Nested refresh teardown clears loading without unlocking the outer care action");
+                Check(!Load(false).MoveNext() && !controller.IsSectionLoading,
+                    "After nested teardown the still-owned care save blocks the next ordinary refresh");
+                Set("busy", true);
+                Check(!Load(true).MoveNext() && !controller.IsSectionLoading,
+                    "The internal care exception cannot bypass an independent connection busy gate");
+                Set("busy", false); Set("markingRead", true);
+                Check(!Load(true).MoveNext() && !controller.IsSectionLoading,
+                    "The internal care exception cannot bypass an inbox acknowledgement busy gate");
+            }
+            finally
+            {
+                (heldRefresh as IDisposable)?.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
         }
 
         private static void Check(bool condition, string description)

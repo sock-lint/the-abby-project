@@ -19,7 +19,7 @@ export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemo
         </Button>
       </div>
       <p className="text-caption text-ink-whisper">
-        Ordered walkthrough instructions. Assign a step to a milestone above to group it under that chapter — leave loose if it's a one-off.
+        Add the instructions in order. Assign each step to a milestone, or leave it ungrouped.
       </p>
       {steps.length === 0 && (
         <div className="text-caption text-ink-whisper italic">

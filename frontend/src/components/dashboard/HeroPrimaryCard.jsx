@@ -185,7 +185,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
             />
             <div className="min-w-0 flex-1">
               <div className="font-script text-caption text-royal uppercase tracking-wider">
-                Active trial
+                Active challenge
               </div>
               <h2 className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5 break-words">
                 {quest.definition?.name}
@@ -196,18 +196,17 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
               <ProgressBar
                 value={quest.progress_percent}
                 max={100}
-                aria-label={`${quest.definition?.name || 'Active trial'} progress`}
+                aria-label={`${quest.definition?.name || 'Active challenge'} progress`}
                 className="h-2 mt-2"
               />
-              {/* "trial", not "quest" — the destination is the Trials tab and
-                  the kicker above already calls it a trial. */}
+              {/* Matches the Challenges tab in Tasks. */}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate('/trials')}
                 className="mt-3 -ml-3 font-script text-body text-sheikah-teal-deep! hover:underline"
               >
-                View trial →
+                View challenge →
               </Button>
             </div>
           </div>
@@ -219,7 +218,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
               <Sparkles size={14} /> Room for something good
             </div>
             <h2 className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5">
-              No rush. Choose your next adventure.
+              Choose what you want to work on next.
             </h2>
             <Button
               variant="ghost"
@@ -227,7 +226,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
               onClick={() => navigate('/quests')}
               className="mt-3 -ml-3 font-script text-body text-sheikah-teal-deep! hover:underline"
             >
-              Open the quests hub →
+              View tasks →
             </Button>
           </>
         )}

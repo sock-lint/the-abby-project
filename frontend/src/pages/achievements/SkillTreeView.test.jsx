@@ -85,7 +85,7 @@ function mockAtlas(trees = [woodTree, cookingTree]) {
 }
 
 function breadcrumb() {
-  return screen.getByRole('navigation', { name: /breadcrumb/i });
+  return screen.getByRole('navigation', { name: /skill navigation/i });
 }
 
 function expectCurrentCrumb(name) {

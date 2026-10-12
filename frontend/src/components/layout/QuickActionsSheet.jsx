@@ -79,7 +79,7 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
   const effectiveProject = selectedProject ?? defaultClockProjectId(activeProjects);
 
   const handleIn = async () => {
-    if (!effectiveProject) { setError('Select a venture first'); return; }
+    if (!effectiveProject) { setError('Select a project first'); return; }
     setBusy(true); setError('');
     try {
       await clockIn(parseInt(effectiveProject, 10));
@@ -136,11 +136,11 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
         <>
           <SelectField
             id="qa-clock-project"
-            label="Which venture?"
+            label="Which project?"
             value={effectiveProject}
             onChange={(e) => setSelectedProject(e.target.value)}
           >
-            <option value="">Select a venture…</option>
+            <option value="">Select a project…</option>
             {activeProjects.map((p) => (
               <option key={p.id} value={p.id}>{p.title}</option>
             ))}
@@ -162,13 +162,13 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
 /**
  * QuickActionsSheet — contextual action launcher shown by QuickActionsFab.
  * Role-aware and hide rules:
- *   - Child: Clock, Add study, Turn in study (only if due),
+ *   - Child: Clock, Add homework, Submit homework (only if due),
  *            Ask for a print, Start quest (only if scroll in inventory),
  *            Request reward, Contribute to savings goal (only if goals exist).
- *   - Parent: Clock (rare), Assign study, Adjust coins, Adjust payment.
+ *   - Parent: Clock (rare), Assign homework, Adjust coins, Adjust payment.
  *
- * Copy convention: rows name the surface the way the app does (Study, Duty,
- * Ritual) and put the old word in the hint. Labels are sentence case, here
+ * Copy convention: use the same plain-language feature names as navigation.
+ * Labels are sentence case, here
  * and on the clock pane's buttons.
  */
 export default function QuickActionsSheet({
@@ -328,7 +328,7 @@ export default function QuickActionsSheet({
                 onClick={() => setPane('clock')}
                 className="block w-full min-h-11 text-left px-3 py-2 rounded-xl font-body text-caption text-ink-primary hover:bg-sheikah-teal/10"
               >
-                choose a different venture →
+                Choose a different project →
               </button>
             </>
           ) : (
@@ -368,8 +368,7 @@ export default function QuickActionsSheet({
                 tone="royal"
                 onClick={openJournal}
               />
-              {/* Study rows carry the tab's name with the old one as the hint,
-                  the same shape as the duty / ritual rows below. */}
+              {/* Use the same feature names as the Tasks tabs. */}
               <ActionRow
                 icon={<BookOpen size={18} />}
                 label="Log a grade"
@@ -379,7 +378,7 @@ export default function QuickActionsSheet({
               />
               <ActionRow
                 icon={<BookOpen size={18} />}
-                label="Add study"
+                label="Add homework"
                 hint="Self-assign homework"
                 tone="royal"
                 onClick={() => setHomeworkOpen(true)}
@@ -387,7 +386,7 @@ export default function QuickActionsSheet({
               {hasDueHw && (
                 <ActionRow
                   icon={<BookOpen size={18} />}
-                  label="Turn in study"
+                  label="Submit homework"
                   hint={firstDueHw?.title || 'Homework that is due'}
                   tone="teal"
                   onClick={() => {
@@ -399,7 +398,7 @@ export default function QuickActionsSheet({
               {hasScroll && (
                 <ActionRow
                   icon={<Sparkles size={18} />}
-                  label="Start a quest"
+                  label="Start a challenge"
                   hint="Spend a scroll"
                   tone="moss"
                   onClick={() => { onClose(); navigate('/trials'); }}
@@ -414,21 +413,21 @@ export default function QuickActionsSheet({
               />
               <ActionRow
                 icon={<Sparkles size={18} />}
-                label="Propose a duty"
+                label="Suggest a chore"
                 hint="Suggest a chore — parent sets the reward"
                 tone="gold"
                 onClick={() => { onClose(); navigate('/quests?tab=duties&propose=1'); }}
               />
               <ActionRow
                 icon={<Feather size={18} />}
-                label="Propose a ritual"
+                label="Suggest a habit"
                 hint="Suggest a habit — parent sets the XP"
                 tone="royal"
                 onClick={() => { onClose(); navigate('/quests?tab=rituals&propose=1'); }}
               />
               <ActionRow
                 icon={<Target size={18} />}
-                label={hasGoals ? 'View hoards' : 'Set a savings goal'}
+                label={hasGoals ? 'View savings goals' : 'Set a savings goal'}
                 tone="moss"
                 onClick={() => { onClose(); navigate('/treasury?tab=hoards'); }}
               />
@@ -439,7 +438,7 @@ export default function QuickActionsSheet({
             <>
               <ActionRow
                 icon={<BookOpen size={18} />}
-                label="Assign study"
+                label="Assign homework"
                 hint="Homework for a kid"
                 tone="royal"
                 onClick={() => { onClose(); navigate('/quests?tab=study&new=1'); }}

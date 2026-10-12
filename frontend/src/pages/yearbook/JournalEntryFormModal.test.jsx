@@ -357,7 +357,7 @@ describe('JournalEntryFormModal', () => {
     expect(within(dialog).getByLabelText(/mind/i)).toBeDisabled();
     // The lock chip ("part of your chronicle now") is rendered.
     expect(
-      within(dialog).getByText(/part of your chronicle now/i),
+      within(dialog).getByText(/entry can no longer be edited/i),
     ).toBeInTheDocument();
   });
 

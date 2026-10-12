@@ -20,6 +20,13 @@ This fixture seeds synthetic accounts and writing skills; it never reads `.env` 
 
 ## Licensed Cute Series preview
 
+The [content/asset coverage guide](../../content/rpg/unity-assets.md) records
+owned packs and the matching Chick, egg and Birdseed RPG content. Licensed
+React builds use matching Chick/Bird collection portraits. Licensed Unity
+shows Chick for an owned selected Base Chick and Bird after confirmed evolution
+or selection of its mount. Other species, variants or missing models retain a
+clearly labeled preview.
+
 The purchased starter packs replace the temporary companion and forest scenery locally. The Archer remains staged for future uses; the home does not include an explorer. Run `python scripts/unity/stage_meshtint.py`, then
 `./scripts/unity/Build-Camp.ps1 -Target Web -PrepareLicensed`. Open the generated
 `Assets/AbbyCamp/Licensed/MemoryMeadow.unity` to preview the licensed scene in the
@@ -30,6 +37,51 @@ animation mappings. These prepared growth forms do not yet add evolution rules.
 
 ## Product goal and next slice
 
+Use the web app's [plain-language UI vocabulary](../../frontend/CLAUDE.md#ui-language-october-2026).
+Play displays **Pets** for the companion and mount collection. Internal
+`Bestiary` section, button and destination identifiers remain unchanged for
+navigation and validation compatibility.
+
+### Owned creature presentation — 2026-10-11
+
+Licensed presentation explicitly maps server `species.sprite_key=cute-chick`
+and `potion.slug=base` to Chick, and the confirmed evolved pet or mount to Bird.
+Choose a companion or mount in Pets; the acknowledged `/activate/` result
+changes the appearance child while preserving the fixed actor root. The two
+server active flags remain independent, so the last explicitly acknowledged
+presentation choice is stored by origin and child and rechecked against active
+ownership after reload. An already-active eligible row can be chosen again to
+switch between pet and mount presentation. Evolved pets and exploring mounts
+remain ineligible for selection.
+
+A confirmed feed of the displayed Chick changes it to Bird when Django returns
+evolution. The retained active pet and its evolved flag preserve that form
+after fresh reads without activating the newly created mount. Growth alone
+does not unlock Bird. Missing models, other species and unsupported variants
+retain a labeled preview. Account changes reset the model binding immediately;
+delayed old responses cannot change the replacement account. Normal refreshes
+reuse the current model, and the development K key cannot override owned art.
+
+Newly prepared profiles store these explicit bindings. Older prepared licensed
+profiles use their existing Chick/Bird definitions through a build-only scene
+adapter; normal exports never rewrite private assets or saved scenes. Use
+`Build-Camp.ps1 -PrepareLicensed` when intentionally preparing the editor scene.
+Public checkouts contain no paid binding references. For disposable model/evolution
+verification, run `Test-Camp.ps1 -OwnedCreatureArt`; its fixture uses Base Chick
+alongside deliberately unsupported legacy variants and another family's data.
+The web fixture accepts `--owned-chick-art` for the same coverage. Neither test
+loads the project database. React uses the matching private portraits across
+Today, Companions, Mounts, species detail, Manage and creature ceremonies;
+evolved pet rows use the confirmed mount portrait with the usual fallback.
+
+Validation passed with Unity 6000.6.5f1: source checks, Windows and Web exports,
+and the 1,300-check Windows care/hatch/expedition/account-switch harness. The
+same harness passed an export from an older profile with build-injected models;
+all private input and saved-scene hashes stayed unchanged. An isolated browser
+check verified shared sign-in, two confirmed feeds through evolution, React
+Bird art and persistent Unity mount selection at 393×852 and 844×393. These are
+exported-player and browser checks; physical phone testing remains outstanding.
+
 ### Agreed web and Play responsibilities — 2026-10-10
 
 The two clients are one product from Abby's perspective. The web app owns recording and revisiting life: journal and grade entry, homework, projects, chores, memories and family participation. Play owns reward presentation, the child's notification inbox and creature interactions. Eventually Bestiary, pets, mounts, companions, hatching, feeding, evolution, breeding, creature accessories and expeditions belong in Play. Parent approvals, content authoring and family management stay in the web app.
@@ -38,7 +90,7 @@ Play opens directly into a fixed companion scene with clearly labeled actions. P
 
 The backend remains the authority for rewards, ownership and notification state. Both surfaces use the same account, palette, typography and asset identities. Web navigation should open `/play/` as a real document navigation, without another launch page or engine branding. Play must provide a visible return to Today and route notification actions to the relevant web tab while preserving the existing authenticated session. Browser/system push delivery continues through the existing web service worker when Play is closed.
 
-The home shows confirmed coin balance and recent ledger/drop history, a global unread count and paginated inbox with explicit per-item acknowledgement, the account's real pets/mounts and active companion, and direct links to journal, grades and tasks. The scene's bird is clearly identified as an artwork preview: it is not assigned to an unrelated owned species. Bestiary supports hatching from owned eggs and potions, feeding from owned food, choosing an active companion or mount, and starting and claiming mount expeditions. Breeding remains linked to the existing web screen. Memory blooms remain one supported reward source, not the main navigation loop.
+The home shows confirmed coin balance and recent ledger/drop history, a global unread count and paginated inbox with explicit per-item acknowledgement, the account's real pets/mounts and active companion, and direct links to journal, grades and tasks. A prepared matching model represents the selected owned creature; unsupported species retain a labeled artwork preview. Bestiary supports hatching from owned eggs and potions, feeding from owned food, choosing an active companion or mount, starting and claiming mount expeditions, and breeding two owned mounts. Memory blooms remain one supported reward source, not the main navigation loop.
 
 Migrate Bestiary one capability at a time. Keep existing web routes functional until Play supports their actions, accessible controls, loading/failure states and phone validation. Then move the child navigation and notification destinations together, including already-stored notification links. Retain parent access until an equivalent role-aware flow exists. Do not create two simultaneous automatic consumers of drop, growth or celebration queues: introduce durable event-specific reveal acknowledgement before handing those consumers to Play. Notification read state and reward reveal state have different purposes; marking the inbox read must not discard unseen rewards.
 
@@ -62,7 +114,7 @@ Both rendering profiles use full scene resolution and 4× MSAA. The Web player f
 
 There is no Mac available yet. The existing React home-screen web app handles capture and history; Unity exports a Web scene served at **/play/** on the same HTTPS origin. Opening Play automatically loads it behind the shared-brand progress screen and offers **Back to Today** while loading or after a failure. The Unity splash and logo are disabled in project settings and enforced by a build preprocessor for both scripted and Editor builds. Unity 6.6 supports [iOS Safari 15 and newer and Android Chrome](https://docs.unity.com/en-us/engine/6000.6/manual/platform-specific/webgl/intro/browsercompatibility); Web builds and native iOS builds are separate validation targets. Native packaging can follow when a Mac or cloud build route is available.
 
-The existing backend's skill, pet, quest, and milestone systems can drive long-term progression. Play supports native hatching, feeding, active companion/mount selection and mount expeditions from the account's owned collection. Native breeding, evolving scenery, furnishings and world unlocks remain later slices. Presentation should read authoritative progress and preserve it when the theme or assets change.
+The existing backend's skill, pet, quest, and milestone systems can drive long-term progression. Play supports native hatching, feeding, active companion/mount selection, mount expeditions and breeding from the account's owned collection. Evolving scenery, furnishings and world unlocks remain later slices. Presentation should read authoritative progress and preserve it when the theme or assets change.
 
 iOS also needs remembered login, refresh after app resume, preserved reconciliation for interrupted saves, an accessible HTTPS backend, an iOS build profile, and validation on Abby's actual phone. Native local builds use macOS and Xcode; [Unity's build guide](https://docs.unity3d.com/6000.0/Documentation/Manual/iphone-BuildProcess.html) also describes the cloud build alternative.
 
@@ -82,7 +134,7 @@ After a local build, run `Builds/Windows/AbbyCamp.exe`. This development build s
 | --- | --- |
 | Rewards | Confirmed balance, recent coin/item history and journal blooms; links to reward shop and items |
 | Inbox | Paginated updates; explicit Mark read on one item; Open related page keeps the same web session |
-| Bestiary | Real owned pets/mounts; hatch, feed, choose an active companion/mount, and start or claim mount expeditions; web links for breeding and species |
+| Bestiary | Real owned pets/mounts; hatch, feed, choose an active companion/mount, start or claim mount expeditions, and breed two mounts; web links for species |
 | Journal / Grades / Tasks / Today | Same-origin web tabs without another sign-in or credentials in URLs |
 | Tap companion / Say hello | Friendly local reaction, with no XP, coins, inventory or ownership change |
 | Account | Refresh progress or disconnect only Play |
@@ -104,7 +156,9 @@ Bestiary reads `/api/pets/stable/`, `/api/inventory/`, `/api/expeditions/` and `
 
 A complete claim receipt confirms the trip and refreshes the collection, inventory and balance. Fresh claims show actual expedition coins (including coin boosts), separately show any duplicate-find salvage coins, and show refreshed inventory quantities for matching finds. Planned slots can repeat or refer to archived definitions; they are not treated as proof of newly granted inventory. A repeat claim awards zero expedition coins and receives no new celebration. Existing web mount, breeding and notification routes remain available during migration; opening either client never automatically claims or consumes reward reveal queues.
 
-Creature actions never automatically retry a POST. A credential-free marker, scoped to server origin and child, is saved in device PlayerPrefs before dispatch. An interrupted or ambiguous feeding, selection, hatch, expedition start or claim keeps all creature actions disabled, including after closing the sheet, reloading Play, or returning to that account. **Refresh creatures and items**, inspect the updated collection, expedition history, inventory quantities and coin balance, then **I checked the updated collection** clears the marker. All four complete reads must succeed before acknowledgement is available. Definite rejection removes the marker but still requires fresh reads before the next action. Other accounts have their own marker and collection; aborted or late responses cannot populate a replacement session. Refreshing never replays a mutation or celebrates a claim inferred from history.
+**Breed two mounts** opens a native sheet in Bestiary. Choose the first parent, choose a different second parent, then explicitly **Breed this pair**. `POST /api/mounts/breed/` grants one egg and one potion and starts both parents' existing seven-day rest period. The stable response reports `can_breed` and ceiling-rounded `breeding_cooldown_seconds` from one server clock snapshot; local time never unlocks a pairing. Away mounts retain the existing service's cooldown-only breeding rules. Species/potion compatibility and Cosmic upgrades are chosen by Django, including compatible potion fallback for legacy parents. A complete typed receipt confirms the actual items, chosen species/potion and any Cosmic upgrade. Play shows those saved results and separately shows matching inventory quantities after refresh. Breeding does not hatch a pet or select an active creature; hatching remains a separate explicit action. The web hatchery and parent routes remain available during migration.
+
+Creature actions never automatically retry a POST. A credential-free marker, scoped to server origin and child, is saved in device PlayerPrefs before dispatch. An interrupted or ambiguous feeding, selection, hatch, breeding, expedition start or claim keeps all creature actions disabled, including after closing the sheet, reloading Play, or returning to that account. **Refresh creatures and items**, inspect the updated collection, parent cooldowns, expedition history, inventory quantities and coin balance, then **I checked the updated collection** clears the marker. All four complete reads must succeed before acknowledgement is available. Definite rejection removes the marker but still requires fresh reads before the next action. Other accounts have their own marker and collection; aborted or late responses cannot populate a replacement session. Refreshing never replays a mutation or celebrates a result inferred from history.
 
 Inbox GETs never change read state. **Mark read** acknowledges only that fetched notification ID and waits for a matching confirmed response before updating the row. If the result is uncertain, the user can refresh or explicitly retry the idempotent acknowledgement; the client never retries a POST automatically. Other unread rows remain unchanged. Pagination accepts only bounded same-origin notification page links. Django returns root-relative continuations so the browser retains its public HTTPS origin even when a tunnel reaches the backend over HTTP. A failed initial load shows a refresh prompt instead of a lingering loading label. Notification destinations are mapped to typed internal routes (including legacy links); arbitrary URLs and credential-bearing links are never followed.
 
@@ -157,6 +211,18 @@ Account-replacement checks use an explicit fixture acknowledgement hold. On eith
 For expedition reconciliation walkthroughs, both fixture servers accept `--fail-first-expedition-start-after-commit` and `--fail-first-expedition-claim-after-commit`. `POST /__fixture/finish-expedition/{id}/` advances only a seeded primary child's active Sun or Trail trip to its return time; it preserves the locked loot. These disposable controls also support held expedition acknowledgements and are never part of the product API.
 
 `Library`, build output, logs, screenshots, and user settings are ignored; source `.meta` files are retained. The package manifest/lock and project settings are included. Journal/grade reactions are currently implemented in React; connecting those saves to an owned Unity companion is a later slice. Real-phone lifecycle/performance and native iOS deployment need their own validation before Abby uses it day to day.
+
+## Native breeding verification — 2026-10-11
+
+Unity 6000.6.5f1 validated the saved scene, rendering, appearance swaps and 369 API checks. The final Windows player passed 1,719 runtime checks with 34 rendered captures and no runtime errors. It verified explicit distinct-parent choices, unchanged phone targets, server cooldown gates, exact normal egg/potion grants, interrupted pairing review without replay, and a real committed Cosmic pairing during account replacement. Returning to the original account required fresh reads and explicit review; both parents' saved rest stamps and all items remained intact. All care, hatching and expedition checks also passed, with zero hold timeouts and unchanged other-family, XP and drop state. Counts include polling snapshots.
+
+The exported Web player passed a disposable same-origin walkthrough at 393×852 portrait and 844×393 landscape. A saved pairing with an interrupted acknowledgement kept the review marker across reload; four fresh reads and explicit review replayed no request. A second confirmed pairing displayed the actual Cosmic egg/potion result and refreshed quantities. Immediate and final database snapshots verified exactly two requests and two commits, two eggs and two potions, matching parent rest stamps, unchanged coins, XP, drops, existing care/expeditions and the other family. Browser logs contained no runtime errors; fixed footer and action targets retained their existing size.
+
+Confirmed creature actions now retain the save lock through all four refresh reads and their outer coroutine's completion. This prevents a previous save from unlocking a newer action. The disposable fixture samples its response counters before business rows; a deterministic threaded regression verifies that a snapshot begun before a commit cannot falsely report its later commit marker. The harness reserves login capacity before response holds to honor the existing ten-per-minute production throttle. No production throttle, request deadline or mutation retry policy was relaxed.
+
+All 138 affected SQLite tests, 139 PostgreSQL tests and 2,858 React tests passed, including coverage gates, lint and the frontend build. PostgreSQL ran in owned disposable containers that were verified and removed. Browser bridge/template checks passed all 32 tests and presentation sync verified eighteen files. Physical phone performance and lifecycle testing remain separate.
+
+For disposable browser breeding checks, use `--fail-first-breed-after-commit` on either fixture server. `POST /__fixture/next-breed-roll/` with a JSON boolean `chromatic` controls only the next successful designated primary pairing, through the real service. These fixture-only controls preserve the other family's state and restore the service RNG before a held acknowledgement.
 
 ## Native expedition verification — 2026-10-11
 

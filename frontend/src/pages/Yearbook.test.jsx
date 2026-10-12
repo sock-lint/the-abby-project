@@ -108,7 +108,7 @@ describe('Yearbook page', () => {
     renderWithProviders(<Yearbook />)
     // Shelf has one tab per chapter
     await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /yearbook chapters/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /timeline years/i })).toBeInTheDocument(),
     )
     expect(screen.getAllByRole('tab')).toHaveLength(2)
     // The current chapter opens by default — region role disambiguates from
@@ -134,7 +134,7 @@ describe('Yearbook page', () => {
     const user = userEvent.setup()
     renderWithProviders(<Yearbook />)
     await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /yearbook chapters/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /timeline years/i })).toBeInTheDocument(),
     )
     await user.click(screen.getByRole('tab', { name: /Grade 8/ }))
     expect(screen.getByRole('region', { name: 'Grade 8' })).toBeInTheDocument()
@@ -263,7 +263,7 @@ describe('Yearbook — parent add-memory interaction', () => {
       ),
     )
     renderWithProviders(<Yearbook />)
-    await screen.findByRole('heading', { name: 'The Yearbook' })
+    await screen.findByRole('heading', { name: 'Timeline' })
     expect(screen.queryByRole('button', { name: /add memory/i })).toBeNull()
   })
 })

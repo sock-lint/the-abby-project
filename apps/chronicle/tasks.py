@@ -75,7 +75,7 @@ def _send_birthday_notification(user, coin_amount: int) -> None:
             user=user,
             notification_type=NotificationType.BIRTHDAY,
             title=f"Happy birthday, {user.display_label}!",
-            message=f"Your Yearbook has a new entry and {coin_amount} coins are in your treasury.",
+            message=f"Your Timeline has a new entry and {coin_amount} coins have been added to your coin balance.",
         )
     except Exception:
         logger.exception("Birthday notification failed")

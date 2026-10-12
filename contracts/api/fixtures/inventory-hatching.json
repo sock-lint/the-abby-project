@@ -22,7 +22,7 @@
     "available_actions": [
       {
         "id": "hatch",
-        "label": "Hatch in Hatchery",
+        "label": "Hatch a companion",
         "to": "/bestiary?tab=hatchery"
       }
     ]
@@ -78,7 +78,7 @@
     "available_actions": [
       {
         "id": "hatch",
-        "label": "Hatch in Hatchery",
+        "label": "Hatch a companion",
         "to": "/bestiary?tab=hatchery"
       }
     ]
@@ -106,7 +106,7 @@
     "available_actions": [
       {
         "id": "hatch",
-        "label": "Hatch in Hatchery",
+        "label": "Hatch a companion",
         "to": "/bestiary?tab=hatchery"
       }
     ]

@@ -566,6 +566,165 @@ class SharedApiResponseFixtureTests(APITestCase):
             self.assertEqual(response.status_code, 401)
         self.assertEqual((self.expedition_reward_state(), self.expedition_rows_state()), before)
 
+    def seed_breeding(self):
+        self.seed_companion_care()
+        self.other_mount.potion_id = 43
+        self.other_mount.last_bred_at = FIXED_NOW - timedelta(days=7)
+        self.other_mount.save(update_fields=["potion", "last_bred_at"])
+        UserMount.objects.create(
+            id=63, user=self.child, species_id=41, potion_id=43,
+            last_bred_at=FIXED_NOW - timedelta(days=2),
+        )
+        cosmic = PotionType.objects.create(
+            id=45, slug="cosmic", name="Cosmic", sprite_key="cosmic-potion",
+            color_hex="#AA88FF", rarity="legendary",
+        )
+        base = PotionType.objects.create(id=46, slug="base", name="Base", color_hex="#8B7355")
+        self.breeding_base = base
+        self.mount.species.available_potions.add(cosmic, base)
+        ItemDefinition.objects.create(
+            id=75, slug="fixture-wolf-egg", name="Synthetic Wolf Egg", icon="🥚",
+            sprite_key="big-egg", item_type="egg", pet_species_id=42,
+        )
+        for item_id, potion, name in (
+            (76, PotionType.objects.get(pk=43), "Synthetic Fire Potion"),
+            (77, PotionType.objects.get(pk=44), "Synthetic Ice Potion"),
+            (78, cosmic, "Synthetic Cosmic Potion"),
+            (79, base, "Synthetic Base Potion"),
+        ):
+            ItemDefinition.objects.create(
+                id=item_id, slug=f"fixture-breeding-{potion.slug}", name=name, icon="🧪",
+                sprite_key=potion.sprite_key, item_type="potion", potion_type=potion, rarity=potion.rarity,
+            )
+        UserInventory.objects.create(id=85, user=self.child, item_id=77, quantity=3)
+        MountExpedition.objects.create(
+            id=103, mount=self.mount, tier="short", status="active",
+            started_at=FIXED_NOW - timedelta(hours=1), returns_at=FIXED_NOW + timedelta(hours=1),
+            loot={"coins": 15, "items": []},
+        )
+        with connection.cursor() as cursor:
+            if connection.vendor == "sqlite":
+                cursor.execute(
+                    "UPDATE sqlite_sequence SET seq = (SELECT MAX(id) FROM rpg_userinventory) "
+                    "WHERE name = 'rpg_userinventory'"
+                )
+            else:
+                for sql in connection.ops.sequence_reset_sql(no_style(), [UserInventory]):
+                    cursor.execute(sql)
+
+    def breeding_state(self):
+        return (
+            self.expedition_reward_state(), self.expedition_rows_state(),
+            list(UserMount.objects.order_by("pk").values_list("pk", "user_id", "species_id", "potion_id", "last_bred_at", "is_active", "updated_at")),
+        )
+
+    def assert_breeding_success(self, fixture, potion_item_id, chromatic=False):
+        before_inventory = {
+            (row.user_id, row.item_id): row.quantity for row in UserInventory.objects.all()
+        }
+        before_progress = self.expedition_reward_state()[1:5]
+        before_expeditions = self.expedition_rows_state()
+        before_pet_count = UserPet.objects.count()
+        before_mount_count = UserMount.objects.count()
+        with patch("apps.pets.services.random.choice", side_effect=lambda options: options[0]), patch("apps.pets.services.random.random", return_value=0.001 if chromatic else 0.5):
+            response = self.client.post("/api/mounts/breed/", {
+                "mount_a_id": 61, "mount_b_id": 62, "user_id": self.outsider.pk,
+            }, format="json")
+        body = self.assert_response_fixture(response, fixture, status=201)
+        self.assertEqual(body["egg_item_id"], 73)
+        self.assertEqual(body["potion_item_id"], potion_item_id)
+        self.assertEqual((body["picked_species"], body["picked_species_slug"]), ("Fox", "fixture-fox"))
+        self.assertEqual(body["chromatic"], chromatic)
+        self.assertEqual(body["cooldown_days"], 7)
+        expected_inventory = before_inventory.copy()
+        for item_id in (73, potion_item_id):
+            key = (self.child.pk, item_id)
+            expected_inventory[key] = expected_inventory.get(key, 0) + 1
+        self.assertEqual({(row.user_id, row.item_id): row.quantity for row in UserInventory.objects.all()}, expected_inventory)
+        self.assertEqual(self.expedition_reward_state()[1:5], before_progress)
+        self.assertEqual(self.expedition_rows_state(), before_expeditions)
+        self.assertEqual((UserPet.objects.count(), UserMount.objects.count()), (before_pet_count, before_mount_count))
+        for mount_id in (61, 62):
+            mount = UserMount.objects.get(pk=mount_id)
+            self.assertEqual(mount.last_bred_at, FIXED_NOW)
+            self.assertEqual(mount.is_active, mount_id == 61)
+        self.assertEqual(UserMount.objects.get(pk=63).last_bred_at, FIXED_NOW - timedelta(days=2))
+        self.assertTrue(all(UserMount.objects.get(pk=mount_id).last_bred_at is None for mount_id in (81, 82)))
+        self.assertEqual(set(Notification.objects.filter(notification_type="mount_bred").values_list("user_id", flat=True)), {6, 7})
+        return body
+
+    def test_breeding_stable_eligibility_preserves_ready_away_and_cooldown_mounts(self):
+        self.seed_breeding()
+        before = self.breeding_state()
+        body = self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-stable-breeding.json")
+        mounts = {row["id"]: row for row in body["mounts"]}
+        self.assertTrue(mounts[61]["can_breed"])
+        self.assertEqual(mounts[61]["breeding_cooldown_seconds"], 0)
+        self.assertEqual(mounts[61]["active_expedition"]["id"], 103)
+        self.assertEqual((mounts[62]["can_breed"], mounts[62]["breeding_cooldown_seconds"]), (True, 0))
+        self.assertEqual((mounts[63]["can_breed"], mounts[63]["breeding_cooldown_seconds"]), (False, 432000))
+        self.assertEqual(self.breeding_state(), before)
+
+    def test_breeding_grants_one_pair_stamps_both_parents_and_preserves_progression(self):
+        self.seed_breeding()
+        body = self.assert_breeding_success("mount-breed.json", 77)
+        self.assertEqual((body["picked_potion"], body["picked_potion_slug"]), ("Ice", "ice"))
+        self.assert_response_fixture(self.client.get("/api/inventory/"), "inventory-breeding.json")
+        stable = self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-stable-breeding-after.json")
+        for row in stable["mounts"]:
+            if row["id"] in (61, 62):
+                self.assertEqual((row["can_breed"], row["breeding_cooldown_seconds"]), (False, 604800))
+        before_repeat = self.breeding_state()
+        response = self.client.post("/api/mounts/breed/", {"mount_a_id": 61, "mount_b_id": 62}, format="json")
+        self.assert_response_fixture(response, "mount-breed-repeat-cooldown.json", status=400)
+        self.assertEqual(self.breeding_state(), before_repeat)
+
+    def test_breeding_chromatic_receipt_grants_the_supported_cosmic_potion_once(self):
+        self.seed_breeding()
+        body = self.assert_breeding_success("mount-breed-chromatic.json", 78, chromatic=True)
+        self.assertEqual((body["picked_potion"], body["picked_potion_slug"]), ("Cosmic", "cosmic"))
+
+    def test_breeding_fallback_receipt_uses_registered_compatibility_for_old_parents(self):
+        self.seed_breeding()
+        self.mount.species.available_potions.set([self.breeding_base])
+        body = self.assert_breeding_success("mount-breed-fallback.json", 79)
+        self.assertEqual((body["picked_potion"], body["picked_potion_slug"]), ("Base", "base"))
+        self.assertNotIn(body["picked_potion_slug"], {self.mount.potion.slug, self.other_mount.potion.slug})
+
+    def test_breeding_rejections_preserve_inventory_parents_and_other_families(self):
+        self.seed_breeding()
+        before = self.breeding_state()
+        for submitted in ({}, {"mount_a_id": 61}, {"mount_b_id": 62}):
+            self.assert_response_fixture(self.client.post("/api/mounts/breed/", submitted, format="json"), "mount-breed-missing-mounts.json", status=400)
+        self.assert_response_fixture(self.client.post("/api/mounts/breed/", {"mount_a_id": 61, "mount_b_id": 61}, format="json"), "mount-breed-same-mount.json", status=400)
+        self.assert_response_fixture(self.client.post("/api/mounts/breed/", {"mount_a_id": "invalid", "mount_b_id": 62}, format="json"), "mount-breed-invalid-ids.json", status=400)
+        for mount_id in (81, 82, 999):
+            self.assert_response_fixture(self.client.post("/api/mounts/breed/", {"mount_a_id": 61, "mount_b_id": mount_id}, format="json"), "mount-breed-not-owned.json", status=400)
+        self.assert_response_fixture(self.client.post("/api/mounts/breed/", {"mount_a_id": 61, "mount_b_id": 63}, format="json"), "mount-breed-cooldown.json", status=400)
+        self.assertEqual(self.breeding_state(), before)
+        self.client.credentials()
+        response = self.client.post("/api/mounts/breed/", {"mount_a_id": 61, "mount_b_id": 62}, format="json")
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(self.breeding_state(), before)
+
+    def test_breeding_service_and_projection_agree_at_the_exact_cooldown_boundary(self):
+        self.seed_breeding()
+        UserMount.objects.filter(pk=62).update(last_bred_at=FIXED_NOW - timedelta(days=7) + timedelta(microseconds=1))
+        before = self.breeding_state()
+        stable = self.client.get("/api/pets/stable/").json()
+        resting = next(row for row in stable["mounts"] if row["id"] == 62)
+        self.assertEqual((resting["can_breed"], resting["breeding_cooldown_seconds"]), (False, 1))
+        response = self.client.post("/api/mounts/breed/", {"mount_a_id": 61, "mount_b_id": 62}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {"error": "Wolf is still resting — 1 day(s) until it can breed again"})
+        self.assertEqual(self.breeding_state(), before)
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(microseconds=1)), patch("apps.pets.services.random.choice", side_effect=lambda options: options[0]), patch("apps.pets.services.random.random", return_value=0.5):
+            stable = self.client.get("/api/pets/stable/").json()
+            ready = next(row for row in stable["mounts"] if row["id"] == 62)
+            self.assertEqual((ready["can_breed"], ready["breeding_cooldown_seconds"]), (True, 0))
+            response = self.client.post("/api/mounts/breed/", {"mount_a_id": 61, "mount_b_id": 62}, format="json")
+        self.assertEqual(response.status_code, 201)
+
     def test_stable_and_inventory_preserve_companion_ownership_and_nested_data(self):
         self.seed_companion_care()
         stable = self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-stable.json")
@@ -588,6 +747,20 @@ class SharedApiResponseFixtureTests(APITestCase):
         UserInventory.objects.filter(user=self.child).delete()
         self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-stable-empty.json")
         self.assert_response_fixture(self.client.get("/api/inventory/"), "inventory-empty.json")
+
+    def test_empty_stable_counts_restricted_species_variants(self):
+        self.seed_companion_care()
+        self.ready_pet.species.available_potions.set([self.ready_pet.potion])
+        UserPet.objects.filter(user=self.child).delete()
+        UserMount.objects.filter(user=self.child).delete()
+
+        stable = self.assert_response_fixture(
+            self.client.get("/api/pets/stable/"), "pets-stable-restricted-empty.json",
+        )
+
+        self.assertEqual(stable["total_possible"], 3)
+        self.assertTrue(UserPet.objects.filter(user=self.sibling).exists())
+        self.assertTrue(UserMount.objects.filter(user=self.outsider).exists())
 
     def test_feed_consumes_one_food_and_returns_confirmed_growth(self):
         self.seed_companion_care()

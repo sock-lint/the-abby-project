@@ -119,7 +119,7 @@ def force_celebration(
         n = notify(
             user,
             title="Perfect day",
-            message="Every daily ritual touched.",
+            message="Every daily chore completed.",
             notification_type=NotificationType.PERFECT_DAY,
         )
         return {"kind": kind, "notification_id": n.pk}
@@ -137,8 +137,8 @@ def force_celebration(
                 f"{getattr(user, 'display_label', user.username)}!"
             ),
             message=(
-                "Your Yearbook has a new entry and "
-                f"{gift_coins} coins are in your treasury."
+                "Your Timeline has a new entry and "
+                f"{gift_coins} coins have been added to your coin balance."
             ),
             notification_type=NotificationType.BIRTHDAY,
         )

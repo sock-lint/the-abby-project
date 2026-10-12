@@ -64,6 +64,6 @@ describe('SkillDetailSheet', () => {
         onClose={() => {}}
       />,
     );
-    expect(screen.getByText(/locked/i)).toBeInTheDocument();
+    expect(screen.getByText(/complete the required skills to unlock this skill/i)).toBeInTheDocument();
   });
 });

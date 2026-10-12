@@ -185,7 +185,7 @@ export default function Rewards() {
   const handleDeleteReward = (id) =>
     askConfirm({
       title: 'Delete reward?',
-      message: 'This cannot be undone. Existing redemptions will be preserved.',
+      message: 'This cannot be undone. Existing reward requests will be preserved.',
       onConfirm: async () => {
         try {
           await deleteReward(id);
@@ -216,15 +216,15 @@ export default function Rewards() {
       <header className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
-            the bazaar · barter coins for treasures
+            Use your coins for rewards
           </div>
           {/* Below md the Treasury hub's tab strip already names this page —
               the stacked h1 + explainer ate ~100px above the fold on phones. */}
           <h1 className="hidden md:block font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-            Bazaar
+            Rewards
           </h1>
           <div className="hidden md:block font-script text-body text-ink-whisper mt-1 max-w-xl">
-            barter coins earned from work, duties, rituals, and badges · some treasures need a parent's nod first
+            Use earned coins for rewards. Some rewards need parent approval.
           </div>
         </div>
         {isParent && (
@@ -268,7 +268,7 @@ export default function Rewards() {
           whole section for a child too. */}
       {redemptionsError && (
         <ErrorAlert
-          message={`Couldn't load redemptions. ${redemptionsError}`}
+          message={`Couldn't load reward requests. ${redemptionsError}`}
           onRetry={reloadRedemptions}
         />
       )}
@@ -280,7 +280,7 @@ export default function Rewards() {
       )}
       {isParent && pendingRedemptionsError && (
         <ErrorAlert
-          message={`Couldn't load pending redemptions. ${pendingRedemptionsError}`}
+          message={`Couldn't load pending reward requests. ${pendingRedemptionsError}`}
           onRetry={reloadPendingRedemptions}
         />
       )}
@@ -294,7 +294,7 @@ export default function Rewards() {
       {isParent && (
         loadingPendingRedemptions ? <Loader /> : !pendingRedemptionsError && pending.length > 0 && (
           <section>
-            <SectionHeader index={0} title="Pending redemptions" count={pending.length} />
+            <SectionHeader index={0} title="Pending reward requests" count={pending.length} />
             <div className="mt-3">
               <RedemptionApprovalQueue
                 pending={pending}
@@ -327,12 +327,12 @@ export default function Rewards() {
         <SectionHeader
           index={isParent ? 2 : 0}
           title="Shop"
-          kicker="browse the bazaar"
+          kicker="Browse available rewards"
         />
         <div className="mt-3 space-y-4">
           {loadingRewards ? <Loader /> : rewardsError ? (
             <ErrorAlert
-              message={`Couldn't load the bazaar. ${rewardsError}`}
+              message={`Couldn't load the reward shop. ${rewardsError}`}
               onRetry={reloadRewards}
             />
           ) : (
@@ -342,7 +342,7 @@ export default function Rewards() {
                   <CatalogSearch
                     value={shopFilter}
                     onChange={setShopFilter}
-                    placeholder="Search the bazaar…"
+                    placeholder="Search rewards…"
                     ariaLabel="Filter rewards"
                   />
                   {shopFilter && (
@@ -370,10 +370,10 @@ export default function Rewards() {
       </section>
 
       {!loadingRedemptions && redemptions.length > 0 && (
-        <AccordionSection index={isParent ? 3 : 1} title="Redemption history" count={redemptions.length}>
+        <AccordionSection index={isParent ? 3 : 1} title="Reward request history" count={redemptions.length}>
           {redemptionsData?.count > redemptions.length && (
             <p className="font-script text-caption text-ink-whisper">
-              Showing the {redemptions.length} most recent of {redemptionsData.count} redemptions.
+              Showing the {redemptions.length} most recent of {redemptionsData.count} reward requests.
             </p>
           )}
           <RedemptionHistory redemptions={redemptions} isParent={isParent} />
@@ -478,14 +478,15 @@ function ConfirmRedeemSheet({ reward, balance, onClose, onConfirm }) {
           </div>
         </div>
         <p className="font-body text-caption text-ink-secondary text-center">
-          Your coins are held as soon as you ask — a parent has to approve it
-          before you get the reward, and only they can hand them back.
+          Coins are held when you request this reward. If it needs parent
+          approval, you'll receive it after approval. You can't cancel a request
+          yourself; rejected requests return your coins.
         </p>
         <Button onClick={onConfirm} variant="primary" className="w-full">
-          Yes, barter it
+          Request reward
         </Button>
         <Button onClick={onClose} variant="ghost" size="sm" className="w-full">
-          Not yet
+          Cancel
         </Button>
       </div>
     </BottomSheet>
@@ -501,7 +502,7 @@ function OutOfStockSheet({ state, onClose, onWishlist, onPickSimilar }) {
     >
       <div className="space-y-3">
         <p className="font-body text-body text-ink-secondary">
-          This one's been claimed for now. Want a heads-up when it's back?
+          This reward is out of stock. Get a notification when it's available again.
         </p>
         <Button onClick={onWishlist} variant="primary" size="sm" className="w-full">
           Notify me when restocked
@@ -509,7 +510,7 @@ function OutOfStockSheet({ state, onClose, onWishlist, onPickSimilar }) {
         {similar.length > 0 && (
           <div>
             <div className="font-script text-body text-sheikah-teal-deep mt-2 mb-1.5">
-              you might also like
+              Similar rewards
             </div>
             <div className="space-y-1.5">
               {similar.map((s) => (
@@ -524,7 +525,7 @@ function OutOfStockSheet({ state, onClose, onWishlist, onPickSimilar }) {
                     {s.icon} {s.name}
                   </span>
                   <span className="font-script text-tiny text-gold-leaf shrink-0">
-                    {s.cost_coins}c
+                    {s.cost_coins} coins
                   </span>
                 </Button>
               ))}

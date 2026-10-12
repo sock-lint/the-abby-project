@@ -59,7 +59,7 @@ function PerfectDayBody() {
         Perfect day
       </h2>
       <p className="mt-2 text-body text-ink-secondary">
-        Every duty done. Today's page glows.
+        You completed all your daily chores for today.
       </p>
       <p className="mt-3 text-caption text-gold-leaf">+15 coins · perfect day</p>
     </>

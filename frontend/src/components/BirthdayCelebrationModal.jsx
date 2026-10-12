@@ -77,7 +77,7 @@ export default function BirthdayCelebrationModal({ entry, onDismiss }) {
           {age}
         </motion.div>
         {gift > 0 && (
-          <p className="mt-4 text-body text-ink-secondary">🎁 {gift} coins added to your treasury</p>
+          <p className="mt-4 text-body text-ink-secondary">🎁 {gift} coins added to your balance</p>
         )}
         {!reduced && (
           <div

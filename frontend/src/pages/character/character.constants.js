@@ -28,15 +28,15 @@ export const COSMETIC_CHAPTERS = [
   {
     slot: 'active_theme',
     rubric: chapterMark(2),
-    letter: 'B',
+    letter: 'C',
     name: 'Journal Covers',
-    kicker: 'Choose the colors for your world',
+    kicker: 'Choose your app colors',
   },
   {
     slot: 'active_pet_accessory',
     rubric: chapterMark(3),
     letter: 'P',
-    name: 'Pet Regalia',
+    name: 'Pet Accessories',
     kicker: 'Little extras for your companion',
   },
 ];

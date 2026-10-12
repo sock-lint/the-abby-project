@@ -38,7 +38,7 @@ export default function ChapterCard({ chapter }) {
         <IncipitBand
           letter={letter}
           title={label}
-          kicker="· current chapter ·"
+          kicker="Current year"
           meta={
             <>
               <span className="tabular-nums">{progress}%</span>

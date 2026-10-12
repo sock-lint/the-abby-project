@@ -29,7 +29,7 @@ function renderPage(user = buildUser(), handlers = [], route = '/quests?tab=ritu
 }
 
 describe('Habits', () => {
-  // Same deep link as Duties — the FAB's "Propose a ritual" row.
+  // Same deep link as Duties — the FAB's "Propose a habit" row.
   it('opens the propose sheet when deep-linked with ?propose=1', async () => {
     renderPage(buildUser(), [
       http.get('*/api/habits/', () => HttpResponse.json([])),
@@ -49,7 +49,7 @@ describe('Habits', () => {
       http.get('*/api/habits/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
-      expect(screen.getByText((t) => /no rituals/i.test(t))).toBeInTheDocument(),
+      expect(screen.getByText((t) => /no habits/i.test(t))).toBeInTheDocument(),
     );
   });
 
@@ -128,26 +128,26 @@ describe('Habits', () => {
       http.post(/\/api\/habits\/\d+\/log\/$/, () => HttpResponse.json({ ok: true })),
     ]);
 
-    await user.click(await screen.findByRole('button', { name: /virtue/i }));
+    await user.click(await screen.findByRole('button', { name: /log progress/i }));
     expect(vibrate).toHaveBeenCalled();
   });
 
-  it('ritual form sheet offers a Cancel alongside submit, like the Duties sheet', async () => {
+  it('habit form sheet offers a Cancel alongside submit, like the Chores sheet', async () => {
     const user = userEvent.setup();
     renderPage(buildParent(), [
       http.get('*/api/habits/', () => HttpResponse.json([])),
       http.get('*/api/children/', () => HttpResponse.json([])),
     ]);
-    await user.click(await screen.findByRole('button', { name: /new ritual/i }));
-    const dialog = await screen.findByRole('dialog', { name: /new ritual/i });
+    await user.click(await screen.findByRole('button', { name: /new habit/i }));
+    const dialog = await screen.findByRole('dialog', { name: /new habit/i });
     expect(within(dialog).getByRole('button', { name: /^cancel$/i })).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: /^cancel$/i }));
     await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: /new ritual/i })).toBeNull(),
+      expect(screen.queryByRole('dialog', { name: /new habit/i })).toBeNull(),
     );
   });
 
-  it('locks the ritual sheet closed while a create is in flight', async () => {
+  it('locks the habit sheet closed while a create is in flight', async () => {
     const user = userEvent.setup();
     renderPage(buildParent(), [
       http.get('*/api/habits/', () => HttpResponse.json([])),
@@ -155,15 +155,15 @@ describe('Habits', () => {
       // Never resolves — holds the form in its saving state.
       http.post('*/api/habits/', () => new Promise(() => {})),
     ]);
-    await user.click(await screen.findByRole('button', { name: /new ritual/i }));
-    const dialog = await screen.findByRole('dialog', { name: /new ritual/i });
+    await user.click(await screen.findByRole('button', { name: /new habit/i }));
+    const dialog = await screen.findByRole('dialog', { name: /new habit/i });
     await user.type(within(dialog).getByRole('textbox', { name: /name/i }), 'Stretch');
-    await user.click(within(dialog).getByRole('button', { name: /create ritual/i }));
+    await user.click(within(dialog).getByRole('button', { name: /create habit/i }));
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /^close$/i })).toBeDisabled(),
     );
-    expect(screen.getByRole('dialog', { name: /new ritual/i })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: /new habit/i })).toBeInTheDocument();
   });
 
   it('clicking virtue posts {direction:1} to /habits/{id}/log/', async () => {
@@ -178,7 +178,7 @@ describe('Habits', () => {
       tap.handler,
     ]);
 
-    const button = await screen.findByRole('button', { name: /virtue/i });
+    const button = await screen.findByRole('button', { name: /log progress/i });
     await user.click(button);
 
     await waitFor(() => expect(tap.calls).toHaveLength(1));
@@ -205,7 +205,7 @@ describe('Habits', () => {
       tap.handler,
     ]);
 
-    const button = await screen.findByRole('button', { name: /vice/i });
+    const button = await screen.findByRole('button', { name: /log setback/i });
     await user.click(button);
 
     await waitFor(() => expect(tap.calls).toHaveLength(1));
@@ -226,14 +226,14 @@ describe('Habits', () => {
     expect(screen.getByText(/2\/2 today/)).toBeInTheDocument();
   });
 
-  it('child sees "Propose a ritual" button and form hides xp + skill tags', async () => {
+  it('child sees "Propose a habit" button and form hides xp + skill tags', async () => {
     const user = userEvent.setup();
     renderPage(buildUser(), [
       http.get('*/api/habits/', () => HttpResponse.json([])),
     ]);
-    const btn = await screen.findByRole('button', { name: /propose a ritual/i });
+    const btn = await screen.findByRole('button', { name: /propose a habit/i });
     await user.click(btn);
-    await screen.findByRole('dialog', { name: /propose a ritual/i });
+    await screen.findByRole('dialog', { name: /propose a habit/i });
     expect(
       screen.getByText(/your parent will set the rewards/i),
     ).toBeInTheDocument();
@@ -249,7 +249,7 @@ describe('Habits', () => {
       http.get('*/api/habits/', () => HttpResponse.json([])),
       create.handler,
     ]);
-    await user.click(await screen.findByRole('button', { name: /propose a ritual/i }));
+    await user.click(await screen.findByRole('button', { name: /propose a habit/i }));
     const submit = await screen.findByRole('button', { name: /send to parent/i });
     await user.type(screen.getByLabelText('Name'), 'Stretch');
     await user.click(submit);
@@ -262,7 +262,7 @@ describe('Habits', () => {
     expect(body.user).toBeUndefined();
   });
 
-  it('parent reviewing a pending ritual proposal posts to /habits/{id}/approve/ with xp', async () => {
+  it('parent reviewing a pending habit proposal posts to /habits/{id}/approve/ with xp', async () => {
     const user = userEvent.setup();
     const approve = spyHandler('post', /\/api\/habits\/\d+\/approve\/$/, { id: 77 });
     const proposal = {
@@ -295,7 +295,7 @@ describe('Habits', () => {
 
     const review = await screen.findByRole('button', { name: /review & publish/i });
     await user.click(review);
-    await screen.findByRole('dialog', { name: /approve ritual proposal/i });
+    await screen.findByRole('dialog', { name: /approve habit proposal/i });
     await user.click(screen.getByRole('button', { name: /approve & publish/i }));
 
     await waitFor(() => expect(approve.calls).toHaveLength(1));
@@ -322,7 +322,7 @@ describe('Habits', () => {
     ]);
 
     expect(await screen.findByText('3')).toBeInTheDocument();
-    const button = await screen.findByRole('button', { name: /virtue/i });
+    const button = await screen.findByRole('button', { name: /log progress/i });
     await user.click(button);
 
     // While the POST is in-flight, the medallion shows the bumped value.
@@ -349,7 +349,7 @@ describe('Habits', () => {
     ]);
 
     expect(await screen.findByText('3')).toBeInTheDocument();
-    const button = await screen.findByRole('button', { name: /virtue/i });
+    const button = await screen.findByRole('button', { name: /log progress/i });
     await user.click(button);
 
     // After the error lands, strength is back to 3 (rollback fired).
@@ -370,10 +370,10 @@ describe('Habits', () => {
       http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       create.handler,
     ]);
-    const newBtn = await screen.findByRole('button', { name: /new ritual/i });
+    const newBtn = await screen.findByRole('button', { name: /new habit/i });
     await user.click(newBtn);
     // Wait for the modal's submit button to confirm it's open, then fill inputs.
-    const submit = await screen.findByRole('button', { name: /create ritual/i });
+    const submit = await screen.findByRole('button', { name: /create habit/i });
     const textboxes = screen.getAllByRole('textbox');
     await user.type(textboxes[0], 'Brush teeth'); // Name field is first textbox.
     // Max taps and XP are the two spinbuttons; first is max_taps_per_day per form order.
@@ -407,7 +407,7 @@ describe('Habits', () => {
     expect(container.querySelector('[data-rarity]')).toBeNull();
   });
 
-  it('filters rituals by name via the search input', async () => {
+  it('filters habits by name via the search input', async () => {
     const user = userEvent.setup();
     renderPage(buildUser(), [
       http.get('*/api/habits/', ({ request }) => {
@@ -423,7 +423,7 @@ describe('Habits', () => {
     ]);
     await waitFor(() => expect(screen.getByText(/read 20 min/i)).toBeInTheDocument());
 
-    const search = screen.getByRole('searchbox', { name: /filter rituals/i });
+    const search = screen.getByRole('searchbox', { name: /filter habits/i });
     await user.type(search, 'read');
 
     expect(screen.getByText(/read 20 min/i)).toBeInTheDocument();

@@ -49,7 +49,7 @@ describe('TapAndRewardTrial', () => {
     const user = userEvent.setup();
     render(<TapAndRewardTrial entry={tapEntry} onReady={onReady} />);
 
-    await user.click(screen.getByRole('button', { name: /i get it/i }));
+    await user.click(screen.getByRole('button', { name: /i understand/i }));
     expect(onReady).toHaveBeenCalled();
   });
 });

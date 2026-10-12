@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSpriteCatalog } from '../../providers/spriteCatalog.context';
+import { getLicensedRpgSprite } from '../../storybook/licensedRpgSprites';
 
 const SIZE_TO_TEXT_CLASS = {
   24: 'text-xl',
@@ -62,7 +63,8 @@ export default function RpgSprite({
   // Bind failures to the URL that failed. A late error from the previous
   // portrait must not hide a new species or a refreshed catalog URL.
   const [failedUrls, setFailedUrls] = useState(() => new Set());
-  const meta = [getSpriteMeta(spriteKey), fallbackSpriteKey ? getSpriteMeta(fallbackSpriteKey) : null]
+  const meta = [spriteKey, fallbackSpriteKey].filter(Boolean)
+    .flatMap((key) => [getLicensedRpgSprite(key), getSpriteMeta(key)])
     .find((candidate) => candidate?.url && !failedUrls.has(candidate.url));
   const onImageError = () => setFailedUrls((previous) => new Set(previous).add(meta.url));
   const imageRendering = rendering === 'pixelated' ? 'pixelated' : 'auto';

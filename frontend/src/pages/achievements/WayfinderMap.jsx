@@ -32,7 +32,7 @@ export function WayfinderCategoryMap({ categories = [], catalog, onSelectCategor
 
   return (
     <>
-      <div className="wayfinder-origin">Choose a direction</div>
+      <div className="wayfinder-origin">Choose a category</div>
       <ul className="wayfinder-category-map" aria-label="Skill categories">
         {categories.map((category) => {
           const subjects = catalog?.subjects?.filter((subject) => belongsToCategory(subject, category));

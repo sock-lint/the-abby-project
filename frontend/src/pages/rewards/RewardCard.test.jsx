@@ -32,7 +32,7 @@ describe('RewardCard', () => {
         onDelete={vi.fn()}
       />,
     );
-    await user.click(screen.getByRole('button', { name: /barter/i }));
+    await user.click(screen.getByRole('button', { name: /request reward/i }));
     expect(onRedeem).toHaveBeenCalledWith(reward);
   });
 
@@ -64,7 +64,7 @@ describe('RewardCard', () => {
     expect(screen.getByRole('button', { name: /out of stock/i })).toBeDisabled();
   });
 
-  it('keeps Barter tappable when the balance is unknown', () => {
+  it('keeps requesting a reward available when the balance is unknown', () => {
     // coinBalance === null means the balance fetch failed. Greying every
     // card out with "Not enough coin" would be a lie about money the kid
     // may well have.
@@ -79,10 +79,10 @@ describe('RewardCard', () => {
       />,
     );
     expect(screen.queryByRole('button', { name: /not enough coin/i })).toBeNull();
-    expect(screen.getByRole('button', { name: /^barter$/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /^request reward$/i })).toBeEnabled();
   });
 
-  it('labels digital rewards as Satchel items', () => {
+  it('labels digital rewards as inventory items', () => {
     render(
       <RewardCard
         reward={buildReward({
@@ -96,7 +96,7 @@ describe('RewardCard', () => {
         onDelete={vi.fn()}
       />,
     );
-    expect(screen.getByText(/adds streak freeze to satchel/i)).toBeInTheDocument();
+    expect(screen.getByText(/adds streak freeze to inventory/i)).toBeInTheDocument();
   });
 
   it('hides redeem button for parent and wires edit/delete callbacks', async () => {
@@ -114,7 +114,7 @@ describe('RewardCard', () => {
         onDelete={onDelete}
       />,
     );
-    expect(screen.queryByRole('button', { name: /barter/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /request reward/i })).toBeNull();
     await user.click(screen.getByRole('button', { name: /edit reward/i }));
     expect(onEdit).toHaveBeenCalledWith(reward);
     await user.click(screen.getByRole('button', { name: /delete reward/i }));

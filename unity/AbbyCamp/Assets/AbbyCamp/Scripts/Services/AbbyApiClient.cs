@@ -36,6 +36,7 @@ namespace AbbyCamp.Services
         private readonly Dictionary<int, InventoryEntryDto> knownInventory = new Dictionary<int, InventoryEntryDto>();
         private readonly Dictionary<int, ExpeditionDto> knownExpeditions = new Dictionary<int, ExpeditionDto>();
         private readonly HashSet<int> readyExpeditions = new HashSet<int>();
+        private readonly HashSet<int> breedableMounts = new HashSet<int>();
         private bool stableLoaded, inventoryLoaded, expeditionsLoaded;
         private int careVersion;
 
@@ -63,6 +64,7 @@ namespace AbbyCamp.Services
         [Serializable] private sealed class TapBody { public int direction = 1; }
         [Serializable] private sealed class FeedBody { public int food_item_id; }
         [Serializable] private sealed class HatchBody { public int egg_item_id; public int potion_item_id; }
+        [Serializable] private sealed class BreedBody { public int mount_a_id; public int mount_b_id; }
         [Serializable] private sealed class ExpeditionStartBody { public string tier; }
 
         private void Awake()
@@ -456,6 +458,7 @@ namespace AbbyCamp.Services
         {
             stableLoaded = false;
             knownPets.Clear(); knownMounts.Clear();
+            breedableMounts.Clear();
             int version = careVersion;
             yield return FetchProjection("/api/pets/stable/", ApiContract.ParseStable, value =>
             {
@@ -463,8 +466,13 @@ namespace AbbyCamp.Services
                 // Home and an opened sheet can read at the same time. Each
                 // accepted response replaces the complete ownership snapshot.
                 knownPets.Clear(); knownMounts.Clear();
+                breedableMounts.Clear();
                 foreach (var pet in value.pets) knownPets.Add(pet.id, pet);
-                foreach (var mount in value.mounts) knownMounts.Add(mount.id, mount);
+                foreach (var mount in value.mounts)
+                {
+                    knownMounts.Add(mount.id, mount);
+                    if (mount.can_breed && mount.breeding_cooldown_seconds == 0) breedableMounts.Add(mount.id);
+                }
                 stableLoaded = true;
                 success?.Invoke(value);
             }, failure);
@@ -564,6 +572,7 @@ namespace AbbyCamp.Services
         {
             careVersion++;
             knownPets.Clear(); knownMounts.Clear(); knownInventory.Clear(); knownExpeditions.Clear(); readyExpeditions.Clear();
+            breedableMounts.Clear();
             stableLoaded = inventoryLoaded = expeditionsLoaded = false;
         }
 
@@ -584,6 +593,41 @@ namespace AbbyCamp.Services
             {
                 OwnedPetDto result;
                 try { result = ApiContract.ParsePetHatch(json, egg.item, potion.item, previousIds); }
+                catch (Exception exception) { failure?.Invoke(InvalidResponse(exception, true)); return; }
+                success?.Invoke(result);
+            }, failure);
+        }
+
+        public bool IsBreedableMount(int mountId)
+        {
+            return mountId > 0 && IsAuthenticated && CurrentUser.role == "child" && !MutationInFlight && stableLoaded
+                && breedableMounts.Contains(mountId) && knownMounts.TryGetValue(mountId, out var mount)
+                && mount.can_breed && mount.breeding_cooldown_seconds == 0;
+        }
+
+        public bool CanBreedMounts(int mountAId, int mountBId)
+        {
+            return mountAId != mountBId && IsBreedableMount(mountAId) && IsBreedableMount(mountBId);
+        }
+
+        /// <summary>Explicitly breeds two server-ready owned mounts once. Lost
+        /// or malformed acknowledgements remain uncertain and are never replayed.</summary>
+        public IEnumerator BreedMounts(int mountAId, int mountBId, Action<MountBreedDto> success, Action<ApiError> failure)
+        {
+            var error = CarePrecondition();
+            if (error != null) { failure?.Invoke(error); yield break; }
+            if (!CanBreedMounts(mountAId, mountBId))
+            {
+                failure?.Invoke(new ApiError("Refresh your creatures before choosing two ready mounts to breed.")); yield break;
+            }
+            var parentA = knownMounts[mountAId];
+            var parentB = knownMounts[mountBId];
+            ClearCareEligibility();
+            yield return Send("POST", baseUrl + "/api/mounts/breed/",
+                JsonUtility.ToJson(new BreedBody { mount_a_id = mountAId, mount_b_id = mountBId }), true, true, json =>
+            {
+                MountBreedDto result;
+                try { result = ApiContract.ParseMountBreed(json, parentA, parentB); }
                 catch (Exception exception) { failure?.Invoke(InvalidResponse(exception, true)); return; }
                 success?.Invoke(result);
             }, failure);
@@ -619,7 +663,9 @@ namespace AbbyCamp.Services
         {
             var error = CarePrecondition();
             if (error != null) { failure?.Invoke(error); yield break; }
-            if (!knownPets.TryGetValue(petId, out var pet) || pet.evolved_to_mount || pet.is_active)
+            // Pet and mount active flags are independent. An explicit
+            // idempotent selection can restore which owned row is displayed.
+            if (!knownPets.TryGetValue(petId, out var pet) || pet.evolved_to_mount)
             {
                 failure?.Invoke(new ApiError("Refresh your creatures before choosing that companion.")); yield break;
             }
@@ -640,7 +686,7 @@ namespace AbbyCamp.Services
         {
             var error = CarePrecondition();
             if (error != null) { failure?.Invoke(error); yield break; }
-            if (!knownMounts.TryGetValue(mountId, out var mount) || mount.is_active || mount.active_expedition != null)
+            if (!knownMounts.TryGetValue(mountId, out var mount) || mount.active_expedition != null)
             {
                 failure?.Invoke(new ApiError("Refresh your creatures before choosing an available mount.")); yield break;
             }

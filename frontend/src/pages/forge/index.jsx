@@ -162,10 +162,10 @@ export default function Forge() {
   return (
     <div className="space-y-6">
       <QuestFolio
-        letter="F"
-        title="Forge"
-        kicker="models, plates, filament"
-        meta="ask · approve · slice · print"
+        letter="P"
+        title="3D Printing"
+        kicker="Request and track your prints"
+        meta="Choose a model and submit it for parent review before printing."
         stats={[
           { value: pending.length, label: 'pending' },
           { value: printingCount, label: 'printing' },
@@ -190,7 +190,7 @@ export default function Forge() {
 
         {isParent && pending.length > 0 && (
           <section>
-            <ChapterRubric index={nextRubric()} name="Awaiting your decision" />
+            <ChapterRubric index={nextRubric()} name="Awaiting approval" />
             <div className="space-y-2">
               {pending.map((request) => (
                 <PrintRequestCard
@@ -208,12 +208,12 @@ export default function Forge() {
         )}
 
         <section>
-          <ChapterRubric index={nextRubric()} name="In the queue" />
+          <ChapterRubric index={nextRubric()} name="Print requests" />
           {open.length === 0 ? (
             <EmptyState icon={<Box size={28} />}>
               {isParent
                 ? 'No open print requests right now.'
-                : 'Nothing in the queue. Find a model you like and ask for it.'}
+                : 'No print requests yet. Find a model you like and request a print.'}
             </EmptyState>
           ) : (
             <div className="space-y-2">
@@ -236,7 +236,7 @@ export default function Forge() {
 
         {showLive && (
           <section>
-            <ChapterRubric index={nextRubric()} name="On the bed" />
+            <ChapterRubric index={nextRubric()} name="Printing now" />
             <div className="space-y-2">
               {activePrinters.map((printer) => (
                 <PrinterStatus key={printer.id} printer={printer} />

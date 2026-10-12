@@ -52,13 +52,13 @@ export default function TrialSheet({ entry, onClose, onTrained }) {
   };
 
   return (
-    <BottomSheet title={`Trial · ${entry.title}`} onClose={handleClose} disabled={saving}>
+    <BottomSheet title={`Practice · ${entry.title}`} onClose={handleClose} disabled={saving}>
       <div className="space-y-4">
         <header className="flex items-center gap-3">
           <IlluminatedVersal letter={letter} size="md" tier="rising" progressPct={0} />
           <div className="min-w-0 flex-1">
             <div className="font-script text-caption text-sheikah-teal-deep leading-snug">
-              apprentice trial
+              Practice activity
             </div>
             <div className="font-display italic text-lg text-ink-primary truncate">
               {entry.audience_title || entry.title}
@@ -75,7 +75,7 @@ export default function TrialSheet({ entry, onClose, onTrained }) {
           <Template entry={entry} onReady={() => setReady(true)} />
         ) : (
           <div className="text-sm italic text-ink-whisper text-center">
-            This trial template hasn't been authored yet.
+            This practice activity is not available yet.
           </div>
         )}
 
@@ -84,11 +84,11 @@ export default function TrialSheet({ entry, onClose, onTrained }) {
           disabled={!ready || saving}
           className="w-full"
         >
-          {saving ? 'Inking…' : 'Ink the page'}
+          {saving ? 'Saving…' : 'Complete topic'}
         </Button>
         {!ready && (
           <p className="text-caption italic text-ink-whisper text-center">
-            Finish the trial to ink this page into your Lorebook.
+            Complete the practice activity to finish this guide topic.
           </p>
         )}
       </div>

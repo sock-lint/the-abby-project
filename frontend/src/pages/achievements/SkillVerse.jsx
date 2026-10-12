@@ -33,7 +33,7 @@ export default function SkillVerse({ skill, index = 0, onSelect, variant = 'foli
   const ariaLabel = !skill.unlocked
     ? `${skill.name}, locked — requires ${(skill.prerequisites || []).map((p) => p.skill_name).join(', ') || 'prerequisites'}`
     : maxed
-      ? `${skill.name}, level ${skill.level}${levelName ? ` (${levelName})` : ''}, mastery sealed`
+      ? `${skill.name}, level ${skill.level}${levelName ? ` (${levelName})` : ''}, maximum level reached`
       : `${skill.name}, level ${skill.level}${levelName ? ` (${levelName})` : ''}, ${Math.round(progressPct)}% toward level ${skill.level + 1}`;
 
   return (
@@ -86,7 +86,7 @@ export default function SkillVerse({ skill, index = 0, onSelect, variant = 'foli
           <span className={`font-script text-caption text-ink-whisper ${waypoint ? 'min-w-0 break-words' : 'truncate'}`}>
             {skill.unlocked
               ? levelName || (waypoint && skill.level === 0 ? (skill.xp_points > 0 ? 'Getting started' : 'Not started') : `Level ${skill.level}`)
-              : waypoint ? 'Prerequisites required' : 'locked — forge prerequisites first'}
+              : waypoint ? 'Prerequisites required' : 'Complete the required skills to unlock'}
           </span>
           {skill.prerequisites?.length > 0 && !waypoint && (
             <PrereqChain prerequisites={skill.prerequisites} />
@@ -121,7 +121,7 @@ export default function SkillVerse({ skill, index = 0, onSelect, variant = 'foli
         )}
         {maxed && (
           <span className="text-micro font-rune uppercase tracking-wider text-ember-deep">
-            mastery
+            max level
           </span>
         )}
       </span>

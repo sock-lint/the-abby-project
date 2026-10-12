@@ -4,7 +4,7 @@ import ParchmentCard from '../../components/journal/ParchmentCard';
 import RpgSprite from '../../components/rpg/RpgSprite';
 import RuneBadge from '../../components/journal/RuneBadge';
 import Button from '../../components/Button';
-import { STATUS_TONE } from './trials.constants';
+import { QUEST_KIND_LABEL, STATUS_TONE } from './trials.constants';
 
 /**
  * QuestTile — one entry in a TrialsFolio grid. Renders four states based
@@ -61,7 +61,7 @@ function AvailableTile({ quest, canBegin, starting, onBegin, onSelect }) {
     <motion.div whileHover={{ y: -2 }}>
       <ParchmentCard
         as="article"
-        aria-label={`${def.name} — available trial`}
+        aria-label={`${def.name} — available challenge`}
         className="text-center transition-all"
       >
         {/* Whole-card open target, matching ProgressTile / LockedTile, which
@@ -91,7 +91,7 @@ function AvailableTile({ quest, canBegin, starting, onBegin, onSelect }) {
           {def.description}
         </p>
         <div className="mt-2 flex flex-wrap justify-center items-center gap-1">
-          <RuneBadge tone="teal" size="sm">{def.quest_type_display ?? def.quest_type}</RuneBadge>
+          <RuneBadge tone="teal" size="sm">{QUEST_KIND_LABEL[def.quest_type] ?? def.quest_type_display ?? def.quest_type}</RuneBadge>
           {coop && <RuneBadge tone="royal" size="sm">co-op</RuneBadge>}
         </div>
         <div className="mt-1 font-rune text-tiny text-ink-whisper tabular-nums">
@@ -106,7 +106,7 @@ function AvailableTile({ quest, canBegin, starting, onBegin, onSelect }) {
             disabled={starting}
             className="relative mt-2 inline-flex items-center gap-1"
           >
-            <Play size={12} /> {starting ? 'Starting…' : 'Begin'}
+            <Play size={12} /> {starting ? 'Starting…' : 'Start challenge'}
           </Button>
         )}
       </ParchmentCard>
@@ -151,8 +151,8 @@ function ProgressTile({ quest, onSelect }) {
 function LockedTile({ quest, onSelect }) {
   const def = quest;
   const hint = def.required_badge_name
-    ? `earn the ${def.required_badge_name} seal to unlock`
-    : 'earn the gating seal to unlock';
+    ? `Earn the ${def.required_badge_name} badge to unlock`
+    : 'Earn the required badge to unlock';
   return (
     <button
       type="button"

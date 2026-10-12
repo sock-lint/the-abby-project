@@ -40,10 +40,18 @@ namespace AbbyCamp.Editor
             // Palette/font/receipts stay shared. These definitions only replace appearance.
             var chick = CreateCreature("Chick", "Idle", "Jump Forward In Place", 1.8f, 0f);
             var fledgling = CreateCreature("Fledgling", "Idle", "Walk Forward In Place", 1.9f, 0f);
-            CreateCreature("Bird", "Fly Idle", "Fly Forward In Place", 2f, .3f);
+            var bird = CreateCreature("Bird", "Fly Idle", "Fly Forward In Place", 2f, .3f);
             settings.CompanionAppearance = chick;
             // Appearance preview demonstrates swaps; it is not an earned evolution.
             settings.AlternateCompanionAppearance = fledgling;
+            settings.OwnedCreatureAppearances = new[]
+            {
+                new OwnedCreatureVisualBinding
+                {
+                    SpeciesSpriteKey = "cute-chick", PotionSlug = "base",
+                    Companion = chick, Evolved = bird,
+                },
+            };
             // A companion garden has no player avatar. Keep the purchased pack
             // staged privately, without bundling it through this presentation.
             settings.PlayerAppearance = null;
@@ -465,6 +473,14 @@ namespace AbbyCamp.Editor
                     if (definition.AnimatorController.animationClips.Length < 2)
                         throw new InvalidOperationException("Missing idle/movement mapping: " + name);
                 }
+                var settings = AssetDatabase.LoadAssetAtPath<CampPresentationDefinition>(PresentationPath);
+                var bindings = LicensedCreatureBuildBindings.ResolveEffectiveBindings(settings);
+                if (!OwnedCreatureVisualBinding.TryResolve(bindings, "cute-chick", "base", false, out var chick)
+                    || !OwnedCreatureVisualBinding.TryResolve(bindings, "cute-chick", "base", true, out var bird)
+                    || chick != AssetDatabase.LoadAssetAtPath<VisualDefinition>(GeneratedPath + "/chick.asset")
+                    || bird != AssetDatabase.LoadAssetAtPath<VisualDefinition>(GeneratedPath + "/bird.asset")
+                    || OwnedCreatureVisualBinding.TryResolve(bindings, "cute-chick", "fire", false, out _))
+                    throw new InvalidOperationException("Missing exact owned Chick/Bird presentation binding.");
                 var companion = scene.GetRootGameObjects()
                     .SelectMany(root => root.GetComponentsInChildren<CompanionFollower>())
                     .FirstOrDefault(candidate => candidate.gameObject.activeInHierarchy);
@@ -481,7 +497,7 @@ namespace AbbyCamp.Editor
                             && (!material.HasProperty("_BaseMap") || material.GetTexture("_BaseMap") == null))
                             throw new InvalidOperationException("Purchased scene material has no supplied texture: " + material.name);
                     }
-                Debug.Log("ABBY_MESHTINT_VALIDATED: three animated stage definitions, portraits, unchanged companion identity, scene materials.");
+                Debug.Log("ABBY_MESHTINT_VALIDATED: three animated stage definitions, exact owned Chick/Bird binding, portraits, unchanged companion identity, scene materials.");
             });
         }
     }

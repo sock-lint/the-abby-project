@@ -38,7 +38,7 @@ function renderSheet(userFixture, handlers = [], props = {}) {
 }
 
 describe('QuickActionsSheet', () => {
-  it('shows child actions including Clock in and Add study', async () => {
+  it('shows child actions including Clock in and Add homework', async () => {
     renderSheet(buildUser(), [
       http.get('*/api/homework/dashboard/', () => HttpResponse.json({ today: [], overdue: [], pending_submissions: [] })),
       http.get('*/api/savings-goals/', () => HttpResponse.json([])),
@@ -47,22 +47,22 @@ describe('QuickActionsSheet', () => {
     await waitFor(() => expect(screen.getByText(/clock in/i)).toBeInTheDocument());
     // Study rows speak the tab's name with "homework" demoted to the hint,
     // matching the duty / ritual rows in the same sheet.
-    expect(screen.getByText('Add study')).toBeInTheDocument();
+    expect(screen.getByText('Add homework')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /log a grade/i })).toBeInTheDocument();
     expect(screen.getByText(/self-assign homework/i)).toBeInTheDocument();
     // With zero goals the hoard affordance labels as "Set a savings goal".
     await waitFor(() =>
       expect(screen.getByText(/set a savings goal/i)).toBeInTheDocument(),
     );
-    expect(screen.queryByText(/view hoards/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/view savings goals/i)).not.toBeInTheDocument();
     // Guarded actions are NOT shown because preconditions aren't met.
-    expect(screen.queryByText(/turn in study/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/start a quest/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/submit homework/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/start a challenge/i)).not.toBeInTheDocument();
     // Reward shop is intentionally excluded from quick actions.
     expect(screen.queryByText(/request a reward/i)).not.toBeInTheDocument();
   });
 
-  it('swaps hoard label to "View hoards" when the child has an active goal', async () => {
+  it('swaps hoard label to "View savings goals" when the child has an active goal', async () => {
     renderSheet(buildUser(), [
       http.get('*/api/homework/dashboard/', () => HttpResponse.json({ today: [], overdue: [], pending_submissions: [] })),
       http.get('*/api/savings-goals/', () =>
@@ -73,12 +73,12 @@ describe('QuickActionsSheet', () => {
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
-      expect(screen.getByText(/view hoards/i)).toBeInTheDocument(),
+      expect(screen.getByText(/view savings goals/i)).toBeInTheDocument(),
     );
     expect(screen.queryByText(/set a savings goal/i)).not.toBeInTheDocument();
   });
 
-  it('reveals Turn in study when an assignment is due', async () => {
+  it('reveals Submit homework when an assignment is due', async () => {
     renderSheet(buildUser(), [
       http.get('*/api/homework/dashboard/', () =>
         HttpResponse.json({
@@ -90,12 +90,12 @@ describe('QuickActionsSheet', () => {
       http.get('*/api/savings-goals/', () => HttpResponse.json([])),
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     ]);
-    await waitFor(() => expect(screen.getByText(/turn in study/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/submit homework/i)).toBeInTheDocument());
   });
 
   // The row used to navigate to /quests?tab=study&submit=<id>, a param the
   // Study tab never read — the kid landed on the tab with nothing open.
-  it('Turn in study opens the submit sheet for the due assignment in place', async () => {
+  it('Submit homework opens the submit sheet for the due assignment in place', async () => {
     const u = userEvent.setup();
     renderSheet(buildUser(), [
       http.get('*/api/homework/dashboard/', () =>
@@ -109,7 +109,7 @@ describe('QuickActionsSheet', () => {
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     ]);
 
-    const row = await screen.findByRole('button', { name: /turn in study/i });
+    const row = await screen.findByRole('button', { name: /submit homework/i });
     await u.click(row);
 
     // The proof sheet opens on top of the quick-actions sheet, carrying the
@@ -122,7 +122,7 @@ describe('QuickActionsSheet', () => {
     expect(within(submitSheet).getByText('Math packet')).toBeInTheDocument();
   });
 
-  it('reveals Start a quest when a quest scroll is in inventory', async () => {
+  it('reveals Start a challenge when a quest scroll is in inventory', async () => {
     renderSheet(buildUser(), [
       http.get('*/api/homework/dashboard/', () => HttpResponse.json({ today: [], overdue: [], pending_submissions: [] })),
       http.get('*/api/savings-goals/', () => HttpResponse.json([])),
@@ -132,17 +132,17 @@ describe('QuickActionsSheet', () => {
         ]),
       ),
     ]);
-    await waitFor(() => expect(screen.getByText(/start a quest/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/start a challenge/i)).toBeInTheDocument());
   });
 
-  it('shows parent actions (Assign study, Adjust coins, Adjust payment)', async () => {
+  it('shows parent actions (Assign homework, Adjust coins, Adjust payment)', async () => {
     renderSheet(buildParent());
-    await waitFor(() => expect(screen.getByText('Assign study')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Assign homework')).toBeInTheDocument());
     expect(screen.getByText(/homework for a kid/i)).toBeInTheDocument();
     expect(screen.getByText(/adjust coins/i)).toBeInTheDocument();
     expect(screen.getByText(/adjust payment/i)).toBeInTheDocument();
     // No child-only actions surface for parents.
-    expect(screen.queryByText(/add study/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/add homework/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /log a grade/i })).not.toBeInTheDocument();
     // "Write in journal" is a child self-authoring affordance only.
     expect(screen.queryByText(/write in journal/i)).not.toBeInTheDocument();
@@ -300,11 +300,11 @@ describe('QuickActionsSheet', () => {
     await u.click(row);
     // The pane opens with the venture picker rather than firing a request.
     await waitFor(() =>
-      expect(screen.getByLabelText(/which venture/i)).toBeInTheDocument(),
+      expect(screen.getByLabelText(/which project/i)).toBeInTheDocument(),
     );
   });
 
-  it('Add study opens the canonical HomeworkFormModal and POSTs a self-assign payload', async () => {
+  it('Add homework opens the canonical HomeworkFormModal and POSTs a self-assign payload', async () => {
     const u = userEvent.setup();
     const create = spyHandler('post', /\/api\/homework\/$/, { ok: true, id: 42 });
     renderSheet(buildUser(), [
@@ -317,7 +317,7 @@ describe('QuickActionsSheet', () => {
     // Quick-add reuses the same HomeworkFormModal used on /quests?tab=study,
     // which opens as a dialog titled "New assignment" and includes the
     // canonical fields (title, description, subject, due-date chips).
-    const addRow = await screen.findByRole('button', { name: /add study/i });
+    const addRow = await screen.findByRole('button', { name: /add homework/i });
     await u.click(addRow);
 
     const dialog = await screen.findByRole('dialog', { name: /new assignment/i });

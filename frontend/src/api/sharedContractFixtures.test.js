@@ -20,6 +20,7 @@ import greenlightReconciled from '../../../contracts/api/fixtures/greenlight-rec
 import greenlightFinal from '../../../contracts/api/fixtures/greenlight-overview-reconciled.json';
 import stableResponse from '../../../contracts/api/fixtures/pets-stable.json';
 import emptyStable from '../../../contracts/api/fixtures/pets-stable-empty.json';
+import restrictedEmptyStable from '../../../contracts/api/fixtures/pets-stable-restricted-empty.json';
 import inventoryResponse from '../../../contracts/api/fixtures/inventory-food.json';
 import emptyInventory from '../../../contracts/api/fixtures/inventory-empty.json';
 import confirmedFeed from '../../../contracts/api/fixtures/pet-feed.json';
@@ -61,11 +62,23 @@ import earlyExpeditionClaim from '../../../contracts/api/fixtures/expedition-ear
 import activeExpedition from '../../../contracts/api/fixtures/expedition-already-active.json';
 import dailyExpeditionLimit from '../../../contracts/api/fixtures/expedition-daily-limit.json';
 import expiredExpedition from '../../../contracts/api/fixtures/expedition-expired.json';
+import breedingStable from '../../../contracts/api/fixtures/pets-stable-breeding.json';
+import bredStable from '../../../contracts/api/fixtures/pets-stable-breeding-after.json';
+import bredInventory from '../../../contracts/api/fixtures/inventory-breeding.json';
+import bredMounts from '../../../contracts/api/fixtures/mount-breed.json';
+import chromaticBreed from '../../../contracts/api/fixtures/mount-breed-chromatic.json';
+import fallbackBreed from '../../../contracts/api/fixtures/mount-breed-fallback.json';
+import missingBreedParents from '../../../contracts/api/fixtures/mount-breed-missing-mounts.json';
+import sameBreedParent from '../../../contracts/api/fixtures/mount-breed-same-mount.json';
+import invalidBreedParents from '../../../contracts/api/fixtures/mount-breed-invalid-ids.json';
+import foreignBreedParent from '../../../contracts/api/fixtures/mount-breed-not-owned.json';
+import restingBreedParent from '../../../contracts/api/fixtures/mount-breed-cooldown.json';
+import repeatedBreed from '../../../contracts/api/fixtures/mount-breed-repeat-cooldown.json';
 import { server } from '../test/server';
 import { normalizeList } from '../utils/api';
 import { api, getToken, setToken } from './client';
 import {
-  activateMount, activatePet, claimExpedition, feedPet, getGreenlightOverview, getHabits, getInventory,
+  activateMount, activatePet, breedMounts, claimExpedition, feedPet, getGreenlightOverview, getHabits, getInventory,
   getMe, getNotifications, getStable, hatchPet, listExpeditions, logHabitTap, login,
   previewGreenlightCsv, reconcileGreenlightCsv, recordGreenlightPayout, saveGreenlightSnapshot, startExpedition,
 } from './index';
@@ -366,7 +379,12 @@ describe('shared Django response fixtures through the React API client', () => {
     expect(stable.pets.find((pet) => pet.id === 53)).toMatchObject({
       growth_points: 100, evolved_to_mount: true, is_fully_grown: true,
     });
-    expect(stable.mounts[0]).toMatchObject({ id: 61, is_active: true, active_expedition: null });
+    expect(stable.mounts[0]).toMatchObject({
+      id: 61, is_active: true, active_expedition: null, can_breed: true, breeding_cooldown_seconds: 0,
+    });
+    expect(stable.mounts.find((mount) => mount.id === 62)).toMatchObject({
+      can_breed: false, breeding_cooldown_seconds: 432000,
+    });
     const foods = normalizeList(inventory).filter((entry) => entry.item.item_type === 'food');
     expect(foods.map((entry) => entry.item.id)).toEqual([71, 72, 74]);
     expect(foods[0]).toMatchObject({
@@ -384,6 +402,13 @@ describe('shared Django response fixtures through the React API client', () => {
     );
     expect(await getStable()).toEqual({ pets: [], mounts: [], total_pets: 0, total_mounts: 0, total_possible: 4 });
     expect(normalizeList(await getInventory())).toEqual([]);
+  });
+
+  it('preserves the supported species/potion total without inventing owned companions', async () => {
+    server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(restrictedEmptyStable)));
+    const stable = await getStable();
+    expect(stable).toEqual(restrictedEmptyStable);
+    expect(stable).toEqual({ pets: [], mounts: [], total_pets: 0, total_mounts: 0, total_possible: 3 });
   });
 
   it('reads hatching ingredients with their item definition IDs, quantities and nullable typed names', async () => {
@@ -601,11 +626,86 @@ describe('shared Django response fixtures through the React API client', () => {
     expect(await activatePet(52)).toEqual(activatedPet);
     expect(await activateMount(62)).toEqual(activatedMount);
     expect(activatedPet).toMatchObject({ id: 52, is_active: true, growth_points: 90 });
-    expect(activatedMount).toMatchObject({ id: 62, is_active: true, active_expedition: null });
+    expect(activatedMount).toMatchObject({
+      id: 62, is_active: true, active_expedition: null, can_breed: false, breeding_cooldown_seconds: 432000,
+    });
     expect(calls).toEqual([
       { body: '', authorization: `Token ${loginResponse.token}` },
       { body: '', authorization: `Token ${loginResponse.token}` },
     ]);
+  });
+
+  it('reads authoritative breeding eligibility, including an away parent and refreshed cooldowns', async () => {
+    let response = breedingStable;
+    const methods = [];
+    server.use(http.all('*/api/pets/stable/', ({ request }) => {
+      methods.push(request.method);
+      return HttpResponse.json(response);
+    }));
+    const stable = await getStable();
+    expect(stable).toEqual(breedingStable);
+    expect(stable.mounts.find((mount) => mount.id === 61)).toMatchObject({
+      can_breed: true, breeding_cooldown_seconds: 0, active_expedition: { id: 103, status: 'active' },
+    });
+    expect(stable.mounts.find((mount) => mount.id === 62)).toMatchObject({ can_breed: true, breeding_cooldown_seconds: 0 });
+    expect(stable.mounts.find((mount) => mount.id === 63)).toMatchObject({ can_breed: false, breeding_cooldown_seconds: 432000 });
+    response = bredStable;
+    const refreshed = await getStable();
+    expect(refreshed).toEqual(bredStable);
+    expect(refreshed.mounts.filter((mount) => mount.id === 61 || mount.id === 62)
+      .every((mount) => !mount.can_breed && mount.breeding_cooldown_seconds === 604800)).toBe(true);
+    expect(methods).toEqual(['GET', 'GET']);
+  });
+
+  it('reads the bred egg and potion as confirmed inventory quantities without consuming existing food', async () => {
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json(bredInventory)));
+    const inventory = normalizeList(await getInventory());
+    expect(inventory).toEqual(bredInventory);
+    expect(inventory.find((entry) => entry.item.id === 73)).toMatchObject({ quantity: 2, item: { item_type: 'egg', pet_species_name: 'Fox' } });
+    expect(inventory.find((entry) => entry.item.id === 77)).toMatchObject({ quantity: 4, item: { item_type: 'potion', potion_type_name: 'Ice' } });
+    expect(inventory.find((entry) => entry.item.id === 71).quantity).toBe(2);
+  });
+
+  it.each([
+    ['normal pair', bredMounts, 77, 'Ice', false],
+    ['chromatic pair', chromaticBreed, 78, 'Cosmic', true],
+    ['registered compatible fallback', fallbackBreed, 79, 'Base', false],
+  ])('breeds %s through one authenticated parent-ID POST and preserves the full HTTP 201 receipt', async (_label, response, potionId, potionName, chromatic) => {
+    const calls = [];
+    setToken(loginResponse.token);
+    server.use(http.post('*/api/mounts/breed/', async ({ request }) => {
+      calls.push({ body: await request.json(), authorization: request.headers.get('authorization'), method: request.method, pathname: new URL(request.url).pathname });
+      return HttpResponse.json(response, { status: 201 });
+    }));
+    const result = await breedMounts(61, 62);
+    expect(result).toEqual(response);
+    expect(result).toMatchObject({
+      egg_item_id: 73, potion_item_id: potionId, picked_species: 'Fox', picked_species_slug: 'fixture-fox',
+      picked_potion: potionName, chromatic, cooldown_days: 7,
+    });
+    expect(result).not.toHaveProperty('coins_awarded');
+    expect(result).not.toHaveProperty('xp_awarded');
+    expect(calls).toEqual([{
+      body: { mount_a_id: 61, mount_b_id: 62 }, authorization: `Token ${loginResponse.token}`,
+      method: 'POST', pathname: '/api/mounts/breed/',
+    }]);
+  });
+
+  it.each([
+    ['missing parents', undefined, undefined, {}, missingBreedParents],
+    ['same parent', 61, 61, { mount_a_id: 61, mount_b_id: 61 }, sameBreedParent],
+    ['invalid parent ID', 'invalid', 62, { mount_a_id: 'invalid', mount_b_id: 62 }, invalidBreedParents],
+    ['foreign parent', 61, 81, { mount_a_id: 61, mount_b_id: 81 }, foreignBreedParent],
+    ['resting parent', 61, 63, { mount_a_id: 61, mount_b_id: 63 }, restingBreedParent],
+    ['repeat within cooldown', 61, 62, { mount_a_id: 61, mount_b_id: 62 }, repeatedBreed],
+  ])('preserves %s breeding rejection and never automatically replays the POST', async (_label, parentA, parentB, expectedBody, response) => {
+    const bodies = [];
+    server.use(http.post('*/api/mounts/breed/', async ({ request }) => {
+      bodies.push(await request.json());
+      return HttpResponse.json(response, { status: 400 });
+    }));
+    await expect(breedMounts(parentA, parentB)).rejects.toMatchObject({ status: 400, message: response.error, response });
+    expect(bodies).toEqual([expectedBody]);
   });
 
   it.each([

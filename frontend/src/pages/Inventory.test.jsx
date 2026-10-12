@@ -159,7 +159,7 @@ describe('Inventory', () => {
     renderInventory();
 
     await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /satchel compartments/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /inventory categories/i })).toBeInTheDocument(),
     );
 
     // Two spines (Eggs + Potions), Eggs active by default (first in TYPE_COMPARTMENTS).
@@ -185,7 +185,7 @@ describe('Inventory', () => {
     const user = userEvent.setup();
     renderInventory();
     await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /satchel compartments/i })).toBeInTheDocument(),
+      expect(screen.getByRole('tablist', { name: /inventory categories/i })).toBeInTheDocument(),
     );
     await user.click(screen.getByRole('tab', { name: /Potions/i }));
     expect(window.localStorage.getItem('atlas:satchel:active-compartment')).toBe('potion');

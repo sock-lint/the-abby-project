@@ -74,12 +74,12 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
           </SelectField>
           <SelectField label="Payment Kind" value={form.payment_kind} onChange={onField('payment_kind')}>
             <option value="required">Required</option>
-            <option value="bounty">Bounty</option>
+            <option value="bounty">Optional project</option>
           </SelectField>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <TextField
-            label={form.payment_kind === 'bounty' ? 'Bounty ($)' : 'Bonus ($)'}
+            label={form.payment_kind === 'bounty' ? 'Cash reward ($)' : 'Bonus ($)'}
             value={form.bonus_amount}
             onChange={onField('bonus_amount')}
             type="number"

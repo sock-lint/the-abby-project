@@ -14,9 +14,9 @@ export const COLLECTIONS = [
   {
     id: 'chronos',
     rubric: chapterMark(0),
-    letter: 'C',
-    name: 'Chronos',
-    kicker: 'the cadence of hours',
+    letter: 'T',
+    name: 'Time',
+    kicker: 'Time spent working',
     criteria: [
       'hours_worked',
       'hours_in_day',
@@ -29,9 +29,9 @@ export const COLLECTIONS = [
   {
     id: 'ventures',
     rubric: chapterMark(1),
-    letter: 'V',
-    name: 'Ventures',
-    kicker: 'the ledger of projects',
+    letter: 'P',
+    name: 'Projects',
+    kicker: 'Projects and milestones completed',
     criteria: [
       'projects_completed',
       'first_project',
@@ -48,9 +48,9 @@ export const COLLECTIONS = [
   {
     id: 'mastery',
     rubric: chapterMark(2),
-    letter: 'M',
-    name: 'Mastery',
-    kicker: 'the branches of skill',
+    letter: 'S',
+    name: 'Skills',
+    kicker: 'Skills learned and levels reached',
     criteria: [
       'skill_level_reached',
       'skills_unlocked',
@@ -63,9 +63,9 @@ export const COLLECTIONS = [
   {
     id: 'coffers',
     rubric: chapterMark(3),
-    letter: 'G',
-    name: 'Coffers',
-    kicker: 'the weight of coin',
+    letter: 'M',
+    name: 'Money & Coins',
+    kicker: 'Earnings, savings, and rewards',
     criteria: [
       'total_earned',
       'total_coins_earned',
@@ -77,9 +77,9 @@ export const COLLECTIONS = [
   {
     id: 'scholar',
     rubric: chapterMark(4),
-    letter: 'Q',
-    name: 'Scholar',
-    kicker: 'the quill and the hour',
+    letter: 'L',
+    name: 'Learning',
+    kicker: 'Homework and journal entries',
     criteria: [
       'homework_planned_ahead',
       'homework_on_time_count',
@@ -91,8 +91,8 @@ export const COLLECTIONS = [
     id: 'adventure',
     rubric: chapterMark(5),
     letter: 'A',
-    name: 'Adventure',
-    kicker: 'the wild and the wyrm',
+    name: 'Activities',
+    kicker: 'Streaks, habits, chores, challenges, and pets',
     criteria: [
       'streak_days',
       'perfect_days_count',
@@ -112,9 +112,9 @@ export const COLLECTIONS = [
   {
     id: 'reliquary',
     rubric: chapterMark(6),
-    letter: 'R',
-    name: 'Reliquary',
-    kicker: 'the case of rarities',
+    letter: 'C',
+    name: 'Collections',
+    kicker: 'Badges, cosmetics, and milestones',
     criteria: [
       'badges_earned_count',
       'cosmetic_set_owned',
@@ -244,7 +244,7 @@ export function unlockHint(badge) {
     case 'materials_under_budget':
       return 'Finish a project under the materials budget';
     case 'perfect_timecard':
-      return 'Ship a perfect weekly timecard';
+      return 'Complete a perfect weekly timecard';
     case 'photos_uploaded':
       return hasN ? `Upload ${n} project photo${plural ? 's' : ''}` : 'Upload project photos';
     case 'bounty_completed':
@@ -276,12 +276,12 @@ export function unlockHint(badge) {
     case 'coins_spent_lifetime':
       return hasN ? `Spend ${n} coin${plural ? 's' : ''} lifetime` : 'Spend coins at the shop';
     case 'savings_goal_completed':
-      return hasN ? `Fill ${n} savings goal${plural ? 's' : ''}` : 'Complete a savings goal';
+      return hasN ? `Complete ${n} savings goal${plural ? 's' : ''}` : 'Complete a savings goal';
     case 'reward_redeemed':
       return hasN ? `Redeem ${n} reward${plural ? 's' : ''}` : 'Redeem a reward';
 
     case 'homework_planned_ahead':
-      return hasN ? `Plan ${n} assignment${plural ? 's' : ''} ahead of the due date` : 'Plan study ahead';
+      return hasN ? `Plan ${n} assignment${plural ? 's' : ''} ahead of the due date` : 'Plan homework ahead';
     case 'homework_on_time_count':
       return hasN ? `Submit ${n} assignment${plural ? 's' : ''} on time` : 'Submit assignments on time';
     case 'journal_entries_written':
@@ -295,23 +295,21 @@ export function unlockHint(badge) {
       return hasN ? `Log ${n} perfect day${plural ? 's' : ''}` : 'Log a perfect day';
     case 'streak_freeze_used':
       return 'Use a streak freeze';
-    // Hints speak the app's own tab vocabulary \u2014 Duties, Rituals, Study \u2014
-    // not the backend's model names (chores / habits / homework). These
-    // strings print under every unearned sigil a kid looks at.
+    // Match the plain-language labels used on Tasks and the badge collection.
     case 'habit_max_strength':
-      return 'Max out a ritual\u2019s strength';
+      return 'Reach full strength in a habit';
     case 'habit_count_at_strength':
-      return hasN ? `Hold ${n} rituals at full strength` : 'Stack strong rituals';
+      return hasN ? `Keep ${n} habits at full strength` : 'Keep habits at full strength';
     case 'habit_taps_lifetime':
-      return hasN ? `Tap rituals ${n} times lifetime` : 'Tap rituals';
+      return hasN ? `Log habits ${n} times in total` : 'Log habits';
     case 'chore_completions':
-      return hasN ? `Complete ${n} dut${plural ? 'ies' : 'y'}` : 'Complete duties';
+      return hasN ? `Complete ${n} chore${plural ? 's' : ''}` : 'Complete chores';
     case 'quest_completed':
-      return hasN ? `Finish ${n} quest${plural ? 's' : ''}` : 'Finish a quest';
+      return hasN ? `Finish ${n} challenge${plural ? 's' : ''}` : 'Finish a challenge';
     case 'boss_quests_completed':
-      return hasN ? `Down ${n} boss quest${plural ? 's' : ''}` : 'Down a boss quest';
+      return hasN ? `Complete ${n} boss challenge${plural ? 's' : ''}` : 'Complete a boss challenge';
     case 'collection_quests_completed':
-      return hasN ? `Complete ${n} collection quest${plural ? 's' : ''}` : 'Complete a collection quest';
+      return hasN ? `Complete ${n} collection challenge${plural ? 's' : ''}` : 'Complete a collection challenge';
     case 'pets_hatched':
       return hasN ? `Hatch ${n} pet${plural ? 's' : ''}` : 'Hatch a pet';
     case 'pet_species_owned':
@@ -330,7 +328,7 @@ export function unlockHint(badge) {
     case 'consumable_variety':
       return hasN ? `Own ${n} different consumables` : 'Stock varied consumables';
     case 'chronicle_milestones_logged':
-      return hasN ? `Log ${n} chronicle milestone${plural ? 's' : ''}` : 'Log chronicle milestones';
+      return hasN ? `Log ${n} milestone${plural ? 's' : ''}` : 'Log milestones';
     case 'grade_reached':
       return hasN ? `Reach grade ${n}` : 'Advance through grades';
     case 'birthdays_logged':

@@ -22,7 +22,7 @@ export const KIND_ICON = {
 // keys stay aligned with the backend recap payload.
 export const RECAP_STAT_FIELDS = [
   { key: 'projects_completed', label: 'Projects completed' },
-  { key: 'homework_approved',  label: 'Study approved' },
-  { key: 'chores_approved',    label: 'Duties approved' },
+  { key: 'homework_approved',  label: 'Homework approved' },
+  { key: 'chores_approved',    label: 'Chores approved' },
   { key: 'coins_earned',       label: 'Coins earned' },
 ]

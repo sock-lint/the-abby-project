@@ -1,8 +1,24 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import RpgSprite from './RpgSprite';
 import { SpriteCatalogProvider } from '../../providers/SpriteCatalogProvider';
 import { SpriteCatalogContext } from '../../providers/spriteCatalog.context';
+import presentation from '../../storybook/presentation.json';
+import { getLicensedRpgSprite, resolveLicensedRpgSprite } from '../../storybook/licensedRpgSprites';
+
+vi.mock('../../storybook/licensedRpgSprites', async () => {
+  const actual = await vi.importActual('../../storybook/licensedRpgSprites');
+  return { ...actual, getLicensedRpgSprite: vi.fn(() => null) };
+});
+
+function useSyntheticLicensedPortraits() {
+  const manifest = {
+    schema_version: presentation.schema_version,
+    companion: { id: presentation.companion.id, art_key: 'chick', temporary: false, portrait: 'chick.png' },
+  };
+  const art = (name) => ({ 'chick.png': '/assets/synthetic-chick.png', 'bird.png': '/assets/synthetic-bird.png' })[name];
+  getLicensedRpgSprite.mockImplementation((key) => resolveLicensedRpgSprite(key, manifest, art));
+}
 
 // Seed the catalog via localStorage so the provider resolves immediately
 // without network.
@@ -20,6 +36,45 @@ function renderWithCatalog(node, sprites) {
 describe('RpgSprite', () => {
   beforeEach(() => {
     localStorage.clear();
+    getLicensedRpgSprite.mockReset().mockReturnValue(null);
+  });
+
+  it.each([
+    ['cute-chick', '/assets/synthetic-chick.png'],
+    ['cute-chick-mount', '/assets/synthetic-bird.png'],
+  ])('renders the staged portrait for %s without a runtime sprite', (spriteKey, url) => {
+    useSyntheticLicensedPortraits();
+    render(<RpgSprite spriteKey={spriteKey} icon="🐥" alt="Chick" potionSlug="base" dim="stale" />);
+    const portrait = screen.getByRole('img', { name: 'Chick' });
+    expect(portrait).toHaveAttribute('src', url);
+    expect(portrait).toHaveStyle({ objectFit: 'contain', imageRendering: 'auto', filter: 'grayscale(0.5) opacity(0.7)' });
+  });
+
+  it('recovers from failed licensed art through runtime and base-species portraits', () => {
+    useSyntheticLicensedPortraits();
+    renderWithCatalog(<RpgSprite spriteKey="cute-chick-mount" fallbackSpriteKey="cute-chick" icon="🐥" alt="Chick mount" />,
+      { 'cute-chick-mount': { url: 'https://s/runtime-bird.png', frames: 1 }, 'cute-chick': { url: 'https://s/runtime-chick.png', frames: 1 } });
+    for (const url of ['/assets/synthetic-bird.png', 'https://s/runtime-bird.png', '/assets/synthetic-chick.png', 'https://s/runtime-chick.png']) {
+      const portrait = screen.getByRole('img', { name: 'Chick mount' });
+      expect(portrait).toHaveAttribute('src', url);
+      fireEvent.error(portrait);
+    }
+    const fallback = screen.getByRole('img', { name: 'Chick mount' });
+    expect(fallback.tagName).toBe('SPAN');
+    expect(fallback).toHaveTextContent('🐥');
+  });
+
+  it('uses the runtime Chick catalog when licensed assets are absent', () => {
+    renderWithCatalog(<RpgSprite spriteKey="cute-chick" icon="🐥" alt="Chick" />,
+      { 'cute-chick': { url: 'https://s/runtime-chick.png', frames: 1 } });
+    expect(screen.getByRole('img', { name: 'Chick' })).toHaveAttribute('src', 'https://s/runtime-chick.png');
+  });
+
+  it('keeps another species on its own runtime artwork in a licensed build', () => {
+    useSyntheticLicensedPortraits();
+    renderWithCatalog(<RpgSprite spriteKey="wolf" icon="🐺" alt="Wolf" />,
+      { wolf: { url: 'https://s/wolf.png', frames: 1 } });
+    expect(screen.getByRole('img', { name: 'Wolf' })).toHaveAttribute('src', 'https://s/wolf.png');
   });
 
   it('renders a static sprite as an <img>', () => {

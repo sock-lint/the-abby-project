@@ -107,7 +107,7 @@ function IngestForm({ userId }) {
         if (job.status === 'committed') {
           if (job.project) openProject(job.project);
           else {
-            setError('The venture created from this import has been removed. You can start a fresh import.');
+            setError('The project created from this import has been removed. You can start a fresh import.');
             setPhase('missing');
           }
           return;
@@ -315,7 +315,7 @@ function IngestForm({ userId }) {
       if (job.status === 'committed') {
         if (job.project) openProject(job.project);
         else {
-          setError('The venture created from this import has been removed. You can start a fresh import.');
+          setError('The project created from this import has been removed. You can start a fresh import.');
           setPhase('missing');
         }
         return;
@@ -411,7 +411,7 @@ function IngestForm({ userId }) {
 
   return (
     <PageShell width="narrow" rhythm="loose">
-      <BackLink to="/quests?tab=ventures">Back to Ventures</BackLink>
+      <BackLink to="/quests?tab=ventures">Back to Projects</BackLink>
       <div>
         <h1 className="font-display text-2xl font-bold">Auto-fill from Source</h1>
         <p className="text-body text-ink-whisper mt-1">
@@ -425,13 +425,13 @@ function IngestForm({ userId }) {
         <div role="status" aria-live="polite" className="space-y-1 text-caption text-ink-whisper">
           {restored?.jobId === jobId && <p>Your unfinished import was restored.</p>}
           <p>{pendingCommit ? 'Creation is not confirmed yet. Your original plan is kept for a safe retry.'
-            : storageState === 'unavailable' ? 'This browser cannot keep a draft. Keep this window open until you create the venture.'
-              : 'Your import and edits are kept on this device. The venture has not been created yet.'}</p>
+            : storageState === 'unavailable' ? 'This browser cannot keep a draft. Keep this window open until you create the project.'
+              : 'Your import and edits are kept on this device. The project has not been created yet.'}</p>
           {syncState === 'saving' && <p>Saving the edited plan…</p>}
           {syncState === 'saved' && <p>The edited plan is saved with this import.</p>}
           {syncState === 'failed' && <p>{storageState === 'saved'
-            ? 'The plan could not sync. Your device draft is kept; creating the venture will try again.'
-            : 'The plan could not sync. Keep this window open and try creating the venture again.'}</p>}
+            ? 'The plan could not sync. Your device draft is kept; creating the project will try again.'
+            : 'The plan could not sync. Keep this window open and try creating the project again.'}</p>}
         </div>
       )}
 
@@ -458,7 +458,7 @@ function IngestForm({ userId }) {
           <p className="text-body text-ink-whisper">
             {phase === 'missing' ? 'This saved import is no longer available.'
               : phase === 'failed' ? 'This import could not be completed.'
-              : phase === 'uncertain' ? 'Check whether your venture was created before continuing.'
+              : phase === 'uncertain' ? 'Check whether your project was created before continuing.'
                 : 'Your existing import is kept. Continue when your connection returns.'}
           </p>
           <div className="flex flex-wrap gap-2">

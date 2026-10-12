@@ -127,7 +127,7 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
             value={form.item_definition}
             onChange={onField('item_definition')}
             required
-            helpText="The selected item is added to the child's Satchel when the reward is fulfilled."
+            helpText="The selected item is added to the child's inventory when the reward is fulfilled."
           >
             <option value="">Choose an item…</option>
             {itemCatalog.map((item) => (

@@ -95,11 +95,11 @@ describe('FirstEncounterSheet', () => {
     renderSheet([petsEntry.slug]);
 
     expect(
-      await screen.findByRole('dialog', { name: /a new page is open/i }),
+      await screen.findByRole('dialog', { name: /new guide available/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /pets/i })).toBeInTheDocument();
     expect(
-      screen.getByText(/a new training awaits you in your lorebook/i),
+      screen.getByText(/learn how this feature works in the guide/i),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /^later$/i }));
@@ -120,10 +120,10 @@ describe('FirstEncounterSheet', () => {
     renderSheet([petsEntry.slug]);
 
     expect(
-      await screen.findByRole('dialog', { name: /a new page is open/i }),
+      await screen.findByRole('dialog', { name: /new guide available/i }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /take me there/i }));
+    await user.click(screen.getByRole('button', { name: /open guide/i }));
 
     await waitFor(() => expect(patch.calls).toHaveLength(1));
     await waitFor(() =>
@@ -146,12 +146,12 @@ describe('FirstEncounterSheet', () => {
 
     await act(async () => { await new Promise((r) => setTimeout(r, 60)); });
     expect(
-      screen.queryByRole('dialog', { name: /a new page is open/i }),
+      screen.queryByRole('dialog', { name: /new guide available/i }),
     ).toBeNull();
 
     await act(async () => { openForm.remove(); });
     expect(
-      await screen.findByRole('dialog', { name: /a new page is open/i }),
+      await screen.findByRole('dialog', { name: /new guide available/i }),
     ).toBeInTheDocument();
   });
 });

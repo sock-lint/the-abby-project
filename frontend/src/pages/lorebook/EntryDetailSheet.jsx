@@ -48,7 +48,7 @@ function ParentKnobs({ entry }) {
   if (!settings.length && !badges.length && !sources.length) {
     return (
       <p className="text-body text-ink-whisper italic">
-        No special parent knobs for this page yet.
+        No additional parent settings for this topic.
       </p>
     );
   }
@@ -58,7 +58,7 @@ function ParentKnobs({ entry }) {
       {settings.length > 0 && (
         <div>
           <h4 className="font-display text-body font-semibold text-ink-primary mb-2">
-            Tunable settings
+            Configurable settings
           </h4>
           <ul className="space-y-2">
             {settings.map((setting) => (
@@ -130,14 +130,14 @@ export default function EntryDetailSheet({
         <header className="text-center">
           <div className="text-5xl mb-2" aria-hidden="true">{entry.icon || '📖'}</div>
           <div className="font-script text-sheikah-teal-deep text-base">
-            {entry.audience_title || 'a field note'}
+            {entry.audience_title || 'Guide topic'}
           </div>
           <p className="mt-1 text-body text-ink-whisper">{entry.summary}</p>
         </header>
 
         <section className="space-y-3">
           <h3 className="font-display italic text-xl text-ink-primary">
-            In the journal voice
+            Overview
           </h3>
           <div className="space-y-2">
             <Paragraphs text={entry.kid_voice} />
@@ -146,7 +146,7 @@ export default function EntryDetailSheet({
 
         <section className="space-y-3 rounded-xl border border-ink-page-shadow bg-ink-page-aged/45 p-3">
           <h3 className="font-display italic text-xl text-ink-primary">
-            How it actually works
+            How it works
           </h3>
           <ul className="space-y-2">
             {(entry.mechanics || []).map((item) => (
@@ -164,7 +164,7 @@ export default function EntryDetailSheet({
           className="rounded-xl border border-ink-page-shadow bg-ink-page/45 p-3"
         >
           <summary className="cursor-pointer font-display text-base font-semibold text-ink-primary">
-            For parents: knobs, gates, and catalog notes
+            For parents: settings and requirements
           </summary>
           <div className="mt-3">
             <ParentKnobs entry={entry} />

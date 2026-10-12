@@ -15,6 +15,11 @@ export const STATUS_TONE = {
   failed: 'ember',
 };
 
+export const QUEST_KIND_LABEL = {
+  boss: 'Boss challenge',
+  collection: 'Collection challenge',
+};
+
 // Chapter definitions. `rubric` is the number the folio header renders;
 // `letter` is the IlluminatedVersal drop-cap. `tier` retains the chapter's
 // tone metadata; status collection tabs use counts without completion bars.
@@ -24,23 +29,23 @@ export const CHAPTERS = [
     name: 'Available',
     letter: 'A',
     rubric: chapterMark(0),
-    kicker: 'boards posting fresh trials',
+    kicker: 'Challenges ready to start',
     tier: PROGRESS_TIER.rising,
   },
   {
     id: 'underway',
-    name: 'Underway',
-    letter: 'U',
+    name: 'In progress',
+    letter: 'I',
     rubric: chapterMark(1),
-    kicker: 'pressing forward — one at a time',
+    kicker: 'Your active challenge',
     tier: PROGRESS_TIER.cresting,
   },
   {
     id: 'closed',
-    name: 'Closed',
-    letter: 'C',
+    name: 'History',
+    letter: 'H',
     rubric: chapterMark(2),
-    kicker: 'trials filed in the chronicle',
+    kicker: 'Completed and ended challenges',
     tier: PROGRESS_TIER.gilded,
   },
   {
@@ -48,7 +53,7 @@ export const CHAPTERS = [
     name: 'Locked',
     letter: 'L',
     rubric: chapterMark(3),
-    kicker: 'badge-gated — earn the seal to unlock',
+    kicker: 'Earn the required badge to unlock',
     tier: PROGRESS_TIER.locked,
   },
 ];

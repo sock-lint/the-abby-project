@@ -87,7 +87,7 @@ describe('Achievements (Skills page)', () => {
     // Child should NOT see View | Manage toggle.
     expect(screen.queryByRole('tab', { name: 'Manage' })).toBeNull();
     expect(await screen.findByRole('button', { name: /Woodworking/ })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: /breadcrumb/i })).toHaveTextContent('All skills');
+    expect(screen.getByRole('navigation', { name: /skill navigation/i })).toHaveTextContent('All skills');
   });
 
   it('opens a category on request and lets a child filter and inspect its skills', async () => {
@@ -127,7 +127,7 @@ describe('Achievements (Skills page)', () => {
     });
     await user.click(screen.getByRole('button', { name: /Dovetail/ }));
     expect(await screen.findByRole('heading', { name: 'Dovetail' })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: /breadcrumb/i }))
+    expect(screen.getByRole('navigation', { name: /skill navigation/i }))
       .toHaveTextContent(/All skills.*Woodworking.*Advanced Technique.*Dovetail/);
   });
 

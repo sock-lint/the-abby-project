@@ -59,7 +59,7 @@ export default function QuestFolio({
     <ParchmentCard
       tone="bright"
       as="section"
-      aria-label={`${title} folio`}
+      aria-label={`${title} overview`}
       className={`!p-0 overflow-hidden ${className}`}
     >
       <div className="relative grid grid-cols-1 md:grid-cols-[220px_1fr] lg:grid-cols-[260px_1fr]">

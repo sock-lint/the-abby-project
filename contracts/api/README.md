@@ -29,6 +29,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `greenlight-overview-reconciled.json` | Final overview after reconciliation; debt decreases, pending hourly earnings and balance observation stay separate |
 | `pets-stable.json` | `GET /api/pets/stable/`, owned pets and mounts with nested species/potions, growth, happiness and active state |
 | `pets-stable-empty.json` | Same stable endpoint with no owned companions; catalog total remains populated |
+| `pets-stable-restricted-empty.json` | Empty stable with a restricted species; `total_possible` counts only supported potion combinations |
 | `inventory-food.json` | `GET /api/inventory/`, raw inventory array with preferred/neutral food and a nonfood egg |
 | `inventory-empty.json` | Same inventory endpoint with no owned items; raw empty array |
 | `pet-feed.json` | `POST /api/pets/51/feed/`, preferred food consumed and growth confirmed |
@@ -70,6 +71,18 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `expedition-already-active.json` | Start rejected with HTTP 400 while that mount has an active expedition |
 | `expedition-daily-limit.json` | Start rejected with HTTP 400 after the same mount's first run is claimed that local day |
 | `expedition-expired.json` | Expired run claim rejected with HTTP 400 and no awards |
+| `pets-stable-breeding.json` | Stable with two ready parents (including an away mount) and a third mount still on breeding cooldown |
+| `pets-stable-breeding-after.json` | Same stable after a confirmed breed; both parents have their full server cooldown |
+| `inventory-breeding.json` | Inventory confirms one added egg and potion while existing food and other quantities remain unchanged |
+| `mount-breed.json` | `POST /api/mounts/breed/`, HTTP 201 registered egg/potion pair and cooldown receipt |
+| `mount-breed-chromatic.json` | Same real endpoint with a supported Cosmic upgrade forced by fixed random input |
+| `mount-breed-fallback.json` | Same real endpoint uses a registered supported potion when both old parents have incompatible variants |
+| `mount-breed-missing-mounts.json` | Breed rejected with HTTP 400 when either parent ID is absent |
+| `mount-breed-same-mount.json` | Breed rejected with HTTP 400 when both IDs identify the same mount |
+| `mount-breed-invalid-ids.json` | Breed rejected with HTTP 400 when a parent ID cannot be parsed as an integer |
+| `mount-breed-not-owned.json` | Sibling, foreign-family or unknown parent rejected with the same HTTP 400 body |
+| `mount-breed-cooldown.json` | Breed rejected with HTTP 400 because one parent is still resting |
+| `mount-breed-repeat-cooldown.json` | Repeating a completed breed during its cooldown is rejected without adding another pair |
 
 `config/tests/test_api_contract_fixtures.py` seeds fixed family/user/habit/skill
 and companion/item IDs and a fixed clock, sends requests through the real Django
@@ -97,7 +110,11 @@ sibling/foreign-family inventory remains untouched. A supplied `user_id` cannot
 change the owner; unauthenticated requests are rejected. Typed inventory fields
 `pet_species_name` and `potion_type_name` are display names or explicit null;
 they do not expose catalog IDs or declare potion compatibility. The server
-remains authoritative for ingredient eligibility.
+remains authoritative for ingredient eligibility. Nonempty species compatibility
+lists are enforced before either ingredient is consumed; legacy empty lists
+remain unrestricted. Stable `total_possible` sums those supported combinations
+and uses all current potions for a legacy empty list. It does not multiply every
+species by every potion when some combinations cannot hatch.
 
 Expeditions remain self-scoped to the authenticated account, including siblings
 within one family. Start submits only `tier`; claim uses the expedition ID in the
@@ -127,6 +144,27 @@ streak and notifications before/after a repeated claim. The local-day start cap
 still applies after claiming, and sibling/foreign-family rows never enter an
 owned list or become eligible for start/claim. Real endpoint-created expedition
 IDs are pinned with a test-table sequence reset for PostgreSQL and SQLite.
+
+Every mount response now includes read-only `can_breed` and
+`breeding_cooldown_seconds`. The latter is a nonnegative integer rounded up from
+the remaining server cooldown; `can_breed` is exactly true when those seconds
+are zero. Both fields use one server clock snapshot so a deadline passing during
+serialization cannot produce conflicting values. An active expedition does not
+change the existing breeding rule. A client must refresh eligibility rather
+than authorize a breed from its own countdown.
+
+Breeding submits distinct owned `mount_a_id` and `mount_b_id` values. The service
+adds one registered egg and one potion to the authenticated account's inventory,
+preserves both mounts, and stamps both parent cooldowns together. It consumes no
+food, eggs, potions or parents and grants no coins, XP or bonus drops. Compatible
+parental potions, registered compatibility fallbacks and supported Cosmic
+upgrades use the catalog foundation's existing rules. The receipt contains item
+identities, names/icons/sprite keys, selected species/potion names and nullable
+slugs, `chromatic`, and `cooldown_days`; it does not hatch the resulting pair.
+Producer checks compare the actual inventory changes, both cooldowns, unchanged
+progression and other-family state, and rejection one microsecond before the
+exact cooldown boundary. A later inventory/stable read confirms the new pair
+and fresh cooldowns without repeating the non-idempotent POST.
 
 `config/tests/test_greenlight_api_contract_fixtures.py` sends the payout,
 snapshot, preview and reconciliation requests through their real views with a
