@@ -141,6 +141,8 @@
           ]
         }
       },
+      "can_breed": true,
+      "breeding_cooldown_seconds": 0,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00"
     },
@@ -214,6 +216,8 @@
           ]
         }
       },
+      "can_breed": true,
+      "breeding_cooldown_seconds": 0,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00"
     },
@@ -278,6 +282,8 @@
           ]
         }
       },
+      "can_breed": false,
+      "breeding_cooldown_seconds": 432000,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00"
     }

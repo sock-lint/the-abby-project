@@ -1,5 +1,11 @@
+import math
+from datetime import timedelta
+
+from django.utils import timezone
+from django.utils.functional import cached_property
 from rest_framework import serializers
 from .models import MountExpedition, PetSpecies, PotionType, UserPet, UserMount
+from .services import MOUNT_BREEDING_COOLDOWN_DAYS
 
 
 class PetSpeciesSerializer(serializers.ModelSerializer):
@@ -85,15 +91,34 @@ class UserMountSerializer(serializers.ModelSerializer):
     species = PetSpeciesSerializer(read_only=True)
     potion = PotionTypeSerializer(read_only=True)
     active_expedition = serializers.SerializerMethodField()
+    can_breed = serializers.SerializerMethodField()
+    breeding_cooldown_seconds = serializers.SerializerMethodField()
 
     class Meta:
         model = UserMount
         fields = [
             "id", "species", "potion", "is_active",
-            "last_bred_at", "active_expedition",
+            "last_bred_at", "active_expedition", "can_breed", "breeding_cooldown_seconds",
             "created_at", "updated_at",
         ]
         read_only_fields = fields
+
+    @cached_property
+    def breeding_as_of(self):
+        # Both fields share one server snapshot, including when the cooldown
+        # deadline passes while a complete mount list is being serialized.
+        return timezone.now()
+
+    def get_breeding_cooldown_seconds(self, obj):
+        if obj.last_bred_at is None:
+            return 0
+        ready_at = obj.last_bred_at + timedelta(days=MOUNT_BREEDING_COOLDOWN_DAYS)
+        return max(0, math.ceil((ready_at - self.breeding_as_of).total_seconds()))
+
+    def get_can_breed(self, obj):
+        # Mirrors the existing cooldown rule. An active expedition does not
+        # change breeding eligibility in the authoritative service.
+        return self.get_breeding_cooldown_seconds(obj) == 0
 
     def get_active_expedition(self, obj):
         """Compact summary of this mount's currently-running expedition.
