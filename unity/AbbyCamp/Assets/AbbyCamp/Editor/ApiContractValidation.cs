@@ -3,6 +3,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using System.Reflection;
 using AbbyCamp.Data;
 using AbbyCamp.Services;
 using UnityEditor;
@@ -106,6 +107,7 @@ namespace AbbyCamp.Editor
             ValidatePlayHomeContracts();
             ValidateCompanionCareContracts();
             ValidateHatchingContracts();
+            ValidateExpeditionContracts();
             var gameObject = new GameObject("API validation client");
             try
             {
@@ -147,6 +149,8 @@ namespace AbbyCamp.Editor
                     fail => client.ActivatePet(52, _ => completed = true, fail),
                     fail => client.ActivateMount(62, _ => completed = true, fail),
                     fail => client.HatchPet(73, 75, _ => completed = true, fail),
+                    fail => client.StartExpedition(61, "short", _ => completed = true, fail),
+                    fail => client.ClaimExpedition(103, _ => completed = true, fail),
                 })
                 {
                     rejection = null;
@@ -154,6 +158,10 @@ namespace AbbyCamp.Editor
                     Check(!coroutine.MoveNext() && !completed && rejection != null && rejection.RequiresLogin,
                         "Logged-out creature care never issues a mutation");
                 }
+                rejection = null;
+                coroutine = client.FetchExpeditions(_ => completed = true, problem => rejection = problem);
+                Check(!coroutine.MoveNext() && !completed && rejection != null && rejection.RequiresLogin,
+                    "Logged-out expedition history never issues a request");
                 client.ConfigureBaseUrl("https://abby.example.com", out _);
                 Check(!client.ConfigureBaseUrl("http://remote.example.com", out _) && client.BaseUrl == "https://abby.example.com", "Rejected configuration preserves valid origin");
             }
@@ -566,6 +574,137 @@ namespace AbbyCamp.Editor
             foreach (string fixture in new[] { "pet-hatch-missing-ingredients.json", "pet-hatch-unavailable-egg.json", "pet-hatch-unavailable-potion.json", "pet-hatch-duplicate.json" })
                 Check(!ApiContract.HttpError(400, ReadFixture(fixture), true, false).OutcomeUnknown,
                     "Shared hatch rejection is definite and never a successful reveal: " + fixture);
+        }
+
+        private static void ValidateExpeditionContracts()
+        {
+            var stable = ApiContract.ParseStable(ReadFixture("pets-stable.json"));
+            var shortMount = Array.Find(stable.mounts, mount => mount.id == 61);
+            string shortJson = ReadFixture("expedition-start-short.json");
+            var started = ApiContract.ParseExpeditionStart(shortJson, shortMount, "short", new HashSet<int>());
+            Check(started.id == 103 && started.mount_id == 61 && started.status == "active" && !started.CanClaim
+                && started.loot.coins == 15 && started.loot.items.Length == 1,
+                "Shared start confirms a new owned expedition without awarding its locked loot");
+            foreach (string tier in new[] { "standard", "long" })
+            {
+                var row = ApiContract.ParseExpedition(ReadFixture("expedition-start-" + tier + ".json"));
+                Check(row.tier == tier && row.loot.items.Length == (tier == "standard" ? 2 : 3)
+                    && row.loot.items[0].item_id == row.loot.items[1].item_id,
+                    "Repeated rolled item slots remain legitimate: " + tier);
+            }
+            Reject(() => ApiContract.ParseExpeditionStart(shortJson, new OwnedMountDto { id = 62 }, "short", new HashSet<int>()),
+                "A start receipt for another mount cannot confirm the requested expedition");
+            Reject(() => ApiContract.ParseExpeditionStart(shortJson, shortMount, "long", new HashSet<int>()),
+                "A different tier cannot confirm an expedition start");
+            Reject(() => ApiContract.ParseExpeditionStart(shortJson, shortMount, "short", new HashSet<int> { started.id }),
+                "A historical expedition cannot confirm another start");
+            Reject(() => ApiContract.ParseExpedition(shortJson.Replace("\"tier\": \"short\"", "\"tier\": \"overnight\"")),
+                "Unknown expedition tiers are rejected");
+            Reject(() => ApiContract.ParseExpedition(shortJson.Replace("\"is_ready\": false", "\"is_ready\": \"false\"")),
+                "Readiness cannot default from an invalid boolean");
+            var approaching = ApiContract.ParseExpedition(shortJson);
+            approaching.seconds_remaining = 0;
+            Check(!approaching.CanClaim, "A zero displayed countdown does not establish server readiness");
+            var legacy = ApiContract.ParseExpedition(shortJson.Replace("\"species_slug\": \"fixture-fox\"", "\"species_slug\": null")
+                .Replace("\"potion_slug\": \"ice\"", "\"potion_slug\": null"));
+            Check(legacy.species_slug == null && legacy.potion_slug == null, "Nullable legacy catalog slugs retain their absent identity semantics");
+
+            var history = ApiContract.ParseExpeditions(ReadFixture("expeditions.json"));
+            var readyRows = ApiContract.ParseExpeditions(ReadFixture("expeditions-ready.json"));
+            var ready = Array.Find(readyRows, row => row.id == started.id);
+            Check(history.Length > 0 && ready != null && ready.CanClaim && ready.seconds_remaining <= 0,
+                "Shared history and ready rows retain signed countdowns and authoritative lifecycle state");
+            Check(ApiContract.ParseExpeditions(ReadFixture("expeditions-empty.json")).Length == 0, "Empty expedition history remains an acknowledged read");
+            Reject(() => ApiContract.ParseExpeditions("{\"expeditions\":[" + shortJson + "," + shortJson + "]}"), "Duplicate expedition identities cannot authorize additional claims");
+            Reject(() => ApiContract.ParseExpeditions("{}"), "A missing expedition collection cannot masquerade as empty history");
+            string claimJson = ReadFixture("expedition-claim.json");
+            var claimed = ApiContract.ParseExpeditionClaim(claimJson, ready);
+            Check(claimed.expedition_id == ready.id && claimed.mount.id == ready.mount_id && claimed.coins_awarded == 15
+                && claimed.freshly_claimed && claimed.items.Length == ready.loot.items.Length,
+                "Shared claim confirms the matching expedition's actual primary coin award and recorded item slots");
+            var repeat = ApiContract.ParseExpeditionClaim(ReadFixture("expedition-claim-repeat.json"), ready);
+            Check(!repeat.freshly_claimed && repeat.coins_awarded == 0 && repeat.items.Length == claimed.items.Length,
+                "An already claimed receipt confirms zero new coins and cannot trigger another celebration");
+            var claimContext = ApiContract.ParseExpeditions(ReadFixture("expeditions-ready-claim.json"))[0];
+            var boosted = ApiContract.ParseExpeditionClaim(ReadFixture("expedition-claim-boosted.json"), claimContext);
+            Check(boosted.freshly_claimed && boosted.coins_awarded == 30 && claimContext.loot.coins == 15,
+                "The actual Lucky Coin ledger award may exceed the locked base coin plan");
+            var archived = ApiContract.ParseExpeditionClaim(ReadFixture("expedition-claim-archived-item.json"), claimContext);
+            Check(archived.freshly_claimed && archived.items[0].item_id == 71,
+                "A skipped archived slot remains recorded loot without claiming it is current inventory");
+            var salvageContext = ApiContract.ParseExpeditions(ReadFixture("expeditions-ready-salvage.json"))[0];
+            string salvageJson = ReadFixture("expedition-claim-salvage.json");
+            var salvaged = ApiContract.ParseExpeditionClaim(salvageJson, salvageContext);
+            Check(salvaged.coins_awarded == 15 && salvaged.items[0].salvaged_to_coins == 20,
+                "Duplicate cosmetic salvage stays separate from the confirmed primary coin award");
+            Reject(() => ApiContract.ParseExpeditionClaim(salvageJson.Replace("\"salvaged_to_coins\": 20", "\"salvaged_to_coins\": -1"), salvageContext),
+                "Invalid salvage values cannot become a confirmed coin description");
+            Reject(() => ApiContract.ParseExpeditionClaim(claimJson.Replace("\"expedition_id\": 103", "\"expedition_id\": 104"), ready),
+                "Another expedition's receipt cannot confirm this claim");
+            Reject(() => ApiContract.ParseExpeditionClaim(claimJson.Replace("\"id\": 61", "\"id\": 62"), ready),
+                "A claim must identify the owned expedition's mount");
+            Reject(() => ApiContract.ParseExpeditionClaim(claimJson.Replace("\"coins_awarded\": 15", "\"coins_awarded\": -1"), ready),
+                "A negative coin amount cannot confirm a reward");
+            Reject(() => ApiContract.ParseExpeditionClaim(claimJson.Replace("\"coins_awarded\": 15", "\"coins_awarded\": 0"), ready),
+                "A fresh claim must confirm at least its locked primary coin plan");
+            Reject(() => ApiContract.ParseExpeditionClaim(claimJson.Replace("\"freshly_claimed\": true", "\"freshly_claimed\": \"true\""), ready),
+                "Claim freshness requires an explicit boolean");
+            Reject(() => ApiContract.ParseExpeditionClaim(claimJson.Replace("\"freshly_claimed\": true", "\"freshly_claimed\": false"), ready),
+                "An already claimed receipt cannot confirm newly awarded coins");
+            Reject(() => ApiContract.ParseExpeditionClaim(claimJson.Replace("\"quantity\": 1", "\"quantity\": 2"), ready),
+                "A receipt cannot increase the locked loot quantity");
+            Reject(() => ApiContract.ParseExpeditionClaim(claimJson, started), "An outbound row cannot authorize a claim confirmation");
+            foreach (string fixture in new[] { "expedition-invalid-tier.json", "expedition-mount-not-owned.json", "expedition-not-owned.json",
+                "expedition-early-claim.json", "expedition-already-active.json", "expedition-daily-limit.json", "expedition-expired.json" })
+                Check(!ApiContract.HttpError(fixture.Contains("not-owned") ? 404 : 400, ReadFixture(fixture), true, false).OutcomeUnknown,
+                    "Shared expedition rejection requires a refresh without a fabricated reward: " + fixture);
+
+            var gameObject = new GameObject("Expedition eligibility validation");
+            try
+            {
+                var client = gameObject.AddComponent<AbbyApiClient>();
+                void Set(string field, object value) => typeof(AbbyApiClient).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(client, value);
+                Set("token", "0123456789012345678901234567890123456789");
+                Set("<CurrentUser>k__BackingField", new UserDto { id = 7, role = "child" });
+                Set("stableLoaded", true); Set("expeditionsLoaded", true);
+                var mounts = (Dictionary<int, OwnedMountDto>)typeof(AbbyApiClient).GetField("knownMounts", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(client);
+                var rows = (Dictionary<int, ExpeditionDto>)typeof(AbbyApiClient).GetField("knownExpeditions", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(client);
+                var readyIds = (HashSet<int>)typeof(AbbyApiClient).GetField("readyExpeditions", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(client);
+                mounts.Add(shortMount.id, shortMount);
+                Check(shortMount.is_active && client.CanStartExpedition(shortMount.id, "short"), "An owned active mount can start an expedition as the existing server allows");
+                Check(!client.CanStartExpedition(999, "short") && !client.CanStartExpedition(shortMount.id, "unknown"),
+                    "Foreign identities and unsupported tiers never become start eligibility");
+                shortMount.active_expedition = new MountExpeditionDto { id = ready.id, mount_id = shortMount.id, status = "active", is_ready = true };
+                rows.Add(ready.id, ready); readyIds.Add(ready.id);
+                Check(!client.CanStartExpedition(shortMount.id, "short") && client.CanClaimExpedition(ready.id) && !client.CanClaimExpedition(999),
+                    "An exploring mount blocks another start while its accepted own ready row enables one claim");
+                readyIds.Clear();
+                Check(!client.CanClaimExpedition(ready.id), "A locally changed DTO cannot replace readiness captured from an accepted server read");
+                readyIds.Add(ready.id);
+                ready.status = "claimed";
+                Check(!client.CanClaimExpedition(ready.id), "A ready claimed history row cannot authorize another claim");
+                ready.status = "active";
+                Set("stableLoaded", false);
+                Check(!client.CanClaimExpedition(ready.id), "Claims require a fresh complete owned stable snapshot");
+                Set("stableLoaded", true); Set("expeditionsLoaded", false);
+                Check(!client.CanClaimExpedition(ready.id), "Claims require a fresh complete expedition snapshot");
+                Set("expeditionsLoaded", true); Set("<MutationInFlight>k__BackingField", true);
+                Check(!client.CanClaimExpedition(ready.id), "The shared mutation lock blocks concurrent expedition actions");
+                Set("<MutationInFlight>k__BackingField", false);
+                ApiError rejection = null;
+                bool completed = false;
+                var coroutine = client.StartExpedition(61, "unknown", _ => completed = true, error => rejection = error);
+                Check(!coroutine.MoveNext() && !completed && rejection != null && !rejection.OutcomeUnknown,
+                    "An unsupported start is rejected before any request dispatch");
+                rejection = null;
+                coroutine = client.ClaimExpedition(999, _ => completed = true, error => rejection = error);
+                Check(!coroutine.MoveNext() && !completed && rejection != null && !rejection.OutcomeUnknown,
+                    "An unknown claim is rejected before any request dispatch");
+                client.ClearSession();
+                Check(rows.Count == 0 && mounts.Count == 0 && readyIds.Count == 0 && !client.CanClaimExpedition(ready.id),
+                    "Account replacement clears every expedition identity and readiness cache");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(gameObject); }
         }
 
         private static void Check(bool condition, string description)

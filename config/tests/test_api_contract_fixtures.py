@@ -20,9 +20,10 @@ from rest_framework.test import APITestCase
 from apps.achievements.models import Skill, SkillCategory, SkillProgress
 from apps.habits.models import Habit, HabitLog, HabitSkillTag
 from apps.notifications.models import Notification, NotificationType
-from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
+from apps.pets.models import MountExpedition, PetSpecies, PotionType, UserMount, UserPet
 from apps.quests.models import DailyChallenge
-from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
+from apps.rewards.models import CoinLedger
+from apps.rpg.models import CharacterProfile, DropLog, DropTable, ItemDefinition, UserInventory
 from config.tests.factories import make_family
 
 
@@ -356,6 +357,214 @@ class SharedApiResponseFixtureTests(APITestCase):
         response = self.client.post("/api/pets/hatch/", {"egg_item_id": 73, "potion_item_id": 75}, format="json")
         self.assertEqual(response.status_code, 401)
         self.assertEqual(self.hatching_state(), before)
+
+    def seed_expeditions(self):
+        self.seed_companion_care()
+        UserMount.objects.create(id=63, user=self.child, species_id=41, potion_id=43)
+        DropTable.objects.create(
+            id=301, trigger_type="expedition_returned", item=self.preferred_food, weight=10,
+        )
+        for row_id, mount_id in ((101, 81), (102, 82)):
+            MountExpedition.objects.create(
+                id=row_id, mount_id=mount_id, tier="short", status="active",
+                started_at=FIXED_NOW - timedelta(hours=3), returns_at=FIXED_NOW - timedelta(hours=1),
+                loot={"coins": 99, "items": []},
+            )
+        # Start still creates its real auto-field identity. Explicit foreign
+        # rows plus a sequence reset pin responses across SQLite/PostgreSQL.
+        with connection.cursor() as cursor:
+            if connection.vendor == "sqlite":
+                cursor.execute(
+                    "UPDATE sqlite_sequence SET seq = (SELECT MAX(id) FROM pets_mountexpedition) "
+                    "WHERE name = 'pets_mountexpedition'"
+                )
+            else:
+                for sql in connection.ops.sequence_reset_sql(no_style(), [MountExpedition]):
+                    cursor.execute(sql)
+
+    def start_fixture_expedition(self, tier="short", mount_id=61, now=FIXED_NOW):
+        # Keep the real roll and materialization. A single seeded drop-table
+        # entry fixes item choice, and fixed random input removes coin jitter.
+        with patch("django.utils.timezone.now", return_value=now), patch("apps.pets.expeditions.random.random", return_value=0.5):
+            response = self.client.post(f"/api/mounts/{mount_id}/expedition/", {"tier": tier}, format="json")
+        self.assertEqual(response.status_code, 201, response.json())
+        return response
+
+    def expedition_reward_state(self):
+        return (
+            list(UserInventory.objects.order_by("pk").values_list("pk", "user_id", "item_id", "quantity", "updated_at")),
+            list(CoinLedger.objects.order_by("pk").values_list("pk", "user_id", "amount", "reason")),
+            list(DropLog.objects.order_by("pk").values_list("pk", "user_id", "item_id")),
+            list(SkillProgress.objects.order_by("pk").values_list("pk", "user_id", "skill_id", "xp_points", "level")),
+            list(CharacterProfile.objects.order_by("pk").values_list("pk", "login_streak", "last_active_date")),
+            list(Notification.objects.order_by("pk").values_list("pk", "user_id", "notification_type", "is_read")),
+        )
+
+    def expedition_rows_state(self):
+        return list(MountExpedition.objects.order_by("pk").values_list("pk", "mount_id", "tier", "status", "loot", "claimed_at"))
+
+    def test_expedition_start_tiers_lock_loot_without_awarding_or_changing_inventory(self):
+        self.seed_expeditions()
+        before = self.expedition_reward_state()
+        for index, (tier, duration, coins, slots) in enumerate((
+            ("short", 7200, 15, 1), ("standard", 14400, 35, 2), ("long", 28800, 75, 3),
+        )):
+            with self.subTest(tier=tier):
+                now = FIXED_NOW + timedelta(seconds=index - 2)
+                response = self.start_fixture_expedition(tier, 61 + index, now)
+                body = self.assert_response_fixture(response, f"expedition-start-{tier}.json", status=201)
+                expedition = MountExpedition.objects.get(pk=body["id"])
+                self.assertEqual(expedition.mount.user_id, self.child.pk)
+                self.assertEqual((expedition.returns_at - expedition.started_at).total_seconds(), duration)
+                self.assertEqual((body["status"], body["is_ready"], body["seconds_remaining"], body["claimed_at"]), ("active", False, duration, None))
+                self.assertEqual(body["loot"]["coins"], coins)
+                self.assertEqual(len(body["loot"]["items"]), slots)
+                self.assertEqual([slot["item_id"] for slot in body["loot"]["items"]], [71] * slots)
+                self.assertEqual(expedition.loot, body["loot"])
+        self.assertEqual(self.expedition_reward_state(), before)
+        rows = self.assert_response_fixture(self.client.get("/api/expeditions/?user_id=99"), "expeditions.json")["expeditions"]
+        self.assertEqual([row["id"] for row in rows], [105, 104, 103])
+        stable = self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-stable-expeditions.json")
+        self.assertEqual({mount["active_expedition"]["id"] for mount in stable["mounts"]}, {103, 104, 105})
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(hours=2)):
+            ready = self.assert_response_fixture(self.client.get("/api/expeditions/?ready=true"), "expeditions-ready.json")["expeditions"]
+        self.assertEqual([(row["id"], row["status"], row["is_ready"], row["seconds_remaining"]) for row in ready], [(103, "active", True, -2)])
+        self.assertEqual(self.expedition_reward_state(), before)
+
+    def test_empty_expedition_lists_exclude_ready_foreign_and_sibling_rows_without_writes(self):
+        self.seed_expeditions()
+        before = (self.expedition_reward_state(), self.expedition_rows_state())
+        for query in ("", "?ready=true", "?ready=true&user_id=99"):
+            self.assert_response_fixture(self.client.get("/api/expeditions/" + query), "expeditions-empty.json")
+        self.assertEqual((self.expedition_reward_state(), self.expedition_rows_state()), before)
+
+    def test_expedition_rejections_preserve_ownership_inventory_and_locked_rows(self):
+        self.seed_expeditions()
+        before = (self.expedition_reward_state(), self.expedition_rows_state())
+        for tier in (None, "marathon", 1):
+            response = self.client.post("/api/mounts/61/expedition/", {} if tier is None else {"tier": tier}, format="json")
+            self.assert_response_fixture(response, "expedition-invalid-tier.json", status=400)
+        for mount_id in (81, 82, 999):
+            response = self.client.post(f"/api/mounts/{mount_id}/expedition/", {"tier": "short"}, format="json")
+            self.assert_response_fixture(response, "expedition-mount-not-owned.json", status=404)
+        for expedition_id in (101, 102, 999):
+            response = self.client.post(f"/api/expeditions/{expedition_id}/claim/", {}, format="json")
+            self.assert_response_fixture(response, "expedition-not-owned.json", status=404)
+        self.assertEqual((self.expedition_reward_state(), self.expedition_rows_state()), before)
+
+    def test_early_claim_and_active_duplicate_start_do_not_award_or_reroll(self):
+        self.seed_expeditions()
+        self.start_fixture_expedition()
+        before = (self.expedition_reward_state(), self.expedition_rows_state())
+        with patch("apps.pets.expeditions.ExpeditionService._roll_loot", side_effect=AssertionError("Existing expeditions must not reroll")):
+            self.assert_response_fixture(self.client.post("/api/expeditions/103/claim/", {}, format="json"), "expedition-early-claim.json", status=400)
+            self.assert_response_fixture(self.client.post("/api/mounts/61/expedition/", {"tier": "long"}, format="json"), "expedition-already-active.json", status=400)
+        self.assertEqual((self.expedition_reward_state(), self.expedition_rows_state()), before)
+
+    def test_expedition_claim_commits_locked_loot_once_and_repeat_awards_nothing(self):
+        from apps.rpg.services import GameLoopService
+
+        self.seed_expeditions()
+        planned = self.start_fixture_expedition().json()["loot"]
+        self.preferred_food.name = "Renamed after the locked roll"
+        self.preferred_food.save(update_fields=["name"])
+        foreign_inventory = list(UserInventory.objects.exclude(user=self.child).order_by("pk").values_list("pk", "quantity", "updated_at"))
+        claim_now = FIXED_NOW + timedelta(hours=2, seconds=5)
+        with patch("django.utils.timezone.now", return_value=claim_now), patch("apps.pets.expeditions.ExpeditionService._roll_loot", side_effect=AssertionError("Claim must not reroll loot")), patch("apps.rpg.services.GameLoopService.on_task_completed", wraps=GameLoopService.on_task_completed) as game_loop:
+            self.assert_response_fixture(self.client.get("/api/expeditions/?ready=true"), "expeditions-ready-claim.json")
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.post("/api/expeditions/103/claim/", {}, format="json")
+            body = self.assert_response_fixture(response, "expedition-claim.json")
+            self.assertEqual((body["expedition_id"], body["freshly_claimed"], body["coins_awarded"]), (103, True, 15))
+            self.assertEqual(body["items"], planned["items"])
+            self.assertEqual(body["items"][0]["name"], "Berry Bowl")
+            self.assertEqual(UserInventory.objects.get(user=self.child, item=self.preferred_food).quantity, 3)
+            expedition = MountExpedition.objects.get(pk=103)
+            self.assertEqual((expedition.status, expedition.claimed_at, expedition.loot), ("claimed", claim_now, planned))
+            ledger = CoinLedger.objects.get(user=self.child, reason=CoinLedger.Reason.EXPEDITION)
+            self.assertEqual(ledger.amount, body["coins_awarded"])
+            self.assertFalse(DropLog.objects.filter(user=self.child).exists())
+            self.assertEqual(game_loop.call_count, 1)
+            self.assertEqual(str(game_loop.call_args.args[1]), "expedition_returned")
+            self.assertFalse(game_loop.call_args.args[2]["drops_allowed"])
+            history = self.assert_response_fixture(self.client.get("/api/expeditions/"), "expeditions-claimed.json")["expeditions"]
+            self.assertEqual((history[0]["status"], history[0]["is_ready"], history[0]["seconds_remaining"]), ("claimed", True, -5))
+            after_claim = (self.expedition_reward_state(), self.expedition_rows_state())
+            with self.captureOnCommitCallbacks(execute=True):
+                repeated = self.client.post("/api/expeditions/103/claim/", {}, format="json")
+            repeat = self.assert_response_fixture(repeated, "expedition-claim-repeat.json")
+            self.assertEqual((repeat["freshly_claimed"], repeat["coins_awarded"], repeat["items"]), (False, 0, body["items"]))
+            self.assertEqual(game_loop.call_count, 1)
+            self.assertEqual((self.expedition_reward_state(), self.expedition_rows_state()), after_claim)
+            self.assert_response_fixture(self.client.get("/api/expeditions/?ready=true"), "expeditions-empty.json")
+            daily = self.client.post("/api/mounts/61/expedition/", {"tier": "short"}, format="json")
+            self.assert_response_fixture(daily, "expedition-daily-limit.json", status=400)
+            self.assertEqual((self.expedition_reward_state(), self.expedition_rows_state()), after_claim)
+        self.assertEqual(foreign_inventory, list(UserInventory.objects.exclude(user=self.child).order_by("pk").values_list("pk", "quantity", "updated_at")))
+
+    def test_expedition_claim_reports_actual_boosted_base_coins(self):
+        self.seed_expeditions()
+        planned = self.start_fixture_expedition().json()["loot"]["coins"]
+        claim_now = FIXED_NOW + timedelta(hours=2, seconds=5)
+        CharacterProfile.objects.filter(user=self.child).update(coin_boost_expires_at=claim_now + timedelta(hours=1))
+        with patch("django.utils.timezone.now", return_value=claim_now):
+            self.assert_response_fixture(self.client.get("/api/expeditions/?ready=true"), "expeditions-ready-claim.json")
+            body = self.assert_response_fixture(self.client.post("/api/expeditions/103/claim/", {}, format="json"), "expedition-claim-boosted.json")
+        self.assertEqual(body["coins_awarded"], planned * 2)
+        self.assertEqual(CoinLedger.objects.get(user=self.child, reason=CoinLedger.Reason.EXPEDITION).amount, body["coins_awarded"])
+
+    def test_expedition_salvage_is_separate_from_base_coins_and_never_duplicates_inventory(self):
+        self.seed_expeditions()
+        cosmetic = ItemDefinition.objects.create(
+            id=79, slug="fixture-expedition-frame", name="Synthetic Expedition Frame", icon="🖼️",
+            item_type="cosmetic_frame", rarity="rare", coin_value=20, sprite_key="fixture-frame",
+        )
+        UserInventory.objects.create(id=89, user=self.child, item=cosmetic, quantity=1)
+        DropTable.objects.filter(pk=301).update(item=cosmetic)
+        self.start_fixture_expedition()
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(hours=2, seconds=5)):
+            self.assert_response_fixture(self.client.get("/api/expeditions/?ready=true"), "expeditions-ready-salvage.json")
+            body = self.assert_response_fixture(self.client.post("/api/expeditions/103/claim/", {}, format="json"), "expedition-claim-salvage.json")
+            self.assertEqual(body["coins_awarded"], 15)
+            self.assertEqual(body["items"][0]["salvaged_to_coins"], 20)
+            self.assertEqual(CoinLedger.objects.get(user=self.child, reason=CoinLedger.Reason.EXPEDITION).amount, 15)
+            self.assertEqual(CoinLedger.objects.get(user=self.child, reason=CoinLedger.Reason.ADJUSTMENT).amount, 20)
+            self.assertEqual(UserInventory.objects.get(user=self.child, item=cosmetic).quantity, 1)
+            before = (self.expedition_reward_state(), self.expedition_rows_state())
+            repeat = self.client.post("/api/expeditions/103/claim/", {}, format="json").json()
+            self.assertEqual((repeat["freshly_claimed"], repeat["coins_awarded"], repeat["items"]), (False, 0, body["items"]))
+            self.assertEqual((self.expedition_reward_state(), self.expedition_rows_state()), before)
+
+    def test_archived_expedition_item_remains_a_planned_slot_without_invented_inventory(self):
+        self.seed_expeditions()
+        planned = self.start_fixture_expedition().json()["loot"]["items"]
+        self.preferred_food.delete()
+        before_inventory = list(UserInventory.objects.order_by("pk").values_list("pk", "quantity"))
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(hours=2, seconds=5)):
+            self.assert_response_fixture(self.client.get("/api/expeditions/?ready=true"), "expeditions-ready-claim.json")
+            body = self.assert_response_fixture(self.client.post("/api/expeditions/103/claim/", {}, format="json"), "expedition-claim-archived-item.json")
+        self.assertEqual(body["items"], planned)
+        self.assertEqual(body["coins_awarded"], 15)
+        self.assertEqual(list(UserInventory.objects.order_by("pk").values_list("pk", "quantity")), before_inventory)
+        self.assertFalse(UserInventory.objects.filter(item_id=71).exists())
+
+    def test_expired_expedition_rejection_and_authentication_preserve_all_state(self):
+        self.seed_expeditions()
+        self.start_fixture_expedition(now=FIXED_NOW - timedelta(hours=3))
+        MountExpedition.objects.filter(pk=103).update(status="expired")
+        before = (self.expedition_reward_state(), self.expedition_rows_state())
+        history = self.assert_response_fixture(self.client.get("/api/expeditions/"), "expeditions-expired.json")["expeditions"]
+        self.assertEqual((history[0]["status"], history[0]["is_ready"], history[0]["seconds_remaining"]), ("expired", True, -3600))
+        self.assert_response_fixture(self.client.get("/api/expeditions/?ready=true"), "expeditions-empty.json")
+        self.assert_response_fixture(self.client.post("/api/expeditions/103/claim/", {}, format="json"), "expedition-expired.json", status=400)
+        self.client.credentials()
+        for path, method, body in (
+            ("/api/expeditions/", "get", None), ("/api/expeditions/?ready=true", "get", None),
+            ("/api/mounts/62/expedition/", "post", {"tier": "short"}), ("/api/expeditions/103/claim/", "post", {}),
+        ):
+            response = self.client.get(path) if method == "get" else self.client.post(path, body, format="json")
+            self.assertEqual(response.status_code, 401)
+        self.assertEqual((self.expedition_reward_state(), self.expedition_rows_state()), before)
 
     def test_stable_and_inventory_preserve_companion_ownership_and_nested_data(self):
         self.seed_companion_care()

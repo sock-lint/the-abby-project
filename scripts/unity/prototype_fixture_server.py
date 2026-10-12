@@ -7,6 +7,14 @@
 Requires the project's Python dependencies. The script does not load .env or
 open the project's database. Ctrl+C removes the temporary database and media.
 All printed credentials belong only to this throwaway test server.
+
+Browser QA can use --fail-first-expedition-start-after-commit and
+--fail-first-expedition-claim-after-commit (also --fail-first-start-after-commit
+and --fail-first-claim-after-commit). POST /__fixture/finish-expedition/<id>/
+advances only an active expedition belonging to a designated fixture mount;
+its locked loot and reward state remain intact. POST /__fixture/hold-next-care/
+holds the next committed creature/expedition acknowledgement for at most 15s;
+observe /__fixture/play-state/, change accounts, then POST /__fixture/release-care/.
 """
 
 from __future__ import annotations
@@ -36,6 +44,7 @@ PARENT_USERNAME = "camp-parent"
 SECOND_USERNAME = "camp-other"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 CARE_ACTIVITY: dict[int, dict[str, int]] = {}
+EXPEDITION_FIXTURE_MOUNT_IDS: set[int] = set()
 
 
 class DisposableFixtureServer(ThreadingMixIn, WSGIServer):
@@ -138,6 +147,7 @@ def seed_fixture() -> dict:
     from apps.habits.models import Habit, HabitLog, HabitSkillTag
 
     CARE_ACTIVITY.clear()
+    EXPEDITION_FIXTURE_MOUNT_IDS.clear()
     family = Family.objects.create(name="Unity Test Family", slug="unity-test-family")
     parent = User.objects.create_user(
         username=PARENT_USERNAME, password=PASSWORD, role="parent",
@@ -212,12 +222,16 @@ def seed_play_account(user, actor, *, balance: int, species_name: str, pet_name:
     from apps.pets.models import MountExpedition, PetSpecies, PotionType, UserMount, UserPet
     from apps.rewards.models import CoinLedger
     from apps.rewards.services import CoinService
-    from apps.rpg.models import DropLog, ItemDefinition, UserInventory
+    from apps.rpg.constants import TriggerType
+    from apps.rpg.models import CharacterProfile, DropLog, DropTable, ItemDefinition, UserInventory
 
     CoinService.award_coins(
         user, balance, CoinLedger.Reason.ADJUSTMENT,
         description="Disposable Play fixture balance", created_by=actor,
     )
+    # A real expedition claim invokes the ordinary game loop. Seed an existing
+    # check-in today so its first-activity bonus is separate from expedition loot.
+    CharacterProfile.objects.filter(user=user).update(last_active_date=timezone.localdate(), login_streak=1)
     species = PetSpecies.objects.create(
         name=species_name, slug=slugify(species_name), icon="*",
         description="A creature owned only inside the disposable Play fixture.",
@@ -275,6 +289,38 @@ def seed_play_account(user, actor, *, balance: int, species_name: str, pet_name:
         )
         UserInventory.objects.create(user=user, item=hatch_item, quantity=2 if care and index == 0 else 1)
         hatch_potion_ids.append(hatch_item.pk)
+    loot_item, _ = ItemDefinition.objects.get_or_create(
+        slug="fixture-trail-keepsake", defaults={
+            "name": "Trail Keepsake", "icon": "*", "item_type": ItemDefinition.ItemType.FOOD,
+            "description": "A returned expedition item in the disposable fixture.", "rarity": "common",
+        },
+    )
+    DropTable.objects.get_or_create(trigger_type=TriggerType.EXPEDITION_RETURNED, item=loot_item, defaults={"weight": 1})
+    ready_potion = PotionType.objects.create(name=f"{pet_name} Tide", slug=f"{user.username}-tide")
+    species.available_potions.add(ready_potion)
+    ready_mount = UserMount.objects.create(user=user, species=species, potion=ready_potion)
+    now = timezone.now()
+    ready_expedition = MountExpedition.objects.create(
+        mount=ready_mount, tier=MountExpedition.Tier.STANDARD,
+        started_at=now - timedelta(hours=5), returns_at=now - timedelta(hours=1),
+        loot={"coins": 35, "items": [{
+            "item_id": loot_item.pk, "quantity": 2, "name": loot_item.name,
+            "icon": loot_item.icon, "rarity": loot_item.rarity,
+            "item_type": loot_item.item_type, "sprite_key": loot_item.sprite_key,
+        }]},
+    )
+    cooldown_mount = held_mount = None
+    if care:
+        cooldown_potion = PotionType.objects.create(name=f"{pet_name} Stone", slug=f"{user.username}-stone")
+        held_potion = PotionType.objects.create(name=f"{pet_name} Trail", slug=f"{user.username}-trail")
+        species.available_potions.add(cooldown_potion, held_potion)
+        cooldown_mount = UserMount.objects.create(user=user, species=species, potion=cooldown_potion)
+        held_mount = UserMount.objects.create(user=user, species=species, potion=held_potion)
+        MountExpedition.objects.create(
+            mount=cooldown_mount, tier=MountExpedition.Tier.SHORT, status=MountExpedition.Status.CLAIMED,
+            started_at=now, returns_at=now, claimed_at=now, loot={"coins": 0, "items": []},
+        )
+        EXPEDITION_FIXTURE_MOUNT_IDS.update((mount.pk, held_mount.pk))
     # Older read history exceeds the production-sized Inbox page; all three
     # actionable unread items remain newest on the first page.
     for index in range(22 if notification_count > 1 else 1):
@@ -301,6 +347,9 @@ def seed_play_account(user, actor, *, balance: int, species_name: str, pet_name:
         "second_pet_id": second_pet.pk if second_pet else None,
         "expedition_mount_id": expedition_mount.pk if expedition_mount else None,
         "hatch_egg_item_id": hatch_egg.pk, "hatch_potion_item_ids": hatch_potion_ids,
+        "ready_mount_id": ready_mount.pk, "ready_expedition_id": ready_expedition.pk,
+        "cooldown_mount_id": cooldown_mount.pk if cooldown_mount else None,
+        "held_mount_id": held_mount.pk if held_mount else None, "expedition_loot_item_id": loot_item.pk,
     }
 
 
@@ -309,7 +358,7 @@ def play_state() -> dict:
     from apps.accounts.models import User
     from apps.achievements.models import SkillProgress
     from apps.notifications.models import Notification
-    from apps.pets.models import UserMount, UserPet
+    from apps.pets.models import MountExpedition, UserMount, UserPet
     from apps.rewards.models import CoinLedger
     from apps.rewards.services import CoinService
     from apps.rpg.models import DropLog, UserInventory
@@ -321,6 +370,7 @@ def play_state() -> dict:
             "user_id": user.pk,
             "balance": CoinService.get_balance(user),
             "ledger_ids": list(CoinLedger.objects.filter(user=user).order_by("id").values_list("id", flat=True)),
+            "ledger": list(CoinLedger.objects.filter(user=user).order_by("id").values("id", "amount", "reason")),
             "drop_ids": list(DropLog.objects.filter(user=user).order_by("id").values_list("id", flat=True)),
             "inventory_quantity": sum(UserInventory.objects.filter(user=user).values_list("quantity", flat=True)),
             "skill_xp": sum(SkillProgress.objects.filter(user=user).values_list("xp_points", flat=True)),
@@ -329,7 +379,14 @@ def play_state() -> dict:
             "pets": list(UserPet.objects.filter(user=user).order_by("id").values(
                 "id", "growth_points", "is_active", "evolved_to_mount", "species_id", "potion_id",
             )),
-            "mounts": list(UserMount.objects.filter(user=user).order_by("id").values("id", "is_active")),
+            "mounts": [{"id": row.pk, "is_active": row.is_active, "potion_name": row.potion.name}
+                       for row in UserMount.objects.filter(user=user).select_related("potion").order_by("id")],
+            "expeditions": [{
+                "id": row.pk, "mount_id": row.mount_id, "tier": row.tier, "status": row.status,
+                "started_at": row.started_at.isoformat(), "returns_at": row.returns_at.isoformat(),
+                "claimed_at": row.claimed_at.isoformat() if row.claimed_at else None,
+                "is_ready": row.is_ready, "loot": row.loot,
+            } for row in MountExpedition.objects.filter(mount__user=user).order_by("id")],
             "food": list(UserInventory.objects.filter(
                 user=user, item__item_type="food",
             ).order_by("item_id").values("item_id", "quantity")),
@@ -343,6 +400,10 @@ def play_state() -> dict:
             "feed_commits": CARE_ACTIVITY.get(user.pk, {}).get("feed_commits", 0),
             "hatch_requests": CARE_ACTIVITY.get(user.pk, {}).get("hatch_requests", 0),
             "hatch_commits": CARE_ACTIVITY.get(user.pk, {}).get("hatch_commits", 0),
+            "expedition_start_requests": CARE_ACTIVITY.get(user.pk, {}).get("expedition_start_requests", 0),
+            "expedition_start_commits": CARE_ACTIVITY.get(user.pk, {}).get("expedition_start_commits", 0),
+            "expedition_claim_requests": CARE_ACTIVITY.get(user.pk, {}).get("expedition_claim_requests", 0),
+            "expedition_claim_commits": CARE_ACTIVITY.get(user.pk, {}).get("expedition_claim_commits", 0),
             "care_responses_pending": CARE_ACTIVITY.get(user.pk, {}).get("care_responses_pending", 0),
             "care_hold_timeouts": CARE_ACTIVITY.get(user.pk, {}).get("care_hold_timeouts", 0),
         })
@@ -350,18 +411,39 @@ def play_state() -> dict:
 
 
 def fixture_wsgi(application, *, fail_first_log: bool = False, fail_first_mark_read: bool = False,
-                 fail_first_feed_after_commit: bool = False, fail_first_hatch_after_commit: bool = False):
+                 fail_first_feed_after_commit: bool = False, fail_first_hatch_after_commit: bool = False,
+                 fail_first_start_after_commit: bool = False, fail_first_claim_after_commit: bool = False):
     """Local instrumentation, including lost acknowledgements after real care saves."""
     failure_pending = fail_first_log
     read_failure_pending = fail_first_mark_read
     feed_failure_pending = fail_first_feed_after_commit
     hatch_failure_pending = fail_first_hatch_after_commit
+    start_failure_pending = fail_first_start_after_commit
+    claim_failure_pending = fail_first_claim_after_commit
     care_hold = None
     hold_next_care = False
     hold_lock = Lock()
 
     def wrapped(environ, start_response):
-        nonlocal failure_pending, read_failure_pending, feed_failure_pending, hatch_failure_pending, care_hold, hold_next_care
+        nonlocal failure_pending, read_failure_pending, feed_failure_pending, hatch_failure_pending, start_failure_pending, claim_failure_pending, care_hold, hold_next_care
+        finish = re.fullmatch(r"/__fixture/finish-expedition/([0-9]+)/", environ.get("PATH_INFO", ""))
+        if environ.get("REQUEST_METHOD") == "POST" and finish:
+            from datetime import timedelta
+            from django.utils import timezone
+            from apps.pets.models import MountExpedition
+
+            row = MountExpedition.objects.filter(
+                pk=int(finish[1]), mount_id__in=EXPEDITION_FIXTURE_MOUNT_IDS, status=MountExpedition.Status.ACTIVE,
+            ).first()
+            if row is None:
+                body = b'{"error":"This expedition is not a designated active fixture expedition."}'
+                start_response("404 Not Found", [("Content-Type", "application/json"), ("Content-Length", str(len(body)))])
+                return [body]
+            row.returns_at = max(row.started_at, timezone.now() - timedelta(seconds=1))
+            row.save(update_fields=["returns_at", "updated_at"])
+            body = json.dumps({"expedition_id": row.pk, "ready": True}).encode()
+            start_response("200 OK", [("Content-Type", "application/json"), ("Content-Length", str(len(body)))])
+            return [body]
         if environ.get("REQUEST_METHOD") == "POST" and environ.get("PATH_INFO") in (
             "/__fixture/hold-next-care/", "/__fixture/delay-next-care/",
         ):
@@ -417,7 +499,9 @@ def fixture_wsgi(application, *, fail_first_log: bool = False, fail_first_mark_r
         path = environ.get("PATH_INFO", "")
         feed = environ.get("REQUEST_METHOD") == "POST" and re.fullmatch(r"/api/pets/[0-9]+/feed/", path)
         hatch = environ.get("REQUEST_METHOD") == "POST" and path == "/api/pets/hatch/"
-        care = feed or hatch or (environ.get("REQUEST_METHOD") == "POST" and re.fullmatch(r"/api/(pets|mounts)/[0-9]+/activate/", path))
+        start = environ.get("REQUEST_METHOD") == "POST" and re.fullmatch(r"/api/mounts/[0-9]+/expedition/", path)
+        claim = environ.get("REQUEST_METHOD") == "POST" and re.fullmatch(r"/api/expeditions/[0-9]+/claim/", path)
+        care = feed or hatch or start or claim or (environ.get("REQUEST_METHOD") == "POST" and re.fullmatch(r"/api/(pets|mounts)/[0-9]+/activate/", path))
         if care:
             from rest_framework.authtoken.models import Token
 
@@ -428,6 +512,10 @@ def fixture_wsgi(application, *, fail_first_log: bool = False, fail_first_mark_r
                 activity["feed_requests"] = activity.get("feed_requests", 0) + 1
             if hatch:
                 activity["hatch_requests"] = activity.get("hatch_requests", 0) + 1
+            if start:
+                activity["expedition_start_requests"] = activity.get("expedition_start_requests", 0) + 1
+            if claim:
+                activity["expedition_claim_requests"] = activity.get("expedition_claim_requests", 0) + 1
             captured = []
 
             def capture_response(status, headers, _exc_info=None):
@@ -445,6 +533,10 @@ def fixture_wsgi(application, *, fail_first_log: bool = False, fail_first_mark_r
                 activity["feed_commits"] = activity.get("feed_commits", 0) + 1
             if hatch and committed:
                 activity["hatch_commits"] = activity.get("hatch_commits", 0) + 1
+            if start and committed:
+                activity["expedition_start_commits"] = activity.get("expedition_start_commits", 0) + 1
+            if claim and committed and json.loads(content).get("freshly_claimed") is True:
+                activity["expedition_claim_commits"] = activity.get("expedition_claim_commits", 0) + 1
             held = None
             if committed:
                 with hold_lock:
@@ -475,6 +567,16 @@ def fixture_wsgi(application, *, fail_first_log: bool = False, fail_first_mark_r
                 content = json.dumps({"error": "The test server committed this hatch but lost its acknowledgement. Refresh and check before hatching again."}).encode()
                 status = "503 Service Unavailable"
                 headers = [("Content-Type", "application/json"), ("Content-Length", str(len(content)))]
+            if start and committed and start_failure_pending:
+                start_failure_pending = False
+                content = b'{"error":"The fixture committed this expedition start but lost its acknowledgement. Refresh and check before sending again."}'
+                status = "503 Service Unavailable"
+                headers = [("Content-Type", "application/json"), ("Content-Length", str(len(content)))]
+            if claim and committed and claim_failure_pending and json.loads(content).get("freshly_claimed") is True:
+                claim_failure_pending = False
+                content = b'{"error":"The fixture committed this expedition claim but lost its acknowledgement. Refresh and check the recorded loot."}'
+                status = "503 Service Unavailable"
+                headers = [("Content-Type", "application/json"), ("Content-Length", str(len(content)))]
             start_response(status, headers)
             return [content]
         return application(environ, start_response)
@@ -483,7 +585,8 @@ def fixture_wsgi(application, *, fail_first_log: bool = False, fail_first_mark_r
 
 
 def check_fixture(fixture: dict, *, fail_first_log: bool = False, fail_first_mark_read: bool = False,
-                  fail_first_feed_after_commit: bool = False, fail_first_hatch_after_commit: bool = False) -> None:
+                  fail_first_feed_after_commit: bool = False, fail_first_hatch_after_commit: bool = False,
+                  fail_first_start_after_commit: bool = False, fail_first_claim_after_commit: bool = False) -> None:
     """Exercise real view/serializer/award paths on the isolated database."""
     from apps.achievements.models import SkillProgress
     from django.core.wsgi import get_wsgi_application
@@ -495,7 +598,9 @@ def check_fixture(fixture: dict, *, fail_first_log: bool = False, fail_first_mar
     application = fixture_wsgi(get_wsgi_application(), fail_first_log=fail_first_log,
                                fail_first_mark_read=fail_first_mark_read,
                                fail_first_feed_after_commit=fail_first_feed_after_commit,
-                               fail_first_hatch_after_commit=fail_first_hatch_after_commit)
+                               fail_first_hatch_after_commit=fail_first_hatch_after_commit,
+                               fail_first_start_after_commit=fail_first_start_after_commit,
+                               fail_first_claim_after_commit=fail_first_claim_after_commit)
 
     def login(username: str):
         nonlocal current_token
@@ -554,7 +659,9 @@ def check_fixture(fixture: dict, *, fail_first_log: bool = False, fail_first_mar
     assert {row["id"] for row in drops} == set(fixture["play"]["drop_ids"])
     stable = client.get("/api/pets/stable/").json()
     assert {row["id"] for row in stable["pets"]} == {fixture["play"]["pet_id"], fixture["play"]["second_pet_id"]}
-    assert {row["id"] for row in stable["mounts"]} == {fixture["play"]["mount_id"], fixture["play"]["expedition_mount_id"]}
+    assert {row["id"] for row in stable["mounts"]} == {
+        fixture["play"][key] for key in ("mount_id", "expedition_mount_id", "ready_mount_id", "cooldown_mount_id", "held_mount_id")
+    }
     notification_page = client.get("/api/notifications/").json()
     assert notification_page["count"] == 25 and len(notification_page["results"]) == 20 and notification_page["next"]
     notifications = collect_rows("/api/notifications/")
@@ -717,6 +824,71 @@ def check_fixture(fixture: dict, *, fail_first_log: bool = False, fail_first_mar
         hatch_before["accounts"][0]["drop_ids"], hatch_before["accounts"][0]["skill_xp"],
     ), "Hatching consumes a pair and creates a pet without inventing XP, coins or drops"
     assert play_state()["accounts"][1] == hatch_before["accounts"][1], "Hatching cannot change another family's creatures or items"
+    expedition_before = play_state()
+    listed = client.get("/api/expeditions/").json()["expeditions"]
+    ready = client.get("/api/expeditions/?ready=true").json()["expeditions"]
+    assert {row["id"] for row in listed} == {row["id"] for row in expedition_before["accounts"][0]["expeditions"]}
+    assert [row["id"] for row in ready] == [fixture["play"]["ready_expedition_id"]]
+    assert play_state() == expedition_before, "Expedition lists/countdowns must not start or claim anything"
+    free_mount_id = fixture["play"]["mount_id"]
+    started = post_request(f"/api/mounts/{free_mount_id}/expedition/", {"tier": "short"})
+    assert started.status_code == (503 if fail_first_start_after_commit else 201), started.content
+    start_state = play_state()
+    first_expedition = next(row for row in start_state["accounts"][0]["expeditions"] if row["mount_id"] == free_mount_id)
+    assert first_expedition["tier"] == "short" and first_expedition["status"] == "active" and not first_expedition["is_ready"]
+    assert start_state["accounts"][0]["expedition_start_requests"] == start_state["accounts"][0]["expedition_start_commits"] == 1
+    for key in ("balance", "ledger_ids", "drop_ids", "items", "skill_xp"):
+        assert start_state["accounts"][0][key] == expedition_before["accounts"][0][key], "Starting is not a loot payout"
+    client.get("/api/expeditions/")
+    client.get("/api/pets/stable/")
+    client.get("/api/inventory/")
+    assert play_state() == start_state, "Interrupted start refresh never sends another mount"
+    for mount_id, expected_status in (
+        (free_mount_id, 400), (fixture["play"]["cooldown_mount_id"], 400),
+        (fixture["second_play"]["mount_id"], 404),
+    ):
+        rejected = client.post(f"/api/mounts/{mount_id}/expedition/", {"tier": "short"}, format="json")
+        assert rejected.status_code == expected_status, rejected.content
+    early = client.post(f"/api/expeditions/{first_expedition['id']}/claim/", {}, format="json")
+    foreign_claim = client.post(f"/api/expeditions/{fixture['second_play']['ready_expedition_id']}/claim/", {}, format="json")
+    assert early.status_code == 400 and foreign_claim.status_code == 404
+    assert play_state() == start_state, "Active/cooldown/foreign/early gates preserve persisted state"
+    finished = post_request(f"/__fixture/finish-expedition/{first_expedition['id']}/", {})
+    assert finished.status_code == 200 and finished.data["ready"] is True
+    for forbidden_id in (fixture["play"]["ready_expedition_id"], fixture["second_play"]["ready_expedition_id"]):
+        assert post_request(f"/__fixture/finish-expedition/{forbidden_id}/", {}).status_code == 404
+    ready_before_claim = play_state()
+    claimed = post_request(f"/api/expeditions/{first_expedition['id']}/claim/", {})
+    assert claimed.status_code == (503 if fail_first_claim_after_commit else 200), claimed.content
+    first_claim = play_state()
+    first_claim_account = first_claim["accounts"][0]
+    expected_coins = first_expedition["loot"]["coins"]
+    expected_quantity = sum(slot["quantity"] for slot in first_expedition["loot"]["items"])
+    assert first_claim_account["expedition_claim_requests"] == first_claim_account["expedition_claim_commits"] == 1
+    assert first_claim_account["balance"] == ready_before_claim["accounts"][0]["balance"] + expected_coins
+    assert first_claim_account["inventory_quantity"] == ready_before_claim["accounts"][0]["inventory_quantity"] + expected_quantity
+    assert len(first_claim_account["ledger"]) == len(ready_before_claim["accounts"][0]["ledger"]) + 1
+    assert first_claim_account["ledger"][-1]["reason"] == "expedition" and first_claim_account["ledger"][-1]["amount"] == expected_coins
+    assert first_claim_account["drop_ids"] == ready_before_claim["accounts"][0]["drop_ids"]
+    assert first_claim_account["skill_xp"] == ready_before_claim["accounts"][0]["skill_xp"]
+    client.get("/api/expeditions/")
+    client.get("/api/coins/")
+    client.get("/api/inventory/")
+    assert play_state() == first_claim, "Interrupted claim refresh never repeats a payout"
+    again = post_request(f"/api/expeditions/{first_expedition['id']}/claim/", {})
+    assert again.status_code == 200 and again.data["coins_awarded"] == 0 and again.data["freshly_claimed"] is False
+    repeated_state = play_state()["accounts"][0]
+    assert repeated_state["expedition_claim_requests"] == 2 and repeated_state["expedition_claim_commits"] == 1
+    for key in ("balance", "ledger", "drop_ids", "items", "skill_xp", "expeditions"):
+        assert repeated_state[key] == first_claim_account[key], "A repeated receipt cannot pay twice"
+    confirmed = post_request(f"/api/expeditions/{fixture['play']['ready_expedition_id']}/claim/", {})
+    assert confirmed.status_code == 200 and confirmed.data["freshly_claimed"] is True and confirmed.data["coins_awarded"] == 35
+    assert confirmed.data["items"][0]["quantity"] == 2
+    final_expeditions = play_state()
+    assert final_expeditions["accounts"][0]["expedition_claim_requests"] == 3 and final_expeditions["accounts"][0]["expedition_claim_commits"] == 2
+    assert final_expeditions["accounts"][0]["balance"] == first_claim_account["balance"] + 35
+    assert final_expeditions["accounts"][0]["inventory_quantity"] == first_claim_account["inventory_quantity"] + 2
+    assert final_expeditions["accounts"][1] == expedition_before["accounts"][1], "Expeditions preserve the other family's creatures, rewards and history"
     first_page = client.get("/api/habits/").json()
     assert len(first_page["results"]) == 2 and first_page["next"]
     rows = collect_rows("/api/habits/")
@@ -774,7 +946,7 @@ def check_fixture(fixture: dict, *, fail_first_log: bool = False, fail_first_mar
     second_stable = client.get("/api/pets/stable/").json()
     assert [row["id"] for row in second_stable["pets"]] == [fixture["second_play"]["pet_id"]]
     assert fixture["play"]["pet_id"] not in {row["id"] for row in second_stable["pets"]}
-    sys.stdout.write("Fixture checks passed: auth, reward/stable/inbox ownership, view-only awards, explicit mark-read/failure, care consumption, committed feed and hatch acknowledgement loss, growth/evolution, active selection, hatch pair consumption/duplicates/exhaustion/family scope, held acknowledgement with concurrent snapshot and explicit release, pagination, scoped lists, caps, approval, skill XP, journal privacy, receipt replay, persistence.\n")
+    sys.stdout.write("Fixture checks passed: auth, reward/stable/inbox ownership, view-only awards, explicit mark-read/failure, care consumption, committed feed/hatch/expedition-start/claim acknowledgement loss, growth/evolution, active selection, hatch pair consumption/duplicates/exhaustion/family scope, expedition gates/locked-loot payouts/repeated receipts/family isolation, held acknowledgement with concurrent snapshot and explicit release, pagination, scoped lists, caps, approval, skill XP, journal privacy, receipt replay, persistence.\n")
 
 
 def main() -> int:
@@ -790,6 +962,10 @@ def main() -> int:
     parser.add_argument("--fail-first-mark-read", action="store_true", help="Reject the first notification mark-read POST before Django.")
     parser.add_argument("--fail-first-feed-after-commit", action="store_true", help="Commit the first valid feed, then replace its acknowledgement with HTTP503.")
     parser.add_argument("--fail-first-hatch-after-commit", action="store_true", help="Commit the first valid hatch, then replace its acknowledgement with HTTP503.")
+    parser.add_argument("--fail-first-expedition-start-after-commit", "--fail-first-start-after-commit", dest="fail_first_start_after_commit",
+                        action="store_true", help="Commit one expedition start, then replace its acknowledgement with HTTP503.")
+    parser.add_argument("--fail-first-expedition-claim-after-commit", "--fail-first-claim-after-commit", dest="fail_first_claim_after_commit",
+                        action="store_true", help="Materialize one expedition claim, then replace its acknowledgement with HTTP503.")
     parser.add_argument("--lifetime-seconds", type=float, default=1800, help="Auto-stop after this many seconds.")
     args = parser.parse_args()
     if not 0 <= args.port <= 65535 or args.lifetime_seconds <= 0:
@@ -813,17 +989,23 @@ def main() -> int:
             fixture["fail_first_mark_read"] = args.fail_first_mark_read
             fixture["fail_first_feed_after_commit"] = args.fail_first_feed_after_commit
             fixture["fail_first_hatch_after_commit"] = args.fail_first_hatch_after_commit
+            fixture["fail_first_start_after_commit"] = args.fail_first_start_after_commit
+            fixture["fail_first_claim_after_commit"] = args.fail_first_claim_after_commit
             if args.check:
                 check_fixture(fixture, fail_first_log=args.fail_first_log, fail_first_mark_read=args.fail_first_mark_read,
                               fail_first_feed_after_commit=args.fail_first_feed_after_commit,
-                              fail_first_hatch_after_commit=args.fail_first_hatch_after_commit)
+                              fail_first_hatch_after_commit=args.fail_first_hatch_after_commit,
+                              fail_first_start_after_commit=args.fail_first_start_after_commit,
+                              fail_first_claim_after_commit=args.fail_first_claim_after_commit)
                 return 0
             from django.core.wsgi import get_wsgi_application
 
             application = fixture_wsgi(get_wsgi_application(), fail_first_log=args.fail_first_log,
                                        fail_first_mark_read=args.fail_first_mark_read,
                                        fail_first_feed_after_commit=args.fail_first_feed_after_commit,
-                                       fail_first_hatch_after_commit=args.fail_first_hatch_after_commit)
+                                       fail_first_hatch_after_commit=args.fail_first_hatch_after_commit,
+                                       fail_first_start_after_commit=args.fail_first_start_after_commit,
+                                       fail_first_claim_after_commit=args.fail_first_claim_after_commit)
             with make_server("127.0.0.1", args.port, application, server_class=DisposableFixtureServer) as server:
                 server.timeout = 0.25
                 fixture["url"] = f"http://127.0.0.1:{server.server_port}"

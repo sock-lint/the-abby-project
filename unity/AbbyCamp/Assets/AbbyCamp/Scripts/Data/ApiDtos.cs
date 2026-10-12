@@ -211,6 +211,76 @@ namespace AbbyCamp.Data
     }
 
     [Serializable]
+    public sealed class ExpeditionDto
+    {
+        public int id;
+        public int mount_id;
+        public string tier;
+        public string status;
+        public string started_at;
+        public string returns_at;
+        public string claimed_at;
+        public bool is_ready;
+        public int seconds_remaining;
+        public string species_name;
+        public string species_slug;
+        public string species_sprite_key;
+        public string species_icon;
+        public string potion_name;
+        public string potion_slug;
+        public ExpeditionLootDto loot;
+
+        // A locally displayed countdown never changes this server-read flag.
+        public bool CanClaim => status == "active" && is_ready;
+    }
+
+    [Serializable]
+    public sealed class ExpeditionLootDto
+    {
+        public int coins;
+        public ExpeditionLootItemDto[] items;
+    }
+
+    [Serializable]
+    public sealed class ExpeditionLootItemDto
+    {
+        public int item_id;
+        public int quantity;
+        public string name;
+        public string icon;
+        public string rarity;
+        public string item_type;
+        public string sprite_key;
+        public int salvaged_to_coins;
+    }
+
+    [Serializable]
+    public sealed class ExpeditionClaimMountDto
+    {
+        public int id;
+        public string species_name;
+        public string species_slug;
+        public string species_sprite_key;
+        public string species_icon;
+        public string potion_name;
+        public string potion_slug;
+    }
+
+    [Serializable]
+    public sealed class ExpeditionClaimDto
+    {
+        public int expedition_id;
+        public string tier;
+        // Confirmed base coin ledger amount, including its Lucky Coin boost.
+        // Item slots remain recorded loot, not proof of current inventory;
+        // deleted items may be skipped and duplicate cosmetics may be salvaged.
+        public int coins_awarded;
+        public ExpeditionLootItemDto[] items;
+        public bool freshly_claimed;
+        public ExpeditionClaimMountDto mount;
+    }
+
+    [Serializable]
     public sealed class InventoryItemDto
     {
         public int id;

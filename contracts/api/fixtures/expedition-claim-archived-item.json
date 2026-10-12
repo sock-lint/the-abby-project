@@ -1,0 +1,26 @@
+{
+  "expedition_id": 103,
+  "tier": "short",
+  "coins_awarded": 15,
+  "items": [
+    {
+      "item_id": 71,
+      "quantity": 1,
+      "name": "Berry Bowl",
+      "icon": "🫐",
+      "rarity": "common",
+      "item_type": "food",
+      "sprite_key": "berry-bowl"
+    }
+  ],
+  "freshly_claimed": true,
+  "mount": {
+    "id": 61,
+    "species_name": "Fox",
+    "species_slug": "fixture-fox",
+    "species_sprite_key": "fox",
+    "species_icon": "🦊",
+    "potion_name": "Ice",
+    "potion_slug": "ice"
+  }
+}
