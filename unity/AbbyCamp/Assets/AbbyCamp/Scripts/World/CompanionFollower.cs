@@ -18,6 +18,7 @@ namespace AbbyCamp.World
         public VisualDefinition SecondaryAppearance => secondaryAppearance;
         public Vector3 AnchorPosition => anchorPosition;
         public Quaternion AnchorRotation => anchorRotation;
+        public bool HasOwnedAppearance { get; private set; }
 
         public void Configure(VisualDefinition first, VisualDefinition second)
         {
@@ -32,11 +33,26 @@ namespace AbbyCamp.World
 
         public void ApplyAppearance(VisualDefinition definition)
         {
-            if (Appearance != null) Appearance.SetVisual(definition);
+            if (Appearance != null && Appearance.Definition != definition) Appearance.SetVisual(definition);
+        }
+
+        public void SetOwnedAppearance(VisualDefinition definition)
+        {
+            HasOwnedAppearance = definition != null && definition.ModelPrefab != null;
+            if (HasOwnedAppearance) ApplyAppearance(definition);
+            else ClearOwnedAppearance(true);
+        }
+
+        public void ClearOwnedAppearance(bool resetPreview = false)
+        {
+            bool restore = HasOwnedAppearance || resetPreview;
+            HasOwnedAppearance = false;
+            if (restore) ApplyAppearance(primaryAppearance);
         }
 
         public void ToggleAppearance()
         {
+            if (HasOwnedAppearance) return;
             ApplyAppearance(Appearance != null && Appearance.Definition == secondaryAppearance ? primaryAppearance : secondaryAppearance);
         }
 

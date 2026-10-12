@@ -589,6 +589,20 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-stable-empty.json")
         self.assert_response_fixture(self.client.get("/api/inventory/"), "inventory-empty.json")
 
+    def test_empty_stable_counts_restricted_species_variants(self):
+        self.seed_companion_care()
+        self.ready_pet.species.available_potions.set([self.ready_pet.potion])
+        UserPet.objects.filter(user=self.child).delete()
+        UserMount.objects.filter(user=self.child).delete()
+
+        stable = self.assert_response_fixture(
+            self.client.get("/api/pets/stable/"), "pets-stable-restricted-empty.json",
+        )
+
+        self.assertEqual(stable["total_possible"], 3)
+        self.assertTrue(UserPet.objects.filter(user=self.sibling).exists())
+        self.assertTrue(UserMount.objects.filter(user=self.outsider).exists())
+
     def test_feed_consumes_one_food_and_returns_confirmed_growth(self):
         self.seed_companion_care()
         response = self.client.post("/api/pets/51/feed/", {"food_item_id": 71}, format="json")

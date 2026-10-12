@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Flame } from 'lucide-react';
 import { CoinIcon, EggIcon } from '../icons/JournalIcons';
 import RpgSprite from '../rpg/RpgSprite';
+import { petSpriteKeys } from '../rpg/petSpriteKeys';
 
 function VitalPip({ label, value, icon, tone = 'ink', onClick, ariaLabel }) {
   const toneText = {
@@ -47,7 +48,7 @@ export default function VitalPipStrip({
 
   const petIcon = activePet ? (
     <RpgSprite
-      spriteKey={activePet.species?.sprite_key}
+      {...petSpriteKeys(activePet)}
       icon={activePet.species?.icon || '🐾'}
       potionSlug={activePet.potion?.slug}
       dim={activePet.evolved_to_mount || activePet.happiness_level === 'happy' ? null : activePet.happiness_level}

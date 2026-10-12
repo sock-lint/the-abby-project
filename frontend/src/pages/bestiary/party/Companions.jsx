@@ -12,6 +12,7 @@ import IncipitBand from '../../../components/atlas/IncipitBand';
 import TomeShelf from '../../../components/atlas/TomeShelf';
 import { EggIcon } from '../../../components/icons/JournalIcons';
 import RpgSprite from '../../../components/rpg/RpgSprite';
+import { petSpriteKeys } from '../../../components/rpg/petSpriteKeys';
 import { normalizeList } from '../../../utils/api';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { RARITY_HALO, PROGRESS_TIER } from '../../../components/atlas/mastery.constants';
@@ -183,7 +184,7 @@ export default function Companions() {
                       }`}
                     >
                       <RpgSprite
-                        spriteKey={pet.species.sprite_key}
+                        {...petSpriteKeys(pet)}
                         icon={pet.species.icon}
                         size={56}
                         alt={`${pet.potion.name} ${pet.species.name}`}

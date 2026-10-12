@@ -86,6 +86,7 @@ def main():
     parser.add_argument("--lifetime-seconds", type=float, default=1800)
     parser.add_argument("--fail-first-log", action="store_true")
     parser.add_argument("--fail-first-mark-read", action="store_true")
+    parser.add_argument("--owned-chick-art", action="store_true", help="Seed the owned Base Chick used by model/evolution checks.")
     parser.add_argument("--fail-first-feed-after-commit", action="store_true", help="Commit one valid feed, then return HTTP503 instead of its acknowledgement.")
     parser.add_argument("--fail-first-hatch-after-commit", action="store_true", help="Commit one valid hatch, then return HTTP503 instead of its acknowledgement.")
     parser.add_argument("--fail-first-expedition-start-after-commit", "--fail-first-start-after-commit", dest="fail_first_start_after_commit",
@@ -110,7 +111,8 @@ def main():
     with TemporaryDirectory(prefix="abby-web-fixture-") as temporary:
         try:
             configure_django(Path(temporary))
-            fixture = seed_fixture()
+            fixture = seed_fixture(owned_creature_art=args.owned_chick_art)
+            fixture["owned_creature_art"] = args.owned_chick_art
             from django.core.wsgi import get_wsgi_application
 
             fixture["fail_first_mark_read"] = args.fail_first_mark_read

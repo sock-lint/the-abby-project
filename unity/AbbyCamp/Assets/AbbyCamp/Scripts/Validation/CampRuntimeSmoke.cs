@@ -24,7 +24,7 @@ namespace AbbyCamp.Validation
         };
         private readonly List<string> checks = new List<string>();
         private readonly List<string> runtimeErrors = new List<string>();
-        private bool failed, failFirstMarkRead, ambiguousFeed, ambiguousHatch, ambiguousExpeditionStart, ambiguousExpeditionClaim;
+        private bool failed, failFirstMarkRead, ambiguousFeed, ambiguousHatch, ambiguousExpeditionStart, ambiguousExpeditionClaim, ownedCreatureArt;
         private string output, fixtureUrl, username, password, secondUsername, secondPassword;
 
         [Serializable] private sealed class FixtureState { public FixtureAccount[] accounts; }
@@ -73,6 +73,7 @@ namespace AbbyCamp.Validation
             instance.ambiguousHatch = Array.IndexOf(args, "--abby-smoke-ambiguous-hatch") >= 0;
             instance.ambiguousExpeditionStart = Array.IndexOf(args, "--abby-smoke-ambiguous-expedition-start") >= 0;
             instance.ambiguousExpeditionClaim = Array.IndexOf(args, "--abby-smoke-ambiguous-expedition-claim") >= 0;
+            instance.ownedCreatureArt = Array.IndexOf(args, "--abby-smoke-owned-creature-art") >= 0;
             Directory.CreateDirectory(instance.output);
             Application.runInBackground = true;
         }
@@ -193,7 +194,17 @@ namespace AbbyCamp.Validation
                 Check(simultaneousReadError == null && stableReplies == 2 && foodReplies == 2,
                     "Overlapping collection refreshes safely replace known owned IDs without duplicate-cache errors");
                 int primaryPet = stable.pets[0].id, primaryMount = stable.mounts[0].id;
-                Check(NamedText("CompanionName") == "Meadow friend" && HasText("Artwork preview") && NamedText("CoinsBalance").Contains(initial.balance.ToString()),
+                if (ownedCreatureArt)
+                {
+                    CheckOwnedModel(ui, "cute-chick", AbbyCamp.Presentation.OwnedCompanionKind.Pet, stable.ActiveCompanion.id);
+                    var appearanceId = pet.transform.Find("Appearance").gameObject.GetEntityId();
+                    pet.ToggleAppearance();
+                    for (int frame = 0; frame < 5; frame++) yield return null;
+                    Check(pet.transform.Find("Appearance").gameObject.GetEntityId() == appearanceId
+                        && NamedText("CompanionName") == "Peep", "Owned model refresh and development swap preserve the selected appearance instance");
+                    yield return Capture("owned-chick-home-portrait.png");
+                }
+                else Check(NamedText("CompanionName") == "Meadow friend" && HasText("Artwork preview") && NamedText("CoinsBalance").Contains(initial.balance.ToString()),
                     "Home reports saved coins while honestly labeling the artwork preview");
                 yield return OpenSection(ui, garden, "Rewards");
                 yield return Capture("connected-rewards-portrait.png");
@@ -249,12 +260,25 @@ namespace AbbyCamp.Validation
                 yield return ExerciseCare(ui, garden, api, primaryUser, primaryPet, primaryMount, value => before = value);
                 yield return ExerciseHatching(ui, garden, api, primaryUser, value => before = value);
                 yield return ExerciseExpeditions(ui, garden, api, primaryUser, primaryMount, value => before = value);
+                if (ownedCreatureArt)
+                {
+                    yield return OpenSection(ui, garden, "Bestiary");
+                    yield return api.FetchStable(value => stable = value, error => problem = error);
+                    var evolvedPet = Array.Find(stable.pets, row => row.id == primaryPet);
+                    var grownMount = Array.Find(stable.mounts, row => row.species.id == evolvedPet.species.id && row.potion.id == evolvedPet.potion.id);
+                    Click("ActiveMount_" + grownMount.id);
+                    yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Owned Bird mount selection is acknowledged");
+                    CheckOwnedModel(ui, "cute-bird", AbbyCamp.Presentation.OwnedCompanionKind.Mount, grownMount.id);
+                    yield return CloseSection(ui, garden, "Bestiary");
+                    yield return Capture("owned-bird-mount-home-portrait.png");
+                }
                 Click("AccountButton");
                 yield return null;
                 Click("DisconnectButton");
                 yield return WaitUntil(() => ui.IsDemo && !ui.IsModalOpen && !ui.IsHomeLoading, 10f, "Disconnect clears the private home");
                 Check(!api.IsAuthenticated && !HasText("Active: Peep") && !HasNamedPrefix("Notification_")
                     && !HasNamedPrefix("Pet_") && !HasNamedPrefix("Mount_"), "Disconnect clears old private labels and rows");
+                Check(!ui.HasOwnedCompanionAppearance && ui.DisplayedCreatureId == 0, "Disconnect clears owned scene artwork and creature binding");
                 problem = null;
                 yield return api.FetchCoins(value => coins = value, error => problem = error);
                 Check(problem != null && problem.RequiresLogin, "Disconnected reads require a validated session");
@@ -268,6 +292,7 @@ namespace AbbyCamp.Validation
                     "Replacement session reads only its own balance and stable");
                 Check(NamedText("CompanionName") == "Meadow friend" && HasText("Artwork preview") && !HasText("Peep"),
                     "Replacement home keeps preview labeling and clears the previous saved companion");
+                Check(!ui.HasOwnedCompanionAppearance, "Another family's unsupported creature cannot inherit the previous Bird model binding");
                 yield return OpenSection(ui, garden, "Bestiary");
                 Check(HasNamed("Pet_" + stable.pets[0].id) && NamedText("ActiveCompanion").Contains("Sprout")
                     && !HasNamed("Pet_" + primaryPet) && !HasNamed("Mount_" + primaryMount),
@@ -293,6 +318,14 @@ namespace AbbyCamp.Validation
             Finish(true, "");
         }
 
+        private void CheckOwnedModel(CampPrototypeController ui, string appearanceId, AbbyCamp.Presentation.OwnedCompanionKind kind, int creatureId)
+        {
+            var follower = FindFirstObjectByType<CompanionFollower>();
+            Check(ui.HasOwnedCompanionAppearance && ui.DisplayedCreatureKind == kind && ui.DisplayedCreatureId == creatureId
+                && follower.Appearance.Definition.AppearanceId == appearanceId && follower.Appearance.Definition.ModelPrefab != null,
+                "The saved owned " + kind + " " + creatureId + " uses its exact " + appearanceId + " model");
+        }
+
         private IEnumerator ExerciseCare(CampPrototypeController ui, CampGardenInput garden, AbbyApiClient api,
             int userId, int petId, int mountId, Action<FixtureState> complete)
         {
@@ -313,6 +346,8 @@ namespace AbbyCamp.Validation
             yield return ReadFixtureState(value => snapshot = value);
             Check(Pet(Account(snapshot, userId), secondPetId).is_active && !Pet(Account(snapshot, userId), petId).is_active
                 && NamedText("ActiveCompanion").Contains("Pip"), "Native companion choice uses server-confirmed active state");
+            if (ownedCreatureArt) Check(!ui.HasOwnedCompanionAppearance && HasText("Artwork preview"),
+                "An unprepared saved potion variant restores an honest preview instead of recoloring Chick");
             Click("ActiveMount_" + mountId);
             yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Active mount save and reload finish");
             yield return ReadFixtureState(value => snapshot = value);
@@ -321,6 +356,23 @@ namespace AbbyCamp.Validation
                 "Native mount choice changes only the chosen owned mount");
             CheckAwardsUnchanged(new FixtureState { accounts = new[] { before } }, snapshot,
                 "Choosing a companion or mount consumes no food and awards no progress");
+            Click("ActivePet_" + secondPetId);
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Already-active companion reselection is acknowledged");
+            Check(ui.PresentedCompanion.Kind == AbbyCamp.Presentation.OwnedCompanionKind.Pet
+                && ui.PresentedCompanion.CreatureId == secondPetId,
+                "An explicit already-active pet selection restores companion presentation above the active mount");
+            Click("ActiveMount_" + mountId);
+            yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Already-active mount reselection is acknowledged");
+            Check(ui.PresentedCompanion.Kind == AbbyCamp.Presentation.OwnedCompanionKind.Mount
+                && ui.PresentedCompanion.CreatureId == mountId,
+                "An explicit already-active mount selection restores mount presentation above the active pet");
+            if (ownedCreatureArt)
+            {
+                Check(!ui.HasOwnedCompanionAppearance, "An unsupported mount cannot inherit the Bird model");
+                Click("ActivePet_" + petId);
+                yield return WaitUntil(() => !ui.IsBusy && !ui.IsSectionLoading, 15f, "Owned Chick companion reselection is acknowledged");
+                CheckOwnedModel(ui, "cute-chick", AbbyCamp.Presentation.OwnedCompanionKind.Pet, petId);
+            }
             Click("FeedPet_" + petId);
             yield return null;
             Check(NamedText("SheetSubtitle") == "Peep" && NamedText("CareGrowth").Contains("75 / 100"),
@@ -344,6 +396,7 @@ namespace AbbyCamp.Validation
                 Check(ui.CareNeedsReview && HasNamed("CareReviewMessage") && FindButton("AcknowledgeCareButton")?.interactable == false
                     && FindButton("Food_" + foodId)?.interactable == false && NamedText("CareGrowth").Contains("75 / 100"),
                     "A lost acknowledgement keeps prior display and blocks care until refreshed and checked");
+                if (ownedCreatureArt) CheckOwnedModel(ui, "cute-chick", AbbyCamp.Presentation.OwnedCompanionKind.Pet, petId);
                 yield return RevealButton("RefreshCareButton");
                 yield return Capture("care-interrupted-portrait.png");
                 Click("RefreshCareButton");
@@ -373,12 +426,20 @@ namespace AbbyCamp.Validation
             Check(NamedText("BestiaryStatus").Contains("evolved") && NamedText("CareGrowth").Contains("Evolved into a mount")
                 && FindButton("ConfirmFeedButton") == null, "Native care recognizes only confirmed evolution and removes feeding");
             CheckRewardLedgersUnchanged(before, evolved, "Evolution changes ownership without extra client awards");
+            if (ownedCreatureArt) CheckOwnedModel(ui, "cute-bird", AbbyCamp.Presentation.OwnedCompanionKind.Pet, petId);
             yield return Capture("care-evolved-portrait.png");
             Click("BackCareButton");
             yield return null;
             Check(FindButton("FeedPet_" + petId) == null && FindButton("ActivePet_" + petId) == null,
                 "An evolved companion cannot be fed or selected as an unevolved pet");
             foreach (var mount in evolved.mounts) Check(HasNamed("Mount_" + mount.id), "Confirmed mount is present in collection: " + mount.id);
+            if (ownedCreatureArt)
+            {
+                yield return CloseSection(ui, garden, "Bestiary");
+                yield return Capture("owned-bird-evolved-home-portrait.png");
+                yield return OpenSection(ui, garden, "Bestiary");
+                CheckOwnedModel(ui, "cute-bird", AbbyCamp.Presentation.OwnedCompanionKind.Pet, petId);
+            }
 
             Click("FeedPet_" + secondPetId);
             Click("Food_" + foodId);
@@ -408,6 +469,8 @@ namespace AbbyCamp.Validation
             yield return null;
             Check(ui.IsDemo && !ui.IsBusy && !ui.IsModalOpen && !HasText("Peep") && !HasText("Pip"),
                 "Account change clears pending care controls and the previous account's creature labels");
+            Check(!ui.HasOwnedCompanionAppearance && ui.DisplayedCreatureId == 0,
+                "Account change clears the old creature model before a delayed acknowledgement arrives");
             yield return Connect(ui, garden, secondUsername, secondPassword);
             Check(api.CurrentUser.id != userId && !ui.CareNeedsReview, "Another family inherits no prior-account care uncertainty");
             yield return OpenSection(ui, garden, "Bestiary");
@@ -434,6 +497,7 @@ namespace AbbyCamp.Validation
             Click("AccountButton"); yield return null; Click("DisconnectButton"); yield return null;
             yield return Connect(ui, garden, username, password);
             Check(ui.CareNeedsReview, "Returning to the original account retains its interrupted-care marker");
+            if (ownedCreatureArt) CheckOwnedModel(ui, "cute-bird", AbbyCamp.Presentation.OwnedCompanionKind.Pet, petId);
             yield return OpenSection(ui, garden, "Bestiary");
             Check(FindButton("FeedPet_" + secondPetId)?.interactable == false && FindButton("AcknowledgeCareButton")?.interactable == true,
                 "Fresh original-account history still requires explicit review before more care");

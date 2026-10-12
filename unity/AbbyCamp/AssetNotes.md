@@ -12,6 +12,12 @@ The authored presentation and dragon definition live under `Assets/AbbyCamp/Pres
 
 ## Purchased Cute Series layer
 
+See the [RPG catalog and Unity asset coverage](../../content/rpg/unity-assets.md)
+for the exact owned-pack inventory, Chick/egg/Birdseed catalog identities,
+legacy species gaps and optional purchases. The licensed scene now binds an
+owned Base Chick to Chick, and its confirmed evolved form or selected mount
+to Bird. Other species and unprepared variants retain an explicit preview.
+
 The licensed companion and woodland art come from **Meshtint Studio's
 [Cute Series collection](https://www.meshtint.com/collections/cute-series)**.
 Keep this publisher source with the pack, import and private purchase records
@@ -49,8 +55,9 @@ Place, Bird maps Fly Idle / Fly Forward In Place. The humanoid explorer maps
 Idle / Walk Forward In Place. Root motion stays disabled. Greetings use the
 project's small procedural hop instead of combat animations.
 
-The purchased forms are prepared appearances, **not implemented evolution
-unlocks**. The secondary form remains a development appearance-swap check.
+Chick and Bird follow the existing server-confirmed pet/mount evolution at
+100 growth; they introduce no additional growth rules or unlocks. Fledgling
+remains a development appearance-swap check rather than an intermediate unlock.
 The `starter-companion` gameplay identity, controllers, journal receipts and
 account boundaries are unchanged. Fitted creature outfits remain additional
 art/integration work; modular humanoid clothing does not automatically fit a
@@ -76,8 +83,10 @@ materials retain their supplied colors. The licensed forms are normalized to
 1.8–2 world units and face the fixed, shallow-angle camera. Framing reserves
 space for the top account panel and bottom home actions, with the world on the
 left in landscape. The public fallback uses the same fixed camera contract.
-The scene bird is an artwork preview rather than a fictional owned species;
-Bestiary displays actual account ownership and growth independently.
+Without matching owned account state the scene is an artwork preview. Exact
+Base Chick bindings use the saved selected pet or mount; confirmed evolution
+selects Bird while retaining the actor root and backend ownership. Bestiary
+continues to display actual account ownership and growth independently.
 
 The staging script also writes ignored `shared/storybook/licensed` and
 `frontend/src/storybook/licensed` overlays. React bundles their hashed portraits
