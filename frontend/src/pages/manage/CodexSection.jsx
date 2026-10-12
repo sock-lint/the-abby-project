@@ -27,7 +27,7 @@ import SpriteDetailSheet from './SpriteDetailSheet';
 const SECTIONS = [
   { id: 'items',      label: 'Items',      kicker: 'pet eggs, potions, cosmetics, scrolls', icon: '📦' },
   { id: 'creatures',  label: 'Pet species',  kicker: 'pet species & their hatching potions',  icon: '🐾' },
-  { id: 'mounts',     label: 'Mounts',     kicker: 'evolved forms of every species',        icon: '👑' },
+  { id: 'mounts',     label: 'Grown pets',     kicker: 'grown forms in the catalog',        icon: '👑' },
   { id: 'adventures', label: 'Challenges', kicker: 'Available challenges',                icon: '⚔️' },
   { id: 'sprites',    label: 'Sprites',    kicker: 'Character and item artwork',        icon: '✨' },
 ];
@@ -129,6 +129,7 @@ function ItemDetail({ item }) {
       <div className={`text-sm capitalize font-medium mb-1 ${RARITY_TEXT_COLORS[item.rarity]}`}>
         {item.rarity_display} · {item.type_display}
       </div>
+      {item.catalog_available === false && <p className="text-caption text-ink-secondary mb-3">Stored catalog item · unavailable for new unlocks.</p>}
       {item.description && (
         <p className="text-sm text-ink-whisper mb-3">{item.description}</p>
       )}
@@ -331,7 +332,7 @@ function MountDetail({ species, onRegenerate }) {
               alt={`${species.name} mount`}
             />
           </div>
-          <div className="text-tiny text-ink-whisper mt-1">mount</div>
+          <div className="text-tiny text-ink-whisper mt-1">grown pet</div>
         </div>
       </div>
       {species.description && (

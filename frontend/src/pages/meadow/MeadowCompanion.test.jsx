@@ -15,7 +15,8 @@ beforeEach(() => {
 describe('Owned Meadow companion', () => {
   it('shows the server-selected species and greets it without substituting the generic chick', async () => {
     server.use(http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [{
-      id: 6, species: { name: 'Fox', sprite_key: 'fox', icon: '🦊' }, potion: { name: 'Base', slug: 'base' },
+      id: 6, catalog_available: false,
+      species: { name: 'Fox', slug: 'fox', sprite_key: 'fox', icon: '🦊', catalog_available: false }, potion: { name: 'Base', slug: 'base' },
       is_active: true, growth_points: 25,
     }], mounts: [] })));
     const { user } = renderWithProviders(<Meadow />);
@@ -32,6 +33,6 @@ describe('Owned Meadow companion', () => {
     expect(await screen.findByText(/hatch a pet, then set it active/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Say hello' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Keep a memory' })).toBeEnabled();
-    expect(screen.getByRole('link', { name: /hatch & breed/i })).toHaveAttribute('href', '/bestiary?tab=hatchery');
+    expect(screen.getByRole('link', { name: /hatch a pet/i })).toHaveAttribute('href', '/bestiary?tab=hatchery');
   });
 });

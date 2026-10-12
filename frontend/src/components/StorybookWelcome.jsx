@@ -5,8 +5,8 @@ import { MEADOW_COMPANION } from '../pages/meadow/meadow.constants';
 export default function StorybookWelcome({ kicker, description }) {
   return (
     <header className="text-center mb-6">
-      <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-moss/10 border border-moss/10">
-        <img src={MEADOW_COMPANION.portrait} alt="" aria-hidden="true" width="80" height="80" className="h-20 w-20 object-contain" />
+      <div className="mx-auto mb-4 h-24 w-24 overflow-hidden rounded-full bg-moss/10 border border-moss/10">
+        <img src={MEADOW_COMPANION.portrait} alt="" aria-hidden="true" width="96" height="96" className="block h-full w-full object-cover" />
       </div>
       <p className="text-caption font-semibold text-sheikah-teal mb-1">{kicker}</p>
       <h1 className="font-display text-3xl font-bold text-ink-primary leading-tight">The Abby Project</h1>

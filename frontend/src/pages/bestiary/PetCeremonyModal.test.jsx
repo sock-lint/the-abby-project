@@ -64,7 +64,7 @@ describe('PetCeremonyModal', () => {
       />,
     );
     expect(screen.getByText(/cosmic phoenix/i)).toBeInTheDocument();
-    expect(screen.getByText(/ready to ride/i)).toBeInTheDocument();
+    expect(screen.getByText(/ready to explore/i)).toBeInTheDocument();
   });
 
   it('renders breed alertdialog with the result egg name (mode=breed)', () => {
@@ -80,7 +80,7 @@ describe('PetCeremonyModal', () => {
     expect(screen.getByText(/wolf egg/i)).toBeInTheDocument();
     expect(screen.getByText(/paired with fire potion/i)).toBeInTheDocument();
     expect(screen.getByText(/parents resting for 7 days/i)).toBeInTheDocument();
-    expect(screen.getByText(/a new hybrid egg/i)).toBeInTheDocument();
+    expect(screen.getByText(/a new egg/i)).toBeInTheDocument();
   });
 
   it('shows chromatic kicker on chromatic breed', () => {
@@ -282,7 +282,7 @@ describe('PetCeremonyModal — licensed Chick portraits', () => {
     });
     expect(screen.getByRole('img', { name: 'Chick' })).toHaveAttribute('src', birdPortrait);
     expect(document.querySelector(`img[src="${chickPortrait}"]`)).toBeNull();
-    expect(screen.getByText(/is ready to ride/i)).toBeInTheDocument();
+    expect(screen.getByText(/is ready to explore/i)).toBeInTheDocument();
   });
 
   it('shows the Chick parent as a Bird mount while keeping the other parent on its own species', async () => {

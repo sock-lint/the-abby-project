@@ -52,7 +52,7 @@ function renderPage(handlers = []) {
   );
 }
 
-function collection() { return within(screen.getByRole('list', { name: 'Your mounts' })); }
+function collection() { return within(screen.getByRole('list', { name: 'Your grown pets' })); }
 
 describe('Mounts tab', () => {
   it('lets the waiting mount begin an expedition directly from its home', async () => {
@@ -74,7 +74,7 @@ describe('Mounts tab', () => {
         HttpResponse.json({ pets: [], mounts: [], total_possible: 48 }),
       ),
     ]);
-    await waitFor(() => expect(screen.getByText(/no mounts yet/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/no grown pets yet/i)).toBeInTheDocument());
   });
 
   it('shows a stable load error and retries without claiming the collection is empty', async () => {
@@ -89,7 +89,7 @@ describe('Mounts tab', () => {
       }),
     ]);
     expect(await screen.findByRole('alert')).toHaveTextContent('Stable offline');
-    expect(screen.queryByText(/no mounts yet/i)).toBeNull();
+    expect(screen.queryByText(/no grown pets yet/i)).toBeNull();
     await user.click(screen.getByRole('button', { name: /try again/i }));
     expect(await screen.findByRole('button', { name: 'Visit Sky Griffon' })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();

@@ -57,7 +57,7 @@ describe('CodexSection', () => {
     await waitFor(() =>
       expect(screen.getByRole('tab', { name: /Items/ })).toBeInTheDocument(),
     );
-    for (const label of ['Items', 'Pet species', 'Mounts', 'Challenges', 'Sprites']) {
+    for (const label of ['Items', 'Pet species', 'Grown pets', 'Challenges', 'Sprites']) {
       expect(screen.getByRole('tab', { name: new RegExp(label) })).toBeInTheDocument();
     }
   });

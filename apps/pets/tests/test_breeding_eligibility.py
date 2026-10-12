@@ -16,13 +16,20 @@ NOW = datetime(2026, 10, 10, 19, 0, tzinfo=datetime_timezone.utc)
 @override_settings(
     TIME_ZONE="America/Phoenix",
     PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"],
+    RPG_ASSET_SUPPORT_POLICY={
+        "schema_version": 1,
+        "pets": [{"species_slug": slug, "sprite_key": slug, "potion_slugs": ["fixture-ice"]} for slug in ("fixture-fox", "fixture-wolf")],
+        "potion_slugs": ["fixture-ice"],
+    },
 )
 class MountBreedingEligibilitySerializerTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="breeding-fixture-child", role="child")
-        self.species = PetSpecies.objects.create(name="Fixture Fox", slug="fixture-fox")
+        self.species = PetSpecies.objects.create(name="Fixture Fox", slug="fixture-fox", sprite_key="fixture-fox")
         self.potion = PotionType.objects.create(name="Fixture Ice", slug="fixture-ice")
         self.mount = UserMount.objects.create(user=self.user, species=self.species, potion=self.potion)
+        peer_species = PetSpecies.objects.create(name="Fixture Wolf", slug="fixture-wolf", sprite_key="fixture-wolf")
+        UserMount.objects.create(user=self.user, species=peer_species, potion=self.potion)
 
     def test_cooldown_rounds_up_and_expires_at_the_exact_server_boundary(self):
         cooldown = timedelta(days=MOUNT_BREEDING_COOLDOWN_DAYS)

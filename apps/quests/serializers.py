@@ -52,7 +52,8 @@ class QuestSkillTagSerializer(serializers.ModelSerializer):
 
 
 class QuestDefinitionSerializer(serializers.ModelSerializer):
-    reward_items = QuestRewardItemSerializer(many=True, read_only=True)
+    catalog_available = serializers.SerializerMethodField()
+    reward_items = serializers.SerializerMethodField()
     skill_tags = QuestSkillTagSerializer(many=True, read_only=True)
     quest_type_display = serializers.CharField(source="get_quest_type_display", read_only=True)
     # Frontend uses this to classify gated quests into the "Locked" codex
@@ -62,6 +63,22 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
         source="required_badge.name", read_only=True, default=None,
     )
 
+    def get_reward_items(self, obj):
+        from apps.rpg.catalog_support import item_is_available
+        rewards = [reward for reward in obj.reward_items.all() if item_is_available(reward.item)]
+        return QuestRewardItemSerializer(rewards, many=True, context=self.context).data
+
+    def get_catalog_available(self, obj):
+        if obj.required_badge_id is None:
+            return True
+        from apps.achievements.availability import badge_goal_is_available
+        from apps.achievements.models import UserBadge
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user and UserBadge.objects.filter(user=user, badge_id=obj.required_badge_id).exists():
+            return True
+        return badge_goal_is_available(obj.required_badge, user)
+
     class Meta:
         model = QuestDefinition
         fields = [
@@ -69,7 +86,7 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
             "target_value", "duration_days", "trigger_filter",
             "coin_reward", "xp_reward", "reward_items", "skill_tags",
             "required_badge", "required_badge_name",
-            "is_repeatable", "is_system", "created_at",
+            "is_repeatable", "is_system", "created_at", "catalog_available",
         ]
         read_only_fields = fields
 

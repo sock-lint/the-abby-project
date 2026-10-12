@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from django.db import transaction
 from django.utils import timezone
+from apps.rpg.catalog_support import available_items, available_pet_variants, item_is_available, pet_is_available
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,8 @@ class PetService:
         available_potions = species.available_potions
         if available_potions.exists() and not available_potions.filter(pk=potion_type.pk).exists():
             raise ValueError(f"{species.name} cannot hatch with a {potion_type.name} potion")
+        if not pet_is_available(species, potion_type) or not item_is_available(egg_item) or not item_is_available(potion_item):
+            raise ValueError("This companion is not available to hatch with the current artwork. Your saved ingredients are unchanged.")
 
         # Check if user already has this combo
         if UserPet.objects.filter(user=user, species=species, potion=potion_type).exists():
@@ -435,6 +438,8 @@ class PetService:
             raise ValueError("One or both mounts not found")
         if len(mounts) != 2:
             raise ValueError("One or both mounts not found")
+        if not all(pet_is_available(mount.species, mount.potion) for mount in mounts):
+            raise ValueError("Breeding is not available for these saved companions with the current artwork.")
 
         now = timezone.now()
         cooldown = timedelta(days=MOUNT_BREEDING_COOLDOWN_DAYS)
@@ -448,19 +453,19 @@ class PetService:
                 )
 
         picked_species = random.choice([mounts[0].species, mounts[1].species])
-        supported_potions = list(picked_species.available_potions.all())
+        supported_potions = list(available_pet_variants(picked_species))
         supported_ids = {potion.pk for potion in supported_potions}
+        registered_items = available_items(ItemDefinition.objects.filter(
+            item_type=ItemDefinition.ItemType.POTION, potion_type__in=supported_potions,
+        ).select_related("potion_type"))
+        registered_ids = {item.potion_type_id for item in registered_items}
         potion_options = [
             mount.potion for mount in mounts
-            if not supported_ids or mount.potion_id in supported_ids
+            if mount.potion_id in supported_ids and mount.potion_id in registered_ids
         ]
         if not potion_options:
             # Owned mounts may predate a catalog compatibility correction.
             # Keep their breeding path usable without granting an invalid pair.
-            registered_ids = set(ItemDefinition.objects.filter(
-                item_type=ItemDefinition.ItemType.POTION,
-                potion_type__in=supported_potions,
-            ).values_list("potion_type_id", flat=True))
             potion_options = [potion for potion in supported_potions if potion.pk in registered_ids]
             if not potion_options:
                 raise ValueError(
@@ -473,26 +478,26 @@ class PetService:
         if random.random() < CHROMATIC_UPGRADE_CHANCE:
             from apps.pets.models import PotionType
             cosmic = PotionType.objects.filter(slug=CHROMATIC_POTION_SLUG).first()
-            if cosmic and (not supported_ids or cosmic.pk in supported_ids):
+            if cosmic and cosmic.pk in supported_ids and cosmic.pk in registered_ids and pet_is_available(picked_species, cosmic):
                 picked_potion = cosmic
                 chromatic = True
 
-        egg_item = ItemDefinition.objects.filter(
+        egg_items = available_items(ItemDefinition.objects.filter(
             item_type=ItemDefinition.ItemType.EGG,
             pet_species=picked_species,
-        ).first()
-        if egg_item is None:
+        ).select_related("pet_species"))
+        if not egg_items:
             raise ValueError(
                 f"No egg item registered for {picked_species.name} — content seed may be incomplete"
             )
-        potion_item = ItemDefinition.objects.filter(
-            item_type=ItemDefinition.ItemType.POTION,
-            potion_type=picked_potion,
-        ).first()
+        egg_item = egg_items[0]
+        potion_item = next((item for item in registered_items if item.potion_type_id == picked_potion.pk), None)
         if potion_item is None:
             raise ValueError(
                 f"No potion item registered for {picked_potion.name} — content seed may be incomplete"
             )
+        if not pet_is_available(picked_species, picked_potion) or not item_is_available(egg_item) or not item_is_available(potion_item):
+            raise ValueError("No art-supported offspring is available for this pair. Your companions and inventory are unchanged.")
 
         for item in (egg_item, potion_item):
             inv, _ = UserInventory.objects.get_or_create(
@@ -555,9 +560,9 @@ class PetService:
     @staticmethod
     def get_stable(user):
         """Return all pets and mounts for a user, plus collection stats."""
-        from django.db.models import Count, Prefetch
+        from django.db.models import Prefetch
         from apps.pets.models import (
-            MountExpedition, PetSpecies, PotionType, UserMount, UserPet,
+            MountExpedition, PetSpecies, UserMount, UserPet,
         )
 
         pets = list(UserPet.objects.filter(user=user).select_related("species", "potion"))
@@ -575,12 +580,10 @@ class PetService:
                 to_attr="prefetched_active_expeditions",
             ))
         )
-        total_potions = PotionType.objects.count()
-        variant_counts = PetSpecies.objects.annotate(
-            variant_count=Count("available_potions"),
-        ).values_list("variant_count", flat=True)
-        # Empty compatibility data retains the legacy unrestricted behavior.
-        total_possible = sum(count or total_potions for count in variant_counts)
+        total_possible = sum(available_pet_variants(species).count() for species in PetSpecies.objects.all())
+        now = timezone.now()
+        ready_supported_mounts = [mount for mount in mounts if pet_is_available(mount.species, mount.potion)
+                                  and (mount.last_bred_at is None or now - mount.last_bred_at >= timedelta(days=MOUNT_BREEDING_COOLDOWN_DAYS))]
 
         return {
             "pets": pets,
@@ -588,4 +591,5 @@ class PetService:
             "total_pets": len(pets),
             "total_mounts": len(mounts),
             "total_possible": total_possible,
+            "breeding_available": len(ready_supported_mounts) >= 2,
         }

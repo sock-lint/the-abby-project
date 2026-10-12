@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
+from .catalog_support import available_items
 
 from .models import CharacterProfile, ItemDefinition, UserInventory, DropLog
 from .serializers import (
@@ -132,9 +133,9 @@ class ItemCatalogView(ListAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        return ItemDefinition.objects.select_related(
+        return available_items(ItemDefinition.objects.select_related(
             "pet_species", "potion_type", "food_species",
-        ).order_by("item_type", "rarity", "name")
+        ).order_by("item_type", "rarity", "name"))
 
 
 class CosmeticCatalogView(APIView):
@@ -157,7 +158,7 @@ class CosmeticCatalogView(APIView):
         ).order_by("item_type", "rarity", "name")
 
         grouped = {slot: [] for slot in slot_map.values()}
-        for item in cosmetics:
+        for item in available_items(cosmetics):
             # Filter out malformed cosmetic_theme items (legacy theme-*
             # rows lacking metadata.theme). cleanup_rpg_catalog removes
             # them from the DB on next deploy; this filter is the

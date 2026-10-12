@@ -46,8 +46,29 @@ For contracts, set `SECRET_KEY` to a synthetic test-only value and
 `DATABASE_URL=sqlite:///:memory:`, then run:
 
 ```powershell
-python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures
 ```
+
+From `frontend/`, run the matching consumers:
+
+```powershell
+npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/catalogContractFixtures.test.js
+```
+
+The catalog producer/consumer pair uses production asset support and checks
+available offers separately from retained saved ownership. Broader breeding
+fixtures use an explicit scoped synthetic policy for engine mechanics. For
+catalog changes, also run:
+
+```powershell
+python manage.py test --settings=config.settings_test apps.rpg.tests.test_catalog_support apps.rpg.tests.test_asset_supported_acquisition apps.rpg.tests.test_catalog_consumers apps.pets.tests.test_asset_supported_catalog
+```
+
+Run `apps.pets.tests.test_catalog_concurrency` with `config.settings_test` and a
+disposable PostgreSQL database for competing hatch/final-feed transactions;
+SQLite skips these row-lock checks. React Saved collection coverage lives in
+`src/pages/bestiary/party/SavedPetCollections.test.jsx` and the affected Profile,
+Inventory, Hatching and reward/challenge tests within the full coverage gate.
 
 Fixtures do not replace permission, family-scoping or transaction tests. Add
 affected endpoint tests, React interactions and PostgreSQL concurrency checks

@@ -20,6 +20,14 @@ const earnedBadges = [
 ];
 
 describe('TrophyBadgePicker', () => {
+  it('keeps an earned badge selectable even when it is absent from the available catalog', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const stored = { id: 90, name: 'Earlier collector badge', rarity: 'rare', icon: '🏅', criterion_type: 'pet_species_owned', catalog_available: false };
+    const { getByRole } = renderWithProviders(<TrophyBadgePicker allBadges={[]} earnedBadges={[{ badge: stored, earned_at: '2026-04-10' }]} onSelect={onSelect} onClose={() => {}} />);
+    await user.click(getByRole('button', { name: /Earlier collector badge/ }));
+    expect(onSelect).toHaveBeenCalledWith(90);
+  });
   it('renders inside a dialog labelled by the sheet title', () => {
     const { getByRole } = renderWithProviders(
       <TrophyBadgePicker

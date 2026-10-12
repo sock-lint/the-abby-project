@@ -2,6 +2,27 @@
 
 Skill tree (Category → Subject → Skill → Badge), the unified `AwardService.grant` dispatch, and 48 badge criterion types grouped by subsystem. The skill XP routing in this app is shared across every major activity in the codebase.
 
+## Reachable collectible goals (October 2026)
+
+`availability.py::badge_goal_is_available` computes whether a collectible goal
+can still be reached with approved future catalog content and the user's saved
+progress. Pet hatch/species/mount thresholds use approved compatible pairs
+plus legacy owned pets/mounts; saved pets can still evolve. Potion-shelf goals
+include already owned typed potions, and named sets include already owned
+items. A full four-slot cosmetic goal needs an existing active accessory,
+because new accessories and accessory equip are unavailable. Other criteria,
+including independent badge and consumable collections, stay available.
+
+Unreachable unearned goals are omitted by `visible_badges` from child catalog
+and summary surfaces. Earned badges remain visible, counted and eligible for
+trophy selection, with read-only `catalog_available` reporting current goal
+availability. Quest prerequisite availability uses the same check and honors
+an already earned required badge. The original criterion checkers, thresholds,
+XP/coin payouts and earned rows are unchanged; asset policy must not silently
+lower a badge requirement. Generic engine tests can use explicit scoped
+synthetic catalog bindings. Regression coverage is in
+`apps/rpg/tests/test_catalog_consumers.py`.
+
 ## Models
 - `SkillCategory → Subject → Skill → Badge` — full hierarchy.
 - `SkillPrerequisite` — allows cross-category and cross-subject requirements.

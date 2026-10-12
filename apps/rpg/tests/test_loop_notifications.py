@@ -19,6 +19,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.notifications.models import Notification, NotificationType
+from apps.pets.models import PetSpecies
 from apps.projects.models import User
 from apps.quests.models import Quest, QuestDefinition, QuestParticipant
 from apps.rpg.models import (
@@ -33,11 +34,15 @@ class DropReceivedNotificationTests(TestCase):
             username="dropkid", password="pw", role="child",
         )
         CharacterProfile.objects.get_or_create(user=self.user)
+        chick = PetSpecies.objects.create(
+            slug="chick", name="Chick", sprite_key="cute-chick", icon="🐤",
+        )
         self.item = ItemDefinition.objects.create(
-            name="Dragon Egg",
+            name="Chick Egg",
             icon="🥚",
             item_type=ItemDefinition.ItemType.EGG,
             rarity=ItemDefinition.Rarity.COMMON,
+            pet_species=chick,
         )
         DropTable.objects.create(
             trigger_type=DropTable.TriggerType.CLOCK_OUT,
@@ -67,7 +72,7 @@ class DropReceivedNotificationTests(TestCase):
             Notification.objects.filter(
                 user=self.user,
                 notification_type=NotificationType.BADGE_EARNED,
-                title__icontains="Dragon Egg",
+                title__icontains="Chick Egg",
             ).exists(),
             "Drops must not still emit the legacy BADGE_EARNED label.",
         )

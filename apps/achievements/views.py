@@ -27,6 +27,13 @@ class BadgeViewSet(WriteReadSerializerMixin, StaffParentWritePermissionMixin, vi
     serializer_class = BadgeSerializer
     write_serializer_class = BadgeWriteSerializer
 
+    def get_queryset(self):
+        user = self.request.user
+        if getattr(user, "is_staff", False) and getattr(user, "role", None) == "parent":
+            return super().get_queryset()
+        from .availability import visible_badges
+        return visible_badges(super().get_queryset(), user)
+
 
 class UserBadgeViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = UserBadgeSerializer
@@ -103,7 +110,12 @@ class AchievementsSummaryView(APIView):
             )
 
         return Response({
-            "badges_earned": UserBadgeSerializer(badges, many=True).data,
-            "total_badges": Badge.objects.count(),
+            "badges_earned": UserBadgeSerializer(badges, many=True, context={"request": request}).data,
+            "total_badges": self._total_badges(user),
             "skill_categories": categories,
         })
+
+    @staticmethod
+    def _total_badges(user):
+        from .availability import visible_badges
+        return visible_badges(Badge.objects.all(), user).count()

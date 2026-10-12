@@ -10,6 +10,7 @@ import { DragonIcon } from '../../../components/icons/JournalIcons';
 import BestiaryFolio from './BestiaryFolio';
 import SpeciesDetailSheet from './SpeciesDetailSheet';
 import { groupSpeciesByChapter, totalRarityCounts } from './codex.constants';
+import { isCatalogAvailable } from '../../../utils/catalogAvailability';
 
 const STORAGE_KEY = 'bestiary:codex:active-chapter';
 
@@ -33,8 +34,8 @@ export default function BestiaryCodex() {
     }
   });
 
-  const species = useMemo(() => data?.species || [], [data]);
-  const potions = useMemo(() => data?.potions || [], [data]);
+  const species = useMemo(() => (data?.species || []).filter(isCatalogAvailable), [data]);
+  const potions = useMemo(() => (data?.potions || []).filter(isCatalogAvailable), [data]);
   const totals = data?.totals || {};
   const totalPotions = potions.length;
 
@@ -112,7 +113,7 @@ export default function BestiaryCodex() {
       />
 
       <p className="font-script text-sm text-ink-whisper -mt-2 max-w-xl">
-        Select a pet to learn about it and see its mount variants. Hatch a companion to discover its species.
+        Select a pet to learn about it and its grown form. Hatch a companion to discover its species.
       </p>
 
       <TomeShelf

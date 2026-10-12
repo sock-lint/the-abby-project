@@ -7,7 +7,8 @@
     "icon": "🐺",
     "sprite_key": "wolf",
     "description": "A synthetic trail companion.",
-    "food_preference": "meat"
+    "food_preference": "meat",
+    "catalog_available": true
   },
   "potion": {
     "id": 44,
@@ -16,7 +17,8 @@
     "sprite_key": "ice-potion",
     "color_hex": "#91D9F2",
     "rarity": "rare",
-    "description": "A cool synthetic variant."
+    "description": "A cool synthetic variant.",
+    "catalog_available": true
   },
   "is_active": true,
   "last_bred_at": "2026-10-08T12:00:00-07:00",
@@ -24,5 +26,6 @@
   "can_breed": false,
   "breeding_cooldown_seconds": 432000,
   "created_at": "2026-10-10T12:00:00-07:00",
-  "updated_at": "2026-10-10T12:00:00-07:00"
+  "updated_at": "2026-10-10T12:00:00-07:00",
+  "catalog_available": true
 }

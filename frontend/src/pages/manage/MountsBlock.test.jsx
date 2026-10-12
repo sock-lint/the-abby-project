@@ -38,8 +38,7 @@ describe('MountsBlock', () => {
     expect(sprites[0].dataset.fallback).toBe('fox');
     expect(sprites[1].dataset.spritekey).toBe('wolf-mount');
     expect(sprites[1].dataset.fallback).toBe('wolf');
-    // Every tile shows the "mount" subtitle
-    expect(screen.getAllByText('mount')).toHaveLength(2);
+    expect(screen.getAllByText('grown pet')).toHaveLength(2);
   });
 
   it('fires onSelect with the species when a tile is clicked', async () => {

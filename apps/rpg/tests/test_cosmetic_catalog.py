@@ -71,8 +71,10 @@ class CosmeticCatalogViewTests(TestCase):
         self.assertEqual([x["id"] for x in body["active_title"]], [self.title.id])
         self.assertEqual([x["id"] for x in body["active_theme"]], [self.theme.id])
         self.assertEqual(
-            [x["id"] for x in body["active_pet_accessory"]], [self.accessory.id],
+            body["active_pet_accessory"], [],
         )
+        # Unsupported new offers are omitted; saved catalog rows survive.
+        self.assertTrue(ItemDefinition.objects.filter(pk=self.accessory.pk).exists())
 
     def test_non_cosmetic_items_are_excluded(self):
         self.client.force_authenticate(self.child)

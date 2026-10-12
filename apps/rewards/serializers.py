@@ -7,6 +7,7 @@ from .models import CoinLedger, ExchangeRequest, Reward, RewardRedemption
 
 
 class RewardSerializer(serializers.ModelSerializer):
+    catalog_available = serializers.SerializerMethodField()
     item_definition_detail = ItemDefinitionSerializer(
         source="item_definition", read_only=True,
     )
@@ -19,7 +20,12 @@ class RewardSerializer(serializers.ModelSerializer):
             "rarity", "stock", "requires_parent_approval", "is_active", "order",
             "fulfillment_kind", "item_definition", "item_definition_detail",
             "on_my_wishlist",
+            "catalog_available",
         ]
+
+    def get_catalog_available(self, obj):
+        from .availability import reward_is_available
+        return reward_is_available(obj)
 
     def get_on_my_wishlist(self, obj):
         request = self.context.get("request")
@@ -70,6 +76,12 @@ class RewardWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "item_definition": "Digital rewards must choose an inventory item.",
             })
+        if fulfillment_kind != Reward.FulfillmentKind.REAL_WORLD and item_definition and attrs.get("is_active", getattr(self.instance, "is_active", True)):
+            from apps.rpg.catalog_support import item_is_available
+            if not item_is_available(item_definition):
+                raise serializers.ValidationError({
+                    "item_definition": "This item is not currently available for new rewards.",
+                })
         return attrs
 
 

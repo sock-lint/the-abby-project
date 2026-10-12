@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory, DropLog
 from .avatar import AVATAR_DEFAULTS, AVATAR_OPTIONS, avatar_appearance
+from .catalog_support import item_is_available
 
 
 class AvatarPreferencesUpdateSerializer(serializers.Serializer):
@@ -146,6 +147,7 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
 
 
 class ItemDefinitionSerializer(serializers.ModelSerializer):
+    catalog_available = serializers.SerializerMethodField()
     rarity_display = serializers.CharField(source="get_rarity_display", read_only=True)
     type_display = serializers.CharField(source="get_item_type_display", read_only=True)
     pet_species_name = serializers.CharField(source="pet_species.name", read_only=True, default=None)
@@ -157,9 +159,12 @@ class ItemDefinitionSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "description", "icon", "sprite_key", "item_type", "type_display",
             "rarity", "rarity_display", "coin_value", "metadata",
-            "pet_species_name", "potion_type_name", "food_species_name",
+            "pet_species_name", "potion_type_name", "food_species_name", "catalog_available",
         ]
         read_only_fields = fields
+
+    def get_catalog_available(self, obj):
+        return item_is_available(obj)
 
 
 class UserInventorySerializer(serializers.ModelSerializer):
@@ -172,6 +177,10 @@ class UserInventorySerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_available_actions(self, obj):
+        if not item_is_available(obj.item):
+            # Saved keepsakes remain readable, but do not advertise a new
+            # hatch/equip action that the authoritative service rejects.
+            return []
         item_type = obj.item.item_type
         item_id = obj.item_id
         action_map = {

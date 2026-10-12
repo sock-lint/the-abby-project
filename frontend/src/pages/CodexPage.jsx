@@ -16,7 +16,7 @@ export default function CodexPage() {
     <PageShell rhythm="loose">
       <PageHeader
         title="Content Catalog"
-        kicker="Manage items, pets, mounts, challenges, and artwork"
+        kicker="Manage items, pets, challenges, and artwork"
       />
       <CodexSection />
     </PageShell>

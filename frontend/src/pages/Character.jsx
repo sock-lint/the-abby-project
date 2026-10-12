@@ -27,6 +27,8 @@ import TrophyBadgePicker from './character/TrophyBadgePicker';
 import AdventuresEntry from './character/AdventuresEntry';
 import WellbeingCard from './character/WellbeingCard';
 import AvatarCustomizer from '../components/avatar/AvatarCustomizer';
+import SavedCosmetics from './character/SavedCosmetics';
+import { isCatalogAvailable } from '../utils/catalogAvailability';
 import {
   COSMETIC_CHAPTERS,
   mergeSlotCosmetics,
@@ -103,8 +105,8 @@ export default function Character() {
     for (const chapter of COSMETIC_CHAPTERS) {
       out[chapter.slot] = mergeSlotCosmetics(
         chapter.slot,
-        cosmetics?.[chapter.slot] || [],
-        catalog?.[chapter.slot] || [],
+        (cosmetics?.[chapter.slot] || []).filter(isCatalogAvailable),
+        (catalog?.[chapter.slot] || []).filter(isCatalogAvailable),
         profile?.[chapter.slot]?.id || null,
       );
     }
@@ -178,7 +180,7 @@ export default function Character() {
       }
       const name = next?.name || cosmeticName(slot, itemId);
       setEquipToast({
-        msg: name ? `Now wearing ${name}` : 'Cosmetic equipped',
+        msg: name ? `${name} selected` : 'Cosmetic selected',
         key: Date.now(),
       });
       refresh();
@@ -270,7 +272,7 @@ export default function Character() {
       <div className="space-y-1">
         <h2 className="font-body font-bold text-2xl text-ink-primary">Your look</h2>
         <p className="font-body text-body text-ink-secondary">
-          Choose your frame, title, cover and pet accessory from your collection.
+          Choose your frame, title and app colors from your collection.
         </p>
       </div>
 
@@ -284,14 +286,16 @@ export default function Character() {
       <CosmeticChapter
         key={activeChapter.slot}
         chapter={activeChapter}
-        owned={cosmetics?.[activeChapter.slot] || []}
-        catalog={catalog?.[activeChapter.slot] || []}
+        owned={(cosmetics?.[activeChapter.slot] || []).filter(isCatalogAvailable)}
+        catalog={(catalog?.[activeChapter.slot] || []).filter(isCatalogAvailable)}
         activeId={profile[activeChapter.slot]?.id || null}
         currentThemeName={currentThemeName}
         busy={working}
         onEquip={(itemId) => handleEquip(itemId, activeChapter.slot)}
         onUnequip={handleUnequip}
       />
+
+      <SavedCosmetics cosmetics={cosmetics} profile={profile} working={working} onRemove={handleUnequip} />
 
       {user?.role === 'child' && <WellbeingCard />}
 

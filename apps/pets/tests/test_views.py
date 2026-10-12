@@ -1,5 +1,5 @@
 """Tests for pet views — stable, hatch, feed, activate, mounts."""
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
@@ -7,13 +7,21 @@ from apps.projects.models import User
 from apps.rpg.models import ItemDefinition, UserInventory
 
 
+# Explicit synthetic capabilities exercise catalog/domain behavior without
+# widening the shipped Chick/Base art boundary.
+@override_settings(RPG_ASSET_SUPPORT_POLICY={
+    "schema_version": 1, "pets": [
+        {"species_slug": "dragon", "sprite_key": "dragon", "potion_slugs": ["fire", "ice"]},
+        {"species_slug": "phoenix", "sprite_key": "phoenix", "potion_slugs": ["fire", "ice"]},
+    ], "potion_slugs": ["fire", "ice"],
+})
 class _Fixture(TestCase):
     def setUp(self):
         self.parent = User.objects.create_user(username="p", password="pw", role="parent")
         self.child = User.objects.create_user(username="c", password="pw", role="child")
         self.client = APIClient()
-        self.species = PetSpecies.objects.create(name="Dragon", icon="🐉")
-        self.potion = PotionType.objects.create(name="Fire", color_hex="#FF0000")
+        self.species = PetSpecies.objects.create(slug="dragon", sprite_key="dragon", name="Dragon", icon="🐉")
+        self.potion = PotionType.objects.create(slug="fire", name="Fire", color_hex="#FF0000")
         self.egg_item = ItemDefinition.objects.create(
             name="Dragon Egg", icon="🥚", item_type="egg",
             pet_species=self.species,
@@ -37,6 +45,8 @@ class StableViewTests(_Fixture):
         self.assertEqual(data["total_pets"], 0)
 
     def test_stable_with_pet(self):
+        self.species.slug = None
+        self.species.save(update_fields=["slug"])
         UserPet.objects.create(
             user=self.child, species=self.species, potion=self.potion,
         )
@@ -118,10 +128,10 @@ class PetCodexTests(_Fixture):
     def setUp(self):
         super().setUp()
         self.species_b = PetSpecies.objects.create(
-            name="Phoenix", icon="🔥", slug="phoenix",
+            name="Phoenix", icon="🔥", slug="phoenix", sprite_key="phoenix",
             description="Reborn from ashes.",
         )
-        self.potion_b = PotionType.objects.create(name="Ice", color_hex="#00BBFF")
+        self.potion_b = PotionType.objects.create(slug="ice", name="Ice", color_hex="#00BBFF")
         self.species.available_potions.add(self.potion, self.potion_b)
         self.species_b.available_potions.add(self.potion)
 

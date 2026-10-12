@@ -60,8 +60,8 @@ export const MOUNT_FILTERS = [
   { key: 'all',      label: 'All',             icon: '🐎', match: () => true },
   { key: 'active',   label: 'Active',          icon: '⭐', match: (m) => !!m.is_active },
   { key: 'on_expedition', label: 'Out exploring', icon: '🗺', match: (m) => !!m.active_expedition && m.active_expedition.status === 'active' },
-  { key: 'ready',    label: 'Ready to breed',  icon: '💞', match: (m) => daysUntilReady(m.last_bred_at) === null },
-  { key: 'cooldown', label: 'On cooldown',     icon: '⏳', match: (m) => daysUntilReady(m.last_bred_at) !== null },
+  { key: 'ready',    label: 'Ready to breed',  icon: '💞', match: (m) => m.can_breed !== false && daysUntilReady(m.last_bred_at) === null },
+  { key: 'cooldown', label: 'On cooldown',     icon: '⏳', match: (m) => m.can_breed !== false && daysUntilReady(m.last_bred_at) !== null },
 ];
 
 // Format remaining time for an out-on-expedition mount card. Returns

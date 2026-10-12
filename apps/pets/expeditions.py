@@ -284,7 +284,8 @@ class ExpeditionService:
     def _roll_loot(user, tier):
         """Pre-roll the expedition's payout. Returns the JSON-serializable shape."""
         from apps.rpg.constants import TriggerType
-        from apps.rpg.models import CharacterProfile, DropTable, ItemDefinition
+        from apps.rpg.models import CharacterProfile, DropTable
+        from apps.rpg.catalog_support import item_is_available
 
         config = TIER_CONFIG[tier]
 
@@ -299,17 +300,17 @@ class ExpeditionService:
         profile = CharacterProfile.objects.filter(user=user).first()
         user_level = profile.level if profile else 0
 
-        entries = list(
+        entries = [entry for entry in (
             DropTable.objects
             .filter(trigger_type=TriggerType.EXPEDITION_RETURNED, min_level__lte=user_level)
             .select_related("item")
-        )
+        ) if item_is_available(entry.item)]
         if not entries:
             # Fallback: borrow from clock_out + chore_complete pools so a
             # fresh deployment without expedition-specific drops still
             # produces sensible loot. Cosmetic items dominate those pools
             # by design — they're the "feels like an adventure" payoff.
-            entries = list(
+            entries = [entry for entry in (
                 DropTable.objects
                 .filter(
                     trigger_type__in=[
@@ -319,7 +320,7 @@ class ExpeditionService:
                     min_level__lte=user_level,
                 )
                 .select_related("item")
-            )
+            ) if item_is_available(entry.item)]
 
         items = []
         if entries:

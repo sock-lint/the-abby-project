@@ -41,6 +41,7 @@ def force_drop(
 ) -> dict[str, Any]:
     """Write ``DropLog`` + ``UserInventory`` directly. Bypasses RNG."""
     from apps.rpg.models import DropLog, ItemDefinition, UserInventory
+    from apps.rpg.catalog_support import available_items, item_is_available
 
     if not rarity and not slug:
         raise OperationError("Must pass rarity or slug.")
@@ -51,13 +52,16 @@ def force_drop(
         except ItemDefinition.DoesNotExist as e:
             raise OperationError(f"No ItemDefinition with slug={slug!r}") from e
     else:
-        pool = list(ItemDefinition.objects.filter(rarity=rarity))
+        pool = available_items(ItemDefinition.objects.filter(rarity=rarity))
         if not pool:
             raise OperationError(
                 f"No ItemDefinition rows at rarity={rarity!r}. "
                 "Run `loadrpgcontent` first."
             )
         item = random.choice(pool)
+
+    if not item_is_available(item):
+        raise OperationError("This item is not currently available for new drops.")
 
     for _ in range(count):
         if not salvage:
@@ -544,6 +548,7 @@ def grant_hatch_ingredients(
     """Drop one matching egg + one matching potion into ``UserInventory``."""
     from apps.pets.models import PetSpecies, PotionType
     from apps.rpg.models import ItemDefinition, UserInventory
+    from apps.rpg.catalog_support import pet_is_available
 
     try:
         species = PetSpecies.objects.get(slug=species_slug)
@@ -560,6 +565,8 @@ def grant_hatch_ingredients(
 
     # Verify combo if species has narrowed its potions; an empty
     # available_potions relation = all potions OK.
+    if not pet_is_available(species, potion):
+        raise OperationError("This pet is not currently available to hatch.")
     available = list(species.available_potions.values_list("pk", flat=True))
     if available and potion.pk not in available:
         raise OperationError(

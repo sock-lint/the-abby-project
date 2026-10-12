@@ -3,6 +3,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.projects.models import User
+from apps.pets.models import PetSpecies
 from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
 
 
@@ -103,11 +104,19 @@ class InventoryViewTests(_Fixture):
 
 class ItemCatalogTests(_Fixture):
     def test_parent_sees_catalog(self):
-        ItemDefinition.objects.create(name="Egg", icon="🥚", item_type="egg")
+        chick = PetSpecies.objects.create(
+            slug="chick", name="Chick", sprite_key="cute-chick", icon="🐤",
+        )
+        available = ItemDefinition.objects.create(
+            name="Chick Egg", icon="🥚", item_type="egg", pet_species=chick,
+        )
+        unsupported = ItemDefinition.objects.create(name="Unprepared Egg", icon="🥚", item_type="egg")
         self.client.force_authenticate(self.parent)
         resp = self.client.get("/api/items/catalog/")
         self.assertEqual(resp.status_code, 200)
-        self.assertGreaterEqual(len(resp.json()), 1)
+        self.assertIn(available.pk, [item["id"] for item in resp.json()])
+        self.assertNotIn(unsupported.pk, [item["id"] for item in resp.json()])
+        self.assertTrue(ItemDefinition.objects.filter(pk=unsupported.pk).exists())
 
     def test_child_denied(self):
         self.client.force_authenticate(self.child)

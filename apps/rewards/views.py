@@ -1,5 +1,6 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -11,6 +12,7 @@ from config.viewsets import (
 
 from django.conf import settings as django_settings
 
+from .availability import available_rewards, reward_is_available
 from .models import CoinLedger, ExchangeRequest, Reward, RewardRedemption, RewardWishlist
 from .serializers import (
     CoinLedgerSerializer, ExchangeRequestSerializer,
@@ -32,7 +34,7 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
             return Reward.objects.none()
         if self.request.user.role == "parent":
             return Reward.objects.filter(family=family)
-        return Reward.objects.filter(family=family, is_active=True)
+        return available_rewards(Reward.objects.filter(family=family, is_active=True))
 
     def perform_create(self, serializer):
         serializer.save(family=self.request.user.family)
@@ -56,6 +58,10 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
 
     @staticmethod
     def _notify_wishlist_on_restock(reward):
+        # Retired offers can still be edited and bookmarked in saved history.
+        # Keep those bookmarks without promising a currently unavailable item.
+        if not reward.is_active or not reward_is_available(reward):
+            return
         import logging
 
         from django.conf import settings as django_settings
@@ -144,8 +150,13 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
         the kid's interaction simple — tap once to bookmark, tap again
         to clear.
         """
-        reward = self.get_object()
         if request.method == "POST":
+            reward = self.get_object()
+            if not reward_is_available(reward):
+                return Response(
+                    {"error": "This reward is not currently available."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             entry, created = RewardWishlist.objects.get_or_create(
                 user=request.user, reward=reward,
             )
@@ -154,6 +165,12 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
                 status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
             )
         # DELETE
+        # A saved bookmark may outlive its active catalog offer. Resolve that
+        # retained row within the family, then apply the usual object checks.
+        family = getattr(request.user, "family", None)
+        rewards = Reward.objects.filter(family=family) if family else Reward.objects.none()
+        reward = get_object_or_404(rewards, pk=pk)
+        self.check_object_permissions(request, reward)
         RewardWishlist.objects.filter(user=request.user, reward=reward).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -171,7 +188,7 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
             .order_by("-wishlist_entries__created_at")
         )
         return Response(
-            RewardSerializer(rewards, many=True, context={"request": request}).data,
+            RewardSerializer(available_rewards(rewards), many=True, context={"request": request}).data,
         )
 
 
@@ -192,6 +209,7 @@ def _similar_rewards_payload(request, reward):
         .exclude(pk=reward.pk)
         .exclude(stock=0)
     )
+    base = available_rewards(base)
     same_rarity = list(base.filter(rarity=reward.rarity).order_by("cost_coins")[:3])
     if len(same_rarity) >= 3:
         return RewardSerializer(

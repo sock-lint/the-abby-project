@@ -10,6 +10,8 @@ import { useApi } from '../hooks/useApi';
 import { normalizeList } from '../utils/api';
 import SigilCodex from './achievements/SigilCodex';
 import BadgeDetailSheet from './achievements/BadgeDetailSheet';
+import BadgeSigil from '../components/atlas/BadgeSigil';
+import { isCatalogAvailable } from '../utils/catalogAvailability';
 
 /**
  * Badges — the reliquary codex. Top-level sibling of Skills and Sketchbook
@@ -23,8 +25,10 @@ export default function Badges() {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [filter, setFilter] = useState('');
 
-  const allBadges = useMemo(() => normalizeList(allBadgesData), [allBadgesData]);
+  const allBadges = useMemo(() => normalizeList(allBadgesData).filter(isCatalogAvailable), [allBadgesData]);
   const earnedBadges = useMemo(() => summary?.badges_earned || [], [summary]);
+  const savedBadges = earnedBadges.filter((entry) => !isCatalogAvailable(entry.badge));
+  const currentEarned = useMemo(() => earnedBadges.filter((entry) => isCatalogAvailable(entry.badge)), [earnedBadges]);
   const earnedIds = useMemo(
     () => new Set(earnedBadges.map((ub) => ub?.badge?.id).filter((x) => x != null)),
     [earnedBadges],
@@ -39,10 +43,10 @@ export default function Badges() {
     );
   }, [allBadges, q]);
   const filteredEarned = useMemo(() => {
-    if (!q) return earnedBadges;
+    if (!q) return currentEarned;
     const filteredIds = new Set(filteredBadges.map((b) => b.id));
-    return earnedBadges.filter((ub) => filteredIds.has(ub?.badge?.id));
-  }, [earnedBadges, filteredBadges, q]);
+    return currentEarned.filter((ub) => filteredIds.has(ub?.badge?.id));
+  }, [currentEarned, filteredBadges, q]);
 
   if (loading || badgesLoading) return <Loader />;
   if (error || !summary) {
@@ -61,7 +65,7 @@ export default function Badges() {
   // tabs inside one hub visibly changed section spacing.
   return (
     <div className="space-y-5">
-      {allBadges.length > 0 && (
+      {(allBadges.length > 0 || savedBadges.length > 0) && (
         <CatalogSearch
           value={filter}
           onChange={setFilter}
@@ -75,6 +79,14 @@ export default function Badges() {
         earnedBadges={filteredEarned}
         onSelect={setSelectedEntry}
       />
+
+      {savedBadges.length > 0 && <section className="space-y-3" aria-label="Saved collection">
+        <div><h2 className="font-body font-bold text-lede text-ink-primary">Saved collection</h2>
+          <p className="font-body text-caption text-ink-secondary">Your earlier earned badges stay yours.</p></div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {savedBadges.filter((entry) => !q || `${entry.badge.name} ${entry.badge.description || ''}`.toLowerCase().includes(q)).map((entry) => <BadgeSigil key={entry.badge.id} badge={entry.badge} earned earnedAt={entry.earned_at} onSelect={setSelectedEntry} />)}
+        </div>
+      </section>}
 
       <AnimatePresence>
         {selectedEntry && (

@@ -9,6 +9,7 @@ import ModalActions from '../../components/ModalActions';
 import { TextField, SelectField, TextAreaField, CheckboxField } from '../../components/form';
 import { downscaleImage } from '../../utils/image';
 import { normalizeList } from '../../utils/api';
+import { isCatalogAvailable } from '../../utils/catalogAvailability';
 
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 const FULFILLMENT_KINDS = [
@@ -20,7 +21,7 @@ const FULFILLMENT_KINDS = [
 export default function RewardFormModal({ reward, onClose, onSaved }) {
   const isEdit = !!reward;
   const { data: itemCatalogData } = useApi(getItemCatalog);
-  const itemCatalog = normalizeList(itemCatalogData);
+  const itemCatalog = normalizeList(itemCatalogData).filter(isCatalogAvailable);
   const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     name: reward?.name || '',
     description: reward?.description || '',

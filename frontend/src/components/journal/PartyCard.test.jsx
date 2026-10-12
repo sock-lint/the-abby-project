@@ -34,7 +34,7 @@ describe('PartyCard', () => {
         mount={{ species_name: 'Griffon' }}
       />,
     );
-    expect(screen.getByText(/riding: griffon/i)).toBeInTheDocument();
+    expect(screen.getByText(/Grown pet: griffon/i)).toBeInTheDocument();
   });
 
   it('hides mount info in compact variant', () => {
@@ -45,7 +45,7 @@ describe('PartyCard', () => {
         mount={{ species_name: 'Griffon' }}
       />,
     );
-    expect(screen.queryByText(/riding/i)).toBeNull();
+    expect(screen.queryByText(/Grown pet:/i)).toBeNull();
   });
 
   it('feeds via onFeed in full variant', async () => {

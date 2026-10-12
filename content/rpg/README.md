@@ -55,11 +55,13 @@ python manage.py loadrpgcontent --pack content/rpg/packs/dragons --namespace dra
 
 ## Authoring workflow
 
-Unity asset coverage and the owned Cute Series catalog are recorded in
-[`unity-assets.md`](unity-assets.md). The Chick species, its egg and preferred
-Birdseed food use the purchased bird family; earlier species retain their
-saved identities. That guide distinguishes prepared art from implemented
-ownership bindings and records optional purchases.
+Active owned-art scope is recorded in
+[`react-three-fiber-assets.md`](react-three-fiber-assets.md), with new offers
+restricted by [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json).
+The accepted pet path is exact Base Chick to confirmed Bird; Birdseed remains
+its preferred food. Earlier saved identities stay intact, but a YAML entry or
+sprite alone does not establish available 3D art or a new acquisition goal.
+[`unity-assets.md`](unity-assets.md) retains the historical coverage review.
 
 1. Open the right YAML file.
 2. Copy an existing entry.

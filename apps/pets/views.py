@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
+from apps.rpg.catalog_support import available_pet_variants, pet_is_available, potion_is_available
 
 from .expeditions import ExpeditionError, ExpeditionNotFound, ExpeditionService
 from .models import PetSpecies, PotionType, UserPet, UserMount
@@ -30,6 +31,7 @@ class StableView(APIView):
             "total_pets": stable["total_pets"],
             "total_mounts": stable["total_mounts"],
             "total_possible": stable["total_possible"],
+            "breeding_available": stable["breeding_available"],
         })
 
 
@@ -111,35 +113,31 @@ class MountsView(APIView):
 
 
 class PetSpeciesCatalogView(ListAPIView):
-    """GET /api/pets/species/catalog/ — parent-only browse of every authored PetSpecies."""
+    """GET /api/pets/species/catalog/ — parent-only browse of supported species."""
     permission_classes = [permissions.IsAuthenticated, IsParent]
     serializer_class = PetSpeciesCatalogSerializer
     pagination_class = None
 
     def get_queryset(self):
-        return PetSpecies.objects.prefetch_related("available_potions").order_by("name")
+        return [species for species in PetSpecies.objects.prefetch_related("available_potions").order_by("name") if pet_is_available(species)]
 
 
 class PetCodexView(APIView):
     """GET /api/pets/codex/ — child-readable bestiary codex.
 
-    Returns every species annotated with the requesting user's ownership
-    state (discovered, which pets/mounts they own per species), plus the
-    full potion catalog so the frontend can render an evolution preview
-    for every species/potion combination.
+    Returns supported species and potions with the requesting user's exact
+    ownership state. Saved legacy ownership remains in the stable response.
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        species_qs = PetSpecies.objects.prefetch_related("available_potions").order_by("name")
+        species_qs = [species for species in PetSpecies.objects.prefetch_related("available_potions").order_by("name") if pet_is_available(species)]
 
-        owned_pets = list(
-            UserPet.objects.filter(user=user).values_list("species_id", "id")
-        )
-        owned_mounts = list(
-            UserMount.objects.filter(user=user).values_list("species_id", "potion_id")
-        )
+        owned_pets = [(pet.species_id, pet.pk) for pet in UserPet.objects.filter(user=user).select_related("species", "potion")
+                      if pet_is_available(pet.species, pet.potion)]
+        owned_mounts = [(mount.species_id, mount.potion_id) for mount in UserMount.objects.filter(user=user).select_related("species", "potion")
+                        if pet_is_available(mount.species, mount.potion)]
 
         pets_by_species = {}
         for species_id, pet_id in owned_pets:
@@ -162,12 +160,9 @@ class PetCodexView(APIView):
             species.owned_mount_potion_ids = owned_mount_potion_ids
             entries.append(species)
 
-        potions_qs = PotionType.objects.order_by("rarity", "name")
+        potions_qs = [potion for potion in PotionType.objects.order_by("rarity", "name") if potion_is_available(potion)]
         total_species = len(entries)
-        total_potions = potions_qs.count()
-        # available_potions was prefetched for every entry. Honor authored
-        # restrictions while preserving unrestricted legacy species.
-        mounts_possible = sum(species.available_potions.count() or total_potions for species in entries)
+        mounts_possible = sum(available_pet_variants(species).count() for species in entries)
 
         return Response({
             "species": PetCodexEntrySerializer(entries, many=True).data,

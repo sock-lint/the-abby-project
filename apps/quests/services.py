@@ -363,10 +363,16 @@ class QuestService:
         # cosmetic-dupe rule in DropService.
         from apps.pets.models import UserMount
         from apps.rpg.models import ItemDefinition
+        from apps.rpg.catalog_support import item_is_available
         for reward_item in definition.reward_items.select_related(
             "item", "item__pet_species",
         ).all():
             item = reward_item.item
+            # Catalog retirement preserves definitions and ownership, while
+            # excluding unavailable new grants without replacing them with
+            # invented coins or changing the quest's XP/coin rewards.
+            if not item_is_available(item):
+                continue
             is_owned_egg = (
                 item.item_type == ItemDefinition.ItemType.EGG
                 and item.pet_species_id is not None
@@ -499,7 +505,6 @@ class QuestService:
             definition__quest_type="boss",
         )
 
-        from apps.activity.services import ActivityLogService
 
         raged = 0
         decayed = 0

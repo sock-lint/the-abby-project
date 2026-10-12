@@ -8,6 +8,7 @@ import ParchmentCard from '../../../components/journal/ParchmentCard';
 import RuneBadge from '../../../components/journal/RuneBadge';
 import { EggIcon, DragonIcon } from '../../../components/icons/JournalIcons';
 import { normalizeList } from '../../../utils/api';
+import { isCatalogAvailable } from '../../../utils/catalogAvailability';
 import Button from '../../../components/Button';
 import { SelectField } from '../../../components/form';
 import ChapterRubric from '../../../components/atlas/ChapterRubric';
@@ -46,8 +47,9 @@ export default function Hatchery() {
 
   const mounts = stableData?.mounts || [];
   const inventory = normalizeList(inventoryData);
-  const eggs = inventory.filter((e) => e.item.item_type === 'egg');
-  const potions = inventory.filter((e) => e.item.item_type === 'potion');
+  const eggs = inventory.filter((e) => e.item.item_type === 'egg' && e.quantity > 0 && isCatalogAvailable(e.item));
+  const potions = inventory.filter((e) => e.item.item_type === 'potion' && e.quantity > 0 && isCatalogAvailable(e.item));
+  const breedingAvailable = stableData?.breeding_available !== false && mounts.some((mount) => mount.can_breed !== false);
 
   const refresh = () => { reloadStable(); reloadInventory(); };
 
@@ -69,7 +71,7 @@ export default function Hatchery() {
     );
   }
 
-  const mountReadiness = mounts.map((m) => ({
+  const mountReadiness = mounts.filter((mount) => mount.can_breed !== false).map((m) => ({
     mount: m,
     cooldownDaysLeft: daysUntilReady(m.last_bred_at),
   }));
@@ -136,20 +138,20 @@ export default function Hatchery() {
       <IncipitBand
         letter="H"
         title="Hatching"
-        kicker="Hatch companions and breed mounts"
+        kicker="Hatch a companion"
         meta={
-          mounts.length >= 2 ? (
+          breedingAvailable && mountReadiness.length >= 2 ? (
             <>
               <span className="tabular-nums">{readyMounts.length}</span>
-              <span>mounts ready to breed</span>
+              <span>grown pets ready to breed</span>
             </>
           ) : null
         }
-        progressPct={mounts.length >= 2 ? (readyMounts.length / mounts.length) * 100 : 0}
+        progressPct={breedingAvailable && mountReadiness.length >= 2 ? (readyMounts.length / mounts.length) * 100 : 0}
       />
 
       <p className="font-script text-sm text-ink-whisper -mt-2 max-w-xl">
-        Combine an egg and a potion to hatch a companion. Breed two mounts to get a hybrid egg and potion.
+        Combine an egg and a potion to hatch a companion.
       </p>
 
       {/* Covers the partial case too — stable loaded, satchel didn't. */}
@@ -158,16 +160,16 @@ export default function Hatchery() {
       <ParchmentCard flourish>
         <ChapterRubric index={0} name="Hatch a new pet" icon="✨" />
         <p className="font-script text-sm text-ink-whisper mb-3">
-          Choose an egg and a potion. The potion determines your new companion's color.
+          Choose an available egg and a compatible potion to hatch your companion.
         </p>
 
         {cantHatch ? (
           <EmptyState icon={<EggIcon size={28} />}>
             {eggs.length === 0 && potions.length === 0
-              ? 'No eggs or potions in your inventory yet. You can earn them from project work, chores, homework, and challenges.'
+              ? 'No eggs or potions for new hatching yet. You can earn them from project work, chores, homework, and challenges.'
               : eggs.length === 0
-                ? 'No eggs yet. You can earn them from challenges, project completions, and breeding mounts.'
-                : 'No potions yet. You can earn them from item drops and breeding mounts.'}
+                ? 'No eggs for new hatching yet. You can earn them from challenges and project completions.'
+                : 'No potions for new hatching yet. You can earn them from item drops.'}
           </EmptyState>
         ) : (
           <>
@@ -217,27 +219,28 @@ export default function Hatchery() {
       </ParchmentCard>
 
       <ParchmentCard flourish>
-        <ChapterRubric index={1} name="Breed two mounts" icon="👑" />
+        <ChapterRubric index={1} name="Breeding" icon="👑" />
+        {!breedingAvailable ? <p className="mt-3 font-body text-body text-ink-secondary">Breeding is not available with the current pet collection. Your grown pets can still explore and bring back finds.</p> : <>
         <p className="font-script text-sm text-ink-whisper">
-          Get a hybrid egg and potion. Each mount needs {BREEDING_COOLDOWN_DAYS} days between pairings.
+          Get an egg and potion for a new pet. Each grown pet needs {BREEDING_COOLDOWN_DAYS} days between pairings.
         </p>
         <div className="font-script text-tiny text-gold-leaf mt-1">
           ✨ Each pairing has a {CHROMATIC_UPGRADE_RATE} chance of a Cosmic potion when the chosen species supports it.
         </div>
 
-        {mounts.length < 2 ? (
+        {mountReadiness.length < 2 ? (
           <div className="mt-4">
             <EmptyState icon={<DragonIcon size={28} />}>
-              You need at least two mounts to breed. Grow companions to 100 to evolve them into mounts.
+              You need at least two compatible grown pets to breed.
             </EmptyState>
           </div>
         ) : (
           <div className="mt-4 space-y-3">
             <div className="flex flex-wrap gap-2">
               <RuneBadge tone="teal" size="sm">{readyMounts.length} ready to breed</RuneBadge>
-              {mounts.length - readyMounts.length > 0 && (
+              {mountReadiness.length - readyMounts.length > 0 && (
                 <RuneBadge tone="ink" size="sm">
-                  {mounts.length - readyMounts.length} resting
+                  {mountReadiness.length - readyMounts.length} resting
                 </RuneBadge>
               )}
             </div>
@@ -245,7 +248,7 @@ export default function Hatchery() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <SelectField
                 id="breed-a"
-                label="First mount"
+                label="First grown pet"
                 value={breedA}
                 onChange={(e) => setBreedA(e.target.value)}
               >
@@ -265,7 +268,7 @@ export default function Hatchery() {
               </SelectField>
               <SelectField
                 id="breed-b"
-                label="Second mount"
+                label="Second grown pet"
                 value={breedB}
                 onChange={(e) => setBreedB(e.target.value)}
               >
@@ -291,10 +294,11 @@ export default function Hatchery() {
               disabled={!breedA || !breedB || breedA === breedB || working}
               className="w-full"
             >
-              {working ? 'Breeding…' : 'Breed mounts'}
+              {working ? 'Breeding…' : 'Breed pets'}
             </Button>
           </div>
         )}
+        </>}
       </ParchmentCard>
     </div>
   );

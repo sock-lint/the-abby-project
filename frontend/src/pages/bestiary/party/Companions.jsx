@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Crown, Star } from 'lucide-react';
 import { getStable, getInventory, feedPet, activatePet } from '../../../api';
 import { useApi } from '../../../hooks/useApi';
 import Loader from '../../../components/Loader';
@@ -9,18 +7,17 @@ import EmptyState from '../../../components/EmptyState';
 import ErrorAlert from '../../../components/ErrorAlert';
 import Button from '../../../components/Button';
 import BottomSheet from '../../../components/BottomSheet';
-import ParchmentCard from '../../../components/journal/ParchmentCard';
 import IncipitBand from '../../../components/atlas/IncipitBand';
 import TomeShelf from '../../../components/atlas/TomeShelf';
 import { EggIcon } from '../../../components/icons/JournalIcons';
 import RpgSprite from '../../../components/rpg/RpgSprite';
-import { petSpriteKeys } from '../../../components/rpg/petSpriteKeys';
 import { normalizeList } from '../../../utils/api';
-import { RARITY_TEXT_COLORS } from '../../../constants/colors';
-import { RARITY_HALO, PROGRESS_TIER } from '../../../components/atlas/mastery.constants';
-import { COMPANION_FILTERS, HAPPINESS_WHISPER, compareByRarityThenName } from './party.constants';
+import { PROGRESS_TIER } from '../../../components/atlas/mastery.constants';
+import { COMPANION_FILTERS, compareByRarityThenName } from './party.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 import CompanionPreview from '../../../components/companion/CompanionPreview';
+import OwnedPetGrid from './OwnedPetGrid';
+import { isCatalogAvailable } from '../../../utils/catalogAvailability';
 
 /**
  * Companions — owned, unevolved pets. Lifted from the old Stable.jsx
@@ -44,6 +41,8 @@ export default function Companions() {
   const [evolveCeremony, setEvolveCeremony] = useState(null);
 
   const pets = useMemo(() => stableData?.pets || [], [stableData]);
+  const supportedPets = useMemo(() => pets.filter(isCatalogAvailable), [pets]);
+  const savedPets = pets.filter((pet) => !isCatalogAvailable(pet));
   const totalPossible = stableData?.total_possible || 0;
   const inventory = normalizeList(inventoryData);
   const foods = inventory.filter((e) => e.item.item_type === 'food' && e.quantity > 0);
@@ -51,16 +50,16 @@ export default function Companions() {
   const counts = useMemo(() => {
     const out = {};
     COMPANION_FILTERS.forEach((f) => {
-      out[f.key] = pets.filter(f.match).length;
+      out[f.key] = supportedPets.filter(f.match).length;
     });
     return out;
-  }, [pets]);
+  }, [supportedPets]);
 
   const visiblePets = useMemo(() => {
     const f = COMPANION_FILTERS.find((x) => x.key === filter) || COMPANION_FILTERS[0];
-    return [...pets.filter(f.match)].sort(compareByRarityThenName);
-  }, [pets, filter]);
-  const homePet = pets.find((pet) => pet.id === viewPetId) || pets.find((pet) => pet.is_active) || pets[0];
+    return [...supportedPets.filter(f.match)].sort(compareByRarityThenName);
+  }, [supportedPets, filter]);
+  const homePet = supportedPets.find((pet) => pet.id === viewPetId) || supportedPets.find((pet) => pet.is_active) || supportedPets[0];
   const homeMount = homePet?.evolved_to_mount && homePet.species.id != null && homePet.potion.id != null ? stableData?.mounts?.find((mount) =>
     mount.species.id === homePet.species.id && mount.potion.id === homePet.potion.id) : null;
   const explorePath = `/bestiary?tab=mounts${homeMount ? `&mount=${homeMount.id}` : ''}`;
@@ -140,22 +139,22 @@ export default function Companions() {
         kicker="The pets you've hatched"
         meta={
           <>
-            <span className="tabular-nums">{pets.length} of {totalPossible}</span>
+            <span className="tabular-nums">{supportedPets.length} of {totalPossible}</span>
             <span>hatched</span>
           </>
         }
-        progressPct={totalPossible ? (pets.length / totalPossible) * 100 : 0}
+        progressPct={totalPossible ? (supportedPets.length / totalPossible) * 100 : 0}
       />
 
       <p className="font-script text-body text-ink-whisper -mt-2 max-w-xl">
-        Feed companions to help them grow. At 100 growth, they evolve into mounts you can ride.
+        Feed companions to help them grow. At 100 growth, they become grown pets that can explore.
       </p>
 
       {/* Covers the partial case too: stable loaded but the satchel fetch
           failed, which would otherwise just hide the feed chips. */}
       <ErrorAlert message={error || fetchError} />
 
-      {pets.length > 0 && (
+      {supportedPets.length > 0 && (
         <TomeShelf
           ariaLabel="Filter companions"
           activeId={filter}
@@ -176,104 +175,26 @@ export default function Companions() {
         />
       )}
 
-      {pets.length === 0 ? (
+      {supportedPets.length === 0 ? (
         <EmptyState icon={<EggIcon size={36} />}>
-          No companions yet. Collect an egg and a potion, then combine them on the Hatching tab.
+          {savedPets.length ? 'Your earlier pets are in Saved collection below. Use an available egg and potion to hatch a new companion.' : 'No companions yet. Collect an egg and a potion, then combine them on the Hatching tab.'}
         </EmptyState>
       ) : visiblePets.length === 0 ? (
         <EmptyState icon={<EggIcon size={28} />}>
           No companions match this filter.
         </EmptyState>
       ) : (
-        <div role="list" aria-label="Your companions" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {visiblePets.map((pet) => (
-            <motion.div key={pet.id} role="listitem" whileHover={{ y: -2 }}>
-              <ParchmentCard
-                className={`transition-all ${
-                  pet.is_active
-                    ? `ring-2 ring-offset-2 ring-offset-ink-page ring-moss`
-                    : ''
-                }`}
-              >
-                <button
-                  type="button"
-                  className="w-full rounded-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep"
-                  aria-label={`Care for ${pet.potion.name} ${pet.species.name}`}
-                  aria-expanded={selectedPet?.id === pet.id}
-                  onClick={() => { setViewPetId(pet.id); setSelectedPet(pet); }}
-                >
-                  <div className="flex items-center justify-center h-16 mb-1">
-                    <div
-                      className={`relative inline-flex items-center justify-center rounded-full p-1 bg-ink-page-aged/40 ${
-                        RARITY_HALO[pet.potion.rarity] || RARITY_HALO.common
-                      }`}
-                    >
-                      <RpgSprite
-                        {...petSpriteKeys(pet)}
-                        icon={pet.species.icon}
-                        size={56}
-                        className="rounded-full"
-                        alt={`${pet.potion.name} ${pet.species.name}`}
-                        potionSlug={pet.potion.slug}
-                        dim={
-                          pet.evolved_to_mount
-                            ? null
-                            : pet.happiness_level && pet.happiness_level !== 'happy'
-                              ? pet.happiness_level
-                              : null
-                        }
-                      />
-                    </div>
-                  </div>
-                  <div className="font-body text-body font-medium leading-tight break-words">
-                    {pet.potion.name} {pet.species.name}
-                  </div>
-                  <div
-                    className={`font-script text-tiny uppercase tracking-wider ${
-                      RARITY_TEXT_COLORS[pet.potion.rarity]
-                    }`}
-                  >
-                    {pet.potion.rarity}
-                  </div>
-                  {!pet.evolved_to_mount && HAPPINESS_WHISPER[pet.happiness_level] && (
-                    <div className="font-script text-tiny text-ink-whisper italic mt-0.5">
-                      {HAPPINESS_WHISPER[pet.happiness_level]}
-                    </div>
-                  )}
-                  {!pet.evolved_to_mount && (
-                    <div className="mt-2">
-                      <div className="h-1.5 rounded-full bg-ink-page-shadow/60 overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-sheikah-teal-deep via-sheikah-teal to-gold-leaf"
-                          style={{ width: `${pet.growth_points}%` }}
-                        />
-                      </div>
-                      <div className="font-rune text-micro text-ink-whisper mt-0.5">
-                        {pet.growth_points}/100
-                      </div>
-                    </div>
-                  )}
-                  {pet.evolved_to_mount && (
-                    <div className="mt-1 font-script text-tiny text-gold-leaf flex items-center justify-center gap-1">
-                      <Crown size={10} /> evolved
-                    </div>
-                  )}
-                  {pet.is_active && (
-                    <div className="mt-1 font-script text-tiny text-moss flex items-center justify-center gap-1">
-                      <Star size={10} /> active
-                    </div>
-                  )}
-                </button>
-
-              </ParchmentCard>
-            </motion.div>
-          ))}
-        </div>
+        <OwnedPetGrid pets={visiblePets} selectedPetId={selectedPet?.id} onSelect={(pet) => { setViewPetId(pet.id); setSelectedPet(pet); }} />
       )}
+      {savedPets.length > 0 && <section className="space-y-3" aria-label="Saved collection">
+        <div><h2 className="font-body font-bold text-lede text-ink-primary">Saved collection</h2>
+          <p className="font-body text-caption text-ink-secondary">{savedPets.length} earlier {savedPets.length === 1 ? 'pet' : 'pets'}. Your saved pets keep their care and progress.</p></div>
+        <OwnedPetGrid pets={savedPets} selectedPetId={selectedPet?.id} onSelect={setSelectedPet} label="Saved companions" />
+      </section>}
       {carePet && (
         <BottomSheet title={`Care for ${carePet.name?.trim() || `${carePet.potion.name} ${carePet.species.name}`}`} onClose={() => setSelectedPet(null)} disabled={working}>
           <ErrorAlert message={error || inventoryError} onRetry={inventoryError ? reloadInventory : undefined} />
-          <p className="text-body text-ink-secondary mb-3">{carePet.evolved_to_mount ? 'Your companion is fully grown. Visit Mounts to explore and collect expedition rewards.' : `${carePet.growth_points}/100 growth${carePet.species.food_preference ? ` · Prefers ${carePet.species.food_preference}` : ''}`}</p>
+          <p className="text-body text-ink-secondary mb-3">{carePet.evolved_to_mount ? 'Your companion is fully grown. Visit Grown pets to explore and collect expedition rewards.' : `${carePet.growth_points}/100 growth${carePet.species.food_preference ? ` · Prefers ${carePet.species.food_preference}` : ''}`}</p>
           {!carePet.is_active && (
             // <Button> for the 44px floor — this was a ~30px
             // text-xs button inside a 2-col phone tile.

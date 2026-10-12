@@ -3,6 +3,7 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from apps.projects.models import User
+from apps.pets.models import PetSpecies
 from apps.rpg.models import (
     CharacterProfile, DropLog, DropTable, ItemDefinition, UserInventory,
 )
@@ -15,11 +16,15 @@ class DropServiceTests(TestCase):
             username="dropchild", password="testpass", role="child"
         )
         self.profile = CharacterProfile.objects.get(user=self.user)
+        chick = PetSpecies.objects.create(
+            slug="chick", name="Chick", sprite_key="cute-chick", icon="🐤",
+        )
         self.egg_item = ItemDefinition.objects.create(
-            name="Dragon Egg",
+            name="Chick Egg",
             icon="🥚",
             item_type=ItemDefinition.ItemType.EGG,
             rarity=ItemDefinition.Rarity.COMMON,
+            pet_species=chick,
         )
         DropTable.objects.create(
             trigger_type=DropTable.TriggerType.CLOCK_OUT,
@@ -39,7 +44,7 @@ class DropServiceTests(TestCase):
         result = DropService.process_drops(self.user, "clock_out")
 
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["item_name"], "Dragon Egg")
+        self.assertEqual(result[0]["item_name"], "Chick Egg")
         self.assertFalse(result[0]["was_salvaged"])
         # Verify inventory
         inv = UserInventory.objects.get(user=self.user, item=self.egg_item)
@@ -80,7 +85,7 @@ class DropServiceTests(TestCase):
         result = DropService.process_drops(self.user, TriggerType.PROJECT_COMPLETE)
 
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["item_name"], "Dragon Egg")
+        self.assertEqual(result[0]["item_name"], "Chick Egg")
 
     @patch("apps.rpg.services.random.choices")
     @patch("apps.rpg.services.random.random")

@@ -24,8 +24,8 @@ vi.mock('framer-motion', async () => {
 
 const CHICK_PORTRAIT = '/assets/synthetic-owned-chick.png';
 const BIRD_PORTRAIT = '/assets/synthetic-owned-bird.png';
-const SPECIES = { id: 31, slug: 'chick', name: 'Chick', sprite_key: 'cute-chick', icon: '🐥' };
-const BASE = { id: 41, slug: 'base', name: 'Base', rarity: 'common' };
+const SPECIES = { id: 31, slug: 'chick', name: 'Chick', sprite_key: 'cute-chick', icon: '🐥', catalog_available: true };
+const BASE = { id: 41, slug: 'base', name: 'Base', rarity: 'common', catalog_available: true };
 const chick = (overrides = {}) => ({
   id: 51, species: SPECIES, potion: BASE, growth_points: 95,
   evolved_to_mount: false, is_active: true, happiness_level: 'happy', ...overrides,
@@ -117,8 +117,8 @@ describe('server-confirmed creatures across React surfaces', () => {
 
   it('Mounts uses Bird for Chick while an existing species keeps its own artwork', async () => {
     server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(stable([], [
-      { id: 61, species: SPECIES, potion: BASE, is_active: true, last_bred_at: null },
-      { id: 62, species: { id: 32, name: 'Fox', sprite_key: 'fox', icon: '🦊' }, potion: BASE, is_active: false, last_bred_at: null },
+      { id: 61, species: SPECIES, potion: BASE, is_active: true, last_bred_at: null, catalog_available: true, can_breed: false },
+      { id: 62, species: { id: 32, name: 'Fox', sprite_key: 'fox', icon: '🦊', catalog_available: false }, potion: BASE, is_active: false, last_bred_at: null, catalog_available: false, can_breed: false },
     ]))));
     renderSurface(<Mounts />, { 'fox-mount': { url: '/sprites/owned-fox-mount.png', frames: 1 } });
     expect(await screen.findByRole('img', { name: 'Base Chick' })).toHaveAttribute('src', BIRD_PORTRAIT);
@@ -132,7 +132,7 @@ describe('server-confirmed creatures across React surfaces', () => {
     })));
     const { user } = renderSurface(<BestiaryCodex />);
     expect(await screen.findByRole('img', { name: 'Chick' })).toHaveAttribute('src', CHICK_PORTRAIT);
-    await user.click(screen.getByRole('button', { name: `Chick — ${owned ? 1 : 0} of 1 mounts collected` }));
+    await user.click(screen.getByRole('button', { name: `Chick — ${owned ? 1 : 0} of 1 grown pets collected` }));
     const detail = screen.getByRole('dialog', { name: 'Chick' });
     expect(within(detail).getByRole('img', { name: 'Chick' })).toHaveAttribute('src', CHICK_PORTRAIT);
     const variant = within(detail).getByRole('img', { name: `Base Chick — ${owned ? 'owned' : 'not yet evolved'}` });
@@ -147,9 +147,9 @@ describe('server-confirmed creatures across React surfaces', () => {
     ])));
     const { user } = renderSurface(<CodexSection />);
     expect(await screen.findByRole('img', { name: 'Chick' })).toHaveAttribute('src', CHICK_PORTRAIT);
-    await user.click(screen.getByRole('tab', { name: 'Mounts, 1 entries' }));
+    await user.click(screen.getByRole('tab', { name: 'Grown pets, 1 entries' }));
     expect(screen.getByRole('img', { name: 'Chick' })).toHaveAttribute('src', BIRD_PORTRAIT);
-    await user.click(screen.getByRole('button', { name: /Chick.*mount/ }));
+    await user.click(screen.getByRole('button', { name: /Chick.*grown pet/ }));
     const detail = screen.getByRole('dialog', { name: 'Chick mount' });
     expect(within(detail).getByRole('img', { name: 'Chick' })).toHaveAttribute('src', CHICK_PORTRAIT);
     expect(within(detail).getByRole('img', { name: 'Chick mount' })).toHaveAttribute('src', BIRD_PORTRAIT);

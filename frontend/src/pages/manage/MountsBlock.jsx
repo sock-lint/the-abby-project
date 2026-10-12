@@ -27,7 +27,7 @@ export default function MountsBlock({ species, onSelect }) {
           spriteKey={`${s.sprite_key}-mount`}
           fallbackSpriteKey={s.sprite_key}
           name={s.name}
-          subtitle="mount"
+          subtitle={s.catalog_available === false ? 'stored species' : 'grown pet'}
           onClick={() => onSelect(s)}
         />
       ))}

@@ -53,7 +53,7 @@ describe('CompanionGrowthToastStack', () => {
     // The modal renders the species + potion in its headline. Also
     // confirm the toast strip stayed empty for evolve events.
     expect(screen.getByText(/fire companion/i)).toBeInTheDocument();
-    expect(screen.getByText(/ready to ride/i)).toBeInTheDocument();
+    expect(screen.getByText(/ready to explore/i)).toBeInTheDocument();
     expect(screen.queryByText(/companion grew/i)).not.toBeInTheDocument();
   });
 });

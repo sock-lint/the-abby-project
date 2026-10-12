@@ -28,6 +28,21 @@ function renderPage({ user = buildUser(), handlers = [] } = {}) {
 }
 
 describe('Badges page', () => {
+  it('removes unavailable new goals while preserving earlier earned badges in a saved collection', async () => {
+    const stored = { id: 2, name: 'Earlier collector badge', rarity: 'rare', icon: '🏅', criterion_type: 'pet_species_owned', catalog_available: false };
+    renderPage({ handlers: [
+      http.get('*/api/achievements/summary/', () => HttpResponse.json({ badges_earned: [{ badge: stored, earned_at: '2026-04-10' }] })),
+      http.get('*/api/badges/', () => HttpResponse.json([
+        { id: 1, name: 'First Hatch', rarity: 'common', icon: '🥚', criterion_type: 'pets_hatched', catalog_available: true },
+        stored,
+        { id: 3, name: 'Impossible wardrobe', rarity: 'rare', criterion_type: 'cosmetic_full_set', catalog_available: false },
+      ])),
+    ] });
+    expect(await screen.findByRole('region', { name: 'Saved collection' })).toBeInTheDocument();
+    expect(screen.getByText('Earlier collector badge')).toBeInTheDocument();
+    expect(screen.queryByText('Impossible wardrobe')).toBeNull();
+    expect(screen.getAllByText('0 of 1').length).toBeGreaterThan(0);
+  });
   it('renders an error block when summary fetch fails', async () => {
     renderPage({
       handlers: [

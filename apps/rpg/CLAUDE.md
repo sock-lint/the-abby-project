@@ -2,6 +2,41 @@
 
 Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14 effects), cosmetics, the central `GameLoopService` orchestrator, and the runtime-authored sprite catalog. **The single entry point into this subsystem is `GameLoopService.on_task_completed(user, trigger_type, context)`** — every task-completion flow in the codebase routes through it.
 
+## Supported-art catalog (October 2026)
+
+[`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
+is the positive production registry; `catalog_support.py` provides the shared
+selectors used by pets, inventory, drops, expeditions, quest item rewards,
+digital shop offers and development grants. Exact `chick` / `cute-chick` /
+`base` is the only new pet pair. Egg/potion typed FKs take precedence over
+legacy metadata, whose names/slugs must resolve to an approved catalog row.
+Authored YAML and database rows remain intact; artwork filenames and generic
+icons do not establish supported acquisition.
+
+`ItemDefinitionSerializer.catalog_available` distinguishes offers from saved
+ownership. New item/cosmetic catalogs omit unavailable rows; owned inventory
+and cosmetic reads retain them, without blocked hatch/equip actions. Frames,
+Titles and valid Covers are implemented DOM cosmetics. Pet accessories have
+no supported fitted art: new grants and equip are rejected, an existing active
+selection is preserved, and unequip is allowed. Avatar appearance choices
+remain separate saved presentation preferences.
+
+Drop and mystery/lucky-dip pools filter before selection. An empty eligible
+pool cannot grant an unsupported item; random consumable use fails without
+consuming the box/dip when no eligible reward exists. Quest completion skips
+unsupported item grants without substituting Coins, while keeping authored
+XP/coin rewards. Previously committed rewards, ownership and locked expedition
+loot are preserved through their existing reconciliation/claim paths.
+`force_drop` and hatch-ingredient helpers use the same policy.
+
+The production registry is immutable by default. A scoped
+`@override_settings(RPG_ASSET_SUPPORT_POLICY=...)` supplies explicit synthetic
+bindings for generic domain tests; it is not an acquisition bypass in the app.
+Coverage lives in `tests/test_catalog_support.py`,
+`tests/test_asset_supported_acquisition.py` and `tests/test_catalog_consumers.py`;
+the asset preparation/license boundary is
+[`content/rpg/react-three-fiber-assets.md`](../../content/rpg/react-three-fiber-assets.md).
+
 ## Models
 - `CharacterProfile` (level, streaks, cosmetic slots, `streak_freeze_expires_at`, boost timers, `active_trophy_badge`)
 - `ItemDefinition` (10 item types incl. consumable, 5 rarities). Typed cross-entity FKs: `pet_species`, `potion_type`, `food_species`. `metadata` JSONField for free-form per-type fields.
@@ -24,7 +59,7 @@ Celery tasks: `evaluate_perfect_day_task` — runs at 23:55 local, awards `perfe
 - `POST /api/character/trophy/` — set/clear the active trophy badge.
 - `POST /api/character/avatar/` — replace the authenticated account's saved Archer appearance with strict supported options; returns the full character, defaults omitted options, and changes no earned state. See `avatar.py` and `tests/test_avatar.py`.
 - `GET /api/cosmetics/` — owned cosmetics grouped by slot.
-- `GET /api/cosmetics/catalog/` (child-accessible) — every authored cosmetic grouped by slot keys; non-cosmetic items filtered out server-side via `COSMETIC_SLOT_MAP.keys()`.
+- `GET /api/cosmetics/catalog/` (child-accessible) — supported authored cosmetics grouped by slot keys; the retained `active_pet_accessory` key is an empty list. Non-cosmetic items are filtered server-side via `COSMETIC_SLOT_MAP.keys()`.
 
 ## Gotchas
 
@@ -38,7 +73,7 @@ Celery tasks: `evaluate_perfect_day_task` — runs at 23:55 local, awards `perfe
 
 - **Drops & inventory**: `ItemDefinition` is the master catalog (10 item types: egg, potion, food, cosmetic_frame, cosmetic_title, cosmetic_theme, cosmetic_pet_accessory, quest_scroll, coin_pouch, consumable; 5 rarities). Cross-entity references are typed: `ItemDefinition.pet_species` FK (eggs → `PetSpecies`), `ItemDefinition.potion_type` FK (potions → `PotionType`), `ItemDefinition.food_species` FK (food → preferred `PetSpecies`). `metadata` JSONField stays for genuinely free-form per-type fields (border colors, title text, coin-pouch counts). `DropTable` maps trigger → item → weight with `min_level` gating. `DropService.process_drops` rolls `random.random()` against effective rate, weighted-selects from eligible rows, handles **cosmetic salvage** (already-owned cosmetics auto-convert to coins via `item.coin_value`), increments `UserInventory.quantity`, and logs to `DropLog`. Frontend `useDropToasts` polls `/api/drops/recent/` every 20s and emits rarity-colored toast celebrations via `DropToastStack` (mounted globally in Layout).
 
-- **Cosmetics**: `CharacterProfile` has 4 nullable FK slots (`active_frame`, `active_title`, `active_theme`, `active_pet_accessory`) with `limit_choices_to={"item_type": ...}` enforcing correct type. `CosmeticService.equip(user, item_id)` validates ownership in `UserInventory` (cosmetics are NOT consumed on equip) and writes to the correct slot based on `COSMETIC_SLOT_MAP`. `CosmeticService.unequip(user, slot)` nils the slot. Duplicate cosmetic drops auto-salvage (see Drops gotcha). `GET /api/cosmetics/` returns owned cosmetics grouped by slot; `GET /api/cosmetics/catalog/` (added 2026-04-22, child-accessible) returns *every* authored cosmetic grouped by the same slot keys so the Frontispiece can render un-owned cosmetics as locked intaglios. Non-cosmetic items (eggs/potions/food/etc.) are filtered out server-side via `COSMETIC_SLOT_MAP.keys()`, so children can't use the catalog endpoint as a backdoor to `ItemDefinition` rows they shouldn't see.
+- **Cosmetics**: `CharacterProfile` retains 4 nullable FK slots (`active_frame`, `active_title`, `active_theme`, `active_pet_accessory`) with `limit_choices_to={"item_type": ...}` enforcing correct type. `CosmeticService.equip(user, item_id)` validates inventory ownership and current catalog availability, then writes the correct slot without consuming the item. `CosmeticService.unequip(user, slot)` clears a slot, including an earlier accessory selection. Duplicate supported cosmetic drops auto-salvage (see Drops gotcha). `GET /api/cosmetics/` retains owned cosmetics grouped by slot; `GET /api/cosmetics/catalog/` returns supported authored cosmetics in the same shape so Profile can show unowned Frames/Titles/Covers as goals. The accessory slot remains an empty catalog list. Non-cosmetic items are filtered server-side via `COSMETIC_SLOT_MAP.keys()`; malformed cover metadata still fails existing validation.
 
 - **Trophy shelf** (`CharacterProfile.active_trophy_badge`, added 2026-04-23; frontend picker wired 2026-04-22): optional "hero badge" FK the user elects to display on their profile. Endpoint `POST /api/character/trophy/ {badge_id}` — the server enforces that the user has **earned** the badge (via `UserBadge`) before setting, so parent-authored or admin-forced trophies can't bypass the "earn it first" rule. Pass `badge_id: null` to clear. Exposed on `CharacterProfileSerializer` as `active_trophy_badge` (compact `{id, name, icon, rarity, description}` shape). FK uses `on_delete=SET_NULL` so archiving badges doesn't break profiles. Picker UI lives in [`TrophyBadgePicker`](/frontend/src/pages/character/TrophyBadgePicker.jsx) — a `BottomSheet` that reuses the Reliquary Codex's `groupBadgesByCollection` filtered to earned-only, so the seven-chapter grouping at `/atlas?tab=badges` is the same grouping you see when choosing your hero seal.
 
@@ -63,7 +98,7 @@ Celery tasks: `evaluate_perfect_day_task` — runs at 23:55 local, awards `perfe
     Tests in [`apps/mcp_server/tests/test_sprite_prompting_playbook.py`](/apps/mcp_server/tests/test_sprite_prompting_playbook.py) and the `RerollSpriteToolTests` + `ProposeSpriteRerollToolTests` classes in [`apps/mcp_server/tests/test_tools_sprite_authoring.py`](/apps/mcp_server/tests/test_tools_sprite_authoring.py) pin the surface.
   - **Canonical CSS contract** (enforced in production [`RpgSprite.jsx`](/frontend/src/components/rpg/RpgSprite.jsx)): animated strips use `steps(N)` (= jump-end) with `endX = -N × size`. Do NOT use `steps(N, jump-none)` with `endX = -(N-1) × size` — it holds only the first N-1 frames for 1/(N-1) duration each and flashes frame N-1 briefly at the loop boundary (users perceive this as a bleed/ghost artifact). The difference is pinned by [`RpgSprite.test.jsx`](/frontend/src/components/rpg/RpgSprite.test.jsx).
 
-- **Sprite admin UI on `/manage → Codex`** (`frontend/src/pages/manage/CodexSection.jsx` + sibling `Sprites*` / `Mounts*` files): the Codex's content is split across five sub-sections — Items / Creatures / Mounts / Adventures / Sprites. Mounts is a read-only browse of every `PetSpecies` rendered with its `{sprite_key}-mount` sprite (fallback to the base creature sprite via `CatalogCard.fallbackSpriteKey`); clicking a tile opens a BottomSheet with a "Regenerate mount sprite" button that hands off to `SpriteGenerateModal` in `replace` mode with the slug pre-filled. Sprites is the master authoring surface — a pack-grouped grid of every `SpriteAsset` with a top-right "Create sprite" button + slug search. Clicking a sprite opens [`SpriteDetailSheet`](/frontend/src/pages/manage/SpriteDetailSheet.jsx) which exposes four actions: **Reroll** (primary; disabled with tooltip until a stored prompt exists; gated by a `ConfirmDialog` showing estimated Gemini cost `frame_count × $0.04` — no server-side rate limit, the dialog is the only guardrail), **Replace** (opens `SpriteGenerateModal` in replace mode pre-filled from the current row), **Edit metadata** (fps + pack only — routes through `PATCH /api/sprites/admin/<slug>/`), **Delete** (confirm + blob-first). The five endpoints sit on [`apps/rpg/sprite_admin_views.py`](sprite_admin_views.py), all `permission_classes = [IsAuthenticated, IsParent]`:
+- **Sprite admin UI on `/manage → Codex`** (`frontend/src/pages/manage/CodexSection.jsx` + sibling `Sprites*` / `Mounts*` files): the Codex's content is split across five sub-sections — Items / Creatures / Mounts / Adventures / Sprites. Grown pets is a read-only browse of supported `PetSpecies` returned by the shared pet catalog, rendered with its `{sprite_key}-mount` sprite (fallback to the base creature sprite via `CatalogCard.fallbackSpriteKey`); clicking a tile opens a BottomSheet with a "Regenerate mount sprite" button that hands off to `SpriteGenerateModal` in `replace` mode with the slug pre-filled. Sprites is the master authoring surface — a pack-grouped grid of every `SpriteAsset` with a top-right "Create sprite" button + slug search. Clicking a sprite opens [`SpriteDetailSheet`](/frontend/src/pages/manage/SpriteDetailSheet.jsx) which exposes four actions: **Reroll** (primary; disabled with tooltip until a stored prompt exists; gated by a `ConfirmDialog` showing estimated Gemini cost `frame_count × $0.04` — no server-side rate limit, the dialog is the only guardrail), **Replace** (opens `SpriteGenerateModal` in replace mode pre-filled from the current row), **Edit metadata** (fps + pack only — routes through `PATCH /api/sprites/admin/<slug>/`), **Delete** (confirm + blob-first). The five endpoints sit on [`apps/rpg/sprite_admin_views.py`](sprite_admin_views.py), all `permission_classes = [IsAuthenticated, IsParent]`:
   - `GET /api/sprites/admin/` — full catalog with authoring inputs (parent-only; different shape from the public `/api/sprites/catalog/` which stays lean + auth-less)
   - `POST /api/sprites/admin/generate/` — thin wrapper around `generate_sprite_sheet(actor=request.user, …)`
   - `POST /api/sprites/admin/<slug>/reroll/` — loads the sprite, 400s with `{detail: "no stored prompt — use Replace instead"}` if `prompt=""`, otherwise calls the service with stored inputs + `overwrite=True`

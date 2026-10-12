@@ -39,7 +39,7 @@ describe('BestiaryHub', () => {
     );
   });
 
-  it('exposes Companions, Mounts, Collection, and Hatching tabs', async () => {
+  it('exposes Companions, Grown pets, Collection, and Hatching tabs', async () => {
     stubAll();
     render(
       <MemoryRouter>
@@ -49,7 +49,7 @@ describe('BestiaryHub', () => {
       </MemoryRouter>,
     );
     await screen.findByRole('tab', { name: 'Companions' });
-    expect(screen.getByRole('tab', { name: 'Mounts' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Grown pets' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Collection' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Hatching' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Party' })).toBeNull();

@@ -306,7 +306,7 @@ function EvolveSequence({ species, potion, phase, reduced, titleId, onDismiss })
       >
         {headline}
       </h2>
-      <p className="mt-1 font-script text-sm text-ink-whisper">is ready to ride.</p>
+      <p className="mt-1 font-script text-sm text-ink-whisper">is ready to explore.</p>
       <div className="mt-6">
         <Button variant="primary" onClick={onDismiss}>
           Continue →
@@ -339,7 +339,7 @@ function BreedSequence({ parents, result, phase, reduced, titleId, onDismiss }) 
       <div className="flex items-center justify-center gap-2 text-sheikah-teal-deep">
         <Egg size={18} className="text-gold-leaf" aria-hidden="true" />
         <div className="font-script text-base">
-          {chromatic ? 'A rare Cosmic potion!' : 'A new hybrid egg!'}
+          {chromatic ? 'A rare Cosmic potion!' : 'A new egg!'}
         </div>
       </div>
       <div className="relative mt-4 flex items-center justify-center" style={{ minHeight: 140 }}>

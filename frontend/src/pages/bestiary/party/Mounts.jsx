@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
-import { Crown, Map as MapIcon, Hourglass } from 'lucide-react';
+import { Map as MapIcon } from 'lucide-react';
 import {
   getStable, activateMount, claimExpedition,
 } from '../../../api';
@@ -10,22 +9,19 @@ import Loader from '../../../components/Loader';
 import EmptyState from '../../../components/EmptyState';
 import ErrorAlert from '../../../components/ErrorAlert';
 import Button from '../../../components/Button';
-import AddToCalendar from '../../../components/AddToCalendar';
-import ParchmentCard from '../../../components/journal/ParchmentCard';
 import IncipitBand from '../../../components/atlas/IncipitBand';
 import TomeShelf from '../../../components/atlas/TomeShelf';
 import DeckleDivider from '../../../components/journal/DeckleDivider';
 import { DragonIcon } from '../../../components/icons/JournalIcons';
-import RpgSprite from '../../../components/rpg/RpgSprite';
-import { RARITY_TEXT_COLORS } from '../../../constants/colors';
-import { RARITY_HALO, PROGRESS_TIER } from '../../../components/atlas/mastery.constants';
+import { PROGRESS_TIER } from '../../../components/atlas/mastery.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 import ExpeditionLaunchSheet from './ExpeditionLaunchSheet';
 import CompanionPreview from '../../../components/companion/CompanionPreview';
+import OwnedMountGrid from './OwnedMountGrid';
+import { isCatalogAvailable } from '../../../utils/catalogAvailability';
 import {
   MOUNT_FILTERS,
   compareByRarityThenName,
-  daysUntilReady,
   formatExpeditionRemaining,
 } from './party.constants';
 
@@ -46,23 +42,25 @@ export default function Mounts() {
   const [searchParams] = useSearchParams();
 
   const mounts = useMemo(() => stableData?.mounts || [], [stableData]);
+  const supportedMounts = useMemo(() => mounts.filter(isCatalogAvailable), [mounts]);
+  const savedMounts = mounts.filter((mount) => !isCatalogAvailable(mount));
   const totalPossible = stableData?.total_possible || 0;
 
   const counts = useMemo(() => {
     const out = {};
     MOUNT_FILTERS.forEach((f) => {
-      out[f.key] = mounts.filter(f.match).length;
+      out[f.key] = supportedMounts.filter(f.match).length;
     });
     return out;
-  }, [mounts]);
+  }, [supportedMounts]);
 
   const visibleMounts = useMemo(() => {
     const f = MOUNT_FILTERS.find((x) => x.key === filter) || MOUNT_FILTERS[0];
-    return [...mounts.filter(f.match)].sort(compareByRarityThenName);
-  }, [mounts, filter]);
+    return [...supportedMounts.filter(f.match)].sort(compareByRarityThenName);
+  }, [supportedMounts, filter]);
   const requestedId = Number(searchParams.get('mount'));
-  const homeMount = mounts.find((mount) => mount.id === previewId)
-    || mounts.find((mount) => mount.id === requestedId) || mounts.find((mount) => mount.is_active) || mounts[0];
+  const homeMount = supportedMounts.find((mount) => mount.id === previewId)
+    || supportedMounts.find((mount) => mount.id === requestedId) || supportedMounts.find((mount) => mount.is_active) || supportedMounts[0];
   const homeExpedition = homeMount?.active_expedition?.status === 'active' ? homeMount.active_expedition : null;
   const companionName = homeMount?.species.id != null && homeMount?.potion.id != null
     ? stableData?.pets?.find((pet) => pet.species.id === homeMount.species.id && pet.potion.id === homeMount.potion.id)?.name?.trim() : null;
@@ -122,24 +120,24 @@ export default function Mounts() {
       </CompanionPreview>}
       <IncipitBand
         letter="M"
-        title="Mounts"
+        title="Grown pets"
         kicker="Your evolved companions"
         meta={
           <>
-            <span className="tabular-nums">{mounts.length} of {totalPossible}</span>
+            <span className="tabular-nums">{supportedMounts.length} of {totalPossible}</span>
             <span>evolved</span>
           </>
         }
-        progressPct={totalPossible ? (mounts.length / totalPossible) * 100 : 0}
+        progressPct={totalPossible ? (supportedMounts.length / totalPossible) * 100 : 0}
       />
 
       <p className="font-script text-body text-ink-whisper -mt-2 max-w-xl">
-        Companions evolve into mounts at 100 growth. Pair two on the Hatching tab to breed a hybrid egg.
+        At 100 growth, companions become grown pets. Send them exploring and collect their finds when they return.
       </p>
 
       <ErrorAlert message={error || stableError} />
 
-      {mounts.length > 0 && (
+      {supportedMounts.length > 0 && (
         <TomeShelf
           ariaLabel="Filter mounts"
           activeId={filter}
@@ -159,141 +157,26 @@ export default function Mounts() {
         />
       )}
 
-      {mounts.length === 0 ? (
+      {supportedMounts.length === 0 ? (
         <>
           <DeckleDivider glyph="dragon-crest" />
           <EmptyState icon={<DragonIcon size={36} />}>
-            No mounts yet. Grow a companion to 100 to evolve it into a mount.
+            {savedMounts.length ? 'Your earlier grown pets keep their expeditions in Saved collection below.' : 'No grown pets yet. Feed a companion to help it reach 100 growth.'}
           </EmptyState>
         </>
       ) : visibleMounts.length === 0 ? (
         <EmptyState icon={<DragonIcon size={28} />}>
-          No mounts match this filter.
+          No grown pets match this filter.
         </EmptyState>
       ) : (
-        <div role="list" aria-label="Your mounts" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {visibleMounts.map((mount) => {
-            const cooldownDaysLeft = daysUntilReady(mount.last_bred_at);
-            const expedition = mount.active_expedition;
-            const isOut = !!expedition && expedition.status === 'active';
-            const isReady = isOut && expedition.is_ready;
-            const remainingLabel = isOut
-              ? formatExpeditionRemaining(expedition.seconds_remaining)
-              : null;
-            return (
-              <motion.div key={mount.id} role="listitem" whileHover={{ y: -2 }}>
-                <ParchmentCard
-                  className={`text-center transition-all ${
-                    mount.is_active
-                      ? 'ring-2 ring-offset-2 ring-offset-ink-page ring-gold-leaf'
-                      : ''
-                  } ${isOut && !isReady ? 'opacity-80' : ''}`}
-                >
-                  <div className="flex items-center justify-center h-20 mb-1">
-                    <div
-                      className={`relative inline-flex items-center justify-center rounded-full p-1.5 bg-ink-page-aged/40 ${
-                        RARITY_HALO[mount.potion.rarity] || RARITY_HALO.common
-                      }`}
-                    >
-                      <RpgSprite
-                        spriteKey={`${mount.species.sprite_key}-mount`}
-                        fallbackSpriteKey={mount.species.sprite_key}
-                        icon={mount.species.icon}
-                        size={64}
-                        className="rounded-full"
-                        alt={`${mount.potion.name} ${mount.species.name}`}
-                        potionSlug={mount.potion.slug}
-                        dim={isOut && !isReady ? 'stale' : null}
-                      />
-                    </div>
-                  </div>
-                  <div className="font-body text-body font-medium leading-tight break-words">
-                    {mount.potion.name} {mount.species.name}
-                  </div>
-                  <div
-                    className={`font-script text-tiny uppercase tracking-wider ${
-                      RARITY_TEXT_COLORS[mount.potion.rarity]
-                    }`}
-                  >
-                    {mount.potion.rarity}
-                  </div>
-                  <div className="font-script text-tiny text-gold-leaf mt-1">mount</div>
-                  <Button size="sm" variant="ghost" className="mt-1 w-full" onClick={() => setPreviewId(mount.id)} aria-label={`Visit ${mount.potion.name} ${mount.species.name}`}>Spend time together</Button>
-                  {isOut && !isReady && (
-                    <div className="mt-1 space-y-1">
-                      <div className="font-script text-tiny text-sheikah-teal-deep flex items-center justify-center gap-1">
-                        <Hourglass size={10} aria-hidden="true" /> exploring · {remainingLabel}
-                      </div>
-                      <AddToCalendar
-                        event={{
-                          id: `expedition:${expedition.id}`,
-                          title: `Expedition return: ${mount.potion.name} ${mount.species.name}`,
-                          start: expedition.returns_at,
-                          description: 'Check on your returning mount in The Abby Project.',
-                          path: '/bestiary?tab=mounts',
-                        }}
-                      />
-                    </div>
-                  )}
-                  {!isOut && cooldownDaysLeft !== null && (
-                    <div className="mt-1 font-script text-tiny text-ink-whisper">
-                      resting · {cooldownDaysLeft}d
-                    </div>
-                  )}
-                  {!isOut && cooldownDaysLeft === null && (
-                    <div className="mt-1 font-script text-tiny text-moss">
-                      ready to breed
-                    </div>
-                  )}
-                  {mount.is_active ? (
-                    <div className="mt-1 font-script text-tiny text-gold-leaf flex items-center justify-center gap-1">
-                      <Crown size={10} /> riding
-                    </div>
-                  ) : (
-                    // <Button> for the 44px floor these tile actions were
-                    // missing (~30px before). The gold/teal tints stay as
-                    // overrides — colour is the Bestiary's own vocabulary for
-                    // "mount action" vs "expedition action".
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => handleActivateMount(mount.id)}
-                      disabled={working || isOut}
-                      className="mt-2 w-full !bg-gold-leaf/20 !text-ember-deep !border-gold-leaf/60 hover:!bg-gold-leaf/30 disabled:cursor-not-allowed"
-                    >
-                      {working ? 'Setting…' : 'Set active'}
-                    </Button>
-                  )}
-                  {isReady ? (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => handleClaim(expedition.id)}
-                      disabled={working}
-                      className="mt-1 w-full !bg-gold-leaf/30 !text-ember-deep !border-gold-leaf/80 hover:!bg-gold-leaf/40 disabled:cursor-not-allowed animate-gilded-glint"
-                      aria-label={`Claim expedition rewards for ${mount.species.name}`}
-                    >
-                      {working ? 'Claiming…' : 'Claim rewards'}
-                    </Button>
-                  ) : !isOut ? (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setLaunchMount(mount)}
-                      disabled={working}
-                      className="mt-1 w-full inline-flex items-center justify-center gap-1 !bg-sheikah-teal-deep/15 !text-sheikah-teal-deep !border-sheikah-teal-deep/50 hover:!bg-sheikah-teal-deep/25 disabled:cursor-not-allowed"
-                      aria-label={`Send ${mount.species.name} on an expedition`}
-                    >
-                      <MapIcon size={11} aria-hidden="true" /> Expedition
-                    </Button>
-                  ) : null}
-                </ParchmentCard>
-              </motion.div>
-            );
-          })}
-        </div>
+        <OwnedMountGrid mounts={visibleMounts} working={working} onActivate={handleActivateMount} onPreview={setPreviewId} onClaim={handleClaim} onLaunch={setLaunchMount} />
       )}
 
+      {savedMounts.length > 0 && <section className="space-y-3" aria-label="Saved collection">
+        <div><h2 className="font-body font-bold text-lede text-ink-primary">Saved collection</h2>
+          <p className="font-body text-caption text-ink-secondary">{savedMounts.length} earlier grown {savedMounts.length === 1 ? 'pet' : 'pets'}. Their progress and expeditions stay available.</p></div>
+        <OwnedMountGrid mounts={savedMounts} working={working} onActivate={handleActivateMount} onClaim={handleClaim} onLaunch={setLaunchMount} label="Saved grown pets" />
+      </section>}
       {launchMount && (
         <ExpeditionLaunchSheet
           mount={launchMount}

@@ -2,6 +2,36 @@
 
 Collectible pets + mount evolution + breeding + offline expeditions. Lifecycle: **Egg + Potion → Pet → Mount → Breeding**, plus the Finch-inspired Mount Expeditions loop.
 
+## Active asset policy (October 2026)
+
+New acquisition uses [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
+through `apps/rpg/catalog_support.py`. Production supports exact species slug
+`chick`, sprite key `cute-chick`, and potion slug `base`. Chick is the pet;
+Bird is its confirmed evolved/mount appearance. Fledgling is preview art only.
+The authored catalog remains in the database as generic engine/reference
+content; owning a portrait or authoring a YAML row does not enable another
+species, potion variant or 3D appearance.
+
+Catalog/codex and potion choices intersect this policy with
+`PetSpecies.available_potions`. Hatching rejects an unavailable pair or
+ingredient before consuming inventory. Stable keeps every saved pet/mount,
+adds read-only `catalog_available`, and counts only approved compatible pairs
+in `total_possible`. React places unavailable rows in Saved collection while
+retaining feeding, growth/evolution, activation and expedition controls.
+Existing expedition history and locked loot remain claimable under the
+existing rules; only newly rolled loot is restricted to available items.
+
+Breeding requires two distinct supported owned parents, compatible approved
+potions and registered available output items before cooldown/inventory writes.
+`can_breed` also requires a ready supported partner; `breeding_available` is a
+stable-level availability flag. The one Base Chick pair and unique ownership
+constraints provide no production breeding pair today. Scoped
+`RPG_ASSET_SUPPORT_POLICY` overrides in domain tests exercise broader mechanics
+without changing the immutable production default. Preserve saved ownership
+and permission boundaries when adding support; see
+[`tests/test_asset_supported_catalog.py`](tests/test_asset_supported_catalog.py)
+and PostgreSQL [`tests/test_catalog_concurrency.py`](tests/test_catalog_concurrency.py).
+
 ## Models
 - `PetSpecies` (18 authored creatures, including Base-only Chick), `PotionType` (6 variants), `PetSpecies.available_potions` M2M declares compatible combinations.
 - `UserPet` (growth 0-100, `last_fed_at`, `evolved_to_mount`, `consumable_growth_today` + `consumable_growth_date`), `UserMount` (`last_bred_at`).
@@ -20,7 +50,7 @@ Collectible pets + mount evolution + breeding + offline expeditions. Lifecycle: 
 
 ## Gotchas
 
-- **Potion compatibility** (October 2026): hatching checks a species's nonempty `available_potions` before consuming ingredients. The loader populates omitted lists with all current potion types; legacy species with an empty relation retain unrestricted hatching and breeding. Chick accepts Base only and prefers the new Birdseed food. Its licensed Chick / Fledgling / Bird appearances describe one species, not three ownership identities or implemented growth-stage unlocks. Existing species, owned pets, mounts and inventory remain intact on repeated content loads. [`test_cute_chick_catalog.py`](tests/test_cute_chick_catalog.py) covers the additive catalog, preservation and lifecycle rules.
+- **Potion compatibility** (October 2026): hatching checks a species's nonempty `available_potions` before consuming ingredients. The loader populates omitted lists with all current potion types; an empty legacy relation means unrestricted authored compatibility, still intersected with the active asset policy for new hatching/breeding. Chick accepts Base only and prefers Birdseed food. Its licensed Chick / Fledgling / Bird appearances describe one species, not three ownership identities or implemented growth-stage unlocks. Existing species, owned pets, mounts and inventory remain intact on repeated content loads. [`test_cute_chick_catalog.py`](tests/test_cute_chick_catalog.py) covers the additive catalog, preservation and lifecycle rules.
 
 - **Pets & mounts**: Lifecycle is **Egg + Potion → Pet → Mount → Breeding**. `PetService.hatch_pet` consumes one egg item and one potion item from `UserInventory`, reads `egg.pet_species` and `potion.potion_type` FKs (falls back to the legacy `metadata["species"]`/`["variant"]` strings for unmigrated rows), enforces one pet per `(user, species, potion)` combo, and creates a `UserPet` with `growth_points=0`. `PetSpecies.available_potions` M2M declares which species × potion combos are valid (defaults to all potions when unspecified in a content pack). `PetService.feed_pet` consumes a food item, stamps `UserPet.last_fed_at`, and adds growth — +15 if `food.food_species == pet.species` (preferred, FK-driven), +5 otherwise (neutral). **Consumable growth daily cap** (2026-04-23): direct-grant consumables `growth_surge` (+30 to active pet) and `feast_platter` (+10 to every unevolved pet) route through `UserPet.apply_consumable_growth(amount)` which enforces `CONSUMABLE_GROWTH_DAILY_CAP=50` per pet per local day. `growth_surge` returns `{growth_requested, growth_added, growth_capped, ...}` so callers can see when the cap clamped the boost; `feast_platter` returns a per-pet array. Tonic-doubled feeds are NOT capped — they require food items to exist, which is a natural limiter. Without the cap, hoarded consumables could fully evolve a pet (0 → 100) in a single sitting; the design intent is real-world weeks of bonding. Pinned by `ConsumableGrowthDailyCapTests` in [`apps/rpg/tests/test_new_consumable_effects.py`](/apps/rpg/tests/test_new_consumable_effects.py). At `growth_points >= 100`, the pet auto-evolves: `UserPet.evolved_to_mount=True` and a matching `UserMount` row is created (the original pet is retained in the stable). Only one `UserPet` and one `UserMount` can be `is_active=True` per user at a time — `set_active_pet`/`set_active_mount` deactivate any current one in the same transaction. Dashboard displays the active pet with a growth bar.
 
@@ -38,7 +68,7 @@ Collectible pets + mount evolution + breeding + offline expeditions. Lifecycle: 
   - `SpeciesTile` + `SpeciesDetailSheet` are unchanged — only the wrapper / header gained the rubric + versal + strand decoration, so the tile-level UX (hover, lore one-liner, potion strand, locked silhouette) is preserved.
   - Pinned by [`BestiaryCodex.test.jsx`](/frontend/src/pages/bestiary/codex/BestiaryCodex.test.jsx) — tests the hero counts and selected chapter content. `Companions.test.jsx` and `Mounts.test.jsx` cover party filters through the shared tab role. `TomeShelf` follows keyboard focus and reveals offscreen controls on intentional navigation; mounting and external selection do not focus or scroll the page.
 
-- **Pet breeding** (`PetService.breed_mounts`, 2026-04-23; compatibility enforced October 2026): combine two mounts the same user owns to yield a hybrid egg + potion pair dropped into inventory. Select one parent's species, then choose among its compatible parental potions. If neither parent's potion is supported, choose an authored compatible type with a registered potion item; missing compatible content fails before inventory or cooldown writes. Each parent gets a `UserMount.last_bred_at` stamp; re-breeding is blocked for `MOUNT_BREEDING_COOLDOWN_DAYS=7` days. The `CHROMATIC_UPGRADE_CHANCE=0.02` wildcard can grant Cosmic (legendary) only when the selected species supports it. Legacy species without compatibility data preserve unrestricted parental and Cosmic choices. Endpoint: `POST /api/mounts/breed/ {mount_a_id, mount_b_id}`. Frontend: "Breed Mounts" form lives on the [`Hatchery`](/frontend/src/pages/bestiary/hatchery/Hatchery.jsx) tab and surfaces per-mount cooldown countdowns inline.
+- **Generic breeding mechanics** (`PetService.breed_mounts`, 2026-04-23; asset policy enforced October 2026): combine two supported mounts the same user owns to yield an available egg + potion pair. Select one parent's species, then choose among approved compatible parental potions or a registered approved compatibility fallback. Missing compatible content fails before inventory or cooldown writes. Each parent gets a `UserMount.last_bred_at` stamp; re-breeding is blocked for `MOUNT_BREEDING_COOLDOWN_DAYS=7` days. The `CHROMATIC_UPGRADE_CHANCE=0.02` wildcard can grant Cosmic (legendary) only when both the species compatibility and asset policy approve it. Empty legacy compatibility lists do not bypass that policy. Endpoint: `POST /api/mounts/breed/ {mount_a_id, mount_b_id}`. The [`Hatchery`](/frontend/src/pages/bestiary/hatchery/Hatchery.jsx) form appears only with server-confirmed breeding availability; broad species/Cosmic scenarios in tests use explicit synthetic bindings.
 
 - **Pet happiness** (`happiness_for_pet` in `apps/pets/services.py`, 2026-04-23; sprite dim wired 2026-05-09): buckets an unevolved pet into `happy` / `bored` / `stale` / `away` based on days since `last_fed_at` (thresholds: 3 / 7 / 14). Evolved pets are always `happy` — they're past the feeding loop. Exposed on `UserPetSerializer` as `happiness_level`. Gentle-nudge: purely visual — never penalizes coins, XP, drops, or growth. The frontend dim is real now: `RpgSprite` accepts a `dim` prop (`bored` / `stale` / `away`) that composes with the existing potion filter via the `DIM_FILTERS` map in [`frontend/src/components/rpg/RpgSprite.jsx`](/frontend/src/components/rpg/RpgSprite.jsx) (grayscale + opacity ramp; `data-dim` attribute exposed for tests). [`Companions.jsx`](/frontend/src/pages/bestiary/party/Companions.jsx) reads `pet.happiness_level`, suppresses dimming for evolved pets, and renders a soft whisper line under the pet name for `bored` ("a little bored — feed me?") and `stale` ("getting hungry — needs a snack") states. `away` is intentionally NOT in `HAPPINESS_WHISPER` (the strongest grayscale on the sprite carries that signal — adding text there would feel like a guilt-trip). Pinned by `Companions.test.jsx` ("shows a soft whisper line under bored/stale pets and dims their sprite").
 
