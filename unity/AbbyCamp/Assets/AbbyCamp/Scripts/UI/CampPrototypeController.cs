@@ -37,6 +37,10 @@ namespace AbbyCamp.UI
         private CoinBalanceDto coins;
         private DropDto[] drops;
         private StableDto stable;
+        private ExpeditionDto[] expeditions;
+        private ExpeditionClaimDto expeditionClaim;
+        private float expeditionsReadAt;
+        private Text expeditionCountdownLabel;
         private InventoryEntryDto[] foodInventory, careInventory;
         private NotificationPageDto notifications;
         private UnreadCountDto unreadCount;
@@ -46,7 +50,9 @@ namespace AbbyCamp.UI
         private bool busy, homeLoading, sectionLoading, markingRead, browserSessionDirty;
         private bool careInFlight, careDataReady, careReviewLoaded;
         private int selectedPetId, selectedFoodItemId, selectedEggItemId, selectedPotionItemId;
-        private bool hatcheryOpen;
+        private bool hatcheryOpen, expeditionsOpen;
+        private int selectedExpeditionMountId, selectedExpeditionId;
+        private string selectedExpeditionTier;
         private int sessionEpoch, viewVersion;
         private float nextHomeRefresh, toastUntil, patAvailableAt;
         private string inboxPageUrl;
@@ -59,6 +65,7 @@ namespace AbbyCamp.UI
         public bool IsSectionLoading => sectionLoading;
         public string ActiveSection => section.ToString();
         public bool HatcheryOpen => section == Section.Bestiary && hatcheryOpen;
+        public bool ExpeditionsOpen => section == Section.Bestiary && expeditionsOpen;
         // A credential-free, account-specific marker survives interrupted saves,
         // browser reloads and returning to an earlier account. It never replays a POST.
         private string CareReviewKey => IsDemo ? null : "abby:care:pending:" + Hash128.Compute(api.BaseUrl + "/" + api.CurrentUser.id);
@@ -113,6 +120,11 @@ namespace AbbyCamp.UI
             if (!IsModalOpen && Input.GetKeyDown(KeyCode.K)) companion?.ToggleAppearance();
 #endif
             if (Time.unscaledTime > toastUntil) toastPanel.gameObject.SetActive(false);
+            if (ExpeditionsOpen && expeditionCountdownLabel != null)
+            {
+                var trip = FindExpedition(selectedExpeditionId);
+                if (trip != null) expeditionCountdownLabel.text = ExpeditionCountdown(trip);
+            }
             KeepFocusedInputVisible();
         }
 
@@ -125,6 +137,9 @@ namespace AbbyCamp.UI
             sessionEpoch++;
             coins = null; drops = null; stable = null; notifications = null; unreadCount = null; character = null; meadow = null;
             foodInventory = careInventory = null;
+            expeditions = null; expeditionClaim = null; expeditionCountdownLabel = null;
+            selectedExpeditionMountId = selectedExpeditionId = 0; selectedExpeditionTier = null;
+            expeditionsOpen = false;
             selectedPetId = selectedFoodItemId = selectedEggItemId = selectedPotionItemId = 0;
             hatcheryOpen = false;
             careInFlight = careDataReady = careReviewLoaded = false;
@@ -288,6 +303,8 @@ namespace AbbyCamp.UI
             if (IsBusy) return;
             selectedPetId = selectedFoodItemId = selectedEggItemId = selectedPotionItemId = 0;
             hatcheryOpen = false;
+            expeditionsOpen = false; selectedExpeditionMountId = selectedExpeditionId = 0;
+            selectedExpeditionTier = null; expeditionClaim = null;
             OpenSection(Section.Bestiary);
         }
 
@@ -311,6 +328,7 @@ namespace AbbyCamp.UI
             {
                 careDataReady = careReviewLoaded = false;
                 selectedEggItemId = selectedPotionItemId = 0;
+                selectedExpeditionTier = null;
             }
             SetSectionStatus(target, "Refreshing…");
             DrawActiveSection();
@@ -353,6 +371,8 @@ namespace AbbyCamp.UI
                 {
                     StableDto loaded = null;
                     InventoryEntryDto[] loadedItems = null;
+                    ExpeditionDto[] loadedTrips = null;
+                    CoinBalanceDto loadedCoins = null;
                     yield return api.FetchStable(value => loaded = value, error => failure = error);
                     if (!Valid()) yield break;
                     if (loaded != null) stable = loaded;
@@ -360,7 +380,13 @@ namespace AbbyCamp.UI
                     if (!Valid()) yield break;
                     careInventory = loadedItems;
                     foodInventory = CareSupplies("food");
-                    careDataReady = careReviewLoaded = failure == null && loaded != null && loadedItems != null;
+                    yield return api.FetchExpeditions(value => loadedTrips = value, error => failure = error);
+                    if (!Valid()) yield break;
+                    expeditions = loadedTrips; expeditionsReadAt = Time.unscaledTime;
+                    yield return api.FetchCoins(value => loadedCoins = value, error => failure = error);
+                    if (!Valid()) yield break;
+                    if (loadedCoins != null) coins = loadedCoins;
+                    careDataReady = careReviewLoaded = failure == null && loaded != null && loadedItems != null && loadedTrips != null && loadedCoins != null;
                 }
                 if (Valid()) SetSectionStatus(target, failure == null ? "Up to date" : failure.Message + " Try Refresh.");
             }
@@ -534,6 +560,8 @@ namespace AbbyCamp.UI
 
         private void DrawBestiary()
         {
+            expeditionCountdownLabel = null;
+            if (expeditionsOpen) { DrawExpeditions(); return; }
             if (hatcheryOpen) { DrawHatchery(); return; }
             if (selectedPetId != 0) { DrawPetCare(); return; }
             BeginModal("Bestiary", "Your saved creature collection.");
@@ -547,6 +575,7 @@ namespace AbbyCamp.UI
                 else
                 {
                     FlowLabel(content, "StableCounts", stable.total_pets + " pets · " + stable.total_mounts + " mounts", 22, ink);
+                    FlowButton(content, "ExpeditionsButton", "Mount expeditions", () => OpenExpeditions(0, 0)).interactable = !IsBusy && !sectionLoading;
                     FlowLabel(content, "ActiveCompanion", stable.ActiveCompanion == null ? "No active companion yet" : "Active companion: " + PetName(stable.ActiveCompanion), 18, ink);
                     FlowLabel(content, "CompanionArtNote", "The companion in this scene is an artwork preview. Your saved creatures and their progress are listed below.", 14, ink);
                     FlowLabel(content, "PetsHeading", "Companions", 19, ink);
@@ -574,17 +603,16 @@ namespace AbbyCamp.UI
                     {
                         var row = Row(content, "Mount_" + mount.id);
                         FlowLabel(row, "MountName", mount.potion.name + " " + mount.species.name + (mount.is_active ? " · Active" : ""), 18, ink);
-                        if (mount.active_expedition != null)
-                            FlowLabel(row, "MountExpedition", mount.active_expedition.is_ready ? "Returned · Claim in web Bestiary" : "Out exploring", 14, ink);
+                        DrawMountExpedition(row, mount);
                         if (!mount.is_active)
                             FlowButton(row, "ActiveMount_" + mount.id, "Choose as mount", () => StartCoroutine(SaveCare(mount.id, 0, true))).interactable = CanCare && mount.active_expedition == null;
                     }
                 }
                 FlowButton(content, "CompanionsWebButton", "Open web companions", () => Navigate(PlayDestination.BestiaryCompanions)).interactable = !IsBusy;
-                FlowButton(content, "MountsWebButton", "Expeditions and breeding", () => Navigate(PlayDestination.BestiaryMounts)).interactable = !IsBusy;
+                FlowButton(content, "MountsWebButton", "Open web mounts and breeding", () => Navigate(PlayDestination.BestiaryMounts)).interactable = !IsBusy;
                 FlowButton(content, "HatcheryButton", "Hatch a companion", () =>
                 {
-                    hatcheryOpen = true; selectedPetId = selectedFoodItemId = selectedEggItemId = selectedPotionItemId = 0;
+                    hatcheryOpen = true; expeditionsOpen = false; selectedPetId = selectedFoodItemId = selectedEggItemId = selectedPotionItemId = 0;
                     DrawActiveSection(true);
                 }).interactable = !IsBusy && !sectionLoading;
                 FlowButton(content, "HatcheryWebButton", "Open web hatchery", () => Navigate(PlayDestination.BestiaryHatchery)).interactable = !IsBusy;
@@ -593,17 +621,213 @@ namespace AbbyCamp.UI
             SectionFooter(Section.Bestiary);
         }
 
+        private void OpenExpeditions(int mountId, int expeditionId)
+        {
+            if (IsBusy) return;
+            expeditionsOpen = true; hatcheryOpen = false;
+            selectedPetId = selectedFoodItemId = selectedEggItemId = selectedPotionItemId = 0;
+            if (selectedExpeditionId != expeditionId) expeditionClaim = null;
+            selectedExpeditionMountId = mountId; selectedExpeditionId = expeditionId;
+            selectedExpeditionTier = null;
+            DrawActiveSection(true);
+        }
+
+        private ExpeditionDto FindExpedition(int id) => expeditions == null ? null : Array.Find(expeditions, trip => trip.id == id);
+        private OwnedMountDto FindMount(int id) => stable?.mounts == null ? null : Array.Find(stable.mounts, mount => mount.id == id);
+
+        private void DrawMountExpedition(RectTransform row, OwnedMountDto mount)
+        {
+            if (mount.active_expedition != null)
+            {
+                int id = mount.active_expedition.id;
+                var trip = FindExpedition(id);
+                FlowLabel(row, "ExpeditionStatus_" + id, trip != null && trip.CanClaim ? "Ready to claim" : "Out exploring", 16, ink);
+                FlowButton(row, "ViewExpedition_" + id, "View expedition", () => OpenExpeditions(mount.id, id)).interactable = !IsBusy && !sectionLoading;
+            }
+            else
+            {
+                FlowButton(row, "ExpeditionMount_" + mount.id, "Plan expedition", () => OpenExpeditions(mount.id, 0)).interactable = !IsBusy && !sectionLoading;
+                var previous = expeditions == null ? null : Array.Find(expeditions, trip => trip.mount_id == mount.id);
+                if (previous != null)
+                {
+                    int id = previous.id;
+                    FlowButton(row, "ViewExpedition_" + id, "View last expedition", () => OpenExpeditions(mount.id, id)).interactable = !IsBusy && !sectionLoading;
+                }
+            }
+        }
+
+        private void DrawExpeditions()
+        {
+            var mount = FindMount(selectedExpeditionMountId);
+            BeginModal("Mount expeditions", mount == null ? "Send a mount exploring and collect its saved finds." : mount.potion.name + " " + mount.species.name);
+            var content = modalScroll.content;
+            FlowLabel(content, "BestiaryStatus", bestiaryStatus, 14, ink);
+            DrawCareReview(content);
+            if (selectedExpeditionMountId == 0)
+            {
+                FlowLabel(content, "ExpeditionExplanation", "Your mounts keep exploring while Play is closed. Each mount can take one trip per day; return here to claim its finds.", 16, ink);
+                if (stable?.mounts == null) FlowLabel(content, "ExpeditionLoadingMounts", "Refresh to load your mounts.", 16, ink);
+                else if (stable.mounts.Length == 0) FlowLabel(content, "ExpeditionEmptyMounts", "Your mounts will appear here as your collection grows.", 16, ink);
+                else foreach (var owned in stable.mounts)
+                {
+                    var row = Row(content, "ExpeditionMountRow_" + owned.id);
+                    FlowLabel(row, "ExpeditionMountName_" + owned.id, owned.potion.name + " " + owned.species.name + (owned.is_active ? " · Active" : ""), 18, ink);
+                    DrawMountExpedition(row, owned);
+                }
+                FlowButton(content, "BackExpeditionCollectionButton", "Back to creatures", () =>
+                {
+                    expeditionsOpen = false; selectedExpeditionMountId = selectedExpeditionId = 0;
+                    selectedExpeditionTier = null; expeditionClaim = null; DrawActiveSection(true);
+                }).interactable = !IsBusy;
+            }
+            else
+            {
+                if (mount == null) FlowLabel(content, "ExpeditionMissingMount", "This mount is no longer in your collection. Refresh to check your mounts.", 16, ink);
+                else
+                {
+                    if (selectedExpeditionId == 0 && mount.active_expedition != null) selectedExpeditionId = mount.active_expedition.id;
+                    var trip = FindExpedition(selectedExpeditionId);
+                    if (trip != null) DrawExpeditionDetails(content, trip);
+                    else if (selectedExpeditionId != 0) FlowLabel(content, "ExpeditionLoadingTrip", "Refresh to load this expedition's saved status.", 16, ink);
+                    else
+                    {
+                        FlowLabel(content, "ExpeditionPlanExplanation", "Choose a trip length. Your mount will be away until it returns. Longer trips can bring more finds; rewards are saved when you claim them.", 16, ink);
+                        foreach (var tier in new[] { "short", "standard", "long" })
+                        {
+                            string choice = tier;
+                            int hours = tier == "short" ? 2 : tier == "standard" ? 4 : 8;
+                            FlowButton(content, "ExpeditionTier_" + tier, (selectedExpeditionTier == tier ? "Selected · " : "") + Humanize(tier) + " · " + hours + " hours", () =>
+                            {
+                                selectedExpeditionTier = choice; DrawActiveSection();
+                            }).interactable = CanCare && api.CanStartExpedition(mount.id, tier);
+                        }
+                        if (selectedExpeditionTier != null)
+                        {
+                            string tier = selectedExpeditionTier;
+                            int hours = tier == "short" ? 2 : tier == "standard" ? 4 : 8;
+                            FlowButton(content, "ConfirmExpeditionStartButton", "Start " + hours + "-hour expedition", () =>
+                                StartCoroutine(SaveExpedition(mount.id, tier, 0))).interactable = CanCare && api.CanStartExpedition(mount.id, tier);
+                        }
+                    }
+                }
+                FlowButton(content, "BackExpeditionsButton", "Back to expeditions", () => OpenExpeditions(0, 0)).interactable = !IsBusy;
+            }
+            SectionFooter(Section.Bestiary);
+        }
+
+        private void DrawExpeditionDetails(RectTransform content, ExpeditionDto trip)
+        {
+            FlowLabel(content, "ExpeditionStatus_" + trip.id, trip.status == "claimed" ? "Already claimed" : trip.CanClaim ? "Ready to claim" : Humanize(trip.status), 22, ink);
+            FlowLabel(content, "ExpeditionTier", Humanize(trip.tier) + " expedition", 18, ink);
+            FlowLabel(content, "ExpeditionReturnsAt", "Returns: " + ReturnTime(trip.returns_at), 16, ink);
+            expeditionCountdownLabel = FlowLabel(content, "ExpeditionCountdown", ExpeditionCountdown(trip), 16, ink);
+            if (trip.status == "active")
+                FlowButton(content, "ConfirmExpeditionClaimButton", "Claim expedition loot", () =>
+                    StartCoroutine(SaveExpedition(trip.mount_id, null, trip.id))).interactable = CanCare && api.CanClaimExpedition(trip.id);
+            FlowLabel(content, "ExpeditionFindsHeading", trip.status == "active" ? "Planned finds" : "Finds recorded for this trip", 19, ink);
+            FlowLabel(content, "ExpeditionPlannedCoins", trip.loot.coins + " planned expedition coins", 16, ink);
+            foreach (var item in trip.loot.items)
+                FlowLabel(content, "ExpeditionFind_" + item.item_id, item.name + " · " + item.quantity, 16, ink);
+            if (expeditionClaim == null || expeditionClaim.expedition_id != trip.id) return;
+            if (expeditionClaim.freshly_claimed)
+            {
+                FlowLabel(content, "ExpeditionSavedCoins", "Expedition coins saved: " + expeditionClaim.coins_awarded, 19, ink);
+                int salvage = 0;
+                foreach (var item in expeditionClaim.items) salvage += item.salvaged_to_coins;
+                if (salvage > 0) FlowLabel(content, "ExpeditionSalvageCoins", "Duplicate finds converted to " + salvage + " additional coins", 16, ink);
+            }
+            else FlowLabel(content, "ExpeditionPreviouslyClaimed", "This trip was already claimed. No rewards were awarded again.", 16, ink);
+            if (careInventory == null || !careDataReady) return;
+            FlowLabel(content, "ExpeditionUpdatedInventory", "Your updated inventory", 19, ink);
+            var shown = new HashSet<int>();
+            foreach (var item in expeditionClaim.items)
+            {
+                if (!shown.Add(item.item_id)) continue;
+                var entry = Array.Find(careInventory, value => value.item.id == item.item_id && value.quantity > 0);
+                if (entry != null) FlowLabel(content, "ExpeditionSavedItem_" + item.item_id, entry.item.name + " · " + entry.quantity + " available", 16, ink);
+            }
+        }
+
+        private static string ReturnTime(string value) => DateTimeOffset.TryParse(value, out var timestamp)
+            ? timestamp.ToLocalTime().ToString("ddd, h:mm tt") : value;
+
+        private string ExpeditionCountdown(ExpeditionDto trip)
+        {
+            if (trip.status != "active") return trip.status == "claimed" ? "Your mount has returned.\nThis trip's claim is saved." : "This trip is no longer active.";
+            if (trip.is_ready) return "Ready to claim\nYour mount's return is confirmed.";
+            int remaining = Mathf.Max(0, trip.seconds_remaining - Mathf.FloorToInt(Time.unscaledTime - expeditionsReadAt));
+            if (remaining == 0) return "Time is up · Refresh to check.\nClaiming unlocks after the return is confirmed.";
+            var duration = TimeSpan.FromSeconds(remaining);
+            return "Estimated remaining: " + (duration.TotalHours >= 1 ? (int)duration.TotalHours + "h " : "") + duration.Minutes + "m " + duration.Seconds + "s\nRefresh to check the saved return status.";
+        }
+
+        private IEnumerator SaveExpedition(int mountId, string tier, int expeditionId)
+        {
+            if (!CanCare || !ExpeditionsOpen || (expeditionId > 0 ? !api.CanClaimExpedition(expeditionId) : !api.CanStartExpedition(mountId, tier))) yield break;
+            var epoch = sessionEpoch;
+            var view = viewVersion;
+            var reviewKey = CareReviewKey;
+            PlayerPrefs.SetInt(reviewKey, 1); PlayerPrefs.Save();
+            careInFlight = true; careReviewLoaded = careDataReady = false; expeditionClaim = null;
+            bestiaryStatus = expeditionId > 0 ? "Saving your expedition claim…" : "Starting your expedition…";
+            DrawActiveSection(true);
+            ApiError failure = null;
+            ExpeditionDto started = null;
+            ExpeditionClaimDto claimed = null;
+            try
+            {
+                if (expeditionId > 0) yield return api.ClaimExpedition(expeditionId, value => claimed = value, error => failure = error);
+                else yield return api.StartExpedition(mountId, tier, value => started = value, error => failure = error);
+                if ((failure != null && !failure.OutcomeUnknown) || started != null || claimed != null)
+                { PlayerPrefs.DeleteKey(reviewKey); PlayerPrefs.Save(); }
+                if (!Current(epoch) || view != viewVersion) yield break;
+                selectedExpeditionTier = null;
+                if (failure == null && (started != null || claimed != null))
+                {
+                    if (started != null) selectedExpeditionId = started.id;
+                    expeditionClaim = claimed;
+                    string confirmed = started != null ? "Expedition started · Your mount is exploring." : claimed.freshly_claimed
+                        ? "Expedition claimed · Your finds are saved." : "This expedition was already claimed.";
+                    if (claimed != null && claimed.freshly_claimed) companion?.Celebrate();
+                    Toast(confirmed, 7);
+                    careInFlight = false;
+                    yield return LoadSection(Section.Bestiary);
+                    if (!Current(epoch) || view != viewVersion) yield break;
+                    bestiaryStatus = confirmed + (careDataReady ? "" : " · Refresh to load your updated collection.");
+                    nextHomeRefresh = 0;
+                }
+                else bestiaryStatus = failure != null && !failure.OutcomeUnknown
+                    ? failure.Message + " Refresh your collection before trying again."
+                    : "Couldn't confirm the expedition action. Refresh and check your expeditions, items and balance.";
+            }
+            finally
+            {
+                if (epoch == sessionEpoch && view == viewVersion)
+                {
+                    careInFlight = false;
+                    if (IsDemo) ClearPresentation();
+                    else { RefreshHud(); DrawActiveSection(true); }
+                }
+            }
+        }
+
         private void DrawCareReview(RectTransform content)
         {
             if (!CareNeedsReview || careInFlight) return;
-            FlowLabel(content, "CareReviewMessage", "The last creature action may have saved. Refresh and check your creatures and items before doing anything else. Play won't repeat it.", 16, ink);
+            FlowLabel(content, "CareReviewMessage", "The last creature action may have saved. Refresh and check your creatures, expeditions, items and balance before doing anything else. Play won't repeat it.", 16, ink);
             if (careReviewLoaded && careInventory != null)
             {
-                FlowLabel(content, "CareReviewFoodHeading", "Food, eggs and potions in the updated inventory", 18, ink);
-                var supplies = CareSupplies("food", "egg", "potion");
-                if (supplies.Length == 0) FlowLabel(content, "CareReviewEmptyFood", "No food, eggs or potions remaining", 16, ink);
-                foreach (var entry in supplies)
-                    FlowLabel(content, "CareReviewFood_" + entry.item.id, entry.item.name + " · " + entry.quantity + " available", 16, ink);
+                FlowLabel(content, "CareReviewCoins", "Saved balance: " + coins.balance + " coins", 18, ink);
+                FlowLabel(content, "CareReviewFoodHeading", "Your updated inventory", 18, ink);
+                bool anyItems = false;
+                foreach (var entry in careInventory)
+                    if (entry.quantity > 0)
+                    { anyItems = true; FlowLabel(content, "CareReviewFood_" + entry.item.id, entry.item.name + " · " + entry.quantity + " available", 16, ink); }
+                if (!anyItems) FlowLabel(content, "CareReviewEmptyFood", "No items in your inventory", 16, ink);
+                FlowLabel(content, "ReviewExpeditionsHeading", "Your updated expeditions", 18, ink);
+                if (expeditions.Length == 0) FlowLabel(content, "ReviewExpeditionsEmpty", "No expeditions saved", 16, ink);
+                foreach (var trip in expeditions)
+                    FlowLabel(content, "ReviewExpedition_" + trip.id, trip.potion_name + " " + trip.species_name + " · " + Humanize(trip.status) + " · " + ReturnTime(trip.returns_at), 16, ink);
             }
             FlowButton(content, "RefreshCareButton", "Refresh creatures and items", () => StartCoroutine(LoadSection(Section.Bestiary))).interactable = !sectionLoading && !IsBusy;
             FlowButton(content, "AcknowledgeCareButton", "I checked the updated collection", () =>

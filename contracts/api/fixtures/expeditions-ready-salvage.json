@@ -1,0 +1,35 @@
+{
+  "expeditions": [
+    {
+      "id": 103,
+      "mount_id": 61,
+      "tier": "short",
+      "status": "active",
+      "started_at": "2026-10-10T12:00:00-07:00",
+      "returns_at": "2026-10-10T14:00:00-07:00",
+      "claimed_at": null,
+      "is_ready": true,
+      "seconds_remaining": -5,
+      "species_name": "Fox",
+      "species_slug": "fixture-fox",
+      "species_sprite_key": "fox",
+      "species_icon": "🦊",
+      "potion_name": "Ice",
+      "potion_slug": "ice",
+      "loot": {
+        "coins": 15,
+        "items": [
+          {
+            "item_id": 79,
+            "quantity": 1,
+            "name": "Synthetic Expedition Frame",
+            "icon": "🖼️",
+            "rarity": "rare",
+            "item_type": "cosmetic_frame",
+            "sprite_key": "fixture-frame"
+          }
+        ]
+      }
+    }
+  ]
+}

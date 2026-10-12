@@ -201,6 +201,144 @@ namespace AbbyCamp.Services
             return mount;
         }
 
+        public static bool IsExpeditionTier(string tier) => tier == "short" || tier == "standard" || tier == "long";
+
+        public static ExpeditionDto ParseExpedition(string json)
+        {
+            var fields = ReadObject(json);
+            RequireInteger(fields, "id", 1);
+            RequireInteger(fields, "mount_id", 1);
+            string tier = BoundedString(fields, "tier", 10, true);
+            string status = BoundedString(fields, "status", 10, true);
+            if (!IsExpeditionTier(tier) || (status != "active" && status != "claimed" && status != "expired"))
+                throw new FormatException("The expedition has an unknown tier or status.");
+            string started = RequiredDate(fields, "started_at");
+            string returns = RequiredDate(fields, "returns_at");
+            string claimed = NullableDate(fields, "claimed_at");
+            if (DateTimeOffset.Parse(returns, CultureInfo.InvariantCulture) < DateTimeOffset.Parse(started, CultureInfo.InvariantCulture)
+                || (status == "claimed") != (claimed != null)
+                || (claimed != null && DateTimeOffset.Parse(claimed, CultureInfo.InvariantCulture) < DateTimeOffset.Parse(returns, CultureInfo.InvariantCulture)))
+                throw new FormatException("The expedition timestamps do not confirm its lifecycle.");
+            RequireBoolean(fields, "is_ready");
+            int seconds = RequireInteger(fields, "seconds_remaining", int.MinValue);
+            bool ready = Require(fields, "is_ready") == "true";
+            // Both values are evaluated separately by Django. A zero countdown
+            // can still be not ready immediately before the return time.
+            if ((ready && seconds > 0) || (!ready && seconds < 0))
+                throw new FormatException("The expedition readiness and countdown are inconsistent.");
+            ValidateExpeditionAppearance(fields);
+            var result = JsonUtility.FromJson<ExpeditionDto>(json);
+            result.claimed_at = claimed;
+            result.species_slug = NullableString(fields, "species_slug", 100);
+            result.potion_slug = NullableString(fields, "potion_slug", 100);
+            result.loot = ParseExpeditionLoot(Require(fields, "loot"));
+            return result;
+        }
+
+        public static ExpeditionDto[] ParseExpeditions(string json)
+        {
+            var records = BoundedRecords(Require(ReadObject(json), "expeditions"), 10000);
+            var result = new ExpeditionDto[records.Count];
+            var ids = new HashSet<int>();
+            var activeMounts = new HashSet<int>();
+            for (int index = 0; index < records.Count; index++)
+            {
+                result[index] = ParseExpedition(records[index]);
+                if (!ids.Add(result[index].id) || (result[index].status == "active" && !activeMounts.Add(result[index].mount_id)))
+                    throw new FormatException("The expedition list contains duplicate identities or active mounts.");
+            }
+            return result;
+        }
+
+        public static ExpeditionDto ParseExpeditionStart(string json, OwnedMountDto expectedMount, string expectedTier, ISet<int> previousIds)
+        {
+            var result = ParseExpedition(json);
+            if (expectedMount == null || previousIds == null || result.mount_id != expectedMount.id
+                || result.tier != expectedTier || previousIds.Contains(result.id) || result.status != "active"
+                || result.claimed_at != null || result.is_ready || result.seconds_remaining < 0)
+                throw new FormatException("The server did not confirm a new expedition for this mount and tier.");
+            return result;
+        }
+
+        public static ExpeditionClaimDto ParseExpeditionClaim(string json, ExpeditionDto expected)
+        {
+            var fields = ReadObject(json);
+            int id = RequireInteger(fields, "expedition_id", 1);
+            string tier = BoundedString(fields, "tier", 10, true);
+            int coins = RequireInteger(fields, "coins_awarded", 0);
+            RequireBoolean(fields, "freshly_claimed");
+            bool fresh = Require(fields, "freshly_claimed") == "true";
+            var mount = ReadObject(Require(fields, "mount"));
+            int mountId = RequireInteger(mount, "id", 1);
+            ValidateExpeditionAppearance(mount);
+            if (expected == null || !expected.CanClaim || expected.loot == null || id != expected.id || mountId != expected.mount_id
+                || tier != expected.tier || !IsExpeditionTier(tier) || (!fresh && coins != 0)
+                || (fresh && coins < expected.loot.coins))
+                throw new FormatException("The server did not confirm this expedition's claim outcome.");
+            var items = ParseExpeditionLootItems(Require(fields, "items"));
+            if (items.Length != expected.loot.items.Length)
+                throw new FormatException("The claim does not match the expedition's recorded loot.");
+            for (int index = 0; index < items.Length; index++)
+            {
+                var planned = expected.loot.items[index];
+                var received = items[index];
+                // The producer retains locked item slots even when an archived
+                // definition is skipped. A fresh inventory read confirms what
+                // is owned; this receipt must not invent granted item totals.
+                if (received.item_id != planned.item_id || received.quantity != planned.quantity
+                    || received.name != planned.name || received.icon != planned.icon || received.rarity != planned.rarity
+                    || received.item_type != planned.item_type || received.sprite_key != planned.sprite_key
+                    || (planned.salvaged_to_coins > 0 && received.salvaged_to_coins != planned.salvaged_to_coins))
+                    throw new FormatException("The claim changed the expedition's recorded item slots.");
+            }
+            var result = JsonUtility.FromJson<ExpeditionClaimDto>(json);
+            result.items = items;
+            result.mount.species_slug = NullableString(mount, "species_slug", 100);
+            result.mount.potion_slug = NullableString(mount, "potion_slug", 100);
+            return result;
+        }
+
+        private static void ValidateExpeditionAppearance(Dictionary<string, string> fields)
+        {
+            BoundedString(fields, "species_name", 100, true);
+            NullableString(fields, "species_slug", 100);
+            BoundedString(fields, "species_sprite_key", 100);
+            BoundedString(fields, "species_icon", 64);
+            BoundedString(fields, "potion_name", 100, true);
+            NullableString(fields, "potion_slug", 100);
+        }
+
+        private static ExpeditionLootDto ParseExpeditionLoot(string json)
+        {
+            var fields = ReadObject(json);
+            return new ExpeditionLootDto
+            {
+                coins = RequireInteger(fields, "coins", 0),
+                items = ParseExpeditionLootItems(Require(fields, "items")),
+            };
+        }
+
+        private static ExpeditionLootItemDto[] ParseExpeditionLootItems(string json)
+        {
+            var records = BoundedRecords(json, 100);
+            var result = new ExpeditionLootItemDto[records.Count];
+            for (int index = 0; index < records.Count; index++)
+            {
+                var fields = ReadObject(records[index]);
+                RequireInteger(fields, "item_id", 1);
+                RequireInteger(fields, "quantity", 1);
+                BoundedString(fields, "name", 200, true);
+                BoundedString(fields, "icon", 100);
+                BoundedString(fields, "rarity", 40, true);
+                BoundedString(fields, "item_type", 100, true);
+                BoundedString(fields, "sprite_key", 100);
+                if (fields.ContainsKey("salvaged_to_coins")) RequireInteger(fields, "salvaged_to_coins", 1);
+                // Repeated item IDs are legitimate independent rolled slots.
+                result[index] = JsonUtility.FromJson<ExpeditionLootItemDto>(records[index]);
+            }
+            return result;
+        }
+
         public static PetFeedDto ParsePetFeed(string json)
         {
             var row = ReadObject(json);

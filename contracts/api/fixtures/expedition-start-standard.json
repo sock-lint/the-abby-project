@@ -1,0 +1,40 @@
+{
+  "id": 104,
+  "mount_id": 62,
+  "tier": "standard",
+  "status": "active",
+  "started_at": "2026-10-10T11:59:59-07:00",
+  "returns_at": "2026-10-10T15:59:59-07:00",
+  "claimed_at": null,
+  "is_ready": false,
+  "seconds_remaining": 14400,
+  "species_name": "Wolf",
+  "species_slug": "fixture-wolf",
+  "species_sprite_key": "wolf",
+  "species_icon": "🐺",
+  "potion_name": "Ice",
+  "potion_slug": "ice",
+  "loot": {
+    "coins": 35,
+    "items": [
+      {
+        "item_id": 71,
+        "quantity": 1,
+        "name": "Berry Bowl",
+        "icon": "🫐",
+        "rarity": "common",
+        "item_type": "food",
+        "sprite_key": "berry-bowl"
+      },
+      {
+        "item_id": 71,
+        "quantity": 1,
+        "name": "Berry Bowl",
+        "icon": "🫐",
+        "rarity": "common",
+        "item_type": "food",
+        "sprite_key": "berry-bowl"
+      }
+    ]
+  }
+}

@@ -45,6 +45,29 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `pet-hatch-unavailable-egg.json` | Hatch rejected with HTTP 400 because the child does not own that egg |
 | `pet-hatch-unavailable-potion.json` | Hatch rejected with HTTP 400 because the child does not own that potion |
 | `pet-hatch-duplicate.json` | Hatch rejected with HTTP 400 because the child already owns that species/potion combination, including an evolved pet |
+| `expedition-start-short.json` | `POST /api/mounts/61/expedition/`, HTTP 201 two-hour run with locked planned loot |
+| `expedition-start-standard.json` | Same start endpoint for mount 62, four-hour run with two planned item slots |
+| `expedition-start-long.json` | Same start endpoint for mount 63, eight-hour run with three planned item slots |
+| `expeditions.json` | `GET /api/expeditions/`, self-scoped raw `{expeditions: [...]}` envelope |
+| `expeditions-ready.json` | `GET /api/expeditions/?ready=true`, only active, returned and unclaimed runs; negative remaining seconds |
+| `expeditions-empty.json` | Same list endpoint with no matching owned rows |
+| `expeditions-claimed.json` | Full history retains the claimed row even though its time-based `is_ready` remains true |
+| `expeditions-expired.json` | Full history retains an expired row; the ready-only list excludes it |
+| `expeditions-ready-claim.json` | Ready short-run context for normal, repeat, boosted and archived-item claim checks |
+| `expeditions-ready-salvage.json` | Ready short-run context with a planned cosmetic the child already owns |
+| `pets-stable-expeditions.json` | Stable mounts expose active expedition summaries with the same identities and locked loot |
+| `expedition-claim.json` | `POST /api/expeditions/103/claim/`, committed first claim with actual base coins and planned item slots |
+| `expedition-claim-repeat.json` | Same claim repeated, `freshly_claimed: false`, zero new coins and no writes |
+| `expedition-claim-boosted.json` | Actual Lucky Coin award differs from the locked base coin preview |
+| `expedition-claim-salvage.json` | Owned cosmetic converts to a separate salvage coin entry, annotated on its planned slot |
+| `expedition-claim-archived-item.json` | Archived planned item stays in the response but creates no inventory; base coin award still commits |
+| `expedition-invalid-tier.json` | Start rejected with HTTP 400 for missing or invalid tier |
+| `expedition-mount-not-owned.json` | Foreign, sibling or unknown mount start rejected with the same HTTP 404 body |
+| `expedition-not-owned.json` | Foreign, sibling or unknown expedition claim rejected with the same HTTP 404 body |
+| `expedition-early-claim.json` | Claim rejected with HTTP 400 before the server return deadline |
+| `expedition-already-active.json` | Start rejected with HTTP 400 while that mount has an active expedition |
+| `expedition-daily-limit.json` | Start rejected with HTTP 400 after the same mount's first run is claimed that local day |
+| `expedition-expired.json` | Expired run claim rejected with HTTP 400 and no awards |
 
 `config/tests/test_api_contract_fixtures.py` seeds fixed family/user/habit/skill
 and companion/item IDs and a fixed clock, sends requests through the real Django
@@ -73,6 +96,35 @@ change the owner; unauthenticated requests are rejected. Typed inventory fields
 `pet_species_name` and `potion_type_name` are display names or explicit null;
 they do not expose catalog IDs or declare potion compatibility. The server
 remains authoritative for ingredient eligibility.
+
+Expeditions remain self-scoped to the authenticated account, including siblings
+within one family. Start submits only `tier`; claim uses the expedition ID in the
+path with an empty POST body. Start and list never award coins or inventory.
+Tier durations, return timestamps and readiness come from Django. Remaining
+seconds are signed and become negative after the return deadline; `is_ready`
+is a time property even on claimed or expired history. A claimable row must have
+both `status: "active"` and server-confirmed readiness. Listing is an unpaginated
+envelope, and `ready=true` excludes claimed and expired history.
+
+Loot is rolled once at start with fixed random input in these producer checks.
+Its item slots can repeat the same item ID, especially on longer runs; these
+slots are distinct from inventory's unique item entries. Claim commits the
+actual base coin award and inventory changes together. `coins_awarded` includes
+Lucky Coin's multiplier, while duplicate cosmetic salvage is a separate ledger
+entry indicated by `salvaged_to_coins` on the slot. The returned `items` remain
+the planned display snapshots: an item archived after start can be skipped by
+materialization while its slot remains in the receipt. Clients must refresh
+inventory and balance rather than treating every planned slot as proof of
+ownership or summing planned coins as a new award. Repeat claims preserve the
+slots with `freshly_claimed: false` and `coins_awarded: 0` and award nothing again.
+
+The expedition producer checks run the real post-commit game loop exactly once
+with `drops_allowed: false`, verify unchanged rewards during reads/start and
+rejections, and compare persisted inventory, coin ledger, drops, skill XP,
+streak and notifications before/after a repeated claim. The local-day start cap
+still applies after claiming, and sibling/foreign-family rows never enter an
+owned list or become eligible for start/claim. Real endpoint-created expedition
+IDs are pinned with a test-table sequence reset for PostgreSQL and SQLite.
 
 `config/tests/test_greenlight_api_contract_fixtures.py` sends the payout,
 snapshot, preview and reconciliation requests through their real views with a
