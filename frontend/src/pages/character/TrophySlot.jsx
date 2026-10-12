@@ -15,7 +15,7 @@ import { RARITY_HALO } from '../../components/atlas/mastery.constants';
  * the parent so the picker (a BottomSheet) lives at page scope and can
  * re-fetch on select without needing to hoist that state here.
  */
-export default function TrophySlot({ badge, onOpen }) {
+export default function TrophySlot({ badge, onOpen, compact = false }) {
   const rarity = badge?.rarity || 'common';
   const accessibleName = badge
     ? `Trophy badge: ${badge.name}. Click to change or clear.`
@@ -28,25 +28,33 @@ export default function TrophySlot({ badge, onOpen }) {
       aria-label={accessibleName}
       data-trophy-slot="true"
       data-filled={badge ? 'true' : 'false'}
-      className="group relative flex flex-col items-center gap-2 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-3xl p-2 transition-transform hover:-translate-y-0.5 active:scale-[0.98]"
+      className={`group relative flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-2xl p-2 transition-transform hover:-translate-y-0.5 active:scale-[0.98] ${compact ? 'w-full text-left border border-ink-page-shadow bg-ink-page-aged' : 'flex-col text-center'}`}
     >
       <div
-        className={`relative w-20 h-20 rounded-3xl border border-ink-page-shadow flex items-center justify-center ${
+        className={`relative shrink-0 border border-ink-page-shadow flex items-center justify-center ${compact ? 'w-11 h-11 rounded-xl' : 'w-20 h-20 rounded-3xl'} ${
           badge
             ? `bg-ink-page-aged ${RARITY_HALO[rarity] || RARITY_HALO.common}`
             : 'border-dashed bg-ink-page/70'
         }`}
       >
         {badge ? (
-          <span aria-hidden="true" className="text-4xl leading-none">
+          <span aria-hidden="true" className={`${compact ? 'text-2xl' : 'text-4xl'} leading-none`}>
             {badge.icon || '\ud83c\udfc5'}
           </span>
         ) : (
-          <Award size={32} aria-hidden="true" className="text-ink-whisper" />
+          <Award size={compact ? 24 : 32} aria-hidden="true" className="text-ink-whisper" />
         )}
       </div>
 
-      {badge ? (
+      {compact ? (
+        <span className="min-w-0 flex-1">
+          <span className="block font-body text-caption text-ink-secondary">Your trophy badge</span>
+          <span className="block font-body font-bold text-body text-ink-primary break-words">
+            {badge?.name || 'Choose an earned badge'}
+          </span>
+          {badge && <span className="block font-body text-tiny text-ink-secondary">{rarity}</span>}
+        </span>
+      ) : badge ? (
         <>
           <div
             className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption font-body font-semibold ${
@@ -72,6 +80,7 @@ export default function TrophySlot({ badge, onOpen }) {
           </div>
         </>
       )}
+      {compact && <span aria-hidden="true" className="font-body text-caption text-sheikah-teal-deep">{badge ? 'Change' : 'Choose'}</span>}
     </button>
   );
 }

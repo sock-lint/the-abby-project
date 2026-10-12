@@ -2,6 +2,7 @@
   "id": 52,
   "species": {
     "id": 42,
+    "slug": "fixture-wolf",
     "name": "Wolf",
     "icon": "🐺",
     "sprite_key": "wolf",

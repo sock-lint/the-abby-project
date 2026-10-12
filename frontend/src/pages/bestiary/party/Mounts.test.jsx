@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Mounts from './Mounts.jsx';
@@ -52,7 +52,22 @@ function renderPage(handlers = []) {
   );
 }
 
+function collection() { return within(screen.getByRole('list', { name: 'Your mounts' })); }
+
 describe('Mounts tab', () => {
+  it('lets the waiting mount begin an expedition directly from its home', async () => {
+    const user = userEvent.setup();
+    const start = spyHandler('post', /\/api\/mounts\/9\/expedition\/$/, { id: 99, status: 'active', tier: 'short' });
+    renderPage([
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [MOUNTS[0]], total_possible: 48 })),
+      start.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: 'Explore with Griffon' }));
+    expect(start.calls).toHaveLength(0);
+    await user.click(await screen.findByRole('button', { name: /Short expedition/ }));
+    await waitFor(() => expect(start.calls).toHaveLength(1));
+    expect(start.calls[0]).toMatchObject({ method: 'POST', body: { tier: 'short' } });
+  });
   it('renders empty state when no mounts', async () => {
     renderPage([
       http.get('*/api/pets/stable/', () =>
@@ -76,7 +91,7 @@ describe('Mounts tab', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Stable offline');
     expect(screen.queryByText(/no mounts yet/i)).toBeNull();
     await user.click(screen.getByRole('button', { name: /try again/i }));
-    expect(await screen.findByText(/Sky Griffon/)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Visit Sky Griffon' })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(requests).toBe(2);
   });
@@ -87,7 +102,7 @@ describe('Mounts tab', () => {
         HttpResponse.json({ pets: [], mounts: MOUNTS, total_possible: 48 }),
       ),
     ]);
-    await waitFor(() => expect(screen.getByText(/Griffon/)).toBeInTheDocument());
+    await waitFor(() => expect(collection().getByText(/Griffon/)).toBeInTheDocument());
     expect(screen.getByRole('tab', { name: /All \(2\)/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Active \(1\)/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Ready to breed \(1\)/ })).toBeInTheDocument();
@@ -101,11 +116,11 @@ describe('Mounts tab', () => {
         HttpResponse.json({ pets: [], mounts: MOUNTS, total_possible: 48 }),
       ),
     ]);
-    await waitFor(() => expect(screen.getByText(/Griffon/)).toBeInTheDocument());
+    await waitFor(() => expect(collection().getByText(/Griffon/)).toBeInTheDocument());
     await user.click(screen.getByRole('tab', { name: /Ready to breed/ }));
     await waitFor(() => {
-      expect(screen.getByText(/Griffon/)).toBeInTheDocument();
-      expect(screen.queryByText(/Wolf/)).toBeNull();
+      expect(collection().getByText(/Griffon/)).toBeInTheDocument();
+      expect(collection().queryByText(/Wolf/)).toBeNull();
     });
   });
 
@@ -116,11 +131,11 @@ describe('Mounts tab', () => {
         HttpResponse.json({ pets: [], mounts: MOUNTS, total_possible: 48 }),
       ),
     ]);
-    await waitFor(() => expect(screen.getByText(/Griffon/)).toBeInTheDocument());
+    await waitFor(() => expect(collection().getByText(/Griffon/)).toBeInTheDocument());
     await user.click(screen.getByRole('tab', { name: /On cooldown/ }));
     await waitFor(() => {
-      expect(screen.queryByText(/Griffon/)).toBeNull();
-      expect(screen.getByText(/Wolf/)).toBeInTheDocument();
+      expect(collection().queryByText(/Griffon/)).toBeNull();
+      expect(collection().getByText(/Wolf/)).toBeInTheDocument();
     });
   });
 
@@ -133,7 +148,7 @@ describe('Mounts tab', () => {
       ),
       activate.handler,
     ]);
-    await waitFor(() => expect(screen.getByText(/Wolf/)).toBeInTheDocument());
+    await waitFor(() => expect(collection().getByText(/Wolf/)).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /set active/i }));
     await waitFor(() => expect(activate.calls).toHaveLength(1));
     expect(activate.calls[0].url).toMatch(/\/mounts\/10\/activate\/$/);
@@ -152,7 +167,7 @@ describe('Mounts tab', () => {
       ),
       start.handler,
     ]);
-    await waitFor(() => expect(screen.getByText(/Wolf/)).toBeInTheDocument());
+    await waitFor(() => expect(collection().getByText(/Wolf/)).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /Send Wolf on an expedition/i }));
     // Sheet appears and offers three tier choices.
     const shortTierBtn = await screen.findByRole('button', { name: /short expedition/i });
@@ -182,7 +197,7 @@ describe('Mounts tab', () => {
     ]);
     // Wait for the "exploring · 30m" countdown chip on the mount card.
     await waitFor(() =>
-      expect(screen.getByText(/exploring · 30m/i)).toBeInTheDocument(),
+      expect(collection().getByText(/exploring · 30m/i)).toBeInTheDocument(),
     );
     expect(screen.queryByRole('button', { name: /Send Griffon on an expedition/i })).toBeNull();
     expect(screen.getByRole('tab', { name: /Out exploring \(1\)/ })).toBeInTheDocument();
@@ -237,7 +252,7 @@ describe('Mounts tab', () => {
       ),
       claim.handler,
     ]);
-    await waitFor(() => expect(screen.getByText(/Griffon/)).toBeInTheDocument());
+    await waitFor(() => expect(collection().getByText(/Griffon/)).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /claim expedition rewards/i }));
     await waitFor(() => expect(claim.calls).toHaveLength(1));
     expect(claim.calls[0].url).toMatch(/\/expeditions\/33\/claim\/$/);

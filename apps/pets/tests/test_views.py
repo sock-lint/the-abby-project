@@ -44,6 +44,7 @@ class StableViewTests(_Fixture):
         resp = self.client.get("/api/pets/stable/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()["total_pets"], 1)
+        self.assertIsNone(resp.json()["pets"][0]["species"]["slug"])
 
 
 class HatchPetTests(_Fixture):

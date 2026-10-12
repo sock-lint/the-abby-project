@@ -16,8 +16,7 @@ docker-compose.override.yml
 .vscode
 .idea
 
-# Unity is packaged separately with Dockerfile.unity-web. The Django image
-# should never contain an editor cache, desktop player, or source art.
+# Retired Unity reference sources never belong in the application image.
 unity/
 scripts/unity/
 
@@ -25,3 +24,8 @@ scripts/unity/
 # BuildKit staging step supplies only the validated portraits to Vite.
 frontend/src/storybook/licensed/
 shared/storybook/licensed/
+frontend/src/companion/licensed/
+scripts/r3f/private/
+frontend/dist-native/
+frontend/android/
+frontend/ios/

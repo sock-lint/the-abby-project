@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import {
   getCharacterProfile,
   getCosmetics,
@@ -25,6 +26,7 @@ import CosmeticChapter from './character/CosmeticChapter';
 import TrophyBadgePicker from './character/TrophyBadgePicker';
 import AdventuresEntry from './character/AdventuresEntry';
 import WellbeingCard from './character/WellbeingCard';
+import AvatarCustomizer from '../components/avatar/AvatarCustomizer';
 import {
   COSMETIC_CHAPTERS,
   mergeSlotCosmetics,
@@ -33,11 +35,9 @@ import {
 const ACTIVE_CHAPTER_KEY = 'atlas:sigil-frontispiece:active-chapter';
 
 /**
- * Character (`/sigil`) — the Frontispiece. Thin orchestrator that merges
- * the character profile, owned cosmetics, the full cosmetic catalog,
- * and the earned/all badges feeds, then renders the hero frontispiece
- * above four cosmetic folios. Trophy picker is a BottomSheet mounted
- * under AnimatePresence so it can slide in and out without refetching.
+ * Profile (`/sigil`) brings together identity, earned badges and cosmetics.
+ * Companion interaction belongs to Pets; this page keeps the
+ * shared account customization and trophy actions easy to reach.
  */
 export default function Character() {
   const { user, setUser } = useAuth();
@@ -230,6 +230,7 @@ export default function Character() {
       progressPct: pct,
       tier: tierForProgress({ unlocked: true, progressPct: pct, level: 0 }),
       ariaLabel: `${chapter.name}, ${owned} of ${total} owned`,
+      variant: 'vessel',
     };
   });
 
@@ -257,18 +258,21 @@ export default function Character() {
         )}
       </AnimatePresence>
 
-      <SigilFrontispiece
-        profile={profile}
-        onOpenTrophyPicker={() => setPickerOpen(true)}
-      />
+      <SigilFrontispiece profile={profile} onOpenTrophyPicker={() => setPickerOpen(true)}>
+        <AvatarCustomizer key={user?.id} profile={profile} onSaved={(confirmed) => setProfileData((current) => ({ ...current, avatar_preferences: confirmed.avatar_preferences }))} />
+      </SigilFrontispiece>
 
-      {user?.role === 'child' && <WellbeingCard />}
+      <div className="flex flex-wrap gap-x-6 gap-y-2 text-body font-semibold text-sheikah-teal-deep">
+        <Link className="inline-flex min-h-11 items-center underline underline-offset-4" to="/settings">Edit account & settings</Link>
+        <Link className="inline-flex min-h-11 items-center underline underline-offset-4" to="/bestiary">My pets</Link>
+      </div>
 
-      <AdventuresEntry />
-
-      <p className="font-body text-body text-ink-secondary text-center leading-relaxed max-w-xl mx-auto">
-        Make this profile yours. Choose an earned badge for your trophy, then personalize your look with the four collections below.
-      </p>
+      <div className="space-y-1">
+        <h2 className="font-body font-bold text-2xl text-ink-primary">Your look</h2>
+        <p className="font-body text-body text-ink-secondary">
+          Choose your frame, title, cover and pet accessory from your collection.
+        </p>
+      </div>
 
       <TomeShelf
         items={shelfItems}
@@ -288,6 +292,10 @@ export default function Character() {
         onEquip={(itemId) => handleEquip(itemId, activeChapter.slot)}
         onUnequip={handleUnequip}
       />
+
+      {user?.role === 'child' && <WellbeingCard />}
+
+      <AdventuresEntry />
 
       <AnimatePresence>
         {pickerOpen && (

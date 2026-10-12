@@ -127,28 +127,28 @@ test('production Django routes survive offline boots and replacement releases un
     }
   }, legacyApiPaths);
   for (const path of legacyApiPaths) expect(await cacheUrls(page)).toContain(`${origin}${path}`);
-  const unityPaths = ['/play', '/play/', '/play/synthetic-deep-route'];
-  for (const path of unityPaths) {
-    const unity = await context.newPage();
-    const response = await unity.goto(`${origin}${path}`);
-    expect(response.fromServiceWorker()).toBe(false);
-    await expect(unity.getByRole('heading')).toHaveText('Synthetic Unity host');
-    await unity.close();
+  const retiredPlayPaths = ['/play', '/play/', '/play/synthetic-deep-route'];
+  for (const path of retiredPlayPaths) {
+    const legacy = await context.newPage();
+    const response = await legacy.goto(`${origin}${path}`);
+    expect(response.fromServiceWorker()).toBe(true);
+    await expect(legacy.locator('#release')).toHaveText('Release A');
+    await legacy.close();
   }
 
   await context.setOffline(true);
   await expectOfflineShell(page, origin, 'A');
-  // Keep the exclusion's path boundary narrow: /playground is a SPA route.
+  // Legacy Play bookmarks now use the React shell, including offline.
   await expectOfflineShell(page, origin, 'A', '/playground');
   for (const path of ['/api/chronicle/', ...legacyApiPaths]) {
     expect(await page.evaluate(async (url) => {
       try { await fetch(url); return 'unexpected response'; } catch { return 'network failure'; }
     }, path)).toBe('network failure');
   }
-  for (const path of unityPaths) {
-    const unity = await context.newPage();
-    await expect(unity.goto(`${origin}${path}`)).rejects.toThrow();
-    await unity.close();
+  for (const path of retiredPlayPaths) {
+    const legacy = await context.newPage();
+    await expectOfflineShell(legacy, origin, 'A', path);
+    await legacy.close();
   }
 
   await context.setOffline(false);

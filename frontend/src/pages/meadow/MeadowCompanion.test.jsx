@@ -1,20 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders, screen } from '../../test/render';
 import { buildUser } from '../../test/factories';
 import { server } from '../../test/server';
 import Meadow from './index';
-
-vi.mock('./meadow.constants', async () => {
-  const actual = await vi.importActual('./meadow.constants');
-  return {
-    ...actual,
-    MEADOW_COMPANION: {
-      id: 'meadow-dragon', name: 'Your chick', portrait: '/assets/chick-test.png',
-      happyPortrait: '/assets/chick-test.png',
-    },
-  };
-});
 
 beforeEach(() => {
   server.use(
@@ -23,16 +12,26 @@ beforeEach(() => {
   );
 });
 
-describe('Configured Meadow companion', () => {
-  it('uses its name and portrait for accessible presentation and keeps its single portrait when greeted', async () => {
+describe('Owned Meadow companion', () => {
+  it('shows the server-selected species and greets it without substituting the generic chick', async () => {
+    server.use(http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [{
+      id: 6, species: { name: 'Fox', sprite_key: 'fox', icon: '🦊' }, potion: { name: 'Base', slug: 'base' },
+      is_active: true, growth_points: 25,
+    }], mounts: [] })));
     const { user } = renderWithProviders(<Meadow />);
-    const portrait = await screen.findByRole('img', { name: 'Your chick' });
-    expect(screen.getByRole('region', { name: 'Your chick’s meadow' })).toBeInTheDocument();
-    expect(portrait).toHaveAttribute('src', '/assets/chick-test.png');
-    expect(screen.queryByRole('img', { name: /dragon/i })).not.toBeInTheDocument();
-
+    expect(await screen.findByRole('img', { name: 'Base Fox' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Your companion’s meadow' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /chick|dragon/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /show 3d view/i })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Say hello' }));
-    expect(screen.getByText(/i.m happy you.re here/i)).toBeInTheDocument();
-    expect(portrait).toHaveAttribute('src', '/assets/chick-test.png');
+    expect(screen.getByText(/hello, base fox/i)).toBeInTheDocument();
+  });
+
+  it('keeps capture usable without granting or choosing a pet for an empty collection', async () => {
+    renderWithProviders(<Meadow />);
+    expect(await screen.findByText(/hatch a pet, then set it active/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Say hello' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep a memory' })).toBeEnabled();
+    expect(screen.getByRole('link', { name: /hatch & breed/i })).toHaveAttribute('href', '/bestiary?tab=hatchery');
   });
 });

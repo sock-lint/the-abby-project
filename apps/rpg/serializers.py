@@ -2,6 +2,39 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory, DropLog
+from .avatar import AVATAR_DEFAULTS, AVATAR_OPTIONS, avatar_appearance
+
+
+class AvatarPreferencesUpdateSerializer(serializers.Serializer):
+    """A complete appearance replacement; omitted choices use pack defaults."""
+
+    avatar_preferences = serializers.JSONField()
+
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            unknown = set(data) - set(self.fields)
+            if unknown:
+                raise serializers.ValidationError({
+                    key: ["This field is not supported."] for key in sorted(unknown)
+                })
+        return super().to_internal_value(data)
+
+    def validate_avatar_preferences(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Appearance choices must be an object.")
+        unknown = set(value) - set(AVATAR_OPTIONS)
+        if unknown:
+            raise serializers.ValidationError({
+                key: ["This appearance choice is not supported."] for key in sorted(unknown)
+            })
+        errors = {
+            key: [f"Choose one of: {', '.join(AVATAR_OPTIONS[key])}."]
+            for key, choice in value.items()
+            if not isinstance(choice, str) or choice not in AVATAR_OPTIONS[key]
+        }
+        if errors:
+            raise serializers.ValidationError(errors)
+        return {**AVATAR_DEFAULTS, **value}
 
 
 class CharacterProfileSerializer(serializers.ModelSerializer):
@@ -12,6 +45,7 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
     active_theme = serializers.SerializerMethodField()
     active_pet_accessory = serializers.SerializerMethodField()
     active_trophy_badge = serializers.SerializerMethodField()
+    avatar_preferences = serializers.SerializerMethodField()
     # Active-boost timers — surface the seconds-remaining so the frontend
     # can render a countdown chip. Null when the boost is inactive (either
     # never used or already expired). The model still owns the absolute
@@ -47,10 +81,14 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "active_theme",
             "active_pet_accessory",
             "active_trophy_badge",
+            "avatar_preferences",
             "created_at",
             "updated_at",
         ]
         read_only_fields = fields
+
+    def get_avatar_preferences(self, obj):
+        return avatar_appearance(obj.avatar_preferences)
 
     @staticmethod
     def _seconds_until(expires_at):

@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { isNativeRuntime } from '../platform/runtime';
 
 function detectStandalone() {
+  if (isNativeRuntime()) return true;
   if (typeof window === 'undefined') return false;
   // iOS Safari uses navigator.standalone; Chrome/Edge/Firefox use the media
   // query. Both branches return true for an installed PWA.
@@ -27,6 +29,7 @@ const InstallPromptContext = createContext({
  * read the captured state via useInstallPrompt().
  */
 function readStashedPrompt() {
+  if (isNativeRuntime()) return null;
   if (typeof window === 'undefined') return null;
   return window.__deferredInstallPrompt || null;
 }
@@ -42,6 +45,7 @@ export function InstallPromptProvider({ children }) {
   const canInstall = Boolean(promptEvent);
 
   useEffect(() => {
+    if (isNativeRuntime()) return undefined;
     function onBeforeInstallPrompt(event) {
       event.preventDefault();
       setPromptEvent(event);
@@ -60,6 +64,7 @@ export function InstallPromptProvider({ children }) {
   }, []);
 
   const install = useCallback(async () => {
+    if (isNativeRuntime()) return { outcome: 'dismissed' };
     if (!promptEvent) return { outcome: 'dismissed' };
     await promptEvent.prompt();
     const choice = await promptEvent.userChoice;

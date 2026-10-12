@@ -2,6 +2,7 @@ import { Smartphone, Share, MoreVertical } from 'lucide-react';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import Button from '../components/Button';
 import { useInstallPrompt } from './useInstallPrompt';
+import { isNativeRuntime } from '../platform/runtime';
 
 // iPadOS 13+ Safari reports a desktop-class "Macintosh; Intel Mac OS X" user
 // agent, so a UA sniff alone can't tell an iPad from a Mac. maxTouchPoints is
@@ -50,7 +51,7 @@ function isAndroidChrome() {
 export default function InstallCard() {
   const { canInstall, install, isStandalone } = useInstallPrompt();
 
-  if (isStandalone) return null;
+  if (isNativeRuntime() || isStandalone) return null;
 
   return (
     <ParchmentCard tone="default" className="flex flex-col gap-3 p-5">

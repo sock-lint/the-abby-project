@@ -1,5 +1,6 @@
 import { api, getToken, clearTokenIfCurrent, getBlob } from './client';
 import { disconnectPushSession, replaceSessionToken } from '../pwa/pushSession';
+import { apiUrl } from './urls';
 
 // Auth
 export const login = async (username, password) => {
@@ -223,7 +224,7 @@ async function getCatalogList(path) {
   let pagePath = path;
 
   while (pagePath) {
-    const pageUrl = new URL(`/api${pagePath}`, window.location.origin);
+    const pageUrl = new URL(apiUrl(pagePath), window.location.origin);
     pageUrl.searchParams.delete('_abby_session');
     pageUrl.searchParams.sort();
     const pageKey = `${pageUrl.pathname}${pageUrl.search}`;
@@ -534,6 +535,7 @@ export const listPendingCreations = () => api.get('/creations/pending/');
 
 // RPG
 export const getCharacterProfile = () => api.get('/character/');
+export const saveAvatarPreferences = (avatar_preferences) => api.post('/character/avatar/', { avatar_preferences });
 export const getStreaks = () => api.get('/streaks/');
 export const getHabits = () => api.get('/habits/');
 export const getHabitHistory = (days = 14) =>
@@ -630,7 +632,7 @@ export const getFamilyQuests = () => api.get('/quests/family/');
 export async function fetchSpriteCatalog(etag = null, { signal } = {}) {
   const headers = { Accept: 'application/json' };
   if (etag) headers['If-None-Match'] = `"${etag}"`;
-  const resp = await fetch('/api/sprites/catalog/', { headers, signal });
+  const resp = await fetch(apiUrl('/sprites/catalog/'), { headers, signal });
   if (resp.status === 304) return { notModified: true };
   if (!resp.ok) throw new Error(`sprite catalog fetch failed: ${resp.status}`);
   return resp.json();

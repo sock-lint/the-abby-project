@@ -70,7 +70,28 @@ function renderPage(handlers = []) {
   );
 }
 
+function collection() { return within(screen.getByRole('list', { name: 'Your companions' })); }
+
 describe('Companions tab', () => {
+  it('opens real care from the waiting companion even when the collection filter excludes it', async () => {
+    const user = userEvent.setup();
+    const feed = spyHandler('post', /\/api\/pets\/1\/feed\/$/, { new_growth: 100, growth_added: 5, evolved: false });
+    renderPage([
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [{ ...PETS[0], is_active: true }, { ...PETS[1], is_active: false }], mounts: [], total_possible: 48 })),
+      http.get('*/api/inventory/', () => HttpResponse.json(FOOD_INVENTORY)),
+      feed.handler,
+    ]);
+    await screen.findByRole('button', { name: 'Spend time with Drake' });
+    expect(screen.queryByRole('button', { name: 'Show 3D view' })).toBeNull();
+    await user.click(screen.getByRole('tab', { name: /Hungry/ }));
+    expect(collection().queryByText(/Drake/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Spend time with Drake' }));
+    const care = await screen.findByRole('dialog', { name: 'Care for Fire Drake' });
+    expect(feed.calls).toHaveLength(0);
+    await user.click(within(care).getByRole('button', { name: /Berries/ }));
+    await waitFor(() => expect(feed.calls).toHaveLength(1));
+    expect(feed.calls[0]).toMatchObject({ method: 'POST', body: { food_item_id: 100 } });
+  });
   it('renders empty state when no pets', async () => {
     renderPage([
       http.get('*/api/pets/stable/', () =>
@@ -106,7 +127,7 @@ describe('Companions tab', () => {
       ),
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     ]);
-    await waitFor(() => expect(screen.getByText(/Drake/)).toBeInTheDocument());
+    await waitFor(() => expect(collection().getByText(/Drake/)).toBeInTheDocument());
     expect(screen.getByRole('tab', { name: /All \(3\)/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Active \(1\)/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Hungry \(2\)/ })).toBeInTheDocument();
@@ -120,7 +141,7 @@ describe('Companions tab', () => {
       ),
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     ]);
-    await waitFor(() => expect(screen.getByText(/Drake/)).toBeInTheDocument());
+    await waitFor(() => expect(collection().getByText(/Drake/)).toBeInTheDocument());
     // Drake (rare) → ring-royal, Fox (common) → ring-moss, Wolf (uncommon) → ring-sheikah-teal
     const haloes = container.querySelectorAll('[class*="ring-royal"], [class*="ring-moss"], [class*="ring-sheikah-teal"]');
     // At minimum the three pets above and the active-pet card outer ring → 3+ matches
@@ -148,8 +169,8 @@ describe('Companions tab', () => {
       ),
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     ]);
-    await waitFor(() => expect(screen.getByText(/Drake/)).toBeInTheDocument());
-    const drake = screen.getByRole('img', { name: /Fire Drake/ });
+    await waitFor(() => expect(collection().getByText(/Drake/)).toBeInTheDocument());
+    const drake = collection().getByRole('img', { name: /Fire Drake/ });
     expect(drake).not.toHaveAttribute('data-dim');
     // The whisper copy is also suppressed for evolved pets.
     expect(screen.queryByText(/getting hungry/i)).toBeNull();
@@ -162,15 +183,15 @@ describe('Companions tab', () => {
       ),
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     ]);
-    await waitFor(() => expect(screen.getByText(/Fox/)).toBeInTheDocument());
+    await waitFor(() => expect(collection().getByText(/Fox/)).toBeInTheDocument());
     expect(screen.getByText(/a little bored/i)).toBeInTheDocument();
     expect(screen.getByText(/getting hungry/i)).toBeInTheDocument();
     // The bored Fox sprite is dimmed; the happy Drake is not. The sprite
     // catalog is empty in tests so RpgSprite emits an emoji fallback span;
     // the data-dim attribute is the same regardless of which branch wins.
-    const fox = screen.getByRole('img', { name: /Earth Fox/ });
+    const fox = collection().getByRole('img', { name: /Earth Fox/ });
     expect(fox).toHaveAttribute('data-dim', 'bored');
-    const drake = screen.getByRole('img', { name: /Fire Drake/ });
+    const drake = collection().getByRole('img', { name: /Fire Drake/ });
     expect(drake).not.toHaveAttribute('data-dim');
   });
 
@@ -182,12 +203,12 @@ describe('Companions tab', () => {
       ),
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     ]);
-    await waitFor(() => expect(screen.getByText(/Drake/)).toBeInTheDocument());
+    await waitFor(() => expect(collection().getByText(/Drake/)).toBeInTheDocument());
     await user.click(screen.getByRole('tab', { name: /Hungry/ }));
     await waitFor(() => {
-      expect(screen.queryByText(/Drake/)).toBeNull();
-      expect(screen.getByText(/Fox/)).toBeInTheDocument();
-      expect(screen.getByText(/Wolf/)).toBeInTheDocument();
+      expect(collection().queryByText(/Drake/)).toBeNull();
+      expect(collection().getByText(/Fox/)).toBeInTheDocument();
+      expect(collection().getByText(/Wolf/)).toBeInTheDocument();
     });
   });
 
@@ -199,12 +220,12 @@ describe('Companions tab', () => {
       ),
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     ]);
-    await waitFor(() => expect(screen.getByText(/Drake/)).toBeInTheDocument());
+    await waitFor(() => expect(collection().getByText(/Drake/)).toBeInTheDocument());
     await user.click(screen.getByRole('tab', { name: /Almost grown/ }));
     await waitFor(() => {
-      expect(screen.getByText(/Drake/)).toBeInTheDocument();
-      expect(screen.queryByText(/Fox/)).toBeNull();
-      expect(screen.queryByText(/Wolf/)).toBeNull();
+      expect(collection().getByText(/Drake/)).toBeInTheDocument();
+      expect(collection().queryByText(/Fox/)).toBeNull();
+      expect(collection().queryByText(/Wolf/)).toBeNull();
     });
   });
 
@@ -218,8 +239,8 @@ describe('Companions tab', () => {
       http.get('*/api/inventory/', () => HttpResponse.json([])),
       activate.handler,
     ]);
-    await waitFor(() => expect(screen.getByText(/Drake/)).toBeInTheDocument());
-    await user.click(screen.getByText(/Drake/));
+    await waitFor(() => expect(collection().getByText(/Drake/)).toBeInTheDocument());
+    await user.click(collection().getByText(/Drake/));
     const setActive = await screen.findByRole('button', { name: /set active/i });
     await user.click(setActive);
     await waitFor(() => expect(activate.calls).toHaveLength(1));
@@ -243,7 +264,7 @@ describe('Companions tab', () => {
     const food = screen.getByTitle('Berries');
     expect(care).not.toContainElement(activate);
     expect(care).not.toContainElement(food);
-    await user.keyboard(' ');
+    await user.keyboard('{Escape}');
     expect(care).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('button', { name: /set active/i })).toBeNull();
   });
@@ -258,8 +279,8 @@ describe('Companions tab', () => {
       http.get('*/api/inventory/', () => HttpResponse.json(FOOD_INVENTORY)),
       feed.handler,
     ]);
-    await waitFor(() => expect(screen.getByText(/Drake/)).toBeInTheDocument());
-    await user.click(screen.getByText(/Drake/));
+    await waitFor(() => expect(collection().getByText(/Drake/)).toBeInTheDocument());
+    await user.click(collection().getByText(/Drake/));
     const foodBtn = await screen.findByTitle('Berries');
     await user.click(foodBtn);
     await waitFor(() => expect(feed.calls).toHaveLength(1));
@@ -277,8 +298,8 @@ describe('Companions tab', () => {
       ),
       http.get('*/api/inventory/', () => HttpResponse.json(FOOD_INVENTORY)),
     ]);
-    await waitFor(() => expect(screen.getByText(/Drake/)).toBeInTheDocument());
-    await user.click(screen.getByText(/Drake/));
+    await waitFor(() => expect(collection().getByText(/Drake/)).toBeInTheDocument());
+    await user.click(collection().getByText(/Drake/));
     const chip = await screen.findByTitle('Berries');
     expect(within(chip).getByText('Berries')).toBeInTheDocument();
     expect(within(chip).getByText('×5')).toBeInTheDocument();

@@ -50,6 +50,13 @@ class WellKnownRoutingTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("text/html", resp["Content-Type"])
 
+    def test_retired_play_bookmarks_redirect_without_old_query_parameters(self):
+        for path in ("/play", "/play/", "/play/old-scene"):
+            with self.subTest(path=path):
+                response = self.client.get(path + "?token=synthetic-obsolete-token")
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(response["Location"], "/bestiary")
+
     def test_oauth_authorize_does_not_serve_spa(self):
         """``/oauth/*`` is now real — the SPA must not capture it.
 

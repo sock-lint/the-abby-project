@@ -7,8 +7,9 @@ components, styling, and testing. Read
 and [src/pages/CLAUDE.md](src/pages/CLAUDE.md) for page changes.
 
 Use endpoint functions from `src/api/index.js`, and reuse the existing UI
-primitives and test scaffolding. Preserve the same-origin journal/Unity
-session and credential-bound account changes described in `CLAUDE.md`.
+primitives and test scaffolding. Preserve credential-bound account changes described in `CLAUDE.md`. Unity is
+retired; React profile/Pets/Meadow use optional R3F with functional DOM/2D fallback.
+Native shells are development-only until session and platform gates pass.
 
 Read [../contracts/api/README.md](../contracts/api/README.md) for shared
 responses. Keep affected fixtures and consumer checks aligned with the actual

@@ -5,6 +5,7 @@ import Companions from './party/Companions';
 import Mounts from './party/Mounts';
 import BestiaryCodex from './codex/BestiaryCodex';
 import Hatchery from './hatchery/Hatchery';
+import { useRole } from '../../hooks/useRole';
 
 /**
  * Bestiary — hub page for "every creature in the journal."
@@ -21,9 +22,11 @@ import Hatchery from './hatchery/Hatchery';
  * avatar menu in the header/sidebar — see AvatarMenu.jsx.
  */
 export default function BestiaryHub() {
+  const { user } = useRole();
   return (
     <>
       <ChapterHub
+        key={user?.id}
         title="Pets"
         kicker="Care for companions and grow your collection"
         glyph="dragon-crest"
@@ -36,6 +39,8 @@ export default function BestiaryHub() {
         ]}
       />
       <div className="max-w-6xl mx-auto mt-4 text-right">
+        <Link to="/sigil" className="inline-flex items-center min-h-11 mr-6 font-semibold text-caption text-sheikah-teal-deep">My profile <ArrowRight size={14} aria-hidden="true" /></Link>
+        <Link to="/treasury?tab=satchel" className="inline-flex items-center min-h-11 mr-6 font-semibold text-caption text-sheikah-teal-deep">Inventory <ArrowRight size={14} aria-hidden="true" /></Link>
         <Link
           to="/atlas"
           className="inline-flex items-center gap-1.5 font-script text-caption text-ink-whisper hover:text-sheikah-teal-deep transition-colors"

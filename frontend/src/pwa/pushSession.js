@@ -1,5 +1,6 @@
 import { api, getToken, setToken } from '../api/client';
 import { STORAGE_KEYS } from '../constants/storage';
+import { isNativeRuntime } from '../platform/runtime';
 
 function readBinding() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.PUSH_SESSION)); } catch { return null; }
@@ -10,6 +11,7 @@ export function rememberPushBinding(token, endpoint) {
 }
 
 export async function getPushRegistration() {
+  if (isNativeRuntime()) return undefined;
   return navigator.serviceWorker?.getRegistration?.('/');
 }
 
@@ -32,6 +34,7 @@ async function postPush(path, body, token, selfHeal = true) {
 }
 
 export function bindPushSession(subscription, token) {
+  if (isNativeRuntime()) return Promise.resolve(false);
   const bind = async () => {
     if (!token || stoppingSessions.has(token) || getToken() !== token) return false;
     try {
