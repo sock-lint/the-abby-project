@@ -53,10 +53,18 @@ LOOT = {"coins": 17, "items": [{"item_id": HIGH_PK, "quantity": 2}]}
 GRATITUDE = ["A preserved gratitude line", "Family time"]
 
 
+def repairs_and_descendants(graph):
+    return {key for repair in DRIFT_MIGRATIONS for key in graph.backwards_plan(repair)}
+
+
 class PreRepairMigrationLoader(MigrationLoader):
     def load_disk(self):
         super().load_disk()
-        for key in DRIFT_MIGRATIONS:
+        # Later migrations can depend on the repairs, including across apps.
+        # Remove their complete descendant closure to reconstruct a valid
+        # historical graph instead of leaving references to missing parents.
+        self.excluded_migrations = repairs_and_descendants(MigrationLoader(self.connection).graph)
+        for key in self.excluded_migrations:
             self.disk_migrations.pop(key, None)
 
 
@@ -319,10 +327,11 @@ assert_no_drift()
 _UPGRADE_CHECK = """
 with patch("django.db.migrations.executor.MigrationLoader", PreRepairMigrationLoader):
     executor = MigrationExecutor(connection)
+    excluded = executor.loader.excluded_migrations
     original_state = executor.migrate(executor.loader.graph.leaf_nodes())
 sentinel = seed_historical_rows(original_state)
 recorded_before = set(MigrationRecorder(connection).applied_migrations())
-assert not (recorded_before & DRIFT_MIGRATIONS)
+assert not (recorded_before & excluded)
 before = database_snapshot()
 sql = []
 def capture(execute, statement, params, many, context):
@@ -331,7 +340,9 @@ def capture(execute, statement, params, many, context):
 with connection.execute_wrapper(capture):
     executor = MigrationExecutor(connection)
     executor.loader.check_consistent_history(connection)
-    targets = executor.loader.graph.leaf_nodes()
+    # Assert the metadata-only contract for the repairs themselves. Newer
+    # descendants may legitimately add columns, so apply them separately.
+    targets = sorted(DRIFT_MIGRATIONS)
     plan = executor.migration_plan(targets)
     assert {(migration.app_label, migration.name) for migration, backwards in plan} == DRIFT_MIGRATIONS
     assert not any(backwards for migration, backwards in plan)
@@ -344,10 +355,39 @@ writes = [statement for statement in sql if statement.lstrip().split()[0].upper(
           in {"INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP", "REPLACE", "TRUNCATE"}]
 assert len(writes) == len(DRIFT_MIGRATIONS), writes
 assert all(statement.startswith('INSERT INTO "django_migrations"') for statement in writes), writes
+
+executor = MigrationExecutor(connection)
+targets = executor.loader.graph.leaf_nodes()
+plan = executor.migration_plan(targets)
+assert {(migration.app_label, migration.name) for migration, backwards in plan} == excluded - DRIFT_MIGRATIONS
+assert not any(backwards for migration, backwards in plan)
+executor.migrate(targets)
+recorded_latest = set(MigrationRecorder(connection).applied_migrations())
+assert recorded_latest - recorded_before == excluded
+assert recorded_before <= recorded_latest
+executor.loader.check_consistent_history(connection)
 assert_no_drift()
 exercise_current_crud(sentinel)
 executor = MigrationExecutor(connection)
 assert executor.migration_plan(executor.loader.graph.leaf_nodes()) == []
+"""
+
+_HISTORICAL_GRAPH_CHECK = """
+from django.db.migrations.graph import MigrationGraph
+
+repair = ("rpg", "0023_characterprofile_growth_help_text_and_drop_triggers")
+ancestor = ("rpg", "historical_parent")
+child = ("rpg", "later_schema_change")
+grandchild = ("other_app", "cross_app_followup")
+sibling = ("other_app", "unrelated_branch")
+graph = MigrationGraph()
+for key in DRIFT_MIGRATIONS | {ancestor, child, grandchild, sibling}:
+    graph.add_node(key, None)
+graph.add_dependency(None, repair, ancestor)
+graph.add_dependency(None, child, repair)
+graph.add_dependency(None, grandchild, child)
+graph.add_dependency(None, sibling, ancestor)
+assert repairs_and_descendants(graph) == DRIFT_MIGRATIONS | {child, grandchild}
 """
 
 
@@ -375,3 +415,6 @@ class RealMigrationDriftTests(unittest.TestCase):
 
     def test_existing_leaf_upgrade_preserves_schema_rows_and_sequences(self):
         self.run_migration_check(_UPGRADE_CHECK)
+
+    def test_historical_graph_excludes_transitive_cross_app_descendants_only(self):
+        self.run_migration_check(_HISTORICAL_GRAPH_CHECK)
