@@ -18,6 +18,12 @@ GitHub's strict `main` status-check protection was updated to require
 and browser-bridge requirements were removed; other protections were preserved.
 GitHub's automatic merged-branch deletion remains enabled.
 
+`UNITY_WEB_RELEASE_ENABLED` and `UNITY_VALIDATION_RUNNER_ENABLED` were set to
+`false` so the old workflow on `main` cannot rebuild/redeploy the retired client
+before this PR merges. The last main deployment was already complete. Other
+application release flags, private input pointers and signing/deployment
+credentials were preserved.
+
 React `/play/*` bookmarks and Django `/play`, `/play/` and nested links resolve
 to the pet collection. Django drops obsolete query parameters. `/profile` and
 `/pets` aliases lead to existing `/sigil` and `/bestiary` routes. Meadow links
