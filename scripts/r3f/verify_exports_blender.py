@@ -57,12 +57,21 @@ def main():
     args.evidence = args.evidence.resolve()
     args.evidence.mkdir(parents=True, exist_ok=True)
     reports = {}
+    manifest = json.loads((args.directory / "manifest.json").read_text(encoding="utf-8"))
+    takes = []
     for model in ("chick", "bird"):
+        entry = manifest["models"][model]
+        takes.append((model, entry["file"]))
+        for interaction, take in entry.get("interaction_clips", {}).items():
+            takes.append((f"{model}-{interaction}", take["file"]))
+    for model, filename in takes:
         reset()
-        bpy.ops.import_scene.gltf(filepath=str(args.directory / (model + ".glb")))
+        bpy.ops.import_scene.gltf(filepath=str(args.directory / filename))
         meshes = [obj for obj in bpy.context.scene.objects if obj.type == "MESH"]
         armatures = [obj for obj in bpy.context.scene.objects if obj.type == "ARMATURE"]
-        if not meshes or not armatures or len(bpy.data.actions) != 1:
+        # A single glTF turn clip can reimport as an armature action plus an
+        # object-root action. Both are part of that supplied take and must run.
+        if not meshes or len(armatures) != 1 or not armatures[0].animation_data or not armatures[0].animation_data.action:
             raise ValueError("GLB did not preserve the reviewed animated skin")
         scene = setup_render()
         end = int(max(action.frame_range[1] for action in bpy.data.actions))
@@ -70,6 +79,7 @@ def main():
         if len(frames) != 3:
             raise ValueError("GLB animation duration is too short")
         positions = []
+        sampled_bounds = []
         for index, frame in enumerate(frames):
             scene.frame_set(frame)
             bpy.context.view_layer.update()
@@ -78,15 +88,20 @@ def main():
             if not all(math.isfinite(component) for vertex in vertices for component in vertex):
                 raise ValueError("GLB skin produced non-finite vertices")
             positions.append(vertices)
-            if index < 2:
-                scene.render.filepath = str(args.evidence / f"{model}-frame-{frame}.png")
-                bpy.ops.render.render(write_still=True)
+            sampled_bounds.append({
+                "frame": frame,
+                "min": [min(vertex[axis] for vertex in vertices) for axis in range(3)],
+                "max": [max(vertex[axis] for vertex in vertices) for axis in range(3)],
+            })
+            scene.render.filepath = str(args.evidence / f"{model}-frame-{frame}.png")
+            bpy.ops.render.render(write_still=True)
         maximum = max((first - middle).length for first, middle in zip(positions[0], positions[1]))
         if maximum < 0.001:
             raise ValueError("GLB skin does not animate")
         reports[model] = {
             "frames": frames, "maximum_vertex_displacement": maximum,
             "bone_counts": [len(obj.data.bones) for obj in armatures],
+            "sampled_bounds": sampled_bounds,
         }
     reset()
     bpy.ops.import_scene.gltf(filepath=str(args.directory / "woodland.glb"))
@@ -125,7 +140,7 @@ def main():
     scene.render.filepath = str(args.evidence / "woodland.png")
     bpy.ops.render.render(write_still=True)
     (args.evidence / "render-validation.json").write_text(json.dumps(reports, indent=2) + "\n", encoding="utf-8")
-    print("GLB_SAMPLED_VALIDATION", json.dumps(reports))
+    print("GLB_SAMPLED_VALIDATION", json.dumps(reports))  # noqa: T201 — CLI evidence summary
 
 
 if __name__ == "__main__":

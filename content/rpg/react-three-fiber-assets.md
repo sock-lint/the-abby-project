@@ -139,10 +139,13 @@ references. Their supplied UVs and skin weights are retained; textures are
 bounded to 512 pixels. A static parent normalizes resting height/grounding
 without rewriting source animation keys. Greetings use simple local motion.
 
-The representative woodland uses eight instances from five existing meshes:
-soft-edge ground, three trees, two rocks, a mushroom and a pillar. It is not a
-conversion of the entire purchased pack. Camera framing must accommodate the
-Bird's full animated wingspan, rather than only its resting bounds.
+The representative woodland export uses eight instances from five existing
+meshes: soft-edge ground, three trees, two rocks, a mushroom and a pillar.
+Runtime presentation reuses those meshes in an asymmetric grove with a larger
+muted ground, small edge details, warm lighting, mist and a lightweight contact
+shadow. It is not a conversion of the entire purchased pack or furnishing
+ownership. Camera framing accommodates the Bird's full animated wingspan,
+rather than only its resting bounds.
 
 ## Export evidence and remaining acceptance
 
@@ -172,11 +175,24 @@ measuring size/grounding. Reimport validation requires three upright stems
 meeting the ground and the supplied green grass surface facing upward. This
 prevents sideways trees or a rotated island from passing a geometry-only check.
 
-Separate movement FBX takes remain outside accepted runtime capabilities.
-A trial transfer found differing jaw bind/mesh poses; their animation is not
-claimed as verified. The runtime manifest deliberately has no movement clip.
-The fixed companion home needs no movement take, eating animation, breeding
-animation or custom hatch rig. Revisit a clip only for a slice that needs it.
+Six additional friendly takes passed desktop conversion/reimport/render checks:
+Chick's `Jump Forward In Place`, Bird's `Fly Forward In Place`, and each
+creature's `Turn Left` / `Turn Right`. Each interaction export retains its
+complete supplied rig and keys. Transferring tracks onto the idle rig distorted
+Chick's jaw and Bird's leg platforms, so runtime playback swaps the complete
+matched take with the exact idle-derived normalization. Bird turns preserve
+the animated object root as well as skeletal tracks. Turns play forward and
+reverse to face front again; jump/flight use four bounded supplied loops and
+return to idle. The private manifest's `interaction_clips` records each file,
+clip, hash and return behavior; the private conversion report retains source
+provenance.
+
+Pet tapping and play remain local presentation with no growth, XP, Coins or
+items. Existing confirmed feed/claim receipts may trigger a small visual
+acknowledgement. No eating, sleeping, combat, breeding or custom hatch clip is
+claimed. Motion pauses outside the viewport, in background/hidden tabs, when
+disabled, and for reduced-motion preferences. Failed models retain purchased
+portraits and usable DOM care/expedition controls.
 
 This evidence establishes desktop conversion and render feasibility. Real
 iPhone/Android graphics, battery/thermal, lifecycle, keyboard, safe-area,

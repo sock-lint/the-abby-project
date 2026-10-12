@@ -1,5 +1,5 @@
 import math
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -121,12 +121,16 @@ class UserMountSerializer(serializers.ModelSerializer):
     active_expedition = serializers.SerializerMethodField()
     can_breed = serializers.SerializerMethodField()
     breeding_cooldown_seconds = serializers.SerializerMethodField()
+    expedition_available = serializers.SerializerMethodField()
+    expedition_available_at = serializers.SerializerMethodField()
+    expedition_available_in_seconds = serializers.SerializerMethodField()
 
     class Meta:
         model = UserMount
         fields = [
             "id", "species", "potion", "is_active",
             "last_bred_at", "active_expedition", "can_breed", "breeding_cooldown_seconds",
+            "expedition_available", "expedition_available_at", "expedition_available_in_seconds",
             "created_at", "updated_at", "catalog_available",
         ]
         read_only_fields = fields
@@ -174,6 +178,15 @@ class UserMountSerializer(serializers.ModelSerializer):
         DB hit. Falls back to a query when the attribute is absent so the
         serializer keeps working in admin / tests / one-off callers.
         """
+        active = self._active_expedition(obj)
+        return MountExpeditionSerializer(active, context={"expedition_as_of": self.expedition_as_of}).data if active else None
+
+    def _active_expedition(self, obj):
+        # Reuse the active row across readiness and daily availability fields.
+        if not hasattr(self, "_active_expeditions"):
+            self._active_expeditions = {}
+        if obj.pk in self._active_expeditions:
+            return self._active_expeditions[obj.pk]
         prefetched = getattr(obj, "prefetched_active_expeditions", None)
         if prefetched is not None:
             active = prefetched[0] if prefetched else None
@@ -184,14 +197,58 @@ class UserMountSerializer(serializers.ModelSerializer):
                 .order_by("-started_at")
                 .first()
             )
-        if active is None:
+        self._active_expeditions[obj.pk] = active
+        return active
+
+    @cached_property
+    def expedition_as_of(self):
+        return timezone.now()
+
+    @cached_property
+    def expedition_today(self):
+        # Match ExpeditionService.start's current Django local-day policy.
+        # Neither a family's timezone nor the phone's clock authorizes a run.
+        return timezone.localdate(self.expedition_as_of)
+
+    def _expedition_used_today(self, obj):
+        if not hasattr(self, "_expedition_today_by_owner"):
+            self._expedition_today_by_owner = {}
+        if obj.user_id not in self._expedition_today_by_owner:
+            self._expedition_today_by_owner[obj.user_id] = set(
+                MountExpedition.objects.filter(
+                    mount__user_id=obj.user_id, started_at__date=self.expedition_today,
+                ).values_list("mount_id", flat=True)
+            )
+        return obj.pk in self._expedition_today_by_owner[obj.user_id]
+
+    def get_expedition_available(self, obj):
+        return self._active_expedition(obj) is None and not self._expedition_used_today(obj)
+
+    def get_expedition_available_at(self, obj):
+        # An unclaimed trip requires an explicit claim, so no timestamp can
+        # promise another launch. Otherwise today's run resets at midnight.
+        if self._active_expedition(obj) is not None or not self._expedition_used_today(obj):
             return None
-        return MountExpeditionSerializer(active).data
+        return serializers.DateTimeField().to_representation(self.next_expedition_day)
+
+    @cached_property
+    def next_expedition_day(self):
+        next_day = self.expedition_today + timedelta(days=1)
+        return timezone.make_aware(
+            datetime.combine(next_day, time.min), timezone.get_current_timezone(),
+        )
+
+    def get_expedition_available_in_seconds(self, obj):
+        if self._active_expedition(obj) is not None:
+            return None
+        if not self._expedition_used_today(obj):
+            return 0
+        return max(0, math.ceil((self.next_expedition_day - self.expedition_as_of).total_seconds()))
 
 
 class MountExpeditionSerializer(serializers.ModelSerializer):
-    is_ready = serializers.BooleanField(read_only=True)
-    seconds_remaining = serializers.IntegerField(read_only=True)
+    is_ready = serializers.SerializerMethodField()
+    seconds_remaining = serializers.SerializerMethodField()
     mount_id = serializers.IntegerField(source="mount.pk", read_only=True)
     species_name = serializers.CharField(source="mount.species.name", read_only=True)
     species_slug = serializers.CharField(source="mount.species.slug", read_only=True)
@@ -211,3 +268,13 @@ class MountExpeditionSerializer(serializers.ModelSerializer):
             "loot",
         ]
         read_only_fields = fields
+
+    @cached_property
+    def expedition_as_of(self):
+        return self.context.get("expedition_as_of") or timezone.now()
+
+    def get_is_ready(self, obj):
+        return self.expedition_as_of >= obj.returns_at
+
+    def get_seconds_remaining(self, obj):
+        return int((obj.returns_at - self.expedition_as_of).total_seconds())

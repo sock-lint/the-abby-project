@@ -20,8 +20,14 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 LICENSE_URL = "https://www.meshtint.com/pages/terms-of-use-license"
 CREATURES = {
-    "chick": {"form": "Chick", "idle": "Idle", "height": 1.8},
-    "bird": {"form": "Bird", "idle": "Fly Idle", "height": 2.0},
+    "chick": {
+        "form": "Chick", "idle": "Idle", "height": 1.8,
+        "interactions": {"play": "Jump Forward In Place", "left": "Turn Left", "right": "Turn Right"},
+    },
+    "bird": {
+        "form": "Bird", "idle": "Fly Idle", "height": 2.0,
+        "interactions": {"play": "Fly Forward In Place", "left": "Turn Left", "right": "Turn Right"},
+    },
 }
 FOREST_MODELS = (
     "FBX/FBX 1.1/Ground 01 Soft Edge.FBX", "FBX/Tree 02.FBX",
@@ -108,8 +114,9 @@ def prepare(source: Path, output: Path, blender: Path) -> dict:
     selected: dict[str, Path] = {}
     for entry in CREATURES.values():
         folder = f"{entry['form']} Cute Series"
-        relative = f"{folder}/FBX/{entry['form']}@{entry['idle']}.FBX"
-        selected[relative] = source / relative
+        for clip in (entry["idle"], *entry["interactions"].values()):
+            relative = f"{folder}/FBX/{entry['form']}@{clip}.FBX"
+            selected[relative] = source / relative
         relative = f"{folder}/Textures/{entry['form']}.psd"
         selected[relative] = source / relative
     for relative in FOREST_MODELS:
@@ -171,6 +178,14 @@ def prepare(source: Path, output: Path, blender: Path) -> dict:
             "file": filename, "idle_clip": entry["idle"], "movement_clip": None,
             "scale": 1, "rotation_y": 0, **metadata,
         }
+        models[key]["interaction_clips"] = {
+            interaction: {
+                "file": f"{key}-{interaction}.glb", "clip": clip,
+                "return_motion": "reverse" if interaction in ("left", "right") else "idle",
+                **verify_export(output / f"{key}-{interaction}.glb", [clip]),
+            }
+            for interaction, clip in entry["interactions"].items()
+        }
     models["woodland"] = {
         "file": "woodland.glb", "scale": 1, "rotation_y": 0,
         **verify_export(output / "woodland.glb", []),
@@ -206,9 +221,9 @@ def main() -> int:
     source, output = args.source.resolve(), args.output.resolve()
     ensure_private_output(output, source)
     manifest = prepare(source, output, find_blender(args.blender))
-    print("Prepared three private runtime GLBs; original inputs are unchanged.")
-    print("Verified embedded textures, skinning and exact supplied clip names; phone acceptance and delivery review remain open.")
-    print(json.dumps({key: {"bytes": item["bytes"], "clips": item["clips"]} for key, item in manifest["models"].items()}))
+    print("Prepared private idle, interaction and woodland GLBs; original inputs are unchanged.")  # noqa: T201 — CLI status
+    print("Verified embedded textures, skinning and exact supplied clip names; phone acceptance and delivery review remain open.")  # noqa: T201 — CLI status
+    print(json.dumps({key: {"bytes": item["bytes"], "clips": item["clips"]} for key, item in manifest["models"].items()}))  # noqa: T201 — CLI evidence summary
     return 0
 
 

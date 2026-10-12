@@ -1,6 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Map as MapIcon } from 'lucide-react';
 import {
   getStable, activateMount, claimExpedition,
 } from '../../../api';
@@ -19,10 +18,12 @@ import ExpeditionLaunchSheet from './ExpeditionLaunchSheet';
 import CompanionPreview from '../../../components/companion/CompanionPreview';
 import OwnedMountGrid from './OwnedMountGrid';
 import { isCatalogAvailable } from '../../../utils/catalogAvailability';
+import DailyExpeditionCard from './DailyExpeditionCard';
+import useExpeditionRefresh from './useExpeditionRefresh';
+import usePetMutationGuard from './usePetMutationGuard';
 import {
   MOUNT_FILTERS,
   compareByRarityThenName,
-  formatExpeditionRemaining,
 } from './party.constants';
 
 /**
@@ -39,9 +40,13 @@ export default function Mounts() {
   const [launchMount, setLaunchMount] = useState(null);
   const [claimedExpedition, setClaimedExpedition] = useState(null);
   const [previewId, setPreviewId] = useState(null);
+  const [reaction, setReaction] = useState(null);
+  const receiptCounter = useRef(0);
+  const beginMutation = usePetMutationGuard();
   const [searchParams] = useSearchParams();
 
   const mounts = useMemo(() => stableData?.mounts || [], [stableData]);
+  useExpeditionRefresh(mounts, reload);
   const supportedMounts = useMemo(() => mounts.filter(isCatalogAvailable), [mounts]);
   const savedMounts = mounts.filter((mount) => !isCatalogAvailable(mount));
   const totalPossible = stableData?.total_possible || 0;
@@ -61,7 +66,6 @@ export default function Mounts() {
   const requestedId = Number(searchParams.get('mount'));
   const homeMount = supportedMounts.find((mount) => mount.id === previewId)
     || supportedMounts.find((mount) => mount.id === requestedId) || supportedMounts.find((mount) => mount.is_active) || supportedMounts[0];
-  const homeExpedition = homeMount?.active_expedition?.status === 'active' ? homeMount.active_expedition : null;
   const companionName = homeMount?.species.id != null && homeMount?.potion.id != null
     ? stableData?.pets?.find((pet) => pet.species.id === homeMount.species.id && pet.potion.id === homeMount.potion.id)?.name?.trim() : null;
   const homeCreature = companionName ? { ...homeMount, name: companionName } : homeMount;
@@ -80,24 +84,33 @@ export default function Mounts() {
   }
 
   const handleActivateMount = async (mountId) => {
+    const request = beginMutation();
+    if (!request) return;
     setWorking(true);
     setError('');
-    try { await activateMount(mountId); reload(); }
-    catch (e) { setError(e.message); }
-    finally { setWorking(false); }
+    try { await activateMount(mountId); if (request.isCurrent()) reload(); }
+    catch (e) { if (request.isCurrent()) setError(e.message); }
+    finally { if (request.isCurrent()) setWorking(false); request.finish(); }
   };
 
   const handleClaim = async (expeditionId) => {
+    const request = beginMutation();
+    if (!request) return;
     setWorking(true);
     setError('');
     try {
       const result = await claimExpedition(expeditionId);
-      setClaimedExpedition(result);
+      if (!request.isCurrent()) return;
+      if (result.freshly_claimed === true) {
+        setClaimedExpedition(result);
+        if (result.mount?.id === homeMount?.id) setReaction({ id: ++receiptCounter.current, creatureId: result.mount.id, action: 'celebrate' });
+      }
       reload();
     } catch (e) {
-      setError(e.message || 'Could not claim expedition.');
+      if (request.isCurrent()) setError(e.message || 'Could not claim expedition.');
     } finally {
-      setWorking(false);
+      if (request.isCurrent()) setWorking(false);
+      request.finish();
     }
   };
 
@@ -107,16 +120,11 @@ export default function Mounts() {
         variant="primary"
         kind="mount"
         creature={homeCreature}
-        kicker="Ready for a little adventure"
-        summary={homeExpedition ? homeExpedition.is_ready ? 'Your companion is back. See what they found.' : `Out exploring · ${formatExpeditionRemaining(homeExpedition.seconds_remaining)}` : 'Choose an expedition, then come back to discover what your companion found.'}
-        onInteract={homeExpedition ? homeExpedition.is_ready ? () => { if (!working) handleClaim(homeExpedition.id); } : undefined : () => setLaunchMount(homeMount)}
-        interactionLabel={homeExpedition?.is_ready ? `Collect finds from ${companionName || homeMount.species.name}` : `Explore with ${companionName || homeMount.species.name}`}
+        kicker="At home in your woodland"
+        summary="Play together, then choose a little adventure for today."
+        reaction={reaction?.creatureId === homeMount.id ? reaction : null}
       >
-        <div className="companion-preview-actions">
-          {homeExpedition?.is_ready ? <Button disabled={working} onClick={() => handleClaim(homeExpedition.id)}>{working ? 'Collecting…' : 'Collect your finds'}</Button>
-            : !homeExpedition ? <Button disabled={working} onClick={() => setLaunchMount(homeMount)}>Choose an expedition</Button>
-              : <Button variant="secondary" disabled={working} onClick={reload}>Check their return</Button>}
-        </div>
+        <DailyExpeditionCard mount={homeMount} name={companionName || homeMount.species.name} working={working} onLaunch={setLaunchMount} onClaim={handleClaim} onRefresh={reload} />
       </CompanionPreview>}
       <IncipitBand
         letter="M"
@@ -169,7 +177,7 @@ export default function Mounts() {
           No grown pets match this filter.
         </EmptyState>
       ) : (
-        <OwnedMountGrid mounts={visibleMounts} working={working} onActivate={handleActivateMount} onPreview={setPreviewId} onClaim={handleClaim} onLaunch={setLaunchMount} />
+        <OwnedMountGrid mounts={visibleMounts} working={working} onActivate={handleActivateMount} onPreview={(id) => { setReaction(null); setPreviewId(id); }} onClaim={handleClaim} onLaunch={setLaunchMount} />
       )}
 
       {savedMounts.length > 0 && <section className="space-y-3" aria-label="Saved collection">

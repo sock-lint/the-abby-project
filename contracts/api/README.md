@@ -69,6 +69,8 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `expeditions-ready-claim.json` | Ready short-run context for normal, repeat, boosted and archived-item claim checks |
 | `expeditions-ready-salvage.json` | Ready short-run context with a planned cosmetic the child already owns |
 | `pets-stable-expeditions.json` | Stable mounts expose active expedition summaries with the same identities and locked loot |
+| `pets-stable-expedition-rested.json` | After claim, the same mount cannot explore again until Django's next local midnight |
+| `pets-stable-expedition-next-day.json` | The next server day permits another expedition without changing saved rewards |
 | `expedition-claim.json` | `POST /api/expeditions/103/claim/`, committed first claim with actual base coins and planned item slots |
 | `expedition-claim-repeat.json` | Same claim repeated, `freshly_claimed: false`, zero new coins and no writes |
 | `expedition-claim-boosted.json` | Actual Lucky Coin award differs from the locked base coin preview |
@@ -171,6 +173,19 @@ Both fields use one server clock snapshot so a deadline passing during
 serialization cannot produce conflicting values. An active expedition does not
 change the existing breeding rule. A client must refresh eligibility rather
 than authorize a breed from its own countdown.
+
+Mount responses also include read-only `expedition_available` and
+`expedition_available_at`. Availability is true only with no active/unclaimed
+trip and no expedition started that Django local day, including claimed or
+expired trips. A claimed trip from today receives the next local midnight as
+an ISO timestamp; an available mount or an unclaimed trip receives null.
+`expedition_available_in_seconds` is the server-relative wait until that
+midnight, zero when available and null for active/unclaimed trips. It lets a
+client schedule its next refresh without trusting the device clock.
+The current Django timezone defines that day, matching the start service;
+family and phone clocks do not alter it. Reads grant no rewards and never claim
+a returned trip. Clients may refresh at a deadline or on resume, but start and
+claim remain explicit server-authorized actions.
 
 Breeding submits distinct supported owned `mount_a_id` and `mount_b_id` values. The service
 adds one registered egg and one potion to the authenticated account's inventory,

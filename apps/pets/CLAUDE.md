@@ -41,6 +41,40 @@ and PostgreSQL [`tests/test_catalog_concurrency.py`](tests/test_catalog_concurre
 - `PetService` — `hatch_pet`, `feed_pet`, `evolve`, `set_active_pet`, `set_active_mount`, `breed_mounts`, `auto_grow_companions`, `happiness_for_pet`, `get_stable(user)` (returns dict with pets, mounts, totals for StableView).
 - `ExpeditionService` (`apps/pets/expeditions.py`) — `start`, `claim`, `list_for_user`. `TIER_CONFIG` (short/standard/long). Exceptions: `ExpeditionError`, `ExpeditionNotFound`.
 
+### Daily expedition presentation (October 2026)
+
+Every mount read/activation response carries `expedition_available`,
+`expedition_available_at` and `expedition_available_in_seconds`. A mount is
+available only with no active/unclaimed expedition and no expedition started
+that Django local day. Claimed and expired runs still use today's allowance.
+When that allowance is used, the timestamp names the next local midnight and
+the integer gives a rounded-up server-relative wait. Available mounts return
+null/zero; active trips return null/null because collecting the return requires
+an explicit claim first. These read-only fields match `ExpeditionService.start`
+and do not change its rules. Use the current Django timezone, independently of
+family or phone settings. Readiness, remaining seconds and availability share
+a server snapshot; serialized reads never claim a trip or award anything.
+
+`DailyExpeditionCard` presents ready, away, returned and explored-today states
+on both Companions' grown Bird home and Grown pets. The card opens the existing
+duration sheet or explicitly claims the returned trip. Canvas greetings remain
+local play and cannot start or claim expeditions. `useExpeditionRefresh`
+reconciles on focus/visible resume and schedules a refresh from server-relative
+return/day seconds; a timer never declares a claim or locally changes eligibility.
+Rounded-zero waits are bounded to prevent tight retry loops. Owned collection
+tiles also suppress a second same-day launch without removing saved legacy
+mount journeys.
+
+Feed, activation, launch and claim receipt callbacks use
+`usePetMutationGuard` to prevent duplicate concurrent clicks and ignore results
+after navigation or credential replacement. Successful feeds may trigger a
+friendly local reaction; only `freshly_claimed: true` starts the return ceremony.
+Refresh inventory/balance after confirmed claims rather than interpreting the
+planned loot as new ownership. Shared wire fixtures cover resting and next-day
+stable states; `test_expedition_eligibility.py` covers local midnight, unclaimed
+returns, snapshot consistency and sibling isolation. No new play counters,
+check-in rewards, XP or growth rules are introduced by these interactions.
+
 ## Endpoints
 - `POST /api/mounts/breed/ {mount_a_id, mount_b_id}` — breed two mounts.
 - `POST /api/mounts/<id>/expedition/ {tier}` — start an expedition.

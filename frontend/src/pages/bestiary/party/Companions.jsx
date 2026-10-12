@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { getStable, getInventory, feedPet, activatePet } from '../../../api';
+import { useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { getStable, getInventory, feedPet, activatePet, claimExpedition } from '../../../api';
 import { useApi } from '../../../hooks/useApi';
 import Loader from '../../../components/Loader';
 import EmptyState from '../../../components/EmptyState';
@@ -18,6 +18,10 @@ import PetCeremonyModal from '../PetCeremonyModal';
 import CompanionPreview from '../../../components/companion/CompanionPreview';
 import OwnedPetGrid from './OwnedPetGrid';
 import { isCatalogAvailable } from '../../../utils/catalogAvailability';
+import DailyExpeditionCard from './DailyExpeditionCard';
+import ExpeditionLaunchSheet from './ExpeditionLaunchSheet';
+import useExpeditionRefresh from './useExpeditionRefresh';
+import usePetMutationGuard from './usePetMutationGuard';
 
 /**
  * Companions — owned, unevolved pets. Lifted from the old Stable.jsx
@@ -25,7 +29,6 @@ import { isCatalogAvailable } from '../../../utils/catalogAvailability';
  * to evolve) so a roster of dozens stays navigable.
  */
 export default function Companions() {
-  const navigate = useNavigate();
   const {
     data: stableData, loading: loadingStable, error: stableError, reload: reloadStable,
   } = useApi(getStable);
@@ -39,8 +42,15 @@ export default function Companions() {
   const [viewPetId, setViewPetId] = useState(null);
   const [working, setWorking] = useState(false);
   const [evolveCeremony, setEvolveCeremony] = useState(null);
+  const [launchMount, setLaunchMount] = useState(null);
+  const [claimedExpedition, setClaimedExpedition] = useState(null);
+  const [reaction, setReaction] = useState(null);
+  const receiptCounter = useRef(0);
+  const beginMutation = usePetMutationGuard();
 
   const pets = useMemo(() => stableData?.pets || [], [stableData]);
+  const mounts = useMemo(() => stableData?.mounts || [], [stableData]);
+  useExpeditionRefresh(mounts, reloadStable);
   const supportedPets = useMemo(() => pets.filter(isCatalogAvailable), [pets]);
   const savedPets = pets.filter((pet) => !isCatalogAvailable(pet));
   const totalPossible = stableData?.total_possible || 0;
@@ -88,25 +98,48 @@ export default function Companions() {
   }
 
   const handleFeed = async (pet, foodItemId) => {
+    const request = beginMutation();
+    if (!request) return;
     setWorking(true);
     setError('');
     try {
       const result = await feedPet(pet.id, foodItemId);
+      if (!request.isCurrent()) return;
       setSelectedPet(null);
       if (result?.evolved) {
         setEvolveCeremony({ species: pet.species, potion: pet.potion });
       }
+      if (!result?.evolved) setReaction({ id: ++receiptCounter.current, creatureId: pet.id, action: 'celebrate' });
       refresh();
-    } catch (e) { setError(e.message); }
-    finally { setWorking(false); }
+    } catch (e) { if (request.isCurrent()) setError(e.message); }
+    finally { if (request.isCurrent()) setWorking(false); request.finish(); }
   };
 
   const handleActivatePet = async (petId) => {
+    const request = beginMutation();
+    if (!request) return;
     setWorking(true);
     setError('');
-    try { await activatePet(petId); refresh(); }
-    catch (e) { setError(e.message); }
-    finally { setWorking(false); }
+    try { await activatePet(petId); if (request.isCurrent()) refresh(); }
+    catch (e) { if (request.isCurrent()) setError(e.message); }
+    finally { if (request.isCurrent()) setWorking(false); request.finish(); }
+  };
+
+  const handleClaim = async (expeditionId) => {
+    const request = beginMutation();
+    if (!request) return;
+    setWorking(true);
+    setError('');
+    try {
+      const result = await claimExpedition(expeditionId);
+      if (!request.isCurrent()) return;
+      if (result.freshly_claimed === true) {
+        setClaimedExpedition(result);
+        if (result.mount?.id === homeMount?.id) setReaction({ id: ++receiptCounter.current, creatureId: homePet.id, action: 'celebrate' });
+      }
+      refresh();
+    } catch (e) { if (request.isCurrent()) setError(e.message); }
+    finally { if (request.isCurrent()) setWorking(false); request.finish(); }
   };
 
   return (
@@ -123,15 +156,19 @@ export default function Companions() {
         variant="primary"
         creature={homePet}
         kicker="At home in your woodland"
-        summary={homePet.evolved_to_mount ? 'Your companion has grown. There are new places to explore together.' : 'A little care today, a little more growth. Choose something from your food collection.'}
-        onInteract={() => homePet.evolved_to_mount ? navigate(explorePath) : setSelectedPet(homePet)}
-        interactionLabel={`${homePet.evolved_to_mount ? 'Explore' : 'Spend time'} with ${homePet.name?.trim() || homePet.species.name}`}
+        summary={homePet.evolved_to_mount ? 'Play together, then choose a little adventure for today.' : 'Play together or choose a snack to help your companion grow.'}
+        reaction={reaction?.creatureId === homePet.id ? reaction : null}
       >
         <div className="companion-preview-actions">
-          <Button onClick={() => homePet.evolved_to_mount ? navigate(explorePath) : setSelectedPet(homePet)}>{homePet.evolved_to_mount ? 'Go exploring' : 'Feed your companion'}</Button>
+          {!homePet.evolved_to_mount && <Button disabled={working} onClick={() => setSelectedPet(homePet)}>Feed your companion</Button>}
+          {homePet.evolved_to_mount && !homeMount && <Link className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep" to={explorePath}>Visit grown pets →</Link>}
           <Link className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep" to="/bestiary?tab=hatchery">Hatch a pet →</Link>
         </div>
+        {homeMount && <DailyExpeditionCard mount={homeMount} name={homePet.name?.trim() || homePet.species.name} working={working} onLaunch={setLaunchMount} onClaim={handleClaim} onRefresh={reloadStable} />}
       </CompanionPreview>}
+
+      {launchMount && <ExpeditionLaunchSheet mount={launchMount} onDismiss={() => setLaunchMount(null)} onLaunched={refresh} />}
+      {claimedExpedition && <PetCeremonyModal mode="expedition_return" expedition={claimedExpedition} onDismiss={() => setClaimedExpedition(null)} />}
 
       <IncipitBand
         letter="C"
@@ -184,7 +221,7 @@ export default function Companions() {
           No companions match this filter.
         </EmptyState>
       ) : (
-        <OwnedPetGrid pets={visiblePets} selectedPetId={selectedPet?.id} onSelect={(pet) => { setViewPetId(pet.id); setSelectedPet(pet); }} />
+        <OwnedPetGrid pets={visiblePets} selectedPetId={selectedPet?.id} onSelect={(pet) => { setReaction(null); setViewPetId(pet.id); setSelectedPet(pet); }} />
       )}
       {savedPets.length > 0 && <section className="space-y-3" aria-label="Saved collection">
         <div><h2 className="font-body font-bold text-lede text-ink-primary">Saved collection</h2>

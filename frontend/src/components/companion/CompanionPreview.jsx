@@ -1,5 +1,5 @@
 import { Component, lazy, Suspense, useCallback, useId, useMemo, useState } from 'react';
-import { Heart, RotateCcw, Settings2 } from 'lucide-react';
+import { Heart, MoveUp, RotateCcw, Settings2, Sparkles } from 'lucide-react';
 import Button from '../Button';
 import RpgSprite from '../rpg/RpgSprite';
 import { petSpriteKeys } from '../rpg/petSpriteKeys';
@@ -23,7 +23,7 @@ export default function CompanionPreview({ creature, kind = 'pet', variant = 'pr
   return <Preview key={identity} creature={creature} kind={kind} variant={variant} {...props} />;
 }
 
-function Preview({ creature, kind, variant, kicker = 'Your companion', summary, onInteract, interactionLabel, children }) {
+function Preview({ creature, kind, variant, kicker = 'Your companion', summary, onInteract, interactionLabel, reaction, children }) {
   const primary = variant === 'primary';
   const headingId = useId();
   const [enabled, setEnabled] = useState(primary);
@@ -32,15 +32,16 @@ function Preview({ creature, kind, variant, kicker = 'Your companion', summary, 
   const [attempt, setAttempt] = useState(0);
   const [greeting, setGreeting] = useState(0);
   const [animate, setAnimate] = useState(primary);
+  const [interaction, setInteraction] = useState(null);
   // Recreate the lazy wrapper after a failed chunk, whose rejection React caches.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const CompanionScene = useMemo(() => lazy(() => import('../../companion/CompanionScene')), [attempt]);
-  const appearance = import.meta.env.VITE_COMPANION_3D === 'false' ? null : resolveAppearance(creature, kind);
+  const appearance = useMemo(() => import.meta.env.VITE_COMPANION_3D === 'false' ? null : resolveAppearance(creature, kind), [creature, kind]);
   const onReady = useCallback(() => setReady(true), []);
   const onUnavailable = useCallback(() => setFailed({ urls: [] }), []);
   const onAssetFailure = useCallback((error) => setFailed({
-    urls: [appearance?.url, appearance?.woodland?.url].filter((url) => url && error?.message?.includes(url)),
-  }), [appearance?.url, appearance?.woodland?.url]);
+    urls: [appearance?.url, appearance?.woodland?.url, ...Object.values(appearance?.interactions || {}).map((take) => take.url)].filter((url) => url && error?.message?.includes(url)),
+  }), [appearance]);
   const label = creatureLabel(creature);
   const name = creature?.name?.trim() || label;
   const showScene = enabled && appearance && !failed;
@@ -48,6 +49,15 @@ function Preview({ creature, kind, variant, kicker = 'Your companion', summary, 
   const sprite = kind === 'mount'
     ? { spriteKey: creature?.species?.sprite_key && `${creature.species.sprite_key}-mount`, fallbackSpriteKey: creature?.species?.sprite_key }
     : petSpriteKeys(creature);
+  const playTogether = (action) => {
+    const messages = {
+      hello: `${name} is happy to see you.`,
+      play: appearance?.key === 'bird' ? `${name} stretches their wings and takes a little flight.` : `${name} hops along with you.`,
+      left: `${name} looks around the clearing with you.`,
+      right: `${name} looks around the clearing with you.`,
+    };
+    setInteraction((previous) => ({ id: (previous?.id || 0) + 1, action, message: messages[action] }));
+  };
 
   const startScene = async () => {
     if (failed?.urls?.length) {
@@ -55,7 +65,7 @@ function Preview({ creature, kind, variant, kicker = 'Your companion', summary, 
       // Failed optional chunk downloads can then be attempted again too.
       try {
         const { resetModels } = await import('../../companion/modelLoader');
-        resetModels(failed.urls);
+        resetModels(failed.urls, [appearance.url, ...Object.values(appearance.interactions || {}).map((take) => take.url)]);
       } catch { /* The DOM companion remains usable if the network is down. */ }
     }
     setReady(false);
@@ -92,12 +102,12 @@ function Preview({ creature, kind, variant, kicker = 'Your companion', summary, 
         {showScene && <div className="companion-preview-canvas" aria-hidden="true">
           <SceneBoundary key={attempt} onFailure={onAssetFailure}>
             <Suspense fallback={null}>
-              <CompanionScene appearance={appearance} greeting={greeting} animate={animate} onReady={onReady} onUnavailable={onUnavailable} />
+              <CompanionScene appearance={appearance} greeting={greeting} interaction={interaction} reaction={reaction} animate={animate} onReady={onReady} onUnavailable={onUnavailable} />
             </Suspense>
           </SceneBoundary>
         </div>}
-        {primary && creature && onInteract && <button type="button" className="companion-stage-interaction" onClick={onInteract} aria-label={interactionLabel || `Care for ${name}`}>
-          {!failed && (!showScene || ready) && <span className="companion-interaction-hint">{interactionLabel || `Care for ${name}`}</span>}
+        {primary && creature && <button type="button" className="companion-stage-interaction" onClick={onInteract || (() => playTogether('hello'))} aria-label={interactionLabel || `Say hello to ${name}`}>
+          {!failed && (!showScene || ready) && <span className="companion-interaction-hint">{interactionLabel || 'Tap to say hello'}</span>}
         </button>}
         {(!primary || failed || (showScene && !ready)) && <p className="companion-preview-message" role="status" aria-live="polite">
           {failed ? 'The 3D view could not load. Your companion and all controls are still available.'
@@ -106,6 +116,15 @@ function Preview({ creature, kind, variant, kicker = 'Your companion', summary, 
                 : creature ? 'A little company while you grow.' : 'Hatch a pet, then set it active to see it here.'}
         </p>}
       </div>
+
+      {primary && creature && <div className="companion-play-area">
+        <div className="companion-play-controls" role="group" aria-label={`Spend time with ${name}`}>
+          <Button size="sm" variant="secondary" onClick={() => playTogether('hello')}><Heart size={16} aria-hidden="true" /> Say hello</Button>
+          {appearance?.interactions?.play && <Button size="sm" variant="secondary" disabled={!showScene || !ready} onClick={() => playTogether('play')}><MoveUp size={16} aria-hidden="true" />{appearance.key === 'bird' ? 'Fly together' : 'Hop together'}</Button>}
+          {appearance?.interactions?.left && appearance?.interactions?.right && <Button size="sm" variant="secondary" disabled={!showScene || !ready} onClick={() => playTogether(interaction?.action === 'left' ? 'right' : 'left')}><Sparkles size={16} aria-hidden="true" /> Look around</Button>}
+        </div>
+        <p className="companion-play-response" role="status" aria-live="polite">{interaction?.message || `Take a little break with ${name}.`}</p>
+      </div>}
 
       {!primary && creature && <div className="companion-preview-actions">
         <Button size="sm" variant="secondary" onClick={() => setGreeting((value) => value + 1)}><Heart size={16} aria-hidden="true" /> Say hello</Button>

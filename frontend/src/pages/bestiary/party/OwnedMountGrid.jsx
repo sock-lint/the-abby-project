@@ -114,6 +114,8 @@ export default function OwnedMountGrid({ mounts, working, onActivate, onPreview,
                     >
                       {working ? 'Claiming…' : 'Claim rewards'}
                     </Button>
+                  ) : !isOut && mount.expedition_available === false ? (
+                    <p className="mt-2 text-caption text-ink-secondary">Explored today · another trip tomorrow</p>
                   ) : !isOut ? (
                     <Button
                       size="sm"

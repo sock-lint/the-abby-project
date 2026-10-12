@@ -158,6 +158,9 @@
       },
       "can_breed": true,
       "breeding_cooldown_seconds": 0,
+      "expedition_available": false,
+      "expedition_available_at": null,
+      "expedition_available_in_seconds": null,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00",
       "catalog_available": true
@@ -237,6 +240,9 @@
       },
       "can_breed": true,
       "breeding_cooldown_seconds": 0,
+      "expedition_available": false,
+      "expedition_available_at": null,
+      "expedition_available_in_seconds": null,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00",
       "catalog_available": true
@@ -307,6 +313,9 @@
       },
       "can_breed": false,
       "breeding_cooldown_seconds": 432000,
+      "expedition_available": false,
+      "expedition_available_at": null,
+      "expedition_available_in_seconds": null,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00",
       "catalog_available": true
