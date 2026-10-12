@@ -86,6 +86,71 @@ describe('ProofGallery', () => {
     expect(screen.getAllByRole('button')).toHaveLength(3);
   });
 
+  describe('dialog semantics and focus', () => {
+    const openFirst = async (user) => {
+      const thumb = screen.getByRole('button', { name: 'View Alpha' });
+      await user.click(thumb);
+      return thumb;
+    };
+
+    it('exposes the viewer as a named modal dialog', async () => {
+      const user = userEvent.setup();
+      render(<ProofGallery proofs={PROOFS} />);
+      expect(screen.queryByRole('dialog')).toBeNull();
+      await openFirst(user);
+      const dialog = screen.getByRole('dialog', { name: /photo viewer/i });
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
+    });
+
+    it('moves focus into the dialog on open', async () => {
+      const user = userEvent.setup();
+      render(<ProofGallery proofs={PROOFS} />);
+      await openFirst(user);
+      const dialog = screen.getByRole('dialog', { name: /photo viewer/i });
+      expect(dialog).toContainElement(document.activeElement);
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Close photo viewer' }),
+      );
+    });
+
+    it('returns focus to the opening thumbnail after Escape', async () => {
+      const user = userEvent.setup();
+      render(<ProofGallery proofs={PROOFS} />);
+      const thumb = await openFirst(user);
+      await user.keyboard('{Escape}');
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(thumb).toHaveFocus();
+    });
+
+    it('returns focus to the opening thumbnail after the X button', async () => {
+      const user = userEvent.setup();
+      render(<ProofGallery proofs={PROOFS} />);
+      const thumb = await openFirst(user);
+      await user.click(screen.getByRole('button', { name: 'Close photo viewer' }));
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(thumb).toHaveFocus();
+    });
+
+    it('returns focus to the opening thumbnail after a backdrop click', async () => {
+      const user = userEvent.setup();
+      render(<ProofGallery proofs={PROOFS} />);
+      const thumb = await openFirst(user);
+      await user.click(screen.getByRole('dialog', { name: /photo viewer/i }));
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(thumb).toHaveFocus();
+    });
+
+    it('keeps arrow-key navigation working with focus inside the dialog', async () => {
+      const user = userEvent.setup();
+      render(<ProofGallery proofs={PROOFS} />);
+      await openFirst(user);
+      await user.keyboard('{ArrowRight}');
+      expect(screen.getByText('Beta')).toBeInTheDocument();
+      await user.keyboard('{ArrowLeft}');
+      expect(screen.getByText('Alpha')).toBeInTheDocument();
+    });
+  });
+
   it('renders alt fallback for proofs without caption', () => {
     render(<ProofGallery proofs={[{ id: 9, image: '/x.jpg' }]} />);
     expect(screen.getByAltText('Proof 1')).toBeInTheDocument();

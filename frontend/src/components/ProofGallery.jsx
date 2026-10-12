@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import IconButton from './IconButton';
 import SwipeableImage from './SwipeableImage';
 import useBackDismiss from '../hooks/useBackDismiss';
+import useModalFocus from './modal/useModalFocus';
 
 export default function ProofGallery({ proofs = [] }) {
   const [viewerIndex, setViewerIndex] = useState(null);
@@ -17,10 +18,10 @@ export default function ProofGallery({ proofs = [] }) {
 
   useEffect(() => {
     if (viewerIndex === null) return undefined;
+    // Escape belongs to useModalFocus (ProofViewer), which owns it for every
+    // modal layer; only the arrows are handled here.
     const handler = (e) => {
-      if (e.key === 'Escape') {
-        setViewerIndex(null);
-      } else if (e.key === 'ArrowLeft' && viewerIndex > 0) {
+      if (e.key === 'ArrowLeft' && viewerIndex > 0) {
         setViewerIndex(viewerIndex - 1);
       } else if (e.key === 'ArrowRight' && viewerIndex < proofs.length - 1) {
         setViewerIndex(viewerIndex + 1);
@@ -42,7 +43,12 @@ export default function ProofGallery({ proofs = [] }) {
           <button
             key={proof.id}
             type="button"
-            onClick={() => setViewerIndex(i)}
+            onClick={(e) => {
+              // Safari/iOS don't focus a button on tap; useModalFocus returns
+              // focus to whatever was active when the viewer mounted.
+              e.currentTarget.focus();
+              setViewerIndex(i);
+            }}
             aria-label={`View ${proof.caption || `proof ${i + 1}`}`}
             className="shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition-colors"
           >
@@ -51,50 +57,75 @@ export default function ProofGallery({ proofs = [] }) {
         ))}
       </div>
 
-      {/* Full-screen viewer */}
       {viewerIndex !== null && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setViewerIndex(null)}>
-          <IconButton
-            onClick={() => setViewerIndex(null)}
-            variant="ghost"
-            aria-label="Close photo viewer"
-            className="absolute top-4 right-4 text-white/70 hover:text-white"
-          >
-            <X size={24} />
-          </IconButton>
-          {viewerIndex > 0 && (
-            <IconButton
-              onClick={(e) => { e.stopPropagation(); setViewerIndex(viewerIndex - 1); }}
-              variant="ghost"
-              aria-label="Previous photo"
-              className="absolute left-4 text-white/70 hover:text-white"
-            >
-              <ChevronLeft size={32} />
-            </IconButton>
-          )}
-          {viewerIndex < proofs.length - 1 && (
-            <IconButton
-              onClick={(e) => { e.stopPropagation(); setViewerIndex(viewerIndex + 1); }}
-              variant="ghost"
-              aria-label="Next photo"
-              className="absolute right-4 text-white/70 hover:text-white"
-            >
-              <ChevronRight size={32} />
-            </IconButton>
-          )}
-          <SwipeableImage
-            src={proofs[viewerIndex].image}
-            alt={proofs[viewerIndex].caption || `Proof ${viewerIndex + 1}`}
-            className="max-h-[85dvh] max-w-[90vw] object-contain rounded-lg"
-            onPrev={viewerIndex > 0 ? () => setViewerIndex(viewerIndex - 1) : undefined}
-            onNext={viewerIndex < proofs.length - 1 ? () => setViewerIndex(viewerIndex + 1) : undefined}
-            onClose={() => setViewerIndex(null)}
-          />
-          {proofs[viewerIndex].caption && (
-            <p className="absolute bottom-6 text-white/80 text-body">{proofs[viewerIndex].caption}</p>
-          )}
-        </div>
+        <ProofViewer
+          proofs={proofs}
+          index={viewerIndex}
+          onIndexChange={setViewerIndex}
+          onClose={closeViewer}
+        />
       )}
     </>
+  );
+}
+
+// Full-screen viewer. Mounted only while open so useModalFocus records the
+// opening thumbnail as the element to restore focus to on close.
+function ProofViewer({ proofs, index, onIndexChange, onClose }) {
+  const dialogRef = useRef(null);
+  const closeRef = useRef(null);
+  useModalFocus({ dialogRef, initialFocusRef: closeRef, onEscape: onClose });
+  const proof = proofs[index];
+  return (
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Photo viewer"
+      tabIndex={-1}
+      className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <IconButton
+        ref={closeRef}
+        onClick={onClose}
+        variant="ghost"
+        aria-label="Close photo viewer"
+        className="absolute top-4 right-4 text-white/70 hover:text-white"
+      >
+        <X size={24} />
+      </IconButton>
+      {index > 0 && (
+        <IconButton
+          onClick={(e) => { e.stopPropagation(); onIndexChange(index - 1); }}
+          variant="ghost"
+          aria-label="Previous photo"
+          className="absolute left-4 text-white/70 hover:text-white"
+        >
+          <ChevronLeft size={32} />
+        </IconButton>
+      )}
+      {index < proofs.length - 1 && (
+        <IconButton
+          onClick={(e) => { e.stopPropagation(); onIndexChange(index + 1); }}
+          variant="ghost"
+          aria-label="Next photo"
+          className="absolute right-4 text-white/70 hover:text-white"
+        >
+          <ChevronRight size={32} />
+        </IconButton>
+      )}
+      <SwipeableImage
+        src={proof.image}
+        alt={proof.caption || `Proof ${index + 1}`}
+        className="max-h-[85dvh] max-w-[90vw] object-contain rounded-lg"
+        onPrev={index > 0 ? () => onIndexChange(index - 1) : undefined}
+        onNext={index < proofs.length - 1 ? () => onIndexChange(index + 1) : undefined}
+        onClose={onClose}
+      />
+      {proof.caption && (
+        <p className="absolute bottom-6 text-white/80 text-body">{proof.caption}</p>
+      )}
+    </div>
   );
 }
