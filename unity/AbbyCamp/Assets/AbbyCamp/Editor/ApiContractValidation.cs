@@ -448,6 +448,10 @@ namespace AbbyCamp.Editor
                 "Shared companion preserves escaped names and absent feeding history");
             Check(ApiContract.ParseStable(ReadFixture("pets-stable-empty.json")).pets.Length == 0,
                 "Shared empty collection never fabricates an owned creature");
+            var restrictedStable = ApiContract.ParseStable(ReadFixture("pets-stable-restricted-empty.json"));
+            Check(restrictedStable.total_possible == 3 && restrictedStable.pets.Length == 0
+                && restrictedStable.mounts.Length == 0 && restrictedStable.ActiveCompanion == null,
+                "Shared collection total counts compatible variants without inventing ownership");
 
             string inventoryJson = ReadFixture("inventory-food.json");
             var inventory = ApiContract.ParseInventoryPage(inventoryJson);

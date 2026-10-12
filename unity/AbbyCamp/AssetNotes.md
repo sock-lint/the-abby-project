@@ -12,6 +12,12 @@ The authored presentation and dragon definition live under `Assets/AbbyCamp/Pres
 
 ## Purchased Cute Series layer
 
+See the [RPG catalog and Unity asset coverage](../../content/rpg/unity-assets.md)
+for the exact owned-pack inventory, Chick/egg/Birdseed catalog identities,
+legacy species gaps and optional purchases. The Chick catalog is separate
+from the fixed scene's artwork preview; an owned-collection-to-3D binding
+remains a later presentation slice.
+
 The starter selection is Chick / Fledgling / Bird Evolution, Forest Ruins 1.2,
 Icons for Monsters Ultimate Pack 01 v2, and Female Archer Pack 01. Bird01/02/03
 are the matching transparent portraits for the three model forms. The public

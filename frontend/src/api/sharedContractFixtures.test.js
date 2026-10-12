@@ -20,6 +20,7 @@ import greenlightReconciled from '../../../contracts/api/fixtures/greenlight-rec
 import greenlightFinal from '../../../contracts/api/fixtures/greenlight-overview-reconciled.json';
 import stableResponse from '../../../contracts/api/fixtures/pets-stable.json';
 import emptyStable from '../../../contracts/api/fixtures/pets-stable-empty.json';
+import restrictedEmptyStable from '../../../contracts/api/fixtures/pets-stable-restricted-empty.json';
 import inventoryResponse from '../../../contracts/api/fixtures/inventory-food.json';
 import emptyInventory from '../../../contracts/api/fixtures/inventory-empty.json';
 import confirmedFeed from '../../../contracts/api/fixtures/pet-feed.json';
@@ -361,6 +362,13 @@ describe('shared Django response fixtures through the React API client', () => {
     );
     expect(await getStable()).toEqual({ pets: [], mounts: [], total_pets: 0, total_mounts: 0, total_possible: 4 });
     expect(normalizeList(await getInventory())).toEqual([]);
+  });
+
+  it('preserves the supported species/potion total without inventing owned companions', async () => {
+    server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(restrictedEmptyStable)));
+    const stable = await getStable();
+    expect(stable).toEqual(restrictedEmptyStable);
+    expect(stable).toEqual({ pets: [], mounts: [], total_pets: 0, total_mounts: 0, total_possible: 3 });
   });
 
   it('reads hatching ingredients with their item definition IDs, quantities and nullable typed names', async () => {

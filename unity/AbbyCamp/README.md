@@ -20,6 +20,12 @@ This fixture seeds synthetic accounts and writing skills; it never reads `.env` 
 
 ## Licensed Cute Series preview
 
+The [content/asset coverage guide](../../content/rpg/unity-assets.md) records
+owned packs and the matching Chick, egg and Birdseed RPG content. Licensed
+React builds can use the matching Chick/Bird collection portraits. The Unity
+home remains a preview until active owned creatures are explicitly bound to
+their prepared 3D definitions.
+
 The purchased starter packs replace the temporary companion and forest scenery locally. The Archer remains staged for future uses; the home does not include an explorer. Run `python scripts/unity/stage_meshtint.py`, then
 `./scripts/unity/Build-Camp.ps1 -Target Web -PrepareLicensed`. Open the generated
 `Assets/AbbyCamp/Licensed/MemoryMeadow.unity` to preview the licensed scene in the

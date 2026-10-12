@@ -394,6 +394,7 @@ entries:
       potion, feed it, and watch it grow beside your work.
     mechanics:
       - "Hatching consumes one egg item and one potion item and creates a unique species/potion pet."
+      - "The potion must match the species' supported variants; an unsupported pairing consumes neither ingredient."
       - "Feeding consumes food; preferred food grants more growth than neutral food."
       - "At 100 growth the pet evolves into a mount while the original pet remains in the stable."
       - "Happiness is a gentle visual nudge based on last feeding; it never removes rewards or progress."
@@ -435,7 +436,7 @@ entries:
       - "A pet automatically creates a matching mount when it reaches 100 growth."
       - "Only one mount can be active for a user at a time."
       - "Breeding combines two owned mounts to create a hybrid egg + potion pair, then stamps cooldowns on both parents."
-      - "A tiny chromatic upgrade chance can turn a breeding potion Cosmic."
+      - "Breeding returns a compatible species/potion pair; a tiny chromatic upgrade chance can turn the potion Cosmic when the species supports it."
       - "Mount sprites follow the species sprite key plus '-mount', with a base-species fallback."
       - "A mount can be sent on an Expedition (2h, 4h, or 8h) once per local day. Loot is rolled when the mount leaves and stored on the row, so the payout is the same whenever you claim. Returning mounts pay coins (with Lucky Coin doubling) and a small handful of items, and route streak / quest credit through the same game-loop trigger as everything else."
     parent_knobs:

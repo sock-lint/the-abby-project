@@ -129,6 +129,13 @@ class PetService:
             except PotionType.DoesNotExist:
                 raise ValueError(f"Unknown potion variant: {variant_key}")
 
+        # Authored species can restrict their supported variants. An empty
+        # relation preserves unrestricted hatching for legacy species that
+        # predate the content loader's compatibility data.
+        available_potions = species.available_potions
+        if available_potions.exists() and not available_potions.filter(pk=potion_type.pk).exists():
+            raise ValueError(f"{species.name} cannot hatch with a {potion_type.name} potion")
+
         # Check if user already has this combo
         if UserPet.objects.filter(user=user, species=species, potion=potion_type).exists():
             raise ValueError(f"You already have a {potion_type.name} {species.name}")
@@ -402,10 +409,12 @@ class PetService:
 
         Each parent mount enters a cooldown (``MOUNT_BREEDING_COOLDOWN_DAYS``)
         after breeding. The result is an egg of ONE parent's species (50/50)
-        plus a potion of ONE parent's potion (50/50), both deposited into the
-        user's inventory. A ``CHROMATIC_UPGRADE_CHANCE`` (1-in-50) wildcard
-        overrides the picked potion with Cosmic — gives the stable-husbandry
-        path a rare/legendary endpoint without relying on drops.
+        plus one compatible parental potion. If neither parent's potion is
+        supported, use a supported type with a registered potion item. Both
+        ingredients are deposited into the user's inventory. A
+        ``CHROMATIC_UPGRADE_CHANCE`` (1-in-50) wildcard can upgrade to Cosmic
+        only when the selected species supports it. Legacy species without
+        compatibility data retain unrestricted parental and Cosmic choices.
 
         Same-mount pairs raise ``ValueError`` (can't breed with yourself).
         Returns a dict summarizing the roll.
@@ -439,13 +448,32 @@ class PetService:
                 )
 
         picked_species = random.choice([mounts[0].species, mounts[1].species])
-        picked_potion = random.choice([mounts[0].potion, mounts[1].potion])
+        supported_potions = list(picked_species.available_potions.all())
+        supported_ids = {potion.pk for potion in supported_potions}
+        potion_options = [
+            mount.potion for mount in mounts
+            if not supported_ids or mount.potion_id in supported_ids
+        ]
+        if not potion_options:
+            # Owned mounts may predate a catalog compatibility correction.
+            # Keep their breeding path usable without granting an invalid pair.
+            registered_ids = set(ItemDefinition.objects.filter(
+                item_type=ItemDefinition.ItemType.POTION,
+                potion_type__in=supported_potions,
+            ).values_list("potion_type_id", flat=True))
+            potion_options = [potion for potion in supported_potions if potion.pk in registered_ids]
+            if not potion_options:
+                raise ValueError(
+                    f"No compatible potion item registered for {picked_species.name} — "
+                    "content seed may be incomplete"
+                )
+        picked_potion = random.choice(potion_options)
 
         chromatic = False
         if random.random() < CHROMATIC_UPGRADE_CHANCE:
             from apps.pets.models import PotionType
             cosmic = PotionType.objects.filter(slug=CHROMATIC_POTION_SLUG).first()
-            if cosmic:
+            if cosmic and (not supported_ids or cosmic.pk in supported_ids):
                 picked_potion = cosmic
                 chromatic = True
 
@@ -527,7 +555,7 @@ class PetService:
     @staticmethod
     def get_stable(user):
         """Return all pets and mounts for a user, plus collection stats."""
-        from django.db.models import Prefetch
+        from django.db.models import Count, Prefetch
         from apps.pets.models import (
             MountExpedition, PetSpecies, PotionType, UserMount, UserPet,
         )
@@ -547,9 +575,12 @@ class PetService:
                 to_attr="prefetched_active_expeditions",
             ))
         )
-        total_species = PetSpecies.objects.count()
         total_potions = PotionType.objects.count()
-        total_possible = total_species * total_potions
+        variant_counts = PetSpecies.objects.annotate(
+            variant_count=Count("available_potions"),
+        ).values_list("variant_count", flat=True)
+        # Empty compatibility data retains the legacy unrestricted behavior.
+        total_possible = sum(count or total_potions for count in variant_counts)
 
         return {
             "pets": pets,

@@ -27,6 +27,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `greenlight-overview-reconciled.json` | Final overview after reconciliation; debt decreases, pending hourly earnings and balance observation stay separate |
 | `pets-stable.json` | `GET /api/pets/stable/`, owned pets and mounts with nested species/potions, growth, happiness and active state |
 | `pets-stable-empty.json` | Same stable endpoint with no owned companions; catalog total remains populated |
+| `pets-stable-restricted-empty.json` | Empty stable with a restricted species; `total_possible` counts only supported potion combinations |
 | `inventory-food.json` | `GET /api/inventory/`, raw inventory array with preferred/neutral food and a nonfood egg |
 | `inventory-empty.json` | Same inventory endpoint with no owned items; raw empty array |
 | `pet-feed.json` | `POST /api/pets/51/feed/`, preferred food consumed and growth confirmed |
@@ -72,7 +73,11 @@ sibling/foreign-family inventory remains untouched. A supplied `user_id` cannot
 change the owner; unauthenticated requests are rejected. Typed inventory fields
 `pet_species_name` and `potion_type_name` are display names or explicit null;
 they do not expose catalog IDs or declare potion compatibility. The server
-remains authoritative for ingredient eligibility.
+remains authoritative for ingredient eligibility. Nonempty species compatibility
+lists are enforced before either ingredient is consumed; legacy empty lists
+remain unrestricted. Stable `total_possible` sums those supported combinations
+and uses all current potions for a legacy empty list. It does not multiply every
+species by every potion when some combinations cannot hatch.
 
 `config/tests/test_greenlight_api_contract_fixtures.py` sends the payout,
 snapshot, preview and reconciliation requests through their real views with a

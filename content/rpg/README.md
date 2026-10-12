@@ -55,6 +55,12 @@ python manage.py loadrpgcontent --pack content/rpg/packs/dragons --namespace dra
 
 ## Authoring workflow
 
+Unity asset coverage and the owned Cute Series catalog are recorded in
+[`unity-assets.md`](unity-assets.md). The Chick species, its egg and preferred
+Birdseed food use the purchased bird family; earlier species retain their
+saved identities. That guide distinguishes prepared art from implemented
+ownership bindings and records optional purchases.
+
 1. Open the right YAML file.
 2. Copy an existing entry.
 3. Change slug + name + fields.

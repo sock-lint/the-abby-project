@@ -56,6 +56,15 @@ items:
     metadata: {food_type: seeds, growth: 5}
     food_species: owl
 
+  - slug: food-birdseed
+    name: Birdseed
+    icon: "🌾"
+    item_type: food
+    rarity: common
+    coin_value: 1
+    metadata: {food_type: birdseed, growth: 5}
+    food_species: chick
+
   - slug: food-honey
     name: Honey
     icon: "🍯"

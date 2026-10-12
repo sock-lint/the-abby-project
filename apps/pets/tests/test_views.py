@@ -176,6 +176,23 @@ class PetCodexTests(_Fixture):
         potion_ids = {p["id"] for p in dragon["available_potions"]}
         self.assertEqual(potion_ids, {self.potion.id, self.potion_b.id})
 
+    def test_codex_total_counts_only_compatible_variants(self):
+        self.client.force_authenticate(self.child)
+
+        response = self.client.get("/api/pets/codex/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["totals"]["mounts_possible"], 3)
+
+    def test_codex_total_keeps_unrestricted_legacy_species(self):
+        self.species_b.available_potions.clear()
+        self.client.force_authenticate(self.child)
+
+        response = self.client.get("/api/pets/codex/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["totals"]["mounts_possible"], 4)
+
 
 class MountsTests(_Fixture):
     def test_list_mounts(self):

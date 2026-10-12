@@ -222,7 +222,7 @@ export default function Hatchery() {
           yields a hybrid egg + potion pair · each mount rests {BREEDING_COOLDOWN_DAYS} days between pairings
         </p>
         <div className="font-script text-tiny text-gold-leaf mt-1">
-          ✨ {CHROMATIC_UPGRADE_RATE} breeds yield a chromatic Cosmic potion, regardless of parents
+          ✨ A {CHROMATIC_UPGRADE_RATE} chance of a Cosmic potion when the chosen species supports it.
         </div>
 
         {mounts.length < 2 ? (
