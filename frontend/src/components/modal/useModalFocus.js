@@ -39,7 +39,7 @@ function focusInitial(modal) {
 
 function handleKeyDown(event) {
   const modal = topModal();
-  if (!modal) return;
+  if (!modal || modal.suspendedRef.current) return;
   if (event.key === 'Escape') {
     event.preventDefault();
     event.stopPropagation();
@@ -69,7 +69,7 @@ function handleKeyDown(event) {
 
 function handleFocusIn(event) {
   const modal = topModal();
-  if (modal && !modal.node.contains(event.target)) focusInitial(modal);
+  if (modal && !modal.suspendedRef.current && !modal.node.contains(event.target)) focusInitial(modal);
 }
 
 /**
@@ -78,24 +78,41 @@ function handleFocusIn(event) {
  * modal stays on top even though React runs child layout effects first.
  * surfaceKey re-registers a sheet when its mobile/desktop DOM surface changes.
  */
-export default function useModalFocus({ dialogRef, initialFocusRef, onEscape, surfaceKey }) {
+export default function useModalFocus({ dialogRef, initialFocusRef, onEscape, surfaceKey, suspended = false }) {
   const [identity] = useState(() => ({
     order: ++nextOrder,
     opener: document.activeElement,
   }));
   const onEscapeRef = useRef(onEscape);
+  const suspendedRef = useRef(suspended);
+  const resumeFocusRef = useRef(null);
   useLayoutEffect(() => { onEscapeRef.current = onEscape; }, [onEscape]);
+
+  useLayoutEffect(() => {
+    const wasSuspended = suspendedRef.current;
+    suspendedRef.current = suspended;
+    if (suspended && !wasSuspended) resumeFocusRef.current = document.activeElement;
+    if (!suspended && wasSuspended) {
+      const modal = topModal();
+      if (modal?.node === dialogRef.current) {
+        const target = resumeFocusRef.current;
+        if (target?.isConnected && modal.node.contains(target) && !target.matches(':disabled')) target.focus();
+        else focusInitial(modal);
+      }
+      resumeFocusRef.current = null;
+    }
+  }, [dialogRef, suspended]);
 
   useLayoutEffect(() => {
     const node = dialogRef.current;
     if (!node) return undefined;
-    const modal = { ...identity, node, initialFocusRef, onEscapeRef };
+    const modal = { ...identity, node, initialFocusRef, onEscapeRef, suspendedRef };
     if (modals.length === 0) {
       document.addEventListener('keydown', handleKeyDown, true);
       document.addEventListener('focusin', handleFocusIn, true);
     }
     modals.push(modal);
-    if (topModal() === modal) focusInitial(modal);
+    if (topModal() === modal && !suspendedRef.current) focusInitial(modal);
 
     return () => {
       const wasTop = topModal() === modal;

@@ -1,6 +1,6 @@
 {% extends "public/base.html" %}
 {% block title %}About · The Abby Project{% endblock %}
-{% block description %}A family app for projects, chores, homework, and private journaling, with optional Google sign-in and Calendar sync.{% endblock %}
+{% block description %}A family app for projects, chores, homework, and private journaling, with optional Google sign-in, Calendar sync, and Drive file selection.{% endblock %}
 {% block content %}
   <p class="eyebrow">Little everyday adventures</p>
   <h1>Keep your memories.<br>Grow your story.</h1>
@@ -35,6 +35,7 @@
       <li>After linking, you can use <strong>Sign in with Google</strong> for that Abby account.</li>
     </ol>
     <p>If you also turn on <strong>Enable calendar sync</strong> in Settings, Abby can create and update Google Calendar events for project deadlines, chore schedules, and completed work sessions. Sync is off by default.</p>
+    <p>Parents can also choose individual Google Drive files for project resources or import PDFs into a plan they review before creating a project. Drive selection asks for a separate selected-file permission. It does not require Calendar sync or change the file's Google sharing settings. <a href="{% url 'public-privacy' %}#drive">Read about selected files and PDF processing.</a></p>
     <p>The current Google connection requests Calendar event permission during linking and sign-in, even when sync is off. It uses your Google identity and email for the account link and stores encrypted authorization credentials to support sign-in and background sync. <a href="{% url 'public-privacy' %}#google">Read how Google data is used and how to disconnect.</a></p>
   </section>
 {% endblock %}

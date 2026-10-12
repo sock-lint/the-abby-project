@@ -1,6 +1,6 @@
 {% extends "public/base.html" %}
 {% block title %}Privacy policy · The Abby Project{% endblock %}
-{% block description %}How The Abby Project handles family information, Google account linking, Calendar sync, and disconnection.{% endblock %}
+{% block description %}How The Abby Project handles family information, Google account linking, Calendar sync, selected Drive files, and disconnection.{% endblock %}
 {% block content %}
   <article class="article">
     <p class="eyebrow">Your family's information</p>
@@ -20,7 +20,7 @@
       <p>Google connection is optional. You can use Abby's core family features with an Abby username and password. Google sign-in works only after a Google account is linked to an existing Abby account through Settings.</p>
       <p>During authorization, Abby requests <code>openid</code>, email and basic profile permission, and <code>https://www.googleapis.com/auth/calendar.events.owned</code> for events on calendars you own. The current flow requests Calendar event permission during both linking and later Google sign-in, including before calendar sync is enabled.</p>
       <p>Abby verifies Google's identity token and stores your Google account identifier and email address to recognize the linked account. It stores access tokens, refresh tokens when provided, token expiry and scope information in encrypted credentials. This lets the server maintain the connection without repeatedly asking you to sign in. It also stores mappings between Abby records and the Google Calendar events it creates.</p>
-      <p>Basic profile permission is part of the authorization request; the current integration does not import your Google profile photo or contact list. It does not access Gmail or Google Drive.</p>
+      <p>Basic profile permission is part of the authorization request; the current integration does not import your Google profile photo or contact list. It does not access Gmail. Optional Drive file selection uses the separate permission described below.</p>
     </section>
 
     <section>
@@ -30,10 +30,18 @@
       <p>Information sent to Google Calendar is handled by Google under its own policies and the calendar's sharing settings. People who can view that calendar may be able to see synced event information.</p>
     </section>
 
+    <section id="drive">
+      <h2>Optional Google Drive file selection</h2>
+      <p>Parents can choose individual Drive files as project resources or import a school PDF or project guide. The picker requests <code>https://www.googleapis.com/auth/drive.file</code>, which grants access to files you select for Abby. It does not request access to your entire Drive. This selection can use a Google account without linking it for Abby sign-in or enabling Calendar sync.</p>
+      <p>The short-lived Drive access token stays in memory for the selection and is sent over HTTPS to Abby to verify file details or retrieve the selected PDF. Abby does not save it in its database, browser storage, import jobs, or background-task messages. It does not use your stored Calendar credentials for Drive selection.</p>
+      <p>A project resource stores the file title, type, and Google link. Opening that link still requires the viewer's Google Drive access; Abby does not change the file's sharing permissions. PDF import saves a copy of the selected file and a reviewable plan. If AI import is enabled for this deployment, extracted PDF text is sent to its configured AI provider to suggest the plan. The import screen discloses this before selection. Only the plan you review and confirm becomes a project.</p>
+      <p>Disconnecting Google does not remove saved resource links, copied PDFs, or import plans. Ask the deployment operator to remove retained PDF copies, including discarded imports and backup copies, under this deployment's retention practices.</p>
+    </section>
+
     <section>
       <h2>How Google data is used and protected</h2>
-      <p>Abby uses Google data for linked-account sign-in and the optional Calendar sync described here. Google authorization credentials are encrypted at rest, and the production connection uses HTTPS. Encryption does not replace the deployment operator's responsibility to protect server access and backups.</p>
-      <p>Abby does not sell Google user data, use it for advertising, or transfer it to advertising platforms or data brokers. The Google integration does not send Google user data to AI services or use it to train AI models. Its API calls are limited to Google identity verification, authorization, and Calendar sync.</p>
+      <p>Abby uses Google data for linked-account sign-in, optional Calendar sync, and selected Drive resources and PDFs described here. Saved sign-in and Calendar authorization credentials are encrypted at rest, and the production connection uses HTTPS. Encryption does not replace the deployment operator's responsibility to protect server access and backups.</p>
+      <p>Abby does not sell Google user data, use it for advertising, or transfer it to advertising platforms or data brokers. Sign-in and Calendar credentials are not sent to AI services. Selected PDF content may be processed by the configured AI provider for import suggestions as described above; Abby does not use it to train its own AI models.</p>
       <p>Hosting and backup systems process stored data as part of operating this deployment. Operators must limit human access to Google user data to the user's affirmative permission for specific data, necessary security investigation, or legal obligations. Operational access and any transfer of Google user data must follow the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including its Limited Use requirements.</p>
     </section>
 

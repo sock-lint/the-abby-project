@@ -3,6 +3,7 @@ import { FileText, Link as LinkIcon } from 'lucide-react';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import TabButton from '../../components/TabButton';
 import Button from '../../components/Button';
+import GoogleDrivePickerButton from '../../components/GoogleDrivePickerButton';
 import { formLabelClass } from '../../constants/styles';
 import { TextField } from '../../components/form';
 
@@ -11,6 +12,7 @@ export default function SourceStep({
   url, setUrl,
   file, setFile,
   onStart,
+  onStartFromDrive,
   starting = false,
 }) {
   const fileId = useId();
@@ -50,6 +52,18 @@ export default function SourceStep({
             className="block w-full text-body text-ink-whisper file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-sheikah-teal-deep file:text-ink-page-rune-glow file:font-semibold"
           />
           {file && <p className="text-caption text-ink-whisper mt-1 break-words">{file.name}</p>}
+          {onStartFromDrive && (
+            <div className="mt-3 space-y-2">
+              <GoogleDrivePickerButton pdfOnly onPick={onStartFromDrive} disabled={starting}>
+                Import PDF from Google Drive
+              </GoogleDrivePickerButton>
+              <p className="text-caption text-ink-whisper">
+                Select a school PDF or project guide to import a copy and review it before creating a project. Up to 25 MB.
+                {' '}If AI import is enabled, PDF text is sent to the app's AI provider to suggest a plan.
+                {' '}<a className="underline" href="/privacy/#drive" target="_blank" rel="noopener noreferrer">Privacy details</a>.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

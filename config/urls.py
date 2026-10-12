@@ -44,8 +44,13 @@ def spa_view(request):
     """Serve the built React index.html for any non-API, non-admin route."""
     # Return 304 if the browser already has the current version.
     if request.META.get("HTTP_IF_NONE_MATCH") == _INDEX_HTML_ETAG:
-        return HttpResponse(status=304)
-    response = HttpResponse(_INDEX_HTML, content_type="text/html; charset=utf-8")
+        response = HttpResponse(status=304)
+    else:
+        response = HttpResponse(_INDEX_HTML, content_type="text/html; charset=utf-8")
+    # Google Identity Services authorizes the Drive picker in a popup. Keep
+    # the opener connection for that interaction; API/admin retain their
+    # SecurityMiddleware policy.
+    response["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
     # Force revalidation so browsers never serve a stale index.html whose
     # hashed asset references (CSS/JS) no longer exist after a redeploy.
     response["Cache-Control"] = "no-cache"

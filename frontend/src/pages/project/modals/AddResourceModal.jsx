@@ -1,4 +1,7 @@
-import { createResource } from '../../../api';
+import { useEffect, useRef, useState } from 'react';
+import { createResource, resolveGoogleDriveFile } from '../../../api';
+import { getToken } from '../../../api/client';
+import GoogleDrivePickerButton from '../../../components/GoogleDrivePickerButton';
 import BottomSheet from '../../../components/BottomSheet';
 import ErrorAlert from '../../../components/ErrorAlert';
 import { useFormState } from '../../../hooks/useFormState';
@@ -6,6 +9,13 @@ import Button from '../../../components/Button';
 import { TextField, SelectField } from '../../../components/form';
 
 export default function AddResourceModal({ projectId, steps, onClose, onSaved }) {
+  const [sessionToken] = useState(getToken);
+  const [picking, setPicking] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const { form, set, saving, setSaving, error, setError } = useFormState({
     title: '',
     url: '',
@@ -15,8 +25,21 @@ export default function AddResourceModal({ projectId, steps, onClose, onSaved })
 
   const onField = (k) => (e) => set({ [k]: e.target.value });
 
+  const handleDrivePick = async (selection) => {
+    if (getToken() !== sessionToken) return;
+    const resource = await resolveGoogleDriveFile(selection);
+    if (!mounted.current || getToken() !== sessionToken) return;
+    set({ title: resource.title, url: resource.url, resource_type: resource.resource_type });
+    setError(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving || picking) return;
+    if (getToken() !== sessionToken) {
+      setError('Your account changed. Close this form and reopen it to add a resource.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -27,7 +50,7 @@ export default function AddResourceModal({ projectId, steps, onClose, onSaved })
         resource_type: form.resource_type,
         step: form.step || null,
       });
-      onSaved();
+      if (mounted.current && getToken() === sessionToken) onSaved();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -36,9 +59,13 @@ export default function AddResourceModal({ projectId, steps, onClose, onSaved })
   };
 
   return (
-    <BottomSheet title="Add Resource" onClose={onClose} disabled={saving}>
+    <BottomSheet title="Add Resource" onClose={onClose} disabled={saving || picking} focusSuspended={picking}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
+        <GoogleDrivePickerButton onPick={handleDrivePick} onOpenChange={setPicking} disabled={saving} />
+        <p className="text-caption text-ink-whisper">
+          Choose a Drive file or paste a link. Anyone opening a Drive resource needs access in Google Drive.
+        </p>
         <TextField
           label="URL"
           value={form.url}
@@ -66,10 +93,10 @@ export default function AddResourceModal({ projectId, steps, onClose, onSaved })
           </SelectField>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
+          <Button variant="secondary" onClick={onClose} disabled={saving || picking} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" loading={saving} disabled={!form.url.trim()} className="flex-1">
+          <Button type="submit" loading={saving} disabled={picking || !form.url.trim()} className="flex-1">
             Add Resource
           </Button>
         </div>

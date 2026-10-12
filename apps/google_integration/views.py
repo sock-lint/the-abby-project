@@ -8,12 +8,36 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config.permissions import IsParent
 from config.viewsets import get_child_or_404, child_not_found_response
 
+from .drive import GoogleDriveSelectionSerializer, GoogleDriveService
 from .models import GoogleAccount
 from .services import GoogleAuthService
 
 logger = logging.getLogger(__name__)
+
+
+class GoogleDriveConfigView(APIView):
+    """Public browser credentials, never stored account credentials."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        return Response(GoogleDriveService.picker_config())
+
+
+class GoogleDriveFileView(APIView):
+    """Validate a Picker selection and return canonical resource details."""
+
+    permission_classes = [IsParent]
+
+    def post(self, request):
+        selection = GoogleDriveSelectionSerializer(data=request.data)
+        selection.is_valid(raise_exception=True)
+        GoogleDriveService.require_configured()
+        metadata = GoogleDriveService.get_file(**selection.validated_data)
+        return Response(GoogleDriveService.resource(metadata))
 
 
 # ── helpers ──────────────────────────────────────────────────────────────

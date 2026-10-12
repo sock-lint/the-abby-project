@@ -198,6 +198,10 @@ apps/
                      creds, calendar sync toggle), CalendarEventMapping
                      (maps app objects → Google Calendar events). Daily
                      reminders task at 07:00 via Celery Beat.
+                     Drive Picker uses a separate browser-only drive.file grant;
+                     parent-only file verification and bounded PDF import never
+                     save/reuse that token. Setup and flow:
+                     docs/operations/google-drive-picker.md.
 
 frontend/            → frontend/CLAUDE.md (design system / testing / PWA)
   src/pages/         → frontend/src/pages/CLAUDE.md (page architecture)
