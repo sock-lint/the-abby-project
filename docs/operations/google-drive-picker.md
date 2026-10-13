@@ -42,6 +42,8 @@ Google's authorization popup can communicate with its opener. It also sends
 keys can verify the journal's public origin. Cross-site referrers omit private
 SPA paths and query strings. Reverse proxies must preserve both headers,
 including on 304 responses. API and admin responses keep their existing policies.
+The HTML app shell declares the same referrer policy. Its content revision changes
+with the policy so an existing PWA receives it through the normal app update.
 Users must allow popups; an unavailable configuration or blocked SDK leaves
 manual links and uploads available.
 
