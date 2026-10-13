@@ -1,23 +1,30 @@
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
-import { AnimationMixer, SRGBColorSpace, TextureLoader } from 'three';
+import { AnimationMixer, Group, SRGBColorSpace, TextureLoader } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { prepareModel } from '../companion/prepareModel';
 import presentation from '../storybook/presentation.json';
+import { createAvatarReactions } from './avatarReactions';
+import { AVATAR_CAMERA_POSITION, AVATAR_CAMERA_TARGET, connectAvatarCameraControls, createAvatarCameraControls, orbitAvatarCamera } from './avatarCamera';
 
-function useMotionAllowed() {
-  const [allowed, setAllowed] = useState(() => !document.hidden && !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+function AvatarCamera({ cameraReset, cameraOrbit }) {
+  const camera = useThree((state) => state.camera);
+  const canvas = useThree((state) => state.gl.domElement);
+  const invalidate = useThree((state) => state.invalidate);
+  const controls = useMemo(() => createAvatarCameraControls(camera), [camera]);
+  const lastOrbit = useRef(0);
+  useEffect(() => connectAvatarCameraControls(controls, canvas, invalidate), [canvas, controls, invalidate]);
+  useEffect(() => { controls.reset(); invalidate(); }, [cameraReset, controls, invalidate]);
   useEffect(() => {
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setAllowed(!document.hidden && !media.matches);
-    document.addEventListener('visibilitychange', update);
-    media.addEventListener('change', update);
-    return () => { document.removeEventListener('visibilitychange', update); media.removeEventListener('change', update); };
-  }, []);
-  return allowed;
+    if (!cameraOrbit?.id || cameraOrbit.id === lastOrbit.current) return;
+    lastOrbit.current = cameraOrbit.id;
+    orbitAvatarCamera(controls, cameraOrbit.horizontal, cameraOrbit.vertical);
+    invalidate();
+  }, [cameraOrbit, controls, invalidate]);
+  return null;
 }
 
-function Avatar({ appearance, onReady, motionAllowed }) {
+function Avatar({ appearance, onReady, motionAllowed, interaction }) {
   const gltf = useLoader(GLTFLoader, appearance.url);
   const maps = useLoader(TextureLoader, Object.values(appearance.textures));
   const invalidate = useThree((state) => state.invalidate);
@@ -49,6 +56,15 @@ function Avatar({ appearance, onReady, motionAllowed }) {
     });
     return { ...prepared, localMaterials, localTextures, localSkeletons };
   }, [gltf, maps, appearance]);
+  const reactions = useMemo(() => {
+    const root = new Group();
+    root.rotation.y = appearance.rotationY;
+    model.scene.position.fromArray(model.position);
+    model.scene.scale.setScalar(model.scale);
+    root.add(model.scene);
+    return { root, playback: createAvatarReactions(root) };
+  }, [model, appearance.rotationY]);
+  const lastInteraction = useRef(0);
   const mixer = useMemo(() => new AnimationMixer(model.scene), [model]);
   const clip = gltf.animations.find((entry) => entry.name === appearance.idleClip);
   if (appearance.idleClip && !clip) throw new Error('Avatar asset is missing its reviewed idle clip.');
@@ -65,11 +81,22 @@ function Avatar({ appearance, onReady, motionAllowed }) {
       model.localSkeletons.forEach((skeleton) => skeleton.dispose());
     };
   }, [model, onReady, invalidate]);
-  useEffect(() => { invalidate(); }, [motionAllowed, invalidate]);
+  useEffect(() => {
+    if (!motionAllowed) reactions.playback.reset();
+    invalidate();
+  }, [motionAllowed, reactions, invalidate]);
+  useEffect(() => {
+    if (!interaction?.id || interaction.id === lastInteraction.current) return;
+    lastInteraction.current = interaction.id;
+    if (motionAllowed) reactions.playback.play(interaction.action);
+    invalidate();
+  }, [interaction, motionAllowed, reactions, invalidate]);
   useFrame((_state, delta) => {
-    if (motionAllowed && clip) { mixer.update(Math.min(delta, 0.05)); invalidate(); }
+    if (!motionAllowed) return;
+    if (clip) { mixer.update(Math.min(delta, 0.05)); invalidate(); }
+    if (reactions.playback.playing) { reactions.playback.update(delta); invalidate(); }
   });
-  return <group rotation={[0, appearance.rotationY, 0]}><primitive object={model.scene} position={model.position} scale={model.scale} dispose={null} /></group>;
+  return <primitive object={reactions.root} dispose={null} />;
 }
 
 function ContextGuard({ onUnavailable }) {
@@ -82,14 +109,14 @@ function ContextGuard({ onUnavailable }) {
   return null;
 }
 
-export default function AvatarScene({ appearance, onReady, onUnavailable }) {
-  const motionAllowed = useMotionAllowed();
-  return <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ position: [0, 1.05, 3.7], fov: 33 }} gl={{ antialias: true, alpha: false, powerPreference: 'low-power' }}
-    onCreated={({ camera }) => { camera.lookAt(0, 0.9, 0); }} fallback="Your browser could not display the avatar.">
+export default function AvatarScene({ appearance, onReady, onUnavailable, interaction, cameraReset = 0, cameraOrbit, motionAllowed = true }) {
+  return <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ position: AVATAR_CAMERA_POSITION, fov: 33 }} gl={{ antialias: true, alpha: false, powerPreference: 'low-power' }}
+    onCreated={({ camera }) => { camera.lookAt(...AVATAR_CAMERA_TARGET); }} fallback="Your browser could not display the avatar.">
     <color attach="background" args={[presentation.palette.sky]} />
     <ambientLight intensity={1.8} />
     <directionalLight position={[3, 6, 4]} intensity={2.2} />
     <ContextGuard onUnavailable={onUnavailable} />
-    <Suspense fallback={null}><Avatar appearance={appearance} onReady={onReady} motionAllowed={motionAllowed} /></Suspense>
+    <AvatarCamera cameraReset={cameraReset} cameraOrbit={cameraOrbit} />
+    <Suspense fallback={null}><Avatar appearance={appearance} onReady={onReady} motionAllowed={motionAllowed} interaction={interaction} /></Suspense>
   </Canvas>;
 }
