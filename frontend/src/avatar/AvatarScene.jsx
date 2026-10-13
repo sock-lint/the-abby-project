@@ -85,7 +85,7 @@ function ContextGuard({ onUnavailable }) {
 export default function AvatarScene({ appearance, onReady, onUnavailable }) {
   const motionAllowed = useMotionAllowed();
   return <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ position: [0, 1.05, 3.7], fov: 33 }} gl={{ antialias: true, alpha: false, powerPreference: 'low-power' }}
-    onCreated={({ camera }) => { camera.lookAt(0, 0.9, 0); }} fallback="Your browser could not display the avatar.">
+    onCreated={({ camera }) => { camera.lookAt(0, 0.9, 0); }} fallback="Your browser could not display the character.">
     <color attach="background" args={[presentation.palette.sky]} />
     <ambientLight intensity={1.8} />
     <directionalLight position={[3, 6, 4]} intensity={2.2} />

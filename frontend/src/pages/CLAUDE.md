@@ -28,7 +28,7 @@ has no Play promotion card. Existing journal/archive and parent
 pages keep their current behavior. The page opens the React pet collection.
 Pets opens its exact supported owned 3D companion automatically, with direct care and
 expedition interaction, View settings and working DOM/2D fallback. Profile
-centers the owned Archer avatar and its saved basic customization.
+centers the owned Archer character and its saved basic customization.
 Legacy `/play/` bookmarks redirect to React Pets; Unity is retired.
 
 Pets keeps the existing `companions`, `mounts`, `codex` and `hatchery` tab IDs.
@@ -244,7 +244,7 @@ Flattens the `/api/portfolio/` response (`{projects, homework}`) into one unifie
 
 The inside-cover plate of the journal — personal author-portrait rather than a dashboard. Architecture in [`pages/character/`](/frontend/src/pages/character/):
 
-- [`SigilFrontispiece.jsx`](/frontend/src/pages/character/SigilFrontispiece.jsx) — compact identity/name/level header with the uploaded profile picture and its frame (initial fallback), separately labeled Archer character through `AvatarCustomizer`, compact trophy and real streak statistics. Avatar preview changes use the four supplied hairstyles, two hair colors, two skin tones and four outfit palettes; explicit Save persists through `POST /api/character/avatar/`. Private model/texture absence or renderer failure leaves customization and all existing profile controls usable.
+- [`SigilFrontispiece.jsx`](/frontend/src/pages/character/SigilFrontispiece.jsx) — compact identity/name/level header with the uploaded profile picture and its frame (initial fallback), separately labeled Archer character through `AvatarCustomizer`, compact trophy and real streak statistics. Character preview changes use the four supplied hairstyles, two hair colors, two skin tones and four outfit palettes; explicit Save persists through `POST /api/character/avatar/`. Private model/texture absence or renderer failure leaves customization and all existing profile controls usable.
 - [`TrophySlot.jsx`](/frontend/src/pages/character/TrophySlot.jsx) + [`TrophyBadgePicker.jsx`](/frontend/src/pages/character/TrophyBadgePicker.jsx) — empty slot is a debossed intaglio ("choose from your reliquary"); filled slot wears full `RARITY_HALO`. Picker is a `BottomSheet` that passes earned badges through `groupBadgesByCollection` — clicking a seal sets the trophy; clicking the current trophy clears it (null payload).
 - Two [`CosmeticChapter.jsx`](/frontend/src/pages/character/CosmeticChapter.jsx) folios offer Frames and Titles through the existing DOM presentation. Each [`CosmeticSigil.jsx`](/frontend/src/pages/character/CosmeticSigil.jsx) is equipped, owned or locked; locked supported offers remain noninteractive until owned. Counts exclude unavailable items. [`SavedCosmetics.jsx`](/frontend/src/pages/character/SavedCosmetics.jsx) keeps earlier accessories and unavailable items under Saved collection, with a button to remove a previous active selection. New accessories and accessory equip are unavailable; saved avatar preferences remain independent from earned cosmetics.
 - **Color themes**: Profile shows the current Meadow palette name and links to `/settings#appearance`; Settings owns the only selector. The palette stays selected when clicked again. Inventory theme actions use the same destination; saved cover keepsakes cannot expose a second remove control. Theme display names derive from `themes.js` while saved catalog names and ownership remain compatible.
