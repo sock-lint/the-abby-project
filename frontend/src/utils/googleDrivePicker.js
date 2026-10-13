@@ -70,6 +70,65 @@ export async function prepareGoogleDrivePicker(config) {
   await loadPicker();
 }
 
+/** Saving an Abby file needs Identity Services, without a file/folder picker. */
+export async function prepareGoogleDriveAuthorization(config) {
+  if (!config?.configured || !config.client_id) throw new Error('Google Drive is not available yet. Please try again later.');
+  await loadScript(GIS_URL, () => !!window.google?.accounts?.oauth2?.initTokenClient);
+}
+
+function requestDriveToken(config, { onToken, onCancel, onError }) {
+  const oauth = window.google.accounts.oauth2;
+  const tokenClient = oauth.initTokenClient({
+    client_id: config.client_id,
+    scope: GOOGLE_DRIVE_SCOPE,
+    include_granted_scopes: false,
+    callback: (response) => {
+      try {
+        if (response?.error || !response?.access_token) {
+          onError(new Error('Google Drive access was not granted. Try again and allow access to the files you select or create.'));
+          return;
+        }
+        if (!oauth.hasGrantedAllScopes(response, GOOGLE_DRIVE_SCOPE)) {
+          onError(new Error('Allow access to the Google Drive files you select or create, then try again.'));
+          return;
+        }
+        onToken(response.access_token);
+      } catch {
+        onError(new Error('Google Drive sign-in could not finish. Please try again.'));
+      }
+    },
+    error_callback: (error) => {
+      if (error?.type === 'popup_closed') onCancel();
+      else onError(new Error(error?.type === 'popup_failed_to_open'
+        ? 'Allow pop-ups for Abby, then try Google Drive again.'
+        : 'Google Drive sign-in could not open. Please try again.'));
+    },
+  });
+  tokenClient.requestAccessToken({ prompt: 'select_account' });
+}
+
+/** Call directly from a user click after preparation; credentials stay in memory. */
+export function authorizeGoogleDrive(config, { signal } = {}) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (token, error) => {
+      if (settled) return;
+      settled = true;
+      signal?.removeEventListener('abort', cancel);
+      if (error) reject(error);
+      else resolve(token);
+    };
+    const cancel = () => finish(null);
+    if (signal?.aborted) { cancel(); return; }
+    signal?.addEventListener('abort', cancel, { once: true });
+    try {
+      requestDriveToken(config, { onToken: (token) => finish(token), onCancel: cancel, onError: (error) => finish(null, error) });
+    } catch {
+      finish(null, new Error('Google Drive could not start. Please try again.'));
+    }
+  });
+}
+
 /** Call directly from a click after preparation. Aborting disposes the picker. */
 export function pickGoogleDriveFile(config, { pdfOnly = false, allowUpload = false, signal } = {}) {
   return new Promise((resolve, reject) => {
@@ -89,23 +148,11 @@ export function pickGoogleDriveFile(config, { pdfOnly = false, allowUpload = fal
     if (signal?.aborted) { cancel(); return; }
     signal?.addEventListener('abort', cancel, { once: true });
     try {
-      const oauth = window.google.accounts.oauth2;
-      const tokenClient = oauth.initTokenClient({
-        client_id: config.client_id,
-        scope: GOOGLE_DRIVE_SCOPE,
-        include_granted_scopes: false,
-        callback: (response) => {
+      requestDriveToken(config, {
+        onToken: (token) => {
           if (settled || picker) return;
           try {
-            if (response?.error || !response?.access_token) {
-              finish(null, new Error('Google Drive access was not granted. Try again and allow access to the files you select.'));
-              return;
-            }
-            if (!oauth.hasGrantedAllScopes(response, GOOGLE_DRIVE_SCOPE)) {
-              finish(null, new Error('Allow access to the Google Drive files you select, then try again.'));
-              return;
-            }
-            accessToken = response.access_token;
+            accessToken = token;
             const api = window.google.picker;
             const view = new api.DocsView(api.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false);
             if (pdfOnly) view.setMimeTypes('application/pdf');
@@ -147,14 +194,9 @@ export function pickGoogleDriveFile(config, { pdfOnly = false, allowUpload = fal
             finish(null, new Error('Google Drive picker could not open. Please try again.'));
           }
         },
-        error_callback: (error) => {
-          if (error?.type === 'popup_closed') cancel();
-          else finish(null, new Error(error?.type === 'popup_failed_to_open'
-            ? 'Allow pop-ups for Abby, then try Google Drive again.'
-            : 'Google Drive sign-in could not open. Please try again.'));
-        },
+        onCancel: cancel,
+        onError: (error) => finish(null, error),
       });
-      tokenClient.requestAccessToken({ prompt: 'select_account' });
     } catch {
       finish(null, new Error('Google Drive could not start. Please try again.'));
     }

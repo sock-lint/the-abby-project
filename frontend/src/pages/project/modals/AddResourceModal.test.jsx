@@ -108,6 +108,85 @@ describe('AddResourceModal', () => {
     expect(document.body.textContent).not.toContain('synthetic-drive-token');
   });
 
+  it('saves an existing Abby PDF to Drive before offering its confirmed link as a resource', async () => {
+    const user = userEvent.setup();
+    const source = { source_type: 'ingestion_pdf', source_id: 'abby-pdf-1', title: 'Science.pdf', mime_type: 'application/pdf', context: 'School project' };
+    const resource = { id: 'new-drive-copy', title: 'Science.pdf', url: 'https://drive.google.com/file/d/new-drive-copy/view', mime_type: 'application/pdf', resource_type: 'doc' };
+    server.use(http.get('*/api/auth/google/drive/sources/', () => HttpResponse.json({ count: 1, next: null, previous: null, results: [source] })));
+    const upload = spyHandler('post', '*/api/auth/google/drive/upload/', resource);
+    const save = spyHandler('post', '*/api/projects/5/resources/', { id: 12 });
+    server.use(upload.handler, save.handler);
+    const onSaved = vi.fn();
+    render(<AddResourceModal projectId={5} steps={[]} onClose={vi.fn()} onSaved={onSaved} />);
+    await user.click(screen.getByRole('button', { name: 'Save a file from Abby' }));
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    await user.click(await screen.findByRole('radio', { name: 'Science.pdf School project' }));
+    const trigger = screen.getByRole('button', { name: 'Save to Google Drive' });
+    await waitFor(() => expect(trigger).toBeEnabled());
+    await user.click(trigger);
+    expect(screen.getByRole('button', { name: 'Choose or upload with Google Drive' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^add resource$/i })).toBeDisabled();
+    act(() => oauthConfig.callback({ access_token: 'synthetic-drive-token', scope: 'https://www.googleapis.com/auth/drive.file' }));
+    await waitFor(() => expect(screen.getByLabelText('URL')).toHaveValue(resource.url));
+    expect(picker.setVisible).not.toHaveBeenCalled();
+    expect(upload.calls).toHaveLength(1);
+    expect(upload.calls[0].url).toMatch(/\/api\/auth\/google\/drive\/upload\/$/);
+    expect(upload.calls[0].body).toEqual({ source_type: 'ingestion_pdf', source_id: 'abby-pdf-1', access_token: 'synthetic-drive-token' });
+    expect(save.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: /^add resource$/i }));
+    await waitFor(() => expect(save.calls).toHaveLength(1));
+    expect(save.calls[0].body).toEqual({ project: 5, title: resource.title, url: resource.url, resource_type: 'doc', step: null });
+    expect(onSaved).toHaveBeenCalledOnce();
+    expect(document.body.textContent).not.toContain('synthetic-drive-token');
+  });
+
+  it('disables the inline Abby copy controls while the existing Google picker owns the flow', async () => {
+    const user = userEvent.setup();
+    server.use(http.get('*/api/auth/google/drive/sources/', () => HttpResponse.json({ count: 1, next: null, previous: null, results: [{ source_type: 'ingestion_pdf', source_id: 'abby-pdf-1', title: 'Science.pdf', mime_type: 'application/pdf', context: 'School project' }] })));
+    render(<AddResourceModal projectId={5} steps={[]} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'Save a file from Abby' }));
+    await user.click(await screen.findByRole('radio', { name: 'Science.pdf School project' }));
+    await openPicker(user);
+    expect(screen.getByRole('button', { name: 'Save to Google Drive' })).toBeDisabled();
+    expect(screen.getByLabelText('File category')).toBeDisabled();
+    act(() => pickerCallback({ action: 'cancel' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save to Google Drive' })).toBeEnabled());
+  });
+
+  it('keeps keyboard focus inside the resource form while waiting for the Abby file upload', async () => {
+    const user = userEvent.setup();
+    const source = { source_type: 'ingestion_pdf', source_id: 'abby-pdf-1', title: 'Science.pdf', mime_type: 'application/pdf', context: 'School project' };
+    let finishUpload;
+    const response = new Promise((resolve) => { finishUpload = resolve; });
+    let uploadStarted = false;
+    server.use(
+      http.get('*/api/auth/google/drive/sources/', () => HttpResponse.json({ count: 1, next: null, previous: null, results: [source] })),
+      http.post('*/api/auth/google/drive/upload/', async () => {
+        uploadStarted = true;
+        await response;
+        return HttpResponse.json({ id: 'copy', title: 'Science.pdf', url: 'https://drive.google.com/file/d/copy/view', mime_type: 'application/pdf', resource_type: 'doc' });
+      }),
+    );
+    render(<><button type="button">Background action</button><AddResourceModal projectId={5} steps={[]} onClose={vi.fn()} onSaved={vi.fn()} /></>);
+    await user.click(screen.getByRole('button', { name: 'Save a file from Abby' }));
+    await user.click(await screen.findByRole('radio', { name: 'Science.pdf School project' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save to Google Drive' })).toBeEnabled());
+    await user.click(screen.getByRole('button', { name: 'Save to Google Drive' }));
+    act(() => oauthConfig.callback({ access_token: 'synthetic-drive-token', scope: 'https://www.googleapis.com/auth/drive.file' }));
+    await waitFor(() => expect(uploadStarted).toBe(true));
+    const dialog = screen.getByRole('dialog', { name: 'Add Resource' });
+    act(() => screen.getByRole('button', { name: 'Background action' }).focus());
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    act(() => screen.getByLabelText('Attach to Step').focus());
+    await user.tab();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(screen.getByRole('button', { name: 'Stop waiting' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Stop waiting' }));
+    await act(async () => finishUpload());
+    expect(await screen.findByText(/Stopped waiting for the save/)).toBeInTheDocument();
+    expect(screen.getByLabelText('URL')).toHaveValue('');
+  });
+
   it.each([
     { id: 'uploaded-pdf', title: 'New worksheet.pdf', mime_type: 'application/pdf', resource_type: 'doc' },
     { id: 'uploaded-photo', title: 'Experiment.jpg', mime_type: 'image/jpeg', resource_type: 'image' },

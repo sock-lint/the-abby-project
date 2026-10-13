@@ -23,6 +23,7 @@ import IconButton from '../components/IconButton';
 import ModalActions from '../components/ModalActions';
 import SwipeableImage from '../components/SwipeableImage';
 import ShareButton from '../components/ShareButton';
+import SaveAbbyFileToDrive from '../components/SaveAbbyFileToDrive';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { TextField, SelectField } from '../components/form';
 import { formLabelClass } from '../constants/styles';
@@ -50,6 +51,8 @@ export default function Portfolio() {
   const { data, loading, error: loadError, reload } = useApi(getPortfolio);
   const { data: projectsData } = useApi(getProjects);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [driveSaveOpen, setDriveSaveOpen] = useState(false);
+  const [driveSaveBusy, setDriveSaveBusy] = useState(false);
   const [filter, setFilter] = useState('all');
   const [sortMode, setSortMode] = useState('project');
   const [viewer, setViewer] = useState({ open: false, index: 0, items: [] });
@@ -292,7 +295,8 @@ export default function Portfolio() {
             Browse project photos, homework uploads, and creations. Select an item to view it.
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {isParent && <Button variant="secondary" size="sm" onClick={() => setDriveSaveOpen(true)}>Save a file from Abby</Button>}
           {hasContent && (
             <Button
               variant="ghost"
@@ -430,6 +434,11 @@ export default function Portfolio() {
       )}
 
       <AnimatePresence>
+        {isParent && driveSaveOpen && (
+          <BottomSheet title="Save a file from Abby" onClose={() => setDriveSaveOpen(false)} disabled={driveSaveBusy}>
+            <SaveAbbyFileToDrive key={user?.id} onBusyChange={setDriveSaveBusy} />
+          </BottomSheet>
+        )}
         {uploadOpen && (
           <UploadSheet
             projects={projects}

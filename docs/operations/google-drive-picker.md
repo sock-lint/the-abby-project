@@ -18,6 +18,30 @@ A completed upload can remain in Google Drive if the picker or resource form
 is cancelled, the Abby account changes, or metadata verification fails. These
 actions do not undo the Google upload. Remove unwanted uploaded files in Drive.
 
+## Save files already stored in Abby
+
+Parents can choose **Save a file from Abby** in **Memories → Gallery** or
+in a project's **Add Resource** form. Choose an
+imported PDF, project photo, approved homework proof photo, or creation photo,
+then choose **Save to Google Drive** and confirm the destination Google account.
+Abby sends a copy of that stored file directly to **My Drive**. No download to
+the device is needed. The original remains in Abby, and this export does not
+send the file to an AI provider or create a project plan PDF.
+
+Imported PDFs are visible only to the parent who imported them; discarded
+imports are excluded. Photos use their existing project and family access
+rules. Resources that are only external links, videos, audio, and private
+journal entries are not export sources. Each completed save creates a new
+Drive copy under the chosen account's existing permissions. Abby does not
+change sharing. In Add Resource, review the returned title/link and choose
+**Add Resource** separately to attach it to the project.
+
+Files must be valid PDFs or readable raster photos of at most 25 MB, including
+JPEG, PNG, WebP, GIF, BMP, and TIFF. If the account
+changes or a network error makes the result uncertain, a copy may already
+exist in My Drive. Check Drive before saving again; Abby does not automatically
+retry or remove a completed copy.
+
 In **Auto-fill from Source → PDF**, **Import PDF from Google Drive** copies a
 selected PDF into the existing import workflow. The parent reviews its plan
 before creating a project. School worksheets use this same project review flow;
@@ -85,6 +109,16 @@ handling is unchanged.
   resource_type}` with an existing resource type (`doc`, `image`, `video`, or
   `link`). The file ID and optional link-sharing resource key are validated;
   the canonical Google link is constructed by Django.
+- `GET /api/auth/google/drive/sources/?source_type=...` lists authorized stored
+  files in pages of 20. Types are `ingestion_pdf`, `project_photo`,
+  `homework_proof`, and `creation_photo`. Rows contain `source_type`, string
+  `source_id`, `title`, `mime_type`, and `context`; no storage paths or media
+  URLs are exposed by this list.
+- `POST /api/auth/google/drive/upload/` accepts exactly
+  `{source_type, source_id, access_token}`. Django resolves the scoped record,
+  reads and validates its stored file within the 25 MB limit, and creates a
+  copy in My Drive through Google's fixed API host. It returns the existing
+  verified resource metadata shape without storing the access token.
 - `POST /api/projects/ingest/google-drive/` accepts the same parent-only selection.
   It verifies the remote MIME type, download permission, size, and PDF header,
   streams at most 25 MB from Google's fixed API host without following redirects,

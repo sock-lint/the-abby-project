@@ -1,0 +1,14 @@
+{
+  "count": 21,
+  "next": null,
+  "previous": "/api/auth/google/drive/sources/?source_type=project_photo",
+  "results": [
+    {
+      "source_type": "project_photo",
+      "source_id": "301",
+      "title": "Experiment photo",
+      "mime_type": "image/png",
+      "context": "Science project"
+    }
+  ]
+}

@@ -56,6 +56,56 @@ afterEach(() => {
 });
 
 describe('Google Drive picker', () => {
+  it('authorizes an Abby file save directly from the click without opening a picker', async () => {
+    await sdk.prepareGoogleDriveAuthorization(CONFIG);
+    const result = sdk.authorizeGoogleDrive(CONFIG);
+    expect(oauth.requestAccessToken).toHaveBeenCalledWith({ prompt: 'select_account' });
+    expect(oauth.config).toMatchObject({ scope: sdk.GOOGLE_DRIVE_SCOPE, include_granted_scopes: false });
+    authorize();
+    await expect(result).resolves.toBe('synthetic-drive-token');
+    expect(builder.build).not.toHaveBeenCalled();
+  });
+
+  it('loads only Identity Services for saving an Abby file', async () => {
+    delete window.google;
+    delete window.gapi;
+    const result = sdk.prepareGoogleDriveAuthorization(CONFIG);
+    expect(document.querySelectorAll('script')).toHaveLength(1);
+    const script = document.querySelector('script');
+    expect(script.src).toBe('https://accounts.google.com/gsi/client');
+    installSdk();
+    script.dispatchEvent(new Event('load'));
+    await expect(result).resolves.toBeUndefined();
+    expect(window.gapi.load).not.toHaveBeenCalled();
+  });
+
+  it('drops a late direct-authorization token after cancellation', async () => {
+    const controller = new AbortController();
+    const result = sdk.authorizeGoogleDrive(CONFIG, { signal: controller.signal });
+    controller.abort();
+    authorize();
+    await expect(result).resolves.toBeNull();
+  });
+
+  it('cancels a closed direct-authorization popup without selecting a file', async () => {
+    const result = sdk.authorizeGoogleDrive(CONFIG);
+    oauth.config.error_callback({ type: 'popup_closed' });
+    await expect(result).resolves.toBeNull();
+  });
+
+  it('rejects a declined direct-authorization grant without exposing raw errors', async () => {
+    const result = sdk.authorizeGoogleDrive(CONFIG);
+    oauth.config.callback({ error: 'access_denied', error_description: 'synthetic-secret' });
+    await expect(result).rejects.toThrow('access was not granted');
+  });
+
+  it('requires drive.file on direct authorization', async () => {
+    oauth.hasGrantedAllScopes.mockReturnValue(false);
+    const result = sdk.authorizeGoogleDrive(CONFIG);
+    authorize();
+    await expect(result).rejects.toThrow('Allow access');
+  });
+
   it('uses least-privilege OAuth and resolves only a selected file and an ephemeral token', async () => {
     await sdk.prepareGoogleDrivePicker(CONFIG);
     const result = sdk.pickGoogleDriveFile(CONFIG);

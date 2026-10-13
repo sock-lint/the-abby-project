@@ -463,6 +463,11 @@ export const importGreenlight = (user_id, csv_data) =>
 // Google OAuth
 export const getGoogleDriveConfig = () => api.get('/auth/google/drive/config/');
 export const resolveGoogleDriveFile = (data) => api.post('/auth/google/drive/file/', data);
+export const getGoogleDriveSources = (sourceType, page = 1, options = {}) => api.get(
+  `/auth/google/drive/sources/?source_type=${encodeURIComponent(sourceType)}&page=${encodeURIComponent(page)}`,
+  options,
+);
+export const uploadAbbyFileToGoogleDrive = (data, options = {}) => api.post('/auth/google/drive/upload/', data, options);
 export const getGoogleAuthUrl = (forUserId) => {
   const qs = forUserId ? `?for_user=${forUserId}` : '';
   return api.get(`/auth/google/${qs}`);

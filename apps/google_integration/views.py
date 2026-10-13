@@ -12,6 +12,10 @@ from config.permissions import IsParent
 from config.viewsets import get_child_or_404, child_not_found_response
 
 from .drive import GoogleDriveSelectionSerializer, GoogleDriveService
+from .drive_uploads import (
+    AbbyDriveSourceService, GoogleDriveSourcePagination, GoogleDriveSourceQuerySerializer,
+    GoogleDriveUploadSerializer, GoogleDriveUploadService,
+)
 from .models import GoogleAccount
 from .services import GoogleAuthService
 
@@ -38,6 +42,34 @@ class GoogleDriveFileView(APIView):
         GoogleDriveService.require_configured()
         metadata = GoogleDriveService.get_file(**selection.validated_data)
         return Response(GoogleDriveService.resource(metadata))
+
+
+class GoogleDriveSourcesView(APIView):
+    permission_classes = [IsParent]
+
+    def get(self, request):
+        query = GoogleDriveSourceQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        source_type = query.validated_data["source_type"]
+        paginator = GoogleDriveSourcePagination()
+        records = paginator.paginate_queryset(AbbyDriveSourceService.queryset(request.user, source_type), request, view=self)
+        return paginator.get_paginated_response([AbbyDriveSourceService.describe(record, source_type) for record in records])
+
+
+class GoogleDriveUploadView(APIView):
+    permission_classes = [IsParent]
+
+    def post(self, request):
+        upload = GoogleDriveUploadSerializer(data=request.data)
+        upload.is_valid(raise_exception=True)
+        GoogleDriveService.require_configured()
+        content, mime_type, name = AbbyDriveSourceService.read(
+            request.user, upload.validated_data["source_type"], upload.validated_data["source_id"],
+        )
+        resource = GoogleDriveUploadService.upload(
+            content=content, mime_type=mime_type, name=name, access_token=upload.validated_data["access_token"],
+        )
+        return Response(resource, status=status.HTTP_201_CREATED)
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
