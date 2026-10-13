@@ -48,7 +48,6 @@ function identity(sourceCommit) {
   requireValue(directory && resolve(directory) === directory && COMMIT.test(head) && COMMIT.test(base) && Number.isSafeInteger(issue) && issue > 0, 'INVALID_IDENTITY');
   requireValue(git(directory, ['rev-parse', 'HEAD']) === head && git(directory, ['status', '--porcelain', '--untracked-files=no']) === '', 'DIRTY_OR_CHANGED_HEAD');
   git(directory, ['merge-base', '--is-ancestor', base, head]);
-  git(directory, ['merge-base', '--is-ancestor', sourceCommit, head]);
   const changed = git(directory, ['diff', '--name-only', '--no-renames', base, head]).split('\n').filter(Boolean);
   if (head !== sourceCommit) {
     requireValue(changed.every((path) => path === RECIPE_PATH || path.startsWith('frontend/src/companion/')

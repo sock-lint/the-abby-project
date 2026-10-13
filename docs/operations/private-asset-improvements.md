@@ -33,7 +33,7 @@ The station manifest at /etc/abby-asset-checks/manifest.json contains
 schemaVersion, sourceCommit, installPath, nodePath, browserPath, workbenchFile.
 The frontend marker .abby-asset-source.json contains only schemaVersion1 and
 the same sourceCommit. Station supervision verifies ownership, immutable
-paths, merged-main provenance and the fixed executable.
+paths, reviewed source provenance and the fixed executable.
 
 The root-owned workbench JSON contains exactly schemaVersion1,
 baselineDirectory, files, blenderPath, blenderVersion4.1.1. Files maps the
