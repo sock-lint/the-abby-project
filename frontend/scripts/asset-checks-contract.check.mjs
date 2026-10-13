@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm, symlink, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FILES, CHECKS, SCREENSHOTS, KIND, hash, recipe, workbench, bytes, outsideGit, sourceDigest, validateReceipt, contained, png, verifyAssetCopy } from './asset-checks-contract.mjs';
+import { FILES, CHECKS, SCREENSHOTS, KIND, hash, recipe, workbench, bytes, outsideGit, sourceDigest, validateReceipt, contained, png, verifyAssetCopy, verifyInventory } from './asset-checks-contract.mjs';
 
 test('recipes allow only bounded declarative woodland operations', () => {
   for (const maxDimension of [128, 256, 384, 512]) assert.equal(recipe({ schemaVersion:1,target:'woodland',operation:'woodland-texture-limit',maxDimension }).maxDimension,maxDimension);
@@ -59,5 +59,15 @@ test('workbench verifies every baseline byte and source manifest against its cat
     await verifyAssetCopy(directory, files);
     const selected=await workbench(path);assert.equal(selected.sourceInputsSha256,sourceDigest(files));assert.equal(selected.catalogSha256,hash(await readFile(path)));
     await writeFile(join(directory,'chick.glb'),'changed bytes');await assert.rejects(()=>workbench(path));await assert.rejects(()=>verifyAssetCopy(directory,files));
+  } finally {await rm(root,{recursive:true,force:true});}
+});
+
+test('untracked files selected by source globs cannot enter a frozen snapshot', async () => {
+  const root=await mkdtemp(join(tmpdir(),'abby-asset-inventory-'));
+  try {
+    await writeFile(join(root,'tracked.js'),'frozen blob');
+    await verifyInventory(root,['tracked.js']);
+    await writeFile(join(root,'unexpected.glb'),'untracked payload');
+    await assert.rejects(()=>verifyInventory(root,['tracked.js']));
   } finally {await rm(root,{recursive:true,force:true});}
 });

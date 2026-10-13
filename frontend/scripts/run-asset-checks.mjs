@@ -9,7 +9,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { chromium } from '@playwright/test';
 import { LiveProcessGroup } from './live-process-group.mjs';
-import { KIND, REPOSITORY, RECIPE_PATH, FILES, CHECKS, SCREENSHOTS, COMMIT, keys, requireValue, hash, recipe, bytes, noLinks, outsideGit, workbench, png, validateReceipt, contained, verifyAssetCopy } from './asset-checks-contract.mjs';
+import { KIND, REPOSITORY, RECIPE_PATH, FILES, CHECKS, SCREENSHOTS, COMMIT, keys, requireValue, hash, recipe, bytes, noLinks, outsideGit, workbench, png, validateReceipt, contained, verifyAssetCopy, verifyInventory } from './asset-checks-contract.mjs';
 
 const frontend = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const installation = resolve(frontend, '..');
@@ -100,13 +100,18 @@ async function verifySnapshot(id, selected, output, variant) {
   const root = join(output, 'snapshot-' + variant);
   const listing = execFileSync('/usr/bin/git', ['-C', id.directory, 'ls-tree', '-rz', revision, '--', 'frontend/src', 'frontend/public'],
     { env: safeEnv('/nonexistent'), encoding: 'utf8', maxBuffer: 4 * 1024 * 1024, timeout: 30000 });
+  const paths = [];
   for (const record of listing.split('\0').filter(Boolean)) {
     const match = record.match(/^(100644|100755) blob ([a-f0-9]{40})\t(.+)$/s);
     requireValue(match && !match[3].split('/').includes('..'), 'SNAPSHOT_CHANGED');
+    paths.push(match[3]);
     const data = await bytes(join(root, match[3]));
     const blob = createHash('sha1').update('blob ' + data.length + '\0').update(data).digest('hex');
     requireValue(blob === match[2], 'SNAPSHOT_CHANGED');
   }
+  await verifyInventory(join(root, 'frontend/src'), [...paths.filter((path) => path.startsWith('frontend/src/')).map((path) => path.slice('frontend/src/'.length)), ...FILES.map((name) => 'companion/licensed/' + name)]);
+  await verifyInventory(join(root, 'frontend/public'), paths.filter((path) => path.startsWith('frontend/public/')).map((path) => path.slice('frontend/public/'.length)));
+  await verifyInventory(join(root, 'frontend/e2e/asset-checks'), ['fixture.html', 'fixture.jsx', 'inspect.js']);
   for (const name of FILES) {
     const reference = await bytes(join(output, variant, name));
     requireValue(hash(await bytes(join(root, 'frontend/src/companion/licensed', name))) === hash(reference), 'SNAPSHOT_CHANGED');

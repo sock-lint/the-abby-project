@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { lstat, readFile, realpath } from 'node:fs/promises';
+import { lstat, readFile, realpath, readdir } from 'node:fs/promises';
 import { isAbsolute, join, resolve, dirname, relative } from 'node:path';
 
 export const KIND = 'abby-private-asset-candidate';
@@ -51,6 +51,19 @@ export async function outsideGit(path) {
     catch (error) { if (error.code !== 'ENOENT') throw error; }
     if (dirname(current) === current) break;
   }
+}
+export async function verifyInventory(directory, expected) {
+  const found = [];
+  async function visit(path, prefix = '') {
+    for (const entry of await readdir(path, { withFileTypes: true })) {
+      requireValue(!entry.isSymbolicLink(), 'SNAPSHOT_CHANGED');
+      const rel = prefix + entry.name;
+      if (entry.isDirectory()) await visit(join(path, entry.name), rel + '/');
+      else { requireValue(entry.isFile(), 'SNAPSHOT_CHANGED'); found.push(rel); }
+    }
+  }
+  await visit(directory);
+  requireValue(JSON.stringify(found.sort()) === JSON.stringify([...expected].sort()), 'SNAPSHOT_CHANGED');
 }
 export async function verifyAssetCopy(directory, files) {
   for (const name of FILES) {
