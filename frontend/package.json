@@ -16,6 +16,8 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:pwa": "playwright test",
+    "test:live": "node scripts/run-live-checks.mjs",
+    "test:live-config": "node --test scripts/live-checks-contract.check.mjs",
     "test:licensed-art": "node --test scripts/stage-licensed-art.check.mjs scripts/stage-avatar-art.check.mjs",
     "test:native-config": "node --test scripts/native-build-config.check.mjs",
     "generate-pwa-icons": "pwa-assets-generator --preset minimal-2023 public/favicon.svg"

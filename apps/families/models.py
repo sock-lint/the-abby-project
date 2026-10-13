@@ -52,3 +52,25 @@ class Family(TimestampedModel):
     @property
     def children(self):
         return self.members.filter(role="child")
+
+
+class LiveTestFamily(TimestampedModel):
+    """Private ownership receipt for the explicitly provisioned live fixture.
+
+    A matching slug or username alone must never authorize adopting an
+    existing household. This record is created with the fixture atomically;
+    there is no public API or admin registration for it.
+    """
+
+    namespace = models.CharField(max_length=64, unique=True)
+    family = models.OneToOneField(Family, on_delete=models.CASCADE, related_name="+")
+    parent = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    child = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(parent=models.F("child")),
+                name="live_test_distinct_accounts",
+            ),
+        ]
