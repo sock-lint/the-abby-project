@@ -302,6 +302,9 @@ function validateIdle(document, binary, reachable, model, bodyName) {
           || joint.type !== 'VEC4' || ![5121, 5123].includes(joint.componentType)
           || (joint.normalized !== undefined && joint.normalized !== false) || joint.count !== position.count
           || weight.type !== 'VEC4' || ![5121, 5123, 5126].includes(weight.componentType) || weight.count !== position.count
+          // GLTFLoader normalizes set0 in its original storage. Quantized
+          // paired weights can round away the total needed by our restoration.
+          || (sets.length > 1 && weight.componentType !== 5126)
           || (weight.componentType === 5126
             ? weight.normalized !== undefined && weight.normalized !== false : weight.normalized !== true)) {
           fail('Avatar body requires paired valid joint and weight attributes.');
@@ -324,7 +327,8 @@ function validateIdle(document, binary, reachable, model, bodyName) {
         }
         // Preserve up to eight supplied influences. Normalizing the first four
         // alone discards the fifth weight present on the publisher's Archer03.
-        if (Math.abs(totalWeight - 1) > 0.001) fail('Avatar body combined weights must be normalized.');
+        const tolerance = sets.length === 2 ? 0.000001 : 0.001;
+        if (Math.abs(totalWeight - 1) > tolerance) fail('Avatar body combined weights must be normalized.');
       }
     }
   };

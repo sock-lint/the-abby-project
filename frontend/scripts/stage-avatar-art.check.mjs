@@ -432,6 +432,59 @@ test('expanded idle preserves five influences and accepts motion contributed onl
   geometry.dispose();
 });
 
+test('expanded paired influence sets reject integer weight storage before loader quantization', async () => {
+  const { validateAvatarBundle } = await import('./stage-avatar-art.mjs');
+  for (const integerType of [5121, 5123]) {
+    for (const integerSets of [[0], [1], [0, 1]]) {
+      const bundle = makeExpandedBundle();
+      const glb = makeFiveInfluenceGlb(bundle.manifest.parts, (document, binary) => {
+        const maximum = integerType === 5121 ? 255 : 65535;
+        const primary = integerType === 5121 ? [50, 50, 50, 50] : [12850, 12850, 12850, 12850];
+        const extra = maximum - primary.reduce((sum, weight) => sum + weight, 0);
+        for (const set of integerSets) {
+          const accessor = document.accessors[set === 0 ? 3 : 8];
+          accessor.componentType = integerType;
+          accessor.normalized = true;
+          document.bufferViews[accessor.bufferView].byteStride = 16;
+        }
+        const writeWeights = (set, vertex, weights) => {
+          const offset = (set === 0 ? 72 : 236) + vertex * 16;
+          binary.fill(0, offset, offset + 16);
+          for (const [component, weight] of weights.entries()) {
+            if (!integerSets.includes(set)) binary.writeFloatLE(weight / maximum, offset + component * 4);
+            else if (integerType === 5121) binary.writeUInt8(weight, offset + component);
+            else binary.writeUInt16LE(weight, offset + component * 2);
+          }
+        };
+        for (let vertex = 0; vertex < 3; vertex++) {
+          writeWeights(0, vertex, vertex === 1 ? primary : [maximum, 0, 0, 0]);
+          writeWeights(1, vertex, vertex === 1 ? [extra, 0, 0, 0] : [0, 0, 0, 0]);
+        }
+      });
+      bundle.files['archer-03.glb'] = { sha256: digest(glb), base64: glb.toString('base64') };
+      const bytes = Buffer.from(JSON.stringify(bundle));
+      assert.throws(() => validateAvatarBundle(bytes, digest(bytes)), undefined, `type ${integerType}, sets ${integerSets}`);
+    }
+  }
+});
+
+test('paired FLOAT weights reject a combined total the runtime cannot restore', async () => {
+  const { validateAvatarBundle } = await import('./stage-avatar-art.mjs');
+  const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+  const { validateAvatarSkinning } = await import('../src/avatar/avatarSkinning.js');
+  const bundle = makeExpandedBundle();
+  const glb = makeFiveInfluenceGlb(bundle.manifest.parts, (_document, binary) => {
+    for (let component = 0; component < 4; component++) binary.writeFloatLE(0, 88 + component * 4);
+    binary.writeFloatLE(0.50025, 252);
+    binary.writeFloatLE(0.50025, 256);
+  });
+  const loaded = await new GLTFLoader().parseAsync(glb.buffer.slice(glb.byteOffset, glb.byteOffset + glb.byteLength), '');
+  assert.throws(() => validateAvatarSkinning(loaded.scene), /cannot restore the reviewed total/);
+  bundle.files['archer-03.glb'] = { sha256: digest(glb), base64: glb.toString('base64') };
+  const bytes = Buffer.from(JSON.stringify(bundle));
+  assert.throws(() => validateAvatarBundle(bytes, digest(bytes)), /combined weights must be normalized/);
+});
+
 test('expanded idle accepts a skeletal ancestor of a second-set weighted joint', async () => {
   const { validateAvatarBundle } = await import('./stage-avatar-art.mjs');
   const bundle = makeExpandedBundle();

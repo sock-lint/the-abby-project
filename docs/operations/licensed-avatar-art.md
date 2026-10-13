@@ -132,8 +132,13 @@ retain paired `JOINTS_1`/`WEIGHTS_1` rather than truncating or refitting the art
 The renderer's bounded extra-weight path clones geometry/materials, restores
 the loader-normalized first-set share and applies all weights to positions,
 normals and CPU bounds/picking. Staging requires paired valid sets, normalized
-combined weights and at most eight influences. Geometry and cloned resources
-are released with their avatar instance.
+combined weights and at most eight influences. Both weight sets must use FLOAT
+when a second set exists: loader normalization of integer first-set weights
+rounds their ratios before the renderer can restore the original share.
+Paired FLOAT weights must sum to one within 0.000001, matching the runtime
+restoration tolerance.
+Ordinary four-influence skins can retain normalized integer weights. Geometry
+and cloned resources are released with their avatar instance.
 
 Prepare the original pack privately, preserving its directory structure. The
 owner-provided inbox on this station is outside Git:
