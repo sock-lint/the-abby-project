@@ -289,7 +289,10 @@ deployment SHA.
 
 The suite signs in through the real forms, holds authenticated reads until
 each identity is verified, and uses real deployed responses. Credentialed
-fetches refuse redirects; request guards abort unexpected writes. Health must
+fetches refuse redirects; request guards abort unexpected writes. The observed
+uncredentialed, non-navigation Cloudflare JavaScript detection POST at or below
+`/cdn-cgi/challenge-platform/h/g/jsd/oneshot` is discarded without forwarding
+or failing the read-only smoke; other writes retain their failure checks. Health must
 identify the expected commit and pinned Coolify application before login and
 after browser checks. Each successful run uses four `/api/auth/` POSTs: two
 logins and two token-revoking logouts. Dashboard reads can update only the
