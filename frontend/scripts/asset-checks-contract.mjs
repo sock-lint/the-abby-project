@@ -52,6 +52,12 @@ export async function outsideGit(path) {
     if (dirname(current) === current) break;
   }
 }
+export async function verifyAssetCopy(directory, files) {
+  for (const name of FILES) {
+    const data = await bytes(join(directory, name));
+    requireValue(data.length === files[name].bytes && hash(data) === files[name].sha256, 'ASSET_COPY_CHANGED');
+  }
+}
 export async function workbench(path) {
   const raw = await bytes(path, 128 * 1024);
   const config = JSON.parse(raw);

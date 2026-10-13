@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm, symlink, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FILES, CHECKS, SCREENSHOTS, KIND, hash, recipe, workbench, bytes, outsideGit, sourceDigest, validateReceipt, contained, png } from './asset-checks-contract.mjs';
+import { FILES, CHECKS, SCREENSHOTS, KIND, hash, recipe, workbench, bytes, outsideGit, sourceDigest, validateReceipt, contained, png, verifyAssetCopy } from './asset-checks-contract.mjs';
 
 test('recipes allow only bounded declarative woodland operations', () => {
   for (const maxDimension of [128, 256, 384, 512]) assert.equal(recipe({ schemaVersion:1,target:'woodland',operation:'woodland-texture-limit',maxDimension }).maxDimension,maxDimension);
@@ -56,7 +56,8 @@ test('workbench verifies every baseline byte and source manifest against its cat
     const data=JSON.stringify(manifest);await writeFile(join(directory,'manifest.json'),data);files['manifest.json']={sha256:hash(data),bytes:Buffer.byteLength(data)};
     const blenderPath=join(root,'blender');await writeFile(blenderPath,'synthetic binary');
     const path=join(root,'workbench.json');await writeFile(path,JSON.stringify({schemaVersion:1,baselineDirectory:directory,files,blenderPath,blenderVersion:'4.1.1'}));
+    await verifyAssetCopy(directory, files);
     const selected=await workbench(path);assert.equal(selected.sourceInputsSha256,sourceDigest(files));assert.equal(selected.catalogSha256,hash(await readFile(path)));
-    await writeFile(join(directory,'chick.glb'),'changed bytes');await assert.rejects(()=>workbench(path));
+    await writeFile(join(directory,'chick.glb'),'changed bytes');await assert.rejects(()=>workbench(path));await assert.rejects(()=>verifyAssetCopy(directory,files));
   } finally {await rm(root,{recursive:true,force:true});}
 });

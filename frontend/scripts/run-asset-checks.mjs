@@ -9,7 +9,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { chromium } from '@playwright/test';
 import { LiveProcessGroup } from './live-process-group.mjs';
-import { KIND, REPOSITORY, RECIPE_PATH, FILES, CHECKS, SCREENSHOTS, COMMIT, keys, requireValue, hash, recipe, bytes, noLinks, outsideGit, workbench, png, validateReceipt, contained } from './asset-checks-contract.mjs';
+import { KIND, REPOSITORY, RECIPE_PATH, FILES, CHECKS, SCREENSHOTS, COMMIT, keys, requireValue, hash, recipe, bytes, noLinks, outsideGit, workbench, png, validateReceipt, contained, verifyAssetCopy } from './asset-checks-contract.mjs';
 
 const frontend = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const installation = resolve(frontend, '..');
@@ -71,6 +71,9 @@ async function runBlender(config, id, output) {
   requireValue(comparison.status === 'passed' && comparison.scope === 'private_evaluation'
     && comparison.geometryPreserved && comparison.originalJsonSemanticsPreserved
     && comparison.maxDimension === id.selectedRecipe.maxDimension, 'GENERATION_FAILED');
+  const candidate = await bytes(join(output, 'variant', 'woodland-' + id.selectedRecipe.maxDimension + '.glb'));
+  requireValue(hash(candidate) === comparison.candidate.sha256 && candidate.length === comparison.candidate.bytes, 'GENERATION_FAILED');
+  return { sha256: hash(candidate), bytes: candidate.length };
 }
 async function snapshot(id, config, output, variant) {
   const revision = variant === 'baseline' ? id.base : id.head;
@@ -93,6 +96,7 @@ async function snapshot(id, config, output, variant) {
 }
 async function verifySnapshot(id, selected, output, variant) {
   const revision = variant === 'baseline' ? id.base : id.head;
+  if (variant === 'baseline') await verifyAssetCopy(join(output, 'baseline'), selected.config.files);
   const root = join(output, 'snapshot-' + variant);
   const listing = execFileSync('/usr/bin/git', ['-C', id.directory, 'ls-tree', '-rz', revision, '--', 'frontend/src', 'frontend/public'],
     { env: safeEnv('/nonexistent'), encoding: 'utf8', maxBuffer: 4 * 1024 * 1024, timeout: 30000 });
@@ -226,7 +230,7 @@ async function main() {
   await mkdir(output, { mode: 0o700 });
   await mkdir(join(output, 'screenshots'), { mode: 0o700 });
   phase = 'GENERATION';
-  await runBlender(selected.config, id, output);
+  const generatedBinding = await runBlender(selected.config, id, output);
   for (const variant of ['baseline', 'candidate']) {
     await mkdir(join(output, variant), { mode: 0o700 });
     for (const name of FILES) await copyFile(join(selected.config.baselineDirectory, name), join(output, variant, name));
@@ -234,8 +238,11 @@ async function main() {
   const generated = join(output, 'variant', 'woodland-' + id.selectedRecipe.maxDimension + '.glb');
   await copyFile(generated, join(output, 'candidate/woodland.glb'));
   const manifest = structuredClone(selected.manifest), data = await bytes(generated);
+  requireValue(hash(data) === generatedBinding.sha256 && data.length === generatedBinding.bytes, 'CANDIDATE_CHANGED');
   manifest.models.woodland.sha256 = hash(data); manifest.models.woodland.bytes = data.length;
-  await writeFile(join(output, 'candidate/manifest.json'), JSON.stringify(manifest, null, 2) + '\n', { mode: 0o600 });
+  const manifestBytes = JSON.stringify(manifest, null, 2) + '\n';
+  await writeFile(join(output, 'candidate/manifest.json'), manifestBytes, { mode: 0o600 });
+  const generatedManifestSha256 = hash(manifestBytes);
   phase = 'BASELINE_SNAPSHOT';
   const baseline = await snapshot(id, selected.config, output, 'baseline');
   phase = 'CANDIDATE_SNAPSHOT';
@@ -246,6 +253,8 @@ async function main() {
   const rendered = await browserEvidence(id, baseline, candidate, output);
   await verifySnapshot(id, selected, output, 'baseline');
   await verifySnapshot(id, selected, output, 'candidate');
+  requireValue(await candidateFiles(output, selected) === generatedManifestSha256, 'CANDIDATE_CHANGED');
+  requireValue(hash(await bytes(join(output, 'candidate/woodland.glb'))) === generatedBinding.sha256, 'CANDIDATE_CHANGED');
   const checkedAt = new Date().toISOString();
   const report = validateReceipt({ schemaVersion: 1, kind: KIND, status: 'passed', scope: 'private_evaluation',
     headCommit: id.head, baseCommit: id.base, sourceCommit: selected.sourceCommit, issue: id.issue,
@@ -274,7 +283,7 @@ try {
     'INVALID_BLENDER_VERSION','INVALID_IDENTITY','DIRTY_OR_CHANGED_HEAD','UNSUPPORTED_CHANGE','INVALID_RECIPE',
     'GENERATION_FAILED','UNSUPPORTED_SOURCE_ENTRY','UNSUPPORTED_CSS_PLUGIN','TIMED_OUT','ASSET_INSPECTION_FAILED',
     'RENDER_FAILED','MOBILE_OVERFLOW','FALLBACK_FAILED','LOAD_OR_NETWORK_FAILURE','INVALID_CANDIDATE',
-    'CANDIDATE_CHANGED','SNAPSHOT_CHANGED','RECEIPT_IDENTITY_CHANGED','INVALID_SCREENSHOT_PATH','SCREENSHOT_CHANGED','OUTPUT_OVERLAP','OUTPUT_EXISTS']);
+    'CANDIDATE_CHANGED','ASSET_COPY_CHANGED','SNAPSHOT_CHANGED','RECEIPT_IDENTITY_CHANGED','INVALID_SCREENSHOT_PATH','SCREENSHOT_CHANGED','OUTPUT_OVERLAP','OUTPUT_EXISTS']);
   const code = codes.has(error.message) ? error.message : 'ASSET_CHECK_FAILED';
   process.stderr.write(JSON.stringify({ schemaVersion: 1, status: 'failed', phase, code }) + '\n'); process.exitCode = 1;
 } finally {
