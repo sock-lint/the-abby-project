@@ -149,6 +149,20 @@ class ReportCardApiResponseFixtureTests(APITestCase):
         self.assertFalse(GradeDailyCounter.objects.filter(user=self.child).exists())
         self.assertFalse(SkillProgress.objects.filter(user=self.child).exists())
 
+    def test_subject_errors_preserve_original_indices_without_writes(self):
+        invalid = deepcopy(self.submission)
+        invalid["report_card"]["subjects"][1]["xp_awarded"] = 1000
+        invalid["report_card"]["subjects"][2]["coins_awarded"] = 1000
+        response = self.post(invalid)
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(response.json()["report_card"]["subjects"], {
+            "1": {"xp_awarded": "Unknown field."},
+            "2": {"coins_awarded": "Unknown field."},
+        })
+        self.assertFalse(ChronicleEntry.objects.filter(user=self.child).exists())
+        self.assertFalse(GradeDailyCounter.objects.filter(user=self.child).exists())
+        self.assertFalse(SkillProgress.objects.filter(user=self.child).exists())
+
     def test_report_cards_keep_child_author_and_family_sharing_boundaries(self):
         response = self.post()
         self.assertEqual(response.status_code, 201, response.content)
