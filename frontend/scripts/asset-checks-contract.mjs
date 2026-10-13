@@ -46,7 +46,10 @@ export async function bytes(path, maximum = 64 * 1024 * 1024) {
 }
 export async function outsideGit(path) {
   await noLinks(path);
-  for (let current = path; ; current = dirname(current)) {
+  let ancestor = path;
+  try { if ((await lstat(path)).isFile()) ancestor = dirname(path); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  for (let current = ancestor; ; current = dirname(current)) {
     try { await lstat(join(current, '.git')); throw new Error('OUTPUT_INSIDE_GIT'); }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
     if (dirname(current) === current) break;

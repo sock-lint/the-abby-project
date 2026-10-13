@@ -53,6 +53,21 @@ test('private readers refuse file links, oversized input and Git output roots', 
     assert.equal(contained(root,join(root,'future')),true);assert.equal(contained(root,root),false);assert.equal(contained(root,join(root,'..','other')),false);
   } finally {await rm(root,{recursive:true,force:true});}
 });
+test('existing receipt verification handles files while refusing every Git-contained output', async () => {
+  const root=await mkdtemp(join(tmpdir(),'abby-asset-receipt-path-'));
+  try {
+    const receiptPath=join(root,'receipt.json');await writeFile(receiptPath,'{}');
+    await outsideGit(receiptPath);await outsideGit(root);await outsideGit(join(root,'future','receipt.json'));
+    const checkout=join(root,'checkout');await mkdir(checkout);await writeFile(join(checkout,'.git'),'gitdir: /synthetic/worktree');
+    const nested=join(checkout,'evidence');await mkdir(nested);
+    const inside=join(nested,'receipt.json');await writeFile(inside,'{}');
+    for (const path of [checkout,nested,inside,join(nested,'future.json')]) {
+      await assert.rejects(()=>outsideGit(path),{message:'OUTPUT_INSIDE_GIT'});
+    }
+    const linked=join(root,'receipt-link.json');await symlink(receiptPath,linked);
+    await assert.rejects(()=>outsideGit(linked),{message:'SYMLINK_REFUSED'});
+  } finally {await rm(root,{recursive:true,force:true});}
+});
 test('workbench verifies every baseline byte and source manifest against its catalog', async () => {
   const root=await mkdtemp(join(tmpdir(),'abby-asset-catalog-'));
   try {
