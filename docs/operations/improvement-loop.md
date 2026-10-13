@@ -37,6 +37,13 @@ failures and decisions that need the owner; keep unchanged status quiet.
   production data, payment services, printers, credentials or infrastructure
   from an improvement task. Changes to live deployment configuration or the
   station's authority and merge gates need a separate owner-directed task.
+  On October 13, 2026 the owner separately authorized the trusted station
+  observer's [dedicated live browser checks](live-browser-checks.md). Only that
+  reviewed, pinned observer may use its private credentials; improvement
+  worktrees never receive them. Its read workflows use the separately owned
+  `abby-live-checks` family and do not browse other families or perform product
+  mutations. Account provisioning and password rotation remain trusted
+  operator commands, outside individual improvement tasks.
 
 ## Merge gate
 
@@ -58,6 +65,11 @@ is enabled independently of GitHub Actions. A successful merge is not release
 evidence. The deployment workflow verifies the finished commit and public
 application/database health; record and surface deployment failures without
 issuing an unreviewed rollback or changing production settings.
+The live observer also correlates the public serving commit and application
+identity with fresh, read-only Coolify evidence before and after its parent and
+child browser journeys. A pending deployment, failed browser journey or
+unverifiable identity pauses further station work; it does not grant permission
+to bypass review or alter production to make the check pass.
 
 ## Station checkouts
 

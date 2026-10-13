@@ -40,6 +40,7 @@ jobs:
       - run: npm ci
       - run: npm run test:native-config
       - run: npm run test:licensed-art
+      - run: npm run test:live-config
       - run: npm run lint
       - run: npm run test:coverage -- --maxWorkers=4
       - run: npm run build
