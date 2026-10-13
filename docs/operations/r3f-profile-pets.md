@@ -40,6 +40,11 @@ are unmodified. Public source builds omit private exports and retain 2D behavior
 Runtime delivery remains private evaluation pending applicable license/seat and
 public-packaging assessment; no reusable paid GLB is uploaded by this change.
 
+Production avatar builds need the separate [private avatar staging inputs](licensed-avatar-art.md).
+The existing Meadow portrait release does not contain the Archer model or
+palette textures. Build support accepts only an explicitly reviewed runtime
+release; it does not publish artwork or resolve the owner delivery prerequisite.
+
 The owner accepted the recorded Archer pack for Profile on October 12. Run
 `scripts/r3f/prepare_archer.py --source <private Female Archer Pack 01 directory>`
 after the owned bird conversion. The private Archer export is 235,276 bytes,
