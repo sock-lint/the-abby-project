@@ -278,6 +278,16 @@ The inside-cover plate of the journal — personal author-portrait rather than a
 
 `accounts.User.avatar` ImageField → `upload_to="avatars/"`. Self-uploaded through Profile's page-specific `ProfilePictureEditor` component, labeled “Profile picture”; the Archer is labeled “Your character.” The hidden file picker has an accessible name and an Upload/Change picture button. Remove picture opens `ConfirmDialog` and sends `PATCH /api/auth/me/ {avatar: ""}`. Upload runs `downscaleImage` (`maxDim: 512`) before multipart delivery. Late preprocessing and responses are fenced by account identity, credential and mounted state. `SigilFrontispiece` and `AvatarMenu` show the saved picture with an initial fallback; the selected frame decorates the Profile picture. `MeView.patch` accepts multipart/JSON; a file replaces the old image, and the empty-string sentinel clears it. `AuthProvider.setUser` refreshes Profile and navigation after the confirmed response.
 
+## Daily reflection and challenges
+
+Child Today owns `dashboard/WellbeingCard.jsx`: today's affirmation and saved
+gratitude lines appear after tasks and recent items, before Rewards & earnings.
+The same self-scoped wellbeing endpoints handle first saves and later edits;
+parents do not render this card. Profile owns identity, picture, character,
+frames and titles. Its former daily-note card and Challenges shortcut are removed.
+Challenges remains under Tasks → Challenges (`/quests?tab=trials`) with a plain
+explanation of optional goals and bonus rewards for eligible everyday work.
+
 ## Page list
 
 ```
@@ -285,7 +295,8 @@ pages/
   Dashboard.jsx                Thin role router — loads /dashboard/ once,
                                branches to ChildDashboard / ParentDashboard
   ChildDashboard.jsx           Child body (HeroPrimaryCard + VitalPipStrip
-                               + quest log + AccordionSections)
+                               + quest log + WellbeingCard + AccordionSections)
+  dashboard/WellbeingCard.jsx   Child Today's affirmation + gratitude pad
   ParentDashboard.jsx          Parent body (ApprovalQueueList + Week at a
                                glance + Quick adjusts)
   _dashboardShared.js          formatWeekdayDate, mapProjectTone,
@@ -316,8 +327,7 @@ pages/
                                trials.constants)
   Character.jsx, character/    Sigil Frontispiece, TrophySlot,
                                TrophyBadgePicker, CosmeticChapter,
-                               CosmeticSigil, character.constants,
-                               WellbeingCard
+                               CosmeticSigil, character.constants
   Timecards, Payments, Rewards
   Achievements                 Skills tab inside AtlasHub (skill tree +
                                parent View|Manage toggle)
@@ -345,6 +355,7 @@ Page-level `*Card` / `*Verse` / `*Sigil` components (AssignmentCard, CatalogCard
 - `forge/index.jsx`, `forge/forge.constants.js`, `forge/PlateFilenameChip.jsx`.
 - `trials/index.jsx`, `trials/QuestCodex.jsx`, `trials/trials.constants.js`.
 - `Achievements.jsx`, `achievements/SkillTreeView.jsx`, `achievements/SigilCodex.jsx`, `achievements/collections.constants.js`.
-- `Character.jsx`, `character/SigilFrontispiece.jsx`, `character/character.constants.js`, `character/WellbeingCard.jsx`.
+- `Character.jsx`, `character/SigilFrontispiece.jsx`, `character/character.constants.js`.
+- `ChildDashboard.jsx`, `dashboard/WellbeingCard.jsx`.
 - `yearbook/JournalEntryFormModal.jsx`.
 - `Portfolio.jsx`.

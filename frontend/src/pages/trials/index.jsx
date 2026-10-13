@@ -122,7 +122,9 @@ export default function Trials() {
       </div>
 
       <p className="font-script text-sm text-ink-whisper -mt-2 max-w-xl">
-        Complete eligible tasks to damage a boss or make collection progress. You can have one active challenge at a time.
+        Challenges are optional goals that add bonus rewards to the tasks you already do.
+        Start one, then complete eligible tasks to damage a boss or make collection progress.
+        Each challenge shows its deadline and rewards. You can have one active challenge at a time.
       </p>
 
       <ErrorAlert message={error} />

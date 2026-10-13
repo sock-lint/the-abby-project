@@ -7,6 +7,7 @@ import { server } from '../test/server.js';
 import { renderWithProviders } from '../test/render.jsx';
 import { buildUser } from '../test/factories.js';
 import { setToken } from '../api/client.js';
+import { spyHandler } from '../test/spy.js';
 
 vi.mock('../components/avatar/AvatarPreview', () => ({ default: () => <div role="img" aria-label="Your Archer avatar" /> }));
 
@@ -53,6 +54,22 @@ function renderPage() {
 }
 
 describe('Character (/sigil)', () => {
+  it.each(['child', 'parent'])('keeps daily notes and challenge shortcuts off the %s profile', async (role) => {
+    stubRoutes({ profile: { display_name: 'Abby', level: 2 }, user: buildUser({ role }) });
+    const wellbeing = spyHandler('get', /\/api\/wellbeing\/today\/$/, {
+      affirmation: { text: 'A quiet moment for today.' }, gratitude_lines: [],
+    });
+    const activeQuest = spyHandler('get', /\/api\/quests\/active\/$/, null);
+    server.use(wellbeing.handler, activeQuest.handler);
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Your look' })).toBeInTheDocument();
+    expect(screen.queryByText(/today's note/i)).toBeNull();
+    expect(screen.queryByRole('textbox', { name: /Gratitude line/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Challenges/ })).toBeNull();
+    expect(wellbeing.calls).toHaveLength(0);
+    expect(activeQuest.calls).toHaveLength(0);
+  });
+
   it('keeps earlier accessories in a saved collection without an equip claim and allows clearing a previous selection', async () => {
     const user = userEvent.setup();
     const hat = { id: 90, name: 'Party Hat', icon: '🎩', rarity: 'common', catalog_available: false };
@@ -87,7 +104,7 @@ describe('Character (/sigil)', () => {
     renderPage();
     expect(await screen.findByRole('link', { name: 'My pets' })).toHaveAttribute('href', '/bestiary');
     expect(screen.queryByRole('link', { name: 'View companion home' })).toBeNull();
-    expect(screen.queryByText('How are you feeling?')).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Gratitude line 1' })).toBeNull();
   });
 
   it('renders the frontispiece with display name, level chip, and trophy slot', async () => {

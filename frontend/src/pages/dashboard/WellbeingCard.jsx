@@ -30,8 +30,8 @@ function promptsForToday() {
 /**
  * WellbeingCard — Finch-inspired daily affirmation + gratitude pad.
  *
- * Lives on the Sigil Frontispiece between the hero frontispiece and the
- * cosmetic chapters. Soft tone — never punishes, never streaks, no
+ * Lives on child Today after the task list and recent items. Soft tone —
+ * never punishes, never streaks, no
  * notifications. The first-of-day gratitude submit pays a small coin
  * trickle (see apps/wellbeing/services.py); subsequent edits same-day
  * don't double-pay.

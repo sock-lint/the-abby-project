@@ -24,8 +24,6 @@ import { tierForProgress } from '../components/atlas/mastery.constants';
 import SigilFrontispiece from './character/SigilFrontispiece';
 import CosmeticChapter from './character/CosmeticChapter';
 import TrophyBadgePicker from './character/TrophyBadgePicker';
-import AdventuresEntry from './character/AdventuresEntry';
-import WellbeingCard from './character/WellbeingCard';
 import AvatarCustomizer from '../components/avatar/AvatarCustomizer';
 import SavedCosmetics from './character/SavedCosmetics';
 import ProfilePictureEditor from './character/ProfilePictureEditor';
@@ -293,10 +291,6 @@ export default function Character() {
       />
 
       <SavedCosmetics cosmetics={cosmetics} profile={profile} working={working} onRemove={handleUnequip} />
-
-      {user?.role === 'child' && <WellbeingCard />}
-
-      <AdventuresEntry />
 
       <AnimatePresence>
         {pickerOpen && (
