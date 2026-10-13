@@ -99,10 +99,24 @@ that exact deployment in Coolify when cancellation cannot be confirmed.
 Coolify's existing automatic deployment remains enabled. Its native webhooks are
 outside Actions concurrency and latest-main guards, and are not evidence that
 the GitHub validation pipeline passed. The workflow preserves this setting and
-the application's private build configuration. Public health plus the exact
-finished Coolify commit is the workflow's release evidence; an operator can
-independently compare running containers' `SOURCE_COMMIT` when investigating
-runtime/version drift.
+the application's private build configuration. The workflow accepts public
+`status: ok` / `db: up` plus the exact finished Coolify commit as its release
+evidence; it does not currently compare the public serving commit itself.
+
+`/health` additionally exposes `commit` only for a full lowercase 40-character
+hexadecimal `SOURCE_COMMIT`, and `resourceUuid` only when runtime
+`COOLIFY_RESOURCE_UUID` matches Abby's pinned application UUID. Missing or
+invalid values are omitted, including on degraded health responses. Every
+health response uses `Cache-Control: no-store` so the identity describes the
+container serving the request. Coolify injects these existing runtime values;
+no Docker build argument or private environment change is needed.
+
+The separately authorized [live browser observer](live-browser-checks.md)
+requires that public serving identity to match fresh finished-deployment proof
+both before login and after its browser journeys. That stricter correlation is
+an additional station gate, separate from the existing deployment workflow's
+status/database checks. Operators can also compare running containers'
+`SOURCE_COMMIT` when investigating runtime/version drift.
 
 Do not re-enable stale queued workflows or use an old manual dispatch to roll
 back production. Select a deliberate current-main change, validate it, and

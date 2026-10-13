@@ -305,6 +305,11 @@ GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "")
 GOOGLE_PICKER_API_KEY = os.environ.get("GOOGLE_PICKER_API_KEY", "")
 GOOGLE_PICKER_APP_ID = os.environ.get("GOOGLE_PICKER_APP_ID", "")
 
+# Public deployment identity only. The health middleware emits these values
+# only after strict validation; credentials and other runtime env stay private.
+SOURCE_COMMIT = os.environ.get("SOURCE_COMMIT", "")
+COOLIFY_RESOURCE_UUID = os.environ.get("COOLIFY_RESOURCE_UUID", "")
+
 MIDDLEWARE = [
     "config.middleware.HealthCheckMiddleware",
     "config.middleware.NoCacheAPIMiddleware",

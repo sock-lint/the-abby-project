@@ -2,7 +2,7 @@
 import json
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from apps.projects.models import User
@@ -35,12 +35,12 @@ class NoCacheAPIMiddlewareTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Cache-Control"], "no-cache")
 
-    def test_health_endpoint_untouched(self):
+    def test_health_endpoint_has_its_own_no_store(self):
         resp = self.client.get("/health")
         self.assertEqual(resp.status_code, 200)
         # /health is served by HealthCheckMiddleware before the URL resolver;
-        # it should NOT be marked no-store (probes can cache briefly).
-        self.assertNotEqual(resp.get("Cache-Control", ""), "no-store")
+        # Its release evidence must identify the current serving container.
+        self.assertEqual(resp["Cache-Control"], "no-store")
 
     def test_api_view_that_sets_cache_control_is_not_clobbered(self):
         """Views that explicitly set Cache-Control opt out of the no-store
@@ -93,6 +93,7 @@ class HealthCheckDeepModeTests(TestCase):
         self.assertEqual(body["storage"], "down")
         self.assertEqual(body["status"], "degraded")
         self.assertIn("521", body["storage_error"])
+        self.assertEqual(resp["Cache-Control"], "no-store")
 
     def test_deep_mode_accepts_alternate_truthy_values(self):
         """Operators have muscle memory for ``?deep=1`` from other tools."""
@@ -101,3 +102,53 @@ class HealthCheckDeepModeTests(TestCase):
             self.client.get("/health?deep=yes")
             self.client.get("/health?deep=TRUE")
             self.assertEqual(probe.call_count, 3)
+
+
+class HealthCheckReleaseEvidenceTests(TestCase):
+    commit = "a" * 40
+    resource_uuid = "lr5dn6lhga31vyk6u5qvhm4c"
+
+    @override_settings(SOURCE_COMMIT="a" * 40, COOLIFY_RESOURCE_UUID="lr5dn6lhga31vyk6u5qvhm4c")
+    def test_served_identity_is_validated_and_never_cached(self):
+        response = self.client.get("/health")
+        self.assertEqual(response.json(), {
+            "status": "ok", "db": "up", "commit": self.commit,
+            "resourceUuid": self.resource_uuid,
+        })
+        self.assertEqual(response["Cache-Control"], "no-store")
+
+    def test_missing_or_invalid_environment_is_omitted(self):
+        for commit in ("", "a" * 39, "a" * 41, "A" * 40, "main", "a" * 40 + "\n", None):
+            with self.subTest(commit=commit), override_settings(
+                SOURCE_COMMIT=commit, COOLIFY_RESOURCE_UUID="not-the-abby-application",
+            ):
+                response = self.client.get("/health")
+                self.assertEqual(response.json(), {"status": "ok", "db": "up"})
+                self.assertEqual(response["Cache-Control"], "no-store")
+
+    @override_settings(SOURCE_COMMIT="a" * 40, COOLIFY_RESOURCE_UUID="")
+    def test_valid_commit_does_not_invent_resource_identity(self):
+        self.assertEqual(self.client.get("/health").json(), {
+            "status": "ok", "db": "up", "commit": self.commit,
+        })
+
+    @override_settings(SOURCE_COMMIT="a" * 40, COOLIFY_RESOURCE_UUID="lr5dn6lhga31vyk6u5qvhm4c")
+    def test_database_failure_preserves_failure_and_uncached_identity(self):
+        with patch("config.middleware.connection.ensure_connection", side_effect=RuntimeError("private detail")):
+            response = self.client.get("/health")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {
+            "status": "degraded", "db": "down", "commit": self.commit,
+            "resourceUuid": self.resource_uuid,
+        })
+        self.assertEqual(response["Cache-Control"], "no-store")
+        self.assertNotIn("private detail", response.content.decode())
+
+    @override_settings(SOURCE_COMMIT="a" * 40, COOLIFY_RESOURCE_UUID="lr5dn6lhga31vyk6u5qvhm4c")
+    def test_deep_failure_keeps_served_identity(self):
+        with patch("apps.rpg.storage.probe_storage", return_value=(False, "unavailable")):
+            response = self.client.get("/health?deep=true")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["commit"], self.commit)
+        self.assertEqual(response.json()["resourceUuid"], self.resource_uuid)
+        self.assertEqual(response["Cache-Control"], "no-store")

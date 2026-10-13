@@ -273,6 +273,41 @@ warm HTTP responses can mask missing service-worker precache routes.
 
 ## Frontend testing (`frontend/`)
 
+### Dedicated deployed browser checks
+
+`npm run test:live-config` runs synthetic safety tests without network access.
+`npm run test:live -- --credentials-file <absolute-0600-json-path>
+--deployment-proof-file <absolute-0600-json-path> --result-file
+<absolute-0600-json-path> --expected-commit <40-lowercase-hex>` runs the separate
+`playwright.live.config.js` against `https://abby.bos.lol`. It requires the
+reserved `abby-live-checks` family, `abby_loop_parent` / `abby_loop_child`, and
+their provisioned IDs. Keep these files outside checkouts. The controller uses
+an immutable reviewed harness installation; never give changed PR code these
+credentials. Its root-owned `frontend/.abby-live-source.json` records
+`{schemaVersion:1,sourceCommit:<harness-sha>}` independently of the expected
+deployment SHA.
+
+The suite signs in through the real forms, holds authenticated reads until
+each identity is verified, and uses real deployed responses. Credentialed
+fetches refuse redirects; request guards abort unexpected writes. Health must
+identify the expected commit and pinned Coolify application before login and
+after browser checks. Each successful run uses four `/api/auth/` POSTs: two
+logins and two token-revoking logouts. Dashboard reads can update only the
+dedicated users' activity/profile state. This small smoke suite does not claim
+cross-family or complete workflow acceptance.
+
+The wrapper requires Linux, serializes shared-account runs with a private
+per-user lock, and drains the Playwright/browser process groups before
+unlocking. An uncleared group retains the lock for investigation. Browser
+traces, screenshots, video, HAR and saved authentication state are disabled;
+raw Playwright output is discarded and temporary artifacts removed. Only the
+allowlisted result JSON is retained. Its expiry cannot exceed the deployment
+proof's expiry or five minutes after completion. Existing `test:pwa` fixture
+tests explicitly exclude the live suite and remain independent of deployed
+credentials.
+
+### Local application tests
+
 - **Stack:** Vitest 4 + React Testing Library + jsdom + MSW 2 + `@vitest/coverage-v8`. Config lives in `frontend/vitest.config.js` (separate from `vite.config.js` so test-only deps don't leak into production builds).
 - **Layout:** tests are colocated next to source as `*.test.{js,jsx}`. Shared scaffolding lives under `frontend/src/test/`:
   - `setup.js` — global jest-dom matchers, `vi.mock('@sentry/react', …)`, jsdom polyfills (`matchMedia`, `IntersectionObserver`, `ResizeObserver`, `createImageBitmap`, `HTMLCanvasElement.{getContext,toBlob}`), and MSW lifecycle (`server.listen` / `resetHandlers` / `close`). Each test clears localStorage and seeds `abby_auth_token=test-session` to match the default authenticated API fixtures. Anonymous cases must explicitly clear that token. Endpoint spies ignore only the client `_abby_session` namespace when asserting route/body contracts.
