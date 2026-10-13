@@ -23,16 +23,19 @@ DRIVE_TIMEOUT = (5, 30)
 FILE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,256}$")
 
 
-class GoogleDriveSelectionSerializer(serializers.Serializer):
-    file_id = serializers.RegexField(FILE_ID_PATTERN, max_length=256)
+class GoogleDriveTokenSerializer(serializers.Serializer):
     access_token = serializers.CharField(max_length=4096, trim_whitespace=False, write_only=True)
-    resource_key = serializers.RegexField(FILE_ID_PATTERN, max_length=256, required=False)
 
     def validate_access_token(self, value):
         # Disallow whitespace/control characters before constructing a header.
         if not all(33 <= ord(character) <= 126 for character in value):
             raise serializers.ValidationError("Invalid Google access token.")
         return value
+
+
+class GoogleDriveSelectionSerializer(GoogleDriveTokenSerializer):
+    file_id = serializers.RegexField(FILE_ID_PATTERN, max_length=256)
+    resource_key = serializers.RegexField(FILE_ID_PATTERN, max_length=256, required=False)
 
 
 def _error(message):

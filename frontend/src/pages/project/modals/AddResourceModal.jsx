@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createResource, resolveGoogleDriveFile } from '../../../api';
 import { getToken } from '../../../api/client';
 import GoogleDrivePickerButton from '../../../components/GoogleDrivePickerButton';
+import SaveAbbyFileToDrive from '../../../components/SaveAbbyFileToDrive';
 import BottomSheet from '../../../components/BottomSheet';
 import ErrorAlert from '../../../components/ErrorAlert';
 import { useFormState } from '../../../hooks/useFormState';
@@ -10,7 +11,10 @@ import { TextField, SelectField } from '../../../components/form';
 
 export default function AddResourceModal({ projectId, steps, onClose, onSaved }) {
   const [sessionToken] = useState(getToken);
-  const [picking, setPicking] = useState(false);
+  const [pickerBusy, setPickerBusy] = useState(false);
+  const [abbySaveBusy, setAbbySaveBusy] = useState(false);
+  const picking = pickerBusy || abbySaveBusy;
+  const [abbyFileOpen, setAbbyFileOpen] = useState(false);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -59,16 +63,25 @@ export default function AddResourceModal({ projectId, steps, onClose, onSaved })
   };
 
   return (
-    <BottomSheet title="Add Resource" onClose={onClose} disabled={saving || picking} focusSuspended={picking}>
+    <BottomSheet title="Add Resource" onClose={onClose} disabled={saving || picking} focusSuspended={pickerBusy}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
         <p className="text-caption text-ink-whisper">
           Choose an existing file or upload a PDF, photo, or other file to your Google Drive.
           Uploaded files stay in Drive even if you cancel this form.
         </p>
-        <GoogleDrivePickerButton allowUpload onPick={handleDrivePick} onOpenChange={setPicking} disabled={saving}>
+        <GoogleDrivePickerButton allowUpload onPick={handleDrivePick} onOpenChange={setPickerBusy} disabled={saving || abbySaveBusy}>
           Choose or upload with Google Drive
         </GoogleDrivePickerButton>
+        <Button variant="secondary" disabled={saving || picking} aria-expanded={abbyFileOpen} onClick={() => setAbbyFileOpen(!abbyFileOpen)}>
+          Save a file from Abby
+        </Button>
+        {abbyFileOpen && <SaveAbbyFileToDrive disabled={saving || pickerBusy} onBusyChange={setAbbySaveBusy} onSaved={(resource) => {
+          if (!mounted.current || getToken() !== sessionToken) return;
+          set({ title: resource.title, url: resource.url, resource_type: resource.resource_type });
+          setError(null);
+          setAbbyFileOpen(false);
+        }} />}
         <p className="text-caption text-ink-whisper">
           You can also paste a link. Anyone opening a Drive resource needs access in Google Drive.
         </p>

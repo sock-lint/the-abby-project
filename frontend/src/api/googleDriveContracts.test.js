@@ -1,11 +1,44 @@
 import { describe, expect, it } from 'vitest';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
-import { getGoogleDriveConfig, resolveGoogleDriveFile, startGoogleDriveIngest } from './index';
+import {
+  getGoogleDriveConfig, getGoogleDriveSources, resolveGoogleDriveFile,
+  startGoogleDriveIngest, uploadAbbyFileToGoogleDrive,
+} from './index';
 import config from '../../../contracts/api/fixtures/google-drive-config.json';
 import file from '../../../contracts/api/fixtures/google-drive-file.json';
+import sources from '../../../contracts/api/fixtures/google-drive-sources-page-1.json';
+import secondPage from '../../../contracts/api/fixtures/google-drive-sources-page-2.json';
+import emptySources from '../../../contracts/api/fixtures/google-drive-sources-empty.json';
+import uploadedFile from '../../../contracts/api/fixtures/google-drive-uploaded-file.json';
 
 describe('Google Drive API contracts', () => {
+  it('reads categorized source pages without fetching storage URLs', async () => {
+    const request = spyHandler('get', '*/api/auth/google/drive/sources/', sources);
+    server.use(request.handler);
+    expect(await getGoogleDriveSources('project_photo')).toEqual(sources);
+    expect(new URL(request.calls[0].url).searchParams.get('source_type')).toBe('project_photo');
+    expect(new URL(request.calls[0].url).searchParams.get('page')).toBe('1');
+    const next = spyHandler('get', '*/api/auth/google/drive/sources/', secondPage);
+    server.use(next.handler);
+    expect(await getGoogleDriveSources('project_photo', 2)).toEqual(secondPage);
+    expect(new URL(next.calls[0].url).searchParams.get('page')).toBe('2');
+    const empty = spyHandler('get', '*/api/auth/google/drive/sources/', emptySources);
+    server.use(empty.handler);
+    expect(await getGoogleDriveSources('ingestion_pdf')).toEqual(emptySources);
+  });
+
+  it('sends only an Abby record identity and transient token to create a Drive copy', async () => {
+    const request = spyHandler('post', '*/api/auth/google/drive/upload/', uploadedFile);
+    server.use(request.handler);
+    const body = { source_type: 'project_photo', source_id: '301', access_token: 'synthetic-drive-export-token' };
+    expect(await uploadAbbyFileToGoogleDrive(body)).toEqual(uploadedFile);
+    expect(request.calls).toHaveLength(1);
+    expect(request.calls[0].body).toEqual(body);
+    expect(request.calls[0].url).not.toContain(body.access_token);
+    expect(request.calls[0].body).not.toHaveProperty('url');
+  });
+
   it('reads public Picker configuration from the backend fixture', async () => {
     const request = spyHandler('get', '*/api/auth/google/drive/config/', config);
     server.use(request.handler);

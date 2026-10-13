@@ -24,6 +24,9 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `cosmetic-equip-unavailable.json` | Owned saved accessory equip rejected with HTTP 400 without changing ownership or selection |
 | `google-drive-config.json` | `GET /api/auth/google/drive/config/`; public Picker configuration with synthetic keys |
 | `google-drive-file.json` | `POST /api/auth/google/drive/file/`; verified metadata for a parent-selected school PDF, without credentials |
+| `google-drive-sources-page-1.json`, `google-drive-sources-page-2.json` | Parent-only stored project-photo source list, scoped and paginated without media/storage URLs |
+| `google-drive-sources-empty.json` | Parent's empty imported-PDF source list |
+| `google-drive-uploaded-file.json` | Confirmed copy of an authorized Abby photo in My Drive, using the existing resource metadata shape |
 | `auth-login-child.json` | `POST /api/auth/`, successful password login; flat user plus token |
 | `auth-me-child.json` | `GET /api/auth/me/`, authenticated child identity |
 | `habits-page-1.json` | `GET /api/habits/`, first 20 of 21 child-visible rituals |
@@ -268,6 +271,12 @@ run it from a complete checkout, not an isolated
 copy of `unity/AbbyCamp`.
 
 ## Check for drift
+
+`config.tests.test_drive_export_api_contract_fixtures` exercises the real source
+list and stored-file upload endpoints with synthetic files and only Google's
+network mocked. `frontend/src/api/googleDriveContracts.test.js` consumes the
+same pages and upload receipt through the real API wrappers. Both are included
+in PR API validation. Unity is retired and consumes neither parent-only endpoint.
 
 From the repository root, with the normal backend test environment configured:
 

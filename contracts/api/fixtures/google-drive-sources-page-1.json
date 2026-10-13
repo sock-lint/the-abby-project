@@ -1,0 +1,147 @@
+{
+  "count": 21,
+  "next": "/api/auth/google/drive/sources/?page=2&source_type=project_photo",
+  "previous": null,
+  "results": [
+    {
+      "source_type": "project_photo",
+      "source_id": "321",
+      "title": "Experiment photo 321",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "320",
+      "title": "Experiment photo 320",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "319",
+      "title": "Experiment photo 319",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "318",
+      "title": "Experiment photo 318",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "317",
+      "title": "Experiment photo 317",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "316",
+      "title": "Experiment photo 316",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "315",
+      "title": "Experiment photo 315",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "314",
+      "title": "Experiment photo 314",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "313",
+      "title": "Experiment photo 313",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "312",
+      "title": "Experiment photo 312",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "311",
+      "title": "Experiment photo 311",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "310",
+      "title": "Experiment photo 310",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "309",
+      "title": "Experiment photo 309",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "308",
+      "title": "Experiment photo 308",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "307",
+      "title": "Experiment photo 307",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "306",
+      "title": "Experiment photo 306",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "305",
+      "title": "Experiment photo 305",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "304",
+      "title": "Experiment photo 304",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "303",
+      "title": "Experiment photo 303",
+      "mime_type": "image/png",
+      "context": "Science project"
+    },
+    {
+      "source_type": "project_photo",
+      "source_id": "302",
+      "title": "Experiment photo 302",
+      "mime_type": "image/png",
+      "context": "Science project"
+    }
+  ]
+}

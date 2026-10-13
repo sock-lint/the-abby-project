@@ -33,6 +33,22 @@ describe('Portfolio', () => {
     );
     renderWithProviders(<Portfolio />);
     await waitFor(() => expect(screen.getByText(/no photos yet/i)).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'Save a file from Abby' })).not.toBeInTheDocument();
+  });
+
+  it('lets a parent reach imported PDFs from an empty Gallery', async () => {
+    mockAuth(buildParent({ id: 1 }));
+    server.use(
+      http.get('*/api/portfolio/', () => HttpResponse.json({ projects: [], homework: [], creations: [] })),
+      http.get('*/api/auth/google/drive/sources/', () => HttpResponse.json({ count: 1, next: null, previous: null, results: [{
+        source_type: 'ingestion_pdf', source_id: 'existing-pdf-1', title: 'Science.pdf', mime_type: 'application/pdf', context: 'School project',
+      }] })),
+    );
+    const { user } = renderWithProviders(<Portfolio />);
+    await user.click(await screen.findByRole('button', { name: 'Save a file from Abby' }));
+    expect(screen.getByRole('dialog', { name: 'Save a file from Abby' })).toBeInTheDocument();
+    expect(await screen.findByRole('radio', { name: 'Science.pdf School project' })).toBeInTheDocument();
+    expect(screen.getByLabelText('File category')).toHaveValue('ingestion_pdf');
   });
 
   it('renders project photos and download link', async () => {
