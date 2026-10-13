@@ -55,7 +55,11 @@ The fixed frontend/scripts/run-asset-checks.mjs CLI accepts:
 
 Capabilities verify baseline hashes and Blender before reporting ready.
 The runner executes no candidate package scripts, Vite configuration,
-Tailwind executable plugin directives or environment files. Blender uses
+Tailwind executable directives or environment files. All source extensions are
+scanned before compilation, guarded pre-transforms reject CSS query aliases,
+only the trusted tailwindcss stylesheet import is allowed, and PostCSS uses
+inline empty configuration. Browser context routing fences first popup and
+WebSocket requests; unexpected popup pages close and fail the run. Blender uses
 factory startup, disabled automatic execution and two threads. Browser and
 generation are bounded to ten minutes; station supervision drains descendants.
 

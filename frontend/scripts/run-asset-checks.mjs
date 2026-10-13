@@ -8,6 +8,7 @@ import { createServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { chromium } from '@playwright/test';
+import { rejectExecutableStyles, rejectStyleQuery, assetPreviewGuard } from './asset-preview-guard.mjs';
 import { LiveProcessGroup } from './live-process-group.mjs';
 import { KIND, REPOSITORY, RECIPE_PATH, FILES, CHECKS, SCREENSHOTS, COMMIT, keys, requireValue, hash, recipe, bytes, noLinks, outsideGit, workbench, png, validateReceipt, contained, verifyAssetCopy, verifyInventory } from './asset-checks-contract.mjs';
 
@@ -85,8 +86,8 @@ async function snapshot(id, config, output, variant) {
   execFileSync('/usr/bin/tar', ['-xf', '-', '-C', root], { input: archive, env: safeEnv('/nonexistent'), timeout: 30000 });
   const selected = join(root, 'frontend');
   // A candidate cannot enable executable Tailwind configuration/plugins.
-  const cssFiles = git(id.directory, ['ls-tree', '-r', '--name-only', revision, '--', 'frontend/src']).split('\n').filter((name) => name.endsWith('.css'));
-  for (const file of cssFiles) requireValue(!/@(?:plugin|config)\b/i.test(await readFile(join(root, file), 'utf8')), 'UNSUPPORTED_CSS_PLUGIN');
+  const sourceFiles = git(id.directory, ['ls-tree', '-r', '--name-only', revision, '--', 'frontend/src', 'frontend/public']).split('\n').filter(Boolean);
+  for (const file of sourceFiles) rejectExecutableStyles(await readFile(join(root, file), 'utf8'));
   await symlink(join(frontend, 'node_modules'), join(selected, 'node_modules'), 'dir');
   const fixture = join(selected, 'e2e/asset-checks'); await mkdir(fixture, { recursive: true, mode: 0o700 });
   for (const name of ['fixture.html', 'fixture.jsx', 'inspect.js']) await copyFile(join(frontend, 'e2e/asset-checks', name), join(fixture, name));
@@ -106,6 +107,7 @@ async function verifySnapshot(id, selected, output, variant) {
     requireValue(match && !match[3].split('/').includes('..'), 'SNAPSHOT_CHANGED');
     paths.push(match[3]);
     const data = await bytes(join(root, match[3]));
+    rejectExecutableStyles(data.toString('utf8'));
     const blob = createHash('sha1').update('blob ' + data.length + '\0').update(data).digest('hex');
     requireValue(blob === match[2], 'SNAPSHOT_CHANGED');
   }
@@ -117,6 +119,7 @@ async function verifySnapshot(id, selected, output, variant) {
     requireValue(hash(await bytes(join(root, 'frontend/src/companion/licensed', name))) === hash(reference), 'SNAPSHOT_CHANGED');
   }
   for (const name of ['fixture.html', 'fixture.jsx', 'inspect.js']) {
+    rejectExecutableStyles(await readFile(join(root, 'frontend/e2e/asset-checks', name), 'utf8'));
     requireValue(hash(await bytes(join(root, 'frontend/e2e/asset-checks', name)))
       === hash(await bytes(join(frontend, 'e2e/asset-checks', name))), 'SNAPSHOT_CHANGED');
   }
@@ -130,7 +133,8 @@ async function browserEvidence(id, baseline, candidate, output) {
   const version = browser.version();
   for (const [index, variant] of ['baseline', 'candidate'].entries()) {
     server = await createServer({ configFile: false, envDir: false, root: variant === 'baseline' ? baseline : candidate,
-      plugins: [react({ babel: { babelrc: false, configFile: false } }), tailwindcss()], logLevel: 'silent',
+      css: { postcss: { plugins: [] } },
+      plugins: [assetPreviewGuard(variant === 'baseline' ? baseline : candidate), react({ babel: { babelrc: false, configFile: false } }), tailwindcss()], logLevel: 'silent',
       publicDir: false, cacheDir: join(output, 'vite-' + variant), server: { host: '127.0.0.1', port: 0, hmr: false,
         fs: { strict: true, allow: [variant === 'baseline' ? baseline : candidate, join(frontend, 'node_modules')] } },
       optimizeDeps: { include: ['react', 'react-dom/client', '@react-three/fiber', 'three', 'three/addons/loaders/GLTFLoader.js', 'three/addons/utils/SkeletonUtils.js'] } });
@@ -139,22 +143,24 @@ async function browserEvidence(id, baseline, candidate, output) {
     for (const [stage, width, height, layout] of [['chick', 375, 812, 'portrait'], ['bird', 375, 812, 'portrait'], ['chick', 812, 375, 'landscape']]) {
       requireValue(!abort, 'TIMED_OUT');
       const context = await browser.newContext({ viewport: { width, height }, serviceWorkers: 'block', reducedMotion: 'no-preference' });
-      const page = await context.newPage();
       const errors = [];
-      page.on('pageerror', () => errors.push('PAGE_ERROR'));
-      await page.route('**/*', async (route) => {
+      await context.route('**/*', async (route) => {
         const request = route.request(), url = new URL(request.url());
+        try { rejectStyleQuery(url.href); } catch { networkFailed = true; return route.abort(); }
         if (url.origin !== origin || request.method() !== 'GET' || (url.pathname.startsWith('/api/') || url.pathname.startsWith('/__open-in-editor'))
           || request.headers().authorization || url.username || url.password) {
           networkFailed = true; return route.abort();
         }
         return route.continue();
       });
-      await page.routeWebSocket('**/*', (socket) => {
+      await context.routeWebSocket('**/*', (socket) => {
         const url = new URL(socket.url());
         if (url.origin !== origin.replace('http:', 'ws:')) { networkFailed = true; socket.close(); }
         else socket.connectToServer();
       });
+      const page = await context.newPage();
+      page.on('pageerror', () => errors.push('PAGE_ERROR'));
+      context.on('page', (popup) => { networkFailed = true; void popup.close(); });
       await page.goto(origin + '/e2e/asset-checks/fixture.html?stage=' + stage, { waitUntil: 'networkidle', timeout: 45000 });
       await page.waitForFunction(() => ['passed', 'failed'].includes(document.querySelector('[data-testid="asset-inspection"]')?.textContent), { timeout: 45000 });
       requireValue(await page.getByTestId('asset-inspection').textContent() === 'passed', 'ASSET_INSPECTION_FAILED');
@@ -286,7 +292,7 @@ try {
     'OUTPUT_INSIDE_GIT','INVALID_WORKBENCH','INVALID_BLENDER','INVALID_CATALOG','SOURCE_CHANGED','INVALID_MANIFEST',
     'INVALID_PNG','INVALID_RECEIPT','STALE_RECEIPT','FAILED_CHECKS','INVALID_SCREENSHOTS','INVALID_SOURCE_PIN',
     'INVALID_BLENDER_VERSION','INVALID_IDENTITY','DIRTY_OR_CHANGED_HEAD','UNSUPPORTED_CHANGE','INVALID_RECIPE',
-    'GENERATION_FAILED','UNSUPPORTED_SOURCE_ENTRY','UNSUPPORTED_CSS_PLUGIN','TIMED_OUT','ASSET_INSPECTION_FAILED',
+    'GENERATION_FAILED','UNSUPPORTED_SOURCE_ENTRY','UNSUPPORTED_CSS_PLUGIN','UNSUPPORTED_CSS_IMPORT','UNSUPPORTED_STYLE_QUERY','TIMED_OUT','ASSET_INSPECTION_FAILED',
     'RENDER_FAILED','MOBILE_OVERFLOW','FALLBACK_FAILED','LOAD_OR_NETWORK_FAILURE','INVALID_CANDIDATE',
     'CANDIDATE_CHANGED','ASSET_COPY_CHANGED','SNAPSHOT_CHANGED','RECEIPT_IDENTITY_CHANGED','INVALID_SCREENSHOT_PATH','SCREENSHOT_CHANGED','OUTPUT_OVERLAP','OUTPUT_EXISTS']);
   const code = codes.has(error.message) ? error.message : 'ASSET_CHECK_FAILED';

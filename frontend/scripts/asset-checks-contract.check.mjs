@@ -1,6 +1,12 @@
+import { rejectExecutableStyles, rejectStyleQuery, assetPreviewGuard } from './asset-preview-guard.mjs';
+import { createServer } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import { existsSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm, symlink, readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FILES, CHECKS, SCREENSHOTS, KIND, hash, recipe, workbench, bytes, outsideGit, sourceDigest, validateReceipt, contained, png, verifyAssetCopy, verifyInventory } from './asset-checks-contract.mjs';
@@ -70,4 +76,53 @@ test('untracked files selected by source globs cannot enter a frozen snapshot', 
     await writeFile(join(root,'unexpected.glb'),'untracked payload');
     await assert.rejects(()=>verifyInventory(root,['tracked.js']));
   } finally {await rm(root,{recursive:true,force:true});}
+});
+
+test('executable Tailwind directives are refused without extension or query assumptions', () => {
+  for (const source of ['@plugin "./module.mjs";', '@config "./config.mjs";', '@pl/**/ugin "./module.mjs";', '@import "/tmp/untracked.css";', '@reference "/tmp/untracked.css";', '@source "/tmp/untracked";', '@\\70lugin "./module.mjs";']) {
+    assert.throws(()=>rejectExecutableStyles(source));
+  }
+  for (const path of ['/src/evil.js?probe=1&lang.css', '/src/evil.js?index=.css', '/src/evil.js?lang%2Ecss']) assert.throws(()=>rejectStyleQuery(path));
+  rejectExecutableStyles('@import "tailwindcss"; .safe { color:red; }');
+  rejectStyleQuery('/src/safe.css?direct');
+});
+test('non-CSS query coercion executes the old stack but cannot execute guarded host plugins', async () => {
+  const root=await mkdtemp(join(tmpdir(),'abby-tailwind-guard-'));
+  try {
+    for (const guarded of [false,true]) {
+      const selected=join(root,guarded?'guarded':'unprotected');
+      await mkdir(join(selected,'src'),{recursive:true});
+      await symlink(fileURLToPath(new URL('../node_modules',import.meta.url)),join(selected,'node_modules'),'dir');
+      const marker=join(selected,'executed');
+      await writeFile(join(selected,'src/evil.js'),'@import "tailwindcss"; @plugin "./plugin.mjs";');
+      await writeFile(join(selected,'src/plugin.mjs'),'import fs from "node:fs"; fs.writeFileSync('+JSON.stringify(marker)+',"executed");export default function(){}');
+      const server=await createServer({configFile:false,envDir:false,root:selected,publicDir:false,logLevel:'silent',
+        plugins:[...(guarded?[assetPreviewGuard(selected)]:[]),react({babel:{babelrc:false,configFile:false}}),tailwindcss()],
+        optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr:false}});
+      try {
+        await assert.rejects(()=>server.transformRequest('/src/evil.js?probe=1&lang.css'));
+        assert.equal(existsSync(marker),!guarded);
+      } finally {await server.close();}
+    }
+  } finally {await rm(root,{recursive:true,force:true});}
+});
+
+test('an imported outside stylesheet cannot smuggle host plugin execution', async () => {
+  const root=await mkdtemp(join(tmpdir(),'abby-import-guard-'));
+  try {
+    await symlink(fileURLToPath(new URL('../node_modules',import.meta.url)),join(root,'node_modules'),'dir');
+    for (const guarded of [false,true]) {
+      const selected=join(root,guarded?'guarded':'unprotected');await mkdir(join(selected,'src'),{recursive:true});
+      await symlink(fileURLToPath(new URL('../node_modules',import.meta.url)),join(selected,'node_modules'),'dir');
+      const marker=join(selected,'executed'),outside=join(root,(guarded?'guarded':'unprotected')+'-outside.css');
+      await writeFile(outside,'@import "tailwindcss"; @plugin '+JSON.stringify(join(selected,'src/plugin.mjs'))+';');
+      await writeFile(join(selected,'src/entry.css'),'@import '+JSON.stringify(outside)+';');
+      await writeFile(join(selected,'src/plugin.mjs'),'import fs from "node:fs";fs.writeFileSync('+JSON.stringify(marker)+',"executed");export default function(){}');
+      const server=await createServer({configFile:false,envDir:false,root:selected,publicDir:false,logLevel:'silent',css:{postcss:{plugins:[]}},
+        plugins:[...(guarded?[assetPreviewGuard(selected)]:[]),react({babel:{babelrc:false,configFile:false}}),tailwindcss()],
+        optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr:false}});
+      try {try{await server.transformRequest('/src/entry.css');}catch{ /* Guarded transforms reject before import. */ }assert.equal(existsSync(marker),!guarded);}
+      finally{await server.close();}
+    }
+  } finally{await rm(root,{recursive:true,force:true});}
 });
