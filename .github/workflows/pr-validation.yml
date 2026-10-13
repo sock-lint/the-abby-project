@@ -129,13 +129,13 @@ jobs:
       - name: Compare Django responses with shared fixtures
         run: |
           mkdir -p artifacts
-          python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_drive_export_api_contract_fixtures --verbosity=2 2>&1 | tee artifacts/backend-api-fixtures.log
+          python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_drive_export_api_contract_fixtures --verbosity=2 2>&1 | tee artifacts/backend-api-fixtures.log
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
       - name: Test React consumption of shared fixtures
         working-directory: frontend
-        run: npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js src/api/googleDriveContracts.test.js 2>&1 | tee ../artifacts/frontend-api-fixtures.log
+        run: npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js src/api/challengeContractFixtures.test.js src/api/googleDriveContracts.test.js 2>&1 | tee ../artifacts/frontend-api-fixtures.log
       - name: Upload API fixture results
         if: always()
         uses: actions/upload-artifact@v4

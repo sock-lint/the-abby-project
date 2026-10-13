@@ -65,6 +65,51 @@ function stubSkills(skills) {
 }
 
 describe('MovementSessionLogModal', () => {
+  it('logs fractional distance and a stable request identity with a goal-selected activity', async () => {
+    stubTypes();
+    stubSkills();
+    const onSaved = vi.fn();
+    const spy = spyHandler('post', /\/api\/movement-sessions\/$/, { id: 71, distance: '0.75' });
+    server.use(spy.handler);
+    const { user } = renderWithProviders(
+      <MovementSessionLogModal initialMovementTypeId={1} onClose={() => {}} onSaved={onSaved} />,
+    );
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /what did you do/i })).toHaveValue('1'));
+    await user.type(screen.getByRole('spinbutton', { name: /distance \(optional\)/i }), '0.75');
+    await user.click(screen.getByRole('button', { name: /log session/i }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ id: 71 })));
+    expect(spy.calls[0].body).toMatchObject({
+      movement_type_id: 1, distance: '0.75', distance_unit: 'mi',
+      client_request_id: expect.stringMatching(/^[0-9a-f-]{36}$/i),
+    });
+  });
+
+  it('preserves distance and request identity when an uncertain save is retried', async () => {
+    stubTypes();
+    stubSkills();
+    const calls = [];
+    server.use(http.post('*/api/movement-sessions/', async ({ request }) => {
+      calls.push(await request.json());
+      return calls.length === 1
+        ? HttpResponse.json({ error: 'Try again' }, { status: 503 })
+        : HttpResponse.json({ id: 72 });
+    }));
+    const onSaved = vi.fn();
+    const { user } = renderWithProviders(
+      <MovementSessionLogModal initialMovementTypeId={1} onClose={() => {}} onSaved={onSaved} />,
+    );
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /what did you do/i })).toHaveValue('1'));
+    await user.type(screen.getByRole('spinbutton', { name: /distance \(optional\)/i }), '1.25');
+    await user.selectOptions(screen.getByRole('combobox', { name: /distance unit/i }), 'km');
+    await user.click(screen.getByRole('button', { name: /log session/i }));
+    await screen.findByRole('alert');
+    expect(screen.getByRole('spinbutton', { name: /distance \(optional\)/i })).toHaveValue(1.25);
+    await user.click(screen.getByRole('button', { name: /log session/i }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toEqual(calls[0]);
+    expect(calls[1].distance_unit).toBe('km');
+  });
   it('renders the activity picker populated from /api/movement-types/', async () => {
     stubTypes();
     stubSkills();

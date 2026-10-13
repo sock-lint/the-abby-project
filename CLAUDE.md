@@ -13,7 +13,7 @@ Deep subsystem details live next to the code they describe, in subtree CLAUDE.md
 |---|---|
 | [`apps/rpg/CLAUDE.md`](apps/rpg/CLAUDE.md) | RPG game loop · sprite generation · drops · streaks · consumables · cosmetics |
 | [`apps/pets/CLAUDE.md`](apps/pets/CLAUDE.md) | Pets · mounts · breeding · expeditions · companion growth · bestiary UI |
-| [`apps/quests/CLAUDE.md`](apps/quests/CLAUDE.md) | Boss/collection quests · rage shield · daily challenges |
+| [`apps/quests/CLAUDE.md`](apps/quests/CLAUDE.md) | Automatic challenges · pins · parent measurable goals · legacy quests |
 | [`apps/chronicle/CLAUDE.md`](apps/chronicle/CLAUDE.md) | Age-aware chronicle · journal entries · chapter transitions · birthdays |
 | [`apps/homework/CLAUDE.md`](apps/homework/CLAUDE.md) | Homework lifecycle · effort scaling · AI planning · anti-farm gate |
 | [`apps/creations/CLAUDE.md`](apps/creations/CLAUDE.md) | Creation log · daily cap · bonus track |
@@ -418,6 +418,15 @@ change, and report deleted branches with recovery locations or retained branches
 with reasons at final handoff. Repository documentation alone does not install
 a local branch-cleanup timer. Exclude backup branches and archive/recovery refs
 from automatic cleanup candidates.
+
+## Automatic challenges
+
+Matching saved activities advance every eligible goal; a pin only features one
+on Today. Challenges have a period, the daily bonus pays automatically once per
+family-local day, and badges remain permanent recognition. Parent distance goals
+use actual movement measurements. The additive rollout preserves legacy quests,
+daily promises and ledger history. See [`apps/quests/CLAUDE.md`](apps/quests/CLAUDE.md)
+and [`docs/operations/automatic-challenges.md`](docs/operations/automatic-challenges.md).
 
 ## Shared API response fixtures
 

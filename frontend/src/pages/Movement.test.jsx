@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { renderWithProviders, screen, waitFor } from '../test/render';
+import { renderWithProviders, screen, waitFor, within } from '../test/render';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
 import { buildUser, buildParent } from '../test/factories';
@@ -143,5 +143,25 @@ describe('Movement page', () => {
       movement_type_id: 1,
       duration_minutes: 30,
     });
+  });
+});
+
+
+describe('Challenge movement shortcut', () => {
+  it('opens the log with the goal activity selected and saves its measured distance', async () => {
+    stubTypes();
+    stubMe(buildUser());
+    const log = spyHandler('post', /\/api\/movement-sessions\/$/, { id: 22, xp_awarded: 15, challenge_receipts: [] });
+    server.use(log.handler);
+    const { user } = renderWithProviders(<Movement />, { route: '/quests?tab=movement&log=1&movement_type=1' });
+    const dialog = await screen.findByRole('dialog', { name: 'Log a session' });
+    await waitFor(() => expect(within(dialog).getByLabelText('What did you do?')).toHaveValue('1'));
+    await user.type(within(dialog).getByLabelText('Distance (optional)'), '0.75');
+    await user.click(within(dialog).getByRole('button', { name: 'Log session' }));
+    await waitFor(() => expect(log.calls).toHaveLength(1));
+    expect(log.calls[0].body).toMatchObject({ movement_type_id: 1, distance: '0.75', distance_unit: 'mi' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Log' }));
+    expect(await screen.findByLabelText('What did you do?')).toHaveValue('');
   });
 });

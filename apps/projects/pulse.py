@@ -52,6 +52,10 @@ def build_pulse(user) -> dict[str, Any]:
     drops = DropLog.objects.filter(user=user).select_related("item")[:10]
 
     active_quest = QuestService.get_active_quest(user) if is_child else None
+    from apps.quests.models import ChallengeActivity
+    receipts = [row.context["_receipt"] for row in ChallengeActivity.objects.filter(
+        user=user, voided=False,
+    ).order_by("-created_at")[:20] if row.context.get("_receipt")] if is_child else []
 
     # Mirrors SavingsGoalViewSet.list — completion detection runs on read so
     # a goal whose target was edited below the current balance completes
@@ -67,6 +71,7 @@ def build_pulse(user) -> dict[str, Any]:
         "notifications": NotificationSerializer(notifications, many=True).data,
         "recent_drops": DropLogSerializer(drops, many=True).data,
         "active_quest": QuestSerializer(active_quest).data if active_quest else None,
+        "challenge_receipts": receipts,
         "companion_growth": {"events": _companion_growth(CharacterProfile, user)},
         "expeditions_ready": MountExpeditionSerializer(expeditions_ready, many=True).data,
         "savings_goals": SavingsGoalSerializer(savings_goals, many=True).data,

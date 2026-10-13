@@ -131,17 +131,22 @@ class TaskFamilyScopingTests(TestCase):
         result = decay_habit_strength_task()
         self.assertIn("across 2 children", result)
 
-    def test_rotate_daily_challenges_iterates_every_family(self):
+    def test_daily_bonus_repair_keeps_each_familys_facts_and_rewards_separate(self):
         from apps.quests.tasks import rotate_daily_challenges_task
+        from apps.quests.models import ChallengeActivity, DailyBonus, DailyChallenge
+        from apps.rewards.models import CoinLedger
+        from django.utils import timezone
+
+        for child in (self.f1.children[0], self.f2.children[0]):
+            ChallengeActivity.objects.create(
+                user=child, source_type="movement_session", source_id="1", trigger_type="movement_session",
+                occurred_at=timezone.now(), occurred_on=timezone.localdate(), context={"duration_minutes": 10},
+            )
 
         result = rotate_daily_challenges_task()
-        # Both children get a challenge on first run.
-        self.assertIn("Daily challenges:", result)
-        # Two children, so the total of fresh+preserved should be 2.
-        # (The exact split depends on idempotency state.)
-        # We just assert both families were visited by counting fresh.
-        self.assertTrue(
-            "2 fresh" in result or "1 fresh, 1 preserved" in result
-            or "0 fresh, 2 preserved" in result,
-            f"unexpected output: {result}",
-        )
+        self.assertIn("2 facts repaired", result)
+        for child in (self.f1.children[0], self.f2.children[0]):
+            self.assertEqual(DailyBonus.objects.get(user=child).coins_awarded, 10)
+            self.assertEqual(CoinLedger.objects.filter(user=child, reason="daily_challenge").count(), 1)
+        self.assertEqual(DailyChallenge.objects.count(), 0)
+        self.assertIn("0 facts repaired", rotate_daily_challenges_task())

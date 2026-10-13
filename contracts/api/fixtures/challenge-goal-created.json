@@ -1,0 +1,34 @@
+{
+  "id": "goal:1",
+  "name": "Run 2 miles this week",
+  "description": "",
+  "metric": "distance",
+  "target": "2",
+  "progress": "0",
+  "unit": "mi",
+  "status": "active",
+  "starts_at": "2026-10-12T00:00:00-07:00",
+  "ends_at": "2026-10-19T00:00:00-07:00",
+  "timezone": "America/Phoenix",
+  "what_counts": "Running sessions",
+  "rewards": {
+    "coins": 7,
+    "xp": 15,
+    "items": []
+  },
+  "action": {
+    "label": "Log movement",
+    "path": "/quests?tab=movement&log=1&movement_type=31",
+    "movement_type_id": 31
+  },
+  "pinned": false,
+  "repeat_weekly": true,
+  "legacy": false,
+  "reward_receipt": {
+    "id": "goal:1",
+    "status": "pending",
+    "coins_awarded": 0,
+    "xp_awarded": 0,
+    "awarded_at": null
+  }
+}

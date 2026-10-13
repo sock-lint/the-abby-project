@@ -85,7 +85,7 @@ The hub itself lives at [`pages/quests/index.jsx`](/frontend/src/pages/quests/in
 - `/chores` → `/quests?tab=duties`
 - `/homework` → `/quests?tab=study`
 - `/habits` → `/quests?tab=rituals`
-- `/trials` → `/quests?tab=trials` via `TrialsLegacyRedirect()` in [`App.jsx`](/frontend/src/App.jsx) (preserves the search string so `/trials?scroll=<itemId>` from QuickActions still works).
+- `/trials` → `/quests?tab=trials` via `TrialsLegacyRedirect()` in [`App.jsx`](/frontend/src/App.jsx) (preserves older `/trials?scroll=<itemId>` links without consuming the saved scroll).
 
 ### Shared folio shell
 
@@ -104,19 +104,26 @@ No new tier ladders, halo colors, or keyframes — composition against the exist
 
 Ventures + Study render a `RarityStrand` on the verso. Duties, Rituals, Movement, Forge, Trials skip it (their progression isn't difficulty-ranked).
 
-### Trials sub-architecture
+### Challenges sub-architecture
 
-The standalone `/trials` page was folded into the Quests hub (now the last tab) and rewritten to speak the codex/folio/vessels vocabulary. Files under [`pages/trials/`](/frontend/src/pages/trials/):
-- `index.jsx` — orchestrator: `IncipitBand` hero → `IssueChallengeForm` (parent-only) → `ActiveQuestFolio` → `FamilyTrialsFolio` → `QuestCodex`.
-- `ActiveQuestFolio.jsx` — wraps the in-progress quest in the shared `QuestFolio` verso/recto shell (letter initial, quest name, progress, stats, party/rewards on the recto).
-- `QuestCodex.jsx` — vessel kind shelf (All/Boss/Collection/Co-op) + codex shelf (four status chapters: **Available** §I / **Underway** §II / **Closed** §III / **Locked** §IV) + `TrialsFolio` body. The Locked chapter is new — quests gated by `required_badge` render there with an unlock hint.
-- `TrialsFolio.jsx` — chapter body; tile grid of `QuestTile` components.
-- `QuestTile.jsx` — individual quest card.
-- `FamilyTrialsFolio.jsx` — parent's family roll-up with `ChapterRubric` header.
-- `IssueChallengeForm.jsx` — parent-only utilitarian form; co-op toggle + multi-child picker; surfaces `allowed_triggers` and `on_time_only` toggle in an Advanced details panel.
-- `trials.constants.js` — `CHAPTERS`, `KIND_FILTERS`, `groupQuestsByChapter`, `overallProgress`, status & kind vocabulary.
+Tasks → Challenges (`/quests?tab=trials`) lists every automatically tracking
+personal goal. A pin only features one active goal on Today and in the header;
+children do not start or claim goals to make their work count.
 
-Backend `QuestDefinitionSerializer` widened by two fields — `required_badge_id` + `required_badge_name` — so the Locked chapter can render unlock hints without a second fetch.
+- `trials/index.jsx` owns the parent's child selector, goal details, pin actions,
+  and In progress/Upcoming/History sections. Parents use `CreateGoalForm.jsx`
+  to assign count, minute or distance goals, with a period and optional weekly
+  repeat. The form previews the activity, date window and reward and retains a
+  UUID for identical save retries.
+- `ChallengeGoalCard.jsx` presents the server's decimal progress, activity rule,
+  deadline, planned reward and actual completion receipt. Action links open the
+  relevant activity flow; running goals preselect the movement type.
+- `goalDisplay.js` formats progress and household-local deadlines. Do not derive
+  eligibility, paid amounts or recurrence from the browser clock.
+- `hooks/useChallenges.js` shares scoped server data, refreshes after Pulse and
+  pin changes, and fences responses by account/credential/selected-child identity.
+- Existing boss/collection components and routes remain reference and legacy
+  compatibility surfaces; the new page does not spend saved quest scrolls.
 
 ### Forge sub-architecture
 
@@ -260,13 +267,13 @@ The inside-cover plate of the journal — personal author-portrait rather than a
 
 ## Global header + FAB
 
-`JournalShell` wraps avatar (mobile) + `HeaderStatusPips` (middle, role-aware) + `NotificationBell` (right) in a `sticky top-0 z-30` container that also includes the `HeaderProgressBand` — a 2–3px full-width band that's inert by default and renders a sheikah-teal gradient scaled to `getActiveQuest().progress_percent` when a quest is active. The sticky container has a `bg-ink-page` backdrop so page content doesn't bleed through on scroll.
+`JournalShell` wraps avatar (mobile) + `HeaderStatusPips` (middle, role-aware) + `NotificationBell` (right) in a `sticky top-0 z-30` container that also includes the `HeaderProgressBand` — a labeled, keyboard-accessible summary of the pinned active challenge. Its progress and detail link come from `useChallenges`; an account without a pin receives an inert spacer. The sticky container has a `bg-ink-page` backdrop so page content doesn't bleed through on scroll.
 
 **Gotcha:** the mobile `overflow-x: hidden` guard lives on `body` (not `main`) in `index.css` — putting it on `main` turns `<main>` into a scroll container which traps `position: sticky` inside the main's overflow instead of the window.
 
 **Quest log on the child dashboard** is now driven entirely by `next_actions` from the dashboard payload — `buildQuestLogFromActions()` in [`ChildDashboard.jsx`](/frontend/src/pages/ChildDashboard.jsx) buckets the scored, sorted feed into Study (homework) / Duty (chore) / Ritual (habit) sections. Backend ordering (overdue → due-today → due-tomorrow → daily chore → due-this-week → weekly chore — see scoring formula in [`apps/projects/priority.py`](/apps/projects/priority.py)) is preserved within each section. Submitted-pending homework is excluded server-side ("nothing left to *do*"); rejected submissions remain eligible. Clicking an open homework row opens [`HomeworkSubmitSheet`](/frontend/src/components/HomeworkSubmitSheet.jsx) inline (photo upload + notes + `submitHomework`) so the child can file proof without leaving the dashboard — the same component is reused on [`pages/Homework/index.jsx`](/frontend/src/pages/Homework/index.jsx).
 
-`QuickActionsFab` replaces the old `ClockFab` — single bottom-right button that opens `QuickActionsSheet` with role-aware contextual actions: child sees Clock in · Add homework · Submit due (only when a due assignment exists) · Ask for a print (deep-links to `/quests?tab=forge&new=1`, which opens the submit modal on mount) · Start a quest (only when a quest scroll is in inventory) · Contribute to hoard (only when an active savings goal exists); parent sees Clock in · Create homework for a kid · Adjust coins · Adjust payment. Reward shop is deliberately **not** in quick actions — browsing rewards is a considered choice and belongs on the Treasury page. Clock-in is still the most common action and is the default focus when opened. The FAB continues to show a running-timer chip while clocked in so the at-a-glance signal is preserved.
+`QuickActionsFab` replaces the old `ClockFab` — single bottom-right button that opens `QuickActionsSheet` with role-aware contextual actions: child sees Clock in · Add homework · Submit due (only when a due assignment exists) · Ask for a print (deep-links to `/quests?tab=forge&new=1`, which opens the submit modal on mount) · View challenges (without spending a scroll) · Contribute to hoard (only when an active savings goal exists); parent sees Clock in · Create homework for a kid · Adjust coins · Adjust payment. Reward shop is deliberately **not** in quick actions — browsing rewards is a considered choice and belongs on the Treasury page. Clock-in is still the most common action and is the default focus when opened. The FAB continues to show a running-timer chip while clocked in so the at-a-glance signal is preserved.
 
 ## Notifications constants parity
 
@@ -285,8 +292,12 @@ gratitude lines appear after tasks and recent items, before Rewards & earnings.
 The same self-scoped wellbeing endpoints handle first saves and later edits;
 parents do not render this card. Profile owns identity, picture, character,
 frames and titles. Its former daily-note card and Challenges shortcut are removed.
-Challenges remains under Tasks → Challenges (`/quests?tab=trials`) with a plain
-explanation of optional goals and bonus rewards for eligible everyday work.
+Challenges remains under Tasks → Challenges (`/quests?tab=trials`). Every matching
+goal tracks automatically; pinning controls which one is featured. Today displays
+`PinnedChallengeCard` and the automatic `DailyChallengeCard` (labeled Today's
+bonus). The bonus uses cumulative minutes or an approved task and shows the
+actual server-paid Coins/XP without a Claim action. Permanent badge recognition
+remains under Progress, separate from time-limited challenges.
 
 ## Page list
 
@@ -321,9 +332,9 @@ pages/
                                ApprovalSheet, BudgetPanel, PrinterStatus,
                                PrinterConfigPanel, UnlinkedJobsPanel,
                                forge.constants
-  trials/                      Trials sub-architecture (ActiveQuestFolio,
-                               QuestCodex, TrialsFolio, FamilyTrialsFolio,
-                               IssueChallengeForm, QuestTile,
+  trials/                      Automatic goals (ChallengeGoalCard,
+                               CreateGoalForm, goalDisplay), retained legacy
+                               ActiveQuestFolio/QuestCodex/QuestTile,
                                trials.constants)
   Character.jsx, character/    Sigil Frontispiece, TrophySlot,
                                TrophyBadgePicker, CosmeticChapter,

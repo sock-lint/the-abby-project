@@ -142,6 +142,9 @@ class MovementSessionViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
                     "intensity", MovementSession.Intensity.MEDIUM,
                 ),
                 notes=write.validated_data.get("notes", ""),
+                distance=write.validated_data.get("distance"),
+                distance_unit=write.validated_data.get("distance_unit", "mi"),
+                client_request_id=write.validated_data.get("client_request_id"),
             )
         except MovementSessionError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -156,5 +159,11 @@ class MovementSessionViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         instance = self.get_object()
         if request.user.role != "parent" and instance.user_id != request.user.id:
             raise PermissionDenied("You can only delete your own sessions.")
-        instance.delete()
+        from django.db import transaction
+        from django.contrib.auth import get_user_model
+        from apps.quests.goals import void_activity
+        with transaction.atomic():
+            get_user_model().objects.select_for_update(no_key=True).get(pk=instance.user_id)
+            void_activity(instance.user, "movement_session", instance.pk)
+            instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

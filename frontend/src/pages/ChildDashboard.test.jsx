@@ -398,3 +398,23 @@ describe('ChildDashboard', () => {
     await waitFor(() => expect(dashboard.mock.calls.length).toBeGreaterThanOrEqual(2));
   });
 });
+
+
+describe('Today challenge availability', () => {
+  it('shows a retry when challenges cannot load instead of claiming nothing is pinned', async () => {
+    const user = userEvent.setup();
+    let requests = 0;
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/challenges/', () => {
+        requests += 1;
+        return requests === 1 ? HttpResponse.json({ error: 'Challenges are temporarily unavailable.' }, { status: 503 }) : HttpResponse.json({ results: [], pin: null, daily_bonus: null });
+      }),
+    ]);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Challenges are temporarily unavailable.');
+    expect(screen.queryByRole('button', { name: 'Choose a challenge to pin' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry challenges' }));
+    expect(await screen.findByRole('button', { name: 'Choose a challenge to pin' })).toBeInTheDocument();
+    expect(requests).toBe(2);
+  });
+});

@@ -117,10 +117,13 @@ class LogSessionXPTests(_Fixture):
                     duration_minutes=30,
                     intensity=MovementSession.Intensity.MEDIUM,
                 )
-        # 30 min × medium = 15 XP pool. Weights 3 + 2 over 5 → 9 + 6.
-        awarded = {call.args[1].id: call.args[2] for call in award.call_args_list}
-        self.assertEqual(awarded[self.running.id], 9)
-        self.assertEqual(awarded[self.endurance.id], 6)
+        # Activity 15 XP plus the automatic daily bonus 20 XP, both using
+        # Running:Endurance 3:2. Each award remains separately distributed.
+        awarded = {}
+        for call in award.call_args_list:
+            awarded[call.args[1].id] = awarded.get(call.args[1].id, 0) + call.args[2]
+        self.assertEqual(awarded[self.running.id], 21)
+        self.assertEqual(awarded[self.endurance.id], 14)
 
     def test_session_xp_awarded_field_set(self):
         with patch("apps.rpg.services.GameLoopService.on_task_completed"):

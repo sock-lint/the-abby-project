@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from apps.movement.models import (
@@ -49,6 +51,17 @@ class MovementTypeWriteSerializer(serializers.Serializer):
 
 
 class MovementSessionSerializer(serializers.ModelSerializer):
+    distance = serializers.SerializerMethodField()
+    challenge_receipts = serializers.SerializerMethodField()
+
+    def get_distance(self, obj):
+        if obj.distance_meters is None:
+            return None
+        divisor = Decimal("1609.344") if obj.distance_unit == "mi" else Decimal("1000")
+        return format((obj.distance_meters / divisor).normalize(), "f")
+
+    def get_challenge_receipts(self, obj):
+        return getattr(obj, "_challenge_receipts", [])
     movement_type_name = serializers.CharField(
         source="movement_type.name", read_only=True,
     )
@@ -63,6 +76,7 @@ class MovementSessionSerializer(serializers.ModelSerializer):
             "id", "user", "user_display",
             "movement_type", "movement_type_name", "movement_type_icon",
             "duration_minutes", "intensity",
+            "distance_meters", "distance", "distance_unit", "client_request_id", "challenge_receipts",
             "occurred_on", "notes", "xp_awarded", "created_at",
         ]
         read_only_fields = fields
@@ -94,3 +108,6 @@ class MovementSessionWriteSerializer(serializers.Serializer):
         default=MovementSession.Intensity.MEDIUM,
     )
     notes = serializers.CharField(required=False, allow_blank=True, max_length=200)
+    distance = serializers.DecimalField(max_digits=9, decimal_places=3, min_value=Decimal("0.001"), max_value=Decimal("1000"), required=False)
+    distance_unit = serializers.ChoiceField(choices=["mi", "km"], default="mi")
+    client_request_id = serializers.UUIDField(required=False)

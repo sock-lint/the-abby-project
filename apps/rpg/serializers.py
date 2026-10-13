@@ -211,8 +211,8 @@ class UserInventorySerializer(serializers.ModelSerializer):
             }],
             ItemDefinition.ItemType.QUEST_SCROLL: [{
                 "id": "start_quest",
-                "label": "Start challenge",
-                "to": f"/trials?scroll_item={item_id}",
+                "label": "View challenges",
+                "to": "/quests?tab=trials",
             }],
         }
         if item_type == ItemDefinition.ItemType.COSMETIC_THEME:

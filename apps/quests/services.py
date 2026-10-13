@@ -67,7 +67,13 @@ class QuestService:
 
         Returns the new Quest, or raises ValueError.
         """
-        from apps.quests.models import QuestDefinition, Quest, QuestParticipant
+        from apps.quests.models import ChallengeGoal, QuestDefinition, Quest, QuestParticipant
+        from django.contrib.auth import get_user_model
+
+        # Serialize this legacy compatibility path with automatic enrollment.
+        get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+        if ChallengeGoal.objects.filter(user=user, catalog_definition_id=definition_id).exists():
+            raise ValueError("This challenge progresses automatically. Pin it to follow your progress.")
 
         # Check no active quest
         if Quest.objects.filter(
@@ -128,13 +134,18 @@ class QuestService:
         Caller responsibility: verify parent auth. Returns the created
         Quest. Raises ``ValueError`` on invalid input.
         """
-        from apps.quests.models import QuestDefinition, Quest, QuestParticipant
+        from apps.quests.models import ChallengeGoal, QuestDefinition, Quest, QuestParticipant
+        from django.contrib.auth import get_user_model
 
         users = list(users)
         if not users:
             raise ValueError("start_co_op_quest needs at least one user")
         if len({u.pk for u in users}) != len(users):
             raise ValueError("Duplicate user in co-op quest assignment")
+        for user in sorted(users, key=lambda member: member.pk):
+            get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+        if ChallengeGoal.objects.filter(user__in=users, catalog_definition_id=definition_id).exists():
+            raise ValueError("These challenges already progress automatically; a second campaign cannot be started.")
 
         # Pre-flight: no participant may already have an active quest.
         # Doing this as one SQL query keeps the check atomic.
@@ -611,12 +622,10 @@ DAILY_CHALLENGE_TEMPLATES = [
 
 
 class DailyChallengeService:
-    """Create, advance, and reward once-per-day micro-challenges.
+    """Compatibility for saved daily challenges and older clients.
 
-    Separate from QuestService by design — a Daily Challenge is always one
-    active slot per user per day, shares no lifecycle state with Quest, and
-    rotates automatically at 00:30 local (see ``rotate_daily_challenges_task``
-    in apps/quests/tasks.py).
+    New clients use the automatic daily bonus. These methods share its
+    user lock and paid markers so an old client cannot pay it twice.
     """
 
     @staticmethod
@@ -624,24 +633,30 @@ class DailyChallengeService:
     def get_or_create_today(user):
         """Return today's challenge for the user, creating one if missing.
 
-        Called from the Celery rotation task for every active child, and
-        opportunistically from ``GET /api/challenges/daily/`` so a user who
-        logs in mid-day before the rotation fires still sees a challenge.
+        Retained for ``GET /api/challenges/daily/`` on older clients.
         """
-        from apps.quests.models import DailyChallenge
+        from apps.quests.models import DailyBonus, DailyChallenge
+        from django.contrib.auth import get_user_model
+        from apps.quests.daily_bonus import paid_legacy_bonus
 
-        today = timezone.localdate()
+        get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+        from apps.quests.activity import household_timezone
+        today = timezone.localdate(timezone.now(), timezone=household_timezone(user))
         existing = DailyChallenge.objects.filter(user=user, date=today).first()
         if existing:
             return existing
 
         template = random.choice(DAILY_CHALLENGE_TEMPLATES)
+        paid_bonus = (DailyBonus.objects.filter(user=user, date=today, awarded_at__isnull=False).first()
+                      or paid_legacy_bonus(user, today))
         return DailyChallenge.objects.create(
             user=user,
             challenge_type=template["type"],
             target_value=template["target"],
-            coin_reward=template["coins"],
-            xp_reward=template["xp"],
+            coin_reward=0 if paid_bonus else template["coins"],
+            xp_reward=0 if paid_bonus else template["xp"],
+            current_progress=template["target"] if paid_bonus else 0,
+            completed_at=paid_bonus.completed_at if paid_bonus else None,
             date=today,
         )
 
@@ -663,7 +678,10 @@ class DailyChallengeService:
         if mapped is None:
             return (None, False)
 
-        today = timezone.localdate()
+        from django.contrib.auth import get_user_model
+        get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+        from apps.quests.activity import household_timezone
+        today = timezone.localdate(timezone.now(), timezone=household_timezone(user))
         try:
             challenge = DailyChallenge.objects.select_for_update().get(
                 user=user, date=today,
@@ -704,9 +722,17 @@ class DailyChallengeService:
         already-awarded state. Returns a dict describing the payout.
         """
         from apps.achievements.services import AwardService
-        from apps.quests.models import DailyChallenge
+        from apps.quests.models import DailyBonus, DailyChallenge
 
-        today = timezone.localdate()
+        from django.contrib.auth import get_user_model
+        get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+
+        from apps.quests.activity import household_timezone
+        from apps.quests.daily_bonus import paid_legacy_bonus
+        today = timezone.localdate(timezone.now(), timezone=household_timezone(user))
+        if (DailyBonus.objects.filter(user=user, date=today, awarded_at__isnull=False).exists()
+                or paid_legacy_bonus(user, today)):
+            return {"already_claimed": True, "coins": 0, "xp": 0}
         try:
             challenge = DailyChallenge.objects.select_for_update().get(
                 user=user, date=today,

@@ -54,7 +54,11 @@ class HomeworkWithdrawalIntegrityTests(TestCase):
         self.submission.refresh_from_db()
         self.assertEqual(self.submission.status, "approved")
         self.assertTrue(HomeworkProof.objects.filter(pk=self.proof.pk).exists())
-        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=self.skill).xp_points, 15)
+        # First approved work earns the 15-XP assignment and the separate
+        # 20-XP daily bonus; a stale withdrawal must remove neither.
+        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=self.skill).xp_points, 35)
+        from apps.quests.models import DailyBonus
+        self.assertEqual(DailyBonus.objects.get(user=self.child).xp_awarded, 20)
         self.assertEqual(self.assignment.submissions.filter(status="approved").count(), 1)
 
     def test_rejection_after_stale_lookup_preserves_record_without_blob_cleanup(self):

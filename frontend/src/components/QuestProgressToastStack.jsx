@@ -6,6 +6,7 @@ import { useQuestProgressToasts } from '../hooks/useQuestProgressToasts';
 import IconButton from './IconButton';
 import { TOAST_DURATION_STANDARD } from '../constants/timing';
 import { swipeToDismiss } from './toastSwipe';
+import { goalProgress } from '../pages/trials/goalDisplay';
 
 function Toast({ toast, onDismiss }) {
   useEffect(() => {
@@ -25,11 +26,13 @@ function Toast({ toast, onDismiss }) {
       <Sword size={18} className="text-white shrink-0" aria-hidden="true" />
       <div className="flex-1 min-w-0">
         <div className="text-caption font-semibold text-white">
-          +{toast.delta} toward {toast.name}
+          Challenge progress
         </div>
-        <div className="text-micro text-white/85">
-          {toast.percent}% complete
-        </div>
+        {toast.goals?.map((goal) => <div key={goal.id} className="text-caption text-white/95 mt-1">
+          {goal.name} · {goal.completed ? 'Completed' : goalProgress(goal)}
+          {goal.completed && goal.rewards && <span> · +{goal.rewards.coins} coins · +{goal.rewards.xp} XP</span>}
+        </div>)}
+        {toast.daily_bonus?.awarded && <div className="text-caption text-white/95 mt-1">Today&apos;s bonus · +{toast.daily_bonus.coins_awarded} coins · +{toast.daily_bonus.xp_awarded} XP</div>}
       </div>
       <IconButton
         onClick={() => onDismiss(toast.id)}

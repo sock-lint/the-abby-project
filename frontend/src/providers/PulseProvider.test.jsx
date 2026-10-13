@@ -6,10 +6,12 @@ import { usePulse } from './pulseContext';
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server.js';
 import { buildUser } from '../test/factories.js';
+import { useAuth } from '../hooks/useApi';
 
 function Probe() {
   const { pulse } = usePulse();
-  return <div data-testid="probe">{pulse ? `coins:${pulse.header.coin_balance}` : 'no-beat'}</div>;
+  const { setUser } = useAuth();
+  return <><div data-testid="probe">{pulse ? `coins:${pulse.header.coin_balance}` : 'no-beat'}</div><button onClick={() => setUser(buildUser({ id: 22 }))}>Switch child</button></>;
 }
 
 const pulseBody = (coins) => ({
@@ -90,6 +92,40 @@ describe('PulseProvider', () => {
     await new Promise((r) => setTimeout(r, 50));
     // Still rendering, just without a heartbeat — the next beat retries.
     expect(screen.getByTestId('probe')).toHaveTextContent('no-beat');
+  });
+
+
+  it('rejects a late receipt response from the previous child', async () => {
+    let releaseOld;
+    let requests = 0;
+    server.use(http.get('*/api/pulse/', async () => {
+      requests += 1;
+      if (requests === 1) return await new Promise((resolve) => { releaseOld = () => resolve(HttpResponse.json(pulseBody(999))); });
+      return HttpResponse.json(pulseBody(20));
+    }));
+    const { user } = renderProvider();
+    await waitFor(() => expect(requests).toBe(1));
+    await user.click(screen.getByRole('button', { name: 'Switch child' }));
+    await waitFor(() => expect(screen.getByTestId('probe')).toHaveTextContent('coins:20'));
+    await act(async () => { releaseOld(); });
+    expect(screen.getByTestId('probe')).toHaveTextContent('coins:20');
+  });
+
+  it('hides the earlier child heartbeat while the new child is loading', async () => {
+    let releaseNew;
+    let requests = 0;
+    server.use(http.get('*/api/pulse/', async () => {
+      requests += 1;
+      if (requests > 1) return await new Promise((resolve) => { releaseNew = () => resolve(HttpResponse.json(pulseBody(20))); });
+      return HttpResponse.json(pulseBody(999));
+    }));
+    const { user } = renderProvider();
+    await waitFor(() => expect(screen.getByTestId('probe')).toHaveTextContent('coins:999'));
+    await user.click(screen.getByRole('button', { name: 'Switch child' }));
+    expect(screen.getByTestId('probe')).toHaveTextContent('no-beat');
+    await waitFor(() => expect(requests).toBe(2));
+    await act(async () => { releaseNew(); });
+    await waitFor(() => expect(screen.getByTestId('probe')).toHaveTextContent('coins:20'));
   });
 
   it('does not poll when nobody is signed in', async () => {

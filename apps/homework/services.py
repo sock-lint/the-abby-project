@@ -178,6 +178,8 @@ class HomeworkService:
             prior_count = bump_daily_counter(
                 HomeworkDailyCounter, child, timezone.localdate(),
             )
+            from apps.rpg.services import GameLoopService
+            GameLoopService.record_challenge_activity(child, "homework_created", {"assignment_id": assignment.pk})
             if prior_count == 0:
                 from apps.rpg.constants import TriggerType
                 from apps.rpg.services import safe_game_loop_call
@@ -384,7 +386,7 @@ class HomeworkService:
         from apps.rpg.services import safe_game_loop_call
         safe_game_loop_call(
             submission.user, TriggerType.HOMEWORK_COMPLETE,
-            {"assignment_id": assignment.id, "on_time": on_time},
+            {"assignment_id": assignment.id, "submission_id": submission.pk, "on_time": on_time},
         )
 
         return submission

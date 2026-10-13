@@ -95,6 +95,9 @@ class HabitService:
                 badge_scopes={"habit", "skill_xp", "badges"},
             )
 
+        if direction == 1:
+            from apps.rpg.services import GameLoopService
+            GameLoopService.record_challenge_activity(user, "habit_log", {"habit_log_id": log.pk})
         return {
             "direction": direction,
             "xp_reward": habit.xp_reward if direction == 1 else 0,

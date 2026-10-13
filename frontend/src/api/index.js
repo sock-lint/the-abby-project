@@ -610,6 +610,12 @@ export const setTrophyBadge = (badgeId) =>
 export const getDailyChallenge = () => api.get('/challenges/daily/');
 export const claimDailyChallenge = () => api.post('/challenges/daily/claim/');
 
+// Automatic challenge goals and the child's saved focus.
+export const getChallenges = (userId) => api.get(`/challenges/${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`);
+export const createChallengeGoal = (data) => api.post('/challenges/goals/', data);
+export const pinChallenge = (id) => api.post(`/challenges/${id}/pin/`, {});
+export const unpinChallenge = (id) => api.delete(`/challenges/${id}/pin/`);
+
 // Cosmetics
 export const getCosmetics = () => api.get('/cosmetics/');
 export const getCosmeticCatalog = () => api.get('/cosmetics/catalog/');

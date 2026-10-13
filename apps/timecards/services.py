@@ -188,6 +188,7 @@ class ClockService:
                     "project_id": entry.project_id,
                     "hours": hours,
                     "duration_minutes": entry.duration_minutes,
+                    "time_entry_id": entry.pk,
                 },
             )
 

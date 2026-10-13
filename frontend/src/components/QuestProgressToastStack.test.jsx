@@ -1,86 +1,80 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { renderWithProviders } from '../test/render';
-import QuestProgressToastStack from './QuestProgressToastStack.jsx';
-import { server } from '../test/server.js';
-import { buildUser, buildParent } from '../test/factories.js';
-import { emptyPulse } from '../test/pulseFixtures.js';
+import { renderWithProviders, screen, waitFor, act } from '../test/render';
+import { server } from '../test/server';
+import { buildUser, buildParent } from '../test/factories';
+import { emptyPulse } from '../test/pulseFixtures';
+import QuestProgressToastStack from './QuestProgressToastStack';
 
-// Stub AnimatePresence so exit animations don't keep the toast alive after
-// we expect synchronous removal.
 vi.mock('framer-motion', async () => {
   const actual = await vi.importActual('framer-motion');
-  return {
-    ...actual,
-    AnimatePresence: ({ children }) => children,
-  };
+  return { ...actual, AnimatePresence: ({ children }) => children };
 });
-
-const quest = (over = {}) => ({
-  id: 7,
-  definition: { name: 'Dragon Slayer' },
-  current_progress: 30,
-  progress_percent: 60,
-  ...over,
+const receipt = (id = 'activity:9') => ({
+  id, goals: [
+    { id: 'goal:11', name: 'Run this week', progress: '2', target: '2', unit: 'mi', completed: true, rewards: { coins: 10, xp: 0, items: [] } },
+    { id: 'goal:12', name: 'Move regularly', progress: '3', target: '5', unit: 'actions', completed: false, rewards: null },
+  ], daily_bonus: null,
 });
+beforeEach(() => { server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser()))); });
 
-function renderStack(user = buildUser(), pulse = emptyPulse()) {
-  server.use(http.get('*/api/auth/me/', () => HttpResponse.json(user)));
-  return renderWithProviders(<QuestProgressToastStack />, { pulse });
-}
-
-afterEach(() => {
-  vi.useRealTimers();
-});
-
-describe('QuestProgressToastStack', () => {
-  it('renders nothing when there is no active quest', async () => {
-    renderStack();
-    await new Promise((r) => setTimeout(r, 50));
-    expect(screen.queryByText(/toward/i)).toBeNull();
+describe('Grouped challenge receipts', () => {
+  it('shows multiple matching goals and exact completed awards from one stable activity receipt', async () => {
+    renderWithProviders(<QuestProgressToastStack />, { pulse: emptyPulse({ challenge_receipts: [receipt()] }) });
+    expect(await screen.findByText('Challenge progress')).toBeInTheDocument();
+    expect(screen.getByText(/Run this week · Completed/)).toHaveTextContent('+10 coins · +0 XP');
+    expect(screen.getByText('Move regularly · 3 / 5 activities')).toBeInTheDocument();
+    expect(screen.getAllByText('Challenge progress')).toHaveLength(1);
   });
 
-  it('emits a toast when current_progress increases between beats', async () => {
-    // First beat with a quest establishes the baseline silently — otherwise
-    // a page load would toast the quest's whole existing progress.
-    const { beat } = renderStack(buildUser(), emptyPulse({ active_quest: quest() }));
-    await waitFor(() => expect(screen.queryByText(/toward/i)).toBeNull());
 
-    beat(emptyPulse({ active_quest: quest({ current_progress: 40, progress_percent: 80 }) }));
-
-    await waitFor(() =>
-      expect(screen.getByText(/dragon slayer/i)).toBeInTheDocument(),
-    );
-    expect(screen.getByText(/\+10/)).toBeInTheDocument();
-    expect(screen.getByText(/80%/)).toBeInTheDocument();
+  it('keeps the three newest completions from a newest-first backlog and dedupes later reads', async () => {
+    const backlog = [5, 4, 3, 2, 1].map((id) => ({
+      id: `activity:${id}`, daily_bonus: null,
+      goals: [{ id: `goal:${id}`, name: `Finished goal ${id}`, progress: '1', target: '1', unit: 'actions', completed: true, rewards: { coins: id, xp: 0, items: [] } }],
+    }));
+    const { user, beat } = renderWithProviders(<QuestProgressToastStack />, { pulse: emptyPulse({ challenge_receipts: backlog }) });
+    expect(await screen.findByText(/Finished goal 5 · Completed/)).toBeInTheDocument();
+    expect(screen.getByText(/Finished goal 4 · Completed/)).toBeInTheDocument();
+    expect(screen.getByText(/Finished goal 3 · Completed/)).toBeInTheDocument();
+    expect(screen.queryByText(/Finished goal 2/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Finished goal 1/)).not.toBeInTheDocument();
+    expect(screen.getAllByText('Challenge progress')).toHaveLength(3);
+    for (const button of screen.getAllByRole('button', { name: 'Dismiss notification' })) await user.click(button);
+    // The same persisted receipt IDs can arrive through successive reads.
+    beat(emptyPulse({ challenge_receipts: [...backlog] }));
+    await waitFor(() => expect(screen.queryByText('Challenge progress')).not.toBeInTheDocument());
   });
 
-  it('auto-dismisses each toast after 4 seconds', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const { beat } = renderStack(buildUser(), emptyPulse({ active_quest: quest() }));
-    await waitFor(() => expect(screen.queryByText(/toward/i)).toBeNull());
-
-    beat(emptyPulse({ active_quest: quest({ current_progress: 40, progress_percent: 80 }) }));
-    await waitFor(() => expect(screen.getByText(/dragon slayer/i)).toBeInTheDocument());
-
-    await act(async () => { await vi.advanceTimersByTimeAsync(4_500); });
-    await waitFor(() => expect(screen.queryByText(/dragon slayer/i)).toBeNull());
+  it('does not replay dismissed receipts across polling or remounting', async () => {
+    const pulse = emptyPulse({ challenge_receipts: [receipt()] });
+    const { user, beat, unmount } = renderWithProviders(<QuestProgressToastStack />, { pulse });
+    await screen.findByText('Challenge progress');
+    await user.click(screen.getByRole('button', { name: 'Dismiss notification' }));
+    beat(emptyPulse({ challenge_receipts: [receipt()] }));
+    await waitFor(() => expect(screen.queryByText('Challenge progress')).not.toBeInTheDocument());
+    unmount();
+    renderWithProviders(<QuestProgressToastStack />, { pulse });
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.queryByText('Challenge progress')).not.toBeInTheDocument();
   });
 
-  it("does not toast when progress decreases (idle-day rage decay shouldn't look like a win)", async () => {
-    const { beat } = renderStack(buildUser(), emptyPulse({ active_quest: quest() }));
-    await waitFor(() => expect(screen.queryByText(/toward/i)).toBeNull());
-
-    beat(emptyPulse({ active_quest: quest({ current_progress: 20, progress_percent: 40 }) }));
-    await new Promise((r) => setTimeout(r, 50));
-    expect(screen.queryByText(/dragon slayer/i)).toBeNull();
+  it('can show completed goals that no longer appear among active goals', async () => {
+    const { beat } = renderWithProviders(<QuestProgressToastStack />, { pulse: emptyPulse() });
+    beat(emptyPulse({ active_quest: null, challenge_receipts: [receipt()] }));
+    expect(await screen.findByText(/Run this week · Completed/)).toBeInTheDocument();
   });
 
-  it('stays silent for parent role (parents have no personal active quest)', async () => {
-    const { beat } = renderStack(buildParent(), emptyPulse({ active_quest: quest() }));
-    beat(emptyPulse({ active_quest: quest({ current_progress: 40, progress_percent: 80 }) }));
-    await new Promise((r) => setTimeout(r, 50));
-    expect(screen.queryByText(/dragon slayer/i)).toBeNull();
+  it('stays silent for parents', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())));
+    renderWithProviders(<QuestProgressToastStack />, { pulse: emptyPulse({ challenge_receipts: [receipt()] }) });
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.queryByText('Challenge progress')).not.toBeInTheDocument();
+  });
+
+  it('never creates an award from progress snapshots without receipts', async () => {
+    renderWithProviders(<QuestProgressToastStack />, { pulse: emptyPulse({ active_quest: { id: 1, current_progress: 100, progress_percent: 100 } }) });
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.queryByText('Challenge progress')).not.toBeInTheDocument();
   });
 });

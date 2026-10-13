@@ -275,7 +275,8 @@ class ChoreService:
         from apps.rpg.constants import TriggerType
         from apps.rpg.services import safe_game_loop_call
         safe_game_loop_call(
-            completion.user, TriggerType.CHORE_COMPLETE, {"chore_id": completion.chore_id},
+            completion.user, TriggerType.CHORE_COMPLETE,
+            {"chore_id": completion.chore_id, "completion_id": completion.pk},
         )
 
         return completion

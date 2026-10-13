@@ -144,6 +144,9 @@ class CreationService:
         if is_xp_eligible:
             cls._award_baseline(user, creation, primary, secondary)
 
+        from apps.rpg.services import GameLoopService
+        GameLoopService.record_challenge_activity(user, "creation_logged", {"creation_id": creation.pk})
+
         # Emit Chronicle entry regardless of XP eligibility — the proud-display
         # track isn't gated by the anti-farm cap.
         cls._emit_chronicle(user, creation, primary, day)

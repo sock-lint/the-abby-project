@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getPulse } from '../api';
 import { useAuth } from '../hooks/useApi';
 import { PulseContext, PULSE_INTERVAL_MS } from './pulseContext';
+import { getToken } from '../api/client';
 
 /**
  * PulseProvider — the shell's single background poller.
@@ -18,14 +19,20 @@ import { PulseContext, PULSE_INTERVAL_MS } from './pulseContext';
  */
 export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
   const { user } = useAuth();
-  const [pulse, setPulse] = useState(null);
+  const account = user ? `${user.id}:${getToken()}` : null;
+  const accountRef = useRef(account);
+  useEffect(() => { accountRef.current = account; }, [account]);
+  const [savedPulse, setSavedPulse] = useState(null);
+  const pulse = savedPulse?.account === account ? savedPulse.data : null;
   const cancelledRef = useRef(false);
 
   const beat = useCallback(async () => {
     if (typeof document !== 'undefined' && document.hidden) return;
+    const requestedAccount = accountRef.current;
+    if (!requestedAccount) return;
     try {
       const data = await getPulse();
-      if (!cancelledRef.current) setPulse(data);
+      if (!cancelledRef.current && accountRef.current === requestedAccount) setSavedPulse({ account: requestedAccount, data });
     } catch {
       // Silent, like every poller before it — a missed beat must never break
       // the shell, and the next one is 30s away.
@@ -34,8 +41,6 @@ export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
 
   useEffect(() => {
     if (!user) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- drop the previous session's signals on sign-out
-      setPulse(null);
       return undefined;
     }
     cancelledRef.current = false;
@@ -54,7 +59,7 @@ export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
         document.removeEventListener('visibilitychange', onVisibility);
       }
     };
-  }, [user, intervalMs, beat]);
+  }, [user, account, intervalMs, beat]);
 
   return (
     <PulseContext.Provider value={{ pulse, refresh: beat }}>

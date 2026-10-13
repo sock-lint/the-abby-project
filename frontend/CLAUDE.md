@@ -103,7 +103,7 @@ frontend/src/
                      + mastery.constants.js.
     dashboard/       HeroPrimaryCard, VitalPipStrip, AccordionSection,
                      ApprovalQueueList, WeekGlanceBlock, QuickAdjustRow,
-                     DailyChallengeCard, DailyChallengeClaimModal.
+                     DailyChallengeCard, PinnedChallengeCard (automatic goal/bonus state).
     rpg/             RpgSprite, BoostStrip.
     pwa/             PwaStatusProvider, UpdateBanner, OfflineReadyToast,
                      InstallPromptProvider, useInstallPrompt, InstallCard.
@@ -238,11 +238,11 @@ Icon-prefixed text input used to filter long catalog lists. Fully controlled —
 
 ## Celebration moments (2026-05)
 
-The app surfaces six purpose-built reveal/toast components mounted near the top of [`App.jsx`](src/App.jsx) so big-moment notifications don't sit lost in the bell. All six respect the global `prefers-reduced-motion` rule in [`index.css`](src/index.css):
+The app surfaces reveal/toast components mounted near the top of [`App.jsx`](src/App.jsx) so big-moment notifications don't sit lost in the bell. These respect the global `prefers-reduced-motion` rule in [`index.css`](src/index.css):
 - [`CelebrationModal`](src/components/CelebrationModal.jsx) — full-screen reveal for `streak_milestone` (3/7/14/30/60/100) + `perfect_day`. At App boot it polls `GET /api/notifications/pending-celebration/` (returns the most recent unread streak/perfect-day notification — sister to `/api/chronicle/pending-celebration/`); dismissing fires `markNotificationRead`.
 - [`PetCeremonyModal`](src/pages/bestiary/PetCeremonyModal.jsx) — sequenced reveals for `hatch_pet` (sparkle) and `evolve` (crown halo), launched from `Hatchery` and `Companions`. Tap-anywhere dismiss. See `apps/pets/CLAUDE.md` for the four modes (hatch/evolve/breed/expedition_return).
 - [`RareDropReveal`](src/components/RareDropReveal.jsx) + [`rareDropTiers.js`](src/components/rareDropTiers.js) — escalates `rare`/`epic`/`legendary` drops out of the slide-in [`DropToastStack`](src/components/DropToastStack.jsx) into a center-screen card with rarity glow, queued so multiple rares don't collide.
-- [`DailyChallengeClaimModal`](src/components/dashboard/DailyChallengeClaimModal.jsx) + countdown chip on [`DailyChallengeCard`](src/components/dashboard/DailyChallengeCard.jsx) — gold-leaf ring when ready to claim; post-claim modal does the reveal.
+- [`DailyChallengeCard`](src/components/dashboard/DailyChallengeCard.jsx) shows Today's automatic bonus with actual paid Coins/XP and no Claim action. `PinnedChallengeCard` features the chosen goal without controlling whether work counts. The old claim modal is retained only as a legacy component.
 - [`ApprovalToastStack`](src/components/ApprovalToastStack.jsx) + [`useApprovalToasts`](src/hooks/useApprovalToasts.js) — child-side toasts for chore/homework/creation/exchange/redemption approvals + rejections, polled from notifications. Seen-IDs persist in `localStorage` per the keys in [`constants/storage.js`](src/constants/storage.js) so a refresh doesn't re-show them.
 - [`QuestProgressToastStack`](src/components/QuestProgressToastStack.jsx) + [`useQuestProgressToasts`](src/hooks/useQuestProgressToasts.js) — 4s floater on every active-quest progress increment ("+10 toward Dragon Slayer 62%") so contributing actions feel tied to the quest rather than vanishing into a stat. Driven by polling `getActiveQuest()` for delta detection on `current_progress`.
 

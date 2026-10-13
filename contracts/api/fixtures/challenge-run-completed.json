@@ -1,0 +1,52 @@
+{
+  "id": 2,
+  "user": 7,
+  "user_display": "challenge-fixture-child",
+  "movement_type": 31,
+  "movement_type_name": "Running",
+  "movement_type_icon": "🏃",
+  "duration_minutes": 20,
+  "intensity": "medium",
+  "distance_meters": "2011.680",
+  "distance": "1.25",
+  "distance_unit": "mi",
+  "client_request_id": "22222222-2222-4222-8222-222222222222",
+  "challenge_receipts": [
+    {
+      "id": "activity:2",
+      "goals": [
+        {
+          "id": "goal:1",
+          "name": "Run 2 miles this week",
+          "progress": "2",
+          "target": "2",
+          "unit": "mi",
+          "completed": true,
+          "rewards": {
+            "coins": 7,
+            "xp": 15,
+            "items": []
+          }
+        },
+        {
+          "id": "goal:2",
+          "name": "Two movement sessions",
+          "progress": "2",
+          "target": "2",
+          "unit": "actions",
+          "completed": true,
+          "rewards": {
+            "coins": 5,
+            "xp": 10,
+            "items": []
+          }
+        }
+      ],
+      "daily_bonus": null
+    }
+  ],
+  "occurred_on": "2026-10-14",
+  "notes": "A fixture run.",
+  "xp_awarded": 10,
+  "created_at": "2026-10-14T12:00:00-07:00"
+}

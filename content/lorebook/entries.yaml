@@ -348,18 +348,23 @@ entries:
   - slug: quests
     title: Challenges
     icon: "⚔️"
-    audience_title: "Boss and collection challenges"
+    audience_title: "Goals that progress in the background"
     chapter: rpg_layer
-    summary: "Boss and collection challenges that progress through everyday activities."
+    summary: "Time-limited goals that progress automatically, plus one small daily bonus."
     kid_voice: |
       Challenges give you a goal to work toward through everyday activities.
-      Complete matching chores, project work, habits, or homework to damage
-      a boss or add to a collection.
+      Matching saved work counts toward every relevant goal. Pin a favorite
+      to see it on Today; work counts even when the goal is not pinned.
     mechanics:
-      - "A user has one active regular challenge at a time."
+      - "Every eligible goal progresses automatically; pinning only chooses the goal featured on Today."
+      - "Challenges have a defined period. Badges remain permanent recognition and are earned separately."
+      - "Bonus awards do not recursively complete new challenges; default goals count effort, and expedition returns require an explicit rule."
+      - "Parent-created goals can measure activity counts, minutes, or distance, including running a chosen distance this week."
+      - "Weekly goals use Monday through Sunday in the family timezone. Late-approved work counts in its original period."
+      - "The daily bonus pays automatically once per family-local day for approved work, a completed project or milestone, or ten cumulative project/movement minutes."
       - "Boss challenges use trigger damage; collection challenges count matching trigger events."
       - "Trigger filters can restrict challenges to certain triggers, projects, chores, skill categories, or on-time homework."
-      - "Boss rage adds extra shield on idle days and decays when the child returns to activity."
+      - "Existing boss challenges retain their rage shield: it grows on idle days and decays when the child returns."
       - "Completing a challenge can award Coins, XP through challenge skill tags, and item rewards."
     parent_knobs:
       settings: []
@@ -378,15 +383,15 @@ entries:
       streak_credit: false
     trial_template: choice
     trial:
-      prompt: "Choose a challenge to try."
-      payoff: "Challenge begins · progress tracks matching activities"
+      prompt: "Pin a goal to follow on Today."
+      payoff: "Favorite featured · all matching goals keep progressing"
       choices:
         - label: "Boss · Dragon"
           icon: "🐉"
           outcome: "HP ticks down with each matching chore, hour of work, and habit."
         - label: "Collection · Pebbles"
           icon: "🪨"
-          outcome: "Each find adds one to the count."
+          outcome: "Each matching saved activity adds one to the count, even without a pin."
 
   - slug: pets
     title: Pets

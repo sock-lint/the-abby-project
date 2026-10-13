@@ -73,8 +73,14 @@ class TimeEntryViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def void(self, request, pk=None):
         entry = self.get_object()
-        entry.status = "voided"
-        entry.save()
+        from django.db import transaction
+        from django.contrib.auth import get_user_model
+        from apps.quests.goals import void_activity
+        with transaction.atomic():
+            get_user_model().objects.select_for_update(no_key=True).get(pk=entry.user_id)
+            entry.status = "voided"
+            entry.save()
+            void_activity(entry.user, "clock_out", entry.pk)
         from apps.activity.services import ActivityLogService
         ActivityLogService.record(
             category="timecard",

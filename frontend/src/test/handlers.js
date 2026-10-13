@@ -343,6 +343,8 @@ export const handlers = [
 
   // Quests
   http.get('*/api/quests/active/', () => HttpResponse.json(null)),
+  http.get('*/api/challenges/', () => HttpResponse.json({ results: [], pin: null, daily_bonus: null, challenge_receipts: [] })),
+  http.get('*/api/challenges/daily/', () => HttpResponse.json(null)),
   http.get('*/api/quests/available/', empty),
   http.post('*/api/quests/start/', ok),
   http.get('*/api/quests/history/', empty),

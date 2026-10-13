@@ -110,6 +110,9 @@ class MovementSession(CreatedAtModel):
     duration_minutes = models.PositiveIntegerField(
         help_text="Capped to MovementSessionService.MAX_DURATION_MINUTES at log time.",
     )
+    distance_meters = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)
+    distance_unit = models.CharField(max_length=2, choices=[("mi", "Miles"), ("km", "Kilometres")], default="mi")
+    client_request_id = models.UUIDField(null=True, blank=True, editable=False)
     intensity = models.CharField(
         max_length=8,
         choices=Intensity.choices,
@@ -126,6 +129,11 @@ class MovementSession(CreatedAtModel):
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "client_request_id"],
+                                    condition=models.Q(client_request_id__isnull=False),
+                                    name="movement_user_request_once"),
+        ]
         indexes = [
             models.Index(fields=["user", "occurred_on"]),
         ]
