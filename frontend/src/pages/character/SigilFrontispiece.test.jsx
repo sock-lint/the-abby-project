@@ -3,6 +3,23 @@ import { renderWithProviders, screen, userEvent } from '../../test/render';
 import SigilFrontispiece from './SigilFrontispiece';
 
 describe('SigilFrontispiece', () => {
+  it('shows the profile picture inside the equipped frame', () => {
+    renderWithProviders(<SigilFrontispiece
+      profile={{ display_name: 'Abby', active_frame: { metadata: { border_color: '#866329' } } }}
+      profilePicture="/media/avatars/abby.png"
+      onOpenTrophyPicker={() => {}}
+    />);
+    const picture = screen.getByRole('img', { name: 'Your profile picture' });
+    expect(picture).toHaveAttribute('src', '/media/avatars/abby.png');
+    expect(picture.parentElement).toHaveStyle({ boxShadow: '0 0 0 3px var(--color-ink-page-aged), 0 0 0 4px #866329, 0 0 0 6px var(--color-ink-page-shadow)' });
+  });
+
+  it('keeps the initial as the fallback when no picture is saved', () => {
+    renderWithProviders(<SigilFrontispiece profile={{ display_name: 'Abby' }} onOpenTrophyPicker={() => {}} />);
+    expect(screen.queryByRole('img', { name: 'Your profile picture' })).toBeNull();
+    expect(screen.getAllByText('A').length).toBeGreaterThan(0);
+  });
+
   it('renders the display name as the h1', () => {
     renderWithProviders(
       <SigilFrontispiece

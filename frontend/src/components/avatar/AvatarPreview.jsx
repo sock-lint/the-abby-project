@@ -110,11 +110,11 @@ function Preview({ appearance }) {
   return (
     <div className="space-y-2">
       <div className="relative h-80 overflow-hidden rounded-2xl border border-ink-page-shadow bg-ink-page-aged focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sheikah-teal-deep"
-        ref={stageRef} role="group" aria-label="Avatar view" aria-describedby={interactive ? helpId : undefined} tabIndex={interactive ? 0 : -1}
+        ref={stageRef} role="group" aria-label="Character view" aria-describedby={interactive ? helpId : undefined} tabIndex={interactive ? 0 : -1}
         aria-busy={!!showScene && !ready}
         onPointerDownCapture={pointerDown} onPointerMoveCapture={pointerMove} onPointerUpCapture={pointerUp}
         onPointerCancelCapture={pointerCancel} onLostPointerCaptureCapture={pointerCancel} onKeyDown={keyDown}>
-        <div className="absolute inset-0" role="img" aria-label="Your Archer avatar">
+        <div className="absolute inset-0" role="img" aria-label="Your Archer character">
           {showScene && <div className="absolute inset-0" aria-hidden="true">
             <AvatarBoundary key={attempt} onFailure={onFailure}>
               <Suspense fallback={null}>
@@ -127,9 +127,9 @@ function Preview({ appearance }) {
         {(!showScene || !ready) && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
           <UserRound size={64} className="text-sheikah-teal-deep" aria-hidden="true" />
           <p className="font-body text-body text-ink-secondary" role="status">
-            {showScene ? 'Loading your avatar…' : 'The avatar preview is unavailable. You can still customize your look.'}
+            {showScene ? 'Loading your character…' : 'The character preview is unavailable. You can still customize your look.'}
           </p>
-          {failed && <Button size="sm" variant="secondary" onClick={retry}>Retry avatar preview</Button>}
+          {failed && <Button size="sm" variant="secondary" onClick={retry}>Retry character preview</Button>}
         </div>}
       </div>
       {showScene && <>
@@ -140,7 +140,7 @@ function Preview({ appearance }) {
         <p id={helpId} className="font-body text-caption text-ink-secondary">
           {motionAllowed ? 'Tap for an animation. Drag to look around.' : 'Drag to look around. Animations are paused.'}
           {' Scroll outside the preview.'}
-          <span className="sr-only"> Focus the avatar view and use arrow keys to look around. Press Home to reset the view.{motionAllowed && ' Press Enter or Space to play an animation.'}</span>
+          <span className="sr-only"> Focus the character view and use arrow keys to look around. Press Home to reset the view.{motionAllowed && ' Press Enter or Space to play an animation.'}</span>
         </p>
       </>}
     </div>

@@ -34,18 +34,18 @@ async function readyPreview() {
 }
 
 describe('AvatarPreview', () => {
-  it('starts the avatar without an opt-in and keeps an accessible loading state', async () => {
+  it('starts the character without an opt-in and keeps an accessible loading state', async () => {
     render(<AvatarPreview preferences={AVATAR_DEFAULTS} />);
-    expect(screen.getByRole('img', { name: 'Your Archer avatar' })).toBeInTheDocument();
-    expect(screen.getByText('Loading your avatar…')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Your Archer character' })).toBeInTheDocument();
+    expect(screen.getByText('Loading your character…')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Play animation' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Reset view' })).toBeDisabled();
-    expect(screen.getByRole('group', { name: 'Avatar view' })).toHaveAttribute('tabindex', '-1');
+    expect(screen.getByRole('group', { name: 'Character view' })).toHaveAttribute('tabindex', '-1');
     await screen.findByTestId('avatar-scene');
     act(() => fixture.props.onReady());
-    expect(screen.queryByText('Loading your avatar…')).toBeNull();
+    expect(screen.queryByText('Loading your character…')).toBeNull();
     expect(screen.getByRole('button', { name: 'Play animation' })).toBeEnabled();
-    expect(screen.getByRole('group', { name: 'Avatar view' })).toHaveAttribute('tabindex', '0');
+    expect(screen.getByRole('group', { name: 'Character view' })).toHaveAttribute('tabindex', '0');
   });
 
   it('cycles different local reactions from touch taps and mouse clicks on the actual canvas', async () => {
@@ -107,7 +107,7 @@ describe('AvatarPreview', () => {
     await user.keyboard(' ');
     expect(fixture.props.interaction).toEqual({ id: 2, action: 'twirl' });
 
-    const view = screen.getByRole('group', { name: 'Avatar view' });
+    const view = screen.getByRole('group', { name: 'Character view' });
     view.focus();
     for (const [index, [key, horizontal, vertical]] of [
       ['ArrowLeft', 1, 0], ['ArrowUp', 0, 1], ['ArrowRight', -1, 0], ['ArrowDown', 0, -1],
@@ -138,7 +138,7 @@ describe('AvatarPreview', () => {
     expect(screen.getByText(/Animations are paused/)).toBeInTheDocument();
     pointer('pointerdown', canvas);
     pointer('pointerup', canvas);
-    const view = screen.getByRole('group', { name: 'Avatar view' });
+    const view = screen.getByRole('group', { name: 'Character view' });
     view.focus();
     await user.keyboard('{Enter}{ArrowLeft}');
     expect(fixture.props.interaction.id).toBe(0);
@@ -149,7 +149,7 @@ describe('AvatarPreview', () => {
 
   it('recovers WebGL loss and retries while retaining surrounding customization', async () => {
     const user = userEvent.setup();
-    render(<><AvatarPreview preferences={AVATAR_DEFAULTS} /><button>Customize avatar</button></>);
+    render(<><AvatarPreview preferences={AVATAR_DEFAULTS} /><button>Customize character</button></>);
     const canvas = await screen.findByTestId('avatar-scene');
     act(() => fixture.props.onReady());
     pointer('pointerdown', canvas);
@@ -157,8 +157,8 @@ describe('AvatarPreview', () => {
     expect(fixture.props.interaction.id).toBe(1);
     act(() => fixture.props.onUnavailable());
     expect(screen.getByText(/preview is unavailable/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Customize avatar' })).toBeEnabled();
-    await user.click(screen.getByRole('button', { name: 'Retry avatar preview' }));
+    expect(screen.getByRole('button', { name: 'Customize character' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Retry character preview' }));
     await screen.findByTestId('avatar-scene');
     expect(resetAvatarAssets).toHaveBeenCalledWith(expect.any(Object), []);
     expect(fixture.props.interaction).toEqual({ id: 0, action: null });
@@ -173,7 +173,7 @@ describe('AvatarPreview', () => {
     render(<AvatarPreview preferences={AVATAR_DEFAULTS} />);
     await waitFor(() => expect(screen.getByText(/preview is unavailable/)).toBeInTheDocument());
     fixture.error = null;
-    await user.click(screen.getByRole('button', { name: 'Retry avatar preview' }));
+    await user.click(screen.getByRole('button', { name: 'Retry character preview' }));
     await screen.findByTestId('avatar-scene');
     expect(resetAvatarAssets).toHaveBeenCalledWith(expect.any(Object), ['/synthetic-hair.png']);
     consoleError.mockRestore();
@@ -184,6 +184,6 @@ describe('AvatarPreview', () => {
     render(<AvatarPreview preferences={AVATAR_DEFAULTS} />);
     expect(screen.getByText(/preview is unavailable/)).toBeInTheDocument();
     expect(screen.queryByTestId('avatar-scene')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Retry avatar preview' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry character preview' })).toBeNull();
   });
 });

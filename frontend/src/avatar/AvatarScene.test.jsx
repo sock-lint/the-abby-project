@@ -93,7 +93,7 @@ describe('AvatarScene lifecycle', () => {
     const onReady = vi.fn();
     const onUnavailable = vi.fn();
     render(<AvatarScene appearance={appearance} onReady={onReady} onUnavailable={onUnavailable} />);
-    expect(screen.getByText('Your browser could not display the avatar.')).toBeInTheDocument();
+    expect(screen.getByText('Your browser could not display the character.')).toBeInTheDocument();
     expect(onReady).toHaveBeenCalled();
     expect(onUnavailable).not.toHaveBeenCalled();
     consoleError.mockRestore();

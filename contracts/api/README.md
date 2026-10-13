@@ -18,6 +18,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `pets-supported-catalog.json` | `GET /api/pets/codex/`; production policy advertises only Base Chick |
 | `pets-preserved-collection.json` | `GET /api/pets/stable/`; supported Chick and earlier Cat ownership coexist, with availability flags and no breeding pair |
 | `cosmetics-supported-catalog.json` | `GET /api/cosmetics/catalog/`; available Frames/Titles/Covers slots, retained empty accessory slot |
+| `inventory-appearance.json` | `GET /api/inventory/`; owned frame links to Profile while owned color theme links to Settings → Appearance |
 | `items-preserved-inventory.json` | `GET /api/inventory/`; unavailable saved egg/accessory entries remain owned without blocked actions |
 | `pet-hatch-unavailable.json` | Unsupported saved egg rejected with HTTP 400 without consuming either ingredient |
 | `cosmetic-equip-unavailable.json` | Owned saved accessory equip rejected with HTTP 400 without changing ownership or selection |

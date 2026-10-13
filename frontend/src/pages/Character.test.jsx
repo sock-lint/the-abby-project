@@ -75,7 +75,8 @@ describe('Character (/sigil)', () => {
     expect(await screen.findByRole('heading', { name: 'Your look' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Edit account & settings' })).toHaveAttribute('href', '/settings');
     expect(screen.getByRole('link', { name: 'My pets' })).toHaveAttribute('href', '/bestiary');
-    expect(screen.getByRole('button', { name: 'Customize avatar' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your character' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Customize character' })).toBeInTheDocument();
     expect(stableSpy).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Show 3D view' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Say hello' })).toBeNull();
@@ -111,7 +112,7 @@ describe('Character (/sigil)', () => {
     expect(screen.getByRole('button', { name: /no trophy badge/i })).toBeInTheDocument();
   });
 
-  it('renders a TomeShelf with three supported cosmetic collections and opens only the active one', async () => {
+  it('keeps editable profile collections to frames and titles', async () => {
     const user = userEvent.setup();
     stubRoutes({
       profile: {
@@ -130,7 +131,8 @@ describe('Character (/sigil)', () => {
     await waitFor(() =>
       expect(screen.getByRole('tablist', { name: /profile collections/i })).toBeInTheDocument(),
     );
-    expect(screen.getAllByRole('tab')).toHaveLength(3);
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.queryByRole('tab', { name: /Journal Covers/i })).toBeNull();
 
     // Frames is the first chapter, so its folio opens by default.
     expect(screen.getByRole('region', { name: 'Frames' })).toBeInTheDocument();
@@ -167,50 +169,31 @@ describe('Character (/sigil)', () => {
     await waitFor(() => expect(equipSpy).toHaveBeenCalled());
   });
 
-  // Equipping a journal cover writes User.theme server-side. If the page
-  // doesn't mirror that, CosmeticSigil's release handler — which on a phone
-  // fires on the NEXT tap anywhere — repaints the OLD cover and the equip
-  // looks like it silently failed.
-  it('keeps the newly-equipped journal cover painted after the tile releases', async () => {
-    const user = userEvent.setup();
-    const cover = {
-      id: 3, name: 'Vigil Cover', icon: '🌙', rarity: 'rare',
-      metadata: { theme: 'vigil' },
-    };
+  it('summarizes the saved color theme and links to the single Settings picker', async () => {
+    const equip = vi.fn(() => HttpResponse.json({ ok: true }));
+    const unequip = vi.fn(() => HttpResponse.json({ ok: true }));
     stubRoutes({
-      profile: {
-        display_name: 'Abby', username: 'abby', level: 1,
-        login_streak: 0, longest_login_streak: 0, perfect_days_count: 0,
-        active_trophy_badge: null,
-      },
-      cosmetics: {
-        active_frame: [], active_title: [], active_theme: [cover], active_pet_accessory: [],
-      },
-      catalog: {
-        active_frame: [], active_title: [], active_theme: [cover], active_pet_accessory: [],
-      },
-      user: buildUser({ theme: 'hyrule' }),
+      profile: { display_name: 'Abby', active_theme: { id: 3, name: 'Vigil Cover' } },
+      cosmetics: { active_theme: [{ id: 3, name: 'Vigil Cover', metadata: { theme: 'vigil' } }] },
+      user: buildUser({ theme: 'vigil' }),
     });
-    server.use(http.post('*/api/character/equip/', () => HttpResponse.json({ ok: true })));
+    server.use(http.post('*/api/character/equip/', equip), http.post('*/api/character/unequip/', unequip));
     renderPage();
+    expect(await screen.findByText('Twilight Meadow')).toBeInTheDocument();
+    expect(screen.getByText(/Color theme:/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Change color theme' })).toHaveAttribute('href', '/settings#appearance');
+    expect(screen.queryByRole('tab', { name: /Journal Covers/i })).toBeNull();
+    expect(equip).not.toHaveBeenCalled();
+    expect(unequip).not.toHaveBeenCalled();
+    expect(applyTheme).not.toHaveBeenCalled();
+  });
 
-    await waitFor(() =>
-      expect(screen.getByRole('tablist', { name: /profile collections/i })).toBeInTheDocument(),
-    );
-    await user.click(screen.getByRole('tab', { name: /Journal Covers/i }));
-    const tile = await screen.findByRole('button', { name: /Vigil Cover.*click to equip/i });
-    await user.click(tile);
-    // The toast only fires after the equip round-trip resolves.
-    await waitFor(() =>
-      expect(screen.getByText(/vigil cover selected/i)).toBeInTheDocument(),
-    );
-
-    applyTheme.mockClear();
-    const equipped = screen.getByRole('button', { name: /Vigil Cover/i });
-    await user.hover(equipped);
-    await user.unhover(equipped);
-    // Pre-fix this restored 'hyrule' — the stale auth-context theme.
-    await waitFor(() => expect(applyTheme).toHaveBeenLastCalledWith('vigil'));
+  it('shows the account profile picture alongside the separate character controls', async () => {
+    stubRoutes({ profile: { display_name: 'Abby' }, user: buildUser({ avatar: '/media/avatars/abby.png' }) });
+    renderPage();
+    expect(await screen.findByRole('img', { name: 'Your profile picture' })).toHaveAttribute('src', '/media/avatars/abby.png');
+    expect(screen.getByRole('button', { name: 'Change picture' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your character' })).toBeInTheDocument();
   });
 
   it('surfaces an error when equip fails', async () => {

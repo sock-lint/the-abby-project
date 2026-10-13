@@ -110,28 +110,32 @@ async function fixture(page, pet = chick, { mounts = [] } = {}) {
   return mutations;
 }
 
-test('profile has its Archer avatar and saves appearance without companion or reward actions', async ({ page }) => {
+test('profile has its Archer character and saves appearance without companion or reward actions', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   const mutations = await fixture(page);
   await page.goto(`${origin}/profile`);
   await expect(page.getByRole('heading', { name: 'Prototype child', exact: true })).toBeVisible();
-  await expect(page.getByRole('img', { name: 'Your Archer avatar' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Upload picture', exact: true })).toBeVisible();
+  await expect(page.getByText('Memory Meadow', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Change color theme' })).toHaveAttribute('href', '/settings#appearance');
+  await expect(page.getByRole('tab', { name: /Covers/ })).toHaveCount(0);
+  await expect(page.getByRole('img', { name: 'Your Archer character' })).toBeVisible();
   await expect(page.locator('.companion-preview')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Say hello', exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Customize avatar' }).click();
+  await page.getByRole('button', { name: 'Customize character' }).click();
   await expect(page.getByRole('combobox', { name: 'Hair style' })).toHaveValue('hair-01');
   await page.getByRole('combobox', { name: 'Hair style' }).selectOption('hair-04');
   await page.getByRole('combobox', { name: 'Hair color' }).selectOption('light');
   await page.getByRole('combobox', { name: 'Skin tone' }).selectOption('tan');
   await page.getByRole('combobox', { name: 'Outfit' }).selectOption('fire');
   expect(mutations).toEqual([]);
-  await page.getByRole('button', { name: 'Save avatar' }).click();
-  await expect(page.getByText('Avatar saved.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Save character' }).click();
+  await expect(page.getByText('Character saved.', { exact: true })).toBeVisible();
   expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/`, method: 'POST', body: {
     avatar_preferences: { hair_style: 'hair-04', hair_color: 'light', skin_tone: 'tan', outfit: 'fire' },
   } }]);
   await page.reload();
-  await page.getByRole('button', { name: 'Customize avatar' }).click();
+  await page.getByRole('button', { name: 'Customize character' }).click();
   await expect(page.getByRole('combobox', { name: 'Hair style' })).toHaveValue('hair-04');
   await expect(page.getByRole('combobox', { name: 'Outfit' })).toHaveValue('fire');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
