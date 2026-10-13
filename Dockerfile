@@ -42,6 +42,15 @@ RUN --mount=type=secret,id=ABBY_MEADOW_ASSETS \
     --mount=type=secret,id=AWS_SECRET_ACCESS_KEY \
     node scripts/stage-licensed-art.mjs
 
+# The Profile avatar is a separate, explicitly reviewed runtime release.
+# Missing optional inputs keep public CI builds free of purchased artwork.
+ARG ABBY_AVATAR_ASSETS_SHA256=""
+ARG ABBY_AVATAR_ASSETS_REQUIRED="false"
+RUN --mount=type=secret,id=ABBY_AVATAR_ASSETS \
+    --mount=type=secret,id=ABBY_AVATAR_ASSETS_SHA256 \
+    --mount=type=secret,id=ABBY_AVATAR_ASSETS_REQUIRED \
+    node scripts/stage-avatar-art.mjs
+
 # Keep this RUN separate so Coolify can inject existing VITE/Sentry build
 # secrets when use_build_secrets is enabled for this application.
 RUN npm run build

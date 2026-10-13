@@ -25,6 +25,7 @@ scripts/unity/
 frontend/src/storybook/licensed/
 shared/storybook/licensed/
 frontend/src/companion/licensed/
+frontend/src/avatar/licensed/
 scripts/r3f/private/
 frontend/dist-native/
 frontend/android/
