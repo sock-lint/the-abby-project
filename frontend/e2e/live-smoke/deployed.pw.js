@@ -142,8 +142,13 @@ async function childFlow(browser, request, credentials, cleanup) {
     await expect(page.getByRole('link', { name: 'Manage', exact: true })).toHaveCount(0);
     await page.getByRole('navigation', { name: 'Main navigation', exact: true })
       .getByRole('link', { name: 'Tasks', exact: true }).click();
-    await expect(page.locator('main').getByRole('heading', { name: 'Tasks', exact: true })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Homework', exact: true })).toBeVisible();
+    await expect(page).toHaveURL((url) => url.origin === LIVE_BASE_URL && url.pathname === '/quests');
+    const tasks = page.getByRole('tablist', { name: 'Tasks sections', exact: true });
+    await expect(tasks).toBeVisible();
+    const homework = tasks.getByRole('tab', { name: 'Homework', exact: true });
+    await expect(homework).toBeVisible();
+    await expect(homework).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('main').getByRole('heading', { name: 'Homework', exact: true })).toBeVisible();
     const denied = await request.get(`${LIVE_BASE_URL}/api/children/`, {
       headers: { Authorization: `Token ${gate.token}` }, maxRedirects: 0, timeout: 10_000,
     });
