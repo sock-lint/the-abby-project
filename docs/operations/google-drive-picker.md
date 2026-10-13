@@ -1,10 +1,22 @@
-# Google Drive file picker
+# Google Drive file picker and uploads
 
 Parents can choose Drive files in **Add Resource** on a project or its step.
 Django verifies the selected file and fills the resource title, type, and link.
 The parent can edit these fields before choosing **Add Resource**. A resource
 link retains Google's sharing permissions; Abby does not make the file public
 or grant family members access to it.
+
+The resource picker also has an **Upload** tab. Parents can upload PDFs, photos,
+and other files from their device directly to Google Drive and choose a
+destination folder. Google handles the upload; Abby verifies the resulting
+file's metadata and fills the resource form. The parent must still choose
+**Add Resource** to save its link in Abby. Resource uploads do not copy file
+contents into Abby or send them to the AI import provider. Access to the file
+follows the Google account's Drive and destination folder permissions.
+
+A completed upload can remain in Google Drive if the picker or resource form
+is cancelled, the Abby account changes, or metadata verification fails. These
+actions do not undo the Google upload. Remove unwanted uploaded files in Drive.
 
 In **Auto-fill from Source → PDF**, **Import PDF from Google Drive** copies a
 selected PDF into the existing import workflow. The parent reviews its plan
@@ -13,6 +25,7 @@ this version does not create homework assignments automatically. PDF text may
 be sent to the configured AI import provider, as disclosed before selection and
 in `/privacy/#drive`. Files must be genuine, downloadable PDFs of at most 25 MB.
 Google Docs exports, folders, and shortcuts are not supported for PDF import.
+This separate PDF-only picker selects existing files and has no Upload tab.
 
 ## Runtime setup
 
@@ -35,6 +48,8 @@ The OAuth client and app ID must belong to the same Cloud project. Existing
 Calendar/sign-in credentials remain separate from Drive selection. No new Drive
 refresh token or client secret is sent to the browser. The API key, client ID,
 and project number are public browser configuration.
+Uploads use the same `drive.file` grant, which allows creating files; existing
+Drive picker deployments need no additional scopes or Cloud setup for uploads.
 
 The journal SPA sends `Cross-Origin-Opener-Policy: same-origin-allow-popups` so
 Google's authorization popup can communicate with its opener. It also sends
@@ -48,6 +63,7 @@ Users must allow popups; an unavailable configuration or blocked SDK leaves
 manual links and uploads available.
 
 See Google's [Picker setup](https://developers.google.com/workspace/drive/picker/guides/web-picker-sample),
+[upload view](https://developers.google.com/workspace/drive/picker/reference/picker.docsuploadview),
 [selected-file scope](https://developers.google.com/workspace/drive/api/guides/api-specific-auth),
 and [authorization library guidance](https://developers.google.com/identity/oauth2/web/guides/load-3p-authorization-library).
 
@@ -80,7 +96,8 @@ The picker temporarily owns focus and Escape above an open resource form. The
 underlying sheet's fields are retained and its dismiss actions are disabled
 until the external interaction finishes. Returning restores the sheet's focus.
 
-Unlinking Google does not remove copied PDFs or saved links. Discarding an import
+Unlinking Google does not remove files uploaded to Drive, copied PDFs, or saved
+links. Uploaded files are managed in Google Drive. Discarding an import
 uses the existing soft-discard behavior and retains its file; deployment
 operators must handle file and backup retention through their existing policy.
 
@@ -101,5 +118,9 @@ actual resource/import POST routes and bodies. Run frontend lint, tests, and
 build plus the Google/ingestion/project backend suites with test settings.
 Live verification requires configured Cloud credentials: select a PDF, cancel
 and retry, attach to a project/step, open with an authorized Google account, and
-import into a draft without creating a project until confirmed. School-managed
-accounts may need the institution to approve Abby's selected-file access.
+upload a local file to a chosen Drive folder before explicitly saving its
+resource link. Verify that cancelling the resource form leaves no Abby resource
+and that a completed upload remains in Drive. Check that PDF-only import has no
+Upload tab and imports into a draft without creating a project until confirmed.
+School-managed accounts may need the institution to approve Abby's selected-file
+access.

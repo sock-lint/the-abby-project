@@ -7,7 +7,7 @@ import Button from './Button';
 import ErrorAlert from './ErrorAlert';
 
 export default function GoogleDrivePickerButton({
-  onPick, pdfOnly = false, disabled = false, children = 'Choose from Google Drive', onOpenChange,
+  onPick, pdfOnly = false, allowUpload = false, disabled = false, children = 'Choose from Google Drive', onOpenChange,
 }) {
   const [config, setConfig] = useState(null);
   const [preparing, setPreparing] = useState(true);
@@ -67,7 +67,7 @@ export default function GoogleDrivePickerButton({
     setPicking(true);
     openChangeRef.current?.(true);
     try {
-      const selection = await pickGoogleDriveFile(config, { pdfOnly, signal: controller.signal });
+      const selection = await pickGoogleDriveFile(config, { pdfOnly, allowUpload, signal: controller.signal });
       if (selection && current()) await onPick(selection);
     } catch (err) {
       if (current()) setError(err.message);

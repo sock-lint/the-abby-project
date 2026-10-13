@@ -6,11 +6,13 @@ let oauth;
 let pickerCallback;
 let picker;
 let view;
+let uploadView;
 let builder;
 
 function installSdk() {
   picker = { dispose: vi.fn(), setVisible: vi.fn() };
   view = { setIncludeFolders: vi.fn().mockReturnThis(), setSelectFolderEnabled: vi.fn().mockReturnThis(), setMimeTypes: vi.fn().mockReturnThis() };
+  uploadView = { setIncludeFolders: vi.fn().mockReturnThis() };
   builder = {};
   for (const method of ['addView', 'setOAuthToken', 'setDeveloperKey', 'setAppId', 'setOrigin', 'setTitle']) {
     builder[method] = vi.fn().mockReturnValue(builder);
@@ -28,6 +30,7 @@ function installSdk() {
   window.google = { accounts: { oauth2: oauth }, picker: {
     PickerBuilder: vi.fn(function () { return builder; }),
     DocsView: vi.fn(function () { return view; }),
+    DocsUploadView: vi.fn(function () { return uploadView; }),
     ViewId: { DOCS: 'docs' }, Response: { ACTION: 'action', DOCUMENTS: 'docs' },
     Action: { CANCEL: 'cancel', PICKED: 'picked', ERROR: 'error' },
     Document: { ID: 'id', MIME_TYPE: 'mimeType' },
@@ -76,6 +79,46 @@ describe('Google Drive picker', () => {
     authorize();
     pickerCallback({ action: 'picked', docs: [{ id: 'file-123', resourceKey: 'synthetic-resource-key' }] });
     await expect(result).resolves.toEqual({ file_id: 'file-123', access_token: 'synthetic-drive-token', resource_key: 'synthetic-resource-key' });
+  });
+
+  it('offers Google-managed uploads and folder selection only when requested', async () => {
+    const result = sdk.pickGoogleDriveFile(CONFIG, { allowUpload: true });
+    authorize();
+    expect(window.google.picker.DocsUploadView).toHaveBeenCalledOnce();
+    expect(uploadView.setIncludeFolders).toHaveBeenCalledWith(true);
+    expect(builder.addView.mock.calls).toEqual([[view], [uploadView]]);
+    expect(builder.setTitle).toHaveBeenCalledWith('Choose or upload a project resource');
+    expect(oauth.config).toMatchObject({ scope: sdk.GOOGLE_DRIVE_SCOPE, include_granted_scopes: false });
+    pickerCallback({ action: 'picked', docs: [{ id: 'uploaded-photo', mimeType: 'image/jpeg', resourceKey: 'synthetic-upload-key' }] });
+    await expect(result).resolves.toEqual({ file_id: 'uploaded-photo', access_token: 'synthetic-drive-token', resource_key: 'synthetic-upload-key' });
+    expect(picker.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('never offers unfiltered uploads in a PDF-only chooser, even if upload is requested', async () => {
+    const result = sdk.pickGoogleDriveFile(CONFIG, { pdfOnly: true, allowUpload: true });
+    authorize();
+    expect(view.setMimeTypes).toHaveBeenCalledWith('application/pdf');
+    expect(window.google.picker.DocsUploadView).not.toHaveBeenCalled();
+    expect(builder.addView.mock.calls).toEqual([[view]]);
+    pickerCallback({ action: 'cancel' });
+    await expect(result).resolves.toBeNull();
+  });
+
+  it('keeps upload disabled for existing choose-only consumers', async () => {
+    const result = sdk.pickGoogleDriveFile(CONFIG);
+    authorize();
+    expect(window.google.picker.DocsUploadView).not.toHaveBeenCalled();
+    expect(builder.addView.mock.calls).toEqual([[view]]);
+    pickerCallback({ action: 'cancel' });
+    await expect(result).resolves.toBeNull();
+  });
+
+  it('asks for one resource when Google returns multiple uploaded files', async () => {
+    const result = sdk.pickGoogleDriveFile(CONFIG, { allowUpload: true });
+    authorize();
+    pickerCallback({ action: 'picked', docs: [{ id: 'uploaded-photo' }, { id: 'uploaded-pdf' }] });
+    await expect(result).rejects.toThrow('Choose one file to attach to this resource. Any uploaded files stay in Google Drive.');
+    expect(picker.dispose).toHaveBeenCalledOnce();
   });
 
   it('filters PDFs and rejects a non-PDF selection', async () => {
