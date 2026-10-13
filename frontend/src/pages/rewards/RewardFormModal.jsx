@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { createReward, getItemCatalog, updateReward } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
@@ -20,6 +20,7 @@ const FULFILLMENT_KINDS = [
 
 export default function RewardFormModal({ reward, onClose, onSaved }) {
   const isEdit = !!reward;
+  const imageId = useId();
   const { data: itemCatalogData } = useApi(getItemCatalog);
   const itemCatalog = normalizeList(itemCatalogData).filter(isCatalogAvailable);
   const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
@@ -95,9 +96,10 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
           <TextField label="Stock (blank = unlimited)" type="number" min="0" value={form.stock} onChange={onField('stock')} placeholder="∞" />
         </div>
         <div>
-          <label className={formLabelClass}>Image</label>
+          <label htmlFor={imageId} className={formLabelClass}>Image</label>
           {/* Raw <input type="file"> stays — file picker visual is intentionally different from inputClass */}
           <input
+            id={imageId}
             type="file"
             accept="image/*"
             onChange={(e) => setImageFile(e.target.files[0])}

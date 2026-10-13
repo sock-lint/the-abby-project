@@ -123,4 +123,30 @@ describe('RewardFormModal', () => {
     expect(calls[0].item_definition).toBe('9');
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
+
+  it('labels the image picker and submits the chosen file', async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    const uploads = [];
+    server.use(
+      http.get('*/api/items/catalog/', () => HttpResponse.json([])),
+      http.post(/\/api\/rewards\/$/, async ({ request }) => {
+        const form = await request.formData();
+        const image = form.get('image');
+        uploads.push(image?.type);
+        return HttpResponse.json({ id: 4 });
+      }),
+    );
+    render(<RewardFormModal onClose={vi.fn()} onSaved={onSaved} />);
+
+    const picker = screen.getByLabelText('Image');
+    expect(picker).toHaveAttribute('type', 'file');
+    await user.type(screen.getByLabelText('Name'), 'Sticker');
+    await user.type(screen.getAllByRole('spinbutton')[0], '5');
+    await user.upload(picker, new File(['png'], 'sticker.png', { type: 'image/png' }));
+    await user.click(screen.getByRole('button', { name: /^create$/i }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(uploads).toEqual(['image/png']);
+  });
 });
