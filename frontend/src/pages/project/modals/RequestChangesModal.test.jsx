@@ -13,9 +13,21 @@ describe('RequestChangesModal', () => {
     const onSubmit = vi.fn().mockResolvedValue();
     const user = userEvent.setup();
     render(<RequestChangesModal onClose={vi.fn()} onSubmit={onSubmit} />);
-    await user.type(screen.getByPlaceholderText(/should they fix/i), 'fix it');
+    await user.type(screen.getByRole('textbox', { name: /change/i }), '  fix it  ');
     await user.click(screen.getByRole('button', { name: /send/i }));
     expect(onSubmit).toHaveBeenCalledWith('fix it');
+  });
+
+  it('keeps Send disabled while the notes are empty or whitespace', async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(<RequestChangesModal onClose={vi.fn()} onSubmit={onSubmit} />);
+    const send = screen.getByRole('button', { name: /send/i });
+    expect(send).toBeDisabled();
+    await user.type(screen.getByRole('textbox', { name: /change/i }), '   ');
+    expect(send).toBeDisabled();
+    await user.click(send);
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it('cancel closes the modal', async () => {

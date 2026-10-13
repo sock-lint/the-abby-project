@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import BottomSheet from '../../../components/BottomSheet';
 import Button from '../../../components/Button';
+import TextAreaField from '../../../components/form/TextAreaField';
 
 export default function RequestChangesModal({ onClose, onSubmit }) {
   const [notes, setNotes] = useState('');
@@ -21,13 +22,13 @@ export default function RequestChangesModal({ onClose, onSubmit }) {
       <p className="text-sm text-ink-whisper">
         Tell the maker what needs to change before you approve this project.
       </p>
-      <textarea
+      <TextAreaField
+        label="What should they change?"
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         placeholder="What should they fix or add?"
         autoFocus
         rows={4}
-        className="w-full bg-ink-page border border-ink-page-shadow rounded-lg px-3 py-2 text-ink-primary text-base resize-none focus:outline-none focus:border-sheikah-teal-deep"
       />
       <div className="flex gap-2">
         <Button variant="secondary" onClick={onClose} disabled={submitting} className="flex-1">
