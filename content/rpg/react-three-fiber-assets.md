@@ -256,3 +256,8 @@ source hashes remained unchanged. The supplied Idle bind matrices differ from
 this body rig and remain unaccepted; no retargeting or new animation was added.
 Saved appearance is separate from inventory, rewards, pet ownership and earned
 cosmetics. The same private-license/public-delivery and real-phone gates apply.
+
+Profile taps can play bounded local hop, twirl and bow movements of the entire
+approved static model. Its mesh modules and bones remain unchanged. Camera
+orbit, keyboard controls and reset are local presentation; no supplied Idle
+or other unaccepted skeletal take is enabled by these controls.

@@ -14,6 +14,19 @@ outfit palettes. Save persists confirmed appearance through the self-scoped
 `POST /api/character/avatar/` endpoint. Existing earned cosmetics, trophy,
 account settings and profile actions remain available below the avatar.
 
+Tap or click the preview to cycle a short hop, twirl and bow. These are local
+transforms of the complete static Archer, preserving its supplied rig, head
+and hair; they do not use unaccepted animation takes. Drag inside the preview
+to orbit the camera horizontally or vertically. Zoom and pan remain disabled
+to keep the avatar framed, with Reset view restoring the front view. The
+focused preview supports arrow keys, Home to reset, and Enter/Space to play;
+Play animation is also an ordinary DOM button. Dragged, cancelled and
+multitouch gestures do not play reactions. Reactions pause offscreen, in the
+background and for reduced motion, while deliberate camera movement remains
+available. Page scrolling continues outside the preview, and native pinch
+zoom remains available inside it. These interactions
+do not save appearance or award progression.
+
 Pets (`/bestiary`, alias `/pets`) opens the selected or active companion's
 woodland automatically. Touching the pet opens its existing care sheet; an
 evolved pet leads to its exact owned mount's expedition controls. Food,
