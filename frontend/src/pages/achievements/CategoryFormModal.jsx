@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { createCategory, updateCategory } from '../../api';
 import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
@@ -8,6 +9,7 @@ import { TextField, TextAreaField } from '../../components/form';
 
 export default function CategoryFormModal({ item, onClose, onSaved }) {
   const isEdit = !!item;
+  const colorId = useId();
   const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     name: item?.name || '',
     icon: item?.icon || '',
@@ -40,9 +42,10 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <TextField label="Icon (emoji)" value={form.icon} onChange={onField('icon')} />
           <div>
-            <label className={formLabelClass}>Color</label>
+            <label htmlFor={colorId} className={formLabelClass}>Color</label>
             {/* Raw <input type="color"> stays — color picker has its own visual treatment, not inputClass-styled */}
             <input
+              id={colorId}
               type="color"
               className="w-full h-10 rounded-lg border border-ink-page-shadow bg-ink-page cursor-pointer"
               value={form.color}
